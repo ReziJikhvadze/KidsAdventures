@@ -8,4 +8,5 @@ public interface IAdventurePackRepository
     Task<IReadOnlyList<AdventurePack>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken);
     Task<int> CountForMonthAsync(Guid userId, DateTime utcMonthStart, DateTime utcMonthEnd, CancellationToken cancellationToken);
     Task<bool> UpdateStatusAsync(Guid id, AdventurePackStatus status, string? generatedJson, string? pdfUrl, string? errorMessage, CancellationToken cancellationToken);
+    Task UpdateProgressMessageAsync(Guid id, string? progressMessage, CancellationToken cancellationToken);
 }

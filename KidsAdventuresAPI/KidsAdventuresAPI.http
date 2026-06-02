@@ -1,4 +1,4 @@
-@KidsAdventuresAPI_HostAddress = http://localhost:5071
+@KidsAdventuresAPI_HostAddress = http://localhost:5000
 
 GET {{KidsAdventuresAPI_HostAddress}}/weatherforecast/
 Accept: application/json

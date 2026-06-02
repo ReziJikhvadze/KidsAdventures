@@ -37,6 +37,38 @@ public sealed class AzureBlobStorageService(IOptions<AzureBlobOptions> options) 
         return response.Value.Content;
     }
 
+    public async Task<byte[]> DownloadBytesFromStoredUrlAsync(string storedUrl, CancellationToken cancellationToken)
+    {
+        var blobName = ResolveBlobName(storedUrl);
+        await using var stream = await DownloadAsync(blobName, cancellationToken);
+        using var memory = new MemoryStream();
+        await stream.CopyToAsync(memory, cancellationToken);
+        return memory.ToArray();
+    }
+
+    private string ResolveBlobName(string storedUrl)
+    {
+        if (!storedUrl.Contains("://", StringComparison.Ordinal))
+        {
+            return storedUrl;
+        }
+
+        if (!Uri.TryCreate(storedUrl, UriKind.Absolute, out var uri))
+        {
+            throw new InvalidOperationException("Invalid blob URL.");
+        }
+
+        var path = uri.AbsolutePath.Trim('/');
+        var prefix = _options.ContainerName + "/";
+        if (path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return path[prefix.Length..];
+        }
+
+        var slash = path.IndexOf('/');
+        return slash >= 0 ? path[(slash + 1)..] : path;
+    }
+
     private async Task<BlobContainerClient> GetContainerAsync(CancellationToken cancellationToken)
     {
         var serviceClient = new BlobServiceClient(_options.ConnectionString);

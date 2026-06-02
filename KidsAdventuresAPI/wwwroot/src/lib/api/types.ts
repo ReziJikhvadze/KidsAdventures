@@ -16,6 +16,7 @@ export type ChildResponse = {
   userId: string;
   name: string;
   age: number;
+  photoUrl: string | null;
   createdAt: string;
 };
 
@@ -26,6 +27,8 @@ export type AdventurePackResponse = {
   theme: ThemeType;
   status: AdventurePackStatus;
   pdfUrl: string | null;
+  progressMessage: string | null;
+  storyLanguage: string | null;
   createdAt: string;
 };
 

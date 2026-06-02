@@ -11,6 +11,9 @@ public sealed class Child
     [Range(1, 18)]
     public int Age { get; set; }
 
+    [MaxLength(512)]
+    public string? PhotoUrl { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public ICollection<FamilyMember> FamilyMembers { get; set; } = new List<FamilyMember>();

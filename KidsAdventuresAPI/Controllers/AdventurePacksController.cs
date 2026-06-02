@@ -59,6 +59,8 @@ public sealed class AdventurePacksController(
         Theme = x.Theme,
         Status = x.Status,
         PdfUrl = x.PdfUrl,
+        ProgressMessage = x.ProgressMessage,
+        StoryLanguage = x.StoryLanguage,
         CreatedAt = x.CreatedAt
     };
 }

@@ -4,14 +4,16 @@ namespace AdventurePacks.Api.Repositories.Implementations;
 
 public sealed class ChildRepository(ISqlConnectionFactory connectionFactory) : IChildRepository
 {
+    private const string ChildColumns = "Id, UserId, Name, Age, PhotoUrl, CreatedAt";
+
     public async Task<IReadOnlyList<Child>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken)
     {
-        const string sql = """
-                           SELECT Id, UserId, Name, Age, CreatedAt
-                           FROM Children
-                           WHERE UserId = @UserId
-                           ORDER BY CreatedAt DESC;
-                           """;
+        var sql = $"""
+                   SELECT {ChildColumns}
+                   FROM Children
+                   WHERE UserId = @UserId
+                   ORDER BY CreatedAt DESC;
+                   """;
         using var connection = connectionFactory.CreateConnection();
         var rows = await connection.QueryAsync<Child>(new CommandDefinition(sql, new { UserId = userId }, cancellationToken: cancellationToken));
         return rows.ToList();
@@ -19,11 +21,11 @@ public sealed class ChildRepository(ISqlConnectionFactory connectionFactory) : I
 
     public async Task<Child?> GetByIdAsync(Guid id, Guid userId, CancellationToken cancellationToken)
     {
-        const string sql = """
-                           SELECT TOP 1 Id, UserId, Name, Age, CreatedAt
-                           FROM Children
-                           WHERE Id = @Id AND UserId = @UserId;
-                           """;
+        var sql = $"""
+                   SELECT TOP 1 {ChildColumns}
+                   FROM Children
+                   WHERE Id = @Id AND UserId = @UserId;
+                   """;
         using var connection = connectionFactory.CreateConnection();
         return await connection.QueryFirstOrDefaultAsync<Child>(new CommandDefinition(sql, new { Id = id, UserId = userId }, cancellationToken: cancellationToken));
     }
@@ -31,8 +33,8 @@ public sealed class ChildRepository(ISqlConnectionFactory connectionFactory) : I
     public async Task<Guid> CreateAsync(Child child, CancellationToken cancellationToken)
     {
         const string sql = """
-                           INSERT INTO Children (Id, UserId, Name, Age, CreatedAt)
-                           VALUES (@Id, @UserId, @Name, @Age, @CreatedAt);
+                           INSERT INTO Children (Id, UserId, Name, Age, PhotoUrl, CreatedAt)
+                           VALUES (@Id, @UserId, @Name, @Age, @PhotoUrl, @CreatedAt);
                            """;
         child.Id = child.Id == Guid.Empty ? Guid.NewGuid() : child.Id;
         using var connection = connectionFactory.CreateConnection();
@@ -44,7 +46,7 @@ public sealed class ChildRepository(ISqlConnectionFactory connectionFactory) : I
     {
         const string sql = """
                            UPDATE Children
-                           SET Name = @Name, Age = @Age
+                           SET Name = @Name, Age = @Age, PhotoUrl = @PhotoUrl
                            WHERE Id = @Id AND UserId = @UserId;
                            """;
         using var connection = connectionFactory.CreateConnection();

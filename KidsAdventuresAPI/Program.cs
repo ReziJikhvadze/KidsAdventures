@@ -26,7 +26,7 @@ using (var scope = app.Services.CreateScope())
 
 app.UseGlobalExceptionHandling();
 
-if (app.Environment.IsDevelopment())
+if (app.Configuration.GetValue<bool>("Swagger:Enabled", app.Environment.IsDevelopment()))
 {
     app.UseSwagger();
     app.UseSwaggerUI();

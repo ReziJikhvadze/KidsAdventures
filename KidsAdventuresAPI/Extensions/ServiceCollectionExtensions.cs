@@ -25,12 +25,24 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    private static readonly string[] LocalhostDevOrigins =
+    [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://localhost:5173",
+        "https://localhost:3000"
+    ];
+
     public static IServiceCollection AddAdventurePacksCors(this IServiceCollection services, IConfiguration configuration)
     {
         var corsOptions = configuration.GetSection(CorsOptions.SectionName).Get<CorsOptions>() ?? new CorsOptions();
         var origins = corsOptions.AllowedOrigins.Length > 0
             ? corsOptions.AllowedOrigins
-            : throw new InvalidOperationException("Cors:AllowedOrigins must be set in appsettings.Production.json (your Azure frontend URL).");
+            : corsOptions.AllowLocalhostFallback
+                ? LocalhostDevOrigins
+                : throw new InvalidOperationException(
+                    "Cors:AllowedOrigins is empty. Add your frontend URL(s) to appsettings.Production.json, " +
+                    "or set Cors:AllowLocalhostFallback to true in appsettings.json for local development.");
 
         services.AddCors(options =>
         {
@@ -55,8 +67,13 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddAdventurePacksAuth(this IServiceCollection services, IConfiguration configuration)
     {
-        var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
-                        ?? throw new InvalidOperationException("Jwt settings are missing.");
+        var jwtOptions = configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>();
+        if (jwtOptions is null || string.IsNullOrWhiteSpace(jwtOptions.SecretKey))
+        {
+            throw new InvalidOperationException(
+                "Jwt settings are missing. Copy appsettings.Production.example.json to appsettings.Production.json " +
+                "and set Jwt:SecretKey (at least 32 characters).");
+        }
 
         var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SecretKey));
 
@@ -99,7 +116,7 @@ public static class ServiceCollectionExtensions
         {
             var openAi = sp.GetRequiredService<IOptions<OpenAiOptions>>().Value;
             client.BaseAddress = new Uri(openAi.BaseUrl.TrimEnd('/') + "/");
-            client.Timeout = TimeSpan.FromSeconds(90);
+            client.Timeout = TimeSpan.FromMinutes(6);
         });
 
         services.AddRateLimiter(options =>
@@ -118,8 +135,12 @@ public static class ServiceCollectionExtensions
 
         services.AddHttpContextAccessor();
         services.AddEndpointsApiExplorer();
-        services.AddSwaggerGen();
-        services.AddControllers();
+        services.AddSwaggerGen(options => options.UseInlineDefinitionsForEnums());
+        services.AddControllers()
+            .AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            });
 
         var stripe = configuration.GetSection(StripeOptions.SectionName).Get<StripeOptions>();
         if (!string.IsNullOrWhiteSpace(stripe?.SecretKey))

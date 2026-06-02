@@ -10,6 +10,13 @@ public sealed class GenerateAdventurePackRequest
     [Required]
     [EnumDataType(typeof(ThemeType))]
     public ThemeType Theme { get; set; }
+
+    [MaxLength(1000)]
+    public string? OptionalStoryNotes { get; set; }
+
+    /// <summary>en, ka, es, or other ISO-style code. Defaults to English.</summary>
+    [MaxLength(16)]
+    public string? StoryLanguage { get; set; }
 }
 
 public sealed class AdventurePackResponse
@@ -20,6 +27,8 @@ public sealed class AdventurePackResponse
     public ThemeType Theme { get; set; }
     public AdventurePackStatus Status { get; set; }
     public string? PdfUrl { get; set; }
+    public string? ProgressMessage { get; set; }
+    public string? StoryLanguage { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 
@@ -51,6 +60,10 @@ public sealed class StoryPageDto
 
     [JsonPropertyName("content")]
     public string Content { get; set; } = string.Empty;
+
+    /// <summary>Illustration bytes (set after OpenAI image generation; not part of story JSON).</summary>
+    [JsonIgnore]
+    public byte[]? ImageBytes { get; set; }
 }
 
 public sealed class ActivityDto

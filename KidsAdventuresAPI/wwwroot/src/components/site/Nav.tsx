@@ -10,6 +10,7 @@ export function Nav() {
 
   const links = [
     { label: "How it works", href: "#how" },
+    ...(isAuthenticated ? [{ label: "My packs", href: "#my-packs" }] : []),
     { label: "Themes", href: "#themes" },
     { label: "For grandparents", href: "#grandparents" },
     { label: "Pricing", href: "#pricing" },

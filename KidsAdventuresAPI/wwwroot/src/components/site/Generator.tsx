@@ -115,25 +115,36 @@ type Member = {
 
 const MAX_MEMBERS = 6;
 
+const storyLanguages = [
+  { value: "en", label: "English" },
+  { value: "ka", label: "Georgian (ქართული)" },
+  { value: "es", label: "Spanish (Español)" },
+] as const;
+
 export function Generator() {
   const [name, setName] = useState("");
   const [age, setAge] = useState<number | "">("");
+  const [childPhoto, setChildPhoto] = useState<string | null>(null);
+  const [optionalNotes, setOptionalNotes] = useState("");
+  const [storyLanguage, setStoryLanguage] = useState<(typeof storyLanguages)[number]["value"]>("en");
   const [theme, setTheme] = useState<ThemeId | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [birthdayMode, setBirthdayMode] = useState(false);
   const [birthday, setBirthday] = useState("");
   const [status, setStatus] = useState<"idle" | "generating" | "done" | "error">("idle");
   const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const heroPhotoRef = useRef<HTMLInputElement>(null);
   const { isAuthenticated } = useAuth();
 
   const valid =
     name.trim().length > 0 &&
     typeof age === "number" &&
-    age >= 4 &&
+    age >= 3 &&
     age <= 12 &&
     theme &&
     (!birthdayMode || birthday.length > 0);
@@ -165,6 +176,13 @@ export function Generator() {
     setMembers((prev) => prev.filter((m) => m.id !== id));
   };
 
+  const addHeroPhoto = (file: File | undefined) => {
+    if (!file || file.size > 5 * 1024 * 1024) return;
+    const reader = new FileReader();
+    reader.onload = () => setChildPhoto(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
   const completeCast = members
     .map((m) => {
       if (!m.relation || !m.role) return null;
@@ -181,6 +199,7 @@ export function Generator() {
 
     setStatus("generating");
     setProgress(5);
+    setProgressMessage("Saving your hero and cast…");
     setErrorMessage(null);
     setPdfUrl(null);
 
@@ -188,10 +207,14 @@ export function Generator() {
       const apiTheme = THEME_ID_TO_API[theme];
       if (!apiTheme) throw new Error("Invalid theme selected.");
 
-      setProgress(15);
-      const child = await createChild(name.trim(), age as number);
+      setProgress(12);
+      const heroFile =
+        childPhoto?.startsWith("data:") ?
+          dataUrlToFile(childPhoto, "hero.jpg")
+        : undefined;
+      const child = await createChild(name.trim(), age as number, heroFile);
 
-      setProgress(25);
+      setProgress(20);
       for (const member of completeCast) {
         const memberName = `${relationLabelMap[member.relation]} (${member.roleObj.label})`;
         const photoFile = member.photo.startsWith("data:")
@@ -205,12 +228,21 @@ export function Generator() {
         });
       }
 
-      setProgress(35);
-      const queued = await adventurePacksApi.generateAdventurePack(child.id, apiTheme);
+      setProgress(28);
+      setProgressMessage("Starting your adventure — this usually takes 3–8 minutes…");
+      const queued = await adventurePacksApi.generateAdventurePack(child.id, apiTheme, {
+        optionalStoryNotes: optionalNotes.trim() || undefined,
+        storyLanguage,
+      });
 
       const completed = await adventurePacksApi.pollAdventurePack(queued.id, (pack) => {
-        if (pack.status === "Generating") setProgress((p) => Math.min(90, p + 8));
-        if (pack.status === "Pending") setProgress((p) => Math.min(50, p + 5));
+        if (pack.progressMessage) {
+          setProgressMessage(pack.progressMessage);
+          const pct = adventurePacksApi.parseProgressPercent(pack.progressMessage);
+          if (pct !== null) setProgress(pct);
+        }
+        if (pack.status === "Generating") setProgress((p) => Math.min(95, p + 2));
+        if (pack.status === "Pending") setProgress((p) => Math.min(25, p + 3));
       });
 
       setPdfUrl(completed.pdfUrl);
@@ -242,6 +274,7 @@ export function Generator() {
   const reset = () => {
     setStatus("idle");
     setProgress(0);
+    setProgressMessage(null);
     setPdfUrl(null);
     setErrorMessage(null);
   };
@@ -437,19 +470,76 @@ export function Generator() {
                   <label className="text-sm font-semibold">Age</label>
                   <input
                     type="number"
-                    min={4}
+                    min={3}
                     max={12}
                     value={age}
                     onChange={(e) => setAge(e.target.value ? Number(e.target.value) : "")}
-                    placeholder="4–12"
+                    placeholder="3–12"
                     className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition"
                   />
                 </div>
               </div>
 
+              {/* Hero photo */}
+              <div className="mt-6 rounded-2xl border border-border bg-secondary/30 p-4">
+                <div className="flex items-start gap-3">
+                  {childPhoto ? (
+                    <img
+                      src={childPhoto}
+                      alt={name || "Your child"}
+                      className="h-16 w-16 rounded-xl object-cover border border-border shrink-0"
+                    />
+                  ) : (
+                    <div className="h-16 w-16 rounded-xl bg-background border border-dashed border-border grid place-items-center shrink-0">
+                      <Camera className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold">Photo of your child (hero)</div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Optional — we use AI vision so illustrations can match hair, smile, and
+                      outfit. Works great from age 3.
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => heroPhotoRef.current?.click()}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-3 py-1.5 text-xs font-semibold hover:bg-primary/15 transition"
+                      >
+                        <Upload className="h-3.5 w-3.5" />
+                        {childPhoto ? "Change photo" : "Upload photo"}
+                      </button>
+                      {childPhoto && (
+                        <button
+                          type="button"
+                          onClick={() => setChildPhoto(null)}
+                          className="text-xs text-muted-foreground hover:text-foreground underline"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <input
+                  ref={heroPhotoRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    addHeroPhoto(e.target.files?.[0]);
+                    if (heroPhotoRef.current) heroPhotoRef.current.value = "";
+                  }}
+                />
+              </div>
+
               {/* Theme */}
               <div className="mt-6">
                 <label className="text-sm font-semibold">Choose a theme</label>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Airplanes, dinosaurs, space, pirates, or animals — pick one world for the whole
+                  pack.
+                </p>
                 <div className="mt-3 grid grid-cols-2 sm:grid-cols-5 gap-2">
                   {themes.map((t) => {
                     const active = theme === t.id;
@@ -479,6 +569,43 @@ export function Generator() {
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* Language + optional wishes */}
+              <div className="mt-6 grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-semibold">Story language</label>
+                  <select
+                    value={storyLanguage}
+                    onChange={(e) =>
+                      setStoryLanguage(e.target.value as (typeof storyLanguages)[number]["value"])
+                    }
+                    className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition"
+                  >
+                    {storyLanguages.map((lang) => (
+                      <option key={lang.value} value={lang.value}>
+                        {lang.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Georgian and Spanish work — GPT writes the full story in that language.
+                  </p>
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="text-sm font-semibold">
+                    Extra wishes{" "}
+                    <span className="font-normal text-muted-foreground">(optional)</span>
+                  </label>
+                  <textarea
+                    value={optionalNotes}
+                    maxLength={500}
+                    rows={3}
+                    onChange={(e) => setOptionalNotes(e.target.value)}
+                    placeholder="e.g. loves unicorns, afraid of loud noises, include little brother Niko"
+                    className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition resize-none"
+                  />
                 </div>
               </div>
 
@@ -583,31 +710,52 @@ export function Generator() {
                 )}
 
                 {status === "generating" && (
-                  <div className="relative h-full flex flex-col items-center justify-center text-center py-10">
+                  <div className="relative h-full flex flex-col items-center justify-center text-center py-10 px-2">
                     <div className="relative">
                       <div className="h-40 w-32 rounded-xl bg-card border border-border shadow-card grid place-items-center overflow-hidden">
-                        {selectedTheme && (
-                          <selectedTheme.icon className="h-12 w-12 text-primary animate-float" />
+                        {childPhoto ? (
+                          <img
+                            src={childPhoto}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          selectedTheme && (
+                            <selectedTheme.icon className="h-12 w-12 text-primary animate-float" />
+                          )
                         )}
                       </div>
-                      <div className="absolute -top-3 -right-3 h-10 w-10 rounded-full bg-primary text-primary-foreground grid place-items-center animate-spin">
-                        <Sparkles className="h-5 w-5" />
+                      <div className="absolute -top-3 -right-3 h-10 w-10 rounded-full bg-primary text-primary-foreground grid place-items-center">
+                        <Loader2 className="h-5 w-5 animate-spin" />
                       </div>
                     </div>
-                    <div className="mt-8 w-full max-w-xs">
+                    <div className="mt-8 w-full max-w-sm">
                       <div className="h-2 rounded-full bg-border overflow-hidden">
                         <div
-                          className="h-full bg-primary transition-all duration-150"
-                          style={{ width: `${progress}%` }}
+                          className="h-full bg-primary transition-all duration-500"
+                          style={{ width: `${Math.max(5, progress)}%` }}
                         />
                       </div>
-                      <p className="mt-3 text-sm text-muted-foreground">
-                        {progress < 40 && "Saving your adventure details…"}
-                        {progress >= 40 &&
-                          progress < 70 &&
-                          "AI is writing your personalized story…"}
-                        {progress >= 70 && "Building your printable PDF…"}
+                      <p className="mt-2 text-xs font-semibold text-primary tabular-nums">
+                        {Math.round(progress)}%
                       </p>
+                      <p className="mt-2 text-sm text-foreground font-medium min-h-[2.5rem]">
+                        {progressMessage ?? "Creating your adventure…"}
+                      </p>
+                      <div className="mt-4 rounded-xl bg-card/80 border border-border p-3 text-left text-xs text-muted-foreground space-y-2">
+                        <p>
+                          <strong className="text-foreground">You can leave this page.</strong>{" "}
+                          We save every pack under{" "}
+                          <a href="#my-packs" className="text-primary font-semibold underline">
+                            My Packs
+                          </a>
+                          . It often needs a few more minutes — refresh there when status is Ready.
+                        </p>
+                        <p>
+                          Email when ready is coming soon; for now check My Packs or stay on this
+                          screen.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -621,7 +769,13 @@ export function Generator() {
                           background: `color-mix(in oklab, ${selectedTheme.tint} 45%, white)`,
                         }}
                       >
-                        {completeCast[0] ? (
+                        {childPhoto ? (
+                          <img
+                            src={childPhoto}
+                            alt={name}
+                            className="h-16 w-16 rounded-full object-cover border-4 border-card shadow-soft"
+                          />
+                        ) : completeCast[0] ? (
                           <img
                             src={completeCast[0].photo}
                             alt={name}

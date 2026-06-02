@@ -4,11 +4,20 @@ namespace AdventurePacks.Api.Repositories.Implementations;
 
 public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFactory) : IAdventurePackRepository
 {
+    private const string PackColumns = """
+        Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, ErrorMessage,
+        OptionalStoryNotes, StoryLanguage, ProgressMessage, CreatedAt
+        """;
+
     public async Task<Guid> CreatePendingAsync(AdventurePack pack, CancellationToken cancellationToken)
     {
         const string sql = """
-                           INSERT INTO AdventurePacks (Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, ErrorMessage, CreatedAt)
-                           VALUES (@Id, @UserId, @ChildId, @Theme, @Status, @GeneratedJson, @PdfUrl, @ErrorMessage, @CreatedAt);
+                           INSERT INTO AdventurePacks (
+                               Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, ErrorMessage,
+                               OptionalStoryNotes, StoryLanguage, ProgressMessage, CreatedAt)
+                           VALUES (
+                               @Id, @UserId, @ChildId, @Theme, @Status, @GeneratedJson, @PdfUrl, @ErrorMessage,
+                               @OptionalStoryNotes, @StoryLanguage, @ProgressMessage, @CreatedAt);
                            """;
         pack.Id = pack.Id == Guid.Empty ? Guid.NewGuid() : pack.Id;
 
@@ -23,6 +32,9 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
             pack.GeneratedJson,
             pack.PdfUrl,
             pack.ErrorMessage,
+            pack.OptionalStoryNotes,
+            pack.StoryLanguage,
+            pack.ProgressMessage,
             pack.CreatedAt
         }, cancellationToken: cancellationToken));
         return pack.Id;
@@ -30,11 +42,11 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
 
     public async Task<AdventurePack?> GetByIdAsync(Guid id, Guid userId, CancellationToken cancellationToken)
     {
-        const string sql = """
-                           SELECT TOP 1 Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, ErrorMessage, CreatedAt
-                           FROM AdventurePacks
-                           WHERE Id = @Id AND UserId = @UserId;
-                           """;
+        var sql = $"""
+                     SELECT TOP 1 {PackColumns}
+                     FROM AdventurePacks
+                     WHERE Id = @Id AND UserId = @UserId;
+                     """;
         using var connection = connectionFactory.CreateConnection();
         var row = await connection.QueryFirstOrDefaultAsync<AdventurePackRow>(
             new CommandDefinition(sql, new { Id = id, UserId = userId }, cancellationToken: cancellationToken));
@@ -43,11 +55,11 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
 
     public async Task<AdventurePack?> GetByIdNoOwnershipAsync(Guid id, CancellationToken cancellationToken)
     {
-        const string sql = """
-                           SELECT TOP 1 Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, ErrorMessage, CreatedAt
-                           FROM AdventurePacks
-                           WHERE Id = @Id;
-                           """;
+        var sql = $"""
+                     SELECT TOP 1 {PackColumns}
+                     FROM AdventurePacks
+                     WHERE Id = @Id;
+                     """;
         using var connection = connectionFactory.CreateConnection();
         var row = await connection.QueryFirstOrDefaultAsync<AdventurePackRow>(
             new CommandDefinition(sql, new { Id = id }, cancellationToken: cancellationToken));
@@ -56,12 +68,12 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
 
     public async Task<IReadOnlyList<AdventurePack>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken)
     {
-        const string sql = """
-                           SELECT Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, ErrorMessage, CreatedAt
-                           FROM AdventurePacks
-                           WHERE UserId = @UserId
-                           ORDER BY CreatedAt DESC;
-                           """;
+        var sql = $"""
+                     SELECT {PackColumns}
+                     FROM AdventurePacks
+                     WHERE UserId = @UserId
+                     ORDER BY CreatedAt DESC;
+                     """;
         using var connection = connectionFactory.CreateConnection();
         var rows = await connection.QueryAsync<AdventurePackRow>(
             new CommandDefinition(sql, new { UserId = userId }, cancellationToken: cancellationToken));
@@ -103,6 +115,17 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         return affected > 0;
     }
 
+    public async Task UpdateProgressMessageAsync(Guid id, string? progressMessage, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE AdventurePacks
+                           SET ProgressMessage = @ProgressMessage
+                           WHERE Id = @Id;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(new CommandDefinition(sql, new { Id = id, ProgressMessage = progressMessage }, cancellationToken: cancellationToken));
+    }
+
     private static AdventurePack Map(AdventurePackRow row) => new()
     {
         Id = row.Id,
@@ -113,6 +136,9 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         GeneratedJson = row.GeneratedJson,
         PdfUrl = row.PdfUrl,
         ErrorMessage = row.ErrorMessage,
+        OptionalStoryNotes = row.OptionalStoryNotes,
+        StoryLanguage = row.StoryLanguage,
+        ProgressMessage = row.ProgressMessage,
         CreatedAt = row.CreatedAt
     };
 
@@ -126,6 +152,9 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         public string? GeneratedJson { get; set; }
         public string? PdfUrl { get; set; }
         public string? ErrorMessage { get; set; }
+        public string? OptionalStoryNotes { get; set; }
+        public string? StoryLanguage { get; set; }
+        public string? ProgressMessage { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 }

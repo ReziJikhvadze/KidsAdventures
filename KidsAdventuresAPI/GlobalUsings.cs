@@ -4,6 +4,7 @@ global using System.IdentityModel.Tokens.Jwt;
 global using System.Net.Http.Json;
 global using System.Security.Claims;
 global using System.Text;
+global using System.Text.Json.Serialization;
 global using AdventurePacks.Api.Data;
 global using AdventurePacks.Api.Domain.Entities;
 global using AdventurePacks.Api.Domain.Enums;
