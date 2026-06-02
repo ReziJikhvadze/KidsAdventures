@@ -1,0 +1,10 @@
+# Secrets — keep real production values only in appsettings.Production.json (local / deploy, not in git)
+appsettings.Production.json
+
+# Build
+bin/
+obj/
+
+# User-specific
+*.user
+.vs/

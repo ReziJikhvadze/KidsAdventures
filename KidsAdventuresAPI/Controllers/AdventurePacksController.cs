@@ -1,0 +1,64 @@
+using AdventurePacks.Api.DTOs.AdventurePacks;
+using AdventurePacks.Api.Repositories.Interfaces;
+using AdventurePacks.Api.Services.Interfaces;
+
+namespace AdventurePacks.Api.Controllers;
+
+[ApiController]
+[Authorize]
+[Route("api/adventure-packs")]
+public sealed class AdventurePacksController(
+    IAdventureGenerationService generationService,
+    IAdventurePackRepository adventurePackRepository,
+    IUserContextService userContext) : ControllerBase
+{
+    [HttpPost("generate")]
+    public async Task<ActionResult<object>> Generate([FromBody] GenerateAdventurePackRequest request, CancellationToken cancellationToken)
+    {
+        var userId = userContext.GetUserId();
+        var packId = await generationService.QueueGenerationAsync(userId, request, cancellationToken);
+        return Accepted(new { id = packId, status = AdventurePackStatus.Pending.ToString() });
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<IReadOnlyList<AdventurePackResponse>>> Get(CancellationToken cancellationToken)
+    {
+        var rows = await adventurePackRepository.GetByUserIdAsync(userContext.GetUserId(), cancellationToken);
+        return Ok(rows.Select(Map).ToList());
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<AdventurePackResponse>> GetById(Guid id, CancellationToken cancellationToken)
+    {
+        var row = await adventurePackRepository.GetByIdAsync(id, userContext.GetUserId(), cancellationToken);
+        return row is null ? NotFound() : Ok(Map(row));
+    }
+
+    [HttpGet("{id:guid}/download")]
+    public async Task<IActionResult> Download(Guid id, CancellationToken cancellationToken)
+    {
+        var row = await adventurePackRepository.GetByIdAsync(id, userContext.GetUserId(), cancellationToken);
+        if (row is null)
+        {
+            return NotFound();
+        }
+
+        if (row.Status != AdventurePackStatus.Completed || string.IsNullOrWhiteSpace(row.PdfUrl))
+        {
+            return BadRequest("Pack is not ready.");
+        }
+
+        return Redirect(row.PdfUrl);
+    }
+
+    private static AdventurePackResponse Map(AdventurePack x) => new()
+    {
+        Id = x.Id,
+        UserId = x.UserId,
+        ChildId = x.ChildId,
+        Theme = x.Theme,
+        Status = x.Status,
+        PdfUrl = x.PdfUrl,
+        CreatedAt = x.CreatedAt
+    };
+}

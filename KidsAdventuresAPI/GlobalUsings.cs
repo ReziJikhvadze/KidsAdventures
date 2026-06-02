@@ -1,0 +1,14 @@
+global using System.ComponentModel.DataAnnotations;
+global using System.Data;
+global using System.IdentityModel.Tokens.Jwt;
+global using System.Net.Http.Json;
+global using System.Security.Claims;
+global using System.Text;
+global using AdventurePacks.Api.Data;
+global using AdventurePacks.Api.Domain.Entities;
+global using AdventurePacks.Api.Domain.Enums;
+global using Dapper;
+global using Microsoft.AspNetCore.Authorization;
+global using Microsoft.AspNetCore.Mvc;
+global using Microsoft.Data.SqlClient;
+global using Microsoft.Extensions.Options;
