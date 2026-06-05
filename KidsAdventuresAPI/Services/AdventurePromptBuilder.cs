@@ -5,6 +5,20 @@ namespace AdventurePacks.Api.Services;
 
 internal static class AdventurePromptBuilder
 {
+    /// <summary>Style when no reference photo — more stylized animated look.</summary>
+    public const string AnimatedIllustrationStylePrompt =
+        "Premium 3D animated children's movie still, Pixar or DreamWorks quality. " +
+        "Expressive cartoon hero, lively dynamic pose, cinematic warm lighting, rich saturated colors, lush magical environment. " +
+        "Beautiful polished adventure scene — NOT flat sketch, NOT clipart.";
+
+    /// <summary>Style when a hero photo is provided — likeness first, then polish.</summary>
+    public const string PhotoLikenessStylePrompt =
+        "High-quality 3D animated children's movie illustration with sharp clear detail. " +
+        "CRITICAL: the hero must be clearly the SAME child as the reference photo — preserve exact eye shape and color, " +
+        "eyebrows, nose shape, mouth, smile, face outline, cheek fullness, hair color, hair length, hair texture, parting, bangs, " +
+        "skin tone, and apparent age. Do not swap in a different child. Do not enlarge eyes or cartoonify away recognizable features. " +
+        "Natural friendly expression, beautiful cinematic lighting, vibrant colors, magical adventure background.";
+
     private static readonly string[] StorySeeds =
     [
         "A mysterious map appears in the hero's backpack.",
@@ -86,24 +100,57 @@ internal static class AdventurePromptBuilder
         AdventureGenerationInput input,
         StoryPageDto page,
         int pageIndex,
-        Guid adventureId)
+        Guid adventureId,
+        bool hasHeroPhoto,
+        bool hasCharacterAnchor)
     {
         var scene = page.Content.Length > 280 ? page.Content[..280] + "..." : page.Content;
-        var heroLook = string.IsNullOrWhiteSpace(input.ChildAppearanceDescription)
-            ? $"Hero child named {input.ChildName}"
-            : $"Hero child named {input.ChildName}: {input.ChildAppearanceDescription}";
+        var parts = new List<string>();
 
-        return string.Join(" ", new[]
+        if (hasHeroPhoto && hasCharacterAnchor)
         {
-            "Children's book illustration, colorful, soft lighting, friendly characters,",
-            "whimsical storybook style, high quality, no text, no words, no letters, no watermark.",
-            $"Safe for children age {input.Age}. Theme: {input.Theme}.",
-            heroLook + ".",
-            "Keep the hero's face and hair consistent with the description in every scene.",
-            $"Page {pageIndex + 1} scene title: {page.Title}.",
-            $"Scene description: {scene}",
-            $"Adventure id {adventureId} — make this illustration visually unique."
-        });
+            parts.Add(
+                "Image 1 is the child's real photo — use it as the identity anchor for the face (eyes, nose, mouth, hair, skin tone, age).");
+            parts.Add(
+                "Image 2 is the hero from page 1 — keep the same outfit, body proportions, and illustrated style; only change the scene.");
+            parts.Add("The face must still match Image 1. Do NOT redesign into a different child.");
+        }
+        else if (hasHeroPhoto)
+        {
+            parts.Add(
+                "Image 1 is a real photo of the child who MUST be the hero of this scene.");
+            parts.Add(
+                "Illustrate them in a polished animated adventure style while keeping their face unmistakably the same child — " +
+                "same eyes, nose, mouth, hair, skin tone, and age as the photo.");
+            parts.Add("Parents should instantly recognize their child. Not a generic cartoon kid.");
+        }
+        else
+        {
+            var heroLook = string.IsNullOrWhiteSpace(input.ChildAppearanceDescription)
+                ? $"Hero child named {input.ChildName}, age {input.Age}"
+                : $"Hero child named {input.ChildName}, age {input.Age}: {input.ChildAppearanceDescription}";
+            parts.Add(heroLook + ".");
+            parts.Add("Keep the hero's face and hair consistent with the description in every scene.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(input.ChildAppearanceDescription))
+        {
+            parts.Add($"Hero appearance details from photo analysis: {input.ChildAppearanceDescription.Trim()}");
+        }
+
+        if (hasCharacterAnchor && !hasHeroPhoto)
+        {
+            parts.Add("Image 1 is the established animated hero — keep the same 3D character design in the new scene.");
+        }
+
+        parts.Add(hasHeroPhoto ? PhotoLikenessStylePrompt : AnimatedIllustrationStylePrompt);
+        parts.Add("High quality, no text, no words, no letters, no watermark.");
+        parts.Add($"Safe for children age {input.Age}. Theme: {input.Theme}.");
+        parts.Add($"Page {pageIndex + 1} scene title: {page.Title}.");
+        parts.Add($"Scene: {scene}");
+        parts.Add($"Adventure id {adventureId}.");
+
+        return string.Join(" ", parts);
     }
 
     private static string ResolveLanguageName(string code) => code.ToLowerInvariant() switch

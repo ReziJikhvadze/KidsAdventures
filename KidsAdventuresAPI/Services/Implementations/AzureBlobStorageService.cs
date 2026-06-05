@@ -11,7 +11,7 @@ public sealed class AzureBlobStorageService(IOptions<AzureBlobOptions> options) 
 
     public async Task<string> UploadAsync(string blobName, byte[] bytes, string contentType, CancellationToken cancellationToken)
     {
-        var container = await GetContainerAsync(cancellationToken);
+        var container = await GetContainerAsync(_options.ContainerName, cancellationToken);
         var blobClient = container.GetBlobClient(blobName);
         using var stream = new MemoryStream(bytes);
 
@@ -31,7 +31,7 @@ public sealed class AzureBlobStorageService(IOptions<AzureBlobOptions> options) 
 
     public async Task<Stream> DownloadAsync(string blobName, CancellationToken cancellationToken)
     {
-        var container = await GetContainerAsync(cancellationToken);
+        var container = await GetContainerAsync(_options.ContainerName, cancellationToken);
         var blobClient = container.GetBlobClient(blobName);
         var response = await blobClient.DownloadStreamingAsync(cancellationToken: cancellationToken);
         return response.Value.Content;
@@ -39,18 +39,31 @@ public sealed class AzureBlobStorageService(IOptions<AzureBlobOptions> options) 
 
     public async Task<byte[]> DownloadBytesFromStoredUrlAsync(string storedUrl, CancellationToken cancellationToken)
     {
-        var blobName = ResolveBlobName(storedUrl);
-        await using var stream = await DownloadAsync(blobName, cancellationToken);
+        var (containerName, blobName) = ResolveBlobLocation(storedUrl);
+        var container = await GetContainerAsync(containerName, cancellationToken);
+        var blobClient = container.GetBlobClient(blobName);
+
+        if (!await blobClient.ExistsAsync(cancellationToken))
+        {
+            throw new FileNotFoundException(
+                $"Blob not found. Container='{containerName}', Blob='{blobName}'.");
+        }
+
+        var response = await blobClient.DownloadStreamingAsync(cancellationToken: cancellationToken);
+        await using var stream = response.Value.Content;
         using var memory = new MemoryStream();
         await stream.CopyToAsync(memory, cancellationToken);
         return memory.ToArray();
     }
 
-    private string ResolveBlobName(string storedUrl)
+    /// <summary>
+    /// Parses container + blob path from a full Azure blob URL, or falls back to configured container.
+    /// </summary>
+    private (string ContainerName, string BlobName) ResolveBlobLocation(string storedUrl)
     {
         if (!storedUrl.Contains("://", StringComparison.Ordinal))
         {
-            return storedUrl;
+            return (_options.ContainerName, storedUrl);
         }
 
         if (!Uri.TryCreate(storedUrl, UriKind.Absolute, out var uri))
@@ -59,20 +72,21 @@ public sealed class AzureBlobStorageService(IOptions<AzureBlobOptions> options) 
         }
 
         var path = uri.AbsolutePath.Trim('/');
-        var prefix = _options.ContainerName + "/";
-        if (path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        var slash = path.IndexOf('/');
+        if (slash <= 0 || slash >= path.Length - 1)
         {
-            return path[prefix.Length..];
+            throw new InvalidOperationException($"Invalid blob URL path: {storedUrl}");
         }
 
-        var slash = path.IndexOf('/');
-        return slash >= 0 ? path[(slash + 1)..] : path;
+        var containerFromUrl = path[..slash];
+        var blobName = path[(slash + 1)..];
+        return (containerFromUrl, blobName);
     }
 
-    private async Task<BlobContainerClient> GetContainerAsync(CancellationToken cancellationToken)
+    private async Task<BlobContainerClient> GetContainerAsync(string containerName, CancellationToken cancellationToken)
     {
         var serviceClient = new BlobServiceClient(_options.ConnectionString);
-        var container = serviceClient.GetBlobContainerClient(_options.ContainerName);
+        var container = serviceClient.GetBlobContainerClient(containerName);
         await container.CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: cancellationToken);
         return container;
     }

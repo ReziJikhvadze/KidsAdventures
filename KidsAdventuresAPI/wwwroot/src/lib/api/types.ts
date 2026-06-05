@@ -28,6 +28,7 @@ export type AdventurePackResponse = {
   status: AdventurePackStatus;
   pdfUrl: string | null;
   progressMessage: string | null;
+  errorMessage: string | null;
   storyLanguage: string | null;
   createdAt: string;
 };

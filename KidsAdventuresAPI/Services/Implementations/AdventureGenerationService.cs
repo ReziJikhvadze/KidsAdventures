@@ -84,11 +84,32 @@ public sealed class AdventureGenerationService(
 
             var familyMembers = await familyMemberRepository.GetByChildIdAsync(pack.ChildId, pack.UserId, cancellationToken);
 
-            var childAppearance = await ResolveChildAppearanceAsync(child, cancellationToken);
+            byte[]? heroPhotoBytes = null;
+            string heroPhotoContentType = "image/jpeg";
+            if (!string.IsNullOrWhiteSpace(child.PhotoUrl))
+            {
+                try
+                {
+                    heroPhotoBytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(
+                        child.PhotoUrl,
+                        cancellationToken);
+                    heroPhotoContentType = InferImageContentType(child.PhotoUrl);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Could not load child hero photo for {ChildId}", child.Id);
+                }
+            }
+
+            var childAppearance = heroPhotoBytes is null
+                ? null
+                : await DescribeChildFromPhotoAsync(child, heroPhotoBytes, heroPhotoContentType, cancellationToken);
 
             await SetProgressAsync(
                 packId,
-                "Reading family photos (if any)… ~15%",
+                heroPhotoBytes is null
+                    ? "Preparing your story… ~15%"
+                    : "Studying your child's photo for illustrations… ~15%",
                 cancellationToken);
 
             var cast = new List<FamilyMemberCastEntry>();
@@ -127,12 +148,32 @@ public sealed class AdventureGenerationService(
                 "Painting story illustrations… ~50% (about 1 minute per picture)",
                 cancellationToken);
 
+            byte[]? characterAnchor = null;
             for (var i = 0; i < content.StoryPages.Count; i++)
             {
                 var page = content.StoryPages[i];
-                var imagePrompt = AdventurePromptBuilder.BuildStoryImagePrompt(input, page, i, pack.Id);
-                var imageBytes = await openAiService.GenerateStoryImageAsync(imagePrompt, cancellationToken);
+                var hasHeroPhoto = heroPhotoBytes is { Length: > 0 };
+                var imagePrompt = AdventurePromptBuilder.BuildStoryImagePrompt(
+                    input,
+                    page,
+                    i,
+                    pack.Id,
+                    hasHeroPhoto,
+                    characterAnchor is { Length: > 0 });
+
+                var imageReference = new StoryImageReference
+                {
+                    HeroPhotoBytes = heroPhotoBytes,
+                    HeroPhotoContentType = heroPhotoContentType,
+                    CharacterAnchorBytes = characterAnchor
+                };
+
+                var imageBytes = await openAiService.GenerateStoryImageAsync(
+                    imagePrompt,
+                    imageReference,
+                    cancellationToken);
                 page.ImageBytes = imageBytes;
+                characterAnchor ??= imageBytes;
 
                 var pct = 50 + (int)Math.Round(40.0 * (i + 1) / Math.Max(1, content.StoryPages.Count));
                 await SetProgressAsync(
@@ -183,19 +224,17 @@ public sealed class AdventureGenerationService(
         await adventurePackRepository.UpdateProgressMessageAsync(packId, message, cancellationToken);
     }
 
-    private async Task<string?> ResolveChildAppearanceAsync(Child child, CancellationToken cancellationToken)
+    private async Task<string?> DescribeChildFromPhotoAsync(
+        Child child,
+        byte[] photoBytes,
+        string contentType,
+        CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(child.PhotoUrl))
-        {
-            return null;
-        }
-
         try
         {
-            var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(child.PhotoUrl, cancellationToken);
             return await openAiService.DescribeCharacterFromPhotoAsync(
-                bytes,
-                "image/jpeg",
+                photoBytes,
+                contentType,
                 $"This photo is the main hero of a children's adventure book named {child.Name}, age {child.Age}.",
                 cancellationToken);
         }
@@ -204,6 +243,21 @@ public sealed class AdventureGenerationService(
             logger.LogWarning(ex, "Could not describe child photo for {ChildId}", child.Id);
             return null;
         }
+    }
+
+    private static string InferImageContentType(string url)
+    {
+        if (url.Contains(".png", StringComparison.OrdinalIgnoreCase))
+        {
+            return "image/png";
+        }
+
+        if (url.Contains(".webp", StringComparison.OrdinalIgnoreCase))
+        {
+            return "image/webp";
+        }
+
+        return "image/jpeg";
     }
 
     private async Task<string?> ResolveFamilyAppearanceAsync(FamilyMember member, CancellationToken cancellationToken)

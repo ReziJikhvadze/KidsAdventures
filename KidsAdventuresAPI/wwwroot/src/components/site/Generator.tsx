@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -134,20 +135,26 @@ export function Generator() {
   const [status, setStatus] = useState<"idle" | "generating" | "done" | "error">("idle");
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [completedPackId, setCompletedPackId] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const heroPhotoRef = useRef<HTMLInputElement>(null);
   const { isAuthenticated } = useAuth();
 
-  const valid =
-    name.trim().length > 0 &&
-    typeof age === "number" &&
-    age >= 3 &&
-    age <= 12 &&
-    theme &&
-    (!birthdayMode || birthday.length > 0);
+  const ageValid = typeof age === "number" && !Number.isNaN(age) && age >= 3 && age <= 12;
+
+  const missingRequirements: string[] = [];
+  if (!name.trim()) missingRequirements.push("child's name");
+  if (age === "" || (typeof age === "number" && Number.isNaN(age))) {
+    missingRequirements.push("age (3–12)");
+  } else if (!ageValid) {
+    missingRequirements.push("age between 3 and 12");
+  }
+  if (!theme) missingRequirements.push("a theme");
+
+  const valid = missingRequirements.length === 0;
 
   const addMemberFromFile = (file: File | undefined) => {
     if (!file) return;
@@ -201,7 +208,7 @@ export function Generator() {
     setProgress(5);
     setProgressMessage("Saving your hero and cast…");
     setErrorMessage(null);
-    setPdfUrl(null);
+    setCompletedPackId(null);
 
     try {
       const apiTheme = THEME_ID_TO_API[theme];
@@ -245,7 +252,7 @@ export function Generator() {
         if (pack.status === "Pending") setProgress((p) => Math.min(25, p + 3));
       });
 
-      setPdfUrl(completed.pdfUrl);
+      setCompletedPackId(completed.id);
       setProgress(100);
       setStatus("done");
       toast.success("Your adventure pack is ready!");
@@ -275,7 +282,7 @@ export function Generator() {
     setStatus("idle");
     setProgress(0);
     setProgressMessage(null);
-    setPdfUrl(null);
+    setCompletedPackId(null);
     setErrorMessage(null);
   };
 
@@ -313,9 +320,13 @@ export function Generator() {
                       <Users className="h-4 w-4 text-primary" />
                     </div>
                     <div>
-                      <div className="font-display font-semibold">Story cast</div>
+                      <div className="font-display font-semibold">
+                        Story cast{" "}
+                        <span className="font-normal text-muted-foreground">(optional)</span>
+                      </div>
                       <div className="text-xs text-muted-foreground">
-                        Add up to {MAX_MEMBERS} family members — they'll become characters
+                        Add up to {MAX_MEMBERS} family members — skip this if you only want your
+                        child in the story
                       </div>
                     </div>
                   </div>
@@ -497,8 +508,14 @@ export function Generator() {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold">Photo of your child (hero)</div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Optional — we use AI vision so illustrations can match hair, smile, and
-                      outfit. Works great from age 3.
+                      Strongly recommended — we send this photo directly to the AI on every page so
+                      your child looks like themselves. Use a clear front-facing photo, good light,
+                      face fills most of the frame, no sunglasses or heavy filters.
+                    </p>
+                    <p className="text-xs text-muted-foreground/80 mt-1">
+                      Result is a polished animated illustration inspired by your child&apos;s real
+                      face — closer to a movie character than a generic cartoon, but not a pasted
+                      photo.
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <button
@@ -623,18 +640,19 @@ export function Generator() {
                       <Cake className="h-4 w-4 text-primary" />
                       Birthday Mode
                       <span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-bold uppercase">
-                        New
+                        Optional
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Add a birthday certificate, party scavenger hunt and themed activities.
+                      Add a birthday certificate, party scavenger hunt and themed activities. Leave
+                      off for a regular adventure pack.
                     </p>
                   </div>
                 </label>
                 {birthdayMode && (
                   <div className="mt-4 animate-rise">
                     <label className="text-xs font-semibold text-foreground/70 uppercase tracking-wide">
-                      Birthday date
+                      Birthday date <span className="normal-case font-normal">(optional)</span>
                     </label>
                     <input
                       type="date"
@@ -664,8 +682,13 @@ export function Generator() {
                   </>
                 )}
               </button>
+              {!valid && status !== "generating" && (
+                <p className="mt-3 text-xs text-amber-700 dark:text-amber-400 text-center">
+                  Still needed: {missingRequirements.join(" · ")}
+                </p>
+              )}
               <p className="mt-3 text-xs text-muted-foreground text-center">
-                Free plan · No credit card required
+                Free plan · No credit card required · Hero photo is optional
               </p>
             </div>
 
@@ -746,9 +769,9 @@ export function Generator() {
                         <p>
                           <strong className="text-foreground">You can leave this page.</strong>{" "}
                           We save every pack under{" "}
-                          <a href="#my-packs" className="text-primary font-semibold underline">
+                          <Link to="/my-packs" className="text-primary font-semibold underline">
                             My Packs
-                          </a>
+                          </Link>
                           . It often needs a few more minutes — refresh there when status is Ready.
                         </p>
                         <p>
@@ -830,12 +853,14 @@ export function Generator() {
                           `${typeof age === "number" && age <= 6 ? "Easy" : "Age-perfect"} puzzles & quizzes`,
                           "Drawing & coloring challenges",
                           `${name}'s achievement certificate`,
-                          ...(birthdayMode
+                          ...(birthdayMode && birthday
                             ? [
-                                `🎂 Birthday certificate${birthday ? ` for ${new Date(birthday).toLocaleDateString(undefined, { month: "long", day: "numeric" })}` : ""}`,
+                                `🎂 Birthday certificate for ${new Date(birthday).toLocaleDateString(undefined, { month: "long", day: "numeric" })}`,
                                 "🎉 Party scavenger hunt printable",
                               ]
-                            : []),
+                            : birthdayMode
+                              ? ["🎂 Birthday-themed extras (add a date above for a dated certificate)"]
+                              : []),
                           ...(completeCast.length > 0
                             ? [
                                 `${completeCast.length} family ${
@@ -906,16 +931,34 @@ export function Generator() {
                     </div>
 
                     <div className="mt-4 flex gap-2">
-                      {pdfUrl ? (
-                        <a
-                          href={pdfUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-foreground text-background py-3 font-semibold hover:opacity-90 transition"
+                      {completedPackId ? (
+                        <button
+                          type="button"
+                          disabled={downloading}
+                          onClick={() => {
+                            if (!completedPackId || !selectedTheme) return;
+                            setDownloading(true);
+                            const fileName = `${name}-${selectedTheme.name}-adventure.pdf`
+                              .replace(/\s+/g, "-")
+                              .toLowerCase();
+                            void adventurePacksApi
+                              .downloadAdventurePack(completedPackId, fileName)
+                              .catch(() =>
+                                toast.error(
+                                  "Could not download PDF. Open My Packs or generate again.",
+                                ),
+                              )
+                              .finally(() => setDownloading(false));
+                          }}
+                          className="flex-1 inline-flex items-center justify-center gap-2 rounded-full bg-foreground text-background py-3 font-semibold hover:opacity-90 transition disabled:opacity-60"
                         >
-                          <Gift className="h-4 w-4" />
+                          {downloading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Gift className="h-4 w-4" />
+                          )}
                           Download PDF
-                        </a>
+                        </button>
                       ) : (
                         <button
                           type="button"

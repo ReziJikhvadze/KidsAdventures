@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { LogOut, Sparkles, User } from "lucide-react";
 
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -8,34 +9,38 @@ export function Nav() {
   const { user, isAuthenticated, logout } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
 
-  const links = [
-    { label: "How it works", href: "#how" },
-    ...(isAuthenticated ? [{ label: "My packs", href: "#my-packs" }] : []),
-    { label: "Themes", href: "#themes" },
-    { label: "For grandparents", href: "#grandparents" },
-    { label: "Pricing", href: "#pricing" },
-    { label: "FAQ", href: "#faq" },
+  const anchorLinks = [
+    { label: "How it works", href: "/#how" },
+    { label: "Themes", href: "/#themes" },
+    { label: "For grandparents", href: "/#grandparents" },
+    { label: "Pricing", href: "/#pricing" },
+    { label: "FAQ", href: "/#faq" },
   ];
 
   return (
     <>
       <header className="sticky top-0 z-50 backdrop-blur-md bg-background/70 border-b border-border/60">
         <div className="mx-auto max-w-7xl px-6 h-16 flex items-center justify-between">
-          <a
-            href="#"
+          <Link
+            to="/"
             className="flex items-center gap-2 font-display text-lg font-bold tracking-tight"
           >
             <span className="inline-flex items-center justify-center h-8 w-8 rounded-xl bg-primary text-primary-foreground">
               <Sparkles className="h-4 w-4" />
             </span>
             AdventurePacks
-          </a>
+          </Link>
           <nav className="hidden md:flex items-center gap-8 text-sm text-muted-foreground">
-            {links.map((l) => (
+            {anchorLinks.map((l) => (
               <a key={l.href} href={l.href} className="hover:text-foreground transition-colors">
                 {l.label}
               </a>
             ))}
+            {isAuthenticated && (
+              <Link to="/my-packs" className="hover:text-foreground transition-colors">
+                My packs
+              </Link>
+            )}
           </nav>
           <div className="flex items-center gap-2">
             {isAuthenticated && user ? (
@@ -64,7 +69,7 @@ export function Nav() {
               </button>
             )}
             <a
-              href="#generator"
+              href="/#generator"
               className="inline-flex items-center rounded-full bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold hover:opacity-90 transition"
             >
               Create pack

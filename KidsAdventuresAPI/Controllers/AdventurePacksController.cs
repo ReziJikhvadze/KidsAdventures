@@ -10,7 +10,9 @@ namespace AdventurePacks.Api.Controllers;
 public sealed class AdventurePacksController(
     IAdventureGenerationService generationService,
     IAdventurePackRepository adventurePackRepository,
-    IUserContextService userContext) : ControllerBase
+    IBlobStorageService blobStorageService,
+    IUserContextService userContext,
+    ILogger<AdventurePacksController> logger) : ControllerBase
 {
     [HttpPost("generate")]
     public async Task<ActionResult<object>> Generate([FromBody] GenerateAdventurePackRequest request, CancellationToken cancellationToken)
@@ -48,7 +50,17 @@ public sealed class AdventurePacksController(
             return BadRequest("Pack is not ready.");
         }
 
-        return Redirect(row.PdfUrl);
+        try
+        {
+            var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(row.PdfUrl, cancellationToken);
+            var fileName = $"adventure-pack-{row.Id}.pdf";
+            return File(bytes, "application/pdf", fileName);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "PDF blob missing for pack {PackId}. Stored url: {PdfUrl}", id, row.PdfUrl);
+            return NotFound("PDF file was not found in storage. Please generate a new pack.");
+        }
     }
 
     private static AdventurePackResponse Map(AdventurePack x) => new()
@@ -60,6 +72,7 @@ public sealed class AdventurePacksController(
         Status = x.Status,
         PdfUrl = x.PdfUrl,
         ProgressMessage = x.ProgressMessage,
+        ErrorMessage = x.ErrorMessage,
         StoryLanguage = x.StoryLanguage,
         CreatedAt = x.CreatedAt
     };

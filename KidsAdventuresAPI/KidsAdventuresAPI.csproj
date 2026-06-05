@@ -23,6 +23,7 @@
     <Content Include="Data\Scripts\*.sql" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Data\Scripts\README.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Data\Scripts\Manual\**\*" CopyToOutputDirectory="Never" />
+    <Content Include="Assets\Fonts\*.ttf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

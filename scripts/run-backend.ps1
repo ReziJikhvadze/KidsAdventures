@@ -16,6 +16,14 @@ if (-not (Test-Path $productionSettings)) {
 }
 
 Set-Location $apiDir
+
+$running = Get-Process -Name "KidsAdventuresAPI" -ErrorAction SilentlyContinue
+if ($running) {
+    Write-Host "Stopping existing KidsAdventuresAPI (PID $($running.Id))..." -ForegroundColor Yellow
+    Stop-Process -Name "KidsAdventuresAPI" -Force
+    Start-Sleep -Seconds 1
+}
+
 Write-Host "Starting API (ASPNETCORE_ENVIRONMENT=Production)..." -ForegroundColor Cyan
 Write-Host "  Folder: $apiDir" -ForegroundColor DarkGray
 Write-Host "  Press Ctrl+C to stop." -ForegroundColor DarkGray

@@ -10,7 +10,10 @@ public interface IOpenAiService
         Guid adventureId,
         CancellationToken cancellationToken);
 
-    Task<byte[]> GenerateStoryImageAsync(string imagePrompt, CancellationToken cancellationToken);
+    Task<byte[]> GenerateStoryImageAsync(
+        string imagePrompt,
+        StoryImageReference? reference,
+        CancellationToken cancellationToken);
 
     Task<string> DescribeCharacterFromPhotoAsync(
         byte[] imageBytes,

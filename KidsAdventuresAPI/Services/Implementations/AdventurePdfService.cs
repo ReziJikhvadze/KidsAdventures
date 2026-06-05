@@ -1,5 +1,6 @@
 using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.Services.Interfaces;
+using AdventurePacks.Api.Services.Pdf;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -28,38 +29,68 @@ public sealed class AdventurePdfService : IAdventurePdfService
     public byte[] GeneratePdf(AdventureContentDto content, string themeName)
     {
         QuestPDF.Settings.License = LicenseType.Community;
+        PdfFontBootstrap.EnsureRegistered();
 
         var palette = GetPalette(themeName);
+        var themeLabel = GetThemeLabel(themeName);
         var coverImage = content.StoryPages.FirstOrDefault(p => p.ImageBytes is { Length: > 0 })?.ImageBytes;
+        var pageNumber = 0;
 
         var document = Document.Create(container =>
         {
+            pageNumber++;
             container.Page(page =>
             {
-                page.Margin(28);
+                page.Size(PageSizes.A4);
+                page.Margin(0);
                 page.PageColor(palette.PageBackground);
-                page.Header().Background(palette.HeaderBackground).Padding(8)
-                    .Text("AdventurePacks").SemiBold().FontSize(14).FontColor(palette.HeaderText);
                 page.Content().Column(column =>
                 {
-                    column.Spacing(12);
-                    column.Item().AlignCenter()
-                        .Text(content.Title).FontSize(30).Bold().FontColor(palette.Primary);
-                    column.Item().AlignCenter()
-                        .Text($"Theme: {themeName}").FontSize(17).SemiBold().FontColor(palette.Secondary);
-                    column.Item().AlignCenter()
-                        .Text($"Hero: {content.ChildName}").FontSize(18).FontColor(palette.Accent);
-                    if (coverImage is { Length: > 0 })
+                    column.Item().Element(c => ComposeTopBanner(c, palette, "AdventurePacks", "Your personalized storybook"));
+
+                    column.Item().PaddingHorizontal(36).PaddingTop(28).PaddingBottom(32).Column(inner =>
                     {
-                        column.Item().Border(3).BorderColor(palette.Primary).Padding(6)
-                            .Image(coverImage).FitWidth();
-                    }
-                    else
-                    {
-                        column.Item().Background(palette.CardBackground).Padding(20)
-                            .AlignCenter().Text("Your adventure begins!").Italic()
-                            .FontSize(16).FontColor(palette.Secondary);
-                    }
+                        inner.Spacing(14);
+                        inner.Item().AlignCenter().Text(themeLabel)
+                            .FontFamily(PdfFontBootstrap.BodyFamily).SemiBold().FontSize(11)
+                            .LetterSpacing(0.8f).FontColor(palette.Secondary);
+
+                        inner.Item().AlignCenter().Text(content.Title)
+                            .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(34).Bold()
+                            .FontColor(palette.Primary).LineHeight(1.15f);
+
+                        inner.Item().AlignCenter().PaddingTop(4).Row(row =>
+                        {
+                            row.ConstantItem(48).Height(2).Background(palette.Accent);
+                        });
+
+                        inner.Item().AlignCenter().Text($"Starring {content.ChildName}")
+                            .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(20)
+                            .FontColor(palette.Accent);
+
+                        if (coverImage is { Length: > 0 })
+                        {
+                            inner.Item().PaddingTop(10).Border(3).BorderColor(palette.HeaderBackground)
+                                .Background(Colors.White).Padding(8)
+                                .Image(coverImage).FitWidth();
+                        }
+                        else
+                        {
+                            inner.Item().PaddingTop(10).Background(palette.CardBackground)
+                                .Border(2).BorderColor(palette.HeaderBackground)
+                                .Padding(28).AlignCenter()
+                                .Text("Your colorful adventure awaits inside!")
+                                .FontFamily(PdfFontBootstrap.BodyFamily).Italic()
+                                .FontSize(16).FontColor(palette.Secondary);
+                        }
+
+                        inner.Item().PaddingTop(8).AlignCenter()
+                            .Text("Print at home · Read together · Keep forever")
+                            .FontFamily(PdfFontBootstrap.BodyFamily).FontSize(10)
+                            .FontColor(palette.Secondary);
+                    });
+
+                    column.Item().Element(c => ComposePageFooter(c, palette, pageNumber, content.ChildName));
                 });
             });
 
@@ -68,28 +99,43 @@ public sealed class AdventurePdfService : IAdventurePdfService
             {
                 var titleColor = StoryTitleColors[storyIndex % StoryTitleColors.Length];
                 storyIndex++;
+                pageNumber++;
 
                 container.Page(page =>
                 {
-                    page.Margin(28);
+                    page.Size(PageSizes.A4);
+                    page.Margin(0);
                     page.PageColor(palette.PageBackground);
-                    page.Header().Background(palette.HeaderBackground).Padding(8)
-                        .Text("Story Time").SemiBold().FontSize(14).FontColor(palette.HeaderText);
                     page.Content().Column(column =>
                     {
-                        column.Spacing(10);
-                        column.Item().Background(palette.CardBackground).Padding(12).Column(inner =>
-                        {
-                            inner.Item().Text(pageContent.Title).FontSize(24).Bold().FontColor(titleColor);
-                            if (pageContent.ImageBytes is { Length: > 0 })
-                            {
-                                inner.Item().PaddingVertical(8).Border(2).BorderColor(titleColor)
-                                    .Image(pageContent.ImageBytes).FitWidth();
-                            }
+                        column.Item().Element(c => ComposeTopBanner(c, palette, "Story Time", $"Chapter {storyIndex}"));
 
-                            inner.Item().Text(pageContent.Content).FontSize(14).LineHeight(1.5f)
-                                .FontColor(palette.BodyText);
+                        column.Item().PaddingHorizontal(32).PaddingTop(18).PaddingBottom(24).Row(row =>
+                        {
+                            row.ConstantItem(8).Background(titleColor);
+                            row.RelativeItem().PaddingLeft(14).Background(palette.CardBackground)
+                                .Border(1).BorderColor(palette.HeaderBackground)
+                                .Padding(18).Column(inner =>
+                                {
+                                    inner.Spacing(10);
+                                    inner.Item().Text(pageContent.Title)
+                                        .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(26).Bold()
+                                        .FontColor(titleColor).LineHeight(1.2f);
+
+                                    if (pageContent.ImageBytes is { Length: > 0 })
+                                    {
+                                        inner.Item().PaddingVertical(6).Border(2)
+                                            .BorderColor(palette.HeaderBackground).Padding(6)
+                                            .Image(pageContent.ImageBytes).FitWidth();
+                                    }
+
+                                    inner.Item().Text(pageContent.Content)
+                                        .FontFamily(PdfFontBootstrap.BodyFamily).FontSize(13.5f)
+                                        .LineHeight(1.65f).FontColor(palette.BodyText);
+                                });
                         });
+
+                        column.Item().Element(c => ComposePageFooter(c, palette, pageNumber, content.ChildName));
                     });
                 });
             }
@@ -99,52 +145,151 @@ public sealed class AdventurePdfService : IAdventurePdfService
             {
                 var accent = ActivityAccentColors[activityIndex % ActivityAccentColors.Length];
                 activityIndex++;
+                pageNumber++;
 
                 container.Page(page =>
                 {
-                    page.Margin(28);
+                    page.Size(PageSizes.A4);
+                    page.Margin(0);
                     page.PageColor(palette.PageBackground);
-                    page.Header().Background(palette.HeaderBackground).Padding(8)
-                        .Text("Fun Activities").SemiBold().FontSize(14).FontColor(palette.HeaderText);
                     page.Content().Column(column =>
                     {
-                        column.Spacing(10);
-                        column.Item().Background(palette.CardBackground).Padding(14).Column(inner =>
+                        column.Item().Element(c => ComposeTopBanner(c, palette, "Fun Activities", $"Activity {activityIndex}"));
+
+                        column.Item().PaddingHorizontal(32).PaddingTop(18).PaddingBottom(24).Column(outer =>
                         {
-                            inner.Item().Text(activity.Type).FontSize(13).Bold().FontColor(accent);
-                            inner.Item().Text(activity.Title).FontSize(22).Bold().FontColor(palette.Primary);
-                            inner.Item().Text(activity.Content).FontSize(14).LineHeight(1.5f)
-                                .FontColor(palette.BodyText);
+                            outer.Spacing(12);
+                            outer.Item().Row(row =>
+                            {
+                                row.AutoItem().Background(accent).PaddingHorizontal(12).PaddingVertical(6)
+                                    .Text(activity.Type.ToUpperInvariant())
+                                    .FontFamily(PdfFontBootstrap.BodyFamily).Bold().FontSize(10)
+                                    .LetterSpacing(0.6f).FontColor(Colors.White);
+                            });
+
+                            outer.Item().Background(palette.CardBackground)
+                                .Border(1).BorderColor(palette.HeaderBackground)
+                                .Padding(20).Column(inner =>
+                                {
+                                    inner.Spacing(10);
+                                    inner.Item().Text(activity.Title)
+                                        .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(24).Bold()
+                                        .FontColor(palette.Primary).LineHeight(1.2f);
+
+                                    inner.Item().Height(1).Background(palette.HeaderBackground);
+
+                                    inner.Item().Text(activity.Content)
+                                        .FontFamily(PdfFontBootstrap.BodyFamily).FontSize(13.5f)
+                                        .LineHeight(1.65f).FontColor(palette.BodyText);
+                                });
                         });
+
+                        column.Item().Element(c => ComposePageFooter(c, palette, pageNumber, content.ChildName));
                     });
                 });
             }
 
+            pageNumber++;
             container.Page(page =>
             {
-                page.Margin(28);
+                page.Size(PageSizes.A4);
+                page.Margin(0);
                 page.PageColor(palette.CertificateBackground);
-                page.Header().Background(palette.HeaderBackground).Padding(8)
-                    .Text("You Did It!").SemiBold().FontSize(14).FontColor(palette.HeaderText);
                 page.Content().Column(column =>
                 {
-                    column.Spacing(12);
-                    column.Item().Border(4).BorderColor(palette.Accent).Padding(24).Column(inner =>
+                    column.Item().Element(c => ComposeTopBanner(c, palette, "Certificate", "You did it!"));
+
+                    column.Item().PaddingHorizontal(36).PaddingTop(24).PaddingBottom(28).Column(outer =>
                     {
-                        inner.Item().AlignCenter().Text(content.Certificate.Title)
-                            .FontSize(28).Bold().FontColor(palette.Primary);
-                        inner.Item().PaddingTop(10).AlignCenter().Text(content.Certificate.Text)
-                            .FontSize(16).FontColor(palette.BodyText);
-                        inner.Item().PaddingTop(14).AlignCenter()
-                            .Text($"Awarded to {content.ChildName}")
-                            .FontSize(20).Bold().FontColor(palette.Secondary);
+                        outer.Spacing(16);
+                        outer.Item().Border(5).BorderColor(palette.Accent)
+                            .Background(Colors.White).Padding(6)
+                            .Border(2).BorderColor(palette.Primary)
+                            .Padding(28).Column(inner =>
+                            {
+                                inner.Spacing(12);
+                                inner.Item().AlignCenter().Text("★  ★  ★")
+                                    .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(18)
+                                    .FontColor(palette.Accent);
+
+                                inner.Item().AlignCenter().Text(content.Certificate.Title)
+                                    .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(30).Bold()
+                                    .FontColor(palette.Primary).LineHeight(1.15f);
+
+                                inner.Item().AlignCenter().Text(content.Certificate.Text)
+                                    .FontFamily(PdfFontBootstrap.BodyFamily).FontSize(15)
+                                    .LineHeight(1.6f).FontColor(palette.BodyText);
+
+                                inner.Item().PaddingTop(8).AlignCenter().Height(2).Width(120)
+                                    .Background(palette.Accent);
+
+                                inner.Item().AlignCenter().Text("Awarded to")
+                                    .FontFamily(PdfFontBootstrap.BodyFamily).Italic().FontSize(13)
+                                    .FontColor(palette.Secondary);
+
+                                inner.Item().AlignCenter().Text(content.ChildName)
+                                    .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(28).Bold()
+                                    .FontColor(palette.Accent);
+
+                                inner.Item().AlignCenter().Text(DateTime.UtcNow.ToString("MMMM d, yyyy"))
+                                    .FontFamily(PdfFontBootstrap.BodyFamily).FontSize(11)
+                                    .FontColor(palette.Secondary);
+                            });
                     });
+
+                    column.Item().Element(c => ComposePageFooter(c, palette, pageNumber, content.ChildName));
                 });
             });
         });
 
         return document.GeneratePdf();
     }
+
+    private static void ComposeTopBanner(IContainer container, ThemePalette palette, string title, string subtitle)
+    {
+        container.Background(palette.HeaderBackground).PaddingVertical(14).PaddingHorizontal(32).Row(row =>
+        {
+            row.RelativeItem().Column(col =>
+            {
+                col.Item().Text(title)
+                    .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(18).Bold()
+                    .FontColor(palette.HeaderText);
+                col.Item().Text(subtitle)
+                    .FontFamily(PdfFontBootstrap.BodyFamily).FontSize(10)
+                    .FontColor(palette.Secondary);
+            });
+
+            row.AutoItem().AlignMiddle().Background(palette.Primary).Padding(8)
+                .Text("AP")
+                .FontFamily(PdfFontBootstrap.DisplayFamily).Bold().FontSize(12)
+                .FontColor(Colors.White);
+        });
+    }
+
+    private static void ComposePageFooter(IContainer container, ThemePalette palette, int pageNumber, string childName)
+    {
+        container.Background(palette.PageBackground).PaddingVertical(10).PaddingHorizontal(32)
+            .Row(row =>
+            {
+                row.RelativeItem().AlignMiddle().Text($"{childName}'s adventure")
+                    .FontFamily(PdfFontBootstrap.BodyFamily).FontSize(9)
+                    .FontColor(palette.Secondary);
+
+                row.AutoItem().AlignMiddle().Text($"Page {pageNumber}")
+                    .FontFamily(PdfFontBootstrap.BodyFamily).SemiBold().FontSize(9)
+                    .FontColor(palette.HeaderText);
+            });
+    }
+
+    private static string GetThemeLabel(string themeName) => themeName switch
+    {
+        "Airplanes" => "SKY EXPLORER EDITION",
+        "Dinosaurs" => "DINO DISCOVERY EDITION",
+        "Space" => "GALACTIC QUEST EDITION",
+        "Pirates" => "TREASURE HUNT EDITION",
+        "Animals" => "WILD FRIENDS EDITION",
+        _ => "ADVENTURE EDITION"
+    };
 
     private static ThemePalette GetPalette(string themeName) => themeName switch
     {

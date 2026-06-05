@@ -8,7 +8,6 @@ import { Benefits } from "@/components/site/Benefits";
 import { Pricing } from "@/components/site/Pricing";
 import { FAQ } from "@/components/site/FAQ";
 import { Generator } from "@/components/site/Generator";
-import { MyPacks } from "@/components/site/MyPacks";
 import { Grandparents } from "@/components/site/Grandparents";
 import { FinalCTA } from "@/components/site/FinalCTA";
 import { Footer } from "@/components/site/Footer";
@@ -44,7 +43,6 @@ function Landing() {
         <Hero />
         <HowItWorks />
         <Generator />
-        <MyPacks />
         <Themes />
         <Preview />
         <Benefits />

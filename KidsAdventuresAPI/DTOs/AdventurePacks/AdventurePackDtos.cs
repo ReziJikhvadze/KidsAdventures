@@ -28,6 +28,7 @@ public sealed class AdventurePackResponse
     public AdventurePackStatus Status { get; set; }
     public string? PdfUrl { get; set; }
     public string? ProgressMessage { get; set; }
+    public string? ErrorMessage { get; set; }
     public string? StoryLanguage { get; set; }
     public DateTime CreatedAt { get; set; }
 }

@@ -1,0 +1,21 @@
+# KidsAdventures — story illustration prompts
+
+## WITH hero photo (likeness-first — use images/edits + gpt-image-2)
+
+Image 1 is a real photo of the child who MUST be the hero of this scene. Illustrate them in a polished animated adventure style while keeping their face unmistakably the same child — same eyes, nose, mouth, hair, skin tone, and age as the photo. Parents should instantly recognize their child. Not a generic cartoon kid.
+
+[ADD appearance analysis from vision if available]
+
+High-quality 3D animated children's movie illustration with sharp clear detail. CRITICAL: the hero must be clearly the SAME child as the reference photo — preserve exact eye shape and color, eyebrows, nose shape, mouth, smile, face outline, cheek fullness, hair color, hair length, hair texture, parting, bangs, skin tone, and apparent age. Do not swap in a different child. Do not enlarge eyes or cartoonify away recognizable features. Natural friendly expression, beautiful cinematic lighting, vibrant colors, magical adventure background.
+
+Scene: [THEME] · Page [N]: [TITLE] — [STORY TEXT]
+High quality, no text, no words, no letters, no watermark.
+
+---
+
+## WITHOUT hero photo (more stylized)
+
+Premium 3D animated children's movie still, Pixar or DreamWorks quality. Expressive cartoon hero, lively dynamic pose, cinematic warm lighting, rich saturated colors, lush magical environment.
+
+Hero: [NAME], age [AGE]: [appearance description if any]
+Scene: [THEME] · [TITLE] — [STORY TEXT]

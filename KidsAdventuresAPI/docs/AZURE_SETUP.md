@@ -40,7 +40,7 @@ All API settings live in **JSON appsettings files** (not Azure Portal Applicatio
   "ConnectionStrings": { "DefaultConnection": "..." },
   "Jwt": { "SecretKey": "...", "Issuer": "...", "Audience": "..." },
   "OpenAI": { "ApiKey": "...", "Model": "gpt-4.1-mini" },
-  "AzureBlobStorage": { "ConnectionString": "...", "ContainerName": "adventure-packs" },
+  "AzureBlobStorage": { "ConnectionString": "...", "ContainerName": "adventurepacks" },
   "Cors": {
     "AllowLocalhostFallback": false,
     "AllowedOrigins": [ "https://your-frontend.azurewebsites.net", "http://localhost:5173" ]

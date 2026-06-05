@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
+import { Link } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { Download, Loader2, Package, RefreshCw } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { AuthDialog } from "@/components/auth/AuthDialog";
@@ -23,6 +25,7 @@ export function MyPacks() {
   const [packs, setPacks] = useState<AdventurePackResponse[]>([]);
   const [childNames, setChildNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -62,14 +65,23 @@ export function MyPacks() {
     return () => window.clearInterval(timer);
   }, [isAuthenticated, hasInProgress, load]);
 
-  const openDownload = (pack: AdventurePackResponse) => {
-    if (pack.status !== "Completed") return;
-    const url = pack.pdfUrl ?? adventurePacksApi.getDownloadUrl(pack.id);
-    window.open(url, "_blank", "noopener,noreferrer");
+  const openDownload = async (pack: AdventurePackResponse) => {
+    if (pack.status !== "Completed" || downloadingId) return;
+    const childName = childNames[pack.childId] ?? "adventure";
+    const fileName = `${childName}-${pack.theme}-adventure.pdf`.replace(/\s+/g, "-").toLowerCase();
+
+    setDownloadingId(pack.id);
+    try {
+      await adventurePacksApi.downloadAdventurePack(pack.id, fileName);
+    } catch {
+      toast.error("Could not download PDF. The file may be missing — try generating a new pack.");
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   return (
-    <section id="my-packs" className="py-20 bg-secondary/30 border-y border-border/60">
+    <section className="py-12 md:py-16 bg-secondary/30 border-y border-border/60 min-h-[60vh]">
       <div className="mx-auto max-w-5xl px-6">
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
           <div>
@@ -116,12 +128,13 @@ export function MyPacks() {
         ) : packs.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-border bg-card p-10 text-center">
             <p className="text-muted-foreground">No packs yet. Create your first adventure below.</p>
-            <a
-              href="#generator"
+            <Link
+              to="/"
+              hash="generator"
               className="inline-flex mt-4 items-center rounded-full bg-primary text-primary-foreground px-6 py-2.5 text-sm font-semibold hover:opacity-90 transition"
             >
               Create a pack
-            </a>
+            </Link>
           </div>
         ) : (
           <ul className="grid gap-4">
@@ -151,24 +164,35 @@ export function MyPacks() {
                           {pack.progressMessage}
                         </p>
                       )}
+                    {pack.status === "Failed" && pack.errorMessage && (
+                      <p className="text-xs text-destructive/90 mt-1 line-clamp-3">
+                        {pack.errorMessage}
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {pack.status === "Completed" ? (
                       <button
                         type="button"
-                        onClick={() => openDownload(pack)}
-                        className="inline-flex items-center gap-2 rounded-full bg-foreground text-background px-4 py-2.5 text-sm font-semibold hover:opacity-90 transition"
+                        onClick={() => void openDownload(pack)}
+                        disabled={downloadingId === pack.id}
+                        className="inline-flex items-center gap-2 rounded-full bg-foreground text-background px-4 py-2.5 text-sm font-semibold hover:opacity-90 transition disabled:opacity-60"
                       >
-                        <Download className="h-4 w-4" />
+                        {downloadingId === pack.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Download className="h-4 w-4" />
+                        )}
                         Download PDF
                       </button>
                     ) : pack.status === "Failed" ? (
-                      <a
-                        href="#generator"
+                      <Link
+                        to="/"
+                        hash="generator"
                         className="inline-flex items-center rounded-full border border-border px-4 py-2.5 text-sm font-semibold hover:bg-secondary transition"
                       >
                         Try again
-                      </a>
+                      </Link>
                     ) : (
                       <span className="inline-flex items-center gap-2 text-sm text-muted-foreground px-2">
                         <Loader2 className="h-4 w-4 animate-spin" />

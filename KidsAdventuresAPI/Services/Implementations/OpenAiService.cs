@@ -9,8 +9,7 @@ using AdventurePacks.Api.Services.Interfaces;
 namespace AdventurePacks.Api.Services.Implementations;
 
 /// <summary>
-/// Text + images via OpenAI Responses API (images/generations used as fallback).
-/// See https://developers.openai.com/api/docs/guides/images-vision
+/// Text + images via OpenAI Responses API; reference-photo illustrations via Images Edit (gpt-image-2).
 /// </summary>
 public sealed class OpenAiService(
     IHttpClientFactory httpClientFactory,
@@ -63,8 +62,7 @@ public sealed class OpenAiService(
     {
         var client = CreateClient();
         var mime = string.IsNullOrWhiteSpace(contentType) ? "image/jpeg" : contentType;
-        var base64 = Convert.ToBase64String(imageBytes);
-        var dataUrl = $"data:{mime};base64,{base64}";
+        var dataUrl = ToDataUrl(imageBytes, mime);
 
         var payload = new
         {
@@ -80,7 +78,9 @@ public sealed class OpenAiService(
                         {
                             type = "input_text",
                             text = roleDescription +
-                                   " Reply with one short paragraph only: hair, skin tone, eye color, clothing colors, and age-appropriate friendly look. No markdown."
+                                   " Reply with one dense paragraph for an illustrator who must match this exact child in every drawing: " +
+                                   "hair color, length, texture, parting, bangs; eye color, shape, spacing; eyebrow shape; nose shape; mouth and smile; face shape and cheek fullness; skin tone; apparent age; glasses or freckles if any; clothing colors if visible. " +
+                                   "Be specific and visual. No markdown."
                         },
                         new
                         {
@@ -108,16 +108,37 @@ public sealed class OpenAiService(
         return text.Trim();
     }
 
-    public async Task<byte[]> GenerateStoryImageAsync(string imagePrompt, CancellationToken cancellationToken)
+    public async Task<byte[]> GenerateStoryImageAsync(
+        string imagePrompt,
+        StoryImageReference? reference,
+        CancellationToken cancellationToken)
     {
         if (!_options.EnableStoryImages)
         {
             throw new InvalidOperationException("Story images are disabled in configuration.");
         }
 
+        var referenceImages = CollectReferenceImages(reference);
+        var hasHeroPhoto = reference?.HeroPhotoBytes is { Length: > 0 };
+        if (referenceImages.Count > 0)
+        {
+            try
+            {
+                return await GenerateStoryImageViaEditApiAsync(
+                    imagePrompt,
+                    referenceImages,
+                    hasHeroPhoto,
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "GPT Image edit with photo reference failed; falling back to Images API.");
+            }
+        }
+
         if (string.Equals(_options.ImageGenerationProvider, "dall-e", StringComparison.OrdinalIgnoreCase))
         {
-            return await GenerateStoryImageViaImagesApiAsync(imagePrompt, cancellationToken);
+            return await GenerateStoryImageViaImagesApiAsync(imagePrompt, hasHeroPhoto, cancellationToken);
         }
 
         try
@@ -127,18 +148,51 @@ public sealed class OpenAiService(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Responses API image_generation failed; falling back to Images API.");
-            return await GenerateStoryImageViaImagesApiAsync(imagePrompt, cancellationToken);
+            return await GenerateStoryImageViaImagesApiAsync(imagePrompt, hasHeroPhoto, cancellationToken);
         }
+    }
+
+    private async Task<byte[]> GenerateStoryImageViaEditApiAsync(
+        string imagePrompt,
+        IReadOnlyList<(byte[] Bytes, string FileName, string ContentType)> referenceImages,
+        bool hasHeroPhoto,
+        CancellationToken cancellationToken)
+    {
+        var client = CreateClient();
+        using var form = new MultipartFormDataContent();
+        var model = ResolveGptImageEditModel();
+        var quality = hasHeroPhoto
+            ? MapGptImageQuality(_options.ImagePhotoQuality)
+            : MapGptImageQuality(_options.ImageQuality);
+
+        form.Add(new StringContent(model), "model");
+        form.Add(new StringContent(imagePrompt), "prompt");
+        form.Add(new StringContent(_options.ImageSize), "size");
+        form.Add(new StringContent(quality), "quality");
+
+        foreach (var (bytes, fileName, contentType) in referenceImages)
+        {
+            var imageContent = new ByteArrayContent(bytes);
+            imageContent.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
+            form.Add(imageContent, "image[]", fileName);
+        }
+
+        using var response = await client.PostAsync("images/edits", form, cancellationToken);
+        var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"OpenAI Images Edit API failed: {responseText}");
+        }
+
+        return await ExtractImageBytesFromImagesResponseAsync(responseText, cancellationToken);
     }
 
     private async Task<byte[]> GenerateStoryImageViaResponsesApiAsync(string imagePrompt, CancellationToken cancellationToken)
     {
         var client = CreateClient();
-        var model = string.IsNullOrWhiteSpace(_options.ImageModel) ? _options.Model : _options.ImageModel;
-
         var payload = new
         {
-            model,
+            model = _options.Model,
             input = imagePrompt,
             tools = new[] { new { type = "image_generation" } }
         };
@@ -159,20 +213,31 @@ public sealed class OpenAiService(
         return imageBytes;
     }
 
-    private async Task<byte[]> GenerateStoryImageViaImagesApiAsync(string imagePrompt, CancellationToken cancellationToken)
+    private async Task<byte[]> GenerateStoryImageViaImagesApiAsync(
+        string imagePrompt,
+        bool preferPhotoQuality,
+        CancellationToken cancellationToken)
     {
         var client = CreateClient();
-        var imageModel = string.IsNullOrWhiteSpace(_options.ImageModel) ? "dall-e-3" : _options.ImageModel;
+        var imageModel = ResolveImagesApiModel();
+        var qualitySetting = preferPhotoQuality ? _options.ImagePhotoQuality : _options.ImageQuality;
 
-        var payload = new
+        var payload = new Dictionary<string, object>
         {
-            model = imageModel,
-            prompt = imagePrompt,
-            n = 1,
-            size = _options.ImageSize,
-            quality = _options.ImageQuality,
-            response_format = "b64_json"
+            ["model"] = imageModel,
+            ["prompt"] = imagePrompt,
+            ["n"] = 1,
+            ["size"] = _options.ImageSize
         };
+
+        if (IsGptImageModel(imageModel))
+        {
+            payload["quality"] = MapGptImageQuality(qualitySetting);
+        }
+        else if (imageModel.Equals("dall-e-3", StringComparison.OrdinalIgnoreCase))
+        {
+            payload["quality"] = MapDalleQuality(_options.ImageQuality);
+        }
 
         using var response = await client.PostAsJsonAsync("images/generations", payload, cancellationToken);
         var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -181,20 +246,111 @@ public sealed class OpenAiService(
             throw new InvalidOperationException($"OpenAI Images API failed: {responseText}");
         }
 
-        using var doc = JsonDocument.Parse(responseText);
+        return await ExtractImageBytesFromImagesResponseAsync(responseText, cancellationToken);
+    }
+
+    private static List<(byte[] Bytes, string FileName, string ContentType)> CollectReferenceImages(
+        StoryImageReference? reference)
+    {
+        var images = new List<(byte[] Bytes, string FileName, string ContentType)>();
+        if (reference?.HeroPhotoBytes is { Length: > 0 } hero)
+        {
+            images.Add((hero, "hero-photo.jpg", reference.HeroPhotoContentType));
+        }
+
+        if (reference?.CharacterAnchorBytes is { Length: > 0 } anchor)
+        {
+            images.Add((anchor, "character-anchor.png", "image/png"));
+        }
+
+        return images;
+    }
+
+    private string ResolveGptImageEditModel()
+    {
+        if (IsGptImageModel(_options.ImageEditModel))
+        {
+            return _options.ImageEditModel;
+        }
+
+        if (IsGptImageModel(_options.ImageModel))
+        {
+            return _options.ImageModel;
+        }
+
+        return "gpt-image-1-mini";
+    }
+
+    private string ResolveImagesApiModel()
+    {
+        if (IsGptImageModel(_options.ImageModel) || IsDalleModel(_options.ImageModel))
+        {
+            return _options.ImageModel;
+        }
+
+        return "gpt-image-1-mini";
+    }
+
+    private static bool IsGptImageModel(string model) =>
+        model.StartsWith("gpt-image", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsDalleModel(string model) =>
+        model.StartsWith("dall-e", StringComparison.OrdinalIgnoreCase);
+
+    private static string MapGptImageQuality(string quality)
+    {
+        if (quality.Equals("hd", StringComparison.OrdinalIgnoreCase) ||
+            quality.Equals("high", StringComparison.OrdinalIgnoreCase))
+        {
+            return "high";
+        }
+
+        if (quality.Equals("medium", StringComparison.OrdinalIgnoreCase))
+        {
+            return "medium";
+        }
+
+        return "low";
+    }
+
+    private static string MapDalleQuality(string quality) =>
+        quality.Equals("hd", StringComparison.OrdinalIgnoreCase) ? "hd" : "standard";
+
+    private static string ToDataUrl(byte[] bytes, string contentType) =>
+        $"data:{contentType};base64,{Convert.ToBase64String(bytes)}";
+
+    private static async Task<byte[]> ExtractImageBytesFromImagesResponseAsync(
+        string responseJson,
+        CancellationToken cancellationToken)
+    {
+        using var doc = JsonDocument.Parse(responseJson);
         var data = doc.RootElement.GetProperty("data");
         if (data.GetArrayLength() == 0)
         {
             throw new InvalidOperationException("OpenAI Images API response contained no data.");
         }
 
-        var b64 = data[0].GetProperty("b64_json").GetString();
-        if (string.IsNullOrWhiteSpace(b64))
+        var item = data[0];
+        if (item.TryGetProperty("b64_json", out var b64Prop))
         {
-            throw new InvalidOperationException("OpenAI Images API response missing b64_json.");
+            var b64 = b64Prop.GetString();
+            if (!string.IsNullOrWhiteSpace(b64))
+            {
+                return Convert.FromBase64String(b64);
+            }
         }
 
-        return Convert.FromBase64String(b64);
+        if (item.TryGetProperty("url", out var urlProp))
+        {
+            var url = urlProp.GetString();
+            if (!string.IsNullOrWhiteSpace(url))
+            {
+                using var http = new HttpClient();
+                return await http.GetByteArrayAsync(url, cancellationToken);
+            }
+        }
+
+        throw new InvalidOperationException("OpenAI Images API response missing image data.");
     }
 
     private HttpClient CreateClient()

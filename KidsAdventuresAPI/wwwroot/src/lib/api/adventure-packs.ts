@@ -1,4 +1,4 @@
-import { apiRequest } from "./client";
+import { ApiError, apiRequest, getApiBaseUrl, getToken } from "./client";
 import type { AdventurePackResponse, ThemeType } from "./types";
 
 export type GenerateAdventurePackOptions = {
@@ -31,8 +31,41 @@ export async function getAdventurePack(id: string): Promise<AdventurePackRespons
 }
 
 export function getDownloadUrl(packId: string): string {
-  const base = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "";
-  return `${base}/api/adventure-packs/${packId}/download`;
+  return `${getApiBaseUrl()}/api/adventure-packs/${packId}/download`;
+}
+
+export async function downloadAdventurePack(
+  packId: string,
+  fileName = "adventure-pack.pdf",
+): Promise<void> {
+  const token = getToken();
+  const response = await fetch(getDownloadUrl(packId), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!response.ok) {
+    let message = "Could not download PDF.";
+    try {
+      const text = await response.text();
+      if (text) message = text;
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(message, response.status);
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 /** Reads ~NN% from server progress messages when present. */
