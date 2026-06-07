@@ -28,10 +28,13 @@ All API settings live in **JSON appsettings files** (not Azure Portal Applicatio
 
 ## Azure App Service
 
-1. Set only this in the portal (Configuration → Application settings):
+1. Set these in the portal (Configuration → Application settings):
    - **`ASPNETCORE_ENVIRONMENT`** = `Production`
-2. **Do not** duplicate JWT/OpenAI/Stripe/SQL in portal settings — the app reads `appsettings.Production.json` from the deployed package.
-3. Ensure `appsettings.Production.json` is included when you publish (it is on your machine; `.gitignore` only blocks git, not deploy).
+   - **`WEBSITE_NODE_DEFAULT_VERSION`** = `~20` (Node sidecar for hosted frontend)
+2. **General settings** → **Always On** = **On** (required for Hangfire / long story jobs)
+3. **Do not** duplicate JWT/OpenAI/Stripe/SQL in portal settings — the app reads `appsettings.Production.json` from the deployed package.
+4. Ensure `appsettings.Production.json` is included when you publish (it is on your machine; `.gitignore` only blocks git, not deploy).
+5. Replace every `YOUR-API.azurewebsites.net` in `appsettings.Production.json` with your real App Service hostname before publish.
 
 ## Production file sections
 
@@ -115,13 +118,75 @@ Or in Visual Studio, choose the **Production** launch profile.
 
 `appsettings.Development.json` only disables seed when accidentally run in Development mode.
 
-## Frontend
+## Frontend (separate Node App Service — recommended on Linux)
 
-Still uses `wwwroot/.env`:
+Create a **second** App Service: **Linux**, **Node 22 LTS** (Poland Central, same region as API).
+
+### Build + zip
+
+```powershell
+cd scripts
+.\publish-frontend-azure.ps1
+```
+
+Produces `KidsAdventuresAPI/wwwroot/frontend-deploy.zip` (Nitro `node-server` output).
+
+`wwwroot/.env.production` must point at the API:
 
 ```env
-VITE_API_BASE_URL=https://your-api.azurewebsites.net
+VITE_API_BASE_URL=https://adventuresapi-guajeacbcucsbwau.polandcentral-01.azurewebsites.net
 ```
+
+### Frontend App Service settings
+
+| Setting | Value |
+|---------|--------|
+| **Startup Command** | `node server/index.mjs` |
+| `SCM_DO_BUILD_DURING_DEPLOYMENT` | `false` |
+| `WEBSITE_NODE_DEFAULT_VERSION` | `~22` |
+
+Deploy: **Advanced Tools (Kudu)** → **Zip Push Deploy** → upload `frontend-deploy.zip`.
+
+### API must allow the frontend origin
+
+After you know the frontend URL (e.g. `https://your-frontend.polandcentral-01.azurewebsites.net`), update **`appsettings.Production.json`** on the API:
+
+- `Cors:AllowedOrigins` → add the frontend URL
+- `Email:BaseUrl` → frontend URL
+- `Email:ApiBaseUrl` → API URL (unchanged)
+- `Stripe:SuccessUrl` / `CancelUrl` → frontend billing paths
+- `Frontend:EnableHostedNode` → `false` (API-only)
+
+Republish the API after CORS/URL changes.
+
+### Local dev
+
+`wwwroot/.env`:
+
+```env
+VITE_API_BASE_URL=http://localhost:5071
+```
+
+## Deploy without a pipeline
+
+**Visual Studio:** Right-click `KidsAdventuresAPI` → **Publish** → Azure App Service → **Release**.
+
+**PowerShell:**
+
+```powershell
+cd scripts
+.\publish-azure.ps1 -WebAppName "your-api-app" -ResourceGroup "your-rg"
+```
+
+Or zip-only (manual Kudu deploy): `.\publish-azure.ps1 -SkipAzDeploy`
+
+**After first deploy (Azure Portal):**
+
+- `ASPNETCORE_ENVIRONMENT` = `Production`
+- **Always On** = On (required for Hangfire / story generation)
+- Node.js 18+ on the app (default on Windows App Service)
+
+Browse `https://your-api.azurewebsites.net` for the site and `/swagger` for the API.
 
 ## Security
 

@@ -1,4 +1,5 @@
 using AdventurePacks.Api.Configuration.Options;
+using AdventurePacks.Api.Domain;
 using AdventurePacks.Api.DTOs.Subscriptions;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
@@ -9,37 +10,100 @@ namespace AdventurePacks.Api.Services.Implementations;
 
 public sealed class SubscriptionService(
     IUserRepository userRepository,
-    ISubscriptionRepository subscriptionRepository,
+    IBookCreditPurchaseRepository bookCreditPurchaseRepository,
     IAdventurePackRepository adventurePackRepository,
     IOptions<StripeOptions> stripeOptions) : ISubscriptionService
 {
     private readonly StripeOptions _stripe = stripeOptions.Value;
+
+    public async Task<AccountBalanceResponse> GetAccountBalanceAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var user = await userRepository.GetByIdAsync(userId, cancellationToken)
+                   ?? throw new UnauthorizedAccessException("User not found.");
+
+        var quota = await GetStoryQuotaAsync(userId, user.BookCredits, cancellationToken);
+
+        return new AccountBalanceResponse
+        {
+            BookCredits = user.BookCredits,
+            StoriesUsedThisMonth = quota.Used,
+            StoriesAllowedThisMonth = quota.Allowed,
+            StoriesRemainingThisMonth = quota.Remaining,
+            WelcomeStoryRemaining = user.WelcomeStoryRemaining,
+            SubscriptionType = user.SubscriptionType,
+            HasUnlimitedPdf = false
+        };
+    }
+
+    private async Task<(int Used, int Allowed, int Remaining)> GetStoryQuotaAsync(
+        Guid userId,
+        int bookCredits,
+        CancellationToken cancellationToken)
+    {
+        var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var monthEnd = monthStart.AddMonths(1);
+        var used = await adventurePackRepository.CountForMonthAsync(userId, monthStart, monthEnd, cancellationToken);
+        var allowed = 1 + bookCredits;
+        var remaining = Math.Max(0, allowed - used);
+        return (used, allowed, remaining);
+    }
 
     public async Task EnsureGenerationAllowedAsync(Guid userId, CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByIdAsync(userId, cancellationToken)
                    ?? throw new UnauthorizedAccessException("User not found.");
 
-        if (user.SubscriptionType == SubscriptionType.Premium)
+        var quota = await GetStoryQuotaAsync(userId, user.BookCredits, cancellationToken);
+        if (quota.Remaining <= 0)
+        {
+            throw new InvalidOperationException(
+                user.BookCredits > 0
+                    ? "You've used all your stories for this month (1 free + 1 per book credit). Buy more book credits to create additional stories."
+                    : "Free plan limit reached: 1 story per month. Buy a book pack for more stories — PDF export is always free.");
+        }
+    }
+
+    public Task EnsurePdfGenerationAllowedAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        _ = userId;
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> TryChargePdfCreditAsync(Guid userId, Guid packId, CancellationToken cancellationToken)
+    {
+        _ = userId;
+        _ = packId;
+        _ = cancellationToken;
+        return Task.FromResult(false);
+    }
+
+    public async Task RefundPdfCreditIfChargedAsync(Guid userId, Guid packId, CancellationToken cancellationToken)
+    {
+        var pack = await adventurePackRepository.GetByIdNoOwnershipAsync(packId, cancellationToken);
+        if (pack is null || !pack.PdfCreditCharged)
         {
             return;
         }
 
-        var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-        var monthEnd = monthStart.AddMonths(1);
-        var used = await adventurePackRepository.CountForMonthAsync(userId, monthStart, monthEnd, cancellationToken);
-
-        if (used >= 1)
-        {
-            throw new InvalidOperationException("Free plan limit reached: 1 pack per month.");
-        }
+        await userRepository.RefundBookCreditAsync(userId, cancellationToken);
+        await adventurePackRepository.SetPdfCreditChargedAsync(packId, false, cancellationToken);
     }
 
-    public async Task<CheckoutSessionResponse> CreateCheckoutSessionAsync(Guid userId, string email, string planType, CancellationToken cancellationToken)
+    public async Task<CheckoutSessionResponse> CreateCheckoutSessionAsync(
+        Guid userId,
+        string email,
+        string planType,
+        CancellationToken cancellationToken)
     {
-        if (!string.Equals(planType, "Premium", StringComparison.OrdinalIgnoreCase))
+        if (!BookPackPlans.IsSupported(planType))
         {
-            throw new InvalidOperationException("Only Premium plan checkout is supported.");
+            throw new InvalidOperationException("Only Books3, Books5, and Books15 packs are supported.");
+        }
+
+        var priceId = BookPackPlans.GetPriceId(planType, _stripe);
+        if (string.IsNullOrWhiteSpace(priceId))
+        {
+            throw new InvalidOperationException($"Stripe price is not configured for {planType}.");
         }
 
         StripeConfiguration.ApiKey = _stripe.SecretKey;
@@ -47,7 +111,7 @@ public sealed class SubscriptionService(
         var service = new SessionService();
         var session = await service.CreateAsync(new SessionCreateOptions
         {
-            Mode = "subscription",
+            Mode = "payment",
             SuccessUrl = _stripe.SuccessUrl,
             CancelUrl = _stripe.CancelUrl,
             CustomerEmail = email,
@@ -55,13 +119,14 @@ public sealed class SubscriptionService(
             [
                 new SessionLineItemOptions
                 {
-                    Price = _stripe.PremiumPriceId,
+                    Price = priceId,
                     Quantity = 1
                 }
             ],
             Metadata = new Dictionary<string, string>
             {
-                ["userId"] = userId.ToString()
+                ["userId"] = userId.ToString(),
+                ["planType"] = planType
             }
         }, cancellationToken: cancellationToken);
 
@@ -72,54 +137,107 @@ public sealed class SubscriptionService(
         };
     }
 
+    public async Task<AccountBalanceResponse> ConfirmCheckoutSessionAsync(
+        Guid userId,
+        string sessionId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            throw new InvalidOperationException("Checkout session id is required.");
+        }
+
+        StripeConfiguration.ApiKey = _stripe.SecretKey;
+
+        var service = new SessionService();
+        var session = await service.GetAsync(sessionId, cancellationToken: cancellationToken);
+
+        if (!string.Equals(session.PaymentStatus, "paid", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Payment is not completed yet.");
+        }
+
+        await FulfillPaidCheckoutSessionAsync(session, userId, cancellationToken);
+        return await GetAccountBalanceAsync(userId, cancellationToken);
+    }
+
     public async Task HandleWebhookAsync(string jsonPayload, string stripeSignature, CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(_stripe.WebhookSecret))
+        {
+            return;
+        }
+
         StripeConfiguration.ApiKey = _stripe.SecretKey;
 
         var stripeEvent = EventUtility.ConstructEvent(jsonPayload, stripeSignature, _stripe.WebhookSecret);
-        switch (stripeEvent.Type)
+        if (!string.Equals(stripeEvent.Type, "checkout.session.completed", StringComparison.Ordinal))
         {
-            case "checkout.session.completed":
-            {
-                var session = stripeEvent.Data.Object as Session;
-                if (session?.Metadata is null || !session.Metadata.TryGetValue("userId", out var userIdRaw) || !Guid.TryParse(userIdRaw, out var userId))
-                {
-                    return;
-                }
+            return;
+        }
 
-                var subscriptionId = session.SubscriptionId ?? string.Empty;
-                var customerId = session.CustomerId ?? string.Empty;
-                await ActivatePremiumAsync(userId, customerId, subscriptionId, cancellationToken);
-                break;
-            }
-            case "customer.subscription.deleted":
-            {
-                var sub = stripeEvent.Data.Object as Stripe.Subscription;
-                if (sub?.Metadata is null || !sub.Metadata.TryGetValue("userId", out var userIdRaw) || !Guid.TryParse(userIdRaw, out var userId))
-                {
-                    return;
-                }
+        var session = stripeEvent.Data.Object as Session;
+        if (session?.Metadata is null
+            || !session.Metadata.TryGetValue("userId", out var userIdRaw)
+            || !Guid.TryParse(userIdRaw, out var userId))
+        {
+            return;
+        }
 
-                await userRepository.UpdateSubscriptionTypeAsync(userId, SubscriptionType.Free, cancellationToken);
-                break;
-            }
+        await TryFulfillPaidCheckoutSessionAsync(session, userId, cancellationToken);
+    }
+
+    private async Task FulfillPaidCheckoutSessionAsync(
+        Session session,
+        Guid expectedUserId,
+        CancellationToken cancellationToken)
+    {
+        var fulfilled = await TryFulfillPaidCheckoutSessionAsync(session, expectedUserId, cancellationToken);
+        if (!fulfilled)
+        {
+            throw new InvalidOperationException("Checkout session could not be confirmed for this account.");
         }
     }
 
-    private async Task ActivatePremiumAsync(Guid userId, string stripeCustomerId, string stripeSubscriptionId, CancellationToken cancellationToken)
+    private async Task<bool> TryFulfillPaidCheckoutSessionAsync(
+        Session session,
+        Guid expectedUserId,
+        CancellationToken cancellationToken)
     {
-        _ = await userRepository.GetByIdAsync(userId, cancellationToken)
-            ?? throw new InvalidOperationException("User not found for subscription activation.");
-
-        await userRepository.UpdateSubscriptionTypeAsync(userId, SubscriptionType.Premium, cancellationToken);
-
-        await subscriptionRepository.UpsertAsync(new Domain.Entities.Subscription
+        if (session.Metadata is null
+            || !session.Metadata.TryGetValue("userId", out var userIdRaw)
+            || !Guid.TryParse(userIdRaw, out var userId)
+            || userId != expectedUserId
+            || !session.Metadata.TryGetValue("planType", out var planType)
+            || !BookPackPlans.IsSupported(planType))
         {
-            UserId = userId,
-            StripeCustomerId = stripeCustomerId,
-            StripeSubscriptionId = stripeSubscriptionId,
-            PlanType = SubscriptionType.Premium,
-            ActiveUntil = DateTime.UtcNow.AddYears(10)
-        }, cancellationToken);
+            return false;
+        }
+
+        if (!string.Equals(session.Mode, "payment", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!string.Equals(session.PaymentStatus, "paid", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var credits = BookPackPlans.GetCredits(planType);
+        var recorded = await bookCreditPurchaseRepository.TryRecordPurchaseAsync(
+            userId,
+            session.Id,
+            credits,
+            planType,
+            cancellationToken);
+
+        if (!recorded)
+        {
+            return true;
+        }
+
+        await userRepository.AddBookCreditsAsync(userId, credits, cancellationToken);
+        return true;
     }
 }

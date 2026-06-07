@@ -12,6 +12,6 @@ public sealed class SeedOptions
 
     public string DemoEmail { get; set; } = "demo@adventurepacks.com";
     public string DemoPassword { get; set; } = "Adventure123!";
-    public bool CreatePremiumDemoUser { get; set; } = true;
+    public bool CreatePremiumDemoUser { get; set; } = false;
     public string PremiumDemoEmail { get; set; } = "premium@adventurepacks.com";
 }

@@ -12,4 +12,16 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  vite: {
+    build: {
+      outDir: "dist",
+    },
+  },
+  nitro: {
+    // Azure App Service (Node sidecar via ASP.NET reverse proxy)
+    preset: "node-server",
+    output: {
+      dir: "azure-ssr",
+    },
+  },
 });

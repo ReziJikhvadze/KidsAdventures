@@ -15,5 +15,11 @@ public sealed class AdventurePack
     public string? OptionalStoryNotes { get; set; }
     public string? StoryLanguage { get; set; }
     public string? ProgressMessage { get; set; }
+    public bool PdfCreditCharged { get; set; }
+    public string? PreviewIllustrationUrl { get; set; }
+    public PreviewIllustrationStatus PreviewIllustrationStatus { get; set; } = PreviewIllustrationStatus.None;
+    public DateTime? PreviewIllustrationUpdatedAt { get; set; }
+    public int StoryPageCount { get; set; } = 6;
+    public bool IsWelcomeGiftStory { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

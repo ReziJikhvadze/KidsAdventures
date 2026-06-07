@@ -10,6 +10,27 @@ public sealed class SubscriptionsController(
     IUserContextService userContext) : ControllerBase
 {
     [Authorize]
+    [HttpGet("account")]
+    public async Task<ActionResult<AccountBalanceResponse>> GetAccount(CancellationToken cancellationToken)
+    {
+        var balance = await subscriptionService.GetAccountBalanceAsync(userContext.GetUserId(), cancellationToken);
+        return Ok(balance);
+    }
+
+    [Authorize]
+    [HttpPost("confirm-checkout")]
+    public async Task<ActionResult<AccountBalanceResponse>> ConfirmCheckout(
+        [FromBody] ConfirmCheckoutSessionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var balance = await subscriptionService.ConfirmCheckoutSessionAsync(
+            userContext.GetUserId(),
+            request.SessionId,
+            cancellationToken);
+        return Ok(balance);
+    }
+
+    [Authorize]
     [HttpPost("create-checkout-session")]
     public async Task<ActionResult<CheckoutSessionResponse>> CreateCheckoutSession([FromBody] CreateCheckoutSessionRequest request, CancellationToken cancellationToken)
     {

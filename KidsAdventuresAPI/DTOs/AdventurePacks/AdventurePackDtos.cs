@@ -19,7 +19,7 @@ public sealed class GenerateAdventurePackRequest
     public string? StoryLanguage { get; set; }
 }
 
-public sealed class AdventurePackResponse
+public class AdventurePackResponse
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
@@ -30,7 +30,25 @@ public sealed class AdventurePackResponse
     public string? ProgressMessage { get; set; }
     public string? ErrorMessage { get; set; }
     public string? StoryLanguage { get; set; }
+    public PreviewIllustrationStatus PreviewIllustrationStatus { get; set; }
+    public int StoryPageCount { get; set; }
+    public bool IsWelcomeGiftStory { get; set; }
     public DateTime CreatedAt { get; set; }
+}
+
+public sealed class AdventurePackDetailResponse : AdventurePackResponse
+{
+    public string? Title { get; set; }
+    public string? ChildName { get; set; }
+    public List<StoryPageContentDto> StoryPages { get; set; } = [];
+}
+
+public sealed class StoryPageContentDto
+{
+    public string Title { get; set; } = string.Empty;
+    public string Content { get; set; } = string.Empty;
+    public string? IllustrationUrl { get; set; }
+    public bool IsIllustrated { get; set; }
 }
 
 public sealed class AdventureContentDto
@@ -61,6 +79,9 @@ public sealed class StoryPageDto
 
     [JsonPropertyName("content")]
     public string Content { get; set; } = string.Empty;
+
+    [JsonPropertyName("illustrationUrl")]
+    public string? IllustrationUrl { get; set; }
 
     /// <summary>Illustration bytes (set after OpenAI image generation; not part of story JSON).</summary>
     [JsonIgnore]

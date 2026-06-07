@@ -22,6 +22,7 @@ public static class ServiceCollectionExtensions
         services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.SectionName));
         services.Configure<CorsOptions>(configuration.GetSection(CorsOptions.SectionName));
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
+        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
         return services;
     }
 
@@ -119,18 +120,29 @@ public static class ServiceCollectionExtensions
             client.Timeout = TimeSpan.FromMinutes(6);
         });
 
+        var permitLimit = configuration.GetValue("RateLimiting:PermitLimitPerMinute", 500);
+        var disableForLocalhost = configuration.GetValue("RateLimiting:DisableForLocalhost", true);
+
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-            options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(_ =>
-                RateLimitPartition.GetFixedWindowLimiter(
-                    partitionKey: "global-api",
+            options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+            {
+                var remoteIp = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                if (disableForLocalhost && remoteIp is "127.0.0.1" or "::1")
+                {
+                    return RateLimitPartition.GetNoLimiter(remoteIp);
+                }
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: remoteIp,
                     factory: _ => new FixedWindowRateLimiterOptions
                     {
-                        PermitLimit = 100,
+                        PermitLimit = permitLimit,
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0
-                    }));
+                    });
+            });
         });
 
         services.AddHttpContextAccessor();
@@ -163,12 +175,14 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IFamilyMemberRepository, FamilyMemberRepository>();
         services.AddScoped<IAdventurePackRepository, AdventurePackRepository>();
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+        services.AddScoped<IBookCreditPurchaseRepository, BookCreditPurchaseRepository>();
 
         services.AddScoped<IOpenAiService, OpenAiService>();
         services.AddScoped<IAdventurePdfService, AdventurePdfService>();
         services.AddScoped<IBlobStorageService, AzureBlobStorageService>();
         services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddScoped<IAdventureGenerationService, AdventureGenerationService>();
+        services.AddScoped<IEmailService, SmtpEmailService>();
 
         return services;
     }

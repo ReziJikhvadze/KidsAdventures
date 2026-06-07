@@ -6,7 +6,9 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
 {
     private const string PackColumns = """
         Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, ErrorMessage,
-        OptionalStoryNotes, StoryLanguage, ProgressMessage, CreatedAt
+        OptionalStoryNotes, StoryLanguage, ProgressMessage, PdfCreditCharged,
+        PreviewIllustrationUrl, PreviewIllustrationStatus, PreviewIllustrationUpdatedAt,
+        StoryPageCount, IsWelcomeGiftStory, CreatedAt
         """;
 
     public async Task<Guid> CreatePendingAsync(AdventurePack pack, CancellationToken cancellationToken)
@@ -14,10 +16,12 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         const string sql = """
                            INSERT INTO AdventurePacks (
                                Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, ErrorMessage,
-                               OptionalStoryNotes, StoryLanguage, ProgressMessage, CreatedAt)
+                               OptionalStoryNotes, StoryLanguage, ProgressMessage, PdfCreditCharged,
+                               PreviewIllustrationUrl, PreviewIllustrationStatus, StoryPageCount, IsWelcomeGiftStory, CreatedAt)
                            VALUES (
                                @Id, @UserId, @ChildId, @Theme, @Status, @GeneratedJson, @PdfUrl, @ErrorMessage,
-                               @OptionalStoryNotes, @StoryLanguage, @ProgressMessage, @CreatedAt);
+                               @OptionalStoryNotes, @StoryLanguage, @ProgressMessage, @PdfCreditCharged,
+                               @PreviewIllustrationUrl, @PreviewIllustrationStatus, @StoryPageCount, @IsWelcomeGiftStory, @CreatedAt);
                            """;
         pack.Id = pack.Id == Guid.Empty ? Guid.NewGuid() : pack.Id;
 
@@ -35,6 +39,11 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
             pack.OptionalStoryNotes,
             pack.StoryLanguage,
             pack.ProgressMessage,
+            pack.PdfCreditCharged,
+            pack.PreviewIllustrationUrl,
+            PreviewIllustrationStatus = pack.PreviewIllustrationStatus.ToString(),
+            pack.StoryPageCount,
+            pack.IsWelcomeGiftStory,
             pack.CreatedAt
         }, cancellationToken: cancellationToken));
         return pack.Id;
@@ -87,10 +96,20 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
                            FROM AdventurePacks
                            WHERE UserId = @UserId
                              AND CreatedAt >= @UtcMonthStart
-                             AND CreatedAt < @UtcMonthEnd;
+                             AND CreatedAt < @UtcMonthEnd
+                             AND Status <> @FailedStatus;
                            """;
         using var connection = connectionFactory.CreateConnection();
-        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(sql, new { UserId = userId, UtcMonthStart = utcMonthStart, UtcMonthEnd = utcMonthEnd }, cancellationToken: cancellationToken));
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            sql,
+            new
+            {
+                UserId = userId,
+                UtcMonthStart = utcMonthStart,
+                UtcMonthEnd = utcMonthEnd,
+                FailedStatus = AdventurePackStatus.Failed.ToString()
+            },
+            cancellationToken: cancellationToken));
     }
 
     public async Task<bool> UpdateStatusAsync(Guid id, AdventurePackStatus status, string? generatedJson, string? pdfUrl, string? errorMessage, CancellationToken cancellationToken)
@@ -126,6 +145,108 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         await connection.ExecuteAsync(new CommandDefinition(sql, new { Id = id, ProgressMessage = progressMessage }, cancellationToken: cancellationToken));
     }
 
+    public async Task SetPdfCreditChargedAsync(Guid id, bool charged, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE AdventurePacks
+                           SET PdfCreditCharged = @PdfCreditCharged
+                           WHERE Id = @Id;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            Id = id,
+            PdfCreditCharged = charged
+        }, cancellationToken: cancellationToken));
+    }
+
+    public async Task UpdatePreviewIllustrationAsync(
+        Guid id,
+        PreviewIllustrationStatus status,
+        string? illustrationUrl,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE AdventurePacks
+                           SET PreviewIllustrationStatus = @PreviewIllustrationStatus,
+                               PreviewIllustrationUrl = @PreviewIllustrationUrl,
+                               PreviewIllustrationUpdatedAt = SYSUTCDATETIME()
+                           WHERE Id = @Id;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            Id = id,
+            PreviewIllustrationStatus = status.ToString(),
+            PreviewIllustrationUrl = illustrationUrl
+        }, cancellationToken: cancellationToken));
+    }
+
+    public async Task<bool> TryClaimPreviewIllustrationGenerationAsync(
+        Guid id,
+        int staleAfterMinutes,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE AdventurePacks
+                           SET PreviewIllustrationStatus = @Generating,
+                               PreviewIllustrationUpdatedAt = SYSUTCDATETIME()
+                           WHERE Id = @Id
+                             AND (
+                                 PreviewIllustrationStatus IN (@None, @Failed)
+                                 OR (
+                                     PreviewIllustrationStatus = @Generating
+                                     AND (
+                                         PreviewIllustrationUpdatedAt IS NULL
+                                         OR PreviewIllustrationUpdatedAt < DATEADD(minute, -@StaleAfterMinutes, SYSUTCDATETIME())
+                                     )
+                                 )
+                             );
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        var affected = await connection.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            Id = id,
+            StaleAfterMinutes = staleAfterMinutes,
+            Generating = PreviewIllustrationStatus.Generating.ToString(),
+            None = PreviewIllustrationStatus.None.ToString(),
+            Failed = PreviewIllustrationStatus.Failed.ToString()
+        }, cancellationToken: cancellationToken));
+        return affected > 0;
+    }
+
+    public async Task TouchPreviewIllustrationHeartbeatAsync(Guid id, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE AdventurePacks
+                           SET PreviewIllustrationUpdatedAt = SYSUTCDATETIME()
+                           WHERE Id = @Id
+                             AND PreviewIllustrationStatus = @Generating;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            Id = id,
+            Generating = PreviewIllustrationStatus.Generating.ToString()
+        }, cancellationToken: cancellationToken));
+    }
+
+    public async Task<bool> UpdateGeneratedJsonAsync(Guid id, string generatedJson, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE AdventurePacks
+                           SET GeneratedJson = @GeneratedJson
+                           WHERE Id = @Id;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        var affected = await connection.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            Id = id,
+            GeneratedJson = generatedJson
+        }, cancellationToken: cancellationToken));
+        return affected > 0;
+    }
+
     private static AdventurePack Map(AdventurePackRow row) => new()
     {
         Id = row.Id,
@@ -139,6 +260,12 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         OptionalStoryNotes = row.OptionalStoryNotes,
         StoryLanguage = row.StoryLanguage,
         ProgressMessage = row.ProgressMessage,
+        PdfCreditCharged = row.PdfCreditCharged,
+        PreviewIllustrationUrl = row.PreviewIllustrationUrl,
+        PreviewIllustrationStatus = Enum.Parse<PreviewIllustrationStatus>(row.PreviewIllustrationStatus),
+        PreviewIllustrationUpdatedAt = row.PreviewIllustrationUpdatedAt,
+        StoryPageCount = row.StoryPageCount,
+        IsWelcomeGiftStory = row.IsWelcomeGiftStory,
         CreatedAt = row.CreatedAt
     };
 
@@ -155,6 +282,12 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         public string? OptionalStoryNotes { get; set; }
         public string? StoryLanguage { get; set; }
         public string? ProgressMessage { get; set; }
+        public bool PdfCreditCharged { get; set; }
+        public string? PreviewIllustrationUrl { get; set; }
+        public string PreviewIllustrationStatus { get; set; } = "None";
+        public DateTime? PreviewIllustrationUpdatedAt { get; set; }
+        public int StoryPageCount { get; set; } = 6;
+        public bool IsWelcomeGiftStory { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 }

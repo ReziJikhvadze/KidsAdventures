@@ -39,7 +39,8 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : IJwtTokenSer
             Token = new JwtSecurityTokenHandler().WriteToken(jwtToken),
             ExpiresAt = expires,
             Email = user.Email,
-            SubscriptionType = user.SubscriptionType
+            SubscriptionType = user.SubscriptionType,
+            BookCredits = user.BookCredits
         };
     }
 }

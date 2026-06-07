@@ -61,6 +61,7 @@ public sealed class DatabaseSeeder(
             Email = normalizedEmail,
             PasswordHash = passwordHasher.Hash(password),
             SubscriptionType = subscriptionType,
+            EmailConfirmed = true,
             CreatedAt = DateTime.UtcNow
         };
 

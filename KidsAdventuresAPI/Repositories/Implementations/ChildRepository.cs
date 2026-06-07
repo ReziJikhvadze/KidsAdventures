@@ -4,7 +4,8 @@ namespace AdventurePacks.Api.Repositories.Implementations;
 
 public sealed class ChildRepository(ISqlConnectionFactory connectionFactory) : IChildRepository
 {
-    private const string ChildColumns = "Id, UserId, Name, Age, PhotoUrl, CreatedAt";
+    private const string ChildColumns =
+        "Id, UserId, Name, Age, PhotoUrl, AppearanceDescription, AppearancePhotoUrl, CreatedAt";
 
     public async Task<IReadOnlyList<Child>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken)
     {
@@ -46,12 +47,47 @@ public sealed class ChildRepository(ISqlConnectionFactory connectionFactory) : I
     {
         const string sql = """
                            UPDATE Children
-                           SET Name = @Name, Age = @Age, PhotoUrl = @PhotoUrl
+                           SET Name = @Name,
+                               Age = @Age,
+                               PhotoUrl = @PhotoUrl,
+                               AppearanceDescription = CASE
+                                   WHEN @PhotoUrl IS NULL OR @PhotoUrl <> ISNULL(AppearancePhotoUrl, N'')
+                                       THEN NULL
+                                   ELSE AppearanceDescription
+                               END,
+                               AppearancePhotoUrl = CASE
+                                   WHEN @PhotoUrl IS NULL OR @PhotoUrl <> ISNULL(AppearancePhotoUrl, N'')
+                                       THEN NULL
+                                   ELSE AppearancePhotoUrl
+                               END
                            WHERE Id = @Id AND UserId = @UserId;
                            """;
         using var connection = connectionFactory.CreateConnection();
         var affected = await connection.ExecuteAsync(new CommandDefinition(sql, child, cancellationToken: cancellationToken));
         return affected > 0;
+    }
+
+    public async Task UpdateAppearanceCacheAsync(
+        Guid id,
+        Guid userId,
+        string? appearanceDescription,
+        string? appearancePhotoUrl,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE Children
+                           SET AppearanceDescription = @AppearanceDescription,
+                               AppearancePhotoUrl = @AppearancePhotoUrl
+                           WHERE Id = @Id AND UserId = @UserId;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            Id = id,
+            UserId = userId,
+            AppearanceDescription = appearanceDescription,
+            AppearancePhotoUrl = appearancePhotoUrl
+        }, cancellationToken: cancellationToken));
     }
 
     public async Task<bool> DeleteAsync(Guid id, Guid userId, CancellationToken cancellationToken)

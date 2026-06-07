@@ -8,13 +8,21 @@ public sealed class OpenAiOptions
     public string BaseUrl { get; set; } = "https://api.openai.com/v1";
     /// <summary>responses = Responses API + image_generation tool (recommended). dall-e = Images API only.</summary>
     public string ImageGenerationProvider { get; set; } = "responses";
-    /// <summary>Image model for text-only generation: gpt-image-1-mini (budget), gpt-image-1, or gpt-image-2.</summary>
-    public string ImageModel { get; set; } = "gpt-image-1-mini";
-    /// <summary>Model for photo-reference edits (images/edits). gpt-image-2 gives the best likeness; mini is cheaper.</summary>
-    public string ImageEditModel { get; set; } = "gpt-image-2";
+    /// <summary>Image model: gpt-image-1-mini (budget), gpt-image-1.5, or gpt-image-2 (best).</summary>
+    public string ImageModel { get; set; } = "gpt-image-1.5";
+    /// <summary>Model for character-anchor edits (images/edits) on pages 2+.</summary>
+    public string ImageEditModel { get; set; } = "gpt-image-1.5";
+    /// <summary>Landscape 3:2 fits picture-book pages better than square. gpt-image also supports 1024x1024, 1024x1536.</summary>
     public string ImageSize { get; set; } = "1024x1024";
-    public string ImageQuality { get; set; } = "low";
-    /// <summary>Quality when a hero photo is used (minimum medium recommended for recognizable likeness).</summary>
-    public string ImagePhotoQuality { get; set; } = "high";
+    /// <summary>low | medium | high (gpt-image) or standard | hd (dall-e-3).</summary>
+    public string ImageQuality { get; set; } = "medium";
+    /// <summary>Legacy setting — story images now use ImageQuality for Pixar-style output.</summary>
+    public string ImagePhotoQuality { get; set; } = "medium";
     public bool EnableStoryImages { get; set; } = true;
+    /// <summary>Seconds to wait between sequential illustration requests (rate-limit pacing).</summary>
+    public int IllustrationPacingSeconds { get; set; } = 5;
+    /// <summary>How many pages to illustrate concurrently after the hero anchor (page 1) exists. 2 is a good balance.</summary>
+    public int IllustrationMaxParallel { get; set; } = 2;
+    /// <summary>Stagger parallel illustration starts to avoid burst rate limits.</summary>
+    public int IllustrationStaggerSeconds { get; set; } = 2;
 }

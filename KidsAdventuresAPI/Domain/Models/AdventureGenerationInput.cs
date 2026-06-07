@@ -9,4 +9,5 @@ public sealed class AdventureGenerationInput
     public IReadOnlyList<FamilyMemberCastEntry> FamilyMembers { get; set; } = [];
     public string? OptionalStoryNotes { get; set; }
     public string StoryLanguage { get; set; } = "en";
+    public int StoryPageCount { get; set; } = 6;
 }

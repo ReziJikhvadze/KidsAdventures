@@ -11,7 +11,8 @@ builder.Services
     .AddAdventurePacksData()
     .AddAdventurePacksAuth(builder.Configuration)
     .AddAdventurePacksInfrastructure(builder.Configuration)
-    .AddAdventurePacksApplication();
+    .AddAdventurePacksApplication()
+    .AddFrontendHosting(builder.Configuration);
 
 var app = builder.Build();
 
@@ -44,5 +45,6 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 });
 
 app.MapControllers();
+app.UseFrontendHosting();
 
 app.Run();

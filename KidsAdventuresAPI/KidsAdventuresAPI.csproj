@@ -17,6 +17,7 @@
     <PackageReference Include="QuestPDF" Version="2025.7.4" />
     <PackageReference Include="Stripe.net" Version="49.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
+    <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -25,5 +26,28 @@
     <None Include="Data\Scripts\Manual\**\*" CopyToOutputDirectory="Never" />
     <Content Include="Assets\Fonts\*.ttf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <Target Name="BuildFrontend" BeforeTargets="PrepareForPublish" Condition="'$(SkipFrontendBuild)' != 'true'">
+    <Message Importance="high" Text="Building frontend (Nitro node-server) for Azure hosting..." />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\wwwroot" Command="npm install" Condition="!Exists('$(MSBuildProjectDirectory)\wwwroot\node_modules')" />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)\wwwroot" Command="npm run build" EnvironmentVariables="VITE_API_BASE_URL=" />
+  </Target>
+
+  <Target Name="CopyFrontendOutputToPublishDir" AfterTargets="Publish">
+    <PropertyGroup>
+      <_FrontendEntry>$(MSBuildProjectDirectory)\wwwroot\azure-ssr\server\index.mjs</_FrontendEntry>
+    </PropertyGroup>
+    <ItemGroup>
+      <_FrontendOutputFiles Include="$(MSBuildProjectDirectory)\wwwroot\azure-ssr\**\*" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(_FrontendOutputFiles)"
+      DestinationFiles="@(_FrontendOutputFiles->'$(PublishDir)wwwroot\azure-ssr\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+      Condition="Exists('$(_FrontendEntry)')" />
+    <Warning
+      Condition="!Exists('$(_FrontendEntry)')"
+      Text="wwwroot\azure-ssr\server\index.mjs was not found. Run 'npm run build' in wwwroot before publish (hosted frontend disabled)." />
+  </Target>
 
 </Project>

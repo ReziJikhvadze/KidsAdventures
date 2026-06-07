@@ -70,6 +70,32 @@ public sealed class ChildrenController(
         return updated ? NoContent() : NotFound();
     }
 
+    [HttpGet("{id:guid}/photo")]
+    public async Task<IActionResult> GetPhoto(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = userContext.GetUserId();
+        var child = await childRepository.GetByIdAsync(id, userId, cancellationToken);
+        if (child is null || string.IsNullOrWhiteSpace(child.PhotoUrl))
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(child.PhotoUrl, cancellationToken);
+            var contentType = child.PhotoUrl.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+                ? "image/png"
+                : child.PhotoUrl.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)
+                    ? "image/webp"
+                    : "image/jpeg";
+            return File(bytes, contentType);
+        }
+        catch
+        {
+            return NotFound();
+        }
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {

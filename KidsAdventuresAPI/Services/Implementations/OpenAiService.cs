@@ -3,13 +3,14 @@ using System.Text.Json;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Models;
 using AdventurePacks.Api.DTOs.AdventurePacks;
+using AdventurePacks.Api.Infrastructure;
 using AdventurePacks.Api.Services;
 using AdventurePacks.Api.Services.Interfaces;
 
 namespace AdventurePacks.Api.Services.Implementations;
 
 /// <summary>
-/// Text + images via OpenAI Responses API; reference-photo illustrations via Images Edit (gpt-image-2).
+/// Text + images via OpenAI Responses API; reference-photo illustrations via Images Edit (gpt-image-1.5).
 /// </summary>
 public sealed class OpenAiService(
     IHttpClientFactory httpClientFactory,
@@ -30,25 +31,64 @@ public sealed class OpenAiService(
         var payload = new
         {
             model = _options.Model,
-            input = prompt
+            input = prompt,
+            text = new
+            {
+                format = new { type = "json_object" }
+            }
         };
 
         using var response = await client.PostAsJsonAsync("responses", payload, cancellationToken);
         var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        var outputText = ExtractOutputText(responseText);
+        var outputText = ModelJsonSanitizer.ExtractJsonObject(ExtractOutputText(responseText));
         if (string.IsNullOrWhiteSpace(outputText))
         {
             throw new InvalidOperationException("OpenAI output was empty.");
         }
 
-        var content = JsonSerializer.Deserialize<AdventureContentDto>(outputText, JsonOptions)
+        AdventureContentDto content;
+        try
+        {
+            content = JsonSerializer.Deserialize<AdventureContentDto>(outputText, JsonOptions)
                       ?? throw new InvalidOperationException("Failed to parse OpenAI JSON output.");
+        }
+        catch (JsonException ex)
+        {
+            logger.LogWarning(ex, "OpenAI returned non-JSON story output (first 200 chars): {Preview}",
+                outputText.Length > 200 ? outputText[..200] : outputText);
+            throw new InvalidOperationException("Story model returned invalid JSON. Please try again.");
+        }
 
-        if (content.StoryPages.Count == 0 || content.Activities.Count == 0)
+        if (content.StoryPages.Count == 0)
         {
             throw new InvalidOperationException("Generated content is incomplete.");
+        }
+
+        var expectedPages = input.StoryPageCount > 0 ? input.StoryPageCount : AdventureStoryConstants.FullPageCount;
+        if (expectedPages > AdventureStoryConstants.FullPageCount)
+        {
+            expectedPages = AdventureStoryConstants.FullPageCount;
+        }
+
+        if (content.StoryPages.Count > expectedPages)
+        {
+            logger.LogWarning(
+                "Trimming {Actual} story pages down to {Expected} for adventure {AdventureId}",
+                content.StoryPages.Count,
+                expectedPages,
+                adventureId);
+            content.StoryPages = content.StoryPages.Take(expectedPages).ToList();
+        }
+
+        if (content.StoryPages.Count != expectedPages)
+        {
+            logger.LogWarning(
+                "Expected {Expected} story pages but model returned {Actual} for adventure {AdventureId}",
+                expectedPages,
+                content.StoryPages.Count,
+                adventureId);
         }
 
         return content;
@@ -78,9 +118,10 @@ public sealed class OpenAiService(
                         {
                             type = "input_text",
                             text = roleDescription +
-                                   " Reply with one dense paragraph for an illustrator who must match this exact child in every drawing: " +
-                                   "hair color, length, texture, parting, bangs; eye color, shape, spacing; eyebrow shape; nose shape; mouth and smile; face shape and cheek fullness; skin tone; apparent age; glasses or freckles if any; clothing colors if visible. " +
-                                   "Be specific and visual. No markdown."
+                                   " Reply with one dense paragraph for a Pixar character designer (stylized 3D animation, NOT photorealistic): " +
+                                   "exact hair color, length, texture, and parting; skin tone; apparent age; glasses or freckles if any; " +
+                                   "face shape and 2–3 distinctive features (e.g. curly auburn hair, warm brown skin, round cheeks). " +
+                                   "Be specific and literal — an illustrator will copy these traits. No markdown."
                         },
                         new
                         {
@@ -119,51 +160,76 @@ public sealed class OpenAiService(
         }
 
         var referenceImages = CollectReferenceImages(reference);
-        var hasHeroPhoto = reference?.HeroPhotoBytes is { Length: > 0 };
         if (referenceImages.Count > 0)
         {
             try
             {
-                return await GenerateStoryImageViaEditApiAsync(
+                return await GenerateStoryImageViaEditApiWithRetryAsync(
                     imagePrompt,
                     referenceImages,
-                    hasHeroPhoto,
                     cancellationToken);
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "GPT Image edit with photo reference failed; falling back to Images API.");
+                logger.LogWarning(
+                    ex,
+                    "GPT Image edit failed after retries; one text-only images/generations fallback.");
             }
         }
 
-        if (string.Equals(_options.ImageGenerationProvider, "dall-e", StringComparison.OrdinalIgnoreCase))
+        return await GenerateStoryImageViaImagesApiAsync(imagePrompt, cancellationToken);
+    }
+
+    private async Task<byte[]> GenerateStoryImageViaEditApiWithRetryAsync(
+        string imagePrompt,
+        IReadOnlyList<(byte[] Bytes, string FileName, string ContentType)> referenceImages,
+        CancellationToken cancellationToken)
+    {
+        const int maxAttempts = 4;
+        Exception? last = null;
+
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
         {
-            return await GenerateStoryImageViaImagesApiAsync(imagePrompt, hasHeroPhoto, cancellationToken);
+            try
+            {
+                return await GenerateStoryImageViaEditApiAsync(imagePrompt, referenceImages, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                last = ex;
+                if (!IsRetryableOpenAiError(ex) || attempt == maxAttempts - 1)
+                {
+                    throw;
+                }
+
+                var delaySeconds = 8 * (attempt + 1);
+                logger.LogWarning(
+                    ex,
+                    "Image edit attempt {Attempt} hit a retryable OpenAI error; waiting {Delay}s",
+                    attempt + 1,
+                    delaySeconds);
+                await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+            }
         }
 
-        try
-        {
-            return await GenerateStoryImageViaResponsesApiAsync(imagePrompt, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Responses API image_generation failed; falling back to Images API.");
-            return await GenerateStoryImageViaImagesApiAsync(imagePrompt, hasHeroPhoto, cancellationToken);
-        }
+        throw last ?? new InvalidOperationException("Image edit failed.");
     }
+
+    private static bool IsRetryableOpenAiError(Exception ex) =>
+        ex.Message.Contains("rate_limit", StringComparison.OrdinalIgnoreCase) ||
+        ex.Message.Contains("429", StringComparison.OrdinalIgnoreCase) ||
+        ex.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase) ||
+        ex.Message.Contains("disconnect", StringComparison.OrdinalIgnoreCase);
 
     private async Task<byte[]> GenerateStoryImageViaEditApiAsync(
         string imagePrompt,
         IReadOnlyList<(byte[] Bytes, string FileName, string ContentType)> referenceImages,
-        bool hasHeroPhoto,
         CancellationToken cancellationToken)
     {
         var client = CreateClient();
         using var form = new MultipartFormDataContent();
         var model = ResolveGptImageEditModel();
-        var quality = hasHeroPhoto
-            ? MapGptImageQuality(_options.ImagePhotoQuality)
-            : MapGptImageQuality(_options.ImageQuality);
+        var quality = MapGptImageQuality(_options.ImageQuality);
 
         form.Add(new StringContent(model), "model");
         form.Add(new StringContent(imagePrompt), "prompt");
@@ -215,12 +281,11 @@ public sealed class OpenAiService(
 
     private async Task<byte[]> GenerateStoryImageViaImagesApiAsync(
         string imagePrompt,
-        bool preferPhotoQuality,
         CancellationToken cancellationToken)
     {
         var client = CreateClient();
         var imageModel = ResolveImagesApiModel();
-        var qualitySetting = preferPhotoQuality ? _options.ImagePhotoQuality : _options.ImageQuality;
+        var qualitySetting = _options.ImageQuality;
 
         var payload = new Dictionary<string, object>
         {
@@ -253,17 +318,41 @@ public sealed class OpenAiService(
         StoryImageReference? reference)
     {
         var images = new List<(byte[] Bytes, string FileName, string ContentType)>();
-        if (reference?.HeroPhotoBytes is { Length: > 0 } hero)
+        if (reference is null)
         {
-            images.Add((hero, "hero-photo.jpg", reference.HeroPhotoContentType));
+            return images;
         }
 
-        if (reference?.CharacterAnchorBytes is { Length: > 0 } anchor)
+        if (reference.CharacterAnchorBytes is { Length: > 0 } anchor)
         {
-            images.Add((anchor, "character-anchor.png", "image/png"));
+            images.Add((anchor, "01-hero-anchor.webp", "image/webp"));
+        }
+
+        foreach (var cast in reference.CastPhotos)
+        {
+            if (cast.Bytes is not { Length: > 0 })
+            {
+                continue;
+            }
+
+            var slot = images.Count + 1;
+            var extension = cast.ContentType switch
+            {
+                "image/png" => "png",
+                "image/webp" => "webp",
+                _ => "jpg"
+            };
+            var slug = cast.IsHero ? "hero" : SanitizeFileSlug(cast.Name);
+            images.Add((cast.Bytes, $"{slot:D2}-{slug}-reference.{extension}", cast.ContentType));
         }
 
         return images;
+    }
+
+    private static string SanitizeFileSlug(string name)
+    {
+        var chars = name.Where(char.IsLetterOrDigit).Take(24).ToArray();
+        return chars.Length > 0 ? new string(chars).ToLowerInvariant() : "cast";
     }
 
     private string ResolveGptImageEditModel()
