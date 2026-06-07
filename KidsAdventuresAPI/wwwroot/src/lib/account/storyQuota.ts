@@ -2,24 +2,30 @@ type StoryQuotaInput = {
   bookCredits: number;
   storiesRemainingThisMonth: number;
   storiesAllowedThisMonth?: number;
+  welcomeStoryRemaining?: number;
   isLoading?: boolean;
 };
 
 export function formatNavQuotaLabel({
   bookCredits,
   storiesRemainingThisMonth,
+  welcomeStoryRemaining,
   isLoading,
 }: StoryQuotaInput): string {
   if (isLoading) return "…";
 
+  if ((welcomeStoryRemaining ?? 0) > 0) {
+    return "Free 2-page preview";
+  }
+
   if (storiesRemainingThisMonth > 0) {
     return storiesRemainingThisMonth === 1
-      ? "1 story left"
-      : `${storiesRemainingThisMonth} stories left`;
+      ? "1 credit left"
+      : `${storiesRemainingThisMonth} credits left`;
   }
 
   if (bookCredits > 0) {
-    return `${bookCredits} credit${bookCredits === 1 ? "" : "s"} · limit reached`;
+    return `${bookCredits} credit${bookCredits === 1 ? "" : "s"} · all used`;
   }
 
   return "Buy credits for more";
@@ -29,42 +35,52 @@ export function formatNavQuotaTitle({
   bookCredits,
   storiesRemainingThisMonth,
   storiesAllowedThisMonth,
+  welcomeStoryRemaining,
 }: StoryQuotaInput): string {
-  const allowed = storiesAllowedThisMonth ?? 1 + bookCredits;
+  const allowed = storiesAllowedThisMonth ?? bookCredits;
+
+  if ((welcomeStoryRemaining ?? 0) > 0) {
+    return "Your free 2-page welcome story is ready to create. Full 6-page books use purchased credits.";
+  }
 
   if (storiesRemainingThisMonth > 0 && bookCredits > 0) {
-    return `${storiesRemainingThisMonth} of ${allowed} stories this month — 1 free every month plus ${bookCredits} purchased credit${bookCredits === 1 ? "" : "s"}.`;
+    return `${storiesRemainingThisMonth} of ${allowed} purchased credit${allowed === 1 ? "" : "s"} left this month.`;
   }
 
   if (storiesRemainingThisMonth > 0) {
-    return `${storiesRemainingThisMonth} of ${allowed} free stories this month.`;
+    return `${storiesRemainingThisMonth} book credit${storiesRemainingThisMonth === 1 ? "" : "s"} available for full 6-page stories.`;
   }
 
   if (bookCredits > 0) {
-    return `Monthly story limit used. You still have ${bookCredits} credit${bookCredits === 1 ? "" : "s"} for next month (plus 1 free).`;
+    return `All ${bookCredits} purchased credit${bookCredits === 1 ? "" : "s"} used this month. Buy more for another adventure.`;
   }
 
-  return "Buy book credits to create more illustrated stories.";
+  return "Buy book credits to unlock full 6-page illustrated storybooks.";
 }
 
 export function formatCreditsBadgeLabel({
   bookCredits,
   storiesRemainingThisMonth,
+  welcomeStoryRemaining,
 }: StoryQuotaInput): string {
+  if ((welcomeStoryRemaining ?? 0) > 0) {
+    return "Free preview";
+  }
+
   if (storiesRemainingThisMonth > 0) {
-    const monthly =
+    const credits =
       storiesRemainingThisMonth === 1
-        ? "1 story left"
-        : `${storiesRemainingThisMonth} stories left`;
+        ? "1 credit left"
+        : `${storiesRemainingThisMonth} credits left`;
     if (bookCredits > 0) {
-      return `${monthly} · ${bookCredits} credit${bookCredits === 1 ? "" : "s"}`;
+      return `${credits} · ${bookCredits} total`;
     }
-    return monthly;
+    return credits;
   }
 
   if (bookCredits > 0) {
     return `0 left · ${bookCredits} credit${bookCredits === 1 ? "" : "s"}`;
   }
 
-  return "0 stories left";
+  return "Buy credits";
 }

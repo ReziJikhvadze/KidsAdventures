@@ -71,7 +71,7 @@ export function AuthDialog({
           <DialogDescription>
             {mode === "login"
               ? "Sign in to create personalized storybooks for your child."
-              : "Free plan includes 1 full illustrated story per month. Buy book credits for more. We will email you a confirmation link."}
+              : "You get one free 2-page welcome story. Full 6-page books use book credits. We will email you a confirmation link."}
           </DialogDescription>
         </DialogHeader>
 

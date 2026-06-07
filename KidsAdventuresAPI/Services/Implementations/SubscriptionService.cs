@@ -43,7 +43,7 @@ public sealed class SubscriptionService(
         var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var monthEnd = monthStart.AddMonths(1);
         var used = await adventurePackRepository.CountForMonthAsync(userId, monthStart, monthEnd, cancellationToken);
-        var allowed = 1 + bookCredits;
+        var allowed = bookCredits;
         var remaining = Math.Max(0, allowed - used);
         return (used, allowed, remaining);
     }
@@ -53,13 +53,18 @@ public sealed class SubscriptionService(
         var user = await userRepository.GetByIdAsync(userId, cancellationToken)
                    ?? throw new UnauthorizedAccessException("User not found.");
 
+        if (user.WelcomeStoryRemaining > 0)
+        {
+            return;
+        }
+
         var quota = await GetStoryQuotaAsync(userId, user.BookCredits, cancellationToken);
         if (quota.Remaining <= 0)
         {
             throw new InvalidOperationException(
                 user.BookCredits > 0
-                    ? "You've used all your stories for this month (1 free + 1 per book credit). Buy more book credits to create additional stories."
-                    : "Free plan limit reached: 1 story per month. Buy a book pack for more stories — PDF export is always free.");
+                    ? "You've used all your purchased book credits for this month. Buy more credits to create another full 6-page story."
+                    : "Your free 2-page welcome story was used. Buy book credits to unlock full 6-page illustrated adventures — PDF export stays free.");
         }
     }
 

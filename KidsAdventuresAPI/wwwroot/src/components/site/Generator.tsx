@@ -148,6 +148,7 @@ export function Generator() {
   const [downloading, setDownloading] = useState(false);
   const [startingPdf, setStartingPdf] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isWelcomeGiftStory, setIsWelcomeGiftStory] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const heroPhotoRef = useRef<HTMLInputElement>(null);
@@ -222,6 +223,7 @@ export function Generator() {
     setCompletedPackId(null);
     setStoryTitle(null);
     setStoryPages([]);
+    setIsWelcomeGiftStory((user?.welcomeStoryRemaining ?? 0) > 0);
 
     try {
       const apiTheme = THEME_ID_TO_API[theme];
@@ -302,7 +304,7 @@ export function Generator() {
     if (!isAuthenticated || !getToken()) {
       setAuthOpen(true);
       notify.error("Sign in to create a story", {
-        description: "Free accounts include 1 full illustrated story each month.",
+        description: "New accounts get one free 2-page welcome preview. Full 6-page books use book credits.",
       });
       return;
     }
@@ -380,6 +382,7 @@ export function Generator() {
     setPackTheme(null);
     setPreviewIllustrationStatus("None");
     setErrorMessage(null);
+    setIsWelcomeGiftStory(false);
   };
 
   const selectedTheme = themes.find((t) => t.id === theme);
@@ -764,8 +767,8 @@ export function Generator() {
               )}
               <p className="mt-3 text-xs text-muted-foreground text-center">
                 {user?.welcomeStoryRemaining
-                  ? "Your first story is a free 2-page welcome preview — then 1 full 6-page story/month."
-                  : "Free: 1 full 6-page story/month · PDF export free · Hero photo optional"}
+                  ? "Your first story is a free 2-page welcome preview. Full 6-page books use book credits."
+                  : "Full 6-page stories use book credits · PDF export free · Hero photo optional"}
               </p>
             </div>
 
@@ -870,6 +873,7 @@ export function Generator() {
                       isCompleted={status === "done"}
                       storiesRemainingThisMonth={user?.storiesRemainingThisMonth}
                       bookCredits={user?.bookCredits}
+                      isWelcomeGiftStory={isWelcomeGiftStory}
                     />
 
                     <div className="mt-4 flex flex-col gap-2">

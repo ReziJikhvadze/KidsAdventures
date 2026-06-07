@@ -21,12 +21,14 @@ export function Nav() {
   const creditLabel = formatNavQuotaLabel({
     bookCredits: user?.bookCredits ?? 0,
     storiesRemainingThisMonth: user?.storiesRemainingThisMonth ?? 0,
+    welcomeStoryRemaining: user?.welcomeStoryRemaining ?? 0,
     isLoading,
   });
   const creditTitle = formatNavQuotaTitle({
     bookCredits: user?.bookCredits ?? 0,
     storiesRemainingThisMonth: user?.storiesRemainingThisMonth ?? 0,
     storiesAllowedThisMonth: user?.storiesAllowedThisMonth,
+    welcomeStoryRemaining: user?.welcomeStoryRemaining ?? 0,
   });
 
   return (

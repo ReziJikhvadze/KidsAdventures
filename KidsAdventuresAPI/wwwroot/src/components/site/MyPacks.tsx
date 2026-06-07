@@ -62,8 +62,7 @@ export function MyPacks() {
   const [loading, setLoading] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [pdfStartingId, setPdfStartingId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [readerLoadingId, setReaderLoadingId] = useState<string | null>(null);
+  const [loadingReaderIds, setLoadingReaderIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const updatePack = useCallback((updated: AdventurePackDetailResponse) => {
@@ -84,7 +83,11 @@ export function MyPacks() {
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
       const detailTargets = sorted.filter(
-        (p) => adventurePacksApi.isPackGenerating(p) || needsPreviewPoll(p),
+        (p) =>
+          adventurePacksApi.isPackGenerating(p) ||
+          needsPreviewPoll(p) ||
+          p.status === "StoryReady" ||
+          p.status === "Completed",
       );
       const details = await Promise.all(
         detailTargets.map((p) => adventurePacksApi.getAdventurePack(p.id).catch(() => p)),
@@ -140,43 +143,48 @@ export function MyPacks() {
   }, [isAuthenticated, hasInProgress, load]);
 
   useEffect(() => {
-    if (!expandedId) return;
-    const pack = packs.find((p) => p.id === expandedId);
-    if (!pack || !needsPreviewPoll(pack)) return;
+    if (!isAuthenticated) return;
+
+    const illustrating = packs.filter((p) => needsPreviewPoll(p));
+    if (illustrating.length === 0) return;
 
     const timer = window.setInterval(() => {
-      void adventurePacksApi.getAdventurePack(expandedId).then(updatePack);
+      void Promise.all(illustrating.map((p) => adventurePacksApi.getAdventurePack(p.id).then(updatePack)));
     }, 3000);
 
     return () => window.clearInterval(timer);
-  }, [expandedId, packs, updatePack]);
+  }, [isAuthenticated, packs, updatePack]);
 
-  const openReader = async (pack: AdventurePackDetailResponse) => {
-    if (!slideshowIllustrationsReady(pack)) {
-      notify.info("Illustrations still in progress", {
-        description: "We're painting each page — usually about 1 minute per page. Check back shortly.",
-      });
-      return;
-    }
+  useEffect(() => {
+    if (!isAuthenticated) return;
 
-    if (expandedId === pack.id) {
-      setExpandedId(null);
-      return;
-    }
+    const missingDetails = paginatedPacks.filter(
+      (p) =>
+        (p.status === "StoryReady" || p.status === "Completed") &&
+        (!p.storyPages || p.storyPages.length === 0),
+    );
 
-    setExpandedId(pack.id);
-    setReaderLoadingId(pack.id);
-    try {
-      const fresh = await adventurePacksApi.getAdventurePack(pack.id);
-      updatePack(fresh);
-    } catch {
-      notify.error("Could not load story preview", {
-        description: "Tap Refresh and try opening the book again.",
-      });
-    } finally {
-      setReaderLoadingId(null);
+    if (missingDetails.length === 0) return;
+
+    for (const pack of missingDetails) {
+      setLoadingReaderIds((prev) => new Set(prev).add(pack.id));
+      void adventurePacksApi
+        .getAdventurePack(pack.id)
+        .then(updatePack)
+        .catch(() => {
+          notify.error("Could not load story preview", {
+            description: "Tap Refresh and try again.",
+          });
+        })
+        .finally(() => {
+          setLoadingReaderIds((prev) => {
+            const next = new Set(prev);
+            next.delete(pack.id);
+            return next;
+          });
+        });
     }
-  };
+  }, [isAuthenticated, paginatedPacks, updatePack]);
 
   const openDownload = async (pack: AdventurePackDetailResponse) => {
     if (pack.status !== "Completed" || downloadingId) return;
@@ -236,8 +244,8 @@ export function MyPacks() {
   };
 
   return (
-    <section className="py-12 md:py-16 bg-secondary/30 border-y border-border/60 min-h-[60vh]">
-      <div className="mx-auto max-w-5xl px-6">
+    <section className="min-h-[60vh] border-y border-border/60 bg-secondary/30 py-10 sm:py-12 md:py-16">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6">
         <div className="flex flex-col gap-6 mb-8">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div className="flex items-start gap-4">
@@ -283,9 +291,11 @@ export function MyPacks() {
                   Your story credits
                 </p>
                 <p className="text-sm text-amber-950/80 mt-0.5">
-                  {user && user.bookCredits > 0
-                    ? `${user.bookCredits} purchased credit${user.bookCredits === 1 ? "" : "s"} plus 1 free story every month. PDF export is always free.`
-                    : "PDF export is free for every story. Buy credits for extra stories beyond your monthly free one."}
+                  {user && user.welcomeStoryRemaining
+                    ? "You still have your free 2-page welcome preview. Full 6-page books use purchased credits."
+                    : user && user.bookCredits > 0
+                      ? `${user.bookCredits} purchased credit${user.bookCredits === 1 ? "" : "s"} for full 6-page stories. PDF export is always free.`
+                      : "PDF export is free for every story. Buy book credits for full 6-page illustrated adventures."}
                 </p>
               </div>
               {isLoading || !user ? (
@@ -294,8 +304,13 @@ export function MyPacks() {
                 <CreditsBadge
                   credits={user.bookCredits}
                   storiesRemainingThisMonth={user.storiesRemainingThisMonth}
+                  welcomeStoryRemaining={user.welcomeStoryRemaining}
                   variant="prominent"
-                  linkToPricing={user.bookCredits === 0 && user.storiesRemainingThisMonth === 0}
+                  linkToPricing={
+                    user.welcomeStoryRemaining === 0 &&
+                    user.bookCredits === 0 &&
+                    user.storiesRemainingThisMonth === 0
+                  }
                 />
               )}
             </div>
@@ -309,11 +324,13 @@ export function MyPacks() {
               </div>
               <div className="rounded-2xl border border-border bg-card px-4 py-3 shadow-sm flex flex-col justify-center">
                 <p className="text-xs text-muted-foreground">
-                  {user.storiesRemainingThisMonth > 0
-                    ? `${user.storiesRemainingThisMonth} of ${user.storiesAllowedThisMonth} stories left this month — each is a full 6-page illustrated book.`
-                    : "Monthly story limit reached. Buy book credits for more adventures — PDF export stays free."}
+                  {user.welcomeStoryRemaining
+                    ? "Create your free 2-page welcome preview from the home page."
+                    : user.storiesRemainingThisMonth > 0
+                      ? `${user.storiesRemainingThisMonth} book credit${user.storiesRemainingThisMonth === 1 ? "" : "s"} left — each unlocks a full 6-page illustrated book.`
+                      : "No book credits left. Buy a pack for more full 6-page adventures — PDF export stays free."}
                 </p>
-                {user.storiesRemainingThisMonth === 0 && (
+                {user.storiesRemainingThisMonth === 0 && !user.welcomeStoryRemaining && (
                   <Link
                     to="/"
                     hash="pricing"
@@ -361,18 +378,21 @@ export function MyPacks() {
           </div>
         ) : (
           <>
-          <ul className="grid gap-4">
+          <ul className="grid gap-4 sm:gap-5">
             {paginatedPacks.map((pack) => {
               const status = packStatusDisplay(pack);
               const childName = childNames[pack.childId] ?? pack.childName ?? "Child";
-              const expanded = expandedId === pack.id;
               const generating = adventurePacksApi.isPackGenerating(pack);
               const progressPct = adventurePacksApi.computePackProgressPercent(pack);
               const readable = slideshowIllustrationsReady(pack);
+              const illustrating = needsPreviewPoll(pack);
+              const readerLoading = loadingReaderIds.has(pack.id);
+              const showSlideshow =
+                readable || illustrating || generating || pack.status === "StoryReady" || pack.status === "Completed";
               return (
                 <li
                   key={pack.id}
-                  className="rounded-2xl border border-border bg-card p-5 flex flex-col gap-4"
+                  className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-5"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     <div className="flex-1 min-w-0">
@@ -452,24 +472,27 @@ export function MyPacks() {
                           Try again
                         </Link>
                       )}
-                      {readable && (pack.status === "StoryReady" || pack.status === "Completed") && (
-                          <button
-                            type="button"
-                            onClick={() => void openReader(pack)}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2.5 text-sm font-semibold hover:bg-secondary transition"
-                          >
-                            <BookOpen className="h-4 w-4" />
-                            {expanded ? "Hide story" : "Read story"}
-                          </button>
-                        )}
                     </div>
                   </div>
-                  {expanded && (
-                    <div className="animate-rise pt-2">
-                      {readerLoadingId === pack.id ? (
-                        <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
+                  {showSlideshow && (
+                    <div className="animate-rise w-full min-w-0 border-t border-border/60 pt-4">
+                      <div className="mb-3 flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-primary shrink-0" />
+                        <p className="text-sm font-semibold text-foreground">
+                          {readable ? "Illustrated slideshow" : "Illustrated slideshow loading…"}
+                        </p>
+                        {pack.isWelcomeGiftStory && (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
+                            Free preview
+                          </span>
+                        )}
+                      </div>
+                      {readerLoading || (illustrating && !pack.storyPages?.length) ? (
+                        <div className="flex min-h-[12rem] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-secondary/30 px-4 py-12 text-muted-foreground sm:min-h-[16rem]">
                           <Loader2 className="h-6 w-6 animate-spin" />
-                          Opening your storybook…
+                          <p className="text-sm text-center">
+                            {pack.progressMessage ?? "Painting your picture-book pages…"}
+                          </p>
                         </div>
                       ) : pack.storyPages && pack.storyPages.length > 0 ? (
                         <StoryBookReader
@@ -481,8 +504,13 @@ export function MyPacks() {
                           isCompleted={pack.status === "Completed"}
                           storiesRemainingThisMonth={user?.storiesRemainingThisMonth}
                           bookCredits={user?.bookCredits}
+                          isWelcomeGiftStory={pack.isWelcomeGiftStory}
                         />
-                      ) : null}
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-border bg-secondary/20 px-4 py-10 text-center text-sm text-muted-foreground">
+                          Story pages will appear here when your book is ready.
+                        </div>
+                      )}
                     </div>
                   )}
                 </li>

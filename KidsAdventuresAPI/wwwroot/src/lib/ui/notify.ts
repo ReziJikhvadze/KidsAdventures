@@ -43,10 +43,10 @@ export function formatApiError(
       lower.includes("no stories")
     ) {
       return {
-        title: "Monthly story limit reached",
+        title: "No book credits left",
         description:
           message ||
-          "You've used your free illustrated story for this month. Buy book credits to create another full 6-page book.",
+          "Your free 2-page welcome story was used. Buy book credits to unlock full 6-page illustrated adventures.",
       };
     }
 

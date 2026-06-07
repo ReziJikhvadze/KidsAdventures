@@ -32,7 +32,12 @@ internal static class AdventurePromptBuilder
         "A treasure is not gold, but kindness shared with friends.",
         "A lost compass spins wildly near something wonderful.",
         "A garden of glowing plants whispers encouragement.",
-        "A race against time ends with teamwork and laughter."
+        "A race against time ends with teamwork and laughter.",
+        "A talking lantern leads the hero somewhere unexpected.",
+        "A shy forest guide appears only when the hero shares a snack.",
+        "A music box unlocks a secret path at sunset.",
+        "A hot-air balloon made of paper wishes drifts into view.",
+        "A friendly rival challenges the hero to a silly contest first."
     ];
 
     private static readonly string[] ToneSeeds =
@@ -44,6 +49,34 @@ internal static class AdventurePromptBuilder
         "Bright Saturday-morning cartoon energy."
     ];
 
+    private static readonly string[] SceneVarietySeeds =
+    [
+        "open sky or rooftop with a wide view",
+        "cozy indoor nook lit by a warm lamp",
+        "busy marketplace full of colorful stalls",
+        "quiet forest trail with fireflies",
+        "sparkling shoreline or misty lake",
+        "mountain overlook above the clouds",
+        "underground tunnel with glowing crystals",
+        "rainy street where puddles reflect magic",
+        "garden maze with oversized flowers",
+        "train platform or airship dock at golden hour"
+    ];
+
+    private static readonly string[] GuestCharacterSeeds =
+    [
+        "a witty talking animal mentor",
+        "a shy kid inventor who becomes an ally",
+        "a grandmotherly shopkeeper with a secret",
+        "a playful wind spirit",
+        "a lost robot helper",
+        "a brave younger sibling sidekick",
+        "a map-selling pirate who is actually kind",
+        "a dancing star sprite",
+        "a grumpy guard who melts after a joke",
+        "a traveling musician with a magical instrument"
+    ];
+
     public static string BuildStoryPrompt(AdventureGenerationInput input, Guid adventureId)
     {
         var familyMembersText = input.FamilyMembers.Count == 0
@@ -53,17 +86,20 @@ internal static class AdventurePromptBuilder
 
         var storySeed = StorySeeds[Random.Shared.Next(StorySeeds.Length)];
         var toneSeed = ToneSeeds[Random.Shared.Next(ToneSeeds.Length)];
+        var sceneVariety = SceneVarietySeeds[Random.Shared.Next(SceneVarietySeeds.Length)];
+        var guestCharacter = GuestCharacterSeeds[Random.Shared.Next(GuestCharacterSeeds.Length)];
         var languageName = ResolveLanguageName(input.StoryLanguage);
 
         var pageCount = input.StoryPageCount > 0 ? input.StoryPageCount : AdventureStoryConstants.FullPageCount;
         pageCount = Math.Min(pageCount, AdventureStoryConstants.FullPageCount);
-        var storyArc = pageCount <= AdventureStoryConstants.WelcomeGiftPageCount
-            ? "- Story arc: page 1 introduces the adventure, page 2 is a warm happy ending."
-            : "- Story arc: pages 1–2 setup the adventure, 3–4 build excitement, page 5 is the climax, page 6 is a warm happy ending.";
+        var isWelcomeGift = pageCount <= AdventureStoryConstants.WelcomeGiftPageCount;
+        var storyArc = isWelcomeGift
+            ? "- Story arc: page 1 launches a surprising adventure in a fresh setting; page 2 delivers a joyful payoff and warm ending."
+            : "- Story arc: pages 1–2 launch the quest, 3–4 raise stakes with new allies and twists, page 5 is the brave climax, page 6 is a cozy happy ending.";
 
         var lines = new List<string>
         {
-            "You are creating a personalized kids adventure pack.",
+            "You are an award-winning children's picture-book author and child-development editor.",
             "Return ONLY valid JSON matching this exact schema:",
             "{",
             "  \"title\": \"\",",
@@ -72,21 +108,33 @@ internal static class AdventurePromptBuilder
             "  \"storyPages\": [{ \"title\": \"\", \"content\": \"\" }]",
             "}",
             string.Empty,
+            "Narrative craft (critical):",
+            "- Every page must be a DIFFERENT scene, location, and emotional beat — never repeat the same situation, pose, or setting.",
+            "- Build a real story arc: curiosity → challenge → teamwork → small victory → reflection. Not a static portrait of the hero standing in one place.",
+            "- Introduce at least one memorable guest character (animal, friend, mentor, or magical helper) who appears in more than one page.",
+            "- Use vivid sensory details (sounds, textures, colors, weather) so each page feels like a new movie frame.",
+            "- Include one gentle surprise or funny moment; keep stakes age-appropriate and never frightening.",
+            "- Weave child-psychology strengths: courage, curiosity, kindness, persistence, and feeling proud of trying.",
+            "- Name emotions in simple words (excited, nervous, proud, relieved) and show the hero coping in a healthy way.",
+            "- Family members from the input appear as supporting cast with distinct roles — not wallpaper.",
+            $"- Scene variety anchor for this book: {sceneVariety}.",
+            $"- Guest character idea to adapt: {guestCharacter}.",
+            string.Empty,
             "Rules:",
-            "- Make the child the main hero.",
-            "- Include all family members as supporting characters.",
+            "- Make the child the main hero with agency — they choose, try, help, or solve something on every page.",
+            "- Include all listed family members as supporting characters when provided.",
             $"- Write the entire pack in {languageName}.",
             $"- Keep language age-appropriate for age {input.Age}.",
-            "- Keep the tone positive and educational.",
-            $"- Create exactly {pageCount} story pages — no more, no fewer — with distinct scenes and titles (story text only — no quizzes or activities).",
+            "- Keep the tone positive, hopeful, and educational without lecturing.",
+            $"- Create exactly {pageCount} story pages — no more, no fewer — with distinct scene titles (story text only).",
             "- Never add extra pages beyond the required count.",
             storyArc,
-            "- Each page should be 1–2 short paragraphs — concise for read-aloud; do not pad with filler.",
+            "- Each page: 1–2 short paragraphs for read-aloud; every page title must hint at a new place or moment.",
             "- Never include markdown, code fences (```), explanations, or extra text outside JSON.",
             "- The response must start with { and end with } — raw JSON only.",
             $"- Adventure ID (must be unique): {adventureId}",
             $"- Narrative tone: {toneSeed}",
-            "- Do not reuse plots, openings, or endings from typical templates.",
+            "- Do not reuse generic openings like 'One sunny day' unless transformed into something specific and fresh.",
             string.Empty,
             "Input:",
             $"Child Name: {input.ChildName}",
@@ -99,7 +147,7 @@ internal static class AdventurePromptBuilder
         if (!string.IsNullOrWhiteSpace(input.OptionalStoryNotes))
         {
             lines.Add(string.Empty);
-            var wishPages = pageCount <= AdventureStoryConstants.WelcomeGiftPageCount
+            var wishPages = isWelcomeGift
                 ? "both pages"
                 : pageCount <= AdventureStoryConstants.FullPageCount
                     ? "at least 2 pages"
@@ -184,7 +232,7 @@ internal static class AdventurePromptBuilder
 
         parts.Add(
             "STYLE: Pixar/DreamWorks 3D cartoon still — stylized CG, cinematic lighting, NOT photorealistic, NOT a photo filter. " +
-            "Only cast in this scene. No text or watermarks.");
+            "Show the hero actively doing something in the scene — not a static portrait. Include environment and any guest characters described in the scene.");
         parts.Add($"Safe for children age {input.Age}. Theme: {input.Theme}.");
         parts.Add($"Page {pageIndex + 1} title: {page.Title}.");
         parts.Add($"Scene to illustrate: {scene}");

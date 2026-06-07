@@ -23,6 +23,7 @@ import { THEME_TINTS } from "@/lib/story/themeTints";
 import { cn } from "@/lib/utils";
 
 const FONT_SIZE_KEY = "storybook-font-size";
+const FULL_BOOK_PAGE_COUNT = 6;
 
 type FontSize = "sm" | "md" | "lg";
 type ReaderVariant = "default" | "fullscreen";
@@ -42,6 +43,7 @@ export type StoryBookReaderProps = {
   isCompleted?: boolean;
   storiesRemainingThisMonth?: number;
   bookCredits?: number;
+  isWelcomeGiftStory?: boolean;
   className?: string;
 };
 
@@ -228,6 +230,7 @@ export function StoryBookReader({
   isCompleted = false,
   storiesRemainingThisMonth,
   bookCredits = 0,
+  isWelcomeGiftStory = false,
   className,
 }: StoryBookReaderProps) {
   const [api, setApi] = useState<CarouselApi>();
@@ -283,8 +286,13 @@ export function StoryBookReader({
   };
 
   const allIllustrated = useMemo(() => pages.every((p) => p.isIllustrated), [pages]);
-  const showPdfUpsell = !isCompleted && allIllustrated && !isFullscreen;
-  const onLastPage = current === pages.length - 1;
+  const showWelcomeUpsellSlide =
+    isWelcomeGiftStory && pages.length === 2 && allIllustrated && !isFullscreen;
+  const totalSlides = pages.length + (showWelcomeUpsellSlide ? 1 : 0);
+  const onWelcomeUpsellSlide = showWelcomeUpsellSlide && current === pages.length;
+  const showPdfUpsell = !isCompleted && allIllustrated && !isFullscreen && !onWelcomeUpsellSlide;
+  const onLastStoryPage = current === pages.length - 1;
+  const onLastPage = current === totalSlides - 1;
   const showCreditsUpsell =
     allIllustrated &&
     !isFullscreen &&
@@ -296,7 +304,7 @@ export function StoryBookReader({
     typeof storiesRemainingThisMonth === "number" &&
     storiesRemainingThisMonth > 0 &&
     bookCredits === 0 &&
-    onLastPage;
+    onLastStoryPage;
 
   if (pages.length === 0) {
     return null;
@@ -383,12 +391,30 @@ export function StoryBookReader({
               {!page.isIllustrated ? " …" : ""}
             </button>
           ))}
+          {showWelcomeUpsellSlide && (
+            <button
+              type="button"
+              onClick={() => api?.scrollTo(pages.length)}
+              className={cn(
+                "shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+                onWelcomeUpsellSlide
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-muted-foreground border-border hover:bg-secondary",
+              )}
+            >
+              Full book ✨
+            </button>
+          )}
         </div>
 
         <p className="text-center text-xs text-muted-foreground mb-3">
-          {allIllustrated
-            ? "Every page is illustrated — swipe or tap a page number."
-            : "We're painting every page from your child's photo. The raw upload stays private."}
+          {onWelcomeUpsellSlide
+            ? "Your free welcome preview is 2 pages — swipe back to re-read anytime."
+            : allIllustrated
+              ? showWelcomeUpsellSlide
+                ? "Every page is illustrated — swipe to the Full book tab for the 6-page edition."
+                : "Every page is illustrated — swipe or tap a page number."
+              : "We're painting every page from your child's photo. The raw upload stays private."}
         </p>
 
         <div className={cn("relative", isFullscreen ? "px-10 sm:px-12" : "px-0 sm:px-10")}>
@@ -435,6 +461,46 @@ export function StoryBookReader({
                   </article>
                 </CarouselItem>
               ))}
+              {showWelcomeUpsellSlide && (
+                <CarouselItem key="welcome-upsell">
+                  <article
+                    className="rounded-2xl border border-amber-300/60 bg-card shadow-card overflow-hidden"
+                    style={{
+                      background: `color-mix(in oklab, ${themeTint} 22%, var(--card))`,
+                    }}
+                  >
+                    <div
+                      className="flex min-h-[12rem] flex-col items-center justify-center gap-3 px-6 py-10 text-center sm:min-h-[14rem]"
+                      style={{ background: `color-mix(in oklab, ${themeTint} 35%, var(--card))` }}
+                    >
+                      <Sparkles className="h-10 w-10 text-primary" />
+                      <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                        Page 3 · Continue the adventure
+                      </p>
+                    </div>
+                    <div className="border-t border-border/60 bg-card/95 px-4 py-5 sm:px-6 sm:py-6 text-center">
+                      <h3 className="font-display text-xl font-semibold text-foreground text-balance">
+                        Want the full {FULL_BOOK_PAGE_COUNT}-page picture book?
+                      </h3>
+                      <p className="mt-3 text-sm text-muted-foreground text-pretty">
+                        This welcome gift is a free 2-page preview. Book credits unlock complete{" "}
+                        {FULL_BOOK_PAGE_COUNT}-page illustrated adventures with richer stories, more
+                        scenes, and the same Pixar-style hero from your photo.
+                      </p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        PDF export stays free for every story you create.
+                      </p>
+                      <Link
+                        to="/"
+                        hash="pricing"
+                        className="inline-flex mt-4 items-center rounded-full bg-primary text-primary-foreground px-6 py-2.5 text-sm font-semibold hover:opacity-90 transition"
+                      >
+                        View book packs
+                      </Link>
+                    </div>
+                  </article>
+                </CarouselItem>
+              )}
             </CarouselContent>
           </Carousel>
 
@@ -450,7 +516,7 @@ export function StoryBookReader({
           <button
             type="button"
             onClick={() => api?.scrollNext()}
-            disabled={current >= pages.length - 1}
+            disabled={current >= totalSlides - 1}
             className="absolute right-0 top-[38%] hidden h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-border bg-card shadow-soft transition hover:bg-secondary disabled:opacity-30 sm:grid"
             aria-label="Next page"
           >
@@ -459,7 +525,7 @@ export function StoryBookReader({
         </div>
 
         <div className="flex justify-center gap-1.5 mt-4">
-          {pages.map((_, index) => (
+          {Array.from({ length: totalSlides }, (_, index) => (
             <button
               key={`dot-${index}`}
               type="button"
@@ -468,7 +534,11 @@ export function StoryBookReader({
                 "h-2 rounded-full transition-all",
                 index === current ? "w-6 bg-primary" : "w-2 bg-border hover:bg-primary/40",
               )}
-              aria-label={`Go to page ${index + 1}`}
+              aria-label={
+                showWelcomeUpsellSlide && index === pages.length
+                  ? "View full book offer"
+                  : `Go to page ${index + 1}`
+              }
             />
           ))}
         </div>
