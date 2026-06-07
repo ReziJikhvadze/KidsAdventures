@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { confirmEmail } from "@/lib/api/auth";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { BRAND_NAME } from "@/lib/brand";
 
 export const Route = createFileRoute("/confirm-email")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -56,7 +57,7 @@ function ConfirmEmailPage() {
           {success
             ? "Your account is active. Sign in to start creating personalized storybooks."
             : showConfirmButton
-              ? "Click the button below to activate your LittleHero Books account."
+              ? `Click the button below to activate your ${BRAND_NAME} account.`
               : "This link may have expired. If you already clicked it once, try signing in — your email may already be confirmed."}
         </p>
         {error ? (

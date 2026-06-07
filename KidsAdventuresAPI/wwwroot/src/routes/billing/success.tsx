@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckCircle2, Loader2 } from "lucide-react";
-import { toast } from "sonner";
-
 import { Nav } from "@/components/site/Nav";
 import { Footer } from "@/components/site/Footer";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { confirmCheckoutSession } from "@/lib/api/subscriptions";
-import { ApiError } from "@/lib/api/client";
+import { BRAND_NAME } from "@/lib/brand";
+import { notify } from "@/lib/ui/notify";
 
 type BillingSuccessSearch = {
   session_id?: string;
@@ -18,7 +17,7 @@ export const Route = createFileRoute("/billing/success")({
     session_id: typeof search.session_id === "string" ? search.session_id : undefined,
   }),
   head: () => ({
-    meta: [{ title: "Payment successful — LittleHero Books" }],
+    meta: [{ title: `Payment successful — ${BRAND_NAME}` }],
   }),
   component: BillingSuccess,
 });
@@ -44,9 +43,7 @@ function BillingSuccess() {
         await refreshAccountBalance();
       } catch (err) {
         if (cancelled) return;
-        const message =
-          err instanceof ApiError ? err.message : "Could not confirm payment. Try refreshing.";
-        toast.error(message);
+        notify.fromError(err, "Could not confirm payment. Try refreshing.");
         await refreshAccountBalance();
       } finally {
         if (!cancelled) setConfirming(false);

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { Link } from "@tanstack/react-router";
-import { toast } from "sonner";
+import { notify } from "@/lib/ui/notify";
 import {
   BookOpen,
   ChevronLeft,
@@ -153,7 +153,9 @@ export function MyPacks() {
 
   const openReader = async (pack: AdventurePackDetailResponse) => {
     if (!slideshowIllustrationsReady(pack)) {
-      toast.message("Your story is still being illustrated. Check back in a minute.");
+      notify.info("Illustrations still in progress", {
+        description: "We're painting each page — usually about 1 minute per page. Check back shortly.",
+      });
       return;
     }
 
@@ -168,7 +170,9 @@ export function MyPacks() {
       const fresh = await adventurePacksApi.getAdventurePack(pack.id);
       updatePack(fresh);
     } catch {
-      toast.error("Could not load story preview. Try Refresh.");
+      notify.error("Could not load story preview", {
+        description: "Tap Refresh and try opening the book again.",
+      });
     } finally {
       setReaderLoadingId(null);
     }
@@ -183,7 +187,9 @@ export function MyPacks() {
     try {
       await adventurePacksApi.downloadAdventurePack(pack.id, fileName);
     } catch {
-      toast.error("Could not download PDF. Try creating the illustrated PDF again.");
+      notify.error("PDF download failed", {
+        description: "Create the illustrated PDF again from My Books, then retry the download.",
+      });
     } finally {
       setDownloadingId(null);
     }
@@ -192,7 +198,9 @@ export function MyPacks() {
   const startPdf = async (pack: AdventurePackDetailResponse) => {
     if (pack.status !== "StoryReady" || pdfStartingId) return;
     if (!slideshowIllustrationsReady(pack)) {
-      toast.message("Wait until every page is illustrated, then export PDF.");
+      notify.info("PDF not ready yet", {
+        description: "Wait until all 6 pages are illustrated, then export your free PDF.",
+      });
       return;
     }
     setPdfStartingId(pack.id);
@@ -203,7 +211,9 @@ export function MyPacks() {
       } else {
         await refreshAccountBalance();
       }
-      toast.success("Building your PDF from slideshow illustrations — about 30 seconds.");
+      notify.info("Building your PDF", {
+        description: "We're assembling your printable storybook from the slideshow — about 30 seconds.",
+      });
       await adventurePacksApi.pollAdventurePack(
         pack.id,
         updatePack,
@@ -212,11 +222,13 @@ export function MyPacks() {
           maxAttempts: 30,
         },
       );
-      toast.success("Your storybook PDF is ready!");
+      notify.success("Your storybook PDF is ready!", {
+        description: "Download it now or find it anytime in My Books.",
+      });
       await refreshAccountBalance();
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "PDF creation failed.");
+      notify.fromError(err, "PDF creation failed.");
       await load();
     } finally {
       setPdfStartingId(null);

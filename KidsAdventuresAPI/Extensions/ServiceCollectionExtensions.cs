@@ -177,6 +177,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<IBookCreditPurchaseRepository, BookCreditPurchaseRepository>();
 
+        services.AddScoped<IReferenceImageNormalizer, ReferenceImageNormalizer>();
         services.AddScoped<IOpenAiService, OpenAiService>();
         services.AddScoped<IAdventurePdfService, AdventurePdfService>();
         services.AddScoped<IBlobStorageService, AzureBlobStorageService>();

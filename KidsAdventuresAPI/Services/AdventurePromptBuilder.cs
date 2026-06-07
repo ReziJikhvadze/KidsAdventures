@@ -12,15 +12,14 @@ internal static class AdventurePromptBuilder
         "rich saturated colors, depth of field, magical environment. " +
         "MUST look like rendered animation — NOT a photograph, NOT a photo filter, NOT flat clipart.";
 
-    /// <summary>Style when a hero photo is provided — Pixar character inspired by the child, never a photo edit.</summary>
+    /// <summary>Style when a hero photo is provided — Pixar cartoon that is unmistakably the same person.</summary>
     public const string PixarFromPhotoStylePrompt =
-        "Create a FULL Pixar-style 3D animated movie still. The reference photo is ONLY for character design inspiration — " +
-        "hair color, hair style, skin tone, apparent age, and general vibe — then completely RE-DRAW the child as a stylized CG cartoon hero. " +
+        "Create a FULL Pixar-style 3D animated movie still. The reference photo defines the hero's identity — " +
+        "match face shape, eye shape and color, nose, mouth, jawline, hair color, hair style, skin tone, and apparent age as closely as a Pixar cartoon allows. " +
         "CRITICAL: output must look like a Pixar film frame (Inside Out, Coco, Luca, Turning Red), NOT a real photo, NOT a lightly edited portrait, " +
         "NOT photorealistic skin, NOT visible photographic texture, NOT a face-swap or filter effect. " +
-        "Use classic animated proportions: slightly larger expressive eyes, smooth stylized skin, rounded friendly features, " +
-        "clean modeled hair, vibrant costume. Parents should recognize their child through hair and coloring, not through a realistic face copy. " +
-        "Cinematic warm lighting, shallow depth of field, polished render quality.";
+        "Use classic animated proportions (slightly larger expressive eyes, smooth stylized skin) but keep the person recognizable — " +
+        "friends and family should immediately say 'that's them'. Cinematic warm lighting, shallow depth of field, polished render quality.";
 
     private static readonly string[] StorySeeds =
     [
@@ -156,7 +155,8 @@ internal static class AdventurePromptBuilder
                 var dnaSuffix = cast.IsHero && heroDna is not null ? $" DNA: {heroDna}" : "";
                 parts.Add(
                     $"Reference Image {imageIndex}: {cast.Name} ({role}). Real photo — transform into Pixar 3D CG; " +
-                    "preserve exact hair color/style, skin tone, age, and face from the photo. NOT photorealistic, NOT a photo filter." +
+                    "preserve exact face shape, eyes, nose, mouth, hair color/style, skin tone, and age from the photo. " +
+                    "The cartoon must be unmistakably the same person. NOT photorealistic, NOT a photo filter." +
                     dnaSuffix);
                 if (cast.IsHero && !hasCharacterAnchor)
                 {

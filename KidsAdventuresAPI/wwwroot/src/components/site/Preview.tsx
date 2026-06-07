@@ -28,12 +28,12 @@ const demoPages = [
 
 export function Preview() {
   return (
-    <section id="preview" className="relative py-24 md:py-32">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="grid lg:grid-cols-2 gap-12 items-start">
-          <div className="max-w-xl">
+    <section id="preview" className="relative overflow-x-hidden py-16 sm:py-24 md:py-32">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-2 lg:gap-12">
+          <div className="max-w-xl lg:max-w-none">
             <p className="text-sm font-semibold text-primary tracking-wide uppercase">Preview</p>
-            <h2 className="mt-3 font-display text-4xl md:text-5xl font-bold text-balance">
+            <h2 className="mt-3 font-display text-3xl font-bold text-balance sm:text-4xl md:text-5xl">
               Read like a real picture book.
             </h2>
             <p className="mt-4 text-muted-foreground text-pretty">
@@ -62,12 +62,12 @@ export function Preview() {
             </ul>
           </div>
 
-          <div className="relative">
+          <div className="relative w-full min-w-0">
             <div
-              className="absolute -inset-4 rounded-3xl opacity-60 pointer-events-none"
+              className="absolute -inset-2 rounded-3xl opacity-60 pointer-events-none sm:-inset-4"
               style={{ background: "color-mix(in oklab, var(--sky-soft) 40%, transparent)" }}
             />
-            <div className="relative rounded-3xl border border-border bg-card p-4 sm:p-6 shadow-card">
+            <div className="relative w-full min-w-0 rounded-2xl border border-border bg-card p-3 shadow-card sm:rounded-3xl sm:p-4 md:p-6">
               <p className="text-xs font-semibold text-center text-muted-foreground mb-4 uppercase tracking-wide">
                 Demo · swipe the pages · try fullscreen
               </p>

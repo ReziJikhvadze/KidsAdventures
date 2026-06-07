@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
-
 import { useAuth } from "@/lib/auth/AuthContext";
-import { ApiError } from "@/lib/api/client";
+import { notify } from "@/lib/ui/notify";
 import {
   Dialog,
   DialogContent,
@@ -44,17 +42,20 @@ export function AuthDialog({
     try {
       if (mode === "login") {
         await login(email.trim(), password);
-        toast.success("Welcome back!");
+        notify.success("Welcome back!", {
+          description: "You're signed in and ready to create a story.",
+        });
         onOpenChange(false);
         onSuccess?.();
       } else {
         const message = await register(email.trim(), password);
-        toast.success(message);
+        notify.success("Check your inbox", {
+          description: message,
+        });
         setMode("login");
       }
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Something went wrong. Try again.";
-      toast.error(message);
+      notify.fromError(err, "Something went wrong. Try again.");
     } finally {
       setBusy(false);
     }

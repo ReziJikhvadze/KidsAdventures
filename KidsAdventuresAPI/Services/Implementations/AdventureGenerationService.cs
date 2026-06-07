@@ -17,6 +17,7 @@ public sealed class AdventureGenerationService(
     IUserRepository userRepository,
     ISubscriptionService subscriptionService,
     IOpenAiService openAiService,
+    IReferenceImageNormalizer referenceImageNormalizer,
     IAdventurePdfService adventurePdfService,
     IBlobStorageService blobStorageService,
     IEmailService emailService,
@@ -894,10 +895,11 @@ public sealed class AdventureGenerationService(
 
         async Task PersistPageAsync(int pageIndex, byte[] imageBytes)
         {
+            var storedImage = referenceImageNormalizer.NormalizeForStorageWebp(imageBytes);
             content.StoryPages[pageIndex].IllustrationUrl = await blobStorageService.UploadAsync(
                 PageIllustrationBlobName(pack.UserId, pack.Id, pageIndex),
-                imageBytes,
-                "image/webp",
+                storedImage.Bytes,
+                storedImage.ContentType,
                 cancellationToken);
 
             await persistLock.WaitAsync(cancellationToken);

@@ -65,13 +65,13 @@ public sealed class SmtpEmailService(
     {
         var html = $"""
             <p>Hello,</p>
-            <p>Thank you for creating an account with <strong>LittleHero Books</strong>.</p>
+            <p>Thank you for creating an account with <strong>Adventrya Books</strong>.</p>
             <p>Please confirm your email address to start creating personalized storybooks for your child:</p>
             <p><a href="{confirmationUrl}">Confirm my email</a></p>
             <p>If you did not create this account, you can ignore this message.</p>
-            <p>— LittleHero Books</p>
+            <p>— Adventrya Books</p>
             """;
-        return SendEmailAsync(toAddress, "Confirm your LittleHero Books account", html, cancellationToken);
+        return SendEmailAsync(toAddress, "Confirm your Adventrya Books account", html, cancellationToken);
     }
 
     public Task SendStoryReadyAsync(
@@ -86,9 +86,9 @@ public sealed class SmtpEmailService(
             <p>Good news — <strong>{childName}'s {theme} story</strong> has been written and is waiting for you.</p>
             <p>We're now painting the picture-book pages. You'll get another note when the slideshow is ready to read together.</p>
             <p><a href="{packUrl}">Open My Books</a></p>
-            <p>With warmth,<br/>LittleHero Books</p>
+            <p>With warmth,<br/>Adventrya Books</p>
             """;
-        return SendEmailAsync(toAddress, $"{childName}'s story is ready — LittleHero Books", html, cancellationToken);
+        return SendEmailAsync(toAddress, $"{childName}'s story is ready — Adventrya Books", html, cancellationToken);
     }
 
     public Task SendSlideshowReadyAsync(
@@ -103,9 +103,9 @@ public sealed class SmtpEmailService(
             <p>Your picture-book slideshow for <strong>{childName}'s {theme} adventure</strong> is ready — every page is illustrated and waiting for bedtime.</p>
             <p>Snuggle up, tap <strong>Read story</strong>, and swipe through the pages together. When you're ready, you can export a printable PDF from My Books.</p>
             <p><a href="{packUrl}">Read the slideshow</a></p>
-            <p>With warmth,<br/>LittleHero Books</p>
+            <p>With warmth,<br/>Adventrya Books</p>
             """;
-        return SendEmailAsync(toAddress, $"{childName}'s picture book is ready to read — LittleHero Books", html, cancellationToken);
+        return SendEmailAsync(toAddress, $"{childName}'s picture book is ready to read — Adventrya Books", html, cancellationToken);
     }
 
     public Task SendPdfReadyAsync(
@@ -120,7 +120,7 @@ public sealed class SmtpEmailService(
             <p>Your printable storybook PDF for <strong>{childName}'s {theme} adventure</strong> is ready to download.</p>
             <p>Open My Books and tap <strong>Download storybook PDF</strong> — perfect for printing or sharing with grandparents.</p>
             <p><a href="{packUrl}">Download from My Books</a></p>
-            <p>With warmth,<br/>LittleHero Books</p>
+            <p>With warmth,<br/>Adventrya Books</p>
             """;
         return SendEmailAsync(toAddress, $"Your storybook PDF is ready — {childName}", html, cancellationToken);
     }

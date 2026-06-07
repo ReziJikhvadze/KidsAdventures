@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { Check, BookOpen, Sparkles, Users } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/ui/notify";
 
 import { useAuth } from "@/lib/auth/AuthContext";
-import { ApiError } from "@/lib/api/client";
 import { createCheckoutSession } from "@/lib/api/subscriptions";
 import type { BookPackPlan } from "@/lib/api/types";
 import { AuthDialog } from "@/components/auth/AuthDialog";
@@ -104,10 +103,11 @@ export function Pricing() {
         window.location.href = session.checkoutUrl;
         return;
       }
-      toast.error("Checkout URL was not returned.");
+      notify.error("Checkout could not start", {
+        description: "No payment link was returned. Please try again.",
+      });
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Could not start checkout.";
-      toast.error(message);
+      notify.fromError(err, "Could not start checkout.");
     } finally {
       setCheckingOut(null);
     }

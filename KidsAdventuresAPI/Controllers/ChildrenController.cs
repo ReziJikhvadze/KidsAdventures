@@ -10,6 +10,7 @@ namespace AdventurePacks.Api.Controllers;
 public sealed class ChildrenController(
     IChildRepository childRepository,
     IBlobStorageService blobStorageService,
+    IReferenceImageNormalizer referenceImageNormalizer,
     IUserContextService userContext) : ControllerBase
 {
     private const long MaxFileSizeBytes = 5 * 1024 * 1024;
@@ -123,8 +124,13 @@ public sealed class ChildrenController(
         await using var stream = photo.OpenReadStream();
         using var ms = new MemoryStream();
         await stream.CopyToAsync(ms, cancellationToken);
-        var blobName = $"{userId}/children/{childId}/hero-{Guid.NewGuid()}-{photo.FileName}";
-        return await blobStorageService.UploadAsync(blobName, ms.ToArray(), photo.ContentType, cancellationToken);
+        var normalized = referenceImageNormalizer.NormalizeForOpenAi(ms.ToArray(), photo.ContentType);
+        var blobName = $"{userId}/children/{childId}/hero-{Guid.NewGuid()}.png";
+        return await blobStorageService.UploadAsync(
+            blobName,
+            normalized.Bytes,
+            normalized.ContentType,
+            cancellationToken);
     }
 
     private static ChildResponse Map(Child child) => new()

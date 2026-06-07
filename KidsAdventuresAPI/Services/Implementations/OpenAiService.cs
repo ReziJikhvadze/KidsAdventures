@@ -14,6 +14,7 @@ namespace AdventurePacks.Api.Services.Implementations;
 /// </summary>
 public sealed class OpenAiService(
     IHttpClientFactory httpClientFactory,
+    IReferenceImageNormalizer referenceImageNormalizer,
     IOptions<OpenAiOptions> options,
     ILogger<OpenAiService> logger) : IOpenAiService
 {
@@ -101,8 +102,8 @@ public sealed class OpenAiService(
         CancellationToken cancellationToken)
     {
         var client = CreateClient();
-        var mime = string.IsNullOrWhiteSpace(contentType) ? "image/jpeg" : contentType;
-        var dataUrl = ToDataUrl(imageBytes, mime);
+        var normalized = referenceImageNormalizer.NormalizeForOpenAi(imageBytes, contentType);
+        var dataUrl = ToDataUrl(normalized.Bytes, normalized.ContentType);
 
         var payload = new
         {
@@ -120,8 +121,8 @@ public sealed class OpenAiService(
                             text = roleDescription +
                                    " Reply with one dense paragraph for a Pixar character designer (stylized 3D animation, NOT photorealistic): " +
                                    "exact hair color, length, texture, and parting; skin tone; apparent age; glasses or freckles if any; " +
-                                   "face shape and 2–3 distinctive features (e.g. curly auburn hair, warm brown skin, round cheeks). " +
-                                   "Be specific and literal — an illustrator will copy these traits. No markdown."
+                                   "face shape, eye shape, nose, mouth, jawline, and 3–5 distinctive features so the cartoon twin is unmistakable. " +
+                                   "Be specific and literal — an illustrator must match this person. No markdown."
                         },
                         new
                         {
@@ -171,9 +172,12 @@ public sealed class OpenAiService(
             }
             catch (Exception ex)
             {
+                var usedPhoto = reference?.CastPhotos.Any(static c => c.Bytes is { Length: > 0 }) == true;
                 logger.LogWarning(
                     ex,
-                    "GPT Image edit failed after retries; one text-only images/generations fallback.");
+                    usedPhoto
+                        ? "GPT Image edit failed after retries; falling back to text-only generation (uploaded photo was not used — likeness may be lost)."
+                        : "GPT Image edit failed after retries; one text-only images/generations fallback.");
             }
         }
 
@@ -215,11 +219,20 @@ public sealed class OpenAiService(
         throw last ?? new InvalidOperationException("Image edit failed.");
     }
 
-    private static bool IsRetryableOpenAiError(Exception ex) =>
-        ex.Message.Contains("rate_limit", StringComparison.OrdinalIgnoreCase) ||
-        ex.Message.Contains("429", StringComparison.OrdinalIgnoreCase) ||
-        ex.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase) ||
-        ex.Message.Contains("disconnect", StringComparison.OrdinalIgnoreCase);
+    private static bool IsRetryableOpenAiError(Exception ex)
+    {
+        if (ex.Message.Contains("invalid_image_file", StringComparison.OrdinalIgnoreCase) ||
+            ex.Message.Contains("unsupported mimetype", StringComparison.OrdinalIgnoreCase) ||
+            ex.Message.Contains("image_generation_user_error", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return ex.Message.Contains("rate_limit", StringComparison.OrdinalIgnoreCase) ||
+               ex.Message.Contains("429", StringComparison.OrdinalIgnoreCase) ||
+               ex.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase) ||
+               ex.Message.Contains("disconnect", StringComparison.OrdinalIgnoreCase);
+    }
 
     private async Task<byte[]> GenerateStoryImageViaEditApiAsync(
         string imagePrompt,
@@ -236,8 +249,16 @@ public sealed class OpenAiService(
         form.Add(new StringContent(_options.ImageSize), "size");
         form.Add(new StringContent(quality), "quality");
 
-        foreach (var (bytes, fileName, contentType) in referenceImages)
+        for (var index = 0; index < referenceImages.Count; index++)
         {
+            var (bytes, fileName, contentType) = referenceImages[index];
+            logger.LogDebug(
+                "Images edit reference {Index}: {FileName} ({ContentType}, {Bytes} bytes)",
+                index + 1,
+                fileName,
+                contentType,
+                bytes.Length);
+
             var imageContent = new ByteArrayContent(bytes);
             imageContent.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
             form.Add(imageContent, "image[]", fileName);
@@ -314,7 +335,7 @@ public sealed class OpenAiService(
         return await ExtractImageBytesFromImagesResponseAsync(responseText, cancellationToken);
     }
 
-    private static List<(byte[] Bytes, string FileName, string ContentType)> CollectReferenceImages(
+    private List<(byte[] Bytes, string FileName, string ContentType)> CollectReferenceImages(
         StoryImageReference? reference)
     {
         var images = new List<(byte[] Bytes, string FileName, string ContentType)>();
@@ -325,7 +346,8 @@ public sealed class OpenAiService(
 
         if (reference.CharacterAnchorBytes is { Length: > 0 } anchor)
         {
-            images.Add((anchor, "01-hero-anchor.webp", "image/webp"));
+            var normalizedAnchor = referenceImageNormalizer.NormalizeForOpenAi(anchor, "image/webp");
+            images.Add((normalizedAnchor.Bytes, "01-hero-anchor.png", normalizedAnchor.ContentType));
         }
 
         foreach (var cast in reference.CastPhotos)
@@ -336,14 +358,9 @@ public sealed class OpenAiService(
             }
 
             var slot = images.Count + 1;
-            var extension = cast.ContentType switch
-            {
-                "image/png" => "png",
-                "image/webp" => "webp",
-                _ => "jpg"
-            };
             var slug = cast.IsHero ? "hero" : SanitizeFileSlug(cast.Name);
-            images.Add((cast.Bytes, $"{slot:D2}-{slug}-reference.{extension}", cast.ContentType));
+            var normalized = referenceImageNormalizer.NormalizeForOpenAi(cast.Bytes, cast.ContentType);
+            images.Add((normalized.Bytes, $"{slot:D2}-{slug}-reference.png", normalized.ContentType));
         }
 
         return images;

@@ -38,7 +38,7 @@ public sealed class AdventurePdfService : IAdventurePdfService
                 page.PageColor(palette.PageBackground);
                 page.Content().Column(column =>
                 {
-                    column.Item().Element(c => ComposeTopBanner(c, palette, "LittleHero Books", "Your personalized storybook"));
+                    column.Item().Element(c => ComposeTopBanner(c, palette, "Adventrya Books", "Your personalized storybook"));
 
                     column.Item().PaddingHorizontal(36).PaddingTop(28).PaddingBottom(32).Column(inner =>
                     {

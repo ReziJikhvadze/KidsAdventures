@@ -10,6 +10,7 @@ namespace AdventurePacks.Api.Controllers;
 public sealed class FamilyMembersController(
     IFamilyMemberRepository familyMemberRepository,
     IBlobStorageService blobStorageService,
+    IReferenceImageNormalizer referenceImageNormalizer,
     IUserContextService userContext) : ControllerBase
 {
     private const long MaxFileSizeBytes = 5 * 1024 * 1024;
@@ -101,8 +102,13 @@ public sealed class FamilyMembersController(
         await using var stream = photo.OpenReadStream();
         using var ms = new MemoryStream();
         await stream.CopyToAsync(ms, cancellationToken);
-        var blobName = $"{userId}/children/{childId}/family/{Guid.NewGuid()}-{photo.FileName}";
-        return await blobStorageService.UploadAsync(blobName, ms.ToArray(), photo.ContentType, cancellationToken);
+        var normalized = referenceImageNormalizer.NormalizeForOpenAi(ms.ToArray(), photo.ContentType);
+        var blobName = $"{userId}/children/{childId}/family/{Guid.NewGuid()}.png";
+        return await blobStorageService.UploadAsync(
+            blobName,
+            normalized.Bytes,
+            normalized.ContentType,
+            cancellationToken);
     }
 
     private static FamilyMemberResponse Map(FamilyMember x) => new()

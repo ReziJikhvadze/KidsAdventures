@@ -11,11 +11,12 @@ import { Generator } from "@/components/site/Generator";
 import { Grandparents } from "@/components/site/Grandparents";
 import { FinalCTA } from "@/components/site/FinalCTA";
 import { Footer } from "@/components/site/Footer";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "LittleHero Books — Personalized storybooks for kids" },
+      { title: `${BRAND_NAME} — ${BRAND_TAGLINE}` },
       {
         name: "description",
         content:
@@ -23,7 +24,7 @@ export const Route = createFileRoute("/")({
       },
       {
         property: "og:title",
-        content: "LittleHero Books — Personalized storybooks for kids",
+        content: `${BRAND_NAME} — ${BRAND_TAGLINE}`,
       },
       {
         property: "og:description",

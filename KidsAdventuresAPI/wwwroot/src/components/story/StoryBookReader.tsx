@@ -305,7 +305,7 @@ export function StoryBookReader({
   return (
     <div
       className={cn(
-        "w-full",
+        "w-full max-w-full min-w-0 overflow-hidden",
         isFullscreen && "fixed inset-0 z-50 overflow-y-auto bg-background",
         className,
       )}
@@ -316,38 +316,40 @@ export function StoryBookReader({
           isFullscreen && "mx-auto flex min-h-full max-w-4xl flex-col p-4 sm:p-6 md:p-8",
         )}
       >
-        <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground truncate">
+            <p className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {childName ? `${childName}'s story` : "Your story"}
             </p>
-            <p className="font-display font-semibold truncate">{title}</p>
+            <p className="truncate font-display font-semibold">{title}</p>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={cycleFontSize}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-secondary transition"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1.5 text-xs font-semibold transition hover:bg-secondary sm:px-3"
               title="Change text size"
             >
               <Type className="h-3.5 w-3.5" />
-              {fontSize === "sm" ? "Cozy" : fontSize === "md" ? "Default" : "Large"}
+              <span className="hidden sm:inline">
+                {fontSize === "sm" ? "Cozy" : fontSize === "md" ? "Default" : "Large"}
+              </span>
             </button>
             <button
               type="button"
               onClick={() => setIsFullscreen((open) => !open)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold hover:bg-secondary transition"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1.5 text-xs font-semibold transition hover:bg-secondary sm:px-3"
               title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             >
               {isFullscreen ? (
                 <>
                   <Minimize2 className="h-3.5 w-3.5" />
-                  Exit
+                  <span className="hidden sm:inline">Exit</span>
                 </>
               ) : (
                 <>
                   <Maximize2 className="h-3.5 w-3.5" />
-                  Fullscreen
+                  <span className="hidden sm:inline">Fullscreen</span>
                 </>
               )}
             </button>
@@ -364,14 +366,14 @@ export function StoryBookReader({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-2 mb-3">
+        <div className="-mx-1 mb-3 flex items-center justify-start gap-2 overflow-x-auto pb-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible">
           {pages.map((page, index) => (
             <button
               key={`tab-${index}`}
               type="button"
               onClick={() => api?.scrollTo(index)}
               className={cn(
-                "rounded-full px-3 py-1.5 text-xs font-semibold border transition",
+                "shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition",
                 index === current
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-card text-muted-foreground border-border hover:bg-secondary",
@@ -389,7 +391,7 @@ export function StoryBookReader({
             : "We're painting every page from your child's photo. The raw upload stays private."}
         </p>
 
-        <div className={cn("relative", isFullscreen ? "px-12" : "px-10")}>
+        <div className={cn("relative", isFullscreen ? "px-10 sm:px-12" : "px-0 sm:px-10")}>
           <Carousel setApi={setApi} opts={{ align: "start", loop: false }} className="w-full">
             <CarouselContent>
               {pages.map((page, index) => (
@@ -409,7 +411,7 @@ export function StoryBookReader({
                       variant={variant}
                       onOpenFullscreen={() => setIsFullscreen(true)}
                     />
-                    <div className="px-5 py-4 sm:px-6 sm:py-5 border-t border-border/60 bg-card/95">
+                    <div className="border-t border-border/60 bg-card/95 px-4 py-4 sm:px-6 sm:py-5">
                       <p className="text-xs font-semibold text-primary mb-1">
                         Page {index + 1} of {pages.length}
                       </p>
@@ -440,7 +442,7 @@ export function StoryBookReader({
             type="button"
             onClick={() => api?.scrollPrev()}
             disabled={current === 0}
-            className="absolute left-0 top-[38%] -translate-y-1/2 grid place-items-center h-8 w-8 rounded-full border border-border bg-card shadow-soft disabled:opacity-30 hover:bg-secondary transition"
+            className="absolute left-0 top-[38%] hidden h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-border bg-card shadow-soft transition hover:bg-secondary disabled:opacity-30 sm:grid"
             aria-label="Previous page"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -449,7 +451,7 @@ export function StoryBookReader({
             type="button"
             onClick={() => api?.scrollNext()}
             disabled={current >= pages.length - 1}
-            className="absolute right-0 top-[38%] -translate-y-1/2 grid place-items-center h-8 w-8 rounded-full border border-border bg-card shadow-soft disabled:opacity-30 hover:bg-secondary transition"
+            className="absolute right-0 top-[38%] hidden h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-border bg-card shadow-soft transition hover:bg-secondary disabled:opacity-30 sm:grid"
             aria-label="Next page"
           >
             <ChevronRight className="h-4 w-4" />

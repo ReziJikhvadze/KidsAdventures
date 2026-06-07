@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { toast } from "sonner";
-
 import { useAuth } from "@/lib/auth/AuthContext";
 import { ApiError } from "@/lib/api/client";
+import { notify } from "@/lib/ui/notify";
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
 import { createChild } from "@/lib/api/children";
 import { getToken } from "@/lib/api/client";
@@ -231,7 +230,7 @@ export function Generator() {
       setProgress(12);
       const heroFile =
         childPhoto?.startsWith("data:") ?
-          dataUrlToFile(childPhoto, "hero.jpg")
+          dataUrlToFile(childPhoto, "hero")
         : undefined;
       const child = await createChild(name.trim(), age as number, heroFile);
 
@@ -240,7 +239,7 @@ export function Generator() {
         for (const member of completeCast) {
           const memberName = `${relationLabelMap[member.relation]} (${member.roleObj.label})`;
           const photoFile = member.photo.startsWith("data:")
-            ? dataUrlToFile(member.photo, `${member.id}.jpg`)
+            ? dataUrlToFile(member.photo, member.id)
             : undefined;
           await createFamilyMember({
             childId: child.id,
@@ -278,7 +277,9 @@ export function Generator() {
       setProgress(100);
       setStatus("storyReady");
       await refreshAccountBalance();
-      toast.success("Your illustrated storybook is ready!");
+      notify.success("Your illustrated storybook is ready!", {
+        description: "Swipe through every page below, then export a free PDF when you like.",
+      });
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -288,19 +289,21 @@ export function Generator() {
             : "Failed to generate pack.";
       setErrorMessage(message);
       setStatus("error");
-      toast.error(message);
+      notify.fromError(err, "Could not create your story.");
     }
   };
 
   const generate = () => {
     if (!valid) return;
     if (isLoading) {
-      toast.message("Checking your sign-in…");
+      notify.info("Checking your sign-in…");
       return;
     }
     if (!isAuthenticated || !getToken()) {
       setAuthOpen(true);
-      toast.error("Please sign in to create a story.");
+      notify.error("Sign in to create a story", {
+        description: "Free accounts include 1 full illustrated story each month.",
+      });
       return;
     }
     void runGeneration();
@@ -314,7 +317,9 @@ export function Generator() {
     const slideshowReady =
       storyPages.length > 0 && storyPages.every((p) => p.isIllustrated);
     if (!slideshowReady) {
-      toast.error("Wait until every page is illustrated, then export PDF.");
+      notify.info("PDF not ready yet", {
+        description: "Wait until all pages are illustrated, then export your free PDF.",
+      });
       setStatus("storyReady");
       setStartingPdf(false);
       return;
@@ -347,7 +352,9 @@ export function Generator() {
       setProgress(100);
       setStatus("done");
       await refreshAccountBalance();
-      toast.success("Your storybook PDF is ready!");
+      notify.success("Your storybook PDF is ready!", {
+        description: "Download it below or find it anytime in My Books.",
+      });
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -357,7 +364,7 @@ export function Generator() {
             : "PDF creation failed.";
       setErrorMessage(message);
       setStatus("storyReady");
-      toast.error(message);
+      notify.fromError(err, "PDF creation failed.");
     } finally {
       setStartingPdf(false);
     }
@@ -484,9 +491,9 @@ export function Generator() {
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-semibold">Photo of your child (hero)</div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Strongly recommended — we turn this into a Pixar-style cartoon hero (matching hair,
-                      skin tone, and age). It won&apos;t look like a copy-paste of the photo, but should feel
-                      like your child. Clear front-facing photos work best.
+                      Strongly recommended — we turn this into a Pixar-style cartoon hero that matches the
+                      face, hair, skin tone, and age in your photo. Use a clear front-facing JPG or PNG
+                      (not a screenshot). Friends and family should recognize them instantly.
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <button
@@ -894,7 +901,9 @@ export function Generator() {
                             void adventurePacksApi
                               .downloadAdventurePack(completedPackId, fileName)
                               .catch(() =>
-                                toast.error("Could not download PDF. Open My Books and try again."),
+                                notify.error("PDF download failed", {
+                                  description: "Open My Books and try downloading again.",
+                                }),
                               )
                               .finally(() => setDownloading(false));
                           }}

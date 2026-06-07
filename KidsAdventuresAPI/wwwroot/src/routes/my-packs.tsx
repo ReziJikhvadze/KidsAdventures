@@ -3,11 +3,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Nav } from "@/components/site/Nav";
 import { Footer } from "@/components/site/Footer";
 import { MyPacks } from "@/components/site/MyPacks";
+import { BRAND_NAME } from "@/lib/brand";
 
 export const Route = createFileRoute("/my-packs")({
   head: () => ({
     meta: [
-      { title: "My books — LittleHero Books" },
+      { title: `My books — ${BRAND_NAME}` },
       {
         name: "description",
         content: "Read your stories and download illustrated storybook PDFs.",

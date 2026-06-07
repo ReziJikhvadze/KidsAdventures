@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth/AuthContext";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
 function NotFoundComponent() {
   return (
@@ -79,10 +80,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "LittleHero Books" },
-      { name: "description", content: "Personalized storybooks for kids" },
-      { property: "og:title", content: "LittleHero Books" },
-      { property: "og:description", content: "Personalized storybooks for kids" },
+      { title: BRAND_NAME },
+      { name: "description", content: BRAND_TAGLINE },
+      { property: "og:title", content: BRAND_NAME },
+      { property: "og:description", content: BRAND_TAGLINE },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },

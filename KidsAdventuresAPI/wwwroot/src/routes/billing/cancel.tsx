@@ -2,10 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { Nav } from "@/components/site/Nav";
 import { Footer } from "@/components/site/Footer";
+import { BRAND_NAME } from "@/lib/brand";
 
 export const Route = createFileRoute("/billing/cancel")({
   head: () => ({
-    meta: [{ title: "Checkout cancelled — LittleHero Books" }],
+    meta: [{ title: `Checkout cancelled — ${BRAND_NAME}` }],
   }),
   component: BillingCancel,
 });
