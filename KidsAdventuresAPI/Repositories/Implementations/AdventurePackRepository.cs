@@ -97,7 +97,8 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
                            WHERE UserId = @UserId
                              AND CreatedAt >= @UtcMonthStart
                              AND CreatedAt < @UtcMonthEnd
-                             AND Status <> @FailedStatus;
+                             AND Status <> @FailedStatus
+                             AND IsWelcomeGiftStory = 0;
                            """;
         using var connection = connectionFactory.CreateConnection();
         return await connection.ExecuteScalarAsync<int>(new CommandDefinition(

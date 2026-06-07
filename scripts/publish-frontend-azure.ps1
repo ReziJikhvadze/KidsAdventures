@@ -16,22 +16,21 @@ $buildScript = Join-Path $PSScriptRoot "build-frontend.ps1"
 & $buildScript -ApiBaseUrl $ApiBaseUrl
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$azureSsr = Join-Path $wwwroot "azure-ssr"
-$zipPath = Join-Path $wwwroot "frontend-deploy.zip"
-if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-
-# Zip contents of azure-ssr (server/, public/, nitro.json at archive root — not nested in a folder)
-Compress-Archive -Path (Join-Path $azureSsr "*") -DestinationPath $zipPath
+& (Join-Path $PSScriptRoot "package-frontend-zip.ps1")
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$zipPath = Join-Path (Split-Path -Parent $wwwroot) "frontend-deploy.zip"
 
 Write-Host ""
-Write-Host "Frontend deploy zip: $zipPath" -ForegroundColor Green
 Write-Host ""
 Write-Host "Azure Portal -> FRONTEND App Service (Node 22 LTS):" -ForegroundColor Cyan
 Write-Host "  1. Configuration -> General settings -> Startup Command: node server/index.mjs"
-Write-Host "  2. Configuration -> Application settings:"
+Write-Host "  2. Configuration -> Application settings (add ALL, then Save):"
 Write-Host "       SCM_DO_BUILD_DURING_DEPLOYMENT = false"
+Write-Host "       ENABLE_ORYX_BUILD              = false"
 Write-Host "       WEBSITE_NODE_DEFAULT_VERSION   = ~22"
-Write-Host "  3. Advanced Tools (Kudu) -> Zip Push Deploy -> upload frontend-deploy.zip"
+Write-Host "  3. Deploy zip (do NOT use QuickDeploy / VS publish for frontend):"
+Write-Host "       https://adventuresfront-bugebshtdxg6e8a8.scm.polandcentral-01.azurewebsites.net/ZipDeployUI"
+Write-Host "       Upload frontend-deploy.zip"
 Write-Host "  4. On the API appsettings.Production.json add your FRONTEND URL to Cors:AllowedOrigins"
 Write-Host "     and set Email:BaseUrl + Stripe Success/Cancel URLs to the frontend host"
 Write-Host "  5. Republish the API once CORS is updated"

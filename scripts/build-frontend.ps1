@@ -1,4 +1,4 @@
-# Build TanStack/Nitro frontend for Azure (node-server preset -> wwwroot/azure-ssr).
+# Build TanStack/Nitro frontend for Azure (node-server preset -> KidsAdventuresAPI/frontend-dist).
 param(
     [string]$ApiBaseUrl = ""
 )
@@ -21,10 +21,11 @@ try {
     }
     $env:VITE_API_BASE_URL = $ApiBaseUrl
     cmd /c "npm run build 2>&1"
-    if (-not (Test-Path "azure-ssr\server\index.mjs")) {
-        Write-Error "Build finished but azure-ssr\server\index.mjs is missing. Check vite.config.ts nitro preset."
+    $dist = Join-Path (Split-Path -Parent $wwwroot) "frontend-dist"
+    if (-not (Test-Path (Join-Path $dist "server\index.mjs"))) {
+        Write-Error "Build finished but frontend-dist\server\index.mjs is missing. Check vite.config.ts nitro preset."
     }
-    Write-Host "Frontend ready: $wwwroot\azure-ssr" -ForegroundColor Green
+    Write-Host "Frontend ready: $dist" -ForegroundColor Green
 }
 finally {
     Pop-Location

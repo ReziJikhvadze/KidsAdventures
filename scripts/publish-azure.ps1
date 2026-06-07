@@ -23,17 +23,10 @@ if (-not (Test-Path $productionJson)) {
     Copy-Item $exampleJson $productionJson
 }
 
-$buildFrontend = Join-Path $PSScriptRoot "build-frontend.ps1"
-if (Test-Path $buildFrontend) {
-    Write-Host "Building frontend (Nitro node-server)..." -ForegroundColor Cyan
-    & $buildFrontend
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-}
-
-Write-Host "Publishing API (Release)..." -ForegroundColor Cyan
+Write-Host "Publishing API (Release) + building frontend-deploy.zip..." -ForegroundColor Cyan
 Push-Location $apiDir
 try {
-    dotnet publish -c Release -o ./publish -p:SkipFrontendBuild=true
+    dotnet publish -c Release -o ./publish
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 finally {

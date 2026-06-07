@@ -51,13 +51,20 @@ export function formatCreditsBadgeLabel({
   bookCredits,
   storiesRemainingThisMonth,
 }: StoryQuotaInput): string {
-  if (bookCredits > 0) {
-    return `${bookCredits} story credit${bookCredits === 1 ? "" : "s"}`;
-  }
-
   if (storiesRemainingThisMonth > 0) {
-    return storiesRemainingThisMonth === 1 ? "1 free story" : `${storiesRemainingThisMonth} free stories`;
+    const monthly =
+      storiesRemainingThisMonth === 1
+        ? "1 story left"
+        : `${storiesRemainingThisMonth} stories left`;
+    if (bookCredits > 0) {
+      return `${monthly} · ${bookCredits} credit${bookCredits === 1 ? "" : "s"}`;
+    }
+    return monthly;
   }
 
-  return "0 story credits";
+  if (bookCredits > 0) {
+    return `0 left · ${bookCredits} credit${bookCredits === 1 ? "" : "s"}`;
+  }
+
+  return "0 stories left";
 }

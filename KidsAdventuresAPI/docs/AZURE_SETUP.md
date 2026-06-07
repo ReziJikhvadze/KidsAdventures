@@ -171,6 +171,13 @@ VITE_API_BASE_URL=http://localhost:5071
 
 **Visual Studio:** Right-click `KidsAdventuresAPI` → **Publish** → Azure App Service → **Release**.
 
+One Publish does two things:
+
+1. **Deploys the API** to your `adventuresapi` App Service (as today).
+2. **Builds the frontend** and writes `KidsAdventuresAPI/frontend-deploy.zip` for `adventuresfront` (upload via ZipDeployUI — not auto-deployed).
+
+To skip the npm build (API-only publish): set MSBuild property `SkipFrontendBuild=true` in the publish profile or run `dotnet publish -p:SkipFrontendBuild=true`.
+
 **PowerShell:**
 
 ```powershell

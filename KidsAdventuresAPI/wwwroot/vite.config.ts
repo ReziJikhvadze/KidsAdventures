@@ -21,7 +21,8 @@ export default defineConfig({
     // Azure App Service (Node sidecar via ASP.NET reverse proxy)
     preset: "node-server",
     output: {
-      dir: "azure-ssr",
+      // Outside wwwroot so ASP.NET Static Web Assets does not track build output
+      dir: "../frontend-dist",
     },
   },
 });
