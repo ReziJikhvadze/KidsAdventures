@@ -10,6 +10,17 @@ public interface ISubscriptionService
     Task<bool> TryChargePdfCreditAsync(Guid userId, Guid packId, CancellationToken cancellationToken);
     Task RefundPdfCreditIfChargedAsync(Guid userId, Guid packId, CancellationToken cancellationToken);
     Task<CheckoutSessionResponse> CreateCheckoutSessionAsync(Guid userId, string email, string planType, CancellationToken cancellationToken);
-    Task<AccountBalanceResponse> ConfirmCheckoutSessionAsync(Guid userId, string sessionId, CancellationToken cancellationToken);
+    Task<AccountBalanceResponse> ConfirmCheckoutSessionAsync(
+        Guid userId,
+        string? sessionId,
+        string? paymentId,
+        CancellationToken cancellationToken);
     Task HandleWebhookAsync(string jsonPayload, string stripeSignature, CancellationToken cancellationToken);
+
+    Task HandleDodoWebhookAsync(
+        string jsonPayload,
+        string webhookId,
+        string webhookSignature,
+        string webhookTimestamp,
+        CancellationToken cancellationToken);
 }

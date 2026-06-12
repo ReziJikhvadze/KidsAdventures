@@ -10,11 +10,15 @@ import { notify } from "@/lib/ui/notify";
 
 type BillingSuccessSearch = {
   session_id?: string;
+  payment_id?: string;
+  status?: string;
 };
 
 export const Route = createFileRoute("/billing/success")({
   validateSearch: (search: Record<string, unknown>): BillingSuccessSearch => ({
     session_id: typeof search.session_id === "string" ? search.session_id : undefined,
+    payment_id: typeof search.payment_id === "string" ? search.payment_id : undefined,
+    status: typeof search.status === "string" ? search.status : undefined,
   }),
   head: () => ({
     meta: [{ title: `Payment successful — ${BRAND_NAME}` }],
@@ -23,13 +27,15 @@ export const Route = createFileRoute("/billing/success")({
 });
 
 function BillingSuccess() {
-  const { session_id: sessionId } = Route.useSearch();
+  const { session_id: sessionId, payment_id: paymentId, status } = Route.useSearch();
   const { refreshAccountBalance, user } = useAuth();
-  const [confirming, setConfirming] = useState(!!sessionId);
+  const shouldConfirm =
+    !!sessionId || (!!paymentId && (!status || status.toLowerCase() === "succeeded"));
+  const [confirming, setConfirming] = useState(shouldConfirm);
   const [credits, setCredits] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!sessionId) {
+    if (!shouldConfirm) {
       void refreshAccountBalance();
       return;
     }
@@ -37,7 +43,10 @@ function BillingSuccess() {
     let cancelled = false;
     (async () => {
       try {
-        const balance = await confirmCheckoutSession(sessionId);
+        const balance = await confirmCheckoutSession({
+          sessionId,
+          paymentId,
+        });
         if (cancelled) return;
         setCredits(balance.bookCredits);
         await refreshAccountBalance();
@@ -53,7 +62,7 @@ function BillingSuccess() {
     return () => {
       cancelled = true;
     };
-  }, [sessionId, refreshAccountBalance]);
+  }, [sessionId, paymentId, status, shouldConfirm, refreshAccountBalance]);
 
   const displayCredits = credits ?? user?.bookCredits ?? 0;
 

@@ -25,6 +25,7 @@ public sealed class AccountBalanceResponse
 
 public sealed class ConfirmCheckoutSessionRequest
 {
-    [Required]
-    public string SessionId { get; set; } = string.Empty;
+    public string? SessionId { get; set; }
+
+    public string? PaymentId { get; set; }
 }

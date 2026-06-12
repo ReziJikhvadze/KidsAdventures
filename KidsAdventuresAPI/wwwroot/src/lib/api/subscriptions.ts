@@ -14,9 +14,15 @@ export async function createCheckoutSession(
   });
 }
 
-export async function confirmCheckoutSession(sessionId: string): Promise<AccountBalanceResponse> {
+export async function confirmCheckoutSession(options: {
+  sessionId?: string;
+  paymentId?: string;
+}): Promise<AccountBalanceResponse> {
   return apiRequest<AccountBalanceResponse>("/api/subscriptions/confirm-checkout", {
     method: "POST",
-    body: JSON.stringify({ sessionId }),
+    body: JSON.stringify({
+      sessionId: options.sessionId,
+      paymentId: options.paymentId,
+    }),
   });
 }

@@ -11,6 +11,12 @@ try {
         npm install
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
+    $dist = Join-Path (Split-Path -Parent $wwwroot) "frontend-dist"
+    if (Test-Path $dist) {
+        Write-Host "Cleaning $dist ..." -ForegroundColor DarkGray
+        Remove-Item $dist -Recurse -Force
+    }
+
     if ($ApiBaseUrl) {
         $envFile = Join-Path $wwwroot ".env.production"
         @(

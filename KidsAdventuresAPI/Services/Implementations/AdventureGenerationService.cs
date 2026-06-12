@@ -4,6 +4,7 @@ using AdventurePacks.Api.Domain.Enums;
 using AdventurePacks.Api.Domain.Models;
 using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.Repositories.Interfaces;
+using AdventurePacks.Api.Services;
 using AdventurePacks.Api.Services.Interfaces;
 using Hangfire;
 

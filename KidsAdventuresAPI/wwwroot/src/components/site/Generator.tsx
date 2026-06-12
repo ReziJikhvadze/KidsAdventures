@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { ApiError } from "@/lib/api/client";
@@ -10,10 +10,10 @@ import { createFamilyMember } from "@/lib/api/family-members";
 import type { PreviewIllustrationStatus, ThemeType } from "@/lib/api/types";
 import { THEME_ID_TO_API } from "@/lib/api/types";
 import { StoryBookReader } from "@/components/story/StoryBookReader";
+import { PhotoPickerActions } from "@/components/ui/PhotoPickerActions";
 import { dataUrlToFile } from "@/lib/api/utils";
 import { AuthDialog } from "@/components/auth/AuthDialog";
 import {
-  Upload,
   Sparkles,
   Loader2,
   X,
@@ -35,7 +35,6 @@ import {
   Shield,
   Heart,
   Brain,
-  Plus,
   Users,
   Gift,
   ChevronDown,
@@ -150,8 +149,6 @@ export function Generator() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isWelcomeGiftStory, setIsWelcomeGiftStory] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const heroPhotoRef = useRef<HTMLInputElement>(null);
   const { isAuthenticated, isLoading, canCreatePdf, refreshAccountBalance, setBookCredits, user } =
     useAuth();
 
@@ -498,15 +495,11 @@ export function Generator() {
                       face, hair, skin tone, and age in your photo. Use a clear front-facing JPG or PNG
                       (not a screenshot). Friends and family should recognize them instantly.
                     </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => heroPhotoRef.current?.click()}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-3 py-1.5 text-xs font-semibold hover:bg-primary/15 transition"
-                      >
-                        <Upload className="h-3.5 w-3.5" />
-                        {childPhoto ? "Change photo" : "Upload photo"}
-                      </button>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <PhotoPickerActions
+                        hasPhoto={!!childPhoto}
+                        onFileSelected={addHeroPhoto}
+                      />
                       {childPhoto && (
                         <button
                           type="button"
@@ -519,16 +512,6 @@ export function Generator() {
                     </div>
                   </div>
                 </div>
-                <input
-                  ref={heroPhotoRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    addHeroPhoto(e.target.files?.[0]);
-                    if (heroPhotoRef.current) heroPhotoRef.current.value = "";
-                  }}
-                />
               </div>
 
               <button
@@ -657,42 +640,16 @@ export function Generator() {
 
                 {/* Add another */}
                 {members.length < MAX_MEMBERS ? (
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    className="w-full rounded-xl border-2 border-dashed border-border bg-background hover:border-primary hover:bg-primary/5 transition px-4 py-4 flex items-center justify-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
-                  >
-                    {members.length === 0 ? (
-                      <>
-                        <Upload className="h-4 w-4" />
-                        Upload a photo
-                        <span className="text-xs text-muted-foreground font-normal">
-                          (optional)
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-4 w-4" />
-                        Add another family member
-                      </>
-                    )}
-                  </button>
+                  <PhotoPickerActions
+                    size="prominent"
+                    hasPhoto={members.length > 0}
+                    onFileSelected={addMemberFromFile}
+                  />
                 ) : (
                   <p className="text-xs text-center text-muted-foreground py-2">
                     You've reached the maximum cast size.
                   </p>
                 )}
-
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    addMemberFromFile(e.target.files?.[0]);
-                    if (fileRef.current) fileRef.current.value = "";
-                  }}
-                />
               </div>
               )}
 
@@ -864,6 +821,9 @@ export function Generator() {
 
                 {(status === "storyReady" || status === "done") && selectedTheme && packTheme && (
                   <div className="relative animate-rise">
+                    <p className="mb-3 text-center text-sm font-semibold text-foreground">
+                      Read your story (free)
+                    </p>
                     <StoryBookReader
                       pages={storyPages}
                       theme={packTheme}

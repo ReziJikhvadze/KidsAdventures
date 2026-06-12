@@ -32,7 +32,7 @@ All API settings live in **JSON appsettings files** (not Azure Portal Applicatio
    - **`ASPNETCORE_ENVIRONMENT`** = `Production`
    - **`WEBSITE_NODE_DEFAULT_VERSION`** = `~20` (Node sidecar for hosted frontend)
 2. **General settings** → **Always On** = **On** (required for Hangfire / long story jobs)
-3. **Do not** duplicate JWT/OpenAI/Stripe/SQL in portal settings — the app reads `appsettings.Production.json` from the deployed package.
+3. **Do not** duplicate JWT/OpenAI/DodoPayments/Stripe/SQL in portal settings — the app reads `appsettings.Production.json` from the deployed package.
 4. Ensure `appsettings.Production.json` is included when you publish (it is on your machine; `.gitignore` only blocks git, not deploy).
 5. Replace every `YOUR-API.azurewebsites.net` in `appsettings.Production.json` with your real App Service hostname before publish.
 
@@ -49,7 +49,8 @@ All API settings live in **JSON appsettings files** (not Azure Portal Applicatio
     "AllowedOrigins": [ "https://your-frontend.azurewebsites.net", "http://localhost:5173" ]
   },
   "Seed": { "Enabled": true, "DemoEmail": "...", "DemoPassword": "..." },
-  "Stripe": { "SecretKey": "...", "SuccessUrl": "...", "CancelUrl": "..." }
+  "DodoPayments": { "Enabled": true, "ApiKey": "...", "WebhookSecret": "...", "Books3ProductId": "...", "SuccessUrl": "https://your-frontend/billing/success" },
+  "Stripe": { "Enabled": false }
 }
 ```
 
@@ -129,7 +130,7 @@ cd scripts
 .\publish-frontend-azure.ps1
 ```
 
-Produces `KidsAdventuresAPI/wwwroot/frontend-deploy.zip` (Nitro `node-server` output).
+Produces `KidsAdventuresAPI/frontend-deploy.zip` (Nitro `node-server` output). Upload this file only — not copies under `wwwroot/`.
 
 `wwwroot/.env.production` must point at the API:
 
@@ -154,7 +155,9 @@ After you know the frontend URL (e.g. `https://your-frontend.polandcentral-01.az
 - `Cors:AllowedOrigins` → add the frontend URL
 - `Email:BaseUrl` → frontend URL
 - `Email:ApiBaseUrl` → API URL (unchanged)
-- `Stripe:SuccessUrl` / `CancelUrl` → frontend billing paths
+- `DodoPayments:SuccessUrl` / `CancelUrl` → frontend billing paths (`/billing/success`, `/billing/cancel`)
+- Dodo Dashboard webhook URL: `POST https://your-api.azurewebsites.net/api/subscriptions/webhook` (event: `payment.succeeded`)
+- Set `Stripe:Enabled` to `false` while using Dodo
 - `Frontend:EnableHostedNode` → `false` (API-only)
 
 Republish the API after CORS/URL changes.

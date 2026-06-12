@@ -26,6 +26,7 @@ public sealed class SubscriptionsController(
         var balance = await subscriptionService.ConfirmCheckoutSessionAsync(
             userContext.GetUserId(),
             request.SessionId,
+            request.PaymentId,
             cancellationToken);
         return Ok(balance);
     }
@@ -49,8 +50,20 @@ public sealed class SubscriptionsController(
     {
         using var reader = new StreamReader(HttpContext.Request.Body);
         var payload = await reader.ReadToEndAsync(cancellationToken);
-        var signature = Request.Headers["Stripe-Signature"].ToString();
 
+        var webhookId = Request.Headers["webhook-id"].ToString();
+        if (!string.IsNullOrWhiteSpace(webhookId))
+        {
+            await subscriptionService.HandleDodoWebhookAsync(
+                payload,
+                webhookId,
+                Request.Headers["webhook-signature"].ToString(),
+                Request.Headers["webhook-timestamp"].ToString(),
+                cancellationToken);
+            return Ok();
+        }
+
+        var signature = Request.Headers["Stripe-Signature"].ToString();
         await subscriptionService.HandleWebhookAsync(payload, signature, cancellationToken);
         return Ok();
     }

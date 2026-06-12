@@ -26,4 +26,12 @@ public static class BookPackPlans
         Books15 => stripe.Books15PriceId,
         _ => throw new InvalidOperationException($"Unknown book pack plan: {planType}")
     };
+
+    public static string GetDodoProductId(string planType, DodoPaymentsOptions dodo) => planType switch
+    {
+        Books3 => dodo.Books3ProductId,
+        Books5 => dodo.Books5ProductId,
+        Books15 => dodo.Books15ProductId,
+        _ => throw new InvalidOperationException($"Unknown book pack plan: {planType}")
+    };
 }

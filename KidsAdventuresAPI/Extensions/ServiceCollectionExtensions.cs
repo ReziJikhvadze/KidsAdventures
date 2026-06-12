@@ -20,6 +20,7 @@ public static class ServiceCollectionExtensions
         services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
         services.Configure<AzureBlobOptions>(configuration.GetSection(AzureBlobOptions.SectionName));
         services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.SectionName));
+        services.Configure<DodoPaymentsOptions>(configuration.GetSection(DodoPaymentsOptions.SectionName));
         services.Configure<CorsOptions>(configuration.GetSection(CorsOptions.SectionName));
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
@@ -155,10 +156,23 @@ public static class ServiceCollectionExtensions
             });
 
         var stripe = configuration.GetSection(StripeOptions.SectionName).Get<StripeOptions>();
-        if (!string.IsNullOrWhiteSpace(stripe?.SecretKey))
+        if (stripe?.Enabled == true && !string.IsNullOrWhiteSpace(stripe.SecretKey))
         {
             Stripe.StripeConfiguration.ApiKey = stripe.SecretKey;
         }
+
+        services.AddSingleton<DodoPayments.Client.DodoPaymentsClient>(sp =>
+        {
+            var dodo = sp.GetRequiredService<IOptions<DodoPaymentsOptions>>().Value;
+            return new DodoPayments.Client.DodoPaymentsClient
+            {
+                BearerToken = dodo.ApiKey,
+                WebhookKey = dodo.WebhookSecret,
+                BaseUrl = dodo.UseTestMode
+                    ? "https://test.dodopayments.com"
+                    : "https://live.dodopayments.com",
+            };
+        });
 
         return services;
     }

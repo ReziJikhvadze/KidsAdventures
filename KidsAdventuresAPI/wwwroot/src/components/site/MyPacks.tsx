@@ -63,6 +63,7 @@ export function MyPacks() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [pdfStartingId, setPdfStartingId] = useState<string | null>(null);
   const [loadingReaderIds, setLoadingReaderIds] = useState<Set<string>>(() => new Set());
+  const [openReaderIds, setOpenReaderIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const updatePack = useCallback((updated: AdventurePackDetailResponse) => {
@@ -201,6 +202,41 @@ export function MyPacks() {
     } finally {
       setDownloadingId(null);
     }
+  };
+
+  const toggleReadStory = async (pack: AdventurePackDetailResponse) => {
+    if (openReaderIds.has(pack.id)) {
+      setOpenReaderIds((prev) => {
+        const next = new Set(prev);
+        next.delete(pack.id);
+        return next;
+      });
+      return;
+    }
+
+    if (!pack.storyPages || pack.storyPages.length === 0) {
+      setLoadingReaderIds((prev) => new Set(prev).add(pack.id));
+      try {
+        const detail = await adventurePacksApi.getAdventurePack(pack.id);
+        updatePack(detail);
+      } catch {
+        notify.error("Could not load story", {
+          description: "Tap Refresh and try Read story again.",
+        });
+        return;
+      } finally {
+        setLoadingReaderIds((prev) => {
+          const next = new Set(prev);
+          next.delete(pack.id);
+          return next;
+        });
+      }
+    }
+
+    setOpenReaderIds((prev) => new Set(prev).add(pack.id));
+    requestAnimationFrame(() => {
+      document.getElementById(`reader-${pack.id}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
   };
 
   const startPdf = async (pack: AdventurePackDetailResponse) => {
@@ -387,8 +423,12 @@ export function MyPacks() {
               const readable = slideshowIllustrationsReady(pack);
               const illustrating = needsPreviewPoll(pack);
               const readerLoading = loadingReaderIds.has(pack.id);
-              const showSlideshow =
-                readable || illustrating || generating || pack.status === "StoryReady" || pack.status === "Completed";
+              const canReadStory =
+                readable ||
+                illustrating ||
+                pack.status === "StoryReady" ||
+                pack.status === "Completed";
+              const readerOpen = openReaderIds.has(pack.id);
               return (
                 <li
                   key={pack.id}
@@ -433,12 +473,27 @@ export function MyPacks() {
                       )}
                     </div>
                     <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {canReadStory && (
+                        <button
+                          type="button"
+                          onClick={() => void toggleReadStory(pack)}
+                          disabled={readerLoading}
+                          className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2.5 text-sm font-semibold hover:opacity-90 transition disabled:opacity-60"
+                        >
+                          {readerLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <BookOpen className="h-4 w-4" />
+                          )}
+                          {readerOpen ? "Hide story" : "Read story"}
+                        </button>
+                      )}
                       {readable && pack.status === "StoryReady" && isAuthenticated && (
                         <button
                           type="button"
                           onClick={() => void startPdf(pack)}
                           disabled={pdfStartingId === pack.id}
-                          className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2.5 text-sm font-semibold hover:opacity-90 transition disabled:opacity-60"
+                          className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:bg-secondary transition disabled:opacity-60"
                         >
                           {pdfStartingId === pack.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -453,7 +508,7 @@ export function MyPacks() {
                           type="button"
                           onClick={() => void openDownload(pack)}
                           disabled={downloadingId === pack.id}
-                          className="inline-flex items-center gap-2 rounded-full bg-foreground text-background px-4 py-2.5 text-sm font-semibold hover:opacity-90 transition disabled:opacity-60"
+                          className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:bg-secondary transition disabled:opacity-60"
                         >
                           {downloadingId === pack.id ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -474,8 +529,11 @@ export function MyPacks() {
                       )}
                     </div>
                   </div>
-                  {showSlideshow && (
-                    <div className="animate-rise w-full min-w-0 border-t border-border/60 pt-4">
+                  {canReadStory && readerOpen && (
+                    <div
+                      id={`reader-${pack.id}`}
+                      className="animate-rise w-full min-w-0 border-t border-border/60 pt-4"
+                    >
                       <div className="mb-3 flex items-center gap-2">
                         <BookOpen className="h-4 w-4 text-primary shrink-0" />
                         <p className="text-sm font-semibold text-foreground">

@@ -15,6 +15,7 @@
     <PackageReference Include="Azure.Storage.Blobs" Version="12.26.0" />
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="Dapper" Version="2.1.66" />
+    <PackageReference Include="DodoPayments.Client" Version="6.20.0" />
     <PackageReference Include="Hangfire.AspNetCore" Version="1.8.22" />
     <PackageReference Include="Hangfire.SqlServer" Version="1.8.22" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.18" />
@@ -41,6 +42,7 @@
   <!-- After API publish: build frontend + write frontend-deploy.zip for adventuresfront. -->
   <Target Name="BuildFrontendForDeployZip" AfterTargets="Publish" Condition="'$(SkipFrontendBuild)' != 'true'">
     <Message Importance="high" Text="Building frontend (reads wwwroot/.env.production for VITE_API_BASE_URL)..." />
+    <RemoveDir Directories="$(MSBuildProjectDirectory)\frontend-dist" Condition="Exists('$(MSBuildProjectDirectory)\frontend-dist')" />
     <Exec WorkingDirectory="$(MSBuildProjectDirectory)\wwwroot" Command="npm install" Condition="!Exists('$(MSBuildProjectDirectory)\wwwroot\node_modules')" />
     <Exec WorkingDirectory="$(MSBuildProjectDirectory)\wwwroot" Command="cmd /c &quot;npm run build&quot;" />
     <Message Importance="high" Text="Creating frontend-deploy.zip for adventuresfront..." />

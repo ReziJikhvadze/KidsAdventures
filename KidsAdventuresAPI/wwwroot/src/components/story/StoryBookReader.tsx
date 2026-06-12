@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ChevronLeft,
   ChevronRight,
@@ -310,12 +311,13 @@ export function StoryBookReader({
     return null;
   }
 
-  return (
+  const readerShell = (
     <div
       className={cn(
         "w-full max-w-full min-w-0 overflow-hidden",
-        isFullscreen && "fixed inset-0 z-50 overflow-y-auto bg-background",
-        className,
+        isFullscreen &&
+          "fixed inset-0 z-[100] overflow-y-auto bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
+        !isFullscreen && className,
       )}
     >
       <div
@@ -335,7 +337,7 @@ export function StoryBookReader({
             <button
               type="button"
               onClick={cycleFontSize}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1.5 text-xs font-semibold transition hover:bg-secondary sm:px-3"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1.5 text-xs font-semibold transition hover:bg-secondary sm:min-h-0 sm:min-w-0 sm:px-3"
               title="Change text size"
             >
               <Type className="h-3.5 w-3.5" />
@@ -346,7 +348,7 @@ export function StoryBookReader({
             <button
               type="button"
               onClick={() => setIsFullscreen((open) => !open)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1.5 text-xs font-semibold transition hover:bg-secondary sm:px-3"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1.5 text-xs font-semibold transition hover:bg-secondary sm:min-h-0 sm:min-w-0 sm:px-3"
               title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             >
               {isFullscreen ? (
@@ -365,7 +367,7 @@ export function StoryBookReader({
               <button
                 type="button"
                 onClick={() => setIsFullscreen(false)}
-                className="inline-flex items-center justify-center rounded-full border border-border bg-card p-2 hover:bg-secondary transition"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card p-2 hover:bg-secondary transition"
                 aria-label="Close fullscreen"
               >
                 <X className="h-4 w-4" />
@@ -508,7 +510,10 @@ export function StoryBookReader({
             type="button"
             onClick={() => api?.scrollPrev()}
             disabled={current === 0}
-            className="absolute left-0 top-[38%] hidden h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-border bg-card shadow-soft transition hover:bg-secondary disabled:opacity-30 sm:grid"
+            className={cn(
+              "absolute left-0 top-[38%] grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-border bg-card shadow-soft transition hover:bg-secondary disabled:opacity-30",
+              isFullscreen ? "sm:grid" : "hidden sm:grid",
+            )}
             aria-label="Previous page"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -517,7 +522,10 @@ export function StoryBookReader({
             type="button"
             onClick={() => api?.scrollNext()}
             disabled={current >= totalSlides - 1}
-            className="absolute right-0 top-[38%] hidden h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-border bg-card shadow-soft transition hover:bg-secondary disabled:opacity-30 sm:grid"
+            className={cn(
+              "absolute right-0 top-[38%] grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-border bg-card shadow-soft transition hover:bg-secondary disabled:opacity-30",
+              isFullscreen ? "sm:grid" : "hidden sm:grid",
+            )}
             aria-label="Next page"
           >
             <ChevronRight className="h-4 w-4" />
@@ -596,4 +604,10 @@ export function StoryBookReader({
       </div>
     </div>
   );
+
+  if (isFullscreen && typeof document !== "undefined") {
+    return createPortal(readerShell, document.body);
+  }
+
+  return readerShell;
 }
