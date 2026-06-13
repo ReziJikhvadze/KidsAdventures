@@ -1,11 +1,10 @@
 import { Link } from "@tanstack/react-router";
 
-import { BRAND_LOGO_URL, BRAND_NAME } from "@/lib/brand";
+import { BRAND_LOGO_URL, BRAND_NAME, BRAND_HEADER_NAME } from "@/lib/brand";
 
 type BrandLogoProps = {
   className?: string;
   asLink?: boolean;
-  /** Header: tall logo on md+; compact on mobile to avoid overlapping nav actions */
   variant?: "default" | "header";
 };
 
@@ -18,18 +17,20 @@ export function BrandLogo({
 
   const logo = isHeader ? (
     <>
+      {/* Phone + tablet: contained logo (no overflow) */}
       <img
         src={BRAND_LOGO_URL}
         alt=""
         aria-hidden
-        className="h-9 w-9 shrink-0 object-contain md:hidden"
+        className="h-14 w-14 shrink-0 object-contain 2xl:hidden"
       />
-      <span className="relative hidden md:block h-16 w-[120px] shrink-0">
+      {/* Very wide screens: decorative tall logo */}
+      <span className="relative hidden 2xl:block h-16 w-[100px] shrink-0">
         <img
           src={BRAND_LOGO_URL}
           alt=""
           aria-hidden
-          className="absolute left-0 top-1/2 h-[140px] w-[120px] -translate-y-1/2 object-contain"
+          className="absolute left-0 top-1/2 h-[120px] w-[100px] -translate-y-1/2 object-contain"
         />
       </span>
     </>
@@ -42,17 +43,19 @@ export function BrandLogo({
     />
   );
 
-  const label = (
-    <span
-      className={`font-display font-bold tracking-tight ${
-        isHeader
-          ? "hidden md:block truncate max-w-none text-lg md:text-xl"
-          : "text-lg sm:text-xl"
-      }`}
-    >
+  const label = isHeader ? (
+    <span className="hidden min-[400px]:block font-display text-sm font-bold tracking-tight whitespace-nowrap xl:text-base 2xl:text-lg">
+      {BRAND_HEADER_NAME}
+    </span>
+  ) : (
+    <span className="font-display text-lg font-bold tracking-tight sm:text-xl">
       {BRAND_NAME}
     </span>
   );
+
+  const layoutClass = isHeader
+    ? `flex items-center gap-2 min-w-0 shrink-0 ${className}`
+    : `flex items-center gap-2.5 ${className}`;
 
   const content = (
     <>
@@ -61,16 +64,12 @@ export function BrandLogo({
     </>
   );
 
-  const layoutClass = isHeader
-    ? `flex items-center gap-1.5 sm:gap-2 md:gap-3 min-w-0 w-9 sm:w-auto md:max-w-none shrink-0 ${className}`
-    : `flex items-center gap-2.5 ${className}`;
-
   if (!asLink) {
     return <div className={layoutClass}>{content}</div>;
   }
 
   return (
-    <Link to="/" className={layoutClass}>
+    <Link to="/" className={layoutClass} aria-label={BRAND_NAME}>
       {content}
     </Link>
   );
