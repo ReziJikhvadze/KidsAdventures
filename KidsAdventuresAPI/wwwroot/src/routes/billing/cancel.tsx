@@ -3,11 +3,18 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { Nav } from "@/components/site/Nav";
 import { Footer } from "@/components/site/Footer";
 import { BRAND_NAME } from "@/lib/brand";
+import { buildPageMeta } from "@/lib/seo";
 
 export const Route = createFileRoute("/billing/cancel")({
-  head: () => ({
-    meta: [{ title: `Checkout cancelled — ${BRAND_NAME}` }],
-  }),
+  head: () => {
+    const { meta, links } = buildPageMeta({
+      title: `Checkout cancelled — ${BRAND_NAME}`,
+      description: "Your checkout was cancelled. No charge was made.",
+      path: "/billing/cancel",
+      noindex: true,
+    });
+    return { meta, links };
+  },
   component: BillingCancel,
 });
 

@@ -5,17 +5,17 @@ import { Nav } from "@/components/site/Nav";
 import { Footer } from "@/components/site/Footer";
 import { privacyIntro, privacySections } from "@/content/legal/privacy";
 import { BRAND_NAME } from "@/lib/brand";
+import { buildPageMeta } from "@/lib/seo";
 
 export const Route = createFileRoute("/privacy")({
-  head: () => ({
-    meta: [
-      { title: `Privacy Policy — ${BRAND_NAME}` },
-      {
-        name: "description",
-        content: `How ${BRAND_NAME} collects, uses, and protects personal data — including photos, AI processing, and your GDPR rights.`,
-      },
-    ],
-  }),
+  head: () => {
+    const { meta, links } = buildPageMeta({
+      title: `Privacy Policy — ${BRAND_NAME}`,
+      description: `How ${BRAND_NAME} collects, uses, and protects personal data — including photos, AI processing, and your GDPR rights.`,
+      path: "/privacy",
+    });
+    return { meta, links };
+  },
   component: PrivacyPage,
 });
 

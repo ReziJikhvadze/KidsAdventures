@@ -13,7 +13,8 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth/AuthContext";
-import { BRAND_LOGO_URL, BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
+import { BRAND_LOGO_URL } from "@/lib/brand";
+import { buildRootMeta } from "@/lib/seo";
 
 function NotFoundComponent() {
   return (
@@ -75,19 +76,14 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
+const rootMeta = buildRootMeta();
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: `${BRAND_NAME} — ${BRAND_TAGLINE}` },
-      { name: "description", content: BRAND_TAGLINE },
-      { property: "og:title", content: `${BRAND_NAME} — ${BRAND_TAGLINE}` },
-      { property: "og:description", content: BRAND_TAGLINE },
-      { property: "og:image", content: BRAND_LOGO_URL },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
+      ...rootMeta.meta,
     ],
     links: [
       { rel: "icon", type: "image/png", href: BRAND_LOGO_URL },
@@ -102,6 +98,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
+      ...rootMeta.links,
     ],
   }),
   shellComponent: RootShell,
@@ -130,7 +127,6 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
         <Toaster />
       </AuthProvider>

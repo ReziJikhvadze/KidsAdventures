@@ -6,6 +6,7 @@ import { Footer } from "@/components/site/Footer";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { confirmCheckoutSession, getAccountBalance } from "@/lib/api/subscriptions";
 import { BRAND_NAME } from "@/lib/brand";
+import { buildPageMeta } from "@/lib/seo";
 import { notify } from "@/lib/ui/notify";
 
 type BillingSuccessSearch = {
@@ -31,9 +32,15 @@ export const Route = createFileRoute("/billing/success")({
     payment_id: typeof search.payment_id === "string" ? search.payment_id : undefined,
     status: typeof search.status === "string" ? search.status : undefined,
   }),
-  head: () => ({
-    meta: [{ title: `Payment successful — ${BRAND_NAME}` }],
-  }),
+  head: () => {
+    const { meta, links } = buildPageMeta({
+      title: `Payment successful — ${BRAND_NAME}`,
+      description: "Your book credits have been added to your Adventrya Books account.",
+      path: "/billing/success",
+      noindex: true,
+    });
+    return { meta, links };
+  },
   component: BillingSuccess,
 });
 

@@ -11,39 +11,55 @@ import { Generator } from "@/components/site/Generator";
 import { Grandparents } from "@/components/site/Grandparents";
 import { FinalCTA } from "@/components/site/FinalCTA";
 import { Footer } from "@/components/site/Footer";
-import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { isStoryThemeId } from "@/lib/themes";
+import { buildPageMeta } from "@/lib/seo";
+import { FAQ_ITEMS } from "@/lib/faq";
+import {
+  buildFaqSchema,
+  buildOrganizationSchema,
+  buildWebSiteSchema,
+} from "@/lib/structured-data";
+
+type HomeSearch = {
+  theme?: string;
+};
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: `${BRAND_NAME} — ${BRAND_TAGLINE}` },
-      {
-        name: "description",
-        content:
-          "Create personalized illustrated storybooks starring your child. Story in minutes, PDF when you are ready.",
-      },
-      {
-        property: "og:title",
-        content: `${BRAND_NAME} — ${BRAND_TAGLINE}`,
-      },
-      {
-        property: "og:description",
-        content:
-          "Personalized stories and optional illustrated PDFs for children ages 3–12.",
-      },
-    ],
-  }),
+  validateSearch: (search: Record<string, unknown>): HomeSearch => {
+    const theme = typeof search.theme === "string" ? search.theme : undefined;
+    return { theme };
+  },
+  head: () => {
+    const { meta, links } = buildPageMeta({
+      title: "Adventrya Books — Personalized storybooks for kids",
+      description:
+        "Create personalized illustrated children's storybooks starring your child. Free 2-page preview, printable PDF adventures, custom cartoon hero from photo — ages 3–12.",
+      path: "/",
+    });
+    return { meta, links };
+  },
   component: Landing,
 });
 
 function Landing() {
+  const { theme } = Route.useSearch();
+  const initialTheme = theme && isStoryThemeId(theme) ? theme : null;
+
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <JsonLd
+        data={[
+          buildWebSiteSchema(),
+          buildOrganizationSchema(),
+          buildFaqSchema([...FAQ_ITEMS]),
+        ]}
+      />
       <Nav />
       <main>
         <Hero />
         <HowItWorks />
-        <Generator />
+        <Generator initialTheme={initialTheme} />
         <Themes />
         <Preview />
         <Benefits />

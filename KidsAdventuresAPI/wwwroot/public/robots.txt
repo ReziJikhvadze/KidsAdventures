@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /my-packs
+Disallow: /billing/
+Disallow: /confirm-email
+Sitemap: https://adventrya.com/sitemap.xml

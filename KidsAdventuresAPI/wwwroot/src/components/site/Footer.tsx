@@ -2,18 +2,24 @@ import { Link } from "@tanstack/react-router";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { BRAND_NAME } from "@/lib/brand";
 
-const footerLinks: Record<string, { label: string; href: string }[]> = {
+const footerLinks: Record<string, { label: string; href: string; isRoute?: boolean }[]> = {
   Product: [
     { label: "Themes", href: "/#themes" },
+    { label: "Gift guide", href: "/gift-guide", isRoute: true },
     { label: "Pricing", href: "/#pricing" },
     { label: "Create a book", href: "/#generator" },
   ],
-  Company: [{ label: "Contact", href: "/contact" }],
-  Legal: [
-    { label: "Terms & Conditions", href: "/terms" },
-    { label: "Privacy Policy", href: "/privacy" },
+  Resources: [
+    { label: "Blog", href: "/blog", isRoute: true },
+    { label: "Dinosaur books", href: "/themes/dinosaurs", isRoute: true },
+    { label: "Space books", href: "/themes/space", isRoute: true },
+    { label: "FAQ", href: "/#faq" },
   ],
-  Support: [{ label: "FAQ", href: "/#faq" }],
+  Company: [{ label: "Contact", href: "/contact", isRoute: true }],
+  Legal: [
+    { label: "Terms & Conditions", href: "/terms", isRoute: true },
+    { label: "Privacy Policy", href: "/privacy", isRoute: true },
+  ],
 };
 
 export function Footer() {
@@ -33,7 +39,7 @@ export function Footer() {
             <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
               {links.map((link) => (
                 <li key={link.label}>
-                  {link.href.startsWith("/") && !link.href.includes("#") ? (
+                  {link.isRoute ? (
                     <Link to={link.href} className="hover:text-foreground transition">
                       {link.label}
                     </Link>
@@ -51,19 +57,7 @@ export function Footer() {
       <div className="border-t border-border">
         <div className="mx-auto max-w-7xl px-6 py-6 flex flex-col sm:flex-row gap-3 justify-between items-center text-xs text-muted-foreground">
           <div>© {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.</div>
-          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-            <Link to="/terms" className="hover:text-foreground transition">
-              Terms
-            </Link>
-            <span aria-hidden="true">·</span>
-            <Link to="/privacy" className="hover:text-foreground transition">
-              Privacy
-            </Link>
-            <span aria-hidden="true">·</span>
-            <Link to="/contact" className="hover:text-foreground transition">
-              Contact
-            </Link>
-          </div>
+          <div>Made with love for curious kids.</div>
         </div>
       </div>
     </footer>

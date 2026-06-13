@@ -12,9 +12,13 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as MyPacksRouteImport } from './routes/my-packs'
+import { Route as GiftGuideRouteImport } from './routes/gift-guide'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ConfirmEmailRouteImport } from './routes/confirm-email'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BlogIndexRouteImport } from './routes/blog/index'
+import { Route as ThemesSlugRouteImport } from './routes/themes/$slug'
+import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as BillingSuccessRouteImport } from './routes/billing/success'
 import { Route as BillingCancelRouteImport } from './routes/billing/cancel'
 
@@ -33,6 +37,11 @@ const MyPacksRoute = MyPacksRouteImport.update({
   path: '/my-packs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GiftGuideRoute = GiftGuideRouteImport.update({
+  id: '/gift-guide',
+  path: '/gift-guide',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
@@ -46,6 +55,21 @@ const ConfirmEmailRoute = ConfirmEmailRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ThemesSlugRoute = ThemesSlugRouteImport.update({
+  id: '/themes/$slug',
+  path: '/themes/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BillingSuccessRoute = BillingSuccessRouteImport.update({
@@ -63,32 +87,44 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/confirm-email': typeof ConfirmEmailRoute
   '/contact': typeof ContactRoute
+  '/gift-guide': typeof GiftGuideRoute
   '/my-packs': typeof MyPacksRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/themes/$slug': typeof ThemesSlugRoute
+  '/blog/': typeof BlogIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/confirm-email': typeof ConfirmEmailRoute
   '/contact': typeof ContactRoute
+  '/gift-guide': typeof GiftGuideRoute
   '/my-packs': typeof MyPacksRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/themes/$slug': typeof ThemesSlugRoute
+  '/blog': typeof BlogIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/confirm-email': typeof ConfirmEmailRoute
   '/contact': typeof ContactRoute
+  '/gift-guide': typeof GiftGuideRoute
   '/my-packs': typeof MyPacksRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/themes/$slug': typeof ThemesSlugRoute
+  '/blog/': typeof BlogIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -96,42 +132,58 @@ export interface FileRouteTypes {
     | '/'
     | '/confirm-email'
     | '/contact'
+    | '/gift-guide'
     | '/my-packs'
     | '/privacy'
     | '/terms'
     | '/billing/cancel'
     | '/billing/success'
+    | '/blog/$slug'
+    | '/themes/$slug'
+    | '/blog/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/confirm-email'
     | '/contact'
+    | '/gift-guide'
     | '/my-packs'
     | '/privacy'
     | '/terms'
     | '/billing/cancel'
     | '/billing/success'
+    | '/blog/$slug'
+    | '/themes/$slug'
+    | '/blog'
   id:
     | '__root__'
     | '/'
     | '/confirm-email'
     | '/contact'
+    | '/gift-guide'
     | '/my-packs'
     | '/privacy'
     | '/terms'
     | '/billing/cancel'
     | '/billing/success'
+    | '/blog/$slug'
+    | '/themes/$slug'
+    | '/blog/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfirmEmailRoute: typeof ConfirmEmailRoute
   ContactRoute: typeof ContactRoute
+  GiftGuideRoute: typeof GiftGuideRoute
   MyPacksRoute: typeof MyPacksRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   BillingCancelRoute: typeof BillingCancelRoute
   BillingSuccessRoute: typeof BillingSuccessRoute
+  BlogSlugRoute: typeof BlogSlugRoute
+  ThemesSlugRoute: typeof ThemesSlugRoute
+  BlogIndexRoute: typeof BlogIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -157,6 +209,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MyPacksRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gift-guide': {
+      id: '/gift-guide'
+      path: '/gift-guide'
+      fullPath: '/gift-guide'
+      preLoaderRoute: typeof GiftGuideRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/contact': {
       id: '/contact'
       path: '/contact'
@@ -176,6 +235,27 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/': {
+      id: '/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/themes/$slug': {
+      id: '/themes/$slug'
+      path: '/themes/$slug'
+      fullPath: '/themes/$slug'
+      preLoaderRoute: typeof ThemesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/billing/success': {
@@ -199,11 +279,15 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfirmEmailRoute: ConfirmEmailRoute,
   ContactRoute: ContactRoute,
+  GiftGuideRoute: GiftGuideRoute,
   MyPacksRoute: MyPacksRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   BillingCancelRoute: BillingCancelRoute,
   BillingSuccessRoute: BillingSuccessRoute,
+  BlogSlugRoute: BlogSlugRoute,
+  ThemesSlugRoute: ThemesSlugRoute,
+  BlogIndexRoute: BlogIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

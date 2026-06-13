@@ -53,7 +53,7 @@ export function Hero() {
                   />
                 ))}
               </div>
-              <span>Loved by 12,000+ parents this month</span>
+              <span>Loved by parents for screen-free story time</span>
             </div>
           </div>
 

@@ -4,8 +4,18 @@ import { useState } from "react";
 import { confirmEmail } from "@/lib/api/auth";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { BRAND_NAME } from "@/lib/brand";
+import { buildPageMeta } from "@/lib/seo";
 
 export const Route = createFileRoute("/confirm-email")({
+  head: () => {
+    const { meta, links } = buildPageMeta({
+      title: `Confirm email — ${BRAND_NAME}`,
+      description: "Confirm your Adventrya Books account email address.",
+      path: "/confirm-email",
+      noindex: true,
+    });
+    return { meta, links };
+  },
   validateSearch: (search: Record<string, unknown>) => ({
     success:
       search.success === "1" ||

@@ -9,6 +9,7 @@ import { getToken } from "@/lib/api/client";
 import { createFamilyMember } from "@/lib/api/family-members";
 import type { PreviewIllustrationStatus, ThemeType } from "@/lib/api/types";
 import { THEME_ID_TO_API } from "@/lib/api/types";
+import { STORY_THEMES, isStoryThemeId, type StoryThemeId } from "@/lib/themes";
 import { StoryBookReader } from "@/components/story/StoryBookReader";
 import { PhotoPickerActions } from "@/components/ui/PhotoPickerActions";
 import { dataUrlToFile } from "@/lib/api/utils";
@@ -40,15 +41,19 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-const themes = [
-  { id: "airplanes", name: "Airplanes", icon: Plane, tint: "var(--sky-soft)" },
-  { id: "dinosaurs", name: "Dinosaurs", icon: Bone, tint: "var(--mint)" },
-  { id: "space", name: "Space", icon: Rocket, tint: "var(--accent)" },
-  { id: "pirates", name: "Pirates", icon: Ship, tint: "var(--sun)" },
-  { id: "animals", name: "Animals", icon: PawPrint, tint: "var(--sun)" },
-] as const;
+const THEME_ICONS = {
+  airplanes: Plane,
+  dinosaurs: Bone,
+  space: Rocket,
+  pirates: Ship,
+  animals: PawPrint,
+} as const;
 
-type ThemeId = (typeof themes)[number]["id"];
+type ThemeId = StoryThemeId;
+
+type GeneratorProps = {
+  initialTheme?: StoryThemeId | null;
+};
 
 const relationOptions = [
   { value: "mom", label: "Mom" },
@@ -122,13 +127,19 @@ const storyLanguages = [
   { value: "es", label: "Spanish (Español)" },
 ] as const;
 
-export function Generator() {
+export function Generator({ initialTheme = null }: GeneratorProps) {
   const [name, setName] = useState("");
   const [age, setAge] = useState<number | "">("");
   const [childPhoto, setChildPhoto] = useState<string | null>(null);
   const [optionalNotes, setOptionalNotes] = useState("");
   const [storyLanguage, setStoryLanguage] = useState<(typeof storyLanguages)[number]["value"]>("en");
-  const [theme, setTheme] = useState<ThemeId | null>(null);
+  const [theme, setTheme] = useState<ThemeId | null>(initialTheme);
+
+  useEffect(() => {
+    if (initialTheme && isStoryThemeId(initialTheme)) {
+      setTheme(initialTheme);
+    }
+  }, [initialTheme]);
   const [members, setMembers] = useState<Member[]>([]);
   const [showOptional, setShowOptional] = useState(false);
   const [status, setStatus] = useState<
@@ -389,7 +400,7 @@ export function Generator() {
     setIsWelcomeGiftStory(false);
   };
 
-  const selectedTheme = themes.find((t) => t.id === theme);
+  const selectedTheme = STORY_THEMES.find((t) => t.id === theme);
 
   return (
     <>
@@ -450,8 +461,9 @@ export function Generator() {
                   book.
                 </p>
                 <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
-                  {themes.map((t) => {
+                  {STORY_THEMES.map((t) => {
                     const active = theme === t.id;
+                    const Icon = THEME_ICONS[t.id];
                     return (
                       <button
                         key={t.id}
@@ -467,7 +479,7 @@ export function Generator() {
                           className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl grid place-items-center"
                           style={{ background: `color-mix(in oklab, ${t.tint} 55%, white)` }}
                         >
-                          <t.icon className="h-5 w-5 text-foreground" />
+                          <Icon className="h-5 w-5 text-foreground" />
                         </span>
                         <span className="text-xs font-semibold">{t.name}</span>
                         {active && (
@@ -498,7 +510,7 @@ export function Generator() {
                   <div className="flex-1 min-w-0 w-full">
                     <div className="text-sm font-semibold">Photo of your child (hero)</div>
                     <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                      Strongly recommended — we turn this into a Pixar-style cartoon hero that matches the
+                      Strongly recommended — we turn this into a cartoon hero that matches the
                       face, hair, skin tone, and age in your photo. Use a clear front-facing JPG or PNG
                       (not a screenshot). Friends and family should recognize them instantly.
                     </p>
@@ -548,7 +560,7 @@ export function Generator() {
                       </div>
                       <div className="text-xs text-muted-foreground">
                         Add up to {MAX_MEMBERS} family members with photos — each upload is sent to
-                        OpenAI to create a matching Pixar-style character in the illustrations.
+                        OpenAI to create a matching cartoon character in the illustrations.
                       </div>
                     </div>
                   </div>
@@ -787,9 +799,12 @@ export function Generator() {
                             className="h-full w-full object-cover"
                           />
                         ) : (
-                          selectedTheme && (
-                            <selectedTheme.icon className="h-12 w-12 text-primary animate-float" />
-                          )
+                          selectedTheme && (() => {
+                            const ThemeIcon = THEME_ICONS[selectedTheme.id];
+                            return (
+                              <ThemeIcon className="h-12 w-12 text-primary animate-float" />
+                            );
+                          })()
                         )}
                       </div>
                       <div className="absolute -top-3 -right-3 h-10 w-10 rounded-full bg-primary text-primary-foreground grid place-items-center">

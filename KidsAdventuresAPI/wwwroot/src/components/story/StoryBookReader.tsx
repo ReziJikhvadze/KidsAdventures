@@ -487,7 +487,7 @@ export function StoryBookReader({
                       <p className="mt-3 text-sm text-muted-foreground text-pretty">
                         This welcome gift is a free 2-page preview. Book credits unlock complete{" "}
                         {FULL_BOOK_PAGE_COUNT}-page illustrated adventures with richer stories, more
-                        scenes, and the same Pixar-style hero from your photo.
+                        scenes, and the same cartoon hero from your photo.
                       </p>
                       <p className="mt-2 text-xs text-muted-foreground">
                         PDF export stays free for every story you create.

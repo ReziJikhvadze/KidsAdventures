@@ -5,17 +5,17 @@ import { Nav } from "@/components/site/Nav";
 import { Footer } from "@/components/site/Footer";
 import { termsIntro, termsSections } from "@/content/legal/terms";
 import { BRAND_NAME } from "@/lib/brand";
+import { buildPageMeta } from "@/lib/seo";
 
 export const Route = createFileRoute("/terms")({
-  head: () => ({
-    meta: [
-      { title: `Terms & Conditions — ${BRAND_NAME}` },
-      {
-        name: "description",
-        content: `Terms of use for ${BRAND_NAME} — AI storybooks for children, parental responsibility, and content disclaimers.`,
-      },
-    ],
-  }),
+  head: () => {
+    const { meta, links } = buildPageMeta({
+      title: `Terms & Conditions — ${BRAND_NAME}`,
+      description: `Terms of use for ${BRAND_NAME} — AI storybooks for children, parental responsibility, and content disclaimers.`,
+      path: "/terms",
+    });
+    return { meta, links };
+  },
   component: TermsPage,
 });
 
