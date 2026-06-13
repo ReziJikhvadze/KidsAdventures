@@ -26,4 +26,10 @@ public interface IEmailService
         string theme,
         string packUrl,
         CancellationToken cancellationToken = default);
+
+    Task SendContactFormAsync(
+        string senderName,
+        string senderEmail,
+        string message,
+        CancellationToken cancellationToken = default);
 }

@@ -29,6 +29,8 @@ public static class ServiceCollectionExtensions
 
     private static readonly string[] LocalhostDevOrigins =
     [
+        "http://localhost:8080",
+        "https://localhost:8080",
         "http://localhost:5173",
         "http://localhost:3000",
         "https://localhost:5173",
@@ -39,18 +41,27 @@ public static class ServiceCollectionExtensions
     {
         var corsOptions = configuration.GetSection(CorsOptions.SectionName).Get<CorsOptions>() ?? new CorsOptions();
         var origins = corsOptions.AllowedOrigins.Length > 0
-            ? corsOptions.AllowedOrigins
-            : corsOptions.AllowLocalhostFallback
-                ? LocalhostDevOrigins
-                : throw new InvalidOperationException(
-                    "Cors:AllowedOrigins is empty. Add your frontend URL(s) to appsettings.Production.json, " +
-                    "or set Cors:AllowLocalhostFallback to true in appsettings.json for local development.");
+            ? corsOptions.AllowedOrigins.ToList()
+            : [];
+
+        if (corsOptions.AllowLocalhostFallback)
+        {
+            origins.AddRange(LocalhostDevOrigins);
+        }
+        else if (origins.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "Cors:AllowedOrigins is empty. Add your frontend URL(s) to appsettings.Production.json, " +
+                "or set Cors:AllowLocalhostFallback to true for local development.");
+        }
+
+        var distinctOrigins = origins.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
         services.AddCors(options =>
         {
             options.AddPolicy("Frontend", policy =>
             {
-                policy.WithOrigins(origins)
+                policy.WithOrigins(distinctOrigins)
                     .AllowAnyHeader()
                     .AllowAnyMethod();
             });

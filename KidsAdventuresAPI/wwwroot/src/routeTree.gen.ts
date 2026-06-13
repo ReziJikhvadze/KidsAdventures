@@ -9,15 +9,33 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as MyPacksRouteImport } from './routes/my-packs'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ConfirmEmailRouteImport } from './routes/confirm-email'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as BillingSuccessRouteImport } from './routes/billing/success'
 import { Route as BillingCancelRouteImport } from './routes/billing/cancel'
 
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MyPacksRoute = MyPacksRouteImport.update({
   id: '/my-packs',
   path: '/my-packs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfirmEmailRoute = ConfirmEmailRouteImport.update({
@@ -44,14 +62,20 @@ const BillingCancelRoute = BillingCancelRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/confirm-email': typeof ConfirmEmailRoute
+  '/contact': typeof ContactRoute
   '/my-packs': typeof MyPacksRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/confirm-email': typeof ConfirmEmailRoute
+  '/contact': typeof ContactRoute
   '/my-packs': typeof MyPacksRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
 }
@@ -59,7 +83,10 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/confirm-email': typeof ConfirmEmailRoute
+  '/contact': typeof ContactRoute
   '/my-packs': typeof MyPacksRoute
+  '/privacy': typeof PrivacyRoute
+  '/terms': typeof TermsRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
 }
@@ -68,21 +95,30 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/confirm-email'
+    | '/contact'
     | '/my-packs'
+    | '/privacy'
+    | '/terms'
     | '/billing/cancel'
     | '/billing/success'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/confirm-email'
+    | '/contact'
     | '/my-packs'
+    | '/privacy'
+    | '/terms'
     | '/billing/cancel'
     | '/billing/success'
   id:
     | '__root__'
     | '/'
     | '/confirm-email'
+    | '/contact'
     | '/my-packs'
+    | '/privacy'
+    | '/terms'
     | '/billing/cancel'
     | '/billing/success'
   fileRoutesById: FileRoutesById
@@ -90,18 +126,42 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfirmEmailRoute: typeof ConfirmEmailRoute
+  ContactRoute: typeof ContactRoute
   MyPacksRoute: typeof MyPacksRoute
+  PrivacyRoute: typeof PrivacyRoute
+  TermsRoute: typeof TermsRoute
   BillingCancelRoute: typeof BillingCancelRoute
   BillingSuccessRoute: typeof BillingSuccessRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/my-packs': {
       id: '/my-packs'
       path: '/my-packs'
       fullPath: '/my-packs'
       preLoaderRoute: typeof MyPacksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/confirm-email': {
@@ -138,7 +198,10 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfirmEmailRoute: ConfirmEmailRoute,
+  ContactRoute: ContactRoute,
   MyPacksRoute: MyPacksRoute,
+  PrivacyRoute: PrivacyRoute,
+  TermsRoute: TermsRoute,
   BillingCancelRoute: BillingCancelRoute,
   BillingSuccessRoute: BillingSuccessRoute,
 }

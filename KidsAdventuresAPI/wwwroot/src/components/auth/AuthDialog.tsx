@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { notify } from "@/lib/ui/notify";
@@ -30,10 +31,14 @@ export function AuthDialog({
   const [mode, setMode] = useState<"login" | "register">(defaultMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (open) setMode(defaultMode);
+    if (open) {
+      setMode(defaultMode);
+      setAcceptedLegal(false);
+    }
   }, [open, defaultMode]);
 
   const submit = async (e: React.FormEvent) => {
@@ -105,7 +110,30 @@ export function AuthDialog({
             )}
           </div>
 
-          <Button type="submit" className="w-full" disabled={busy}>
+          {mode === "register" && (
+            <label className="flex items-start gap-3 rounded-xl border border-border bg-secondary/30 p-3 text-xs text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={acceptedLegal}
+                onChange={(e) => setAcceptedLegal(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                required
+              />
+              <span>
+                I am a parent or guardian and agree to the{" "}
+                <Link to="/terms" className="text-primary font-semibold hover:underline" onClick={() => onOpenChange(false)}>
+                  Terms & Conditions
+                </Link>{" "}
+                and{" "}
+                <Link to="/privacy" className="text-primary font-semibold hover:underline" onClick={() => onOpenChange(false)}>
+                  Privacy Policy
+                </Link>
+                . I confirm I have authority to provide any child information or photos I upload.
+              </span>
+            </label>
+          )}
+
+          <Button type="submit" className="w-full" disabled={busy || (mode === "register" && !acceptedLegal)}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {mode === "login" ? "Sign in" : "Create account"}
           </Button>

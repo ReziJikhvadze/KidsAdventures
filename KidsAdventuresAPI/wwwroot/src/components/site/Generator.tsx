@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { ApiError } from "@/lib/api/client";
@@ -151,6 +151,13 @@ export function Generator() {
   const [authOpen, setAuthOpen] = useState(false);
   const { isAuthenticated, isLoading, canCreatePdf, refreshAccountBalance, setBookCredits, user } =
     useAuth();
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (status === "generatingStory") {
+      previewRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [status]);
 
   const ageValid = typeof age === "number" && !Number.isNaN(age) && age >= 3 && age <= 12;
 
@@ -391,8 +398,8 @@ export function Generator() {
         onOpenChange={setAuthOpen}
         onSuccess={() => void runGeneration()}
       />
-      <section id="generator" className="relative py-24 md:py-32 scroll-mt-20">
-        <div className="mx-auto max-w-7xl px-6">
+      <section id="generator" className="relative py-16 md:py-24 lg:py-32 scroll-mt-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="max-w-2xl">
             <p className="text-sm font-semibold text-primary tracking-wide uppercase">
               Create your book
@@ -406,11 +413,11 @@ export function Generator() {
             </p>
           </div>
 
-          <div className="mt-12 grid lg:grid-cols-[1.1fr_1fr] gap-8 items-start">
+          <div className="mt-12 grid lg:grid-cols-[1.1fr_1fr] gap-6 lg:gap-8 items-start">
             {/* Form */}
-            <div className="rounded-3xl bg-card border border-border shadow-card p-6 md:p-10">
+            <div className="rounded-3xl bg-card border border-border shadow-card p-4 sm:p-6 md:p-10">
               {/* Name + Age */}
-              <div className="grid sm:grid-cols-[2fr_1fr] gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-4">
                 <div>
                   <label className="text-sm font-semibold">Child's name</label>
                   <input
@@ -442,7 +449,7 @@ export function Generator() {
                   Airplanes, dinosaurs, space, pirates, or animals — pick one world for the whole
                   book.
                 </p>
-                <div className="mt-3 grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                   {themes.map((t) => {
                     const active = theme === t.id;
                     return (
@@ -450,14 +457,14 @@ export function Generator() {
                         key={t.id}
                         type="button"
                         onClick={() => setTheme(t.id)}
-                        className={`relative rounded-2xl border p-3 flex flex-col items-center gap-2 transition ${
+                        className={`relative rounded-2xl border p-2.5 sm:p-3 flex flex-col items-center gap-2 transition ${
                           active
                             ? "border-primary bg-primary/5 ring-4 ring-primary/10"
                             : "border-border bg-card hover:border-foreground/30"
                         }`}
                       >
                         <span
-                          className="h-10 w-10 rounded-xl grid place-items-center"
+                          className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl grid place-items-center"
                           style={{ background: `color-mix(in oklab, ${t.tint} 55%, white)` }}
                         >
                           <t.icon className="h-5 w-5 text-foreground" />
@@ -476,7 +483,7 @@ export function Generator() {
 
               {/* Hero photo */}
               <div className="mt-6 rounded-2xl border border-border bg-secondary/30 p-4">
-                <div className="flex items-start gap-3">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 text-center sm:text-left">
                   {childPhoto ? (
                     <img
                       src={childPhoto}
@@ -488,14 +495,14 @@ export function Generator() {
                       <Camera className="h-6 w-6 text-muted-foreground" />
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 w-full">
                     <div className="text-sm font-semibold">Photo of your child (hero)</div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
                       Strongly recommended — we turn this into a Pixar-style cartoon hero that matches the
                       face, hair, skin tone, and age in your photo. Use a clear front-facing JPG or PNG
                       (not a screenshot). Friends and family should recognize them instantly.
                     </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="mt-2 flex flex-wrap items-center justify-center sm:justify-start gap-2">
                       <PhotoPickerActions
                         hasPhoto={!!childPhoto}
                         onFileSelected={addHeroPhoto}
@@ -654,7 +661,7 @@ export function Generator() {
               )}
 
               {/* Language + optional wishes */}
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-semibold">Story language</label>
                   <select
@@ -730,8 +737,8 @@ export function Generator() {
             </div>
 
             {/* Preview / Result */}
-            <div className="lg:sticky lg:top-24">
-              <div className="relative rounded-3xl border border-border bg-secondary/40 p-8 min-h-[460px] overflow-hidden">
+            <div ref={previewRef} className="lg:sticky lg:top-24">
+              <div className="relative rounded-3xl border border-border bg-secondary/40 p-4 sm:p-6 md:p-8 min-h-[240px] sm:min-h-[320px] lg:min-h-[460px] overflow-hidden">
                 <div className="absolute inset-0 bg-hero-glow opacity-60 pointer-events-none" />
 
                 {status === "idle" && (
@@ -770,7 +777,7 @@ export function Generator() {
                 )}
 
                 {(status === "generatingStory" || status === "generatingPdf") && (
-                  <div className="relative h-full flex flex-col items-center justify-center text-center py-10 px-2">
+                  <div className="relative h-full flex flex-col items-center justify-center text-center py-6 sm:py-10 px-2 max-w-full">
                     <div className="relative">
                       <div className="h-40 w-32 rounded-xl bg-card border border-border shadow-card grid place-items-center overflow-hidden">
                         {childPhoto ? (
@@ -789,7 +796,7 @@ export function Generator() {
                         <Loader2 className="h-5 w-5 animate-spin" />
                       </div>
                     </div>
-                    <div className="mt-8 w-full max-w-sm">
+                    <div className="mt-8 w-full max-w-full sm:max-w-sm">
                       <div className="h-2 rounded-full bg-border overflow-hidden">
                         <div
                           className="h-full bg-primary transition-all duration-500"

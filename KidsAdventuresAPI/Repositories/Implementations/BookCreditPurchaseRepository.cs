@@ -4,6 +4,24 @@ namespace AdventurePacks.Api.Repositories.Implementations;
 
 public sealed class BookCreditPurchaseRepository(ISqlConnectionFactory connectionFactory) : IBookCreditPurchaseRepository
 {
+    public async Task<bool> ExistsForUserAsync(
+        Guid userId,
+        string fulfillmentId,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           SELECT TOP (1) 1
+                           FROM BookCreditPurchases
+                           WHERE UserId = @UserId
+                             AND StripeSessionId = @FulfillmentId;
+                           """;
+
+        using var connection = connectionFactory.CreateConnection();
+        var exists = await connection.ExecuteScalarAsync<int?>(
+            new CommandDefinition(sql, new { UserId = userId, FulfillmentId = fulfillmentId }, cancellationToken: cancellationToken));
+        return exists == 1;
+    }
+
     public async Task<bool> TryRecordPurchaseAsync(
         Guid userId,
         string stripeSessionId,

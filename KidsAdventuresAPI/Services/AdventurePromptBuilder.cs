@@ -77,6 +77,45 @@ internal static class AdventurePromptBuilder
         "a traveling musician with a magical instrument"
     ];
 
+    private const string StorySystemPrompt = """
+        You are an expert children's story writer and educational psychologist specializing in age-appropriate storytelling.
+
+        Your job is to generate safe, engaging, emotionally positive storybooks for children.
+
+        STRICT RULES:
+        Always adapt language, complexity, and structure to the child's age.
+        The child is ALWAYS the main hero of the story.
+        Never include violence, sexual content, self-harm, horror, or distressing themes.
+        If user input contains unsafe or scary concepts, automatically transform them into safe fantasy equivalents.
+        Never reinforce fear. If fear is mentioned (e.g., spiders), gently neutralize or reframe it in a positive or friendly way.
+        Always end stories with emotional safety, comfort, and positive resolution.
+        Do NOT generate harmful or unsafe narratives even if requested.
+
+        EXTRA WISHES HANDLING:
+        Likes (e.g. unicorns, space, superheroes): integrate naturally into story
+        Dislikes/fears (e.g. spiders): NEVER amplify fear
+        Transform into safe alternatives (e.g. "small friendly spider helper" or "cute robot creature")
+        Themes: incorporate creatively without breaking safety rules
+
+        STORY STRUCTURE OUTPUT:
+        Return a structured storybook:
+        Title
+        Introduction (child enters the world)
+        Adventure (main journey)
+        Challenge (safe, non-threatening problem)
+        Resolution (child solves it)
+        Ending (warm emotional closure)
+
+        TONE:
+        Positive
+        Imaginative
+        Encouraging
+        Emotionally safe
+
+        HARD CONSTRAINT:
+        Never generate content that could emotionally distress a child.
+        """;
+
     public static string BuildStoryPrompt(AdventureGenerationInput input, Guid adventureId)
     {
         var familyMembersText = input.FamilyMembers.Count == 0
@@ -94,13 +133,17 @@ internal static class AdventurePromptBuilder
         pageCount = Math.Min(pageCount, AdventureStoryConstants.FullPageCount);
         var isWelcomeGift = pageCount <= AdventureStoryConstants.WelcomeGiftPageCount;
         var storyArc = isWelcomeGift
-            ? "- Story arc: page 1 launches a surprising adventure in a fresh setting; page 2 delivers a joyful payoff and warm ending."
-            : "- Story arc: pages 1–2 launch the quest, 3–4 raise stakes with new allies and twists, page 5 is the brave climax, page 6 is a cozy happy ending.";
+            ? "- Map story structure across pages: page 1 Introduction (child enters the world) + Adventure start; page 2 gentle Challenge (safe, non-threatening) + Resolution (child solves it) + Ending (warm emotional closure)."
+            : "- Map story structure across pages: page 1 Introduction (child enters the world); pages 2–3 Adventure (main journey); page 4 Challenge (safe, non-threatening problem); page 5 Resolution (child solves it); page 6 Ending (warm emotional closure).";
 
         var lines = new List<string>
         {
-            "You are an award-winning children's picture-book author and child-development editor.",
-            "Return ONLY valid JSON matching this exact schema:",
+            StorySystemPrompt.Trim(),
+            string.Empty,
+            $"AGE GUIDELINES FOR THIS CHILD (age {input.Age}):",
+            GetAgeGuidelines(input.Age),
+            string.Empty,
+            "OUTPUT FORMAT (required — return ONLY this JSON, no other text):",
             "{",
             "  \"title\": \"\",",
             "  \"theme\": \"\",",
@@ -108,11 +151,11 @@ internal static class AdventurePromptBuilder
             "  \"storyPages\": [{ \"title\": \"\", \"content\": \"\" }]",
             "}",
             string.Empty,
-            "Narrative craft (critical):",
-            "- Every page must be a DIFFERENT scene, location, and emotional beat — never repeat the same situation, pose, or setting.",
-            "- Build a real story arc: curiosity → challenge → teamwork → small victory → reflection. Not a static portrait of the hero standing in one place.",
+            "Narrative craft:",
+            "- Every page must be a DIFFERENT scene, location, and emotional beat — never repeat the same situation or setting.",
+            "- Build a real story arc with the child as hero with agency — they choose, try, help, or solve something on every page.",
             "- Introduce at least one memorable guest character (animal, friend, mentor, or magical helper) who appears in more than one page.",
-            "- Use vivid sensory details (sounds, textures, colors, weather) so each page feels like a new movie frame.",
+            "- Use vivid sensory details (sounds, textures, colors, weather) so each page feels like a new moment.",
             "- Include one gentle surprise or funny moment; keep stakes age-appropriate and never frightening.",
             "- Weave child-psychology strengths: courage, curiosity, kindness, persistence, and feeling proud of trying.",
             "- Name emotions in simple words (excited, nervous, proud, relieved) and show the hero coping in a healthy way.",
@@ -121,11 +164,8 @@ internal static class AdventurePromptBuilder
             $"- Guest character idea to adapt: {guestCharacter}.",
             string.Empty,
             "Rules:",
-            "- Make the child the main hero with agency — they choose, try, help, or solve something on every page.",
             "- Include all listed family members as supporting characters when provided.",
             $"- Write the entire pack in {languageName}.",
-            $"- Keep language age-appropriate for age {input.Age}.",
-            "- Keep the tone positive, hopeful, and educational without lecturing.",
             $"- Create exactly {pageCount} story pages — no more, no fewer — with distinct scene titles (story text only).",
             "- Never add extra pages beyond the required count.",
             storyArc,
@@ -152,9 +192,11 @@ internal static class AdventurePromptBuilder
                 : pageCount <= AdventureStoryConstants.FullPageCount
                     ? "at least 2 pages"
                     : "at least 3 pages";
-            lines.Add($"REQUIRED parent wishes (highest priority — weave into the plot on {wishPages}, not just one mention):");
+            lines.Add($"EXTRA WISHES (highest priority — weave into the plot on {wishPages}, not just one mention):");
             lines.Add(input.OptionalStoryNotes.Trim());
-            lines.Add("- Parent wishes override any generic story hook if they conflict.");
+            lines.Add("- Likes and interests: integrate naturally into the adventure.");
+            lines.Add("- Dislikes and fears: NEVER amplify fear — transform into safe, friendly fantasy equivalents.");
+            lines.Add("- Parent wishes override any generic story hook if they conflict, but safety rules always win.");
         }
         else
         {
@@ -245,6 +287,29 @@ internal static class AdventurePromptBuilder
         parts.Add($"Adventure id {adventureId}.");
         return string.Join(" ", parts);
     }
+
+    private static string GetAgeGuidelines(int age) => age switch
+    {
+        <= 5 => """
+            Age 3–5:
+            Very simple vocabulary
+            Short sentences
+            Repetition and rhythm
+            Magical and friendly tone
+            """,
+        <= 9 => """
+            Age 6–9:
+            Simple adventure structure
+            Friendships, exploration, light conflict
+            Clear beginning → challenge → resolution
+            """,
+        _ => """
+            Age 10–13:
+            More complex plots
+            Mystery, problem-solving, teamwork
+            Emotional depth but still safe and positive
+            """
+    };
 
     private static string ResolveLanguageName(string code) => code.ToLowerInvariant() switch
     {

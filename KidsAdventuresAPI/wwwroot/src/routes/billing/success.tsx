@@ -4,7 +4,7 @@ import { CheckCircle2, Loader2 } from "lucide-react";
 import { Nav } from "@/components/site/Nav";
 import { Footer } from "@/components/site/Footer";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { confirmCheckoutSession } from "@/lib/api/subscriptions";
+import { confirmCheckoutSession, getAccountBalance } from "@/lib/api/subscriptions";
 import { BRAND_NAME } from "@/lib/brand";
 import { notify } from "@/lib/ui/notify";
 
@@ -13,6 +13,17 @@ type BillingSuccessSearch = {
   payment_id?: string;
   status?: string;
 };
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function isRetryableConfirmError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("still processing") ||
+    lower.includes("not completed") ||
+    lower.includes("could not be confirmed")
+  );
+}
 
 export const Route = createFileRoute("/billing/success")({
   validateSearch: (search: Record<string, unknown>): BillingSuccessSearch => ({
@@ -42,18 +53,44 @@ function BillingSuccess() {
 
     let cancelled = false;
     (async () => {
+      const startingCredits = user?.bookCredits ?? 0;
+
       try {
-        const balance = await confirmCheckoutSession({
-          sessionId,
-          paymentId,
-        });
-        if (cancelled) return;
+        let balance = null;
+        for (let attempt = 0; attempt < 8; attempt++) {
+          try {
+            balance = await confirmCheckoutSession({
+              sessionId,
+              paymentId,
+            });
+            break;
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "";
+            if (!isRetryableConfirmError(message) || attempt === 7) {
+              throw err;
+            }
+            await sleep(600 + attempt * 600);
+          }
+        }
+
+        if (cancelled || !balance) return;
         setCredits(balance.bookCredits);
         await refreshAccountBalance();
       } catch (err) {
         if (cancelled) return;
-        notify.fromError(err, "Could not confirm payment. Try refreshing.");
+
+        const refreshed = await getAccountBalance().catch(() => null);
         await refreshAccountBalance();
+        const latestCredits = refreshed?.bookCredits ?? user?.bookCredits ?? startingCredits;
+        if (latestCredits > startingCredits) {
+          setCredits(latestCredits);
+          return;
+        }
+
+        const message = err instanceof Error ? err.message : "";
+        if (!isRetryableConfirmError(message)) {
+          notify.fromError(err, "Could not confirm payment. Try refreshing.");
+        }
       } finally {
         if (!cancelled) setConfirming(false);
       }
@@ -62,7 +99,7 @@ function BillingSuccess() {
     return () => {
       cancelled = true;
     };
-  }, [sessionId, paymentId, status, shouldConfirm, refreshAccountBalance]);
+  }, [sessionId, paymentId, status, shouldConfirm, refreshAccountBalance, user?.bookCredits]);
 
   const displayCredits = credits ?? user?.bookCredits ?? 0;
 

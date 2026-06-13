@@ -24,4 +24,16 @@ public sealed class DodoPaymentsOptions
     public string SuccessUrl { get; set; } = string.Empty;
 
     public string CancelUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// When true, checkout only collects country (and postal code where required for tax).
+    /// Recommended for digital book-credit packs.
+    /// </summary>
+    public bool MinimalAddress { get; set; } = true;
+
+    /// <summary>
+    /// When true, hides optional checkout fields (phone, tax ID, discount code) and redirects
+    /// to SuccessUrl immediately after payment.
+    /// </summary>
+    public bool StreamlineCheckout { get; set; } = true;
 }

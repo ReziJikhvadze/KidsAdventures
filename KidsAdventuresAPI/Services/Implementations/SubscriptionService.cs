@@ -273,6 +273,16 @@ public sealed class SubscriptionService(
             },
             ReturnUrl = _dodo.SuccessUrl,
             CancelUrl = string.IsNullOrWhiteSpace(_dodo.CancelUrl) ? null : _dodo.CancelUrl,
+            MinimalAddress = _dodo.MinimalAddress,
+            FeatureFlags = _dodo.StreamlineCheckout
+                ? new CheckoutSessionFlags
+                {
+                    AllowPhoneNumberCollection = false,
+                    AllowTaxID = false,
+                    AllowDiscountCode = false,
+                    RedirectImmediately = true,
+                }
+                : null,
             Metadata = new Dictionary<string, string>
             {
                 ["userId"] = userId.ToString(),
@@ -280,12 +290,21 @@ public sealed class SubscriptionService(
             },
         };
 
-        var session = await dodoClient.CheckoutSessions.Create(parameters, cancellationToken);
-        return new ApiCheckoutSessionResponse
+        try
         {
-            SessionId = session.SessionID ?? string.Empty,
-            CheckoutUrl = session.CheckoutUrl ?? string.Empty,
-        };
+            var session = await dodoClient.CheckoutSessions.Create(parameters, cancellationToken);
+            return new ApiCheckoutSessionResponse
+            {
+                SessionId = session.SessionID ?? string.Empty,
+                CheckoutUrl = session.CheckoutUrl ?? string.Empty,
+            };
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"Dodo checkout failed. If you use a live API key, set DodoPayments:UseTestMode to false. {ex.Message}",
+                ex);
+        }
     }
 
     private async Task<ApiCheckoutSessionResponse> CreateStripeCheckoutSessionAsync(
@@ -337,37 +356,68 @@ public sealed class SubscriptionService(
         string? paymentId,
         CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(sessionId))
+        if (string.IsNullOrWhiteSpace(sessionId) && string.IsNullOrWhiteSpace(paymentId))
         {
-            var fulfilled = await TryFulfillDodoCheckoutSessionAsync(userId, sessionId, cancellationToken);
-            if (!fulfilled)
-            {
-                throw new InvalidOperationException("Checkout session could not be confirmed for this account.");
-            }
-
-            return await GetAccountBalanceAsync(userId, cancellationToken);
+            throw new InvalidOperationException("Checkout session id or payment id is required.");
         }
 
-        if (!string.IsNullOrWhiteSpace(paymentId))
+        const int maxAttempts = 10;
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
         {
-            var payment = await dodoClient.Payments.Retrieve(
+            foreach (var fulfillmentId in new[] { paymentId, sessionId }.Where(id => !string.IsNullOrWhiteSpace(id)))
+            {
+                if (await bookCreditPurchaseRepository.ExistsForUserAsync(userId, fulfillmentId!, cancellationToken))
+                {
+                    return await GetAccountBalanceAsync(userId, cancellationToken);
+                }
+            }
+
+            // Prefer payment_id — Dodo always appends it on redirect once checkout completes.
+            if (!string.IsNullOrWhiteSpace(paymentId)
+                && await TryFulfillDodoByPaymentIdAsync(userId, paymentId, cancellationToken))
+            {
+                return await GetAccountBalanceAsync(userId, cancellationToken);
+            }
+
+            if (!string.IsNullOrWhiteSpace(sessionId)
+                && await TryFulfillDodoCheckoutSessionAsync(userId, sessionId, cancellationToken))
+            {
+                return await GetAccountBalanceAsync(userId, cancellationToken);
+            }
+
+            if (attempt < maxAttempts - 1)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(400 + attempt * 400), cancellationToken);
+            }
+        }
+
+        throw new InvalidOperationException(
+            "Your payment is still processing. Please wait a few seconds and refresh this page.");
+    }
+
+    private async Task<bool> TryFulfillDodoByPaymentIdAsync(
+        Guid expectedUserId,
+        string paymentId,
+        CancellationToken cancellationToken)
+    {
+        Payment payment;
+        try
+        {
+            payment = await dodoClient.Payments.Retrieve(
                 new PaymentRetrieveParams { PaymentID = paymentId },
                 cancellationToken);
-
-            if (!string.Equals(payment.Status?.ToString(), "succeeded", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException("Payment is not completed yet.");
-            }
-
-            var fulfilled = await TryFulfillDodoPaymentAsync(userId, payment, paymentId, cancellationToken);
-            if (!fulfilled)
-            {
-                throw new InvalidOperationException("Checkout session could not be confirmed for this account.");
-            }
-            return await GetAccountBalanceAsync(userId, cancellationToken);
+        }
+        catch
+        {
+            return false;
         }
 
-        throw new InvalidOperationException("Checkout session id or payment id is required.");
+        if (!IsDodoPaymentSucceeded(payment.Status))
+        {
+            return false;
+        }
+
+        return await TryFulfillDodoPaymentAsync(expectedUserId, payment, paymentId, cancellationToken);
     }
 
     private async Task<bool> TryFulfillDodoCheckoutSessionAsync(
@@ -379,7 +429,7 @@ public sealed class SubscriptionService(
             new CheckoutSessionRetrieveParams { ID = sessionId },
             cancellationToken);
 
-        if (!string.Equals(status.PaymentStatus?.ToString(), "succeeded", StringComparison.OrdinalIgnoreCase))
+        if (!IsDodoPaymentSucceeded(status.PaymentStatus))
         {
             return false;
         }
@@ -402,7 +452,7 @@ public sealed class SubscriptionService(
         string fulfillmentId,
         CancellationToken cancellationToken)
     {
-        if (!string.Equals(payment.Status?.ToString(), "succeeded", StringComparison.OrdinalIgnoreCase))
+        if (!IsDodoPaymentSucceeded(payment.Status))
         {
             return false;
         }
@@ -513,6 +563,23 @@ public sealed class SubscriptionService(
 
         await userRepository.AddBookCreditsAsync(userId, credits, cancellationToken);
         return true;
+    }
+
+    private static bool IsDodoPaymentSucceeded(object? status)
+    {
+        if (status is null)
+        {
+            return false;
+        }
+
+        if (status is string statusText)
+        {
+            return statusText.Equals("succeeded", StringComparison.OrdinalIgnoreCase);
+        }
+
+        var raw = status.ToString();
+        return !string.IsNullOrWhiteSpace(raw)
+               && raw.Contains("succeeded", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? ReadStringProperty(JsonElement element, string propertyName)

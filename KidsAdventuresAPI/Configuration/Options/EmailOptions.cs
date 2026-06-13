@@ -13,4 +13,7 @@ public sealed class EmailOptions
     public string BaseUrl { get; set; } = "http://localhost:8080";
     /// <summary>API origin used in email links (confirm-email hits the API, then redirects to BaseUrl).</summary>
     public string ApiBaseUrl { get; set; } = "http://localhost:5000";
+
+    /// <summary>Inbox for contact form submissions. Defaults to <see cref="FromAddress"/> when empty.</summary>
+    public string ContactToAddress { get; set; } = string.Empty;
 }

@@ -1,11 +1,17 @@
-# Runs the Vite dev server for the frontend.
-# Requires VITE_API_BASE_URL in KidsAdventuresAPI\wwwroot\.env (default: http://localhost:5000)
+# Runs the Vite / TanStack Start dev server for the frontend.
+# Points at the local API via wwwroot\.env (VITE_API_BASE_URL).
+#
+# Usage:
+#   .\scripts\run-frontend.ps1
+#
+# Prerequisite: run-backend.ps1 in another terminal (http://localhost:5000)
 
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $wwwroot = Join-Path $repoRoot "KidsAdventuresAPI\wwwroot"
 $envFile = Join-Path $wwwroot ".env"
+$apiBaseUrl = "http://localhost:5000"
 
 if (-not (Test-Path $wwwroot)) {
     Write-Error "Frontend folder not found: $wwwroot"
@@ -14,8 +20,8 @@ if (-not (Test-Path $wwwroot)) {
 Set-Location $wwwroot
 
 if (-not (Test-Path $envFile)) {
-    Write-Host "Creating wwwroot\.env with VITE_API_BASE_URL=http://localhost:5000" -ForegroundColor Yellow
-    'VITE_API_BASE_URL=http://localhost:5000' | Set-Content -Path $envFile -Encoding utf8
+    Write-Host "Creating wwwroot\.env with VITE_API_BASE_URL=$apiBaseUrl" -ForegroundColor Yellow
+    "VITE_API_BASE_URL=$apiBaseUrl" | Set-Content -Path $envFile -Encoding utf8NoBOM
 }
 
 if (-not (Test-Path "node_modules")) {
@@ -24,10 +30,12 @@ if (-not (Test-Path "node_modules")) {
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-Write-Host "Starting frontend dev server..." -ForegroundColor Cyan
-Write-Host "  Folder: $wwwroot" -ForegroundColor DarkGray
-Write-Host "  API URL: see .env (VITE_API_BASE_URL)" -ForegroundColor DarkGray
-Write-Host "  Press Ctrl+C to stop." -ForegroundColor DarkGray
+Write-Host ""
+Write-Host "=== Adventrya frontend (dev) ===" -ForegroundColor Cyan
+Write-Host "  Folder:   $wwwroot" -ForegroundColor DarkGray
+Write-Host "  API URL:  $apiBaseUrl (from .env)" -ForegroundColor DarkGray
+Write-Host "  Site:     see Local: URL below after Vite starts (often http://localhost:5173)" -ForegroundColor Green
+Write-Host "  Stop:     Ctrl+C" -ForegroundColor DarkGray
 Write-Host ""
 
 npm run dev

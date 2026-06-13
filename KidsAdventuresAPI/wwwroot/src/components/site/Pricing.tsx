@@ -55,7 +55,7 @@ const plans: {
   },
   {
     name: "5 Books",
-    price: "$23.99",
+    price: "$19.99",
     period: "one-time",
     desc: "Best value for siblings or repeat adventures.",
     features: [
@@ -72,7 +72,7 @@ const plans: {
   },
   {
     name: "15 Books",
-    price: "$62.99",
+    price: "$49.99",
     period: "one-time",
     desc: "For families, classrooms, or big gift seasons.",
     features: [

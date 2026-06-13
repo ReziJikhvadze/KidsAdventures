@@ -13,7 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth/AuthContext";
-import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
+import { BRAND_LOGO_URL, BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
 function NotFoundComponent() {
   return (
@@ -80,15 +80,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: BRAND_NAME },
+      { title: `${BRAND_NAME} — ${BRAND_TAGLINE}` },
       { name: "description", content: BRAND_TAGLINE },
-      { property: "og:title", content: BRAND_NAME },
+      { property: "og:title", content: `${BRAND_NAME} — ${BRAND_TAGLINE}` },
       { property: "og:description", content: BRAND_TAGLINE },
+      { property: "og:image", content: BRAND_LOGO_URL },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
+      { rel: "icon", type: "image/png", href: BRAND_LOGO_URL },
+      { rel: "apple-touch-icon", href: BRAND_LOGO_URL },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {

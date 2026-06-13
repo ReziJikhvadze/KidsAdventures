@@ -1,5 +1,18 @@
-# Runs the .NET API locally (Production profile → appsettings.Production.json).
-# Swagger: http://localhost:5000/swagger
+# Runs the .NET API locally.
+# Uses appsettings.Production.json (Azure SQL, OpenAI, Dodo, etc.) when ASPNETCORE_ENVIRONMENT=Production.
+#
+# Usage:
+#   .\scripts\run-backend.ps1
+#   .\scripts\run-backend.ps1 -Profile Development
+#
+# URLs:
+#   API:     http://localhost:5000
+#   Swagger: http://localhost:5000/swagger
+
+param(
+    [ValidateSet("Production", "Development")]
+    [string] $Profile = "Production"
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -7,11 +20,11 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $apiDir = Join-Path $repoRoot "KidsAdventuresAPI"
 $productionSettings = Join-Path $apiDir "appsettings.Production.json"
 
-if (-not (Test-Path $productionSettings)) {
+if ($Profile -eq "Production" -and -not (Test-Path $productionSettings)) {
     Write-Host "Missing appsettings.Production.json" -ForegroundColor Yellow
     Write-Host "  Copy: KidsAdventuresAPI\appsettings.Production.example.json" -ForegroundColor Yellow
     Write-Host "  To:   KidsAdventuresAPI\appsettings.Production.json" -ForegroundColor Yellow
-    Write-Host "  Then fill SQL, OpenAI, and Azure Blob settings." -ForegroundColor Yellow
+    Write-Host "  Then fill SQL, OpenAI, Azure Blob, and Dodo settings." -ForegroundColor Yellow
     exit 1
 }
 
@@ -24,9 +37,13 @@ if ($running) {
     Start-Sleep -Seconds 1
 }
 
-Write-Host "Starting API (ASPNETCORE_ENVIRONMENT=Production)..." -ForegroundColor Cyan
-Write-Host "  Folder: $apiDir" -ForegroundColor DarkGray
-Write-Host "  Press Ctrl+C to stop." -ForegroundColor DarkGray
+Write-Host ""
+Write-Host "=== Adventrya API ===" -ForegroundColor Cyan
+Write-Host "  Profile:  $Profile" -ForegroundColor DarkGray
+Write-Host "  Folder:   $apiDir" -ForegroundColor DarkGray
+Write-Host "  API:      http://localhost:5000" -ForegroundColor Green
+Write-Host "  Swagger:  http://localhost:5000/swagger" -ForegroundColor Green
+Write-Host "  Stop:     Ctrl+C" -ForegroundColor DarkGray
 Write-Host ""
 
-dotnet run --launch-profile Production
+dotnet run --launch-profile $Profile
