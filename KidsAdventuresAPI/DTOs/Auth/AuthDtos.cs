@@ -60,3 +60,16 @@ public sealed class ConfirmEmailResponse
     public bool Success { get; set; }
     public string Message { get; set; } = string.Empty;
 }
+
+public sealed class GoogleLoginRequest
+{
+    [Required, MinLength(10)]
+    public string IdToken { get; set; } = string.Empty;
+}
+
+public sealed class AuthConfigResponse
+{
+    public bool GoogleEnabled { get; set; }
+
+    public string? GoogleClientId { get; set; }
+}

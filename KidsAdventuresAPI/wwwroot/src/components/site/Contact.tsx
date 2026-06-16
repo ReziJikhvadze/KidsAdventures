@@ -4,6 +4,7 @@ import { Loader2, Mail, Send } from "lucide-react";
 import { submitContactForm } from "@/lib/api/contact";
 import { notify } from "@/lib/ui/notify";
 import { BRAND_NAME } from "@/lib/brand";
+import { SocialLinks } from "@/components/brand/SocialLinks";
 
 export function Contact() {
   const [name, setName] = useState("");
@@ -54,6 +55,7 @@ export function Contact() {
           <p className="mt-4 text-muted-foreground">
             Questions about stories, credits, or printing? Send us a note and we'll reply by email.
           </p>
+          <SocialLinks className="mt-6 justify-center" />
         </div>
 
         <div className="mt-10 rounded-3xl border border-border bg-card shadow-card p-6 md:p-10">

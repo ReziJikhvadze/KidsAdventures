@@ -13,7 +13,7 @@ export function FAQ() {
         <div className="text-center">
           <p className="text-sm font-semibold text-primary tracking-wide uppercase">FAQ</p>
           <h2 className="mt-3 font-display text-4xl md:text-5xl font-bold text-balance">
-            Questions, answered.
+            FAQ — personalized books, child education & parenting
           </h2>
         </div>
 

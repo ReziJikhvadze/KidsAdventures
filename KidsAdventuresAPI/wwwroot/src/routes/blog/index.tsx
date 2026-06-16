@@ -10,9 +10,9 @@ import { buildBreadcrumbSchema, buildWebPageSchema } from "@/lib/structured-data
 export const Route = createFileRoute("/blog/")({
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `Blog — ${BRAND_NAME}`,
+      title: `Parenting, Child Education & Kids Books Blog — ${BRAND_NAME}`,
       description:
-        "Tips for personalized children's storybooks, printable PDF gifts, screen-free activities, and grandparent gift ideas.",
+        "Parenting tips, child education through stories, personalized children's books, adventure books for kids, screen-free learning, and printable gift ideas.",
       path: "/blog",
     });
     return { meta, links };

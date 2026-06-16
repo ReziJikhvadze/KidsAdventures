@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { GoogleSignInButton, GoogleSignInBusyButton } from "@/components/auth/GoogleSignInButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,12 +28,15 @@ export function AuthDialog({
   onSuccess,
   defaultMode = "login",
 }: AuthDialogProps) {
-  const { login, register } = useAuth();
+  const { login, loginWithGoogle, register } = useAuth();
   const [mode, setMode] = useState<"login" | "register">(defaultMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [acceptedLegal, setAcceptedLegal] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
+
+  const googleDisabled = busy || googleBusy || (mode === "register" && !acceptedLegal);
 
   useEffect(() => {
     if (open) {
@@ -40,6 +44,29 @@ export function AuthDialog({
       setAcceptedLegal(false);
     }
   }, [open, defaultMode]);
+
+  const finishSignIn = () => {
+    notify.success(mode === "login" ? "Welcome back!" : "Account created!", {
+      description:
+        mode === "login"
+          ? "You're signed in and ready to create a story."
+          : "You're signed in with Google and ready to create a story.",
+    });
+    onOpenChange(false);
+    onSuccess?.();
+  };
+
+  const handleGoogleSuccess = async (idToken: string) => {
+    setGoogleBusy(true);
+    try {
+      await loginWithGoogle(idToken);
+      finishSignIn();
+    } catch (err) {
+      notify.fromError(err, "Google sign-in failed. Try again.");
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,9 +103,28 @@ export function AuthDialog({
           <DialogDescription>
             {mode === "login"
               ? "Sign in to create personalized storybooks for your child."
-              : "You get one free 2-page welcome story. Full 6-page books use book credits. We will email you a confirmation link."}
+              : "You get one free 2-page welcome story. Full 6-page books use book credits. Google sign-in is instant; email sign-up sends a confirmation link."}
           </DialogDescription>
         </DialogHeader>
+
+        {googleBusy ? (
+          <GoogleSignInBusyButton />
+        ) : (
+          <GoogleSignInButton
+            disabled={googleDisabled}
+            onSuccess={(idToken) => void handleGoogleSuccess(idToken)}
+            onError={() => notify.error("Google sign-in was cancelled or failed.")}
+          />
+        )}
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-border" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">or</span>
+          </div>
+        </div>
 
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
@@ -133,7 +179,7 @@ export function AuthDialog({
             </label>
           )}
 
-          <Button type="submit" className="w-full" disabled={busy || (mode === "register" && !acceptedLegal)}>
+          <Button type="submit" className="w-full" disabled={googleDisabled}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {mode === "login" ? "Sign in" : "Create account"}
           </Button>

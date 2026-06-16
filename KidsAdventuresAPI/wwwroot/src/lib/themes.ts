@@ -34,7 +34,7 @@ export const STORY_THEMES: StoryTheme[] = [
     apiTheme: "Airplanes",
     seoTitle: "Personalized Airplane Adventure Book for Kids | Adventrya Books",
     seoDescription:
-      "Create a custom illustrated airplane storybook starring your child. Free preview, printable PDF, ages 3–12.",
+      "Create a custom illustrated airplane adventure book starring your child. Personalized children's books for ages 3–12 — free preview, printable PDF, screen-free parenting.",
     heroHeading: "Personalized airplane adventure book for kids",
     intro:
       "Send your child soaring through cloud kingdoms, friendly airports, and high-flying missions — with their name woven into every page.",
@@ -59,7 +59,7 @@ export const STORY_THEMES: StoryTheme[] = [
     apiTheme: "Dinosaurs",
     seoTitle: "Personalized Dinosaur Storybook for Kids | Adventrya Books",
     seoDescription:
-      "Make a custom dinosaur adventure book with your child as the hero. Illustrated pages, free preview, printable PDF.",
+      "Make a personalized dinosaur adventure book with your child as the hero. Custom kids storybooks for child education & fun — illustrated pages, free preview, printable PDF.",
     heroHeading: "Personalized dinosaur storybook for kids",
     intro:
       "Journey through jungles, fossil digs, and prehistoric valleys where your child meets friendly dinosaurs and saves the day.",
@@ -84,7 +84,7 @@ export const STORY_THEMES: StoryTheme[] = [
     apiTheme: "Space",
     seoTitle: "Personalized Space Adventure Book for Kids | Adventrya Books",
     seoDescription:
-      "Launch a custom space storybook starring your child. Illustrated missions, free preview, printable PDF for ages 3–12.",
+      "Launch a personalized space adventure book starring your child. STEM-friendly kids learning stories — illustrated missions, free preview, printable PDF ages 3–12.",
     heroHeading: "Personalized space adventure book for kids",
     intro:
       "Blast off to distant planets, asteroid fields, and star-filled missions where your child is the brave astronaut in charge.",
@@ -109,7 +109,7 @@ export const STORY_THEMES: StoryTheme[] = [
     apiTheme: "Pirates",
     seoTitle: "Personalized Pirate Adventure Book for Kids | Adventrya Books",
     seoDescription:
-      "Create a swashbuckling personalized pirate storybook for your child. Cartoon illustrations, free preview, printable PDF.",
+      "Create a personalized pirate adventure book for your child. Illustrated kids storybooks for bedtime & gifts — free preview, printable PDF, ages 3–12.",
     heroHeading: "Personalized pirate adventure book for kids",
     intro:
       "Sail across sparkling seas, decode treasure maps, and outsmart silly sea creatures — with your child captaining the crew.",
@@ -134,7 +134,7 @@ export const STORY_THEMES: StoryTheme[] = [
     apiTheme: "Animals",
     seoTitle: "Personalized Animal Adventure Book for Kids | Adventrya Books",
     seoDescription:
-      "Make a custom animal adventure storybook starring your child. Illustrated jungle and safari tales, free preview, printable PDF.",
+      "Make a personalized animal adventure book starring your child. Gentle illustrated children's books for early learning — free preview, printable PDF ages 3–12.",
     heroHeading: "Personalized animal adventure book for kids",
     intro:
       "Explore jungles, savannas, and cozy forests where your child helps friendly animals solve problems and learn together.",

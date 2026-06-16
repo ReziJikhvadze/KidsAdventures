@@ -1,5 +1,9 @@
 import { apiRequest, setToken } from "./client";
-import type { AuthResponse, RegisterResponse, SessionInfoResponse } from "./types";
+import type { AuthConfigResponse, AuthResponse, RegisterResponse, SessionInfoResponse } from "./types";
+
+export async function getAuthConfig(): Promise<AuthConfigResponse> {
+  return apiRequest<AuthConfigResponse>("/api/auth/config", { auth: false });
+}
 
 export async function getSession(): Promise<SessionInfoResponse> {
   return apiRequest<SessionInfoResponse>("/api/auth/me");
@@ -16,6 +20,15 @@ export async function login(email: string, password: string): Promise<AuthRespon
   const result = await apiRequest<AuthResponse>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
+  });
+  setToken(result.token);
+  return result;
+}
+
+export async function loginWithGoogle(idToken: string): Promise<AuthResponse> {
+  const result = await apiRequest<AuthResponse>("/api/auth/google", {
+    method: "POST",
+    body: JSON.stringify({ idToken }),
   });
   setToken(result.token);
   return result;

@@ -10,6 +10,7 @@ import { FAQ } from "@/components/site/FAQ";
 import { Generator } from "@/components/site/Generator";
 import { Grandparents } from "@/components/site/Grandparents";
 import { FinalCTA } from "@/components/site/FinalCTA";
+import { SeoContent } from "@/components/site/SeoContent";
 import { Footer } from "@/components/site/Footer";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { isStoryThemeId } from "@/lib/themes";
@@ -32,9 +33,9 @@ export const Route = createFileRoute("/")({
   },
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: "Adventrya Books — Personalized storybooks for kids",
+      title: "Personalized Children's Books & Kids Adventure Stories | Adventrya Books",
       description:
-        "Create personalized illustrated children's storybooks starring your child. Free 2-page preview, printable PDF adventures, custom cartoon hero from photo — ages 3–12.",
+        "Create personalized children's books starring your child — custom illustrated adventure storybooks for ages 3–12. Child education, screen-free parenting, free preview & printable PDF.",
       path: "/",
     });
     return { meta, links };
@@ -66,6 +67,7 @@ function Landing() {
         <Grandparents />
         <Pricing />
         <FAQ />
+        <SeoContent />
         <FinalCTA />
       </main>
       <Footer />

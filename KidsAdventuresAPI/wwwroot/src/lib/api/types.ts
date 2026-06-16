@@ -51,6 +51,11 @@ export type RegisterResponse = {
   email: string;
 };
 
+export type AuthConfigResponse = {
+  googleEnabled: boolean;
+  googleClientId: string | null;
+};
+
 export type ChildResponse = {
   id: string;
   userId: string;

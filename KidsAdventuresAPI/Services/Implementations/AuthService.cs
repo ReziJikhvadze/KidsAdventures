@@ -1,4 +1,5 @@
 using AdventurePacks.Api.Configuration.Options;
+using AdventurePacks.Api.Domain;
 using AdventurePacks.Api.DTOs.Auth;
 using AdventurePacks.Api.Infrastructure;
 using AdventurePacks.Api.Repositories.Interfaces;
@@ -11,6 +12,7 @@ public sealed class AuthService(
     IPasswordHasher passwordHasher,
     IJwtTokenService jwtTokenService,
     ISubscriptionService subscriptionService,
+    IGoogleAuthService googleAuthService,
     IEmailService emailService,
     IOptions<EmailOptions> emailOptions,
     ILogger<AuthService> logger) : IAuthService
@@ -74,6 +76,11 @@ public sealed class AuthService(
         var user = await userRepository.GetByEmailAsync(email, cancellationToken)
                    ?? throw new UnauthorizedAccessException("Invalid credentials.");
 
+        if (user.PasswordHash == OAuthProviders.GooglePasswordPlaceholder)
+        {
+            throw new UnauthorizedAccessException("This account uses Google sign-in. Please continue with Google.");
+        }
+
         if (!passwordHasher.Verify(request.Password, user.PasswordHash))
         {
             throw new UnauthorizedAccessException("Invalid credentials.");
@@ -84,6 +91,46 @@ public sealed class AuthService(
             throw new UnauthorizedAccessException("Please confirm your email before signing in. Check your inbox for the activation link.");
         }
 
+        return await BuildAuthResponseAsync(user, cancellationToken);
+    }
+
+    public async Task<AuthResponse> LoginWithGoogleAsync(GoogleLoginRequest request, CancellationToken cancellationToken)
+    {
+        var googleUser = await googleAuthService.ValidateIdTokenAsync(request.IdToken, cancellationToken);
+        var email = googleUser.Email.Trim().ToLowerInvariant();
+
+        if (string.IsNullOrWhiteSpace(email) || !googleUser.EmailVerified)
+        {
+            throw new UnauthorizedAccessException("Google account email is not verified.");
+        }
+
+        var user = await userRepository.GetByEmailAsync(email, cancellationToken);
+        if (user is null)
+        {
+            user = new User
+            {
+                Id = Guid.NewGuid(),
+                Email = email,
+                PasswordHash = OAuthProviders.GooglePasswordPlaceholder,
+                SubscriptionType = SubscriptionType.Free,
+                WelcomeStoryRemaining = 1,
+                EmailConfirmed = true,
+                CreatedAt = DateTime.UtcNow,
+            };
+
+            await userRepository.CreateAsync(user, cancellationToken);
+        }
+        else if (!user.EmailConfirmed)
+        {
+            await userRepository.ConfirmEmailAsync(user.Id, cancellationToken);
+            user.EmailConfirmed = true;
+        }
+
+        return await BuildAuthResponseAsync(user, cancellationToken);
+    }
+
+    private async Task<AuthResponse> BuildAuthResponseAsync(User user, CancellationToken cancellationToken)
+    {
         var response = jwtTokenService.CreateToken(user);
         var balance = await subscriptionService.GetAccountBalanceAsync(user.Id, cancellationToken);
         response.BookCredits = balance.BookCredits;

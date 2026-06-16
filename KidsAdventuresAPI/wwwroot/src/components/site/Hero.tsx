@@ -12,19 +12,19 @@ export function Hero() {
           <div className="animate-rise">
             <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground">
               <span className="inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
-              New · AI-personalized adventure books
+              Personalized children's books · ages 3–12
             </div>
             <h1 className="mt-5 font-display text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.02] text-balance">
-              Personalized adventures your kids can{" "}
+              Kids adventure books starring{" "}
               <span className="relative inline-block">
-                <span className="relative z-10">print and play</span>
+                <span className="relative z-10">your child</span>
                 <span className="absolute inset-x-0 bottom-1 h-3 bg-[color:var(--sun)]/70 -z-0 rounded" />
               </span>
               .
             </h1>
             <p className="mt-6 text-lg md:text-xl text-muted-foreground max-w-xl text-pretty">
-              Generate custom illustrated storybooks starring your child. Story in minutes — PDF
-              when you are ready.
+              Custom illustrated storybooks for child education, bedtime reading, and screen-free
+              parenting — create a free preview in minutes, print the PDF when you are ready.
             </p>
 
             <div id="cta" className="mt-8 flex flex-col sm:flex-row gap-3">
@@ -53,7 +53,7 @@ export function Hero() {
                   />
                 ))}
               </div>
-              <span>Loved by parents for screen-free story time</span>
+              <span>Loved by parents for screen-free learning & storytime</span>
             </div>
           </div>
 
@@ -62,7 +62,7 @@ export function Hero() {
             <div className="relative rounded-[2rem] bg-card shadow-card overflow-hidden border border-border">
               <img
                 src={heroImg}
-                alt="Open adventure book with paper airplanes, dinosaurs, stars and pirate ship illustrations"
+                alt="Personalized children's adventure book open with airplane, dinosaur, space and pirate illustrations"
                 width={1536}
                 height={1152}
                 className="w-full h-auto"
@@ -78,7 +78,7 @@ export function Hero() {
               </div>
             </div>
             <div className="absolute -top-4 -right-3 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5 shadow-soft rotate-6">
-              For ages 4–12
+              For ages 3–12
             </div>
           </div>
         </div>

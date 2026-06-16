@@ -1,18 +1,18 @@
 import { Tv, GraduationCap, Heart, Timer } from "lucide-react";
 
 const items = [
-  { icon: Tv, title: "Screen-free play", desc: "Hours away from tablets and TV." },
+  { icon: Tv, title: "Screen-free parenting", desc: "Adventure books away from tablets — real pages kids hold and re-read." },
   {
     icon: GraduationCap,
-    title: "Educational & fun",
-    desc: "Reading, problem-solving and creativity in one.",
+    title: "Child education & literacy",
+    desc: "Vocabulary, comprehension, and learning through stories they care about.",
   },
   {
     icon: Heart,
-    title: "Personal for every child",
-    desc: "Their name, age and interests on every page.",
+    title: "Personalized for every child",
+    desc: "Their name, age, and photo as the hero of every adventure book.",
   },
-  { icon: Timer, title: "Ready in under a minute", desc: "Generate, print, and you're set to go." },
+  { icon: Timer, title: "Ready in minutes", desc: "Generate, read online, print a PDF — perfect for busy parents." },
 ];
 
 export function Benefits() {
@@ -24,7 +24,7 @@ export function Benefits() {
             Why parents love it
           </p>
           <h2 className="mt-3 font-display text-4xl md:text-5xl font-bold text-balance">
-            Made to delight kids — and give you a break.
+            Personalized kids books for learning, play & parenting wins.
           </h2>
         </div>
 

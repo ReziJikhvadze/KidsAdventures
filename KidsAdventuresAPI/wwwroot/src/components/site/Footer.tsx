@@ -1,18 +1,21 @@
 import { Link } from "@tanstack/react-router";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { SocialLinks } from "@/components/brand/SocialLinks";
 import { BRAND_NAME } from "@/lib/brand";
 
 const footerLinks: Record<string, { label: string; href: string; isRoute?: boolean }[]> = {
   Product: [
-    { label: "Themes", href: "/#themes" },
+    { label: "Adventure themes", href: "/themes", isRoute: true },
+    { label: "Personalized kids books", href: "/personalized-childrens-books", isRoute: true },
     { label: "Gift guide", href: "/gift-guide", isRoute: true },
     { label: "Pricing", href: "/#pricing" },
     { label: "Create a book", href: "/#generator" },
   ],
   Resources: [
+    { label: "Kids learning & education", href: "/kids-learning-books", isRoute: true },
     { label: "Blog", href: "/blog", isRoute: true },
     { label: "Dinosaur books", href: "/themes/dinosaurs", isRoute: true },
-    { label: "Space books", href: "/themes/space", isRoute: true },
+    { label: "Space adventure books", href: "/themes/space", isRoute: true },
     { label: "FAQ", href: "/#faq" },
   ],
   Company: [{ label: "Contact", href: "/contact", isRoute: true }],
@@ -29,9 +32,10 @@ export function Footer() {
         <div>
           <BrandLogo asLink={false} />
           <p className="mt-4 text-sm text-muted-foreground max-w-sm">
-            Personalized printable adventure books for kids ages 4–12. Made with care by parents,
-            for parents.
+            Personalized children's books & illustrated adventure stories for kids ages 3–12.
+            Screen-free learning, parenting-friendly gifts, printable PDFs.
           </p>
+          <SocialLinks className="mt-5" />
         </div>
         {Object.entries(footerLinks).map(([title, links]) => (
           <div key={title}>

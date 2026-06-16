@@ -1,4 +1,4 @@
-import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
+import { BRAND_NAME, BRAND_SOCIAL_LINKS, BRAND_TAGLINE } from "@/lib/brand";
 import { LEGAL_CONTACT_EMAILS } from "@/lib/legal";
 import { absoluteUrl, ORGANIZATION_CONTACT_EMAIL, SITE_URL } from "@/lib/seo";
 
@@ -23,6 +23,8 @@ export function buildOrganizationSchema() {
     "@type": "Organization",
     name: BRAND_NAME,
     url: SITE_URL,
+    description:
+      "Personalized children's books and illustrated adventure storybooks for kids ages 3–12. Custom name books, screen-free learning, and printable PDFs for parents and grandparents.",
     email: ORGANIZATION_CONTACT_EMAIL,
     contactPoint: {
       "@type": "ContactPoint",
@@ -30,6 +32,7 @@ export function buildOrganizationSchema() {
       email: LEGAL_CONTACT_EMAILS.join(", "),
       availableLanguage: ["English"],
     },
+    sameAs: BRAND_SOCIAL_LINKS.map((link) => link.href),
   };
 }
 
@@ -128,6 +131,7 @@ export function buildThemeProductSchema(theme: {
       "@type": "Offer",
       url: absoluteUrl(`/themes/${theme.slug}`),
       priceCurrency: "USD",
+      lowPrice: "14.99",
       availability: "https://schema.org/InStock",
     },
   };

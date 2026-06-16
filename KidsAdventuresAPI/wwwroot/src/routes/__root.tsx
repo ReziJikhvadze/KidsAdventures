@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth/AuthContext";
+import { GoogleAuthProvider } from "@/lib/auth/GoogleAuthProvider";
 import { BRAND_LOGO_URL } from "@/lib/brand";
 import { buildRootMeta } from "@/lib/seo";
 
@@ -126,10 +127,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Outlet />
-        <Toaster />
-      </AuthProvider>
+      <GoogleAuthProvider>
+        <AuthProvider>
+          <Outlet />
+          <Toaster />
+        </AuthProvider>
+      </GoogleAuthProvider>
     </QueryClientProvider>
   );
 }

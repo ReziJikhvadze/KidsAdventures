@@ -10,8 +10,22 @@ public sealed class AuthController(
     IAuthService authService,
     ISubscriptionService subscriptionService,
     IUserContextService userContext,
-    IOptions<EmailOptions> emailOptions) : ControllerBase
+    IOptions<EmailOptions> emailOptions,
+    IOptions<GoogleAuthOptions> googleAuthOptions) : ControllerBase
 {
+    [HttpGet("config")]
+    [AllowAnonymous]
+    public ActionResult<AuthConfigResponse> GetConfig()
+    {
+        var google = googleAuthOptions.Value;
+        var enabled = google.Enabled && !string.IsNullOrWhiteSpace(google.ClientId);
+        return Ok(new AuthConfigResponse
+        {
+            GoogleEnabled = enabled,
+            GoogleClientId = enabled ? google.ClientId : null,
+        });
+    }
+
     [HttpPost("register")]
     [AllowAnonymous]
     public async Task<ActionResult<RegisterResponse>> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
@@ -25,6 +39,16 @@ public sealed class AuthController(
     public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         var response = await authService.LoginAsync(request, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpPost("google")]
+    [AllowAnonymous]
+    public async Task<ActionResult<AuthResponse>> LoginWithGoogle(
+        [FromBody] GoogleLoginRequest request,
+        CancellationToken cancellationToken)
+    {
+        var response = await authService.LoginWithGoogleAsync(request, cancellationToken);
         return Ok(response);
     }
 

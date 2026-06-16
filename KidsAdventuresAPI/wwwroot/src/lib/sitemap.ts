@@ -10,6 +10,9 @@ export type SitemapEntry = {
 
 const STATIC_ENTRIES: SitemapEntry[] = [
   { path: "/", changefreq: "weekly", priority: "1.0" },
+  { path: "/personalized-childrens-books", changefreq: "monthly", priority: "0.95" },
+  { path: "/kids-learning-books", changefreq: "monthly", priority: "0.95" },
+  { path: "/themes", changefreq: "monthly", priority: "0.9" },
   { path: "/gift-guide", changefreq: "monthly", priority: "0.9" },
   { path: "/blog", changefreq: "weekly", priority: "0.8" },
   { path: "/contact", changefreq: "monthly", priority: "0.6" },

@@ -24,6 +24,7 @@ public static class ServiceCollectionExtensions
         services.Configure<CorsOptions>(configuration.GetSection(CorsOptions.SectionName));
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
+        services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.SectionName));
         return services;
     }
 
@@ -192,6 +193,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IGoogleAuthService, GoogleAuthService>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IUserContextService, UserContextService>();
 

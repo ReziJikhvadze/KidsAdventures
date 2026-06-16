@@ -46,7 +46,7 @@ function ThemeLandingPage() {
           buildThemeProductSchema(theme),
           buildBreadcrumbSchema([
             { name: "Home", path: "/" },
-            { name: "Themes", path: "/#themes" },
+            { name: "Themes", path: "/themes" },
             { name: theme.name, path: `/themes/${theme.slug}` },
           ]),
         ]}
@@ -55,11 +55,10 @@ function ThemeLandingPage() {
       <main>
         <div className="mx-auto max-w-5xl px-6 pt-8 pb-4">
           <Link
-            to="/"
-            hash="themes"
+            to="/themes"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            ← All themes
+            ← All adventure themes
           </Link>
         </div>
 

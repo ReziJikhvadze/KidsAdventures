@@ -11,11 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as PersonalizedChildrensBooksRouteImport } from './routes/personalized-childrens-books'
 import { Route as MyPacksRouteImport } from './routes/my-packs'
+import { Route as KidsLearningBooksRouteImport } from './routes/kids-learning-books'
 import { Route as GiftGuideRouteImport } from './routes/gift-guide'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ConfirmEmailRouteImport } from './routes/confirm-email'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ThemesIndexRouteImport } from './routes/themes/index'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as ThemesSlugRouteImport } from './routes/themes/$slug'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
@@ -32,9 +35,20 @@ const PrivacyRoute = PrivacyRouteImport.update({
   path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PersonalizedChildrensBooksRoute =
+  PersonalizedChildrensBooksRouteImport.update({
+    id: '/personalized-childrens-books',
+    path: '/personalized-childrens-books',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const MyPacksRoute = MyPacksRouteImport.update({
   id: '/my-packs',
   path: '/my-packs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KidsLearningBooksRoute = KidsLearningBooksRouteImport.update({
+  id: '/kids-learning-books',
+  path: '/kids-learning-books',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GiftGuideRoute = GiftGuideRouteImport.update({
@@ -55,6 +69,11 @@ const ConfirmEmailRoute = ConfirmEmailRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ThemesIndexRoute = ThemesIndexRouteImport.update({
+  id: '/themes/',
+  path: '/themes/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BlogIndexRoute = BlogIndexRouteImport.update({
@@ -88,7 +107,9 @@ export interface FileRoutesByFullPath {
   '/confirm-email': typeof ConfirmEmailRoute
   '/contact': typeof ContactRoute
   '/gift-guide': typeof GiftGuideRoute
+  '/kids-learning-books': typeof KidsLearningBooksRoute
   '/my-packs': typeof MyPacksRoute
+  '/personalized-childrens-books': typeof PersonalizedChildrensBooksRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/billing/cancel': typeof BillingCancelRoute
@@ -96,13 +117,16 @@ export interface FileRoutesByFullPath {
   '/blog/$slug': typeof BlogSlugRoute
   '/themes/$slug': typeof ThemesSlugRoute
   '/blog/': typeof BlogIndexRoute
+  '/themes/': typeof ThemesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/confirm-email': typeof ConfirmEmailRoute
   '/contact': typeof ContactRoute
   '/gift-guide': typeof GiftGuideRoute
+  '/kids-learning-books': typeof KidsLearningBooksRoute
   '/my-packs': typeof MyPacksRoute
+  '/personalized-childrens-books': typeof PersonalizedChildrensBooksRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/billing/cancel': typeof BillingCancelRoute
@@ -110,6 +134,7 @@ export interface FileRoutesByTo {
   '/blog/$slug': typeof BlogSlugRoute
   '/themes/$slug': typeof ThemesSlugRoute
   '/blog': typeof BlogIndexRoute
+  '/themes': typeof ThemesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -117,7 +142,9 @@ export interface FileRoutesById {
   '/confirm-email': typeof ConfirmEmailRoute
   '/contact': typeof ContactRoute
   '/gift-guide': typeof GiftGuideRoute
+  '/kids-learning-books': typeof KidsLearningBooksRoute
   '/my-packs': typeof MyPacksRoute
+  '/personalized-childrens-books': typeof PersonalizedChildrensBooksRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/billing/cancel': typeof BillingCancelRoute
@@ -125,6 +152,7 @@ export interface FileRoutesById {
   '/blog/$slug': typeof BlogSlugRoute
   '/themes/$slug': typeof ThemesSlugRoute
   '/blog/': typeof BlogIndexRoute
+  '/themes/': typeof ThemesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -133,7 +161,9 @@ export interface FileRouteTypes {
     | '/confirm-email'
     | '/contact'
     | '/gift-guide'
+    | '/kids-learning-books'
     | '/my-packs'
+    | '/personalized-childrens-books'
     | '/privacy'
     | '/terms'
     | '/billing/cancel'
@@ -141,13 +171,16 @@ export interface FileRouteTypes {
     | '/blog/$slug'
     | '/themes/$slug'
     | '/blog/'
+    | '/themes/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/confirm-email'
     | '/contact'
     | '/gift-guide'
+    | '/kids-learning-books'
     | '/my-packs'
+    | '/personalized-childrens-books'
     | '/privacy'
     | '/terms'
     | '/billing/cancel'
@@ -155,13 +188,16 @@ export interface FileRouteTypes {
     | '/blog/$slug'
     | '/themes/$slug'
     | '/blog'
+    | '/themes'
   id:
     | '__root__'
     | '/'
     | '/confirm-email'
     | '/contact'
     | '/gift-guide'
+    | '/kids-learning-books'
     | '/my-packs'
+    | '/personalized-childrens-books'
     | '/privacy'
     | '/terms'
     | '/billing/cancel'
@@ -169,6 +205,7 @@ export interface FileRouteTypes {
     | '/blog/$slug'
     | '/themes/$slug'
     | '/blog/'
+    | '/themes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -176,7 +213,9 @@ export interface RootRouteChildren {
   ConfirmEmailRoute: typeof ConfirmEmailRoute
   ContactRoute: typeof ContactRoute
   GiftGuideRoute: typeof GiftGuideRoute
+  KidsLearningBooksRoute: typeof KidsLearningBooksRoute
   MyPacksRoute: typeof MyPacksRoute
+  PersonalizedChildrensBooksRoute: typeof PersonalizedChildrensBooksRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   BillingCancelRoute: typeof BillingCancelRoute
@@ -184,6 +223,7 @@ export interface RootRouteChildren {
   BlogSlugRoute: typeof BlogSlugRoute
   ThemesSlugRoute: typeof ThemesSlugRoute
   BlogIndexRoute: typeof BlogIndexRoute
+  ThemesIndexRoute: typeof ThemesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -202,11 +242,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/personalized-childrens-books': {
+      id: '/personalized-childrens-books'
+      path: '/personalized-childrens-books'
+      fullPath: '/personalized-childrens-books'
+      preLoaderRoute: typeof PersonalizedChildrensBooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/my-packs': {
       id: '/my-packs'
       path: '/my-packs'
       fullPath: '/my-packs'
       preLoaderRoute: typeof MyPacksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kids-learning-books': {
+      id: '/kids-learning-books'
+      path: '/kids-learning-books'
+      fullPath: '/kids-learning-books'
+      preLoaderRoute: typeof KidsLearningBooksRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gift-guide': {
@@ -235,6 +289,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/themes/': {
+      id: '/themes/'
+      path: '/themes'
+      fullPath: '/themes/'
+      preLoaderRoute: typeof ThemesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/blog/': {
@@ -280,7 +341,9 @@ const rootRouteChildren: RootRouteChildren = {
   ConfirmEmailRoute: ConfirmEmailRoute,
   ContactRoute: ContactRoute,
   GiftGuideRoute: GiftGuideRoute,
+  KidsLearningBooksRoute: KidsLearningBooksRoute,
   MyPacksRoute: MyPacksRoute,
+  PersonalizedChildrensBooksRoute: PersonalizedChildrensBooksRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   BillingCancelRoute: BillingCancelRoute,
@@ -288,6 +351,7 @@ const rootRouteChildren: RootRouteChildren = {
   BlogSlugRoute: BlogSlugRoute,
   ThemesSlugRoute: ThemesSlugRoute,
   BlogIndexRoute: BlogIndexRoute,
+  ThemesIndexRoute: ThemesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

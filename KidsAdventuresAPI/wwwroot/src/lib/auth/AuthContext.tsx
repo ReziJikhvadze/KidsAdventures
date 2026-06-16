@@ -30,6 +30,7 @@ type AuthContextValue = {
   isLoading: boolean;
   canCreatePdf: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   register: (email: string, password: string) => Promise<string>;
   logout: () => void;
   applySession: (session: AuthResponse) => void;
@@ -196,6 +197,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applySession],
   );
 
+  const loginWithGoogle = useCallback(
+    async (idToken: string) => {
+      const session = await authApi.loginWithGoogle(idToken);
+      applySession(session);
+    },
+    [applySession],
+  );
+
   const register = useCallback(async (email: string, password: string) => {
     const result = await authApi.register(email, password);
     return result.message;
@@ -210,13 +219,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       canCreatePdf,
       login,
+      loginWithGoogle,
       register,
       logout,
       applySession,
       refreshAccountBalance,
       setBookCredits,
     }),
-    [user, isLoading, canCreatePdf, login, register, logout, applySession, refreshAccountBalance, setBookCredits],
+    [user, isLoading, canCreatePdf, login, loginWithGoogle, register, logout, applySession, refreshAccountBalance, setBookCredits],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
