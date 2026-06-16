@@ -18,6 +18,6 @@ public interface IOpenAiService
     Task<string> DescribeCharacterFromPhotoAsync(
         byte[] imageBytes,
         string contentType,
-        string roleDescription,
+        string promptText,
         CancellationToken cancellationToken);
 }

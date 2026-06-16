@@ -408,7 +408,7 @@ public sealed class AdventureGenerationService(
             ChildAppearanceDescription = child.AppearanceDescription,
             FamilyMembers = cast,
             OptionalStoryNotes = pack.OptionalStoryNotes,
-            StoryLanguage = pack.StoryLanguage ?? "en",
+            StoryLanguage = NormalizeLanguage(pack.StoryLanguage),
             StoryPageCount = ResolveEffectivePageCount(pack)
         };
     }
@@ -452,6 +452,7 @@ public sealed class AdventureGenerationService(
                 child,
                 heroPhotoBytes,
                 heroPhotoContentType,
+                pack.StoryLanguage ?? "en",
                 cancellationToken);
             if (!string.IsNullOrWhiteSpace(childAppearance))
             {
@@ -467,7 +468,10 @@ public sealed class AdventureGenerationService(
         var cast = new List<FamilyMemberCastEntry>();
         foreach (var member in familyMembers)
         {
-            var appearance = await ResolveFamilyAppearanceAsync(member, cancellationToken);
+            var appearance = await ResolveFamilyAppearanceAsync(
+                member,
+                pack.StoryLanguage ?? "en",
+                cancellationToken);
             cast.Add(new FamilyMemberCastEntry
             {
                 Name = member.Name,
@@ -485,7 +489,7 @@ public sealed class AdventureGenerationService(
             ChildAppearanceDescription = childAppearance,
             FamilyMembers = cast,
             OptionalStoryNotes = pack.OptionalStoryNotes,
-            StoryLanguage = pack.StoryLanguage ?? "en",
+            StoryLanguage = NormalizeLanguage(pack.StoryLanguage),
             StoryPageCount = ResolveEffectivePageCount(pack)
         };
     }
@@ -592,6 +596,7 @@ public sealed class AdventureGenerationService(
         Child child,
         byte[] photoBytes,
         string contentType,
+        string storyLanguage,
         CancellationToken cancellationToken)
     {
         try
@@ -599,9 +604,7 @@ public sealed class AdventureGenerationService(
             return await openAiService.DescribeCharacterFromPhotoAsync(
                 photoBytes,
                 contentType,
-                $"This photo is the hero child {child.Name}, age {child.Age}, for a Pixar-style adventure book. "
-                + "List concrete visual traits an illustrator must copy: exact hair color and style, skin tone, eye color, glasses/freckles, face shape, and 2–3 distinctive details. "
-                + "Write for a cartoon designer — be specific, not vague.",
+                AdventurePromptBuilder.BuildHeroPhotoDescribePrompt(storyLanguage, child.Name, child.Age),
                 cancellationToken);
         }
         catch (Exception ex)
@@ -626,7 +629,10 @@ public sealed class AdventureGenerationService(
         return "image/jpeg";
     }
 
-    private async Task<string?> ResolveFamilyAppearanceAsync(FamilyMember member, CancellationToken cancellationToken)
+    private async Task<string?> ResolveFamilyAppearanceAsync(
+        FamilyMember member,
+        string storyLanguage,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(member.PhotoUrl))
         {
@@ -639,8 +645,10 @@ public sealed class AdventureGenerationService(
             return await openAiService.DescribeCharacterFromPhotoAsync(
                 bytes,
                 InferImageContentType(member.PhotoUrl),
-                $"This photo is {member.Name} ({member.Relationship}) in a Pixar-style children's adventure book. "
-                + "List concrete visual traits an illustrator must copy: exact hair color and style, skin tone, age, glasses, and distinctive details.",
+                AdventurePromptBuilder.BuildFamilyPhotoDescribePrompt(
+                    storyLanguage,
+                    member.Name,
+                    member.Relationship),
                 cancellationToken);
         }
         catch (Exception ex)
@@ -650,16 +658,7 @@ public sealed class AdventureGenerationService(
         }
     }
 
-    private static string NormalizeLanguage(string? code)
-    {
-        if (string.IsNullOrWhiteSpace(code))
-        {
-            return "en";
-        }
-
-        var c = code.Trim().ToLowerInvariant();
-        return c is "ka" or "es" or "en" or "fr" or "de" ? c : "en";
-    }
+    private static string NormalizeLanguage(string? code) => AdventurePromptTexts.NormalizeLanguageCode(code);
 
     private async Task<IReadOnlyList<CastPhotoReference>> LoadCastPhotosAsync(
         AdventurePack pack,

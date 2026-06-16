@@ -123,8 +123,9 @@ const ENABLE_STORY_CAST = false;
 
 const storyLanguages = [
   { value: "en", label: "English" },
-  { value: "ka", label: "Georgian (ქართული)" },
   { value: "es", label: "Spanish (Español)" },
+  { value: "zh", label: "Chinese (中文)" },
+  { value: "ru", label: "Russian (Русский)" },
 ] as const;
 
 export function Generator({ initialTheme = null }: GeneratorProps) {
@@ -690,7 +691,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                     ))}
                   </select>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Georgian and Spanish work — GPT writes the full story in that language.
+                    The full story is written in the language you choose — English, Spanish, Chinese, or Russian.
                   </p>
                 </div>
                 <div className="sm:col-span-1">

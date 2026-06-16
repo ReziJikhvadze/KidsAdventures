@@ -98,7 +98,7 @@ public sealed class OpenAiService(
     public async Task<string> DescribeCharacterFromPhotoAsync(
         byte[] imageBytes,
         string contentType,
-        string roleDescription,
+        string promptText,
         CancellationToken cancellationToken)
     {
         var client = CreateClient();
@@ -118,11 +118,7 @@ public sealed class OpenAiService(
                         new
                         {
                             type = "input_text",
-                            text = roleDescription +
-                                   " Reply with one dense paragraph for a Pixar character designer (stylized 3D animation, NOT photorealistic): " +
-                                   "exact hair color, length, texture, and parting; skin tone; apparent age; glasses or freckles if any; " +
-                                   "face shape, eye shape, nose, mouth, jawline, and 3–5 distinctive features so the cartoon twin is unmistakable. " +
-                                   "Be specific and literal — an illustrator must match this person. No markdown."
+                            text = promptText
                         },
                         new
                         {

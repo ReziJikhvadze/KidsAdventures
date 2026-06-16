@@ -5,145 +5,43 @@ namespace AdventurePacks.Api.Services;
 
 internal static class AdventurePromptBuilder
 {
-    /// <summary>Style when no reference photo — full Pixar-style CG illustration.</summary>
-    public const string AnimatedIllustrationStylePrompt =
-        "Full-frame still from a premium 3D animated children's movie (Pixar / DreamWorks quality). " +
-        "Stylized CG character with expressive cartoon proportions, soft subsurface skin, big lively eyes, cinematic rim lighting, " +
-        "rich saturated colors, depth of field, magical environment. " +
-        "MUST look like rendered animation — NOT a photograph, NOT a photo filter, NOT flat clipart.";
-
-    /// <summary>Style when a hero photo is provided — Pixar cartoon that is unmistakably the same person.</summary>
-    public const string PixarFromPhotoStylePrompt =
-        "Create a FULL Pixar-style 3D animated movie still. The reference photo defines the hero's identity — " +
-        "match face shape, eye shape and color, nose, mouth, jawline, hair color, hair style, skin tone, and apparent age as closely as a Pixar cartoon allows. " +
-        "CRITICAL: output must look like a Pixar film frame (Inside Out, Coco, Luca, Turning Red), NOT a real photo, NOT a lightly edited portrait, " +
-        "NOT photorealistic skin, NOT visible photographic texture, NOT a face-swap or filter effect. " +
-        "Use classic animated proportions (slightly larger expressive eyes, smooth stylized skin) but keep the person recognizable — " +
-        "friends and family should immediately say 'that's them'. Cinematic warm lighting, shallow depth of field, polished render quality.";
-
-    private static readonly string[] StorySeeds =
-    [
-        "A mysterious map appears in the hero's backpack.",
-        "A friendly creature offers a riddle before the path continues.",
-        "A sudden storm reveals a hidden doorway.",
-        "An old song holds the clue to the next challenge.",
-        "A bridge made of light appears only for the brave.",
-        "A constellation guides the team through the night.",
-        "A treasure is not gold, but kindness shared with friends.",
-        "A lost compass spins wildly near something wonderful.",
-        "A garden of glowing plants whispers encouragement.",
-        "A race against time ends with teamwork and laughter.",
-        "A talking lantern leads the hero somewhere unexpected.",
-        "A shy forest guide appears only when the hero shares a snack.",
-        "A music box unlocks a secret path at sunset.",
-        "A hot-air balloon made of paper wishes drifts into view.",
-        "A friendly rival challenges the hero to a silly contest first."
-    ];
-
-    private static readonly string[] ToneSeeds =
-    [
-        "Warm, playful, and full of wonder.",
-        "Curious and gently humorous.",
-        "Epic but reassuring — never scary.",
-        "Cozy bedtime-adventure energy.",
-        "Bright Saturday-morning cartoon energy."
-    ];
-
-    private static readonly string[] SceneVarietySeeds =
-    [
-        "open sky or rooftop with a wide view",
-        "cozy indoor nook lit by a warm lamp",
-        "busy marketplace full of colorful stalls",
-        "quiet forest trail with fireflies",
-        "sparkling shoreline or misty lake",
-        "mountain overlook above the clouds",
-        "underground tunnel with glowing crystals",
-        "rainy street where puddles reflect magic",
-        "garden maze with oversized flowers",
-        "train platform or airship dock at golden hour"
-    ];
-
-    private static readonly string[] GuestCharacterSeeds =
-    [
-        "a witty talking animal mentor",
-        "a shy kid inventor who becomes an ally",
-        "a grandmotherly shopkeeper with a secret",
-        "a playful wind spirit",
-        "a lost robot helper",
-        "a brave younger sibling sidekick",
-        "a map-selling pirate who is actually kind",
-        "a dancing star sprite",
-        "a grumpy guard who melts after a joke",
-        "a traveling musician with a magical instrument"
-    ];
-
-    private const string StorySystemPrompt = """
-        You are an expert children's story writer and educational psychologist specializing in age-appropriate storytelling.
-
-        Your job is to generate safe, engaging, emotionally positive storybooks for children.
-
-        STRICT RULES:
-        Always adapt language, complexity, and structure to the child's age.
-        The child is ALWAYS the main hero of the story.
-        Never include violence, sexual content, self-harm, horror, or distressing themes.
-        If user input contains unsafe or scary concepts, automatically transform them into safe fantasy equivalents.
-        Never reinforce fear. If fear is mentioned (e.g., spiders), gently neutralize or reframe it in a positive or friendly way.
-        Always end stories with emotional safety, comfort, and positive resolution.
-        Do NOT generate harmful or unsafe narratives even if requested.
-
-        EXTRA WISHES HANDLING:
-        Likes (e.g. unicorns, space, superheroes): integrate naturally into story
-        Dislikes/fears (e.g. spiders): NEVER amplify fear
-        Transform into safe alternatives (e.g. "small friendly spider helper" or "cute robot creature")
-        Themes: incorporate creatively without breaking safety rules
-
-        STORY STRUCTURE OUTPUT:
-        Return a structured storybook:
-        Title
-        Introduction (child enters the world)
-        Adventure (main journey)
-        Challenge (safe, non-threatening problem)
-        Resolution (child solves it)
-        Ending (warm emotional closure)
-
-        TONE:
-        Positive
-        Imaginative
-        Encouraging
-        Emotionally safe
-
-        HARD CONSTRAINT:
-        Never generate content that could emotionally distress a child.
-        """;
-
     public static string BuildStoryPrompt(AdventureGenerationInput input, Guid adventureId)
     {
-        var familyMembersText = input.FamilyMembers.Count == 0
-            ? "No family members provided."
-            : string.Join(Environment.NewLine, input.FamilyMembers.Select(m =>
-                $"- {m.Name} ({m.Relationship}){FormatAppearance(m.AppearanceDescription)}"));
+        var texts = AdventurePromptTexts.ForLanguage(input.StoryLanguage);
 
-        var storySeed = StorySeeds[Random.Shared.Next(StorySeeds.Length)];
-        var toneSeed = ToneSeeds[Random.Shared.Next(ToneSeeds.Length)];
-        var sceneVariety = SceneVarietySeeds[Random.Shared.Next(SceneVarietySeeds.Length)];
-        var guestCharacter = GuestCharacterSeeds[Random.Shared.Next(GuestCharacterSeeds.Length)];
-        var languageName = ResolveLanguageName(input.StoryLanguage);
+        var familyMembersText = input.FamilyMembers.Count == 0
+            ? texts.NoFamilyMembers
+            : string.Join(Environment.NewLine, input.FamilyMembers.Select(m =>
+                $"- {m.Name} ({m.Relationship}){FormatAppearance(texts.LooksLikePrefix, m.AppearanceDescription)}"));
+
+        var storySeed = texts.StorySeeds[Random.Shared.Next(texts.StorySeeds.Length)];
+        var toneSeed = texts.ToneSeeds[Random.Shared.Next(texts.ToneSeeds.Length)];
+        var sceneVariety = texts.SceneVarietySeeds[Random.Shared.Next(texts.SceneVarietySeeds.Length)];
+        var guestCharacter = texts.GuestCharacterSeeds[Random.Shared.Next(texts.GuestCharacterSeeds.Length)];
 
         var pageCount = input.StoryPageCount > 0 ? input.StoryPageCount : AdventureStoryConstants.FullPageCount;
         pageCount = Math.Min(pageCount, AdventureStoryConstants.FullPageCount);
         var isWelcomeGift = pageCount <= AdventureStoryConstants.WelcomeGiftPageCount;
-        var storyArc = isWelcomeGift
-            ? "- Map story structure across pages: page 1 Introduction (child enters the world) + Adventure start; page 2 gentle Challenge (safe, non-threatening) + Resolution (child solves it) + Ending (warm emotional closure)."
-            : "- Map story structure across pages: page 1 Introduction (child enters the world); pages 2–3 Adventure (main journey); page 4 Challenge (safe, non-threatening problem); page 5 Resolution (child solves it); page 6 Ending (warm emotional closure).";
+        var storyArc = isWelcomeGift ? texts.WelcomeArc : texts.FullArc;
+
+        var narrativeRules = texts.NarrativeCraftRules
+            .Select((rule, index) => index switch
+            {
+                8 => string.Format(rule, sceneVariety),
+                9 => string.Format(rule, guestCharacter),
+                _ => rule,
+            })
+            .Select(rule => $"- {rule}")
+            .ToList();
 
         var lines = new List<string>
         {
-            StorySystemPrompt.Trim(),
+            texts.StorySystemPrompt.Trim(),
             string.Empty,
-            $"AGE GUIDELINES FOR THIS CHILD (age {input.Age}):",
-            GetAgeGuidelines(input.Age),
+            string.Format(texts.AgeGuidelinesHeader, input.Age),
+            GetAgeGuidelines(texts, input.Age),
             string.Empty,
-            "OUTPUT FORMAT (required — return ONLY this JSON, no other text):",
+            texts.OutputFormatHeader,
             "{",
             "  \"title\": \"\",",
             "  \"theme\": \"\",",
@@ -151,56 +49,47 @@ internal static class AdventurePromptBuilder
             "  \"storyPages\": [{ \"title\": \"\", \"content\": \"\" }]",
             "}",
             string.Empty,
-            "Narrative craft:",
-            "- Every page must be a DIFFERENT scene, location, and emotional beat — never repeat the same situation or setting.",
-            "- Build a real story arc with the child as hero with agency — they choose, try, help, or solve something on every page.",
-            "- Introduce at least one memorable guest character (animal, friend, mentor, or magical helper) who appears in more than one page.",
-            "- Use vivid sensory details (sounds, textures, colors, weather) so each page feels like a new moment.",
-            "- Include one gentle surprise or funny moment; keep stakes age-appropriate and never frightening.",
-            "- Weave child-psychology strengths: courage, curiosity, kindness, persistence, and feeling proud of trying.",
-            "- Name emotions in simple words (excited, nervous, proud, relieved) and show the hero coping in a healthy way.",
-            "- Family members from the input appear as supporting cast with distinct roles — not wallpaper.",
-            $"- Scene variety anchor for this book: {sceneVariety}.",
-            $"- Guest character idea to adapt: {guestCharacter}.",
-            string.Empty,
-            "Rules:",
-            "- Include all listed family members as supporting characters when provided.",
-            $"- Write the entire pack in {languageName}.",
-            $"- Create exactly {pageCount} story pages — no more, no fewer — with distinct scene titles (story text only).",
-            "- Never add extra pages beyond the required count.",
-            storyArc,
-            "- Each page: 1–2 short paragraphs for read-aloud; every page title must hint at a new place or moment.",
-            "- Never include markdown, code fences (```), explanations, or extra text outside JSON.",
-            "- The response must start with { and end with } — raw JSON only.",
-            $"- Adventure ID (must be unique): {adventureId}",
-            $"- Narrative tone: {toneSeed}",
-            "- Do not reuse generic openings like 'One sunny day' unless transformed into something specific and fresh.",
-            string.Empty,
-            "Input:",
-            $"Child Name: {input.ChildName}",
-            $"Child Age: {input.Age}",
-            $"Theme: {input.Theme}",
-            FormatAppearanceLine("Hero appearance (keep consistent in story)", input.ChildAppearanceDescription),
-            $"Family Members:{Environment.NewLine}{familyMembersText}"
+            texts.NarrativeCraftHeader,
         };
+        lines.AddRange(narrativeRules);
+        lines.Add(string.Empty);
+        lines.Add(texts.RulesHeader);
+        lines.Add($"- {texts.IncludeFamilyRule}");
+        lines.Add($"- {string.Format(texts.WriteInLanguageRule, texts.LanguageName)}");
+        lines.Add($"- {string.Format(texts.PageCountRule, pageCount)}");
+        lines.Add($"- {texts.NoExtraPagesRule}");
+        lines.Add(storyArc);
+        lines.Add($"- {texts.PageLengthRule}");
+        lines.Add($"- {texts.JsonOnlyRule}");
+        lines.Add($"- {texts.RawJsonRule}");
+        lines.Add($"- {string.Format(texts.AdventureIdLabel, adventureId)}");
+        lines.Add($"- {string.Format(texts.NarrativeToneLabel, toneSeed)}");
+        lines.Add($"- {texts.NoGenericOpeningsRule}");
+        lines.Add(string.Empty);
+        lines.Add(texts.InputHeader);
+        lines.Add(string.Format(texts.ChildNameLabel, input.ChildName));
+        lines.Add(string.Format(texts.ChildAgeLabel, input.Age));
+        lines.Add(string.Format(texts.ThemeLabel, input.Theme));
+        FormatAppearanceLine(texts.HeroAppearanceLabel, input.ChildAppearanceDescription, lines);
+        lines.Add($"{texts.FamilyMembersLabel}{Environment.NewLine}{familyMembersText}");
 
         if (!string.IsNullOrWhiteSpace(input.OptionalStoryNotes))
         {
             lines.Add(string.Empty);
             var wishPages = isWelcomeGift
-                ? "both pages"
+                ? texts.ExtraWishesWelcomePages
                 : pageCount <= AdventureStoryConstants.FullPageCount
-                    ? "at least 2 pages"
-                    : "at least 3 pages";
-            lines.Add($"EXTRA WISHES (highest priority — weave into the plot on {wishPages}, not just one mention):");
+                    ? texts.ExtraWishesFullPages
+                    : texts.ExtraWishesManyPages;
+            lines.Add(string.Format(texts.ExtraWishesHeader, wishPages));
             lines.Add(input.OptionalStoryNotes.Trim());
-            lines.Add("- Likes and interests: integrate naturally into the adventure.");
-            lines.Add("- Dislikes and fears: NEVER amplify fear — transform into safe, friendly fantasy equivalents.");
-            lines.Add("- Parent wishes override any generic story hook if they conflict, but safety rules always win.");
+            lines.Add($"- {texts.LikesRule}");
+            lines.Add($"- {texts.DislikesRule}");
+            lines.Add($"- {texts.ParentWishesRule}");
         }
         else
         {
-            lines.Add($"- Story hook to weave in: {storySeed}");
+            lines.Add($"- {string.Format(texts.StoryHookLabel, storySeed)}");
         }
 
         return string.Join(Environment.NewLine, lines);
@@ -214,11 +103,12 @@ internal static class AdventurePromptBuilder
         bool hasCharacterAnchor,
         IReadOnlyList<CastPhotoReference> castPhotos)
     {
+        var texts = AdventurePromptTexts.ForLanguage(input.StoryLanguage);
         var scene = page.Content.Length > 280 ? page.Content[..280] + "..." : page.Content;
         var parts = new List<string>
         {
-            "TASK: Illustrate this story page as a Pixar-quality 3D animated movie still using the attached reference photo(s).",
-            "CHARACTER IDENTITY LOCK (non-negotiable — zero stylistic drift between reference and output):"
+            texts.ImageTask,
+            texts.ImageCharacterLock,
         };
 
         var imageIndex = 1;
@@ -228,37 +118,33 @@ internal static class AdventurePromptBuilder
 
         if (hasCharacterAnchor)
         {
-            var dnaSuffix = heroDna is null ? "" : $" Hero DNA (must match): {heroDna}";
-            parts.Add(
-                $"Reference Image {imageIndex}: LOCKED HERO — copy the attached Pixar CG cartoon from page 1 EXACTLY. " +
-                "Same face shape, eyes, nose, hair color/style, skin tone, outfit, and body proportions — zero redesign. " +
-                "Change ONLY pose, expression, camera angle, background, and scene action." +
-                dnaSuffix);
+            var dnaSuffix = heroDna is null ? "" : string.Format(texts.ImageHeroDna, heroDna);
+            parts.Add(string.Format(texts.ImageLockedHero, imageIndex, dnaSuffix));
             imageIndex++;
         }
 
         foreach (var cast in castPhotos)
         {
-            var role = cast.IsHero ? "HERO CHILD (main character)" : $"FAMILY — {cast.Relationship}";
+            var role = cast.IsHero
+                ? texts.ImageHeroChild
+                : string.Format(texts.ImageFamilyRole, cast.Relationship);
             if (cast.Bytes is { Length: > 0 })
             {
-                var dnaSuffix = cast.IsHero && heroDna is not null ? $" DNA: {heroDna}" : "";
-                parts.Add(
-                    $"Reference Image {imageIndex}: {cast.Name} ({role}). Real photo — transform into Pixar 3D CG; " +
-                    "preserve exact face shape, eyes, nose, mouth, hair color/style, skin tone, and age from the photo. " +
-                    "The cartoon must be unmistakably the same person. NOT photorealistic, NOT a photo filter." +
-                    dnaSuffix);
+                var dnaSuffix = cast.IsHero && heroDna is not null
+                    ? string.Format(texts.ImageCastDna, heroDna)
+                    : "";
+                parts.Add(string.Format(texts.ImageCastPhoto, imageIndex, cast.Name, role, dnaSuffix));
                 if (cast.IsHero && !hasCharacterAnchor)
                 {
-                    parts.Add(PixarFromPhotoStylePrompt);
+                    parts.Add(texts.PixarFromPhotoStylePrompt);
                 }
             }
             else
             {
                 var dna = string.IsNullOrWhiteSpace(cast.AppearanceDescription)
-                    ? $"Invent a consistent look for {cast.Name}."
+                    ? string.Format(texts.ImageInventCastLook, cast.Name)
                     : cast.AppearanceDescription.Trim();
-                parts.Add($"Reference Image {imageIndex}: {cast.Name} ({role}). DNA: {dna}");
+                parts.Add(string.Format(texts.ImageCastInvented, imageIndex, cast.Name, role, dna));
             }
 
             imageIndex++;
@@ -267,62 +153,55 @@ internal static class AdventurePromptBuilder
         if (!hasCharacterAnchor && castPhotos.Count == 0)
         {
             var heroLook = heroDna is null
-                ? $"Hero child named {input.ChildName}, age {input.Age}"
-                : $"Hero child named {input.ChildName}, age {input.Age}: {heroDna}";
-            parts.Add($"No reference photos — invent a consistent Pixar hero: {heroLook}.");
+                ? string.Format(texts.ImageHeroNoPhoto, input.ChildName, input.Age)
+                : $"{string.Format(texts.ImageHeroNoPhoto, input.ChildName, input.Age)}: {heroDna}";
+            parts.Add(string.Format(texts.ImageInventHero, heroLook));
         }
 
-        parts.Add(
-            "STYLE: Pixar/DreamWorks 3D cartoon still — stylized CG, cinematic lighting, NOT photorealistic, NOT a photo filter. " +
-            "Show the hero actively doing something in the scene — not a static portrait. Include environment and any guest characters described in the scene.");
-        parts.Add($"Safe for children age {input.Age}. Theme: {input.Theme}.");
-        parts.Add($"Page {pageIndex + 1} title: {page.Title}.");
-        parts.Add($"Scene to illustrate: {scene}");
+        parts.Add(texts.ImageStyle);
+        parts.Add(string.Format(texts.ImageSafeForAge, input.Age, input.Theme));
+        parts.Add(string.Format(texts.ImagePageTitle, pageIndex + 1, page.Title));
+        parts.Add(string.Format(texts.ImageScene, scene));
 
         if (!string.IsNullOrWhiteSpace(input.OptionalStoryNotes))
         {
-            parts.Add($"Parent theme (reflect in props/setting when relevant): {input.OptionalStoryNotes.Trim()}");
+            parts.Add(string.Format(texts.ImageParentTheme, input.OptionalStoryNotes.Trim()));
         }
 
-        parts.Add($"Adventure id {adventureId}.");
+        parts.Add(string.Format(texts.ImageAdventureId, adventureId));
         return string.Join(" ", parts);
     }
 
-    private static string GetAgeGuidelines(int age) => age switch
+    public static string BuildHeroPhotoDescribePrompt(string storyLanguage, string childName, int age) =>
+        string.Format(
+            AdventurePromptTexts.ForLanguage(storyLanguage).HeroPhotoDescribe,
+            childName,
+            age) + AdventurePromptTexts.ForLanguage(storyLanguage).VisionDescribeSuffix;
+
+    public static string BuildFamilyPhotoDescribePrompt(
+        string storyLanguage,
+        string name,
+        string relationship) =>
+        string.Format(
+            AdventurePromptTexts.ForLanguage(storyLanguage).FamilyPhotoDescribe,
+            name,
+            relationship) + AdventurePromptTexts.ForLanguage(storyLanguage).VisionDescribeSuffix;
+
+    private static string GetAgeGuidelines(AdventurePromptLocale texts, int age) => age switch
     {
-        <= 5 => """
-            Age 3–5:
-            Very simple vocabulary
-            Short sentences
-            Repetition and rhythm
-            Magical and friendly tone
-            """,
-        <= 9 => """
-            Age 6–9:
-            Simple adventure structure
-            Friendships, exploration, light conflict
-            Clear beginning → challenge → resolution
-            """,
-        _ => """
-            Age 10–13:
-            More complex plots
-            Mystery, problem-solving, teamwork
-            Emotional depth but still safe and positive
-            """
+        <= 5 => texts.Age3to5,
+        <= 9 => texts.Age6to9,
+        _ => texts.Age10to13,
     };
 
-    private static string ResolveLanguageName(string code) => code.ToLowerInvariant() switch
+    private static string FormatAppearance(string looksLikePrefix, string? appearance) =>
+        string.IsNullOrWhiteSpace(appearance) ? "" : string.Format(looksLikePrefix, appearance);
+
+    private static void FormatAppearanceLine(string label, string? appearance, List<string> lines)
     {
-        "ka" => "Georgian",
-        "es" => "Spanish",
-        "fr" => "French",
-        "de" => "German",
-        _ => "English"
-    };
-
-    private static string FormatAppearance(string? appearance) =>
-        string.IsNullOrWhiteSpace(appearance) ? "" : $" — looks like: {appearance}";
-
-    private static string FormatAppearanceLine(string label, string? appearance) =>
-        string.IsNullOrWhiteSpace(appearance) ? "" : $"{label}: {appearance}";
+        if (!string.IsNullOrWhiteSpace(appearance))
+        {
+            lines.Add($"{label}: {appearance}");
+        }
+    }
 }
