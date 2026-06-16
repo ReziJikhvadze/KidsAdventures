@@ -8,7 +8,7 @@
     <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
     <!-- Set true to skip npm build + frontend-deploy.zip during Publish -->
     <SkipFrontendBuild>false</SkipFrontendBuild>
-    <DefaultItemExcludes>$(DefaultItemExcludes);wwwroot\**;frontend-dist\**;frontend-deploy.zip</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);wwwroot\**;frontend-dist\**;frontend-deploy.zip;_build_check\**;publish\**;publish2\**;publish-test\**;publish-test2\**;publish-verify\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

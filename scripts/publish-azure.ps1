@@ -12,6 +12,7 @@ param(
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $apiDir = Join-Path $repoRoot "KidsAdventuresAPI"
+$publishDir = Join-Path $repoRoot ".artifacts\api-publish"
 $productionJson = Join-Path $apiDir "appsettings.Production.json"
 $exampleJson = Join-Path $apiDir "appsettings.Production.example.json"
 
@@ -24,18 +25,20 @@ if (-not (Test-Path $productionJson)) {
 }
 
 Write-Host "Publishing API (Release) + building frontend-deploy.zip..." -ForegroundColor Cyan
+if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
+New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 Push-Location $apiDir
 try {
-    dotnet publish -c Release -o ./publish
+    dotnet publish -c Release -o $publishDir
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 finally {
     Pop-Location
 }
 
-$zipPath = Join-Path $apiDir "publish.zip"
+$zipPath = Join-Path $repoRoot ".artifacts\api-publish.zip"
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-Compress-Archive -Path (Join-Path $apiDir "publish\*") -DestinationPath $zipPath
+Compress-Archive -Path (Join-Path $publishDir "*") -DestinationPath $zipPath
 
 Write-Host "Publish package: $zipPath" -ForegroundColor Green
 Write-Host "Visual Studio: you can also use Right-click KidsAdventuresAPI -> Publish -> Azure App Service (same result)." -ForegroundColor DarkGray

@@ -1,3 +1,10 @@
 frontend-dist/
 frontend-deploy.zip
 _frontend-deploy-staging/
+_build_check/
+publish/
+publish2/
+publish-test/
+publish-test2/
+publish-verify/
+publish.zip
