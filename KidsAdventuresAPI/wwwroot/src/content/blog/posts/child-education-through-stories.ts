@@ -4,7 +4,7 @@ export const childEducationThroughStories: BlogPost = {
   slug: "child-education-through-stories",
   title: "Child education through stories: why personalized books work",
   description:
-    "How personalized adventure books support early literacy, vocabulary, and screen-free learning for kids ages 3–12 — a practical guide for parents and teachers.",
+    "How personalized adventure books support early literacy, vocabulary, and screen-free learning for kids — a practical guide for parents and teachers.",
   publishedAt: "2026-06-16",
   readingTimeMinutes: 6,
   intro:
@@ -19,7 +19,7 @@ export const childEducationThroughStories: BlogPost = {
     {
       heading: "Vocabulary that matches their age",
       paragraphs: [
-        "Good learning adventures adapt language to the reader. Ages 3–5 get shorter sentences; ages 8–12 get richer plots. Adventrya Books tailors text to your child's age so storytime supports literacy without frustration.",
+        "Good learning adventures adapt language to the reader. Younger children get shorter sentences; older kids get richer plots. Adventrya Books tailors text to your child's age so storytime supports literacy without frustration.",
       ],
     },
     {

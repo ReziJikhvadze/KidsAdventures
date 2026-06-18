@@ -8,7 +8,7 @@ const TOPICS = [
   },
   {
     heading: "Child education & learning through reading",
-    body: "Stories help children build vocabulary, empathy, and problem-solving skills without feeling like homework. Our age-adapted text (ages 3–12) supports early literacy, listening comprehension, and screen-free learning at home. Teachers and parents use personalized books for read-aloud time, rainy-day activities, and gentle bedtime routines.",
+    body: "Stories help children build vocabulary, empathy, and problem-solving skills without feeling like homework. Our age-adapted text supports early literacy, listening comprehension, and screen-free learning at home. Teachers and parents use personalized books for read-aloud time, rainy-day activities, and gentle bedtime routines.",
     link: { label: "Kids learning through stories", to: "/kids-learning-books" as const },
   },
   {

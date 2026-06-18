@@ -17,6 +17,7 @@ import {
 import { useAuth } from "@/lib/auth/AuthContext";
 import { AuthDialog } from "@/components/auth/AuthDialog";
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
+import { createCheckoutSession } from "@/lib/api/subscriptions";
 import { listChildren } from "@/lib/api/children";
 import { CreditsBadge } from "@/components/site/CreditsBadge";
 import { StoryBookReader } from "@/components/story/StoryBookReader";
@@ -62,6 +63,7 @@ export function MyPacks() {
   const [loading, setLoading] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [pdfStartingId, setPdfStartingId] = useState<string | null>(null);
+  const [unlockingId, setUnlockingId] = useState<string | null>(null);
   const [loadingReaderIds, setLoadingReaderIds] = useState<Set<string>>(() => new Set());
   const [openReaderIds, setOpenReaderIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
@@ -239,6 +241,46 @@ export function MyPacks() {
     });
   };
 
+  const startIllustration = async (pack: AdventurePackDetailResponse) => {
+    if (pack.status !== "StoryReady" || unlockingId) return;
+
+    const credits = user?.bookCredits ?? 0;
+    if (credits <= 0) {
+      try {
+        const session = await createCheckoutSession("Book1");
+        if (session.checkoutUrl) {
+          window.location.href = session.checkoutUrl;
+          return;
+        }
+        notify.error("Could not start checkout", { description: "Please try again in a moment." });
+      } catch (err) {
+        notify.fromError(err, "Could not start checkout.");
+      }
+      return;
+    }
+
+    setUnlockingId(pack.id);
+    try {
+      const res = await adventurePacksApi.illustrateAdventurePack(pack.id);
+      if (typeof res.bookCredits === "number") {
+        setBookCredits(res.bookCredits);
+      } else {
+        await refreshAccountBalance();
+      }
+      notify.info("Unlocking illustrations", {
+        description: "We're painting every page — about 8–12 minutes. You can leave this page.",
+      });
+      // Refresh so the pack flips to "Creating illustrations…" and the auto-poller takes over.
+      const detail = await adventurePacksApi.getAdventurePack(pack.id);
+      updatePack(detail);
+    } catch (err) {
+      notify.fromError(err, "Could not unlock illustrations. Your credit is safe — try again.");
+      await refreshAccountBalance();
+    } finally {
+      setUnlockingId(null);
+    }
+  };
+
   const startPdf = async (pack: AdventurePackDetailResponse) => {
     if (pack.status !== "StoryReady" || pdfStartingId) return;
     if (!slideshowIllustrationsReady(pack)) {
@@ -292,8 +334,8 @@ export function MyPacks() {
                 <p className="text-sm font-semibold text-primary uppercase tracking-wide">Your library</p>
                 <h2 className="font-display text-3xl font-bold tracking-tight mt-0.5">My Books</h2>
                 <p className="text-muted-foreground mt-2 max-w-xl text-sm">
-                  Read the slideshow for free. Each <strong className="text-foreground">PDF export</strong> uses one
-                  book credit.
+                  Read every story for free. <strong className="text-foreground">Unlock illustrations</strong> for $4.99
+                  per book — PDF export is always free.
                 </p>
               </div>
             </div>
@@ -324,14 +366,12 @@ export function MyPacks() {
             <div className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-4 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-amber-900/80">
-                  Your story credits
+                  Your book credits
                 </p>
                 <p className="text-sm text-amber-950/80 mt-0.5">
-                  {user && user.welcomeStoryRemaining
-                    ? "You still have your free 2-page welcome preview. Full 6-page books use purchased credits."
-                    : user && user.bookCredits > 0
-                      ? `${user.bookCredits} purchased credit${user.bookCredits === 1 ? "" : "s"} for full 6-page stories. PDF export is always free.`
-                      : "PDF export is free for every story. Buy book credits for full 6-page illustrated adventures."}
+                  {user && user.bookCredits > 0
+                    ? `${user.bookCredits} credit${user.bookCredits === 1 ? "" : "s"} ready — each unlocks the illustrations for one book. PDF export is always free.`
+                    : "Writing stories is free. Buy a $4.99 book credit to unlock the illustrations for any story."}
                 </p>
               </div>
               {isLoading || !user ? (
@@ -342,11 +382,7 @@ export function MyPacks() {
                   storiesRemainingThisMonth={user.storiesRemainingThisMonth}
                   welcomeStoryRemaining={user.welcomeStoryRemaining}
                   variant="prominent"
-                  linkToPricing={
-                    user.welcomeStoryRemaining === 0 &&
-                    user.bookCredits === 0 &&
-                    user.storiesRemainingThisMonth === 0
-                  }
+                  linkToPricing={user.bookCredits === 0}
                 />
               )}
             </div>
@@ -360,19 +396,17 @@ export function MyPacks() {
               </div>
               <div className="rounded-2xl border border-border bg-card px-4 py-3 shadow-sm flex flex-col justify-center">
                 <p className="text-xs text-muted-foreground">
-                  {user.welcomeStoryRemaining
-                    ? "Create your free 2-page welcome preview from the home page."
-                    : user.storiesRemainingThisMonth > 0
-                      ? `${user.storiesRemainingThisMonth} book credit${user.storiesRemainingThisMonth === 1 ? "" : "s"} left — each unlocks a full 6-page illustrated book.`
-                      : "No book credits left. Buy a pack for more full 6-page adventures — PDF export stays free."}
+                  {user.bookCredits > 0
+                    ? `${user.bookCredits} book credit${user.bookCredits === 1 ? "" : "s"} ready — each unlocks the illustrations for one story.`
+                    : "Write stories for free, then unlock illustrations for $4.99 per book whenever you're ready."}
                 </p>
-                {user.storiesRemainingThisMonth === 0 && !user.welcomeStoryRemaining && (
+                {user.bookCredits === 0 && (
                   <Link
                     to="/"
                     hash="pricing"
                     className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
                   >
-                    View book packs
+                    Get a book ($4.99)
                   </Link>
                 )}
               </div>
@@ -422,6 +456,8 @@ export function MyPacks() {
               const progressPct = adventurePacksApi.computePackProgressPercent(pack);
               const readable = slideshowIllustrationsReady(pack);
               const illustrating = needsPreviewPoll(pack);
+              const awaitingUnlock = adventurePacksApi.isAwaitingIllustrationUnlock(pack);
+              const hasBookCredit = (user?.bookCredits ?? 0) > 0;
               const readerLoading = loadingReaderIds.has(pack.id);
               const canReadStory =
                 readable ||
@@ -488,6 +524,23 @@ export function MyPacks() {
                           {readerOpen ? "Hide story" : "Read story"}
                         </button>
                       )}
+                      {awaitingUnlock && isAuthenticated && (
+                        <button
+                          type="button"
+                          onClick={() => void startIllustration(pack)}
+                          disabled={unlockingId === pack.id}
+                          className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2.5 text-sm font-semibold hover:opacity-90 transition disabled:opacity-60"
+                        >
+                          {unlockingId === pack.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                          {hasBookCredit
+                            ? "Unlock illustrations (1 credit)"
+                            : "Unlock illustrations — $4.99"}
+                        </button>
+                      )}
                       {readable && pack.status === "StoryReady" && isAuthenticated && (
                         <button
                           type="button"
@@ -537,11 +590,15 @@ export function MyPacks() {
                       <div className="mb-3 flex items-center gap-2">
                         <BookOpen className="h-4 w-4 text-primary shrink-0" />
                         <p className="text-sm font-semibold text-foreground">
-                          {readable ? "Illustrated slideshow" : "Illustrated slideshow loading…"}
+                          {readable
+                            ? "Illustrated slideshow"
+                            : illustrating
+                              ? "Illustrated slideshow loading…"
+                              : "Story preview (text)"}
                         </p>
-                        {pack.isWelcomeGiftStory && (
+                        {awaitingUnlock && (
                           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
-                            Free preview
+                            Free text · illustrations locked
                           </span>
                         )}
                       </div>

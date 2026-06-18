@@ -1,4 +1,3 @@
-using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain;
 using AdventurePacks.Api.DTOs.Auth;
 using AdventurePacks.Api.Infrastructure;
@@ -13,14 +12,15 @@ public sealed class AuthService(
     IJwtTokenService jwtTokenService,
     ISubscriptionService subscriptionService,
     IGoogleAuthService googleAuthService,
-    IEmailService emailService,
-    IOptions<EmailOptions> emailOptions,
-    ILogger<AuthService> logger) : IAuthService
+    IRecaptchaVerifier recaptchaVerifier) : IAuthService
 {
-    private readonly EmailOptions _emailOptions = emailOptions.Value;
-
-    public async Task<RegisterResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
+    public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
     {
+        if (!await recaptchaVerifier.VerifyAsync(request.RecaptchaToken, cancellationToken))
+        {
+            throw new InvalidOperationException("reCAPTCHA verification failed. Please try again.");
+        }
+
         var email = request.Email.Trim().ToLowerInvariant();
         var existing = await userRepository.GetByEmailAsync(email, cancellationToken);
         if (existing is not null)
@@ -30,7 +30,7 @@ public sealed class AuthService(
 
         PasswordValidator.ValidateOrThrow(request.Password);
 
-        var confirmationToken = Guid.NewGuid().ToString("N");
+        // No email verification: accounts are active immediately and the user is signed in right away.
         var user = new User
         {
             Id = Guid.NewGuid(),
@@ -38,36 +38,58 @@ public sealed class AuthService(
             PasswordHash = passwordHasher.Hash(request.Password),
             SubscriptionType = SubscriptionType.Free,
             WelcomeStoryRemaining = 1,
-            EmailConfirmed = false,
-            EmailConfirmationToken = confirmationToken,
-            EmailConfirmationExpiresAt = DateTime.UtcNow.AddDays(2),
+            EmailConfirmed = true,
             CreatedAt = DateTime.UtcNow
         };
 
         await userRepository.CreateAsync(user, cancellationToken);
 
-        var confirmUrl =
-            $"{_emailOptions.BaseUrl.TrimEnd('/')}/confirm-email?token={Uri.EscapeDataString(confirmationToken)}";
+        return await BuildAuthResponseAsync(user, cancellationToken);
+    }
 
-        try
+    public async Task<AuthResponse> ContinueAsync(RegisterRequest request, CancellationToken cancellationToken)
+    {
+        var email = request.Email.Trim().ToLowerInvariant();
+        var existing = await userRepository.GetByEmailAsync(email, cancellationToken);
+
+        // Returning account → just sign in. No reCAPTCHA needed (we are not creating anything).
+        if (existing is not null)
         {
-            await emailService.SendAccountActivationAsync(email, confirmUrl, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Account created for {Email} but confirmation email failed. Confirm URL: {ConfirmUrl}", email, confirmUrl);
-            return new RegisterResponse
+            if (existing.PasswordHash == OAuthProviders.GooglePasswordPlaceholder)
             {
-                Email = email,
-                Message = "Account created, but we could not send the confirmation email. Ask the site admin to fix Email:SmtpPassword (Gmail App Password required)."
-            };
+                throw new UnauthorizedAccessException("This account uses Google sign-in. Please continue with Google.");
+            }
+
+            if (!passwordHasher.Verify(request.Password, existing.PasswordHash))
+            {
+                throw new UnauthorizedAccessException("That password doesn't match this email. Try again.");
+            }
+
+            return await BuildAuthResponseAsync(existing, cancellationToken);
         }
 
-        return new RegisterResponse
+        // New account → verify reCAPTCHA, then create and sign in immediately (no email confirmation).
+        if (!await recaptchaVerifier.VerifyAsync(request.RecaptchaToken, cancellationToken))
         {
+            throw new InvalidOperationException("reCAPTCHA verification failed. Please try again.");
+        }
+
+        PasswordValidator.ValidateOrThrow(request.Password);
+
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
             Email = email,
-            Message = "We sent a confirmation link to your email. Please confirm your account before signing in."
+            PasswordHash = passwordHasher.Hash(request.Password),
+            SubscriptionType = SubscriptionType.Free,
+            WelcomeStoryRemaining = 1,
+            EmailConfirmed = true,
+            CreatedAt = DateTime.UtcNow
         };
+
+        await userRepository.CreateAsync(user, cancellationToken);
+
+        return await BuildAuthResponseAsync(user, cancellationToken);
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
@@ -84,11 +106,6 @@ public sealed class AuthService(
         if (!passwordHasher.Verify(request.Password, user.PasswordHash))
         {
             throw new UnauthorizedAccessException("Invalid credentials.");
-        }
-
-        if (!user.EmailConfirmed)
-        {
-            throw new UnauthorizedAccessException("Please confirm your email before signing in. Check your inbox for the activation link.");
         }
 
         return await BuildAuthResponseAsync(user, cancellationToken);

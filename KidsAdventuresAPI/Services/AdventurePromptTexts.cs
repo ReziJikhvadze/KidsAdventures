@@ -3,6 +3,7 @@ namespace AdventurePacks.Api.Services;
 internal sealed class AdventurePromptLocale
 {
     public required string LanguageName { get; init; }
+    public required string MasterStorytellerDirective { get; init; }
     public required string StorySystemPrompt { get; init; }
     public required string Age3to5 { get; init; }
     public required string Age6to9 { get; init; }
@@ -99,6 +100,13 @@ internal static class AdventurePromptTexts
     public static readonly AdventurePromptLocale English = new()
     {
         LanguageName = "English",
+        MasterStorytellerDirective = """
+            You are in the top 1% of children's storytellers in the world — the kind of author whose books kids beg to read again and again.
+            Write with that level of craft: a clear, irresistible plot, a hero the child sees themselves in, vivid moments, real feeling, and a deeply satisfying ending.
+            EVERY sentence must do real work — advancing the plot, revealing character, or deepening emotion. No filler, no generic padding, no repeated ideas.
+            Keep every line tightly tied to THIS story, THIS hero, and THIS theme. Use the child's name often and make them the active driver of events.
+            The parent's EXTRA WISHES (if provided) are the single most important ingredient — build the story around them and make them central and visible, not a throwaway mention.
+            """,
         StorySystemPrompt = """
             You are an expert children's story writer and educational psychologist specializing in age-appropriate storytelling.
 
@@ -245,13 +253,13 @@ internal static class AdventurePromptTexts
         FamilyMembersLabel = "Family Members:",
         NoFamilyMembers = "No family members provided.",
         LooksLikePrefix = " — looks like: {0}",
-        ExtraWishesHeader = "EXTRA WISHES (highest priority — weave into the plot on {0}, not just one mention):",
+        ExtraWishesHeader = "EXTRA WISHES FROM THE PARENT (TOP PRIORITY — this is what they specifically asked for; make it a central, recurring part of the plot across {0}, not a single passing mention):",
         ExtraWishesWelcomePages = "both pages",
         ExtraWishesFullPages = "at least 2 pages",
         ExtraWishesManyPages = "at least 3 pages",
-        LikesRule = "Likes and interests: integrate naturally into the adventure.",
+        LikesRule = "Likes and interests: make them a real, visible part of the adventure — something the hero sees, uses, or does.",
         DislikesRule = "Dislikes and fears: NEVER amplify fear — transform into safe, friendly fantasy equivalents.",
-        ParentWishesRule = "Parent wishes override any generic story hook if they conflict, but safety rules always win.",
+        ParentWishesRule = "The parent's wishes drive the story: build the plot around them. They override any generic story hook, but safety rules always win.",
         StoryHookLabel = "Story hook to weave in: {0}",
         HeroPhotoDescribe = "This photo is the hero child {0}, age {1}, for a Pixar-style adventure book. List concrete visual traits an illustrator must copy: exact hair color and style, skin tone, eye color, glasses/freckles, face shape, and 2–3 distinctive details. Write for a cartoon designer — be specific, not vague.",
         FamilyPhotoDescribe = "This photo is {0} ({1}) in a Pixar-style children's adventure book. List concrete visual traits an illustrator must copy: exact hair color and style, skin tone, age, glasses, and distinctive details.",
@@ -268,7 +276,7 @@ internal static class AdventurePromptTexts
         ImageSafeForAge = "Safe for children age {0}. Theme: {1}.",
         ImagePageTitle = "Page {0} title: {1}.",
         ImageScene = "Scene to illustrate: {0}",
-        ImageParentTheme = "Parent theme (reflect in props/setting when relevant): {0}",
+        ImageParentTheme = "Parent's special request — when this page's scene involves it, make it clearly and obviously visible in the illustration (characters, props, action, or setting): {0}",
         ImageAdventureId = "Adventure id {0}.",
         ImageHeroChild = "HERO CHILD (main character)",
         ImageFamilyRole = "FAMILY — {0}",
@@ -291,6 +299,13 @@ internal static class AdventurePromptTexts
     public static readonly AdventurePromptLocale Spanish = new()
     {
         LanguageName = "Spanish",
+        MasterStorytellerDirective = """
+            Eres uno del 1% mejores narradores de cuentos infantiles del mundo, de esos autores cuyos libros los niños piden leer una y otra vez.
+            Escribe con ese nivel de oficio: una trama clara e irresistible, un héroe con quien el niño se identifique, momentos vívidos, emoción real y un final muy satisfactorio.
+            CADA frase debe aportar algo: avanzar la trama, revelar al personaje o profundizar la emoción. Sin relleno, sin texto genérico, sin repetir ideas.
+            Mantén cada línea ligada a ESTE cuento, ESTE héroe y ESTE tema. Usa el nombre del niño con frecuencia y haz que sea quien impulsa la acción.
+            Los DESEOS EXTRA de los padres (si se indican) son el ingrediente más importante: construye el cuento en torno a ellos y hazlos centrales y visibles, no una mención al pasar.
+            """,
         StorySystemPrompt = """
             Eres un experto escritor de cuentos infantiles y psicólogo educativo especializado en narrativas adecuadas a la edad.
 
@@ -437,13 +452,13 @@ internal static class AdventurePromptTexts
         FamilyMembersLabel = "Familiares:",
         NoFamilyMembers = "No se proporcionaron familiares.",
         LooksLikePrefix = " — aspecto: {0}",
-        ExtraWishesHeader = "DESEOS EXTRA (máxima prioridad — intégralos en la trama en {0}, no solo una mención):",
+        ExtraWishesHeader = "DESEOS EXTRA DE LOS PADRES (MÁXIMA PRIORIDAD — es lo que pidieron específicamente; conviértelo en parte central y recurrente de la trama en {0}, no una sola mención de paso):",
         ExtraWishesWelcomePages = "ambas páginas",
         ExtraWishesFullPages = "al menos 2 páginas",
         ExtraWishesManyPages = "al menos 3 páginas",
-        LikesRule = "Gustos e intereses: intégralos de forma natural en la aventura.",
+        LikesRule = "Gustos e intereses: hazlos parte real y visible de la aventura — algo que el héroe ve, usa o hace.",
         DislikesRule = "Disgustos y miedos: NUNCA amplifiques el miedo — transfórmalos en equivalentes fantásticos seguros y amables.",
-        ParentWishesRule = "Los deseos de los padres prevalecen sobre cualquier gancho genérico si hay conflicto, pero las reglas de seguridad siempre ganan.",
+        ParentWishesRule = "Los deseos de los padres guían la historia: construye la trama en torno a ellos. Prevalecen sobre cualquier gancho genérico, pero las reglas de seguridad siempre ganan.",
         StoryHookLabel = "Gancho de historia a tejer: {0}",
         HeroPhotoDescribe = "Esta foto es del niño héroe {0}, edad {1}, para un libro de aventuras estilo Pixar. Enumera rasgos visuales concretos que un ilustrador debe copiar: color y estilo exactos del cabello, tono de piel, color de ojos, gafas/lunares, forma del rostro y 2–3 detalles distintivos. Escribe para un diseñador de personajes — sé específico.",
         FamilyPhotoDescribe = "Esta foto es de {0} ({1}) en un libro de aventuras infantil estilo Pixar. Enumera rasgos visuales concretos: cabello, tono de piel, edad, gafas y detalles distintivos.",
@@ -460,7 +475,7 @@ internal static class AdventurePromptTexts
         ImageSafeForAge = "Seguro para niños de {0} años. Tema: {1}.",
         ImagePageTitle = "Página {0} título: {1}.",
         ImageScene = "Escena a ilustrar: {0}",
-        ImageParentTheme = "Tema de los padres (reflejar en accesorios/escenario si aplica): {0}",
+        ImageParentTheme = "Petición especial de los padres — cuando la escena de esta página lo incluya, hazlo clara y visiblemente presente en la ilustración (personajes, accesorios, acción o escenario): {0}",
         ImageAdventureId = "Id de aventura {0}.",
         ImageHeroChild = "NIÑO HÉROE (personaje principal)",
         ImageFamilyRole = "FAMILIA — {0}",
@@ -482,6 +497,13 @@ internal static class AdventurePromptTexts
     public static readonly AdventurePromptLocale Chinese = new()
     {
         LanguageName = "Chinese (Simplified)",
+        MasterStorytellerDirective = """
+            你是全世界排名前1%的儿童故事作家——你的书会让孩子一遍又一遍地央求再读。
+            请以这样的水准写作：清晰而引人入胜的情节、让孩子能代入的主角、生动的画面、真实的情感，以及令人非常满足的结局。
+            每一句话都必须发挥作用——推进情节、刻画人物或加深情感。不要废话，不要套话，不要重复同一想法。
+            让每一行都紧扣这个故事、这个主角、这个主题。经常使用孩子的名字，并让他/她成为推动情节的主角。
+            家长的“额外愿望”（如有）是最重要的元素——围绕它来构建整个故事，使其成为核心且清晰可见，而不是一笔带过。
+            """,
         StorySystemPrompt = """
             你是一位专业的儿童故事作家和教育心理学专家，擅长撰写适合不同年龄段的故事。
 
@@ -628,13 +650,13 @@ internal static class AdventurePromptTexts
         FamilyMembersLabel = "家庭成员：",
         NoFamilyMembers = "未提供家庭成员。",
         LooksLikePrefix = " — 外貌：{0}",
-        ExtraWishesHeader = "额外愿望（最高优先级——融入情节于{0}，而非仅提一次）：",
+        ExtraWishesHeader = "家长的额外愿望（最高优先级——这是他们特别要求的；要让它成为情节的核心并在{0}反复出现，而不是一笔带过）：",
         ExtraWishesWelcomePages = "两页",
         ExtraWishesFullPages = "至少2页",
         ExtraWishesManyPages = "至少3页",
-        LikesRule = "喜好与兴趣：自然融入冒险。",
+        LikesRule = "喜好与兴趣：让它们成为冒险中真实可见的一部分——主角能看到、用到或做到的东西。",
         DislikesRule = "厌恶与恐惧：绝不放大恐惧——转化为安全友善的幻想替代。",
-        ParentWishesRule = "家长愿望优先于通用故事钩子，但安全规则始终优先。",
+        ParentWishesRule = "家长的愿望主导故事：围绕它们构建情节。它们优先于通用故事钩子，但安全规则始终优先。",
         StoryHookLabel = "需融入的故事钩子：{0}",
         HeroPhotoDescribe = "此照片为冒险书主角 {0}，{1}岁，皮克斯风格。列出插画师必须复制的具体外貌：发色发型、肤色、眼色、眼镜/雀斑、脸型及2–3个显著特征。为卡通设计师撰写，要具体。",
         FamilyPhotoDescribe = "此照片为皮克斯儿童冒险书中的 {0}（{1}）。列出必须复制的外貌特征：发色、肤色、年龄、眼镜及显著细节。",
@@ -651,7 +673,7 @@ internal static class AdventurePromptTexts
         ImageSafeForAge = "适合 {0} 岁儿童。主题：{1}。",
         ImagePageTitle = "第 {0} 页标题：{1}。",
         ImageScene = "需插图的场景：{0}",
-        ImageParentTheme = "家长主题（在道具/场景中体现）：{0}",
+        ImageParentTheme = "家长的特别要求——当本页场景涉及它时，请在插画中清晰明显地呈现（角色、道具、动作或场景）：{0}",
         ImageAdventureId = "冒险 id {0}。",
         ImageHeroChild = "主角儿童",
         ImageFamilyRole = "家人 — {0}",
@@ -672,6 +694,13 @@ internal static class AdventurePromptTexts
     public static readonly AdventurePromptLocale Russian = new()
     {
         LanguageName = "Russian",
+        MasterStorytellerDirective = """
+            Ты входишь в 1% лучших детских писателей мира — из тех авторов, чьи книги дети просят читать снова и снова.
+            Пиши на этом уровне мастерства: ясный и захватывающий сюжет, герой, в котором ребёнок узнаёт себя, живые сцены, настоящие чувства и глубоко удовлетворяющий финал.
+            КАЖДОЕ предложение должно работать — двигать сюжет, раскрывать персонажа или усиливать эмоцию. Никакой воды, шаблонов и повторов одной и той же мысли.
+            Держи каждую строку привязанной к ЭТОЙ истории, ЭТОМУ герою и ЭТОЙ теме. Чаще используй имя ребёнка и сделай его движущей силой событий.
+            ОСОБЫЕ ПОЖЕЛАНИЯ родителей (если есть) — самый важный ингредиент: построй историю вокруг них и сделай их центральными и заметными, а не упоминанием вскользь.
+            """,
         StorySystemPrompt = """
             Вы — эксперт по детским историям и детскому образовательному психологу, специализирующийся на возрастно подходящих сказках.
 
@@ -818,13 +847,13 @@ internal static class AdventurePromptTexts
         FamilyMembersLabel = "Члены семьи:",
         NoFamilyMembers = "Члены семьи не указаны.",
         LooksLikePrefix = " — внешность: {0}",
-        ExtraWishesHeader = "ДОПОЛНИТЕЛЬНЫЕ ПОЖЕЛАНИЯ (высший приоритет — вплетите в сюжет на {0}, не одно упоминание):",
+        ExtraWishesHeader = "ОСОБЫЕ ПОЖЕЛАНИЯ РОДИТЕЛЕЙ (ВЫСШИЙ ПРИОРИТЕТ — это то, о чём они просили; сделайте их центральной, повторяющейся частью сюжета на {0}, а не одним мимолётным упоминанием):",
         ExtraWishesWelcomePages = "обе страницы",
         ExtraWishesFullPages = "минимум 2 страницы",
         ExtraWishesManyPages = "минимум 3 страницы",
-        LikesRule = "Любимое и интересы: естественно вплетайте в приключение.",
+        LikesRule = "Любимое и интересы: сделайте их реальной, заметной частью приключения — тем, что герой видит, использует или делает.",
         DislikesRule = "Нелюбимое и страхи: НИКОГДА не усиливайте страх — превращайте в безопасные дружелюбные фантазии.",
-        ParentWishesRule = "Пожелания родителей важнее общего сюжетного крючка при конфликте, но правила безопасности всегда главнее.",
+        ParentWishesRule = "Пожелания родителей ведут историю: стройте сюжет вокруг них. Они важнее общего сюжетного крючка, но правила безопасности всегда главнее.",
         StoryHookLabel = "Сюжетный крючок: {0}",
         HeroPhotoDescribe = "Это фото героя {0}, возраст {1}, для книги в стиле Pixar. Перечислите конкретные черты для иллюстратора: цвет и стиль волос, тон кожи, цвет глаз, очки/веснушки, форма лица и 2–3 отличительные детали. Пишите для дизайнера персонажей — конкретно.",
         FamilyPhotoDescribe = "Это фото {0} ({1}) в детской книге Pixar. Перечислите черты: волосы, кожа, возраст, очки и отличительные детали.",
@@ -841,7 +870,7 @@ internal static class AdventurePromptTexts
         ImageSafeForAge = "Безопасно для детей {0} лет. Тема: {1}.",
         ImagePageTitle = "Стр. {0} заголовок: {1}.",
         ImageScene = "Сцена для иллюстрации: {0}",
-        ImageParentTheme = "Тема родителей (в реквизите/декорациях): {0}",
+        ImageParentTheme = "Особая просьба родителей — когда сцена этой страницы её затрагивает, ясно и заметно покажите это на иллюстрации (персонажи, реквизит, действие или декорации): {0}",
         ImageAdventureId = "ID приключения {0}.",
         ImageHeroChild = "ГЕРОЙ-РЕБЁНОК (главный персонаж)",
         ImageFamilyRole = "СЕМЬЯ — {0}",

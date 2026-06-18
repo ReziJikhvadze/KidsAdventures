@@ -12,7 +12,7 @@ export function Hero() {
           <div className="animate-rise">
             <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1 text-xs font-medium text-muted-foreground">
               <span className="inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
-              Personalized children's books · ages 3–12
+              Personalized children's books
             </div>
             <h1 className="mt-5 font-display text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.02] text-balance">
               Kids adventure books starring{" "}
@@ -78,7 +78,7 @@ export function Hero() {
               </div>
             </div>
             <div className="absolute -top-4 -right-3 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5 shadow-soft rotate-6">
-              For ages 3–12
+              Made just for them
             </div>
           </div>
         </div>

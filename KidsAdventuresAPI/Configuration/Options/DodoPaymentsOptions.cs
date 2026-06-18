@@ -14,11 +14,8 @@ public sealed class DodoPaymentsOptions
     /// <summary>When true, calls https://test.dodopayments.com instead of live.</summary>
     public bool UseTestMode { get; set; } = true;
 
-    public string Books3ProductId { get; set; } = string.Empty;
-
-    public string Books5ProductId { get; set; } = string.Empty;
-
-    public string Books15ProductId { get; set; } = string.Empty;
+    /// <summary>Dodo product ID for the single $4.99 one-book purchase.</summary>
+    public string BookProductId { get; set; } = string.Empty;
 
     /// <summary>Redirect after successful payment (Dodo may append payment_id and status).</summary>
     public string SuccessUrl { get; set; } = string.Empty;

@@ -11,7 +11,8 @@ public sealed class AuthController(
     ISubscriptionService subscriptionService,
     IUserContextService userContext,
     IOptions<EmailOptions> emailOptions,
-    IOptions<GoogleAuthOptions> googleAuthOptions) : ControllerBase
+    IOptions<GoogleAuthOptions> googleAuthOptions,
+    IOptions<RecaptchaOptions> recaptchaOptions) : ControllerBase
 {
     [HttpGet("config")]
     [AllowAnonymous]
@@ -19,18 +20,32 @@ public sealed class AuthController(
     {
         var google = googleAuthOptions.Value;
         var enabled = google.Enabled && !string.IsNullOrWhiteSpace(google.ClientId);
+
+        var recaptcha = recaptchaOptions.Value;
+        var recaptchaEnabled = recaptcha.Enabled && !string.IsNullOrWhiteSpace(recaptcha.SiteKey);
+
         return Ok(new AuthConfigResponse
         {
             GoogleEnabled = enabled,
             GoogleClientId = enabled ? google.ClientId : null,
+            RecaptchaEnabled = recaptchaEnabled,
+            RecaptchaSiteKey = recaptchaEnabled ? recaptcha.SiteKey : null,
         });
     }
 
     [HttpPost("register")]
     [AllowAnonymous]
-    public async Task<ActionResult<RegisterResponse>> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
+    public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
     {
         var response = await authService.RegisterAsync(request, cancellationToken);
+        return Ok(response);
+    }
+
+    [HttpPost("continue")]
+    [AllowAnonymous]
+    public async Task<ActionResult<AuthResponse>> Continue([FromBody] RegisterRequest request, CancellationToken cancellationToken)
+    {
+        var response = await authService.ContinueAsync(request, cancellationToken);
         return Ok(response);
     }
 

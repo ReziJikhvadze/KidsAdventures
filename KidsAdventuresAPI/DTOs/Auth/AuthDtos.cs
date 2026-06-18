@@ -7,6 +7,10 @@ public sealed class RegisterRequest
 
     [Required, MinLength(8), MaxLength(128)]
     public string Password { get; set; } = string.Empty;
+
+    /// <summary>Optional reCAPTCHA token; required only when reCAPTCHA is enabled server-side.</summary>
+    [MaxLength(4096)]
+    public string? RecaptchaToken { get; set; }
 }
 
 public sealed class LoginRequest
@@ -16,12 +20,6 @@ public sealed class LoginRequest
 
     [Required, MaxLength(128)]
     public string Password { get; set; } = string.Empty;
-}
-
-public sealed class RegisterResponse
-{
-    public string Message { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
 }
 
 public sealed class AuthResponse
@@ -72,4 +70,8 @@ public sealed class AuthConfigResponse
     public bool GoogleEnabled { get; set; }
 
     public string? GoogleClientId { get; set; }
+
+    public bool RecaptchaEnabled { get; set; }
+
+    public string? RecaptchaSiteKey { get; set; }
 }

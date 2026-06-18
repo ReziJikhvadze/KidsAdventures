@@ -3,7 +3,7 @@ namespace AdventurePacks.Api.DTOs.Subscriptions;
 public sealed class CreateCheckoutSessionRequest
 {
     [Required]
-    public string PlanType { get; set; } = "Books5";
+    public string PlanType { get; set; } = "Book1";
 
     /// <summary>Optional payment provider: "stripe" or "dodo". Defaults to the server's preferred provider.</summary>
     public string? Provider { get; set; }

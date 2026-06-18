@@ -24,6 +24,18 @@ export async function generateAdventurePack(
   });
 }
 
+/** Spends one $4.99 book credit and starts illustrating an existing, text-ready pack. */
+export async function illustrateAdventurePack(
+  packId: string,
+): Promise<{ id: string; status: string; previewIllustrationStatus?: string; bookCredits?: number }> {
+  return apiRequest<{ id: string; status: string; previewIllustrationStatus?: string; bookCredits?: number }>(
+    `/api/adventure-packs/${packId}/illustrate`,
+    {
+      method: "POST",
+    },
+  );
+}
+
 export async function generatePackPdf(
   packId: string,
 ): Promise<{ id: string; status: string; bookCredits?: number; usesSlideshowImages?: boolean }> {
@@ -113,6 +125,20 @@ function parseIllustrationPageProgress(message: string | null | undefined): numb
   return Math.min(95, Math.round(35 + (current / total) * 60));
 }
 
+/** True once the story TEXT exists (free preview), regardless of whether illustrations are unlocked yet. */
+export function isStoryTextReady(pack: AdventurePackDetailResponse): boolean {
+  if (pack.status !== "StoryReady" && pack.status !== "GeneratingPdf" && pack.status !== "Completed") {
+    return false;
+  }
+  return (pack.storyPages?.length ?? 0) > 0;
+}
+
+/** True once every page has an illustration (i.e. the $4.99 unlock finished). */
+export function isPackFullyIllustrated(pack: AdventurePackDetailResponse): boolean {
+  const pages = pack.storyPages ?? [];
+  return pages.length > 0 && pages.every((p) => p.isIllustrated);
+}
+
 export function isPackReadable(pack: AdventurePackDetailResponse): boolean {
   if (pack.status === "Failed") return false;
   if (pack.status === "Completed") {
@@ -123,8 +149,22 @@ export function isPackReadable(pack: AdventurePackDetailResponse): boolean {
   return pages.length > 0 && pages.every((p) => p.isIllustrated);
 }
 
+/** Actively painting pages after a paid unlock (not just text-ready awaiting unlock). */
 export function isPackIllustrating(pack: AdventurePackDetailResponse): boolean {
-  return pack.status === "StoryReady" && !isPackReadable(pack);
+  return (
+    pack.status === "StoryReady" &&
+    pack.previewIllustrationStatus === "Generating" &&
+    !isPackReadable(pack)
+  );
+}
+
+/** Text is ready but illustrations have not been unlocked/paid for yet. */
+export function isAwaitingIllustrationUnlock(pack: AdventurePackDetailResponse): boolean {
+  return (
+    pack.status === "StoryReady" &&
+    !isPackReadable(pack) &&
+    pack.previewIllustrationStatus !== "Generating"
+  );
 }
 
 export function computePackProgressPercent(pack: AdventurePackDetailResponse): number {
@@ -174,18 +214,22 @@ export async function pollAdventurePack(
     maxAttempts?: number;
     untilStatus?: AdventurePackStatus;
     untilReadable?: boolean;
+    untilStoryText?: boolean;
   },
 ): Promise<AdventurePackDetailResponse> {
   const intervalMs = options?.intervalMs ?? 2000;
   const maxAttempts = options?.maxAttempts ?? 240;
   const untilStatus = options?.untilStatus ?? "Completed";
   const untilReadable = options?.untilReadable ?? false;
+  const untilStoryText = options?.untilStoryText ?? false;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const pack = await getAdventurePack(id);
     onProgress?.(pack);
 
-    if (untilReadable) {
+    if (untilStoryText) {
+      if (isStoryTextReady(pack)) return pack;
+    } else if (untilReadable) {
       if (isPackReadable(pack)) return pack;
     } else if (pack.status === untilStatus) {
       return pack;

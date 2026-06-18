@@ -35,7 +35,7 @@ export const Route = createFileRoute("/")({
     const { meta, links } = buildPageMeta({
       title: "Personalized Children's Books & Kids Adventure Stories | Adventrya Books",
       description:
-        "Create personalized children's books starring your child — custom illustrated adventure storybooks for ages 3–12. Child education, screen-free parenting, free preview & printable PDF.",
+        "Create personalized children's books starring your child — custom illustrated adventure storybooks. Child education, screen-free parenting, free preview & printable PDF.",
       path: "/",
     });
     return { meta, links };

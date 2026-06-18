@@ -10,7 +10,7 @@ import { buildBreadcrumbSchema, buildWebPageSchema } from "@/lib/structured-data
 
 const PAGE_TITLE = "Kids Learning Through Stories — Child Education & Reading at Home";
 const PAGE_DESCRIPTION =
-  "Support child education with personalized adventure books. Screen-free learning, early literacy, vocabulary, and parenting-friendly read-aloud stories for kids ages 3–12.";
+  "Support child education with personalized adventure books. Screen-free learning, early literacy, vocabulary, and parenting-friendly read-aloud stories for kids.";
 
 const LEARNING_BENEFITS = [
   "Age-adapted vocabulary for early readers and older kids",

@@ -1,6 +1,6 @@
 export type SubscriptionType = "Free" | "Premium";
 
-export type BookPackPlan = "Books3" | "Books5" | "Books15";
+export type BookPackPlan = "Book1";
 
 export type ThemeType = "Airplanes" | "Dinosaurs" | "Space" | "Pirates" | "Animals";
 
@@ -46,14 +46,11 @@ export type AccountBalanceResponse = {
   hasUnlimitedPdf: boolean;
 };
 
-export type RegisterResponse = {
-  message: string;
-  email: string;
-};
-
 export type AuthConfigResponse = {
   googleEnabled: boolean;
   googleClientId: string | null;
+  recaptchaEnabled?: boolean;
+  recaptchaSiteKey?: string | null;
 };
 
 export type ChildResponse = {

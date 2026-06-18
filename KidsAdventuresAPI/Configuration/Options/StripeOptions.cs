@@ -10,9 +10,9 @@ public sealed class StripeOptions
     public string SecretKey { get; set; } = string.Empty;
     public string PublishableKey { get; set; } = string.Empty;
     public string WebhookSecret { get; set; } = string.Empty;
-    public string Books3PriceId { get; set; } = string.Empty;
-    public string Books5PriceId { get; set; } = string.Empty;
-    public string Books15PriceId { get; set; } = string.Empty;
+
+    /// <summary>Stripe Price ID (price_...) for the single $4.99 one-book purchase.</summary>
+    public string BookPriceId { get; set; } = string.Empty;
     public string SuccessUrl { get; set; } = string.Empty;
     public string CancelUrl { get; set; } = string.Empty;
 }

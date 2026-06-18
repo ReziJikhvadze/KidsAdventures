@@ -5,7 +5,7 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Are these good for child education and learning at home?",
-    a: "Yes. Personalized stories support early literacy, vocabulary, listening skills, and screen-free learning. Age-adapted text (3–12) helps kids engage with reading as part of everyday parenting — not homework.",
+    a: "Yes. Personalized stories support early literacy, vocabulary, listening skills, and screen-free learning. Age-adapted text helps kids engage with reading as part of everyday parenting — not homework.",
   },
   {
     q: "How is each adventure pack personalized?",

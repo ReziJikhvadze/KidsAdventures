@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Lock,
   Maximize2,
   Minimize2,
   Sparkles,
@@ -90,9 +91,10 @@ function PageIllustration({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
-  const painting =
-    !page.isIllustrated &&
-    (previewStatus === "Generating" || previewStatus === "None" || previewStatus === "Failed");
+  // Actively painting only when a paid illustration job is running.
+  const painting = !page.isIllustrated && previewStatus === "Generating";
+  // Text is free; illustrations stay locked until the $4.99 credit is spent.
+  const locked = !page.isIllustrated && previewStatus !== "Generating";
 
   useEffect(() => {
     if (!page.isIllustrated || !page.illustrationUrl) {
@@ -204,6 +206,26 @@ function PageIllustration({
         </p>
         <p className="text-xs text-muted-foreground/80">
           Page {pageIndex + 1} of {totalPages} · about 1 minute each
+        </p>
+      </div>
+    );
+  }
+
+  if (locked) {
+    return (
+      <div
+        className={cn(
+          "w-full rounded-t-2xl flex flex-col items-center justify-center gap-2 px-4 text-center",
+          variant === "fullscreen" ? "min-h-[40vh]" : "aspect-[4/3]",
+        )}
+        style={{ background: `color-mix(in oklab, ${themeTint} 55%, white)` }}
+      >
+        <span className="grid h-12 w-12 place-items-center rounded-full bg-white/70 shadow-sm">
+          <Lock className="h-6 w-6 text-primary" />
+        </span>
+        <p className="text-sm font-semibold text-foreground">Illustration locked</p>
+        <p className="max-w-[15rem] text-xs text-muted-foreground/90">
+          The story is yours free. Unlock illustrations ($4.99) to see this page beautifully painted.
         </p>
       </div>
     );

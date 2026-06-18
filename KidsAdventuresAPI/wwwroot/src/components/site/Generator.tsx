@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { ApiError } from "@/lib/api/client";
 import { notify } from "@/lib/ui/notify";
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
+import { createCheckoutSession } from "@/lib/api/subscriptions";
 import { createChild } from "@/lib/api/children";
 import { getToken } from "@/lib/api/client";
 import { createFamilyMember } from "@/lib/api/family-members";
@@ -144,7 +145,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
   const [members, setMembers] = useState<Member[]>([]);
   const [showOptional, setShowOptional] = useState(false);
   const [status, setStatus] = useState<
-    "idle" | "generatingStory" | "storyReady" | "generatingPdf" | "done" | "error"
+    "idle" | "generatingStory" | "storyReady" | "illustrating" | "generatingPdf" | "done" | "error"
   >("idle");
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
@@ -158,6 +159,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     useState<PreviewIllustrationStatus>("None");
   const [downloading, setDownloading] = useState(false);
   const [startingPdf, setStartingPdf] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isWelcomeGiftStory, setIsWelcomeGiftStory] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
@@ -176,9 +178,9 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
   const missingRequirements: string[] = [];
   if (!name.trim()) missingRequirements.push("child's name");
   if (age === "" || (typeof age === "number" && Number.isNaN(age))) {
-    missingRequirements.push("age (3–12)");
+    missingRequirements.push("your child's age");
   } else if (!ageValid) {
-    missingRequirements.push("age between 3 and 12");
+    missingRequirements.push("a valid age");
   }
   if (!theme) missingRequirements.push("a theme");
 
@@ -239,7 +241,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     setCompletedPackId(null);
     setStoryTitle(null);
     setStoryPages([]);
-    setIsWelcomeGiftStory((user?.welcomeStoryRemaining ?? 0) > 0);
+    setIsWelcomeGiftStory(false);
 
     try {
       const apiTheme = THEME_ID_TO_API[theme];
@@ -269,7 +271,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       }
 
       setProgress(28);
-      setProgressMessage("Creating your illustrated storybook…");
+      setProgressMessage("Writing your story…");
       const queued = await adventurePacksApi.generateAdventurePack(child.id, apiTheme, {
         optionalStoryNotes: optionalNotes.trim() || undefined,
         storyLanguage,
@@ -284,19 +286,19 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
           }
           setProgress(adventurePacksApi.computePackProgressPercent(pack));
         },
-        { untilReadable: true, maxAttempts: 300 },
+        { untilStoryText: true, maxAttempts: 300 },
       );
 
       setCompletedPackId(finished.id);
       setStoryTitle(finished.title ?? null);
       setStoryPages(finished.storyPages ?? []);
       setPackTheme(finished.theme);
-      setPreviewIllustrationStatus(finished.previewIllustrationStatus ?? "Ready");
+      setPreviewIllustrationStatus(finished.previewIllustrationStatus ?? "None");
       setProgress(100);
       setStatus("storyReady");
       await refreshAccountBalance();
-      notify.success("Your illustrated storybook is ready!", {
-        description: "Swipe through every page below, then export a free PDF when you like.",
+      notify.success("Your personalized story is ready to read — free!", {
+        description: "Read every page below, then unlock the illustrations to bring it to life.",
       });
     } catch (err) {
       const message =
@@ -320,7 +322,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     if (!isAuthenticated || !getToken()) {
       setAuthOpen(true);
       notify.error("Sign in to create a story", {
-        description: "New accounts get one free 2-page welcome preview. Full 6-page books use book credits.",
+        description: "Writing your personalized story is free. Unlock the illustrations for $4.99 when you love it.",
       });
       return;
     }
@@ -388,6 +390,63 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     }
   };
 
+  const runIllustration = async () => {
+    if (!completedPackId) return;
+
+    const credits = user?.bookCredits ?? 0;
+    if (credits <= 0) {
+      // No credit yet — send them to the $4.99 one-book checkout. After paying they unlock from My Books.
+      try {
+        const session = await createCheckoutSession("Book1");
+        if (session.checkoutUrl) {
+          window.location.href = session.checkoutUrl;
+          return;
+        }
+        notify.error("Could not start checkout", { description: "Please try again in a moment." });
+      } catch (err) {
+        notify.fromError(err, "Could not start checkout.");
+      }
+      return;
+    }
+
+    setUnlocking(true);
+    setStatus("illustrating");
+    setProgress(10);
+    setProgressMessage("Unlocking illustrations — painting your pages (~8–12 min)…");
+    try {
+      const res = await adventurePacksApi.illustrateAdventurePack(completedPackId);
+      if (typeof res.bookCredits === "number") {
+        setBookCredits(res.bookCredits);
+      } else {
+        await refreshAccountBalance();
+      }
+
+      const done = await adventurePacksApi.pollAdventurePack(
+        completedPackId,
+        (pack) => {
+          if (pack.progressMessage) setProgressMessage(pack.progressMessage);
+          setProgress(adventurePacksApi.computePackProgressPercent(pack));
+        },
+        { untilReadable: true, maxAttempts: 400 },
+      );
+
+      setStoryPages(done.storyPages ?? storyPages);
+      setPreviewIllustrationStatus(done.previewIllustrationStatus ?? "Ready");
+      setProgress(100);
+      setStatus("storyReady");
+      await refreshAccountBalance();
+      notify.success("Illustrations unlocked!", {
+        description: "Your picture book is ready — export a free PDF below.",
+      });
+    } catch (err) {
+      setStatus("storyReady");
+      notify.fromError(err, "Could not unlock illustrations. Your credit is safe — try again.");
+      await refreshAccountBalance();
+    } finally {
+      setUnlocking(false);
+    }
+  };
+
   const reset = () => {
     setStatus("idle");
     setProgress(0);
@@ -399,9 +458,13 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     setPreviewIllustrationStatus("None");
     setErrorMessage(null);
     setIsWelcomeGiftStory(false);
+    setUnlocking(false);
   };
 
   const selectedTheme = STORY_THEMES.find((t) => t.id === theme);
+  const fullyIllustrated =
+    storyPages.length > 0 && storyPages.every((p) => p.isIllustrated);
+  const hasBookCredit = (user?.bookCredits ?? 0) > 0;
 
   return (
     <>
@@ -420,8 +483,8 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
               A personalized story in minutes.
             </h2>
             <p className="mt-4 text-muted-foreground">
-              Name, age, and theme — we write the story first. Add an illustrated PDF when you are
-              ready.
+              Name, age, and theme — we write the full personalized story for free. Unlock the
+              illustrations for $4.99 when you love it (PDF export is free).
             </p>
           </div>
 
@@ -448,7 +511,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                     max={12}
                     value={age}
                     onChange={(e) => setAge(e.target.value ? Number(e.target.value) : "")}
-                    placeholder="3–12"
+                    placeholder="Age"
                     className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition"
                   />
                 </div>
@@ -721,6 +784,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 disabled={
                   !valid ||
                   status === "generatingStory" ||
+                  status === "illustrating" ||
                   status === "generatingPdf"
                 }
                 className="mt-8 w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary text-primary-foreground py-4 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition"
@@ -743,9 +807,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 </p>
               )}
               <p className="mt-3 text-xs text-muted-foreground text-center">
-                {user?.welcomeStoryRemaining
-                  ? "Your first story is a free 2-page welcome preview. Full 6-page books use book credits."
-                  : "Full 6-page stories use book credits · PDF export free · Hero photo optional"}
+                Writing the full story is free · Unlock illustrations for $4.99 · PDF export free · Hero photo optional
               </p>
             </div>
 
@@ -789,7 +851,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                   </div>
                 )}
 
-                {(status === "generatingStory" || status === "generatingPdf") && (
+                {(status === "generatingStory" || status === "generatingPdf" || status === "illustrating") && (
                   <div className="relative h-full flex flex-col items-center justify-center text-center py-6 sm:py-10 px-2 max-w-full">
                     <div className="relative">
                       <div className="h-40 w-32 rounded-xl bg-card border border-border shadow-card grid place-items-center overflow-hidden">
@@ -826,7 +888,9 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                         {progressMessage ??
                           (status === "generatingPdf"
                             ? "Creating illustrated PDF…"
-                            : "Writing your story…")}
+                            : status === "illustrating"
+                              ? "Painting your illustrations…"
+                              : "Writing your story…")}
                       </p>
                       <div className="mt-4 rounded-xl bg-card/80 border border-border p-3 text-left text-xs text-muted-foreground space-y-2">
                         <p>
@@ -860,7 +924,29 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                     />
 
                     <div className="mt-4 flex flex-col gap-2">
-                      {status === "storyReady" && isAuthenticated && (
+                      {status === "storyReady" && isAuthenticated && !fullyIllustrated && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={unlocking}
+                            onClick={() => void runIllustration()}
+                            className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary text-primary-foreground py-3 font-semibold hover:opacity-90 transition disabled:opacity-60"
+                          >
+                            {unlocking ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-4 w-4" />
+                            )}
+                            {hasBookCredit
+                              ? "Unlock illustrations (1 book credit)"
+                              : "Unlock illustrations — $4.99"}
+                          </button>
+                          <p className="text-center text-xs text-muted-foreground">
+                            See {name || "your child"} fully illustrated across every page, then export a free PDF.
+                          </p>
+                        </>
+                      )}
+                      {status === "storyReady" && isAuthenticated && fullyIllustrated && (
                         <button
                           type="button"
                           disabled={startingPdf}

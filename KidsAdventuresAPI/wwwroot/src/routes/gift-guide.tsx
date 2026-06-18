@@ -60,7 +60,7 @@ export const Route = createFileRoute("/gift-guide")({
     const { meta, links } = buildPageMeta({
       title: `Personalized Storybook Gift Guide — ${BRAND_NAME}`,
       description:
-        "Gift ideas for kids and grandkids: personalized illustrated storybooks, printable PDFs, birthday and holiday presents for ages 3–12.",
+        "Gift ideas for kids and grandkids: personalized illustrated storybooks, printable PDFs, birthday and holiday presents.",
       path: "/gift-guide",
     });
     return { meta, links };

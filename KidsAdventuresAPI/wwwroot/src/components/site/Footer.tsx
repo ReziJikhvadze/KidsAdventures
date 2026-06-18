@@ -32,7 +32,7 @@ export function Footer() {
         <div>
           <BrandLogo asLink={false} />
           <p className="mt-4 text-sm text-muted-foreground max-w-sm">
-            Personalized children's books & illustrated adventure stories for kids ages 3–12.
+            Personalized children's books & illustrated adventure stories starring your child.
             Screen-free learning, parenting-friendly gifts, printable PDFs.
           </p>
           <SocialLinks className="mt-5" />

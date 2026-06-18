@@ -74,7 +74,7 @@ export function buildRootMeta(): PageMetaResult {
   return buildPageMeta({
     title: `Personalized Children's Books & Kids Adventure Stories | ${BRAND_NAME}`,
     description:
-      "Create personalized children's books starring your child — illustrated adventure stories for ages 3–12. Child education through reading, screen-free parenting, free preview & printable PDF.",
+      "Create personalized children's books starring your child — illustrated adventure stories. Child education through reading, screen-free parenting, free preview & printable PDF.",
     path: "/",
   });
 }

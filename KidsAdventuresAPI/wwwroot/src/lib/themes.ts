@@ -34,7 +34,7 @@ export const STORY_THEMES: StoryTheme[] = [
     apiTheme: "Airplanes",
     seoTitle: "Personalized Airplane Adventure Book for Kids | Adventrya Books",
     seoDescription:
-      "Create a custom illustrated airplane adventure book starring your child. Personalized children's books for ages 3–12 — free preview, printable PDF, screen-free parenting.",
+      "Create a custom illustrated airplane adventure book starring your child. Personalized children's books — free preview, printable PDF, screen-free parenting.",
     heroHeading: "Personalized airplane adventure book for kids",
     intro:
       "Send your child soaring through cloud kingdoms, friendly airports, and high-flying missions — with their name woven into every page.",
@@ -44,7 +44,7 @@ export const STORY_THEMES: StoryTheme[] = [
       "Start with a free 2-page welcome preview — no card required. When you are ready for the complete 6-page picture book, use book credits for a downloadable PDF you can print at home.",
     ],
     highlights: [
-      "Kid-safe stories for ages 3–12",
+      "Kid-safe stories for every young reader",
       "Optional photo-personalized cartoon hero",
       "Printable PDF for home or classroom",
     ],
@@ -69,7 +69,7 @@ export const STORY_THEMES: StoryTheme[] = [
       "Try the free 2-page preview first, then unlock the full 6-page illustrated book with book credits that never expire.",
     ],
     highlights: [
-      "Great gift for dino fans ages 4–10",
+      "Great gift for dino fans",
       "Name on every page",
       "Free preview before you buy credits",
     ],
@@ -84,7 +84,7 @@ export const STORY_THEMES: StoryTheme[] = [
     apiTheme: "Space",
     seoTitle: "Personalized Space Adventure Book for Kids | Adventrya Books",
     seoDescription:
-      "Launch a personalized space adventure book starring your child. STEM-friendly kids learning stories — illustrated missions, free preview, printable PDF ages 3–12.",
+      "Launch a personalized space adventure book starring your child. STEM-friendly kids learning stories — illustrated missions, free preview, printable PDF.",
     heroHeading: "Personalized space adventure book for kids",
     intro:
       "Blast off to distant planets, asteroid fields, and star-filled missions where your child is the brave astronaut in charge.",
@@ -109,7 +109,7 @@ export const STORY_THEMES: StoryTheme[] = [
     apiTheme: "Pirates",
     seoTitle: "Personalized Pirate Adventure Book for Kids | Adventrya Books",
     seoDescription:
-      "Create a personalized pirate adventure book for your child. Illustrated kids storybooks for bedtime & gifts — free preview, printable PDF, ages 3–12.",
+      "Create a personalized pirate adventure book for your child. Illustrated kids storybooks for bedtime & gifts — free preview, printable PDF.",
     heroHeading: "Personalized pirate adventure book for kids",
     intro:
       "Sail across sparkling seas, decode treasure maps, and outsmart silly sea creatures — with your child captaining the crew.",
@@ -134,12 +134,12 @@ export const STORY_THEMES: StoryTheme[] = [
     apiTheme: "Animals",
     seoTitle: "Personalized Animal Adventure Book for Kids | Adventrya Books",
     seoDescription:
-      "Make a personalized animal adventure book starring your child. Gentle illustrated children's books for early learning — free preview, printable PDF ages 3–12.",
+      "Make a personalized animal adventure book starring your child. Gentle illustrated children's books for early learning — free preview, printable PDF.",
     heroHeading: "Personalized animal adventure book for kids",
     intro:
       "Explore jungles, savannas, and cozy forests where your child helps friendly animals solve problems and learn together.",
     paragraphs: [
-      "The Animals theme suits younger readers and nature lovers. Stories adapt to your child's age group so vocabulary feels right for ages 3–12.",
+      "The Animals theme suits younger readers and nature lovers. Stories adapt to your child's age so the vocabulary always feels just right.",
       "Upload a photo to create a cartoon hero who explores alongside pandas, lions, dolphins, and more. Every story is unique because you can add optional wishes — a favorite animal, a lesson, or a setting.",
       "Start free with a 2-page welcome preview. Full illustrated books use one credit each and stay in My Books forever.",
     ],

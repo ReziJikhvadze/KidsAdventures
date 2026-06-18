@@ -36,6 +36,21 @@ public sealed class AdventurePacksController(
         });
     }
 
+    [HttpPost("{id:guid}/illustrate")]
+    public async Task<ActionResult<object>> Illustrate(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = userContext.GetUserId();
+        await generationService.QueueIllustrationAsync(userId, id, cancellationToken);
+        var balance = await subscriptionService.GetAccountBalanceAsync(userId, cancellationToken);
+        return Accepted(new
+        {
+            id,
+            status = AdventurePackStatus.StoryReady.ToString(),
+            previewIllustrationStatus = PreviewIllustrationStatus.Generating.ToString(),
+            bookCredits = balance.BookCredits
+        });
+    }
+
     [HttpPost("{id:guid}/generate-pdf")]
     public async Task<ActionResult<object>> GeneratePdf(Guid id, CancellationToken cancellationToken)
     {

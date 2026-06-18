@@ -49,7 +49,7 @@ All API settings live in **JSON appsettings files** (not Azure Portal Applicatio
     "AllowedOrigins": [ "https://your-frontend.azurewebsites.net", "http://localhost:5173" ]
   },
   "Seed": { "Enabled": true, "DemoEmail": "...", "DemoPassword": "..." },
-  "DodoPayments": { "Enabled": true, "ApiKey": "...", "WebhookSecret": "...", "Books3ProductId": "...", "SuccessUrl": "https://your-frontend/billing/success" },
+  "DodoPayments": { "Enabled": true, "ApiKey": "...", "WebhookSecret": "...", "BookProductId": "...", "SuccessUrl": "https://your-frontend/billing/success" },
   "Stripe": { "Enabled": false }
 }
 ```

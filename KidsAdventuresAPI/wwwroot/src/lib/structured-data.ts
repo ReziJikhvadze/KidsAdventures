@@ -24,7 +24,7 @@ export function buildOrganizationSchema() {
     name: BRAND_NAME,
     url: SITE_URL,
     description:
-      "Personalized children's books and illustrated adventure storybooks for kids ages 3–12. Custom name books, screen-free learning, and printable PDFs for parents and grandparents.",
+      "Personalized children's books and illustrated adventure storybooks starring your child. Custom name books, screen-free learning, and printable PDFs for parents and grandparents.",
     email: ORGANIZATION_CONTACT_EMAIL,
     contactPoint: {
       "@type": "ContactPoint",

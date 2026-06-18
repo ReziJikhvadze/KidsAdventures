@@ -4,7 +4,7 @@ export const parentingBedtimeReading: BlogPost = {
   slug: "parenting-bedtime-reading-routine",
   title: "Parenting bedtime reading: personalized stories kids ask for again",
   description:
-    "Build a calmer bedtime routine with personalized children's books. Tips for parents on read-aloud time, screen-free wind-down, and adventure stories ages 3–12.",
+    "Build a calmer bedtime routine with personalized children's books. Tips for parents on read-aloud time, screen-free wind-down, and adventure stories.",
   publishedAt: "2026-06-16",
   readingTimeMinutes: 5,
   intro:

@@ -31,7 +31,8 @@ type AuthContextValue = {
   canCreatePdf: boolean;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<string>;
+  register: (email: string, password: string, recaptchaToken?: string) => Promise<void>;
+  continueWith: (email: string, password: string, recaptchaToken?: string) => Promise<void>;
   logout: () => void;
   applySession: (session: AuthResponse) => void;
   refreshAccountBalance: () => Promise<void>;
@@ -205,10 +206,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applySession],
   );
 
-  const register = useCallback(async (email: string, password: string) => {
-    const result = await authApi.register(email, password);
-    return result.message;
-  }, []);
+  const register = useCallback(
+    async (email: string, password: string, recaptchaToken?: string) => {
+      const session = await authApi.register(email, password, recaptchaToken);
+      applySession(session);
+    },
+    [applySession],
+  );
+
+  const continueWith = useCallback(
+    async (email: string, password: string, recaptchaToken?: string) => {
+      const session = await authApi.continueAuth(email, password, recaptchaToken);
+      applySession(session);
+    },
+    [applySession],
+  );
 
   const canCreatePdf = !!user && !!getToken();
 
@@ -221,12 +233,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       loginWithGoogle,
       register,
+      continueWith,
       logout,
       applySession,
       refreshAccountBalance,
       setBookCredits,
     }),
-    [user, isLoading, canCreatePdf, login, loginWithGoogle, register, logout, applySession, refreshAccountBalance, setBookCredits],
+    [user, isLoading, canCreatePdf, login, loginWithGoogle, register, continueWith, logout, applySession, refreshAccountBalance, setBookCredits],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

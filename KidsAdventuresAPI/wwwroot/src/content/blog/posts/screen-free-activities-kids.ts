@@ -4,7 +4,7 @@ export const screenFreeActivities: BlogPost = {
   slug: "screen-free-activities-kids",
   title: "Screen-free activities with personalized storybooks",
   description:
-    "Five simple ways to use custom illustrated storybooks for screen-free play, bedtime routines, and rainy days — ages 3–12.",
+    "Five simple ways to use custom illustrated storybooks for screen-free play, bedtime routines, and rainy days.",
   publishedAt: "2026-06-02",
   readingTimeMinutes: 5,
   intro:

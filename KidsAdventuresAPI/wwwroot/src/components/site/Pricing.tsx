@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, BookOpen, Sparkles, Users } from "lucide-react";
+import { Check, BookOpen, Sparkles } from "lucide-react";
 import { notify } from "@/lib/ui/notify";
 
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -27,15 +27,15 @@ const plans: {
   badge?: string;
 }[] = [
   {
-    name: "Free",
+    name: "Free preview",
     price: "$0",
-    period: "forever",
-    desc: "One free 2-page welcome preview — no card needed.",
+    period: "no card needed",
+    desc: "One free 2-page illustrated welcome story — instantly.",
     features: [
-      "1 free 2-page illustrated welcome story",
+      "1 free 2-page illustrated story",
       "All 5 core themes",
       "Read the slideshow in My Books",
-      "Full 6-page books with book credits",
+      "Upgrade to a full book anytime",
     ],
     cta: "Create free story",
     highlighted: false,
@@ -43,53 +43,20 @@ const plans: {
     icon: Sparkles,
   },
   {
-    name: "3 Books",
-    price: "$14.99",
+    name: "1 Book",
+    price: "$4.99",
     period: "one-time",
-    desc: "Three illustrated storybook PDFs.",
+    desc: "Unlock one complete illustrated storybook — a single payment.",
     features: [
-      "3 illustrated PDF credits",
-      "Never expires",
+      "Full 6-page illustrated story",
       "Photo-personalized hero",
-      "Print-ready downloads",
+      "Printable PDF download (free)",
+      "Your extra wishes woven into the story",
     ],
-    cta: "Buy 3 books",
-    highlighted: false,
-    action: "Books3",
-    icon: BookOpen,
-  },
-  {
-    name: "5 Books",
-    price: "$19.99",
-    period: "one-time",
-    desc: "Best value for siblings or repeat adventures.",
-    features: [
-      "5 illustrated PDF credits",
-      "Never expires",
-      "All themes & languages",
-      "Family cast in stories",
-    ],
-    cta: "Buy 5 books",
+    cta: "Buy a book — $4.99",
     highlighted: true,
-    action: "Books5",
+    action: "Book1",
     icon: BookOpen,
-    badge: "Most popular",
-  },
-  {
-    name: "15 Books",
-    price: "$49.99",
-    period: "one-time",
-    desc: "For families, classrooms, or big gift seasons.",
-    features: [
-      "15 illustrated PDF credits",
-      "Never expires",
-      "Lowest price per book",
-      "Perfect for grandparents",
-    ],
-    cta: "Buy 15 books",
-    highlighted: false,
-    action: "Books15",
-    icon: Users,
     badge: "Best value",
   },
 ];
@@ -154,11 +121,11 @@ export function Pricing() {
           <div className="max-w-2xl mx-auto text-center">
             <p className="text-sm font-semibold text-primary tracking-wide uppercase">Pricing</p>
             <h2 className="mt-3 font-display text-4xl md:text-5xl font-bold text-balance">
-              Free stories. Pay only for illustrated books.
+              Try it free. Unlock a full book for $4.99.
             </h2>
             <p className="mt-4 text-muted-foreground">
-              Creating a story is free. Each illustrated PDF uses one book credit — buy packs of 3,
-              5, or 15 and use them whenever you want.
+              Start with a free 2-page preview. When you love it, one simple $4.99 payment unlocks the
+              complete illustrated storybook — yours to keep and print.
             </p>
           </div>
 
@@ -187,7 +154,7 @@ export function Pricing() {
             </div>
           )}
 
-          <div className="mt-10 grid md:grid-cols-2 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
+          <div className="mt-10 grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
             {plans.map((p) => {
               const Icon = p.icon;
               const isLoading = p.action !== "free" && checkingOut === p.action;
@@ -271,8 +238,8 @@ export function Pricing() {
           </div>
 
           <p className="mt-8 text-center text-xs text-muted-foreground max-w-2xl mx-auto">
-            One illustrated book uses 1 credit. Credits never expire. At roughly $4–$5 per book,
-            packs cover our illustration costs with room to grow the product.
+            One $4.99 payment unlocks one complete illustrated book. No subscription, no hidden fees —
+            the printable PDF download is always free.
           </p>
         </div>
       </section>

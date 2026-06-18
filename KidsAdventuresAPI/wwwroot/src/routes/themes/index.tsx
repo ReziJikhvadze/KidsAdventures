@@ -15,7 +15,7 @@ import {
 
 const PAGE_TITLE = `Kids Adventure Book Themes — Personalized Children's Stories`;
 const PAGE_DESCRIPTION =
-  "Choose a personalized children's book theme: dinosaurs, space, pirates, animals, or airplanes. Custom illustrated adventure books for kids ages 3–12 — free preview, printable PDF.";
+  "Choose a personalized children's book theme: dinosaurs, space, pirates, animals, or airplanes. Custom illustrated adventure books for kids — free preview, printable PDF.";
 
 export const Route = createFileRoute("/themes/")({
   head: () => {
@@ -93,7 +93,7 @@ function ThemesIndexPage() {
         <div className="mt-14 rounded-3xl bg-secondary/50 border border-border p-8">
           <h2 className="font-display text-2xl font-bold">Not sure which theme to pick?</h2>
           <p className="mt-3 text-muted-foreground">
-            Dinosaur and space books are top picks for boys and girls ages 4–10. Animal themes
+            Dinosaur and space books are top picks for boys and girls. Animal themes
             work well for younger readers. Try the free 2-page preview on any theme — no card
             required.
           </p>

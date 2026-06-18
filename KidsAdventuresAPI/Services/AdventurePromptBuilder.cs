@@ -36,6 +36,8 @@ internal static class AdventurePromptBuilder
 
         var lines = new List<string>
         {
+            texts.MasterStorytellerDirective.Trim(),
+            string.Empty,
             texts.StorySystemPrompt.Trim(),
             string.Empty,
             string.Format(texts.AgeGuidelinesHeader, input.Age),
@@ -104,7 +106,8 @@ internal static class AdventurePromptBuilder
         IReadOnlyList<CastPhotoReference> castPhotos)
     {
         var texts = AdventurePromptTexts.ForLanguage(input.StoryLanguage);
-        var scene = page.Content.Length > 280 ? page.Content[..280] + "..." : page.Content;
+        // Keep enough of the page text that any parent wish woven into it still reaches the illustrator.
+        var scene = page.Content.Length > 600 ? page.Content[..600] + "..." : page.Content;
         var parts = new List<string>
         {
             texts.ImageTask,

@@ -42,12 +42,8 @@ public sealed class AdventureGenerationService(
         _ = await childRepository.GetByIdAsync(request.ChildId, userId, cancellationToken)
             ?? throw new InvalidOperationException("Child not found.");
 
-        await subscriptionService.EnsureGenerationAllowedAsync(userId, cancellationToken);
-
-        var isWelcomeGift = await userRepository.TryConsumeWelcomeStoryAsync(userId, cancellationToken);
-        var pageCount = isWelcomeGift
-            ? AdventureStoryConstants.WelcomeGiftPageCount
-            : AdventureStoryConstants.FullPageCount;
+        // Story TEXT is free for everyone (signed in). Illustrations are unlocked later with a $4.99 credit.
+        var pageCount = AdventureStoryConstants.FullPageCount;
 
         var pack = new AdventurePack
         {
@@ -61,10 +57,8 @@ public sealed class AdventureGenerationService(
                 : request.OptionalStoryNotes.Trim(),
             StoryLanguage = NormalizeLanguage(request.StoryLanguage),
             StoryPageCount = pageCount,
-            IsWelcomeGiftStory = isWelcomeGift,
-            ProgressMessage = isWelcomeGift
-                ? "Queued — your free 2-page welcome story will appear in My Books when ready (~2 minutes)."
-                : "Queued — your story will appear in My Books when ready (usually 1–2 minutes).",
+            IsWelcomeGiftStory = false,
+            ProgressMessage = "Queued — your story will appear in My Books when ready (usually 1–2 minutes).",
             CreatedAt = DateTime.UtcNow
         };
 
@@ -73,6 +67,51 @@ public sealed class AdventureGenerationService(
             service.ProcessStoryGenerationAsync(pack.Id, CancellationToken.None));
 
         return pack.Id;
+    }
+
+    public async Task QueueIllustrationAsync(Guid userId, Guid packId, CancellationToken cancellationToken)
+    {
+        var pack = await adventurePackRepository.GetByIdAsync(packId, userId, cancellationToken)
+                   ?? throw new InvalidOperationException("Pack not found.");
+
+        if (pack.Status != AdventurePackStatus.StoryReady || string.IsNullOrWhiteSpace(pack.GeneratedJson))
+        {
+            throw new InvalidOperationException("Your story needs to finish writing before it can be illustrated.");
+        }
+
+        if (HasAllSlideshowIllustrations(pack))
+        {
+            return;
+        }
+
+        // Already paid for this pack — just make sure the job is (re)queued, never charge twice.
+        if (pack.PdfCreditCharged)
+        {
+            EnqueuePreviewIllustrationJob(packId);
+            return;
+        }
+
+        if (pack.PreviewIllustrationStatus == PreviewIllustrationStatus.Generating
+            && !IsPreviewIllustrationStale(pack))
+        {
+            return;
+        }
+
+        if (!await userRepository.TryConsumeBookCreditAsync(userId, cancellationToken))
+        {
+            throw new InvalidOperationException(
+                "Buy a book ($4.99) to unlock illustrations for this story.");
+        }
+
+        // PdfCreditCharged now marks "a $4.99 credit was spent to illustrate this pack" (used for refunds).
+        await adventurePackRepository.SetPdfCreditChargedAsync(packId, true, cancellationToken);
+
+        await SetProgressAsync(
+            packId,
+            "Unlocking illustrations — painting your pages (~8–12 min for 6 pages)…",
+            cancellationToken);
+
+        EnqueuePreviewIllustrationJob(packId);
     }
 
     public async Task QueuePdfGenerationAsync(Guid userId, Guid packId, CancellationToken cancellationToken)
@@ -161,12 +200,12 @@ public sealed class AdventureGenerationService(
 
             await SetProgressAsync(
                 packId,
-                "Story written — painting illustrations (~8–12 min for 6 pages)…",
+                "Your story is ready to read! Unlock illustrations ($4.99) to bring it to life.",
                 cancellationToken);
 
             await SendStoryReadyEmailAsync(pack, input.ChildName, cancellationToken);
 
-            EnqueuePreviewIllustrationJob(packId);
+            // Illustrations are no longer generated automatically — they are unlocked with a paid credit.
         }
         catch (Exception ex)
         {
@@ -193,13 +232,14 @@ public sealed class AdventureGenerationService(
             return;
         }
 
+        // Only RESUME an already-paid illustration job that stalled — never START a new (unpaid) one.
+        // New illustration jobs are kicked off solely by the paid QueueIllustrationAsync flow.
         if (pack.PreviewIllustrationStatus == PreviewIllustrationStatus.Generating
-            && !IsPreviewIllustrationStale(pack))
+            && IsPreviewIllustrationStale(pack))
         {
-            return;
+            EnqueuePreviewIllustrationJob(packId);
         }
 
-        EnqueuePreviewIllustrationJob(packId);
         await Task.CompletedTask;
     }
 
@@ -304,10 +344,23 @@ public sealed class AdventureGenerationService(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Preview illustration failed for pack {PackId}", packId);
+
+            // The $4.99 credit was charged when illustration was requested — refund it so a failure never costs the user.
+            if (pack.PdfCreditCharged)
+            {
+                await userRepository.RefundBookCreditAsync(pack.UserId, cancellationToken);
+                await adventurePackRepository.SetPdfCreditChargedAsync(packId, false, cancellationToken);
+            }
+
             await adventurePackRepository.UpdatePreviewIllustrationAsync(
                 packId,
                 PreviewIllustrationStatus.Failed,
                 pack.PreviewIllustrationUrl,
+                cancellationToken);
+
+            await SetProgressAsync(
+                packId,
+                "Illustrating failed — your story is saved and your credit was refunded. Try unlocking again.",
                 cancellationToken);
         }
     }
@@ -367,7 +420,7 @@ public sealed class AdventureGenerationService(
             var current = await adventurePackRepository.GetByIdNoOwnershipAsync(packId, cancellationToken);
             if (current?.Status != AdventurePackStatus.Completed)
             {
-                await subscriptionService.RefundPdfCreditIfChargedAsync(pack.UserId, packId, cancellationToken);
+                // PDF export is free and PdfCreditCharged tracks the illustration credit, so nothing is refunded here.
                 await adventurePackRepository.UpdateStatusAsync(
                     packId,
                     AdventurePackStatus.StoryReady,
@@ -568,12 +621,7 @@ public sealed class AdventureGenerationService(
 
     private async Task FailPackAsync(Guid packId, string message, CancellationToken cancellationToken)
     {
-        var pack = await adventurePackRepository.GetByIdNoOwnershipAsync(packId, cancellationToken);
-        if (pack?.IsWelcomeGiftStory == true)
-        {
-            await userRepository.RefundWelcomeStoryAsync(pack.UserId, cancellationToken);
-        }
-
+        // Story TEXT generation is free, so a text failure costs the user nothing to refund.
         await adventurePackRepository.UpdateStatusAsync(
             packId,
             AdventurePackStatus.Failed,

@@ -25,6 +25,7 @@ public static class ServiceCollectionExtensions
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
         services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.SectionName));
+        services.Configure<RecaptchaOptions>(configuration.GetSection(RecaptchaOptions.SectionName));
         return services;
     }
 
@@ -194,6 +195,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IGoogleAuthService, GoogleAuthService>();
+        services.AddScoped<IRecaptchaVerifier, RecaptchaVerifier>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IUserContextService, UserContextService>();
 

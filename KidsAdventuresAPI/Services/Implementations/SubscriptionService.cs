@@ -92,12 +92,12 @@ public sealed class SubscriptionService(
         int bookCredits,
         CancellationToken cancellationToken)
     {
+        // Credits are a one-time decrementing wallet: each $4.99 purchase = 1 book, consumed on generation.
+        // "Used this month" is kept purely for display; the wallet balance is the remaining count.
         var monthStart = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var monthEnd = monthStart.AddMonths(1);
         var used = await adventurePackRepository.CountForMonthAsync(userId, monthStart, monthEnd, cancellationToken);
-        var allowed = bookCredits;
-        var remaining = Math.Max(0, allowed - used);
-        return (used, allowed, remaining);
+        return (used, bookCredits, bookCredits);
     }
 
     public async Task EnsureGenerationAllowedAsync(Guid userId, CancellationToken cancellationToken)
@@ -105,19 +105,13 @@ public sealed class SubscriptionService(
         var user = await userRepository.GetByIdAsync(userId, cancellationToken)
                    ?? throw new UnauthorizedAccessException("User not found.");
 
-        if (user.WelcomeStoryRemaining > 0)
+        if (user.WelcomeStoryRemaining > 0 || user.BookCredits > 0)
         {
             return;
         }
 
-        var quota = await GetStoryQuotaAsync(userId, user.BookCredits, cancellationToken);
-        if (quota.Remaining <= 0)
-        {
-            throw new InvalidOperationException(
-                user.BookCredits > 0
-                    ? "You've used all your purchased book credits for this month. Buy more credits to create another full 6-page story."
-                    : "Your free 2-page welcome story was used. Buy book credits to unlock full 6-page illustrated adventures — PDF export stays free.");
-        }
+        throw new InvalidOperationException(
+            "Your free 2-page welcome story was used. Buy a book ($4.99) to create a full illustrated story — PDF export stays free.");
     }
 
     public Task EnsurePdfGenerationAllowedAsync(Guid userId, CancellationToken cancellationToken)
@@ -155,7 +149,7 @@ public sealed class SubscriptionService(
     {
         if (!BookPackPlans.IsSupported(planType))
         {
-            throw new InvalidOperationException("Only Books3, Books5, and Books15 packs are supported.");
+            throw new InvalidOperationException("Only the single one-time book purchase is supported.");
         }
 
         var resolved = ResolveProvider(provider);

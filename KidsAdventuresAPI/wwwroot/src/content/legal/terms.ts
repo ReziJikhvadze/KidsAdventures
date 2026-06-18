@@ -16,7 +16,7 @@ export const termsSections: LegalSection[] = [
     id: "service",
     title: "2. What our service does",
     paragraphs: [
-      `${BRAND_NAME} is an online platform that helps parents and guardians create personalized, AI-generated storybooks for children (typically ages 3–12).`,
+      `${BRAND_NAME} is an online platform that helps parents and guardians create personalized, AI-generated storybooks for children.`,
       "The service may include:",
     ],
     bullets: [

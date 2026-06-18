@@ -11,6 +11,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { GoogleSignInButton, GoogleSignInBusyButton } from "@/components/auth/GoogleSignInButton";
+import { RecaptchaWidget } from "@/components/auth/RecaptchaWidget";
+import { getAuthConfig } from "@/lib/api/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,39 +21,44 @@ type AuthDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  /** @deprecated kept for call-site compatibility; the dialog is now a single sign-in-or-create flow. */
   defaultMode?: "login" | "register";
 };
 
-export function AuthDialog({
-  open,
-  onOpenChange,
-  onSuccess,
-  defaultMode = "login",
-}: AuthDialogProps) {
-  const { login, loginWithGoogle, register } = useAuth();
-  const [mode, setMode] = useState<"login" | "register">(defaultMode);
+export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
+  const { loginWithGoogle, continueWith } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [acceptedLegal, setAcceptedLegal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
+  const [recaptcha, setRecaptcha] = useState<{ enabled: boolean; siteKey: string | null }>({
+    enabled: false,
+    siteKey: null,
+  });
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
 
-  const googleDisabled = busy || googleBusy || (mode === "register" && !acceptedLegal);
+  const recaptchaActive = recaptcha.enabled && !!recaptcha.siteKey;
+  const googleDisabled = busy || googleBusy || !acceptedLegal;
+  const emailSubmitDisabled = googleDisabled || (recaptchaActive && !recaptchaToken);
 
   useEffect(() => {
     if (open) {
-      setMode(defaultMode);
       setAcceptedLegal(false);
+      setRecaptchaToken(null);
+      void getAuthConfig()
+        .then((config) =>
+          setRecaptcha({
+            enabled: !!config.recaptchaEnabled,
+            siteKey: config.recaptchaSiteKey ?? null,
+          }),
+        )
+        .catch(() => setRecaptcha({ enabled: false, siteKey: null }));
     }
-  }, [open, defaultMode]);
+  }, [open]);
 
-  const finishSignIn = () => {
-    notify.success(mode === "login" ? "Welcome back!" : "Account created!", {
-      description:
-        mode === "login"
-          ? "You're signed in and ready to create a story."
-          : "You're signed in with Google and ready to create a story.",
-    });
+  const finish = (description: string) => {
+    notify.success("You're signed in!", { description });
     onOpenChange(false);
     onSuccess?.();
   };
@@ -60,7 +67,7 @@ export function AuthDialog({
     setGoogleBusy(true);
     try {
       await loginWithGoogle(idToken);
-      finishSignIn();
+      finish("You're ready to create a story.");
     } catch (err) {
       notify.fromError(err, "Google sign-in failed. Try again.");
     } finally {
@@ -72,20 +79,8 @@ export function AuthDialog({
     e.preventDefault();
     setBusy(true);
     try {
-      if (mode === "login") {
-        await login(email.trim(), password);
-        notify.success("Welcome back!", {
-          description: "You're signed in and ready to create a story.",
-        });
-        onOpenChange(false);
-        onSuccess?.();
-      } else {
-        const message = await register(email.trim(), password);
-        notify.success("Check your inbox", {
-          description: message,
-        });
-        setMode("login");
-      }
+      await continueWith(email.trim(), password, recaptchaToken ?? undefined);
+      finish("You're ready to create a story.");
     } catch (err) {
       notify.fromError(err, "Something went wrong. Try again.");
     } finally {
@@ -97,15 +92,32 @@ export function AuthDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-display">
-            {mode === "login" ? "Sign in" : "Create your account"}
-          </DialogTitle>
+          <DialogTitle className="font-display">Sign in or create your account</DialogTitle>
           <DialogDescription>
-            {mode === "login"
-              ? "Sign in to create personalized storybooks for your child."
-              : "You get one free 2-page welcome story. Full 6-page books use book credits. Google sign-in is instant; email sign-up sends a confirmation link."}
+            One step — enter your email and password and we'll sign you in, or create your account
+            automatically. No confirmation email. Writing your story is free.
           </DialogDescription>
         </DialogHeader>
+
+        <label className="flex items-start gap-3 rounded-xl border border-border bg-secondary/30 p-3 text-xs text-muted-foreground cursor-pointer">
+          <input
+            type="checkbox"
+            checked={acceptedLegal}
+            onChange={(e) => setAcceptedLegal(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+          />
+          <span>
+            I am a parent or guardian and agree to the{" "}
+            <Link to="/terms" className="text-primary font-semibold hover:underline" onClick={() => onOpenChange(false)}>
+              Terms & Conditions
+            </Link>{" "}
+            and{" "}
+            <Link to="/privacy" className="text-primary font-semibold hover:underline" onClick={() => onOpenChange(false)}>
+              Privacy Policy
+            </Link>
+            . I confirm I have authority to provide any child information or photos I upload.
+          </span>
+        </label>
 
         {googleBusy ? (
           <GoogleSignInBusyButton />
@@ -143,73 +155,26 @@ export function AuthDialog({
             <Input
               id="auth-password"
               type="password"
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              autoComplete="current-password"
               required
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
-            {mode === "register" && (
-              <p className="text-xs text-muted-foreground">
-                At least 8 characters with upper, lower, and a number.
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground">
+              New here? Use at least 8 characters with upper, lower, and a number.
+            </p>
           </div>
 
-          {mode === "register" && (
-            <label className="flex items-start gap-3 rounded-xl border border-border bg-secondary/30 p-3 text-xs text-muted-foreground cursor-pointer">
-              <input
-                type="checkbox"
-                checked={acceptedLegal}
-                onChange={(e) => setAcceptedLegal(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                required
-              />
-              <span>
-                I am a parent or guardian and agree to the{" "}
-                <Link to="/terms" className="text-primary font-semibold hover:underline" onClick={() => onOpenChange(false)}>
-                  Terms & Conditions
-                </Link>{" "}
-                and{" "}
-                <Link to="/privacy" className="text-primary font-semibold hover:underline" onClick={() => onOpenChange(false)}>
-                  Privacy Policy
-                </Link>
-                . I confirm I have authority to provide any child information or photos I upload.
-              </span>
-            </label>
+          {recaptchaActive && recaptcha.siteKey && (
+            <RecaptchaWidget siteKey={recaptcha.siteKey} onToken={setRecaptchaToken} />
           )}
 
-          <Button type="submit" className="w-full" disabled={googleDisabled}>
+          <Button type="submit" className="w-full" disabled={emailSubmitDisabled}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {mode === "login" ? "Sign in" : "Create account"}
+            Continue
           </Button>
         </form>
-
-        <p className="text-center text-sm text-muted-foreground">
-          {mode === "login" ? (
-            <>
-              New here?{" "}
-              <button
-                type="button"
-                className="text-primary font-semibold hover:underline"
-                onClick={() => setMode("register")}
-              >
-                Create an account
-              </button>
-            </>
-          ) : (
-            <>
-              Already have an account?{" "}
-              <button
-                type="button"
-                className="text-primary font-semibold hover:underline"
-                onClick={() => setMode("login")}
-              >
-                Sign in
-              </button>
-            </>
-          )}
-        </p>
       </DialogContent>
     </Dialog>
   );

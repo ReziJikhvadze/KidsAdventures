@@ -10,7 +10,7 @@ import { buildBreadcrumbSchema, buildWebPageSchema } from "@/lib/structured-data
 
 const PAGE_TITLE = "Personalized Children's Books — Custom Storybooks Starring Your Child";
 const PAGE_DESCRIPTION =
-  "Create personalized children's books with your child's name, age, and photo. Illustrated adventure storybooks for kids ages 3–12 — free preview, printable PDF, screen-free parenting win.";
+  "Create personalized children's books with your child's name, age, and photo. Illustrated adventure storybooks for kids — free preview, printable PDF, screen-free parenting win.";
 
 const HIGHLIGHTS = [
   "Your child's name on every page",
@@ -18,7 +18,7 @@ const HIGHLIGHTS = [
   "Dinosaur, space, pirate, animal & airplane adventures",
   "Free 2-page preview — full 6-page books with credits",
   "Print at home for bedtime, gifts & learning time",
-  "Kid-safe stories filtered for ages 3–12",
+  "Kid-safe stories for every young reader",
 ];
 
 const SECTIONS = [
