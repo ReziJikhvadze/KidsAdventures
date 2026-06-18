@@ -39,7 +39,9 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
 
   const recaptchaActive = recaptcha.enabled && !!recaptcha.siteKey;
   const googleDisabled = busy || googleBusy;
-  const emailSubmitDisabled = googleDisabled || (recaptchaActive && !recaptchaToken);
+  // Never hard-block Continue on the reCAPTCHA token: returning users don't need it (the backend only
+  // requires reCAPTCHA when creating a brand-new account). We still send the token when it's available.
+  const emailSubmitDisabled = googleDisabled;
 
   useEffect(() => {
     if (open) {
@@ -145,7 +147,12 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
           </div>
 
           {recaptchaActive && recaptcha.siteKey && (
-            <RecaptchaWidget siteKey={recaptcha.siteKey} onToken={setRecaptchaToken} />
+            <div className="space-y-1">
+              <RecaptchaWidget siteKey={recaptcha.siteKey} onToken={setRecaptchaToken} />
+              <p className="text-center text-[11px] text-muted-foreground">
+                Creating a new account? Please complete the checkbox above.
+              </p>
+            </div>
           )}
 
           <Button type="submit" className="w-full" disabled={emailSubmitDisabled}>
