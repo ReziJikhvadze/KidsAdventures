@@ -4,6 +4,9 @@ public sealed class CreateCheckoutSessionRequest
 {
     [Required]
     public string PlanType { get; set; } = "Books5";
+
+    /// <summary>Optional payment provider: "stripe" or "dodo". Defaults to the server's preferred provider.</summary>
+    public string? Provider { get; set; }
 }
 
 public sealed class CheckoutSessionResponse
@@ -28,4 +31,7 @@ public sealed class ConfirmCheckoutSessionRequest
     public string? SessionId { get; set; }
 
     public string? PaymentId { get; set; }
+
+    /// <summary>Optional payment provider: "stripe" or "dodo". Inferred from ids when omitted.</summary>
+    public string? Provider { get; set; }
 }

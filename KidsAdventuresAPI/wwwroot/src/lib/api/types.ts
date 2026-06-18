@@ -102,6 +102,8 @@ export type CheckoutSessionResponse = {
   checkoutUrl: string;
 };
 
+export type PaymentProvider = "stripe" | "dodo";
+
 export const THEME_ID_TO_API: Record<string, ThemeType> = {
   airplanes: "Airplanes",
   dinosaurs: "Dinosaurs",

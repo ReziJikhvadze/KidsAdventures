@@ -24,10 +24,49 @@ public sealed class SubscriptionService(
     private readonly StripeOptions _stripe = stripeOptions.Value;
     private readonly DodoPaymentsOptions _dodo = dodoOptions.Value;
 
-    private bool UseDodo => _dodo.Enabled && !string.IsNullOrWhiteSpace(_dodo.ApiKey);
+    private const string ProviderStripe = "stripe";
+    private const string ProviderDodo = "dodo";
 
-    private bool UseStripe =>
-        _stripe.Enabled && !string.IsNullOrWhiteSpace(_stripe.SecretKey) && !UseDodo;
+    private bool DodoConfigured => _dodo.Enabled && !string.IsNullOrWhiteSpace(_dodo.ApiKey);
+
+    private bool StripeConfigured => _stripe.Enabled && !string.IsNullOrWhiteSpace(_stripe.SecretKey);
+
+    /// <summary>Resolves which provider to use, honoring an explicit request then falling back to a configured default (Dodo preferred for back-compat).</summary>
+    private string ResolveProvider(string? requested)
+    {
+        var normalized = requested?.Trim().ToLowerInvariant();
+        if (normalized == ProviderStripe)
+        {
+            if (!StripeConfigured)
+            {
+                throw new InvalidOperationException("Stripe is not configured.");
+            }
+
+            return ProviderStripe;
+        }
+
+        if (normalized == ProviderDodo)
+        {
+            if (!DodoConfigured)
+            {
+                throw new InvalidOperationException("Dodo is not configured.");
+            }
+
+            return ProviderDodo;
+        }
+
+        if (DodoConfigured)
+        {
+            return ProviderDodo;
+        }
+
+        if (StripeConfigured)
+        {
+            return ProviderStripe;
+        }
+
+        throw new InvalidOperationException("Payments are not configured. Set Stripe or DodoPayments options.");
+    }
 
     public async Task<AccountBalanceResponse> GetAccountBalanceAsync(Guid userId, CancellationToken cancellationToken)
     {
@@ -111,6 +150,7 @@ public sealed class SubscriptionService(
         Guid userId,
         string email,
         string planType,
+        string? provider,
         CancellationToken cancellationToken)
     {
         if (!BookPackPlans.IsSupported(planType))
@@ -118,31 +158,22 @@ public sealed class SubscriptionService(
             throw new InvalidOperationException("Only Books3, Books5, and Books15 packs are supported.");
         }
 
-        if (UseDodo)
-        {
-            return await CreateDodoCheckoutSessionAsync(userId, email, planType, cancellationToken);
-        }
-
-        if (UseStripe)
-        {
-            return await CreateStripeCheckoutSessionAsync(userId, email, planType, cancellationToken);
-        }
-
-        throw new InvalidOperationException("Payments are not configured. Set DodoPayments:Enabled and ApiKey.");
+        var resolved = ResolveProvider(provider);
+        return resolved == ProviderStripe
+            ? await CreateStripeCheckoutSessionAsync(userId, email, planType, cancellationToken)
+            : await CreateDodoCheckoutSessionAsync(userId, email, planType, cancellationToken);
     }
 
     public async Task<AccountBalanceResponse> ConfirmCheckoutSessionAsync(
         Guid userId,
         string? sessionId,
         string? paymentId,
+        string? provider,
         CancellationToken cancellationToken)
     {
-        if (UseDodo)
-        {
-            return await ConfirmDodoCheckoutAsync(userId, sessionId, paymentId, cancellationToken);
-        }
+        var resolved = ResolveConfirmProvider(provider, sessionId, paymentId);
 
-        if (UseStripe)
+        if (resolved == ProviderStripe)
         {
             if (string.IsNullOrWhiteSpace(sessionId))
             {
@@ -152,12 +183,46 @@ public sealed class SubscriptionService(
             return await ConfirmStripeCheckoutSessionAsync(userId, sessionId, cancellationToken);
         }
 
+        return await ConfirmDodoCheckoutAsync(userId, sessionId, paymentId, cancellationToken);
+    }
+
+    /// <summary>Picks the confirm provider from the explicit value, then infers from id shape (Stripe sessions start with "cs_").</summary>
+    private string ResolveConfirmProvider(string? requested, string? sessionId, string? paymentId)
+    {
+        var normalized = requested?.Trim().ToLowerInvariant();
+        if (normalized == ProviderStripe && StripeConfigured)
+        {
+            return ProviderStripe;
+        }
+
+        if (normalized == ProviderDodo && DodoConfigured)
+        {
+            return ProviderDodo;
+        }
+
+        if (StripeConfigured
+            && !string.IsNullOrWhiteSpace(sessionId)
+            && sessionId.StartsWith("cs_", StringComparison.OrdinalIgnoreCase))
+        {
+            return ProviderStripe;
+        }
+
+        if (DodoConfigured && (!string.IsNullOrWhiteSpace(paymentId) || !string.IsNullOrWhiteSpace(sessionId)))
+        {
+            return ProviderDodo;
+        }
+
+        if (StripeConfigured && !string.IsNullOrWhiteSpace(sessionId))
+        {
+            return ProviderStripe;
+        }
+
         throw new InvalidOperationException("Payments are not configured.");
     }
 
     public async Task HandleWebhookAsync(string jsonPayload, string stripeSignature, CancellationToken cancellationToken)
     {
-        if (!UseStripe || string.IsNullOrWhiteSpace(_stripe.WebhookSecret))
+        if (!StripeConfigured || string.IsNullOrWhiteSpace(_stripe.WebhookSecret))
         {
             return;
         }
@@ -188,7 +253,7 @@ public sealed class SubscriptionService(
         string webhookTimestamp,
         CancellationToken cancellationToken)
     {
-        if (!UseDodo)
+        if (!DodoConfigured)
         {
             return;
         }
@@ -325,7 +390,7 @@ public sealed class SubscriptionService(
         var session = await service.CreateAsync(new SessionCreateOptions
         {
             Mode = "payment",
-            SuccessUrl = _stripe.SuccessUrl,
+            SuccessUrl = BuildStripeSuccessUrl(_stripe.SuccessUrl),
             CancelUrl = _stripe.CancelUrl,
             CustomerEmail = email,
             LineItems =
@@ -348,6 +413,23 @@ public sealed class SubscriptionService(
             SessionId = session.Id,
             CheckoutUrl = session.Url ?? string.Empty
         };
+    }
+
+    /// <summary>Adds provider + Stripe's session-id placeholder so the success page can confirm reliably when both providers are live.</summary>
+    private static string BuildStripeSuccessUrl(string successUrl)
+    {
+        if (string.IsNullOrWhiteSpace(successUrl))
+        {
+            throw new InvalidOperationException("Stripe:SuccessUrl is not configured.");
+        }
+
+        if (successUrl.Contains("{CHECKOUT_SESSION_ID}", StringComparison.Ordinal))
+        {
+            return successUrl;
+        }
+
+        var separator = successUrl.Contains('?', StringComparison.Ordinal) ? "&" : "?";
+        return $"{successUrl}{separator}provider=stripe&session_id={{CHECKOUT_SESSION_ID}}";
     }
 
     private async Task<AccountBalanceResponse> ConfirmDodoCheckoutAsync(

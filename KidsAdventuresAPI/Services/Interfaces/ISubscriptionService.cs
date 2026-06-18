@@ -9,11 +9,17 @@ public interface ISubscriptionService
     Task EnsurePdfGenerationAllowedAsync(Guid userId, CancellationToken cancellationToken);
     Task<bool> TryChargePdfCreditAsync(Guid userId, Guid packId, CancellationToken cancellationToken);
     Task RefundPdfCreditIfChargedAsync(Guid userId, Guid packId, CancellationToken cancellationToken);
-    Task<CheckoutSessionResponse> CreateCheckoutSessionAsync(Guid userId, string email, string planType, CancellationToken cancellationToken);
+    Task<CheckoutSessionResponse> CreateCheckoutSessionAsync(
+        Guid userId,
+        string email,
+        string planType,
+        string? provider,
+        CancellationToken cancellationToken);
     Task<AccountBalanceResponse> ConfirmCheckoutSessionAsync(
         Guid userId,
         string? sessionId,
         string? paymentId,
+        string? provider,
         CancellationToken cancellationToken);
     Task HandleWebhookAsync(string jsonPayload, string stripeSignature, CancellationToken cancellationToken);
 

@@ -4,10 +4,15 @@ import { notify } from "@/lib/ui/notify";
 
 import { useAuth } from "@/lib/auth/AuthContext";
 import { createCheckoutSession } from "@/lib/api/subscriptions";
-import type { BookPackPlan } from "@/lib/api/types";
+import type { BookPackPlan, PaymentProvider } from "@/lib/api/types";
 import { AuthDialog } from "@/components/auth/AuthDialog";
 
 type Action = "free" | BookPackPlan;
+
+// Dodo is temporarily hidden — re-add { id: "dodo", label: "Dodo Payments" } to restore the toggle.
+const paymentMethods: { id: PaymentProvider; label: string }[] = [
+  { id: "stripe", label: "Card (Stripe)" },
+];
 
 const plans: {
   name: string;
@@ -94,11 +99,12 @@ export function Pricing() {
   const [authOpen, setAuthOpen] = useState(false);
   const [pendingPlan, setPendingPlan] = useState<BookPackPlan | null>(null);
   const [checkingOut, setCheckingOut] = useState<BookPackPlan | null>(null);
+  const [provider, setProvider] = useState<PaymentProvider>("stripe");
 
   const startCheckout = async (plan: BookPackPlan) => {
     setCheckingOut(plan);
     try {
-      const session = await createCheckoutSession(plan);
+      const session = await createCheckoutSession(plan, provider);
       if (session.checkoutUrl) {
         window.location.href = session.checkoutUrl;
         return;
@@ -156,7 +162,32 @@ export function Pricing() {
             </p>
           </div>
 
-          <div className="mt-14 grid md:grid-cols-2 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
+          {paymentMethods.length > 1 && (
+            <div className="mt-8 flex flex-col items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Payment method
+              </span>
+              <div className="inline-flex rounded-full border border-border bg-card p-1 shadow-soft">
+                {paymentMethods.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setProvider(m.id)}
+                    aria-pressed={provider === m.id}
+                    className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+                      provider === m.id
+                        ? "bg-foreground text-background"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-10 grid md:grid-cols-2 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
             {plans.map((p) => {
               const Icon = p.icon;
               const isLoading = p.action !== "free" && checkingOut === p.action;

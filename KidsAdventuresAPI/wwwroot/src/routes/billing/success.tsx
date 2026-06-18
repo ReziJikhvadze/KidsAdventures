@@ -5,6 +5,7 @@ import { Nav } from "@/components/site/Nav";
 import { Footer } from "@/components/site/Footer";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { confirmCheckoutSession, getAccountBalance } from "@/lib/api/subscriptions";
+import type { PaymentProvider } from "@/lib/api/types";
 import { BRAND_NAME } from "@/lib/brand";
 import { buildPageMeta } from "@/lib/seo";
 import { notify } from "@/lib/ui/notify";
@@ -13,7 +14,12 @@ type BillingSuccessSearch = {
   session_id?: string;
   payment_id?: string;
   status?: string;
+  provider?: PaymentProvider;
 };
+
+function parseProvider(value: unknown): PaymentProvider | undefined {
+  return value === "stripe" || value === "dodo" ? value : undefined;
+}
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -31,6 +37,7 @@ export const Route = createFileRoute("/billing/success")({
     session_id: typeof search.session_id === "string" ? search.session_id : undefined,
     payment_id: typeof search.payment_id === "string" ? search.payment_id : undefined,
     status: typeof search.status === "string" ? search.status : undefined,
+    provider: parseProvider(search.provider),
   }),
   head: () => {
     const { meta, links } = buildPageMeta({
@@ -45,7 +52,7 @@ export const Route = createFileRoute("/billing/success")({
 });
 
 function BillingSuccess() {
-  const { session_id: sessionId, payment_id: paymentId, status } = Route.useSearch();
+  const { session_id: sessionId, payment_id: paymentId, status, provider } = Route.useSearch();
   const { refreshAccountBalance, user } = useAuth();
   const shouldConfirm =
     !!sessionId || (!!paymentId && (!status || status.toLowerCase() === "succeeded"));
@@ -69,6 +76,7 @@ function BillingSuccess() {
             balance = await confirmCheckoutSession({
               sessionId,
               paymentId,
+              provider,
             });
             break;
           } catch (err) {
@@ -106,7 +114,7 @@ function BillingSuccess() {
     return () => {
       cancelled = true;
     };
-  }, [sessionId, paymentId, status, shouldConfirm, refreshAccountBalance, user?.bookCredits]);
+  }, [sessionId, paymentId, status, provider, shouldConfirm, refreshAccountBalance, user?.bookCredits]);
 
   const displayCredits = credits ?? user?.bookCredits ?? 0;
 

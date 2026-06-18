@@ -27,6 +27,7 @@ public sealed class SubscriptionsController(
             userContext.GetUserId(),
             request.SessionId,
             request.PaymentId,
+            request.Provider,
             cancellationToken);
         return Ok(balance);
     }
@@ -39,6 +40,7 @@ public sealed class SubscriptionsController(
             userContext.GetUserId(),
             userContext.GetEmail(),
             request.PlanType,
+            request.Provider,
             cancellationToken);
 
         return Ok(response);
