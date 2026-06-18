@@ -43,7 +43,10 @@ public sealed class AdventureGenerationService(
             ?? throw new InvalidOperationException("Child not found.");
 
         // Story TEXT is free for everyone (signed in). Illustrations are unlocked later with a $4.99 credit.
+        // The user's FIRST book also gets 2 free illustrated sample pages (the welcome perk) as a taste of the
+        // full illustrated book. IsWelcomeGiftStory now marks "this book received the free 2-page sample".
         var pageCount = AdventureStoryConstants.FullPageCount;
+        var isFreeSample = await userRepository.TryConsumeWelcomeStoryAsync(userId, cancellationToken);
 
         var pack = new AdventurePack
         {
@@ -57,8 +60,10 @@ public sealed class AdventureGenerationService(
                 : request.OptionalStoryNotes.Trim(),
             StoryLanguage = NormalizeLanguage(request.StoryLanguage),
             StoryPageCount = pageCount,
-            IsWelcomeGiftStory = false,
-            ProgressMessage = "Queued — your story will appear in My Books when ready (usually 1–2 minutes).",
+            IsWelcomeGiftStory = isFreeSample,
+            ProgressMessage = isFreeSample
+                ? "Queued — your story and 2 free sample illustrations are on the way."
+                : "Queued — your story will appear in My Books when ready (usually 1–2 minutes).",
             CreatedAt = DateTime.UtcNow
         };
 
@@ -198,14 +203,28 @@ public sealed class AdventureGenerationService(
                 null,
                 cancellationToken);
 
-            await SetProgressAsync(
-                packId,
-                "Your story is ready to read! Unlock illustrations ($4.99) to bring it to life.",
-                cancellationToken);
+            if (pack.IsWelcomeGiftStory)
+            {
+                await SetProgressAsync(
+                    packId,
+                    "Story written — painting your 2 free sample illustrations (~2 minutes)…",
+                    cancellationToken);
+
+                // Free 2-page illustrated sample (the welcome perk) — no credit is charged.
+                backgroundJobClient.Enqueue<IAdventureGenerationService>(service =>
+                    service.ProcessFreeSampleIllustrationAsync(packId, CancellationToken.None));
+            }
+            else
+            {
+                await SetProgressAsync(
+                    packId,
+                    "Your story is ready to read! Unlock illustrations ($4.99) to bring it to life.",
+                    cancellationToken);
+            }
 
             await SendStoryReadyEmailAsync(pack, input.ChildName, cancellationToken);
 
-            // Illustrations are no longer generated automatically — they are unlocked with a paid credit.
+            // Full illustrations (all 6 pages) are unlocked with a paid $4.99 credit.
         }
         catch (Exception ex)
         {
@@ -361,6 +380,64 @@ public sealed class AdventureGenerationService(
             await SetProgressAsync(
                 packId,
                 "Illustrating failed — your story is saved and your credit was refunded. Try unlocking again.",
+                cancellationToken);
+        }
+    }
+
+    public async Task ProcessFreeSampleIllustrationAsync(Guid packId, CancellationToken cancellationToken)
+    {
+        var pack = await adventurePackRepository.GetByIdNoOwnershipAsync(packId, cancellationToken);
+        if (pack is null
+            || pack.Status != AdventurePackStatus.StoryReady
+            || string.IsNullOrWhiteSpace(pack.GeneratedJson))
+        {
+            return;
+        }
+
+        // Already fully illustrated (e.g. the user paid before the sample ran) — nothing to do.
+        if (HasAllSlideshowIllustrations(pack))
+        {
+            return;
+        }
+
+        try
+        {
+            var content = JsonSerializer.Deserialize<AdventureContentDto>(pack.GeneratedJson, JsonOptions)
+                          ?? throw new InvalidOperationException("Failed to parse stored story JSON.");
+
+            if (content.StoryPages.Count == 0)
+            {
+                return;
+            }
+
+            // Paint ONLY the first 2 pages for free. previewIllustrationStatus is left untouched (None) so the
+            // paid unlock can still claim the job later and illustrate the remaining pages.
+            var samplePageCount = Math.Min(AdventureStoryConstants.WelcomeGiftPageCount, content.StoryPages.Count);
+
+            var input = await BuildIllustrationInputAsync(pack, cancellationToken);
+            var castPhotos = await LoadCastPhotosAsync(pack, input, cancellationToken);
+            await IllustrateStoryPagesAsync(
+                packId,
+                pack,
+                content,
+                input,
+                castPhotos,
+                samplePageCount,
+                cancellationToken);
+
+            await SetProgressAsync(
+                packId,
+                "Your 2 free sample pages are illustrated! Unlock the full illustrated book for $4.99.",
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // The sample is a free perk — never fail the pack or charge anything; the user can still read the
+            // story and unlock all illustrations with the $4.99 credit.
+            logger.LogWarning(ex, "Free sample illustration failed for pack {PackId}", packId);
+            await SetProgressAsync(
+                packId,
+                "Your story is ready to read. Unlock illustrations ($4.99) to bring every page to life.",
                 cancellationToken);
         }
     }
@@ -621,7 +698,14 @@ public sealed class AdventureGenerationService(
 
     private async Task FailPackAsync(Guid packId, string message, CancellationToken cancellationToken)
     {
-        // Story TEXT generation is free, so a text failure costs the user nothing to refund.
+        // Story TEXT generation is free, so a text failure costs the user nothing to refund — except the one-time
+        // welcome perk: if this book had claimed the free 2-page sample, give that allowance back on failure.
+        var pack = await adventurePackRepository.GetByIdNoOwnershipAsync(packId, cancellationToken);
+        if (pack?.IsWelcomeGiftStory == true)
+        {
+            await userRepository.RefundWelcomeStoryAsync(pack.UserId, cancellationToken);
+        }
+
         await adventurePackRepository.UpdateStatusAsync(
             packId,
             AdventurePackStatus.Failed,

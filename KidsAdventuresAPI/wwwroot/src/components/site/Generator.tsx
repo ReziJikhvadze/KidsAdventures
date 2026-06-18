@@ -234,6 +234,9 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
   const runGeneration = async () => {
     if (!valid || !theme) return;
 
+    // The user's first book includes 2 free illustrated sample pages (the welcome perk).
+    const freeSample = (user?.welcomeStoryRemaining ?? 0) > 0;
+
     setStatus("generatingStory");
     setProgress(5);
     setProgressMessage("Saving your hero…");
@@ -241,7 +244,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     setCompletedPackId(null);
     setStoryTitle(null);
     setStoryPages([]);
-    setIsWelcomeGiftStory(false);
+    setIsWelcomeGiftStory(freeSample);
 
     try {
       const apiTheme = THEME_ID_TO_API[theme];
@@ -294,12 +297,41 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       setStoryPages(finished.storyPages ?? []);
       setPackTheme(finished.theme);
       setPreviewIllustrationStatus(finished.previewIllustrationStatus ?? "None");
+
+      if (freeSample) {
+        // Wait for the 2 free sample illustrations so the parent sees their child illustrated for free.
+        setStatus("illustrating");
+        setProgress(45);
+        setProgressMessage("Painting your 2 free sample pages…");
+        try {
+          const sampled = await adventurePacksApi.pollAdventurePack(
+            finished.id,
+            (pack) => {
+              if (pack.progressMessage) setProgressMessage(pack.progressMessage);
+              setProgress(adventurePacksApi.computePackProgressPercent(pack));
+            },
+            { untilPagesIllustrated: 2, maxAttempts: 200 },
+          );
+          setStoryPages(sampled.storyPages ?? finished.storyPages ?? []);
+          setPreviewIllustrationStatus(sampled.previewIllustrationStatus ?? "None");
+        } catch {
+          // Sample still cooking — show the text now; the pages will fill in from My Books.
+        }
+      }
+
       setProgress(100);
       setStatus("storyReady");
       await refreshAccountBalance();
-      notify.success("Your personalized story is ready to read — free!", {
-        description: "Read every page below, then unlock the illustrations to bring it to life.",
-      });
+      notify.success(
+        freeSample
+          ? "Your story is ready — with 2 free illustrated pages!"
+          : "Your personalized story is ready to read — free!",
+        {
+          description: freeSample
+            ? "Enjoy your 2 sample pages, then unlock the full illustrated book for $4.99."
+            : "Read every page below, then unlock the illustrations to bring it to life.",
+        },
+      );
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -321,9 +353,6 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     }
     if (!isAuthenticated || !getToken()) {
       setAuthOpen(true);
-      notify.error("Sign in to create a story", {
-        description: "Writing your personalized story is free. Unlock the illustrations for $4.99 when you love it.",
-      });
       return;
     }
     void runGeneration();
@@ -483,8 +512,9 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
               A personalized story in minutes.
             </h2>
             <p className="mt-4 text-muted-foreground">
-              Name, age, and theme — we write the full personalized story for free. Unlock the
-              illustrations for $4.99 when you love it (PDF export is free).
+              Name, age, and theme — we write the full personalized story for free, and your first book
+              comes with 2 free illustrated pages. Unlock the whole illustrated book for $4.99 when you
+              love it (PDF export is free).
             </p>
           </div>
 
@@ -807,7 +837,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 </p>
               )}
               <p className="mt-3 text-xs text-muted-foreground text-center">
-                Writing the full story is free · Unlock illustrations for $4.99 · PDF export free · Hero photo optional
+                Full story free · 2 free illustrated pages on your first book · Unlock the rest for $4.99 · PDF export free
               </p>
             </div>
 
@@ -938,11 +968,13 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                               <Sparkles className="h-4 w-4" />
                             )}
                             {hasBookCredit
-                              ? "Unlock illustrations (1 book credit)"
-                              : "Unlock illustrations — $4.99"}
+                              ? "Unlock the full storybook (1 book credit)"
+                              : "Buy the full storybook — $4.99"}
                           </button>
                           <p className="text-center text-xs text-muted-foreground">
-                            See {name || "your child"} fully illustrated across every page, then export a free PDF.
+                            {isWelcomeGiftStory
+                              ? `Loved the 2 free pages? Buy the book to see ${name || "your child"} illustrated on every page, then export a free PDF.`
+                              : `See ${name || "your child"} fully illustrated across every page, then export a free PDF.`}
                           </p>
                         </>
                       )}

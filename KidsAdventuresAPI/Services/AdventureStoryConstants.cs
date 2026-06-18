@@ -9,14 +9,13 @@ internal static class AdventureStoryConstants
     /// <summary>Legacy alias — full paid/monthly stories.</summary>
     public const int PageCount = FullPageCount;
 
-    /// <summary>Never bill more than 6 text pages + 6 images for a full story (2 for welcome gift).</summary>
+    /// <summary>
+    /// Every book is now a full 6-page TEXT story. The free "welcome" perk is 2 free sample illustrations on the
+    /// first book (handled separately), so the legacy welcome flag no longer shortens the story.
+    /// </summary>
     public static int ResolvePageCount(int storyPageCount, bool isWelcomeGiftStory)
     {
-        if (isWelcomeGiftStory)
-        {
-            return WelcomeGiftPageCount;
-        }
-
+        _ = isWelcomeGiftStory;
         var stored = storyPageCount > 0 ? storyPageCount : FullPageCount;
         return Math.Min(stored, FullPageCount);
     }

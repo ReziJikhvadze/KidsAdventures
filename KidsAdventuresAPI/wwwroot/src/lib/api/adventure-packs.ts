@@ -139,6 +139,11 @@ export function isPackFullyIllustrated(pack: AdventurePackDetailResponse): boole
   return pages.length > 0 && pages.every((p) => p.isIllustrated);
 }
 
+/** Number of pages that already have an illustration. */
+export function countIllustratedPages(pack: AdventurePackDetailResponse): number {
+  return (pack.storyPages ?? []).filter((p) => p.isIllustrated).length;
+}
+
 export function isPackReadable(pack: AdventurePackDetailResponse): boolean {
   if (pack.status === "Failed") return false;
   if (pack.status === "Completed") {
@@ -215,6 +220,7 @@ export async function pollAdventurePack(
     untilStatus?: AdventurePackStatus;
     untilReadable?: boolean;
     untilStoryText?: boolean;
+    untilPagesIllustrated?: number;
   },
 ): Promise<AdventurePackDetailResponse> {
   const intervalMs = options?.intervalMs ?? 2000;
@@ -222,12 +228,15 @@ export async function pollAdventurePack(
   const untilStatus = options?.untilStatus ?? "Completed";
   const untilReadable = options?.untilReadable ?? false;
   const untilStoryText = options?.untilStoryText ?? false;
+  const untilPagesIllustrated = options?.untilPagesIllustrated ?? 0;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const pack = await getAdventurePack(id);
     onProgress?.(pack);
 
-    if (untilStoryText) {
+    if (untilPagesIllustrated > 0) {
+      if (isPackReadable(pack) || countIllustratedPages(pack) >= untilPagesIllustrated) return pack;
+    } else if (untilStoryText) {
       if (isStoryTextReady(pack)) return pack;
     } else if (untilReadable) {
       if (isPackReadable(pack)) return pack;

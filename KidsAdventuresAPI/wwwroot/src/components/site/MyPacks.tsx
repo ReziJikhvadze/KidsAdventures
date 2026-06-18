@@ -537,8 +537,8 @@ export function MyPacks() {
                             <Sparkles className="h-4 w-4" />
                           )}
                           {hasBookCredit
-                            ? "Unlock illustrations (1 credit)"
-                            : "Unlock illustrations — $4.99"}
+                            ? "Unlock the full storybook (1 credit)"
+                            : "Buy the full storybook — $4.99"}
                         </button>
                       )}
                       {readable && pack.status === "StoryReady" && isAuthenticated && (

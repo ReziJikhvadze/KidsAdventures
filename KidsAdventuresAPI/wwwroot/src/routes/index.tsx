@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Nav } from "@/components/site/Nav";
 import { Hero } from "@/components/site/Hero";
-import { HowItWorks } from "@/components/site/HowItWorks";
 import { Themes } from "@/components/site/Themes";
 import { Preview } from "@/components/site/Preview";
 import { Benefits } from "@/components/site/Benefits";
@@ -59,7 +58,6 @@ function Landing() {
       <Nav />
       <main>
         <Hero />
-        <HowItWorks />
         <Generator initialTheme={initialTheme} />
         <Themes />
         <Preview />

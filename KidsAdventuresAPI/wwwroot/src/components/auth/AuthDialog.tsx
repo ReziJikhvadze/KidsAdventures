@@ -29,7 +29,6 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
   const { loginWithGoogle, continueWith } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [acceptedLegal, setAcceptedLegal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
   const [recaptcha, setRecaptcha] = useState<{ enabled: boolean; siteKey: string | null }>({
@@ -39,12 +38,11 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
 
   const recaptchaActive = recaptcha.enabled && !!recaptcha.siteKey;
-  const googleDisabled = busy || googleBusy || !acceptedLegal;
+  const googleDisabled = busy || googleBusy;
   const emailSubmitDisabled = googleDisabled || (recaptchaActive && !recaptchaToken);
 
   useEffect(() => {
     if (open) {
-      setAcceptedLegal(false);
       setRecaptchaToken(null);
       void getAuthConfig()
         .then((config) =>
@@ -98,26 +96,6 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
             automatically. No confirmation email. Writing your story is free.
           </DialogDescription>
         </DialogHeader>
-
-        <label className="flex items-start gap-3 rounded-xl border border-border bg-secondary/30 p-3 text-xs text-muted-foreground cursor-pointer">
-          <input
-            type="checkbox"
-            checked={acceptedLegal}
-            onChange={(e) => setAcceptedLegal(e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
-          />
-          <span>
-            I am a parent or guardian and agree to the{" "}
-            <Link to="/terms" className="text-primary font-semibold hover:underline" onClick={() => onOpenChange(false)}>
-              Terms & Conditions
-            </Link>{" "}
-            and{" "}
-            <Link to="/privacy" className="text-primary font-semibold hover:underline" onClick={() => onOpenChange(false)}>
-              Privacy Policy
-            </Link>
-            . I confirm I have authority to provide any child information or photos I upload.
-          </span>
-        </label>
 
         {googleBusy ? (
           <GoogleSignInBusyButton />
@@ -175,6 +153,18 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
             Continue
           </Button>
         </form>
+
+        <p className="text-center text-xs text-muted-foreground">
+          By continuing you agree to our{" "}
+          <Link to="/terms" className="text-primary font-semibold hover:underline" onClick={() => onOpenChange(false)}>
+            Terms
+          </Link>{" "}
+          and{" "}
+          <Link to="/privacy" className="text-primary font-semibold hover:underline" onClick={() => onOpenChange(false)}>
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </DialogContent>
     </Dialog>
   );

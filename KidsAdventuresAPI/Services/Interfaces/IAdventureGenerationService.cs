@@ -13,5 +13,8 @@ public interface IAdventureGenerationService
     Task ProcessStoryGenerationAsync(Guid adventurePackId, CancellationToken cancellationToken);
     Task EnsurePreviewIllustrationQueuedAsync(Guid adventurePackId, CancellationToken cancellationToken);
     Task ProcessPreviewIllustrationAsync(Guid adventurePackId, CancellationToken cancellationToken);
+
+    /// <summary>Paints the first 2 pages for free (the one-time welcome perk); charges no credit.</summary>
+    Task ProcessFreeSampleIllustrationAsync(Guid adventurePackId, CancellationToken cancellationToken);
     Task ProcessPdfGenerationAsync(Guid adventurePackId, CancellationToken cancellationToken);
 }

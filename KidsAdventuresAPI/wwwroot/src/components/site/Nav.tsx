@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/sheet";
 
 const anchorLinks: { label: string; href: string; isRoute?: boolean }[] = [
-  { label: "How it works", href: "/#how" },
   { label: "Themes", href: "/#themes" },
   { label: "Gift guide", href: "/gift-guide", isRoute: true },
   { label: "Blog", href: "/blog", isRoute: true },
