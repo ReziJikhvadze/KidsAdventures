@@ -46,6 +46,11 @@ export type AccountBalanceResponse = {
   hasUnlimitedPdf: boolean;
 };
 
+export type EmailStatusResponse = {
+  exists: boolean;
+  isGoogleAccount: boolean;
+};
+
 export type AuthConfigResponse = {
   googleEnabled: boolean;
   googleClientId: string | null;

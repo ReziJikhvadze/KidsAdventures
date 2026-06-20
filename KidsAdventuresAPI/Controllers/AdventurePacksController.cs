@@ -1,5 +1,6 @@
 using System.Text.Json;
 using AdventurePacks.Api.Domain.Enums;
+using AdventurePacks.Api.Domain.Models;
 using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
@@ -16,6 +17,7 @@ public sealed class AdventurePacksController(
     IBlobStorageService blobStorageService,
     ISubscriptionService subscriptionService,
     IUserContextService userContext,
+    IGuestRateLimiter guestRateLimiter,
     ILogger<AdventurePacksController> logger) : ControllerBase
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -34,6 +36,117 @@ public sealed class AdventurePacksController(
             storiesRemainingThisMonth = balance.StoriesRemainingThisMonth,
             welcomeStoryRemaining = balance.WelcomeStoryRemaining
         });
+    }
+
+    /// <summary>Free, no-login single-page teaser. Generates inline and returns the image as a data URL.</summary>
+    [AllowAnonymous]
+    [HttpPost("guest-preview")]
+    [RequestSizeLimit(8_000_000)]
+    public async Task<ActionResult<GuestPreviewResult>> GuestPreview(
+        [FromForm] string name,
+        [FromForm] int age,
+        [FromForm] string theme,
+        [FromForm] string? storyLanguage,
+        [FromForm] string? optionalStoryNotes,
+        IFormFile? photo,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "Child's name is required." });
+        }
+
+        if (age < 1 || age > 18)
+        {
+            return BadRequest(new { message = "Please enter a valid age." });
+        }
+
+        if (!Enum.TryParse<ThemeType>(theme, ignoreCase: true, out var themeType))
+        {
+            return BadRequest(new { message = "Please choose a valid theme." });
+        }
+
+        if (!guestRateLimiter.TryAcquire(GetClientKey()))
+        {
+            return StatusCode(
+                StatusCodes.Status429TooManyRequests,
+                new { message = "You've reached the free preview limit. Please sign in to keep creating stories." });
+        }
+
+        byte[]? photoBytes = null;
+        var contentType = "image/jpeg";
+        if (photo is { Length: > 0 })
+        {
+            if (photo.Length > 6_000_000)
+            {
+                return BadRequest(new { message = "Photo is too large (max 6 MB)." });
+            }
+
+            using var ms = new MemoryStream();
+            await photo.CopyToAsync(ms, cancellationToken);
+            photoBytes = ms.ToArray();
+            if (!string.IsNullOrWhiteSpace(photo.ContentType))
+            {
+                contentType = photo.ContentType;
+            }
+        }
+
+        try
+        {
+            var result = await generationService.GenerateGuestPreviewAsync(
+                new GuestPreviewInput
+                {
+                    ChildName = name.Trim(),
+                    Age = age,
+                    Theme = themeType,
+                    StoryLanguage = storyLanguage,
+                    OptionalStoryNotes = string.IsNullOrWhiteSpace(optionalStoryNotes) ? null : optionalStoryNotes.Trim(),
+                    PhotoBytes = photoBytes,
+                    PhotoContentType = contentType,
+                    ClientKey = GetClientKey()
+                },
+                cancellationToken);
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Guest preview generation failed");
+            return StatusCode(
+                StatusCodes.Status502BadGateway,
+                new { message = "We couldn't create your preview right now. Please try again in a moment." });
+        }
+    }
+
+    private string GetClientKey()
+    {
+        var forwarded = Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        if (!string.IsNullOrWhiteSpace(forwarded))
+        {
+            return forwarded.Split(',')[0].Trim();
+        }
+
+        return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    }
+
+    /// <summary>Saves a story created during the no-login teaser to the now signed-in parent's account.</summary>
+    [HttpPost("import-guest")]
+    public async Task<ActionResult<object>> ImportGuest(
+        [FromBody] ImportGuestStoryRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var id = await generationService.ImportGuestStoryAsync(
+                userContext.GetUserId(),
+                request,
+                cancellationToken);
+            return Ok(new { id });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpPost("{id:guid}/illustrate")]

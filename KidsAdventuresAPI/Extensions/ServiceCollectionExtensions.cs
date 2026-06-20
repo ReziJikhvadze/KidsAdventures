@@ -194,12 +194,14 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IWelcomeGiftService, WelcomeGiftService>();
         services.AddScoped<IGoogleAuthService, GoogleAuthService>();
         services.AddScoped<IRecaptchaVerifier, RecaptchaVerifier>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IUserContextService, UserContextService>();
 
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IGuestPreviewRepository, GuestPreviewRepository>();
         services.AddScoped<IChildRepository, ChildRepository>();
         services.AddScoped<IFamilyMemberRepository, FamilyMemberRepository>();
         services.AddScoped<IAdventurePackRepository, AdventurePackRepository>();
@@ -213,6 +215,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddScoped<IAdventureGenerationService, AdventureGenerationService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
+        services.AddSingleton<IGuestRateLimiter, GuestRateLimiter>();
 
         return services;
     }

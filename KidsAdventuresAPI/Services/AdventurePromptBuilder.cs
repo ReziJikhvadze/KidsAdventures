@@ -166,6 +166,13 @@ internal static class AdventurePromptBuilder
         parts.Add(string.Format(texts.ImagePageTitle, pageIndex + 1, page.Title));
         parts.Add(string.Format(texts.ImageScene, scene));
 
+        // Bake the page's story text into the illustration. Keep it short so the model renders it legibly.
+        var captionText = page.Content.Length > 280 ? page.Content[..280] + "…" : page.Content;
+        if (!string.IsNullOrWhiteSpace(captionText))
+        {
+            parts.Add(string.Format(texts.ImageRenderText, captionText.Replace("\n", " ").Trim()));
+        }
+
         if (!string.IsNullOrWhiteSpace(input.OptionalStoryNotes))
         {
             parts.Add(string.Format(texts.ImageParentTheme, input.OptionalStoryNotes.Trim()));

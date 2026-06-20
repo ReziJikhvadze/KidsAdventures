@@ -12,4 +12,7 @@ public interface IAuthService
     Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken);
     Task<AuthResponse> LoginWithGoogleAsync(GoogleLoginRequest request, CancellationToken cancellationToken);
     Task<bool> ConfirmEmailAsync(string token, CancellationToken cancellationToken);
+
+    /// <summary>Lightweight check used by the email-first UI to decide between "sign in" and "create account".</summary>
+    Task<EmailStatusResponse> GetEmailStatusAsync(string email, CancellationToken cancellationToken);
 }

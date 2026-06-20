@@ -60,6 +60,7 @@ internal sealed class AdventurePromptLocale
     public required string ImageSafeForAge { get; init; }
     public required string ImagePageTitle { get; init; }
     public required string ImageScene { get; init; }
+    public required string ImageRenderText { get; init; }
     public required string ImageParentTheme { get; init; }
     public required string ImageAdventureId { get; init; }
     public required string ImageHeroChild { get; init; }
@@ -239,7 +240,7 @@ internal static class AdventurePromptTexts
         NoExtraPagesRule = "Never add extra pages beyond the required count.",
         WelcomeArc = "- Map story structure across pages: page 1 Introduction (child enters the world) + Adventure start; page 2 gentle Challenge (safe, non-threatening) + Resolution (child solves it) + Ending (warm emotional closure).",
         FullArc = "- Map story structure across pages: page 1 Introduction (child enters the world); pages 2–3 Adventure (main journey); page 4 Challenge (safe, non-threatening problem); page 5 Resolution (child solves it); page 6 Ending (warm emotional closure).",
-        PageLengthRule = "Each page: 1–2 short paragraphs for read-aloud; every page title must hint at a new place or moment.",
+        PageLengthRule = "Keep each page SHORT: 2–3 simple sentences (about 30–55 words max) for easy read-aloud and so the text fits cleanly inside the illustration; every page title must hint at a new place or moment.",
         JsonOnlyRule = "Never include markdown, code fences (```), explanations, or extra text outside JSON.",
         RawJsonRule = "The response must start with { and end with } — raw JSON only.",
         AdventureIdLabel = "Adventure ID (must be unique): {0}",
@@ -276,6 +277,7 @@ internal static class AdventurePromptTexts
         ImageSafeForAge = "Safe for children age {0}. Theme: {1}.",
         ImagePageTitle = "Page {0} title: {1}.",
         ImageScene = "Scene to illustrate: {0}",
+        ImageRenderText = "TEXT INSIDE THE IMAGE (very important — do not skip): integrate this page's story text directly into the illustration as a clean, child-friendly storybook caption — a soft banner or text panel along the bottom (or top) that does NOT cover the characters' faces. Render it in clear, well-spaced English, spell EVERY word correctly and exactly as written, keep it large and easy to read, and never crop, cut off, or garble a word. Reproduce this text verbatim: \"{0}\"",
         ImageParentTheme = "Parent's special request — when this page's scene involves it, make it clearly and obviously visible in the illustration (characters, props, action, or setting): {0}",
         ImageAdventureId = "Adventure id {0}.",
         ImageHeroChild = "HERO CHILD (main character)",
@@ -438,7 +440,7 @@ internal static class AdventurePromptTexts
         NoExtraPagesRule = "Nunca añadas páginas extra más allá del número requerido.",
         WelcomeArc = "- Estructura: página 1 Introducción (el niño entra al mundo) + inicio de Aventura; página 2 Desafío suave (seguro, no amenazante) + Resolución (el niño lo resuelve) + Final (cierre emocional cálido).",
         FullArc = "- Estructura: página 1 Introducción; páginas 2–3 Aventura; página 4 Desafío (problema seguro); página 5 Resolución; página 6 Final (cierre emocional cálido).",
-        PageLengthRule = "Cada página: 1–2 párrafos cortos para leer en voz alta; cada título debe sugerir un lugar o momento nuevo.",
+        PageLengthRule = "Mantén cada página CORTA: 2–3 oraciones simples (máximo unas 30–55 palabras) para leer en voz alta y para que el texto quepa bien dentro de la ilustración; cada título debe sugerir un lugar o momento nuevo.",
         JsonOnlyRule = "Nunca incluyas markdown, bloques de código (```), explicaciones ni texto extra fuera del JSON.",
         RawJsonRule = "La respuesta debe empezar con { y terminar con } — solo JSON puro.",
         AdventureIdLabel = "ID de aventura (debe ser único): {0}",
@@ -475,6 +477,7 @@ internal static class AdventurePromptTexts
         ImageSafeForAge = "Seguro para niños de {0} años. Tema: {1}.",
         ImagePageTitle = "Página {0} título: {1}.",
         ImageScene = "Escena a ilustrar: {0}",
+        ImageRenderText = "TEXTO DENTRO DE LA IMAGEN (muy importante — no lo omitas): integra el texto de esta página directamente en la ilustración como un pie de cuento claro y amigable — un banner suave o panel de texto en la parte inferior (o superior) que NO cubra las caras de los personajes. Escríbelo en español claro y bien espaciado, deletrea CADA palabra correctamente y tal como está escrita, mantenlo grande y fácil de leer, y nunca recortes ni distorsiones una palabra. Reproduce este texto literalmente: \"{0}\"",
         ImageParentTheme = "Petición especial de los padres — cuando la escena de esta página lo incluya, hazlo clara y visiblemente presente en la ilustración (personajes, accesorios, acción o escenario): {0}",
         ImageAdventureId = "Id de aventura {0}.",
         ImageHeroChild = "NIÑO HÉROE (personaje principal)",
@@ -636,7 +639,7 @@ internal static class AdventurePromptTexts
         NoExtraPagesRule = "不得超过所需页数。",
         WelcomeArc = "- 页面结构：第1页 引言（孩子进入世界）+ 冒险开始；第2页 温和挑战（安全无威胁）+ 解决（孩子解决）+ 结局（温暖收尾）。",
         FullArc = "- 页面结构：第1页 引言；第2–3页 冒险；第4页 挑战（安全问题）；第5页 解决；第6页 结局（温暖收尾）。",
-        PageLengthRule = "每页：1–2个短段落便于朗读；每页标题需暗示新地点或时刻。",
+        PageLengthRule = "每页保持简短：2–3句简单句子（最多约30–55字），便于朗读，也便于文字清楚地排进插画中；每页标题需暗示新地点或时刻。",
         JsonOnlyRule = "不得包含 markdown、代码块（```）、解释或 JSON 外的文字。",
         RawJsonRule = "回复必须以 { 开始、以 } 结束——仅原始 JSON。",
         AdventureIdLabel = "冒险 ID（必须唯一）：{0}",
@@ -673,6 +676,7 @@ internal static class AdventurePromptTexts
         ImageSafeForAge = "适合 {0} 岁儿童。主题：{1}。",
         ImagePageTitle = "第 {0} 页标题：{1}。",
         ImageScene = "需插图的场景：{0}",
+        ImageRenderText = "图中文字（非常重要，请勿省略）：将本页故事文字直接融入插画，作为清晰、适合儿童的绘本文字框——位于底部（或顶部）的柔和横幅或文字面板，且不要遮挡角色的脸。用清晰、间距合适的简体中文呈现，每个字都要正确并与原文完全一致，字号要大、易读，绝不可截断或写错字。请逐字再现以下文字：“{0}”",
         ImageParentTheme = "家长的特别要求——当本页场景涉及它时，请在插画中清晰明显地呈现（角色、道具、动作或场景）：{0}",
         ImageAdventureId = "冒险 id {0}。",
         ImageHeroChild = "主角儿童",
@@ -833,7 +837,7 @@ internal static class AdventurePromptTexts
         NoExtraPagesRule = "Никогда не добавляйте лишние страницы.",
         WelcomeArc = "- Структура: стр. 1 Введение + начало Приключения; стр. 2 мягкое Испытание + Разрешение + Финал.",
         FullArc = "- Структура: стр. 1 Введение; стр. 2–3 Приключение; стр. 4 Испытание; стр. 5 Разрешение; стр. 6 Финал.",
-        PageLengthRule = "Каждая страница: 1–2 коротких абзаца для чтения вслух; заголовок намекает на новое место или момент.",
+        PageLengthRule = "Делайте каждую страницу КОРОТКОЙ: 2–3 простых предложения (максимум примерно 30–55 слов) для чтения вслух и чтобы текст аккуратно помещался внутри иллюстрации; заголовок намекает на новое место или момент.",
         JsonOnlyRule = "Не включайте markdown, блоки кода (```), пояснения или текст вне JSON.",
         RawJsonRule = "Ответ должен начинаться с { и заканчиваться } — только чистый JSON.",
         AdventureIdLabel = "ID приключения (уникальный): {0}",
@@ -870,6 +874,7 @@ internal static class AdventurePromptTexts
         ImageSafeForAge = "Безопасно для детей {0} лет. Тема: {1}.",
         ImagePageTitle = "Стр. {0} заголовок: {1}.",
         ImageScene = "Сцена для иллюстрации: {0}",
+        ImageRenderText = "ТЕКСТ ВНУТРИ ИЗОБРАЖЕНИЯ (очень важно — не пропускайте): впишите текст этой страницы прямо в иллюстрацию как аккуратную, дружелюбную надпись из книжки — мягкий баннер или текстовую панель снизу (или сверху), которая НЕ закрывает лица персонажей. Сделайте её на чётком, хорошо читаемом русском языке, напишите КАЖДОЕ слово правильно и точно как в оригинале, крупно и разборчиво, никогда не обрезайте и не искажайте слова. Воспроизведите этот текст дословно: «{0}»",
         ImageParentTheme = "Особая просьба родителей — когда сцена этой страницы её затрагивает, ясно и заметно покажите это на иллюстрации (персонажи, реквизит, действие или декорации): {0}",
         ImageAdventureId = "ID приключения {0}.",
         ImageHeroChild = "ГЕРОЙ-РЕБЁНОК (главный персонаж)",

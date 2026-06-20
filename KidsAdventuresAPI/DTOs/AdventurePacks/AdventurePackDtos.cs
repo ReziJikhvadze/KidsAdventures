@@ -43,6 +43,50 @@ public sealed class AdventurePackDetailResponse : AdventurePackResponse
     public List<StoryPageContentDto> StoryPages { get; set; } = [];
 }
 
+/// <summary>
+/// Result of the free, no-login teaser: a cover image, the title, and the first page — plus the full
+/// story JSON so it can be saved to the account verbatim after the parent signs in.
+/// </summary>
+public sealed class GuestPreviewResult
+{
+    public string Title { get; set; } = string.Empty;
+    public string ChildName { get; set; } = string.Empty;
+    public string FirstPageTitle { get; set; } = string.Empty;
+    public string FirstPageText { get; set; } = string.Empty;
+    public string CoverImageDataUrl { get; set; } = string.Empty;
+    public ThemeType Theme { get; set; }
+
+    /// <summary>Server-side id of this teaser; sent back during sign-up so the welcome gift is trustable.</summary>
+    public Guid GuestPreviewId { get; set; }
+
+    /// <summary>Identity of the generated story; fallback link for entitlement when the previewId is lost.</summary>
+    public Guid StoryId { get; set; }
+
+    /// <summary>Serialized AdventureContentDto for the whole story, replayed into the account on sign-in.</summary>
+    public string StoryJson { get; set; } = string.Empty;
+}
+
+/// <summary>Saves a story generated during the no-login teaser to the signed-in parent's account.</summary>
+public sealed class ImportGuestStoryRequest
+{
+    [Required]
+    public Guid ChildId { get; set; }
+
+    [Required]
+    [EnumDataType(typeof(ThemeType))]
+    public ThemeType Theme { get; set; }
+
+    [MaxLength(16)]
+    public string? StoryLanguage { get; set; }
+
+    [MaxLength(1000)]
+    public string? OptionalStoryNotes { get; set; }
+
+    [Required]
+    [MaxLength(60000)]
+    public string StoryJson { get; set; } = string.Empty;
+}
+
 public sealed class StoryPageContentDto
 {
     public string Title { get; set; } = string.Empty;

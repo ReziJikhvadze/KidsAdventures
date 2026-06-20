@@ -12,7 +12,8 @@ public sealed class AuthService(
     IJwtTokenService jwtTokenService,
     ISubscriptionService subscriptionService,
     IGoogleAuthService googleAuthService,
-    IRecaptchaVerifier recaptchaVerifier) : IAuthService
+    IRecaptchaVerifier recaptchaVerifier,
+    IWelcomeGiftService welcomeGiftService) : IAuthService
 {
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
     {
@@ -31,13 +32,14 @@ public sealed class AuthService(
         PasswordValidator.ValidateOrThrow(request.Password);
 
         // No email verification: accounts are active immediately and the user is signed in right away.
+        var userId = Guid.NewGuid();
         var user = new User
         {
-            Id = Guid.NewGuid(),
+            Id = userId,
             Email = email,
             PasswordHash = passwordHasher.Hash(request.Password),
             SubscriptionType = SubscriptionType.Free,
-            WelcomeStoryRemaining = 1,
+            WelcomeStoryRemaining = await ResolveWelcomeGiftAsync(userId, request, cancellationToken),
             EmailConfirmed = true,
             CreatedAt = DateTime.UtcNow
         };
@@ -76,13 +78,14 @@ public sealed class AuthService(
 
         PasswordValidator.ValidateOrThrow(request.Password);
 
+        var userId = Guid.NewGuid();
         var user = new User
         {
-            Id = Guid.NewGuid(),
+            Id = userId,
             Email = email,
             PasswordHash = passwordHasher.Hash(request.Password),
             SubscriptionType = SubscriptionType.Free,
-            WelcomeStoryRemaining = 1,
+            WelcomeStoryRemaining = await ResolveWelcomeGiftAsync(userId, request, cancellationToken),
             EmailConfirmed = true,
             CreatedAt = DateTime.UtcNow
         };
@@ -124,13 +127,22 @@ public sealed class AuthService(
         var user = await userRepository.GetByEmailAsync(email, cancellationToken);
         if (user is null)
         {
+            var userId = Guid.NewGuid();
             user = new User
             {
-                Id = Guid.NewGuid(),
+                Id = userId,
                 Email = email,
                 PasswordHash = OAuthProviders.GooglePasswordPlaceholder,
                 SubscriptionType = SubscriptionType.Free,
-                WelcomeStoryRemaining = 1,
+                WelcomeStoryRemaining = await welcomeGiftService.GetWelcomeStoryRemainingAsync(
+                    new WelcomeGiftContext
+                    {
+                        UsedGuestPreview = request.UsedGuestPreview,
+                        GuestPreviewId = request.GuestPreviewId,
+                        StoryId = request.StoryId
+                    },
+                    userId,
+                    cancellationToken),
                 EmailConfirmed = true,
                 CreatedAt = DateTime.UtcNow,
             };
@@ -146,6 +158,17 @@ public sealed class AuthService(
         return await BuildAuthResponseAsync(user, cancellationToken);
     }
 
+    private Task<int> ResolveWelcomeGiftAsync(Guid userId, RegisterRequest request, CancellationToken cancellationToken) =>
+        welcomeGiftService.GetWelcomeStoryRemainingAsync(
+            new WelcomeGiftContext
+            {
+                UsedGuestPreview = request.UsedGuestPreview,
+                GuestPreviewId = request.GuestPreviewId,
+                StoryId = request.StoryId
+            },
+            userId,
+            cancellationToken);
+
     private async Task<AuthResponse> BuildAuthResponseAsync(User user, CancellationToken cancellationToken)
     {
         var response = jwtTokenService.CreateToken(user);
@@ -156,6 +179,22 @@ public sealed class AuthService(
         response.StoriesRemainingThisMonth = balance.StoriesRemainingThisMonth;
         response.WelcomeStoryRemaining = balance.WelcomeStoryRemaining;
         return response;
+    }
+
+    public async Task<EmailStatusResponse> GetEmailStatusAsync(string email, CancellationToken cancellationToken)
+    {
+        var normalized = (email ?? string.Empty).Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            return new EmailStatusResponse { Exists = false, IsGoogleAccount = false };
+        }
+
+        var user = await userRepository.GetByEmailAsync(normalized, cancellationToken);
+        return new EmailStatusResponse
+        {
+            Exists = user is not null,
+            IsGoogleAccount = user is not null && user.PasswordHash == OAuthProviders.GooglePasswordPlaceholder
+        };
     }
 
     public async Task<bool> ConfirmEmailAsync(string token, CancellationToken cancellationToken)

@@ -4,9 +4,11 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { ApiError } from "@/lib/api/client";
 import { notify } from "@/lib/ui/notify";
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
+import type { GuestPreviewResult } from "@/lib/api/adventure-packs";
 import { createCheckoutSession } from "@/lib/api/subscriptions";
 import { createChild } from "@/lib/api/children";
 import { getToken } from "@/lib/api/client";
+import { storeGuestPreviewIds, clearGuestPreviewIds } from "@/lib/api/auth";
 import { createFamilyMember } from "@/lib/api/family-members";
 import type { PreviewIllustrationStatus, ThemeType } from "@/lib/api/types";
 import { THEME_ID_TO_API } from "@/lib/api/types";
@@ -119,6 +121,33 @@ type Member = {
 
 const MAX_MEMBERS = 6;
 
+/** Marks that this browser already used its single free no-login sample page. */
+const GUEST_USED_KEY = "ka_guest_preview_used";
+
+function guestPreviewUsed(): boolean {
+  try {
+    return localStorage.getItem(GUEST_USED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markGuestPreviewUsed(): void {
+  try {
+    localStorage.setItem(GUEST_USED_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearGuestPreviewUsed(): void {
+  try {
+    localStorage.removeItem(GUEST_USED_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Family cast sends extra reference photos to OpenAI per page — disabled to reduce cost. */
 const ENABLE_STORY_CAST = false;
 
@@ -145,8 +174,17 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
   const [members, setMembers] = useState<Member[]>([]);
   const [showOptional, setShowOptional] = useState(false);
   const [status, setStatus] = useState<
-    "idle" | "generatingStory" | "storyReady" | "illustrating" | "generatingPdf" | "done" | "error"
+    | "idle"
+    | "generatingStory"
+    | "generatingGuest"
+    | "guestReady"
+    | "storyReady"
+    | "illustrating"
+    | "generatingPdf"
+    | "done"
+    | "error"
   >("idle");
+  const [guestResult, setGuestResult] = useState<GuestPreviewResult | null>(null);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const [completedPackId, setCompletedPackId] = useState<string | null>(null);
@@ -168,7 +206,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
   const previewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (status === "generatingStory") {
+    if (status === "generatingStory" || status === "generatingGuest") {
       previewRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   }, [status]);
@@ -234,7 +272,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
   const runGeneration = async () => {
     if (!valid || !theme) return;
 
-    // The user's first book includes 2 free illustrated sample pages (the welcome perk).
+    // The user's first book includes 1 free illustrated sample page (the welcome perk for registering).
     const freeSample = (user?.welcomeStoryRemaining ?? 0) > 0;
 
     setStatus("generatingStory");
@@ -299,10 +337,10 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       setPreviewIllustrationStatus(finished.previewIllustrationStatus ?? "None");
 
       if (freeSample) {
-        // Wait for the 2 free sample illustrations so the parent sees their child illustrated for free.
+        // Wait for the free sample illustration so the parent sees their child illustrated for free.
         setStatus("illustrating");
         setProgress(45);
-        setProgressMessage("Painting your 2 free sample pages…");
+        setProgressMessage("Painting your free sample page…");
         try {
           const sampled = await adventurePacksApi.pollAdventurePack(
             finished.id,
@@ -310,7 +348,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
               if (pack.progressMessage) setProgressMessage(pack.progressMessage);
               setProgress(adventurePacksApi.computePackProgressPercent(pack));
             },
-            { untilPagesIllustrated: 2, maxAttempts: 200 },
+            { untilPagesIllustrated: 1, maxAttempts: 200 },
           );
           setStoryPages(sampled.storyPages ?? finished.storyPages ?? []);
           setPreviewIllustrationStatus(sampled.previewIllustrationStatus ?? "None");
@@ -324,11 +362,11 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       await refreshAccountBalance();
       notify.success(
         freeSample
-          ? "Your story is ready — with 2 free illustrated pages!"
+          ? "Your story is ready — with 1 free illustrated page!"
           : "Your personalized story is ready to read — free!",
         {
           description: freeSample
-            ? "Enjoy your 2 sample pages, then unlock the full illustrated book for $4.99."
+            ? "Enjoy your free sample page, then unlock the full illustrated book for $4.99."
             : "Read every page below, then unlock the illustrations to bring it to life.",
         },
       );
@@ -345,6 +383,167 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     }
   };
 
+  const runGuestPreview = async () => {
+    if (!valid || !theme) return;
+    const apiTheme = THEME_ID_TO_API[theme];
+    if (!apiTheme) return;
+
+    setStatus("generatingGuest");
+    setProgress(8);
+    setProgressMessage("Writing the story and painting the cover…");
+    setErrorMessage(null);
+    setGuestResult(null);
+
+    // Lock the free preview up-front so a refresh or second tab mid-generation can't start another
+    // (and rack up OpenAI cost). We only release it again if generation genuinely fails.
+    markGuestPreviewUsed();
+
+    // The guest endpoint is one long request; nudge the bar so it feels alive.
+    const timer = window.setInterval(() => {
+      setProgress((p) => (p < 90 ? p + 2 : p));
+    }, 1500);
+
+    try {
+      const photo =
+        childPhoto?.startsWith("data:") ? dataUrlToFile(childPhoto, "hero") : undefined;
+      const result = await adventurePacksApi.generateGuestPreview({
+        name: name.trim(),
+        age: age as number,
+        theme: apiTheme,
+        storyLanguage,
+        optionalStoryNotes: optionalNotes.trim() || undefined,
+        photo,
+      });
+      setGuestResult(result);
+      // Persist the server ids so the welcome gift is decided reliably at sign-up (not via localStorage flags).
+      storeGuestPreviewIds(result.guestPreviewId, result.storyId);
+      setProgress(100);
+      setStatus("guestReady");
+      notify.success("Your child's adventure has begun!", {
+        description: "Sign in to save it and unlock the full illustrated book.",
+      });
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        // Rate-limited: keep the lock and push them to sign in.
+        markGuestPreviewUsed();
+        setStatus("idle");
+        setProgress(0);
+        setAuthOpen(true);
+        notify.info("Sign in to keep creating", {
+          description: "You've used your free sample. Sign in to make the full storybook.",
+        });
+        return;
+      }
+      // Genuine failure (network/server): release the lock so they can try their free preview again.
+      clearGuestPreviewUsed();
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Failed to create preview.";
+      setErrorMessage(message);
+      setStatus("error");
+      notify.fromError(err, "Could not create your preview.");
+    } finally {
+      window.clearInterval(timer);
+    }
+  };
+
+  // After the parent signs in from a teaser, save THAT story to their account (don't regenerate),
+  // then show it text-ready with the $4.99 unlock. Falls back to a fresh full generation otherwise.
+  const importGuestAndContinue = async () => {
+    if (!guestResult || !theme) {
+      void runGeneration();
+      return;
+    }
+    const apiTheme = THEME_ID_TO_API[theme];
+    if (!apiTheme) {
+      void runGeneration();
+      return;
+    }
+
+    setStatus("generatingStory");
+    setProgress(35);
+    setProgressMessage("Saving your child's story…");
+    setErrorMessage(null);
+
+    try {
+      const heroFile =
+        childPhoto?.startsWith("data:") ? dataUrlToFile(childPhoto, "hero") : undefined;
+      const child = await createChild(name.trim(), age as number, heroFile);
+
+      const imported = await adventurePacksApi.importGuestStory({
+        childId: child.id,
+        theme: apiTheme,
+        storyJson: guestResult.storyJson,
+        storyLanguage,
+        optionalStoryNotes: optionalNotes.trim() || undefined,
+      });
+
+      let pack = await adventurePacksApi.getAdventurePack(imported.id);
+      setCompletedPackId(pack.id);
+      setStoryTitle(pack.title ?? guestResult.title);
+      setStoryPages(pack.storyPages ?? []);
+      setPackTheme(pack.theme);
+      setPreviewIllustrationStatus(pack.previewIllustrationStatus ?? "None");
+      const giftStory = pack.isWelcomeGiftStory ?? false;
+      setIsWelcomeGiftStory(giftStory);
+
+      // The teaser ids are claimed now — drop them so they can't be replayed onto another account.
+      clearGuestPreviewIds();
+      clearGuestPreviewUsed();
+      setGuestResult(null);
+
+      if (giftStory) {
+        // Wait for the free welcome-gift illustration so the parent sees their child illustrated for free.
+        setStatus("illustrating");
+        setProgress(45);
+        setProgressMessage("Painting your free illustrated page…");
+        try {
+          pack = await adventurePacksApi.pollAdventurePack(
+            imported.id,
+            (p) => {
+              if (p.progressMessage) setProgressMessage(p.progressMessage);
+              setProgress(adventurePacksApi.computePackProgressPercent(p));
+            },
+            { untilPagesIllustrated: 1, maxAttempts: 200 },
+          );
+          setStoryPages(pack.storyPages ?? []);
+          setPreviewIllustrationStatus(pack.previewIllustrationStatus ?? "None");
+        } catch {
+          /* Sample still cooking — the page will fill in from My Books. */
+        }
+      }
+
+      setProgress(100);
+      setStatus("storyReady");
+      await refreshAccountBalance();
+      notify.success(
+        giftStory ? "Story saved — with 1 free illustrated page!" : "Story saved to your account!",
+        { description: "Unlock the full illustrated storybook for $4.99." },
+      );
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Could not save your story.";
+      setErrorMessage(message);
+      setStatus("error");
+      notify.fromError(err, "Could not save your story.");
+    }
+  };
+
+  const handleAuthSuccess = () => {
+    if (guestResult) {
+      void importGuestAndContinue();
+    } else {
+      void runGeneration();
+    }
+  };
+
   const generate = () => {
     if (!valid) return;
     if (isLoading) {
@@ -352,7 +551,12 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       return;
     }
     if (!isAuthenticated || !getToken()) {
-      setAuthOpen(true);
+      // Logged-out visitors get one free no-login sample page; after that they must sign in.
+      if (guestPreviewUsed()) {
+        setAuthOpen(true);
+        return;
+      }
+      void runGuestPreview();
       return;
     }
     void runGeneration();
@@ -488,6 +692,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     setErrorMessage(null);
     setIsWelcomeGiftStory(false);
     setUnlocking(false);
+    setGuestResult(null);
   };
 
   const selectedTheme = STORY_THEMES.find((t) => t.id === theme);
@@ -497,11 +702,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
 
   return (
     <>
-      <AuthDialog
-        open={authOpen}
-        onOpenChange={setAuthOpen}
-        onSuccess={() => void runGeneration()}
-      />
+      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} onSuccess={handleAuthSuccess} />
       <section id="generator" className="relative py-16 md:py-24 lg:py-32 scroll-mt-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="max-w-2xl">
@@ -513,7 +714,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
             </h2>
             <p className="mt-4 text-muted-foreground">
               Name, age, and theme — we write the full personalized story for free, and your first book
-              comes with 2 free illustrated pages. Unlock the whole illustrated book for $4.99 when you
+              comes with 1 free illustrated page. Unlock the whole illustrated book for $4.99 when you
               love it (PDF export is free).
             </p>
           </div>
@@ -814,20 +1015,23 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 disabled={
                   !valid ||
                   status === "generatingStory" ||
+                  status === "generatingGuest" ||
                   status === "illustrating" ||
                   status === "generatingPdf"
                 }
                 className="mt-8 w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary text-primary-foreground py-4 font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition"
               >
-                {status === "generatingStory" ? (
+                {status === "generatingStory" || status === "generatingGuest" ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Writing your story…
+                    {status === "generatingGuest" ? "Creating your sample…" : "Writing your story…"}
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4" />
-                    Create story
+                    {!isAuthenticated && !isLoading && !guestPreviewUsed()
+                      ? "Create story — first page free"
+                      : "Create story"}
                   </>
                 )}
               </button>
@@ -837,7 +1041,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 </p>
               )}
               <p className="mt-3 text-xs text-muted-foreground text-center">
-                Full story free · 2 free illustrated pages on your first book · Unlock the rest for $4.99 · PDF export free
+                Full story free · 1 free illustrated page on your first book · Unlock the rest for $4.99 · PDF export free
               </p>
             </div>
 
@@ -881,7 +1085,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                   </div>
                 )}
 
-                {(status === "generatingStory" || status === "generatingPdf" || status === "illustrating") && (
+                {(status === "generatingStory" || status === "generatingGuest" || status === "generatingPdf" || status === "illustrating") && (
                   <div className="relative h-full flex flex-col items-center justify-center text-center py-6 sm:py-10 px-2 max-w-full">
                     <div className="relative">
                       <div className="h-40 w-32 rounded-xl bg-card border border-border shadow-card grid place-items-center overflow-hidden">
@@ -923,16 +1127,80 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                               : "Writing your story…")}
                       </p>
                       <div className="mt-4 rounded-xl bg-card/80 border border-border p-3 text-left text-xs text-muted-foreground space-y-2">
-                        <p>
-                          <strong className="text-foreground">You can leave this page.</strong>{" "}
-                          We save every book under{" "}
-                          <Link to="/my-packs" className="text-primary font-semibold underline">
-                            My Books
-                          </Link>
-                          . We will email you when your illustrated story or PDF is ready.
-                        </p>
+                        {status === "generatingGuest" ? (
+                          <p>
+                            <strong className="text-foreground">Creating your child's adventure.</strong>{" "}
+                            This takes about a minute — please keep this page open. You'll see the
+                            cover and first page, then sign in to continue.
+                          </p>
+                        ) : (
+                          <p>
+                            <strong className="text-foreground">You can leave this page.</strong>{" "}
+                            We save every book under{" "}
+                            <Link to="/my-packs" className="text-primary font-semibold underline">
+                              My Books
+                            </Link>
+                            . We will email you when your illustrated story or PDF is ready.
+                          </p>
+                        )}
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {status === "guestReady" && guestResult && (
+                  <div className="relative animate-rise">
+                    {/* Cover */}
+                    <div className="relative rounded-2xl overflow-hidden border border-border bg-card shadow-card">
+                      <img
+                        src={guestResult.coverImageDataUrl}
+                        alt={guestResult.title || `${name}'s story`}
+                        className="w-full object-cover"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                        <h3 className="font-display text-xl font-bold text-white drop-shadow">
+                          {guestResult.title || `${name}'s Adventure`}
+                        </h3>
+                      </div>
+                    </div>
+
+                    {/* First page */}
+                    <div className="mt-4 rounded-2xl border border-border bg-card p-4">
+                      {guestResult.firstPageTitle && (
+                        <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                          {guestResult.firstPageTitle}
+                        </p>
+                      )}
+                      <p className="mt-1.5 text-sm leading-relaxed text-foreground/90 whitespace-pre-line">
+                        {guestResult.firstPageText}
+                      </p>
+                    </div>
+
+                    {/* Lightweight conversion step → create account to save the story */}
+                    <div className="relative mt-4 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-center">
+                      <p className="font-display text-base font-bold text-foreground">
+                        Save {name || "your child"}&apos;s story to keep reading
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Create a free account and your first illustrated page is on us — then unlock the full
+                        book for $4.99.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setAuthOpen(true)}
+                        className="mt-3 w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary text-primary-foreground py-3 font-semibold hover:opacity-90 transition"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Save my story & continue
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={reset}
+                      className="mt-2 w-full rounded-full bg-card border border-border px-4 py-3 font-semibold hover:bg-secondary transition"
+                    >
+                      Continue without saving
+                    </button>
                   </div>
                 )}
 
@@ -973,7 +1241,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                           </button>
                           <p className="text-center text-xs text-muted-foreground">
                             {isWelcomeGiftStory
-                              ? `Loved the 2 free pages? Buy the book to see ${name || "your child"} illustrated on every page, then export a free PDF.`
+                              ? `Loved the free page? Buy the book to see ${name || "your child"} illustrated on every page, then export a free PDF.`
                               : `See ${name || "your child"} fully illustrated across every page, then export a free PDF.`}
                           </p>
                         </>

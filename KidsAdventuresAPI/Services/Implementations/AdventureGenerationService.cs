@@ -16,6 +16,7 @@ public sealed class AdventureGenerationService(
     IChildRepository childRepository,
     IFamilyMemberRepository familyMemberRepository,
     IUserRepository userRepository,
+    IGuestPreviewRepository guestPreviewRepository,
     ISubscriptionService subscriptionService,
     IOpenAiService openAiService,
     IReferenceImageNormalizer referenceImageNormalizer,
@@ -43,8 +44,8 @@ public sealed class AdventureGenerationService(
             ?? throw new InvalidOperationException("Child not found.");
 
         // Story TEXT is free for everyone (signed in). Illustrations are unlocked later with a $4.99 credit.
-        // The user's FIRST book also gets 2 free illustrated sample pages (the welcome perk) as a taste of the
-        // full illustrated book. IsWelcomeGiftStory now marks "this book received the free 2-page sample".
+        // The user's FIRST book also gets 1 free illustrated sample page (the welcome perk for registering) as a
+        // taste of the full illustrated book. IsWelcomeGiftStory marks "this book received the free sample page".
         var pageCount = AdventureStoryConstants.FullPageCount;
         var isFreeSample = await userRepository.TryConsumeWelcomeStoryAsync(userId, cancellationToken);
 
@@ -62,7 +63,7 @@ public sealed class AdventureGenerationService(
             StoryPageCount = pageCount,
             IsWelcomeGiftStory = isFreeSample,
             ProgressMessage = isFreeSample
-                ? "Queued — your story and 2 free sample illustrations are on the way."
+                ? "Queued — your story and 1 free sample illustration are on the way."
                 : "Queued — your story will appear in My Books when ready (usually 1–2 minutes).",
             CreatedAt = DateTime.UtcNow
         };
@@ -70,6 +71,188 @@ public sealed class AdventureGenerationService(
         await adventurePackRepository.CreatePendingAsync(pack, cancellationToken);
         backgroundJobClient.Enqueue<IAdventureGenerationService>(service =>
             service.ProcessStoryGenerationAsync(pack.Id, CancellationToken.None));
+
+        return pack.Id;
+    }
+
+    public async Task<GuestPreviewResult> GenerateGuestPreviewAsync(
+        GuestPreviewInput input,
+        CancellationToken cancellationToken)
+    {
+        var language = NormalizeLanguage(input.StoryLanguage);
+
+        // Describe the uploaded photo so the cartoon hero resembles the child (same as the signed-in flow).
+        string? appearance = null;
+        if (input.PhotoBytes is { Length: > 0 })
+        {
+            try
+            {
+                var describePrompt = AdventurePromptBuilder.BuildHeroPhotoDescribePrompt(language, input.ChildName, input.Age);
+                appearance = await openAiService.DescribeCharacterFromPhotoAsync(
+                    input.PhotoBytes,
+                    input.PhotoContentType,
+                    describePrompt,
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Guest preview photo description failed; continuing without it.");
+            }
+        }
+
+        var generationInput = new AdventureGenerationInput
+        {
+            ChildName = input.ChildName,
+            Age = input.Age,
+            Theme = input.Theme,
+            ChildAppearanceDescription = appearance,
+            FamilyMembers = [],
+            OptionalStoryNotes = input.OptionalStoryNotes,
+            StoryLanguage = language,
+            // Write the WHOLE story now (text is cheap) so we can save it verbatim after sign-in.
+            StoryPageCount = AdventureStoryConstants.FullPageCount
+        };
+
+        var adventureId = Guid.NewGuid();
+        var content = await openAiService.GenerateAdventureContentAsync(generationInput, adventureId, cancellationToken);
+        NormalizeStoryPages(content, AdventureStoryConstants.FullPageCount);
+
+        var firstPage = content.StoryPages.FirstOrDefault()
+                        ?? throw new InvalidOperationException("The story preview could not be generated. Please try again.");
+
+        var castPhotos = new List<CastPhotoReference>();
+        if (input.PhotoBytes is { Length: > 0 })
+        {
+            castPhotos.Add(new CastPhotoReference
+            {
+                Name = input.ChildName,
+                Relationship = "hero child",
+                IsHero = true,
+                AppearanceDescription = appearance,
+                Bytes = input.PhotoBytes,
+                ContentType = input.PhotoContentType
+            });
+        }
+
+        // Only ONE image for the free teaser: the cover (the hero in the first scene).
+        var coverPrompt = AdventurePromptBuilder.BuildStoryImagePrompt(
+            generationInput,
+            firstPage,
+            pageIndex: 0,
+            adventureId,
+            hasCharacterAnchor: false,
+            castPhotos);
+
+        var imageBytes = await openAiService.GenerateStoryImageAsync(
+            coverPrompt,
+            new StoryImageReference { CharacterAnchorBytes = null, CastPhotos = castPhotos },
+            cancellationToken);
+
+        var stored = referenceImageNormalizer.NormalizeForStorageWebp(imageBytes);
+        var coverDataUrl = $"data:{stored.ContentType};base64,{Convert.ToBase64String(stored.Bytes)}";
+
+        // Ensure the saved childName matches the parent's input (so the account copy is consistent).
+        content.ChildName = input.ChildName;
+
+        // Record this teaser server-side so the welcome-gift entitlement is reliable and device-independent.
+        var guestPreviewId = Guid.NewGuid();
+        try
+        {
+            await guestPreviewRepository.CreateAsync(new GuestPreview
+            {
+                Id = guestPreviewId,
+                StoryId = adventureId,
+                PreviewUsed = true,
+                Redeemed = false,
+                ClientKey = input.ClientKey,
+                ChildName = input.ChildName,
+                Theme = input.Theme.ToString(),
+                CreatedAt = DateTime.UtcNow
+            }, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // Never fail the teaser over bookkeeping; entitlement will simply fall back to "fresh signup".
+            logger.LogWarning(ex, "Failed to persist guest preview record {GuestPreviewId}.", guestPreviewId);
+        }
+
+        return new GuestPreviewResult
+        {
+            Title = string.IsNullOrWhiteSpace(content.Title) ? firstPage.Title : content.Title,
+            ChildName = input.ChildName,
+            FirstPageTitle = firstPage.Title,
+            FirstPageText = firstPage.Content,
+            CoverImageDataUrl = coverDataUrl,
+            Theme = input.Theme,
+            GuestPreviewId = guestPreviewId,
+            StoryId = adventureId,
+            StoryJson = JsonSerializer.Serialize(content, JsonOptions)
+        };
+    }
+
+    public async Task<Guid> ImportGuestStoryAsync(
+        Guid userId,
+        ImportGuestStoryRequest request,
+        CancellationToken cancellationToken)
+    {
+        _ = await childRepository.GetByIdAsync(request.ChildId, userId, cancellationToken)
+            ?? throw new InvalidOperationException("Child not found.");
+
+        AdventureContentDto? content;
+        try
+        {
+            content = JsonSerializer.Deserialize<AdventureContentDto>(request.StoryJson, JsonOptions);
+        }
+        catch
+        {
+            throw new InvalidOperationException("The story could not be saved. Please create it again.");
+        }
+
+        if (content is null || content.StoryPages.Count == 0)
+        {
+            throw new InvalidOperationException("The story could not be saved. Please create it again.");
+        }
+
+        NormalizeStoryPages(content, AdventureStoryConstants.FullPageCount);
+
+        // The welcome gift (granted at sign-up) is spent on the saved teaser story itself, so the parent sees
+        // their child illustrated for free on the very story they previewed — "your first illustrated page is on us".
+        var isFreeSample = await userRepository.TryConsumeWelcomeStoryAsync(userId, cancellationToken);
+
+        var pack = new AdventurePack
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            ChildId = request.ChildId,
+            Theme = request.Theme,
+            Status = AdventurePackStatus.Pending,
+            OptionalStoryNotes = string.IsNullOrWhiteSpace(request.OptionalStoryNotes)
+                ? null
+                : request.OptionalStoryNotes.Trim(),
+            StoryLanguage = NormalizeLanguage(request.StoryLanguage),
+            StoryPageCount = AdventureStoryConstants.FullPageCount,
+            IsWelcomeGiftStory = isFreeSample,
+            ProgressMessage = isFreeSample
+                ? "Your story is saved — painting your free illustrated page…"
+                : "Your story is saved — unlock the full illustrated book.",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await adventurePackRepository.CreatePendingAsync(pack, cancellationToken);
+        await adventurePackRepository.UpdateStatusAsync(
+            pack.Id,
+            AdventurePackStatus.StoryReady,
+            JsonSerializer.Serialize(content, JsonOptions),
+            null,
+            null,
+            cancellationToken);
+
+        if (isFreeSample)
+        {
+            // Free welcome-gift illustration (the first page) — no credit is charged.
+            backgroundJobClient.Enqueue<IAdventureGenerationService>(service =>
+                service.ProcessFreeSampleIllustrationAsync(pack.Id, CancellationToken.None));
+        }
 
         return pack.Id;
     }
@@ -207,10 +390,10 @@ public sealed class AdventureGenerationService(
             {
                 await SetProgressAsync(
                     packId,
-                    "Story written — painting your 2 free sample illustrations (~2 minutes)…",
+                    "Story written — painting your free sample illustration (~1 minute)…",
                     cancellationToken);
 
-                // Free 2-page illustrated sample (the welcome perk) — no credit is charged.
+                // Free 1-page illustrated sample (the welcome perk) — no credit is charged.
                 backgroundJobClient.Enqueue<IAdventureGenerationService>(service =>
                     service.ProcessFreeSampleIllustrationAsync(packId, CancellationToken.None));
             }
@@ -410,7 +593,7 @@ public sealed class AdventureGenerationService(
                 return;
             }
 
-            // Paint ONLY the first 2 pages for free. previewIllustrationStatus is left untouched (None) so the
+            // Paint ONLY the welcome-gift page(s) for free. previewIllustrationStatus is left untouched (None) so the
             // paid unlock can still claim the job later and illustrate the remaining pages.
             var samplePageCount = Math.Min(AdventureStoryConstants.WelcomeGiftPageCount, content.StoryPages.Count);
 
@@ -427,7 +610,7 @@ public sealed class AdventureGenerationService(
 
             await SetProgressAsync(
                 packId,
-                "Your 2 free sample pages are illustrated! Unlock the full illustrated book for $4.99.",
+                "Your free sample page is illustrated! Unlock the full illustrated book for $4.99.",
                 cancellationToken);
         }
         catch (Exception ex)

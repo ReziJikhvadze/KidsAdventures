@@ -49,6 +49,16 @@ public sealed class AuthController(
         return Ok(response);
     }
 
+    [HttpPost("email-status")]
+    [AllowAnonymous]
+    public async Task<ActionResult<EmailStatusResponse>> EmailStatus(
+        [FromBody] EmailStatusRequest request,
+        CancellationToken cancellationToken)
+    {
+        var response = await authService.GetEmailStatusAsync(request.Email, cancellationToken);
+        return Ok(response);
+    }
+
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)

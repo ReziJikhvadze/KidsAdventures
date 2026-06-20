@@ -6,6 +6,79 @@ export type GenerateAdventurePackOptions = {
   storyLanguage?: string;
 };
 
+export type GuestPreviewResult = {
+  title: string;
+  childName: string;
+  firstPageTitle: string;
+  firstPageText: string;
+  coverImageDataUrl: string;
+  theme: ThemeType;
+  /** Server-side id of this teaser; replayed at sign-up so the welcome gift is trustable. */
+  guestPreviewId: string;
+  /** Identity of the generated story; fallback entitlement link. */
+  storyId: string;
+  /** Full story content, replayed into the account after sign-in. */
+  storyJson: string;
+};
+
+export type GuestPreviewInput = {
+  name: string;
+  age: number;
+  theme: ThemeType;
+  storyLanguage?: string;
+  optionalStoryNotes?: string;
+  photo?: File | null;
+};
+
+/** Free, no-login teaser. Writes the full story + a cover image inline (~40-80s). */
+export async function generateGuestPreview(input: GuestPreviewInput): Promise<GuestPreviewResult> {
+  const body = new FormData();
+  body.append("name", input.name);
+  body.append("age", String(input.age));
+  body.append("theme", input.theme);
+  if (input.storyLanguage) body.append("storyLanguage", input.storyLanguage);
+  if (input.optionalStoryNotes?.trim()) body.append("optionalStoryNotes", input.optionalStoryNotes.trim());
+  if (input.photo) body.append("photo", input.photo);
+
+  const response = await fetch(`${getApiBaseUrl()}/api/adventure-packs/guest-preview`, {
+    method: "POST",
+    body,
+  });
+
+  if (!response.ok) {
+    let message = "We couldn't create your preview. Please try again.";
+    try {
+      const data = await response.json();
+      if (data?.message) message = data.message;
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(message, response.status);
+  }
+
+  return (await response.json()) as GuestPreviewResult;
+}
+
+/** Saves a teaser story (created while logged out) to the now signed-in parent's account. */
+export async function importGuestStory(input: {
+  childId: string;
+  theme: ThemeType;
+  storyJson: string;
+  storyLanguage?: string;
+  optionalStoryNotes?: string;
+}): Promise<{ id: string }> {
+  return apiRequest<{ id: string }>("/api/adventure-packs/import-guest", {
+    method: "POST",
+    body: JSON.stringify({
+      childId: input.childId,
+      theme: input.theme,
+      storyJson: input.storyJson,
+      storyLanguage: input.storyLanguage || "en",
+      optionalStoryNotes: input.optionalStoryNotes?.trim() || undefined,
+    }),
+  });
+}
+
 export async function generateAdventurePack(
   childId: string,
   theme: ThemeType,

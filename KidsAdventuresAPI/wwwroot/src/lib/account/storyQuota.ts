@@ -15,7 +15,7 @@ export function formatNavQuotaLabel({
   if (isLoading) return "…";
 
   if ((welcomeStoryRemaining ?? 0) > 0) {
-    return "2 free illustrated pages";
+    return "1 free illustrated page";
   }
 
   if (storiesRemainingThisMonth > 0) {
@@ -40,7 +40,7 @@ export function formatNavQuotaTitle({
   const allowed = storiesAllowedThisMonth ?? bookCredits;
 
   if ((welcomeStoryRemaining ?? 0) > 0) {
-    return "Your first book includes 2 free illustrated pages. Unlock the full illustrated book for $4.99.";
+    return "Your first book includes 1 free illustrated page. Unlock the full illustrated book for $4.99.";
   }
 
   if (storiesRemainingThisMonth > 0 && bookCredits > 0) {
@@ -64,7 +64,7 @@ export function formatCreditsBadgeLabel({
   welcomeStoryRemaining,
 }: StoryQuotaInput): string {
   if ((welcomeStoryRemaining ?? 0) > 0) {
-    return "2 free pages";
+    return "1 free page";
   }
 
   if (storiesRemainingThisMonth > 0) {

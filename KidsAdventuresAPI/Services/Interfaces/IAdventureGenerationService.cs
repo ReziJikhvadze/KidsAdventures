@@ -1,3 +1,4 @@
+using AdventurePacks.Api.Domain.Models;
 using AdventurePacks.Api.DTOs.AdventurePacks;
 
 namespace AdventurePacks.Api.Services.Interfaces;
@@ -5,6 +6,12 @@ namespace AdventurePacks.Api.Services.Interfaces;
 public interface IAdventureGenerationService
 {
     Task<Guid> QueueGenerationAsync(Guid userId, GenerateAdventurePackRequest request, CancellationToken cancellationToken);
+
+    /// <summary>Free, no-login teaser: writes the full story text + a cover image. Runs inline, persists nothing.</summary>
+    Task<GuestPreviewResult> GenerateGuestPreviewAsync(GuestPreviewInput input, CancellationToken cancellationToken);
+
+    /// <summary>Saves a teaser story (generated while logged out) to the now-signed-in parent as a text-ready pack.</summary>
+    Task<Guid> ImportGuestStoryAsync(Guid userId, ImportGuestStoryRequest request, CancellationToken cancellationToken);
 
     /// <summary>Consumes one $4.99 book credit and starts illustrating an existing, text-ready pack.</summary>
     Task QueueIllustrationAsync(Guid userId, Guid packId, CancellationToken cancellationToken);
@@ -14,7 +21,7 @@ public interface IAdventureGenerationService
     Task EnsurePreviewIllustrationQueuedAsync(Guid adventurePackId, CancellationToken cancellationToken);
     Task ProcessPreviewIllustrationAsync(Guid adventurePackId, CancellationToken cancellationToken);
 
-    /// <summary>Paints the first 2 pages for free (the one-time welcome perk); charges no credit.</summary>
+    /// <summary>Paints the first page for free (the one-time welcome perk); charges no credit.</summary>
     Task ProcessFreeSampleIllustrationAsync(Guid adventurePackId, CancellationToken cancellationToken);
     Task ProcessPdfGenerationAsync(Guid adventurePackId, CancellationToken cancellationToken);
 }

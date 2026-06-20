@@ -11,6 +11,15 @@ public sealed class RegisterRequest
     /// <summary>Optional reCAPTCHA token; required only when reCAPTCHA is enabled server-side.</summary>
     [MaxLength(4096)]
     public string? RecaptchaToken { get; set; }
+
+    /// <summary>Legacy localStorage hint. Non-authoritative; server-side preview tracking takes precedence.</summary>
+    public bool UsedGuestPreview { get; set; }
+
+    /// <summary>Server-trustable id of a no-login teaser this parent generated (decides the welcome gift).</summary>
+    public Guid? GuestPreviewId { get; set; }
+
+    /// <summary>Fallback link to the teaser when only the story id survived the round-trip.</summary>
+    public Guid? StoryId { get; set; }
 }
 
 public sealed class LoginRequest
@@ -47,6 +56,21 @@ public sealed class SessionInfoResponse
     public bool HasUnlimitedPdf { get; set; }
 }
 
+public sealed class EmailStatusRequest
+{
+    [Required, EmailAddress, MaxLength(256)]
+    public string Email { get; set; } = string.Empty;
+}
+
+public sealed class EmailStatusResponse
+{
+    /// <summary>True when an account already exists for this email (sign in), false when it's new (create).</summary>
+    public bool Exists { get; set; }
+
+    /// <summary>True when the existing account was created via Google and has no password.</summary>
+    public bool IsGoogleAccount { get; set; }
+}
+
 public sealed class ConfirmEmailRequest
 {
     [Required, MinLength(32), MaxLength(128)]
@@ -63,6 +87,15 @@ public sealed class GoogleLoginRequest
 {
     [Required, MinLength(10)]
     public string IdToken { get; set; } = string.Empty;
+
+    /// <summary>Legacy localStorage hint. Non-authoritative; server-side preview tracking takes precedence.</summary>
+    public bool UsedGuestPreview { get; set; }
+
+    /// <summary>Server-trustable id of a no-login teaser this parent generated (decides the welcome gift).</summary>
+    public Guid? GuestPreviewId { get; set; }
+
+    /// <summary>Fallback link to the teaser when only the story id survived the round-trip.</summary>
+    public Guid? StoryId { get; set; }
 }
 
 public sealed class AuthConfigResponse
