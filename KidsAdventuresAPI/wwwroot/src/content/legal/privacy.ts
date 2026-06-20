@@ -22,7 +22,7 @@ export const privacySections: LegalSection[] = [
       "Story inputs: child's first name, age, chosen theme, optional story wishes/notes, and story language.",
       "Optional photos: hero photos you upload (and family member photos if that feature is enabled). Photos may be processed to create cartoon-style illustrations.",
       "Generated content: story text, illustration files, PDF exports, and related metadata stored with your account.",
-      "Payment data: purchases are handled by Dodo Payments; we receive transaction references and credit fulfillment status, not your full card details.",
+      "Payment data: purchases are handled by Stripe; we receive transaction references and credit fulfillment status, not your full card details.",
       "Technical data: IP address, browser/device type, server logs, and security/abuse-prevention records.",
       "Communications: messages you send through our contact form.",
     ],
@@ -71,7 +71,7 @@ export const privacySections: LegalSection[] = [
     bullets: [
       "OpenAI — AI story and image generation (prompts and optional reference photos).",
       "Microsoft Azure — cloud hosting, database (Azure SQL), and file storage (Blob Storage).",
-      "Dodo Payments — payment processing for book credit purchases.",
+      "Stripe — payment processing for book credit purchases.",
       "Email provider (SMTP) — transactional emails such as account confirmation and notifications.",
     ],
     afterBullets: [

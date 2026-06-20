@@ -73,7 +73,7 @@ export const termsSections: LegalSection[] = [
     id: "payments",
     title: "7. Payments and credits",
     paragraphs: [
-      "Book credits and other paid features are processed by our payment provider (Dodo Payments). Prices, credit packs, and availability may change.",
+      "Book credits and other paid features are processed by our payment provider (Stripe). Prices, credit packs, and availability may change.",
       "Except where required by applicable law, purchases of digital credits are generally non-refundable once credits are delivered or used. Contact us if you believe a charge was made in error.",
     ],
   },
