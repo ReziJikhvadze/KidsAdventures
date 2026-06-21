@@ -30,10 +30,11 @@ const FULL_BOOK_PAGE_COUNT = 6;
 type FontSize = "sm" | "md" | "lg";
 type ReaderVariant = "default" | "fullscreen";
 
+// Sizes scale up at the `sm` breakpoint so phones stay legible/uncramped while desktop keeps the larger type.
 const FONT_SIZE_STYLES: Record<FontSize, { body: string; title: string }> = {
-  sm: { body: "text-sm leading-relaxed", title: "text-lg" },
-  md: { body: "text-base leading-relaxed", title: "text-xl" },
-  lg: { body: "text-lg leading-relaxed", title: "text-2xl" },
+  sm: { body: "text-[13px] sm:text-sm leading-relaxed", title: "text-base sm:text-lg" },
+  md: { body: "text-sm sm:text-base leading-relaxed", title: "text-lg sm:text-xl" },
+  lg: { body: "text-base sm:text-lg leading-relaxed", title: "text-xl sm:text-2xl" },
 };
 
 export type StoryBookReaderProps = {
@@ -443,9 +444,9 @@ export function StoryBookReader({
 
         <div className={cn("relative", isFullscreen ? "px-10 sm:px-12" : "px-0 sm:px-10")}>
           <Carousel setApi={setApi} opts={{ align: "start", loop: false }} className="w-full">
-            <CarouselContent>
+            <CarouselContent className="ml-0 sm:-ml-4">
               {pages.map((page, index) => (
-                <CarouselItem key={`page-${index}`}>
+                <CarouselItem key={`page-${index}`} className="pl-0 sm:pl-4">
                   <article
                     className="rounded-2xl border border-border bg-card shadow-card overflow-hidden"
                     style={{
@@ -486,7 +487,7 @@ export function StoryBookReader({
                 </CarouselItem>
               ))}
               {showWelcomeUpsellSlide && (
-                <CarouselItem key="welcome-upsell">
+                <CarouselItem key="welcome-upsell" className="pl-0 sm:pl-4">
                   <article
                     className="rounded-2xl border border-amber-300/60 bg-card shadow-card overflow-hidden"
                     style={{

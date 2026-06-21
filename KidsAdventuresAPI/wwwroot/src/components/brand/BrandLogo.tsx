@@ -17,12 +17,12 @@ export function BrandLogo({
 
   const logo = isHeader ? (
     <>
-      {/* Phone + tablet: contained logo (no overflow) */}
+      {/* Phone + tablet: contained logo (no overflow). ~15% larger on phones for presence. */}
       <img
         src={BRAND_LOGO_URL}
         alt=""
         aria-hidden
-        className="h-14 w-14 shrink-0 object-contain 2xl:hidden"
+        className="h-16 w-16 shrink-0 object-contain sm:h-14 sm:w-14 2xl:hidden"
       />
       {/* Very wide screens: decorative tall logo */}
       <span className="relative hidden 2xl:block h-16 w-[100px] shrink-0">
