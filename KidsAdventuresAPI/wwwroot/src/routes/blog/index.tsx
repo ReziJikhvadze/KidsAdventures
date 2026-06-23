@@ -3,7 +3,6 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { BlogLayout } from "@/components/blog/BlogLayout";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { BLOG_POSTS } from "@/content/blog/index";
-import { adsenseHeadScripts } from "@/lib/adsense";
 import { BRAND_NAME } from "@/lib/brand";
 import { buildPageMeta } from "@/lib/seo";
 import { buildBreadcrumbSchema, buildWebPageSchema } from "@/lib/structured-data";
@@ -16,7 +15,7 @@ export const Route = createFileRoute("/blog/")({
         "Parenting tips, child education through stories, personalized children's books, adventure books for kids, screen-free learning, and printable gift ideas.",
       path: "/blog",
     });
-    return { meta, links, scripts: adsenseHeadScripts };
+    return { meta, links };
   },
   component: BlogIndexPage,
 });

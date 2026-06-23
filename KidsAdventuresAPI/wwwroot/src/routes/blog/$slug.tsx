@@ -4,21 +4,20 @@ import { BlogArticle } from "@/components/blog/BlogArticle";
 import { BlogLayout } from "@/components/blog/BlogLayout";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getBlogPostBySlug } from "@/content/blog/index";
-import { adsenseHeadScripts } from "@/lib/adsense";
 import { buildPageMeta } from "@/lib/seo";
 import { buildBlogPostingSchema, buildBreadcrumbSchema } from "@/lib/structured-data";
 
 export const Route = createFileRoute("/blog/$slug")({
   head: ({ params }) => {
     const post = getBlogPostBySlug(params.slug);
-    if (!post) return { meta: [{ title: "Article not found" }], scripts: adsenseHeadScripts };
+    if (!post) return { meta: [{ title: "Article not found" }] };
     const { meta, links } = buildPageMeta({
       title: `${post.title} | Adventrya Books`,
       description: post.description,
       path: `/blog/${post.slug}`,
       type: "article",
     });
-    return { meta, links, scripts: adsenseHeadScripts };
+    return { meta, links };
   },
   component: BlogPostPage,
 });

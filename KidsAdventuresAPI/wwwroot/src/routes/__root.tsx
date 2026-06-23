@@ -84,6 +84,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "p:domain_verify", content: "f6d26a06a1d147d9babf0aa9a9d2ceb2" },
       ...rootMeta.meta,
     ],
     links: [
