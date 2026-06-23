@@ -11,14 +11,14 @@ import { buildBlogPostingSchema, buildBreadcrumbSchema } from "@/lib/structured-
 export const Route = createFileRoute("/blog/$slug")({
   head: ({ params }) => {
     const post = getBlogPostBySlug(params.slug);
-    if (!post) return { meta: [{ title: "Article not found" }], headScripts: adsenseHeadScripts };
+    if (!post) return { meta: [{ title: "Article not found" }], scripts: adsenseHeadScripts };
     const { meta, links } = buildPageMeta({
       title: `${post.title} | Adventrya Books`,
       description: post.description,
       path: `/blog/${post.slug}`,
       type: "article",
     });
-    return { meta, links, headScripts: adsenseHeadScripts };
+    return { meta, links, scripts: adsenseHeadScripts };
   },
   component: BlogPostPage,
 });

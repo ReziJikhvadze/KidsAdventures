@@ -2,8 +2,8 @@ export const ADSENSE_CLIENT_ID = "ca-pub-9730875401500289";
 
 /**
  * Google AdSense loader, scoped to blog pages only. Returned from a route's
- * `head()` as `headScripts` so TanStack renders it inside the document `<head>`
- * (and removes it again when navigating away from the blog).
+ * `head()` under `scripts`; TanStack maps that to the match's head scripts so it
+ * renders inside the document `<head>` (and only while a blog route is active).
  */
 export const adsenseHeadScripts = [
   {

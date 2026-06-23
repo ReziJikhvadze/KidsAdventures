@@ -16,7 +16,7 @@ export const Route = createFileRoute("/blog/")({
         "Parenting tips, child education through stories, personalized children's books, adventure books for kids, screen-free learning, and printable gift ideas.",
       path: "/blog",
     });
-    return { meta, links, headScripts: adsenseHeadScripts };
+    return { meta, links, scripts: adsenseHeadScripts };
   },
   component: BlogIndexPage,
 });
