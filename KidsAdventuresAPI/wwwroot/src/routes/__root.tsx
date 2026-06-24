@@ -119,6 +119,12 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        {/* Google AdSense — site verification + ad serving. */}
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9730875401500289"
+          crossOrigin="anonymous"
+        />
         {/* Google Tag Manager — placed as high in <head> as possible. */}
         <script
           // eslint-disable-next-line react/no-danger
