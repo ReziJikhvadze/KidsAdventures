@@ -17,6 +17,10 @@ export const BRAND_SOCIAL_LINKS: BrandSocialLink[] = [
     href: "https://www.tiktok.com/@adventrya.books",
   },
   {
+    label: "Pinterest",
+    href: "https://www.pinterest.com/rezijikhvadze/",
+  },
+  {
     label: "Facebook",
     href: "https://www.facebook.com/profile.php?id=61590674259707",
   },

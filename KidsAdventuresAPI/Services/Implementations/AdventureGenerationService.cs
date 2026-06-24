@@ -317,10 +317,12 @@ public sealed class AdventureGenerationService(
             throw new InvalidOperationException("Story content is missing.");
         }
 
-        if (!HasAllSlideshowIllustrations(pack))
+        if (!CanExportPdf(pack))
         {
             throw new InvalidOperationException(
-                "Illustrations are still being created. Wait until your slideshow is fully illustrated in My Books, then export PDF.");
+                pack.IsWelcomeGiftStory
+                    ? "Your free illustrated page is still being created. Wait a moment, then export your preview PDF."
+                    : "Illustrations are still being created. Wait until your slideshow is fully illustrated in My Books, then export PDF.");
         }
 
         await subscriptionService.EnsurePdfGenerationAllowedAsync(userId, cancellationToken);
@@ -1055,15 +1057,19 @@ public sealed class AdventureGenerationService(
         AdventureContentDto content,
         CancellationToken cancellationToken)
     {
-        if (!HasAllSlideshowIllustrations(pack))
+        if (!CanExportPdf(pack))
         {
             throw new InvalidOperationException(
-                "PDF export only uses your saved slideshow illustrations. Wait until every page is illustrated.");
+                pack.IsWelcomeGiftStory
+                    ? "Your free illustrated page is not ready yet. Open My Books and try again in a moment."
+                    : "PDF export only uses your saved slideshow illustrations. Wait until every page is illustrated.");
         }
 
         await SetProgressAsync(
             pack.Id,
-            "Using your slideshow illustrations… ~40%",
+            pack.IsWelcomeGiftStory && !HasAllSlideshowIllustrations(pack)
+                ? "Building your free preview PDF… ~40%"
+                : "Using your slideshow illustrations… ~40%",
             cancellationToken);
 
         var pageCount = ResolveEffectivePageCount(pack);
@@ -1072,15 +1078,13 @@ public sealed class AdventureGenerationService(
         for (var i = 0; i < pageCount && i < content.StoryPages.Count; i++)
         {
             var page = content.StoryPages[i];
-            if (string.IsNullOrWhiteSpace(page.IllustrationUrl))
+            var illustrationUrl = ResolvePageIllustrationUrl(pack, page, i);
+            if (!string.IsNullOrWhiteSpace(illustrationUrl))
             {
-                throw new InvalidOperationException(
-                    $"Page {i + 1} is missing an illustration. Open My Books and wait for the slideshow to finish.");
+                page.ImageBytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(
+                    illustrationUrl,
+                    cancellationToken);
             }
-
-            page.ImageBytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(
-                page.IllustrationUrl,
-                cancellationToken);
 
             var pct = 40 + (int)Math.Round(45.0 * (i + 1) / Math.Max(1, pageCount));
             await SetProgressAsync(
@@ -1088,6 +1092,63 @@ public sealed class AdventureGenerationService(
                 $"Preparing page {i + 1} of {pageCount} for PDF… ~{pct}%",
                 cancellationToken);
         }
+    }
+
+    private static bool CanExportPdf(AdventurePack pack)
+    {
+        if (string.IsNullOrWhiteSpace(pack.GeneratedJson))
+        {
+            return false;
+        }
+
+        try
+        {
+            var content = JsonSerializer.Deserialize<AdventureContentDto>(pack.GeneratedJson, JsonOptions);
+            if (content is null || content.StoryPages.Count == 0)
+            {
+                return false;
+            }
+
+            var pageCount = ResolveEffectivePageCount(pack);
+            var illustratedCount = CountIllustratedPages(pack, content, pageCount);
+
+            if (pack.IsWelcomeGiftStory)
+            {
+                return illustratedCount >= AdventureStoryConstants.WelcomeGiftPageCount;
+            }
+
+            return illustratedCount == pageCount;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static int CountIllustratedPages(AdventurePack pack, AdventureContentDto content, int pageCount)
+    {
+        var count = 0;
+        for (var i = 0; i < pageCount && i < content.StoryPages.Count; i++)
+        {
+            if (!string.IsNullOrWhiteSpace(ResolvePageIllustrationUrl(pack, content.StoryPages[i], i)))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static string? ResolvePageIllustrationUrl(AdventurePack pack, StoryPageDto page, int pageIndex)
+    {
+        if (!string.IsNullOrWhiteSpace(page.IllustrationUrl))
+        {
+            return page.IllustrationUrl;
+        }
+
+        return pageIndex == 0 && !string.IsNullOrWhiteSpace(pack.PreviewIllustrationUrl)
+            ? pack.PreviewIllustrationUrl
+            : null;
     }
 
     private static bool HasAllSlideshowIllustrations(AdventurePack pack)

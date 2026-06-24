@@ -128,7 +128,11 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
   };
 
   const dialogTitle =
-    step === "password" && mode === "signin" ? "Welcome back" : "Create My Child's Book";
+    step === "password" && mode === "signin"
+      ? "Welcome back"
+      : step === "email"
+        ? "Continue with email"
+        : "Create My Child's Book";
 
   const dialogSubtitle =
     step === "password"
@@ -136,8 +140,10 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
         ? `Enter your password to sign in as ${email.trim()}.`
         : mode === "signup"
           ? "You're one tap away. Set a password to save your child's stories."
-          : "Enter your password — we'll sign you in or create your account."
-      : "Personalized, beautifully illustrated storybooks where your child is the hero. Free to start — no confirmation email.";
+          : "Enter your password — we'll sign you in or create your account automatically."
+      : step === "email"
+        ? "New or returning — one flow. No separate sign-up step and no confirmation email."
+        : "Personalized, beautifully illustrated storybooks where your child is the hero. Free to start.";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -188,15 +194,8 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
                 Continue with Email
               </Button>
 
-              <p className="pt-1 text-center text-sm text-muted-foreground">
-                Already have an account?{" "}
-                <button
-                  type="button"
-                  onClick={() => setStep("email")}
-                  className="font-semibold text-primary hover:underline"
-                >
-                  Sign in
-                </button>
+              <p className="pt-1 text-center text-xs text-muted-foreground">
+                One account flow for everyone — we create your account or sign you in automatically.
               </p>
 
               <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
@@ -239,7 +238,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
                   className="h-11"
                 />
                 <p className="text-xs text-muted-foreground">
-                  New or returning — we'll figure it out. No confirmation email needed.
+                  We'll recognize your email and sign you in, or create a new account if you're new.
                 </p>
               </div>
 
@@ -307,7 +306,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
 
               <Button type="submit" className="w-full h-11 font-semibold" disabled={busy}>
                 {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {mode === "signin" ? "Sign in" : "Create my account"}
+                {mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Continue"}
               </Button>
             </form>
           )}

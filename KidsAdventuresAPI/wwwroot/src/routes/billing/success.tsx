@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { Nav } from "@/components/site/Nav";
@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { confirmCheckoutSession, getAccountBalance } from "@/lib/api/subscriptions";
 import type { PaymentProvider } from "@/lib/api/types";
 import { BRAND_NAME } from "@/lib/brand";
+import { trackPurchaseConversion } from "@/lib/analytics";
 import { buildPageMeta } from "@/lib/seo";
 import { notify } from "@/lib/ui/notify";
 
@@ -58,6 +59,17 @@ function BillingSuccess() {
     !!sessionId || (!!paymentId && (!status || status.toLowerCase() === "succeeded"));
   const [confirming, setConfirming] = useState(shouldConfirm);
   const [credits, setCredits] = useState<number | null>(null);
+  const purchaseTrackedRef = useRef(false);
+
+  const trackPurchaseOnce = (transactionId?: string) => {
+    if (purchaseTrackedRef.current) return;
+    purchaseTrackedRef.current = true;
+    trackPurchaseConversion({
+      value: 4.99,
+      currency: "USD",
+      transactionId,
+    });
+  };
 
   useEffect(() => {
     if (!shouldConfirm) {
@@ -90,6 +102,7 @@ function BillingSuccess() {
 
         if (cancelled || !balance) return;
         setCredits(balance.bookCredits);
+        trackPurchaseOnce(sessionId ?? paymentId);
         await refreshAccountBalance();
       } catch (err) {
         if (cancelled) return;
@@ -99,6 +112,7 @@ function BillingSuccess() {
         const latestCredits = refreshed?.bookCredits ?? user?.bookCredits ?? startingCredits;
         if (latestCredits > startingCredits) {
           setCredits(latestCredits);
+          trackPurchaseOnce(sessionId ?? paymentId);
           return;
         }
 

@@ -567,11 +567,11 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     setStartingPdf(true);
     setStatus("generatingPdf");
     setProgress(10);
-    const slideshowReady =
-      storyPages.length > 0 && storyPages.every((p) => p.isIllustrated);
-    if (!slideshowReady) {
+    if (!canExportPdf) {
       notify.info("PDF not ready yet", {
-        description: "Wait until all pages are illustrated, then export your free PDF.",
+        description: isWelcomeGiftStory
+          ? "Wait until your free illustrated page is ready, then export your preview PDF."
+          : "Wait until all pages are illustrated, then export your free PDF.",
       });
       setStatus("storyReady");
       setStartingPdf(false);
@@ -698,6 +698,9 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
   const selectedTheme = STORY_THEMES.find((t) => t.id === theme);
   const fullyIllustrated =
     storyPages.length > 0 && storyPages.every((p) => p.isIllustrated);
+  const canExportPdf =
+    storyPages.length > 0 &&
+    (fullyIllustrated || (isWelcomeGiftStory && storyPages.some((p) => p.isIllustrated)));
   const hasBookCredit = (user?.bookCredits ?? 0) > 0;
 
   return (
@@ -1241,12 +1244,12 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                           </button>
                           <p className="text-center text-xs text-muted-foreground">
                             {isWelcomeGiftStory
-                              ? `Loved the free page? Buy the book to see ${name || "your child"} illustrated on every page, then export a free PDF.`
+                              ? `Loved the free page? Export a preview PDF now, or buy the book to see ${name || "your child"} illustrated on every page.`
                               : `See ${name || "your child"} fully illustrated across every page, then export a free PDF.`}
                           </p>
                         </>
                       )}
-                      {status === "storyReady" && isAuthenticated && fullyIllustrated && (
+                      {status === "storyReady" && isAuthenticated && canExportPdf && (
                         <button
                           type="button"
                           disabled={startingPdf}
@@ -1258,7 +1261,9 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                           ) : (
                             <Sparkles className="h-4 w-4" />
                           )}
-                          Export PDF — free (~30 sec)
+                          {isWelcomeGiftStory && !fullyIllustrated
+                            ? "Export preview PDF — free (~30 sec)"
+                            : "Export PDF — free (~30 sec)"}
                         </button>
                       )}
                       {status === "done" && completedPackId && (

@@ -283,9 +283,11 @@ export function MyPacks() {
 
   const startPdf = async (pack: AdventurePackDetailResponse) => {
     if (pack.status !== "StoryReady" || pdfStartingId) return;
-    if (!slideshowIllustrationsReady(pack)) {
+    if (!adventurePacksApi.canExportPackPdf(pack)) {
       notify.info("PDF not ready yet", {
-        description: "Wait until all 6 pages are illustrated, then export your free PDF.",
+        description: pack.isWelcomeGiftStory
+          ? "Wait until your free illustrated page is ready, then export your preview PDF."
+          : "Wait until all 6 pages are illustrated, then export your free PDF.",
       });
       return;
     }
@@ -455,6 +457,7 @@ export function MyPacks() {
               const generating = adventurePacksApi.isPackGenerating(pack);
               const progressPct = adventurePacksApi.computePackProgressPercent(pack);
               const readable = slideshowIllustrationsReady(pack);
+              const canExportPdf = adventurePacksApi.canExportPackPdf(pack);
               const illustrating = needsPreviewPoll(pack);
               const awaitingUnlock = adventurePacksApi.isAwaitingIllustrationUnlock(pack);
               const hasBookCredit = (user?.bookCredits ?? 0) > 0;
@@ -541,7 +544,7 @@ export function MyPacks() {
                             : "Buy the full storybook — $4.99"}
                         </button>
                       )}
-                      {readable && pack.status === "StoryReady" && isAuthenticated && (
+                      {canExportPdf && pack.status === "StoryReady" && isAuthenticated && (
                         <button
                           type="button"
                           onClick={() => void startPdf(pack)}
@@ -553,7 +556,9 @@ export function MyPacks() {
                           ) : (
                             <Sparkles className="h-4 w-4" />
                           )}
-                          Export PDF (free)
+                          {pack.isWelcomeGiftStory && !readable
+                            ? "Export preview PDF (free)"
+                            : "Export PDF (free)"}
                         </button>
                       )}
                       {pack.status === "Completed" && (
