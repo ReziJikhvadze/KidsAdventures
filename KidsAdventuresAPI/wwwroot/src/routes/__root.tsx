@@ -12,7 +12,8 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
-import { AuthProvider } from "@/lib/auth/AuthContext";
+import { setPinterestEnhancedMatch } from "@/lib/analytics/pinterest";
+import { AuthProvider, useAuth } from "@/lib/auth/AuthContext";
 import { GoogleAuthProvider } from "@/lib/auth/GoogleAuthProvider";
 import { BRAND_LOGO_URL } from "@/lib/brand";
 import { buildRootMeta } from "@/lib/seo";
@@ -110,12 +111,26 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 const GA_MEASUREMENT_ID = "G-7ZL6C5SB29";
+const GTM_ID = "GTM-K9Q596H3";
+const PINTEREST_TAG_ID = "2614019108945";
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
         <HeadContent />
+        {/* Google Tag Manager — placed as high in <head> as possible. */}
+        <script
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{
+            __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','${GTM_ID}');`,
+          }}
+        />
+        {/* End Google Tag Manager */}
         {/* Google tag (gtag.js) — Google Analytics, rendered into the head of every page. */}
         <script
           async
@@ -130,13 +145,58 @@ gtag('js', new Date());
 gtag('config', '${GA_MEASUREMENT_ID}');`,
           }}
         />
+        {/* Pinterest Tag — base pixel (enhanced-match email intentionally omitted). */}
+        <script
+          // eslint-disable-next-line react/no-danger
+          dangerouslySetInnerHTML={{
+            __html: `!function(e){if(!window.pintrk){window.pintrk = function () {
+window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var
+  n=window.pintrk;n.queue=[],n.version="3.0";var
+  t=document.createElement("script");t.async=!0,t.src=e;var
+  r=document.getElementsByTagName("script")[0];
+  r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js");
+pintrk('load', '${PINTEREST_TAG_ID}');
+pintrk('page');`,
+          }}
+        />
+        {/* End Pinterest Tag */}
       </head>
       <body>
+        {/* Google Tag Manager (noscript) — immediately after the opening <body> tag. */}
+        <noscript>
+          <iframe
+            title="gtm"
+            src={`https://www.googletagmanager.com/ns.html?id=${GTM_ID}`}
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          />
+        </noscript>
+        {/* End Google Tag Manager (noscript) */}
+        {/* Pinterest Tag (noscript) */}
+        <noscript>
+          <img
+            height="1"
+            width="1"
+            style={{ display: "none" }}
+            alt=""
+            src={`https://ct.pinterest.com/v3/?event=init&tid=${PINTEREST_TAG_ID}&noscript=1`}
+          />
+        </noscript>
+        {/* End Pinterest Tag (noscript) */}
         {children}
         <Scripts />
       </body>
     </html>
   );
+}
+
+function PinterestEnhancedMatch() {
+  const { user } = useAuth();
+  useEffect(() => {
+    void setPinterestEnhancedMatch(user?.email);
+  }, [user?.email]);
+  return null;
 }
 
 function RootComponent() {
@@ -146,6 +206,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <GoogleAuthProvider>
         <AuthProvider>
+          <PinterestEnhancedMatch />
           <Outlet />
           <Toaster />
         </AuthProvider>
