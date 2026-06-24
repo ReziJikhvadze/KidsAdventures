@@ -1,4 +1,5 @@
 import type { BlogPost } from "./personalized-dinosaur-gift";
+import coverImage from "@/assets/theme-space.jpg";
 
 export const parentingBedtimeReading: BlogPost = {
   slug: "parenting-bedtime-reading-routine",
@@ -6,7 +7,17 @@ export const parentingBedtimeReading: BlogPost = {
   description:
     "Build a calmer bedtime routine with personalized children's books. Tips for parents on read-aloud time, screen-free wind-down, and adventure stories.",
   publishedAt: "2026-06-16",
+  updatedAt: "2026-06-24",
   readingTimeMinutes: 5,
+  coverImage,
+  coverImageAlt:
+    "Personalized space adventure storybook used for a calm screen-free bedtime reading routine",
+  keywords: [
+    "bedtime reading routine",
+    "personalized bedtime stories",
+    "screen-free bedtime",
+    "read aloud tips for parents",
+  ],
   intro:
     "Bedtime battles are a universal parenting challenge. A custom storybook starring your child can turn the last ten minutes of the day into something everyone looks forward to.",
   sections: [
@@ -34,6 +45,20 @@ export const parentingBedtimeReading: BlogPost = {
         "Long-distance parenting? Email the PDF to grandparents for bedtime read-aloud over FaceTime. Your child follows along with a printed copy — connection without another toy in the mail.",
         "Start with a free welcome preview on Adventrya Books tonight.",
       ],
+    },
+  ],
+  faqs: [
+    {
+      q: "How do personalized books help with bedtime?",
+      a: "A story starring your child creates a predictable, calming wind-down ritual kids look forward to. Because the hero is them, the book stays engaging across many re-reads — and you can switch themes when interest fades.",
+    },
+    {
+      q: "Is screen reading okay before bed?",
+      a: "For the calmest routine, print the PDF so bedtime stays fully offline and blue-light free. If you read on screen, use a distraction-free slideshow with no games or notifications and keep brightness low.",
+    },
+    {
+      q: "What's a good bedtime reading length for young kids?",
+      a: "Short and consistent beats long and occasional. A 6-page personalized story fits in about ten minutes — ideal for busy weeknights while still building a strong reading habit.",
     },
   ],
 };

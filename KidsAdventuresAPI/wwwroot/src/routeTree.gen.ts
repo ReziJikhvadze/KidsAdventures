@@ -24,6 +24,7 @@ import { Route as ThemesSlugRouteImport } from './routes/themes/$slug'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as BillingSuccessRouteImport } from './routes/billing/success'
 import { Route as BillingCancelRouteImport } from './routes/billing/cancel'
+import { Route as BlogAuthorIdRouteImport } from './routes/blog/author/$id'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
@@ -101,6 +102,11 @@ const BillingCancelRoute = BillingCancelRouteImport.update({
   path: '/billing/cancel',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlogAuthorIdRoute = BlogAuthorIdRouteImport.update({
+  id: '/blog/author/$id',
+  path: '/blog/author/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -118,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/themes/$slug': typeof ThemesSlugRoute
   '/blog/': typeof BlogIndexRoute
   '/themes/': typeof ThemesIndexRoute
+  '/blog/author/$id': typeof BlogAuthorIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -135,6 +142,7 @@ export interface FileRoutesByTo {
   '/themes/$slug': typeof ThemesSlugRoute
   '/blog': typeof BlogIndexRoute
   '/themes': typeof ThemesIndexRoute
+  '/blog/author/$id': typeof BlogAuthorIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -153,6 +161,7 @@ export interface FileRoutesById {
   '/themes/$slug': typeof ThemesSlugRoute
   '/blog/': typeof BlogIndexRoute
   '/themes/': typeof ThemesIndexRoute
+  '/blog/author/$id': typeof BlogAuthorIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -172,6 +181,7 @@ export interface FileRouteTypes {
     | '/themes/$slug'
     | '/blog/'
     | '/themes/'
+    | '/blog/author/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -189,6 +199,7 @@ export interface FileRouteTypes {
     | '/themes/$slug'
     | '/blog'
     | '/themes'
+    | '/blog/author/$id'
   id:
     | '__root__'
     | '/'
@@ -206,6 +217,7 @@ export interface FileRouteTypes {
     | '/themes/$slug'
     | '/blog/'
     | '/themes/'
+    | '/blog/author/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -224,6 +236,7 @@ export interface RootRouteChildren {
   ThemesSlugRoute: typeof ThemesSlugRoute
   BlogIndexRoute: typeof BlogIndexRoute
   ThemesIndexRoute: typeof ThemesIndexRoute
+  BlogAuthorIdRoute: typeof BlogAuthorIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -333,6 +346,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BillingCancelRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog/author/$id': {
+      id: '/blog/author/$id'
+      path: '/blog/author/$id'
+      fullPath: '/blog/author/$id'
+      preLoaderRoute: typeof BlogAuthorIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -352,6 +372,7 @@ const rootRouteChildren: RootRouteChildren = {
   ThemesSlugRoute: ThemesSlugRoute,
   BlogIndexRoute: BlogIndexRoute,
   ThemesIndexRoute: ThemesIndexRoute,
+  BlogAuthorIdRoute: BlogAuthorIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,11 +1,16 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { BlogArticle } from "@/components/blog/BlogArticle";
 import { BlogLayout } from "@/components/blog/BlogLayout";
 import { JsonLd } from "@/components/seo/JsonLd";
-import { getBlogPostBySlug } from "@/content/blog/index";
-import { buildPageMeta } from "@/lib/seo";
-import { buildBlogPostingSchema, buildBreadcrumbSchema } from "@/lib/structured-data";
+import { BLOG_POSTS, getBlogPostBySlug } from "@/content/blog/index";
+import { authorProfilePath, getAuthor } from "@/content/blog/authors";
+import { absoluteUrl, buildPageMeta } from "@/lib/seo";
+import {
+  buildBlogPostingSchema,
+  buildBreadcrumbSchema,
+  buildFaqSchema,
+} from "@/lib/structured-data";
 
 export const Route = createFileRoute("/blog/$slug")({
   head: ({ params }) => {
@@ -16,6 +21,9 @@ export const Route = createFileRoute("/blog/$slug")({
       description: post.description,
       path: `/blog/${post.slug}`,
       type: "article",
+      // Cover image drives the OG/Twitter card; preload it as the LCP element.
+      image: post.coverImage ? absoluteUrl(post.coverImage) : undefined,
+      preloadImage: post.coverImage,
     });
     return { meta, links };
   },
@@ -27,19 +35,33 @@ function BlogPostPage() {
   const post = getBlogPostBySlug(slug);
   if (!post) throw notFound();
 
+  const relatedPosts = BLOG_POSTS.filter((p) => p.slug !== post.slug).slice(0, 3);
+  const author = getAuthor(post.authorId);
+
+  const schemas: Record<string, unknown>[] = [
+    buildBlogPostingSchema({
+      ...post,
+      image: post.coverImage,
+      author: {
+        name: author.name,
+        url: absoluteUrl(authorProfilePath(author.id)),
+        sameAs: author.sameAs,
+      },
+    }),
+    buildBreadcrumbSchema([
+      { name: "Home", path: "/" },
+      { name: "Blog", path: "/blog" },
+      { name: post.title, path: `/blog/${post.slug}` },
+    ]),
+  ];
+  if (post.faqs?.length) {
+    schemas.push(buildFaqSchema(post.faqs));
+  }
+
   return (
     <BlogLayout>
-      <JsonLd
-        data={[
-          buildBlogPostingSchema(post),
-          buildBreadcrumbSchema([
-            { name: "Home", path: "/" },
-            { name: "Blog", path: "/blog" },
-            { name: post.title, path: `/blog/${post.slug}` },
-          ]),
-        ]}
-      />
-      <BlogArticle post={post} />
+      <JsonLd data={schemas} />
+      <BlogArticle post={post} relatedPosts={relatedPosts} />
     </BlogLayout>
   );
 }

@@ -17,6 +17,8 @@ export type PageMetaInput = {
   image?: string;
   noindex?: boolean;
   type?: "website" | "article";
+  /** Preload the above-the-fold LCP image so paint is not blocked by render+fetch. */
+  preloadImage?: string;
 };
 
 export type PageMetaResult = {
@@ -26,7 +28,13 @@ export type PageMetaResult = {
     | { property: string; content: string }
     | { charSet: string }
   >;
-  links: Array<{ rel: string; href: string; type?: string; crossOrigin?: string }>;
+  links: Array<{
+    rel: string;
+    href: string;
+    type?: string;
+    crossOrigin?: string;
+    as?: string;
+  }>;
 };
 
 export function absoluteUrl(path = "/"): string {
@@ -42,6 +50,7 @@ export function buildPageMeta({
   image = DEFAULT_OG_IMAGE,
   noindex = false,
   type = "website",
+  preloadImage,
 }: PageMetaInput): PageMetaResult {
   const canonical = absoluteUrl(path);
   const meta: PageMetaResult["meta"] = [
@@ -64,10 +73,12 @@ export function buildPageMeta({
     meta.push({ name: "robots", content: "noindex, nofollow" });
   }
 
-  return {
-    meta,
-    links: [{ rel: "canonical", href: canonical }],
-  };
+  const links: PageMetaResult["links"] = [{ rel: "canonical", href: canonical }];
+  if (preloadImage) {
+    links.push({ rel: "preload", href: preloadImage, as: "image" });
+  }
+
+  return { meta, links };
 }
 
 export function buildRootMeta(): PageMetaResult {

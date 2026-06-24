@@ -1,4 +1,5 @@
-import { BLOG_POSTS } from "@/content/blog/index";
+import { BLOG_POSTS, getAuthorIdsWithPosts } from "@/content/blog/index";
+import { authorProfilePath } from "@/content/blog/authors";
 import { STORY_THEMES } from "@/lib/themes";
 import { SITE_URL } from "@/lib/seo";
 
@@ -33,7 +34,13 @@ export function getSitemapEntries(): SitemapEntry[] {
     priority: "0.7",
   }));
 
-  return [...STATIC_ENTRIES, ...themeEntries, ...blogEntries];
+  const authorEntries: SitemapEntry[] = getAuthorIdsWithPosts().map((id) => ({
+    path: authorProfilePath(id),
+    changefreq: "monthly" as const,
+    priority: "0.5",
+  }));
+
+  return [...STATIC_ENTRIES, ...themeEntries, ...blogEntries, ...authorEntries];
 }
 
 export function buildSitemapXml(lastmod = new Date().toISOString().slice(0, 10)): string {

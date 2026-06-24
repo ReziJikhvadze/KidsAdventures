@@ -1,4 +1,5 @@
 import type { BlogPost } from "./personalized-dinosaur-gift";
+import coverImage from "@/assets/hero.jpg";
 
 export const bestPersonalizedChildrensBooks: BlogPost = {
   slug: "best-personalized-childrens-books",
@@ -6,7 +7,18 @@ export const bestPersonalizedChildrensBooks: BlogPost = {
   description:
     "Shopping for custom kids books or adventure storybooks? Compare photo books, name books, and illustrated PDFs — and what makes a great personalized children's book gift.",
   publishedAt: "2026-06-16",
+  updatedAt: "2026-06-24",
   readingTimeMinutes: 7,
+  authorId: "rezi",
+  coverImage,
+  coverImageAlt:
+    "Open personalized children's adventure book with custom illustrations starring a child as the hero",
+  keywords: [
+    "best personalized children's books",
+    "custom storybooks for kids",
+    "personalized name books",
+    "personalized book gift",
+  ],
   intro:
     "Search for 'personalized children's books' or 'custom storybooks for kids' and you will find dozens of options. Here is how to pick one your child will actually read.",
   sections: [
@@ -40,6 +52,20 @@ export const bestPersonalizedChildrensBooks: BlogPost = {
         "Parents tired of toy clutter love printable storybooks. Download once, print at home, gift the PDF to family — no shipping wait, no plastic packaging.",
         "Create your free preview at adventrya.com — takes about a minute.",
       ],
+    },
+  ],
+  faqs: [
+    {
+      q: "What makes a personalized children's book worth buying?",
+      a: "The best personalized children's books weave your child's name, age, and interests into the actual plot — not just the cover — and offer illustrations that resemble your child. A free preview before paying is a strong sign of quality.",
+    },
+    {
+      q: "Are personalized books better than name books?",
+      a: "Name books simply insert a name into a template. Story-driven personalized books make your child the hero of the adventure, which keeps kids re-reading. For engagement and gifting, story-based books win.",
+    },
+    {
+      q: "How much should a personalized children's book cost?",
+      a: "Prices range widely. Adventrya Books keeps the full story free to read and charges a one-time $4.99 to unlock the complete illustrated book, with a free printable PDF — far less than typical $30–40 physical custom books.",
     },
   ],
 };

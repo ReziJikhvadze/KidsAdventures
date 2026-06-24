@@ -20,3 +20,13 @@ export const BLOG_POSTS: BlogPost[] = [
 export function getBlogPostBySlug(slug: string): BlogPost | undefined {
   return BLOG_POSTS.find((post) => post.slug === slug);
 }
+
+/** Posts written by an author. Posts with no `authorId` count as the editorial team. */
+export function getPostsByAuthor(authorId: string): BlogPost[] {
+  return BLOG_POSTS.filter((post) => (post.authorId ?? "editorial") === authorId);
+}
+
+/** Author ids that have at least one published post (for routing/sitemaps). */
+export function getAuthorIdsWithPosts(): string[] {
+  return Array.from(new Set(BLOG_POSTS.map((post) => post.authorId ?? "editorial")));
+}

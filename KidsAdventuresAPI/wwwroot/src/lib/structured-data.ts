@@ -1,6 +1,21 @@
-import { BRAND_NAME, BRAND_SOCIAL_LINKS, BRAND_TAGLINE } from "@/lib/brand";
+import { BRAND_LOGO_URL, BRAND_NAME, BRAND_SOCIAL_LINKS, BRAND_TAGLINE } from "@/lib/brand";
 import { LEGAL_CONTACT_EMAILS } from "@/lib/legal";
-import { absoluteUrl, ORGANIZATION_CONTACT_EMAIL, SITE_URL } from "@/lib/seo";
+import { absoluteUrl, DEFAULT_OG_IMAGE, ORGANIZATION_CONTACT_EMAIL, SITE_URL } from "@/lib/seo";
+
+const DEFAULT_AUTHOR = `${BRAND_NAME} Editorial Team`;
+
+/** Reusable Organization publisher block — Article rich results REQUIRE publisher.logo. */
+function publisherNode() {
+  return {
+    "@type": "Organization",
+    name: BRAND_NAME,
+    url: SITE_URL,
+    logo: {
+      "@type": "ImageObject",
+      url: absoluteUrl(BRAND_LOGO_URL),
+    },
+  };
+}
 
 export function buildWebSiteSchema() {
   return {
@@ -69,25 +84,98 @@ export function buildBlogPostingSchema(post: {
   title: string;
   description: string;
   publishedAt: string;
+  updatedAt?: string;
   readingTimeMinutes: number;
+  intro?: string;
+  sections?: { heading?: string; paragraphs: string[]; bullets?: string[] }[];
+  author?: { name: string; url?: string; sameAs?: string[] };
+  keywords?: string[];
+  image?: string;
 }) {
+  // Flatten the post body so Google sees the full article text, word count, and reading time.
+  const bodyParts: string[] = [];
+  if (post.intro) bodyParts.push(post.intro);
+  for (const section of post.sections ?? []) {
+    if (section.heading) bodyParts.push(section.heading);
+    bodyParts.push(...section.paragraphs);
+    if (section.bullets) bodyParts.push(...section.bullets);
+  }
+  const articleBody = bodyParts.join("\n\n");
+  const wordCount = articleBody ? articleBody.split(/\s+/).filter(Boolean).length : undefined;
+
   return {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
     headline: post.title,
     description: post.description,
     datePublished: post.publishedAt,
-    author: {
-      "@type": "Organization",
-      name: BRAND_NAME,
+    dateModified: post.updatedAt ?? post.publishedAt,
+    image: post.image
+      ? post.image.startsWith("http")
+        ? post.image
+        : absoluteUrl(post.image)
+      : DEFAULT_OG_IMAGE,
+    author: post.author
+      ? {
+          "@type": "Person",
+          name: post.author.name,
+          ...(post.author.url ? { url: post.author.url } : {}),
+          ...(post.author.sameAs?.length ? { sameAs: post.author.sameAs } : {}),
+        }
+      : {
+          "@type": "Organization",
+          name: DEFAULT_AUTHOR,
+          url: SITE_URL,
+        },
+    publisher: publisherNode(),
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": absoluteUrl(`/blog/${post.slug}`),
     },
-    publisher: {
-      "@type": "Organization",
-      name: BRAND_NAME,
-      url: SITE_URL,
-    },
-    mainEntityOfPage: absoluteUrl(`/blog/${post.slug}`),
     timeRequired: `PT${post.readingTimeMinutes}M`,
+    ...(articleBody ? { articleBody } : {}),
+    ...(wordCount ? { wordCount } : {}),
+    ...(post.keywords?.length ? { keywords: post.keywords.join(", ") } : {}),
+  };
+}
+
+export function buildProfilePageSchema(input: {
+  path: string;
+  name: string;
+  description: string;
+  /** Person.knowsAbout — topics that establish topical authority. */
+  knowsAbout?: string[];
+  sameAs?: string[];
+  /** Headlines the author has written, surfaced as ListItems. */
+  posts?: { title: string; slug: string }[];
+}) {
+  const profileUrl = absoluteUrl(input.path);
+  return {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    url: profileUrl,
+    mainEntity: {
+      "@type": "Person",
+      name: input.name,
+      description: input.description,
+      url: profileUrl,
+      ...(input.knowsAbout?.length ? { knowsAbout: input.knowsAbout } : {}),
+      ...(input.sameAs?.length ? { sameAs: input.sameAs } : {}),
+      worksFor: {
+        "@type": "Organization",
+        name: BRAND_NAME,
+        url: SITE_URL,
+      },
+    },
+    ...(input.posts?.length
+      ? {
+          hasPart: input.posts.map((post) => ({
+            "@type": "BlogPosting",
+            headline: post.title,
+            url: absoluteUrl(`/blog/${post.slug}`),
+          })),
+        }
+      : {}),
   };
 }
 
@@ -127,11 +215,13 @@ export function buildThemeProductSchema(theme: {
       "@type": "Brand",
       name: BRAND_NAME,
     },
+    // Single fixed price ($4.99). Use Offer.price — `lowPrice` is only valid on AggregateOffer
+    // and the value MUST match the on-page price or Google flags the rich result.
     offers: {
       "@type": "Offer",
       url: absoluteUrl(`/themes/${theme.slug}`),
       priceCurrency: "USD",
-      lowPrice: "14.99",
+      price: "4.99",
       availability: "https://schema.org/InStock",
     },
   };
