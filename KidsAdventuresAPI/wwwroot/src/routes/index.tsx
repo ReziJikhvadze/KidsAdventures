@@ -57,8 +57,8 @@ function Landing() {
       />
       <Nav />
       <main>
-        <Hero />
         <Generator initialTheme={initialTheme} />
+        <Hero />
         <Themes />
         <Preview />
         <Benefits />

@@ -42,7 +42,32 @@ import {
   Users,
   Gift,
   ChevronDown,
+  BookOpenText,
 } from "lucide-react";
+
+type HowItWorksStep = {
+  icon: typeof User;
+  title: string;
+  desc: string;
+};
+
+const HOW_IT_WORKS: HowItWorksStep[] = [
+  {
+    icon: User,
+    title: "Tell us about them",
+    desc: "Name, age and a favorite theme. Add a photo to make your child the hero.",
+  },
+  {
+    icon: Wand2,
+    title: "We bring it to life",
+    desc: "A one-of-a-kind story, written and illustrated in about a minute.",
+  },
+  {
+    icon: BookOpenText,
+    title: "Read & keep it",
+    desc: "Enjoy the free preview, then unlock and print the full picture book.",
+  },
+];
 
 const THEME_ICONS = {
   airplanes: Plane,
@@ -709,27 +734,77 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     (fullyIllustrated || (isWelcomeGiftStory && storyPages.some((p) => p.isIllustrated)));
   const hasBookCredit = (user?.bookCredits ?? 0) > 0;
 
+  // Drives the "How it works" band as a live progress tracker.
+  const isGenerating =
+    status === "generatingStory" ||
+    status === "generatingGuest" ||
+    status === "illustrating" ||
+    status === "generatingPdf";
+  const hasResult = status === "guestReady" || status === "storyReady" || status === "done";
+  const activeStep = hasResult ? 2 : isGenerating ? 1 : 0;
+
   return (
     <>
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} onSuccess={handleAuthSuccess} />
-      <section id="generator" className="relative py-16 md:py-24 lg:py-32 scroll-mt-20">
+      <section
+        id="generator"
+        className="relative pt-10 md:pt-14 lg:pt-20 pb-16 md:pb-24 lg:pb-28 scroll-mt-20"
+      >
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="max-w-2xl">
-            <p className="text-sm font-semibold text-primary tracking-wide uppercase">
+          <div className="max-w-2xl mx-auto text-center">
+            <p className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary tracking-wide uppercase">
+              <Sparkles className="h-3.5 w-3.5" />
               Create your book
             </p>
-            <h2 className="mt-3 font-display text-3xl sm:text-4xl md:text-5xl font-bold text-balance">
+            <h1 className="mt-4 font-display text-4xl sm:text-5xl md:text-6xl font-bold text-balance leading-[1.05]">
               A personalized story in minutes.
-            </h2>
-            <p className="mt-4 text-muted-foreground">
-              Name, age, and theme. The story is free — your first book includes 1 free illustrated
-              page, and you can unlock the whole picture book for $4.99.
+            </h1>
+            <p className="mt-4 text-base sm:text-lg text-muted-foreground text-pretty">
+              Tell us about your child and we'll turn them into the hero of their own illustrated
+              adventure — free to preview, ready to read in about a minute.
             </p>
+            {/* Trust row — social proof + reassurance right under the headline to lift conversion */}
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="flex items-center gap-0.5">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Star
+                      key={i}
+                      className="h-4 w-4 fill-[color:var(--sun)] text-[color:var(--sun)]"
+                    />
+                  ))}
+                </span>
+                Loved by parents
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Check className="h-4 w-4 text-primary" />
+                Free preview — no account needed
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Check className="h-4 w-4 text-primary" />
+                Printable PDF free
+              </span>
+            </div>
           </div>
 
-          <div className="mt-12 grid lg:grid-cols-[1.1fr_1fr] gap-6 lg:gap-8 items-start">
+          <div className="mt-10 grid lg:grid-cols-[1.1fr_1fr] gap-6 lg:gap-8 items-start">
             {/* Form */}
-            <div className="rounded-3xl bg-card border border-border shadow-card p-4 sm:p-6 md:p-10">
+            <div className="min-w-0 rounded-3xl bg-card border border-border shadow-card p-5 sm:p-7 md:p-10">
+              {/* Guided header inside the form so the tool feels like a clear first step */}
+              <div className="flex items-center gap-3 pb-5 mb-6 border-b border-border">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                  <Wand2 className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <div className="font-display text-lg font-semibold leading-tight">
+                    Build your storybook
+                  </div>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Just the basics to start — the live preview updates as you fill it in.
+                  </p>
+                </div>
+              </div>
+
               {/* Name + Age */}
               <div className="grid grid-cols-1 sm:grid-cols-[2fr_1fr] gap-4">
                 <div>
@@ -1045,23 +1120,70 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                   Still needed: {missingRequirements.join(" · ")}
                 </p>
               )}
-              <p className="mt-3 text-xs text-muted-foreground text-center">
-                Story free · 1 free illustrated page · Unlock the rest for $4.99 · PDF free
-              </p>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                {["Story free", "1 illustrated page free", "Full book $4.99", "PDF free"].map(
+                  (chip) => (
+                    <span
+                      key={chip}
+                      className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+                    >
+                      <Check className="h-3 w-3 text-primary" />
+                      {chip}
+                    </span>
+                  ),
+                )}
+              </div>
             </div>
 
             {/* Preview / Result */}
-            <div ref={previewRef} className="lg:sticky lg:top-24">
-              <div className="relative rounded-3xl border border-border bg-secondary/40 p-4 sm:p-6 md:p-8 min-h-[240px] sm:min-h-[320px] lg:min-h-[460px] overflow-hidden">
-                <div className="absolute inset-0 bg-hero-glow opacity-60 pointer-events-none" />
+            <div ref={previewRef} className="min-w-0 lg:sticky lg:top-24">
+              <div className="relative rounded-3xl border border-border bg-gradient-to-b from-card to-secondary/30 p-4 sm:p-6 md:p-8 min-h-[240px] sm:min-h-[320px] lg:min-h-[460px] overflow-hidden">
+                {/* Decorative backdrop — a soft theme-aware halo over a faint dot grid */}
+                <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                  <div className="absolute inset-0 bg-grid opacity-40" />
+                  <div
+                    className="absolute -top-20 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full blur-3xl opacity-50 transition-colors"
+                    style={{
+                      background: selectedTheme
+                        ? `radial-gradient(circle, color-mix(in oklab, ${selectedTheme.tint} 65%, transparent), transparent 70%)`
+                        : "radial-gradient(circle, color-mix(in oklab, var(--primary) 28%, transparent), transparent 70%)",
+                    }}
+                  />
+                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-secondary/40 to-transparent" />
+                </div>
 
                 {status === "idle" && (
                   <div className="relative h-full flex flex-col items-center justify-center text-center py-10 animate-rise">
-                    <div className="h-40 w-32 rounded-xl bg-card border border-border shadow-card grid place-items-center font-display text-muted-foreground rotate-[-4deg]">
-                      Preview
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <Sparkles className="h-3 w-3 text-primary" />
+                      Live preview
+                    </span>
+                    <div className="relative mt-5">
+                      <div
+                        className="h-44 w-36 rounded-2xl border border-border bg-card shadow-card grid place-items-center overflow-hidden"
+                        style={
+                          selectedTheme
+                            ? { background: `color-mix(in oklab, ${selectedTheme.tint} 22%, var(--card))` }
+                            : undefined
+                        }
+                      >
+                        {childPhoto ? (
+                          <img src={childPhoto} alt="" className="h-full w-full object-cover" />
+                        ) : selectedTheme ? (
+                          (() => {
+                            const ThemeIcon = THEME_ICONS[selectedTheme.id];
+                            return <ThemeIcon className="h-12 w-12 text-primary" />;
+                          })()
+                        ) : (
+                          <BookOpenText className="h-10 w-10 text-muted-foreground" />
+                        )}
+                      </div>
+                      <span className="absolute -bottom-2 left-1/2 h-3 w-24 -translate-x-1/2 rounded-full bg-foreground/5 blur-sm" />
                     </div>
                     <p className="mt-6 text-sm text-muted-foreground max-w-xs">
-                      Fill in your child's details to see a live preview of their adventure pack.
+                      {name
+                        ? `${name}'s cover and first page will appear here.`
+                        : "Add your child's details — their cover and first page appear here."}
                     </p>
                     {ENABLE_STORY_CAST && completeCast.length > 0 && (
                       <div className="mt-5 w-full max-w-sm rounded-xl bg-card border border-border p-3 text-left animate-rise">
@@ -1319,6 +1441,76 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* How it works — doubles as a live progress tracker driven by `activeStep` */}
+          <div className="mt-14 max-w-4xl mx-auto">
+            <p className="text-center text-sm font-semibold text-primary tracking-wide uppercase">
+              How it works
+            </p>
+            <ol className="mt-5 grid gap-4 sm:grid-cols-3 sm:gap-5">
+              {HOW_IT_WORKS.map((step, index) => {
+                const StepIcon = step.icon;
+                const isLast = index === HOW_IT_WORKS.length - 1;
+                const done = index < activeStep;
+                const active = index === activeStep;
+                return (
+                  <li
+                    key={step.title}
+                    aria-current={active ? "step" : undefined}
+                    className={`relative rounded-2xl border p-5 flex items-start gap-4 transition-colors ${
+                      active
+                        ? "border-primary bg-primary/5 ring-4 ring-primary/10"
+                        : done
+                          ? "border-primary/30 bg-card"
+                          : "border-border bg-card"
+                    }`}
+                  >
+                    <span className="relative shrink-0">
+                      <span
+                        className={`grid h-11 w-11 place-items-center rounded-xl transition-colors ${
+                          done || active
+                            ? "bg-primary/10 text-primary"
+                            : "bg-secondary text-muted-foreground"
+                        }`}
+                      >
+                        {active && isGenerating ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <StepIcon className="h-5 w-5" />
+                        )}
+                      </span>
+                      <span
+                        className={`absolute -top-2 -left-2 grid h-5 w-5 place-items-center rounded-full text-[11px] font-bold transition-colors ${
+                          done || active
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-border text-muted-foreground"
+                        }`}
+                      >
+                        {done ? <Check className="h-3 w-3" /> : index + 1}
+                      </span>
+                    </span>
+                    <div className="min-w-0">
+                      <div
+                        className={`font-display font-semibold leading-tight transition-colors ${
+                          active || done ? "text-foreground" : "text-muted-foreground"
+                        }`}
+                      >
+                        {step.title}
+                      </div>
+                      <p className="mt-1 text-sm text-muted-foreground">{step.desc}</p>
+                    </div>
+                    {!isLast && (
+                      <ChevronDown
+                        className={`hidden sm:block absolute -right-3.5 top-1/2 -translate-y-1/2 h-5 w-5 -rotate-90 transition-colors ${
+                          done ? "text-primary/40" : "text-border"
+                        }`}
+                      />
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
           </div>
         </div>
       </section>
