@@ -329,6 +329,7 @@ public sealed class AdventurePacksController(
                 return new StoryPageContentDto
                 {
                     Title = p.Title,
+                    Caption = p.Caption,
                     Content = p.Content,
                     IsIllustrated = isIllustrated,
                     IllustrationUrl = isIllustrated

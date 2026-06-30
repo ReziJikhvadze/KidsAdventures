@@ -206,12 +206,16 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
   const previewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (status === "generatingStory" || status === "generatingGuest") {
+    // On mobile the preview sits below the long form. Only reveal it once there's something to SEE
+    // (a finished result), and use block:"nearest" so the page eases to it instead of yanking.
+    const resultReady =
+      status === "guestReady" || status === "storyReady" || status === "done";
+    if (resultReady) {
       previewRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   }, [status]);
 
-  const ageValid = typeof age === "number" && !Number.isNaN(age) && age >= 3 && age <= 12;
+  const ageValid = typeof age === "number" && !Number.isNaN(age) && age > 0;
 
   const missingRequirements: string[] = [];
   if (!name.trim()) missingRequirements.push("child's name");
@@ -272,9 +276,6 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
   const runGeneration = async () => {
     if (!valid || !theme) return;
 
-    // The user's first book includes 1 free illustrated sample page (the welcome perk for registering).
-    const freeSample = (user?.welcomeStoryRemaining ?? 0) > 0;
-
     setStatus("generatingStory");
     setProgress(5);
     setProgressMessage("Saving your hero…");
@@ -282,7 +283,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     setCompletedPackId(null);
     setStoryTitle(null);
     setStoryPages([]);
-    setIsWelcomeGiftStory(freeSample);
+    setIsWelcomeGiftStory(false);
 
     try {
       const apiTheme = THEME_ID_TO_API[theme];
@@ -336,7 +337,12 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       setPackTheme(finished.theme);
       setPreviewIllustrationStatus(finished.previewIllustrationStatus ?? "None");
 
-      if (freeSample) {
+      // The backend is the single source of truth for whether this book got the free welcome page —
+      // never the cached welcomeStoryRemaining (which can be stale and make us poll forever).
+      const giftStory = finished.isWelcomeGiftStory ?? false;
+      setIsWelcomeGiftStory(giftStory);
+
+      if (giftStory) {
         // Wait for the free sample illustration so the parent sees their child illustrated for free.
         setStatus("illustrating");
         setProgress(45);
@@ -348,12 +354,12 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
               if (pack.progressMessage) setProgressMessage(pack.progressMessage);
               setProgress(adventurePacksApi.computePackProgressPercent(pack));
             },
-            { untilPagesIllustrated: 1, maxAttempts: 200 },
+            { untilPagesIllustrated: 1, maxAttempts: 60 },
           );
           setStoryPages(sampled.storyPages ?? finished.storyPages ?? []);
           setPreviewIllustrationStatus(sampled.previewIllustrationStatus ?? "None");
         } catch {
-          // Sample still cooking — show the text now; the pages will fill in from My Books.
+          // Sample still cooking — show the text now; the page fills in from My Books.
         }
       }
 
@@ -361,13 +367,13 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       setStatus("storyReady");
       await refreshAccountBalance();
       notify.success(
-        freeSample
+        giftStory
           ? "Your story is ready — with 1 free illustrated page!"
-          : "Your personalized story is ready to read — free!",
+          : "Your story is ready to read — free!",
         {
-          description: freeSample
-            ? "Enjoy your free sample page, then unlock the full illustrated book for $4.99."
-            : "Read every page below, then unlock the illustrations to bring it to life.",
+          description: giftStory
+            ? "Enjoy your free page, then unlock the full illustrated book for $4.99."
+            : "Read every page, then unlock illustrations to bring it to life.",
         },
       );
     } catch (err) {
@@ -507,12 +513,12 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
               if (p.progressMessage) setProgressMessage(p.progressMessage);
               setProgress(adventurePacksApi.computePackProgressPercent(p));
             },
-            { untilPagesIllustrated: 1, maxAttempts: 200 },
+            { untilPagesIllustrated: 1, maxAttempts: 60 },
           );
           setStoryPages(pack.storyPages ?? []);
           setPreviewIllustrationStatus(pack.previewIllustrationStatus ?? "None");
         } catch {
-          /* Sample still cooking — the page will fill in from My Books. */
+          /* Sample still cooking — the page fills in from My Books. */
         }
       }
 
@@ -712,13 +718,12 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
             <p className="text-sm font-semibold text-primary tracking-wide uppercase">
               Create your book
             </p>
-            <h2 className="mt-3 font-display text-4xl md:text-5xl font-bold text-balance">
+            <h2 className="mt-3 font-display text-3xl sm:text-4xl md:text-5xl font-bold text-balance">
               A personalized story in minutes.
             </h2>
             <p className="mt-4 text-muted-foreground">
-              Name, age, and theme — we write the full personalized story for free, and your first book
-              comes with 1 free illustrated page. Unlock the whole illustrated book for $4.99 when you
-              love it (PDF export is free).
+              Name, age, and theme. The story is free — your first book includes 1 free illustrated
+              page, and you can unlock the whole picture book for $4.99.
             </p>
           </div>
 
@@ -741,8 +746,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                   <label className="text-sm font-semibold">Age</label>
                   <input
                     type="number"
-                    min={3}
-                    max={12}
+                    min={1}
                     value={age}
                     onChange={(e) => setAge(e.target.value ? Number(e.target.value) : "")}
                     placeholder="Age"
@@ -755,8 +759,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
               <div className="mt-6">
                 <label className="text-sm font-semibold">Choose a theme</label>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Airplanes, dinosaurs, space, pirates, or animals — pick one world for the whole
-                  book.
+                  Pick one world for the whole book.
                 </p>
                 <div className="mt-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
                   {STORY_THEMES.map((t) => {
@@ -808,9 +811,8 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                   <div className="flex-1 min-w-0 w-full">
                     <div className="text-sm font-semibold">Photo of your child (hero)</div>
                     <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                      Strongly recommended — we turn this into a cartoon hero that matches the
-                      face, hair, skin tone, and age in your photo. Use a clear front-facing JPG or PNG
-                      (not a screenshot). Friends and family should recognize them instantly.
+                      Recommended — we turn it into a cartoon hero that looks like your child. Use a
+                      clear, front-facing photo.
                     </p>
                     <div className="mt-2 flex flex-wrap items-center justify-center sm:justify-start gap-2">
                       <PhotoPickerActions
@@ -988,7 +990,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                     ))}
                   </select>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    The full story is written in the language you choose — English, Spanish, Chinese, or Russian.
+                    The whole story is written in this language.
                   </p>
                 </div>
                 <div className="sm:col-span-1">
@@ -1005,7 +1007,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                     className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition resize-none"
                   />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Be specific — these wishes are woven into the story on multiple pages (not just the title).
+                    Woven into the story across pages.
                   </p>
                 </div>
               </div>
@@ -1044,7 +1046,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 </p>
               )}
               <p className="mt-3 text-xs text-muted-foreground text-center">
-                Full story free · 1 free illustrated page on your first book · Unlock the rest for $4.99 · PDF export free
+                Story free · 1 free illustrated page · Unlock the rest for $4.99 · PDF free
               </p>
             </div>
 
@@ -1129,21 +1131,20 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                               ? "Painting your illustrations…"
                               : "Writing your story…")}
                       </p>
-                      <div className="mt-4 rounded-xl bg-card/80 border border-border p-3 text-left text-xs text-muted-foreground space-y-2">
+                      <div className="mt-4 rounded-xl bg-card/80 border border-border p-3 text-left text-xs text-muted-foreground">
                         {status === "generatingGuest" ? (
                           <p>
-                            <strong className="text-foreground">Creating your child's adventure.</strong>{" "}
-                            This takes about a minute — please keep this page open. You'll see the
-                            cover and first page, then sign in to continue.
+                            <strong className="text-foreground">Keep this page open</strong> — about a
+                            minute. You'll see the cover and first page.
                           </p>
                         ) : (
                           <p>
-                            <strong className="text-foreground">You can leave this page.</strong>{" "}
-                            We save every book under{" "}
+                            <strong className="text-foreground">You can leave this page.</strong> Find
+                            every book in{" "}
                             <Link to="/my-packs" className="text-primary font-semibold underline">
                               My Books
                             </Link>
-                            . We will email you when your illustrated story or PDF is ready.
+                            .
                           </p>
                         )}
                       </div>
@@ -1185,8 +1186,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                         Save {name || "your child"}&apos;s story to keep reading
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Create a free account and your first illustrated page is on us — then unlock the full
-                        book for $4.99.
+                        Free account — your first illustrated page is on us.
                       </p>
                       <button
                         type="button"
@@ -1244,8 +1244,8 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                           </button>
                           <p className="text-center text-xs text-muted-foreground">
                             {isWelcomeGiftStory
-                              ? `Loved the free page? Export a preview PDF now, or buy the book to see ${name || "your child"} illustrated on every page.`
-                              : `See ${name || "your child"} fully illustrated across every page, then export a free PDF.`}
+                              ? `Unlock to see ${name || "your child"} on every page.`
+                              : `See ${name || "your child"} illustrated on every page.`}
                           </p>
                         </>
                       )}

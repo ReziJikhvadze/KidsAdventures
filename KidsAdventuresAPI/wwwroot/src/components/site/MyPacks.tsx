@@ -336,8 +336,8 @@ export function MyPacks() {
                 <p className="text-sm font-semibold text-primary uppercase tracking-wide">Your library</p>
                 <h2 className="font-display text-3xl font-bold tracking-tight mt-0.5">My Books</h2>
                 <p className="text-muted-foreground mt-2 max-w-xl text-sm">
-                  Read every story for free. <strong className="text-foreground">Unlock illustrations</strong> for $4.99
-                  per book — PDF export is always free.
+                  Read every story free. <strong className="text-foreground">Unlock illustrations</strong> for $4.99
+                  per book.
                 </p>
               </div>
             </div>
@@ -372,8 +372,8 @@ export function MyPacks() {
                 </p>
                 <p className="text-sm text-amber-950/80 mt-0.5">
                   {user && user.bookCredits > 0
-                    ? `${user.bookCredits} credit${user.bookCredits === 1 ? "" : "s"} ready — each unlocks the illustrations for one book. PDF export is always free.`
-                    : "Writing stories is free. Buy a $4.99 book credit to unlock the illustrations for any story."}
+                    ? `${user.bookCredits} credit${user.bookCredits === 1 ? "" : "s"} ready — each unlocks one book.`
+                    : "Stories are free. A $4.99 credit unlocks the illustrations."}
                 </p>
               </div>
               {isLoading || !user ? (
@@ -399,8 +399,8 @@ export function MyPacks() {
               <div className="rounded-2xl border border-border bg-card px-4 py-3 shadow-sm flex flex-col justify-center">
                 <p className="text-xs text-muted-foreground">
                   {user.bookCredits > 0
-                    ? `${user.bookCredits} book credit${user.bookCredits === 1 ? "" : "s"} ready — each unlocks the illustrations for one story.`
-                    : "Write stories for free, then unlock illustrations for $4.99 per book whenever you're ready."}
+                    ? `${user.bookCredits} book credit${user.bookCredits === 1 ? "" : "s"} ready.`
+                    : "Unlock illustrations for $4.99 per book."}
                 </p>
                 {user.bookCredits === 0 && (
                   <Link
@@ -603,7 +603,7 @@ export function MyPacks() {
                         </p>
                         {awaitingUnlock && (
                           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
-                            Free text · illustrations locked
+                            Illustrations locked
                           </span>
                         )}
                       </div>

@@ -52,7 +52,8 @@ export function Grandparents() {
             </div>
           </div>
 
-          {/* Visual card */}
+          {/* Visual card — "Family Keepsake" mock commented out for now: implies a $24.99 20-page premium physical book we don't currently sell. */}
+          {/*
           <div className="relative">
             <div
               className="absolute inset-0 -z-10 rounded-[2.5rem] opacity-60 blur-3xl"
@@ -88,6 +89,7 @@ export function Grandparents() {
               </div>
             </div>
           </div>
+          */}
         </div>
       </div>
     </section>

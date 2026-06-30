@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  BookOpen,
   ChevronLeft,
   ChevronRight,
   Loader2,
@@ -25,17 +26,33 @@ import { THEME_TINTS } from "@/lib/story/themeTints";
 import { cn } from "@/lib/utils";
 
 const FONT_SIZE_KEY = "storybook-font-size";
-const FULL_BOOK_PAGE_COUNT = 6;
 
 type FontSize = "sm" | "md" | "lg";
 type ReaderVariant = "default" | "fullscreen";
 
 // Sizes scale up at the `sm` breakpoint so phones stay legible/uncramped while desktop keeps the larger type.
-const FONT_SIZE_STYLES: Record<FontSize, { body: string; title: string }> = {
-  sm: { body: "text-[13px] sm:text-sm leading-relaxed", title: "text-base sm:text-lg" },
-  md: { body: "text-sm sm:text-base leading-relaxed", title: "text-lg sm:text-xl" },
-  lg: { body: "text-base sm:text-lg leading-relaxed", title: "text-xl sm:text-2xl" },
+const FONT_SIZE_STYLES: Record<FontSize, { body: string; title: string; caption: string }> = {
+  sm: {
+    body: "text-[13px] sm:text-sm leading-relaxed",
+    title: "text-base sm:text-lg",
+    caption: "text-lg sm:text-2xl",
+  },
+  md: {
+    body: "text-sm sm:text-base leading-relaxed",
+    title: "text-lg sm:text-xl",
+    caption: "text-xl sm:text-3xl",
+  },
+  lg: {
+    body: "text-base sm:text-lg leading-relaxed",
+    title: "text-xl sm:text-2xl",
+    caption: "text-2xl sm:text-4xl",
+  },
 };
+
+/** New-style pages carry a short caption shown on the image; legacy packs fall back to the text panel. */
+function pageCaption(page: StoryPageContent): string {
+  return page.caption?.trim() ?? "";
+}
 
 export type StoryBookReaderProps = {
   pages: StoryPageContent[];
@@ -71,6 +88,35 @@ function isPublicIllustrationUrl(url: string): boolean {
   );
 }
 
+function CaptionOverlay({
+  caption,
+  pageIndex,
+  totalPages,
+  captionClassName,
+}: {
+  caption: string;
+  pageIndex: number;
+  totalPages: number;
+  captionClassName: string;
+}) {
+  if (!caption) return null;
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col justify-end rounded-b-2xl bg-gradient-to-t from-black/80 via-black/45 to-transparent px-4 pb-4 pt-12 sm:px-6 sm:pb-6 sm:pt-16">
+      <span className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-white/70">
+        Page {pageIndex + 1} of {totalPages}
+      </span>
+      <p
+        className={cn(
+          "font-display font-bold text-balance text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.65)]",
+          captionClassName,
+        )}
+      >
+        {caption}
+      </p>
+    </div>
+  );
+}
+
 function PageIllustration({
   page,
   pageIndex,
@@ -78,6 +124,8 @@ function PageIllustration({
   themeTint,
   totalPages,
   variant = "default",
+  caption = "",
+  captionClassName = "",
   onOpenFullscreen,
 }: {
   page: StoryPageContent;
@@ -86,16 +134,17 @@ function PageIllustration({
   themeTint: string;
   totalPages: number;
   variant?: ReaderVariant;
+  caption?: string;
+  captionClassName?: string;
   onOpenFullscreen?: () => void;
 }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
-  // Actively painting only when a paid illustration job is running.
+  // Actively painting only when a paid illustration job is running. Locked pages never reach
+  // this component — the reader renders them as a clean text page instead of a lock panel.
   const painting = !page.isIllustrated && previewStatus === "Generating";
-  // Text is free; illustrations stay locked until the $4.99 credit is spent.
-  const locked = !page.isIllustrated && previewStatus !== "Generating";
 
   useEffect(() => {
     if (!page.isIllustrated || !page.illustrationUrl) {
@@ -188,6 +237,12 @@ function PageIllustration({
             Fullscreen
           </span>
         )}
+        <CaptionOverlay
+          caption={caption}
+          pageIndex={pageIndex}
+          totalPages={totalPages}
+          captionClassName={captionClassName}
+        />
       </button>
     );
   }
@@ -207,26 +262,6 @@ function PageIllustration({
         </p>
         <p className="text-xs text-muted-foreground/80">
           Page {pageIndex + 1} of {totalPages} · about 1 minute each
-        </p>
-      </div>
-    );
-  }
-
-  if (locked) {
-    return (
-      <div
-        className={cn(
-          "w-full rounded-t-2xl flex flex-col items-center justify-center gap-2 px-4 text-center",
-          variant === "fullscreen" ? "min-h-[40vh]" : "aspect-[4/3]",
-        )}
-        style={{ background: `color-mix(in oklab, ${themeTint} 55%, white)` }}
-      >
-        <span className="grid h-12 w-12 place-items-center rounded-full bg-white/70 shadow-sm">
-          <Lock className="h-6 w-6 text-primary" />
-        </span>
-        <p className="text-sm font-semibold text-foreground">Illustration locked</p>
-        <p className="max-w-[15rem] text-xs text-muted-foreground/90">
-          The story is yours free. Unlock illustrations ($4.99) to see this page beautifully painted.
         </p>
       </div>
     );
@@ -265,6 +300,8 @@ export function StoryBookReader({
     setFontSize(loadFontSize());
   }, []);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // Caption-style pages keep the narration hidden by default so kids read the picture, not the text.
+  const [showNarration, setShowNarration] = useState(false);
 
   const themeTint = THEME_TINTS[theme];
   const typography = FONT_SIZE_STYLES[fontSize];
@@ -310,13 +347,13 @@ export function StoryBookReader({
   };
 
   const allIllustrated = useMemo(() => pages.every((p) => p.isIllustrated), [pages]);
-  const showWelcomeUpsellSlide =
-    isWelcomeGiftStory && pages.length === 2 && allIllustrated && !isFullscreen;
-  const totalSlides = pages.length + (showWelcomeUpsellSlide ? 1 : 0);
-  const onWelcomeUpsellSlide = showWelcomeUpsellSlide && current === pages.length;
-  const showPdfUpsell = !isCompleted && allIllustrated && !isFullscreen && !onWelcomeUpsellSlide;
+  const hasAnyCaption = useMemo(() => pages.some((p) => pageCaption(p) !== ""), [pages]);
+  // A paid illustration job is running; otherwise un-illustrated pages are simply locked.
+  const painting = previewIllustrationStatus === "Generating";
+  const someLocked = !allIllustrated && !painting;
+  const totalSlides = pages.length;
   const onLastStoryPage = current === pages.length - 1;
-  const onLastPage = current === totalSlides - 1;
+  const showPdfUpsell = !isCompleted && allIllustrated && !isFullscreen;
   const showCreditsUpsell =
     allIllustrated &&
     !isFullscreen &&
@@ -357,6 +394,23 @@ export function StoryBookReader({
             <p className="truncate font-display font-semibold">{title}</p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {hasAnyCaption && (
+              <button
+                type="button"
+                onClick={() => setShowNarration((open) => !open)}
+                className={cn(
+                  "inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition sm:min-h-0 sm:min-w-0 sm:px-3",
+                  showNarration
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card hover:bg-secondary",
+                )}
+                title={showNarration ? "Hide the words" : "Show the words to read aloud"}
+                aria-pressed={showNarration}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{showNarration ? "Hide words" : "Read aloud"}</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={cycleFontSize}
@@ -416,116 +470,102 @@ export function StoryBookReader({
               {!page.isIllustrated ? " …" : ""}
             </button>
           ))}
-          {showWelcomeUpsellSlide && (
-            <button
-              type="button"
-              onClick={() => api?.scrollTo(pages.length)}
-              className={cn(
-                "shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition",
-                onWelcomeUpsellSlide
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card text-muted-foreground border-border hover:bg-secondary",
-              )}
-            >
-              Full book ✨
-            </button>
-          )}
         </div>
 
         <p className="text-center text-xs text-muted-foreground mb-3">
-          {onWelcomeUpsellSlide
-            ? "Your free welcome preview is 2 pages — swipe back to re-read anytime."
-            : allIllustrated
-              ? showWelcomeUpsellSlide
-                ? "Every page is illustrated — swipe to the Full book tab for the 6-page edition."
-                : "Every page is illustrated — swipe or tap a page number."
-              : "We're painting every page from your child's photo. The raw upload stays private."}
+          {allIllustrated
+            ? "Every page is illustrated — swipe or tap a page."
+            : painting
+              ? "Painting your pages — they fill in one by one."
+              : "Read the whole story free. Unlock illustrations to see every page painted."}
         </p>
 
         <div className={cn("relative", isFullscreen ? "px-10 sm:px-12" : "px-0 sm:px-10")}>
           <Carousel setApi={setApi} opts={{ align: "start", loop: false }} className="w-full">
             <CarouselContent className="ml-0 sm:-ml-4">
-              {pages.map((page, index) => (
-                <CarouselItem key={`page-${index}`} className="pl-0 sm:pl-4">
-                  <article
-                    className="rounded-2xl border border-border bg-card shadow-card overflow-hidden"
-                    style={{
-                      background: `color-mix(in oklab, ${themeTint} 12%, var(--card))`,
-                    }}
-                  >
-                    <PageIllustration
-                      page={page}
-                      pageIndex={index}
-                      previewStatus={previewIllustrationStatus}
-                      themeTint={themeTint}
-                      totalPages={pages.length}
-                      variant={variant}
-                      onOpenFullscreen={() => setIsFullscreen(true)}
-                    />
-                    <div className="border-t border-border/60 bg-card/95 px-4 py-4 sm:px-6 sm:py-5">
-                      <p className="text-xs font-semibold text-primary mb-1">
-                        Page {index + 1} of {pages.length}
-                      </p>
-                      <h3
-                        className={cn(
-                          "font-display font-semibold text-foreground text-pretty",
-                          typography.title,
-                        )}
-                      >
-                        {page.title}
-                      </h3>
-                      <p
-                        className={cn(
-                          "mt-3 text-foreground/90 text-pretty whitespace-pre-wrap",
-                          typography.body,
-                        )}
-                      >
-                        {page.content}
-                      </p>
-                    </div>
-                  </article>
-                </CarouselItem>
-              ))}
-              {showWelcomeUpsellSlide && (
-                <CarouselItem key="welcome-upsell" className="pl-0 sm:pl-4">
-                  <article
-                    className="rounded-2xl border border-amber-300/60 bg-card shadow-card overflow-hidden"
-                    style={{
-                      background: `color-mix(in oklab, ${themeTint} 22%, var(--card))`,
-                    }}
-                  >
-                    <div
-                      className="flex min-h-[12rem] flex-col items-center justify-center gap-3 px-6 py-10 text-center sm:min-h-[14rem]"
-                      style={{ background: `color-mix(in oklab, ${themeTint} 35%, var(--card))` }}
+              {pages.map((page, index) => {
+                const caption = pageCaption(page);
+                const hasCaption = caption !== "";
+                const illustrated = !!page.isIllustrated;
+                const pagePainting = !illustrated && painting;
+                // Locked pages read as a clean text page — no lock panel, no clutter.
+                return (
+                  <CarouselItem key={`page-${index}`} className="pl-0 sm:pl-4">
+                    <article
+                      className="rounded-2xl border border-border bg-card shadow-card overflow-hidden"
+                      style={{
+                        background: `color-mix(in oklab, ${themeTint} 12%, var(--card))`,
+                      }}
                     >
-                      <Sparkles className="h-10 w-10 text-primary" />
-                      <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                        Page 3 · Continue the adventure
-                      </p>
-                    </div>
-                    <div className="border-t border-border/60 bg-card/95 px-4 py-5 sm:px-6 sm:py-6 text-center">
-                      <h3 className="font-display text-xl font-semibold text-foreground text-balance">
-                        Want the full {FULL_BOOK_PAGE_COUNT}-page picture book?
-                      </h3>
-                      <p className="mt-3 text-sm text-muted-foreground text-pretty">
-                        This welcome gift is a free 2-page preview. Book credits unlock complete{" "}
-                        {FULL_BOOK_PAGE_COUNT}-page illustrated adventures with richer stories, more
-                        scenes, and the same cartoon hero from your photo.
-                      </p>
-                      <p className="mt-2 text-xs text-muted-foreground">
-                        PDF export stays free for every story you create.
-                      </p>
-                      <Link
-                        to="/"
-                        hash="pricing"
-                        className="inline-flex mt-4 items-center rounded-full bg-primary text-primary-foreground px-6 py-2.5 text-sm font-semibold hover:opacity-90 transition"
-                      >
-                        View book packs
-                      </Link>
-                    </div>
-                  </article>
-                </CarouselItem>
-              )}
+                      {(illustrated || pagePainting) && (
+                        <PageIllustration
+                          page={page}
+                          pageIndex={index}
+                          previewStatus={previewIllustrationStatus}
+                          themeTint={themeTint}
+                          totalPages={pages.length}
+                          variant={variant}
+                          caption={caption}
+                          captionClassName={typography.caption}
+                          onOpenFullscreen={() => setIsFullscreen(true)}
+                        />
+                      )}
+
+                      {illustrated ? (
+                        // Image already carries the caption overlay — only add narration on request.
+                        showNarration &&
+                        page.content.trim() !== "" && (
+                          <div className="border-t border-border/60 bg-card/95 px-4 py-4 sm:px-6 sm:py-5">
+                            <p
+                              className={cn(
+                                "text-foreground/90 text-pretty whitespace-pre-wrap",
+                                typography.body,
+                              )}
+                            >
+                              {page.content}
+                            </p>
+                          </div>
+                        )
+                      ) : (
+                        <div className="px-4 py-5 sm:px-6 sm:py-6">
+                          <p className="text-xs font-semibold text-primary mb-2">
+                            Page {index + 1} of {pages.length}
+                          </p>
+                          {hasCaption ? (
+                            <p
+                              className={cn(
+                                "font-display font-bold text-foreground text-balance",
+                                typography.caption,
+                              )}
+                            >
+                              {caption}
+                            </p>
+                          ) : (
+                            <h3
+                              className={cn(
+                                "font-display font-semibold text-foreground text-pretty",
+                                typography.title,
+                              )}
+                            >
+                              {page.title}
+                            </h3>
+                          )}
+                          {(!hasCaption || showNarration) && page.content.trim() !== "" && (
+                            <p
+                              className={cn(
+                                "mt-3 text-foreground/90 text-pretty whitespace-pre-wrap",
+                                typography.body,
+                              )}
+                            >
+                              {page.content}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </article>
+                  </CarouselItem>
+                );
+              })}
             </CarouselContent>
           </Carousel>
 
@@ -565,14 +605,24 @@ export function StoryBookReader({
                 "h-2 rounded-full transition-all",
                 index === current ? "w-6 bg-primary" : "w-2 bg-border hover:bg-primary/40",
               )}
-              aria-label={
-                showWelcomeUpsellSlide && index === pages.length
-                  ? "View full book offer"
-                  : `Go to page ${index + 1}`
-              }
+              aria-label={`Go to page ${index + 1}`}
             />
           ))}
         </div>
+
+        {someLocked && !isFullscreen && (
+          <div
+            className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-primary/20 px-4 py-3 text-center"
+            style={{ background: `color-mix(in oklab, ${themeTint} 18%, var(--card))` }}
+          >
+            <Lock className="h-4 w-4 shrink-0 text-primary" />
+            <p className="text-sm text-foreground">
+              {isWelcomeGiftStory
+                ? "Your free page is ready — unlock every page for $4.99."
+                : "Story's free to read — unlock the illustrations for $4.99."}
+            </p>
+          </div>
+        )}
 
         {showPdfUpsell && (
           <div
@@ -580,10 +630,7 @@ export function StoryBookReader({
             style={{ background: `color-mix(in oklab, ${themeTint} 25%, var(--card))` }}
           >
             <p className="text-sm font-medium text-foreground">
-              Love your slideshow? Export a printable PDF — it&apos;s free.
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Open My Books and tap Export PDF when your story is ready.
+              Export a printable PDF from My Books — free.
             </p>
           </div>
         )}
@@ -594,11 +641,8 @@ export function StoryBookReader({
             style={{ background: `color-mix(in oklab, ${themeTint} 18%, var(--card))` }}
           >
             <p className="text-sm font-medium text-foreground">
-              You have {storiesRemainingThisMonth} free{" "}
+              {storiesRemainingThisMonth} free{" "}
               {storiesRemainingThisMonth === 1 ? "story" : "stories"} left this month.
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Each story is a full {pages.length}-page illustrated book — not just one page.
             </p>
           </div>
         )}
@@ -608,13 +652,7 @@ export function StoryBookReader({
             className="mt-4 rounded-2xl border border-amber-300/60 p-4 text-center"
             style={{ background: `color-mix(in oklab, ${themeTint} 22%, var(--card))` }}
           >
-            <p className="text-sm font-semibold text-foreground">
-              Want another adventure?
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              You&apos;ve used your stories for this month. Buy book credits to create more full{" "}
-              {pages.length}-page illustrated storybooks — PDF export stays free.
-            </p>
+            <p className="text-sm font-semibold text-foreground">Want another adventure?</p>
             <Link
               to="/"
               hash="pricing"

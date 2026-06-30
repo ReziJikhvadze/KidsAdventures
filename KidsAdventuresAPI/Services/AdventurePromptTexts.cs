@@ -24,6 +24,8 @@ internal sealed class AdventurePromptLocale
     public required string WelcomeArc { get; init; }
     public required string FullArc { get; init; }
     public required string PageLengthRule { get; init; }
+    public required string CaptionRule { get; init; }
+    public required string ContinuityRule { get; init; }
     public required string JsonOnlyRule { get; init; }
     public required string RawJsonRule { get; init; }
     public required string AdventureIdLabel { get; init; }
@@ -60,7 +62,8 @@ internal sealed class AdventurePromptLocale
     public required string ImageSafeForAge { get; init; }
     public required string ImagePageTitle { get; init; }
     public required string ImageScene { get; init; }
-    public required string ImageRenderText { get; init; }
+    public required string ImageNoText { get; init; }
+    public required string ImageContinuity { get; init; }
     public required string ImageParentTheme { get; init; }
     public required string ImageAdventureId { get; init; }
     public required string ImageHeroChild { get; init; }
@@ -240,7 +243,9 @@ internal static class AdventurePromptTexts
         NoExtraPagesRule = "Never add extra pages beyond the required count.",
         WelcomeArc = "- Map story structure across pages: page 1 Introduction (child enters the world) + Adventure start; page 2 gentle Challenge (safe, non-threatening) + Resolution (child solves it) + Ending (warm emotional closure).",
         FullArc = "- Map story structure across pages: page 1 Introduction (child enters the world); pages 2–3 Adventure (main journey); page 4 Challenge (safe, non-threatening problem); page 5 Resolution (child solves it); page 6 Ending (warm emotional closure).",
-        PageLengthRule = "Keep each page SHORT: 2–3 simple sentences (about 30–55 words max) for easy read-aloud and so the text fits cleanly inside the illustration; every page title must hint at a new place or moment.",
+        PageLengthRule = "Keep on-page words MINIMAL — the illustration carries the story, not the text. Each page has a tiny \"caption\" plus an optional short \"content\" (see the caption and continuity rules). Every page title must hint at a new place or moment.",
+        CaptionRule = "\"caption\" is the ONLY text shown on the page: a vivid 3–8 word phrase that names this exact moment and pulls the eye forward (e.g. \"Into the glowing cave!\", \"The rope bridge starts to sway\"). It is never a summary, and it must read as the next beat right after the previous page's caption. \"content\" is optional read-aloud narration of at most 1–2 short sentences (~25 words) — the picture alone must still tell the story.",
+        ContinuityRule = "STRICT CONTINUITY: all pages are ONE unbroken story happening in real time. Each page begins exactly where the previous page ended — same day, same journey, same hero outfit and props — with a clear cause-and-effect link (what the hero did on the previous page directly causes this page). The captions chain together like one flowing sentence; every non-final page ends on a small hook that makes the child want to turn the page, and the final page resolves it warmly. Never reset the scene or jump randomly — each transition should feel like \"and then…\".",
         JsonOnlyRule = "Never include markdown, code fences (```), explanations, or extra text outside JSON.",
         RawJsonRule = "The response must start with { and end with } — raw JSON only.",
         AdventureIdLabel = "Adventure ID (must be unique): {0}",
@@ -277,7 +282,8 @@ internal static class AdventurePromptTexts
         ImageSafeForAge = "Safe for children age {0}. Theme: {1}.",
         ImagePageTitle = "Page {0} title: {1}.",
         ImageScene = "Scene to illustrate: {0}",
-        ImageRenderText = "TEXT INSIDE THE IMAGE (very important — do not skip): integrate this page's story text directly into the illustration as a clean, child-friendly storybook caption — a soft banner or text panel along the bottom (or top) that does NOT cover the characters' faces. Render it in clear, well-spaced English, spell EVERY word correctly and exactly as written, keep it large and easy to read, and never crop, cut off, or garble a word. Reproduce this text verbatim: \"{0}\"",
+        ImageNoText = "NO TEXT IN THE IMAGE: do not draw any letters, words, captions, titles, numbers, speech bubbles, signs, labels, or writing anywhere in the illustration. The picture must tell the story through action, expression, and setting alone — leave it completely text-free.",
+        ImageContinuity = "VISUAL CONTINUITY: this is the same continuous adventure as the other pages — keep the hero's exact outfit, hairstyle, and any carried props identical to the previous page, and let the time of day and location progress logically from where the previous page ended.",
         ImageParentTheme = "Parent's special request — when this page's scene involves it, make it clearly and obviously visible in the illustration (characters, props, action, or setting): {0}",
         ImageAdventureId = "Adventure id {0}.",
         ImageHeroChild = "HERO CHILD (main character)",
@@ -440,7 +446,9 @@ internal static class AdventurePromptTexts
         NoExtraPagesRule = "Nunca añadas páginas extra más allá del número requerido.",
         WelcomeArc = "- Estructura: página 1 Introducción (el niño entra al mundo) + inicio de Aventura; página 2 Desafío suave (seguro, no amenazante) + Resolución (el niño lo resuelve) + Final (cierre emocional cálido).",
         FullArc = "- Estructura: página 1 Introducción; páginas 2–3 Aventura; página 4 Desafío (problema seguro); página 5 Resolución; página 6 Final (cierre emocional cálido).",
-        PageLengthRule = "Mantén cada página CORTA: 2–3 oraciones simples (máximo unas 30–55 palabras) para leer en voz alta y para que el texto quepa bien dentro de la ilustración; cada título debe sugerir un lugar o momento nuevo.",
+        PageLengthRule = "Mantén el texto en la página al MÍNIMO: la ilustración cuenta la historia, no el texto. Cada página tiene un \"caption\" muy breve y un \"content\" corto opcional (mira las reglas de caption y continuidad). Cada título de página debe sugerir un lugar o momento nuevo.",
+        CaptionRule = "\"caption\" es el ÚNICO texto que se muestra en la página: una frase vívida de 3 a 8 palabras que nombra este momento exacto y atrae la mirada hacia adelante (p. ej., \"¡Hacia la cueva brillante!\", \"El puente de cuerda empieza a balancearse\"). Nunca es un resumen y debe leerse como el siguiente instante justo después del caption de la página anterior. \"content\" es una narración opcional para leer en voz alta de máximo 1 o 2 frases cortas (~25 palabras); la imagen por sí sola debe seguir contando la historia.",
+        ContinuityRule = "CONTINUIDAD ESTRICTA: todas las páginas son UNA sola historia continua que ocurre en tiempo real. Cada página empieza exactamente donde terminó la anterior —el mismo día, el mismo viaje, la misma ropa y objetos del héroe— con una clara relación de causa y efecto (lo que el héroe hizo en la página anterior provoca directamente esta). Los captions se encadenan como una sola frase fluida; cada página que no sea la última termina con un pequeño gancho que da ganas de pasar la página, y la última la resuelve con calidez. Nunca reinicies la escena ni saltes al azar: cada transición debe sentirse como \"y entonces…\".",
         JsonOnlyRule = "Nunca incluyas markdown, bloques de código (```), explicaciones ni texto extra fuera del JSON.",
         RawJsonRule = "La respuesta debe empezar con { y terminar con } — solo JSON puro.",
         AdventureIdLabel = "ID de aventura (debe ser único): {0}",
@@ -477,7 +485,8 @@ internal static class AdventurePromptTexts
         ImageSafeForAge = "Seguro para niños de {0} años. Tema: {1}.",
         ImagePageTitle = "Página {0} título: {1}.",
         ImageScene = "Escena a ilustrar: {0}",
-        ImageRenderText = "TEXTO DENTRO DE LA IMAGEN (muy importante — no lo omitas): integra el texto de esta página directamente en la ilustración como un pie de cuento claro y amigable — un banner suave o panel de texto en la parte inferior (o superior) que NO cubra las caras de los personajes. Escríbelo en español claro y bien espaciado, deletrea CADA palabra correctamente y tal como está escrita, mantenlo grande y fácil de leer, y nunca recortes ni distorsiones una palabra. Reproduce este texto literalmente: \"{0}\"",
+        ImageNoText = "SIN TEXTO EN LA IMAGEN: no dibujes ninguna letra, palabra, título, número, bocadillo, cartel, etiqueta ni escritura en ninguna parte de la ilustración. La imagen debe contar la historia solo con la acción, la expresión y el entorno; déjala completamente sin texto.",
+        ImageContinuity = "CONTINUIDAD VISUAL: es la misma aventura continua que las demás páginas: mantén exactamente la misma ropa, el mismo peinado y los objetos que lleva el héroe que en la página anterior, y deja que la hora del día y el lugar avancen de forma lógica desde donde terminó la página anterior.",
         ImageParentTheme = "Petición especial de los padres — cuando la escena de esta página lo incluya, hazlo clara y visiblemente presente en la ilustración (personajes, accesorios, acción o escenario): {0}",
         ImageAdventureId = "Id de aventura {0}.",
         ImageHeroChild = "NIÑO HÉROE (personaje principal)",
@@ -639,7 +648,9 @@ internal static class AdventurePromptTexts
         NoExtraPagesRule = "不得超过所需页数。",
         WelcomeArc = "- 页面结构：第1页 引言（孩子进入世界）+ 冒险开始；第2页 温和挑战（安全无威胁）+ 解决（孩子解决）+ 结局（温暖收尾）。",
         FullArc = "- 页面结构：第1页 引言；第2–3页 冒险；第4页 挑战（安全问题）；第5页 解决；第6页 结局（温暖收尾）。",
-        PageLengthRule = "每页保持简短：2–3句简单句子（最多约30–55字），便于朗读，也便于文字清楚地排进插画中；每页标题需暗示新地点或时刻。",
+        PageLengthRule = "让页面上的文字尽量少——由插画来讲故事，而不是文字。每一页都有一个很短的 \"caption\" 和一段可选的简短 \"content\"（见 caption 与连贯性规则）。每页标题需暗示新地点或时刻。",
+        CaptionRule = "\"caption\" 是页面上唯一显示的文字：一句生动的 3 到 8 个词的短语，点出此刻的瞬间并吸引视线向前（例如\"走进发光的洞穴！\"\"绳桥开始摇晃\"）。它绝不是概括，并且要像紧接上一页 caption 之后的下一拍。\"content\" 是可选的朗读旁白，最多 1 到 2 个短句（约 25 字），单凭画面也必须能讲清楚故事。",
+        ContinuityRule = "严格连贯：所有页面是发生在真实时间里的同一个不间断的故事。每一页都从上一页结束的地方开始——同一天、同一段旅程、主角同样的服装和道具——并有清晰的因果联系（主角上一页所做的事直接引出这一页）。各页 caption 像一句连贯的话一样串联起来；除最后一页外，每页都以一个小悬念结尾，让孩子想翻到下一页，最后一页温暖地收尾。绝不要重置场景或随意跳跃——每一次过渡都应像\"然后……\"。",
         JsonOnlyRule = "不得包含 markdown、代码块（```）、解释或 JSON 外的文字。",
         RawJsonRule = "回复必须以 { 开始、以 } 结束——仅原始 JSON。",
         AdventureIdLabel = "冒险 ID（必须唯一）：{0}",
@@ -676,7 +687,8 @@ internal static class AdventurePromptTexts
         ImageSafeForAge = "适合 {0} 岁儿童。主题：{1}。",
         ImagePageTitle = "第 {0} 页标题：{1}。",
         ImageScene = "需插图的场景：{0}",
-        ImageRenderText = "图中文字（非常重要，请勿省略）：将本页故事文字直接融入插画，作为清晰、适合儿童的绘本文字框——位于底部（或顶部）的柔和横幅或文字面板，且不要遮挡角色的脸。用清晰、间距合适的简体中文呈现，每个字都要正确并与原文完全一致，字号要大、易读，绝不可截断或写错字。请逐字再现以下文字：“{0}”",
+        ImageNoText = "画面中不要有任何文字：不要在插画的任何位置画出任何字母、文字、标题、数字、对话气泡、招牌、标签或文字。画面必须仅通过动作、表情和环境来讲述故事——让它完全没有文字。",
+        ImageContinuity = "视觉连贯：这是与其他页面相同的连续冒险——让主角的服装、发型以及随身携带的道具与上一页完全一致，并让时间和地点从上一页结束处合理地推进。",
         ImageParentTheme = "家长的特别要求——当本页场景涉及它时，请在插画中清晰明显地呈现（角色、道具、动作或场景）：{0}",
         ImageAdventureId = "冒险 id {0}。",
         ImageHeroChild = "主角儿童",
@@ -837,7 +849,9 @@ internal static class AdventurePromptTexts
         NoExtraPagesRule = "Никогда не добавляйте лишние страницы.",
         WelcomeArc = "- Структура: стр. 1 Введение + начало Приключения; стр. 2 мягкое Испытание + Разрешение + Финал.",
         FullArc = "- Структура: стр. 1 Введение; стр. 2–3 Приключение; стр. 4 Испытание; стр. 5 Разрешение; стр. 6 Финал.",
-        PageLengthRule = "Делайте каждую страницу КОРОТКОЙ: 2–3 простых предложения (максимум примерно 30–55 слов) для чтения вслух и чтобы текст аккуратно помещался внутри иллюстрации; заголовок намекает на новое место или момент.",
+        PageLengthRule = "Сведите текст на странице к МИНИМУМУ — историю рассказывает иллюстрация, а не текст. На каждой странице есть крошечный \"caption\" и необязательный короткий \"content\" (см. правила про caption и непрерывность). Заголовок каждой страницы намекает на новое место или момент.",
+        CaptionRule = "\"caption\" — это ЕДИНСТВЕННЫЙ текст, который показывается на странице: яркая фраза из 3–8 слов, называющая именно этот момент и притягивающая взгляд вперёд (например, \"В сияющую пещеру!\", \"Верёвочный мост начинает качаться\"). Это никогда не пересказ, и она должна читаться как следующий момент сразу после caption предыдущей страницы. \"content\" — необязательная закадровая озвучка для чтения вслух, максимум 1–2 коротких предложения (~25 слов); по одной картинке история всё равно должна быть понятна.",
+        ContinuityRule = "СТРОГАЯ НЕПРЕРЫВНОСТЬ: все страницы — ОДНА непрерывная история, происходящая в реальном времени. Каждая страница начинается ровно там, где закончилась предыдущая — тот же день, то же путешествие, та же одежда и предметы героя — с чёткой причинно-следственной связью (то, что герой сделал на предыдущей странице, напрямую вызывает эту). Подписи (caption) сцепляются как одно плавное предложение; каждая страница, кроме последней, заканчивается маленькой интригой, из-за которой ребёнку хочется перевернуть страницу, а последняя тепло её разрешает. Никогда не сбрасывайте сцену и не прыгайте произвольно — каждый переход должен ощущаться как \"и тогда…\".",
         JsonOnlyRule = "Не включайте markdown, блоки кода (```), пояснения или текст вне JSON.",
         RawJsonRule = "Ответ должен начинаться с { и заканчиваться } — только чистый JSON.",
         AdventureIdLabel = "ID приключения (уникальный): {0}",
@@ -874,7 +888,8 @@ internal static class AdventurePromptTexts
         ImageSafeForAge = "Безопасно для детей {0} лет. Тема: {1}.",
         ImagePageTitle = "Стр. {0} заголовок: {1}.",
         ImageScene = "Сцена для иллюстрации: {0}",
-        ImageRenderText = "ТЕКСТ ВНУТРИ ИЗОБРАЖЕНИЯ (очень важно — не пропускайте): впишите текст этой страницы прямо в иллюстрацию как аккуратную, дружелюбную надпись из книжки — мягкий баннер или текстовую панель снизу (или сверху), которая НЕ закрывает лица персонажей. Сделайте её на чётком, хорошо читаемом русском языке, напишите КАЖДОЕ слово правильно и точно как в оригинале, крупно и разборчиво, никогда не обрезайте и не искажайте слова. Воспроизведите этот текст дословно: «{0}»",
+        ImageNoText = "БЕЗ ТЕКСТА НА ИЗОБРАЖЕНИИ: не рисуйте никаких букв, слов, заголовков, цифр, реплик в облачках, вывесок, надписей или любого текста нигде на иллюстрации. Картинка должна рассказывать историю только действием, выражением лиц и обстановкой — оставьте её полностью без текста.",
+        ImageContinuity = "ВИЗУАЛЬНАЯ НЕПРЕРЫВНОСТЬ: это то же самое непрерывное приключение, что и на других страницах — сохраняйте абсолютно ту же одежду, причёску и предметы в руках героя, что и на предыдущей странице, и пусть время суток и место логично продолжаются с того, где закончилась предыдущая страница.",
         ImageParentTheme = "Особая просьба родителей — когда сцена этой страницы её затрагивает, ясно и заметно покажите это на иллюстрации (персонажи, реквизит, действие или декорации): {0}",
         ImageAdventureId = "ID приключения {0}.",
         ImageHeroChild = "ГЕРОЙ-РЕБЁНОК (главный персонаж)",

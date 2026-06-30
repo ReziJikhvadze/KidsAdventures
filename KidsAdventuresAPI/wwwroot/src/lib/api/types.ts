@@ -71,6 +71,8 @@ export type PreviewIllustrationStatus = "None" | "Generating" | "Ready" | "Faile
 
 export type StoryPageContent = {
   title: string;
+  /** Short evocative phrase (3-8 words) shown overlaid on the illustration. */
+  caption?: string | null;
   content: string;
   illustrationUrl?: string | null;
   isIllustrated?: boolean;

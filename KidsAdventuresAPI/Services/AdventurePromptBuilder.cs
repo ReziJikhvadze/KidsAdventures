@@ -48,7 +48,7 @@ internal static class AdventurePromptBuilder
             "  \"title\": \"\",",
             "  \"theme\": \"\",",
             "  \"childName\": \"\",",
-            "  \"storyPages\": [{ \"title\": \"\", \"content\": \"\" }]",
+            "  \"storyPages\": [{ \"title\": \"\", \"caption\": \"\", \"content\": \"\" }]",
             "}",
             string.Empty,
             texts.NarrativeCraftHeader,
@@ -62,6 +62,8 @@ internal static class AdventurePromptBuilder
         lines.Add($"- {texts.NoExtraPagesRule}");
         lines.Add(storyArc);
         lines.Add($"- {texts.PageLengthRule}");
+        lines.Add($"- {texts.CaptionRule}");
+        lines.Add($"- {texts.ContinuityRule}");
         lines.Add($"- {texts.JsonOnlyRule}");
         lines.Add($"- {texts.RawJsonRule}");
         lines.Add($"- {string.Format(texts.AdventureIdLabel, adventureId)}");
@@ -166,11 +168,13 @@ internal static class AdventurePromptBuilder
         parts.Add(string.Format(texts.ImagePageTitle, pageIndex + 1, page.Title));
         parts.Add(string.Format(texts.ImageScene, scene));
 
-        // Bake the page's story text into the illustration. Keep it short so the model renders it legibly.
-        var captionText = page.Content.Length > 280 ? page.Content[..280] + "…" : page.Content;
-        if (!string.IsNullOrWhiteSpace(captionText))
+        // Illustrations are now text-free; the app overlays the page caption. Keep words out of the picture.
+        parts.Add(texts.ImageNoText);
+
+        // Reinforce scene-to-scene visual continuity once we have a page-1 anchor to match.
+        if (pageIndex > 0)
         {
-            parts.Add(string.Format(texts.ImageRenderText, captionText.Replace("\n", " ").Trim()));
+            parts.Add(texts.ImageContinuity);
         }
 
         if (!string.IsNullOrWhiteSpace(input.OptionalStoryNotes))

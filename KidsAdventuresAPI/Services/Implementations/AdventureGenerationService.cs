@@ -49,6 +49,19 @@ public sealed class AdventureGenerationService(
         var pageCount = AdventureStoryConstants.FullPageCount;
         var isFreeSample = await userRepository.TryConsumeWelcomeStoryAsync(userId, cancellationToken);
 
+        // Safety net for the marketed promise "your first book comes with 1 free illustrated page":
+        // if the welcome counter desynced (e.g. older account, migration, or a teaser that was never
+        // redeemed), still grant the free sample when this is the user's first-ever book. Cost stays
+        // capped at one free page per user because every later book has prior packs on record.
+        if (!isFreeSample)
+        {
+            var existingPacks = await adventurePackRepository.GetByUserIdAsync(userId, cancellationToken);
+            if (existingPacks.Count == 0)
+            {
+                isFreeSample = true;
+            }
+        }
+
         var pack = new AdventurePack
         {
             Id = Guid.NewGuid(),

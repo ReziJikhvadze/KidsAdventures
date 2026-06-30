@@ -90,6 +90,10 @@ public sealed class ImportGuestStoryRequest
 public sealed class StoryPageContentDto
 {
     public string Title { get; set; } = string.Empty;
+
+    /// <summary>Short evocative phrase (3-8 words) shown overlaid on the illustration.</summary>
+    public string Caption { get; set; } = string.Empty;
+
     public string Content { get; set; } = string.Empty;
     public string? IllustrationUrl { get; set; }
     public bool IsIllustrated { get; set; }
@@ -120,6 +124,10 @@ public sealed class StoryPageDto
 {
     [JsonPropertyName("title")]
     public string Title { get; set; } = string.Empty;
+
+    /// <summary>Short evocative phrase (3-8 words) shown overlaid on the illustration.</summary>
+    [JsonPropertyName("caption")]
+    public string Caption { get; set; } = string.Empty;
 
     [JsonPropertyName("content")]
     public string Content { get; set; } = string.Empty;
