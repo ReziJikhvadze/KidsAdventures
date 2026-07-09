@@ -21,7 +21,7 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Is this a good parenting gift for grandparents?",
-    a: "Grandparents love it — email a PDF, print and wrap it, or read aloud on video call. Book packs never expire, so you can gift stories throughout the year.",
+    a: "Grandparents love it — email a PDF, print and wrap it, or read aloud on video call. Credits never expire, so you can gift stories throughout the year.",
   },
   {
     q: "What do I need to print at home?",
@@ -33,11 +33,11 @@ export const FAQ_ITEMS = [
   },
   {
     q: "How do book credits work?",
-    a: "Stories are free to create and read online. Each illustrated PDF uses one book credit. Buy a 3, 5, or 15 book pack — credits never expire.",
+    a: "Your first fully illustrated book is free. After that, each new illustrated storybook is $4.99 (one credit). Credits never expire, and PDF export is always free.",
   },
   {
-    q: "Can I try before buying credits?",
-    a: "Every account gets a free 2-page welcome preview. Create the story, read the slideshow, then upgrade to a full 6-page illustrated book when you are ready.",
+    q: "Can I try before buying anything?",
+    a: "Every account gets a complete, fully illustrated 6-page book free. Read the slideshow, print the PDF, and only pay ($4.99 per book) when you want more adventures.",
   },
   {
     q: "Do you offer refunds?",

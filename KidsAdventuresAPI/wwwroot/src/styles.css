@@ -180,6 +180,206 @@
   .animate-rise {
     animation: rise 0.7s ease-out both;
   }
+
+  .path-glow {
+    filter: drop-shadow(0 0 6px color-mix(in oklab, var(--primary) 40%, transparent));
+  }
+
+  .story-path-fireflies {
+    background-image:
+      radial-gradient(circle at 20% 30%, color-mix(in oklab, var(--sun) 50%, transparent) 0 2px, transparent 3px),
+      radial-gradient(circle at 70% 60%, color-mix(in oklab, var(--primary) 35%, transparent) 0 1.5px, transparent 2.5px),
+      radial-gradient(circle at 45% 80%, color-mix(in oklab, var(--sun) 40%, transparent) 0 2px, transparent 3px);
+    opacity: 0.5;
+  }
+
+  .story-interactive-sparkle {
+    animation: rise 0.9s ease-out both;
+  }
+
+  @keyframes interactive-shimmer {
+    0%,
+    100% {
+      opacity: 0.55;
+      box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 25%, transparent);
+    }
+    50% {
+      opacity: 1;
+      box-shadow: 0 0 12px 2px color-mix(in oklab, var(--primary) 30%, transparent);
+    }
+  }
+
+  .story-interactive-shimmer {
+    animation: interactive-shimmer 2.2s ease-in-out infinite;
+  }
+
+  /* Storybook page turn — used by the reader when the active page changes */
+  @keyframes page-turn-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  .animate-page-turn {
+    animation: page-turn-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Soft pop for interactive hotspots and campfire reveals */
+  @keyframes pop-in {
+    0% {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    60% {
+      transform: scale(1.08);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  .animate-pop-in {
+    animation: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  /* ── Full-body Adventurer hero preview (static) ───────────────── */
+  .avatar-stage {
+    position: relative;
+  }
+
+  .avatar-stage-hero {
+    min-height: 0;
+  }
+
+  .avatar-stage-compact {
+    max-width: 152px;
+    margin-inline: auto;
+  }
+
+  .avatar-stage-card {
+    position: relative;
+    margin-inline: auto;
+    width: min(100%, 280px);
+    border-radius: 1.65rem;
+    background:
+      radial-gradient(90% 70% at 50% 8%, #fff 0%, transparent 50%),
+      radial-gradient(120% 90% at 50% 100%, #fde68a33 0%, transparent 55%),
+      linear-gradient(165deg, #dbeafe 0%, #ede9fe 42%, #fef3c7 100%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.85),
+      0 1px 0 rgb(255 255 255 / 0.4),
+      0 14px 36px rgb(15 23 42 / 0.1);
+    padding: 0.65rem 0.5rem 0.7rem;
+    overflow: hidden;
+  }
+
+  .avatar-stage-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgb(255 255 255 / 0.35) 1px, transparent 1px);
+    background-size: 14px 14px;
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  .avatar-stage-compact .avatar-stage-card {
+    width: 100%;
+    padding: 0.35rem 0.3rem 0.3rem;
+    border-radius: 1.15rem;
+  }
+
+  .avatar-fullbody-wrap {
+    position: relative;
+    z-index: 1;
+    width: min(100%, 220px);
+    margin-inline: auto;
+    aspect-ratio: 240 / 300;
+  }
+
+  .avatar-stage-compact .avatar-fullbody-wrap {
+    width: 100%;
+  }
+
+  .avatar-fullbody-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+  }
+
+  /*
+   * Circular Adventurer face seated ON the collar — chin overlaps neck.
+   * Soft clip only (no sticker ring) so it reads as one character.
+   */
+  .avatar-head-layer {
+    position: absolute;
+    left: 50%;
+    top: 14%;
+    z-index: 3;
+    width: 56%;
+    aspect-ratio: 1;
+    transform: translateX(-50%);
+    overflow: hidden;
+    border-radius: 50%;
+    pointer-events: none;
+    background: transparent;
+    filter: drop-shadow(0 4px 8px rgb(15 23 42 / 0.12));
+  }
+
+  .avatar-stage-compact .avatar-head-layer {
+    top: 12%;
+    width: 58%;
+  }
+
+  .avatar-head-img {
+    display: block;
+    width: 128%;
+    max-width: none;
+    height: auto;
+    margin-left: -14%;
+    margin-top: -8%;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .avatar-caption {
+    position: relative;
+    z-index: 2;
+    margin-top: 0.2rem;
+    text-align: center;
+  }
+
+  .avatar-stage-compact .avatar-caption {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-rise,
+  .story-path-node circle {
+    animation: none !important;
+  }
+
+  .motion-safe\:animate-pulse {
+    animation: none !important;
+  }
+
+  .story-interactive-shimmer {
+    animation: none !important;
+    opacity: 0.85;
+  }
+
+  .animate-page-turn,
+  .animate-pop-in {
+    animation: none !important;
+  }
 }
 
 /* Centered site-styled notifications (Sonner) */
@@ -283,4 +483,417 @@
 .adventrya-toast-cancel {
   background: var(--muted);
   color: var(--muted-foreground);
+}
+
+/* ── Photo → Pixar split slider ─────────────────────────────────── */
+.photo-transform-slider {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  max-height: 140px;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid var(--border);
+  background: #0f172a;
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+.photo-transform-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.photo-transform-hero {
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 30%, #4c1d95 0%, transparent 55%),
+    linear-gradient(165deg, #1e1b4b 0%, #0f172a 55%, #1e3a5f 100%);
+}
+
+.photo-transform-hero img {
+  width: 72%;
+  max-width: 160px;
+  height: auto;
+  filter: drop-shadow(0 8px 16px rgb(0 0 0 / 0.35));
+  pointer-events: none;
+}
+
+.photo-transform-photo {
+  z-index: 2;
+  background: linear-gradient(145deg, #fde68a 0%, #fdba74 40%, #f9a8d4 100%);
+}
+
+.photo-transform-photo-art {
+  position: absolute;
+  inset: 0;
+}
+
+.photo-face {
+  position: absolute;
+  left: 50%;
+  top: 48%;
+  width: 52%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f7e4d4, #e8b892 70%);
+  box-shadow: inset -6px -8px 16px rgb(120 70 40 / 0.18);
+}
+
+.photo-hair {
+  position: absolute;
+  left: 50%;
+  top: 28%;
+  width: 58%;
+  height: 28%;
+  transform: translateX(-50%);
+  border-radius: 50% 50% 40% 40%;
+  background: linear-gradient(180deg, #3f2a1e, #5c3d2e);
+}
+
+.photo-cheek {
+  position: absolute;
+  top: 52%;
+  width: 10%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgb(240 140 130 / 0.35);
+}
+.photo-cheek-l { left: 32%; }
+.photo-cheek-r { right: 32%; }
+
+.photo-eye {
+  position: absolute;
+  top: 46%;
+  width: 6%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #2c2118;
+}
+.photo-eye-l { left: 38%; }
+.photo-eye-r { right: 38%; }
+
+.photo-smile {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  width: 14%;
+  height: 6%;
+  transform: translateX(-50%);
+  border-radius: 0 0 50% 50%;
+  border-bottom: 2px solid #c4786a;
+}
+
+.photo-transform-tag {
+  position: absolute;
+  bottom: 0.4rem;
+  left: 0.45rem;
+  z-index: 3;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.5);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+}
+
+.photo-transform-tag-hero {
+  left: auto;
+  right: 0.45rem;
+  background: color-mix(in oklab, var(--primary) 90%, black);
+}
+
+.photo-transform-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 4;
+  width: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.photo-transform-handle-line {
+  position: absolute;
+  inset: 0 auto 0 -1px;
+  width: 2px;
+  background: rgb(255 255 255 / 0.9);
+  box-shadow: 0 0 8px rgb(0 0 0 / 0.35);
+}
+
+.photo-transform-handle-knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1.55rem;
+  height: 1.55rem;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid var(--primary);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.25);
+}
+
+.photo-transform-handle-knob::before,
+.photo-transform-handle-knob::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transform: translateY(-50%);
+}
+.photo-transform-handle-knob::before {
+  left: 4px;
+  border-right: 5px solid var(--muted-foreground);
+}
+.photo-transform-handle-knob::after {
+  right: 4px;
+  border-left: 5px solid var(--muted-foreground);
+}
+
+/* ── Hero composited into theme scene (live preview) ───────────── */
+.hero-in-scene {
+  position: relative;
+  width: 100%;
+  max-width: 260px;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: 1.35rem;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+  isolation: isolate;
+}
+
+.hero-in-scene-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.06);
+}
+
+.hero-in-scene-veil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 62%, rgb(15 23 42 / 0.15), transparent 60%),
+    linear-gradient(180deg, rgb(15 23 42 / 0.25) 0%, transparent 35%, rgb(15 23 42 / 0.55) 100%);
+}
+
+.hero-in-scene-props {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.scene-cockpit-rail {
+  position: absolute;
+  inset: auto 0 0;
+  height: 28%;
+  background: linear-gradient(180deg, transparent, rgb(15 23 42 / 0.75) 30%, #0f172a);
+  border-top: 2px solid rgb(148 163 184 / 0.35);
+  box-shadow: inset 0 12px 24px rgb(56 189 248 / 0.12);
+}
+
+.scene-cockpit-glass {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 12%;
+  height: 42%;
+  border-radius: 50% / 40%;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.08), transparent 55%);
+  box-shadow: inset 0 -20px 40px rgb(56 189 248 / 0.08);
+}
+
+.scene-star {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 0 6px 2px rgb(255 255 255 / 0.7);
+}
+.scene-star-a { top: 14%; left: 18%; }
+.scene-star-b { top: 22%; right: 20%; width: 2px; height: 2px; }
+.scene-star-c { top: 18%; left: 55%; width: 2px; height: 2px; opacity: 0.7; }
+
+.scene-leaf {
+  position: absolute;
+  bottom: 0;
+  width: 42%;
+  height: 48%;
+  background: linear-gradient(160deg, #166534, #14532d 60%, #052e16);
+  opacity: 0.92;
+  filter: blur(0.2px);
+}
+.scene-leaf-l {
+  left: -8%;
+  border-radius: 80% 20% 60% 40%;
+  transform: rotate(-18deg);
+}
+.scene-leaf-r {
+  right: -10%;
+  border-radius: 20% 80% 40% 60%;
+  transform: rotate(22deg);
+  background: linear-gradient(200deg, #15803d, #14532d);
+}
+
+.scene-deck-rail {
+  position: absolute;
+  inset: auto 0 0;
+  height: 22%;
+  background: linear-gradient(180deg, #92400e, #78350f 40%, #451a03);
+  border-top: 3px solid #b45309;
+}
+
+.scene-wing {
+  position: absolute;
+  left: -5%;
+  right: -5%;
+  bottom: 18%;
+  height: 16%;
+  background: linear-gradient(90deg, transparent, rgb(226 232 240 / 0.55), transparent);
+  transform: skewY(-4deg);
+}
+
+.scene-meadow {
+  position: absolute;
+  inset: auto 0 0;
+  height: 26%;
+  background: linear-gradient(180deg, #4ade80, #166534);
+}
+
+.hero-in-scene-character {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  z-index: 3;
+  width: 72%;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.35));
+}
+
+.hero-in-scene-avatar .avatar-stage-card {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.hero-in-scene-avatar .avatar-stage-card::before {
+  display: none;
+}
+
+.hero-in-scene-chrome {
+  position: absolute;
+  z-index: 4;
+  top: 0.65rem;
+  left: 0.65rem;
+  right: 0.65rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.hero-in-scene-badge,
+.hero-in-scene-theme {
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hero-in-scene-badge {
+  background: rgb(255 255 255 / 0.92);
+  color: var(--foreground);
+}
+
+.hero-in-scene-theme {
+  background: rgb(0 0 0 / 0.4);
+  color: #fff;
+  backdrop-filter: blur(6px);
+}
+
+.hero-in-scene-copy {
+  position: absolute;
+  z-index: 4;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 2.75rem 0.85rem 0.75rem;
+  background: linear-gradient(180deg, transparent, rgb(15 23 42 / 0.82));
+  text-align: left;
+}
+
+.hero-in-scene-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.hero-in-scene-hint {
+  margin: 0.2rem 0 0;
+  font-size: 10px;
+  font-weight: 500;
+  color: rgb(255 255 255 / 0.72);
+}
+
+/* ── Cinematic preset cards + stage depth ───────────────────────── */
+.avatar-stage-cinematic .avatar-stage-card {
+  background:
+    radial-gradient(90% 70% at 50% 0%, rgb(255 255 255 / 0.12), transparent 55%),
+    linear-gradient(180deg, rgb(15 23 42 / 0.15), rgb(15 23 42 / 0.05)) !important;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.2),
+    0 16px 40px rgb(0 0 0 / 0.35) !important;
+}
+
+.avatar-stage-cinematic .avatar-caption p {
+  color: #fff !important;
+  text-shadow: 0 1px 8px rgb(0 0 0 / 0.45);
+}
+
+.avatar-stage-cinematic .avatar-caption .text-muted-foreground {
+  color: rgb(255 255 255 / 0.7) !important;
+}
+
+.avatar-preset-card {
+  background: var(--card);
+}
+
+.avatar-preset-stage .avatar-stage-card {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.avatar-preset-stage .avatar-stage-card::before {
+  display: none;
+}
+
+.avatar-head-layer {
+  filter: drop-shadow(0 6px 12px rgb(15 23 42 / 0.22)) !important;
+}
+
+.avatar-fullbody-svg {
+  filter: drop-shadow(0 8px 14px rgb(15 23 42 / 0.18));
 }

@@ -41,7 +41,7 @@ export const STORY_THEMES: StoryTheme[] = [
     paragraphs: [
       "Adventrya Books turns your child's name and age into a full illustrated adventure. Choose the Airplanes theme and we generate a kid-safe story with cartoon illustrations you can read online or export as a print-ready PDF.",
       "Upload an optional hero photo and we create a matching cartoon character across every illustrated page. Grandparents love this theme as a birthday or holiday gift because it feels personal without requiring a trip to the store.",
-      "Start with a free 2-page welcome preview — no card required. When you are ready for the complete 6-page picture book, use book credits for a downloadable PDF you can print at home.",
+      "Your first complete 6-page picture book is free and fully illustrated — no card required. When you are ready for more adventures, each new book is a one-time $4.99 with a downloadable PDF you can print at home.",
     ],
     highlights: [
       "Kid-safe stories for every young reader",
@@ -66,7 +66,7 @@ export const STORY_THEMES: StoryTheme[] = [
     paragraphs: [
       "Dinosaur-loving kids light up when they see their own name on a story page. Adventrya Books builds a personalized illustrated adventure around your child's age and optional wishes — perfect for birthdays, holidays, or rainy-day screen-free fun.",
       "Each book includes custom story text and optional cartoon illustrations based on an uploaded photo. The result is a keepsake PDF parents and grandparents can print and read together.",
-      "Try the free 2-page preview first, then unlock the full 6-page illustrated book with book credits that never expire.",
+      "Your first full 6-page illustrated book is free — then each additional book is a one-time $4.99, with credits that never expire.",
     ],
     highlights: [
       "Great gift for dino fans",
@@ -141,7 +141,7 @@ export const STORY_THEMES: StoryTheme[] = [
     paragraphs: [
       "The Animals theme suits younger readers and nature lovers. Stories adapt to your child's age so the vocabulary always feels just right.",
       "Upload a photo to create a cartoon hero who explores alongside pandas, lions, dolphins, and more. Every story is unique because you can add optional wishes — a favorite animal, a lesson, or a setting.",
-      "Start free with a 2-page welcome preview. Full illustrated books use one credit each and stay in My Books forever.",
+      "Your first fully illustrated book is free. Additional books are $4.99 each and stay in My Books forever.",
     ],
     highlights: [
       "Gentle stories for younger readers",

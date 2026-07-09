@@ -36,7 +36,7 @@ export function CreditsBadge({
           : "rounded-2xl border border-amber-300 bg-amber-400 px-4 py-2.5 text-sm text-amber-950 shadow-md",
         className,
       )}
-      title="Free 2-page welcome preview, then book credits for full 6-page stories"
+      title="Your first illustrated book is free, then $4.99 per book"
     >
       <Sparkles
         className={cn("shrink-0 text-amber-900", variant === "compact" ? "h-3.5 w-3.5" : "h-5 w-5")}

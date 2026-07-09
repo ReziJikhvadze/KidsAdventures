@@ -14,6 +14,7 @@ public interface ISubscriptionService
         string email,
         string planType,
         string? provider,
+        string? adventurePackId,
         CancellationToken cancellationToken);
     Task<AccountBalanceResponse> ConfirmCheckoutSessionAsync(
         Guid userId,

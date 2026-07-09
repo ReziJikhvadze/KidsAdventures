@@ -9,6 +9,7 @@ import {
   Download,
   Library,
   Loader2,
+  Map,
   Package,
   Plus,
   RefreshCw,
@@ -19,11 +20,17 @@ import { AuthDialog } from "@/components/auth/AuthDialog";
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
 import { createCheckoutSession } from "@/lib/api/subscriptions";
 import { listChildren } from "@/lib/api/children";
+import { setPendingIllustration } from "@/lib/account/pendingIllustration";
 import { CreditsBadge } from "@/components/site/CreditsBadge";
+import { PackCover } from "@/components/site/PackCover";
 import { StoryBookReader } from "@/components/story/StoryBookReader";
+import { StoryPathView } from "@/components/story-path/StoryPathView";
 import type { AdventurePackDetailResponse, AdventurePackStatus } from "@/lib/api/types";
+import { cn } from "@/lib/utils";
 
 const BOOKS_PER_PAGE = 6;
+
+type LibraryView = "list" | "story-path";
 
 const statusStyles: Record<
   AdventurePackStatus,
@@ -60,6 +67,7 @@ export function MyPacks() {
   const [authOpen, setAuthOpen] = useState(false);
   const [packs, setPacks] = useState<AdventurePackDetailResponse[]>([]);
   const [childNames, setChildNames] = useState<Record<string, string>>({});
+  const [childHasPhoto, setChildHasPhoto] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [pdfStartingId, setPdfStartingId] = useState<string | null>(null);
@@ -68,6 +76,7 @@ export function MyPacks() {
   const [openReaderIds, setOpenReaderIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [libraryView, setLibraryView] = useState<LibraryView>("list");
   const updatePack = useCallback((updated: AdventurePackDetailResponse) => {
     setPacks((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)));
   }, []);
@@ -102,6 +111,7 @@ export function MyPacks() {
       });
       if (children) {
         setChildNames(Object.fromEntries(children.map((c) => [c.id, c.name])));
+        setChildHasPhoto(Object.fromEntries(children.map((c) => [c.id, !!c.photoUrl])));
       }
     } catch {
       setError("Could not load your books. Try again.");
@@ -247,7 +257,9 @@ export function MyPacks() {
     const credits = user?.bookCredits ?? 0;
     if (credits <= 0) {
       try {
-        const session = await createCheckoutSession("Book1");
+        // Remember this book so the success page can auto-start its illustrations after payment.
+        setPendingIllustration(pack.id);
+        const session = await createCheckoutSession("Book1", undefined, pack.id);
         if (session.checkoutUrl) {
           window.location.href = session.checkoutUrl;
           return;
@@ -285,9 +297,7 @@ export function MyPacks() {
     if (pack.status !== "StoryReady" || pdfStartingId) return;
     if (!adventurePacksApi.canExportPackPdf(pack)) {
       notify.info("PDF not ready yet", {
-        description: pack.isWelcomeGiftStory
-          ? "Wait until your free illustrated page is ready, then export your preview PDF."
-          : "Wait until all 6 pages are illustrated, then export your free PDF.",
+        description: "Wait until all 6 pages are illustrated, then export your free PDF.",
       });
       return;
     }
@@ -336,13 +346,47 @@ export function MyPacks() {
                 <p className="text-sm font-semibold text-primary uppercase tracking-wide">Your library</p>
                 <h2 className="font-display text-3xl font-bold tracking-tight mt-0.5">My Books</h2>
                 <p className="text-muted-foreground mt-2 max-w-xl text-sm">
-                  Read every story free. <strong className="text-foreground">Unlock illustrations</strong> for $4.99
-                  per book.
+                  Your first book is free and fully illustrated. More adventures are{" "}
+                  <strong className="text-foreground">$4.99 per book</strong>.
                 </p>
               </div>
             </div>
             {isAuthenticated && (
               <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <div className="flex rounded-full border border-border bg-card p-1">
+                  <button
+                    type="button"
+                    onClick={() => setLibraryView("list")}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition",
+                      libraryView === "list"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-secondary",
+                    )}
+                  >
+                    <Library className="h-3.5 w-3.5" />
+                    List
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLibraryView("story-path")}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition",
+                      libraryView === "story-path"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-secondary",
+                    )}
+                  >
+                    <Map className="h-3.5 w-3.5" />
+                    Story Path
+                  </button>
+                </div>
+                <Link
+                  to="/story-path"
+                  className="hidden sm:inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-2 text-xs font-semibold hover:bg-background transition"
+                >
+                  Open full map
+                </Link>
                 <Link
                   to="/"
                   hash="generator"
@@ -372,8 +416,8 @@ export function MyPacks() {
                 </p>
                 <p className="text-sm text-amber-950/80 mt-0.5">
                   {user && user.bookCredits > 0
-                    ? `${user.bookCredits} credit${user.bookCredits === 1 ? "" : "s"} ready — each unlocks one book.`
-                    : "Stories are free. A $4.99 credit unlocks the illustrations."}
+                    ? `${user.bookCredits} credit${user.bookCredits === 1 ? "" : "s"} ready — each unlocks one illustrated book.`
+                    : "Your first book is free. After that, $4.99 unlocks each new illustrated storybook."}
                 </p>
               </div>
               {isLoading || !user ? (
@@ -400,7 +444,7 @@ export function MyPacks() {
                 <p className="text-xs text-muted-foreground">
                   {user.bookCredits > 0
                     ? `${user.bookCredits} book credit${user.bookCredits === 1 ? "" : "s"} ready.`
-                    : "Unlock illustrations for $4.99 per book."}
+                    : "Next illustrated book — $4.99."}
                 </p>
                 {user.bookCredits === 0 && (
                   <Link
@@ -416,7 +460,9 @@ export function MyPacks() {
           )}
         </div>
 
-        {!isAuthenticated ? (
+        {isAuthenticated && libraryView === "story-path" ? (
+          <StoryPathView compact />
+        ) : !isAuthenticated ? (
           <div className="rounded-3xl border border-border bg-card p-10 text-center">
             <Package className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground mb-4">Sign in to see books you have created.</p>
@@ -474,6 +520,13 @@ export function MyPacks() {
                   className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-5"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    <PackCover
+                      packId={pack.id}
+                      theme={pack.theme}
+                      hasCover={(pack.storyPages?.[0]?.isIllustrated ?? false) || readable}
+                      locked={awaitingUnlock && !pack.isWelcomeGiftStory}
+                      className="shrink-0"
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${status.className}`}>
@@ -517,14 +570,23 @@ export function MyPacks() {
                           type="button"
                           onClick={() => void toggleReadStory(pack)}
                           disabled={readerLoading}
-                          className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2.5 text-sm font-semibold hover:opacity-90 transition disabled:opacity-60"
+                          className={cn(
+                            "inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition disabled:opacity-60",
+                            awaitingUnlock
+                              ? "border border-border bg-card text-foreground hover:bg-secondary"
+                              : "bg-primary text-primary-foreground hover:opacity-90",
+                          )}
                         >
                           {readerLoading ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
                             <BookOpen className="h-4 w-4" />
                           )}
-                          {readerOpen ? "Hide story" : "Read story"}
+                          {readerOpen
+                            ? "Hide story"
+                            : awaitingUnlock
+                              ? "Read preview"
+                              : "Read story"}
                         </button>
                       )}
                       {awaitingUnlock && isAuthenticated && (
@@ -539,9 +601,11 @@ export function MyPacks() {
                           ) : (
                             <Sparkles className="h-4 w-4" />
                           )}
-                          {hasBookCredit
-                            ? "Unlock the full storybook (1 credit)"
-                            : "Buy the full storybook — $4.99"}
+                          {pack.isWelcomeGiftStory
+                            ? "Finish my free illustrations"
+                            : hasBookCredit
+                              ? "Unlock the full storybook (1 credit)"
+                              : "Buy the full storybook — $4.99"}
                         </button>
                       )}
                       {canExportPdf && pack.status === "StoryReady" && isAuthenticated && (
@@ -556,9 +620,7 @@ export function MyPacks() {
                           ) : (
                             <Sparkles className="h-4 w-4" />
                           )}
-                          {pack.isWelcomeGiftStory && !readable
-                            ? "Export preview PDF (free)"
-                            : "Export PDF (free)"}
+                          Export PDF (free)
                         </button>
                       )}
                       {pack.status === "Completed" && (
@@ -603,7 +665,7 @@ export function MyPacks() {
                         </p>
                         {awaitingUnlock && (
                           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
-                            Illustrations locked
+                            {pack.isWelcomeGiftStory ? "Free — finishing" : "Illustrations locked"}
                           </span>
                         )}
                       </div>
@@ -625,6 +687,8 @@ export function MyPacks() {
                           storiesRemainingThisMonth={user?.storiesRemainingThisMonth}
                           bookCredits={user?.bookCredits}
                           isWelcomeGiftStory={pack.isWelcomeGiftStory}
+                          hasHeroPhoto={childHasPhoto[pack.childId] ?? false}
+                          packId={pack.id}
                         />
                       ) : (
                         <div className="rounded-2xl border border-dashed border-border bg-secondary/20 px-4 py-10 text-center text-sm text-muted-foreground">

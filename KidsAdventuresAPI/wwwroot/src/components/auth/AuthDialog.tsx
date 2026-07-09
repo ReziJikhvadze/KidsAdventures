@@ -270,8 +270,8 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
                   <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <span>
                     {hasUsedGuestPreview()
-                      ? "Continue your story — your first illustrated page is on us. Unlock the full book for $4.99."
-                      : "Your first story includes 1 beautifully illustrated free page."}
+                      ? "Continue your story — your first fully illustrated book is on us."
+                      : "Your first complete book is free — fully illustrated, start to finish."}
                   </span>
                 </div>
               )}

@@ -146,6 +146,79 @@ public sealed class OpenAiService(
         return text.Trim();
     }
 
+    public async Task<HotspotRegionDto?> LocateRegionInIllustrationAsync(
+        byte[] imageBytes,
+        string contentType,
+        string subjectDescription,
+        CancellationToken cancellationToken)
+    {
+        var client = CreateClient();
+        var normalized = referenceImageNormalizer.NormalizeForOpenAi(imageBytes, contentType);
+        var dataUrl = ToDataUrl(normalized.Bytes, normalized.ContentType);
+
+        var promptText = $$"""
+            You are analyzing a children's book illustration (percent coordinates, top-left origin).
+            {{subjectDescription}}
+            Return ONLY JSON: { "x": number, "y": number, "w": number, "h": number }
+            x,y = top-left corner; w,h = size — each 0–100 as a percentage of image width/height.
+            If the subject is not clearly visible, return { "x": 0, "y": 0, "w": 0, "h": 0 }.
+            """;
+
+        var payload = new
+        {
+            model = _options.Model,
+            input = new object[]
+            {
+                new
+                {
+                    role = "user",
+                    content = new object[]
+                    {
+                        new { type = "input_text", text = promptText },
+                        new { type = "input_image", image_url = dataUrl }
+                    }
+                }
+            },
+            text = new { format = new { type = "json_object" } }
+        };
+
+        using var response = await client.PostAsJsonAsync("responses", payload, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            logger.LogWarning("OpenAI region locate failed: {Body}", body.Length > 200 ? body[..200] : body);
+            return null;
+        }
+
+        var outputText = ModelJsonSanitizer.ExtractJsonObject(ExtractOutputText(body));
+        if (string.IsNullOrWhiteSpace(outputText))
+        {
+            return null;
+        }
+
+        try
+        {
+            var region = JsonSerializer.Deserialize<HotspotRegionDto>(outputText, JsonOptions);
+            if (region is null || region.W <= 0 || region.H <= 0)
+            {
+                return null;
+            }
+
+            return new HotspotRegionDto
+            {
+                X = Math.Clamp(region.X, 0, 100),
+                Y = Math.Clamp(region.Y, 0, 100),
+                W = Math.Clamp(region.W, 5, 60),
+                H = Math.Clamp(region.H, 5, 60)
+            };
+        }
+        catch (JsonException ex)
+        {
+            logger.LogWarning(ex, "Failed to parse region JSON from vision");
+            return null;
+        }
+    }
+
     public async Task<byte[]> GenerateStoryImageAsync(
         string imagePrompt,
         StoryImageReference? reference,

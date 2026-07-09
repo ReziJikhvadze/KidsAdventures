@@ -43,16 +43,16 @@ public sealed class AdventureGenerationService(
         _ = await childRepository.GetByIdAsync(request.ChildId, userId, cancellationToken)
             ?? throw new InvalidOperationException("Child not found.");
 
-        // Story TEXT is free for everyone (signed in). Illustrations are unlocked later with a $4.99 credit.
-        // The user's FIRST book also gets 1 free illustrated sample page (the welcome perk for registering) as a
-        // taste of the full illustrated book. IsWelcomeGiftStory marks "this book received the free sample page".
+        // Story TEXT is free for everyone (signed in). Later books unlock illustrations with a $4.99 credit.
+        // The user's FIRST book is a fully illustrated FREE gift (all pages painted, no credit charged).
+        // IsWelcomeGiftStory marks that one-time welcome book.
         var pageCount = AdventureStoryConstants.FullPageCount;
         var isFreeSample = await userRepository.TryConsumeWelcomeStoryAsync(userId, cancellationToken);
 
-        // Safety net for the marketed promise "your first book comes with 1 free illustrated page":
+        // Safety net for the marketed promise "your first book is free and fully illustrated":
         // if the welcome counter desynced (e.g. older account, migration, or a teaser that was never
-        // redeemed), still grant the free sample when this is the user's first-ever book. Cost stays
-        // capped at one free page per user because every later book has prior packs on record.
+        // redeemed), still grant the free gift when this is the user's first-ever book. Cost stays
+        // capped at one free fully-illustrated book per account.
         if (!isFreeSample)
         {
             var existingPacks = await adventurePackRepository.GetByUserIdAsync(userId, cancellationToken);
@@ -75,8 +75,10 @@ public sealed class AdventureGenerationService(
             StoryLanguage = NormalizeLanguage(request.StoryLanguage),
             StoryPageCount = pageCount,
             IsWelcomeGiftStory = isFreeSample,
+            ChapterIndex = request.ChapterIndex,
+            PreviousChapterPackId = request.PreviousChapterPackId,
             ProgressMessage = isFreeSample
-                ? "Queued — your story and 1 free sample illustration are on the way."
+                ? "Queued — your free, fully illustrated first book is on the way."
                 : "Queued — your story will appear in My Books when ready (usually 1–2 minutes).",
             CreatedAt = DateTime.UtcNow
         };
@@ -246,7 +248,7 @@ public sealed class AdventureGenerationService(
             StoryPageCount = AdventureStoryConstants.FullPageCount,
             IsWelcomeGiftStory = isFreeSample,
             ProgressMessage = isFreeSample
-                ? "Your story is saved — painting your free illustrated page…"
+                ? "Your story is saved — painting every page of your free book…"
                 : "Your story is saved — unlock the full illustrated book.",
             CreatedAt = DateTime.UtcNow
         };
@@ -260,11 +262,13 @@ public sealed class AdventureGenerationService(
             null,
             cancellationToken);
 
+        backgroundJobClient.Enqueue<IAdventureGenerationService>(service =>
+            service.ProcessHeroPortraitAsync(pack.Id, CancellationToken.None));
+
         if (isFreeSample)
         {
-            // Free welcome-gift illustration (the first page) — no credit is charged.
-            backgroundJobClient.Enqueue<IAdventureGenerationService>(service =>
-                service.ProcessFreeSampleIllustrationAsync(pack.Id, CancellationToken.None));
+            // First book is a fully illustrated FREE gift — every page is painted, no credit is charged.
+            EnqueuePreviewIllustrationJob(pack.Id);
         }
 
         return pack.Id;
@@ -298,18 +302,24 @@ public sealed class AdventureGenerationService(
             return;
         }
 
-        if (!await userRepository.TryConsumeBookCreditAsync(userId, cancellationToken))
+        // The first book is a fully illustrated FREE gift — never charge a credit to (re)illustrate it.
+        if (!pack.IsWelcomeGiftStory)
         {
-            throw new InvalidOperationException(
-                "Buy a book ($4.99) to unlock illustrations for this story.");
-        }
+            if (!await userRepository.TryConsumeBookCreditAsync(userId, cancellationToken))
+            {
+                throw new InvalidOperationException(
+                    "Buy a book ($4.99) to unlock illustrations for this story.");
+            }
 
-        // PdfCreditCharged now marks "a $4.99 credit was spent to illustrate this pack" (used for refunds).
-        await adventurePackRepository.SetPdfCreditChargedAsync(packId, true, cancellationToken);
+            // PdfCreditCharged now marks "a $4.99 credit was spent to illustrate this pack" (used for refunds).
+            await adventurePackRepository.SetPdfCreditChargedAsync(packId, true, cancellationToken);
+        }
 
         await SetProgressAsync(
             packId,
-            "Unlocking illustrations — painting your pages (~8–12 min for 6 pages)…",
+            pack.IsWelcomeGiftStory
+                ? "Painting every page of your free book (~3–5 minutes)…"
+                : "Unlocking illustrations — painting your pages (~8–12 min for 6 pages)…",
             cancellationToken);
 
         EnqueuePreviewIllustrationJob(packId);
@@ -334,7 +344,7 @@ public sealed class AdventureGenerationService(
         {
             throw new InvalidOperationException(
                 pack.IsWelcomeGiftStory
-                    ? "Your free illustrated page is still being created. Wait a moment, then export your preview PDF."
+                    ? "Your free book is still being illustrated. Wait until every page is painted in My Books, then export your PDF."
                     : "Illustrations are still being created. Wait until your slideshow is fully illustrated in My Books, then export PDF.");
         }
 
@@ -401,16 +411,20 @@ public sealed class AdventureGenerationService(
                 null,
                 cancellationToken);
 
+            // Kick off the child's one-time Story Path "traveler" portrait as its own background job so it
+            // never delays this pack's story-ready email or illustration pipeline.
+            backgroundJobClient.Enqueue<IAdventureGenerationService>(service =>
+                service.ProcessHeroPortraitAsync(packId, CancellationToken.None));
+
             if (pack.IsWelcomeGiftStory)
             {
                 await SetProgressAsync(
                     packId,
-                    "Story written — painting your free sample illustration (~1 minute)…",
+                    "Story written — painting every page of your free book (~3–5 minutes)…",
                     cancellationToken);
 
-                // Free 1-page illustrated sample (the welcome perk) — no credit is charged.
-                backgroundJobClient.Enqueue<IAdventureGenerationService>(service =>
-                    service.ProcessFreeSampleIllustrationAsync(packId, CancellationToken.None));
+                // First book is a fully illustrated FREE gift — every page is painted, no credit is charged.
+                EnqueuePreviewIllustrationJob(packId);
             }
             else
             {
@@ -577,66 +591,72 @@ public sealed class AdventureGenerationService(
 
             await SetProgressAsync(
                 packId,
-                "Illustrating failed — your story is saved and your credit was refunded. Try unlocking again.",
+                pack.IsWelcomeGiftStory
+                    ? "We hit a snag painting your free book — your story is saved. Tap to finish the illustrations (still free)."
+                    : "Illustrating failed — your story is saved and your credit was refunded. Try unlocking again.",
                 cancellationToken);
         }
     }
 
-    public async Task ProcessFreeSampleIllustrationAsync(Guid packId, CancellationToken cancellationToken)
+    /// <summary>
+    /// Legacy entry point kept for Hangfire jobs already queued under this method name.
+    /// Welcome-gift books now paint every page via <see cref="ProcessPreviewIllustrationAsync"/>.
+    /// </summary>
+    public Task ProcessFreeSampleIllustrationAsync(Guid packId, CancellationToken cancellationToken)
+        => ProcessPreviewIllustrationAsync(packId, cancellationToken);
+
+    public async Task ProcessHeroPortraitAsync(Guid packId, CancellationToken cancellationToken)
     {
         var pack = await adventurePackRepository.GetByIdNoOwnershipAsync(packId, cancellationToken);
-        if (pack is null
-            || pack.Status != AdventurePackStatus.StoryReady
-            || string.IsNullOrWhiteSpace(pack.GeneratedJson))
+        if (pack is null || string.IsNullOrWhiteSpace(pack.GeneratedJson))
         {
             return;
         }
 
-        // Already fully illustrated (e.g. the user paid before the sample ran) — nothing to do.
-        if (HasAllSlideshowIllustrations(pack))
+        var child = await childRepository.GetByIdAsync(pack.ChildId, pack.UserId, cancellationToken);
+        if (child is null || !string.IsNullOrWhiteSpace(child.HeroPortraitUrl))
         {
+            return;
+        }
+
+        if (!await childRepository.TryClaimHeroPortraitGenerationAsync(child.Id, cancellationToken))
+        {
+            // Another pack's completion already claimed (or finished) this child's portrait.
             return;
         }
 
         try
         {
-            var content = JsonSerializer.Deserialize<AdventureContentDto>(pack.GeneratedJson, JsonOptions)
-                          ?? throw new InvalidOperationException("Failed to parse stored story JSON.");
-
-            if (content.StoryPages.Count == 0)
+            var content = TryDeserializeContent(pack.GeneratedJson);
+            if (content is null)
             {
-                return;
+                throw new InvalidOperationException("Story content is missing.");
             }
 
-            // Paint ONLY the welcome-gift page(s) for free. previewIllustrationStatus is left untouched (None) so the
-            // paid unlock can still claim the job later and illustrate the remaining pages.
-            var samplePageCount = Math.Min(AdventureStoryConstants.WelcomeGiftPageCount, content.StoryPages.Count);
+            var avatarAppearance = child.PersonalizationType == "avatar"
+                ? await ResolveChildAppearanceDescriptionAsync(child, pack.StoryLanguage ?? "en", cancellationToken)
+                : null;
 
-            var input = await BuildIllustrationInputAsync(pack, cancellationToken);
-            var castPhotos = await LoadCastPhotosAsync(pack, input, cancellationToken);
-            await IllustrateStoryPagesAsync(
-                packId,
-                pack,
-                content,
-                input,
-                castPhotos,
-                samplePageCount,
-                cancellationToken);
+            var prompt = AdventurePromptBuilder.BuildHeroPortraitPrompt(
+                child.Name,
+                child.Age,
+                pack.Theme,
+                content.Companion?.Name,
+                content.Companion?.Type,
+                avatarAppearance);
 
-            await SetProgressAsync(
-                packId,
-                "Your free sample page is illustrated! Unlock the full illustrated book for $4.99.",
-                cancellationToken);
+            var imageBytes = await openAiService.GenerateStoryImageAsync(prompt, null, cancellationToken);
+            var stored = referenceImageNormalizer.NormalizeForStorageWebp(imageBytes);
+            var blobName = $"{pack.UserId}/children/{child.Id}/hero-portrait.webp";
+            var url = await blobStorageService.UploadAsync(blobName, stored.Bytes, stored.ContentType, cancellationToken);
+            await childRepository.SetHeroPortraitUrlAsync(child.Id, url, cancellationToken);
+
+            logger.LogInformation("Generated hero portrait for child {ChildId} from pack {PackId}", child.Id, packId);
         }
         catch (Exception ex)
         {
-            // The sample is a free perk — never fail the pack or charge anything; the user can still read the
-            // story and unlock all illustrations with the $4.99 credit.
-            logger.LogWarning(ex, "Free sample illustration failed for pack {PackId}", packId);
-            await SetProgressAsync(
-                packId,
-                "Your story is ready to read. Unlock illustrations ($4.99) to bring every page to life.",
-                cancellationToken);
+            logger.LogWarning(ex, "Hero portrait generation failed for child {ChildId} (pack {PackId})", child.Id, packId);
+            await childRepository.ClearHeroPortraitClaimAsync(child.Id, cancellationToken);
         }
     }
 
@@ -733,7 +753,7 @@ public sealed class AdventureGenerationService(
             ChildName = child.Name,
             Age = child.Age,
             Theme = pack.Theme,
-            ChildAppearanceDescription = child.AppearanceDescription,
+            ChildAppearanceDescription = await ResolveChildAppearanceDescriptionAsync(child, pack.StoryLanguage ?? "en", cancellationToken),
             FamilyMembers = cast,
             OptionalStoryNotes = pack.OptionalStoryNotes,
             StoryLanguage = NormalizeLanguage(pack.StoryLanguage),
@@ -750,46 +770,53 @@ public sealed class AdventureGenerationService(
 
         var familyMembers = await familyMemberRepository.GetByChildIdAsync(pack.ChildId, pack.UserId, cancellationToken);
 
-        byte[]? heroPhotoBytes = null;
-        string heroPhotoContentType = "image/jpeg";
-        if (!string.IsNullOrWhiteSpace(child.PhotoUrl))
-        {
-            try
-            {
-                heroPhotoBytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(
-                    child.PhotoUrl,
-                    cancellationToken);
-                heroPhotoContentType = InferImageContentType(child.PhotoUrl);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Could not load child hero photo for {ChildId}", child.Id);
-            }
-        }
+        string? childAppearance = await ResolveChildAppearanceDescriptionAsync(
+            child,
+            pack.StoryLanguage ?? "en",
+            cancellationToken);
 
-        string? childAppearance = null;
-        if (!string.IsNullOrWhiteSpace(child.PhotoUrl)
-            && child.PhotoUrl == child.AppearancePhotoUrl
-            && !string.IsNullOrWhiteSpace(child.AppearanceDescription))
+        if (child.PersonalizationType != "avatar")
         {
-            childAppearance = child.AppearanceDescription;
-        }
-        else if (heroPhotoBytes is not null)
-        {
-            childAppearance = await DescribeChildFromPhotoAsync(
-                child,
-                heroPhotoBytes,
-                heroPhotoContentType,
-                pack.StoryLanguage ?? "en",
-                cancellationToken);
-            if (!string.IsNullOrWhiteSpace(childAppearance))
+            byte[]? heroPhotoBytes = null;
+            string heroPhotoContentType = "image/jpeg";
+            if (!string.IsNullOrWhiteSpace(child.PhotoUrl))
             {
-                await childRepository.UpdateAppearanceCacheAsync(
-                    child.Id,
-                    pack.UserId,
-                    childAppearance,
-                    child.PhotoUrl,
+                try
+                {
+                    heroPhotoBytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(
+                        child.PhotoUrl,
+                        cancellationToken);
+                    heroPhotoContentType = InferImageContentType(child.PhotoUrl);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Could not load child hero photo for {ChildId}", child.Id);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(child.PhotoUrl)
+                && child.PhotoUrl == child.AppearancePhotoUrl
+                && !string.IsNullOrWhiteSpace(child.AppearanceDescription))
+            {
+                childAppearance = child.AppearanceDescription;
+            }
+            else if (heroPhotoBytes is not null && string.IsNullOrWhiteSpace(childAppearance))
+            {
+                childAppearance = await DescribeChildFromPhotoAsync(
+                    child,
+                    heroPhotoBytes,
+                    heroPhotoContentType,
+                    pack.StoryLanguage ?? "en",
                     cancellationToken);
+                if (!string.IsNullOrWhiteSpace(childAppearance))
+                {
+                    await childRepository.UpdateAppearanceCacheAsync(
+                        child.Id,
+                        pack.UserId,
+                        childAppearance,
+                        child.PhotoUrl,
+                        cancellationToken);
+                }
             }
         }
 
@@ -809,6 +836,18 @@ public sealed class AdventureGenerationService(
             });
         }
 
+        string? previousRecap = null;
+        string? previousCompanionName = null;
+        string? previousCompanionType = null;
+        if (pack.PreviousChapterPackId is { } previousPackId)
+        {
+            var previousPack = await adventurePackRepository.GetByIdNoOwnershipAsync(previousPackId, cancellationToken);
+            var previousContent = TryDeserializeContent(previousPack?.GeneratedJson);
+            previousRecap = previousContent?.ChapterRecap;
+            previousCompanionName = previousContent?.Companion?.Name;
+            previousCompanionType = previousContent?.Companion?.Type;
+        }
+
         return new AdventureGenerationInput
         {
             ChildName = child.Name,
@@ -818,8 +857,56 @@ public sealed class AdventureGenerationService(
             FamilyMembers = cast,
             OptionalStoryNotes = pack.OptionalStoryNotes,
             StoryLanguage = NormalizeLanguage(pack.StoryLanguage),
-            StoryPageCount = ResolveEffectivePageCount(pack)
+            StoryPageCount = ResolveEffectivePageCount(pack),
+            ChapterNumber = pack.ChapterIndex.HasValue ? pack.ChapterIndex.Value + 1 : null,
+            PreviousChapterRecap = previousRecap,
+            PreviousCompanionName = previousCompanionName,
+            PreviousCompanionType = previousCompanionType
         };
+    }
+
+    private Task<string?> ResolveChildAppearanceDescriptionAsync(
+        Child child,
+        string storyLanguage,
+        CancellationToken cancellationToken)
+    {
+        if (child.PersonalizationType == "avatar")
+        {
+            var config = AvatarPromptBuilder.TryParse(child.AvatarConfigJson);
+            if (config is not null)
+            {
+                return Task.FromResult<string?>(AvatarPromptBuilder.BuildAppearanceDescription(config, child.Age));
+            }
+
+            if (!string.IsNullOrWhiteSpace(child.AppearanceDescription))
+            {
+                return Task.FromResult<string?>(child.AppearanceDescription);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(child.AppearanceDescription))
+        {
+            return Task.FromResult<string?>(child.AppearanceDescription);
+        }
+
+        return Task.FromResult<string?>(null);
+    }
+
+    private static AdventureContentDto? TryDeserializeContent(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<AdventureContentDto>(json);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private async Task SendStoryReadyEmailAsync(AdventurePack pack, string childName, CancellationToken cancellationToken)
@@ -1074,15 +1161,13 @@ public sealed class AdventureGenerationService(
         {
             throw new InvalidOperationException(
                 pack.IsWelcomeGiftStory
-                    ? "Your free illustrated page is not ready yet. Open My Books and try again in a moment."
+                    ? "Your free book isn't fully illustrated yet. Open My Books and try again once every page is painted."
                     : "PDF export only uses your saved slideshow illustrations. Wait until every page is illustrated.");
         }
 
         await SetProgressAsync(
             pack.Id,
-            pack.IsWelcomeGiftStory && !HasAllSlideshowIllustrations(pack)
-                ? "Building your free preview PDF… ~40%"
-                : "Using your slideshow illustrations… ~40%",
+            "Using your slideshow illustrations… ~40%",
             cancellationToken);
 
         var pageCount = ResolveEffectivePageCount(pack);
@@ -1125,11 +1210,7 @@ public sealed class AdventureGenerationService(
             var pageCount = ResolveEffectivePageCount(pack);
             var illustratedCount = CountIllustratedPages(pack, content, pageCount);
 
-            if (pack.IsWelcomeGiftStory)
-            {
-                return illustratedCount >= AdventureStoryConstants.WelcomeGiftPageCount;
-            }
-
+            // The welcome-gift book is now a full, free, illustrated book — export the PDF once every page is painted.
             return illustratedCount == pageCount;
         }
         catch
@@ -1232,6 +1313,26 @@ public sealed class AdventureGenerationService(
             }
         }
 
+        if (characterAnchor is null && pack.PreviousChapterPackId is { } previousChapterPackId)
+        {
+            try
+            {
+                var previousPack = await adventurePackRepository.GetByIdNoOwnershipAsync(previousChapterPackId, cancellationToken);
+                var previousContent = TryDeserializeContent(previousPack?.GeneratedJson);
+                var previousAnchorUrl = previousContent?.StoryPages
+                    .LastOrDefault(p => !string.IsNullOrWhiteSpace(p.IllustrationUrl))
+                    ?.IllustrationUrl;
+                if (!string.IsNullOrWhiteSpace(previousAnchorUrl))
+                {
+                    characterAnchor = await blobStorageService.DownloadBytesFromStoredUrlAsync(previousAnchorUrl, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Could not load previous chapter anchor for pack {PackId}", packId);
+            }
+        }
+
         for (var i = 0; i < pageCount && i < content.StoryPages.Count; i++)
         {
             var page = content.StoryPages[i];
@@ -1285,6 +1386,12 @@ public sealed class AdventureGenerationService(
         async Task PersistPageAsync(int pageIndex, byte[] imageBytes)
         {
             var storedImage = referenceImageNormalizer.NormalizeForStorageWebp(imageBytes);
+            await TryRefineInteractiveRegionsAsync(
+                content.StoryPages[pageIndex],
+                storedImage.Bytes,
+                input.ChildName,
+                cancellationToken);
+
             content.StoryPages[pageIndex].IllustrationUrl = await blobStorageService.UploadAsync(
                 PageIllustrationBlobName(pack.UserId, pack.Id, pageIndex),
                 storedImage.Bytes,
@@ -1393,4 +1500,62 @@ public sealed class AdventureGenerationService(
 
     private static string PageIllustrationBlobName(Guid userId, Guid packId, int pageIndex) =>
         $"{userId}/{packId}/page-{pageIndex}.webp";
+
+    private async Task TryRefineInteractiveRegionsAsync(
+        StoryPageDto page,
+        byte[] imageWebpBytes,
+        string childName,
+        CancellationToken cancellationToken)
+    {
+        if (page.Interactive is null)
+        {
+            return;
+        }
+
+        try
+        {
+            if (page.Interactive.AvatarTap is not null)
+            {
+                var heroRegion = await openAiService.LocateRegionInIllustrationAsync(
+                    imageWebpBytes,
+                    "image/webp",
+                    $"Locate the main child hero protagonist named {childName} in this children's book illustration.",
+                    cancellationToken);
+                if (heroRegion is not null)
+                {
+                    page.Interactive.AvatarTap.Region = heroRegion;
+                }
+            }
+
+            if (page.Interactive.FindIt is { } findIt)
+            {
+                var objectRegion = await openAiService.LocateRegionInIllustrationAsync(
+                    imageWebpBytes,
+                    "image/webp",
+                    $"Locate the {findIt.ObjectLabel} that a child should find. Story context: {findIt.Prompt}",
+                    cancellationToken);
+                if (objectRegion is not null)
+                {
+                    page.Interactive.FindIt.Region = objectRegion;
+                }
+            }
+
+            if (page.Interactive.RevealItem is { } revealItem)
+            {
+                var coverRegion = await openAiService.LocateRegionInIllustrationAsync(
+                    imageWebpBytes,
+                    "image/webp",
+                    $"Locate the {revealItem.CoverLabel} that is hiding something in this children's book illustration.",
+                    cancellationToken);
+                if (coverRegion is not null)
+                {
+                    page.Interactive.RevealItem.Region = coverRegion;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Interactive region vision refine failed; keeping story-estimated coordinates");
+        }
+    }
 }

@@ -108,6 +108,23 @@ public sealed class SmtpEmailService(
             senderEmail);
     }
 
+    public Task SendLeadMagnetAsync(
+        string toAddress,
+        string? childName,
+        string ctaUrl,
+        CancellationToken cancellationToken = default)
+    {
+        var hero = string.IsNullOrWhiteSpace(childName) ? "your child" : WebUtility.HtmlEncode(childName.Trim());
+        var html = $"""
+            <p>Hi there,</p>
+            <p>You're one step away from a magical bedtime — <strong>{hero}'s first storybook is completely free</strong>, with every one of its six pages fully illustrated.</p>
+            <p>Pick a theme, add their name, and we'll weave them into their very own adventure. No credit card needed to read and print the first book.</p>
+            <p><a href="{ctaUrl}">Create the free storybook</a></p>
+            <p>With warmth,<br/>Adventrya Books</p>
+            """;
+        return SendEmailCoreAsync(toAddress, "Your child's first storybook is free — Adventrya Books", html, cancellationToken);
+    }
+
     private async Task SendEmailCoreAsync(
         string toAddress,
         string subject,

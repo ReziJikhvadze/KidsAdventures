@@ -334,7 +334,8 @@ public sealed class AdventurePacksController(
                     IsIllustrated = isIllustrated,
                     IllustrationUrl = isIllustrated
                         ? $"/api/adventure-packs/{pack.Id}/illustrations/{index}"
-                        : null
+                        : null,
+                    Interactive = SanitizeInteractive(p.Interactive)
                 };
             }).ToList();
         }
@@ -371,9 +372,78 @@ public sealed class AdventurePacksController(
         }
     }
 
+    private static PageInteractiveDto? SanitizeInteractive(PageInteractiveDto? interactive)
+    {
+        if (interactive is null)
+        {
+            return null;
+        }
+
+        var hasAvatar = interactive.AvatarTap is not null;
+        var hasFindIt = interactive.FindIt is not null
+                        && !string.IsNullOrWhiteSpace(interactive.FindIt.Prompt)
+                        && interactive.FindIt.Region is not null;
+        var hasCounting = interactive.Counting is not null
+                          && interactive.Counting.Target > 0
+                          && interactive.Counting.Target <= 10
+                          && !string.IsNullOrWhiteSpace(interactive.Counting.Prompt);
+        var hasRevealItem = interactive.RevealItem is not null
+                            && !string.IsNullOrWhiteSpace(interactive.RevealItem.CoverLabel)
+                            && !string.IsNullOrWhiteSpace(interactive.RevealItem.RevealLabel)
+                            && interactive.RevealItem.Region is not null;
+
+        if (!hasAvatar && !hasFindIt && !hasCounting && !hasRevealItem)
+        {
+            return null;
+        }
+
+        if (interactive.AvatarTap?.Region is not null)
+        {
+            interactive.AvatarTap.Region = ClampRegion(interactive.AvatarTap.Region);
+        }
+
+        if (hasFindIt)
+        {
+            interactive.FindIt!.Region = ClampRegion(interactive.FindIt.Region);
+        }
+
+        if (hasCounting)
+        {
+            interactive.Counting!.Target = Math.Clamp(interactive.Counting.Target, 1, 10);
+        }
+
+        if (hasRevealItem)
+        {
+            interactive.RevealItem!.Region = ClampRegion(interactive.RevealItem.Region);
+        }
+        else
+        {
+            interactive.RevealItem = null;
+        }
+
+        return interactive;
+    }
+
+    private static HotspotRegionDto ClampRegion(HotspotRegionDto region) => new()
+    {
+        X = Math.Clamp(region.X, 0, 100),
+        Y = Math.Clamp(region.Y, 0, 100),
+        W = Math.Clamp(region.W, 5, 60),
+        H = Math.Clamp(region.H, 5, 60),
+    };
+
     private static bool IsPageIllustrated(AdventurePack pack, StoryPageDto page, int pageIndex)
     {
         if (!string.IsNullOrWhiteSpace(page.IllustrationUrl))
+        {
+            return true;
+        }
+
+        // Welcome-gift books paint every page for free. Once the illustration job finishes, treat any
+        // page that still lacks a URL as illustrated via the pack-level preview (covers racey JSON reads).
+        if (pack.IsWelcomeGiftStory
+            && pack.PreviewIllustrationStatus == PreviewIllustrationStatus.Ready
+            && !string.IsNullOrWhiteSpace(pack.PreviewIllustrationUrl))
         {
             return true;
         }

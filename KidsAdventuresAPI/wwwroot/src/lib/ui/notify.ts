@@ -46,7 +46,7 @@ export function formatApiError(
         title: "No book credits left",
         description:
           message ||
-          "Your free 2-page welcome story was used. Buy book credits to unlock full 6-page illustrated adventures.",
+          "Your free first book was used. Buy a book ($4.99) to unlock your next illustrated adventure.",
       };
     }
 

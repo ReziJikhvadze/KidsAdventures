@@ -43,7 +43,7 @@ export const childEducationThroughStories: BlogPost = {
       heading: "Screen-free learning parents actually stick with",
       paragraphs: [
         "Educational apps compete with games. A printable adventure book competes with nothing — it is a physical object kids can flip, color, and shelve. Pair reading with acting out scenes for multisensory learning.",
-        "Try a free 2-page preview on Adventrya Books before buying credits for the full illustrated PDF.",
+        "Create your first full, illustrated book free on Adventrya Books before paying for any additional adventures.",
       ],
     },
   ],

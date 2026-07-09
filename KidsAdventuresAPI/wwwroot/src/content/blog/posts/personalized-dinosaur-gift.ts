@@ -64,11 +64,11 @@ export const personalizedDinosaurGift: BlogPost = {
     {
       heading: "Try before you buy",
       paragraphs: [
-        "Every new account gets a free 2-page welcome preview. Read the slideshow in the browser before spending a cent. When you love it, book credits unlock the full 6-page illustrated PDF.",
+        "Every new account gets a complete, fully illustrated 6-page book free. Read the slideshow in the browser and print the PDF before spending a cent. When you want more adventures, each new book is a one-time $4.99.",
       ],
       bullets: [
-        "Free 2-page preview — no card required",
-        "Full books use one credit each",
+        "First full illustrated book free — no card required",
+        "Additional books $4.99 each",
         "Credits never expire",
       ],
     },
@@ -83,7 +83,7 @@ export const personalizedDinosaurGift: BlogPost = {
   faqs: [
     {
       q: "How much does a personalized dinosaur book cost?",
-      a: "The full dinosaur story is free to create and read. Your first book includes one free illustrated page, and a one-time $4.99 unlocks the complete illustrated storybook. The printable PDF download is always free.",
+      a: "Your first complete, fully illustrated dinosaur storybook is free to create, read, and print. Each additional illustrated storybook is a one-time $4.99. The printable PDF download is always free.",
     },
     {
       q: "Can I add my child's photo to the dinosaur book?",

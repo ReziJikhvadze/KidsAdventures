@@ -212,13 +212,9 @@ export function isPackFullyIllustrated(pack: AdventurePackDetailResponse): boole
   return pages.length > 0 && pages.every((p) => p.isIllustrated);
 }
 
-/** Welcome-gift stories can export a preview PDF after the free illustrated page; full books need every page illustrated. */
+/** Every book (including the free first book) needs all pages illustrated before the printable PDF is available. */
 export function canExportPackPdf(pack: AdventurePackDetailResponse): boolean {
   if (pack.status !== "StoryReady" && pack.status !== "Completed") return false;
-  const illustrated = countIllustratedPages(pack);
-  if (pack.isWelcomeGiftStory) {
-    return illustrated >= 1;
-  }
   return isPackFullyIllustrated(pack);
 }
 

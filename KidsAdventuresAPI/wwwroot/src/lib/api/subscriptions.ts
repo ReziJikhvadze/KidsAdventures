@@ -13,10 +13,11 @@ export async function getAccountBalance(): Promise<AccountBalanceResponse> {
 export async function createCheckoutSession(
   planType: BookPackPlan,
   provider?: PaymentProvider,
+  adventurePackId?: string,
 ): Promise<CheckoutSessionResponse> {
   return apiRequest<CheckoutSessionResponse>("/api/subscriptions/create-checkout-session", {
     method: "POST",
-    body: JSON.stringify({ planType, provider }),
+    body: JSON.stringify({ planType, provider, adventurePackId }),
   });
 }
 

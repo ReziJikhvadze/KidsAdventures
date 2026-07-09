@@ -1,5 +1,7 @@
 using AdventurePacks.Api.DTOs.Children;
+using AdventurePacks.Api.Domain.Models;
 using AdventurePacks.Api.Repositories.Interfaces;
+using AdventurePacks.Api.Services;
 using AdventurePacks.Api.Services.Interfaces;
 
 namespace AdventurePacks.Api.Controllers;
@@ -32,6 +34,8 @@ public sealed class ChildrenController(
         var childId = Guid.NewGuid();
         var photoUrl = await UploadPhotoIfAnyAsync(userId, childId, photo, cancellationToken);
 
+        var (personalizationType, avatarConfigJson, appearanceDescription) = ResolvePersonalization(request, photoUrl);
+
         var child = new Child
         {
             Id = childId,
@@ -39,6 +43,9 @@ public sealed class ChildrenController(
             Name = request.Name.Trim(),
             Age = request.Age,
             PhotoUrl = photoUrl,
+            PersonalizationType = personalizationType,
+            AvatarConfigJson = avatarConfigJson,
+            AppearanceDescription = appearanceDescription,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -97,6 +104,27 @@ public sealed class ChildrenController(
         }
     }
 
+    [HttpGet("{id:guid}/hero-portrait")]
+    public async Task<IActionResult> GetHeroPortrait(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = userContext.GetUserId();
+        var child = await childRepository.GetByIdAsync(id, userId, cancellationToken);
+        if (child is null || string.IsNullOrWhiteSpace(child.HeroPortraitUrl))
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(child.HeroPortraitUrl, cancellationToken);
+            return File(bytes, "image/webp");
+        }
+        catch
+        {
+            return NotFound();
+        }
+    }
+
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
@@ -133,6 +161,33 @@ public sealed class ChildrenController(
             cancellationToken);
     }
 
+    private static (string? PersonalizationType, string? AvatarConfigJson, string? AppearanceDescription) ResolvePersonalization(
+        CreateChildRequest request,
+        string? photoUrl)
+    {
+        var type = request.PersonalizationType?.Trim().ToLowerInvariant();
+        if (type is not ("avatar" or "photo"))
+        {
+            type = photoUrl is not null ? "photo" : null;
+        }
+
+        if (type == "avatar")
+        {
+            var config = AvatarPromptBuilder.TryParse(request.AvatarConfigJson)
+                         ?? new AvatarConfig();
+            var json = AvatarPromptBuilder.Serialize(config);
+            var appearance = AvatarPromptBuilder.BuildAppearanceDescription(config, request.Age);
+            return ("avatar", json, appearance);
+        }
+
+        if (type == "photo" || photoUrl is not null)
+        {
+            return ("photo", null, null);
+        }
+
+        return (null, null, null);
+    }
+
     private static ChildResponse Map(Child child) => new()
     {
         Id = child.Id,
@@ -140,6 +195,9 @@ public sealed class ChildrenController(
         Name = child.Name,
         Age = child.Age,
         PhotoUrl = child.PhotoUrl,
+        PersonalizationType = child.PersonalizationType,
+        AvatarConfigJson = child.AvatarConfigJson,
+        HeroPortraitUrl = child.HeroPortraitUrl,
         CreatedAt = child.CreatedAt
     };
 }

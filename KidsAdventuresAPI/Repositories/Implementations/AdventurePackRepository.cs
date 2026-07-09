@@ -8,7 +8,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, ErrorMessage,
         OptionalStoryNotes, StoryLanguage, ProgressMessage, PdfCreditCharged,
         PreviewIllustrationUrl, PreviewIllustrationStatus, PreviewIllustrationUpdatedAt,
-        StoryPageCount, IsWelcomeGiftStory, CreatedAt
+        StoryPageCount, IsWelcomeGiftStory, ChapterIndex, PreviousChapterPackId, CreatedAt
         """;
 
     public async Task<Guid> CreatePendingAsync(AdventurePack pack, CancellationToken cancellationToken)
@@ -17,11 +17,13 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
                            INSERT INTO AdventurePacks (
                                Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, ErrorMessage,
                                OptionalStoryNotes, StoryLanguage, ProgressMessage, PdfCreditCharged,
-                               PreviewIllustrationUrl, PreviewIllustrationStatus, StoryPageCount, IsWelcomeGiftStory, CreatedAt)
+                               PreviewIllustrationUrl, PreviewIllustrationStatus, StoryPageCount, IsWelcomeGiftStory,
+                               ChapterIndex, PreviousChapterPackId, CreatedAt)
                            VALUES (
                                @Id, @UserId, @ChildId, @Theme, @Status, @GeneratedJson, @PdfUrl, @ErrorMessage,
                                @OptionalStoryNotes, @StoryLanguage, @ProgressMessage, @PdfCreditCharged,
-                               @PreviewIllustrationUrl, @PreviewIllustrationStatus, @StoryPageCount, @IsWelcomeGiftStory, @CreatedAt);
+                               @PreviewIllustrationUrl, @PreviewIllustrationStatus, @StoryPageCount, @IsWelcomeGiftStory,
+                               @ChapterIndex, @PreviousChapterPackId, @CreatedAt);
                            """;
         pack.Id = pack.Id == Guid.Empty ? Guid.NewGuid() : pack.Id;
 
@@ -44,6 +46,8 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
             PreviewIllustrationStatus = pack.PreviewIllustrationStatus.ToString(),
             pack.StoryPageCount,
             pack.IsWelcomeGiftStory,
+            pack.ChapterIndex,
+            pack.PreviousChapterPackId,
             pack.CreatedAt
         }, cancellationToken: cancellationToken));
         return pack.Id;
@@ -267,6 +271,8 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         PreviewIllustrationUpdatedAt = row.PreviewIllustrationUpdatedAt,
         StoryPageCount = row.StoryPageCount,
         IsWelcomeGiftStory = row.IsWelcomeGiftStory,
+        ChapterIndex = row.ChapterIndex,
+        PreviousChapterPackId = row.PreviousChapterPackId,
         CreatedAt = row.CreatedAt
     };
 
@@ -289,6 +295,8 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         public DateTime? PreviewIllustrationUpdatedAt { get; set; }
         public int StoryPageCount { get; set; } = 6;
         public bool IsWelcomeGiftStory { get; set; }
+        public int? ChapterIndex { get; set; }
+        public Guid? PreviousChapterPackId { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 }

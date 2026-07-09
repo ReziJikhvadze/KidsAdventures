@@ -1,3 +1,4 @@
+using AdventurePacks.Api.Domain.Enums;
 using AdventurePacks.Api.Domain.Models;
 using AdventurePacks.Api.DTOs.AdventurePacks;
 
@@ -21,8 +22,8 @@ internal static class AdventurePromptBuilder
 
         var pageCount = input.StoryPageCount > 0 ? input.StoryPageCount : AdventureStoryConstants.FullPageCount;
         pageCount = Math.Min(pageCount, AdventureStoryConstants.FullPageCount);
-        var isWelcomeGift = pageCount <= AdventureStoryConstants.WelcomeGiftPageCount;
-        var storyArc = isWelcomeGift ? texts.WelcomeArc : texts.FullArc;
+        // Welcome gift is now a full 6-page illustrated book — always use the full story arc.
+        var storyArc = texts.FullArc;
 
         var narrativeRules = texts.NarrativeCraftRules
             .Select((rule, index) => index switch
@@ -48,7 +49,9 @@ internal static class AdventurePromptBuilder
             "  \"title\": \"\",",
             "  \"theme\": \"\",",
             "  \"childName\": \"\",",
-            "  \"storyPages\": [{ \"title\": \"\", \"caption\": \"\", \"content\": \"\" }]",
+            "  \"companion\": null,",
+            "  \"storyPages\": [{ \"title\": \"\", \"caption\": \"\", \"content\": \"\", \"interactive\": null }],",
+            "  \"chapterRecap\": \"\"",
             "}",
             string.Empty,
             texts.NarrativeCraftHeader,
@@ -64,11 +67,26 @@ internal static class AdventurePromptBuilder
         lines.Add($"- {texts.PageLengthRule}");
         lines.Add($"- {texts.CaptionRule}");
         lines.Add($"- {texts.ContinuityRule}");
+        lines.Add($"- {texts.CharacterRegistryRule}");
         lines.Add($"- {texts.JsonOnlyRule}");
         lines.Add($"- {texts.RawJsonRule}");
         lines.Add($"- {string.Format(texts.AdventureIdLabel, adventureId)}");
         lines.Add($"- {string.Format(texts.NarrativeToneLabel, toneSeed)}");
         lines.Add($"- {texts.NoGenericOpeningsRule}");
+        lines.Add(string.Empty);
+        lines.AddRange(texts.InteractiveStoryRules);
+
+        if (input.ChapterNumber is > 1)
+        {
+            lines.Add(string.Empty);
+            lines.Add(string.Format(
+                texts.ChapterContinuationTemplate,
+                input.ChapterNumber,
+                string.IsNullOrWhiteSpace(input.PreviousChapterRecap) ? "-" : input.PreviousChapterRecap.Trim(),
+                string.IsNullOrWhiteSpace(input.PreviousCompanionName) ? "-" : input.PreviousCompanionName.Trim(),
+                string.IsNullOrWhiteSpace(input.PreviousCompanionType) ? "-" : input.PreviousCompanionType.Trim()));
+        }
+
         lines.Add(string.Empty);
         lines.Add(texts.InputHeader);
         lines.Add(string.Format(texts.ChildNameLabel, input.ChildName));
@@ -80,11 +98,9 @@ internal static class AdventurePromptBuilder
         if (!string.IsNullOrWhiteSpace(input.OptionalStoryNotes))
         {
             lines.Add(string.Empty);
-            var wishPages = isWelcomeGift
-                ? texts.ExtraWishesWelcomePages
-                : pageCount <= AdventureStoryConstants.FullPageCount
-                    ? texts.ExtraWishesFullPages
-                    : texts.ExtraWishesManyPages;
+            var wishPages = pageCount <= AdventureStoryConstants.FullPageCount
+                ? texts.ExtraWishesFullPages
+                : texts.ExtraWishesManyPages;
             lines.Add(string.Format(texts.ExtraWishesHeader, wishPages));
             lines.Add(input.OptionalStoryNotes.Trim());
             lines.Add($"- {texts.LikesRule}");
@@ -184,6 +200,45 @@ internal static class AdventurePromptBuilder
 
         parts.Add(string.Format(texts.ImageAdventureId, adventureId));
         return string.Join(" ", parts);
+    }
+
+    /// <summary>
+    /// One-time "traveler" bust portrait for the Story Path map — generated from the child's first
+    /// story text alone (name/age/theme/companion), no reference photo. Reused across every saga map.
+    /// </summary>
+    public static string BuildHeroPortraitPrompt(
+        string childName,
+        int age,
+        ThemeType theme,
+        string? companionName,
+        string? companionType,
+        string? avatarAppearanceDescription = null)
+    {
+        var costume = theme switch
+        {
+            ThemeType.Airplanes => "wearing a soft leather aviator cap with goggles pushed up and a cozy flight scarf",
+            ThemeType.Dinosaurs => "wearing an explorer's canvas vest and adventure hat with a friendly dino-print bandana",
+            ThemeType.Space => "wearing a shiny kid-sized space suit with a star patch, a little astronaut helmet tucked under one arm",
+            ThemeType.Pirates => "wearing a striped pirate bandana and a tiny gold-button captain's coat",
+            ThemeType.Animals => "wearing a safari hat and khaki vest with binoculars around the neck",
+            _ => "wearing their favorite adventure outfit",
+        };
+
+        var appearanceHint = string.IsNullOrWhiteSpace(avatarAppearanceDescription)
+            ? $"a cheerful, adventurous {age}-year-old child named {childName}, {costume}"
+            : $"a cheerful, adventurous child named {childName}. Visual identity: {avatarAppearanceDescription.Trim()} Theme costume accent: {costume}.";
+
+        var companionHint = string.IsNullOrWhiteSpace(companionName)
+            ? string.Empty
+            : $" A tiny {(string.IsNullOrWhiteSpace(companionType) ? "companion creature" : companionType.Trim())} named {companionName.Trim()} peeks in from one corner, matching the same art style.";
+
+        return
+            "Create a single character portrait in vibrant Pixar-style 3D animated movie art. " +
+            $"Subject: {appearanceHint} " +
+            "Head-and-shoulders bust portrait, body angled slightly, face turned toward camera with a warm confident smile and big expressive eyes. " +
+            "Centered composition, soft round glow of warm golden light behind the subject, plain uncluttered background with no scenery, no text, no logos, no watermarks." +
+            companionHint +
+            " Ultra-clean 3D render, soft studio lighting, rounded friendly shapes, high-end animated-movie production quality, square framing.";
     }
 
     public static string BuildHeroPhotoDescribePrompt(string storyLanguage, string childName, int age) =>

@@ -23,7 +23,7 @@ function buildThemeFaqs(theme: StoryTheme): { q: string; a: string }[] {
     },
     {
       q: `Is the ${lower} storybook really free to try?`,
-      a: `Yes. The complete ${lower} story text is free, and your first book includes one free illustrated page. Unlock the full illustrated storybook for a one-time $4.99 — the printable PDF download is always free.`,
+      a: `Yes. Your first complete ${lower} storybook is free and fully illustrated. Each additional illustrated storybook is a one-time $4.99 — the printable PDF download is always free.`,
     },
     {
       q: `What age is this ${lower} adventure book good for?`,

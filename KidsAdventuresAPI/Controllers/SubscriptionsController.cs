@@ -41,6 +41,7 @@ public sealed class SubscriptionsController(
             userContext.GetEmail(),
             request.PlanType,
             request.Provider,
+            request.AdventurePackId,
             cancellationToken);
 
         return Ok(response);

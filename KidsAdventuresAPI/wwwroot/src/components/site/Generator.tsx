@@ -6,7 +6,19 @@ import { notify } from "@/lib/ui/notify";
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
 import type { GuestPreviewResult } from "@/lib/api/adventure-packs";
 import { createCheckoutSession } from "@/lib/api/subscriptions";
+import { setPendingIllustration } from "@/lib/account/pendingIllustration";
 import { createChild } from "@/lib/api/children";
+import { AvatarBuilder } from "@/components/avatar/AvatarBuilder";
+import { PersonalizationFork } from "@/components/avatar/PersonalizationFork";
+import { PixarAvatarPreview } from "@/components/avatar/PixarAvatarPreview";
+import { ThemeCoverPreview } from "@/components/site/ThemeCoverPreview";
+import { HeroInScenePreview } from "@/components/site/HeroInScenePreview";
+import {
+  DEFAULT_AVATAR_CONFIG,
+  type AvatarConfig,
+  type PersonalizationType,
+} from "@/lib/avatar/config";
+import { applyPreset, presetsForTheme } from "@/lib/avatar/presets";
 import { getToken } from "@/lib/api/client";
 import { storeGuestPreviewIds, clearGuestPreviewIds } from "@/lib/api/auth";
 import { createFamilyMember } from "@/lib/api/family-members";
@@ -28,6 +40,7 @@ import {
   Ship,
   PawPrint,
   Camera,
+  Lock,
   User,
   Crown,
   MapPin,
@@ -187,6 +200,8 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
   const [name, setName] = useState("");
   const [age, setAge] = useState<number | "">("");
   const [childPhoto, setChildPhoto] = useState<string | null>(null);
+  const [personalizationMode, setPersonalizationMode] = useState<PersonalizationType | null>(null);
+  const [avatarConfig, setAvatarConfig] = useState<AvatarConfig>(DEFAULT_AVATAR_CONFIG);
   const [optionalNotes, setOptionalNotes] = useState("");
   const [storyLanguage, setStoryLanguage] = useState<(typeof storyLanguages)[number]["value"]>("en");
   const [theme, setTheme] = useState<ThemeId | null>(initialTheme);
@@ -253,6 +268,22 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
 
   const valid = missingRequirements.length === 0;
 
+  const buildCreateChildOptions = () => {
+    const heroFile =
+      personalizationMode === "photo" && childPhoto?.startsWith("data:")
+        ? dataUrlToFile(childPhoto, "hero")
+        : undefined;
+
+    return {
+      photoFile: heroFile,
+      personalizationType: personalizationMode ?? undefined,
+      avatarConfig: personalizationMode === "avatar" ? avatarConfig : undefined,
+    };
+  };
+
+  const hasPersonalizedHero =
+    personalizationMode === "avatar" || (personalizationMode === "photo" && !!childPhoto);
+
   const addMemberFromFile = (file: File | undefined) => {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) return;
@@ -315,11 +346,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       if (!apiTheme) throw new Error("Invalid theme selected.");
 
       setProgress(12);
-      const heroFile =
-        childPhoto?.startsWith("data:") ?
-          dataUrlToFile(childPhoto, "hero")
-        : undefined;
-      const child = await createChild(name.trim(), age as number, heroFile);
+      const child = await createChild(name.trim(), age as number, buildCreateChildOptions());
 
       setProgress(20);
       if (ENABLE_STORY_CAST) {
@@ -368,10 +395,11 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       setIsWelcomeGiftStory(giftStory);
 
       if (giftStory) {
-        // Wait for the free sample illustration so the parent sees their child illustrated for free.
+        // Wait for the first illustrated page so the parent sees their child illustrated right away; the rest of
+        // this free, fully illustrated first book keeps painting in the background (visible in My Books).
         setStatus("illustrating");
         setProgress(45);
-        setProgressMessage("Painting your free sample page…");
+        setProgressMessage("Painting your free book…");
         try {
           const sampled = await adventurePacksApi.pollAdventurePack(
             finished.id,
@@ -384,7 +412,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
           setStoryPages(sampled.storyPages ?? finished.storyPages ?? []);
           setPreviewIllustrationStatus(sampled.previewIllustrationStatus ?? "None");
         } catch {
-          // Sample still cooking — show the text now; the page fills in from My Books.
+          // Still cooking — show the text now; illustrations fill in from My Books.
         }
       }
 
@@ -393,12 +421,12 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       await refreshAccountBalance();
       notify.success(
         giftStory
-          ? "Your story is ready — with 1 free illustrated page!"
+          ? "Your first book is free — and fully illustrated!"
           : "Your story is ready to read — free!",
         {
           description: giftStory
-            ? "Enjoy your free page, then unlock the full illustrated book for $4.99."
-            : "Read every page, then unlock illustrations to bring it to life.",
+            ? "We're painting every page now — read it anytime in My Books."
+            : "Read every page free. Unlock the full illustrated storybook for $4.99 when you're ready.",
         },
       );
     } catch (err) {
@@ -500,9 +528,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     setErrorMessage(null);
 
     try {
-      const heroFile =
-        childPhoto?.startsWith("data:") ? dataUrlToFile(childPhoto, "hero") : undefined;
-      const child = await createChild(name.trim(), age as number, heroFile);
+      const child = await createChild(name.trim(), age as number, buildCreateChildOptions());
 
       const imported = await adventurePacksApi.importGuestStory({
         childId: child.id,
@@ -527,10 +553,11 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       setGuestResult(null);
 
       if (giftStory) {
-        // Wait for the free welcome-gift illustration so the parent sees their child illustrated for free.
+        // Wait for the first illustrated page so the parent sees their child illustrated right away; the rest of
+        // this free, fully illustrated first book keeps painting in the background (visible in My Books).
         setStatus("illustrating");
         setProgress(45);
-        setProgressMessage("Painting your free illustrated page…");
+        setProgressMessage("Painting your free book…");
         try {
           pack = await adventurePacksApi.pollAdventurePack(
             imported.id,
@@ -543,7 +570,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
           setStoryPages(pack.storyPages ?? []);
           setPreviewIllustrationStatus(pack.previewIllustrationStatus ?? "None");
         } catch {
-          /* Sample still cooking — the page fills in from My Books. */
+          /* Still cooking — illustrations fill in from My Books. */
         }
       }
 
@@ -551,8 +578,12 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       setStatus("storyReady");
       await refreshAccountBalance();
       notify.success(
-        giftStory ? "Story saved — with 1 free illustrated page!" : "Story saved to your account!",
-        { description: "Unlock the full illustrated storybook for $4.99." },
+        giftStory ? "Your first book is free — and fully illustrated!" : "Story saved to your account!",
+        {
+          description: giftStory
+            ? "We're painting every page now — read it anytime in My Books."
+            : "Unlock the full illustrated storybook for $4.99.",
+        },
       );
     } catch (err) {
       const message =
@@ -600,9 +631,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     setProgress(10);
     if (!canExportPdf) {
       notify.info("PDF not ready yet", {
-        description: isWelcomeGiftStory
-          ? "Wait until your free illustrated page is ready, then export your preview PDF."
-          : "Wait until all pages are illustrated, then export your free PDF.",
+        description: "Wait until all pages are illustrated, then export your free PDF.",
       });
       setStatus("storyReady");
       setStartingPdf(false);
@@ -659,9 +688,10 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
 
     const credits = user?.bookCredits ?? 0;
     if (credits <= 0) {
-      // No credit yet — send them to the $4.99 one-book checkout. After paying they unlock from My Books.
+      // No credit yet — per-book $4.99 checkout; metadata + sessionStorage auto-illustrate this pack after pay.
       try {
-        const session = await createCheckoutSession("Book1");
+        setPendingIllustration(completedPackId);
+        const session = await createCheckoutSession("Book1", undefined, completedPackId);
         if (session.checkoutUrl) {
           window.location.href = session.checkoutUrl;
           return;
@@ -729,9 +759,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
   const selectedTheme = STORY_THEMES.find((t) => t.id === theme);
   const fullyIllustrated =
     storyPages.length > 0 && storyPages.every((p) => p.isIllustrated);
-  const canExportPdf =
-    storyPages.length > 0 &&
-    (fullyIllustrated || (isWelcomeGiftStory && storyPages.some((p) => p.isIllustrated)));
+  const canExportPdf = storyPages.length > 0 && fullyIllustrated;
   const hasBookCredit = (user?.bookCredits ?? 0) > 0;
 
   // Drives the "How it works" band as a live progress tracker.
@@ -869,44 +897,88 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 </div>
               </div>
 
-              {/* Hero photo */}
-              <div className="mt-6 rounded-2xl border border-border bg-secondary/30 p-4">
-                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 text-center sm:text-left">
-                  {childPhoto ? (
-                    <img
-                      src={childPhoto}
-                      alt={name || "Your child"}
-                      className="h-16 w-16 rounded-xl object-cover border border-border shrink-0"
-                    />
-                  ) : (
-                    <div className="h-16 w-16 rounded-xl bg-background border border-dashed border-border grid place-items-center shrink-0">
-                      <Camera className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0 w-full">
-                    <div className="text-sm font-semibold">Photo of your child (hero)</div>
-                    <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                      Recommended — we turn it into a cartoon hero that looks like your child. Use a
-                      clear, front-facing photo.
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                      <PhotoPickerActions
-                        hasPhoto={!!childPhoto}
-                        onFileSelected={addHeroPhoto}
+              <PersonalizationFork
+                childName={name}
+                value={personalizationMode}
+                themeId={theme}
+                onChange={(mode) => {
+                  setPersonalizationMode(mode);
+                  if (mode === "avatar") {
+                    setChildPhoto(null);
+                    const starter = presetsForTheme(theme)[0];
+                    if (starter) setAvatarConfig(applyPreset(starter));
+                  }
+                }}
+              />
+
+              {personalizationMode === "avatar" && (
+                <AvatarBuilder
+                  config={avatarConfig}
+                  childName={name}
+                  themeId={theme}
+                  onChange={setAvatarConfig}
+                />
+              )}
+
+              {personalizationMode === "photo" && (
+                <div className="mt-4 rounded-2xl border border-border bg-secondary/30 p-4 sm:p-5">
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 text-center sm:text-left">
+                    {childPhoto ? (
+                      <img
+                        src={childPhoto}
+                        alt={name || "Your child"}
+                        className="h-16 w-16 rounded-xl object-cover border border-border shrink-0"
                       />
-                      {childPhoto && (
-                        <button
-                          type="button"
-                          onClick={() => setChildPhoto(null)}
-                          className="text-xs text-muted-foreground hover:text-foreground underline"
-                        >
-                          Remove
-                        </button>
-                      )}
+                    ) : (
+                      <div className="h-16 w-16 rounded-xl bg-background border border-dashed border-border grid place-items-center shrink-0">
+                        <Camera className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0 w-full">
+                      <div className="text-sm font-semibold">
+                        Add a clear face photo of {name.trim() || "your child"}
+                      </div>
+                      <p className="mt-1 inline-flex items-center justify-center gap-1.5 text-[11px] font-semibold text-emerald-800 sm:justify-start dark:text-emerald-300">
+                        <Lock className="h-3.5 w-3.5 shrink-0" />
+                        100% Private
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Processed to create the artwork. Never shared — delete anytime in one click.
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                        <PhotoPickerActions
+                          hasPhoto={!!childPhoto}
+                          onFileSelected={addHeroPhoto}
+                        />
+                        {childPhoto && (
+                          <button
+                            type="button"
+                            onClick={() => setChildPhoto(null)}
+                            className="text-xs text-muted-foreground hover:text-foreground underline"
+                          >
+                            Remove photo
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
+                  <p className="mt-3 text-center text-[11px] text-muted-foreground sm:text-left">
+                    Prefer zero upload?{" "}
+                    <button
+                      type="button"
+                      className="font-semibold text-foreground underline underline-offset-2"
+                      onClick={() => {
+                        setPersonalizationMode("avatar");
+                        setChildPhoto(null);
+                        const starter = presetsForTheme(theme)[0];
+                        if (starter) setAvatarConfig(applyPreset(starter));
+                      }}
+                    >
+                      Build a hero without a photo
+                    </button>
+                  </p>
                 </div>
-              </div>
+              )}
 
               <button
                 type="button"
@@ -1109,9 +1181,9 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4" />
-                    {!isAuthenticated && !isLoading && !guestPreviewUsed()
-                      ? "Create story — first page free"
-                      : "Create story"}
+                    {name.trim()
+                      ? `Generate ${name.trim()}'s adventure — free`
+                      : "Generate your free adventure"}
                   </>
                 )}
               </button>
@@ -1121,7 +1193,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 </p>
               )}
               <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                {["Story free", "1 illustrated page free", "Full book $4.99", "PDF free"].map(
+                {["First book 100% free", "Fully illustrated", "Printable PDF free", "More books $4.99"].map(
                   (chip) => (
                     <span
                       key={chip}
@@ -1153,38 +1225,65 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 </div>
 
                 {status === "idle" && (
-                  <div className="relative h-full flex flex-col items-center justify-center text-center py-10 animate-rise">
+                  <div className="relative h-full flex flex-col items-center justify-center text-center py-8 sm:py-10 animate-rise">
                     <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       <Sparkles className="h-3 w-3 text-primary" />
                       Live preview
                     </span>
-                    <div className="relative mt-5">
-                      <div
-                        className="h-44 w-36 rounded-2xl border border-border bg-card shadow-card grid place-items-center overflow-hidden"
-                        style={
-                          selectedTheme
-                            ? { background: `color-mix(in oklab, ${selectedTheme.tint} 22%, var(--card))` }
-                            : undefined
-                        }
-                      >
-                        {childPhoto ? (
-                          <img src={childPhoto} alt="" className="h-full w-full object-cover" />
-                        ) : selectedTheme ? (
-                          (() => {
-                            const ThemeIcon = THEME_ICONS[selectedTheme.id];
-                            return <ThemeIcon className="h-12 w-12 text-primary" />;
-                          })()
-                        ) : (
-                          <BookOpenText className="h-10 w-10 text-muted-foreground" />
-                        )}
-                      </div>
-                      <span className="absolute -bottom-2 left-1/2 h-3 w-24 -translate-x-1/2 rounded-full bg-foreground/5 blur-sm" />
-                    </div>
-                    <p className="mt-6 text-sm text-muted-foreground max-w-xs">
-                      {name
-                        ? `${name}'s cover and first page will appear here.`
-                        : "Add your child's details — their cover and first page appear here."}
-                    </p>
+
+                    {selectedTheme && personalizationMode === "avatar" && !childPhoto ? (
+                      <>
+                        <div className="relative mt-5 w-full flex justify-center px-2">
+                          <HeroInScenePreview
+                            theme={selectedTheme}
+                            config={avatarConfig}
+                            childName={name}
+                          />
+                        </div>
+                        <p className="mt-5 text-sm text-muted-foreground max-w-xs">
+                          {name.trim()
+                            ? `${name.trim()} is in the scene — generate when you are ready.`
+                            : "Your hero lives in the adventure — add a name, then generate."}
+                        </p>
+                      </>
+                    ) : selectedTheme && !childPhoto && personalizationMode !== "avatar" ? (
+                      <>
+                        <div className="relative mt-5 w-full flex justify-center px-2">
+                          <ThemeCoverPreview theme={selectedTheme} childName={name} />
+                          <span className="absolute -bottom-2 left-1/2 h-3 w-28 -translate-x-1/2 rounded-full bg-foreground/10 blur-sm" />
+                        </div>
+                        <p className="mt-6 text-sm text-muted-foreground max-w-xs">
+                          {name.trim()
+                            ? `Add a photo or hero look — then generate ${name.trim()}'s book.`
+                            : "Type their name to put it on this cover — then generate."}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="relative mt-5">
+                          <div
+                            className="h-44 w-36 rounded-2xl border border-border bg-card shadow-card grid place-items-center overflow-hidden"
+                            style={
+                              selectedTheme
+                                ? { background: `color-mix(in oklab, ${selectedTheme.tint} 22%, var(--card))` }
+                                : undefined
+                            }
+                          >
+                            {childPhoto ? (
+                              <img src={childPhoto} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <BookOpenText className="h-10 w-10 text-muted-foreground" />
+                            )}
+                          </div>
+                          <span className="absolute -bottom-2 left-1/2 h-3 w-24 -translate-x-1/2 rounded-full bg-foreground/5 blur-sm" />
+                        </div>
+                        <p className="mt-6 text-sm text-muted-foreground max-w-xs">
+                          {name.trim()
+                            ? `${name.trim()}'s cover and first page will appear here.`
+                            : "Pick a theme to preview their book cover instantly."}
+                        </p>
+                      </>
+                    )}
                     {ENABLE_STORY_CAST && completeCast.length > 0 && (
                       <div className="mt-5 w-full max-w-sm rounded-xl bg-card border border-border p-3 text-left animate-rise">
                         <div className="text-xs font-semibold text-foreground/60 uppercase tracking-wide mb-2">
@@ -1222,6 +1321,12 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                             alt=""
                             className="h-full w-full object-cover"
                           />
+                        ) : personalizationMode === "avatar" ? (
+                          <PixarAvatarPreview
+                            config={avatarConfig}
+                            childName={name}
+                            size="compact"
+                          />
                         ) : (
                           selectedTheme && (() => {
                             const ThemeIcon = THEME_ICONS[selectedTheme.id];
@@ -1248,10 +1353,14 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                       <p className="mt-2 text-sm text-foreground font-medium min-h-[2.5rem]">
                         {progressMessage ??
                           (status === "generatingPdf"
-                            ? "Creating illustrated PDF…"
+                            ? "Assembling your printable book…"
                             : status === "illustrating"
-                              ? "Painting your illustrations…"
-                              : "Writing your story…")}
+                              ? `Painting ${name.trim() || "your child"}'s illustrations…`
+                              : progress < 35
+                                ? `Weaving ${name.trim() || "your child"}'s personality into the story…`
+                                : progress < 70
+                                  ? "Dreaming up scenes and dialogue…"
+                                  : "Assembling your book…")}
                       </p>
                       <div className="mt-4 rounded-xl bg-card/80 border border-border p-3 text-left text-xs text-muted-foreground">
                         {status === "generatingGuest" ? (
@@ -1308,7 +1417,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                         Save {name || "your child"}&apos;s story to keep reading
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Free account — your first illustrated page is on us.
+                        Free account — your first book is fully illustrated on us.
                       </p>
                       <button
                         type="button"
@@ -1344,33 +1453,45 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                       storiesRemainingThisMonth={user?.storiesRemainingThisMonth}
                       bookCredits={user?.bookCredits}
                       isWelcomeGiftStory={isWelcomeGiftStory}
+                      hasHeroPhoto={hasPersonalizedHero}
+                      packId={completedPackId ?? undefined}
                     />
 
                     <div className="mt-4 flex flex-col gap-2">
-                      {status === "storyReady" && isAuthenticated && !fullyIllustrated && (
-                        <>
-                          <button
-                            type="button"
-                            disabled={unlocking}
-                            onClick={() => void runIllustration()}
-                            className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary text-primary-foreground py-3 font-semibold hover:opacity-90 transition disabled:opacity-60"
-                          >
-                            {unlocking ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Sparkles className="h-4 w-4" />
-                            )}
-                            {hasBookCredit
-                              ? "Unlock the full storybook (1 book credit)"
-                              : "Buy the full storybook — $4.99"}
-                          </button>
-                          <p className="text-center text-xs text-muted-foreground">
-                            {isWelcomeGiftStory
-                              ? `Unlock to see ${name || "your child"} on every page.`
-                              : `See ${name || "your child"} illustrated on every page.`}
+                      {status === "storyReady" &&
+                        isAuthenticated &&
+                        !fullyIllustrated &&
+                        isWelcomeGiftStory && (
+                          <p className="rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-center text-sm font-medium text-foreground">
+                            Your first book is free — we're painting {name || "your child"} on every page right now.
+                            Read it anytime in My Books.
                           </p>
-                        </>
-                      )}
+                        )}
+                      {status === "storyReady" &&
+                        isAuthenticated &&
+                        !fullyIllustrated &&
+                        !isWelcomeGiftStory && (
+                          <>
+                            <button
+                              type="button"
+                              disabled={unlocking}
+                              onClick={() => void runIllustration()}
+                              className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-primary text-primary-foreground py-3 font-semibold hover:opacity-90 transition disabled:opacity-60"
+                            >
+                              {unlocking ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Sparkles className="h-4 w-4" />
+                              )}
+                              {hasBookCredit
+                                ? "Unlock the full storybook (1 book credit)"
+                                : "Buy the full storybook — $4.99"}
+                            </button>
+                            <p className="text-center text-xs text-muted-foreground">
+                              See {name || "your child"} illustrated on every page.
+                            </p>
+                          </>
+                        )}
                       {status === "storyReady" && isAuthenticated && canExportPdf && (
                         <button
                           type="button"
@@ -1383,9 +1504,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                           ) : (
                             <Sparkles className="h-4 w-4" />
                           )}
-                          {isWelcomeGiftStory && !fullyIllustrated
-                            ? "Export preview PDF — free (~30 sec)"
-                            : "Export PDF — free (~30 sec)"}
+                          Export PDF — free (~30 sec)
                         </button>
                       )}
                       {status === "done" && completedPackId && (

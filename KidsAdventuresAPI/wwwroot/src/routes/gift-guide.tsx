@@ -46,12 +46,12 @@ const GIFT_SECTIONS = [
     body: "Parents and grandparents want gifts that feel thoughtful without cluttering the toy box. A custom illustrated storybook starring the child checks every box: personal, printable, screen-free, and memorable.",
   },
   {
-    heading: "Free preview before you wrap it",
-    body: "Create a free 2-page welcome preview first. When it is perfect, use book credits for the full 6-page illustrated PDF. Credits never expire — buy a pack during a sale and gift books throughout the year.",
+    heading: "Your first book is free before you wrap it",
+    body: "Create your first full, illustrated 6-page storybook completely free. When it is perfect, each additional book is a one-time $4.99 — or buy a pack of credits during a sale and gift books throughout the year.",
   },
   {
     heading: "How book credits work",
-    body: "Stories are free to create and read online. Each illustrated PDF uses one credit. Packs of 3, 5, or 15 books are available — ideal for families with siblings or grandparents buying for multiple grandkids.",
+    body: "Your first fully illustrated book is free. After that, each new illustrated storybook is $4.99 (one credit). Credits never expire — ideal for families with siblings or grandparents buying for multiple grandkids.",
   },
 ];
 

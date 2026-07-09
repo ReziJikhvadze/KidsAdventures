@@ -43,7 +43,7 @@ export const bestPersonalizedChildrensBooks: BlogPost = {
     {
       heading: "Try before you buy",
       paragraphs: [
-        "Credits and subscriptions add up. A free preview lets you test quality before paying for a full illustrated PDF. Adventrya Books offers a 2-page welcome story free, then book packs for full 6-page adventures.",
+        "Credits and subscriptions add up. Adventrya Books lets you create your first full, illustrated 6-page book free, so you can test quality before paying — then each new book is a one-time $4.99.",
       ],
     },
     {

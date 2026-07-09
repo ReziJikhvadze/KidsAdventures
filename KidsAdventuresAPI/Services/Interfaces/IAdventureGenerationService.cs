@@ -24,4 +24,10 @@ public interface IAdventureGenerationService
     /// <summary>Paints the first page for free (the one-time welcome perk); charges no credit.</summary>
     Task ProcessFreeSampleIllustrationAsync(Guid adventurePackId, CancellationToken cancellationToken);
     Task ProcessPdfGenerationAsync(Guid adventurePackId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// One-time Pixar-style "traveler" portrait for the child (Story Path map avatar), generated from
+    /// this pack's story text alone. No-op if the child already has one or none is needed.
+    /// </summary>
+    Task ProcessHeroPortraitAsync(Guid adventurePackId, CancellationToken cancellationToken);
 }

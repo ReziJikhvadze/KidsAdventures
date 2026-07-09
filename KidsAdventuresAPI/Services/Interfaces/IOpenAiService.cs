@@ -20,4 +20,11 @@ public interface IOpenAiService
         string contentType,
         string promptText,
         CancellationToken cancellationToken);
+
+    /// <summary>Locate a subject in an illustration; returns normalized 0–100 bbox or null.</summary>
+    Task<HotspotRegionDto?> LocateRegionInIllustrationAsync(
+        byte[] imageBytes,
+        string contentType,
+        string subjectDescription,
+        CancellationToken cancellationToken);
 }

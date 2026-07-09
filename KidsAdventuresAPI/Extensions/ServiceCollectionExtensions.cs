@@ -33,6 +33,8 @@ public static class ServiceCollectionExtensions
     [
         "http://localhost:8080",
         "https://localhost:8080",
+        "http://localhost:8081",
+        "https://localhost:8081",
         "http://localhost:5173",
         "http://localhost:3000",
         "https://localhost:5173",
@@ -207,6 +209,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAdventurePackRepository, AdventurePackRepository>();
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<IBookCreditPurchaseRepository, BookCreditPurchaseRepository>();
+        services.AddScoped<IStoryPathRepository, StoryPathRepository>();
+        services.AddScoped<IStoryGraphRepository, StoryGraphRepository>();
+        services.AddScoped<ILeadRepository, LeadRepository>();
+        services.AddScoped<IStoryPathService, StoryPathService>();
+        services.AddScoped<IStoryGraphAuthoringService, StoryGraphAuthoringService>();
 
         services.AddScoped<IReferenceImageNormalizer, ReferenceImageNormalizer>();
         services.AddScoped<IOpenAiService, OpenAiService>();

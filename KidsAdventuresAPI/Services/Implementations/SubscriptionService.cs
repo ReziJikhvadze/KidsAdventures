@@ -7,6 +7,7 @@ using AdventurePacks.Api.Services.Interfaces;
 using DodoPayments.Client;
 using DodoPayments.Client.Models.CheckoutSessions;
 using DodoPayments.Client.Models.Payments;
+using Hangfire;
 using ApiCheckoutSessionResponse = AdventurePacks.Api.DTOs.Subscriptions.CheckoutSessionResponse;
 using Stripe;
 using Stripe.Checkout;
@@ -17,6 +18,7 @@ public sealed class SubscriptionService(
     IUserRepository userRepository,
     IBookCreditPurchaseRepository bookCreditPurchaseRepository,
     IAdventurePackRepository adventurePackRepository,
+    IBackgroundJobClient backgroundJobClient,
     IOptions<StripeOptions> stripeOptions,
     IOptions<DodoPaymentsOptions> dodoOptions,
     DodoPaymentsClient dodoClient) : ISubscriptionService
@@ -111,7 +113,7 @@ public sealed class SubscriptionService(
         }
 
         throw new InvalidOperationException(
-            "Your free 2-page welcome story was used. Buy a book ($4.99) to create a full illustrated story — PDF export stays free.");
+            "Your free first book was used. Buy another illustrated book for $4.99 — PDF export stays free.");
     }
 
     public Task EnsurePdfGenerationAllowedAsync(Guid userId, CancellationToken cancellationToken)
@@ -145,6 +147,7 @@ public sealed class SubscriptionService(
         string email,
         string planType,
         string? provider,
+        string? adventurePackId,
         CancellationToken cancellationToken)
     {
         if (!BookPackPlans.IsSupported(planType))
@@ -154,8 +157,8 @@ public sealed class SubscriptionService(
 
         var resolved = ResolveProvider(provider);
         return resolved == ProviderStripe
-            ? await CreateStripeCheckoutSessionAsync(userId, email, planType, cancellationToken)
-            : await CreateDodoCheckoutSessionAsync(userId, email, planType, cancellationToken);
+            ? await CreateStripeCheckoutSessionAsync(userId, email, planType, adventurePackId, cancellationToken)
+            : await CreateDodoCheckoutSessionAsync(userId, email, planType, adventurePackId, cancellationToken);
     }
 
     public async Task<AccountBalanceResponse> ConfirmCheckoutSessionAsync(
@@ -303,6 +306,7 @@ public sealed class SubscriptionService(
         Guid userId,
         string email,
         string planType,
+        string? adventurePackId,
         CancellationToken cancellationToken)
     {
         var productId = BookPackPlans.GetDodoProductId(planType, _dodo);
@@ -342,11 +346,7 @@ public sealed class SubscriptionService(
                     RedirectImmediately = true,
                 }
                 : null,
-            Metadata = new Dictionary<string, string>
-            {
-                ["userId"] = userId.ToString(),
-                ["planType"] = planType,
-            },
+            Metadata = BuildCheckoutMetadata(userId, planType, adventurePackId),
         };
 
         try
@@ -370,6 +370,7 @@ public sealed class SubscriptionService(
         Guid userId,
         string email,
         string planType,
+        string? adventurePackId,
         CancellationToken cancellationToken)
     {
         var priceId = BookPackPlans.GetPriceId(planType, _stripe);
@@ -395,11 +396,7 @@ public sealed class SubscriptionService(
                     Quantity = 1
                 }
             ],
-            Metadata = new Dictionary<string, string>
-            {
-                ["userId"] = userId.ToString(),
-                ["planType"] = planType
-            }
+            Metadata = BuildCheckoutMetadata(userId, planType, adventurePackId)
         }, cancellationToken: cancellationToken);
 
         return new ApiCheckoutSessionResponse
@@ -407,6 +404,23 @@ public sealed class SubscriptionService(
             SessionId = session.Id,
             CheckoutUrl = session.Url ?? string.Empty
         };
+    }
+
+    /// <summary>Common checkout metadata. <c>adventurePackId</c> records which book a per-book purchase should unlock.</summary>
+    private static Dictionary<string, string> BuildCheckoutMetadata(Guid userId, string planType, string? adventurePackId)
+    {
+        var metadata = new Dictionary<string, string>
+        {
+            ["userId"] = userId.ToString(),
+            ["planType"] = planType
+        };
+
+        if (!string.IsNullOrWhiteSpace(adventurePackId))
+        {
+            metadata["adventurePackId"] = adventurePackId;
+        }
+
+        return metadata;
     }
 
     /// <summary>Adds provider + Stripe's session-id placeholder so the success page can confirm reliably when both providers are live.</summary>
@@ -634,11 +648,32 @@ public sealed class SubscriptionService(
 
         if (!recorded)
         {
+            // Purchase already fulfilled earlier — still try to unlock the targeted book if metadata is present.
+            TryEnqueuePurchasedBookIllustration(userId, session.Metadata);
             return true;
         }
 
         await userRepository.AddBookCreditsAsync(userId, credits, cancellationToken);
+        TryEnqueuePurchasedBookIllustration(userId, session.Metadata);
         return true;
+    }
+
+    /// <summary>
+    /// Per-book checkout stores <c>adventurePackId</c> in Stripe metadata. After credits are granted,
+    /// spend one credit immediately on that pack so illustrations start without a second My Books tap.
+    /// </summary>
+    private void TryEnqueuePurchasedBookIllustration(Guid userId, Dictionary<string, string>? metadata)
+    {
+        if (metadata is null
+            || !metadata.TryGetValue("adventurePackId", out var packIdRaw)
+            || !Guid.TryParse(packIdRaw, out var packId)
+            || packId == Guid.Empty)
+        {
+            return;
+        }
+
+        backgroundJobClient.Enqueue<IAdventureGenerationService>(service =>
+            service.QueueIllustrationAsync(userId, packId, CancellationToken.None));
     }
 
     private static bool IsDodoPaymentSucceeded(object? status)

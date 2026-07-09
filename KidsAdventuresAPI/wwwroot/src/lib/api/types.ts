@@ -64,6 +64,10 @@ export type ChildResponse = {
   name: string;
   age: number;
   photoUrl: string | null;
+  personalizationType: "avatar" | "photo" | null;
+  avatarConfigJson: string | null;
+  /** Non-null once the child's one-time Pixar-style hero portrait has been generated. Fetch via fetchHeroPortraitObjectUrl. */
+  heroPortraitUrl: string | null;
   createdAt: string;
 };
 
@@ -76,6 +80,22 @@ export type StoryPageContent = {
   content: string;
   illustrationUrl?: string | null;
   isIllustrated?: boolean;
+  interactive?: {
+    avatarTap?: { region?: { x: number; y: number; w: number; h: number } };
+    findIt?: {
+      prompt: string;
+      objectLabel: string;
+      region: { x: number; y: number; w: number; h: number };
+    };
+    counting?: { prompt: string; target: number; label: string; regions?: { x: number; y: number; w: number; h: number }[] };
+    revealItem?: {
+      prompt: string;
+      coverLabel: string;
+      revealLabel: string;
+      funFact?: string | null;
+      region: { x: number; y: number; w: number; h: number };
+    };
+  };
 };
 
 export type AdventurePackResponse = {

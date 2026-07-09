@@ -8,21 +8,21 @@ const demoPages = [
     content:
       "When Leo looked out the window, the clouds had shaped themselves into airplanes — and one of them had his name painted on the side in golden letters.",
     isIllustrated: true,
-    illustrationUrl: "/demo/demo-page-1.png",
+    illustrationUrl: "/demo/demo-page-1.jpg",
   },
   {
     title: "Through the Cloud Kingdom",
     content:
       "The friendly captain handed Leo a map made of starlight. Every page of your book can look like this — with a unique illustration starring your child.",
     isIllustrated: true,
-    illustrationUrl: "/demo/demo-page-2.png",
+    illustrationUrl: "/demo/demo-page-2.jpg",
   },
   {
     title: "A Hero's Landing",
     content:
       "Leo landed softly on a runway of rainbow light. Mom and Dad cheered from the observation deck as the adventure came to a happy end.",
     isIllustrated: true,
-    illustrationUrl: "/demo/demo-page-3.png",
+    illustrationUrl: "/demo/demo-page-3.jpg",
   },
 ];
 
@@ -37,22 +37,22 @@ export function Preview() {
               Read like a real picture book.
             </h2>
             <p className="mt-4 text-muted-foreground text-pretty">
-              Every story is a 6-page picture book with warm, animated-style illustrations on every
-              page. PDF export is free — book credits unlock extra stories.
+              Every story is a fully illustrated 6-page picture book. Your very first one is free to
+              read, print, and keep — no card needed.
             </p>
             <ul className="mt-6 space-y-3 text-sm">
               <li className="flex items-start gap-3">
                 <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                 <span>
-                  <strong className="text-foreground">Illustrated slideshow free</strong> — swipe
-                  through every painted page before you buy.
+                  <strong className="text-foreground">First book free &amp; fully illustrated</strong>{" "}
+                  — read every painted page and print it before you ever pay.
                 </span>
               </li>
               <li className="flex items-start gap-3">
                 <Lock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                 <span>
-                  <strong className="text-foreground">PDF export is free</strong> — download, print,
-                  and share anytime.
+                  <strong className="text-foreground">More adventures for $4.99 each</strong> — unlock
+                  a new illustrated storybook whenever you&apos;re ready.
                 </span>
               </li>
               <li className="flex items-start gap-3">
@@ -60,6 +60,10 @@ export function Preview() {
                 <span>Adjustable text size for bedtime read-aloud on phone or tablet.</span>
               </li>
             </ul>
+            <p className="mt-6 flex items-center gap-2 text-sm font-medium text-foreground">
+              <Sparkles className="h-4 w-4 text-primary shrink-0" />
+              Every book is one-of-a-kind — starring your child, by name.
+            </p>
           </div>
 
           <div className="relative w-full min-w-0">
@@ -78,6 +82,7 @@ export function Preview() {
                 childName="Leo"
                 previewIllustrationStatus="Ready"
                 isCompleted={false}
+                enableInteractive={false}
               />
               <p className="mt-4 text-center text-xs text-muted-foreground">
                 Sample story with demo art — your book uses your child&apos;s photo and name.

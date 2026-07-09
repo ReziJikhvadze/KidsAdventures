@@ -7,6 +7,7 @@ import { Benefits } from "@/components/site/Benefits";
 import { Pricing } from "@/components/site/Pricing";
 import { FAQ } from "@/components/site/FAQ";
 import { Generator } from "@/components/site/Generator";
+import { ExitIntentDialog } from "@/components/site/ExitIntentDialog";
 import { Grandparents } from "@/components/site/Grandparents";
 import { FinalCTA } from "@/components/site/FinalCTA";
 import { SeoContent } from "@/components/site/SeoContent";
@@ -69,6 +70,7 @@ function Landing() {
         <FinalCTA />
       </main>
       <Footer />
+      <ExitIntentDialog source="exit-intent-home" />
     </div>
   );
 }

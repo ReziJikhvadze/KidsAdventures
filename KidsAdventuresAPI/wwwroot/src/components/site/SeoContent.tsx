@@ -13,7 +13,7 @@ const TOPICS = [
   },
   {
     heading: "Parenting: screen-free fun that actually works",
-    body: "Modern parenting often means balancing tablets with meaningful offline time. A custom illustrated storybook gives kids something to hold, act out, and re-read — while grandparents and caregivers get an easy gift that feels personal. Start with a free 2-page preview, then unlock full 6-page books with credits that never expire.",
+    body: "Modern parenting often means balancing tablets with meaningful offline time. A custom illustrated storybook gives kids something to hold, act out, and re-read — while grandparents and caregivers get an easy gift that feels personal. Your first full, illustrated 6-page book is free, then each new book is a one-time $4.99 with credits that never expire.",
     link: { label: "Personalized children's books guide", to: "/personalized-childrens-books" as const },
   },
 ];

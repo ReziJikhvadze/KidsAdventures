@@ -21,5 +21,7 @@ public sealed class AdventurePack
     public DateTime? PreviewIllustrationUpdatedAt { get; set; }
     public int StoryPageCount { get; set; } = 6;
     public bool IsWelcomeGiftStory { get; set; }
+    public int? ChapterIndex { get; set; }
+    public Guid? PreviousChapterPackId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

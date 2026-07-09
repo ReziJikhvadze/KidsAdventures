@@ -27,37 +27,37 @@ const plans: {
   badge?: string;
 }[] = [
   {
-    name: "Free preview",
+    name: "First book free",
     price: "$0",
     period: "no card needed",
-    desc: "One free 2-page illustrated welcome story — instantly.",
+    desc: "Your first complete storybook — fully illustrated, on us.",
     features: [
-      "1 free 2-page illustrated story",
+      "Full 6-page illustrated story",
+      "Photo-personalized hero",
       "All 5 core themes",
-      "Read the slideshow in My Books",
-      "Upgrade to a full book anytime",
+      "Printable PDF download (free)",
     ],
-    cta: "Create free story",
+    cta: "Create my free book",
     highlighted: false,
     action: "free",
     icon: Sparkles,
   },
   {
-    name: "1 Book",
+    name: "Every book after",
     price: "$4.99",
-    period: "one-time",
-    desc: "Unlock one complete illustrated storybook — a single payment.",
+    period: "one-time, per book",
+    desc: "Loved the first one? Each new illustrated storybook is a single payment.",
     features: [
-      "Full 6-page illustrated story",
+      "Another full 6-page illustrated story",
       "Photo-personalized hero",
       "Printable PDF download (free)",
       "Your extra wishes woven into the story",
     ],
-    cta: "Buy a book — $4.99",
+    cta: "Buy the next book — $4.99",
     highlighted: true,
     action: "Book1",
     icon: BookOpen,
-    badge: "Best value",
+    badge: "Most popular",
   },
 ];
 
@@ -121,11 +121,11 @@ export function Pricing() {
           <div className="max-w-2xl mx-auto text-center">
             <p className="text-sm font-semibold text-primary tracking-wide uppercase">Pricing</p>
             <h2 className="mt-3 font-display text-4xl md:text-5xl font-bold text-balance">
-              Try it free. Unlock a full book for $4.99.
+              Your first book is free. Every book after is $4.99.
             </h2>
             <p className="mt-4 text-muted-foreground">
-              Start with a free 2-page preview. When you love it, one simple $4.99 payment unlocks the
-              complete illustrated storybook — yours to keep and print.
+              Create a complete, fully illustrated storybook at no cost. When you&apos;re ready for more
+              adventures, one simple $4.99 payment unlocks each new book — yours to keep and print.
             </p>
           </div>
 
@@ -238,8 +238,8 @@ export function Pricing() {
           </div>
 
           <p className="mt-8 text-center text-xs text-muted-foreground max-w-2xl mx-auto">
-            One $4.99 payment unlocks one complete illustrated book. No subscription, no hidden fees —
-            the printable PDF download is always free.
+            Your first illustrated book is free. After that, one $4.99 payment unlocks each new book —
+            no subscription, no hidden fees, and the printable PDF download is always free.
           </p>
         </div>
       </section>

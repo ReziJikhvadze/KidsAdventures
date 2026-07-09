@@ -7,6 +7,9 @@ public sealed class CreateCheckoutSessionRequest
 
     /// <summary>Optional payment provider: "stripe" or "dodo". Defaults to the server's preferred provider.</summary>
     public string? Provider { get; set; }
+
+    /// <summary>Optional id of the specific book this purchase should unlock/illustrate (per-book checkout).</summary>
+    public string? AdventurePackId { get; set; }
 }
 
 public sealed class CheckoutSessionResponse

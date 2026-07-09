@@ -94,7 +94,7 @@ function ThemesIndexPage() {
           <h2 className="font-display text-2xl font-bold">Not sure which theme to pick?</h2>
           <p className="mt-3 text-muted-foreground">
             Dinosaur and space books are top picks for boys and girls. Animal themes
-            work well for younger readers. Try the free 2-page preview on any theme — no card
+            work well for younger readers. Your first full illustrated book is free on any theme — no card
             required.
           </p>
           <Link

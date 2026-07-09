@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/carousel";
 import { fetchIllustrationObjectUrl } from "@/lib/api/adventure-packs";
 import type { PreviewIllustrationStatus, StoryPageContent, ThemeType } from "@/lib/api/types";
+import { InteractiveIllustrationLayer } from "@/components/story/InteractiveIllustrationLayer";
 import { THEME_TINTS } from "@/lib/story/themeTints";
 import { cn } from "@/lib/utils";
 
@@ -65,6 +66,22 @@ export type StoryBookReaderProps = {
   bookCredits?: number;
   isWelcomeGiftStory?: boolean;
   className?: string;
+  /** Start carousel at this page index (Story Path). */
+  initialPageIndex?: number;
+  /** Show only the current page with no free navigation (Story Path). */
+  singlePageMode?: boolean;
+  /** Called when the reader signals page completion (Story Path campfire handoff). */
+  onPageComplete?: (pageIndex: number) => void;
+  /** Enable diegetic tap interactions on illustrated pages (default true). */
+  enableInteractive?: boolean;
+  /** Whether the child has a hero photo — enables avatar tap-react. */
+  hasHeroPhoto?: boolean;
+  /** Adventure pack id for persisting interactive state per session. */
+  packId?: string;
+  /** Open the reader in fullscreen immediately (Story Path immersive reading). */
+  startFullscreen?: boolean;
+  /** When set, leaving fullscreen runs this instead of just minimizing (Story Path → back to map). */
+  onExitFullscreen?: () => void;
 };
 
 function loadFontSize(): FontSize {
@@ -127,6 +144,11 @@ function PageIllustration({
   caption = "",
   captionClassName = "",
   onOpenFullscreen,
+  childName,
+  enableInteractive = true,
+  hasHeroPhoto = true,
+  packId,
+  pages,
 }: {
   page: StoryPageContent;
   pageIndex: number;
@@ -137,6 +159,11 @@ function PageIllustration({
   caption?: string;
   captionClassName?: string;
   onOpenFullscreen?: () => void;
+  childName?: string;
+  enableInteractive?: boolean;
+  hasHeroPhoto?: boolean;
+  packId?: string;
+  pages: StoryPageContent[];
 }) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -224,26 +251,38 @@ function PageIllustration({
 
   if (imageUrl && !error) {
     return (
-      <button
-        type="button"
-        onClick={onOpenFullscreen}
-        className="group relative block w-full rounded-t-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        aria-label="View illustration fullscreen"
-      >
-        <img src={imageUrl} alt="" className={imageClassName} />
-        {variant === "default" && onOpenFullscreen && (
-          <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
-            <Maximize2 className="h-3.5 w-3.5" />
-            Fullscreen
-          </span>
+      <div className="relative w-full">
+        <button
+          type="button"
+          onClick={onOpenFullscreen}
+          className="group relative block w-full rounded-t-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          aria-label="View illustration fullscreen"
+        >
+          <img src={imageUrl} alt="" className={imageClassName} />
+          {variant === "default" && onOpenFullscreen && (
+            <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-xs font-semibold text-white opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
+              <Maximize2 className="h-3.5 w-3.5" />
+              Fullscreen
+            </span>
+          )}
+          <CaptionOverlay
+            caption={caption}
+            pageIndex={pageIndex}
+            totalPages={totalPages}
+            captionClassName={captionClassName}
+          />
+        </button>
+        {enableInteractive && (
+          <InteractiveIllustrationLayer
+            page={page}
+            pageIndex={pageIndex}
+            allPages={pages}
+            packId={packId}
+            childName={childName}
+            hasHeroPhoto={hasHeroPhoto}
+          />
         )}
-        <CaptionOverlay
-          caption={caption}
-          pageIndex={pageIndex}
-          totalPages={totalPages}
-          captionClassName={captionClassName}
-        />
-      </button>
+      </div>
     );
   }
 
@@ -291,21 +330,42 @@ export function StoryBookReader({
   bookCredits = 0,
   isWelcomeGiftStory = false,
   className,
+  initialPageIndex = 0,
+  singlePageMode = false,
+  onPageComplete,
+  enableInteractive = true,
+  hasHeroPhoto = true,
+  packId,
+  startFullscreen = false,
+  onExitFullscreen,
 }: StoryBookReaderProps) {
   const [api, setApi] = useState<CarouselApi>();
-  const [current, setCurrent] = useState(0);
+  const [current, setCurrent] = useState(initialPageIndex);
   const [fontSize, setFontSize] = useState<FontSize>("md");
 
   useEffect(() => {
     setFontSize(loadFontSize());
   }, []);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(startFullscreen);
   // Caption-style pages keep the narration hidden by default so kids read the picture, not the text.
   const [showNarration, setShowNarration] = useState(false);
+
+  // In Story Path immersive mode, leaving fullscreen returns to the map rather than shrinking inline.
+  const closeFullscreen = useCallback(() => {
+    if (onExitFullscreen) {
+      onExitFullscreen();
+      return;
+    }
+    setIsFullscreen(false);
+  }, [onExitFullscreen]);
 
   const themeTint = THEME_TINTS[theme];
   const typography = FONT_SIZE_STYLES[fontSize];
   const variant: ReaderVariant = isFullscreen ? "fullscreen" : "default";
+  const activePageIndex = singlePageMode
+    ? Math.min(Math.max(initialPageIndex, 0), Math.max(pages.length - 1, 0))
+    : current;
+  const displayPages = singlePageMode ? [pages[activePageIndex]].filter(Boolean) : pages;
 
   const onSelect = useCallback(() => {
     if (!api) return;
@@ -322,11 +382,18 @@ export function StoryBookReader({
   }, [api, onSelect]);
 
   useEffect(() => {
+    if (!api) return;
+    const index = Math.min(Math.max(initialPageIndex, 0), pages.length - 1);
+    api.scrollTo(index);
+    setCurrent(index);
+  }, [api, initialPageIndex, pages.length]);
+
+  useEffect(() => {
     if (!isFullscreen) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setIsFullscreen(false);
+        closeFullscreen();
       }
     };
 
@@ -338,7 +405,7 @@ export function StoryBookReader({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [isFullscreen]);
+  }, [isFullscreen, closeFullscreen]);
 
   const cycleFontSize = () => {
     const next: FontSize = fontSize === "sm" ? "md" : fontSize === "md" ? "lg" : "sm";
@@ -351,15 +418,17 @@ export function StoryBookReader({
   // A paid illustration job is running; otherwise un-illustrated pages are simply locked.
   const painting = previewIllustrationStatus === "Generating";
   const someLocked = !allIllustrated && !painting;
-  const totalSlides = pages.length;
-  const onLastStoryPage = current === pages.length - 1;
-  const showPdfUpsell = !isCompleted && allIllustrated && !isFullscreen;
+  const totalSlides = displayPages.length;
+  const onLastStoryPage = singlePageMode || current === pages.length - 1;
+  const showPdfUpsell = !singlePageMode && !isCompleted && allIllustrated && !isFullscreen;
   const showCreditsUpsell =
+    !singlePageMode &&
     allIllustrated &&
     !isFullscreen &&
     typeof storiesRemainingThisMonth === "number" &&
     storiesRemainingThisMonth === 0;
   const showCreditsReminder =
+    !singlePageMode &&
     allIllustrated &&
     !isFullscreen &&
     typeof storiesRemainingThisMonth === "number" &&
@@ -424,14 +493,14 @@ export function StoryBookReader({
             </button>
             <button
               type="button"
-              onClick={() => setIsFullscreen((open) => !open)}
+              onClick={() => (isFullscreen ? closeFullscreen() : setIsFullscreen(true))}
               className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1.5 text-xs font-semibold transition hover:bg-secondary sm:min-h-0 sm:min-w-0 sm:px-3"
-              title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+              title={isFullscreen ? (onExitFullscreen ? "Back to map" : "Exit fullscreen") : "Enter fullscreen"}
             >
               {isFullscreen ? (
                 <>
                   <Minimize2 className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Exit</span>
+                  <span className="hidden sm:inline">{onExitFullscreen ? "Map" : "Exit"}</span>
                 </>
               ) : (
                 <>
@@ -443,9 +512,9 @@ export function StoryBookReader({
             {isFullscreen && (
               <button
                 type="button"
-                onClick={() => setIsFullscreen(false)}
+                onClick={closeFullscreen}
                 className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card p-2 hover:bg-secondary transition"
-                aria-label="Close fullscreen"
+                aria-label={onExitFullscreen ? "Back to map" : "Close fullscreen"}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -453,46 +522,58 @@ export function StoryBookReader({
           </div>
         </div>
 
-        <div className="-mx-1 mb-3 flex items-center justify-start gap-2 overflow-x-auto pb-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible">
-          {pages.map((page, index) => (
-            <button
-              key={`tab-${index}`}
-              type="button"
-              onClick={() => api?.scrollTo(index)}
-              className={cn(
-                "shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition",
-                index === current
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card text-muted-foreground border-border hover:bg-secondary",
-              )}
-            >
-              Page {index + 1}
-              {!page.isIllustrated ? " …" : ""}
-            </button>
-          ))}
-        </div>
+        {!singlePageMode && (
+          <div className="-mx-1 mb-3 flex items-center justify-start gap-2 overflow-x-auto pb-1 sm:mx-0 sm:flex-wrap sm:justify-center sm:overflow-visible">
+            {pages.map((page, index) => (
+              <button
+                key={`tab-${index}`}
+                type="button"
+                onClick={() => api?.scrollTo(index)}
+                className={cn(
+                  "shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+                  index === current
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card text-muted-foreground border-border hover:bg-secondary",
+                )}
+              >
+                Page {index + 1}
+                {!page.isIllustrated ? " …" : ""}
+              </button>
+            ))}
+          </div>
+        )}
 
         <p className="text-center text-xs text-muted-foreground mb-3">
-          {allIllustrated
-            ? "Every page is illustrated — swipe or tap a page."
-            : painting
-              ? "Painting your pages — they fill in one by one."
-              : "Read the whole story free. Unlock illustrations to see every page painted."}
+          {singlePageMode
+            ? `Reading page ${activePageIndex + 1} of ${pages.length}`
+            : allIllustrated
+              ? "Every page is illustrated — swipe or tap a page."
+              : painting
+                ? "Painting your pages — they fill in one by one."
+                : "Read the whole story free. Unlock the illustrated storybook ($4.99) to see every page painted."}
         </p>
 
         <div className={cn("relative", isFullscreen ? "px-10 sm:px-12" : "px-0 sm:px-10")}>
-          <Carousel setApi={setApi} opts={{ align: "start", loop: false }} className="w-full">
+          <Carousel
+            setApi={setApi}
+            opts={{ align: "start", loop: false, watchDrag: !singlePageMode }}
+            className="w-full"
+          >
             <CarouselContent className="ml-0 sm:-ml-4">
-              {pages.map((page, index) => {
+              {displayPages.map((page, index) => {
+                const pageIndex = singlePageMode ? activePageIndex : index;
                 const caption = pageCaption(page);
                 const hasCaption = caption !== "";
                 const illustrated = !!page.isIllustrated;
                 const pagePainting = !illustrated && painting;
                 // Locked pages read as a clean text page — no lock panel, no clutter.
                 return (
-                  <CarouselItem key={`page-${index}`} className="pl-0 sm:pl-4">
+                  <CarouselItem key={`page-${pageIndex}`} className="pl-0 sm:pl-4">
                     <article
-                      className="rounded-2xl border border-border bg-card shadow-card overflow-hidden"
+                      className={cn(
+                        "rounded-2xl border border-border bg-card shadow-card overflow-hidden",
+                        singlePageMode && "animate-page-turn",
+                      )}
                       style={{
                         background: `color-mix(in oklab, ${themeTint} 12%, var(--card))`,
                       }}
@@ -500,7 +581,7 @@ export function StoryBookReader({
                       {(illustrated || pagePainting) && (
                         <PageIllustration
                           page={page}
-                          pageIndex={index}
+                          pageIndex={pageIndex}
                           previewStatus={previewIllustrationStatus}
                           themeTint={themeTint}
                           totalPages={pages.length}
@@ -508,6 +589,11 @@ export function StoryBookReader({
                           caption={caption}
                           captionClassName={typography.caption}
                           onOpenFullscreen={() => setIsFullscreen(true)}
+                          childName={childName}
+                          enableInteractive={enableInteractive}
+                          hasHeroPhoto={hasHeroPhoto}
+                          packId={packId}
+                          pages={pages}
                         />
                       )}
 
@@ -529,7 +615,7 @@ export function StoryBookReader({
                       ) : (
                         <div className="px-4 py-5 sm:px-6 sm:py-6">
                           <p className="text-xs font-semibold text-primary mb-2">
-                            Page {index + 1} of {pages.length}
+                            Page {pageIndex + 1} of {pages.length}
                           </p>
                           {hasCaption ? (
                             <p
@@ -569,48 +655,66 @@ export function StoryBookReader({
             </CarouselContent>
           </Carousel>
 
-          <button
-            type="button"
-            onClick={() => api?.scrollPrev()}
-            disabled={current === 0}
-            className={cn(
-              "absolute left-0 top-[38%] grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-border bg-card shadow-soft transition hover:bg-secondary disabled:opacity-30",
-              isFullscreen ? "sm:grid" : "hidden sm:grid",
-            )}
-            aria-label="Previous page"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => api?.scrollNext()}
-            disabled={current >= totalSlides - 1}
-            className={cn(
-              "absolute right-0 top-[38%] grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-border bg-card shadow-soft transition hover:bg-secondary disabled:opacity-30",
-              isFullscreen ? "sm:grid" : "hidden sm:grid",
-            )}
-            aria-label="Next page"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
+          {!singlePageMode && (
+            <>
+              <button
+                type="button"
+                onClick={() => api?.scrollPrev()}
+                disabled={current === 0}
+                className={cn(
+                  "absolute left-0 top-[38%] grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-border bg-card shadow-soft transition hover:bg-secondary disabled:opacity-30",
+                  isFullscreen ? "sm:grid" : "hidden sm:grid",
+                )}
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => api?.scrollNext()}
+                disabled={current >= totalSlides - 1}
+                className={cn(
+                  "absolute right-0 top-[38%] grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-border bg-card shadow-soft transition hover:bg-secondary disabled:opacity-30",
+                  isFullscreen ? "sm:grid" : "hidden sm:grid",
+                )}
+                aria-label="Next page"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </>
+          )}
         </div>
 
-        <div className="flex justify-center gap-1.5 mt-4">
-          {Array.from({ length: totalSlides }, (_, index) => (
+        {singlePageMode && onPageComplete && (
+          <div className="mt-5 flex justify-center">
             <button
-              key={`dot-${index}`}
               type="button"
-              onClick={() => api?.scrollTo(index)}
-              className={cn(
-                "h-2 rounded-full transition-all",
-                index === current ? "w-6 bg-primary" : "w-2 bg-border hover:bg-primary/40",
-              )}
-              aria-label={`Go to page ${index + 1}`}
-            />
-          ))}
-        </div>
+              onClick={() => onPageComplete(activePageIndex)}
+              className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition hover:opacity-90"
+            >
+              Finish this page
+            </button>
+          </div>
+        )}
 
-        {someLocked && !isFullscreen && (
+        {!singlePageMode && (
+          <div className="flex justify-center gap-1.5 mt-4">
+            {Array.from({ length: totalSlides }, (_, index) => (
+              <button
+                key={`dot-${index}`}
+                type="button"
+                onClick={() => api?.scrollTo(index)}
+                className={cn(
+                  "h-2 rounded-full transition-all",
+                  index === current ? "w-6 bg-primary" : "w-2 bg-border hover:bg-primary/40",
+                )}
+                aria-label={`Go to page ${index + 1}`}
+              />
+            ))}
+          </div>
+        )}
+
+        {someLocked && !isFullscreen && !singlePageMode && (
           <div
             className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-primary/20 px-4 py-3 text-center"
             style={{ background: `color-mix(in oklab, ${themeTint} 18%, var(--card))` }}
@@ -618,7 +722,7 @@ export function StoryBookReader({
             <Lock className="h-4 w-4 shrink-0 text-primary" />
             <p className="text-sm text-foreground">
               {isWelcomeGiftStory
-                ? "Your free page is ready — unlock every page for $4.99."
+                ? "This first book is free — the last few pages are still being painted."
                 : "Story's free to read — unlock the illustrations for $4.99."}
             </p>
           </div>

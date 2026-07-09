@@ -16,7 +16,7 @@ const HIGHLIGHTS = [
   "Your child's name on every page",
   "Illustrated cartoon hero from an optional photo",
   "Dinosaur, space, pirate, animal & airplane adventures",
-  "Free 2-page preview — full 6-page books with credits",
+  "First full illustrated book free — more books $4.99 each",
   "Print at home for bedtime, gifts & learning time",
   "Kid-safe stories for every young reader",
 ];
@@ -32,7 +32,7 @@ const SECTIONS = [
   },
   {
     heading: "A parenting-friendly gift for grandparents & holidays",
-    body: "Grandparents love personalized children's books because they feel thoughtful without guessing toy sizes. Email a PDF, print and wrap it, or read aloud on video call. Book packs (3, 5, or 15 credits) never expire — ideal for birthdays, Christmas, Easter, and back-to-school surprises.",
+    body: "Grandparents love personalized children's books because they feel thoughtful without guessing toy sizes. Email a PDF, print and wrap it, or read aloud on video call. Your first book is free; more adventures are $4.99 each — credits never expire, ideal for birthdays, Christmas, Easter, and back-to-school surprises.",
   },
 ];
 

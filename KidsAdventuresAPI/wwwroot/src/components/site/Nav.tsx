@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Library, LogOut, Menu, Sparkles, User } from "lucide-react";
+import { Library, LogOut, Map, Menu, Sparkles, User } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -91,6 +91,17 @@ export function Nav() {
           <div className="flex items-center justify-end gap-1.5 sm:gap-2 shrink-0">
             {isAuthenticated && (
               <Link
+                to="/story-path"
+                className="group hidden lg:inline-flex h-9 items-center gap-1 rounded-full border border-border bg-card pl-1 pr-2.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary transition"
+              >
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-secondary">
+                  <Map className="h-3.5 w-3.5" />
+                </span>
+                Story Path
+              </Link>
+            )}
+            {isAuthenticated && (
+              <Link
                 to="/my-packs"
                 title={creditTitle}
                 className="group inline-flex h-9 items-center gap-1 rounded-full border border-primary/25 bg-primary/8 pl-1 pr-2 shadow-sm hover:bg-primary/12 hover:border-primary/35 transition"
@@ -168,6 +179,15 @@ export function Nav() {
                       className="text-base font-medium text-foreground hover:text-primary transition-colors"
                     />
                   ))}
+                  {isAuthenticated && (
+                    <Link
+                      to="/story-path"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="text-base font-medium text-foreground hover:text-primary transition-colors"
+                    >
+                      Story Path
+                    </Link>
+                  )}
                 </nav>
               </SheetContent>
             </Sheet>

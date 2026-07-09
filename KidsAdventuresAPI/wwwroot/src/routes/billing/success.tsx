@@ -5,6 +5,8 @@ import { Nav } from "@/components/site/Nav";
 import { Footer } from "@/components/site/Footer";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { confirmCheckoutSession, getAccountBalance } from "@/lib/api/subscriptions";
+import { illustrateAdventurePack } from "@/lib/api/adventure-packs";
+import { takePendingIllustration } from "@/lib/account/pendingIllustration";
 import type { PaymentProvider } from "@/lib/api/types";
 import { BRAND_NAME } from "@/lib/brand";
 import { trackPurchaseConversion } from "@/lib/analytics";
@@ -59,7 +61,21 @@ function BillingSuccess() {
     !!sessionId || (!!paymentId && (!status || status.toLowerCase() === "succeeded"));
   const [confirming, setConfirming] = useState(shouldConfirm);
   const [credits, setCredits] = useState<number | null>(null);
+  const [bookUnlocked, setBookUnlocked] = useState(false);
   const purchaseTrackedRef = useRef(false);
+
+  // After the credit is confirmed, immediately spend it on the specific book the parent chose to buy,
+  // so a per-book purchase starts illustrating without a second trip to My Books.
+  const autoUnlockPurchasedBook = async () => {
+    const packId = takePendingIllustration();
+    if (!packId) return;
+    try {
+      await illustrateAdventurePack(packId);
+      setBookUnlocked(true);
+    } catch {
+      /* The credit is safe — the parent can tap Unlock again in My Books. */
+    }
+  };
 
   const trackPurchaseOnce = (transactionId?: string) => {
     if (purchaseTrackedRef.current) return;
@@ -103,6 +119,7 @@ function BillingSuccess() {
         if (cancelled || !balance) return;
         setCredits(balance.bookCredits);
         trackPurchaseOnce(sessionId ?? paymentId);
+        await autoUnlockPurchasedBook();
         await refreshAccountBalance();
       } catch (err) {
         if (cancelled) return;
@@ -113,6 +130,7 @@ function BillingSuccess() {
         if (latestCredits > startingCredits) {
           setCredits(latestCredits);
           trackPurchaseOnce(sessionId ?? paymentId);
+          await autoUnlockPurchasedBook();
           return;
         }
 
@@ -147,7 +165,9 @@ function BillingSuccess() {
         <p className="mt-4 text-muted-foreground">
           {confirming
             ? "Adding your book credits now."
-            : `Your book credits have been added — you now have ${displayCredits} credit${displayCredits === 1 ? "" : "s"}. Open My Books and tap Create illustrated PDF on any story.`}
+            : bookUnlocked
+              ? "Payment confirmed! We're painting every page of your book now — it'll appear illustrated in My Books in a few minutes."
+              : `Your book credits have been added — you now have ${displayCredits} credit${displayCredits === 1 ? "" : "s"}. Open My Books and tap Unlock the full storybook on any story.`}
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           <Link

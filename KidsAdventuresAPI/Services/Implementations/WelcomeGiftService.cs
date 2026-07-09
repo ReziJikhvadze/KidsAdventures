@@ -4,7 +4,7 @@ using AdventurePacks.Api.Services.Interfaces;
 namespace AdventurePacks.Api.Services.Implementations;
 
 /// <summary>
-/// Single source of truth for the "first illustrated page is free" welcome gift. Entitlement is tied to the
+/// Single source of truth for the "first fully illustrated book is free" welcome gift. Entitlement is tied to the
 /// server-side <c>GuestPreviews</c> record (by id, or by storyId as a fallback) so it is reliable across
 /// devices and cannot be reused by clearing localStorage.
 /// </summary>
@@ -12,8 +12,8 @@ public sealed class WelcomeGiftService(
     IGuestPreviewRepository guestPreviewRepository,
     ILogger<WelcomeGiftService> logger) : IWelcomeGiftService
 {
-    /// <summary>How many illustrated pages a brand-new account receives for free.</summary>
-    private const int DefaultGiftPages = AdventureStoryConstants.WelcomeGiftPageCount;
+    /// <summary>How many free fully-illustrated books a brand-new account receives.</summary>
+    private const int DefaultGiftPages = AdventureStoryConstants.WelcomeGiftBookCount;
 
     public async Task<int> GetWelcomeStoryRemainingAsync(
         WelcomeGiftContext context,

@@ -26,6 +26,8 @@ internal sealed class AdventurePromptLocale
     public required string PageLengthRule { get; init; }
     public required string CaptionRule { get; init; }
     public required string ContinuityRule { get; init; }
+    public required string CharacterRegistryRule { get; init; }
+    public required string ChapterContinuationTemplate { get; init; }
     public required string JsonOnlyRule { get; init; }
     public required string RawJsonRule { get; init; }
     public required string AdventureIdLabel { get; init; }
@@ -72,6 +74,7 @@ internal sealed class AdventurePromptLocale
     public required string ImageHeroNoPhoto { get; init; }
     public required string PixarFromPhotoStylePrompt { get; init; }
     public required string AnimatedIllustrationStylePrompt { get; init; }
+    public required string[] InteractiveStoryRules { get; init; }
 }
 
 internal static class AdventurePromptTexts
@@ -246,6 +249,8 @@ internal static class AdventurePromptTexts
         PageLengthRule = "Keep on-page words MINIMAL — the illustration carries the story, not the text. Each page has a tiny \"caption\" plus an optional short \"content\" (see the caption and continuity rules). Every page title must hint at a new place or moment.",
         CaptionRule = "\"caption\" is the ONLY text shown on the page: a vivid 3–8 word phrase that names this exact moment and pulls the eye forward (e.g. \"Into the glowing cave!\", \"The rope bridge starts to sway\"). It is never a summary, and it must read as the next beat right after the previous page's caption. \"content\" is optional read-aloud narration of at most 1–2 short sentences (~25 words) — the picture alone must still tell the story.",
         ContinuityRule = "STRICT CONTINUITY: all pages are ONE unbroken story happening in real time. Each page begins exactly where the previous page ended — same day, same journey, same hero outfit and props — with a clear cause-and-effect link (what the hero did on the previous page directly causes this page). The captions chain together like one flowing sentence; every non-final page ends on a small hook that makes the child want to turn the page, and the final page resolves it warmly. Never reset the scene or jump randomly — each transition should feel like \"and then…\".",
+        CharacterRegistryRule = "If a recurring non-family companion character appears (an animal, robot, or magical friend), define it ONCE in a top-level \"companion\": { \"name\": \"\", \"type\": \"\", \"description\": \"\" } field, then use that EXACT name and type every time it appears in \"content\" or \"caption\" — never swap its species, name, or identity partway through the story. Also add a top-level \"chapterRecap\": a warm 1-2 sentence summary of how this chapter ends, written so a new chapter could continue from it.",
+        ChapterContinuationTemplate = "THIS IS CHAPTER {0} OF AN ONGOING SAGA — same hero, same world, a brand-new self-contained mini-adventure that continues emotionally and logically from before. Previously: {1} The hero's companion — if one already exists — is {2} (a {3}); keep that exact identity if they reappear, and only introduce a new companion if the recap does not mention one. Do NOT restart the world, rename the hero, or contradict what already happened.",
         JsonOnlyRule = "Never include markdown, code fences (```), explanations, or extra text outside JSON.",
         RawJsonRule = "The response must start with { and end with } — raw JSON only.",
         AdventureIdLabel = "Adventure ID (must be unique): {0}",
@@ -302,6 +307,16 @@ internal static class AdventurePromptTexts
             "Stylized CG character with expressive cartoon proportions, soft subsurface skin, big lively eyes, cinematic rim lighting, " +
             "rich saturated colors, depth of field, magical environment. " +
             "MUST look like rendered animation — NOT a photograph, NOT a photo filter, NOT flat clipart.",
+        InteractiveStoryRules =
+        [
+            "INTERACTIVE STORY MOMENTS (optional per page — omit \"interactive\" entirely when not needed):",
+            "On 2–3 pages where the hero is visible, add \"interactive\": { \"avatarTap\": { \"region\": { \"x\": 12, \"y\": 35, \"w\": 28, \"h\": 45 } } } with x,y,w,h as 0–100 percent of the illustration (hero in left-center foreground).",
+            "On at most ONE page with a hidden plot object, add \"findIt\": { \"prompt\": \"short child-facing question\", \"objectLabel\": \"key\", \"region\": { \"x\", \"y\", \"w\", \"h\" } } where the object would appear in a typical illustration for this scene.",
+            "On at most ONE page where counting fits the plot naturally, add \"counting\": { \"prompt\": \"short diegetic counting ask\", \"target\": 3, \"label\": \"eggs\" } — no quiz tone.",
+            "On at most ONE page where something is hiding (a box, bush, egg, door, shell), add \"revealItem\": { \"prompt\": \"short child-facing question\", \"coverLabel\": \"box\", \"revealLabel\": \"a sleepy bunny\", \"funFact\": \"one short, playful real fact about it\", \"region\": { \"x\", \"y\", \"w\", \"h\" } } — the illustration shows only the closed cover; the reveal happens in the app.",
+            "Never add more than one interactive type on the same page. Regions are approximate guesses for a children's book layout.",
+            "Interactive prompts must be in the same language as the story.",
+        ],
     };
 
     public static readonly AdventurePromptLocale Spanish = new()
@@ -449,6 +464,8 @@ internal static class AdventurePromptTexts
         PageLengthRule = "Mantén el texto en la página al MÍNIMO: la ilustración cuenta la historia, no el texto. Cada página tiene un \"caption\" muy breve y un \"content\" corto opcional (mira las reglas de caption y continuidad). Cada título de página debe sugerir un lugar o momento nuevo.",
         CaptionRule = "\"caption\" es el ÚNICO texto que se muestra en la página: una frase vívida de 3 a 8 palabras que nombra este momento exacto y atrae la mirada hacia adelante (p. ej., \"¡Hacia la cueva brillante!\", \"El puente de cuerda empieza a balancearse\"). Nunca es un resumen y debe leerse como el siguiente instante justo después del caption de la página anterior. \"content\" es una narración opcional para leer en voz alta de máximo 1 o 2 frases cortas (~25 palabras); la imagen por sí sola debe seguir contando la historia.",
         ContinuityRule = "CONTINUIDAD ESTRICTA: todas las páginas son UNA sola historia continua que ocurre en tiempo real. Cada página empieza exactamente donde terminó la anterior —el mismo día, el mismo viaje, la misma ropa y objetos del héroe— con una clara relación de causa y efecto (lo que el héroe hizo en la página anterior provoca directamente esta). Los captions se encadenan como una sola frase fluida; cada página que no sea la última termina con un pequeño gancho que da ganas de pasar la página, y la última la resuelve con calidez. Nunca reinicies la escena ni saltes al azar: cada transición debe sentirse como \"y entonces…\".",
+        CharacterRegistryRule = "Si aparece un personaje compañero recurrente que no es familiar (un animal, robot o amigo mágico), defínelo UNA VEZ en un campo de nivel superior \"companion\": { \"name\": \"\", \"type\": \"\", \"description\": \"\" }, y luego usa ese nombre y tipo EXACTOS cada vez que aparezca en \"content\" o \"caption\" — nunca cambies su especie, nombre o identidad a mitad de la historia. Añade también un campo de nivel superior \"chapterRecap\": un resumen cálido de 1 a 2 frases de cómo termina este capítulo, escrito para que un nuevo capítulo pueda continuar desde ahí.",
+        ChapterContinuationTemplate = "ESTE ES EL CAPÍTULO {0} DE UNA SAGA EN CURSO — el mismo héroe, el mismo mundo, una mini-aventura nueva y autoconclusiva que continúa emocional y lógicamente desde antes. Anteriormente: {1} El compañero del héroe —si ya existe uno— es {2} (un/a {3}); mantén esa identidad exacta si reaparece, e introduce un compañero nuevo solo si el resumen no menciona ninguno. NO reinicies el mundo, renombres al héroe ni contradigas lo que ya sucedió.",
         JsonOnlyRule = "Nunca incluyas markdown, bloques de código (```), explicaciones ni texto extra fuera del JSON.",
         RawJsonRule = "La respuesta debe empezar con { y terminar con } — solo JSON puro.",
         AdventureIdLabel = "ID de aventura (debe ser único): {0}",
@@ -504,6 +521,16 @@ internal static class AdventurePromptTexts
             "Personaje CG estilizado con proporciones expresivas, piel suave, ojos grandes, iluminación de borde cinematográfica, " +
             "colores saturados, profundidad de campo, entorno mágico. " +
             "DEBE parecer animación renderizada — NO fotografía, NO filtro, NO clipart plano.",
+        InteractiveStoryRules =
+        [
+            "MOMENTOS INTERACTIVOS (opcional por página — omite \"interactive\" si no aplica):",
+            "En 2–3 páginas donde el héroe sea visible, añade \"interactive\": { \"avatarTap\": { \"region\": { \"x\": 12, \"y\": 35, \"w\": 28, \"h\": 45 } } } con x,y,w,h de 0–100 % de la ilustración.",
+            "En como máximo UNA página con un objeto oculto en la trama, añade \"findIt\" con prompt corto, objectLabel y region.",
+            "En como máximo UNA página donde encaje contar algo en la trama, añade \"counting\" con prompt, target y label — sin tono de examen.",
+            "En como máximo UNA página con algo escondido (caja, arbusto, huevo, puerta), añade \"revealItem\" con prompt, coverLabel, revealLabel, un funFact breve y divertido, y region — la ilustración muestra solo la cubierta cerrada; la revelación ocurre en la app.",
+            "Nunca más de un tipo interactivo en la misma página. Las regiones son aproximadas.",
+            "Los textos interactivos deben estar en el mismo idioma que el cuento.",
+        ],
     };
 
     public static readonly AdventurePromptLocale Chinese = new()
@@ -651,6 +678,8 @@ internal static class AdventurePromptTexts
         PageLengthRule = "让页面上的文字尽量少——由插画来讲故事，而不是文字。每一页都有一个很短的 \"caption\" 和一段可选的简短 \"content\"（见 caption 与连贯性规则）。每页标题需暗示新地点或时刻。",
         CaptionRule = "\"caption\" 是页面上唯一显示的文字：一句生动的 3 到 8 个词的短语，点出此刻的瞬间并吸引视线向前（例如\"走进发光的洞穴！\"\"绳桥开始摇晃\"）。它绝不是概括，并且要像紧接上一页 caption 之后的下一拍。\"content\" 是可选的朗读旁白，最多 1 到 2 个短句（约 25 字），单凭画面也必须能讲清楚故事。",
         ContinuityRule = "严格连贯：所有页面是发生在真实时间里的同一个不间断的故事。每一页都从上一页结束的地方开始——同一天、同一段旅程、主角同样的服装和道具——并有清晰的因果联系（主角上一页所做的事直接引出这一页）。各页 caption 像一句连贯的话一样串联起来；除最后一页外，每页都以一个小悬念结尾，让孩子想翻到下一页，最后一页温暖地收尾。绝不要重置场景或随意跳跃——每一次过渡都应像\"然后……\"。",
+        CharacterRegistryRule = "如果出现一个反复登场的非家庭伙伴角色（动物、机器人或魔法朋友），请在顶层用一个 \"companion\": { \"name\": \"\", \"type\": \"\", \"description\": \"\" } 字段定义一次，然后在 \"content\" 或 \"caption\" 中每次出现时都使用完全相同的名字和类型——绝不要在故事中途更换它的物种、名字或身份。同时添加顶层字段 \"chapterRecap\"：用1到2句温暖的话概括本章结局，写法要便于新的一章据此续写。",
+        ChapterContinuationTemplate = "这是长篇冒险的第 {0} 章——同一个主角、同一个世界，一段全新的、自成一体的小冒险，情感和逻辑上都承接此前的故事。此前：{1} 如果主角已经有一个伙伴，那就是 {2}（一个{3}）；如果它再次出现，请保持完全相同的身份，只有在概要未提及伙伴时才可以引入新的伙伴。不要重置这个世界、不要更改主角的名字，也不要与已经发生的事情相矛盾。",
         JsonOnlyRule = "不得包含 markdown、代码块（```）、解释或 JSON 外的文字。",
         RawJsonRule = "回复必须以 { 开始、以 } 结束——仅原始 JSON。",
         AdventureIdLabel = "冒险 ID（必须唯一）：{0}",
@@ -705,6 +734,16 @@ internal static class AdventurePromptTexts
             "风格化CG角色、夸张卡通比例、柔和皮肤、大眼睛、电影轮廓光、" +
             "饱和色彩、景深、魔法环境。" +
             "必须像渲染动画——非照片、非滤镜、非平面剪贴画。",
+        InteractiveStoryRules =
+        [
+            "互动时刻（每页可选——不需要则省略 interactive）：",
+            "在2–3页主角清晰可见时，添加 avatarTap 及 region（x,y,w,h 为插图0–100%）。",
+            "最多一页添加 findIt（隐藏物品），含 prompt、objectLabel、region。",
+            "最多一页添加 counting（情节中的数数），含 prompt、target、label，不要测验语气。",
+            "最多一页添加 revealItem（藏在盒子、灌木、蛋或门后面的东西），包含 prompt、coverLabel、revealLabel、一句简短有趣的 funFact 和 region——插图只画出关闭的外壳，揭晓在应用内完成。",
+            "同一页不要出现一种以上的互动类型。区域为大致估计。",
+            "互动提示语须与故事同语言。",
+        ],
     };
 
     public static readonly AdventurePromptLocale Russian = new()
@@ -852,6 +891,8 @@ internal static class AdventurePromptTexts
         PageLengthRule = "Сведите текст на странице к МИНИМУМУ — историю рассказывает иллюстрация, а не текст. На каждой странице есть крошечный \"caption\" и необязательный короткий \"content\" (см. правила про caption и непрерывность). Заголовок каждой страницы намекает на новое место или момент.",
         CaptionRule = "\"caption\" — это ЕДИНСТВЕННЫЙ текст, который показывается на странице: яркая фраза из 3–8 слов, называющая именно этот момент и притягивающая взгляд вперёд (например, \"В сияющую пещеру!\", \"Верёвочный мост начинает качаться\"). Это никогда не пересказ, и она должна читаться как следующий момент сразу после caption предыдущей страницы. \"content\" — необязательная закадровая озвучка для чтения вслух, максимум 1–2 коротких предложения (~25 слов); по одной картинке история всё равно должна быть понятна.",
         ContinuityRule = "СТРОГАЯ НЕПРЕРЫВНОСТЬ: все страницы — ОДНА непрерывная история, происходящая в реальном времени. Каждая страница начинается ровно там, где закончилась предыдущая — тот же день, то же путешествие, та же одежда и предметы героя — с чёткой причинно-следственной связью (то, что герой сделал на предыдущей странице, напрямую вызывает эту). Подписи (caption) сцепляются как одно плавное предложение; каждая страница, кроме последней, заканчивается маленькой интригой, из-за которой ребёнку хочется перевернуть страницу, а последняя тепло её разрешает. Никогда не сбрасывайте сцену и не прыгайте произвольно — каждый переход должен ощущаться как \"и тогда…\".",
+        CharacterRegistryRule = "Если в истории появляется повторяющийся неродственный персонаж-компаньон (животное, робот или волшебный друг), определите его ОДИН РАЗ в поле верхнего уровня \"companion\": { \"name\": \"\", \"type\": \"\", \"description\": \"\" }, а затем используйте это ТОЧНОЕ имя и тип каждый раз, когда он появляется в \"content\" или \"caption\" — никогда не меняйте его вид, имя или личность посреди истории. Также добавьте поле верхнего уровня \"chapterRecap\": тёплое резюме из 1–2 предложений о том, чем заканчивается эта глава, написанное так, чтобы следующая глава могла из него продолжить.",
+        ChapterContinuationTemplate = "ЭТО ГЛАВА {0} ПРОДОЛЖАЮЩЕЙСЯ САГИ — тот же герой, тот же мир, совершенно новое самостоятельное мини-приключение, которое эмоционально и логически продолжает предыдущее. Ранее: {1} Спутник героя — если он уже существует — это {2} (a {3}); сохраните точно эту личность, если он появится снова, и вводите нового спутника только если в резюме он не упомянут. НЕ перезапускайте мир, не меняйте имя героя и не противоречьте уже произошедшему.",
         JsonOnlyRule = "Не включайте markdown, блоки кода (```), пояснения или текст вне JSON.",
         RawJsonRule = "Ответ должен начинаться с { и заканчиваться } — только чистый JSON.",
         AdventureIdLabel = "ID приключения (уникальный): {0}",
@@ -907,5 +948,15 @@ internal static class AdventurePromptTexts
             "Стилизованный CG-персонаж, выразительные пропорции, мягкая кожа, большие глаза, кинематографический контровой свет, " +
             "насыщенные цвета, глубина резкости, волшебная среда. " +
             "ДОЛЖНО выглядеть как рендер анимации — НЕ фотография, НЕ фильтр, НЕ плоский клипарт.",
+        InteractiveStoryRules =
+        [
+            "ИНТЕРАКТИВНЫЕ МОМЕНТЫ (по желанию на странице — иначе без interactive):",
+            "На 2–3 страницах с героем добавь avatarTap с region (x,y,w,h 0–100% иллюстрации).",
+            "Максимум на ОДНОЙ странице findIt со скрытым предметом: prompt, objectLabel, region.",
+            "Максимум на ОДНОЙ странице counting, если сюжету подходит счёт: prompt, target, label — без тона теста.",
+            "Максимум на ОДНОЙ странице revealItem — что-то прячется (коробка, куст, яйцо, дверь): prompt, coverLabel, revealLabel, короткий забавный funFact и region — на иллюстрации видна только закрытая крышка, раскрытие происходит в приложении.",
+            "Не больше одного типа интерактива на одной странице. Координаты приблизительные.",
+            "Тексты интерактива на том же языке, что и сказка.",
+        ],
     };
 }

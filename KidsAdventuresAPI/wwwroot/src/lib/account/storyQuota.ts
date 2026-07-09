@@ -15,7 +15,7 @@ export function formatNavQuotaLabel({
   if (isLoading) return "…";
 
   if ((welcomeStoryRemaining ?? 0) > 0) {
-    return "1 free illustrated page";
+    return "1 free book";
   }
 
   if (storiesRemainingThisMonth > 0) {
@@ -28,7 +28,7 @@ export function formatNavQuotaLabel({
     return `${bookCredits} credit${bookCredits === 1 ? "" : "s"} · all used`;
   }
 
-  return "Buy credits for more";
+  return "New book $4.99";
 }
 
 export function formatNavQuotaTitle({
@@ -40,7 +40,7 @@ export function formatNavQuotaTitle({
   const allowed = storiesAllowedThisMonth ?? bookCredits;
 
   if ((welcomeStoryRemaining ?? 0) > 0) {
-    return "Your first book includes 1 free illustrated page. Unlock the full illustrated book for $4.99.";
+    return "Your first illustrated book is free. After that, each new book is a one-time $4.99.";
   }
 
   if (storiesRemainingThisMonth > 0 && bookCredits > 0) {
@@ -64,7 +64,7 @@ export function formatCreditsBadgeLabel({
   welcomeStoryRemaining,
 }: StoryQuotaInput): string {
   if ((welcomeStoryRemaining ?? 0) > 0) {
-    return "1 free page";
+    return "1 free book";
   }
 
   if (storiesRemainingThisMonth > 0) {
@@ -82,5 +82,5 @@ export function formatCreditsBadgeLabel({
     return `0 left · ${bookCredits} credit${bookCredits === 1 ? "" : "s"}`;
   }
 
-  return "Buy credits";
+  return "New book $4.99";
 }

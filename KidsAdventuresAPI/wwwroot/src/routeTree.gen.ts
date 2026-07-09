@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as StoryPathRouteImport } from './routes/story-path'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PersonalizedChildrensBooksRouteImport } from './routes/personalized-childrens-books'
 import { Route as MyPacksRouteImport } from './routes/my-packs'
@@ -29,6 +30,11 @@ import { Route as BlogAuthorIdRouteImport } from './routes/blog/author/$id'
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StoryPathRoute = StoryPathRouteImport.update({
+  id: '/story-path',
+  path: '/story-path',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/my-packs': typeof MyPacksRoute
   '/personalized-childrens-books': typeof PersonalizedChildrensBooksRoute
   '/privacy': typeof PrivacyRoute
+  '/story-path': typeof StoryPathRoute
   '/terms': typeof TermsRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
@@ -135,6 +142,7 @@ export interface FileRoutesByTo {
   '/my-packs': typeof MyPacksRoute
   '/personalized-childrens-books': typeof PersonalizedChildrensBooksRoute
   '/privacy': typeof PrivacyRoute
+  '/story-path': typeof StoryPathRoute
   '/terms': typeof TermsRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
@@ -154,6 +162,7 @@ export interface FileRoutesById {
   '/my-packs': typeof MyPacksRoute
   '/personalized-childrens-books': typeof PersonalizedChildrensBooksRoute
   '/privacy': typeof PrivacyRoute
+  '/story-path': typeof StoryPathRoute
   '/terms': typeof TermsRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
@@ -174,6 +183,7 @@ export interface FileRouteTypes {
     | '/my-packs'
     | '/personalized-childrens-books'
     | '/privacy'
+    | '/story-path'
     | '/terms'
     | '/billing/cancel'
     | '/billing/success'
@@ -192,6 +202,7 @@ export interface FileRouteTypes {
     | '/my-packs'
     | '/personalized-childrens-books'
     | '/privacy'
+    | '/story-path'
     | '/terms'
     | '/billing/cancel'
     | '/billing/success'
@@ -210,6 +221,7 @@ export interface FileRouteTypes {
     | '/my-packs'
     | '/personalized-childrens-books'
     | '/privacy'
+    | '/story-path'
     | '/terms'
     | '/billing/cancel'
     | '/billing/success'
@@ -229,6 +241,7 @@ export interface RootRouteChildren {
   MyPacksRoute: typeof MyPacksRoute
   PersonalizedChildrensBooksRoute: typeof PersonalizedChildrensBooksRoute
   PrivacyRoute: typeof PrivacyRoute
+  StoryPathRoute: typeof StoryPathRoute
   TermsRoute: typeof TermsRoute
   BillingCancelRoute: typeof BillingCancelRoute
   BillingSuccessRoute: typeof BillingSuccessRoute
@@ -246,6 +259,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/story-path': {
+      id: '/story-path'
+      path: '/story-path'
+      fullPath: '/story-path'
+      preLoaderRoute: typeof StoryPathRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -365,6 +385,7 @@ const rootRouteChildren: RootRouteChildren = {
   MyPacksRoute: MyPacksRoute,
   PersonalizedChildrensBooksRoute: PersonalizedChildrensBooksRoute,
   PrivacyRoute: PrivacyRoute,
+  StoryPathRoute: StoryPathRoute,
   TermsRoute: TermsRoute,
   BillingCancelRoute: BillingCancelRoute,
   BillingSuccessRoute: BillingSuccessRoute,

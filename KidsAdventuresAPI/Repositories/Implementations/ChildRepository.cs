@@ -5,7 +5,7 @@ namespace AdventurePacks.Api.Repositories.Implementations;
 public sealed class ChildRepository(ISqlConnectionFactory connectionFactory) : IChildRepository
 {
     private const string ChildColumns =
-        "Id, UserId, Name, Age, PhotoUrl, AppearanceDescription, AppearancePhotoUrl, CreatedAt";
+        "Id, UserId, Name, Age, PhotoUrl, PersonalizationType, AvatarConfigJson, AppearanceDescription, AppearancePhotoUrl, HeroPortraitUrl, HeroPortraitClaimedAt, CreatedAt";
 
     public async Task<IReadOnlyList<Child>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken)
     {
@@ -34,8 +34,8 @@ public sealed class ChildRepository(ISqlConnectionFactory connectionFactory) : I
     public async Task<Guid> CreateAsync(Child child, CancellationToken cancellationToken)
     {
         const string sql = """
-                           INSERT INTO Children (Id, UserId, Name, Age, PhotoUrl, CreatedAt)
-                           VALUES (@Id, @UserId, @Name, @Age, @PhotoUrl, @CreatedAt);
+                           INSERT INTO Children (Id, UserId, Name, Age, PhotoUrl, PersonalizationType, AvatarConfigJson, AppearanceDescription, CreatedAt)
+                           VALUES (@Id, @UserId, @Name, @Age, @PhotoUrl, @PersonalizationType, @AvatarConfigJson, @AppearanceDescription, @CreatedAt);
                            """;
         child.Id = child.Id == Guid.Empty ? Guid.NewGuid() : child.Id;
         using var connection = connectionFactory.CreateConnection();
@@ -99,5 +99,39 @@ public sealed class ChildRepository(ISqlConnectionFactory connectionFactory) : I
         using var connection = connectionFactory.CreateConnection();
         var affected = await connection.ExecuteAsync(new CommandDefinition(sql, new { Id = id, UserId = userId }, cancellationToken: cancellationToken));
         return affected > 0;
+    }
+
+    public async Task<bool> TryClaimHeroPortraitGenerationAsync(Guid childId, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE Children
+                           SET HeroPortraitClaimedAt = SYSUTCDATETIME()
+                           WHERE Id = @ChildId AND HeroPortraitUrl IS NULL AND HeroPortraitClaimedAt IS NULL;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        var affected = await connection.ExecuteAsync(new CommandDefinition(sql, new { ChildId = childId }, cancellationToken: cancellationToken));
+        return affected > 0;
+    }
+
+    public async Task ClearHeroPortraitClaimAsync(Guid childId, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE Children
+                           SET HeroPortraitClaimedAt = NULL
+                           WHERE Id = @ChildId AND HeroPortraitUrl IS NULL;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(new CommandDefinition(sql, new { ChildId = childId }, cancellationToken: cancellationToken));
+    }
+
+    public async Task SetHeroPortraitUrlAsync(Guid childId, string heroPortraitUrl, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE Children
+                           SET HeroPortraitUrl = @HeroPortraitUrl
+                           WHERE Id = @ChildId;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(new CommandDefinition(sql, new { ChildId = childId, HeroPortraitUrl = heroPortraitUrl }, cancellationToken: cancellationToken));
     }
 }

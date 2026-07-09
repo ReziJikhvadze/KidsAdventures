@@ -13,4 +13,12 @@ public interface IChildRepository
         string? appearancePhotoUrl,
         CancellationToken cancellationToken);
     Task<bool> DeleteAsync(Guid id, Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>Atomically claims the right to generate this child's one-time hero portrait; false if already claimed/generated.</summary>
+    Task<bool> TryClaimHeroPortraitGenerationAsync(Guid childId, CancellationToken cancellationToken);
+
+    /// <summary>Releases a claim after a failed generation attempt so a later story can retry.</summary>
+    Task ClearHeroPortraitClaimAsync(Guid childId, CancellationToken cancellationToken);
+
+    Task SetHeroPortraitUrlAsync(Guid childId, string heroPortraitUrl, CancellationToken cancellationToken);
 }
