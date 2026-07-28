@@ -30,7 +30,7 @@ const plans: {
     name: "Free preview",
     price: "$0",
     period: "no card needed",
-    desc: "One free 2-page illustrated welcome story — instantly.",
+    desc: "A free opening that lets you feel the magic before you buy.",
     features: [
       "1 free 2-page illustrated story",
       "All 5 core themes",
@@ -46,7 +46,7 @@ const plans: {
     name: "1 Book",
     price: "$4.99",
     period: "one-time",
-    desc: "Unlock one complete illustrated storybook — a single payment.",
+    desc: "Unlock one complete illustrated storybook with PDF included.",
     features: [
       "Full 6-page illustrated story",
       "Photo-personalized hero",
@@ -124,8 +124,8 @@ export function Pricing() {
               Try it free. Unlock a full book for $4.99.
             </h2>
             <p className="mt-4 text-muted-foreground">
-              Start with a free 2-page preview. When you love it, one simple $4.99 payment unlocks the
-              complete illustrated storybook — yours to keep and print.
+              Start with a free preview. When you love it, one simple $4.99 payment unlocks the
+              complete illustrated storybook - yours to keep and print.
             </p>
           </div>
 
@@ -230,7 +230,7 @@ export function Pricing() {
                         : "bg-foreground text-background hover:opacity-90"
                     }`}
                   >
-                    {isLoading ? "Redirecting…" : p.cta}
+                    {isLoading ? "Redirecting..." : p.cta}
                   </button>
                 </div>
               );
@@ -238,8 +238,8 @@ export function Pricing() {
           </div>
 
           <p className="mt-8 text-center text-xs text-muted-foreground max-w-2xl mx-auto">
-            One $4.99 payment unlocks one complete illustrated book. No subscription, no hidden fees —
-            the printable PDF download is always free.
+            One $4.99 payment unlocks one complete illustrated book. No subscription, no hidden fees -
+            the printable PDF download is included.
           </p>
         </div>
       </section>

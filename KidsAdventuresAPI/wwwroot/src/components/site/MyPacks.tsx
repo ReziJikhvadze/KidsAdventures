@@ -64,6 +64,7 @@ export function MyPacks() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [pdfStartingId, setPdfStartingId] = useState<string | null>(null);
   const [unlockingId, setUnlockingId] = useState<string | null>(null);
+  const [buyingCredit, setBuyingCredit] = useState(false);
   const [loadingReaderIds, setLoadingReaderIds] = useState<Set<string>>(() => new Set());
   const [openReaderIds, setOpenReaderIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
@@ -191,7 +192,7 @@ export function MyPacks() {
 
   const openDownload = async (pack: AdventurePackDetailResponse) => {
     if (pack.status !== "Completed" || downloadingId) return;
-    const childName = childNames[pack.childId] ?? pack.childName ?? "storybook";
+    const childName = childNames[pack.childId ?? ""] ?? pack.childName ?? "storybook";
     const fileName = `${childName}-${pack.theme}-storybook.pdf`.replace(/\s+/g, "-").toLowerCase();
 
     setDownloadingId(pack.id);
@@ -241,21 +242,29 @@ export function MyPacks() {
     });
   };
 
+  const buyCredit = async () => {
+    if (buyingCredit) return;
+    setBuyingCredit(true);
+    try {
+      const session = await createCheckoutSession("Book1");
+      if (session.checkoutUrl) {
+        window.location.href = session.checkoutUrl;
+        return;
+      }
+      notify.error("Could not start checkout", { description: "Please try again in a moment." });
+    } catch (err) {
+      notify.fromError(err, "Could not start checkout.");
+    } finally {
+      setBuyingCredit(false);
+    }
+  };
+
   const startIllustration = async (pack: AdventurePackDetailResponse) => {
     if (pack.status !== "StoryReady" || unlockingId) return;
 
     const credits = user?.bookCredits ?? 0;
     if (credits <= 0) {
-      try {
-        const session = await createCheckoutSession("Book1");
-        if (session.checkoutUrl) {
-          window.location.href = session.checkoutUrl;
-          return;
-        }
-        notify.error("Could not start checkout", { description: "Please try again in a moment." });
-      } catch (err) {
-        notify.fromError(err, "Could not start checkout.");
-      }
+      await buyCredit();
       return;
     }
 
@@ -379,13 +388,25 @@ export function MyPacks() {
               {isLoading || !user ? (
                 <div className="h-10 w-36 rounded-full bg-amber-200/60 animate-pulse" />
               ) : (
-                <CreditsBadge
-                  credits={user.bookCredits}
-                  storiesRemainingThisMonth={user.storiesRemainingThisMonth}
-                  welcomeStoryRemaining={user.welcomeStoryRemaining}
-                  variant="prominent"
-                  linkToPricing={user.bookCredits === 0}
-                />
+                <div className="flex items-center gap-2">
+                  <CreditsBadge
+                    credits={user.bookCredits}
+                    storiesRemainingThisMonth={user.storiesRemainingThisMonth}
+                    welcomeStoryRemaining={user.welcomeStoryRemaining}
+                    variant="prominent"
+                  />
+                  {user.bookCredits === 0 && (
+                    <button
+                      type="button"
+                      onClick={() => void buyCredit()}
+                      disabled={buyingCredit}
+                      className="inline-flex items-center gap-1.5 rounded-2xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-md transition hover:opacity-90 disabled:opacity-60"
+                    >
+                      {buyingCredit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                      Buy a book — $4.99
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -403,13 +424,15 @@ export function MyPacks() {
                     : "Unlock illustrations for $4.99 per book."}
                 </p>
                 {user.bookCredits === 0 && (
-                  <Link
-                    to="/"
-                    hash="pricing"
-                    className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+                  <button
+                    type="button"
+                    onClick={() => void buyCredit()}
+                    disabled={buyingCredit}
+                    className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 disabled:opacity-60"
                   >
+                    {buyingCredit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                     Get a book ($4.99)
-                  </Link>
+                  </button>
                 )}
               </div>
             </div>
@@ -453,7 +476,7 @@ export function MyPacks() {
           <ul className="grid gap-4 sm:gap-5">
             {paginatedPacks.map((pack) => {
               const status = packStatusDisplay(pack);
-              const childName = childNames[pack.childId] ?? pack.childName ?? "Child";
+              const childName = childNames[pack.childId ?? ""] ?? pack.childName ?? "Child";
               const generating = adventurePacksApi.isPackGenerating(pack);
               const progressPct = adventurePacksApi.computePackProgressPercent(pack);
               const readable = slideshowIllustrationsReady(pack);

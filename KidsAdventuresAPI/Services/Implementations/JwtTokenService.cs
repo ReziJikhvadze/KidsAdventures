@@ -1,4 +1,5 @@
 using AdventurePacks.Api.Configuration.Options;
+using AdventurePacks.Api.Domain;
 using AdventurePacks.Api.DTOs.Auth;
 using AdventurePacks.Api.Services.Interfaces;
 using Microsoft.IdentityModel.Tokens;
@@ -19,11 +20,26 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : IJwtTokenSer
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new(JwtRegisteredClaimNames.Email, user.Email),
-            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-            new(ClaimTypes.Email, user.Email),
-            new("subscription_type", user.SubscriptionType.ToString())
+            new(ClaimTypes.NameIdentifier, user.Id.ToString())
         };
+
+        // Phone-only accounts have no email at all, so these claims are conditional
+        // rather than empty strings — an empty claim reads as "verified as nothing".
+        if (!string.IsNullOrWhiteSpace(user.Email))
+        {
+            claims.Add(new Claim(JwtRegisteredClaimNames.Email, user.Email));
+            claims.Add(new Claim(ClaimTypes.Email, user.Email));
+        }
+
+        if (!string.IsNullOrWhiteSpace(user.PhoneNumber))
+        {
+            claims.Add(new Claim(ClaimTypes.MobilePhone, user.PhoneNumber));
+        }
+
+        if (user.IsAdmin)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, UserRoles.Admin));
+        }
 
         var jwtToken = new JwtSecurityToken(
             issuer: _jwtOptions.Issuer,
@@ -39,8 +55,11 @@ public sealed class JwtTokenService(IOptions<JwtOptions> options) : IJwtTokenSer
             Token = new JwtSecurityTokenHandler().WriteToken(jwtToken),
             ExpiresAt = expires,
             Email = user.Email,
-            SubscriptionType = user.SubscriptionType,
-            BookCredits = user.BookCredits
+            PhoneNumber = user.PhoneNumber,
+            DisplayName = user.DisplayName,
+            PreferredLanguage = user.PreferredLanguage,
+            IsAdmin = user.IsAdmin,
+            WelcomeStoryRemaining = user.WelcomeStoryRemaining
         };
     }
 }

@@ -1,0 +1,22 @@
+/*
+ * Adventrya design system.
+ *
+ * Ported from the Partner Demo v13 bundle. Import order matches the demo's own
+ * bundle order, because several later sections deliberately override earlier ones
+ * at equal specificity.
+ */
+
+@import "./fonts.css";
+@import "./landing.css";
+@import "./base.css";
+@import "./journey.css";
+@import "./dashboard.css";
+@import "./reader.css";
+@import "./journey-extras.css";
+@import "./journey-ux.css";
+@import "./storybook.css";
+@import "./theme-screen.css";
+@import "./story-map.css";
+@import "./first-map.css";
+@import "./storybook-spread.css";
+@import "./extensions.css";

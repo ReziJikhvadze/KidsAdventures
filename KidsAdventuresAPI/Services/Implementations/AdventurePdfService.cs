@@ -170,12 +170,13 @@ public sealed class AdventurePdfService : IAdventurePdfService
 
     private static string GetThemeLabel(string themeName) => themeName switch
     {
-        "Airplanes" => "SKY EXPLORER EDITION",
-        "Dinosaurs" => "DINO DISCOVERY EDITION",
-        "Space" => "GALACTIC QUEST EDITION",
-        "Pirates" => "TREASURE HUNT EDITION",
-        "Animals" => "WILD FRIENDS EDITION",
-        _ => "ADVENTURE EDITION"
+        "Airplanes" => "ცის მკვლევარის გამოცემა",
+        "Dinosaurs" => "დინოზავრების აღმოჩენა",
+        "Space" => "გალაქტიკური თავგადასავალი",
+        "Pirates" => "განძის ძებნა",
+        "Animals" => "ველური მეგობრები",
+        "Magic" => "ჯადოსნური სამყარო",
+        _ => "თავგადასავლის გამოცემა"
     };
 
     private static ThemePalette GetPalette(string themeName) => themeName switch
@@ -230,6 +231,16 @@ public sealed class AdventurePdfService : IAdventurePdfService
             HeaderText: Color.FromHex("#E65100"),
             BodyText: Color.FromHex("#4E342E"),
             CertificateBackground: Color.FromHex("#FFE0B2")),
+        "Magic" => new ThemePalette(
+            Primary: Color.FromHex("#3B2A67"),
+            Secondary: Color.FromHex("#7564B5"),
+            Accent: Color.FromHex("#E8C98A"),
+            PageBackground: Color.FromHex("#F8F2E5"),
+            CardBackground: Color.FromHex("#FFFFFF"),
+            HeaderBackground: Color.FromHex("#EFE3CF"),
+            HeaderText: Color.FromHex("#21183F"),
+            BodyText: Color.FromHex("#29233A"),
+            CertificateBackground: Color.FromHex("#EFE3CF")),
         _ => new ThemePalette(
             Primary: Color.FromHex("#D81B60"),
             Secondary: Color.FromHex("#00897B"),

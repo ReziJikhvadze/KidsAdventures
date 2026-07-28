@@ -32,7 +32,7 @@ export type PageMetaResult = {
     rel: string;
     href: string;
     type?: string;
-    crossOrigin?: string;
+    crossOrigin?: "anonymous" | "use-credentials";
     as?: string;
   }>;
 };
@@ -61,7 +61,7 @@ export function buildPageMeta({
     { property: "og:type", content: type },
     { property: "og:url", content: canonical },
     { property: "og:site_name", content: BRAND_NAME },
-    { property: "og:locale", content: "en_US" },
+    { property: "og:locale", content: "ka_GE" },
     { property: "og:image", content: image },
     { name: "twitter:card", content: "summary_large_image" },
     { name: "twitter:title", content: title },
@@ -83,9 +83,9 @@ export function buildPageMeta({
 
 export function buildRootMeta(): PageMetaResult {
   return buildPageMeta({
-    title: `Personalized Children's Books & Kids Adventure Stories | ${BRAND_NAME}`,
+    title: `${BRAND_NAME} — პერსონალიზებული წიგნები ბავშვებისთვის`,
     description:
-      "Create personalized children's books starring your child — illustrated adventure stories. Child education through reading, screen-free parenting, free preview & printable PDF.",
+      "შექმენი პერსონალიზებული ილუსტრირებული წიგნი, სადაც მთავარი გმირი შენი ბავშვია — და ყოველი ახალი თავგადასავალი წინა ისტორიას აგრძელებს. Digital 14 ₾-დან.",
     path: "/",
   });
 }

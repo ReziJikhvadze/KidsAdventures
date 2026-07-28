@@ -1,7 +1,10 @@
 using AdventurePacks.Api.Data;
 using AdventurePacks.Api.Extensions;
 using AdventurePacks.Api.Infrastructure;
+using AdventurePacks.Api.Services.Interfaces;
 using Hangfire;
+
+DapperTypeHandlers.Register();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,6 +46,19 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
     Authorization = [new HangfireDashboardAuthorizationFilter()]
 });
+
+RecurringJob.AddOrUpdate<IAuthChallengeCleanupService>(
+    "auth-challenges-purge",
+    service => service.PurgeExpiredAsync(),
+    Cron.Hourly);
+
+// A parent whose payment landed while the app was restarting must still get their book.
+// This sweep is the only thing standing between a crash mid-fulfilment and a charge with
+// nothing to show for it, so it runs often and independently of the webhook.
+RecurringJob.AddOrUpdate<IOrderService>(
+    "orders-retry-fulfilment",
+    service => service.RetryStalledFulfilmentAsync(),
+    "*/5 * * * *");
 
 app.MapControllers();
 app.UseFrontendHosting();

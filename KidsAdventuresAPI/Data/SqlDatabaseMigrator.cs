@@ -34,6 +34,16 @@ public sealed class SqlDatabaseMigrator(IConfiguration configuration, ILogger<Sq
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
 
+        // Users, Orders and Characters carry filtered unique indexes, and SQL Server
+        // refuses any DML against such a table unless both options are ON. SqlClient
+        // already defaults to ON; setting it here makes the requirement explicit so
+        // the chain does not depend on a driver default.
+        await using (var sessionOptions = new SqlCommand(
+                         "SET QUOTED_IDENTIFIER ON; SET ANSI_NULLS ON;", connection))
+        {
+            await sessionOptions.ExecuteNonQueryAsync(cancellationToken);
+        }
+
         foreach (var scriptFile in scriptFiles)
         {
             var scriptName = Path.GetFileName(scriptFile);

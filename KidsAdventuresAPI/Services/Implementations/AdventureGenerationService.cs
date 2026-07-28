@@ -13,11 +13,9 @@ namespace AdventurePacks.Api.Services.Implementations;
 public sealed class AdventureGenerationService(
     IBackgroundJobClient backgroundJobClient,
     IAdventurePackRepository adventurePackRepository,
-    IChildRepository childRepository,
-    IFamilyMemberRepository familyMemberRepository,
     IUserRepository userRepository,
     IGuestPreviewRepository guestPreviewRepository,
-    ISubscriptionService subscriptionService,
+    IBookCastResolver bookCastResolver,
     IOpenAiService openAiService,
     IReferenceImageNormalizer referenceImageNormalizer,
     IAdventurePdfService adventurePdfService,
@@ -34,59 +32,6 @@ public sealed class AdventureGenerationService(
 
     private readonly EmailOptions _emailOptions = emailOptions.Value;
     private readonly OpenAiOptions _openAiOptions = openAiOptions.Value;
-
-    public async Task<Guid> QueueGenerationAsync(
-        Guid userId,
-        GenerateAdventurePackRequest request,
-        CancellationToken cancellationToken)
-    {
-        _ = await childRepository.GetByIdAsync(request.ChildId, userId, cancellationToken)
-            ?? throw new InvalidOperationException("Child not found.");
-
-        // Story TEXT is free for everyone (signed in). Illustrations are unlocked later with a $4.99 credit.
-        // The user's FIRST book also gets 1 free illustrated sample page (the welcome perk for registering) as a
-        // taste of the full illustrated book. IsWelcomeGiftStory marks "this book received the free sample page".
-        var pageCount = AdventureStoryConstants.FullPageCount;
-        var isFreeSample = await userRepository.TryConsumeWelcomeStoryAsync(userId, cancellationToken);
-
-        // Safety net for the marketed promise "your first book comes with 1 free illustrated page":
-        // if the welcome counter desynced (e.g. older account, migration, or a teaser that was never
-        // redeemed), still grant the free sample when this is the user's first-ever book. Cost stays
-        // capped at one free page per user because every later book has prior packs on record.
-        if (!isFreeSample)
-        {
-            var existingPacks = await adventurePackRepository.GetByUserIdAsync(userId, cancellationToken);
-            if (existingPacks.Count == 0)
-            {
-                isFreeSample = true;
-            }
-        }
-
-        var pack = new AdventurePack
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            ChildId = request.ChildId,
-            Theme = request.Theme,
-            Status = AdventurePackStatus.Pending,
-            OptionalStoryNotes = string.IsNullOrWhiteSpace(request.OptionalStoryNotes)
-                ? null
-                : request.OptionalStoryNotes.Trim(),
-            StoryLanguage = NormalizeLanguage(request.StoryLanguage),
-            StoryPageCount = pageCount,
-            IsWelcomeGiftStory = isFreeSample,
-            ProgressMessage = isFreeSample
-                ? "Queued — your story and 1 free sample illustration are on the way."
-                : "Queued — your story will appear in My Books when ready (usually 1–2 minutes).",
-            CreatedAt = DateTime.UtcNow
-        };
-
-        await adventurePackRepository.CreatePendingAsync(pack, cancellationToken);
-        backgroundJobClient.Enqueue<IAdventureGenerationService>(service =>
-            service.ProcessStoryGenerationAsync(pack.Id, CancellationToken.None));
-
-        return pack.Id;
-    }
 
     public async Task<GuestPreviewResult> GenerateGuestPreviewAsync(
         GuestPreviewInput input,
@@ -203,73 +148,6 @@ public sealed class AdventureGenerationService(
         };
     }
 
-    public async Task<Guid> ImportGuestStoryAsync(
-        Guid userId,
-        ImportGuestStoryRequest request,
-        CancellationToken cancellationToken)
-    {
-        _ = await childRepository.GetByIdAsync(request.ChildId, userId, cancellationToken)
-            ?? throw new InvalidOperationException("Child not found.");
-
-        AdventureContentDto? content;
-        try
-        {
-            content = JsonSerializer.Deserialize<AdventureContentDto>(request.StoryJson, JsonOptions);
-        }
-        catch
-        {
-            throw new InvalidOperationException("The story could not be saved. Please create it again.");
-        }
-
-        if (content is null || content.StoryPages.Count == 0)
-        {
-            throw new InvalidOperationException("The story could not be saved. Please create it again.");
-        }
-
-        NormalizeStoryPages(content, AdventureStoryConstants.FullPageCount);
-
-        // The welcome gift (granted at sign-up) is spent on the saved teaser story itself, so the parent sees
-        // their child illustrated for free on the very story they previewed — "your first illustrated page is on us".
-        var isFreeSample = await userRepository.TryConsumeWelcomeStoryAsync(userId, cancellationToken);
-
-        var pack = new AdventurePack
-        {
-            Id = Guid.NewGuid(),
-            UserId = userId,
-            ChildId = request.ChildId,
-            Theme = request.Theme,
-            Status = AdventurePackStatus.Pending,
-            OptionalStoryNotes = string.IsNullOrWhiteSpace(request.OptionalStoryNotes)
-                ? null
-                : request.OptionalStoryNotes.Trim(),
-            StoryLanguage = NormalizeLanguage(request.StoryLanguage),
-            StoryPageCount = AdventureStoryConstants.FullPageCount,
-            IsWelcomeGiftStory = isFreeSample,
-            ProgressMessage = isFreeSample
-                ? "Your story is saved — painting your free illustrated page…"
-                : "Your story is saved — unlock the full illustrated book.",
-            CreatedAt = DateTime.UtcNow
-        };
-
-        await adventurePackRepository.CreatePendingAsync(pack, cancellationToken);
-        await adventurePackRepository.UpdateStatusAsync(
-            pack.Id,
-            AdventurePackStatus.StoryReady,
-            JsonSerializer.Serialize(content, JsonOptions),
-            null,
-            null,
-            cancellationToken);
-
-        if (isFreeSample)
-        {
-            // Free welcome-gift illustration (the first page) — no credit is charged.
-            backgroundJobClient.Enqueue<IAdventureGenerationService>(service =>
-                service.ProcessFreeSampleIllustrationAsync(pack.Id, CancellationToken.None));
-        }
-
-        return pack.Id;
-    }
-
     public async Task QueueIllustrationAsync(Guid userId, Guid packId, CancellationToken cancellationToken)
     {
         var pack = await adventurePackRepository.GetByIdAsync(packId, userId, cancellationToken)
@@ -285,11 +163,12 @@ public sealed class AdventureGenerationService(
             return;
         }
 
-        // Already paid for this pack — just make sure the job is (re)queued, never charge twice.
-        if (pack.PdfCreditCharged)
+        // Illustrations are part of a bought book, not a separate purchase. The order is
+        // what authorises them, so the only question left here is whether this book was
+        // paid for — there is no credit to consume and nothing to refund.
+        if (!pack.IsFullyUnlocked)
         {
-            EnqueuePreviewIllustrationJob(packId);
-            return;
+            throw new InvalidOperationException("ეს წიგნი ჯერ არ არის შეძენილი.");
         }
 
         if (pack.PreviewIllustrationStatus == PreviewIllustrationStatus.Generating
@@ -298,19 +177,7 @@ public sealed class AdventureGenerationService(
             return;
         }
 
-        if (!await userRepository.TryConsumeBookCreditAsync(userId, cancellationToken))
-        {
-            throw new InvalidOperationException(
-                "Buy a book ($4.99) to unlock illustrations for this story.");
-        }
-
-        // PdfCreditCharged now marks "a $4.99 credit was spent to illustrate this pack" (used for refunds).
-        await adventurePackRepository.SetPdfCreditChargedAsync(packId, true, cancellationToken);
-
-        await SetProgressAsync(
-            packId,
-            "Unlocking illustrations — painting your pages (~8–12 min for 6 pages)…",
-            cancellationToken);
+        await SetProgressAsync(packId, "ვხატავთ წიგნის გვერდებს…", cancellationToken);
 
         EnqueuePreviewIllustrationJob(packId);
     }
@@ -337,9 +204,6 @@ public sealed class AdventureGenerationService(
                     ? "Your free illustrated page is still being created. Wait a moment, then export your preview PDF."
                     : "Illustrations are still being created. Wait until your slideshow is fully illustrated in My Books, then export PDF.");
         }
-
-        await subscriptionService.EnsurePdfGenerationAllowedAsync(userId, cancellationToken);
-        await subscriptionService.TryChargePdfCreditAsync(userId, packId, cancellationToken);
 
         await adventurePackRepository.UpdateStatusAsync(
             packId,
@@ -378,14 +242,14 @@ public sealed class AdventureGenerationService(
 
             await SetProgressAsync(
                 packId,
-                "Starting… You can leave this page — we will save your story in My Books.",
+                "ვიწყებთ… შეგიძლია დატოვო ეს გვერდი — წიგნს შენს ბიბლიოთეკაში შევინახავთ.",
                 cancellationToken);
 
             var input = await BuildGenerationInputAsync(pack, cancellationToken);
 
             await SetProgressAsync(
                 packId,
-                "Writing your unique story… ~30 seconds",
+                "იწერება შენი უნიკალური ისტორია… ~30 წამი",
                 cancellationToken);
 
             var content = await openAiService.GenerateAdventureContentAsync(input, pack.Id, cancellationToken);
@@ -405,24 +269,34 @@ public sealed class AdventureGenerationService(
             {
                 await SetProgressAsync(
                     packId,
-                    "Story written — painting your free sample illustration (~1 minute)…",
+                    "ისტორია დაწერილია — ვხატავთ უფასო ნიმუშის ილუსტრაციას (~1 წუთი)…",
                     cancellationToken);
 
                 // Free 1-page illustrated sample (the welcome perk) — no credit is charged.
                 backgroundJobClient.Enqueue<IAdventureGenerationService>(service =>
                     service.ProcessFreeSampleIllustrationAsync(packId, CancellationToken.None));
             }
+            else if (pack.IsFullyUnlocked)
+            {
+                // Payment already happened: the book is being made, not unlocked. Story
+                // finished, so illustrations start immediately rather than waiting for a
+                // second "buy illustrations" click that no longer exists.
+                await SetProgressAsync(
+                    packId,
+                    "ისტორია მზადაა — ვხატავთ წიგნის გვერდებს…",
+                    cancellationToken);
+
+                EnqueuePreviewIllustrationJob(packId);
+            }
             else
             {
                 await SetProgressAsync(
                     packId,
-                    "Your story is ready to read! Unlock illustrations ($4.99) to bring it to life.",
+                    "თქვენი უფასო ნიმუში მზადაა. სრული წიგნისთვის გადაიხადეთ შეკვეთის გვერდზე.",
                     cancellationToken);
             }
 
             await SendStoryReadyEmailAsync(pack, input.ChildName, cancellationToken);
-
-            // Full illustrations (all 6 pages) are unlocked with a paid $4.99 credit.
         }
         catch (Exception ex)
         {
@@ -449,9 +323,11 @@ public sealed class AdventureGenerationService(
             return;
         }
 
-        // Only RESUME an already-paid illustration job that stalled — never START a new (unpaid) one.
-        // New illustration jobs are kicked off solely by the paid QueueIllustrationAsync flow.
-        if (pack.PreviewIllustrationStatus == PreviewIllustrationStatus.Generating
+        // Resume a stalled illustration job for a paid book. New jobs are kicked off by
+        // order fulfilment (via ProcessStoryGenerationAsync) or QueueIllustrationAsync —
+        // this path only restarts one that already started and went quiet.
+        if (pack.IsFullyUnlocked
+            && pack.PreviewIllustrationStatus == PreviewIllustrationStatus.Generating
             && IsPreviewIllustrationStale(pack))
         {
             EnqueuePreviewIllustrationJob(packId);
@@ -562,13 +438,8 @@ public sealed class AdventureGenerationService(
         {
             logger.LogWarning(ex, "Preview illustration failed for pack {PackId}", packId);
 
-            // The $4.99 credit was charged when illustration was requested — refund it so a failure never costs the user.
-            if (pack.PdfCreditCharged)
-            {
-                await userRepository.RefundBookCreditAsync(pack.UserId, cancellationToken);
-                await adventurePackRepository.SetPdfCreditChargedAsync(packId, false, cancellationToken);
-            }
-
+            // Nothing to refund: the book was paid for as a whole, and it stays fully
+            // unlocked. The status is set to Failed so the retry path can pick it up.
             await adventurePackRepository.UpdatePreviewIllustrationAsync(
                 packId,
                 PreviewIllustrationStatus.Failed,
@@ -577,7 +448,7 @@ public sealed class AdventureGenerationService(
 
             await SetProgressAsync(
                 packId,
-                "Illustrating failed — your story is saved and your credit was refunded. Try unlocking again.",
+                "ილუსტრაციები ვერ დაიხატა — ვცდილობთ ხელახლა. ტექსტი შენახულია.",
                 cancellationToken);
         }
     }
@@ -716,25 +587,21 @@ public sealed class AdventureGenerationService(
         AdventurePack pack,
         CancellationToken cancellationToken)
     {
-        var child = await childRepository.GetByIdAsync(pack.ChildId, pack.UserId, cancellationToken)
-                    ?? throw new InvalidOperationException("Child not found.");
-
-        var familyMembers = await familyMemberRepository.GetByChildIdAsync(pack.ChildId, pack.UserId, cancellationToken);
-        var cast = familyMembers.Select(m => new FamilyMemberCastEntry
-        {
-            Name = m.Name,
-            Relationship = m.Relationship,
-            PhotoUrl = m.PhotoUrl,
-            AppearanceDescription = null
-        }).ToList();
+        var cast = await bookCastResolver.ResolveAsync(pack, cancellationToken);
 
         return new AdventureGenerationInput
         {
-            ChildName = child.Name,
-            Age = child.Age,
+            ChildName = cast.Hero.Name,
+            Age = cast.HeroAge,
             Theme = pack.Theme,
-            ChildAppearanceDescription = child.AppearanceDescription,
-            FamilyMembers = cast,
+            ChildAppearanceDescription = cast.Hero.AppearanceDescription,
+            FamilyMembers = cast.Supporting.Select(member => new FamilyMemberCastEntry
+            {
+                Name = member.Name,
+                Relationship = member.Relationship ?? string.Empty,
+                PhotoUrl = member.PhotoUrl,
+                AppearanceDescription = member.AppearanceDescription
+            }).ToList(),
             OptionalStoryNotes = pack.OptionalStoryNotes,
             StoryLanguage = NormalizeLanguage(pack.StoryLanguage),
             StoryPageCount = ResolveEffectivePageCount(pack)
@@ -745,81 +612,157 @@ public sealed class AdventureGenerationService(
         AdventurePack pack,
         CancellationToken cancellationToken)
     {
-        var child = await childRepository.GetByIdAsync(pack.ChildId, pack.UserId, cancellationToken)
-                    ?? throw new InvalidOperationException("Child not found.");
+        var cast = await bookCastResolver.ResolveAsync(pack, cancellationToken);
+        var language = NormalizeLanguage(pack.StoryLanguage);
 
-        var familyMembers = await familyMemberRepository.GetByChildIdAsync(pack.ChildId, pack.UserId, cancellationToken);
+        var heroAppearance = await ResolveHeroAppearanceAsync(pack, cast, language, cancellationToken);
 
-        byte[]? heroPhotoBytes = null;
-        string heroPhotoContentType = "image/jpeg";
-        if (!string.IsNullOrWhiteSpace(child.PhotoUrl))
+        var supporting = new List<FamilyMemberCastEntry>();
+        foreach (var member in cast.Supporting)
         {
-            try
-            {
-                heroPhotoBytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(
-                    child.PhotoUrl,
-                    cancellationToken);
-                heroPhotoContentType = InferImageContentType(child.PhotoUrl);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Could not load child hero photo for {ChildId}", child.Id);
-            }
-        }
-
-        string? childAppearance = null;
-        if (!string.IsNullOrWhiteSpace(child.PhotoUrl)
-            && child.PhotoUrl == child.AppearancePhotoUrl
-            && !string.IsNullOrWhiteSpace(child.AppearanceDescription))
-        {
-            childAppearance = child.AppearanceDescription;
-        }
-        else if (heroPhotoBytes is not null)
-        {
-            childAppearance = await DescribeChildFromPhotoAsync(
-                child,
-                heroPhotoBytes,
-                heroPhotoContentType,
-                pack.StoryLanguage ?? "en",
-                cancellationToken);
-            if (!string.IsNullOrWhiteSpace(childAppearance))
-            {
-                await childRepository.UpdateAppearanceCacheAsync(
-                    child.Id,
-                    pack.UserId,
-                    childAppearance,
-                    child.PhotoUrl,
-                    cancellationToken);
-            }
-        }
-
-        var cast = new List<FamilyMemberCastEntry>();
-        foreach (var member in familyMembers)
-        {
-            var appearance = await ResolveFamilyAppearanceAsync(
-                member,
-                pack.StoryLanguage ?? "en",
-                cancellationToken);
-            cast.Add(new FamilyMemberCastEntry
+            supporting.Add(new FamilyMemberCastEntry
             {
                 Name = member.Name,
-                Relationship = member.Relationship,
+                Relationship = member.Relationship ?? string.Empty,
                 PhotoUrl = member.PhotoUrl,
-                AppearanceDescription = appearance
+                AppearanceDescription = await ResolveSupportingAppearanceAsync(
+                    pack, member, language, cancellationToken)
             });
         }
 
         return new AdventureGenerationInput
         {
-            ChildName = child.Name,
-            Age = child.Age,
+            ChildName = cast.Hero.Name,
+            Age = cast.HeroAge,
             Theme = pack.Theme,
-            ChildAppearanceDescription = childAppearance,
-            FamilyMembers = cast,
+            ChildAppearanceDescription = heroAppearance,
+            FamilyMembers = supporting,
             OptionalStoryNotes = pack.OptionalStoryNotes,
-            StoryLanguage = NormalizeLanguage(pack.StoryLanguage),
+            StoryLanguage = language,
             StoryPageCount = ResolveEffectivePageCount(pack)
         };
+    }
+
+    /// <summary>
+    /// The hero's face, described once and reused. The cache is only trusted when it was
+    /// derived from the photo currently on file — a parent who uploads a new portrait must
+    /// get a new description, or every illustration would keep the old face.
+    /// </summary>
+    private async Task<string?> ResolveHeroAppearanceAsync(
+        AdventurePack pack,
+        BookCast cast,
+        string language,
+        CancellationToken cancellationToken)
+    {
+        var hero = cast.Hero;
+
+        if (IsAppearanceCacheFresh(hero))
+        {
+            return hero.AppearanceDescription;
+        }
+
+        if (string.IsNullOrWhiteSpace(hero.PhotoUrl))
+        {
+            return null;
+        }
+
+        var photo = await TryLoadPhotoAsync(hero.PhotoUrl, cancellationToken);
+        if (photo is null)
+        {
+            return null;
+        }
+
+        var described = await TryDescribeAsync(
+            photo.Value.Bytes,
+            photo.Value.ContentType,
+            AdventurePromptBuilder.BuildHeroPhotoDescribePrompt(language, hero.Name, cast.HeroAge),
+            hero.Name,
+            cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(described))
+        {
+            await bookCastResolver.CacheAppearanceAsync(pack.UserId, hero, described, cancellationToken);
+        }
+
+        return described;
+    }
+
+    private async Task<string?> ResolveSupportingAppearanceAsync(
+        AdventurePack pack,
+        BookCastMember member,
+        string language,
+        CancellationToken cancellationToken)
+    {
+        if (IsAppearanceCacheFresh(member))
+        {
+            return member.AppearanceDescription;
+        }
+
+        if (string.IsNullOrWhiteSpace(member.PhotoUrl))
+        {
+            return null;
+        }
+
+        var photo = await TryLoadPhotoAsync(member.PhotoUrl, cancellationToken);
+        if (photo is null)
+        {
+            return null;
+        }
+
+        var described = await TryDescribeAsync(
+            photo.Value.Bytes,
+            photo.Value.ContentType,
+            AdventurePromptBuilder.BuildFamilyPhotoDescribePrompt(
+                language, member.Name, member.Relationship ?? string.Empty),
+            member.Name,
+            cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(described))
+        {
+            await bookCastResolver.CacheAppearanceAsync(pack.UserId, member, described, cancellationToken);
+        }
+
+        return described;
+    }
+
+    private static bool IsAppearanceCacheFresh(BookCastMember member) =>
+        !string.IsNullOrWhiteSpace(member.PhotoUrl)
+        && !string.IsNullOrWhiteSpace(member.AppearanceDescription)
+        && string.Equals(member.PhotoUrl, member.AppearancePhotoUrl, StringComparison.Ordinal);
+
+    private async Task<(byte[] Bytes, string ContentType)?> TryLoadPhotoAsync(
+        string photoUrl,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(photoUrl, cancellationToken);
+            return (bytes, InferImageContentType(photoUrl));
+        }
+        catch (Exception ex)
+        {
+            // A missing portrait degrades the likeness; it must not stop the book.
+            logger.LogWarning(ex, "Could not load cast photo {PhotoUrl}", photoUrl);
+            return null;
+        }
+    }
+
+    private async Task<string?> TryDescribeAsync(
+        byte[] bytes,
+        string contentType,
+        string prompt,
+        string memberName,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await openAiService.DescribeCharacterFromPhotoAsync(bytes, contentType, prompt, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not describe the photo for cast member {Name}", memberName);
+            return null;
+        }
     }
 
     private async Task SendStoryReadyEmailAsync(AdventurePack pack, string childName, CancellationToken cancellationToken)
@@ -922,28 +865,6 @@ public sealed class AdventureGenerationService(
         await adventurePackRepository.UpdateProgressMessageAsync(packId, message, cancellationToken);
     }
 
-    private async Task<string?> DescribeChildFromPhotoAsync(
-        Child child,
-        byte[] photoBytes,
-        string contentType,
-        string storyLanguage,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await openAiService.DescribeCharacterFromPhotoAsync(
-                photoBytes,
-                contentType,
-                AdventurePromptBuilder.BuildHeroPhotoDescribePrompt(storyLanguage, child.Name, child.Age),
-                cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Could not describe child photo for {ChildId}", child.Id);
-            return null;
-        }
-    }
-
     private static string InferImageContentType(string url)
     {
         if (url.Contains(".png", StringComparison.OrdinalIgnoreCase))
@@ -957,35 +878,6 @@ public sealed class AdventureGenerationService(
         }
 
         return "image/jpeg";
-    }
-
-    private async Task<string?> ResolveFamilyAppearanceAsync(
-        FamilyMember member,
-        string storyLanguage,
-        CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(member.PhotoUrl))
-        {
-            return null;
-        }
-
-        try
-        {
-            var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(member.PhotoUrl, cancellationToken);
-            return await openAiService.DescribeCharacterFromPhotoAsync(
-                bytes,
-                InferImageContentType(member.PhotoUrl),
-                AdventurePromptBuilder.BuildFamilyPhotoDescribePrompt(
-                    storyLanguage,
-                    member.Name,
-                    member.Relationship),
-                cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Could not describe family photo for {MemberId}", member.Id);
-            return null;
-        }
     }
 
     private static string NormalizeLanguage(string? code) => AdventurePromptTexts.NormalizeLanguageCode(code);
@@ -1045,24 +937,14 @@ public sealed class AdventureGenerationService(
         AdventurePack pack,
         CancellationToken cancellationToken)
     {
-        var child = await childRepository.GetByIdAsync(pack.ChildId, pack.UserId, cancellationToken)
-                    ?? throw new InvalidOperationException("Child not found.");
-
-        if (string.IsNullOrWhiteSpace(child.PhotoUrl))
+        var cast = await bookCastResolver.ResolveAsync(pack, cancellationToken);
+        if (string.IsNullOrWhiteSpace(cast.Hero.PhotoUrl))
         {
             return (null, "image/jpeg");
         }
 
-        try
-        {
-            var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(child.PhotoUrl, cancellationToken);
-            return (bytes, InferImageContentType(child.PhotoUrl));
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Could not load child hero photo for {ChildId}", child.Id);
-            return (null, "image/jpeg");
-        }
+        var photo = await TryLoadPhotoAsync(cast.Hero.PhotoUrl, cancellationToken);
+        return photo is null ? (null, "image/jpeg") : (photo.Value.Bytes, photo.Value.ContentType);
     }
 
     private async Task LoadIllustrationsForPdfAsync(

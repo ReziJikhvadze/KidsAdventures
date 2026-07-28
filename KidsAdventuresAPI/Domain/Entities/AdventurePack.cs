@@ -4,7 +4,9 @@ public sealed class AdventurePack
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
-    public Guid ChildId { get; set; }
+
+    /// <summary>Legacy pointer to the pre-Characters <c>Children</c> table. Null for new books.</summary>
+    public Guid? ChildId { get; set; }
 
     public ThemeType Theme { get; set; }
     public AdventurePackStatus Status { get; set; } = AdventurePackStatus.Pending;
@@ -22,4 +24,31 @@ public sealed class AdventurePack
     public int StoryPageCount { get; set; } = 6;
     public bool IsWelcomeGiftStory { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // -- book model -------------------------------------------------------
+    // A pack is now one book in a child's series rather than a standalone story.
+
+    /// <summary>Groups the books of one child into an ongoing series.</summary>
+    public Guid? SeriesId { get; set; }
+
+    /// <summary>Position in the series, starting at 1.</summary>
+    public int SequenceNumber { get; set; } = 1;
+
+    /// <summary>The book this one picks up from, so characters and threads carry forward.</summary>
+    public Guid? ContinuesFromBookId { get; set; }
+
+    public BookAccessLevel AccessLevel { get; set; } = BookAccessLevel.Preview;
+
+    /// <summary>Which world on the adventure map this book belongs to.</summary>
+    public string? WorldId { get; set; }
+
+    public Guid? PrimaryCharacterId { get; set; }
+
+    public string? Title { get; set; }
+    public string? CoverImageUrl { get; set; }
+
+    /// <summary>A printed copy has been paid for, independent of any print order's status.</summary>
+    public bool HasPrintEntitlement { get; set; }
+
+    public bool IsFullyUnlocked => AccessLevel == BookAccessLevel.Full;
 }

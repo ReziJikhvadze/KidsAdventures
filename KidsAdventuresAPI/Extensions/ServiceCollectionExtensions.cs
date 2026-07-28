@@ -1,6 +1,7 @@
 using System.Threading.RateLimiting;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Data;
+using AdventurePacks.Api.Domain;
 using AdventurePacks.Api.Repositories.Implementations;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Implementations;
@@ -20,12 +21,12 @@ public static class ServiceCollectionExtensions
         services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
         services.Configure<AzureBlobOptions>(configuration.GetSection(AzureBlobOptions.SectionName));
         services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.SectionName));
-        services.Configure<DodoPaymentsOptions>(configuration.GetSection(DodoPaymentsOptions.SectionName));
         services.Configure<CorsOptions>(configuration.GetSection(CorsOptions.SectionName));
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
         services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.SectionName));
         services.Configure<RecaptchaOptions>(configuration.GetSection(RecaptchaOptions.SectionName));
+        services.Configure<PasswordlessAuthOptions>(configuration.GetSection(PasswordlessAuthOptions.SectionName));
         return services;
     }
 
@@ -108,7 +109,10 @@ public static class ServiceCollectionExtensions
                 };
             });
 
-        services.AddAuthorization();
+        services.AddAuthorization(options =>
+        {
+            options.AddPolicy(AuthorizationPolicies.Admin, policy => policy.RequireRole(UserRoles.Admin));
+        });
         return services;
     }
 
@@ -174,19 +178,6 @@ public static class ServiceCollectionExtensions
             Stripe.StripeConfiguration.ApiKey = stripe.SecretKey;
         }
 
-        services.AddSingleton<DodoPayments.Client.DodoPaymentsClient>(sp =>
-        {
-            var dodo = sp.GetRequiredService<IOptions<DodoPaymentsOptions>>().Value;
-            return new DodoPayments.Client.DodoPaymentsClient
-            {
-                BearerToken = dodo.ApiKey,
-                WebhookKey = dodo.WebhookSecret,
-                BaseUrl = dodo.UseTestMode
-                    ? "https://test.dodopayments.com"
-                    : "https://live.dodopayments.com",
-            };
-        });
-
         return services;
     }
 
@@ -194,25 +185,44 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IPasswordlessAuthService, PasswordlessAuthService>();
+        services.AddScoped<IAuthSessionFactory, AuthSessionFactory>();
         services.AddScoped<IWelcomeGiftService, WelcomeGiftService>();
         services.AddScoped<IGoogleAuthService, GoogleAuthService>();
         services.AddScoped<IRecaptchaVerifier, RecaptchaVerifier>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IUserContextService, UserContextService>();
+        services.AddScoped<IAuthChallengeCleanupService, AuthChallengeCleanupService>();
+
+        // Swap this for a Georgian gateway client when one is contracted; nothing in the
+        // auth flow knows the difference.
+        services.AddScoped<ISmsSender, LoggingSmsSender>();
 
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IAuthChallengeRepository, AuthChallengeRepository>();
         services.AddScoped<IGuestPreviewRepository, GuestPreviewRepository>();
         services.AddScoped<IChildRepository, ChildRepository>();
+        services.AddScoped<ICharacterRepository, CharacterRepository>();
+        services.AddScoped<ICharacterService, CharacterService>();
+        services.AddScoped<IWorldRepository, WorldRepository>();
+        services.AddScoped<IWorldProgressService, WorldProgressService>();
+        services.AddScoped<IBookCastResolver, BookCastResolver>();
         services.AddScoped<IFamilyMemberRepository, FamilyMemberRepository>();
         services.AddScoped<IAdventurePackRepository, AdventurePackRepository>();
-        services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
-        services.AddScoped<IBookCreditPurchaseRepository, BookCreditPurchaseRepository>();
+        services.AddScoped<IOrderRepository, OrderRepository>();
+        services.AddScoped<IPromoCodeRepository, PromoCodeRepository>();
+        services.AddScoped<IPrintOrderRepository, PrintOrderRepository>();
+        services.AddScoped<IUserAddressRepository, UserAddressRepository>();
+
+        services.AddScoped<IPromoCodeService, PromoCodeService>();
+        services.AddScoped<IOrderService, OrderService>();
+        services.AddScoped<IBookFulfillmentService, BookFulfillmentService>();
+        services.AddScoped<IPrintOrderService, PrintOrderService>();
 
         services.AddScoped<IReferenceImageNormalizer, ReferenceImageNormalizer>();
         services.AddScoped<IOpenAiService, OpenAiService>();
         services.AddScoped<IAdventurePdfService, AdventurePdfService>();
         services.AddScoped<IBlobStorageService, AzureBlobStorageService>();
-        services.AddScoped<ISubscriptionService, SubscriptionService>();
         services.AddScoped<IAdventureGenerationService, AdventureGenerationService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddSingleton<IGuestRateLimiter, GuestRateLimiter>();

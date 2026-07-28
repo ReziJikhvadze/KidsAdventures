@@ -1,0 +1,191 @@
+import { useCallback, useEffect, useRef } from "react";
+
+import { AppHeader } from "@/components/adventrya/AppHeader";
+import { AuthStage } from "@/components/adventrya/journey/AuthStage";
+import { CheckoutStage } from "@/components/adventrya/journey/CheckoutStage";
+import { GeneratingStage } from "@/components/adventrya/journey/GeneratingStage";
+import { PreviewStage } from "@/components/adventrya/journey/PreviewStage";
+import { ProfileStage } from "@/components/adventrya/journey/ProfileStage";
+import { getCharacter } from "@/lib/api/characters";
+import type { CharacterGender, CharacterType, EyeColor } from "@/lib/api/types";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { t } from "@/lib/i18n";
+import { useJourneyDraft, type DraftCharacter } from "@/lib/journey/draft";
+import {
+  STAGE_PROGRESS,
+  backHrefForStage,
+  progressLabelForStage,
+  useJourneyStage,
+  type JourneyStage,
+} from "@/lib/journey/stages";
+
+export function JourneyScreen() {
+  const [stage, goToStage] = useJourneyStage();
+  const [draft, setDraft] = useJourneyDraft();
+  const { isAuthenticated, isLoading } = useAuth();
+  const hydratedServerIds = useRef<string>("");
+
+  // When continuing from the map, draft slots may only have serverIds — fill names/photos.
+  useEffect(() => {
+    if (isLoading || !isAuthenticated) return;
+    const needsHydration = draft.characters.filter(
+      (c) => c.serverId && !c.name.trim(),
+    );
+    if (needsHydration.length === 0) return;
+    const key = needsHydration.map((c) => c.serverId).join(",");
+    if (hydratedServerIds.current === key) return;
+    hydratedServerIds.current = key;
+
+    let cancelled = false;
+    void (async () => {
+      const updates = await Promise.all(
+        needsHydration.map(async (slot) => {
+          try {
+            const remote = await getCharacter(slot.serverId!);
+            const birthDate = remote.birthDate
+              ? remote.birthDate.slice(0, 10)
+              : "";
+            const patch: Partial<DraftCharacter> = {
+              name: remote.name,
+              birthDate,
+              gender: (remote.gender as CharacterGender | null) ?? null,
+              eyeColor: (remote.eyeColor as EyeColor | null) ?? null,
+              characterType: (remote.characterType as CharacterType) || slot.characterType,
+              relationship: remote.relationship?.trim() || slot.relationship,
+              // Existing portraits satisfy the photo gate for continuation.
+              photoReady: !!remote.photoUrl,
+            };
+            return { localId: slot.localId, patch };
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (cancelled) return;
+      setDraft((prev) => ({
+        ...prev,
+        characters: prev.characters.map((c) => {
+          const hit = updates.find((u) => u?.localId === c.localId);
+          return hit ? { ...c, ...hit.patch } : c;
+        }),
+      }));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.characters, isAuthenticated, isLoading, setDraft]);
+
+  const goAfterProfile = useCallback(() => {
+    // Demo flow: profile → /themes (first-map), not an in-journey #world stage.
+    if (draft.worldId) {
+      goToStage("preview");
+      return;
+    }
+    window.location.assign("/themes");
+  }, [draft.worldId, goToStage]);
+
+  const goAfterPreview = useCallback(() => {
+    if (!isLoading && isAuthenticated) goToStage("checkout");
+    else goToStage("auth");
+  }, [isAuthenticated, isLoading, goToStage]);
+
+  const onPaid = useCallback(
+    (orderId: string, bookId?: string | null) => {
+      setDraft({ orderId, bookId: bookId ?? null });
+      goToStage("generating");
+    },
+    [goToStage, setDraft],
+  );
+
+  const backHref = backHrefForStage(stage, {
+    mode: draft.continuesFromBookId ? "continue" : "first",
+    isPrintUpgrade: false,
+    hasWorld: !!draft.worldId,
+  });
+
+  const header = (
+    <AppHeader
+      backHref={backHref}
+      progressLabel={progressLabelForStage(stage)}
+      progressValue={STAGE_PROGRESS[stage]}
+      childName={draft.characters.find((c) => c.isPrimary)?.name}
+    />
+  );
+
+  // Legacy hash from older rebuild — send users to the real demo /themes route.
+  if (stage === "world") {
+    if (typeof window !== "undefined") {
+      window.location.replace("/themes");
+    }
+    return null;
+  }
+
+  return (
+    <div className="screen journey-shell">
+      <div className="journey-art" aria-hidden="true" />
+      <div className="journey-shade" aria-hidden="true" />
+      <div className="grain" aria-hidden="true" />
+
+      {header}
+
+      <main className="journey-stage">
+        {renderStage(stage, {
+          draft,
+          setDraft,
+          goToStage,
+          goAfterProfile,
+          goAfterPreview,
+          onPaid,
+        })}
+      </main>
+    </div>
+  );
+}
+
+function renderStage(
+  stage: JourneyStage,
+  ctx: {
+    draft: ReturnType<typeof useJourneyDraft>[0];
+    setDraft: ReturnType<typeof useJourneyDraft>[1];
+    goToStage: (next: JourneyStage) => void;
+    goAfterProfile: () => void;
+    goAfterPreview: () => void;
+    onPaid: (orderId: string, bookId?: string | null) => void;
+  },
+) {
+  switch (stage) {
+    case "profile":
+      return (
+        <ProfileStage
+          draft={ctx.draft}
+          onChange={ctx.setDraft}
+          onContinue={ctx.goAfterProfile}
+        />
+      );
+    case "preview":
+      return (
+        <PreviewStage
+          draft={ctx.draft}
+          onChange={ctx.setDraft}
+          onContinue={ctx.goAfterPreview}
+        />
+      );
+    case "auth":
+      return (
+        <AuthStage
+          draft={ctx.draft}
+          onAuthenticated={() => ctx.goToStage("checkout")}
+        />
+      );
+    case "checkout":
+      return (
+        <CheckoutStage draft={ctx.draft} onChange={ctx.setDraft} onPaid={ctx.onPaid} />
+      );
+    case "generating":
+    case "generated":
+      return <GeneratingStage draft={ctx.draft} onChange={ctx.setDraft} />;
+    default:
+      return <p>{t.journey.profile.title}</p>;
+  }
+}

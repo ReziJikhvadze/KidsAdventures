@@ -6,6 +6,7 @@ global using System.Security.Claims;
 global using System.Text;
 global using System.Text.Json.Serialization;
 global using AdventurePacks.Api.Data;
+global using AdventurePacks.Api.Domain;
 global using AdventurePacks.Api.Domain.Entities;
 global using AdventurePacks.Api.Domain.Enums;
 global using Dapper;

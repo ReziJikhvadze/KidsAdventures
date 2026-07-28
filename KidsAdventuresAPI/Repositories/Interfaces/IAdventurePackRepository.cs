@@ -6,6 +6,18 @@ public interface IAdventurePackRepository
     Task<AdventurePack?> GetByIdAsync(Guid id, Guid userId, CancellationToken cancellationToken);
     Task<AdventurePack?> GetByIdNoOwnershipAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyList<AdventurePack>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>Every book a character appears in, in series order.</summary>
+    Task<IReadOnlyList<AdventurePack>> GetByCharacterIdAsync(Guid characterId, Guid userId, CancellationToken cancellationToken);
+
+    Task<int> GetNextSequenceNumberAsync(Guid seriesId, CancellationToken cancellationToken);
+
+    /// <summary>Opens the whole book. Called on order fulfilment, never from a client request.</summary>
+    Task<bool> SetAccessLevelAsync(Guid id, BookAccessLevel accessLevel, CancellationToken cancellationToken);
+
+    Task<bool> SetPrintEntitlementAsync(Guid id, CancellationToken cancellationToken);
+
+    Task UpdateBookPresentationAsync(Guid id, string? title, string? coverImageUrl, CancellationToken cancellationToken);
     Task<int> CountForMonthAsync(Guid userId, DateTime utcMonthStart, DateTime utcMonthEnd, CancellationToken cancellationToken);
     Task<bool> UpdateStatusAsync(Guid id, AdventurePackStatus status, string? generatedJson, string? pdfUrl, string? errorMessage, CancellationToken cancellationToken);
     Task UpdateProgressMessageAsync(Guid id, string? progressMessage, CancellationToken cancellationToken);

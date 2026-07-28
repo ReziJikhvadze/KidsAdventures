@@ -1,36 +1,57 @@
 import heroImg from "@/assets/hero.jpg";
-import { ArrowRight, BookOpen, Moon, Printer, Sparkles } from "lucide-react";
-
-const VALUE_PROPS = [
-  {
-    icon: Sparkles,
-    title: "Your child is the hero",
-    desc: "Their name, age and photo become a one-of-a-kind illustrated character.",
-  },
-  {
-    icon: Moon,
-    title: "Made for bedtime",
-    desc: "Gentle, screen-free stories that wind the day down instead of winding kids up.",
-  },
-  {
-    icon: BookOpen,
-    title: "Learning through play",
-    desc: "Every adventure quietly weaves in courage, kindness and curiosity.",
-  },
-  {
-    icon: Printer,
-    title: "Keep it forever",
-    desc: "Download a printable PDF and turn it into a real keepsake book.",
-  },
-] as const;
+import { ArrowRight, BookOpen, Check, Printer, ShieldCheck, Sparkles } from "lucide-react";
 
 export function Hero() {
   return (
-    <section className="relative border-t border-border bg-secondary/20">
-      <div className="mx-auto max-w-7xl px-6 py-16 md:py-24">
-        <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
-          {/* Showcase image */}
+    <section className="relative overflow-hidden border-b border-border bg-secondary/20">
+      <div className="mx-auto max-w-7xl px-6 pb-8 pt-8 sm:pb-12 sm:pt-10 md:pb-16 md:pt-16">
+        <div className="grid items-center gap-10 lg:grid-cols-[1.02fr_0.98fr] lg:gap-16">
           <div className="min-w-0 animate-rise">
+            <p className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
+              <Sparkles className="h-3.5 w-3.5" />
+              Free preview in minutes
+            </p>
+            <h1 className="mt-4 font-display text-3xl font-bold leading-[1.05] text-balance sm:text-5xl md:text-6xl">
+              A bedtime adventure starring{" "}
+              <span className="relative inline-block">
+                <span className="relative z-10">your child</span>
+                <span className="absolute inset-x-0 bottom-1 -z-0 h-3 rounded bg-[color:var(--sun)]/70" />
+              </span>
+              .
+            </h1>
+            <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground text-pretty sm:text-lg">
+              Create a personalized illustrated storybook your child recognizes, reads, and wants to
+              keep. Start with a free preview, then unlock the full printable book for one simple
+              price.
+            </p>
+
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <a
+                href="#generator"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 font-semibold text-primary-foreground transition hover:opacity-90"
+              >
+                Create free preview
+                <ArrowRight className="h-4 w-4" />
+              </a>
+              <a
+                href="#preview"
+                className="inline-flex items-center justify-center rounded-full border border-border bg-card px-6 py-3.5 font-semibold text-foreground transition hover:bg-secondary"
+              >
+                See example book
+              </a>
+            </div>
+
+            <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
+              {["No card needed", "Photo optional", "$4.99 once", "PDF included"].map((item) => (
+                <span key={item} className="inline-flex items-center gap-1.5">
+                  <Check className="h-4 w-4 text-primary" />
+                  {item}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="min-w-0 animate-rise [animation-delay:120ms]">
             <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-card">
               <img
                 src={heroImg}
@@ -39,52 +60,27 @@ export function Hero() {
                 height={1152}
                 className="h-auto w-full"
               />
+              <div className="hidden gap-3 border-t border-border bg-card p-4 sm:grid sm:grid-cols-3">
+                <div className="flex items-start gap-2">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Parent-controlled preview before purchase.
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Built for read-aloud bedtime moments.
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Printer className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Download and print the finished PDF.
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-
-          {/* Supporting copy + value props */}
-          <div className="min-w-0 animate-rise [animation-delay:120ms]">
-            <p className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary">
-              <Sparkles className="h-3.5 w-3.5" />
-              See what you get
-            </p>
-            <h2 className="mt-4 font-display text-3xl font-bold leading-tight text-balance sm:text-4xl md:text-5xl">
-              A real picture book, starring{" "}
-              <span className="relative inline-block">
-                <span className="relative z-10">your child</span>
-                <span className="absolute inset-x-0 bottom-1 -z-0 h-3 rounded bg-[color:var(--sun)]/70" />
-              </span>
-              .
-            </h2>
-            <p className="mt-4 max-w-xl text-base text-muted-foreground text-pretty sm:text-lg">
-              Custom illustrated storybooks for child education, bedtime reading and screen-free
-              parenting — preview it free in minutes, print the PDF whenever you are ready.
-            </p>
-
-            <ul className="mt-8 grid gap-x-6 gap-y-5 sm:grid-cols-2">
-              {VALUE_PROPS.map((prop) => {
-                const Icon = prop.icon;
-                return (
-                  <li key={prop.title} className="flex items-start gap-3">
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="font-display font-semibold leading-tight">{prop.title}</div>
-                      <p className="mt-0.5 text-sm text-muted-foreground">{prop.desc}</p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-
-            <a
-              href="#generator"
-              className="group mt-8 inline-flex items-center gap-2 font-semibold text-primary transition hover:gap-3"
-            >
-              Create your book
-              <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
-            </a>
           </div>
         </div>
       </div>

@@ -48,12 +48,12 @@ export function Contact() {
     <section className="py-16 md:py-24">
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
         <div className="text-center max-w-xl mx-auto">
-          <p className="text-sm font-semibold text-primary tracking-wide uppercase">Contact us</p>
+          <p className="text-sm font-semibold text-primary tracking-wide uppercase">კონტაქტი</p>
           <h1 className="mt-3 font-display text-4xl md:text-5xl font-bold text-balance">
-            We'd love to hear from you
+            მოხარული ვიქნებით შენი წერილის
           </h1>
           <p className="mt-4 text-muted-foreground">
-            Questions about stories, credits, or printing? Send us a note and we'll reply by email.
+            კითხვები ამბების, ბეჭდვის ან მიწოდების შესახებ? მოგვწერე — პასუხს ელფოსტაზე მიიღებ.
           </p>
           <SocialLinks className="mt-6 justify-center" />
         </div>

@@ -38,10 +38,24 @@ Connection string is in `appsettings.Production.json` → `ConnectionStrings:Def
 
 Scripts use `GO` batch separators — run the **entire file**, not line by line.
 
+### Session options
+
+From `014` onwards the schema uses **filtered unique indexes** (on `Users.PhoneNumber`,
+`Orders.ProviderSessionId` and the `Characters` legacy keys). SQL Server rejects any
+DML against a table carrying one unless `QUOTED_IDENTIFIER` and `ANSI_NULLS` are both
+`ON`. SSMS and `SqlClient` default to `ON`, but **`sqlcmd` defaults `QUOTED_IDENTIFIER`
+to `OFF`** — always pass `-I` when running any script by hand:
+
+```powershell
+sqlcmd -S localhost -d AdventurePacksDb -E -I -f 65001 -i "Data\Scripts\020_PhoneAndPasswordlessAuth.sql"
+```
+
+`-f 65001` is needed too, because scripts `016` and `018` seed Georgian text.
+
 ### Command line (sqlcmd)
 
 ```powershell
-sqlcmd -S localhost -d AdventurePacksDb -E -i "Data\Scripts\001_InitialSchema.sql"
+sqlcmd -S localhost -d AdventurePacksDb -E -I -i "Data\Scripts\001_InitialSchema.sql"
 sqlcmd -S localhost -d AdventurePacksDb -E -i "Data\Scripts\002_MigrateFromAspNetIdentityToUsers.sql"
 sqlcmd -S localhost -d AdventurePacksDb -E -i "Data\Scripts\Manual\004_VerifyMigration.sql"
 # After verification:

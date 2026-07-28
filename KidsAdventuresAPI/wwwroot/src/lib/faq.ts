@@ -5,7 +5,7 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Are these good for child education and learning at home?",
-    a: "Yes. Personalized stories support early literacy, vocabulary, listening skills, and screen-free learning. Age-adapted text helps kids engage with reading as part of everyday parenting — not homework.",
+    a: "Yes. Personalized stories support early literacy, vocabulary, listening skills, and screen-free learning. Age-adapted text helps kids engage with reading as part of everyday parenting - not homework.",
   },
   {
     q: "How is each adventure pack personalized?",
@@ -21,7 +21,7 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Is this a good parenting gift for grandparents?",
-    a: "Grandparents love it — email a PDF, print and wrap it, or read aloud on video call. Book packs never expire, so you can gift stories throughout the year.",
+    a: "Grandparents love it - email a PDF, print and wrap it, or read aloud on video call. Book packs never expire, so you can gift stories throughout the year.",
   },
   {
     q: "What do I need to print at home?",
@@ -29,11 +29,11 @@ export const FAQ_ITEMS = [
   },
   {
     q: "Is the content kid-safe?",
-    a: "Yes. All stories are filtered for age-appropriate language and themes — safe for bedtime and classroom read-alouds.",
+    a: "Yes. All stories are filtered for age-appropriate language and themes - safe for bedtime and classroom read-alouds.",
   },
   {
     q: "How do book credits work?",
-    a: "Stories are free to create and read online. Each illustrated PDF uses one book credit. Buy a 3, 5, or 15 book pack — credits never expire.",
+    a: "Stories are free to create and read online. Each illustrated PDF uses one book credit. Buy a 3, 5, or 15 book pack - credits never expire.",
   },
   {
     q: "Can I try before buying credits?",

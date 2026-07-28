@@ -8,10 +8,10 @@ export function FinalCTA() {
           <div className="absolute inset-0 bg-hero-glow opacity-30 pointer-events-none" />
           <div className="relative max-w-2xl">
             <h2 className="font-display text-4xl md:text-6xl font-bold leading-tight text-balance">
-              Their next adventure is one click away.
+              Make a story they can point to and say, "that's me."
             </h2>
             <p className="mt-5 text-lg text-background/70">
-              Create your first personalized adventure pack free. No credit card needed.
+              Create the first page free. Unlock the full illustrated book only when it feels special.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <a

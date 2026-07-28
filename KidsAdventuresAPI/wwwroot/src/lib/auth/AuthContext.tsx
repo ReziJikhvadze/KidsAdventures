@@ -14,7 +14,11 @@ import { getToken, setUnauthorizedHandler } from "@/lib/api/client";
 import type { AuthResponse, SessionInfoResponse, SubscriptionType } from "@/lib/api/types";
 
 type AuthUser = {
+  /** Empty string for parents who signed up with a phone number only. */
   email: string;
+  phoneNumber: string | null;
+  displayName: string | null;
+  isAdmin: boolean;
   subscriptionType: SubscriptionType;
   bookCredits: number;
   storiesUsedThisMonth: number;
@@ -33,6 +37,8 @@ type AuthContextValue = {
   loginWithGoogle: (idToken: string) => Promise<void>;
   register: (email: string, password: string, recaptchaToken?: string) => Promise<void>;
   continueWith: (email: string, password: string, recaptchaToken?: string) => Promise<void>;
+  signInWithMagicLink: (token: string) => Promise<void>;
+  signInWithPhoneCode: (phoneNumber: string, code: string) => Promise<void>;
   logout: () => void;
   applySession: (session: AuthResponse) => void;
   refreshAccountBalance: () => Promise<void>;
@@ -43,7 +49,7 @@ const USER_KEY = "adventurepacks_user";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function normalizeUser(raw: Partial<AuthUser> & Pick<AuthUser, "email">): AuthUser {
+function normalizeUser(raw: Partial<AuthUser>): AuthUser {
   const subscriptionType = raw.subscriptionType ?? "Free";
   const bookCredits = typeof raw.bookCredits === "number" ? raw.bookCredits : 0;
   const storiesAllowedThisMonth =
@@ -60,7 +66,10 @@ function normalizeUser(raw: Partial<AuthUser> & Pick<AuthUser, "email">): AuthUs
     typeof raw.welcomeStoryRemaining === "number" ? raw.welcomeStoryRemaining : 0;
 
   return {
-    email: raw.email,
+    email: raw.email ?? "",
+    phoneNumber: raw.phoneNumber ?? null,
+    displayName: raw.displayName ?? null,
+    isAdmin: raw.isAdmin ?? false,
     subscriptionType,
     bookCredits,
     storiesUsedThisMonth,
@@ -74,6 +83,9 @@ function normalizeUser(raw: Partial<AuthUser> & Pick<AuthUser, "email">): AuthUs
 function userFromSessionInfo(session: SessionInfoResponse): AuthUser {
   return normalizeUser({
     email: session.email,
+    phoneNumber: session.phoneNumber ?? null,
+    displayName: session.displayName ?? null,
+    isAdmin: session.isAdmin ?? false,
     subscriptionType: session.subscriptionType,
     bookCredits: session.bookCredits ?? 0,
     storiesUsedThisMonth: session.storiesUsedThisMonth,
@@ -90,8 +102,9 @@ function loadStoredUser(): AuthUser | null {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as Partial<AuthUser>;
-    if (!parsed.email) return null;
-    return normalizeUser({ ...parsed, email: parsed.email });
+    // Either contact channel identifies the account; phone-only parents have no email.
+    if (!parsed.email && !parsed.phoneNumber) return null;
+    return normalizeUser(parsed);
   } catch {
     return null;
   }
@@ -106,6 +119,9 @@ function persistUser(user: AuthUser | null) {
 function userFromAuthResponse(session: AuthResponse): AuthUser {
   return normalizeUser({
     email: session.email,
+    phoneNumber: session.phoneNumber ?? null,
+    displayName: session.displayName ?? null,
+    isAdmin: session.isAdmin ?? false,
     subscriptionType: session.subscriptionType,
     bookCredits: session.bookCredits ?? 0,
     storiesUsedThisMonth: session.storiesUsedThisMonth,
@@ -222,6 +238,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applySession],
   );
 
+  const signInWithMagicLink = useCallback(
+    async (token: string) => {
+      const session = await authApi.verifyMagicLink(token);
+      applySession(session);
+    },
+    [applySession],
+  );
+
+  const signInWithPhoneCode = useCallback(
+    async (phoneNumber: string, code: string) => {
+      const session = await authApi.verifyPhoneCode(phoneNumber, code);
+      applySession(session);
+    },
+    [applySession],
+  );
+
   const canCreatePdf = !!user && !!getToken();
 
   const value = useMemo(
@@ -234,12 +266,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginWithGoogle,
       register,
       continueWith,
+      signInWithMagicLink,
+      signInWithPhoneCode,
       logout,
       applySession,
       refreshAccountBalance,
       setBookCredits,
     }),
-    [user, isLoading, canCreatePdf, login, loginWithGoogle, register, continueWith, logout, applySession, refreshAccountBalance, setBookCredits],
+    [user, isLoading, canCreatePdf, login, loginWithGoogle, register, continueWith, signInWithMagicLink, signInWithPhoneCode, logout, applySession, refreshAccountBalance, setBookCredits],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

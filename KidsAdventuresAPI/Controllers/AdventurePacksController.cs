@@ -10,33 +10,24 @@ namespace AdventurePacks.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/adventure-packs")]
+/// <summary>
+/// Reads and exports books. Creating one is not possible here: a book only comes into
+/// existence when an order is fulfilled, which is what makes "pay, then generate" a
+/// property of the system rather than a convention the client is trusted to follow.
+/// </summary>
 public sealed class AdventurePacksController(
     IAdventureGenerationService generationService,
     IAdventurePackRepository adventurePackRepository,
-    IChildRepository childRepository,
+    IBookCastResolver bookCastResolver,
     IBlobStorageService blobStorageService,
-    ISubscriptionService subscriptionService,
     IUserContextService userContext,
     IGuestRateLimiter guestRateLimiter,
     ILogger<AdventurePacksController> logger) : ControllerBase
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    [HttpPost("generate")]
-    public async Task<ActionResult<object>> Generate([FromBody] GenerateAdventurePackRequest request, CancellationToken cancellationToken)
-    {
-        var userId = userContext.GetUserId();
-        var packId = await generationService.QueueGenerationAsync(userId, request, cancellationToken);
-        var balance = await subscriptionService.GetAccountBalanceAsync(userId, cancellationToken);
-        return Accepted(new
-        {
-            id = packId,
-            status = AdventurePackStatus.Pending.ToString(),
-            bookCredits = balance.BookCredits,
-            storiesRemainingThisMonth = balance.StoriesRemainingThisMonth,
-            welcomeStoryRemaining = balance.WelcomeStoryRemaining
-        });
-    }
+    /// <summary>Pages a parent may read before paying: the cover and page one.</summary>
+    private const int PreviewReadablePages = 1;
 
     /// <summary>Free, no-login single-page teaser. Generates inline and returns the image as a data URL.</summary>
     [AllowAnonymous]
@@ -129,38 +120,19 @@ public sealed class AdventurePacksController(
         return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 
-    /// <summary>Saves a story created during the no-login teaser to the now signed-in parent's account.</summary>
-    [HttpPost("import-guest")]
-    public async Task<ActionResult<object>> ImportGuest(
-        [FromBody] ImportGuestStoryRequest request,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var id = await generationService.ImportGuestStoryAsync(
-                userContext.GetUserId(),
-                request,
-                cancellationToken);
-            return Ok(new { id });
-        }
-        catch (InvalidOperationException ex)
-        {
-            return BadRequest(new { message = ex.Message });
-        }
-    }
-
+    /// <summary>
+    /// Restarts illustration for a book whose render failed. Only a paid book gets here;
+    /// the service re-checks that rather than trusting the route.
+    /// </summary>
     [HttpPost("{id:guid}/illustrate")]
     public async Task<ActionResult<object>> Illustrate(Guid id, CancellationToken cancellationToken)
     {
-        var userId = userContext.GetUserId();
-        await generationService.QueueIllustrationAsync(userId, id, cancellationToken);
-        var balance = await subscriptionService.GetAccountBalanceAsync(userId, cancellationToken);
+        await generationService.QueueIllustrationAsync(userContext.GetUserId(), id, cancellationToken);
         return Accepted(new
         {
             id,
             status = AdventurePackStatus.StoryReady.ToString(),
-            previewIllustrationStatus = PreviewIllustrationStatus.Generating.ToString(),
-            bookCredits = balance.BookCredits
+            previewIllustrationStatus = PreviewIllustrationStatus.Generating.ToString()
         });
     }
 
@@ -168,18 +140,23 @@ public sealed class AdventurePacksController(
     public async Task<ActionResult<object>> GeneratePdf(Guid id, CancellationToken cancellationToken)
     {
         var userId = userContext.GetUserId();
-        var pack = await adventurePackRepository.GetByIdAsync(id, userId, cancellationToken)
-                   ?? throw new InvalidOperationException("Pack not found.");
+        var pack = await adventurePackRepository.GetByIdAsync(id, userId, cancellationToken);
+        if (pack is null)
+        {
+            return NotFound();
+        }
+
+        if (!pack.IsFullyUnlocked)
+        {
+            return BadRequest(new { message = "ეს წიგნი ჯერ არ არის შეძენილი." });
+        }
 
         await generationService.QueuePdfGenerationAsync(userId, id, cancellationToken);
-        var balance = await subscriptionService.GetAccountBalanceAsync(userId, cancellationToken);
-        var usesSlideshowImages = PackHasAllIllustrations(pack);
         return Accepted(new
         {
             id,
             status = AdventurePackStatus.GeneratingPdf.ToString(),
-            bookCredits = balance.BookCredits,
-            usesSlideshowImages
+            usesSlideshowImages = PackHasAllIllustrations(pack)
         });
     }
 
@@ -219,6 +196,12 @@ public sealed class AdventurePacksController(
 
         var pack = await adventurePackRepository.GetByIdAsync(id, userContext.GetUserId(), cancellationToken);
         if (pack is null)
+        {
+            return NotFound();
+        }
+
+        // Same gate as the detail response: an unpaid book only ever serves its cover.
+        if (!pack.IsFullyUnlocked && pageIndex >= PreviewReadablePages)
         {
             return NotFound();
         }
@@ -268,44 +251,46 @@ public sealed class AdventurePacksController(
         }
     }
 
-    private static AdventurePackResponse Map(AdventurePack x) => new()
+    private static void MapBookFields(AdventurePack x, AdventurePackResponse target)
     {
-        Id = x.Id,
-        UserId = x.UserId,
-        ChildId = x.ChildId,
-        Theme = x.Theme,
-        Status = x.Status,
-        PdfUrl = x.PdfUrl,
-        ProgressMessage = x.ProgressMessage,
-        ErrorMessage = x.ErrorMessage,
-        StoryLanguage = x.StoryLanguage,
-        PreviewIllustrationStatus = x.PreviewIllustrationStatus,
-        StoryPageCount = x.StoryPageCount,
-        IsWelcomeGiftStory = x.IsWelcomeGiftStory,
-        CreatedAt = x.CreatedAt
-    };
+        target.Id = x.Id;
+        target.UserId = x.UserId;
+        target.Theme = x.Theme;
+        target.Status = x.Status;
+        target.PdfUrl = x.PdfUrl;
+        target.ProgressMessage = x.ProgressMessage;
+        target.ErrorMessage = x.ErrorMessage;
+        target.StoryLanguage = x.StoryLanguage;
+        target.PreviewIllustrationStatus = x.PreviewIllustrationStatus;
+        target.StoryPageCount = x.StoryPageCount;
+        target.IsWelcomeGiftStory = x.IsWelcomeGiftStory;
+        target.CreatedAt = x.CreatedAt;
+        target.WorldId = x.WorldId;
+        target.PrimaryCharacterId = x.PrimaryCharacterId;
+        target.SeriesId = x.SeriesId;
+        target.SequenceNumber = x.SequenceNumber;
+        target.ContinuesFromBookId = x.ContinuesFromBookId;
+        target.AccessLevel = x.AccessLevel;
+        target.IsUnlocked = x.IsFullyUnlocked;
+        target.HasPrintEntitlement = x.HasPrintEntitlement;
+        target.CoverImageUrl = x.CoverImageUrl;
+    }
+
+    private static AdventurePackResponse Map(AdventurePack x)
+    {
+        var response = new AdventurePackResponse();
+        MapBookFields(x, response);
+        return response;
+    }
 
     private async Task<AdventurePackDetailResponse> MapDetailAsync(
         AdventurePack pack,
         Guid userId,
         CancellationToken cancellationToken)
     {
-        var detail = new AdventurePackDetailResponse
-        {
-            Id = pack.Id,
-            UserId = pack.UserId,
-            ChildId = pack.ChildId,
-            Theme = pack.Theme,
-            Status = pack.Status,
-            PdfUrl = pack.PdfUrl,
-            ProgressMessage = pack.ProgressMessage,
-            ErrorMessage = pack.ErrorMessage,
-            StoryLanguage = pack.StoryLanguage,
-            CreatedAt = pack.CreatedAt,
-            PreviewIllustrationStatus = pack.PreviewIllustrationStatus,
-            StoryPageCount = pack.StoryPageCount,
-            IsWelcomeGiftStory = pack.IsWelcomeGiftStory
-        };
+        var detail = new AdventurePackDetailResponse();
+        MapBookFields(pack, detail);
+        detail.Title = pack.Title;
 
         if (pack.Status is not (AdventurePackStatus.StoryReady or AdventurePackStatus.GeneratingPdf
             or AdventurePackStatus.Completed) || string.IsNullOrWhiteSpace(pack.GeneratedJson))
@@ -321,22 +306,34 @@ public sealed class AdventurePacksController(
                 return detail;
             }
 
-            detail.Title = content.Title;
+            detail.Title = string.IsNullOrWhiteSpace(pack.Title) ? content.Title : pack.Title;
             detail.ChildName = content.ChildName;
-            detail.StoryPages = content.StoryPages.Select((p, index) =>
-            {
-                var isIllustrated = IsPageIllustrated(pack, p, index);
-                return new StoryPageContentDto
+
+            // The gate lives here rather than in the reader: a locked page's text must not
+            // leave the server at all, or "buy to read the rest" is only a UI suggestion.
+            var readablePages = pack.IsFullyUnlocked
+                ? content.StoryPages.Count
+                : Math.Min(PreviewReadablePages, content.StoryPages.Count);
+
+            detail.StoryPages = content.StoryPages
+                .Take(readablePages)
+                .Select((page, index) =>
                 {
-                    Title = p.Title,
-                    Caption = p.Caption,
-                    Content = p.Content,
-                    IsIllustrated = isIllustrated,
-                    IllustrationUrl = isIllustrated
-                        ? $"/api/adventure-packs/{pack.Id}/illustrations/{index}"
-                        : null
-                };
-            }).ToList();
+                    var isIllustrated = IsPageIllustrated(pack, page, index);
+                    return new StoryPageContentDto
+                    {
+                        Title = page.Title,
+                        Caption = page.Caption,
+                        Content = page.Content,
+                        IsIllustrated = isIllustrated,
+                        IllustrationUrl = isIllustrated
+                            ? $"/api/adventure-packs/{pack.Id}/illustrations/{index}"
+                            : null
+                    };
+                })
+                .ToList();
+
+            detail.LockedPageCount = content.StoryPages.Count - readablePages;
         }
         catch
         {
@@ -345,8 +342,8 @@ public sealed class AdventurePacksController(
 
         if (string.IsNullOrWhiteSpace(detail.ChildName))
         {
-            var child = await childRepository.GetByIdAsync(pack.ChildId, userId, cancellationToken);
-            detail.ChildName = child?.Name;
+            var cast = await bookCastResolver.ResolveAsync(pack, cancellationToken);
+            detail.ChildName = cast.Hero.Name;
         }
 
         return detail;

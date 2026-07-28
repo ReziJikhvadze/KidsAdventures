@@ -1,12 +1,15 @@
 @import "tailwindcss" source(none);
 @import "tw-animate-css";
+/* Adventrya design system, ported from the Partner Demo v13 bundle.
+   Imported after Tailwind so its unlayered rules win over the base layer. */
+@import "./styles/adventrya/index.css";
 @source "../src";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-display: "Fraunces", ui-serif, Georgia, serif;
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Adventrya Serif", ui-serif, Georgia, serif;
+  --font-sans: "Adventrya Sans", "Noto Sans Georgian", ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -45,40 +48,43 @@
   --shadow-card: 0 1px 2px rgba(20, 20, 30, 0.05), 0 20px 40px -20px rgba(20, 20, 30, 0.15);
 }
 
+/* shadcn/Radix tokens, retuned to the Adventrya twilight palette so the primitives
+   we keep (dialog, accordion, carousel) sit on-brand inside the ported design.
+   --cream and --ink are deliberately not redefined here; they come from
+   styles/adventrya/base.css, which is the source of truth for brand colour. */
 :root {
   --radius: 1rem;
-  --cream: oklch(0.985 0.012 85);
-  --background: oklch(0.985 0.012 85);
-  --foreground: oklch(0.22 0.03 260);
-  --ink: oklch(0.22 0.03 260);
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.03 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.03 260);
+  --background: #130d29;
+  --foreground: #f8f2e5;
 
-  --primary: oklch(0.66 0.19 28);
-  --primary-foreground: oklch(0.99 0.01 85);
+  --card: #21183f;
+  --card-foreground: #f8f2e5;
+  --popover: #21183f;
+  --popover-foreground: #f8f2e5;
 
-  --secondary: oklch(0.95 0.02 85);
-  --secondary-foreground: oklch(0.22 0.03 260);
+  --primary: #e9b95f;
+  --primary-foreground: #171027;
 
-  --muted: oklch(0.95 0.015 85);
-  --muted-foreground: oklch(0.48 0.02 260);
+  --secondary: #3b2a67;
+  --secondary-foreground: #f8f2e5;
 
-  --accent: oklch(0.82 0.11 230);
-  --accent-foreground: oklch(0.22 0.03 260);
+  --muted: #2a2050;
+  --muted-foreground: #c6bcdc;
 
-  --sky-soft: oklch(0.93 0.05 230);
-  --sun: oklch(0.86 0.14 85);
-  --mint: oklch(0.84 0.1 165);
+  --accent: #7564b5;
+  --accent-foreground: #f8f2e5;
 
-  --destructive: oklch(0.6 0.22 27);
-  --destructive-foreground: oklch(0.99 0.01 85);
+  --sky-soft: #cfe3ec;
+  --sun: #e9ac5b;
+  --mint: #80c9b7;
 
-  --border: oklch(0.9 0.015 85);
-  --input: oklch(0.9 0.015 85);
-  --ring: oklch(0.66 0.19 28);
+  --destructive: #f37f62;
+  --destructive-foreground: #171027;
+
+  --border: #f8f2e524;
+  --input: #f8f2e52e;
+  --ring: #e9b95f;
 }
 
 @layer base {

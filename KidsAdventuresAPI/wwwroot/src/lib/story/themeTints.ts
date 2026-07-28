@@ -6,4 +6,5 @@ export const THEME_TINTS: Record<ThemeType, string> = {
   Space: "var(--accent)",
   Pirates: "var(--sun)",
   Animals: "var(--sun)",
+  Magic: "var(--lavender)",
 };

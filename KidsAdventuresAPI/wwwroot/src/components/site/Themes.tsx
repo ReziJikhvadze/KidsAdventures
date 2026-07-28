@@ -9,11 +9,12 @@ export function Themes() {
           <div className="max-w-2xl">
             <p className="text-sm font-semibold text-primary tracking-wide uppercase">Themes</p>
             <h2 className="mt-3 font-display text-4xl md:text-5xl font-bold text-balance">
-              Kids adventure book themes — dinosaurs, space & more
+              Pick the world they already love.
             </h2>
           </div>
           <p className="text-muted-foreground max-w-md">
-            Each theme is a personalized children's book with your child's name on every page.{" "}
+            Dinosaurs, space, pirates, animals, or airplanes - each one becomes a custom adventure
+            with your child at the center.{" "}
             <Link to="/themes" className="text-primary font-semibold hover:underline">
               View all themes →
             </Link>

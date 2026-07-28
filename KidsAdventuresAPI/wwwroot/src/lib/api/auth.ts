@@ -1,5 +1,6 @@
 import { apiRequest, setToken } from "./client";
 import type {
+  AuthChallengeResponse,
   AuthConfigResponse,
   AuthResponse,
   EmailStatusResponse,
@@ -116,6 +117,49 @@ export async function loginWithGoogle(idToken: string): Promise<AuthResponse> {
   const result = await apiRequest<AuthResponse>("/api/auth/google", {
     method: "POST",
     body: JSON.stringify({ idToken, ...guestPreviewAuthFields() }),
+  });
+  setToken(result.token);
+  return result;
+}
+
+/** Asks the server to email a one-time sign-in link. Also creates the account, on verify. */
+export async function requestMagicLink(
+  email: string,
+  returnPath?: string,
+): Promise<AuthChallengeResponse> {
+  return apiRequest<AuthChallengeResponse>("/api/auth/magic-link", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({ email, returnPath }),
+  });
+}
+
+export async function verifyMagicLink(token: string): Promise<AuthResponse> {
+  const { guestPreviewId, storyId } = readGuestPreviewIds();
+  const result = await apiRequest<AuthResponse>("/api/auth/magic-link/verify", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({ token, guestPreviewId, storyId }),
+  });
+  setToken(result.token);
+  return result;
+}
+
+/** Sends a six-digit code to a Georgian mobile number. */
+export async function requestPhoneCode(phoneNumber: string): Promise<AuthChallengeResponse> {
+  return apiRequest<AuthChallengeResponse>("/api/auth/phone/code", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({ phoneNumber }),
+  });
+}
+
+export async function verifyPhoneCode(phoneNumber: string, code: string): Promise<AuthResponse> {
+  const { guestPreviewId, storyId } = readGuestPreviewIds();
+  const result = await apiRequest<AuthResponse>("/api/auth/phone/verify", {
+    method: "POST",
+    auth: false,
+    body: JSON.stringify({ phoneNumber, code, guestPreviewId, storyId }),
   });
   setToken(result.token);
   return result;

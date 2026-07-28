@@ -1,0 +1,301 @@
+/* Storybook spread and inside cover */
+/* Ported verbatim from Adventrya_Partner_Demo_v13/assets/app.css (rules 1674-1718). */
+
+.storybook-volume {
+  transition:
+    width 0.52s cubic-bezier(0.2, 0.75, 0.2, 1),
+    aspect-ratio 0.52s cubic-bezier(0.2, 0.75, 0.2, 1);
+}
+.storybook-page-content {
+  display: block;
+  background: #281b3f;
+}
+.storybook-page-art {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-repeat: no-repeat;
+  transform: scale(1.02);
+}
+.storybook-page-copy {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  min-height: 38%;
+  display: flex;
+  justify-content: flex-end;
+  flex-direction: column;
+  padding: 17% 8.5% 8%;
+  color: #fff9ed;
+  background:
+    linear-gradient(180deg, transparent, rgba(17, 8, 31, 0.58) 38%, rgba(14, 7, 27, 0.94)),
+    linear-gradient(90deg, rgba(14, 7, 27, 0.3), transparent 52%);
+  text-shadow: 0 2px 12px rgba(5, 2, 14, 0.72);
+}
+.storybook-page-copy > small {
+  color: #f5d996;
+}
+.storybook-page-copy > p {
+  max-width: 32em;
+  color: #fff9ed;
+  text-wrap: pretty;
+}
+.storybook-qr-moment {
+  border-color: #fff4dc42;
+}
+.storybook-qr-moment strong {
+  color: #fff9ed;
+}
+.storybook-qr-moment small {
+  color: #fff9edb8;
+}
+.storybook-inside-cover {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 12%;
+  text-align: center;
+  color: #51394d;
+  border: 7px solid #e7dbc4;
+  background:
+    radial-gradient(circle at 50% 36%, rgba(227, 190, 119, 0.22), transparent 28%),
+    repeating-linear-gradient(0deg, rgba(91, 64, 55, 0.025) 0 1px, transparent 1px 4px), #f5ead7;
+  box-shadow:
+    inset -20px 0 30px #4f333a1f,
+    inset 0 0 0 1px #ffffff80;
+}
+.storybook-inside-cover:before,
+.storybook-inside-cover:after {
+  content: "";
+  position: absolute;
+  inset: 5%;
+  pointer-events: none;
+  border: 1px solid rgba(137, 91, 61, 0.18);
+  border-radius: 7px;
+}
+.storybook-inside-cover:after {
+  inset: 7%;
+  border-color: #b5844b21;
+}
+.inside-cover-constellation {
+  position: absolute;
+  inset: 10% 12% auto;
+  height: 26%;
+  opacity: 0.45;
+  background:
+    radial-gradient(circle at 12% 40%, #b47d43 0 2px, transparent 3px),
+    radial-gradient(circle at 39% 18%, #b47d43 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 64% 44%, #b47d43 0 2px, transparent 3px),
+    radial-gradient(circle at 88% 21%, #b47d43 0 1.5px, transparent 2.5px);
+}
+.inside-cover-mark {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 18px;
+  border: 1px solid rgba(147, 101, 62, 0.28);
+  border-radius: 50%;
+  color: #8f6248;
+  font-family: "Adventrya Serif", serif;
+  font-size: 25px;
+  box-shadow: 0 8px 26px #5d3b381a;
+}
+.storybook-inside-cover small {
+  color: #9b6c4e;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+.storybook-inside-cover strong {
+  margin-top: 7px;
+  font-family: "Adventrya Serif", serif;
+  font-size: clamp(22px, 2vw, 31px);
+}
+.storybook-inside-cover p {
+  max-width: 23em;
+  margin: 18px 0 0;
+  font-family: "Adventrya Serif", serif;
+  font-size: clamp(9px, 0.85vw, 12px);
+  line-height: 1.6;
+}
+.storybook-inside-cover i {
+  position: absolute;
+  bottom: 8%;
+  color: #69484280;
+  font-size: 5px;
+  font-style: normal;
+  letter-spacing: 0.12em;
+}
+.storybook-open-spread {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  overflow: hidden;
+  border-radius: 17px;
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 24px 35px rgba(7, 3, 20, 0.34));
+}
+.storybook-spread-leaf {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--book-paper);
+}
+.storybook-spread-left {
+  border-radius: 16px 2px 2px 16px;
+  box-shadow: inset -16px 0 24px #3f253429;
+}
+.storybook-spread-right {
+  border-radius: 2px 16px 16px 2px;
+  box-shadow: inset 16px 0 24px #3f253429;
+}
+.storybook-spread-leaf > .storybook-page,
+.storybook-spread-leaf > .storybook-inside-cover {
+  border-radius: inherit;
+}
+.storybook-spread-leaf > .storybook-page.page-left {
+  border-width: 7px 3px 7px 7px;
+}
+.storybook-spread-leaf > .storybook-page.page-right {
+  border-width: 7px 7px 7px 3px;
+}
+.storybook-spread-gutter {
+  position: absolute;
+  z-index: 12;
+  top: 1.2%;
+  bottom: 1.2%;
+  left: 50%;
+  width: 34px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(32, 16, 35, 0.25) 43%,
+    rgba(255, 255, 255, 0.13) 51%,
+    rgba(32, 16, 35, 0.2) 58%,
+    transparent
+  );
+  filter: blur(1px);
+  transform: translate(-50%);
+}
+.storybook-open-backing {
+  position: absolute;
+  z-index: -3;
+  inset: 1.2% -1.2% -2%;
+  border-radius: 18px;
+  background: linear-gradient(90deg, #3a273d, #583a46 49.5%, #2f2138 50.5%, #4d3342);
+  box-shadow: 0 24px 43px #0603126b;
+}
+.storybook.uses-desktop-spread.is-open {
+  width: min(100%, calc(var(--book-width) * 2 + 110px));
+}
+.storybook.uses-desktop-spread.is-open .storybook-volume {
+  width: min(calc(var(--book-width) * 2), 100%);
+  aspect-ratio: 1.45;
+}
+.storybook.uses-desktop-spread.is-closed .storybook-volume {
+  width: min(var(--book-width), 100%);
+  aspect-ratio: 0.725;
+}
+.storybook.uses-desktop-spread.is-open .storybook-surface {
+  overflow: visible;
+  border-radius: 17px;
+  box-shadow: none;
+}
+.storybook.uses-desktop-spread.is-open .storybook-contact-shadow {
+  left: 4%;
+  right: 4%;
+}
+.storybook.uses-desktop-spread .storybook-controls {
+  width: min(100%, calc(var(--book-width) * 1.45));
+}
+.storybook-cover-turn,
+.storybook-spread-turn {
+  position: absolute;
+  z-index: 18;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.storybook-cover-turn {
+  inset-inline: 0;
+  border-radius: var(--book-radius);
+}
+.storybook-spread-turn {
+  width: 50%;
+}
+.storybook-spread-turn.turn-next {
+  left: 50%;
+  transform-origin: 0 50%;
+  animation: storybook-leaf-next 0.9s cubic-bezier(0.33, 0.01, 0.16, 1) both;
+}
+.storybook-spread-turn.turn-previous {
+  left: 0;
+  transform-origin: 100% 50%;
+  animation: storybook-spread-leaf-previous 0.9s cubic-bezier(0.33, 0.01, 0.16, 1) both;
+}
+.storybook-cover-turn.turn-next {
+  transform-origin: 1.6% 50%;
+  animation: storybook-leaf-next 0.9s cubic-bezier(0.33, 0.01, 0.16, 1) both;
+}
+.storybook-cover-turn.turn-previous {
+  transform-origin: 1.6% 50%;
+  animation: storybook-leaf-previous 0.9s cubic-bezier(0.33, 0.01, 0.16, 1) both;
+}
+.storybook-spread-turn .storybook-turn-face,
+.storybook-cover-turn .storybook-turn-face {
+  border-radius: 14px;
+}
+.storybook-spread-turn.turn-next .storybook-turn-back,
+.storybook-cover-turn.turn-next .storybook-turn-back,
+.storybook-spread-turn.turn-previous .storybook-turn-back,
+.storybook-cover-turn.turn-previous .storybook-turn-back {
+  transform: rotateY(180deg) scaleX(-1);
+}
+@keyframes storybook-spread-leaf-previous {
+  0% {
+    transform: rotateY(180deg) skewY(0) scaleX(1);
+    filter: brightness(0.98);
+  }
+  46% {
+    transform: rotateY(92deg) skewY(-0.65deg) scaleX(0.96);
+    filter: brightness(0.72);
+  }
+  76% {
+    transform: rotateY(34deg) skewY(0.35deg) scaleX(0.985);
+    filter: brightness(0.94);
+  }
+  to {
+    transform: rotateY(0) skewY(0) scaleX(1);
+    filter: brightness(1);
+  }
+}
+.storybook-spread-turn .storybook-page-copy {
+  padding-inline: 9%;
+}
+@media (max-width: 780px) {
+  .storybook,
+  .storybook-hero,
+  .storybook-preview,
+  .storybook-full {
+    --book-width: min(330px, calc(100vw - 48px));
+  }
+  .storybook-page-copy {
+    min-height: 41%;
+    padding: 19% 8.5% 8.5%;
+  }
+  .storybook-page-copy > p {
+    font-size: 11px;
+    line-height: 1.58;
+  }
+}

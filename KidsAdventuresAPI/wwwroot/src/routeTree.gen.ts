@@ -9,23 +9,34 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WorldRouteImport } from './routes/world'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PersonalizedChildrensBooksRouteImport } from './routes/personalized-childrens-books'
 import { Route as MyPacksRouteImport } from './routes/my-packs'
 import { Route as KidsLearningBooksRouteImport } from './routes/kids-learning-books'
 import { Route as GiftGuideRouteImport } from './routes/gift-guide'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as CreateRouteImport } from './routes/create'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ConfirmEmailRouteImport } from './routes/confirm-email'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ThemesIndexRouteImport } from './routes/themes/index'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as ThemesSlugRouteImport } from './routes/themes/$slug'
+import { Route as ReaderBookIdRouteImport } from './routes/reader.$bookId'
+import { Route as BookBookIdRouteImport } from './routes/book.$bookId'
 import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as BillingSuccessRouteImport } from './routes/billing/success'
 import { Route as BillingCancelRouteImport } from './routes/billing/cancel'
+import { Route as AuthMagicRouteImport } from './routes/auth.magic'
 import { Route as BlogAuthorIdRouteImport } from './routes/blog/author/$id'
 
+const WorldRoute = WorldRouteImport.update({
+  id: '/world',
+  path: '/world',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
@@ -55,6 +66,16 @@ const KidsLearningBooksRoute = KidsLearningBooksRouteImport.update({
 const GiftGuideRoute = GiftGuideRouteImport.update({
   id: '/gift-guide',
   path: '/gift-guide',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CreateRoute = CreateRouteImport.update({
+  id: '/create',
+  path: '/create',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactRoute = ContactRouteImport.update({
@@ -87,6 +108,16 @@ const ThemesSlugRoute = ThemesSlugRouteImport.update({
   path: '/themes/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReaderBookIdRoute = ReaderBookIdRouteImport.update({
+  id: '/reader/$bookId',
+  path: '/reader/$bookId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BookBookIdRoute = BookBookIdRouteImport.update({
+  id: '/book/$bookId',
+  path: '/book/$bookId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BlogSlugRoute = BlogSlugRouteImport.update({
   id: '/blog/$slug',
   path: '/blog/$slug',
@@ -102,6 +133,11 @@ const BillingCancelRoute = BillingCancelRouteImport.update({
   path: '/billing/cancel',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthMagicRoute = AuthMagicRouteImport.update({
+  id: '/auth/magic',
+  path: '/auth/magic',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BlogAuthorIdRoute = BlogAuthorIdRouteImport.update({
   id: '/blog/author/$id',
   path: '/blog/author/$id',
@@ -112,15 +148,21 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/confirm-email': typeof ConfirmEmailRoute
   '/contact': typeof ContactRoute
+  '/create': typeof CreateRoute
+  '/dashboard': typeof DashboardRoute
   '/gift-guide': typeof GiftGuideRoute
   '/kids-learning-books': typeof KidsLearningBooksRoute
   '/my-packs': typeof MyPacksRoute
   '/personalized-childrens-books': typeof PersonalizedChildrensBooksRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/world': typeof WorldRoute
+  '/auth/magic': typeof AuthMagicRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/book/$bookId': typeof BookBookIdRoute
+  '/reader/$bookId': typeof ReaderBookIdRoute
   '/themes/$slug': typeof ThemesSlugRoute
   '/blog/': typeof BlogIndexRoute
   '/themes/': typeof ThemesIndexRoute
@@ -130,15 +172,21 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/confirm-email': typeof ConfirmEmailRoute
   '/contact': typeof ContactRoute
+  '/create': typeof CreateRoute
+  '/dashboard': typeof DashboardRoute
   '/gift-guide': typeof GiftGuideRoute
   '/kids-learning-books': typeof KidsLearningBooksRoute
   '/my-packs': typeof MyPacksRoute
   '/personalized-childrens-books': typeof PersonalizedChildrensBooksRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/world': typeof WorldRoute
+  '/auth/magic': typeof AuthMagicRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/book/$bookId': typeof BookBookIdRoute
+  '/reader/$bookId': typeof ReaderBookIdRoute
   '/themes/$slug': typeof ThemesSlugRoute
   '/blog': typeof BlogIndexRoute
   '/themes': typeof ThemesIndexRoute
@@ -149,15 +197,21 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/confirm-email': typeof ConfirmEmailRoute
   '/contact': typeof ContactRoute
+  '/create': typeof CreateRoute
+  '/dashboard': typeof DashboardRoute
   '/gift-guide': typeof GiftGuideRoute
   '/kids-learning-books': typeof KidsLearningBooksRoute
   '/my-packs': typeof MyPacksRoute
   '/personalized-childrens-books': typeof PersonalizedChildrensBooksRoute
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
+  '/world': typeof WorldRoute
+  '/auth/magic': typeof AuthMagicRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/book/$bookId': typeof BookBookIdRoute
+  '/reader/$bookId': typeof ReaderBookIdRoute
   '/themes/$slug': typeof ThemesSlugRoute
   '/blog/': typeof BlogIndexRoute
   '/themes/': typeof ThemesIndexRoute
@@ -169,15 +223,21 @@ export interface FileRouteTypes {
     | '/'
     | '/confirm-email'
     | '/contact'
+    | '/create'
+    | '/dashboard'
     | '/gift-guide'
     | '/kids-learning-books'
     | '/my-packs'
     | '/personalized-childrens-books'
     | '/privacy'
     | '/terms'
+    | '/world'
+    | '/auth/magic'
     | '/billing/cancel'
     | '/billing/success'
     | '/blog/$slug'
+    | '/book/$bookId'
+    | '/reader/$bookId'
     | '/themes/$slug'
     | '/blog/'
     | '/themes/'
@@ -187,15 +247,21 @@ export interface FileRouteTypes {
     | '/'
     | '/confirm-email'
     | '/contact'
+    | '/create'
+    | '/dashboard'
     | '/gift-guide'
     | '/kids-learning-books'
     | '/my-packs'
     | '/personalized-childrens-books'
     | '/privacy'
     | '/terms'
+    | '/world'
+    | '/auth/magic'
     | '/billing/cancel'
     | '/billing/success'
     | '/blog/$slug'
+    | '/book/$bookId'
+    | '/reader/$bookId'
     | '/themes/$slug'
     | '/blog'
     | '/themes'
@@ -205,15 +271,21 @@ export interface FileRouteTypes {
     | '/'
     | '/confirm-email'
     | '/contact'
+    | '/create'
+    | '/dashboard'
     | '/gift-guide'
     | '/kids-learning-books'
     | '/my-packs'
     | '/personalized-childrens-books'
     | '/privacy'
     | '/terms'
+    | '/world'
+    | '/auth/magic'
     | '/billing/cancel'
     | '/billing/success'
     | '/blog/$slug'
+    | '/book/$bookId'
+    | '/reader/$bookId'
     | '/themes/$slug'
     | '/blog/'
     | '/themes/'
@@ -224,15 +296,21 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ConfirmEmailRoute: typeof ConfirmEmailRoute
   ContactRoute: typeof ContactRoute
+  CreateRoute: typeof CreateRoute
+  DashboardRoute: typeof DashboardRoute
   GiftGuideRoute: typeof GiftGuideRoute
   KidsLearningBooksRoute: typeof KidsLearningBooksRoute
   MyPacksRoute: typeof MyPacksRoute
   PersonalizedChildrensBooksRoute: typeof PersonalizedChildrensBooksRoute
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
+  WorldRoute: typeof WorldRoute
+  AuthMagicRoute: typeof AuthMagicRoute
   BillingCancelRoute: typeof BillingCancelRoute
   BillingSuccessRoute: typeof BillingSuccessRoute
   BlogSlugRoute: typeof BlogSlugRoute
+  BookBookIdRoute: typeof BookBookIdRoute
+  ReaderBookIdRoute: typeof ReaderBookIdRoute
   ThemesSlugRoute: typeof ThemesSlugRoute
   BlogIndexRoute: typeof BlogIndexRoute
   ThemesIndexRoute: typeof ThemesIndexRoute
@@ -241,6 +319,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/world': {
+      id: '/world'
+      path: '/world'
+      fullPath: '/world'
+      preLoaderRoute: typeof WorldRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/terms': {
       id: '/terms'
       path: '/terms'
@@ -281,6 +366,20 @@ declare module '@tanstack/react-router' {
       path: '/gift-guide'
       fullPath: '/gift-guide'
       preLoaderRoute: typeof GiftGuideRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/create': {
+      id: '/create'
+      path: '/create'
+      fullPath: '/create'
+      preLoaderRoute: typeof CreateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contact': {
@@ -325,6 +424,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ThemesSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reader/$bookId': {
+      id: '/reader/$bookId'
+      path: '/reader/$bookId'
+      fullPath: '/reader/$bookId'
+      preLoaderRoute: typeof ReaderBookIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/book/$bookId': {
+      id: '/book/$bookId'
+      path: '/book/$bookId'
+      fullPath: '/book/$bookId'
+      preLoaderRoute: typeof BookBookIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/blog/$slug': {
       id: '/blog/$slug'
       path: '/blog/$slug'
@@ -346,6 +459,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BillingCancelRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/magic': {
+      id: '/auth/magic'
+      path: '/auth/magic'
+      fullPath: '/auth/magic'
+      preLoaderRoute: typeof AuthMagicRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/blog/author/$id': {
       id: '/blog/author/$id'
       path: '/blog/author/$id'
@@ -360,15 +480,21 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ConfirmEmailRoute: ConfirmEmailRoute,
   ContactRoute: ContactRoute,
+  CreateRoute: CreateRoute,
+  DashboardRoute: DashboardRoute,
   GiftGuideRoute: GiftGuideRoute,
   KidsLearningBooksRoute: KidsLearningBooksRoute,
   MyPacksRoute: MyPacksRoute,
   PersonalizedChildrensBooksRoute: PersonalizedChildrensBooksRoute,
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
+  WorldRoute: WorldRoute,
+  AuthMagicRoute: AuthMagicRoute,
   BillingCancelRoute: BillingCancelRoute,
   BillingSuccessRoute: BillingSuccessRoute,
   BlogSlugRoute: BlogSlugRoute,
+  BookBookIdRoute: BookBookIdRoute,
+  ReaderBookIdRoute: ReaderBookIdRoute,
   ThemesSlugRoute: ThemesSlugRoute,
   BlogIndexRoute: BlogIndexRoute,
   ThemesIndexRoute: ThemesIndexRoute,

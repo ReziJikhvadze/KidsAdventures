@@ -8,7 +8,9 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, ErrorMessage,
         OptionalStoryNotes, StoryLanguage, ProgressMessage, PdfCreditCharged,
         PreviewIllustrationUrl, PreviewIllustrationStatus, PreviewIllustrationUpdatedAt,
-        StoryPageCount, IsWelcomeGiftStory, CreatedAt
+        StoryPageCount, IsWelcomeGiftStory, CreatedAt,
+        SeriesId, SequenceNumber, ContinuesFromBookId, AccessLevel, WorldId,
+        PrimaryCharacterId, Title, CoverImageUrl, HasPrintEntitlement
         """;
 
     public async Task<Guid> CreatePendingAsync(AdventurePack pack, CancellationToken cancellationToken)
@@ -17,11 +19,15 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
                            INSERT INTO AdventurePacks (
                                Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, ErrorMessage,
                                OptionalStoryNotes, StoryLanguage, ProgressMessage, PdfCreditCharged,
-                               PreviewIllustrationUrl, PreviewIllustrationStatus, StoryPageCount, IsWelcomeGiftStory, CreatedAt)
+                               PreviewIllustrationUrl, PreviewIllustrationStatus, StoryPageCount, IsWelcomeGiftStory, CreatedAt,
+                               SeriesId, SequenceNumber, ContinuesFromBookId, AccessLevel, WorldId,
+                               PrimaryCharacterId, Title, CoverImageUrl, HasPrintEntitlement)
                            VALUES (
                                @Id, @UserId, @ChildId, @Theme, @Status, @GeneratedJson, @PdfUrl, @ErrorMessage,
                                @OptionalStoryNotes, @StoryLanguage, @ProgressMessage, @PdfCreditCharged,
-                               @PreviewIllustrationUrl, @PreviewIllustrationStatus, @StoryPageCount, @IsWelcomeGiftStory, @CreatedAt);
+                               @PreviewIllustrationUrl, @PreviewIllustrationStatus, @StoryPageCount, @IsWelcomeGiftStory, @CreatedAt,
+                               @SeriesId, @SequenceNumber, @ContinuesFromBookId, @AccessLevel, @WorldId,
+                               @PrimaryCharacterId, @Title, @CoverImageUrl, @HasPrintEntitlement);
                            """;
         pack.Id = pack.Id == Guid.Empty ? Guid.NewGuid() : pack.Id;
 
@@ -44,9 +50,101 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
             PreviewIllustrationStatus = pack.PreviewIllustrationStatus.ToString(),
             pack.StoryPageCount,
             pack.IsWelcomeGiftStory,
-            pack.CreatedAt
+            pack.CreatedAt,
+            pack.SeriesId,
+            pack.SequenceNumber,
+            pack.ContinuesFromBookId,
+            AccessLevel = pack.AccessLevel.ToString(),
+            pack.WorldId,
+            pack.PrimaryCharacterId,
+            pack.Title,
+            pack.CoverImageUrl,
+            pack.HasPrintEntitlement
         }, cancellationToken: cancellationToken));
         return pack.Id;
+    }
+
+    public async Task<IReadOnlyList<AdventurePack>> GetByCharacterIdAsync(
+        Guid characterId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        // Matches on either side of the cast: the hero the book is about, or a
+        // supporting role, so a sibling's appearances show up on their shelf too.
+        var sql = $"""
+                   SELECT {PackColumns}
+                   FROM AdventurePacks AS p
+                   WHERE p.UserId = @UserId
+                     AND (
+                         p.PrimaryCharacterId = @CharacterId
+                         OR EXISTS (SELECT 1 FROM dbo.BookCharacters AS bc
+                                    WHERE bc.BookId = p.Id AND bc.CharacterId = @CharacterId)
+                     )
+                   ORDER BY p.SequenceNumber ASC, p.CreatedAt ASC;
+                   """;
+        using var connection = connectionFactory.CreateConnection();
+        var rows = await connection.QueryAsync<AdventurePackRow>(
+            new CommandDefinition(sql, new { UserId = userId, CharacterId = characterId }, cancellationToken: cancellationToken));
+        return rows.Select(Map).ToList();
+    }
+
+    public async Task<int> GetNextSequenceNumberAsync(Guid seriesId, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           SELECT ISNULL(MAX(SequenceNumber), 0) + 1
+                           FROM AdventurePacks
+                           WHERE SeriesId = @SeriesId;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        return await connection.ExecuteScalarAsync<int>(
+            new CommandDefinition(sql, new { SeriesId = seriesId }, cancellationToken: cancellationToken));
+    }
+
+    public async Task<bool> SetAccessLevelAsync(Guid id, BookAccessLevel accessLevel, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE AdventurePacks
+                           SET AccessLevel = @AccessLevel
+                           WHERE Id = @Id;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        var affected = await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new { Id = id, AccessLevel = accessLevel.ToString() },
+            cancellationToken: cancellationToken));
+        return affected > 0;
+    }
+
+    public async Task<bool> SetPrintEntitlementAsync(Guid id, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE AdventurePacks
+                           SET HasPrintEntitlement = 1
+                           WHERE Id = @Id;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        var affected = await connection.ExecuteAsync(
+            new CommandDefinition(sql, new { Id = id }, cancellationToken: cancellationToken));
+        return affected > 0;
+    }
+
+    public async Task UpdateBookPresentationAsync(
+        Guid id,
+        string? title,
+        string? coverImageUrl,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE AdventurePacks
+                           SET Title = COALESCE(@Title, Title),
+                               CoverImageUrl = COALESCE(@CoverImageUrl, CoverImageUrl)
+                           WHERE Id = @Id;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new { Id = id, Title = title, CoverImageUrl = coverImageUrl },
+            cancellationToken: cancellationToken));
     }
 
     public async Task<AdventurePack?> GetByIdAsync(Guid id, Guid userId, CancellationToken cancellationToken)
@@ -267,7 +365,18 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         PreviewIllustrationUpdatedAt = row.PreviewIllustrationUpdatedAt,
         StoryPageCount = row.StoryPageCount,
         IsWelcomeGiftStory = row.IsWelcomeGiftStory,
-        CreatedAt = row.CreatedAt
+        CreatedAt = row.CreatedAt,
+        SeriesId = row.SeriesId,
+        SequenceNumber = row.SequenceNumber,
+        ContinuesFromBookId = row.ContinuesFromBookId,
+        AccessLevel = Enum.TryParse<BookAccessLevel>(row.AccessLevel, out var accessLevel)
+            ? accessLevel
+            : BookAccessLevel.Preview,
+        WorldId = row.WorldId,
+        PrimaryCharacterId = row.PrimaryCharacterId,
+        Title = row.Title,
+        CoverImageUrl = row.CoverImageUrl,
+        HasPrintEntitlement = row.HasPrintEntitlement
     };
 
     private sealed class AdventurePackRow
@@ -290,5 +399,14 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         public int StoryPageCount { get; set; } = 6;
         public bool IsWelcomeGiftStory { get; set; }
         public DateTime CreatedAt { get; set; }
+        public Guid? SeriesId { get; set; }
+        public int SequenceNumber { get; set; } = 1;
+        public Guid? ContinuesFromBookId { get; set; }
+        public string AccessLevel { get; set; } = "Preview";
+        public string? WorldId { get; set; }
+        public Guid? PrimaryCharacterId { get; set; }
+        public string? Title { get; set; }
+        public string? CoverImageUrl { get; set; }
+        public bool HasPrintEntitlement { get; set; }
     }
 }

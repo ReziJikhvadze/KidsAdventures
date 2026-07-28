@@ -2,13 +2,20 @@ using QuestPDF.Drawing;
 
 namespace AdventurePacks.Api.Services.Pdf;
 
+/// <summary>
+/// Registers the faces QuestPDF uses for storybook text.
+///
+/// The family names match the web brand aliases (<c>Adventrya Sans</c> /
+/// <c>Adventrya Serif</c>), backed by Noto Georgian rather than Nunito/Fredoka —
+/// those two have no Georgian glyphs, so every PDF would have rendered tofu.
+/// </summary>
 internal static class PdfFontBootstrap
 {
     private static bool _registered;
     private static readonly object RegisterLock = new();
 
-    public const string BodyFamily = "Nunito";
-    public const string DisplayFamily = "Fredoka";
+    public const string BodyFamily = "Adventrya Sans";
+    public const string DisplayFamily = "Adventrya Serif";
 
     public static void EnsureRegistered()
     {
@@ -25,24 +32,16 @@ internal static class PdfFontBootstrap
             }
 
             var fontsDir = Path.Combine(AppContext.BaseDirectory, "Assets", "Fonts");
-            Register(Path.Combine(fontsDir, "Nunito-Regular.ttf"), BodyFamily);
-            Register(Path.Combine(fontsDir, "Nunito-SemiBold.ttf"), BodyFamily);
-            Register(Path.Combine(fontsDir, "Nunito-Bold.ttf"), BodyFamily);
-            RegisterWithName(Path.Combine(fontsDir, "Fredoka-SemiBold.ttf"), DisplayFamily);
+
+            // RegisterWithName is required: the TTF's internal family is "Noto Sans Georgian",
+            // and QuestPDF looks up by the name we pass to FontFamily(...).
+            RegisterWithName(Path.Combine(fontsDir, "NotoSansGeorgian-Regular.ttf"), BodyFamily);
+            RegisterWithName(Path.Combine(fontsDir, "NotoSansGeorgian-SemiBold.ttf"), BodyFamily);
+            RegisterWithName(Path.Combine(fontsDir, "NotoSansGeorgian-Bold.ttf"), BodyFamily);
+            RegisterWithName(Path.Combine(fontsDir, "NotoSerifGeorgian-SemiBold.ttf"), DisplayFamily);
 
             _registered = true;
         }
-    }
-
-    private static void Register(string path, string family)
-    {
-        if (!File.Exists(path))
-        {
-            return;
-        }
-
-        using var stream = File.OpenRead(path);
-        FontManager.RegisterFont(stream);
     }
 
     private static void RegisterWithName(string path, string familyName)

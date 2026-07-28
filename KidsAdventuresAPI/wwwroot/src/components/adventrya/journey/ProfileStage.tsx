@@ -1,0 +1,481 @@
+import { Camera, Check, Lock, Plus, Sparkles } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+
+import {
+  BOOK_LANGUAGES,
+  type BookLanguage,
+  t,
+} from "@/lib/i18n";
+import type { CharacterGender, CharacterType, EyeColor } from "@/lib/api/types";
+import {
+  emptyCharacter,
+  type DraftCharacter,
+  type JourneyDraft,
+} from "@/lib/journey/draft";
+
+const MAX_CHARACTERS = 3;
+const EYE_COLORS = Object.keys(t.common.eyeColors) as EyeColor[];
+const CHARACTER_TYPES = Object.keys(t.common.characterTypes) as CharacterType[];
+
+type Props = {
+  draft: JourneyDraft;
+  onChange: (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => void;
+  onContinue: () => void;
+};
+
+export function ProfileStage({ draft, onChange, onContinue }: Props) {
+  const [editingId, setEditingId] = useState<string | null>(
+    draft.characters.find((c) => !c.name.trim())?.localId ??
+      draft.characters.find((c) => c.isPrimary)?.localId ??
+      null,
+  );
+  const [error, setError] = useState<string | null>(null);
+  const copy = t.journey;
+
+  const editing = draft.characters.find((c) => c.localId === editingId) ?? null;
+  const remainingSlots = MAX_CHARACTERS - draft.characters.length;
+
+  const updateCharacter = (localId: string, patch: Partial<DraftCharacter>) => {
+    onChange((prev) => ({
+      ...prev,
+      characters: prev.characters.map((c) => (c.localId === localId ? { ...c, ...patch } : c)),
+    }));
+  };
+
+  const validateCharacter = (character: DraftCharacter): string | null => {
+    if (!character.name.trim()) return copy.validation.nameRequired;
+    if (character.isPrimary && !character.birthDate) return copy.validation.birthDateRequired;
+    const needsGender =
+      character.characterType === "child" || character.characterType === "adult";
+    if (needsGender && !character.gender) return copy.validation.genderRequired;
+    if (!character.isPrimary) {
+      if (!character.relationship) return copy.validation.relationshipRequired;
+      if (character.relationship === "სხვა" && !character.customRelationship.trim()) {
+        return copy.validation.relationshipTextRequired;
+      }
+    }
+    if (!character.photoReady) return copy.validation.photoRequired;
+    return null;
+  };
+
+  const saveEditing = () => {
+    if (!editing) return;
+    const message = validateCharacter(editing);
+    if (message) {
+      setError(message);
+      return;
+    }
+    setError(null);
+    setEditingId(null);
+  };
+
+  const removeCharacter = (localId: string) => {
+    onChange((prev) => ({
+      ...prev,
+      characters: prev.characters.filter((c) => c.localId !== localId),
+    }));
+    if (editingId === localId) setEditingId(null);
+  };
+
+  const addSupporting = () => {
+    if (remainingSlots <= 0 || editing) {
+      if (editing) setError(copy.validation.finishEditing);
+      return;
+    }
+    const next = emptyCharacter(false);
+    onChange((prev) => ({ ...prev, characters: [...prev.characters, next] }));
+    setEditingId(next.localId);
+    setError(null);
+  };
+
+  const handleContinue = () => {
+    if (editing) {
+      setError(copy.validation.finishEditing);
+      return;
+    }
+    const primary = draft.characters.find((c) => c.isPrimary);
+    if (!primary) {
+      setError(copy.validation.nameRequired);
+      return;
+    }
+    const message = validateCharacter(primary);
+    if (message) {
+      setError(message);
+      setEditingId(primary.localId);
+      return;
+    }
+    for (const supporting of draft.characters.filter((c) => !c.isPrimary)) {
+      const supportingError = validateCharacter(supporting);
+      if (supportingError) {
+        setError(supportingError);
+        setEditingId(supporting.localId);
+        return;
+      }
+    }
+    setError(null);
+    onContinue();
+  };
+
+  return (
+    <section className="ux-profile-stage">
+      <header className="ux-stage-heading">
+        <p className="eyebrow">
+          <Sparkles aria-hidden="true" />
+          {copy.profile.eyebrow}
+        </p>
+        <h1>{copy.profile.title}</h1>
+        <p>{copy.profile.lead}</p>
+      </header>
+
+      <div className="ux-character-stack">
+        <div className="ux-book-preferences" aria-label={copy.bookSettings.title}>
+          <div>
+            <small>{copy.bookSettings.languageLabel}</small>
+            <strong>{copy.bookSettings.languageQuestion}</strong>
+            <p>{copy.bookSettings.platformLanguageNote}</p>
+          </div>
+          <div className="ux-language-switcher" role="group">
+            {BOOK_LANGUAGES.map((lang) => (
+              <button
+                key={lang.code}
+                type="button"
+                className={draft.bookLanguage === lang.code ? "selected" : ""}
+                onClick={() => onChange({ bookLanguage: lang.code as BookLanguage })}
+              >
+                {lang.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {draft.characters.map((character, index) => {
+          if (editingId === character.localId) {
+            return (
+              <CharacterEditor
+                key={character.localId}
+                character={character}
+                index={index}
+                onChange={(patch) => updateCharacter(character.localId, patch)}
+                onSave={saveEditing}
+                onCancel={() => {
+                  if (!character.name.trim() && !character.isPrimary) {
+                    removeCharacter(character.localId);
+                  } else {
+                    setEditingId(null);
+                  }
+                  setError(null);
+                }}
+              />
+            );
+          }
+
+          return (
+            <CharacterSummary
+              key={character.localId}
+              character={character}
+              index={index}
+              onEdit={() => {
+                if (editing) {
+                  setError(copy.validation.finishEditing);
+                  return;
+                }
+                setEditingId(character.localId);
+              }}
+              onRemove={
+                character.isPrimary ? undefined : () => removeCharacter(character.localId)
+              }
+            />
+          );
+        })}
+
+        {!editing && remainingSlots > 0 ? (
+          <button className="ux-add-character" type="button" onClick={addSupporting}>
+            <span>
+              <Plus aria-hidden="true" />
+            </span>
+            <div>
+              <strong>{copy.profile.addCharacterTitle}</strong>
+              <small>
+                {copy.profile.addCharacterHint}
+                {remainingSlots} {copy.profile.addCharacterLimit}
+              </small>
+            </div>
+          </button>
+        ) : null}
+
+        {error ? <p className="ux-form-error">{error}</p> : null}
+
+        <div className="ux-profile-footer">
+          <p className="privacy-inline">
+            <Lock aria-hidden="true" />
+            {copy.profile.privacyNote}
+          </p>
+          <button className="button journey-primary" type="button" onClick={handleContinue}>
+            {copy.profile.continue}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CharacterEditor({
+  character,
+  index,
+  onChange,
+  onSave,
+  onCancel,
+}: {
+  character: DraftCharacter;
+  index: number;
+  onChange: (patch: Partial<DraftCharacter>) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const copy = t.journey;
+  const needsGender =
+    character.characterType === "child" || character.characterType === "adult";
+
+  const title = character.isPrimary
+    ? copy.profile.primaryCharacter
+    : copy.profile.nthCharacter(index + 1);
+
+  const onPhoto = (file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      onChange({
+        photoDataUrl: typeof reader.result === "string" ? reader.result : null,
+        photoReady: true,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div className={`ux-character-form ${character.isPrimary ? "" : "ux-second-character-form"}`}>
+      <div className="ux-form-intro">
+        <span className="ux-step-token">{String(index + 1).padStart(2, "0")}</span>
+        <div>
+          <small>{character.isPrimary ? copy.profile.primaryCharacter : "დამატებითი"}</small>
+          <h2>{title}</h2>
+        </div>
+      </div>
+
+      <div className="ux-character-fields">
+        <div className="ux-character-inputs">
+          <div className="form-grid">
+            <label className="field">
+              <span>{copy.characterForm.nameLabel}</span>
+              <input
+                value={character.name}
+                onChange={(e) => onChange({ name: e.target.value })}
+                autoComplete="off"
+              />
+            </label>
+            <label className="field">
+              <span>{copy.characterForm.birthDateLabel}</span>
+              <input
+                type="date"
+                value={character.birthDate}
+                onChange={(e) => onChange({ birthDate: e.target.value })}
+              />
+            </label>
+          </div>
+
+          <fieldset className="choice-fieldset">
+            <legend>{copy.characterForm.typeLegend}</legend>
+            <div className="ux-choice-chips">
+              {CHARACTER_TYPES.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  className={character.characterType === type ? "selected" : ""}
+                  onClick={() =>
+                    onChange({
+                      characterType: type,
+                      gender:
+                        type === "animal" || type === "fantasy" ? null : character.gender,
+                    })
+                  }
+                >
+                  {t.common.characterTypes[type]}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          {needsGender ? (
+            <fieldset className="choice-fieldset gender-fieldset">
+              <legend>{copy.characterForm.genderLegend}</legend>
+              <div className="ux-segmented-control">
+                {(["girl", "boy"] as CharacterGender[]).map((gender) => (
+                  <button
+                    key={gender}
+                    type="button"
+                    className={character.gender === gender ? "selected" : ""}
+                    onClick={() => onChange({ gender })}
+                  >
+                    {t.common.genders[gender]}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
+
+          <fieldset className="choice-fieldset">
+            <legend>{copy.characterForm.eyeColorLegend}</legend>
+            <div className="eye-options">
+              {EYE_COLORS.map((color, i) => (
+                <button
+                  key={color}
+                  type="button"
+                  className={character.eyeColor === color ? "selected" : ""}
+                  onClick={() => onChange({ eyeColor: color })}
+                >
+                  <i className={`eye eye-${i}`} aria-hidden="true" />
+                  {t.common.eyeColors[color]}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          {!character.isPrimary ? (
+            <fieldset className="choice-fieldset">
+              <legend>{copy.characterForm.relationshipLegend}</legend>
+              <div className="ux-choice-chips">
+                {t.common.relationships.map((rel) => (
+                  <button
+                    key={rel}
+                    type="button"
+                    className={character.relationship === rel ? "selected" : ""}
+                    onClick={() => onChange({ relationship: rel })}
+                  >
+                    {rel}
+                  </button>
+                ))}
+              </div>
+              {character.relationship === "სხვა" ? (
+                <label className="field" style={{ marginTop: 12 }}>
+                  <span>{copy.characterForm.relationshipCustom}</span>
+                  <input
+                    value={character.customRelationship}
+                    placeholder={copy.characterForm.relationshipPlaceholder}
+                    onChange={(e) => onChange({ customRelationship: e.target.value })}
+                  />
+                </label>
+              ) : null}
+            </fieldset>
+          ) : null}
+        </div>
+
+        <div className={`ux-photo-upload ${character.photoReady ? "ready" : ""}`}>
+          <span aria-hidden="true">
+            {character.photoReady ? <Check /> : <Camera />}
+          </span>
+          <small>
+            {character.photoReady
+              ? copy.characterForm.photoReady
+              : copy.characterForm.photoRequired}
+          </small>
+          <strong>{copy.characterForm.photoPrompt}</strong>
+          <p>{copy.characterForm.photoHint}</p>
+          {character.photoDataUrl ? (
+            <img
+              src={character.photoDataUrl}
+              alt=""
+              style={{
+                width: 72,
+                height: 72,
+                objectFit: "cover",
+                borderRadius: 16,
+                marginTop: 10,
+              }}
+            />
+          ) : null}
+          <button type="button" onClick={() => fileRef.current?.click()}>
+            {character.photoReady
+              ? copy.characterForm.photoReplace
+              : copy.characterForm.photoUpload}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            hidden
+            onChange={(e) => onPhoto(e.target.files?.[0] ?? null)}
+          />
+        </div>
+      </div>
+
+      <div className="ux-form-actions">
+        <button className="button journey-primary" type="button" onClick={onSave}>
+          {character.name.trim() ? copy.profile.saveChanges : copy.profile.saveCharacter}
+        </button>
+        <button className="ux-inline-link" type="button" onClick={onCancel}>
+          {t.common.actions.cancel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function CharacterSummary({
+  character,
+  index,
+  onEdit,
+  onRemove,
+}: {
+  character: DraftCharacter;
+  index: number;
+  onEdit: () => void;
+  onRemove?: () => void;
+}) {
+  const meta = useMemo(() => {
+    const parts = [
+      t.common.characterTypes[character.characterType],
+      character.gender ? t.common.genders[character.gender] : null,
+      character.eyeColor ? t.common.eyeColors[character.eyeColor] : null,
+      !character.isPrimary ? character.relationship : null,
+    ].filter(Boolean);
+    return parts.join(" · ");
+  }, [character]);
+
+  return (
+    <article className="ux-character-summary">
+      <span className="ux-ready-check" aria-hidden="true">
+        <Check />
+      </span>
+      <div
+        className="ux-summary-avatar"
+        style={
+          character.photoDataUrl
+            ? { backgroundImage: `url("${character.photoDataUrl}")`, backgroundSize: "cover" }
+            : undefined
+        }
+      >
+        {!character.photoDataUrl ? character.name.trim().charAt(0) || "A" : null}
+      </div>
+      <div>
+        <small>
+          {character.isPrimary
+            ? t.journey.profile.primaryCharacter
+            : t.journey.profile.nthCharacter(index + 1)}
+        </small>
+        <h2>{character.name || t.common.fallbackHeroName}</h2>
+        <p>{meta}</p>
+      </div>
+      <div className="ux-summary-actions">
+        <button type="button" onClick={onEdit}>
+          {t.common.actions.change}
+        </button>
+        {onRemove ? (
+          <button type="button" className="danger" onClick={onRemove}>
+            {t.common.actions.remove}
+          </button>
+        ) : null}
+      </div>
+    </article>
+  );
+}

@@ -1,4 +1,9 @@
-import { apiRequest } from "./client";
+/**
+ * @deprecated The credit-wallet / Dodo subscription surface is gone. New commerce
+ * lives in `@/lib/api/orders`. These stubs keep old marketing components from
+ * silently posting to deleted endpoints while the Georgian rebuild replaces them.
+ */
+import { ApiError } from "./client";
 import type {
   AccountBalanceResponse,
   BookPackPlan,
@@ -6,31 +11,24 @@ import type {
   PaymentProvider,
 } from "./types";
 
+const RETIRED =
+  "კრედიტების საფულე აღარ გამოიყენება. გამოიყენე შეკვეთები (/api/orders).";
+
 export async function getAccountBalance(): Promise<AccountBalanceResponse> {
-  return apiRequest<AccountBalanceResponse>("/api/subscriptions/account");
+  throw new ApiError(RETIRED, 410);
 }
 
 export async function createCheckoutSession(
-  planType: BookPackPlan,
-  provider?: PaymentProvider,
+  _planType: BookPackPlan,
+  _provider?: PaymentProvider,
 ): Promise<CheckoutSessionResponse> {
-  return apiRequest<CheckoutSessionResponse>("/api/subscriptions/create-checkout-session", {
-    method: "POST",
-    body: JSON.stringify({ planType, provider }),
-  });
+  throw new ApiError(RETIRED, 410);
 }
 
-export async function confirmCheckoutSession(options: {
+export async function confirmCheckoutSession(_options: {
   sessionId?: string;
   paymentId?: string;
   provider?: PaymentProvider;
 }): Promise<AccountBalanceResponse> {
-  return apiRequest<AccountBalanceResponse>("/api/subscriptions/confirm-checkout", {
-    method: "POST",
-    body: JSON.stringify({
-      sessionId: options.sessionId,
-      paymentId: options.paymentId,
-      provider: options.provider,
-    }),
-  });
+  throw new ApiError(RETIRED, 410);
 }

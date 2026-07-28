@@ -1,18 +1,18 @@
-import { Tv, GraduationCap, Heart, Timer } from "lucide-react";
+import { BookHeart, GraduationCap, Heart, ShieldCheck } from "lucide-react";
 
 const items = [
-  { icon: Tv, title: "Screen-free parenting", desc: "Adventure books away from tablets — real pages kids hold and re-read." },
+  { icon: BookHeart, title: "Bedtime that feels personal", desc: "A story where your child hears their own name and feels like the brave main character." },
   {
     icon: GraduationCap,
-    title: "Child education & literacy",
-    desc: "Vocabulary, comprehension, and learning through stories they care about.",
+    title: "Learning without worksheets",
+    desc: "Vocabulary, memory, and comprehension grow naturally because the story matters to them.",
   },
   {
     icon: Heart,
-    title: "Personalized for every child",
-    desc: "Their name, age, and photo as the hero of every adventure book.",
+    title: "Confidence in small moments",
+    desc: "The adventure can model courage, kindness, curiosity, and problem-solving in kid-sized choices.",
   },
-  { icon: Timer, title: "Ready in minutes", desc: "Generate, read online, print a PDF — perfect for busy parents." },
+  { icon: ShieldCheck, title: "Parent-first preview", desc: "Try the opening for free before paying, printing, or sharing it with your child." },
 ];
 
 export function Benefits() {
@@ -24,8 +24,12 @@ export function Benefits() {
             Why parents love it
           </p>
           <h2 className="mt-3 font-display text-4xl md:text-5xl font-bold text-balance">
-            Personalized kids books for learning, play & parenting wins.
+            More than a cute book. A reason to read together.
           </h2>
+          <p className="mt-4 text-muted-foreground text-pretty">
+            Parents are not buying pages. They are buying a tiny ritual: their child feeling seen,
+            reading one more page, and keeping a story that belongs to them.
+          </p>
         </div>
 
         <div className="mt-14 grid sm:grid-cols-2 lg:grid-cols-4 gap-5">

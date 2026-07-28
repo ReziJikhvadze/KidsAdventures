@@ -27,6 +27,31 @@ public sealed class SmtpEmailService(
         return SendEmailCoreAsync(toAddress, "Confirm your Adventrya Books account", html, cancellationToken);
     }
 
+    public Task SendMagicLinkAsync(
+        string toAddress,
+        string magicLinkUrl,
+        int validForMinutes,
+        CancellationToken cancellationToken = default)
+    {
+        var safeUrl = WebUtility.HtmlEncode(magicLinkUrl);
+        var html = $"""
+            <div style="font-family:'Noto Sans Georgian',Arial,sans-serif;font-size:16px;line-height:1.7;color:#29233a">
+              <p>გამარჯობა,</p>
+              <p>დააჭირეთ ქვემოთ მოცემულ ღილაკს <strong>Adventrya</strong>-ში შესასვლელად.</p>
+              <p style="margin:28px 0">
+                <a href="{safeUrl}"
+                   style="background:#e9ac5b;color:#21183f;text-decoration:none;padding:14px 28px;border-radius:999px;font-weight:700;display:inline-block">
+                  შესვლა
+                </a>
+              </p>
+              <p style="font-size:14px;color:#6b6480">ბმული მოქმედებს {validForMinutes} წუთი და მხოლოდ ერთხელ გამოიყენება.</p>
+              <p style="font-size:14px;color:#6b6480">თუ ეს თქვენ არ მოგითხოვიათ, უბრალოდ იგნორირება გაუკეთეთ ამ წერილს.</p>
+              <p>— Adventrya</p>
+            </div>
+            """;
+        return SendEmailCoreAsync(toAddress, "Adventrya — შესვლის ბმული", html, cancellationToken);
+    }
+
     public Task SendStoryReadyAsync(
         string toAddress,
         string childName,
@@ -107,6 +132,93 @@ public sealed class SmtpEmailService(
             cancellationToken,
             senderEmail);
     }
+
+    public Task SendPrintOrderPlacedAsync(
+        string toAddress,
+        string bookTitle,
+        string city,
+        string deliveryEstimate,
+        CancellationToken cancellationToken = default)
+    {
+        var html = GeorgianShell($"""
+            <p>გამარჯობა,</p>
+            <p>თქვენი ბეჭდური წიგნი <strong>{WebUtility.HtmlEncode(bookTitle)}</strong> მიღებულია და ბეჭდვის რიგშია.</p>
+            <p><strong>მისამართი:</strong> {WebUtility.HtmlEncode(city)}<br/>
+            <strong>{WebUtility.HtmlEncode(deliveryEstimate)}</strong></p>
+            <p>როგორც კი გამოიგზავნება, თვალის მიდევნების კოდს გამოგიგზავნით.</p>
+            """);
+
+        return SendEmailCoreAsync(toAddress, "Adventrya — ბეჭდური წიგნის შეკვეთა მიღებულია", html, cancellationToken);
+    }
+
+    public Task SendPrintOrderStatusAsync(
+        string toAddress,
+        string bookTitle,
+        PrintOrderStatus status,
+        string? trackingCode,
+        string deliveryEstimate,
+        CancellationToken cancellationToken = default)
+    {
+        var safeTitle = WebUtility.HtmlEncode(bookTitle);
+
+        var body = status switch
+        {
+            PrintOrderStatus.Printing => $"""
+                <p>გამარჯობა,</p>
+                <p><strong>{safeTitle}</strong> უკვე იბეჭდება.</p>
+                <p>{WebUtility.HtmlEncode(deliveryEstimate)}</p>
+                """,
+
+            PrintOrderStatus.Shipped => $"""
+                <p>გამარჯობა,</p>
+                <p><strong>{safeTitle}</strong> გზაშია!</p>
+                {TrackingBlock(trackingCode)}
+                <p>{WebUtility.HtmlEncode(deliveryEstimate)}</p>
+                """,
+
+            PrintOrderStatus.Delivered => $"""
+                <p>გამარჯობა,</p>
+                <p><strong>{safeTitle}</strong> მიწოდებულია. სასიამოვნო კითხვა!</p>
+                <p>თუ რამე შენიშვნა გაქვთ, უბრალოდ გვიპასუხეთ ამ წერილს.</p>
+                """,
+
+            PrintOrderStatus.Cancelled => $"""
+                <p>გამარჯობა,</p>
+                <p><strong>{safeTitle}</strong>-ის ბეჭდური შეკვეთა გაუქმდა.</p>
+                <p>დეტალებისთვის უბრალოდ გვიპასუხეთ ამ წერილს.</p>
+                """,
+
+            _ => $"""
+                <p>გამარჯობა,</p>
+                <p><strong>{safeTitle}</strong> ბეჭდვის რიგშია.</p>
+                <p>{WebUtility.HtmlEncode(deliveryEstimate)}</p>
+                """
+        };
+
+        var subject = $"Adventrya — {PrintOrderStatusText.Label(status)}: {bookTitle}";
+        return SendEmailCoreAsync(toAddress, subject, GeorgianShell(body), cancellationToken);
+    }
+
+    private static string TrackingBlock(string? trackingCode) =>
+        string.IsNullOrWhiteSpace(trackingCode)
+            ? string.Empty
+            : $"""
+               <p style="background:#f8f2e5;border-radius:12px;padding:14px 18px;display:inline-block">
+                 თვალის მიდევნების კოდი: <strong>{WebUtility.HtmlEncode(trackingCode)}</strong>
+               </p>
+               """;
+
+    /// <summary>
+    /// Wraps Georgian body copy in the font stack that renders it. Without an explicit
+    /// Georgian face, several mail clients fall back to a font with no Georgian glyphs
+    /// and the parent sees empty boxes.
+    /// </summary>
+    private static string GeorgianShell(string bodyHtml) => $"""
+        <div style="font-family:'Noto Sans Georgian',Arial,sans-serif;font-size:16px;line-height:1.7;color:#29233a">
+        {bodyHtml}
+          <p>— Adventrya</p>
+        </div>
+        """;
 
     private async Task SendEmailCoreAsync(
         string toAddress,

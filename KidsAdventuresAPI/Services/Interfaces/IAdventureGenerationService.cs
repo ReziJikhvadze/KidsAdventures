@@ -5,15 +5,13 @@ namespace AdventurePacks.Api.Services.Interfaces;
 
 public interface IAdventureGenerationService
 {
-    Task<Guid> QueueGenerationAsync(Guid userId, GenerateAdventurePackRequest request, CancellationToken cancellationToken);
-
     /// <summary>Free, no-login teaser: writes the full story text + a cover image. Runs inline, persists nothing.</summary>
     Task<GuestPreviewResult> GenerateGuestPreviewAsync(GuestPreviewInput input, CancellationToken cancellationToken);
 
-    /// <summary>Saves a teaser story (generated while logged out) to the now-signed-in parent as a text-ready pack.</summary>
-    Task<Guid> ImportGuestStoryAsync(Guid userId, ImportGuestStoryRequest request, CancellationToken cancellationToken);
-
-    /// <summary>Consumes one $4.99 book credit and starts illustrating an existing, text-ready pack.</summary>
+    /// <summary>
+    /// Starts illustrating a book that has already been paid for. There is no credit to
+    /// spend: the order that created the book is what authorises this.
+    /// </summary>
     Task QueueIllustrationAsync(Guid userId, Guid packId, CancellationToken cancellationToken);
 
     Task QueuePdfGenerationAsync(Guid userId, Guid packId, CancellationToken cancellationToken);

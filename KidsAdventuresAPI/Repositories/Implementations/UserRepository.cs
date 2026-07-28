@@ -5,7 +5,8 @@ namespace AdventurePacks.Api.Repositories.Implementations;
 public sealed class UserRepository(ISqlConnectionFactory connectionFactory) : IUserRepository
 {
     private const string UserColumns = """
-        Id, Email, PasswordHash, SubscriptionType, BookCredits, WelcomeStoryRemaining, EmailConfirmed,
+        Id, Email, PasswordHash, PhoneNumber, PhoneConfirmed, PreferredLanguage, DisplayName, IsAdmin,
+        SubscriptionType, BookCredits, WelcomeStoryRemaining, EmailConfirmed,
         EmailConfirmationToken, EmailConfirmationExpiresAt, CreatedAt
         """;
 
@@ -35,6 +36,19 @@ public sealed class UserRepository(ISqlConnectionFactory connectionFactory) : IU
         return row is null ? null : Map(row);
     }
 
+    public async Task<User?> GetByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken)
+    {
+        var sql = $"""
+                     SELECT TOP 1 {UserColumns}
+                     FROM Users
+                     WHERE PhoneNumber = @PhoneNumber;
+                     """;
+        using var connection = connectionFactory.CreateConnection();
+        var row = await connection.QueryFirstOrDefaultAsync<UserRow>(
+            new CommandDefinition(sql, new { PhoneNumber = phoneNumber }, cancellationToken: cancellationToken));
+        return row is null ? null : Map(row);
+    }
+
     public async Task<User?> GetByConfirmationTokenAsync(string token, CancellationToken cancellationToken)
     {
         var sql = $"""
@@ -52,10 +66,12 @@ public sealed class UserRepository(ISqlConnectionFactory connectionFactory) : IU
     {
         const string sql = """
                            INSERT INTO Users (
-                               Id, Email, PasswordHash, SubscriptionType, BookCredits, WelcomeStoryRemaining,
+                               Id, Email, PasswordHash, PhoneNumber, PhoneConfirmed, PreferredLanguage,
+                               DisplayName, IsAdmin, SubscriptionType, BookCredits, WelcomeStoryRemaining,
                                EmailConfirmed, EmailConfirmationToken, EmailConfirmationExpiresAt, CreatedAt)
                            VALUES (
-                               @Id, @Email, @PasswordHash, @SubscriptionType, @BookCredits, @WelcomeStoryRemaining,
+                               @Id, @Email, @PasswordHash, @PhoneNumber, @PhoneConfirmed, @PreferredLanguage,
+                               @DisplayName, @IsAdmin, @SubscriptionType, @BookCredits, @WelcomeStoryRemaining,
                                @EmailConfirmed, @EmailConfirmationToken, @EmailConfirmationExpiresAt, @CreatedAt);
                            """;
         user.Id = user.Id == Guid.Empty ? Guid.NewGuid() : user.Id;
@@ -64,8 +80,13 @@ public sealed class UserRepository(ISqlConnectionFactory connectionFactory) : IU
         await connection.ExecuteAsync(new CommandDefinition(sql, new
         {
             user.Id,
-            user.Email,
+            Email = string.IsNullOrWhiteSpace(user.Email) ? null : user.Email,
             user.PasswordHash,
+            user.PhoneNumber,
+            user.PhoneConfirmed,
+            user.PreferredLanguage,
+            user.DisplayName,
+            user.IsAdmin,
             SubscriptionType = user.SubscriptionType.ToString(),
             user.BookCredits,
             user.WelcomeStoryRemaining,
@@ -104,6 +125,61 @@ public sealed class UserRepository(ISqlConnectionFactory connectionFactory) : IU
         using var connection = connectionFactory.CreateConnection();
         var affected = await connection.ExecuteAsync(new CommandDefinition(sql, new { UserId = userId }, cancellationToken: cancellationToken));
         return affected > 0;
+    }
+
+    public async Task<bool> AttachPhoneNumberAsync(Guid userId, string phoneNumber, CancellationToken cancellationToken)
+    {
+        // Guarded so a verified number can never be silently moved off the account
+        // that already proved ownership of it.
+        const string sql = """
+                           UPDATE Users
+                           SET PhoneNumber = @PhoneNumber,
+                               PhoneConfirmed = 1
+                           WHERE Id = @UserId
+                             AND (PhoneNumber IS NULL OR PhoneNumber = @PhoneNumber);
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        var affected = await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new { UserId = userId, PhoneNumber = phoneNumber },
+            cancellationToken: cancellationToken));
+        return affected > 0;
+    }
+
+    public async Task<bool> AttachEmailAsync(Guid userId, string email, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE Users
+                           SET Email = @Email,
+                               EmailConfirmed = 1
+                           WHERE Id = @UserId
+                             AND (Email IS NULL OR Email = @Email);
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        var affected = await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new { UserId = userId, Email = email },
+            cancellationToken: cancellationToken));
+        return affected > 0;
+    }
+
+    public async Task UpdateProfileAsync(
+        Guid userId,
+        string? displayName,
+        string? preferredLanguage,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE Users
+                           SET DisplayName = COALESCE(@DisplayName, DisplayName),
+                               PreferredLanguage = COALESCE(@PreferredLanguage, PreferredLanguage)
+                           WHERE Id = @UserId;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new { UserId = userId, DisplayName = displayName, PreferredLanguage = preferredLanguage },
+            cancellationToken: cancellationToken));
     }
 
     public async Task AddBookCreditsAsync(Guid userId, int credits, CancellationToken cancellationToken)
@@ -172,8 +248,13 @@ public sealed class UserRepository(ISqlConnectionFactory connectionFactory) : IU
     private static User Map(UserRow row) => new()
     {
         Id = row.Id,
-        Email = row.Email,
+        Email = row.Email ?? string.Empty,
         PasswordHash = row.PasswordHash,
+        PhoneNumber = row.PhoneNumber,
+        PhoneConfirmed = row.PhoneConfirmed,
+        PreferredLanguage = string.IsNullOrWhiteSpace(row.PreferredLanguage) ? "ka" : row.PreferredLanguage,
+        DisplayName = row.DisplayName,
+        IsAdmin = row.IsAdmin,
         SubscriptionType = Enum.Parse<SubscriptionType>(row.SubscriptionType),
         BookCredits = row.BookCredits,
         WelcomeStoryRemaining = row.WelcomeStoryRemaining,
@@ -186,8 +267,13 @@ public sealed class UserRepository(ISqlConnectionFactory connectionFactory) : IU
     private sealed class UserRow
     {
         public Guid Id { get; set; }
-        public string Email { get; set; } = string.Empty;
-        public string PasswordHash { get; set; } = string.Empty;
+        public string? Email { get; set; }
+        public string? PasswordHash { get; set; }
+        public string? PhoneNumber { get; set; }
+        public bool PhoneConfirmed { get; set; }
+        public string? PreferredLanguage { get; set; }
+        public string? DisplayName { get; set; }
+        public bool IsAdmin { get; set; }
         public string SubscriptionType { get; set; } = string.Empty;
         public int BookCredits { get; set; }
         public int WelcomeStoryRemaining { get; set; }

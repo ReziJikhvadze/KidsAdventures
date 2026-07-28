@@ -9,12 +9,18 @@ namespace AdventurePacks.Api.Services.Implementations;
 public sealed class AuthService(
     IUserRepository userRepository,
     IPasswordHasher passwordHasher,
-    IJwtTokenService jwtTokenService,
-    ISubscriptionService subscriptionService,
+    IAuthSessionFactory sessionFactory,
     IGoogleAuthService googleAuthService,
     IRecaptchaVerifier recaptchaVerifier,
     IWelcomeGiftService welcomeGiftService) : IAuthService
 {
+    /// <summary>
+    /// Accounts created through a magic link, a phone code, or Google have no password at
+    /// all. Telling the parent which door to use beats a bare "invalid credentials".
+    /// </summary>
+    private const string PasswordlessAccountMessage =
+        "ამ ანგარიშს პაროლი არ აქვს. შედით ელფოსტის ბმულით, ტელეფონის კოდით ან Google-ით.";
+
     public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken cancellationToken)
     {
         if (!await recaptchaVerifier.VerifyAsync(request.RecaptchaToken, cancellationToken))
@@ -46,7 +52,7 @@ public sealed class AuthService(
 
         await userRepository.CreateAsync(user, cancellationToken);
 
-        return await BuildAuthResponseAsync(user, cancellationToken);
+        return await sessionFactory.CreateAsync(user, cancellationToken);
     }
 
     public async Task<AuthResponse> ContinueAsync(RegisterRequest request, CancellationToken cancellationToken)
@@ -57,17 +63,14 @@ public sealed class AuthService(
         // Returning account → just sign in. No reCAPTCHA needed (we are not creating anything).
         if (existing is not null)
         {
-            if (existing.PasswordHash == OAuthProviders.GooglePasswordPlaceholder)
-            {
-                throw new UnauthorizedAccessException("This account uses Google sign-in. Please continue with Google.");
-            }
+            EnsurePasswordSignInAllowed(existing);
 
-            if (!passwordHasher.Verify(request.Password, existing.PasswordHash))
+            if (!passwordHasher.Verify(request.Password, existing.PasswordHash!))
             {
                 throw new UnauthorizedAccessException("That password doesn't match this email. Try again.");
             }
 
-            return await BuildAuthResponseAsync(existing, cancellationToken);
+            return await sessionFactory.CreateAsync(existing, cancellationToken);
         }
 
         // New account → verify reCAPTCHA, then create and sign in immediately (no email confirmation).
@@ -92,7 +95,7 @@ public sealed class AuthService(
 
         await userRepository.CreateAsync(user, cancellationToken);
 
-        return await BuildAuthResponseAsync(user, cancellationToken);
+        return await sessionFactory.CreateAsync(user, cancellationToken);
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken cancellationToken)
@@ -101,17 +104,14 @@ public sealed class AuthService(
         var user = await userRepository.GetByEmailAsync(email, cancellationToken)
                    ?? throw new UnauthorizedAccessException("Invalid credentials.");
 
-        if (user.PasswordHash == OAuthProviders.GooglePasswordPlaceholder)
-        {
-            throw new UnauthorizedAccessException("This account uses Google sign-in. Please continue with Google.");
-        }
+        EnsurePasswordSignInAllowed(user);
 
-        if (!passwordHasher.Verify(request.Password, user.PasswordHash))
+        if (!passwordHasher.Verify(request.Password, user.PasswordHash!))
         {
             throw new UnauthorizedAccessException("Invalid credentials.");
         }
 
-        return await BuildAuthResponseAsync(user, cancellationToken);
+        return await sessionFactory.CreateAsync(user, cancellationToken);
     }
 
     public async Task<AuthResponse> LoginWithGoogleAsync(GoogleLoginRequest request, CancellationToken cancellationToken)
@@ -155,7 +155,20 @@ public sealed class AuthService(
             user.EmailConfirmed = true;
         }
 
-        return await BuildAuthResponseAsync(user, cancellationToken);
+        return await sessionFactory.CreateAsync(user, cancellationToken);
+    }
+
+    private static void EnsurePasswordSignInAllowed(User user)
+    {
+        if (user.PasswordHash == OAuthProviders.GooglePasswordPlaceholder)
+        {
+            throw new UnauthorizedAccessException("This account uses Google sign-in. Please continue with Google.");
+        }
+
+        if (user.IsPasswordless)
+        {
+            throw new UnauthorizedAccessException(PasswordlessAccountMessage);
+        }
     }
 
     private Task<int> ResolveWelcomeGiftAsync(Guid userId, RegisterRequest request, CancellationToken cancellationToken) =>
@@ -169,18 +182,6 @@ public sealed class AuthService(
             userId,
             cancellationToken);
 
-    private async Task<AuthResponse> BuildAuthResponseAsync(User user, CancellationToken cancellationToken)
-    {
-        var response = jwtTokenService.CreateToken(user);
-        var balance = await subscriptionService.GetAccountBalanceAsync(user.Id, cancellationToken);
-        response.BookCredits = balance.BookCredits;
-        response.StoriesUsedThisMonth = balance.StoriesUsedThisMonth;
-        response.StoriesAllowedThisMonth = balance.StoriesAllowedThisMonth;
-        response.StoriesRemainingThisMonth = balance.StoriesRemainingThisMonth;
-        response.WelcomeStoryRemaining = balance.WelcomeStoryRemaining;
-        return response;
-    }
-
     public async Task<EmailStatusResponse> GetEmailStatusAsync(string email, CancellationToken cancellationToken)
     {
         var normalized = (email ?? string.Empty).Trim().ToLowerInvariant();
@@ -193,7 +194,8 @@ public sealed class AuthService(
         return new EmailStatusResponse
         {
             Exists = user is not null,
-            IsGoogleAccount = user is not null && user.PasswordHash == OAuthProviders.GooglePasswordPlaceholder
+            IsGoogleAccount = user is not null && user.PasswordHash == OAuthProviders.GooglePasswordPlaceholder,
+            IsPasswordless = user is not null && user.IsPasswordless
         };
     }
 

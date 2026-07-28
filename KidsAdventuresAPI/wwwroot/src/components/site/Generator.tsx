@@ -55,17 +55,17 @@ const HOW_IT_WORKS: HowItWorksStep[] = [
   {
     icon: User,
     title: "Tell us about them",
-    desc: "Name, age and a favorite theme. Add a photo to make your child the hero.",
+    desc: "Name, age and a favorite theme. Add a photo only when you want the illustrated hero to look like them.",
   },
   {
     icon: Wand2,
-    title: "We bring it to life",
-    desc: "A one-of-a-kind story, written and illustrated in about a minute.",
+    title: "Preview the magic",
+    desc: "See a custom cover and opening page before you decide to save or unlock anything.",
   },
   {
     icon: BookOpenText,
-    title: "Read & keep it",
-    desc: "Enjoy the free preview, then unlock and print the full picture book.",
+    title: "Read, quest & keep it",
+    desc: "Turn the story into a gentle Story Quest, then unlock the printable book when it feels right.",
   },
 ];
 
@@ -75,6 +75,7 @@ const THEME_ICONS = {
   space: Rocket,
   pirates: Ship,
   animals: PawPrint,
+  magic: Sparkles,
 } as const;
 
 type ThemeId = StoryThemeId;
@@ -754,16 +755,16 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
           <div className="max-w-2xl mx-auto text-center">
             <p className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold text-primary tracking-wide uppercase">
               <Sparkles className="h-3.5 w-3.5" />
-              Create your book
+              Start here
             </p>
             <h1 className="mt-4 font-display text-4xl sm:text-5xl md:text-6xl font-bold text-balance leading-[1.05]">
-              A personalized story in minutes.
+              Make the first page free.
             </h1>
             <p className="mt-4 text-base sm:text-lg text-muted-foreground text-pretty">
-              Tell us about your child and we'll turn them into the hero of their own illustrated
-              adventure — free to preview, ready to read in about a minute.
+              Add the basics and we will create a tiny magical moment first: a custom story opening
+              for your child. No card. No pressure. Just see whether it makes you smile.
             </p>
-            {/* Trust row — social proof + reassurance right under the headline to lift conversion */}
+            {/* Trust row: reassurance right under the headline to lift conversion. */}
             <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
                 <span className="flex items-center gap-0.5">
@@ -774,15 +775,15 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                     />
                   ))}
                 </span>
-                Loved by parents
+                Built for parents
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <Check className="h-4 w-4 text-primary" />
-                Free preview — no account needed
+                Free preview - no card
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <Check className="h-4 w-4 text-primary" />
-                Printable PDF free
+                Printable PDF included
               </span>
             </div>
           </div>
@@ -800,7 +801,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                     Build your storybook
                   </div>
                   <p className="text-xs sm:text-sm text-muted-foreground">
-                    Just the basics to start — the live preview updates as you fill it in.
+                    Start simple. You can personalize more after the first spark.
                   </p>
                 </div>
               </div>
@@ -886,7 +887,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                   <div className="flex-1 min-w-0 w-full">
                     <div className="text-sm font-semibold">Photo of your child (hero)</div>
                     <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                      Recommended — we turn it into a cartoon hero that looks like your child. Use a
+                      Optional but powerful: we turn it into a cartoon hero that looks like your child. Use a
                       clear, front-facing photo.
                     </p>
                     <div className="mt-2 flex flex-wrap items-center justify-center sm:justify-start gap-2">
@@ -1104,13 +1105,13 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 {status === "generatingStory" || status === "generatingGuest" ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    {status === "generatingGuest" ? "Creating your sample…" : "Writing your story…"}
+                    {status === "generatingGuest" ? "Creating your sample..." : "Writing your story..."}
                   </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4" />
                     {!isAuthenticated && !isLoading && !guestPreviewUsed()
-                      ? "Create story — first page free"
+                      ? "Create free first page"
                       : "Create story"}
                   </>
                 )}
@@ -1121,7 +1122,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 </p>
               )}
               <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                {["Story free", "1 illustrated page free", "Full book $4.99", "PDF free"].map(
+                {["No card", "Photo optional", "Full book $4.99", "PDF included"].map(
                   (chip) => (
                     <span
                       key={chip}
@@ -1138,7 +1139,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
             {/* Preview / Result */}
             <div ref={previewRef} className="min-w-0 lg:sticky lg:top-24">
               <div className="relative rounded-3xl border border-border bg-gradient-to-b from-card to-secondary/30 p-4 sm:p-6 md:p-8 min-h-[240px] sm:min-h-[320px] lg:min-h-[460px] overflow-hidden">
-                {/* Decorative backdrop — a soft theme-aware halo over a faint dot grid */}
+                {/* Decorative backdrop: a soft theme-aware halo over a faint dot grid. */}
                 <div className="pointer-events-none absolute inset-0 overflow-hidden">
                   <div className="absolute inset-0 bg-grid opacity-40" />
                   <div
@@ -1183,7 +1184,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                     <p className="mt-6 text-sm text-muted-foreground max-w-xs">
                       {name
                         ? `${name}'s cover and first page will appear here.`
-                        : "Add your child's details — their cover and first page appear here."}
+                        : "Add your child's details and the first magical page appears here."}
                     </p>
                     {ENABLE_STORY_CAST && completeCast.length > 0 && (
                       <div className="mt-5 w-full max-w-sm rounded-xl bg-card border border-border p-3 text-left animate-rise">
@@ -1200,7 +1201,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                               />
                               <div className="min-w-0">
                                 <div className="text-sm font-medium truncate">
-                                  {relationLabelMap[c.relation]} →{" "}
+                                  {relationLabelMap[c.relation]} {"->"}{" "}
                                   <span className="text-primary">{c.roleObj.label}</span>
                                 </div>
                               </div>
@@ -1248,15 +1249,15 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                       <p className="mt-2 text-sm text-foreground font-medium min-h-[2.5rem]">
                         {progressMessage ??
                           (status === "generatingPdf"
-                            ? "Creating illustrated PDF…"
+                            ? "Creating illustrated PDF..."
                             : status === "illustrating"
-                              ? "Painting your illustrations…"
-                              : "Writing your story…")}
+                              ? "Painting your illustrations..."
+                              : "Writing your story...")}
                       </p>
                       <div className="mt-4 rounded-xl bg-card/80 border border-border p-3 text-left text-xs text-muted-foreground">
                         {status === "generatingGuest" ? (
                           <p>
-                            <strong className="text-foreground">Keep this page open</strong> — about a
+                            <strong className="text-foreground">Keep this page open</strong> - about a
                             minute. You'll see the cover and first page.
                           </p>
                         ) : (
@@ -1302,13 +1303,13 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                       </p>
                     </div>
 
-                    {/* Lightweight conversion step → create account to save the story */}
+                    {/* Lightweight conversion step: create account to save the story. */}
                     <div className="relative mt-4 rounded-2xl border border-primary/20 bg-primary/5 p-4 text-center">
                       <p className="font-display text-base font-bold text-foreground">
                         Save {name || "your child"}&apos;s story to keep reading
                       </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Free account — your first illustrated page is on us.
+                        Free account - your first illustrated page is on us.
                       </p>
                       <button
                         type="button"
@@ -1362,7 +1363,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                             )}
                             {hasBookCredit
                               ? "Unlock the full storybook (1 book credit)"
-                              : "Buy the full storybook — $4.99"}
+                              : "Buy the full storybook - $4.99"}
                           </button>
                           <p className="text-center text-xs text-muted-foreground">
                             {isWelcomeGiftStory
@@ -1384,8 +1385,8 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                             <Sparkles className="h-4 w-4" />
                           )}
                           {isWelcomeGiftStory && !fullyIllustrated
-                            ? "Export preview PDF — free (~30 sec)"
-                            : "Export PDF — free (~30 sec)"}
+                            ? "Export preview PDF - free (~30 sec)"
+                            : "Export PDF - free (~30 sec)"}
                         </button>
                       )}
                       {status === "done" && completedPackId && (
@@ -1443,7 +1444,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
             </div>
           </div>
 
-          {/* How it works — doubles as a live progress tracker driven by `activeStep` */}
+          {/* How it works: doubles as a live progress tracker driven by `activeStep`. */}
           <div className="mt-14 max-w-4xl mx-auto">
             <p className="text-center text-sm font-semibold text-primary tracking-wide uppercase">
               How it works

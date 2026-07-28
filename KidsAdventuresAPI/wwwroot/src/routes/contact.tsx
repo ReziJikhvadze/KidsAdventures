@@ -1,7 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 
-import { Nav } from "@/components/site/Nav";
-import { Footer } from "@/components/site/Footer";
+import { LegalPageShell } from "@/components/adventrya/LegalPageShell";
 import { Contact } from "@/components/site/Contact";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { BRAND_NAME } from "@/lib/brand";
@@ -11,9 +10,9 @@ import { buildBreadcrumbSchema, buildContactPageSchema } from "@/lib/structured-
 export const Route = createFileRoute("/contact")({
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `Contact us — ${BRAND_NAME}`,
+      title: `კონტაქტი — ${BRAND_NAME}`,
       description:
-        "Get in touch with the Adventrya Books team — questions about stories, book credits, printing, or personalized gifts.",
+        "დაგვიკავშირდი Adventrya გუნდს — კითხვები ამბების, ბეჭდვის ან პირადი საჩუქრების შესახებ.",
       path: "/contact",
     });
     return { meta, links };
@@ -23,7 +22,7 @@ export const Route = createFileRoute("/contact")({
 
 function ContactPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <LegalPageShell>
       <JsonLd
         data={[
           buildContactPageSchema(),
@@ -33,19 +32,7 @@ function ContactPage() {
           ]),
         ]}
       />
-      <Nav />
-      <main className="pt-4">
-        <div className="mx-auto max-w-3xl px-4 sm:px-6 pb-4">
-          <Link
-            to="/"
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            ← Back to home
-          </Link>
-        </div>
-        <Contact />
-      </main>
-      <Footer />
-    </div>
+      <Contact />
+    </LegalPageShell>
   );
 }

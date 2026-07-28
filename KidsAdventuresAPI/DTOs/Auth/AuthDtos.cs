@@ -36,24 +36,29 @@ public sealed class AuthResponse
     public string Token { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
     public string Email { get; set; } = string.Empty;
-    public SubscriptionType SubscriptionType { get; set; }
-    public int BookCredits { get; set; }
-    public int StoriesUsedThisMonth { get; set; }
-    public int StoriesAllowedThisMonth { get; set; }
-    public int StoriesRemainingThisMonth { get; set; }
+
+    /// <summary>E.164 Georgian mobile, present when the parent signed up or verified by phone.</summary>
+    public string? PhoneNumber { get; set; }
+
+    public string? DisplayName { get; set; }
+    public string PreferredLanguage { get; set; } = "ka";
+    public bool IsAdmin { get; set; }
+
+    /// <summary>
+    /// Free illustrated pages still owed from the sign-up gift. The only balance left on
+    /// an account: books are bought one order at a time, so there is no credit wallet.
+    /// </summary>
     public int WelcomeStoryRemaining { get; set; }
 }
 
 public sealed class SessionInfoResponse
 {
     public string Email { get; set; } = string.Empty;
-    public int BookCredits { get; set; }
-    public int StoriesUsedThisMonth { get; set; }
-    public int StoriesAllowedThisMonth { get; set; }
-    public int StoriesRemainingThisMonth { get; set; }
+    public string? PhoneNumber { get; set; }
+    public string? DisplayName { get; set; }
+    public string PreferredLanguage { get; set; } = "ka";
+    public bool IsAdmin { get; set; }
     public int WelcomeStoryRemaining { get; set; }
-    public SubscriptionType SubscriptionType { get; set; }
-    public bool HasUnlimitedPdf { get; set; }
 }
 
 public sealed class EmailStatusRequest
@@ -69,6 +74,9 @@ public sealed class EmailStatusResponse
 
     /// <summary>True when the existing account was created via Google and has no password.</summary>
     public bool IsGoogleAccount { get; set; }
+
+    /// <summary>True when the account can only be entered with a magic link or a phone code.</summary>
+    public bool IsPasswordless { get; set; }
 }
 
 public sealed class ConfirmEmailRequest
@@ -107,4 +115,7 @@ public sealed class AuthConfigResponse
     public bool RecaptchaEnabled { get; set; }
 
     public string? RecaptchaSiteKey { get; set; }
+
+    /// <summary>Magic-link and phone-code availability, plus the dev-delivery flag.</summary>
+    public PasswordlessConfigResponse Passwordless { get; set; } = new();
 }

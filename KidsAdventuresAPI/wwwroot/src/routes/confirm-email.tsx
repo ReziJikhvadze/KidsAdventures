@@ -39,7 +39,11 @@ function ConfirmEmailPage() {
     try {
       const result = await confirmEmail(token);
       if (result.success) {
-        navigate({ to: "/confirm-email", search: { success: true }, replace: true });
+        navigate({
+          to: "/confirm-email",
+          search: { success: true, token: undefined },
+          replace: true,
+        });
       } else {
         setError(result.message);
       }

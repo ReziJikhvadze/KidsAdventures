@@ -37,21 +37,21 @@ export function Preview() {
               Read like a real picture book.
             </h2>
             <p className="mt-4 text-muted-foreground text-pretty">
-              Every story is a 6-page picture book with warm, animated-style illustrations on every
-              page. PDF export is free — book credits unlock extra stories.
+              Every full story is a 6-page picture book with warm, animated-style illustrations.
+              Preview the feeling first, then unlock the keepsake PDF when you are ready.
             </p>
             <ul className="mt-6 space-y-3 text-sm">
               <li className="flex items-start gap-3">
                 <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                 <span>
-                  <strong className="text-foreground">Illustrated slideshow free</strong> — swipe
+                  <strong className="text-foreground">Illustrated slideshow free</strong> - swipe
                   through every painted page before you buy.
                 </span>
               </li>
               <li className="flex items-start gap-3">
                 <Lock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                 <span>
-                  <strong className="text-foreground">PDF export is free</strong> — download, print,
+                  <strong className="text-foreground">PDF export is included</strong> - download, print,
                   and share anytime.
                 </span>
               </li>
@@ -80,7 +80,7 @@ export function Preview() {
                 isCompleted={false}
               />
               <p className="mt-4 text-center text-xs text-muted-foreground">
-                Sample story with demo art — your book uses your child&apos;s photo and name.
+                Sample story with demo art - your book uses your child&apos;s name and optional photo.
               </p>
             </div>
           </div>

@@ -2,28 +2,10 @@ using System.Text.Json.Serialization;
 
 namespace AdventurePacks.Api.DTOs.AdventurePacks;
 
-public sealed class GenerateAdventurePackRequest
-{
-    [Required]
-    public Guid ChildId { get; set; }
-
-    [Required]
-    [EnumDataType(typeof(ThemeType))]
-    public ThemeType Theme { get; set; }
-
-    [MaxLength(1000)]
-    public string? OptionalStoryNotes { get; set; }
-
-    /// <summary>en, ka, es, or other ISO-style code. Defaults to English.</summary>
-    [MaxLength(16)]
-    public string? StoryLanguage { get; set; }
-}
-
 public class AdventurePackResponse
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
-    public Guid ChildId { get; set; }
     public ThemeType Theme { get; set; }
     public AdventurePackStatus Status { get; set; }
     public string? PdfUrl { get; set; }
@@ -34,13 +16,36 @@ public class AdventurePackResponse
     public int StoryPageCount { get; set; }
     public bool IsWelcomeGiftStory { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    // -- book model --------------------------------------------------------
+
+    public string? WorldId { get; set; }
+    public Guid? PrimaryCharacterId { get; set; }
+    public Guid? SeriesId { get; set; }
+    public int SequenceNumber { get; set; }
+    public Guid? ContinuesFromBookId { get; set; }
+    public BookAccessLevel AccessLevel { get; set; }
+
+    /// <summary>False while only the free sample is readable.</summary>
+    public bool IsUnlocked { get; set; }
+
+    public bool HasPrintEntitlement { get; set; }
+    public string? CoverImageUrl { get; set; }
 }
 
 public sealed class AdventurePackDetailResponse : AdventurePackResponse
 {
     public string? Title { get; set; }
     public string? ChildName { get; set; }
+
+    /// <summary>
+    /// Pages the caller may read. A preview book returns the cover and page one only, with
+    /// <see cref="LockedPageCount"/> standing in for the rest.
+    /// </summary>
     public List<StoryPageContentDto> StoryPages { get; set; } = [];
+
+    /// <summary>How many pages exist beyond the ones returned.</summary>
+    public int LockedPageCount { get; set; }
 }
 
 /// <summary>
@@ -63,27 +68,6 @@ public sealed class GuestPreviewResult
     public Guid StoryId { get; set; }
 
     /// <summary>Serialized AdventureContentDto for the whole story, replayed into the account on sign-in.</summary>
-    public string StoryJson { get; set; } = string.Empty;
-}
-
-/// <summary>Saves a story generated during the no-login teaser to the signed-in parent's account.</summary>
-public sealed class ImportGuestStoryRequest
-{
-    [Required]
-    public Guid ChildId { get; set; }
-
-    [Required]
-    [EnumDataType(typeof(ThemeType))]
-    public ThemeType Theme { get; set; }
-
-    [MaxLength(16)]
-    public string? StoryLanguage { get; set; }
-
-    [MaxLength(1000)]
-    public string? OptionalStoryNotes { get; set; }
-
-    [Required]
-    [MaxLength(60000)]
     public string StoryJson { get; set; } = string.Empty;
 }
 

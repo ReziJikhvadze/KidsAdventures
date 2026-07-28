@@ -1,0 +1,78 @@
+import { t } from "@/lib/i18n";
+
+export const WORLD_IDS = [
+  "dinosaurs",
+  "space",
+  "pirates",
+  "animals",
+  "airplanes",
+  "magic",
+] as const;
+
+export type WorldId = (typeof WORLD_IDS)[number];
+
+export function isWorldId(value: unknown): value is WorldId {
+  return typeof value === "string" && (WORLD_IDS as readonly string[]).includes(value);
+}
+
+/**
+ * Bezier path each world's route traces out from the origin marker on the
+ * first-journey map. Drawn inside a `0 0 1000 650` viewBox with
+ * preserveAspectRatio="none", matching the demo exactly.
+ */
+const FIRST_MAP_ROUTES: Record<WorldId, string> = {
+  dinosaurs: "M430 520 C385 478 326 378 255 304",
+  space: "M430 520 C445 420 420 250 462 124",
+  pirates: "M430 520 C522 458 590 343 680 280",
+  animals: "M430 520 C490 518 548 460 615 410",
+  airplanes: "M430 520 C600 430 708 245 830 122",
+  magic: "M430 520 C575 548 738 520 842 430",
+};
+
+/** Fixed routes on the progression map, independent of which worlds are unlocked. */
+export const STORY_MAP_ROUTES = {
+  open: "M250 330 C320 310 360 214 435 130 S560 184 690 280",
+  future: "M690 280 C672 344 630 386 610 430 S742 462 850 442",
+  futureSky: "M690 280 C760 237 804 168 835 124",
+} as const;
+
+export interface World {
+  id: WorldId;
+  /** Short theme label, e.g. "დინოზავრები". */
+  theme: string;
+  /** Place name, e.g. "დაკარგული ხეობა". */
+  place: string;
+  /** Locative form used inside generated sentences. */
+  into: string;
+  /** Title shown on the adventure map node. */
+  mapTitle: string;
+  chapter: string;
+  teaserTitle: string;
+  teaserBody: string;
+  memoryTitle: string;
+  memoryBody: string;
+  bookTitle: (hero: string) => string;
+  synopsis: (hero: string) => string;
+  firstMapRoute: string;
+}
+
+export const WORLDS: World[] = WORLD_IDS.map((id) => ({
+  id,
+  ...t.worlds[id],
+  firstMapRoute: FIRST_MAP_ROUTES[id],
+}));
+
+export const WORLD_BY_ID = Object.fromEntries(WORLDS.map((w) => [w.id, w])) as Record<
+  WorldId,
+  World
+>;
+
+/** Cover art shipped with the demo, reused for preview and library thumbnails. */
+export const WORLD_COVER_ART: Record<WorldId, string> = {
+  dinosaurs: "/adventrya/dinosaur-story-v3.webp",
+  space: "/adventrya/space-story-v3.webp",
+  pirates: "/adventrya/magic-story-v3.webp",
+  animals: "/adventrya/dinosaur-story-v3.webp",
+  airplanes: "/adventrya/space-story-v3.webp",
+  magic: "/adventrya/magic-story-v3.webp",
+};

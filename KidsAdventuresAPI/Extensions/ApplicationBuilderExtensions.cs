@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AdventurePacks.Api.Infrastructure;
 
 namespace AdventurePacks.Api.Extensions;
 
@@ -16,16 +17,26 @@ public static class ApplicationBuilderExtensions
                 var statusCode = exception switch
                 {
                     UnauthorizedAccessException => StatusCodes.Status401Unauthorized,
+                    TooManyRequestsException => StatusCodes.Status429TooManyRequests,
+                    KeyNotFoundException => StatusCodes.Status404NotFound,
                     InvalidOperationException => StatusCodes.Status400BadRequest,
+                    ArgumentException => StatusCodes.Status400BadRequest,
                     _ => StatusCodes.Status500InternalServerError
                 };
 
                 context.Response.StatusCode = statusCode;
                 context.Response.ContentType = "application/json";
 
+                var retryAfterSeconds = (exception as TooManyRequestsException)?.RetryAfterSeconds;
+                if (retryAfterSeconds is { } retryAfter)
+                {
+                    context.Response.Headers.RetryAfter = retryAfter.ToString();
+                }
+
                 var response = JsonSerializer.Serialize(new
                 {
-                    message = exception?.Message ?? "An unexpected error occurred."
+                    message = exception?.Message ?? "An unexpected error occurred.",
+                    retryAfterSeconds
                 });
                 await context.Response.WriteAsync(response);
             });
