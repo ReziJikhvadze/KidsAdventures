@@ -27,7 +27,7 @@ export function ChildWorldScreen() {
     if (authLoading) return;
     if (!isAuthenticated) {
       setLoading(false);
-      void navigate({ to: "/create", hash: "auth" });
+      void navigate({ to: "/dashboard" });
       return;
     }
 

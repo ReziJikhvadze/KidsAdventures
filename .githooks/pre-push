@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Cheap local mirror of CI: typecheck before the push, not after the pipeline fails.
+set -uo pipefail
+root=$(git rev-parse --show-toplevel)
+cd "$root/KidsAdventuresAPI/wwwroot" || exit 0
+[ -d node_modules ] || exit 0
+echo "pre-push: typechecking frontend..."
+if ! npx tsc --noEmit -p tsconfig.json; then
+  echo "pre-push: typecheck failed. Push aborted (--no-verify to override)."
+  exit 1
+fi
+exit 0

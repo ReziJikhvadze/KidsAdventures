@@ -1,5 +1,5 @@
 import { Check, Lock, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
@@ -30,12 +30,18 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
   const [loading, setLoading] = useState(!draft.preview);
   const [loaderStep, setLoaderStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // One teaser is one vision call + one story call + one cover image. A remounted
+  // or re-run effect must not buy a second one, and `cancelled` alone only drops
+  // the result — the request is already in flight and already billed.
+  const requestedRef = useRef(false);
 
   useEffect(() => {
     if (draft.preview) {
       setLoading(false);
       return;
     }
+    if (requestedRef.current) return;
+    requestedRef.current = true;
 
     let cancelled = false;
     const stageTimer = window.setInterval(() => {
@@ -120,13 +126,26 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
   ]);
 
   if (loading) {
+    const heroName = hero.name || t.common.fallbackHeroName;
     return (
-      <section className="ux-preview-loading-stage">
+      <section className="ux-preview-stage ux-preview-loading-stage">
+        <header className="ux-stage-heading ux-preview-heading">
+          <p className="eyebrow">
+            <Sparkles aria-hidden="true" />
+            {t.journey.previewLoader.heading}
+          </p>
+          <h1>
+            {heroName}
+            {t.journey.previewLoader.subheading}
+          </h1>
+          <p>{t.journey.previewLoader.reassurance}</p>
+        </header>
+
         <div
           className="ux-preview-loader"
           aria-live="polite"
           aria-busy="true"
-          aria-label={t.journey.previewLoader.ariaLabel(hero.name || t.common.fallbackHeroName)}
+          aria-label={t.journey.previewLoader.ariaLabel(heroName)}
         >
           <div className="preview-atelier-book">
             <div
@@ -149,14 +168,9 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
 
           <div className="preview-loader-copy">
             <small>{t.journey.previewLoader.atelier}</small>
-            <strong>{t.journey.previewLoader.heading}</strong>
-            <p>
-              {hero.name || t.common.fallbackHeroName}
-              {t.journey.previewLoader.subheading}
-            </p>
-            <p>{t.journey.previewLoader.reassurance}</p>
+            <strong>{t.journey.previewLoader.stages[loaderStep]}</strong>
             <div className="preview-loader-progress" aria-hidden="true">
-              <i style={{ width: `${Math.min(95, (loaderStep + 1) * 18)}%` }} />
+              <i style={{ width: `${(loaderStep + 1) * 20}%` }} />
             </div>
             <div className="preview-loader-stages">
               {t.journey.previewLoader.stages.map((label, index) => (
@@ -166,7 +180,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
                     index < loaderStep ? "done" : index === loaderStep ? "active" : ""
                   }
                 >
-                  {index <= loaderStep ? <Check aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+                  {index < loaderStep ? <Check aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
                   {label}
                 </span>
               ))}

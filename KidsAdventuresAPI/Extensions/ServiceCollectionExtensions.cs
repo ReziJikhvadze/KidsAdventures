@@ -206,6 +206,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICharacterService, CharacterService>();
         services.AddScoped<IWorldRepository, WorldRepository>();
         services.AddScoped<IWorldProgressService, WorldProgressService>();
+        services.AddScoped<ISeriesMemoryRepository, SeriesMemoryRepository>();
+        services.AddScoped<IStoryRuleRepository, StoryRuleRepository>();
+        services.AddScoped<IAdminReportingRepository, AdminReportingRepository>();
+        services.AddScoped<ISeriesMemoryService, SeriesMemoryService>();
         services.AddScoped<IBookCastResolver, BookCastResolver>();
         services.AddScoped<IFamilyMemberRepository, FamilyMemberRepository>();
         services.AddScoped<IAdventurePackRepository, AdventurePackRepository>();

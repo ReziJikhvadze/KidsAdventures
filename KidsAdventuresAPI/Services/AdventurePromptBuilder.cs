@@ -42,6 +42,7 @@ internal static class AdventurePromptBuilder
             string.Empty,
             string.Format(texts.AgeGuidelinesHeader, input.Age),
             GetAgeGuidelines(texts, input.Age),
+            FormatStoryRule(input.StoryRule),
             string.Empty,
             texts.OutputFormatHeader,
             "{",
@@ -76,6 +77,17 @@ internal static class AdventurePromptBuilder
         lines.Add(string.Format(texts.ThemeLabel, input.Theme));
         FormatAppearanceLine(texts.HeroAppearanceLabel, input.ChildAppearanceDescription, lines);
         lines.Add($"{texts.FamilyMembersLabel}{Environment.NewLine}{familyMembersText}");
+
+        // Series memory turns a shelf of unrelated books into one growing world. It is only
+        // present from the second book onwards, and it is deliberately placed after the cast so
+        // the model reads "who is in this book" before "what already happened to them".
+        if (!string.IsNullOrWhiteSpace(input.SeriesMemory))
+        {
+            lines.Add(string.Empty);
+            lines.Add(string.Format(texts.SeriesMemoryHeader, input.ChapterNumber));
+            lines.Add(input.SeriesMemory.Trim());
+            lines.Add($"- {texts.SeriesMemoryRule}");
+        }
 
         if (!string.IsNullOrWhiteSpace(input.OptionalStoryNotes))
         {
@@ -200,6 +212,63 @@ internal static class AdventurePromptBuilder
             AdventurePromptTexts.ForLanguage(storyLanguage).FamilyPhotoDescribe,
             name,
             relationship) + AdventurePromptTexts.ForLanguage(storyLanguage).VisionDescribeSuffix;
+
+    /// <summary>
+    /// Renders the operator's matrix cell as extra constraints under the built-in age block.
+    /// Only fields that were actually set produce a line, so an untouched matrix contributes
+    /// nothing and the prompt is byte-identical to what it was before the matrix existed.
+    /// </summary>
+    private static string FormatStoryRule(StoryRule? rule)
+    {
+        if (rule is null || !rule.IsActive)
+        {
+            return string.Empty;
+        }
+
+        var lines = new List<string>();
+
+        if (rule.MaxWordsPerPage is { } maxWords and > 0)
+        {
+            lines.Add($"- Hard limit: no page may exceed {maxWords} words of on-page text.");
+        }
+
+        if (rule.MaxSentenceWords is { } maxSentence and > 0)
+        {
+            lines.Add($"- Keep every sentence at or under {maxSentence} words.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(rule.VocabularyLevel))
+        {
+            lines.Add($"- Vocabulary level: {DescribeVocabulary(rule.VocabularyLevel)}");
+        }
+
+        if (rule.ScarinessLimit is { } scariness)
+        {
+            lines.Add($"- Tension ceiling: {DescribeScariness(scariness)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(rule.ExtraGuidance))
+        {
+            lines.Add($"- {rule.ExtraGuidance.Trim()}");
+        }
+
+        return lines.Count == 0 ? string.Empty : string.Join(Environment.NewLine, lines);
+    }
+
+    private static string DescribeVocabulary(string level) => level.Trim().ToLowerInvariant() switch
+    {
+        "simple" => "only everyday words a child already uses; explain nothing, choose plainer words instead.",
+        "rich" => "reach for vivid, precise words and let one or two stretch the reader, made clear by context.",
+        _ => "familiar words, with the occasional new one the surrounding sentence makes obvious.",
+    };
+
+    private static string DescribeScariness(int level) => level switch
+    {
+        0 => "nothing tense at all — no danger, no threat, no darkness; warmth throughout.",
+        1 => "mild suspense only — a surprise or a puzzle, never a threat to anyone.",
+        2 => "real stakes are allowed, but the hero is never physically in danger and it resolves warmly.",
+        _ => "genuine jeopardy is allowed, resolved fully and reassuringly before the last page.",
+    };
 
     private static string GetAgeGuidelines(AdventurePromptLocale texts, int age) => age switch
     {

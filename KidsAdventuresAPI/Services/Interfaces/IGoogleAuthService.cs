@@ -2,7 +2,10 @@ namespace AdventurePacks.Api.Services.Interfaces;
 
 public interface IGoogleAuthService
 {
-    Task<GoogleTokenPayload> ValidateIdTokenAsync(string idToken, CancellationToken cancellationToken);
+    Task<GoogleTokenPayload> ValidateCredentialAsync(
+        string? idToken,
+        string? accessToken,
+        CancellationToken cancellationToken);
 }
 
 public sealed class GoogleTokenPayload

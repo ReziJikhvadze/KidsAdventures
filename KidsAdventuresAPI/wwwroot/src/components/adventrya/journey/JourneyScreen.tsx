@@ -7,6 +7,7 @@ import { GeneratingStage } from "@/components/adventrya/journey/GeneratingStage"
 import { PreviewStage } from "@/components/adventrya/journey/PreviewStage";
 import { ProfileStage } from "@/components/adventrya/journey/ProfileStage";
 import { getCharacter } from "@/lib/api/characters";
+import { getToken } from "@/lib/api/client";
 import type { CharacterGender, CharacterType, EyeColor } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { t } from "@/lib/i18n";
@@ -86,9 +87,21 @@ export function JourneyScreen() {
   }, [draft.worldId, goToStage]);
 
   const goAfterPreview = useCallback(() => {
-    if (!isLoading && isAuthenticated) goToStage("checkout");
-    else goToStage("auth");
+    // Once signed in (session token present), never send the parent through #auth again.
+    if (getToken() || (!isLoading && isAuthenticated)) {
+      goToStage("checkout");
+      return;
+    }
+    goToStage("auth");
   }, [isAuthenticated, isLoading, goToStage]);
+
+  // Signed-in parents should never sit on #auth — jump straight to checkout.
+  useEffect(() => {
+    if (stage !== "auth") return;
+    if (getToken() || (!isLoading && isAuthenticated)) {
+      goToStage("checkout");
+    }
+  }, [stage, isAuthenticated, isLoading, goToStage]);
 
   const onPaid = useCallback(
     (orderId: string, bookId?: string | null) => {
@@ -122,23 +135,21 @@ export function JourneyScreen() {
   }
 
   return (
-    <div className="screen journey-shell">
+    <div className={`screen journey-shell journey-${stage} ux1-shell`}>
       <div className="journey-art" aria-hidden="true" />
       <div className="journey-shade" aria-hidden="true" />
       <div className="grain" aria-hidden="true" />
 
       {header}
 
-      <main className="journey-stage">
-        {renderStage(stage, {
-          draft,
-          setDraft,
-          goToStage,
-          goAfterProfile,
-          goAfterPreview,
-          onPaid,
-        })}
-      </main>
+      {renderStage(stage, {
+        draft,
+        setDraft,
+        goToStage,
+        goAfterProfile,
+        goAfterPreview,
+        onPaid,
+      })}
     </div>
   );
 }

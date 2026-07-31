@@ -38,6 +38,16 @@ internal sealed class AdventurePromptLocale
     public required string HeroAppearanceLabel { get; init; }
     public required string FamilyMembersLabel { get; init; }
     public required string NoFamilyMembers { get; init; }
+
+    // Series continuity. Defaulted rather than required so a locale that has not been
+    // translated yet still compiles and simply falls back to English wording; the memory
+    // content itself is already written in the book's language by the distiller.
+    public string SeriesMemoryHeader { get; init; } =
+        "WHAT THIS CHILD'S WORLD ALREADY REMEMBERS (this is book {0} of an ongoing series):";
+
+    public string SeriesMemoryRule { get; init; } =
+        "SERIES CONTINUITY: this book continues the world above, so honour it. Bring back at least one named companion the child already knows and let the reunion carry warmth from how they last parted. Refer to at least one earlier moment the way a friend would — briefly, in passing, never as a recap. Move the series' running goal one real step forward without resolving it, unless this book is clearly its ending. Never contradict what the memory establishes, and never re-introduce a returning companion as though they were a stranger.";
+
     public required string LooksLikePrefix { get; init; }
     public required string ExtraWishesHeader { get; init; }
     public required string ExtraWishesWelcomePages { get; init; }
@@ -260,6 +270,8 @@ internal static class AdventurePromptTexts
         HeroAppearanceLabel = "გმირის გარეგნობა (შეინარჩუნე თანმიმდევრული ისტორიაში): {0}",
         FamilyMembersLabel = "ოჯახის წევრები:",
         NoFamilyMembers = "ოჯახის წევრები არ არის მოცემული.",
+        SeriesMemoryHeader = "რას ახსოვს უკვე ამ ბავშვის სამყაროს (ეს არის სერიის {0}-ე წიგნი):",
+        SeriesMemoryRule = "სერიის უწყვეტობა: ეს წიგნი ზემოთ აღწერილ სამყაროს აგრძელებს — პატივი ეცი მას. დააბრუნე სულ მცირე ერთი უკვე ნაცნობი პერსონაჟი სახელით და შეხვედრას მიეცი სითბო იმისა, როგორც ბოლოს დაშორდნენ. მოიხსენიე სულ მცირე ერთი წინა მომენტი ისე, როგორც მეგობარი გაიხსენებდა — მოკლედ, გაკვრით, არასოდეს როგორც შეჯამება. სერიის მთავარი მიზანი გადაწიე ერთი ნამდვილი ნაბიჯით წინ, ოღონდ არ დაასრულო, თუ ეს წიგნი აშკარად მისი დასასრული არ არის. არასოდეს დაუპირისპირდე იმას, რაც მეხსიერებაშია, და დაბრუნებული პერსონაჟი არასოდეს წარადგინო ისე, თითქოს უცნობი იყოს.",
         LooksLikePrefix = " — გარეგნობა: {0}",
         ExtraWishesHeader = "მშობლის დამატებითი სურვილები (უმაღლესი პრიორიტეტი — ეს არის ის, რაც კონკრეტულად ითხოვეს; გახადე სიუჟეტის ცენტრალური და განმეორებადი ნაწილი {0}-ში, არა ერთჯერადი ხსენება):",
         ExtraWishesWelcomePages = "ორივე გვერდზე",

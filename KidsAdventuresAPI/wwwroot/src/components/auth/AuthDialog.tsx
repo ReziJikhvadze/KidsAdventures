@@ -73,10 +73,13 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
     onSuccess?.();
   };
 
-  const handleGoogleSuccess = async (idToken: string) => {
+  const handleGoogleSuccess = async (credential: {
+    idToken?: string;
+    accessToken?: string;
+  }) => {
     setGoogleBusy(true);
     try {
-      await loginWithGoogle(idToken);
+      await loginWithGoogle(credential);
       finish("Let's create your child's book.");
     } catch (err) {
       notify.fromError(err, "Google sign-in failed. Try again.");
@@ -179,7 +182,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
               ) : (
                 <GoogleSignInButton
                   disabled={googleBusy}
-                  onSuccess={(idToken) => void handleGoogleSuccess(idToken)}
+                  onSuccess={(credential) => void handleGoogleSuccess(credential)}
                   onError={() => notify.error("Google sign-in was cancelled or failed.")}
                 />
               )}
@@ -227,6 +230,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
                 <Label htmlFor="auth-email">Your email</Label>
                 <Input
                   id="auth-email"
+                  name="email"
                   type="email"
                   inputMode="email"
                   autoComplete="email"
@@ -282,6 +286,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
                 </Label>
                 <Input
                   id="auth-password"
+                  name="password"
                   type="password"
                   autoComplete={mode === "signin" ? "current-password" : "new-password"}
                   autoFocus

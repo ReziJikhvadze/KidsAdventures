@@ -274,6 +274,7 @@ public sealed class AdventurePacksController(
         target.IsUnlocked = x.IsFullyUnlocked;
         target.HasPrintEntitlement = x.HasPrintEntitlement;
         target.CoverImageUrl = x.CoverImageUrl;
+        target.Title = x.Title;
     }
 
     private static AdventurePackResponse Map(AdventurePack x)
@@ -290,7 +291,6 @@ public sealed class AdventurePacksController(
     {
         var detail = new AdventurePackDetailResponse();
         MapBookFields(pack, detail);
-        detail.Title = pack.Title;
 
         if (pack.Status is not (AdventurePackStatus.StoryReady or AdventurePackStatus.GeneratingPdf
             or AdventurePackStatus.Completed) || string.IsNullOrWhiteSpace(pack.GeneratedJson))

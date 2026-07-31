@@ -54,7 +54,8 @@ function MagicLinkLanding() {
         await signInWithMagicLink(token);
         if (cancelled) return;
         setDone(true);
-        navigate({ to: safeNext(next), replace: true });
+        const target = safeNext(next);
+        navigate({ to: target.to, hash: target.hash, replace: true });
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof ApiError ? err.message : copy.failedTitle);
@@ -91,7 +92,17 @@ function MagicLinkLanding() {
 }
 
 /** Mirrors the server-side guard: only same-origin relative paths are followed. */
-function safeNext(next: string | undefined): string {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) return "/create";
-  return next;
+function safeNext(next: string | undefined): { to: string; hash?: string } {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) {
+    return { to: "/create", hash: "checkout" };
+  }
+
+  const hashIndex = next.indexOf("#");
+  if (hashIndex === -1) {
+    return { to: next };
+  }
+
+  const path = next.slice(0, hashIndex) || "/create";
+  const hash = next.slice(hashIndex + 1) || undefined;
+  return { to: path, hash };
 }

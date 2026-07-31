@@ -7,6 +7,7 @@ export const common = {
     back: "უკან",
     backLink: "უკან დაბრუნება",
     cancel: "გაუქმება",
+    close: "დახურვა",
     change: "შეცვლა",
     remove: "წაშლა",
     add: "დამატება",

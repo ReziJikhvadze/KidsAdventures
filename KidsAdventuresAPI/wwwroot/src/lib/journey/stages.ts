@@ -74,7 +74,8 @@ export function backHrefForStage(
       return "/create#preview";
     case "checkout":
       if (options.isPrintUpgrade) return "/dashboard";
-      return "/create#auth";
+      // Auth is skipped when already signed in; preview is the real prior step.
+      return "/create#preview";
     default:
       return "/dashboard";
   }

@@ -116,7 +116,10 @@ public sealed class AuthService(
 
     public async Task<AuthResponse> LoginWithGoogleAsync(GoogleLoginRequest request, CancellationToken cancellationToken)
     {
-        var googleUser = await googleAuthService.ValidateIdTokenAsync(request.IdToken, cancellationToken);
+        var googleUser = await googleAuthService.ValidateCredentialAsync(
+            request.IdToken,
+            request.AccessToken,
+            cancellationToken);
         var email = googleUser.Email.Trim().ToLowerInvariant();
 
         if (string.IsNullOrWhiteSpace(email) || !googleUser.EmailVerified)

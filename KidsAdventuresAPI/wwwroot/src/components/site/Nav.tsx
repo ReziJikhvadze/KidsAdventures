@@ -5,7 +5,7 @@ import { Library, LogOut, Menu, Sparkles, User } from "lucide-react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { formatNavQuotaTitle, formatCreditsBadgeLabel } from "@/lib/account/storyQuota";
-import { AuthDialog } from "@/components/auth/AuthDialog";
+import { PasswordlessAuthDialog } from "@/components/auth/PasswordlessAuthDialog";
 import {
   Sheet,
   SheetContent,
@@ -175,7 +175,7 @@ export function Nav() {
         </div>
       </header>
 
-      <AuthDialog open={authOpen} onOpenChange={setAuthOpen} defaultMode="login" />
+      <PasswordlessAuthDialog open={authOpen} onOpenChange={setAuthOpen} />
     </>
   );
 }

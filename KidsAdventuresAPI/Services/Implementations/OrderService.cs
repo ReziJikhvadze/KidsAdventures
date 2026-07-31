@@ -648,11 +648,27 @@ public sealed class OrderService(
         }
 
         var target = SafeRelativePath(returnPath) ?? (path.StartsWith('/') ? path : "/" + path);
-        var separator = target.Contains('?') ? '&' : '?';
-        var url = $"{baseUrl}{target}{separator}orderId={orderId}";
+
+        // `/create#generating?orderId=…` puts the query inside the hash and breaks
+        // stageFromHash / order restore. Keep query on the path, hash at the end.
+        var hashIndex = target.IndexOf('#');
+        var pathPart = hashIndex >= 0 ? target[..hashIndex] : target;
+        var hashPart = hashIndex >= 0 ? target[hashIndex..] : string.Empty;
+        if (pathPart.Length == 0)
+        {
+            pathPart = "/";
+        }
+
+        var separator = pathPart.Contains('?') ? '&' : '?';
+        var url = $"{baseUrl}{pathPart}{separator}orderId={orderId}";
 
         // Stripe substitutes the placeholder itself, so it must survive escaping intact.
-        return includeSessionId ? $"{url}&session_id={{CHECKOUT_SESSION_ID}}" : url;
+        if (includeSessionId)
+        {
+            url = $"{url}&session_id={{CHECKOUT_SESSION_ID}}";
+        }
+
+        return url + hashPart;
     }
 
     /// <summary>Only same-origin relative paths are honoured, so a return URL cannot be a redirect.</summary>

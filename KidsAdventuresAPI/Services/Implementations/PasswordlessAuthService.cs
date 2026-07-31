@@ -90,7 +90,12 @@ public sealed class PasswordlessAuthService(
 
         logger.LogInformation("Magic link issued for {Email} (challenge {ChallengeId}).", MaskEmail(email), challenge.Id);
 
-        return BuildChallengeResponse(MaskEmail(email), challenge, deliveryLive: EmailDeliveryLive, secret: token);
+        return BuildChallengeResponse(
+            MaskEmail(email),
+            challenge,
+            deliveryLive: EmailDeliveryLive,
+            secret: token,
+            url: url);
     }
 
     public async Task<AuthResponse> VerifyMagicLinkAsync(
@@ -292,7 +297,8 @@ public sealed class PasswordlessAuthService(
         string maskedDestination,
         AuthChallenge challenge,
         bool deliveryLive,
-        string secret)
+        string secret,
+        string? url = null)
     {
         var expiresIn = (int)Math.Max(1, (challenge.ExpiresAt - DateTime.UtcNow).TotalSeconds);
 
@@ -306,7 +312,8 @@ public sealed class PasswordlessAuthService(
             ExpiresInSeconds = expiresIn,
             ResendAfterSeconds = _options.ResendCooldownSeconds,
             DeliveryLive = deliveryLive,
-            DevSecret = exposeSecret ? secret : null
+            DevSecret = exposeSecret ? secret : null,
+            DevUrl = exposeSecret ? url : null
         };
     }
 

@@ -113,10 +113,19 @@ export async function login(email: string, password: string): Promise<AuthRespon
   return result;
 }
 
-export async function loginWithGoogle(idToken: string): Promise<AuthResponse> {
+export async function loginWithGoogle(credential: {
+  idToken?: string;
+  accessToken?: string;
+}): Promise<AuthResponse> {
+  const idToken = credential.idToken?.trim();
+  const accessToken = credential.accessToken?.trim();
   const result = await apiRequest<AuthResponse>("/api/auth/google", {
     method: "POST",
-    body: JSON.stringify({ idToken, ...guestPreviewAuthFields() }),
+    body: JSON.stringify({
+      ...(idToken ? { idToken } : {}),
+      ...(accessToken ? { accessToken } : {}),
+      ...guestPreviewAuthFields(),
+    }),
   });
   setToken(result.token);
   return result;

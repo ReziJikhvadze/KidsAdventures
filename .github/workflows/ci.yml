@@ -1,0 +1,122 @@
+name: CI
+
+# Every push and every PR. The point is that a broken build cannot reach master
+# unnoticed, and that a secret can never be committed again without someone being told.
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+concurrency:
+  # A newer push makes an in-flight run irrelevant; cancel it rather than pay for it.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks needs history to scan commits, not just the working tree.
+          fetch-depth: 0
+
+      - name: Scan for committed credentials
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  backend:
+    name: API build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        run: dotnet restore KidsAdventuresAPI/KidsAdventuresAPI.csproj
+
+      - name: Build
+        # SkipFrontendBuild keeps the csproj's npm target out of the API job; the
+        # frontend has its own job below and does not need building twice.
+        run: >
+          dotnet build KidsAdventuresAPI/KidsAdventuresAPI.csproj
+          --no-restore -c Release -p:SkipFrontendBuild=true
+          -warnaserror
+
+  migrations:
+    name: Migrations apply cleanly
+    runs-on: ubuntu-latest
+    services:
+      sql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "Local_CI_Password_1"
+        ports: ["1433:1433"]
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P Local_CI_Password_1 -Q 'SELECT 1'"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      # Migrations run at application startup, so "does the app boot" and "do the
+      # migrations apply" are the same question. Booting against an empty database
+      # answers both, and catches a bad .sql before it reaches Azure SQL.
+      - name: Boot against a blank database
+        working-directory: KidsAdventuresAPI
+        env:
+          ASPNETCORE_ENVIRONMENT: Development
+          ASPNETCORE_URLS: http://localhost:5000
+          ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=CiVerify;User Id=sa;Password=Local_CI_Password_1;TrustServerCertificate=True;Encrypt=False;"
+        run: |
+          /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P Local_CI_Password_1 \
+            -Q "CREATE DATABASE CiVerify" 2>/dev/null || \
+            docker exec $(docker ps -qf ancestor=mcr.microsoft.com/mssql/server:2022-latest) \
+            /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P Local_CI_Password_1 \
+            -Q "CREATE DATABASE CiVerify"
+          dotnet run -c Release --no-launch-profile -p:SkipFrontendBuild=true &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:5000/api/auth/config > /dev/null; then
+              echo "API booted and migrations applied."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API never became healthy — check migration output above."
+          exit 1
+
+  frontend:
+    name: Frontend typecheck, lint, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: KidsAdventuresAPI/wwwroot
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: KidsAdventuresAPI/wwwroot/package-lock.json
+
+      - run: npm ci
+
+      # Typecheck first: it is the fastest signal and the one that caught real bugs.
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build

@@ -91,10 +91,15 @@ public sealed class ConfirmEmailResponse
     public string Message { get; set; } = string.Empty;
 }
 
-public sealed class GoogleLoginRequest
+public sealed class GoogleLoginRequest : IValidatableObject
 {
-    [Required, MinLength(10)]
-    public string IdToken { get; set; } = string.Empty;
+    /// <summary>GIS credential JWT from Sign in with Google / One Tap.</summary>
+    [MaxLength(8192)]
+    public string? IdToken { get; set; }
+
+    /// <summary>OAuth access token from a custom Google button (implicit flow).</summary>
+    [MaxLength(8192)]
+    public string? AccessToken { get; set; }
 
     /// <summary>Legacy localStorage hint. Non-authoritative; server-side preview tracking takes precedence.</summary>
     public bool UsedGuestPreview { get; set; }
@@ -104,6 +109,34 @@ public sealed class GoogleLoginRequest
 
     /// <summary>Fallback link to the teaser when only the story id survived the round-trip.</summary>
     public Guid? StoryId { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        var idToken = IdToken?.Trim();
+        var accessToken = AccessToken?.Trim();
+
+        if (string.IsNullOrEmpty(idToken) && string.IsNullOrEmpty(accessToken))
+        {
+            yield return new ValidationResult(
+                "Google IdToken or AccessToken is required.",
+                [nameof(IdToken), nameof(AccessToken)]);
+            yield break;
+        }
+
+        if (!string.IsNullOrEmpty(idToken) && idToken.Length < 10)
+        {
+            yield return new ValidationResult(
+                "The field IdToken must be a string with a minimum length of '10'.",
+                [nameof(IdToken)]);
+        }
+
+        if (!string.IsNullOrEmpty(accessToken) && accessToken.Length < 10)
+        {
+            yield return new ValidationResult(
+                "The field AccessToken must be a string with a minimum length of '10'.",
+                [nameof(AccessToken)]);
+        }
+    }
 }
 
 public sealed class AuthConfigResponse

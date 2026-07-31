@@ -99,6 +99,8 @@ export type AuthChallengeResponse = {
   deliveryLive: boolean;
   /** Present only in development, when nothing was actually delivered. */
   devSecret?: string | null;
+  /** Full magic-link URL in development when email delivery is not live. */
+  devUrl?: string | null;
 };
 
 export type ChildResponse = {

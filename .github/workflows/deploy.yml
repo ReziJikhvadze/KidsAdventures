@@ -1,0 +1,173 @@
+name: Deploy
+
+# Deploys are deliberate, not automatic on every push to master: tag a release, or
+# run this by hand. Migrations apply at API startup against the real Azure SQL, so a
+# deploy is a schema change — it should be something a person chose to do.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      deploy_api:
+        description: "Deploy the API"
+        type: boolean
+        default: true
+      deploy_frontend:
+        description: "Deploy the frontend"
+        type: boolean
+        default: true
+
+# Federated (OIDC) auth. No publish profile, no long-lived credential in GitHub.
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  # Never let two deploys race onto the same App Service.
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  DOTNET_VERSION: "8.0.x"
+  NODE_VERSION: "22"
+
+jobs:
+  build:
+    name: Build artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: KidsAdventuresAPI/wwwroot/package-lock.json
+
+      # SkipFrontendBuild stops the csproj's own npm target: the frontend is built
+      # explicitly below so its failure is a distinct, readable step.
+      - name: Publish API
+        run: >
+          dotnet publish KidsAdventuresAPI/KidsAdventuresAPI.csproj
+          -c Release -o ${{ runner.temp }}/api
+          -p:SkipFrontendBuild=true
+
+      # A deployed appsettings.Production.json would shadow App Service configuration
+      # and could reintroduce a committed secret. Configuration is the only source.
+      - name: Strip production settings from the artifact
+        run: rm -f ${{ runner.temp }}/api/appsettings.Production.json
+
+      - name: Build frontend
+        working-directory: KidsAdventuresAPI/wwwroot
+        run: |
+          npm ci
+          npm run build
+
+      - name: Verify frontend server entry exists
+        run: test -f KidsAdventuresAPI/frontend-dist/server/index.mjs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api
+          path: ${{ runner.temp }}/api
+          retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend
+          path: KidsAdventuresAPI/frontend-dist
+          retention-days: 7
+
+  deploy-api:
+    name: Deploy API
+    needs: build
+    if: ${{ github.event_name == 'push' || inputs.deploy_api }}
+    runs-on: ubuntu-latest
+    # Attach required reviewers to this environment in repo settings to gate production.
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: api
+          path: api
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Zip
+        run: cd api && zip -r ../api.zip . -x '*.pdb'
+
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_API_APP_NAME }}
+          package: api.zip
+
+      # Migrations run during startup, so "healthy" genuinely means "schema applied".
+      - name: Smoke test
+        run: |
+          url="https://${{ vars.AZURE_API_APP_NAME }}.azurewebsites.net/api/auth/config"
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /tmp/body -w "%{http_code}" "$url" || echo 000)
+            if [ "$code" = "200" ]; then
+              echo "API healthy."
+              head -c 300 /tmp/body
+              exit 0
+            fi
+            echo "attempt $i: HTTP $code"
+            sleep 10
+          done
+          echo "::error::API did not become healthy after deploy. Check App Service log stream — a failed migration blocks startup."
+          exit 1
+
+  deploy-frontend:
+    name: Deploy frontend
+    needs: build
+    if: ${{ github.event_name == 'push' || inputs.deploy_frontend }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend
+          path: frontend
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Zip
+        run: cd frontend && zip -r ../frontend.zip .
+
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_FRONTEND_APP_NAME }}
+          package: frontend.zip
+
+      # Nitro's node-server preset: App Service must be told what to run.
+      - name: Pin startup command
+        run: >
+          az webapp config set
+          --resource-group ${{ vars.AZURE_RESOURCE_GROUP }}
+          --name ${{ vars.AZURE_FRONTEND_APP_NAME }}
+          --startup-file "node server/index.mjs"
+
+      - name: Smoke test
+        run: |
+          url="https://${{ vars.AZURE_FRONTEND_APP_NAME }}.azurewebsites.net/"
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$url" || echo 000)
+            if [ "$code" = "200" ]; then echo "Frontend healthy."; exit 0; fi
+            echo "attempt $i: HTTP $code"
+            sleep 10
+          done
+          echo "::error::Frontend did not become healthy after deploy."
+          exit 1

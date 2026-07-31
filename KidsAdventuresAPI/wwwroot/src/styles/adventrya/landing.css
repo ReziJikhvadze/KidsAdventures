@@ -1048,10 +1048,18 @@
     radial-gradient(circle at 88% 9%, rgba(188, 148, 92, 0.11), transparent 24%), var(--lv3-paper);
 }
 .landing-v3-how-heading {
-  max-width: 750px;
+  max-width: none;
 }
 .landing-v3-how-heading h2 {
-  max-width: 690px;
+  max-width: none;
+  font-size: clamp(20px, 2.1vw, 32px);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+.landing-v3-how-heading h2 em {
+  display: inline;
+  color: #9e684c;
 }
 .landing-v3-steps {
   width: min(100%, 1280px);
@@ -2398,6 +2406,11 @@
   }
   .landing-v3-how-heading > p {
     font-size: 8px;
+  }
+  .landing-v3-how-heading h2 {
+    font-size: clamp(16px, 4.2vw, 22px);
+    text-wrap: balance;
+    white-space: normal;
   }
   .landing-v3-steps {
     margin-top: 38px;

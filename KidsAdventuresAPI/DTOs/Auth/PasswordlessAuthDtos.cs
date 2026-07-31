@@ -60,6 +60,12 @@ public sealed class AuthChallengeResponse
 
     /// <summary>The code or link token, echoed only in development. Null otherwise.</summary>
     public string? DevSecret { get; set; }
+
+    /// <summary>
+    /// Full magic-link URL when secrets are exposed (dev / no live mail). Null for SMS
+    /// challenges and whenever delivery is live.
+    /// </summary>
+    public string? DevUrl { get; set; }
 }
 
 public sealed class PasswordlessConfigResponse

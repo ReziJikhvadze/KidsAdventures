@@ -8,3 +8,7 @@ publish-test/
 publish-test2/
 publish-verify/
 publish.zip
+
+# Real credentials live here. Ship them through App Service configuration or a
+# key vault — appsettings.Production.example.json is the template that stays tracked.
+appsettings.Production.json

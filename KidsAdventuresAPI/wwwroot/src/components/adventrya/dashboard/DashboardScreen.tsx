@@ -10,10 +10,10 @@ import {
   Users,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
-
+import { Link } from "@tanstack/react-router";
 import { AppHeader } from "@/components/adventrya/AppHeader";
 import { StoryPathMap } from "@/components/adventrya/world/StoryPathMap";
+import { PasswordlessAuthDialog } from "@/components/auth/PasswordlessAuthDialog";
 import { ApiError } from "@/lib/api/client";
 import {
   downloadAdventurePack,
@@ -50,7 +50,6 @@ const emptyShipping = (): ShippingAddressRequest => ({
 });
 
 export function DashboardScreen() {
-  const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const [characters, setCharacters] = useState<CharacterResponse[]>([]);
   const [characterId, setCharacterId] = useState<string | null>(null);
@@ -65,14 +64,16 @@ export function DashboardScreen() {
   const [shipping, setShipping] = useState<ShippingAddressRequest>(emptyShipping);
   const [printBusy, setPrintBusy] = useState(false);
   const [printError, setPrintError] = useState<string | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) {
       setLoading(false);
-      void navigate({ to: "/create", hash: "auth" });
+      setAuthOpen(true);
       return;
     }
+    setAuthOpen(false);
 
     let cancelled = false;
     void (async () => {
@@ -102,7 +103,7 @@ export function DashboardScreen() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, isAuthenticated, navigate]);
+  }, [authLoading, isAuthenticated]);
 
   useEffect(() => {
     if (!characterId || !isAuthenticated) {
@@ -245,7 +246,32 @@ export function DashboardScreen() {
   };
 
   if (!authLoading && !isAuthenticated) {
-    return null;
+    return (
+      <div className="screen dashboard-shell">
+        <div className="dashboard-sky" aria-hidden="true" />
+        <div className="grain" aria-hidden="true" />
+        <AppHeader backHref="/" />
+        <main className="dashboard-empty" style={{ padding: "48px 24px", textAlign: "center" }}>
+          <h1>{t.common.nav.myFamily}</h1>
+          <p style={{ marginTop: 12, opacity: 0.75 }}>
+            Parent Dashboard-ის სანახავად გთხოვთ შეხვიდეთ.
+          </p>
+          <button
+            className="button button-primary"
+            type="button"
+            style={{ marginTop: 20 }}
+            onClick={() => setAuthOpen(true)}
+          >
+            შესვლა
+          </button>
+        </main>
+        <PasswordlessAuthDialog
+          open={authOpen}
+          onOpenChange={setAuthOpen}
+          onSuccess={() => setAuthOpen(false)}
+        />
+      </div>
+    );
   }
 
   return (
@@ -581,34 +607,53 @@ function PrintUpgradePanel({
       <fieldset className="choice-fieldset">
         <legend>{t.journey.checkout.shippingAddress}</legend>
         <div className="form-grid">
-          <label className="field">
+          <label className="field" htmlFor="dashboard-ship-recipient">
             <span>მიმღები</span>
             <input
+              id="dashboard-ship-recipient"
+              name="recipientName"
+              autoComplete="name"
               value={shipping.recipientName}
               onChange={(e) => onChange({ recipientName: e.target.value })}
             />
           </label>
-          <label className="field">
+          <label className="field" htmlFor="dashboard-ship-phone">
             <span>{t.common.labels.phone}</span>
             <input
+              id="dashboard-ship-phone"
+              name="recipientPhone"
+              type="tel"
+              autoComplete="tel"
               value={shipping.recipientPhone}
               onChange={(e) => onChange({ recipientPhone: e.target.value })}
             />
           </label>
-          <label className="field">
+          <label className="field" htmlFor="dashboard-ship-city">
             <span>ქალაქი</span>
-            <input value={shipping.city} onChange={(e) => onChange({ city: e.target.value })} />
+            <input
+              id="dashboard-ship-city"
+              name="city"
+              autoComplete="address-level2"
+              value={shipping.city}
+              onChange={(e) => onChange({ city: e.target.value })}
+            />
           </label>
-          <label className="field">
+          <label className="field" htmlFor="dashboard-ship-region">
             <span>რეგიონი</span>
             <input
+              id="dashboard-ship-region"
+              name="region"
+              autoComplete="address-level1"
               value={shipping.region ?? ""}
               onChange={(e) => onChange({ region: e.target.value })}
             />
           </label>
-          <label className="field" style={{ gridColumn: "1 / -1" }}>
+          <label className="field" htmlFor="dashboard-ship-address" style={{ gridColumn: "1 / -1" }}>
             <span>მისამართი</span>
             <input
+              id="dashboard-ship-address"
+              name="addressLine1"
+              autoComplete="street-address"
               value={shipping.addressLine1}
               onChange={(e) => onChange({ addressLine1: e.target.value })}
             />

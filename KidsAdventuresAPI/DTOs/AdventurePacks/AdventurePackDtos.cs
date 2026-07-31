@@ -31,11 +31,17 @@ public class AdventurePackResponse
 
     public bool HasPrintEntitlement { get; set; }
     public string? CoverImageUrl { get; set; }
+
+    /// <summary>
+    /// The book's own title. The library list renders this on every card, so it belongs on
+    /// the list shape and not only on the detail one — without it a card falls back to a
+    /// generic world title with a placeholder hero name.
+    /// </summary>
+    public string? Title { get; set; }
 }
 
 public sealed class AdventurePackDetailResponse : AdventurePackResponse
 {
-    public string? Title { get; set; }
     public string? ChildName { get; set; }
 
     /// <summary>

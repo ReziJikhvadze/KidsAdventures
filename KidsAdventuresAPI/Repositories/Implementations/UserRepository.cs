@@ -264,6 +264,35 @@ public sealed class UserRepository(ISqlConnectionFactory connectionFactory) : IU
         CreatedAt = row.CreatedAt
     };
 
+
+    public async Task<int> PurgeDemoAccountsAsync(string emailSuffix, CancellationToken cancellationToken)
+    {
+        // Children first, then the accounts. Ordered by foreign key so the deletes succeed
+        // without disabling constraints, which is exactly the kind of thing that must never
+        // become a habit against a real database.
+        const string sql = """
+            DECLARE @Ids TABLE (Id UNIQUEIDENTIFIER PRIMARY KEY);
+            INSERT INTO @Ids (Id) SELECT Id FROM dbo.Users WHERE Email LIKE @Pattern;
+
+            DELETE FROM dbo.PromoRedemptions WHERE UserId IN (SELECT Id FROM @Ids);
+            DELETE FROM dbo.PrintOrders      WHERE OrderId IN
+                (SELECT Id FROM dbo.Orders WHERE UserId IN (SELECT Id FROM @Ids));
+            DELETE FROM dbo.Orders           WHERE UserId IN (SELECT Id FROM @Ids);
+            DELETE FROM dbo.SeriesMemories   WHERE UserId IN (SELECT Id FROM @Ids);
+            DELETE FROM dbo.BookCharacters   WHERE BookId IN
+                (SELECT Id FROM dbo.AdventurePacks WHERE UserId IN (SELECT Id FROM @Ids));
+            DELETE FROM dbo.AdventurePacks   WHERE UserId IN (SELECT Id FROM @Ids);
+            DELETE FROM dbo.Characters       WHERE UserId IN (SELECT Id FROM @Ids);
+            DELETE FROM dbo.Users            WHERE Id IN (SELECT Id FROM @Ids);
+
+            SELECT COUNT(*) FROM @Ids;
+            """;
+
+        using var connection = connectionFactory.CreateConnection();
+        return await connection.ExecuteScalarAsync<int>(new CommandDefinition(
+            sql, new { Pattern = "%" + emailSuffix }, cancellationToken: cancellationToken));
+    }
+
     private sealed class UserRow
     {
         public Guid Id { get; set; }

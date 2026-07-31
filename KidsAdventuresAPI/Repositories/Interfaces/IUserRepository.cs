@@ -7,6 +7,9 @@ public interface IUserRepository
     Task<User?> GetByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken);
     Task<User?> GetByConfirmationTokenAsync(string token, CancellationToken cancellationToken);
     Task<Guid> CreateAsync(User user, CancellationToken cancellationToken);
+
+    /// <summary>Development-only cleanup of seeded demo accounts and everything hanging off them.</summary>
+    Task<int> PurgeDemoAccountsAsync(string emailSuffix, CancellationToken cancellationToken);
     Task<bool> UpdateSubscriptionTypeAsync(Guid userId, SubscriptionType subscriptionType, CancellationToken cancellationToken);
     Task<bool> ConfirmEmailAsync(Guid userId, CancellationToken cancellationToken);
 

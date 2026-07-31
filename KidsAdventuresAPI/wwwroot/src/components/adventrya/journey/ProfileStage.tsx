@@ -1,6 +1,7 @@
-import { Camera, Check, Lock, Plus, Sparkles } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { Camera, Check, Lock, Plus } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { SparkleIcon } from "@/components/adventrya/landing/icons";
 import {
   BOOK_LANGUAGES,
   type BookLanguage,
@@ -23,13 +24,33 @@ type Props = {
   onContinue: () => void;
 };
 
+/**
+ * Demo: `useState(additional.length ? null : "primary")` — with only the main
+ * hero, open `ux-character-form` on entry. Summaries appear after save (or when
+ * supporting characters already exist).
+ */
+function entryEditingId(characters: DraftCharacter[]): string | null {
+  if (characters.some((c) => !c.isPrimary)) return null;
+  return characters.find((c) => c.isPrimary)?.localId ?? null;
+}
+
 export function ProfileStage({ draft, onChange, onContinue }: Props) {
-  const [editingId, setEditingId] = useState<string | null>(
-    draft.characters.find((c) => !c.name.trim())?.localId ??
-      draft.characters.find((c) => c.isPrimary)?.localId ??
-      null,
+  const [editingId, setEditingId] = useState<string | null>(() =>
+    entryEditingId(draft.characters),
   );
   const [error, setError] = useState<string | null>(null);
+
+  // The draft is only read from localStorage after the first render (SSR safety),
+  // and that swap hands every character a brand-new localId. Without re-applying
+  // the entry rule the id above goes stale and the hero renders as an empty
+  // "ready" summary instead of an open form.
+  useEffect(() => {
+    setEditingId((current) => {
+      if (current === null) return null;
+      if (draft.characters.some((c) => c.localId === current)) return current;
+      return entryEditingId(draft.characters);
+    });
+  }, [draft.characters]);
   const copy = t.journey;
 
   const editing = draft.characters.find((c) => c.localId === editingId) ?? null;
@@ -120,7 +141,7 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
     <section className="ux-profile-stage">
       <header className="ux-stage-heading">
         <p className="eyebrow">
-          <Sparkles aria-hidden="true" />
+          <SparkleIcon />
           {copy.profile.eyebrow}
         </p>
         <h1>{copy.profile.title}</h1>
@@ -432,39 +453,33 @@ function CharacterSummary({
   onEdit: () => void;
   onRemove?: () => void;
 }) {
-  const meta = useMemo(() => {
-    const parts = [
-      t.common.characterTypes[character.characterType],
-      character.gender ? t.common.genders[character.gender] : null,
-      character.eyeColor ? t.common.eyeColors[character.eyeColor] : null,
-      !character.isPrimary ? character.relationship : null,
-    ].filter(Boolean);
-    return parts.join(" · ");
+  const relationshipLabel = useMemo(() => {
+    if (character.isPrimary) return null;
+    if (character.relationship === "სხვა") {
+      return character.customRelationship.trim() || character.relationship;
+    }
+    return character.relationship || null;
   }, [character]);
+
+  const label = character.isPrimary
+    ? t.journey.profile.primaryCharacter
+    : t.journey.profile.nthCharacter(index + 1);
 
   return (
     <article className="ux-character-summary">
       <span className="ux-ready-check" aria-hidden="true">
         <Check />
       </span>
-      <div
-        className="ux-summary-avatar"
-        style={
-          character.photoDataUrl
-            ? { backgroundImage: `url("${character.photoDataUrl}")`, backgroundSize: "cover" }
-            : undefined
-        }
-      >
-        {!character.photoDataUrl ? character.name.trim().charAt(0) || "A" : null}
-      </div>
+      <span className="ux-summary-avatar">
+        {character.name.trim().slice(0, 1) || "A"}
+      </span>
       <div>
-        <small>
-          {character.isPrimary
-            ? t.journey.profile.primaryCharacter
-            : t.journey.profile.nthCharacter(index + 1)}
-        </small>
-        <h2>{character.name || t.common.fallbackHeroName}</h2>
-        <p>{meta}</p>
+        <small>{label}</small>
+        <h2>{character.name}</h2>
+        <p>
+          {relationshipLabel ? `${relationshipLabel} · ` : ""}
+          {t.journey.profile.ready}
+        </p>
       </div>
       <div className="ux-summary-actions">
         <button type="button" onClick={onEdit}>

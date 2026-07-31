@@ -21,6 +21,8 @@ public sealed class AdventureGenerationService(
     IAdventurePdfService adventurePdfService,
     IBlobStorageService blobStorageService,
     IEmailService emailService,
+    ISeriesMemoryService seriesMemoryService,
+    IStoryRuleRepository storyRuleRepository,
     IOptions<EmailOptions> emailOptions,
     IOptions<OpenAiOptions> openAiOptions,
     ILogger<AdventureGenerationService> logger) : IAdventureGenerationService
@@ -155,7 +157,7 @@ public sealed class AdventureGenerationService(
 
         if (pack.Status != AdventurePackStatus.StoryReady || string.IsNullOrWhiteSpace(pack.GeneratedJson))
         {
-            throw new InvalidOperationException("Your story needs to finish writing before it can be illustrated.");
+            throw new InvalidOperationException("ილუსტრაციებამდე ისტორია ბოლომდე უნდა დაიწეროს.");
         }
 
         if (HasAllSlideshowIllustrations(pack))
@@ -201,8 +203,8 @@ public sealed class AdventureGenerationService(
         {
             throw new InvalidOperationException(
                 pack.IsWelcomeGiftStory
-                    ? "Your free illustrated page is still being created. Wait a moment, then export your preview PDF."
-                    : "Illustrations are still being created. Wait until your slideshow is fully illustrated in My Books, then export PDF.");
+                    ? "უფასო ილუსტრირებული გვერდი ჯერ იქმნება. სცადე ერთ წუთში."
+                    : "ილუსტრაციები ჯერ იქმნება. დაელოდე დასრულებას და შემდეგ ჩამოტვირთე PDF.");
         }
 
         await adventurePackRepository.UpdateStatusAsync(
@@ -408,6 +410,15 @@ public sealed class AdventureGenerationService(
                     cancellationToken);
             }
 
+            // Fold this book into the series memory as soon as the TEXT exists, not after the
+            // illustrations. The next book needs the companions and moments, not the pictures,
+            // and illustration is the part most likely to fail and be retried.
+            await seriesMemoryService.RecordBookAsync(
+                pack,
+                JsonSerializer.Serialize(content, JsonOptions),
+                content.ChildName,
+                cancellationToken);
+
             // Reuse photo bytes only — skip duplicate vision API calls (already done during story writing).
             var input = await BuildIllustrationInputAsync(pack, cancellationToken);
             var castPhotos = await LoadCastPhotosAsync(pack, input, cancellationToken);
@@ -427,9 +438,17 @@ public sealed class AdventureGenerationService(
                 previewUrl,
                 cancellationToken);
 
+            // The library list only carries these two columns, so without this the shelf
+            // shows a generic world title and stock art instead of the book that was made.
+            await adventurePackRepository.UpdateBookPresentationAsync(
+                packId,
+                string.IsNullOrWhiteSpace(content.Title) ? null : content.Title,
+                previewUrl,
+                cancellationToken);
+
             await SetProgressAsync(
                 packId,
-                "Your picture-book slideshow is ready! Read it in My Books.",
+                "წიგნი მზადაა! გახსენი ბიბლიოთეკაში.",
                 cancellationToken);
 
             await SendSlideshowReadyEmailAsync(pack, input.ChildName, cancellationToken);
@@ -496,17 +515,17 @@ public sealed class AdventureGenerationService(
 
             await SetProgressAsync(
                 packId,
-                "Your free sample page is illustrated! Unlock the full illustrated book for $4.99.",
+                "უფასო ილუსტრირებული გვერდი მზადაა.",
                 cancellationToken);
         }
         catch (Exception ex)
         {
-            // The sample is a free perk — never fail the pack or charge anything; the user can still read the
-            // story and unlock all illustrations with the $4.99 credit.
+            // The sample is a free perk — never fail the pack or charge anything; the story
+            // stays readable either way.
             logger.LogWarning(ex, "Free sample illustration failed for pack {PackId}", packId);
             await SetProgressAsync(
                 packId,
-                "Your story is ready to read. Unlock illustrations ($4.99) to bring every page to life.",
+                "ისტორია წასაკითხად მზადაა.",
                 cancellationToken);
         }
     }
@@ -531,7 +550,7 @@ public sealed class AdventureGenerationService(
 
             await LoadIllustrationsForPdfAsync(pack, content, cancellationToken);
 
-            await SetProgressAsync(packId, "Assembling your storybook PDF… ~90%", cancellationToken);
+            await SetProgressAsync(packId, "PDF-ს ვაწყობთ… ~90%", cancellationToken);
 
             var pdfBytes = adventurePdfService.GeneratePdf(content, pack.Theme.ToString());
             var blobName = $"{pack.UserId}/{pack.Id}.pdf";
@@ -548,7 +567,7 @@ public sealed class AdventureGenerationService(
 
             await SetProgressAsync(
                 packId,
-                "Done! Open My Books to download your storybook PDF.",
+                "მზადაა! PDF-ის ჩამოსატვირთად გახსენი ბიბლიოთეკა.",
                 cancellationToken);
 
             try
@@ -577,7 +596,7 @@ public sealed class AdventureGenerationService(
             }
             await SetProgressAsync(
                 packId,
-                "PDF creation failed. Your story is still saved — try Create illustrated PDF again.",
+                "PDF ვერ შეიქმნა. ისტორია შენახულია — სცადე ხელახლა.",
                 cancellationToken);
         }
     }
@@ -630,6 +649,19 @@ public sealed class AdventureGenerationService(
             });
         }
 
+        // Only the story pass needs the series memory; the illustration pass rebuilds its own
+        // input and would just be paying to carry text the image model never reads.
+        var seriesMemory = pack.SeriesId is { } seriesId
+            ? await seriesMemoryService.GetPromptMemoryAsync(seriesId, cancellationToken)
+            : null;
+
+        // Operator tuning for this age band and world. Absent or untuned means the built-in
+        // age guidance stands alone, exactly as before the matrix existed.
+        var storyRule = await storyRuleRepository.ResolveAsync(
+            StoryAgeBands.ForAge(cast.HeroAge),
+            pack.Theme.ToString(),
+            cancellationToken);
+
         return new AdventureGenerationInput
         {
             ChildName = cast.Hero.Name,
@@ -639,7 +671,10 @@ public sealed class AdventureGenerationService(
             FamilyMembers = supporting,
             OptionalStoryNotes = pack.OptionalStoryNotes,
             StoryLanguage = language,
-            StoryPageCount = ResolveEffectivePageCount(pack)
+            StoryPageCount = ResolveEffectivePageCount(pack),
+            SeriesMemory = seriesMemory,
+            ChapterNumber = pack.SequenceNumber > 0 ? pack.SequenceNumber : 1,
+            StoryRule = storyRule
         };
     }
 
@@ -856,7 +891,7 @@ public sealed class AdventureGenerationService(
             cancellationToken);
         await SetProgressAsync(
             packId,
-            "Something went wrong. Try again or pick a simpler theme.",
+            "რაღაც შეფერხდა. სცადე ხელახლა ან აირჩიე სხვა თემა.",
             cancellationToken);
     }
 
@@ -956,15 +991,15 @@ public sealed class AdventureGenerationService(
         {
             throw new InvalidOperationException(
                 pack.IsWelcomeGiftStory
-                    ? "Your free illustrated page is not ready yet. Open My Books and try again in a moment."
-                    : "PDF export only uses your saved slideshow illustrations. Wait until every page is illustrated.");
+                    ? "უფასო ილუსტრირებული გვერდი ჯერ არ არის მზად. სცადე ერთ წუთში."
+                    : "დაელოდე, სანამ ყველა გვერდი დაილუსტრირდება, შემდეგ ჩამოტვირთე PDF.");
         }
 
         await SetProgressAsync(
             pack.Id,
             pack.IsWelcomeGiftStory && !HasAllSlideshowIllustrations(pack)
-                ? "Building your free preview PDF… ~40%"
-                : "Using your slideshow illustrations… ~40%",
+                ? "უფასო preview PDF-ს ვქმნით… ~40%"
+                : "ილუსტრაციებს ვამზადებთ… ~40%",
             cancellationToken);
 
         var pageCount = ResolveEffectivePageCount(pack);
@@ -984,7 +1019,7 @@ public sealed class AdventureGenerationService(
             var pct = 40 + (int)Math.Round(45.0 * (i + 1) / Math.Max(1, pageCount));
             await SetProgressAsync(
                 pack.Id,
-                $"Preparing page {i + 1} of {pageCount} for PDF… ~{pct}%",
+                $"PDF-ისთვის ვამზადებთ გვერდს {i + 1} / {pageCount}… ~{pct}%",
                 cancellationToken);
         }
     }
@@ -1185,9 +1220,12 @@ public sealed class AdventureGenerationService(
                     null,
                     cancellationToken);
 
+                // The explicit percent is what the client reads for the progress bar, so it
+                // has to survive translation — the prose around it is free to change.
+                var illustrationPct = 35 + (int)Math.Round(60.0 * (pageIndex + 1) / Math.Max(1, pageCount));
                 await SetProgressAsync(
                     packId,
-                    $"Creating illustrations… page {pageIndex + 1} of {pageCount} is ready",
+                    $"ილუსტრაციებს ვხატავთ… გვერდი {pageIndex + 1} / {pageCount} მზადაა · ~{Math.Min(95, illustrationPct)}%",
                     cancellationToken);
             }
             finally

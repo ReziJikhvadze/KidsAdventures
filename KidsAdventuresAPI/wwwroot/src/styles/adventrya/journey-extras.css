@@ -81,6 +81,14 @@
 }
 .ux-preview-loading-stage {
   max-width: 1100px;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.ux-preview-loading-stage .ux-preview-loader {
+  width: 100%;
 }
 .ux-preview-loader {
   display: grid;
@@ -320,6 +328,33 @@
 }
 .ux-auth-switcher button {
   color: #2d1f448c;
+}
+.ux-google-social-wrap,
+.ux-google-default-wrap {
+  position: relative;
+  width: 100%;
+  margin-top: 9px;
+}
+.ux-google-social-wrap .social-auth {
+  margin-top: 0;
+  pointer-events: none;
+}
+.ux-google-default-wrap > button {
+  width: 100%;
+  pointer-events: none;
+}
+.ux-google-gis-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  opacity: 0.02;
+}
+.ux-google-gis-overlay > div,
+.ux-google-gis-overlay iframe {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 47px;
 }
 .ux-phone-field > div {
   display: grid;

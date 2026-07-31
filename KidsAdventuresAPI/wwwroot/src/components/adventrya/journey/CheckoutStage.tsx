@@ -176,7 +176,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const thumbPages = heroDemoPages(heroName, worldId).slice(0, 1);
 
   return (
-    <section className="checkout-stage ux-checkout-stage">
+    <section className="journey-stage checkout-stage ux-checkout-stage">
       <div className="checkout-form">
         <p className="eyebrow">
           <Sparkles aria-hidden="true" /> {t.journey.checkout.secure}
@@ -211,31 +211,49 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
               <div className="card-input">
                 <CreditCard aria-hidden="true" size={18} />
                 <input
+                  id="checkout-card-number"
+                  name="cardNumber"
                   readOnly
                   defaultValue="4242 4242 4242 4242"
                   aria-label={t.journey.checkout.cardNumber}
+                  autoComplete="cc-number"
                 />
                 <small>VISA · MC</small>
               </div>
             </label>
 
             <div className="form-grid">
-              <label className="field">
+              <label className="field" htmlFor="checkout-card-expiry">
                 <span>{t.journey.checkout.expiry}</span>
-                <input readOnly defaultValue="12 / 29" />
+                <input
+                  id="checkout-card-expiry"
+                  name="cardExpiry"
+                  readOnly
+                  defaultValue="12 / 29"
+                  autoComplete="cc-exp"
+                />
               </label>
-              <label className="field">
+              <label className="field" htmlFor="checkout-card-cvc">
                 <span>CVC</span>
-                <input readOnly defaultValue="123" />
+                <input
+                  id="checkout-card-cvc"
+                  name="cardCvc"
+                  readOnly
+                  defaultValue="123"
+                  autoComplete="cc-csc"
+                />
               </label>
             </div>
           </>
         )}
 
         {isPrint ? (
-          <label className="field field-wide" style={{ marginTop: 16 }}>
+          <label className="field field-wide" htmlFor="checkout-ship-recipient" style={{ marginTop: 16 }}>
             <span>{t.journey.checkout.shippingAddress}</span>
             <input
+              id="checkout-ship-recipient"
+              name="recipientName"
+              autoComplete="name"
               value={draft.shipping.recipientName}
               placeholder="მიმღები"
               onChange={(e) => updateShipping({ recipientName: e.target.value })}
@@ -245,37 +263,53 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
 
         {isPrint ? (
           <div className="form-grid">
-            <label className="field">
+            <label className="field" htmlFor="checkout-ship-phone">
               <span>{t.common.labels.phone}</span>
               <input
+                id="checkout-ship-phone"
+                name="recipientPhone"
+                type="tel"
+                autoComplete="tel"
                 value={draft.shipping.recipientPhone}
                 onChange={(e) => updateShipping({ recipientPhone: e.target.value })}
               />
             </label>
-            <label className="field">
+            <label className="field" htmlFor="checkout-ship-city">
               <span>ქალაქი</span>
               <input
+                id="checkout-ship-city"
+                name="city"
+                autoComplete="address-level2"
                 value={draft.shipping.city}
                 onChange={(e) => updateShipping({ city: e.target.value })}
               />
             </label>
-            <label className="field" style={{ gridColumn: "1 / -1" }}>
+            <label className="field" htmlFor="checkout-ship-address" style={{ gridColumn: "1 / -1" }}>
               <span>მისამართი</span>
               <input
+                id="checkout-ship-address"
+                name="addressLine1"
+                autoComplete="street-address"
                 value={draft.shipping.addressLine1}
                 onChange={(e) => updateShipping({ addressLine1: e.target.value })}
               />
             </label>
-            <label className="field">
+            <label className="field" htmlFor="checkout-ship-region">
               <span>რეგიონი</span>
               <input
+                id="checkout-ship-region"
+                name="region"
+                autoComplete="address-level1"
                 value={draft.shipping.region ?? ""}
                 onChange={(e) => updateShipping({ region: e.target.value })}
               />
             </label>
-            <label className="field">
+            <label className="field" htmlFor="checkout-ship-address2">
               <span>დამატებითი</span>
               <input
+                id="checkout-ship-address2"
+                name="addressLine2"
+                autoComplete="address-line2"
                 value={draft.shipping.addressLine2 ?? ""}
                 onChange={(e) => updateShipping({ addressLine2: e.target.value })}
               />
@@ -284,10 +318,12 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
         ) : null}
 
         <div className="ux-promo-panel">
-          <label className="field">
+          <label className="field" htmlFor="checkout-promo">
             <span>Promocode</span>
             <div>
               <input
+                id="checkout-promo"
+                name="promoCode"
                 value={promoInput}
                 disabled={promoState === "applied"}
                 placeholder={t.journey.checkout.promoPlaceholder}
@@ -344,7 +380,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
           <ArrowRight aria-hidden="true" size={16} />
         </button>
 
-        <Link className="text-back" to="/create" hash="auth">
+        <Link className="text-back" to="/create" hash="preview">
           <ArrowLeft aria-hidden="true" size={13} /> უკან
         </Link>
       </div>

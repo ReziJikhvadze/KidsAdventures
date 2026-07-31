@@ -146,6 +146,36 @@ public sealed class OpenAiService(
         return text.Trim();
     }
 
+    public async Task<string> CompleteTextAsync(string promptText, CancellationToken cancellationToken)
+    {
+        var client = CreateClient();
+
+        var payload = new
+        {
+            model = _options.Model,
+            input = new object[]
+            {
+                new
+                {
+                    role = "user",
+                    content = new object[]
+                    {
+                        new { type = "input_text", text = promptText }
+                    }
+                }
+            }
+        };
+
+        using var response = await client.PostAsJsonAsync("responses", payload, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"OpenAI text completion failed: {body}");
+        }
+
+        return (ExtractOutputText(body) ?? string.Empty).Trim();
+    }
+
     public async Task<byte[]> GenerateStoryImageAsync(
         string imagePrompt,
         StoryImageReference? reference,

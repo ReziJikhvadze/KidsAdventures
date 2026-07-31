@@ -34,7 +34,7 @@ type AuthContextValue = {
   isLoading: boolean;
   canCreatePdf: boolean;
   login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: (idToken: string) => Promise<void>;
+  loginWithGoogle: (credential: { idToken?: string; accessToken?: string }) => Promise<void>;
   register: (email: string, password: string, recaptchaToken?: string) => Promise<void>;
   continueWith: (email: string, password: string, recaptchaToken?: string) => Promise<void>;
   signInWithMagicLink: (token: string) => Promise<void>;
@@ -159,6 +159,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const session = await authApi.getSession();
       applySessionInfo(session);
     } catch (error) {
+      // Keep the existing session on transient /me failures. Only clear when the
+      // token itself is rejected — phone-only accounts used to 401 here falsely.
       if (error instanceof ApiError && error.status === 401) {
         logout();
         return;
@@ -215,8 +217,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const loginWithGoogle = useCallback(
-    async (idToken: string) => {
-      const session = await authApi.loginWithGoogle(idToken);
+    async (credential: { idToken?: string; accessToken?: string }) => {
+      const session = await authApi.loginWithGoogle(credential);
       applySession(session);
     },
     [applySession],

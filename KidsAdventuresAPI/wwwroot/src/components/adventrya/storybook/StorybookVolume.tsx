@@ -293,14 +293,18 @@ export function StorybookVolume({
     return () => node.removeEventListener("wheel", handler);
   }, [interactive, turning, canNext, canPrev, goTo, nextTarget, prevTarget]);
 
+  // The QR leaf sits past the last story page, so numbering it produces inverted
+  // ranges like "7–6" on the final step. It gets its own label instead.
   const progressLabel =
     index === 0
       ? t.story.storybook.coverLabel(totalStoryPages || leaves.length - 2)
       : index === 1
         ? t.story.storybook.insideCover
-        : desktopSpread && index >= 2
-          ? t.story.storybook.spreadLabel(index - 1, Math.min(totalStoryPages, index), totalStoryPages || 1)
-          : t.story.storybook.pageLabel(Math.max(1, index - 1), totalStoryPages || 1);
+        : leaves[index]?.kind === "qr"
+          ? t.story.storybook.qrTitle
+          : desktopSpread && index >= 2
+            ? t.story.storybook.spreadLabel(index - 1, Math.min(totalStoryPages, index), totalStoryPages || 1)
+            : t.story.storybook.pageLabel(Math.max(1, index - 1), totalStoryPages || 1);
 
   const spreadClass = desktopSpread ? "uses-desktop-spread" : "uses-single-page";
   const openClass = index === 0 ? "is-closed" : "is-open";
@@ -514,12 +518,16 @@ export function StorybookVolume({
                 aria-label={
                   step === 0
                     ? t.story.storybook.railCover
-                    : desktopSpread && step > 1
-                      ? t.story.storybook.railSpread(step - 1, Math.min(totalStoryPages, step))
-                      : t.story.storybook.railPage(Math.max(1, step - 1))
+                    : leaves[step]?.kind === "qr"
+                      ? t.story.storybook.qrTitle
+                      : desktopSpread && step > 1
+                        ? t.story.storybook.railSpread(step - 1, Math.min(totalStoryPages, step))
+                        : t.story.storybook.railPage(Math.max(1, step - 1))
                 }
               >
                 {step === 0 ? (
+                  <Sparkles size={11} absoluteStrokeWidth />
+                ) : leaves[step]?.kind === "qr" ? (
                   <Sparkles size={11} absoluteStrokeWidth />
                 ) : desktopSpread && step > 1 ? (
                   `${step - 1}–${Math.min(totalStoryPages, step)}`

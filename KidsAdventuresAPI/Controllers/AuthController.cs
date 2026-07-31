@@ -136,7 +136,9 @@ public sealed class AuthController(
 
         return Ok(new SessionInfoResponse
         {
-            Email = user?.Email ?? userContext.GetEmail(),
+            // Phone-only accounts have no email (and no email JWT claim). Falling back to
+            // GetEmail() used to throw → 401 → the SPA logged the parent out after payment.
+            Email = user?.Email ?? string.Empty,
             PhoneNumber = user?.PhoneNumber,
             DisplayName = user?.DisplayName,
             PreferredLanguage = user?.PreferredLanguage ?? "ka",

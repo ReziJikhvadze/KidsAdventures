@@ -17,7 +17,8 @@ public sealed class UserContextService(IHttpContextAccessor accessor) : IUserCon
 
     public string GetEmail()
     {
-        return accessor.HttpContext?.User.FindFirstValue(ClaimTypes.Email)
-               ?? throw new UnauthorizedAccessException("User email claim is missing.");
+        // Phone-only JWTs omit the email claim on purpose — treat missing as empty,
+        // never as "unauthenticated".
+        return accessor.HttpContext?.User.FindFirstValue(ClaimTypes.Email) ?? string.Empty;
     }
 }

@@ -10,7 +10,7 @@ public sealed class EmailOptions
     public int SmtpPort { get; set; } = 587;
     public string SmtpUser { get; set; } = "rezijikhvadze@gmail.com";
     public string SmtpPassword { get; set; } = string.Empty;
-    public string BaseUrl { get; set; } = "http://localhost:8080";
+    public string BaseUrl { get; set; } = "http://localhost:5173";
     /// <summary>API origin used in email links (confirm-email hits the API, then redirects to BaseUrl).</summary>
     public string ApiBaseUrl { get; set; } = "http://localhost:5000";
 
