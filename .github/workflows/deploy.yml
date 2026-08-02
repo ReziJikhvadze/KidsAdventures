@@ -110,9 +110,19 @@ jobs:
           package: api.zip
 
       # Migrations run during startup, so "healthy" genuinely means "schema applied".
+      #
+      # The hostname is queried rather than assembled as "<app>.azurewebsites.net":
+      # these apps use Azure's unique-default-hostname format
+      # (adventuresapi-<hash>.polandcentral-01.azurewebsites.net), so the short form
+      # does not resolve here — and could belong to an unrelated tenant's app.
       - name: Smoke test
         run: |
-          url="https://${{ vars.AZURE_API_APP_NAME }}.azurewebsites.net/api/auth/config"
+          host=$(az webapp show \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_API_APP_NAME }}" \
+            --query defaultHostName -o tsv)
+          echo "Probing $host"
+          url="https://$host/api/auth/config"
           for i in $(seq 1 30); do
             code=$(curl -s -o /tmp/body -w "%{http_code}" "$url" || echo 000)
             if [ "$code" = "200" ]; then
@@ -160,9 +170,15 @@ jobs:
           --name ${{ vars.AZURE_FRONTEND_APP_NAME }}
           --startup-file "node server/index.mjs"
 
+      # Queried, not assembled — see the note on the API smoke test above.
       - name: Smoke test
         run: |
-          url="https://${{ vars.AZURE_FRONTEND_APP_NAME }}.azurewebsites.net/"
+          host=$(az webapp show \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ vars.AZURE_FRONTEND_APP_NAME }}" \
+            --query defaultHostName -o tsv)
+          echo "Probing $host"
+          url="https://$host/"
           for i in $(seq 1 30); do
             code=$(curl -s -o /dev/null -w "%{http_code}" "$url" || echo 000)
             if [ "$code" = "200" ]; then echo "Frontend healthy."; exit 0; fi
