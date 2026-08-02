@@ -16,6 +16,8 @@ import { setPinterestEnhancedMatch } from "@/lib/analytics/pinterest";
 import { AuthProvider, useAuth } from "@/lib/auth/AuthContext";
 import { GoogleAuthProvider } from "@/lib/auth/GoogleAuthProvider";
 import { BRAND_LOGO_URL } from "@/lib/brand";
+import { LocalizedDocumentTitle } from "@/components/LocalizedDocumentTitle";
+import { LocaleProvider } from "@/lib/i18n";
 import { buildRootMeta } from "@/lib/seo";
 
 function NotFoundComponent() {
@@ -220,13 +222,16 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <GoogleAuthProvider>
-        <AuthProvider>
-          <PinterestEnhancedMatch />
-          <Outlet />
-          <Toaster />
-        </AuthProvider>
-      </GoogleAuthProvider>
+      <LocaleProvider>
+        <GoogleAuthProvider>
+          <AuthProvider>
+            <PinterestEnhancedMatch />
+            <LocalizedDocumentTitle />
+            <Outlet />
+            <Toaster />
+          </AuthProvider>
+        </GoogleAuthProvider>
+      </LocaleProvider>
     </QueryClientProvider>
   );
 }

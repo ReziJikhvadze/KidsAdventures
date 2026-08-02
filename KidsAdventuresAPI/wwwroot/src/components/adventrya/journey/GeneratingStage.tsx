@@ -4,9 +4,9 @@ import { useNavigate } from "@tanstack/react-router";
 
 import { ApiError } from "@/lib/api/client";
 import * as ordersApi from "@/lib/api/orders";
-import { t } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 import { primaryCharacter, type JourneyDraft } from "@/lib/journey/draft";
-import { WORLD_BY_ID, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
+import { useWorldById, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
 
 type Props = {
   draft: JourneyDraft;
@@ -14,6 +14,8 @@ type Props = {
 };
 
 export function GeneratingStage({ draft, onChange }: Props) {
+  const WORLD_BY_ID = useWorldById();
+  const t = useT();
   const navigate = useNavigate();
   const hero = primaryCharacter(draft);
   const worldId = (draft.worldId ?? "dinosaurs") as WorldId;

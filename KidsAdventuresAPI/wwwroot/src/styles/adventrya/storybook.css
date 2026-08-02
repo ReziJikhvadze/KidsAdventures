@@ -304,6 +304,44 @@
   opacity: 0.74;
   transform: scale(1.025);
 }
+
+/*
+ * A preview page past the free allowance: the story text stays sharp and readable,
+ * and only the withheld artwork is obscured. Deliberately narrower than `.is-locked`
+ * above, which blurs the whole page for placeholder leaves that have no text.
+ */
+.storybook-page.is-art-locked .storybook-page-art {
+  filter: blur(10px) saturate(0.8);
+  opacity: 0.62;
+  transform: scale(1.03);
+}
+/* Overlays the art row (the 57% track of .storybook-page-content) without being a
+   descendant of it, so the blur above does not apply to the badge. */
+.storybook-art-lock {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 57%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8%;
+  text-align: center;
+  color: #f2cd84;
+}
+.storybook-art-lock svg {
+  width: 22px;
+  height: 22px;
+}
+.storybook-art-lock small {
+  color: #fff8ebc4;
+  font-size: 6px;
+  line-height: 1.4;
+}
 .storybook-lock {
   position: absolute;
   z-index: 7;
@@ -815,6 +853,17 @@
   max-height: 395px;
   width: min(var(--book-width), 100%);
   aspect-ratio: 0.725;
+}
+/*
+ * A fixed 395px book is what pushed the preview step past a short laptop viewport.
+ * Tie it to available height instead so it keeps its full size on tall screens and
+ * scales down rather than forcing the whole page to scroll on short ones.
+ */
+@media (min-width: 900px) {
+  .ux-preview-product .storybook.uses-desktop-spread.is-open .storybook-volume,
+  .ux-preview-product .storybook-preview .storybook-volume {
+    max-height: min(395px, 40vh);
+  }
 }
 .ux-preview-book-note {
   max-width: 470px;

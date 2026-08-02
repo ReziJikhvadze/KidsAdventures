@@ -16,6 +16,7 @@ import { STORY_THEMES, isStoryThemeId, type StoryThemeId } from "@/lib/themes";
 import { StoryBookReader } from "@/components/story/StoryBookReader";
 import { PhotoPickerActions } from "@/components/ui/PhotoPickerActions";
 import { dataUrlToFile } from "@/lib/api/utils";
+import { SESSION_KEYS } from "@/lib/storage/session";
 import { AuthDialog } from "@/components/auth/AuthDialog";
 import {
   Sparkles,
@@ -148,7 +149,7 @@ type Member = {
 const MAX_MEMBERS = 6;
 
 /** Marks that this browser already used its single free no-login sample page. */
-const GUEST_USED_KEY = "ka_guest_preview_used";
+const GUEST_USED_KEY = SESSION_KEYS.guestPreviewUsed;
 
 function guestPreviewUsed(): boolean {
   try {

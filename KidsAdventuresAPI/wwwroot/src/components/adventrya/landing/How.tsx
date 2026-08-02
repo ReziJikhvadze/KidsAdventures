@@ -1,10 +1,11 @@
 import { Link } from "@tanstack/react-router";
 
-import { t } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 
 import { ArrowIcon, BookIcon, SparkleIcon, WorldIcon } from "./icons";
 
 export function How() {
+  const t = useT();
   return (
     <section className="landing-v3-how landing-v3-section" id="how">
       <div className="landing-v3-how-heading">

@@ -9,8 +9,7 @@ export const story = {
     adventureOf: (hero: string) => `${hero}ს თავგადასავალი`,
     coverLabel: (total: number) => `ყდა · ${total} გვერდი`,
     insideCover: "შიდა ყდა · გვერდი 1",
-    spreadLabel: (from: number, to: number, total: number) =>
-      `გვერდები ${from}–${to} / ${total}`,
+    spreadLabel: (from: number, to: number, total: number) => `გვერდები ${from}–${to} / ${total}`,
     pageLabel: (page: number, total: number) => `გვერდი ${page} / ${total}`,
     railSpread: (from: number, to: number) => `გვერდები ${from}–${to}`,
     railPage: (page: number) => `გვერდი ${page}`,
@@ -71,8 +70,7 @@ export const story = {
     statBook: " წიგნი",
     statMemory: " მოგონება",
     statWorld: " სამყარო",
-    explanation:
-      "შენახული მოგონება შეგიძლია თავიდან წაიკითხო ან აქედან ახალი გზა გააგრძელო.",
+    explanation: "შენახული მოგონება შეგიძლია თავიდან წაიკითხო ან აქედან ახალი გზა გააგრძელო.",
     guidance:
       "შეეხე რუკაზე ნებისმიერ სამყაროს. უკვე ნაპოვნი მეგობრები, მოგონებები და მიზნები ახალ თავშიც ბუნებრივად გაგრძელდება.",
     readyNote: "რექსი მზადაა — ოქროსფერი რუკა ამ სამყაროსკენ მიუძღვის.",
@@ -81,10 +79,9 @@ export const story = {
     unlockNext: "გახსენი შემდეგი თავგადასავალი",
     lastMemory: "ბოლო მოგონება",
     lastMemoryNote: "რექსს თქვენი ბოლო თავგადასავალი ახსოვს.",
-    profileLine: (age: number, stories: number) =>
-      `${age} წლის · ${stories} დასრულებული ამბავი`,
+    profileLine: (age: number, stories: number) => `${age} წლის · ${stories} დასრულებული ამბავი`,
     openedStoriesSuffix: "ს უკვე გახსნილი ისტორიები",
     archiveNote:
       "ძველი წიგნები უცვლელად ინახება; ახალი ინფორმაცია მხოლოდ მომავალ ისტორიებზე ვრცელდება.",
   },
-} as const;
+};

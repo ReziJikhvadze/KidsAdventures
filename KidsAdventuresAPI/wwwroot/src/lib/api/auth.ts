@@ -1,3 +1,5 @@
+import { SESSION_KEYS, clearSessionState } from "@/lib/storage/session";
+
 import { apiRequest, setToken } from "./client";
 import type {
   AuthChallengeResponse,
@@ -11,9 +13,9 @@ export async function getAuthConfig(): Promise<AuthConfigResponse> {
   return apiRequest<AuthConfigResponse>("/api/auth/config", { auth: false });
 }
 
-const GUEST_USED_KEY = "ka_guest_preview_used";
-const GUEST_PREVIEW_ID_KEY = "ka_guest_preview_id";
-const GUEST_STORY_ID_KEY = "ka_guest_story_id";
+const GUEST_USED_KEY = SESSION_KEYS.guestPreviewUsed;
+const GUEST_PREVIEW_ID_KEY = SESSION_KEYS.guestPreviewId;
+const GUEST_STORY_ID_KEY = SESSION_KEYS.guestStoryId;
 
 /** True when this browser already used the free no-login teaser (legacy, non-authoritative hint). */
 export function hasUsedGuestPreview(): boolean {
@@ -175,7 +177,9 @@ export async function verifyPhoneCode(phoneNumber: string, code: string): Promis
 }
 
 export function logout(): void {
-  setToken(null);
+  // Not just the token: the journey draft and guest-teaser ids are session data too,
+  // and leaving them behind showed the next visitor the previous parent's child.
+  clearSessionState();
 }
 
 export async function confirmEmail(token: string): Promise<{ success: boolean; message: string }> {

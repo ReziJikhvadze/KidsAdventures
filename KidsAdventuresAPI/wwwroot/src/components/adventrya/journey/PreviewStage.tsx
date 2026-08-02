@@ -7,7 +7,7 @@ import { storeGuestPreviewIds } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { THEME_ID_TO_API, type StoryPageContent } from "@/lib/api/types";
 import { dataUrlToFile } from "@/lib/api/utils";
-import { formatGel, t } from "@/lib/i18n";
+import { formatGel, useT } from "@/lib/i18n";
 import {
   ageFromBirthDate,
   primaryCharacter,
@@ -15,7 +15,7 @@ import {
   type PreviewTeaser,
 } from "@/lib/journey/draft";
 import { type BookPackage, PRICES } from "@/lib/pricing";
-import { WORLD_BY_ID, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
+import { useWorldById, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
 
 type Props = {
   draft: JourneyDraft;
@@ -24,6 +24,8 @@ type Props = {
 };
 
 export function PreviewStage({ draft, onChange, onContinue }: Props) {
+  const WORLD_BY_ID = useWorldById();
+  const t = useT();
   const hero = primaryCharacter(draft);
   const worldId = (draft.worldId ?? "dinosaurs") as WorldId;
   const world = WORLD_BY_ID[worldId];
@@ -271,6 +273,7 @@ function PackagePanel({
   onSelect: (pkg: BookPackage) => void;
   onContinue: () => void;
 }) {
+  const t = useT();
   const total = useMemo(
     () => (selected === "print" ? PRICES.print : PRICES.digital),
     [selected],

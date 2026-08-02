@@ -11,10 +11,12 @@ import {
 } from "@/lib/api/adventure-packs";
 import type { AdventurePackDetailResponse } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { t } from "@/lib/i18n";
-import { WORLD_BY_ID, isWorldId } from "@/lib/worlds";
+import { useT } from "@/lib/i18n";
+import { useWorldById, isWorldId } from "@/lib/worlds";
 
 export function ReaderScreen() {
+  const WORLD_BY_ID = useWorldById();
+  const t = useT();
   const { bookId } = useParams({ from: "/reader/$bookId" });
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [pack, setPack] = useState<AdventurePackDetailResponse | null>(null);

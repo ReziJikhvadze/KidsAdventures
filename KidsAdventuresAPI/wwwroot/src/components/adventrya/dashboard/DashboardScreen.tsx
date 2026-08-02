@@ -33,15 +33,14 @@ import { getAdventureMap } from "@/lib/api/worlds";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { continueHrefFromMap, firstJourneyHref } from "@/lib/continue";
-import { formatGel, normalizeGeorgianPhone, t } from "@/lib/i18n";
+import { formatGel, normalizeGeorgianPhone, useT } from "@/lib/i18n";
 import { PRICES } from "@/lib/pricing";
-import { WORLD_BY_ID, WORLD_COVER_ART, isWorldId, type WorldId } from "@/lib/worlds";
+import { useWorldById, WORLD_COVER_ART, isWorldId, type WorldId } from "@/lib/worlds";
 
 const emptyShipping = (): ShippingAddressRequest => ({
   recipientName: "",
   recipientPhone: "",
   city: "",
-  region: "",
   addressLine1: "",
   addressLine2: "",
   postalCode: "",
@@ -50,6 +49,8 @@ const emptyShipping = (): ShippingAddressRequest => ({
 });
 
 export function DashboardScreen() {
+  const WORLD_BY_ID = useWorldById();
+  const t = useT();
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const [characters, setCharacters] = useState<CharacterResponse[]>([]);
   const [characterId, setCharacterId] = useState<string | null>(null);
@@ -185,7 +186,6 @@ export function DashboardScreen() {
       recipientName: order.recipientName,
       recipientPhone: order.recipientPhone,
       city: order.city,
-      region: order.region ?? "",
       addressLine1: order.addressLine1,
       addressLine2: order.addressLine2 ?? "",
       postalCode: order.postalCode ?? "",
@@ -504,6 +504,8 @@ function LibraryBookCard({
   onOrderPrint: () => void;
   onEditPrintAddress: (order: PrintOrderResponse) => void;
 }) {
+  const WORLD_BY_ID = useWorldById();
+  const t = useT();
   const worldId = pack.worldId && isWorldId(pack.worldId) ? pack.worldId : "dinosaurs";
   const world = WORLD_BY_ID[worldId];
   const cover = useIllustrationUrl(pack.coverImageUrl) ?? WORLD_COVER_ART[worldId];
@@ -582,6 +584,7 @@ function PrintUpgradePanel({
   onCancel: () => void;
   onSubmit: () => void;
 }) {
+  const t = useT();
   const heading =
     mode === "edit"
       ? "მიწოდების მისამართის განახლება"
@@ -636,16 +639,6 @@ function PrintUpgradePanel({
               autoComplete="address-level2"
               value={shipping.city}
               onChange={(e) => onChange({ city: e.target.value })}
-            />
-          </label>
-          <label className="field" htmlFor="dashboard-ship-region">
-            <span>რეგიონი</span>
-            <input
-              id="dashboard-ship-region"
-              name="region"
-              autoComplete="address-level1"
-              value={shipping.region ?? ""}
-              onChange={(e) => onChange({ region: e.target.value })}
             />
           </label>
           <label className="field" htmlFor="dashboard-ship-address" style={{ gridColumn: "1 / -1" }}>

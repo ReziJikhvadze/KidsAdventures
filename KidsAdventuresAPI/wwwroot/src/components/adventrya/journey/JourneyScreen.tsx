@@ -10,7 +10,7 @@ import { getCharacter } from "@/lib/api/characters";
 import { getToken } from "@/lib/api/client";
 import type { CharacterGender, CharacterType, EyeColor } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { t } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 import { useJourneyDraft, type DraftCharacter } from "@/lib/journey/draft";
 import {
   STAGE_PROGRESS,
@@ -165,6 +165,7 @@ function renderStage(
     onPaid: (orderId: string, bookId?: string | null) => void;
   },
 ) {
+  const t = useT();
   switch (stage) {
     case "profile":
       return (

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { BookLanguage } from "@/lib/i18n";
 import { DEFAULT_BOOK_LANGUAGE } from "@/lib/i18n";
 import type { BookPackage } from "@/lib/pricing";
+import { SESSION_CLEARED_EVENT, SESSION_KEYS } from "@/lib/storage/session";
 import { isWorldId, type WorldId } from "@/lib/worlds";
 import type {
   CharacterGender,
@@ -11,7 +12,7 @@ import type {
   ShippingAddressRequest,
 } from "@/lib/api/types";
 
-const DRAFT_KEY = "adventrya-create-draft-v1";
+const DRAFT_KEY = SESSION_KEYS.journeyDraft;
 
 export type DraftCharacter = {
   localId: string;
@@ -64,7 +65,10 @@ export function emptyCharacter(isPrimary: boolean): DraftCharacter {
     birthDate: "",
     gender: null,
     eyeColor: null,
-    characterType: isPrimary ? "child" : "child",
+    // The type picker was removed from the profile form; everyone drafted here is a
+    // child. Characters synced back from the server keep whatever type they were saved
+    // with, which is why the field stays on the draft rather than being dropped.
+    characterType: "child",
     relationship: "",
     customRelationship: "",
     isPrimary,
@@ -183,6 +187,14 @@ export function useJourneyDraft(): [
 
   useEffect(() => {
     setDraftState(loadDraft());
+  }, []);
+
+  // Signing out wipes the stored draft; drop the in-memory copy too, or the next
+  // edit would persist the previous parent's child straight back into storage.
+  useEffect(() => {
+    const onCleared = () => setDraftState(emptyDraft());
+    window.addEventListener(SESSION_CLEARED_EVENT, onCleared);
+    return () => window.removeEventListener(SESSION_CLEARED_EVENT, onCleared);
   }, []);
 
   const setDraft = useCallback(

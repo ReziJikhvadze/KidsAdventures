@@ -121,6 +121,8 @@ export type StoryPageContent = {
   content: string;
   illustrationUrl?: string | null;
   isIllustrated?: boolean;
+  /** Past the free preview allowance: text is readable, artwork is withheld and blurred. */
+  isLocked?: boolean;
 };
 
 export type AdventurePackResponse = {

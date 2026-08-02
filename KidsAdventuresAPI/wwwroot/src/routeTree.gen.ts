@@ -23,6 +23,7 @@ import { Route as ConfirmEmailRouteImport } from './routes/confirm-email'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ThemesIndexRouteImport } from './routes/themes/index'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ThemesSlugRouteImport } from './routes/themes/$slug'
 import { Route as ReaderBookIdRouteImport } from './routes/reader.$bookId'
 import { Route as BookBookIdRouteImport } from './routes/book.$bookId'
@@ -30,6 +31,7 @@ import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as BillingSuccessRouteImport } from './routes/billing/success'
 import { Route as BillingCancelRouteImport } from './routes/billing/cancel'
 import { Route as AuthMagicRouteImport } from './routes/auth.magic'
+import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
 import { Route as BlogAuthorIdRouteImport } from './routes/blog/author/$id'
 
 const WorldRoute = WorldRouteImport.update({
@@ -103,6 +105,11 @@ const BlogIndexRoute = BlogIndexRouteImport.update({
   path: '/blog/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ThemesSlugRoute = ThemesSlugRouteImport.update({
   id: '/themes/$slug',
   path: '/themes/$slug',
@@ -138,6 +145,11 @@ const AuthMagicRoute = AuthMagicRouteImport.update({
   path: '/auth/magic',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminOrdersRoute = AdminOrdersRouteImport.update({
+  id: '/admin/orders',
+  path: '/admin/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BlogAuthorIdRoute = BlogAuthorIdRouteImport.update({
   id: '/blog/author/$id',
   path: '/blog/author/$id',
@@ -157,6 +169,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/world': typeof WorldRoute
+  '/admin/orders': typeof AdminOrdersRoute
   '/auth/magic': typeof AuthMagicRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
@@ -164,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/book/$bookId': typeof BookBookIdRoute
   '/reader/$bookId': typeof ReaderBookIdRoute
   '/themes/$slug': typeof ThemesSlugRoute
+  '/admin/': typeof AdminIndexRoute
   '/blog/': typeof BlogIndexRoute
   '/themes/': typeof ThemesIndexRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
@@ -181,6 +195,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/world': typeof WorldRoute
+  '/admin/orders': typeof AdminOrdersRoute
   '/auth/magic': typeof AuthMagicRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
@@ -188,6 +203,7 @@ export interface FileRoutesByTo {
   '/book/$bookId': typeof BookBookIdRoute
   '/reader/$bookId': typeof ReaderBookIdRoute
   '/themes/$slug': typeof ThemesSlugRoute
+  '/admin': typeof AdminIndexRoute
   '/blog': typeof BlogIndexRoute
   '/themes': typeof ThemesIndexRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
@@ -206,6 +222,7 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/world': typeof WorldRoute
+  '/admin/orders': typeof AdminOrdersRoute
   '/auth/magic': typeof AuthMagicRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
@@ -213,6 +230,7 @@ export interface FileRoutesById {
   '/book/$bookId': typeof BookBookIdRoute
   '/reader/$bookId': typeof ReaderBookIdRoute
   '/themes/$slug': typeof ThemesSlugRoute
+  '/admin/': typeof AdminIndexRoute
   '/blog/': typeof BlogIndexRoute
   '/themes/': typeof ThemesIndexRoute
   '/blog/author/$id': typeof BlogAuthorIdRoute
@@ -232,6 +250,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/world'
+    | '/admin/orders'
     | '/auth/magic'
     | '/billing/cancel'
     | '/billing/success'
@@ -239,6 +258,7 @@ export interface FileRouteTypes {
     | '/book/$bookId'
     | '/reader/$bookId'
     | '/themes/$slug'
+    | '/admin/'
     | '/blog/'
     | '/themes/'
     | '/blog/author/$id'
@@ -256,6 +276,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/world'
+    | '/admin/orders'
     | '/auth/magic'
     | '/billing/cancel'
     | '/billing/success'
@@ -263,6 +284,7 @@ export interface FileRouteTypes {
     | '/book/$bookId'
     | '/reader/$bookId'
     | '/themes/$slug'
+    | '/admin'
     | '/blog'
     | '/themes'
     | '/blog/author/$id'
@@ -280,6 +302,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/world'
+    | '/admin/orders'
     | '/auth/magic'
     | '/billing/cancel'
     | '/billing/success'
@@ -287,6 +310,7 @@ export interface FileRouteTypes {
     | '/book/$bookId'
     | '/reader/$bookId'
     | '/themes/$slug'
+    | '/admin/'
     | '/blog/'
     | '/themes/'
     | '/blog/author/$id'
@@ -305,6 +329,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   WorldRoute: typeof WorldRoute
+  AdminOrdersRoute: typeof AdminOrdersRoute
   AuthMagicRoute: typeof AuthMagicRoute
   BillingCancelRoute: typeof BillingCancelRoute
   BillingSuccessRoute: typeof BillingSuccessRoute
@@ -312,6 +337,7 @@ export interface RootRouteChildren {
   BookBookIdRoute: typeof BookBookIdRoute
   ReaderBookIdRoute: typeof ReaderBookIdRoute
   ThemesSlugRoute: typeof ThemesSlugRoute
+  AdminIndexRoute: typeof AdminIndexRoute
   BlogIndexRoute: typeof BlogIndexRoute
   ThemesIndexRoute: typeof ThemesIndexRoute
   BlogAuthorIdRoute: typeof BlogAuthorIdRoute
@@ -417,6 +443,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/themes/$slug': {
       id: '/themes/$slug'
       path: '/themes/$slug'
@@ -466,6 +499,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthMagicRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/orders': {
+      id: '/admin/orders'
+      path: '/admin/orders'
+      fullPath: '/admin/orders'
+      preLoaderRoute: typeof AdminOrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/blog/author/$id': {
       id: '/blog/author/$id'
       path: '/blog/author/$id'
@@ -489,6 +529,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   WorldRoute: WorldRoute,
+  AdminOrdersRoute: AdminOrdersRoute,
   AuthMagicRoute: AuthMagicRoute,
   BillingCancelRoute: BillingCancelRoute,
   BillingSuccessRoute: BillingSuccessRoute,
@@ -496,6 +537,7 @@ const rootRouteChildren: RootRouteChildren = {
   BookBookIdRoute: BookBookIdRoute,
   ReaderBookIdRoute: ReaderBookIdRoute,
   ThemesSlugRoute: ThemesSlugRoute,
+  AdminIndexRoute: AdminIndexRoute,
   BlogIndexRoute: BlogIndexRoute,
   ThemesIndexRoute: ThemesIndexRoute,
   BlogAuthorIdRoute: BlogAuthorIdRoute,

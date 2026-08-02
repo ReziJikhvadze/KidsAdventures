@@ -1,4 +1,6 @@
-const TOKEN_KEY = "adventurepacks_token";
+import { SESSION_KEYS } from "@/lib/storage/session";
+
+const TOKEN_KEY = SESSION_KEYS.token;
 
 let unauthorizedHandler: (() => void) | null = null;
 

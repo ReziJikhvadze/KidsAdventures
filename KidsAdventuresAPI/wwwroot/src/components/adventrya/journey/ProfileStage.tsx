@@ -2,12 +2,8 @@ import { Camera, Check, Lock, Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { SparkleIcon } from "@/components/adventrya/landing/icons";
-import {
-  BOOK_LANGUAGES,
-  type BookLanguage,
-  t,
-} from "@/lib/i18n";
-import type { CharacterGender, CharacterType, EyeColor } from "@/lib/api/types";
+import { BOOK_LANGUAGES, type BookLanguage, useT } from "@/lib/i18n";
+import type { CharacterGender, EyeColor } from "@/lib/api/types";
 import {
   emptyCharacter,
   type DraftCharacter,
@@ -15,8 +11,9 @@ import {
 } from "@/lib/journey/draft";
 
 const MAX_CHARACTERS = 3;
-const EYE_COLORS = Object.keys(t.common.eyeColors) as EyeColor[];
-const CHARACTER_TYPES = Object.keys(t.common.characterTypes) as CharacterType[];
+// The keys are the stored values, not display copy, so they stay literal rather than
+// being derived from a catalogue that now changes with the interface language.
+const EYE_COLORS: EyeColor[] = ["brown", "blue", "green", "grey"];
 
 type Props = {
   draft: JourneyDraft;
@@ -35,6 +32,7 @@ function entryEditingId(characters: DraftCharacter[]): string | null {
 }
 
 export function ProfileStage({ draft, onChange, onContinue }: Props) {
+  const t = useT();
   const [editingId, setEditingId] = useState<string | null>(() =>
     entryEditingId(draft.characters),
   );
@@ -96,6 +94,32 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
       characters: prev.characters.filter((c) => c.localId !== localId),
     }));
     if (editingId === localId) setEditingId(null);
+  };
+
+  /**
+   * The main hero cannot simply be dropped — the rest of the journey reads
+   * `primaryCharacter(draft)` and the slot must never be empty. Deleting the hero
+   * therefore swaps in a blank one and reopens the form, so "remove" clears the
+   * child's details and lets a different child be entered.
+   */
+  const clearPrimary = (localId: string) => {
+    const fresh = emptyCharacter(true);
+    onChange((prev) => ({
+      ...prev,
+      characters: prev.characters.map((c) => (c.localId === localId ? fresh : c)),
+    }));
+    setEditingId(fresh.localId);
+    setError(null);
+  };
+
+  /** Supporting characters are removed outright; the hero is cleared in place. */
+  const removeAction = (character: DraftCharacter) => () => {
+    if (character.isPrimary) {
+      clearPrimary(character.localId);
+      return;
+    }
+    removeCharacter(character.localId);
+    setError(null);
   };
 
   const addSupporting = () => {
@@ -186,6 +210,7 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
                   }
                   setError(null);
                 }}
+                onRemove={removeAction(character)}
               />
             );
           }
@@ -202,9 +227,7 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
                 }
                 setEditingId(character.localId);
               }}
-              onRemove={
-                character.isPrimary ? undefined : () => removeCharacter(character.localId)
-              }
+              onRemove={removeAction(character)}
             />
           );
         })}
@@ -246,13 +269,17 @@ function CharacterEditor({
   onChange,
   onSave,
   onCancel,
+  onRemove,
 }: {
   character: DraftCharacter;
   index: number;
   onChange: (patch: Partial<DraftCharacter>) => void;
   onSave: () => void;
   onCancel: () => void;
+  /** Removes a supporting character outright; clears the hero in place. */
+  onRemove?: () => void;
 }) {
+  const t = useT();
   const fileRef = useRef<HTMLInputElement>(null);
   const copy = t.journey;
   const needsGender =
@@ -304,28 +331,6 @@ function CharacterEditor({
               />
             </label>
           </div>
-
-          <fieldset className="choice-fieldset">
-            <legend>{copy.characterForm.typeLegend}</legend>
-            <div className="ux-choice-chips">
-              {CHARACTER_TYPES.map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  className={character.characterType === type ? "selected" : ""}
-                  onClick={() =>
-                    onChange({
-                      characterType: type,
-                      gender:
-                        type === "animal" || type === "fantasy" ? null : character.gender,
-                    })
-                  }
-                >
-                  {t.common.characterTypes[type]}
-                </button>
-              ))}
-            </div>
-          </fieldset>
 
           {needsGender ? (
             <fieldset className="choice-fieldset gender-fieldset">
@@ -437,6 +442,11 @@ function CharacterEditor({
         <button className="ux-inline-link" type="button" onClick={onCancel}>
           {t.common.actions.cancel}
         </button>
+        {onRemove ? (
+          <button className="ux-inline-link danger" type="button" onClick={onRemove}>
+            {t.common.actions.remove}
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -453,6 +463,7 @@ function CharacterSummary({
   onEdit: () => void;
   onRemove?: () => void;
 }) {
+  const t = useT();
   const relationshipLabel = useMemo(() => {
     if (character.isPrimary) return null;
     if (character.relationship === "სხვა") {

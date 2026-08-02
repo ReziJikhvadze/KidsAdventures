@@ -309,22 +309,25 @@ public sealed class AdventurePacksController(
             detail.Title = string.IsNullOrWhiteSpace(pack.Title) ? content.Title : pack.Title;
             detail.ChildName = content.ChildName;
 
-            // The gate lives here rather than in the reader: a locked page's text must not
-            // leave the server at all, or "buy to read the rest" is only a UI suggestion.
-            var readablePages = pack.IsFullyUnlocked
+            // A preview returns the whole story text and withholds only the artwork. The
+            // prose is generated in a single pass regardless, and a preview that shows
+            // blank pages does not read like a book. The illustrations remain the gated
+            // asset — GetIllustration still 404s past the allowance.
+            var unlockedPages = pack.IsFullyUnlocked
                 ? content.StoryPages.Count
                 : Math.Min(PreviewReadablePages, content.StoryPages.Count);
 
             detail.StoryPages = content.StoryPages
-                .Take(readablePages)
                 .Select((page, index) =>
                 {
-                    var isIllustrated = IsPageIllustrated(pack, page, index);
+                    var isLocked = index >= unlockedPages;
+                    var isIllustrated = !isLocked && IsPageIllustrated(pack, page, index);
                     return new StoryPageContentDto
                     {
                         Title = page.Title,
                         Caption = page.Caption,
                         Content = page.Content,
+                        IsLocked = isLocked,
                         IsIllustrated = isIllustrated,
                         IllustrationUrl = isIllustrated
                             ? $"/api/adventure-packs/{pack.Id}/illustrations/{index}"
@@ -333,7 +336,7 @@ public sealed class AdventurePacksController(
                 })
                 .ToList();
 
-            detail.LockedPageCount = content.StoryPages.Count - readablePages;
+            detail.LockedPageCount = content.StoryPages.Count - unlockedPages;
         }
         catch
         {

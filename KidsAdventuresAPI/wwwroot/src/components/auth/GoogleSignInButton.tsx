@@ -2,7 +2,7 @@ import { GoogleLogin, useGoogleLogin, type CredentialResponse } from "@react-oau
 import { Loader2 } from "lucide-react";
 
 import { useGoogleAuthConfig } from "@/lib/auth/GoogleAuthProvider";
-import { t } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 
 type GoogleCredential = { accessToken?: string; idToken?: string };
 
@@ -30,6 +30,7 @@ export function GoogleSignInButton({
   variant = "default",
   label,
 }: GoogleSignInButtonProps) {
+  const t = useT();
   const { loading, enabled } = useGoogleAuthConfig();
 
   if (loading) {
@@ -84,6 +85,7 @@ function GoogleSignInReady({
   variant = "default",
   label,
 }: GoogleSignInButtonProps) {
+  const t = useT();
   const oauthFallback = useGoogleLogin({
     flow: "implicit",
     scope: "openid email profile",
@@ -198,6 +200,7 @@ function GoogleGlyph() {
 }
 
 export function GoogleSignInBusyButton({ variant = "default" }: { variant?: "default" | "social" }) {
+  const t = useT();
   if (variant === "social") {
     return (
       <button className="social-auth" type="button" disabled aria-busy="true">

@@ -1,10 +1,12 @@
 import { Link } from "@tanstack/react-router";
 
-import { t } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/adventrya/LanguageSwitcher";
+import { useT } from "@/lib/i18n";
 
 import { ArrowIcon, ChevronDownIcon, DashboardIcon, GlobeIcon } from "./icons";
 
 export function Header() {
+  const t = useT();
   return (
     <header className="landing-v3-header">
       <Link className="landing-v3-logo" to="/" aria-label={t.common.nav.homeAria}>
@@ -20,9 +22,12 @@ export function Header() {
       </nav>
 
       <div className="landing-v3-header-actions">
-        <button type="button" className="landing-v3-language" aria-label={t.common.nav.changeLanguage}>
-          <GlobeIcon /> KA <ChevronDownIcon />
-        </button>
+        <LanguageSwitcher
+          className="landing-v3-language"
+          globe={<GlobeIcon />}
+          chevron={<ChevronDownIcon />}
+          labelStyle="short"
+        />
         <Link className="landing-v3-dashboard-link" to="/dashboard" aria-label={t.common.nav.openDashboard}>
           <DashboardIcon />
           <span>{t.common.nav.mySpace}</span>

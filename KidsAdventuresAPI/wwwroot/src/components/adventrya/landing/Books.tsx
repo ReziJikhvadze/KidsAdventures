@@ -1,9 +1,10 @@
-import { t } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 import { WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
 
 import { ArrowIcon } from "./icons";
 
 export function Books() {
+  const t = useT();
   return (
     <section className="landing-v3-books landing-v3-section" id="books">
       <div className="landing-v3-section-heading">

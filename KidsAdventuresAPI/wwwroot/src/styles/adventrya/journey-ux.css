@@ -283,7 +283,8 @@
   font-family: inherit;
   font-size: 8px;
 }
-.ux-summary-actions button.danger {
+.ux-summary-actions button.danger,
+.ux-inline-link.danger {
   color: #efb8b5;
 }
 .ux-add-character {
@@ -1533,5 +1534,99 @@
   }
   .living-map {
     height: 750px;
+  }
+}
+
+/*
+ * Desktop density pass for the create-journey stages.
+ *
+ * The stages fit a tall desktop window but overflowed on shorter laptop screens
+ * (~105px past a 700px viewport on the profile step), so the parent had to scroll
+ * through what should read as one screen. This tightens vertical rhythm only —
+ * no type-size or control-height changes, so touch targets are untouched.
+ *
+ * Scoped to wide viewports on purpose: the stacked mobile layout is meant to
+ * scroll, and squeezing it there would only make it cramped.
+ */
+@media (min-width: 900px) {
+  .ux-profile-stage,
+  .ux-preview-stage,
+  .ux-generated-stage {
+    padding-top: clamp(22px, 3vh, 40px);
+    padding-bottom: clamp(24px, 3vh, 40px);
+  }
+
+  .ux-character-stack {
+    gap: 10px;
+  }
+
+  .ux-character-form {
+    padding: 16px;
+  }
+
+  .ux-character-fields {
+    gap: 12px;
+  }
+
+  .ux-book-preferences {
+    padding: 10px 16px;
+  }
+
+  .ux-stage-heading > p:not(.eyebrow) {
+    margin-top: 10px;
+  }
+
+  .ux-preview-heading {
+    margin-bottom: 18px;
+  }
+
+  .ux-form-intro {
+    margin-bottom: 13px;
+  }
+
+  .ux-form-actions {
+    margin-top: 12px;
+  }
+
+  /* Checkout sets its own padding rather than sharing the block above. */
+  .ux-checkout-stage {
+    padding-top: 16px;
+    padding-bottom: 22px;
+  }
+
+  /*
+   * Preview step. Its height is set by the taller of two columns — the book and the
+   * package panel — so trimming only one moves nothing. The book is handled in
+   * storybook.css; this is the panel side, plus the oversized heading above both.
+   */
+  .ux-preview-heading h1 {
+    font-size: clamp(28px, 2.2vw, 38px);
+  }
+
+  .ux-package-panel {
+    gap: 7px;
+    padding: 12px;
+  }
+
+  .ux-package-option {
+    padding: 11px;
+    gap: 4px 10px;
+  }
+
+  .ux-package-heading h2 {
+    font-size: 18px;
+  }
+
+  .ux-preview-total {
+    padding-top: 6px;
+  }
+
+  /* Still a comfortable desktop click target; mobile keeps the original 58px. */
+  .ux-package-panel .journey-primary {
+    min-height: 50px;
+  }
+
+  .ux-preview-book-note {
+    margin-top: 10px;
   }
 }

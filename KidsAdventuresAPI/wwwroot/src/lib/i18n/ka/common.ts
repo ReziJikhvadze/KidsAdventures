@@ -78,13 +78,6 @@ export const common = {
     "სხვა",
   ],
 
-  characterTypes: {
-    child: "ბავშვი",
-    adult: "ზრდასრული",
-    animal: "ცხოველი",
-    fantasy: "ჯადოსნური გმირი",
-  },
-
   genders: {
     girl: "გოგო",
     boy: "ბიჭი",
@@ -98,4 +91,4 @@ export const common = {
   },
 
   fallbackHeroName: "პატარა გმირი",
-} as const;
+};

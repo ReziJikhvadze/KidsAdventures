@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Lock, Sparkles } from "lucide-react";
 
 import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
-import { t } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 import { WORLD_COVER_ART, type WorldId, isWorldId } from "@/lib/worlds";
 import type { StoryPageContent } from "@/lib/api/types";
 
@@ -47,8 +47,14 @@ function buildLeaves(options: {
   options.pages.forEach((page, storyIndex) => {
     leaves.push({ kind: "story", page, storyIndex });
   });
+
+  // Locked pages that arrived with their text already have a leaf of their own. Only
+  // synthesise blank placeholders for a count the pages do not account for, which is
+  // what older responses (a count and nothing else) still send.
+  const lockedWithText = options.pages.filter((page) => page.isLocked).length;
+  const placeholders = Math.max(0, options.lockedPageCount - lockedWithText);
   const startLocked = options.pages.length + 1;
-  for (let i = 0; i < options.lockedPageCount; i++) {
+  for (let i = 0; i < placeholders; i++) {
     leaves.push({ kind: "locked", pageNumber: startLocked + i });
   }
   if (options.isUnlocked) {
@@ -66,6 +72,7 @@ function CoverFace({
   title: string;
   coverSrc: string;
 }) {
+  const t = useT();
   return (
     <article className="storybook-cover">
       <div className="storybook-cover-art" style={{ backgroundImage: `url("${coverSrc}")` }} />
@@ -85,6 +92,7 @@ function CoverFace({
 }
 
 function InsideCoverFace({ heroName }: { heroName: string }) {
+  const t = useT();
   return (
     <article className="storybook-inside-cover">
       <div className="inside-cover-constellation" aria-hidden="true" />
@@ -108,6 +116,7 @@ function StoryFace({
   pageSide?: "left" | "right";
   totalStoryPages: number;
 }) {
+  const t = useT();
   const artUrl = useIllustrationUrl(leaf.kind === "story" ? leaf.page.illustrationUrl : null);
   const locked = leaf.kind === "locked";
   const pageNumber =
@@ -136,18 +145,35 @@ function StoryFace({
     );
   }
 
+  // A preview page now carries its real text with the artwork withheld, so only the
+  // illustration is obscured. `kind: "locked"` remains for responses that send a bare
+  // count and no text at all — those still render the full-page lock panel.
+  const artLocked = leaf.kind === "story" && leaf.page.isLocked === true;
+
   const copy =
     leaf.kind === "story"
       ? leaf.page.content || leaf.page.caption || leaf.page.title
       : `${t.story.storybook.lockedPagePrefix}${leaf.pageNumber}${t.story.storybook.lockedPageSuffix}`;
 
   return (
-    <article className={`storybook-page ${pageSide ? `page-${pageSide}` : ""} ${locked ? "is-locked" : ""}`}>
+    <article
+      className={`storybook-page ${pageSide ? `page-${pageSide}` : ""} ${
+        locked ? "is-locked" : ""
+      } ${artLocked ? "is-art-locked" : ""}`}
+    >
       <div className="storybook-page-content">
         <div
           className="storybook-page-art"
           style={artUrl ? { backgroundImage: `url("${artUrl}")` } : undefined}
         />
+        {/* Sibling of the art, not a child: a CSS filter blurs its descendants too, so a
+            badge nested inside the blurred element would be unreadable. */}
+        {artLocked ? (
+          <span className="storybook-art-lock">
+            <Lock aria-hidden="true" />
+            <small>{t.story.storybook.lockedNote}</small>
+          </span>
+        ) : null}
         <div className="storybook-page-copy">
           <small>
             {leaf.kind === "story"
@@ -210,6 +236,7 @@ export function StorybookVolume({
   initialIndex = 0,
   variant = "full",
 }: StorybookVolumeProps) {
+  const t = useT();
   // Demo Ot uses min-width: 1024px for desktop spreads (not 781).
   const wideViewport = useMediaQuery("(min-width: 1024px)");
   // Preview column is too narrow for open spreads — keep single-page like a tall phone book.

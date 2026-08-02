@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
-import { t, formatGel } from "@/lib/i18n";
+import { useT, formatGel } from "@/lib/i18n";
 import { PRICES } from "@/lib/pricing";
 import { heroDemoPages } from "@/lib/story/heroDemoPages";
 
@@ -11,6 +11,7 @@ const HERO_NAME = "ზუკა";
 const HERO_TITLE = "ზუკა და დაკარგული ხეობის საიდუმლო";
 
 export function Hero() {
+  const t = useT();
   const pages = heroDemoPages(HERO_NAME, "dinosaurs");
 
   return (

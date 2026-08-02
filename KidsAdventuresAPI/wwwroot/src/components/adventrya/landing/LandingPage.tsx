@@ -12,13 +12,14 @@ import {
   SparkleIcon,
   WorldIcon,
 } from "@/components/adventrya/landing/icons";
-import { formatGel, t } from "@/lib/i18n";
+import { formatGel, useT } from "@/lib/i18n";
 import { PRICES } from "@/lib/pricing";
 import { WORLD_IDS } from "@/lib/worlds";
 
 const CREATE_PROFILE = "/create";
 
 function Memory() {
+  const t = useT();
   const L = t.landing.memory;
   return (
     <section className="landing-v3-memory">
@@ -79,6 +80,7 @@ function Memory() {
 }
 
 function Worlds() {
+  const t = useT();
   const L = t.landing.worlds;
   return (
     <section id="worlds" className="landing-v3-section landing-v3-worlds">
@@ -120,6 +122,7 @@ function Worlds() {
 }
 
 function Pricing() {
+  const t = useT();
   const L = t.landing.pricing;
   return (
     <section id="pricing" className="landing-v3-section landing-v3-pricing">
@@ -191,6 +194,7 @@ function Pricing() {
 }
 
 function Assurance() {
+  const t = useT();
   return (
     <section className="landing-v3-assurance" aria-label="რატომ Adventrya">
       {t.landing.pricing.assurance.map((item) => (
@@ -205,6 +209,7 @@ function Assurance() {
 }
 
 function Voices() {
+  const t = useT();
   const L = t.landing.voices;
   return (
     <section className="landing-v3-section landing-v3-voices">
@@ -232,6 +237,7 @@ function Voices() {
 }
 
 function Faq() {
+  const t = useT();
   const L = t.landing.faq;
   const [openIndex, setOpenIndex] = useState(0);
 
@@ -273,6 +279,7 @@ function Faq() {
 }
 
 function Final() {
+  const t = useT();
   const L = t.landing.final;
   return (
     <section className="landing-v3-final">
@@ -299,6 +306,7 @@ function Final() {
 }
 
 function Footer() {
+  const t = useT();
   const F = t.common.footer;
   return (
     <footer className="landing-v3-footer">
@@ -336,6 +344,7 @@ function Footer() {
 }
 
 function MobileCta() {
+  const t = useT();
   return (
     <div className="landing-v3-mobile-cta">
       <Link to={CREATE_PROFILE} hash="profile">

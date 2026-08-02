@@ -1,5 +1,10 @@
 frontend-dist/
 frontend-deploy.zip
+api-deploy.zip
+
+# Per-machine Claude Code permissions. Holds absolute local paths and, historically,
+# a pasted bearer token — never commit it. .claude/launch.json is shared config.
+.claude/settings.local.json
 _frontend-deploy-staging/
 _build_check/
 publish/

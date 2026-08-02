@@ -2,7 +2,7 @@ import { Sparkles } from "lucide-react";
 
 import { PasswordlessAuthPanel } from "@/components/auth/PasswordlessAuthPanel";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { t } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 
 type Props = {
   open: boolean;
@@ -24,6 +24,7 @@ export function PasswordlessAuthDialog({
   onSuccess,
   returnPath = "/dashboard",
 }: Props) {
+  const t = useT();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="ux-auth-dialog">

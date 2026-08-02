@@ -1,4 +1,6 @@
-import { t } from "@/lib/i18n";
+import { useMemo } from "react";
+
+import { useT, type Messages } from "@/lib/i18n";
 
 export const WORLD_IDS = [
   "dinosaurs",
@@ -56,16 +58,32 @@ export interface World {
   firstMapRoute: string;
 }
 
-export const WORLDS: World[] = WORLD_IDS.map((id) => ({
-  id,
-  ...t.worlds[id],
-  firstMapRoute: FIRST_MAP_ROUTES[id],
-}));
+function buildWorlds(messages: Messages): World[] {
+  return WORLD_IDS.map((id) => ({
+    id,
+    ...messages.worlds[id],
+    firstMapRoute: FIRST_MAP_ROUTES[id],
+  }));
+}
 
-export const WORLD_BY_ID = Object.fromEntries(WORLDS.map((w) => [w.id, w])) as Record<
-  WorldId,
-  World
->;
+/**
+ * World copy is translated, so it can no longer be a module constant — the value
+ * would be frozen to whichever locale happened to be active at import time. These
+ * hooks rebuild it from the active catalogue; the returned shapes are unchanged, so
+ * call sites keep indexing exactly as before.
+ */
+export function useWorlds(): World[] {
+  const messages = useT();
+  return useMemo(() => buildWorlds(messages), [messages]);
+}
+
+export function useWorldById(): Record<WorldId, World> {
+  const worlds = useWorlds();
+  return useMemo(
+    () => Object.fromEntries(worlds.map((w) => [w.id, w])) as Record<WorldId, World>,
+    [worlds],
+  );
+}
 
 /** Cover art shipped with the demo, reused for preview and library thumbnails. */
 export const WORLD_COVER_ART: Record<WorldId, string> = {

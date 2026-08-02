@@ -6,7 +6,7 @@ import * as authApi from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import type { AuthChallengeResponse } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { formatGeorgianPhone, normalizeGeorgianPhone, t } from "@/lib/i18n";
+import { formatGeorgianPhone, normalizeGeorgianPhone, useT } from "@/lib/i18n";
 
 type AuthTab = "email" | "phone";
 
@@ -28,6 +28,7 @@ type Props = {
  * styles it wherever it is mounted.
  */
 export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: Props) {
+  const t = useT();
   const { loginWithGoogle, signInWithPhoneCode } = useAuth();
 
   const [tab, setTab] = useState<AuthTab>("email");

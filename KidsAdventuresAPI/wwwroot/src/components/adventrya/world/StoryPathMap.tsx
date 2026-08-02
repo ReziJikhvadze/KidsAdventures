@@ -3,9 +3,9 @@ import { useMemo, useRef, useState } from "react";
 
 import { WorldIcon } from "@/components/adventrya/landing/icons";
 import { useCenterMapNode } from "@/lib/hooks/useCenterMapNode";
-import { t } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 import type { AdventureMapResponse, WorldNodeResponse, WorldNodeState } from "@/lib/api/types";
-import { STORY_MAP_ROUTES, WORLD_BY_ID, WORLD_IDS, isWorldId, type WorldId } from "@/lib/worlds";
+import { STORY_MAP_ROUTES, useWorldById, WORLD_IDS, isWorldId, type WorldId } from "@/lib/worlds";
 
 export type StoryPathMapProps = {
   map: AdventureMapResponse;
@@ -22,6 +22,7 @@ function nodeCssState(state: WorldNodeState): "completed" | "next" | "unexplored
 }
 
 function statusLabel(state: WorldNodeState, sequenceNumber?: number | null): string {
+  const t = useT();
   if (state === "Completed") {
     return t.story.map.statusCompleted(sequenceNumber ?? 1);
   }
@@ -30,6 +31,7 @@ function statusLabel(state: WorldNodeState, sequenceNumber?: number | null): str
 }
 
 function memoryCopy(node: WorldNodeResponse | undefined, worldId: WorldId) {
+  const WORLD_BY_ID = useWorldById();
   const world = WORLD_BY_ID[worldId];
   if (!node) {
     return { title: world.mapTitle, body: world.memoryBody, chapter: world.chapter };
@@ -85,6 +87,8 @@ export function StoryPathMap({
   compact = false,
   className = "",
 }: StoryPathMapProps) {
+  const WORLD_BY_ID = useWorldById();
+  const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const emphasizedId = hoveredId ?? activeWorldId;

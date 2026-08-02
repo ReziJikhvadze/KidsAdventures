@@ -10,10 +10,12 @@ import type { AdventureMapResponse, CharacterResponse } from "@/lib/api/types";
 import { getAdventureMap } from "@/lib/api/worlds";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { continueHrefFromMap, firstJourneyHref } from "@/lib/continue";
-import { t } from "@/lib/i18n";
-import { WORLD_BY_ID, isWorldId, type WorldId } from "@/lib/worlds";
+import { useT } from "@/lib/i18n";
+import { useWorldById, isWorldId, type WorldId } from "@/lib/worlds";
 
 export function ChildWorldScreen() {
+  const WORLD_BY_ID = useWorldById();
+  const t = useT();
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [characters, setCharacters] = useState<CharacterResponse[]>([]);

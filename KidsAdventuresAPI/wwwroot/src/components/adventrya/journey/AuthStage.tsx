@@ -5,10 +5,10 @@ import { PasswordlessAuthPanel } from "@/components/auth/PasswordlessAuthPanel";
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
 import type { StoryPageContent } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { t } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 import { primaryCharacter, type JourneyDraft } from "@/lib/journey/draft";
 import { heroDemoPages } from "@/lib/story/heroDemoPages";
-import { WORLD_BY_ID, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
+import { useWorldById, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
 
 type Props = {
   draft: JourneyDraft;
@@ -18,6 +18,8 @@ type Props = {
 const RETURN_PATH = "/create#checkout";
 
 export function AuthStage({ draft, onAuthenticated }: Props) {
+  const WORLD_BY_ID = useWorldById();
+  const t = useT();
   const { isAuthenticated, isLoading } = useAuth();
   const hero = primaryCharacter(draft);
   const worldId = (draft.worldId ?? "dinosaurs") as WorldId;

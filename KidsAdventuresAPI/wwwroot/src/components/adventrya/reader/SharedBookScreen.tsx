@@ -9,14 +9,16 @@ import { getAdventurePack } from "@/lib/api/adventure-packs";
 import type { AdventurePackDetailResponse } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { buildContinueHref } from "@/lib/continue";
-import { t } from "@/lib/i18n";
-import { WORLD_BY_ID, WORLD_COVER_ART, isWorldId } from "@/lib/worlds";
+import { useT } from "@/lib/i18n";
+import { useWorldById, WORLD_COVER_ART, isWorldId } from "@/lib/worlds";
 
 /**
  * QR landing page: the printed book's "continue moment".
  * Offers reading the story online or starting the next chapter.
  */
 export function SharedBookScreen() {
+  const WORLD_BY_ID = useWorldById();
+  const t = useT();
   const { bookId } = useParams({ from: "/book/$bookId" });
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [pack, setPack] = useState<AdventurePackDetailResponse | null>(null);

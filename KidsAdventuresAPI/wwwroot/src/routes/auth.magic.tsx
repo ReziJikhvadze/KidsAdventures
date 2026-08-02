@@ -4,10 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { BRAND_NAME } from "@/lib/brand";
-import { t } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 import { buildPageMeta } from "@/lib/seo";
-
-const copy = t.journey.auth.landing;
 
 export const Route = createFileRoute("/auth/magic")({
   head: () => {
@@ -27,6 +25,7 @@ export const Route = createFileRoute("/auth/magic")({
 });
 
 function MagicLinkLanding() {
+  const copy = useT().journey.auth.landing;
   const { token, next } = Route.useSearch();
   const { signInWithMagicLink } = useAuth();
   const navigate = useNavigate();

@@ -3,10 +3,10 @@ import { Link } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 
 import { AppHeader } from "@/components/adventrya/AppHeader";
-import { t } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 import type { JourneyDraft } from "@/lib/journey/draft";
 import { primaryCharacter } from "@/lib/journey/draft";
-import { WORLDS, type WorldId } from "@/lib/worlds";
+import { useWorlds, type WorldId } from "@/lib/worlds";
 
 type Props = {
   draft: JourneyDraft;
@@ -20,6 +20,8 @@ type Props = {
  * DOM mirrors demo: theme-intro ∥ first-map-controls ∥ first-story-map.
  */
 export function WorldStage({ draft, onChange, header }: Props) {
+  const WORLDS = useWorlds();
+  const t = useT();
   const hero = primaryCharacter(draft);
   const heroName = hero.name.trim() || t.common.fallbackHeroName;
   const [hovered, setHovered] = useState<WorldId | null>(null);

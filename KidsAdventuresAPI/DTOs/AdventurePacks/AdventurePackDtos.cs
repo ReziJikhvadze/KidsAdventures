@@ -45,12 +45,12 @@ public sealed class AdventurePackDetailResponse : AdventurePackResponse
     public string? ChildName { get; set; }
 
     /// <summary>
-    /// Pages the caller may read. A preview book returns the cover and page one only, with
-    /// <see cref="LockedPageCount"/> standing in for the rest.
+    /// Every page of the story, including the ones past the free allowance. Pages beyond it
+    /// are flagged <see cref="StoryPageContentDto.IsLocked"/> and carry no illustration.
     /// </summary>
     public List<StoryPageContentDto> StoryPages { get; set; } = [];
 
-    /// <summary>How many pages exist beyond the ones returned.</summary>
+    /// <summary>How many of the returned pages are locked (illustration withheld).</summary>
     public int LockedPageCount { get; set; }
 }
 
@@ -87,6 +87,15 @@ public sealed class StoryPageContentDto
     public string Content { get; set; } = string.Empty;
     public string? IllustrationUrl { get; set; }
     public bool IsIllustrated { get; set; }
+
+    /// <summary>
+    /// True for a page past the free preview allowance. The text is still returned — a
+    /// preview is meant to read as a real book, and the story costs the same to generate
+    /// either way — but the illustration is withheld and the reader blurs the artwork.
+    /// Note this makes the story text readable to anyone who inspects the response;
+    /// the illustrations, not the prose, are what the purchase gates.
+    /// </summary>
+    public bool IsLocked { get; set; }
 }
 
 public sealed class AdventureContentDto

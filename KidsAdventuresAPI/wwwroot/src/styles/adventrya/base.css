@@ -1165,3 +1165,52 @@ svg {
     overflow-x: auto;
   }
 }
+
+/*
+ * Interface language menu.
+ *
+ * The trigger keeps whichever pill class its header already used (`.header-pill`
+ * on the app header, `.landing-v3-language` on the landing header) — only the
+ * popup below it is new, so both headers keep their approved look.
+ */
+.language-menu {
+  position: relative;
+  display: inline-flex;
+}
+.language-menu-list {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 148px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid rgba(229, 216, 244, 0.22);
+  border-radius: 14px;
+  background: #1b1138f2;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 18px 40px #0a05192e;
+}
+.language-menu-list button {
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+  color: #fff8ebc4;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+.language-menu-list button:hover {
+  color: #fff8eb;
+  background: #ffffff14;
+}
+.language-menu-list button.selected {
+  color: #2d1d4a;
+  background: linear-gradient(145deg, #f2dc9e, #dda95c);
+}

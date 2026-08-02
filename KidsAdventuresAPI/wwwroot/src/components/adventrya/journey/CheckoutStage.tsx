@@ -6,12 +6,12 @@ import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolum
 import { ApiError } from "@/lib/api/client";
 import * as ordersApi from "@/lib/api/orders";
 import type { OrderPackage, QuoteResponse, ShippingAddressRequest } from "@/lib/api/types";
-import { formatGel, formatGelAmount, normalizeGeorgianPhone, t } from "@/lib/i18n";
+import { formatGel, formatGelAmount, normalizeGeorgianPhone, useT } from "@/lib/i18n";
 import { primaryCharacter, type JourneyDraft } from "@/lib/journey/draft";
 import { ensureServerCharacters } from "@/lib/journey/syncCharacters";
 import { PRICES } from "@/lib/pricing";
 import { heroDemoPages } from "@/lib/story/heroDemoPages";
-import { WORLD_BY_ID, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
+import { useWorldById, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
 
 type Props = {
   draft: JourneyDraft;
@@ -26,6 +26,8 @@ type Props = {
  * Pay still creates a real order and redirects to Stripe Checkout when not free.
  */
 export function CheckoutStage({ draft, onChange, onPaid }: Props) {
+  const WORLD_BY_ID = useWorldById();
+  const t = useT();
   const hero = primaryCharacter(draft);
   const heroName = hero.name.trim() || t.common.fallbackHeroName;
   const worldId = (draft.worldId ?? "dinosaurs") as WorldId;
@@ -292,16 +294,6 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                 autoComplete="street-address"
                 value={draft.shipping.addressLine1}
                 onChange={(e) => updateShipping({ addressLine1: e.target.value })}
-              />
-            </label>
-            <label className="field" htmlFor="checkout-ship-region">
-              <span>რეგიონი</span>
-              <input
-                id="checkout-ship-region"
-                name="region"
-                autoComplete="address-level1"
-                value={draft.shipping.region ?? ""}
-                onChange={(e) => updateShipping({ region: e.target.value })}
               />
             </label>
             <label className="field" htmlFor="checkout-ship-address2">

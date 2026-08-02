@@ -18,8 +18,7 @@ export const journey = {
     addCharacterHint: "შეგიძლია დაამატო კიდევ ",
     addCharacterLimit: "პერსონაჟი · მაქსიმუმ 3 გმირი წიგნში",
     addAnother: "დაამატე კიდევ ერთი პერსონაჟი",
-    privacyNote:
-      "მონაცემები გამოიყენება მხოლოდ პერსონალიზებული წიგნის შესაქმნელად.",
+    privacyNote: "მონაცემები გამოიყენება მხოლოდ პერსონალიზებული წიგნის შესაქმნელად.",
     continue: "თემის არჩევა ",
     ready: "პერსონაჟი მზადაა",
     saveCharacter: " პერსონაჟის შენახვა",
@@ -34,7 +33,6 @@ export const journey = {
     relationshipLegend: "ვინ არის ეს პერსონაჟი მთავარი გმირისთვის?",
     relationshipCustom: "ჩაწერე ურთიერთობა",
     relationshipPlaceholder: "მაგ. ნათლია ან ჯადოსნური მეგობარი",
-    typeLegend: "რა ტიპის პერსონაჟია?",
     photoRequired: "პორტრეტი აუცილებელია",
     photoReady: "პორტრეტი მზადაა",
     photoPrompt: "დაამატე მკაფიო პორტრეტი",
@@ -140,8 +138,7 @@ export const journey = {
     eyebrow: " ერთი პატარა ნაბიჯი",
     titlePrefix: "შეინახე ",
     lead: "წიგნზე, Reader-ზე და მომავალ თავგადასავლებზე უსაფრთხო წვდომისთვის. პაროლი არ დაგჭირდება.",
-    previewSaved:
-      " Preview შენახულია და გაგრძელების შემდეგ ზუსტად ეს წიგნი შეიქმნება.",
+    previewSaved: " Preview შენახულია და გაგრძელების შემდეგ ზუსტად ეს წიგნი შეიქმნება.",
     google: " გაგრძელება Google-ით",
     apple: " გაგრძელება Apple-ით",
     googleUnavailable: "Google შესვლა ამ გარემოში მიუწვდომელია.",
@@ -149,8 +146,7 @@ export const journey = {
     tabEmail: "ელფოსტა",
     tabPhone: "ტელეფონის ნომერი",
     sendMagicLink: "გამომიგზავნე Magic Link ",
-    magicLinkSent: (email: string) =>
-      `ბმული გაიგზავნა — შეამოწმე ${email}.`,
+    magicLinkSent: (email: string) => `ბმული გაიგზავნა — შეამოწმე ${email}.`,
     openMagicLink: "გახსენი Magic Link (დემო)",
     phoneLabel: "ქართული ტელეფონის ნომერი",
     phoneDemoNote: "დემო რეჟიმი — რეალური SMS არ იგზავნება.",
@@ -206,8 +202,7 @@ export const journey = {
     deliveryLine: "მიწოდება საქართველოში ",
     discountLine: "ფასდაკლება · ",
     total: "ჯამი ",
-    printReuseNote:
-      "უკვე შექმნილი წიგნი დაიბეჭდება — ისტორია ხელახლა არ გენერირდება.",
+    printReuseNote: "უკვე შექმნილი წიგნი დაიბეჭდება — ისტორია ხელახლა არ გენერირდება.",
     payFirstNote: "სრული წიგნი მხოლოდ წარმატებული გადახდის შემდეგ შეიქმნება.",
   },
 
@@ -216,8 +211,7 @@ export const journey = {
     titleSuffix: "ს ისტორია იბადება",
     companionPrefix: "რექსმა ",
     companionSuffix: "ს სამყაროს კარი გაუღო",
-    leaveNote:
-      "შეგიძლია თავისუფლად გახვიდე — წიგნის მზადებისას ელფოსტასაც გამოგიგზავნით.",
+    leaveNote: "შეგიძლია თავისუფლად გახვიდე — წიგნის მზადებისას ელფოსტასაც გამოგიგზავნით.",
     softTime: "დაახლოებით ერთი წუთი",
     stageLabel: "ეტაპი ",
     ariaLabel: (hero: string) => `${hero}ს წიგნის შექმნის პროცესი`,
@@ -247,8 +241,7 @@ export const journey = {
     limit: "მაქს. 2 დამატებითი",
     wishLabel: "რა გინდა დაემატოს შემდეგ თავგადასავალს? · არასავალდებულო",
     wishPlaceholder: "მაგ. რექსმა თან წაიღოს ძველი რუკა...",
-    wishHint:
-      "ძველი მეგობრები, მოგონებები და მიზნები ახალ თავშიც ავტომატურად გაგრძელდება.",
+    wishHint: "ძველი მეგობრები, მოგონებები და მიზნები ახალ თავშიც ავტომატურად გაგრძელდება.",
     createNext: "შექმენი შემდეგი თავის Preview",
   },
-} as const;
+};
