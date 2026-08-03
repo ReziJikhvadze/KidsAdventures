@@ -19,7 +19,20 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
-        services.Configure<AzureBlobOptions>(configuration.GetSection(AzureBlobOptions.SectionName));
+        // App Service refuses an app setting named "AzureBlobStorage__ConnectionString"
+        // ("AppSetting with name ... is not allowed"), so on Azure the value has to come
+        // from the Connection strings section, which .NET surfaces as
+        // ConnectionStrings:AzureBlobStorage. Bind the section first, then fall back to
+        // that. Local appsettings.json keeps working unchanged.
+        services.Configure<AzureBlobOptions>(options =>
+        {
+            configuration.GetSection(AzureBlobOptions.SectionName).Bind(options);
+            if (string.IsNullOrWhiteSpace(options.ConnectionString))
+            {
+                options.ConnectionString =
+                    configuration.GetConnectionString(AzureBlobOptions.SectionName) ?? string.Empty;
+            }
+        });
         services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.SectionName));
         services.Configure<CorsOptions>(configuration.GetSection(CorsOptions.SectionName));
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
