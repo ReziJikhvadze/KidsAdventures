@@ -58,22 +58,11 @@ jobs:
           -c Release -o ${{ runner.temp }}/api
           -p:SkipFrontendBuild=true
 
-      # Production config ships inside the artifact, taken from one GitHub secret rather
-      # than from the repo. Nothing sensitive is committed, and App Service needs no
-      # per-key configuration — to change a value, edit the secret and push.
-      - name: Write production settings into the artifact
-        env:
-          APPSETTINGS_PRODUCTION: ${{ secrets.APPSETTINGS_PRODUCTION }}
-        run: |
-          target="${{ runner.temp }}/api/appsettings.Production.json"
-          if [ -z "$APPSETTINGS_PRODUCTION" ]; then
-            echo "::error::Secret APPSETTINGS_PRODUCTION is not set. Add it under Settings -> Secrets and variables -> Actions."
-            exit 1
-          fi
-          printf '%s' "$APPSETTINGS_PRODUCTION" > "$target"
-          # Fail here rather than after deploying an app that cannot parse its own config.
-          python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$target"
-          echo "Wrote appsettings.Production.json ($(wc -c < "$target") bytes, valid JSON)."
+      # Every production value lives in App Service configuration. A deployed
+      # appsettings.Production.json would shadow it, so it is removed here — the file is
+      # gitignored and should never reach the artifact, but a local build can produce one.
+      - name: Strip production settings from the artifact
+        run: rm -f ${{ runner.temp }}/api/appsettings.Production.json
 
       - name: Build frontend
         working-directory: KidsAdventuresAPI/wwwroot
