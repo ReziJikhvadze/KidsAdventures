@@ -4,12 +4,13 @@ Two GitHub Actions workflows replace the manual PowerShell scripts.
 
 - `.github/workflows/ci.yml` — every push and PR. Secret scan, API build, migrations
   applied against a throwaway SQL Server container, frontend typecheck/lint/build.
-- `.github/workflows/deploy.yml` — on a `v*` tag, or run by hand. Builds both apps,
-  deploys them, and smoke-tests each one.
+- `.github/workflows/deploy.yml` — on every push to `master`, on a `v*` tag, or run by
+  hand. Builds both apps, deploys them, and smoke-tests each one.
 
-Deploys are not automatic on push to `master`. Migrations apply during API startup
-against the live Azure SQL, so a deploy changes the schema — that should be a decision,
-not a side effect of merging.
+Pushing to `master` deploys. Migrations apply during API startup against the live Azure
+SQL, so a deploy changes the schema — the approval gate on the `production` environment
+(step 3) is what keeps that a decision rather than a side effect of merging. Remove that
+gate only if you want merges to reach production unattended.
 
 ## One-time setup
 
@@ -95,6 +96,14 @@ See `KidsAdventuresAPI/docs/SECRETS_ROTATION.md`. Rotate before the first deploy
 values are still in git history.
 
 ## Releasing
+
+Ordinary path — commit and push:
+
+```bash
+git push origin master
+```
+
+For a marked release, or to redeploy an exact commit later:
 
 ```bash
 git tag v1.0.0

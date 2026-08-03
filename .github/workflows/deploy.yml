@@ -1,10 +1,12 @@
 name: Deploy
 
-# Deploys are deliberate, not automatic on every push to master: tag a release, or
-# run this by hand. Migrations apply at API startup against the real Azure SQL, so a
-# deploy is a schema change — it should be something a person chose to do.
+# Every push to master deploys, and a v* tag or a manual run still work for releases
+# and one-off redeploys. Migrations apply at API startup against the real Azure SQL, so
+# a deploy is a schema change: the `production` environment's approval gate, not the
+# trigger, is what keeps that deliberate.
 on:
   push:
+    branches: [master]
     tags: ["v*"]
   workflow_dispatch:
     inputs:
