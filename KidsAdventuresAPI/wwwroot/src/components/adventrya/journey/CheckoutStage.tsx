@@ -389,9 +389,10 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             pages={thumbPages}
             lockedPageCount={0}
             isUnlocked={false}
-            // The parent is looking at their own book here; freezing it made these two
-          // screens the only places it could not be turned.
-          interactive
+            // Not turnable: this is an 82px thumbnail in the order summary, not a
+            // reading surface. Making it interactive rendered page controls, a page
+            // rail and a gesture hint at full size on top of the title and price.
+            interactive={false}
             initialIndex={0}
           />
           <div>

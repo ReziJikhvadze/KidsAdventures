@@ -199,15 +199,19 @@
   max-width: 95%;
   margin: 8px 0 0;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  /* Three lines rather than two: at this size a Georgian title like
+     "თამარი და დაკარგული ხეობის საიდუმლო" needs the room to finish. */
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   color: #fff8eb;
   font-family: "Adventrya Serif", serif;
-  font-size: clamp(15px, 1.6vw, 22px);
+  /* Half the previous size. This was set as a display headline, but it is a real
+     sentence carrying the child's name and has to be readable in full on the cover. */
+  font-size: clamp(9px, 0.85vw, 12px);
   font-weight: 700;
-  line-height: 1.18;
-  letter-spacing: -0.025em;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
 }
 .storybook-cover-copy span {
   display: block;
@@ -659,6 +663,19 @@
   margin: 0;
   font-size: 7px;
   line-height: 1.2;
+}
+
+/*
+  A thumbnail is a picture of the book, never a reading surface. The reader chrome is
+  laid out at full size regardless of how small the cover is, so if a caller ever
+  passes interactive again the page buttons, page rail and gesture hint land on top of
+  whatever sits beside it — which is exactly what happened to the order summary.
+*/
+.storybook-thumbnail .storybook-controls,
+.storybook-thumbnail .storybook-page-rail,
+.storybook-thumbnail .storybook-gesture-hint,
+.storybook-thumbnail .storybook-corner {
+  display: none;
 }
 .storybook-creating .storybook-spine,
 .storybook-creating .storybook-surface,
