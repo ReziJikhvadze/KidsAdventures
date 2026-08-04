@@ -37,6 +37,7 @@ public sealed class AdventurePacksController(
         [FromForm] string name,
         [FromForm] int age,
         [FromForm] string theme,
+        [FromForm] string? gender,
         [FromForm] string? storyLanguage,
         [FromForm] string? optionalStoryNotes,
         IFormFile? photo,
@@ -90,6 +91,7 @@ public sealed class AdventurePacksController(
                     ChildName = name.Trim(),
                     Age = age,
                     Theme = themeType,
+                    Gender = NormalizeGender(gender),
                     StoryLanguage = storyLanguage,
                     OptionalStoryNotes = string.IsNullOrWhiteSpace(optionalStoryNotes) ? null : optionalStoryNotes.Trim(),
                     PhotoBytes = photoBytes,
@@ -107,6 +109,15 @@ public sealed class AdventurePacksController(
                 new { message = "We couldn't create your preview right now. Please try again in a moment." });
         }
     }
+
+    /// <summary>Only the two values the prompt understands; anything else is "unspecified".</summary>
+    private static string? NormalizeGender(string? value) =>
+        value?.Trim().ToLowerInvariant() switch
+        {
+            "girl" => "girl",
+            "boy" => "boy",
+            _ => null,
+        };
 
     private string GetClientKey()
     {

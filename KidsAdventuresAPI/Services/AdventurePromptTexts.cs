@@ -75,6 +75,17 @@ internal sealed class AdventurePromptLocale
     /// another script, and a single wrong character makes a printed page look defective.
     /// {0} is the language name.
     /// </summary>
+    /// <summary>
+    /// States the hero's gender. It was absent from the prompt entirely, so the model chose
+    /// — and a parent who selected a girl could receive a book about a boy. {0} is the name.
+    /// </summary>
+    /// <summary>Words substituted into <see cref="HeroGenderRule"/>.</summary>
+    public string GenderGirl { get; init; } = "girl";
+    public string GenderBoy { get; init; } = "boy";
+
+    public string HeroGenderRule { get; init; } =
+        "THE HERO'S GENDER IS FIXED: {0} is a {1}. Use the correct pronouns and gendered forms for {1} consistently on every page, in the title, and in the cover description. Never change, soften, or leave this ambiguous, and never write the hero as any other gender.";
+
     public string ScriptPurityRule { get; init; } =
         "SCRIPT PURITY: every reader-facing sentence must be written entirely in the script of {0}, with no characters borrowed from any other alphabet. Do not substitute a visually similar Cyrillic, Latin, Greek, Chinese, Japanese or Korean character for a letter of that script, not even inside a single word. Before returning, re-read every sentence and replace any stray foreign character with the correct one.";
 
@@ -297,7 +308,7 @@ internal static class AdventurePromptTexts
         WelcomeArc = "- სტრუქტურა: გვერდი 1 შესავალი (ბავშვი შედის სამყაროში) + თავგადასავლის დასაწყისი; გვერდი 2 რბილი გამოწვევა (უსაფრთხო, არამუქარის) + გადაწყვეტა (ბავშვი წყვეტს) + დასასრული (თბილი ემოციური დახურვა).",
         FullArc = "- სტრუქტურა: გვერდი 1 შესავალი; გვერდები 2–3 თავგადასავალი; გვერდი 4 გამოწვევა (უსაფრთხო პრობლემა); გვერდი 5 გადაწყვეტა; გვერდი 6 დასასრული (თბილი ემოციური დახურვა).",
         PageLengthRule = "გვერდის ტექსტი შეინახე მინიმუმზე: ილუსტრაცია ყვება ისტორიას, არა ტექსტი. ყოველ გვერდს აქვს ძალიან მოკლე \"caption\" და მოკლე არჩევითი \"content\" (იხილე caption-ისა და უწყვეტობის წესები). ყოველი გვერდის სათაური უნდა მიანიშნებდეს ახალ ადგილს ან მომენტს.",
-        CaptionRule = "\"caption\" არის ერთადერთი ტექსტი, რომელიც გვერდზე ჩანს: ცოცხალი ფრაზა 3-დან 8 სიტყვამდე, რომელიც ასახელებს ამ ზუსტ მომენტს და წინ იზიდავს თვალს (მაგ., \"ბზინვარე გამოქვაბულისკენ!\", \"თოკის ხიდი ირყევა\"). ის არასოდეს არის შეჯამება და უნდა იკითხებოდეს როგორც შემდეგი წამი წინა გვერდის caption-ის შემდეგ. \"content\" არის არჩევითი ხმამაღლა წასაკითხი თხრობა მაქსიმუმ 1 ან 2 მოკლე წინადადებით (~25 სიტყვა); სურათი მარტო მაინც უნდა ყვებოდეს ისტორიას.",
+        CaptionRule = "\"caption\" არის ერთადერთი ტექსტი, რომელიც გვერდზე ჩანს: ცოცხალი ფრაზა 2-დან 5 სიტყვამდე, რომელიც ასახელებს ამ ზუსტ მომენტს და წინ იზიდავს თვალს (მაგ., \"ბზინვარე გამოქვაბულისკენ!\", \"თოკის ხიდი ირყევა\"). ის არასოდეს არის შეჯამება და უნდა იკითხებოდეს როგორც შემდეგი წამი წინა გვერდის caption-ის შემდეგ. \"content\" არის არჩევითი ხმამაღლა წასაკითხი თხრობა მაქსიმუმ 1 ძალიან მოკლე წინადადებით (~12 სიტყვა); სურათი მარტო მაინც უნდა ყვებოდეს ისტორიას.",
         ContinuityRule = "მკაცრი უწყვეტობა: ყველა გვერდი არის ერთი უწყვეტი ისტორია, რომელიც რეალურ დროში ხდება. ყოველი გვერდი იწყება ზუსტად იქ, სადაც წინა დასრულდა — იმავე დღეს, იმავე მოგზაურობაში, იმავე ტანსაცმლითა და საგნებით — ნათელი მიზეზ-შედეგობრივი კავშირით (რაც გმირმა წინა გვერდზე გააკეთა, პირდაპირ იწვევს ამას). Caption-ები ერთმანეთს უერთდება როგორც ერთი გამართული ფრაზა; ყოველი გვერდი, რომელიც ბოლო არ არის, მთავრდება პატარა კაუჭით, რომელიც გვერდის გადაბრუნების სურვილს აღვიძებს, ხოლო ბოლო თბილად წყვეტს. არასოდეს გადაატვირთო სცენა ან გადაახტე შემთხვევით: ყოველი გადასვლა უნდა იგრძნობოდეს როგორც \"და შემდეგ…\".",
         JsonOnlyRule = "არასოდეს ჩართო markdown, კოდის ბლოკები (```), განმარტებები ან დამატებითი ტექსტი JSON-ის გარეთ.",
         RawJsonRule = "პასუხი უნდა დაიწყოს { და დასრულდეს } — მხოლოდ სუფთა JSON.",
@@ -319,6 +330,12 @@ internal static class AdventurePromptTexts
             "სწორედ იქ ხდებოდეს გვერდის მთავარი ამბავი და არა ცარიელი ადგილი.",
         ImageTextSafeTop = "ზედა",
         ImageTextSafeBottom = "ქვედა",
+        GenderGirl = "გოგო",
+        GenderBoy = "ბიჭი",
+        HeroGenderRule =
+            "გმირის სქესი ფიქსირებულია: {0} არის {1}. ყველა გვერდზე, სათაურსა და ყდის აღწერაში " +
+            "თანმიმდევრულად გამოიყენე {1}-ის შესაბამისი ფორმები და ნაცვალსახელები. ეს არასოდეს " +
+            "შეცვალო, არ დატოვო ბუნდოვანი და გმირი არასოდეს დაწერო სხვა სქესის.",
         ScriptPurityRule =
             "დამწერლობის სისუფთავე: მკითხველისთვის განკუთვნილი ყოველი წინადადება მთლიანად ქართული ანბანით " +
             "(მხედრულით) უნდა დაიწეროს და არცერთი ასო არ უნდა იყოს სხვა დამწერლობიდან აღებული. არ ჩასვა " +
@@ -529,7 +546,7 @@ internal static class AdventurePromptTexts
         WelcomeArc = "- Map story structure across pages: page 1 Introduction (child enters the world) + Adventure start; page 2 gentle Challenge (safe, non-threatening) + Resolution (child solves it) + Ending (warm emotional closure).",
         FullArc = "- Map story structure across pages: page 1 Introduction (child enters the world); pages 2–3 Adventure (main journey); page 4 Challenge (safe, non-threatening problem); page 5 Resolution (child solves it); page 6 Ending (warm emotional closure).",
         PageLengthRule = "Keep on-page words MINIMAL — the illustration carries the story, not the text. Each page has a tiny \"caption\" plus an optional short \"content\" (see the caption and continuity rules). Every page title must hint at a new place or moment.",
-        CaptionRule = "\"caption\" is the ONLY text shown on the page: a vivid 3–8 word phrase that names this exact moment and pulls the eye forward (e.g. \"Into the glowing cave!\", \"The rope bridge starts to sway\"). It is never a summary, and it must read as the next beat right after the previous page's caption. \"content\" is optional read-aloud narration of at most 1–2 short sentences (~25 words) — the picture alone must still tell the story.",
+        CaptionRule = "\"caption\" is the ONLY text shown on the page: a vivid 2–5 word phrase that names this exact moment and pulls the eye forward (e.g. \"Into the glowing cave!\", \"The rope bridge starts to sway\"). It is never a summary, and it must read as the next beat right after the previous page's caption. \"content\" is optional read-aloud narration of at most 1 very short sentence (~12 words) — the picture alone must still tell the story.",
         ContinuityRule = "STRICT CONTINUITY: all pages are ONE unbroken story happening in real time. Each page begins exactly where the previous page ended — same day, same journey, same hero outfit and props — with a clear cause-and-effect link (what the hero did on the previous page directly causes this page). The captions chain together like one flowing sentence; every non-final page ends on a small hook that makes the child want to turn the page, and the final page resolves it warmly. Never reset the scene or jump randomly — each transition should feel like \"and then…\".",
         JsonOnlyRule = "Never include markdown, code fences (```), explanations, or extra text outside JSON.",
         RawJsonRule = "The response must start with { and end with } — raw JSON only.",

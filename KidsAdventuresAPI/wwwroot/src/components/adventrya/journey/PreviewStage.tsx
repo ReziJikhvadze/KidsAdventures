@@ -43,6 +43,17 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
       return;
     }
     if (requestedRef.current) return;
+
+    // Without a chosen world there is no story to write. Generating anyway produced a
+    // book about the wrong subject, which costs a generation and reads as a bug to the
+    // parent — so stop and send them back to choose.
+    const apiTheme = draft.worldId ? THEME_ID_TO_API[draft.worldId] : undefined;
+    if (!apiTheme) {
+      setLoading(false);
+      setError(t.journey.preview.chooseWorldFirst);
+      return;
+    }
+
     requestedRef.current = true;
 
     let cancelled = false;
@@ -59,7 +70,11 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
         const result = await adventurePacksApi.generateGuestPreview({
           name: hero.name.trim() || t.common.fallbackHeroName,
           age: ageFromBirthDate(hero.birthDate),
-          theme: THEME_ID_TO_API[worldId] ?? "Dinosaurs",
+          gender: hero.gender ?? undefined,
+          // No silent default. A missing mapping used to fall back to "Dinosaurs", which
+          // is how choosing the star path produced a dinosaur book: the theme was wrong
+          // before the model ever saw it.
+          theme: apiTheme,
           storyLanguage: draft.bookLanguage,
           optionalStoryNotes: draft.storyNotes || undefined,
           photo,

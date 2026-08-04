@@ -9,6 +9,10 @@ public sealed class BookCastMember
     /// <summary>Georgian relationship text for a supporting role; null for the hero.</summary>
     public string? Relationship { get; init; }
 
+    /// <summary>girl | boy, when the parent chose one. The story prompt needs this: without
+    /// it the model picks, and a parent who selected a girl gets a book about a boy.</summary>
+    public string? Gender { get; init; }
+
     public string? PhotoUrl { get; init; }
     public string? AppearanceDescription { get; init; }
     public string? AppearancePhotoUrl { get; init; }

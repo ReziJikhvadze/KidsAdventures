@@ -63,6 +63,7 @@ public sealed class AdventureGenerationService(
         {
             ChildName = input.ChildName,
             Age = input.Age,
+            Gender = input.Gender,
             Theme = input.Theme,
             ChildAppearanceDescription = appearance,
             FamilyMembers = [],
@@ -599,6 +600,7 @@ public sealed class AdventureGenerationService(
         {
             ChildName = cast.Hero.Name,
             Age = cast.HeroAge,
+            Gender = cast.Hero.Gender,
             Theme = pack.Theme,
             ChildAppearanceDescription = cast.Hero.AppearanceDescription,
             FamilyMembers = cast.Supporting.Select(member => new FamilyMemberCastEntry
@@ -653,6 +655,7 @@ public sealed class AdventureGenerationService(
         {
             ChildName = cast.Hero.Name,
             Age = cast.HeroAge,
+            Gender = cast.Hero.Gender,
             Theme = pack.Theme,
             ChildAppearanceDescription = heroAppearance,
             FamilyMembers = supporting,

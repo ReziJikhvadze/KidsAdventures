@@ -82,6 +82,19 @@ internal static class AdventurePromptBuilder
         lines.Add(texts.InputHeader);
         lines.Add(string.Format(texts.ChildNameLabel, input.ChildName));
         lines.Add(string.Format(texts.ChildAgeLabel, input.Age));
+
+        // Stated as a rule rather than a label: a label is data the model may quietly drop,
+        // and dropping this one produces a book about the wrong child.
+        var genderWord = input.Gender?.Trim().ToLowerInvariant() switch
+        {
+            "girl" => texts.GenderGirl,
+            "boy" => texts.GenderBoy,
+            _ => null,
+        };
+        if (genderWord is not null)
+        {
+            lines.Add($"- {string.Format(texts.HeroGenderRule, input.ChildName, genderWord)}");
+        }
         lines.Add(string.Format(texts.ThemeLabel, input.Theme));
         FormatAppearanceLine(texts.HeroAppearanceLabel, input.ChildAppearanceDescription, lines);
         lines.Add($"{texts.FamilyMembersLabel}{Environment.NewLine}{familyMembersText}");

@@ -120,6 +120,7 @@ public sealed class BookCastResolver(
         Id = character.Id,
         Name = character.Name,
         Relationship = character.IsPrimary ? null : character.Relationship,
+        Gender = character.Gender,
         PhotoUrl = character.PhotoUrl,
         AppearanceDescription = character.AppearanceDescription,
         AppearancePhotoUrl = character.AppearancePhotoUrl,

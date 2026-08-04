@@ -24,6 +24,7 @@ export type GuestPreviewResult = {
 export type GuestPreviewInput = {
   name: string;
   age: number;
+  gender?: string;
   theme: ThemeType;
   storyLanguage?: string;
   optionalStoryNotes?: string;

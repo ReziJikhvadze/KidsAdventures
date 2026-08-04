@@ -8,6 +8,10 @@ public sealed class GuestPreviewInput
     public required string ChildName { get; init; }
     public required int Age { get; init; }
     public required ThemeType Theme { get; init; }
+
+    /// <summary>girl | boy, when the parent chose. Without it the model decides, and a
+    /// parent who picked a girl gets a story about a boy.</summary>
+    public string? Gender { get; init; }
     public string? StoryLanguage { get; init; }
     public string? OptionalStoryNotes { get; init; }
     public byte[]? PhotoBytes { get; init; }

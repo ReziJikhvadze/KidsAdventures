@@ -5,6 +5,10 @@ public sealed class AdventureGenerationInput
     public string ChildName { get; set; } = string.Empty;
     public int Age { get; set; }
     public ThemeType Theme { get; set; }
+    /// <summary>girl | boy. Absent from the prompt entirely until now, which is why a
+    /// girl's book could come back written about a boy.</summary>
+    public string? Gender { get; set; }
+
     public string? ChildAppearanceDescription { get; set; }
     public IReadOnlyList<FamilyMemberCastEntry> FamilyMembers { get; set; } = [];
     public string? OptionalStoryNotes { get; set; }
