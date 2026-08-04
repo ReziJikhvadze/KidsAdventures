@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Beki Visual Bible v1",
+  "type": "object",
+  "required": [
+    "visualStyleName",
+    "heroIdentitySummary",
+    "heroStoryOutfit",
+    "bekiCanonicalLock",
+    "worldStyle",
+    "compositionDefaults",
+    "renderRules"
+  ],
+  "properties": {
+    "visualStyleName": {
+      "type": "string"
+    },
+    "heroIdentitySummary": {
+      "type": "string"
+    },
+    "heroStoryOutfit": {
+      "type": "object",
+      "required": [
+        "outfitId",
+        "top",
+        "bottom",
+        "footwear",
+        "palette",
+        "mustRemainConsistent"
+      ],
+      "properties": {
+        "outfitId": {
+          "type": "string"
+        },
+        "top": {
+          "type": "string"
+        },
+        "bottom": {
+          "type": "string"
+        },
+        "outerLayer": {
+          "type": "string"
+        },
+        "footwear": {
+          "type": "string"
+        },
+        "accessories": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "palette": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mustRemainConsistent": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": true
+    },
+    "bekiCanonicalLock": {
+      "type": "object",
+      "required": [
+        "preserve",
+        "never",
+        "visualPriority",
+        "scaleRelativeToChild"
+      ],
+      "properties": {
+        "preserve": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "never": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "visualPriority": {
+          "type": "string"
+        },
+        "scaleRelativeToChild": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "supportingCharacterLocks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "characterId",
+          "role",
+          "preserve",
+          "never",
+          "visualPriority"
+        ],
+        "properties": {
+          "characterId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string"
+          },
+          "preserve": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "never": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "visualPriority": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "worldStyle": {
+      "type": "object",
+      "required": [
+        "palette",
+        "materials",
+        "lightingLanguage",
+        "environmentMotifs",
+        "mood"
+      ],
+      "properties": {
+        "palette": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "materials": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "lightingLanguage": {
+          "type": "string"
+        },
+        "environmentMotifs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "mood": {
+          "type": "string"
+        },
+        "ageSafetyNotes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "compositionDefaults": {
+      "type": "object"
+    },
+    "renderRules": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

@@ -217,7 +217,8 @@ public sealed class BekiVisualPipeline(
                     interiorAssetType = "single_page_portrait",
                 },
             },
-            cancellationToken);
+            cancellationToken,
+            prompts.GetSchema(BekiPromptProvider.VisualBibleSchema));
 
     private async Task<byte[]?> GenerateHeroAnchorAsync(
         BekiVisualContext context,
@@ -370,7 +371,8 @@ public sealed class BekiVisualPipeline(
             prompts.Get(BekiPromptProvider.VisualReviewer),
             new { visualBible = bible, sceneSpec = spec },
             attachments,
-            cancellationToken);
+            cancellationToken,
+            prompts.GetSchema(BekiPromptProvider.VisualReviewSchema));
     }
 
     private async Task<byte[]> RepairAsync(

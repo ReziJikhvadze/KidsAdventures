@@ -17,7 +17,8 @@ public interface IBekiOpenAiClient
         string model,
         string systemPrompt,
         object userPayload,
-        CancellationToken cancellationToken) where T : class;
+        CancellationToken cancellationToken,
+        object? responseSchema = null) where T : class;
 
     /// <summary>Same, with images attached — identity analysis and visual review.</summary>
     Task<T?> CompleteJsonWithImagesAsync<T>(
@@ -25,7 +26,8 @@ public interface IBekiOpenAiClient
         string systemPrompt,
         object userPayload,
         IReadOnlyList<BekiImageAttachment> images,
-        CancellationToken cancellationToken) where T : class;
+        CancellationToken cancellationToken,
+        object? responseSchema = null) where T : class;
 
     /// <summary>Free-text out: used to produce an image prompt, which is prose, not JSON.</summary>
     Task<string> CompleteTextWithImagesAsync(
@@ -74,17 +76,19 @@ public sealed class BekiOpenAiClient(
         string model,
         string systemPrompt,
         object userPayload,
-        CancellationToken cancellationToken) where T : class =>
-        CompleteJsonWithImagesAsync<T>(model, systemPrompt, userPayload, [], cancellationToken);
+        CancellationToken cancellationToken,
+        object? responseSchema = null) where T : class =>
+        CompleteJsonWithImagesAsync<T>(model, systemPrompt, userPayload, [], cancellationToken, responseSchema);
 
     public async Task<T?> CompleteJsonWithImagesAsync<T>(
         string model,
         string systemPrompt,
         object userPayload,
         IReadOnlyList<BekiImageAttachment> images,
-        CancellationToken cancellationToken) where T : class
+        CancellationToken cancellationToken,
+        object? responseSchema = null) where T : class
     {
-        var raw = await SendAsync(model, systemPrompt, userPayload, images, jsonMode: true, cancellationToken);
+        var raw = await SendAsync(model, systemPrompt, userPayload, images, jsonMode: true, responseSchema, cancellationToken);
 
         // Models occasionally wrap JSON in prose or a code fence despite json_object mode.
         var json = ModelJsonSanitizer.ExtractJsonObject(raw);
@@ -115,7 +119,7 @@ public sealed class BekiOpenAiClient(
         IReadOnlyList<BekiImageAttachment> images,
         CancellationToken cancellationToken)
     {
-        var raw = await SendAsync(model, systemPrompt, userPayload, images, jsonMode: false, cancellationToken);
+        var raw = await SendAsync(model, systemPrompt, userPayload, images, jsonMode: false, null, cancellationToken);
         return raw.Trim();
     }
 
@@ -215,15 +219,22 @@ public sealed class BekiOpenAiClient(
         object userPayload,
         IReadOnlyList<BekiImageAttachment> images,
         bool jsonMode,
+        object? responseSchema,
         CancellationToken cancellationToken)
     {
         var client = httpClientFactory.CreateClient("OpenAI");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _openAi.ApiKey);
         client.Timeout = TimeSpan.FromSeconds(Math.Max(60, _beki.StoryTimeoutSeconds));
 
+        // The response-format API rejects a JSON format unless the word "json" appears in
+        // the input itself — having it only in `instructions` returns a 400.
+        var preamble = jsonMode
+            ? "Return only a valid JSON object matching the required schema.\n\n"
+            : string.Empty;
+
         var content = new List<object>
         {
-            new { type = "input_text", text = JsonSerializer.Serialize(userPayload, JsonOptions) },
+            new { type = "input_text", text = preamble + JsonSerializer.Serialize(userPayload, JsonOptions) },
         };
 
         // Label each image in text immediately before attaching it, so the prompt's
@@ -239,13 +250,32 @@ public sealed class BekiOpenAiClient(
             });
         }
 
+        /*
+          Sending the actual schema matters more than it looks. The prompts say "return JSON
+          matching story-output-v1.schema.json", but that is a filename the model cannot see:
+          asked that way it writes good Georgian and quietly omits childName, ageBand and
+          every page's charactersPresent, bekiPresent and childAgencyEn — which are exactly
+          the fields the validator and the whole visual pipeline depend on. Attaching the
+          schema turned a book with 19 validation errors into one with none, and made the
+          call faster, because the model is no longer guessing the shape.
+        */
+        object format = responseSchema is not null
+            ? new
+            {
+                type = "json_schema",
+                name = "beki_structured_output",
+                schema = responseSchema,
+                strict = false,
+            }
+            : new { type = "json_object" };
+
         object payload = jsonMode
             ? new
             {
                 model,
                 instructions = systemPrompt,
                 input = new object[] { new { role = "user", content } },
-                text = new { format = new { type = "json_object" } },
+                text = new { format },
             }
             : new
             {

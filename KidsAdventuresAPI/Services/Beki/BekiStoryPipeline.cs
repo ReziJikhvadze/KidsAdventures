@@ -65,7 +65,8 @@ public sealed class BekiStoryPipeline(
             _options.StoryGeneratorModel,
             prompts.Get(BekiPromptProvider.StoryGenerator),
             new { storyInput = seeded },
-            cancellationToken);
+            cancellationToken,
+            prompts.GetSchema(BekiPromptProvider.StoryOutputSchema));
 
         // Step 5: first deterministic gate. Draft errors are diagnostic only — the reviewer
         // is explicitly asked to repair content, so a flawed draft is expected, not fatal.
@@ -87,7 +88,8 @@ public sealed class BekiStoryPipeline(
             _options.StoryReviewerModel,
             prompts.Get(BekiPromptProvider.StoryReviewer),
             new { storyInput = seeded, storyDraft = draft },
-            cancellationToken);
+            cancellationToken,
+            prompts.GetSchema(BekiPromptProvider.StoryOutputSchema));
 
         // A reviewer that returns nothing usable must not discard a draft that may be fine.
         var candidate = reviewed ?? draft;
@@ -119,7 +121,8 @@ public sealed class BekiStoryPipeline(
             _options.StoryRepairModel,
             prompts.Get(BekiPromptProvider.StoryRepair),
             new { storyInput = seeded, currentStory = candidate, validatorErrors = errors },
-            cancellationToken);
+            cancellationToken,
+            prompts.GetSchema(BekiPromptProvider.StoryOutputSchema));
 
         if (repaired is null)
         {

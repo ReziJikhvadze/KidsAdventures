@@ -1,0 +1,302 @@
+{
+  "schemaVersion": "1.0",
+  "requestId": "test-tini-001",
+  "titleKa": "თინი და ჩუმი თოვლის ზარი",
+  "childName": "თინი",
+  "ageBand": "2-4",
+  "theme": "მაგიური სამყარო",
+  "cover": {
+    "subtitleKa": "ზამთრის სამეფოს პატარა საიდუმლო",
+    "coverSceneSummaryEn": "Tini stands beside Beki in a snowy magical kingdom, holding a tiny snow bell while blue flowers and golden thread sparkle nearby.",
+    "featuredCharacters": [
+      "თინი",
+      "ბეკი",
+      "ლუმა",
+      "სენა"
+    ]
+  },
+  "storyPages": [
+    {
+      "pageNumber": 1,
+      "storyTextKa": "ერთ დილას თინის ფანჯარასთან თოვლის პატარა ზარი დაეშვა. ზარი ჩუმი იყო. ბეკიმ ყური მიადო და ჩუმად თქვა: „ალბათ, ვინმეს დახმარება სჭირდება!“",
+      "narrativeBeatEn": "The silent snow bell invites Tini into the adventure.",
+      "sceneSummaryEn": "Tini discovers a silent snow bell at her window while Beki listens closely.",
+      "charactersPresent": [
+        "თინი",
+        "ბეკი"
+      ],
+      "bekiPresent": true,
+      "childAgencyEn": "Tini notices the unusual bell and chooses to listen and investigate.",
+      "pageTurnFunction": "invitation",
+      "continuityFromPreviousEn": null
+    },
+    {
+      "pageNumber": 2,
+      "storyTextKa": "ზარმა თინის ფიფქების ბილიკი აჩვენა. ბილიკმა ის თოვლის სამეფოში მიიყვანა. იქ ორი და ელოდა — ლუმა და სენა. ისინი ზამთრის სამეფოს ყვავილებსა და ქარებს უვლიდნენ და დახმარება სჭირდებოდათ.",
+      "narrativeBeatEn": "Tini reaches the winter kingdom and meets two original snow-keeping sisters.",
+      "sceneSummaryEn": "Tini arrives in a snowy kingdom and meets sisters Luma and Sena beside snowy hills.",
+      "charactersPresent": [
+        "თინი",
+        "ლუმა",
+        "სენა"
+      ],
+      "bekiPresent": false,
+      "childAgencyEn": "Tini follows the bell's trail and reaches the sisters who need help.",
+      "pageTurnFunction": "curiosity",
+      "continuityFromPreviousEn": "The snow trail from the silent bell leads Tini directly to the winter kingdom."
+    },
+    {
+      "pageNumber": 3,
+      "storyTextKa": "„თუ ზარი დარეკავს, ლურჯი ყვავილები გაიღვიძებენ,“ — უთხრა ლუმამ. „მაგრამ ოქროს ძაფი დაიკარგა,“ — დაამატა სენამ. თინიმ ზარი ფრთხილად აიღო და გადაწყვიტა, ოქროს ძაფი ეპოვა.",
+      "narrativeBeatEn": "The mission becomes clear: find the golden thread so the bell can ring.",
+      "sceneSummaryEn": "Luma and Sena explain that a lost golden thread keeps the snow bell silent.",
+      "charactersPresent": [
+        "თინი",
+        "ლუმა",
+        "სენა"
+      ],
+      "bekiPresent": false,
+      "childAgencyEn": "Tini makes the first meaningful decision: she chooses to search for the golden thread.",
+      "pageTurnFunction": "choice",
+      "continuityFromPreviousEn": "After meeting the sisters, Tini learns why the bell is silent and accepts the search."
+    },
+    {
+      "pageNumber": 4,
+      "storyTextKa": "თინიმ თოვლზე პატარა ცისფერი ფურცლები დაინახა. ისინი ყვავილებიდან ცვიოდა და ერთ მხარეს მიფრინავდა. ბეკიმ გაიღიმა: „ფურცლებს ფეხები არ აქვთ, მაგრამ გზა იციან!“ თინიმ ფურცლების მიმართულება დაიმახსოვრა.",
+      "narrativeBeatEn": "Tini spots the first important clue in the blue flower petals.",
+      "sceneSummaryEn": "Tini examines blue petals on the snow as Beki offers a playful observation.",
+      "charactersPresent": [
+        "თინი",
+        "ბეკი",
+        "ლუმა",
+        "სენა"
+      ],
+      "bekiPresent": true,
+      "childAgencyEn": "Tini notices the directional pattern and remembers where the petals are leading.",
+      "pageTurnFunction": "discovery",
+      "continuityFromPreviousEn": "The search begins from the sisters' explanation, and Tini finds a trail hidden in the flowers."
+    },
+    {
+      "pageNumber": 5,
+      "storyTextKa": "ფურცლების ბილიკი ორ თოვლიან ბუჩქთან გაიყო. ერთ მხარეს ქარი ქროდა, მეორე მხარეს კი მშვიდი ლურჯი ყვავილები ჩანდა. თინიმ ყვავილების მხარე აირჩია. ლუმა და სენა მას მშვიდად გაჰყვნენ.",
+      "narrativeBeatEn": "Tini chooses the safer clue-based route.",
+      "sceneSummaryEn": "At a fork in the snowy path, Tini chooses the side marked by calm blue flowers.",
+      "charactersPresent": [
+        "თინი",
+        "ლუმა",
+        "სენა"
+      ],
+      "bekiPresent": false,
+      "childAgencyEn": "Tini compares the two paths and makes the route choice herself.",
+      "pageTurnFunction": "choice",
+      "continuityFromPreviousEn": "The petal pattern points toward a fork, where Tini's observation guides the group."
+    },
+    {
+      "pageNumber": 6,
+      "storyTextKa": "ყვავილების ქვეშ ოქროს ძაფი გამოჩნდა. ის პატარა ყინულის ტოტზე იყო შემოხვეული. თინიმ ძაფი თითებით ნელა მოხსნა, რომ არ გაეწყვიტა. შემდეგ ის ზართან მიიტანა.",
+      "narrativeBeatEn": "Tini carefully retrieves the golden thread.",
+      "sceneSummaryEn": "Tini gently frees the golden thread from a small icy branch and carries it to the bell.",
+      "charactersPresent": [
+        "თინი",
+        "ლუმა",
+        "სენა"
+      ],
+      "bekiPresent": false,
+      "childAgencyEn": "Tini's patience and careful action recover the needed object without breaking it.",
+      "pageTurnFunction": "consequence",
+      "continuityFromPreviousEn": "Tini's path choice leads to the flower-covered spot where the thread is found."
+    },
+    {
+      "pageNumber": 7,
+      "storyTextKa": "მაგრამ ძაფი ზარს ვერ მიება. ბეკიმ მოქაჩა და უცებ ფაფუკ თოვლში ჩაფლავდა. თინიმ გაიცინა. მერე დაინახა: ძაფის ბოლო პატარა კვანძად იყო შეკრული. ჯერ სწორედ ეს კვანძი უნდა გახსნილიყო.",
+      "narrativeBeatEn": "A gentle setback reveals a second detail about the thread.",
+      "sceneSummaryEn": "The thread resists attachment, Beki tumbles softly into snow, and Tini notices the tied end.",
+      "charactersPresent": [
+        "თინი",
+        "ბეკი",
+        "ლუმა",
+        "სენა"
+      ],
+      "bekiPresent": true,
+      "childAgencyEn": "Tini looks past the funny setback and identifies the knot as the real obstacle.",
+      "pageTurnFunction": "humor",
+      "continuityFromPreviousEn": "The recovered thread cannot yet be used, creating a small problem and a new clue."
+    },
+    {
+      "pageNumber": 8,
+      "storyTextKa": "თინიმ კვანძს დააკვირდა. ლურჯი ფურცლები კვანძზე იმავე რიგით იყო დალაგებული, როგორც ბილიკზე: ერთი, ორი, ერთი, ორი. თინიმ თითით ნელა მიჰყვა ამ რიგს და კვანძის პირველი მარყუჟი იპოვა.",
+      "narrativeBeatEn": "Tini recognizes the flower-petal pattern inside the knot.",
+      "sceneSummaryEn": "Tini studies the knot and connects its alternating pattern to the blue petal trail.",
+      "charactersPresent": [
+        "თინი",
+        "ლუმა",
+        "სენა"
+      ],
+      "bekiPresent": false,
+      "childAgencyEn": "Tini discovers the key pattern and locates where to begin untangling.",
+      "pageTurnFunction": "reveal",
+      "continuityFromPreviousEn": "The flower trail's pattern appears again on the thread, turning the earlier clue into a solution method."
+    },
+    {
+      "pageNumber": 9,
+      "storyTextKa": "ჯერ თინიმ ძაფი მარჯვნივ გასწია, მაგრამ კვანძი უფრო მოიჭირა. თინი შეჩერდა. ლუმამ ჩუმად დაუქნია თავი. თინიმ ნიმუში გაიხსენა და ამჯერად ძაფი მარცხნივ, ნელა გაატარა.",
+      "narrativeBeatEn": "After a failed first attempt, Tini pauses and tries the pattern differently.",
+      "sceneSummaryEn": "Tini's first attempt tightens the knot; she pauses and makes a calmer second attempt.",
+      "charactersPresent": [
+        "თინი",
+        "ლუმა",
+        "სენა"
+      ],
+      "bekiPresent": false,
+      "childAgencyEn": "Tini learns from the setback, chooses a new motion, and persists without being rescued.",
+      "pageTurnFunction": "setback",
+      "continuityFromPreviousEn": "The pattern clue guides Tini's first attempt, and the failed motion shows she must reverse it."
+    },
+    {
+      "pageNumber": 10,
+      "storyTextKa": "კვანძი გაიხსნა! თინიმ ოქროს ძაფი ზარის პატარა რგოლში გაატარა და მყარად მიაბა. როგორც კი ზარს თითი შეახო, მან წკრიალი დაიწყო. ლურჯმა ყვავილებმა თვალები გაახილეს.",
+      "narrativeBeatEn": "Tini performs the decisive action that restores the bell.",
+      "sceneSummaryEn": "Tini unties the thread, attaches it to the bell, and wakes the blue flowers with one touch.",
+      "charactersPresent": [
+        "თინი",
+        "ლუმა",
+        "სენა"
+      ],
+      "bekiPresent": false,
+      "childAgencyEn": "Tini's successful second attempt and careful attachment directly solve the central challenge.",
+      "pageTurnFunction": "resolution",
+      "continuityFromPreviousEn": "Tini's reversed motion opens the knot, enabling her to attach the thread and ring the bell."
+    },
+    {
+      "pageNumber": 11,
+      "storyTextKa": "თოვლმა ოქროსფრად იბრწყინა. სენამ თინის ყვავილებისგან პატარა გვირგვინი გაუკეთა, ლუმამ კი ზარი ფრთხილად ჩამოჰკიდა. ბეკი ისე გახარდა, რომ ცხვირი ფიფქებში ჩარგო. ყველამ გაიცინა.",
+      "narrativeBeatEn": "The kingdom celebrates Tini's success with warmth and humor.",
+      "sceneSummaryEn": "The awakened snow kingdom sparkles as the sisters honor Tini and Beki makes a gentle comic mistake.",
+      "charactersPresent": [
+        "თინი",
+        "ბეკი",
+        "ლუმა",
+        "სენა"
+      ],
+      "bekiPresent": true,
+      "childAgencyEn": "Tini receives recognition because her observation, choice, and persistence restored the kingdom's bell.",
+      "pageTurnFunction": "relationship",
+      "continuityFromPreviousEn": "The ringing bell wakes the flowers, bringing the safe celebration that follows Tini's solution."
+    },
+    {
+      "pageNumber": 12,
+      "storyTextKa": "უცებ ზარმა კიდევ ერთხელ დარეკა. მის ქვეშ ვერცხლისფერი ფიფქი გამოჩნდა, ზედ კი პატარა რუკა ეხატა. რუკა ღრუბლების ზემოთ, ცისფერ მთვარესთან მიდიოდა. თინიმ რუკა გულთან მიიკრა და თქვა: „ამ გზასაც მე გავყვები!“ ახალი მოგზაურობა უკვე ელოდა.",
+      "narrativeBeatEn": "A new map creates the next inviting adventure while the current problem stays resolved.",
+      "sceneSummaryEn": "A silver snowflake map appears beneath the restored bell and points toward a blue moon above the clouds.",
+      "charactersPresent": [
+        "თინი",
+        "ლუმა",
+        "სენა"
+      ],
+      "bekiPresent": false,
+      "childAgencyEn": "Tini openly chooses to follow the map in the next adventure, while the bell mystery remains safely resolved.",
+      "pageTurnFunction": "continuation_reveal",
+      "continuityFromPreviousEn": "The restored bell produces a new map, extending the magical journey beyond the solved snow-bell mystery."
+    }
+  ],
+  "page12CtaKa": "თინი, შემდეგ მოგზაურობაში ცისფერ მთვარესთან ერთად გაემგზავრები!",
+  "storyCustomization": {
+    "extraWishUsed": true,
+    "extraWishIntegrationEn": "The requested Frozen-inspired traveling companions were originalized into Luma and Sena, two original snow-keeping sisters. They meet Tini in the winter kingdom, explain the bell mystery, accompany her search, and celebrate her solution, giving the extra wish meaningful influence across multiple beats without replacing Tini as the hero.",
+    "thirdPartyHandlingEn": "Because thirdPartyCharacterMode is originalize, recognizable Frozen characters Anna and Elsa were replaced with original sisters Luma and Sena, with distinct names, roles, and story functions. No franchise-specific traits, catchphrases, or identifying details were used.",
+    "safetyAdaptationsEn": [
+      "Kept the mystery gentle and non-threatening, with no realistic danger or frightening characters.",
+      "Made the setback playful and brief, ending in laughter and a safe celebration.",
+      "Replaced the QR-code wording with a simple in-story continuation invitation."
+    ],
+    "continuityAdaptationsEn": [],
+    "bekiPages": [
+      1,
+      4,
+      7,
+      11
+    ]
+  },
+  "continuationMemory": {
+    "bookSummaryKa": "თინიმ ბეკისა და ზამთრის სამეფოს დების, ლუმასა და სენას, დახმარებით იპოვა ოქროს ძაფი. მან ლურჯი ყვავილების ნიმუში შეამჩნია, კვანძი გახსნა და ჩუმი თოვლის ზარი ააჟღერა. ბოლოს ზარის ქვეშ ცისფერ მთვარემდე მიმავალი რუკა გამოჩნდა.",
+    "worldStateEn": "The winter kingdom is safe and lively again. The blue flowers are awake, and the snow bell rings with its golden thread attached.",
+    "locationsDiscovered": [
+      "თინის ფანჯარა",
+      "თოვლის სამეფო",
+      "ლურჯი ყვავილების ბილიკი"
+    ],
+    "charactersIntroduced": [
+      "ბეკი",
+      "ლუმა",
+      "სენა"
+    ],
+    "returningCharacters": [],
+    "relationshipUpdatesEn": [
+      "Tini and Beki begin a magical friendship through investigation and shared humor.",
+      "Luma and Sena trust Tini after seeing her careful and persistent solution."
+    ],
+    "importantObjects": [
+      "ჩუმი თოვლის ზარი",
+      "ოქროს ძაფი",
+      "ვერცხლისფერი ფიფქის რუკა"
+    ],
+    "childStrengthsShownKa": [
+      "ყურადღება",
+      "მოთმინება",
+      "სიფრთხილე",
+      "გამძლეობა"
+    ],
+    "promisesMadeKa": [
+      "თინიმ თქვა, რომ ცისფერ მთვარემდე მიმავალ გზას გაჰყვება."
+    ],
+    "resolvedThreadKa": "ჩუმი თოვლის ზარი კვლავ აჟღერდა და ლურჯი ყვავილები გაიღვიძა.",
+    "openThreadsKa": [
+      "ვერცხლისფერი ფიფქის რუკა თინის ცისფერ მთვარესთან, ღრუბლების ზემოთ, ეპატიჟება.",
+      "ჯერ უცნობია, რას იპოვის თინი ღრუბლების ზემოთ, ცისფერ მთვარესთან."
+    ],
+    "nextChapterHookKa": "ვერცხლისფერი ფიფქის რუკა თინის ცისფერ მთვარესთან, ღრუბლების ზემოთ, ეპატიჟება.",
+    "recentPlotPatternsToAvoidEn": [
+      "Do not repeat a silent bell or a golden-thread knot as the central problem.",
+      "Avoid using the same blue-flower trail as the main clue.",
+      "Avoid a generic portal invitation; begin from the silver snowflake map."
+    ]
+  },
+  "reviewMetadata": {
+    "status": "revised",
+    "issuesFound": [
+      {
+        "code": "CTA_QR_CODE",
+        "severity": "medium",
+        "pageNumber": null,
+        "descriptionEn": "The incoming CTA referenced scanning a QR code, which is not appropriate for this output and could be a fake product interaction."
+      },
+      {
+        "code": "GEORGIAN_STYLE",
+        "severity": "low",
+        "pageNumber": 2,
+        "descriptionEn": "Several sentences used stiff or awkward Georgian phrasing, including the bell trail and the sisters' role."
+      },
+      {
+        "code": "PAGE12_AGENCY_MISMATCH",
+        "severity": "medium",
+        "pageNumber": 12,
+        "descriptionEn": "The metadata claimed Tini chose to keep the map, but the narrative did not explicitly show her making that choice."
+      },
+      {
+        "code": "SAFETY_METADATA",
+        "severity": "low",
+        "pageNumber": null,
+        "descriptionEn": "The incoming safety adaptations field was empty despite the need to remove the QR-code reference and document gentle emotional handling."
+      }
+    ],
+    "changesMadeEn": [
+      "Polished Georgian grammar, diction, dialogue punctuation, and read-aloud rhythm throughout the story.",
+      "Revised Page 2 and several local phrases for more natural Georgian.",
+      "Made Tini's Page 12 choice explicit and aligned the continuation memory with it.",
+      "Removed the QR-code reference from the separate CTA.",
+      "Documented the gentle safety adaptations and preserved the originalized supporting sisters.",
+      "Performed a full second review for page order, continuity, child agency, Beki's four appearances, and the 2–4 age band."
+    ],
+    "humanReviewFlagsEn": []
+  }
+}

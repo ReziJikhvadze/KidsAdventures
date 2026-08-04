@@ -36,6 +36,10 @@
          runtime rather than pasted into C#, so a prompt revision is a content change and
          its version can be recorded against every generated story. -->
     <Content Include="Prompts\Beki\*.md" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Sent to the model as the response format. The prompts name these files; without
+         shipping them the model has to guess the shape and silently drops fields.
+         Update, not Include: the SDK already picks up .json as Content by default. -->
+    <Content Update="Prompts\Beki\schemas\*.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\Beki\*.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Beki Visual Review v1",
+  "type": "object",
+  "required": [
+    "decision",
+    "scores",
+    "detectedIssues",
+    "repairInstructions",
+    "regenerationInstructions",
+    "textDetected",
+    "logoOrWatermarkDetected",
+    "fakeQrDetected",
+    "characterListSeen",
+    "notes"
+  ],
+  "properties": {
+    "decision": {
+      "type": "string",
+      "enum": [
+        "approve",
+        "repair",
+        "regenerate"
+      ]
+    },
+    "scores": {
+      "type": "object",
+      "required": [
+        "heroIdentityMatch",
+        "heroAgeMatch",
+        "heroOutfitMatch",
+        "bekiDesignMatch",
+        "characterCountCorrect",
+        "childVisualDominance",
+        "sceneActionMatch",
+        "continuityMatch",
+        "textSafeArea",
+        "overallComposition"
+      ],
+      "properties": {
+        "heroIdentityMatch": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "heroAgeMatch": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "heroOutfitMatch": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "bekiDesignMatch": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "characterCountCorrect": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "childVisualDominance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "sceneActionMatch": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "continuityMatch": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "textSafeArea": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "overallComposition": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "detectedIssues": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "repairInstructions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "regenerationInstructions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "textDetected": {
+      "type": "boolean"
+    },
+    "logoOrWatermarkDetected": {
+      "type": "boolean"
+    },
+    "fakeQrDetected": {
+      "type": "boolean"
+    },
+    "characterListSeen": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}
