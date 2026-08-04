@@ -3,6 +3,7 @@ using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Beki;
 using AdventurePacks.Api.DTOs.Beki;
 using AdventurePacks.Api.Repositories.Interfaces;
+using AdventurePacks.Api.Services.Interfaces;
 using Hangfire;
 
 namespace AdventurePacks.Api.Services.Beki;
@@ -22,6 +23,12 @@ public interface IBekiStoryService
 
     /// <summary>Hangfire entry point. Public because the job serializer needs to reach it.</summary>
     Task RunGenerationAsync(Guid storyId);
+
+    /// <summary>
+    /// Hangfire entry point for illustration. Queued automatically once a story is approved,
+    /// and safe to re-run: assets that already exist are reused rather than redrawn.
+    /// </summary>
+    Task RunIllustrationAsync(Guid storyId);
 }
 
 /// <summary>
@@ -38,7 +45,10 @@ public interface IBekiStoryService
 /// </summary>
 public sealed class BekiStoryService(
     IBekiStoryPipeline pipeline,
+    IBekiVisualPipeline visualPipeline,
     IBekiStoryRepository repository,
+    ICharacterRepository characterRepository,
+    IBlobStorageService blobStorage,
     IBackgroundJobClient backgroundJobs,
     IOptions<BekiOptions> options,
     ILogger<BekiStoryService> logger) : IBekiStoryService
@@ -212,6 +222,20 @@ public sealed class BekiStoryService(
             logger.LogInformation(
                 "Beki story {StoryId} completed: '{Title}' ({Status}, seed {Seed})",
                 storyId, story.TitleKa, record.Status, result.CreativeSeedId);
+
+            // Illustration is a separate job rather than a continuation of this one. A book
+            // is thirteen images and can run for many minutes; keeping it separate means a
+            // failure there never discards an approved story, and the work can be retried
+            // on its own without rewriting the prose.
+            if (record.CharacterId is not null)
+            {
+                backgroundJobs.Enqueue<IBekiStoryService>(service => service.RunIllustrationAsync(storyId));
+            }
+            else
+            {
+                logger.LogInformation(
+                    "Beki story {StoryId} has no saved child, so there is no photo to illustrate from.", storyId);
+            }
         }
         catch (Exception ex)
         {
@@ -219,6 +243,97 @@ public sealed class BekiStoryService(
             await repository.MarkFailedAsync(storyId, ex.Message, null, null, CancellationToken.None);
         }
     }
+
+    public async Task RunIllustrationAsync(Guid storyId)
+    {
+        var record = await repository.GetByIdAsync(storyId, CancellationToken.None);
+        if (record?.FinalStoryJson is null || record.CharacterId is null)
+        {
+            logger.LogWarning("Beki story {StoryId} cannot be illustrated: no approved story or no child.", storyId);
+            return;
+        }
+
+        // Illustration must never run ahead of an approved story: the scene specs are derived
+        // from the story's structured metadata, and a draft's cast list may still be wrong.
+        if (!BekiStoryStatus.IsReadable(record.Status))
+        {
+            logger.LogWarning(
+                "Beki story {StoryId} is {Status}; illustration only runs on an approved story.",
+                storyId, record.Status);
+            return;
+        }
+
+        var story = JsonSerializer.Deserialize<BekiStoryOutput>(record.FinalStoryJson, JsonOptions);
+        if (story is null)
+        {
+            logger.LogError("Beki story {StoryId} has unreadable stored JSON.", storyId);
+            return;
+        }
+
+        var character = await characterRepository.GetByIdAsync(
+            record.CharacterId.Value, record.UserId, CancellationToken.None);
+
+        if (character?.PhotoUrl is null)
+        {
+            logger.LogWarning(
+                "Beki story {StoryId}: child {CharacterId} has no photo, so there is nothing to build identity from.",
+                storyId, record.CharacterId);
+            return;
+        }
+
+        try
+        {
+            var photo = await blobStorage.DownloadBytesFromStoredUrlAsync(character.PhotoUrl, CancellationToken.None);
+
+            // Thirteen images with review and repair; the story timeout is nowhere near enough.
+            using var timeout = new CancellationTokenSource(
+                TimeSpan.FromSeconds(Math.Max(600, _options.StoryTimeoutSeconds * 8)));
+
+            var result = await visualPipeline.IllustrateAsync(
+                story,
+                new BekiVisualContext
+                {
+                    StoryId = storyId,
+                    CharacterId = record.CharacterId.Value,
+                    ChildPhotoBytes = photo,
+                    ChildPhotoContentType = "image/jpeg",
+                    Age = AgeFromBand(record.AgeBand),
+                    AgeBand = record.AgeBand,
+                    EyeColor = character.EyeColor,
+                },
+                timeout.Token);
+
+            if (result.Success)
+            {
+                logger.LogInformation(
+                    "Beki story {StoryId} illustrated: cover + {Pages} pages.", storyId, result.Pages.Count);
+            }
+            else
+            {
+                // The story stays approved. A book with prose and no pictures is recoverable
+                // by re-running this job; a book marked failed is not.
+                logger.LogError(
+                    "Beki story {StoryId} illustration incomplete ({Reason}): {Warnings}",
+                    storyId, result.FailureReason, string.Join(" | ", result.Warnings.Take(6)));
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Beki story {StoryId} illustration threw", storyId);
+        }
+    }
+
+    /// <summary>
+    /// The identity analyzer wants a concrete age to cross-check against the photo, but only
+    /// the band survives on the story record. The middle of the band is the safest guess and
+    /// the parent-supplied value in the spec overrides it anyway.
+    /// </summary>
+    private static int AgeFromBand(string ageBand) => ageBand switch
+    {
+        "2-4" => 3,
+        "5-7" => 6,
+        _ => 9,
+    };
 
     public async Task<BekiStoryStatusResponse?> GetStatusAsync(
         Guid userId,
