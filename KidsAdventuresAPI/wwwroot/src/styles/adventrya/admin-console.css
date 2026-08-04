@@ -44,7 +44,7 @@
   background: var(--canvas);
   color: var(--ink);
   font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI",     sans-serif;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .admin-app button, .admin-app input, .admin-app select, .admin-app textarea {
@@ -93,7 +93,7 @@
   color: #2a2433;
   display: flex;
   font-family: Georgia, serif;
-  font-size: 21px;
+  font-size: 19px;
   font-weight: 700;
   height: 39px;
   justify-content: center;
@@ -106,13 +106,13 @@
 
 .admin-app .brand-row strong {
   color: white;
-  font-size: 16px;
+  font-size: 14px;
   letter-spacing: 0.13em;
 }
 
 .admin-app .brand-row small {
   color: #8f93aa;
-  font-size: 15px;
+  font-size: 13px;
   margin-top: 3px;
 }
 
@@ -128,7 +128,7 @@
   border-radius: 9px;
   color: #aeb2c5;
   display: flex;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 520;
   gap: 11px;
   min-height: 42px;
@@ -160,7 +160,7 @@
   background: #343750;
   border-radius: 12px;
   color: #dfe1ea;
-  font-size: 14px;
+  font-size: 12px;
   margin-left: auto;
   min-width: 22px;
   padding: 3px 6px;
@@ -173,7 +173,7 @@
   border-radius: 9px;
   color: #c9cbda;
   display: flex;
-  font-size: 15px;
+  font-size: 13px;
   gap: 8px;
   justify-content: space-between;
   margin: 14px 2px;
@@ -203,7 +203,7 @@
   border-radius: 50%;
   color: #3a3040;
   display: flex;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   height: 34px;
   justify-content: center;
@@ -216,12 +216,12 @@
 
 .admin-app .sidebar-user strong {
   color: white;
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .sidebar-user small {
   color: #8f93aa;
-  font-size: 14px;
+  font-size: 12px;
   margin-top: 3px;
 }
 
@@ -269,7 +269,7 @@
   border: 1px solid #e0e2e8;
   border-radius: 5px;
   color: #8b90a0;
-  font-size: 14px;
+  font-size: 12px;
   padding: 3px 7px;
 }
 
@@ -295,7 +295,7 @@
   border-radius: 50%;
   color: white;
   display: flex;
-  font-size: 13px;
+  font-size: 11px;
   height: 16px;
   justify-content: center;
   position: absolute;
@@ -309,7 +309,7 @@
   background: #f1f2f6;
   border-radius: 8px;
   display: flex;
-  font-size: 14px;
+  font-size: 12px;
   gap: 3px;
   padding: 3px;
 }
@@ -374,7 +374,7 @@
   border-radius: 8px;
   cursor: pointer;
   display: inline-flex;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 650;
   justify-content: center;
   min-height: 38px;
@@ -415,7 +415,7 @@
   align-items: center;
   color: var(--muted);
   display: flex;
-  font-size: 15px;
+  font-size: 13px;
   justify-content: space-between;
 }
 
@@ -423,21 +423,21 @@
   background: var(--success-soft);
   border-radius: 12px;
   color: var(--success);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 650;
   padding: 4px 7px;
 }
 
 .admin-app .metric-card > strong {
   display: block;
-  font-size: 27px;
+  font-size: 25px;
   letter-spacing: -0.035em;
   margin-top: 17px;
 }
 
 .admin-app .metric-card p {
   color: var(--muted);
-  font-size: 15px;
+  font-size: 13px;
   margin: 6px 0 0;
 }
 
@@ -464,7 +464,7 @@
 
 .admin-app .eyebrow {
   color: #969aab;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.13em;
   margin: 0 0 6px;
@@ -472,13 +472,13 @@
 }
 
 .admin-app .panel-header h2 {
-  font-size: 16px;
+  font-size: 14px;
   margin: 0;
 }
 
 .admin-app .panel-count {
   color: var(--muted);
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .text-link, .admin-app .order-link {
@@ -487,7 +487,7 @@
 }
 
 .admin-app .text-link {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .queue-list {
@@ -530,7 +530,7 @@
 }
 
 .admin-app .queue-row strong {
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .admin-app .row-arrow {
@@ -560,12 +560,12 @@
 }
 
 .admin-app .sla-ring strong {
-  font-size: 25px;
+  font-size: 23px;
 }
 
 .admin-app .sla-ring span {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   margin-top: 3px;
 }
 
@@ -584,7 +584,7 @@
 
 .admin-app .sla-details p {
   color: var(--muted);
-  font-size: 15px;
+  font-size: 13px;
   margin: 0;
 }
 
@@ -619,7 +619,7 @@
 
 .admin-app .data-table th {
   color: #858a9d;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 650;
   letter-spacing: 0.03em;
   padding: 11px 14px;
@@ -630,7 +630,7 @@
 
 .admin-app .data-table td {
   border-top: 1px solid #eef0f4;
-  font-size: 15px;
+  font-size: 13px;
   padding: 12px 14px;
   vertical-align: middle;
 }
@@ -642,7 +642,7 @@
 .admin-app .cell-subtitle, .admin-app .book-cell small {
   color: #9297a7;
   display: block;
-  font-size: 14px;
+  font-size: 12px;
   margin-top: 4px;
 }
 
@@ -655,7 +655,7 @@
 
 .admin-app .book-cell strong {
   display: block;
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .book-thumb {
@@ -666,7 +666,7 @@
   color: white;
   display: flex;
   font-family: Georgia, serif;
-  font-size: 16px;
+  font-size: 14px;
   height: 40px;
   justify-content: center;
   min-width: 31px;
@@ -721,7 +721,7 @@
 .admin-app .status-badge {
   border-radius: 12px;
   display: inline-flex;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 650;
   line-height: 1;
   padding: 6px 8px;
@@ -779,7 +779,7 @@
   align-items: center;
   border-radius: 50%;
   display: flex;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
   height: 26px;
   justify-content: center;
@@ -806,12 +806,12 @@
 }
 
 .admin-app .event-row strong {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .event-row small, .admin-app .event-row time {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   margin-top: 4px;
 }
 
@@ -864,7 +864,7 @@
   border-radius: 50%;
   color: white;
   display: flex;
-  font-size: 14px;
+  font-size: 12px;
   height: 17px;
   justify-content: center;
   margin-left: 7px;
@@ -885,7 +885,7 @@
   border-radius: 7px;
   color: #73788a;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   padding: 7px 9px;
   white-space: nowrap;
 }
@@ -893,7 +893,7 @@
 .admin-app .quick-filter-row button span {
   background: #eceef3;
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 11px;
   margin-left: 5px;
   padding: 2px 5px;
 }
@@ -922,7 +922,7 @@
 .admin-app .filter-panel label {
   color: var(--muted);
   display: grid;
-  font-size: 14px;
+  font-size: 12px;
   gap: 6px;
 }
 
@@ -940,7 +940,7 @@
   border: 0;
   color: #496c9f;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   padding: 10px 5px;
 }
 
@@ -948,7 +948,7 @@
   align-items: center;
   color: var(--muted);
   display: flex;
-  font-size: 14px;
+  font-size: 12px;
   justify-content: space-between;
   padding: 11px 17px 2px;
 }
@@ -970,7 +970,7 @@
   background: #f4f3f0;
   border-radius: 5px;
   display: inline-block;
-  font-size: 14px;
+  font-size: 12px;
   padding: 6px 7px;
   white-space: nowrap;
 }
@@ -986,12 +986,12 @@
 }
 
 .admin-app .empty-state strong {
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .admin-app .empty-state p {
   color: var(--muted);
-  font-size: 15px;
+  font-size: 13px;
   margin: 8px 0 16px;
 }
 
@@ -1012,7 +1012,7 @@
   border-radius: 50%;
   color: #75581f;
   display: flex;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 800;
   height: 54px;
   justify-content: center;
@@ -1021,7 +1021,7 @@
 }
 
 .admin-app .coming-next h2 {
-  font-size: 19px;
+  font-size: 17px;
   margin: 18px 0 0;
 }
 
@@ -1083,7 +1083,7 @@
   }
 
   .admin-app .global-search input {
-    font-size: 15px;
+    font-size: 13px;
     min-width: 0;
   }
 
@@ -1134,7 +1134,7 @@
   }
 
   .admin-app .metric-card > strong {
-    font-size: 22px;
+    font-size: 20px;
   }
 
   .admin-app .sla-chart {
@@ -1190,7 +1190,7 @@
 
 .admin-app .date-range-label {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 650;
   margin: 0 3px;
 }
@@ -1208,7 +1208,7 @@
   border-radius: 5px;
   color: #73788a;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   min-height: 28px;
   padding: 0 9px;
 }
@@ -1232,14 +1232,14 @@
 
 .admin-app .date-range-filter > label span {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .admin-app .date-range-filter input {
   background: transparent;
   border: 0;
   color: var(--ink);
-  font-size: 14px;
+  font-size: 12px;
   outline: 0;
 }
 
@@ -1249,7 +1249,7 @@
   border-radius: 7px;
   color: white;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   margin-left: auto;
   min-height: 34px;
   padding: 0 12px;
@@ -1267,7 +1267,7 @@
 
 .admin-app .filter-context span {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .filter-context strong {
@@ -1276,7 +1276,7 @@
   border: 1px solid #dfe2e9;
   border-radius: 7px;
   display: flex;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 550;
   height: 36px;
   padding: 0 9px;
@@ -1314,7 +1314,7 @@
   border-radius: 50%;
   color: #74571f;
   display: flex;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 750;
   height: 29px;
   justify-content: center;
@@ -1326,12 +1326,12 @@
 }
 
 .admin-app .handoff-control strong {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .handoff-control small {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1.35;
   margin-top: 3px;
 }
@@ -1339,7 +1339,7 @@
 .admin-app .job-sla {
   border-radius: 11px;
   display: inline-flex;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 650;
   margin-bottom: 8px;
   padding: 5px 7px;
@@ -1377,7 +1377,7 @@
 
 .admin-app .handoff-receipt span {
   color: var(--success);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 620;
 }
 
@@ -1407,12 +1407,12 @@
 }
 
 .admin-app .partner-inbox-alert strong {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .partner-inbox-alert small {
   color: #807693;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.45;
   margin-top: 3px;
 }
@@ -1421,7 +1421,7 @@
   background: white;
   border: 1px solid #d9d3e7;
   border-radius: 13px;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   padding: 6px 9px;
 }
@@ -1439,13 +1439,13 @@
 }
 
 .admin-app .partner-routing-card h2 {
-  font-size: 17px;
+  font-size: 15px;
   margin: 0;
 }
 
 .admin-app .partner-routing-card p:not(.eyebrow) {
   color: #b8bbcd;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.55;
   margin: 7px 0 0;
 }
@@ -1481,7 +1481,7 @@
   border-radius: 50%;
   color: #f1ce86;
   display: flex;
-  font-size: 14px;
+  font-size: 12px;
   height: 21px;
   justify-content: center;
   width: 21px;
@@ -1489,14 +1489,14 @@
 
 .admin-app .routing-flow small {
   color: #c8cada;
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1.3;
   margin-top: 6px;
 }
 
 .admin-app .routing-flow i {
   color: #777b92;
-  font-size: 14px;
+  font-size: 12px;
   font-style: normal;
 }
 
@@ -1612,19 +1612,19 @@
 .admin-app .queue-stat > span, .admin-app .promotion-metrics span, .admin-app .partner-kpis span {
   color: var(--muted);
   display: block;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .queue-stat > strong, .admin-app .promotion-metrics strong, .admin-app .partner-kpis strong {
   display: block;
-  font-size: 23px;
+  font-size: 21px;
   margin: 13px 0 4px;
 }
 
 .admin-app .queue-stat > small, .admin-app .promotion-metrics small, .admin-app .partner-kpis small {
   color: var(--muted);
   display: block;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .production-toolbar {
@@ -1654,7 +1654,7 @@
   background: var(--success-soft);
   border-radius: 12px;
   color: var(--success);
-  font-size: 14px;
+  font-size: 12px;
   padding: 6px 8px;
   white-space: nowrap;
 }
@@ -1688,18 +1688,18 @@
 
 .admin-app .insight-metrics span {
   display: block;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
 }
 
 .admin-app .insight-metrics small {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .exception-panel > p {
   color: var(--muted);
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.65;
   margin: 0;
   padding: 18px;
@@ -1717,7 +1717,7 @@
   border: 0;
   border-radius: 6px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   padding: 7px 10px;
 }
 
@@ -1744,11 +1744,11 @@
 }
 
 .admin-app .fulfillment-alert strong {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .fulfillment-alert span, .admin-app .fulfillment-alert a {
-  font-size: 14px;
+  font-size: 12px;
   margin-top: 3px;
 }
 
@@ -1776,7 +1776,7 @@
   align-items: center;
   color: #656b7e;
   display: flex;
-  font-size: 14px;
+  font-size: 12px;
   justify-content: space-between;
   padding: 6px 5px 12px;
 }
@@ -1786,7 +1786,7 @@
   background: white;
   border-radius: 10px;
   display: flex;
-  font-size: 14px;
+  font-size: 12px;
   height: 20px;
   justify-content: center;
   width: 20px;
@@ -1816,13 +1816,13 @@
 }
 
 .admin-app .print-job-head strong {
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.35;
 }
 
 .admin-app .print-job-head small {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
   margin-top: 3px;
 }
 
@@ -1834,7 +1834,7 @@
 }
 
 .admin-app .print-job-card dt, .admin-app .print-job-card dd {
-  font-size: 13px;
+  font-size: 11px;
   margin: 0;
 }
 
@@ -1857,7 +1857,7 @@
   border: 0;
   color: #426693;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 11px;
   padding: 0;
 }
 
@@ -1865,7 +1865,7 @@
   background: var(--info-soft);
   border-radius: 5px;
   color: var(--info);
-  font-size: 13px;
+  font-size: 11px;
   padding: 6px;
 }
 
@@ -1873,7 +1873,7 @@
   border: 1px dashed #cfd2db;
   border-radius: 7px;
   color: #999eae;
-  font-size: 14px;
+  font-size: 12px;
   padding: 18px 8px;
   text-align: center;
 }
@@ -1881,7 +1881,7 @@
 .admin-app .integration-pill {
   border-radius: 12px;
   display: inline-flex;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 650;
   padding: 6px 8px;
   white-space: nowrap;
@@ -1904,7 +1904,7 @@
 
 .admin-app .table-empty {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   padding: 25px;
   text-align: center;
 }
@@ -1949,7 +1949,7 @@
   border-radius: 50%;
   color: #65558b;
   display: flex;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 700;
   height: 35px;
   justify-content: center;
@@ -1957,7 +1957,7 @@
 }
 
 .admin-app .customer-avatar.large {
-  font-size: 16px;
+  font-size: 14px;
   height: 49px;
   width: 49px;
 }
@@ -1967,12 +1967,12 @@
 }
 
 .admin-app .customer-list strong, .admin-app .partner-job-list strong {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .customer-list small, .admin-app .partner-job-list small {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
   margin-top: 3px;
 }
 
@@ -1997,7 +1997,7 @@
 .admin-app .customer-note-composer label {
   color: var(--muted);
   display: grid;
-  font-size: 14px;
+  font-size: 12px;
   gap: 7px;
 }
 
@@ -2034,12 +2034,12 @@
 }
 
 .admin-app .customer-profile-head h2 {
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .admin-app .customer-profile-head p:not(.eyebrow) {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   margin-top: 4px;
 }
 
@@ -2058,7 +2058,7 @@
 }
 
 .admin-app .customer-facts dt, .admin-app .customer-facts dd {
-  font-size: 14px;
+  font-size: 12px;
   margin: 0;
 }
 
@@ -2088,13 +2088,13 @@
 }
 
 .admin-app .profile-section > header h3 {
-  font-size: 15px;
+  font-size: 13px;
   margin: 0;
 }
 
 .admin-app .profile-section > header span, .admin-app .profile-section > header a {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .child-profile-grid {
@@ -2118,12 +2118,12 @@
 }
 
 .admin-app .child-profile-grid strong, .admin-app .customer-books strong {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .child-profile-grid small, .admin-app .customer-books small {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
   margin-top: 3px;
 }
 
@@ -2155,7 +2155,7 @@
   background: none;
   border: 0;
   color: #426693;
-  font-size: 13px;
+  font-size: 11px;
   padding: 0;
 }
 
@@ -2164,7 +2164,7 @@
   border: 1px dashed #cfd2da;
   border-radius: 5px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
   padding: 6px 8px;
@@ -2193,7 +2193,7 @@
 
 .admin-app .usage-cell small {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .admin-app .promo-form {
@@ -2206,7 +2206,7 @@
 .admin-app .promo-form label {
   color: var(--muted);
   display: grid;
-  font-size: 14px;
+  font-size: 12px;
   gap: 6px;
 }
 
@@ -2256,7 +2256,7 @@
   border-radius: 8px;
   color: #6c5d91;
   display: flex;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
   height: 34px;
   justify-content: center;
@@ -2268,12 +2268,12 @@
 }
 
 .admin-app .role-list strong, .admin-app .integration-list strong {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .role-list small, .admin-app .integration-list small {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
   line-height: 1.45;
   margin-top: 3px;
 }
@@ -2286,7 +2286,7 @@
   background: none;
   border: 0;
   color: #426693;
-  font-size: 13px;
+  font-size: 11px;
   margin-top: 4px;
   padding: 0;
 }
@@ -2297,7 +2297,7 @@
   border-top: 1px solid var(--line);
   color: #514371;
   display: flex;
-  font-size: 14px;
+  font-size: 12px;
   justify-content: space-between;
   padding: 14px 17px;
 }
@@ -2308,7 +2308,7 @@
 
 .admin-app .partner-access-link small {
   color: #827795;
-  font-size: 13px;
+  font-size: 11px;
   margin-top: 4px;
 }
 
@@ -2322,7 +2322,7 @@
 .admin-app .sla-settings label {
   color: var(--muted);
   display: grid;
-  font-size: 14px;
+  font-size: 12px;
   gap: 6px;
 }
 
@@ -2343,7 +2343,7 @@
 
 .admin-app .settings-footer p {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .rules-list {
@@ -2376,12 +2376,12 @@
 
 .admin-app .rules-list strong, .admin-app .rules-list small {
   display: block;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .rules-list small {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
   margin-top: 3px;
 }
 
@@ -2419,12 +2419,12 @@
 }
 
 .admin-app .partner-detail-head h2 {
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .admin-app .partner-detail-head p:not(.eyebrow) {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   margin-top: 5px;
 }
 
@@ -2439,7 +2439,7 @@
 }
 
 .admin-app .partner-job-facts dt, .admin-app .partner-job-facts dd {
-  font-size: 14px;
+  font-size: 12px;
   margin: 0;
 }
 
@@ -2466,12 +2466,12 @@
 }
 
 .admin-app .partner-file strong, .admin-app .pickup-label strong {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .partner-file small, .admin-app .pickup-label small {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
   margin-top: 3px;
 }
 
@@ -2482,7 +2482,7 @@
 }
 
 .admin-app .partner-production h3 {
-  font-size: 15px;
+  font-size: 13px;
   margin: 0 0 12px;
 }
 
@@ -2497,7 +2497,7 @@
   background: #eff0f4;
   border-radius: 6px;
   color: #8b90a0;
-  font-size: 13px;
+  font-size: 11px;
   padding: 8px 5px;
   text-align: center;
 }
@@ -2527,11 +2527,11 @@
 }
 
 .admin-app .partner-privacy-note strong {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .partner-privacy-note p {
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.55;
   margin: 4px 0 0;
 }
@@ -2565,13 +2565,13 @@
 }
 
 .admin-app .login-card h1 {
-  font-size: 30px;
+  font-size: 28px;
   margin: 0 0 10px;
 }
 
 .admin-app .login-card > p:not(.eyebrow) {
   color: var(--muted);
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.65;
   margin: 0 0 25px;
 }
@@ -2618,19 +2618,19 @@
 }
 
 .admin-app .login-role-list strong {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .login-role-list small {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   margin-top: 4px;
 }
 
 .admin-app .login-note {
   color: var(--muted);
   display: block;
-  font-size: 13px;
+  font-size: 11px;
   margin-top: 18px;
   text-align: center;
 }
@@ -2662,29 +2662,29 @@
 }
 
 .admin-app .login-book small {
-  font-size: 13px;
+  font-size: 11px;
   letter-spacing: 0.15em;
 }
 
 .admin-app .login-book strong {
   font-family: Georgia, serif;
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1.15;
 }
 
 .admin-app .login-book i {
-  font-size: 13px;
+  font-size: 11px;
   font-style: normal;
 }
 
 .admin-app .login-aside h2 {
-  font-size: 20px;
+  font-size: 18px;
   margin: 35px 0 8px;
 }
 
 .admin-app .login-aside p {
   color: #b8bbcd;
-  font-size: 14px;
+  font-size: 12px;
   margin: 0;
 }
 
@@ -2819,25 +2819,25 @@
 /* Fine-grained readability for production-critical surfaces */
 
 .admin-app .inline-facts dt, .admin-app .detail-list dt, .admin-app .price-breakdown dt, .admin-app .partner-job-facts dt, .admin-app .customer-facts dt, .admin-app .courier-grid label, .admin-app .modal label {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .inline-facts dd, .admin-app .detail-list dd, .admin-app .price-breakdown dd, .admin-app .partner-job-facts dd, .admin-app .customer-facts dd {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .approval-content h4 {
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .admin-app .approval-content p, .admin-app .approval-content li {
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
 .admin-app .approval-pending, .admin-app .approval-success {
   border: 1px solid transparent;
-  font-size: 14px !important;
+  font-size: 12px !important;
 }
 
 .admin-app .approval-pending {
@@ -2849,11 +2849,11 @@
 }
 
 .admin-app .horizontal-list dt {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .horizontal-list dd {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .partner-detail-head h2, .admin-app .customer-profile-head h2 {
@@ -2866,11 +2866,11 @@
 }
 
 .admin-app .partner-file strong, .admin-app .partner-production h3, .admin-app .profile-section h3 {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .partner-file small, .admin-app .partner-production p, .admin-app .partner-privacy-note p {
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.5;
 }
 
@@ -2880,7 +2880,7 @@
 
 .admin-app .table-empty, .admin-app .kanban-empty {
   color: var(--muted);
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.55;
 }
 
@@ -2893,7 +2893,7 @@
   bottom: 24px;
   box-shadow: 0 12px 35px rgba(17, 20, 35, 0.22);
   color: white;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 650;
   padding: 13px 17px;
   position: fixed;
@@ -2931,7 +2931,7 @@
 
 .admin-app .status-strip > div > span:first-child {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .status-strip > i {
@@ -2959,7 +2959,7 @@
   border-bottom: 2px solid transparent;
   color: #73798c;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   min-height: 50px;
   padding: 0 12px;
@@ -2978,7 +2978,7 @@
   border-radius: 50%;
   color: white;
   display: inline-flex;
-  font-size: 13px;
+  font-size: 11px;
   height: 16px;
   justify-content: center;
   margin-left: 6px;
@@ -3013,7 +3013,7 @@
 }
 
 .admin-app .detail-card > header h3 {
-  font-size: 16px;
+  font-size: 14px;
   margin: 0;
 }
 
@@ -3021,7 +3021,7 @@
   background: none;
   border: 0;
   color: #5273a4;
-  font-size: 14px;
+  font-size: 12px;
   padding: 0;
 }
 
@@ -3058,23 +3058,23 @@
 }
 
 .admin-app .large-book-cover small, .admin-app .print-file-preview small {
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.14em;
 }
 
 .admin-app .large-book-cover strong {
   font-family: Georgia, serif;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.12;
 }
 
 .admin-app .large-book-cover i {
-  font-size: 14px;
+  font-size: 12px;
   font-style: normal;
 }
 
 .admin-app .order-book-summary h2 {
-  font-size: 22px;
+  font-size: 20px;
   margin: 0 0 17px;
 }
 
@@ -3091,12 +3091,12 @@
 
 .admin-app .inline-facts dt, .admin-app .detail-list dt, .admin-app .price-breakdown dt {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   margin-bottom: 4px;
 }
 
 .admin-app .inline-facts dd, .admin-app .detail-list dd, .admin-app .price-breakdown dd {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 620;
   margin: 0;
 }
@@ -3132,12 +3132,12 @@
 }
 
 .admin-app .notice-card strong {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .notice-card p, .admin-app .payment-actions-card p, .admin-app .courier-footer p {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.55;
   margin: 5px 0 0;
 }
@@ -3211,7 +3211,7 @@
 .admin-app .page-number {
   background: rgba(16, 18, 27, 0.48);
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 12px;
   padding: 4px 6px;
   position: absolute;
   right: 10px;
@@ -3230,7 +3230,7 @@
 }
 
 .admin-app .illustration-placeholder span {
-  font-size: 14px;
+  font-size: 12px;
   opacity: 0.75;
 }
 
@@ -3243,7 +3243,7 @@
   align-items: center;
   color: #c8cada;
   display: flex;
-  font-size: 14px;
+  font-size: 12px;
   gap: 13px;
   justify-content: center;
   margin-top: 18px;
@@ -3306,12 +3306,12 @@
 }
 
 .admin-app .character-row strong {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .character-row small {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   margin-top: 3px;
 }
 
@@ -3345,7 +3345,7 @@
 .admin-app .check-list div {
   align-items: center;
   display: flex;
-  font-size: 14px;
+  font-size: 12px;
   gap: 8px;
 }
 
@@ -3362,7 +3362,7 @@
 
 .admin-app .cost-note, .admin-app .muted-label {
   color: var(--muted) !important;
-  font-size: 14px !important;
+  font-size: 12px !important;
 }
 
 .admin-app .page-status-grid {
@@ -3398,7 +3398,7 @@
 .admin-app .page-status-grid small {
   color: var(--success);
   display: block;
-  font-size: 13px;
+  font-size: 11px;
   margin-top: 5px;
 }
 
@@ -3413,7 +3413,7 @@
 .admin-app .timeline-rows > div {
   border-top: 1px solid #eef0f4;
   display: grid;
-  font-size: 14px;
+  font-size: 12px;
   gap: 15px;
   grid-template-columns: 60px 1fr auto;
   padding: 10px 0;
@@ -3463,7 +3463,7 @@
 
 .admin-app .price-breakdown .total dt, .admin-app .price-breakdown .total dd {
   color: var(--ink);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -3474,7 +3474,7 @@
 
 .admin-app .approval-pending, .admin-app .approval-success {
   border-radius: 12px;
-  font-size: 14px !important;
+  font-size: 12px !important;
   font-weight: 700;
   padding: 6px 8px !important;
 }
@@ -3511,22 +3511,22 @@
 
 .admin-app .print-file-preview strong {
   font-family: Georgia, serif;
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .print-file-preview i {
-  font-size: 13px;
+  font-size: 11px;
   font-style: normal;
 }
 
 .admin-app .approval-content h4 {
-  font-size: 15px;
+  font-size: 13px;
   margin: 0 0 5px;
 }
 
 .admin-app .approval-content p, .admin-app .approval-content li {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .approval-content ul {
@@ -3553,7 +3553,7 @@
   border: 1px dashed #d9dce4;
   border-radius: 8px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   padding: 15px;
 }
 
@@ -3566,7 +3566,7 @@
 .admin-app .courier-grid label, .admin-app .modal label {
   color: var(--muted);
   display: grid;
-  font-size: 14px;
+  font-size: 12px;
   gap: 6px;
 }
 
@@ -3628,12 +3628,12 @@
 }
 
 .admin-app .activity-list strong {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .activity-list small, .admin-app .activity-list time, .admin-app .activity-actor {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   margin-top: 3px;
 }
 
@@ -3664,7 +3664,7 @@
 }
 
 .admin-app .modal > header h2 {
-  font-size: 19px;
+  font-size: 17px;
   margin: 0;
 }
 
@@ -3673,7 +3673,7 @@
   border: 0;
   border-radius: 7px;
   cursor: pointer;
-  font-size: 19px;
+  font-size: 17px;
   height: 31px;
   width: 31px;
 }
@@ -3691,7 +3691,7 @@
 
 .admin-app .modal-page-preview p {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   margin: 5px 0 0;
 }
 
@@ -3699,7 +3699,7 @@
   background: var(--warning-soft);
   border-radius: 7px;
   color: #8b5b18;
-  font-size: 14px;
+  font-size: 12px;
   margin-top: 13px;
   padding: 10px;
 }
@@ -3821,7 +3821,7 @@
   }
 
   .admin-app .large-book-cover strong {
-    font-size: 15px;
+    font-size: 13px;
   }
 
   .admin-app .inline-facts {
@@ -3857,7 +3857,7 @@
 
 .admin-app .nav-group-label {
   color: #696e87;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 750;
   letter-spacing: 0.14em;
   padding: 0 12px 5px;
@@ -3867,7 +3867,7 @@
   background: var(--purple-soft);
   border-radius: 999px;
   color: var(--purple);
-  font-size: 14px !important;
+  font-size: 12px !important;
   font-weight: 700;
   padding: 5px 8px;
   white-space: nowrap;
@@ -3894,7 +3894,7 @@
 
 .admin-app .orders-table .amount-line {
   color: var(--ink);
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 720;
   margin-top: 7px;
 }
@@ -3914,17 +3914,17 @@
 }
 
 .admin-app .stage-cell strong, .admin-app .issue-pill strong {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .stage-cell small, .admin-app .issue-pill small {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .stage-cell em {
   color: #4f5870;
-  font-size: 13px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 650;
   letter-spacing: 0.03em;
@@ -3978,7 +3978,7 @@
   color: #5f6579;
   cursor: pointer;
   display: flex;
-  font-size: 14px;
+  font-size: 12px;
   justify-content: space-between;
   min-height: 42px;
   padding: 0 12px;
@@ -3989,7 +3989,7 @@
   background: #f0f2f6;
   border-radius: 999px;
   display: flex;
-  font-size: 14px;
+  font-size: 12px;
   height: 22px;
   justify-content: center;
   min-width: 22px;
@@ -4044,7 +4044,7 @@
   border-radius: 50%;
   color: white;
   display: flex;
-  font-size: 15px;
+  font-size: 13px;
   height: 30px;
   justify-content: center;
   width: 30px;
@@ -4055,12 +4055,12 @@
 }
 
 .admin-app .audit-integrity-banner strong {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .audit-integrity-banner small {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.5;
   margin-top: 3px;
 }
@@ -4085,17 +4085,17 @@
 
 .admin-app .audit-summary span {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .audit-summary strong {
-  font-size: 22px;
+  font-size: 20px;
   margin-top: 8px;
 }
 
 .admin-app .audit-summary small {
   color: #969bad;
-  font-size: 13px;
+  font-size: 11px;
   margin-top: 4px;
 }
 
@@ -4147,7 +4147,7 @@
 
 .admin-app .audit-action small {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.45;
   margin-top: 4px;
 }
@@ -4155,7 +4155,7 @@
 .admin-app .audit-category, .admin-app .immutable-chip {
   border-radius: 999px;
   display: inline-flex;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 720;
   padding: 5px 8px;
 }
@@ -4196,12 +4196,12 @@
 
 .admin-app .immutable-snapshot strong {
   color: #236e54;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .immutable-snapshot small {
   color: #62756f;
-  font-size: 13px;
+  font-size: 11px;
   margin-top: 3px;
   overflow-wrap: anywhere;
 }
@@ -4234,12 +4234,12 @@
 
 .admin-app .courier-receipt strong {
   color: var(--info);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .courier-receipt small {
   color: #61708a;
-  font-size: 13px;
+  font-size: 11px;
   margin-top: 3px;
   overflow-wrap: anywhere;
 }
@@ -4280,11 +4280,11 @@
 
 .admin-app .approval-file-identity dt {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .approval-file-identity dd {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 680;
   margin: 0;
   overflow-wrap: anywhere;
@@ -4301,7 +4301,7 @@
   border-radius: 9px;
   cursor: pointer;
   display: flex;
-  font-size: 14px;
+  font-size: 12px;
   gap: 10px;
   line-height: 1.5;
   padding: 12px;
@@ -4323,7 +4323,7 @@
   align-items: center;
   border-top: 1px solid #eff0f4;
   display: grid;
-  font-size: 14px;
+  font-size: 12px;
   grid-template-columns: 1fr 90px 90px;
   min-height: 35px;
   padding: 0 12px;
@@ -4340,7 +4340,7 @@
 .admin-app .permission-head {
   background: #f7f8fa;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -4502,7 +4502,7 @@
   background:
     radial-gradient(circle at 84% -8%, rgba(109, 91, 156, 0.07), transparent 30rem),     linear-gradient(180deg, #f9f7f5 0, var(--canvas) 18rem);
   color: var(--ink);
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.45;
   text-rendering: optimizeLegibility;
 }
@@ -4558,20 +4558,20 @@
   color: rgba(255, 255, 255, 0.85);
   content: "✦";
   font-family: Georgia, serif;
-  font-size: 13px;
+  font-size: 11px;
   position: absolute;
   right: 5px;
   top: 3px;
 }
 
 .admin-app .brand-row strong {
-  font-size: 16px;
+  font-size: 14px;
   letter-spacing: 0.17em;
 }
 
 .admin-app .brand-row small {
   color: #aaa7bd;
-  font-size: 14px;
+  font-size: 12px;
   letter-spacing: 0.04em;
 }
 
@@ -4591,7 +4591,7 @@
 
 .admin-app .nav-group-label {
   color: #747189;
-  font-size: 14px;
+  font-size: 12px;
   letter-spacing: 0.15em;
   padding: 0 11px 7px;
 }
@@ -4600,7 +4600,7 @@
   border: 1px solid transparent;
   border-radius: 11px;
   color: #b4b1c2;
-  font-size: 15px;
+  font-size: 13px;
   gap: 12px;
   min-height: 44px;
   padding: 0 12px;
@@ -4643,7 +4643,7 @@
   background: rgba(255, 255, 255, 0.09);
   border: 1px solid rgba(255, 255, 255, 0.075);
   color: #ebe8f0;
-  font-size: 14px;
+  font-size: 12px;
   min-width: 23px;
   padding: 3px 6px;
 }
@@ -4709,7 +4709,7 @@
 }
 
 .admin-app .global-search input {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .global-search input::placeholder {
@@ -4747,7 +4747,7 @@
 }
 
 .admin-app .notification-dot {
-  font-size: 13px;
+  font-size: 11px;
   height: 17px;
   right: -5px;
   top: -5px;
@@ -4785,7 +4785,7 @@
 
 .admin-app .page-heading p {
   color: #747181;
-  font-size: 15px;
+  font-size: 13px;
   margin-top: 8px;
   max-width: 760px;
 }
@@ -4797,7 +4797,7 @@
 
 .admin-app .button {
   border-radius: 10px;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 680;
   min-height: 40px;
   padding: 0 16px;
@@ -4873,7 +4873,7 @@
 }
 
 .admin-app .metric-head {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 590;
   position: relative;
   z-index: 1;
@@ -4881,12 +4881,12 @@
 
 .admin-app .trend-positive {
   border: 1px solid #d8eee4;
-  font-size: 14px;
+  font-size: 12px;
   letter-spacing: 0.015em;
 }
 
 .admin-app .metric-card > strong {
-  font-size: 30px;
+  font-size: 28px;
   font-variant-numeric: tabular-nums;
   font-weight: 730;
   margin-top: 18px;
@@ -4895,7 +4895,7 @@
 }
 
 .admin-app .metric-card p {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .panel {
@@ -4910,18 +4910,18 @@
 
 .admin-app .eyebrow {
   color: #8f8897;
-  font-size: 14px;
+  font-size: 12px;
   letter-spacing: 0.15em;
 }
 
 .admin-app .panel-header h2 {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 690;
   letter-spacing: -0.012em;
 }
 
 .admin-app .panel-count, .admin-app .text-link {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .text-link, .admin-app .order-link {
@@ -4945,7 +4945,7 @@
 }
 
 .admin-app .queue-row strong {
-  font-size: 16px;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -4964,12 +4964,12 @@
 }
 
 .admin-app .sla-ring strong {
-  font-size: 27px;
+  font-size: 25px;
   font-variant-numeric: tabular-nums;
 }
 
 .admin-app .sla-details p, .admin-app .sla-details strong {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .table-scroll {
@@ -4997,7 +4997,7 @@
   background: rgba(247, 245, 246, 0.96);
   border-bottom: 1px solid #e9e5ea;
   color: #757181;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 720;
   letter-spacing: 0.045em;
   padding: 12px 15px;
@@ -5009,7 +5009,7 @@
 
 .admin-app .data-table td {
   border-color: #efecf0;
-  font-size: 15px;
+  font-size: 13px;
   padding: 13px 15px;
 }
 
@@ -5025,7 +5025,7 @@
 
 .admin-app .cell-subtitle, .admin-app .book-cell small {
   color: #878391;
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1.35;
   margin-top: 4px;
 }
@@ -5035,7 +5035,7 @@
 }
 
 .admin-app .book-cell strong {
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.35;
 }
 
@@ -5043,7 +5043,7 @@
   border-radius: 5px 8px 8px 5px;
   box-shadow:
     3px 4px 8px rgba(22, 25, 43, 0.16),     inset 2px 0 rgba(255, 255, 255, 0.12);
-  font-size: 16px;
+  font-size: 14px;
   height: 43px;
   min-width: 34px;
   position: relative;
@@ -5077,7 +5077,7 @@
   align-items: center;
   border: 1px solid transparent;
   border-radius: 999px;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   gap: 5px;
   letter-spacing: 0.005em;
@@ -5124,11 +5124,11 @@
 }
 
 .admin-app .event-row strong {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .event-row small, .admin-app .event-row time {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .date-range-filter {
@@ -5144,7 +5144,7 @@
 }
 
 .admin-app .date-range-label {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -5156,7 +5156,7 @@
 
 .admin-app .date-presets button {
   border-radius: 7px;
-  font-size: 14px;
+  font-size: 12px;
   min-height: 31px;
   padding: 0 11px;
 }
@@ -5174,17 +5174,17 @@
 }
 
 .admin-app .date-range-filter > label span {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .date-range-filter input {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .date-apply {
   background: linear-gradient(180deg, #2d2a43, #1c1a2e);
   border-radius: 9px;
-  font-size: 14px;
+  font-size: 12px;
   min-height: 38px;
   padding: 0 15px;
 }
@@ -5221,7 +5221,7 @@
 .admin-app .quick-filter-row button {
   border-color: #e6e1e7;
   border-radius: 999px;
-  font-size: 14px;
+  font-size: 12px;
   min-height: 33px;
   padding: 6px 11px;
 }
@@ -5245,7 +5245,7 @@
 }
 
 .admin-app .filter-panel label {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 590;
 }
 
@@ -5256,7 +5256,7 @@
 }
 
 .admin-app .table-summary {
-  font-size: 15px;
+  font-size: 13px;
   padding: 13px 19px 5px;
 }
 
@@ -5269,11 +5269,11 @@
 }
 
 .admin-app .stage-cell strong, .admin-app .issue-pill strong {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .stage-cell small, .admin-app .issue-pill small {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .issue-pill {
@@ -5305,7 +5305,7 @@
 
 .admin-app .workflow-filter-bar button {
   border-radius: 11px;
-  font-size: 15px;
+  font-size: 13px;
   min-height: 46px;
   padding: 0 13px;
 }
@@ -5369,7 +5369,7 @@
 .admin-app .segmented-control button {
   border-radius: 8px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   min-height: 31px;
   padding: 6px 12px;
 }
@@ -5389,7 +5389,7 @@
 
 .admin-app .kanban-column > header {
   color: #5f5b6c;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 650;
   padding: 7px 6px 13px;
 }
@@ -5408,11 +5408,11 @@
 }
 
 .admin-app .print-job-head strong {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .print-job-head small, .admin-app .print-job-card dt, .admin-app .print-job-card dd, .admin-app .job-actions a, .admin-app .job-actions button, .admin-app .tracking-note {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .production-summary, .admin-app .promotion-metrics, .admin-app .partner-kpis {
@@ -5426,11 +5426,11 @@
 }
 
 .admin-app .queue-stat > span, .admin-app .promotion-metrics span, .admin-app .partner-kpis span, .admin-app .audit-summary span {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .queue-stat > strong, .admin-app .promotion-metrics strong, .admin-app .partner-kpis strong, .admin-app .audit-summary strong {
-  font-size: 25px;
+  font-size: 23px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -5460,7 +5460,7 @@
 }
 
 .admin-app .routing-flow small {
-  font-size: 13px;
+  font-size: 11px;
 }
 
 .admin-app .partner-layout, .admin-app .customer-layout, .admin-app .settings-layout {
@@ -5512,12 +5512,12 @@
 }
 
 .admin-app .immutable-snapshot strong {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .immutable-snapshot small {
   font-family: var(--font-geist-mono), monospace;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .immutable-lock {
@@ -5538,12 +5538,12 @@
 }
 
 .admin-app .permission-row {
-  font-size: 15px;
+  font-size: 13px;
   min-height: 40px;
 }
 
 .admin-app .permission-head {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .status-strip {
@@ -5561,7 +5561,7 @@
 }
 
 .admin-app .detail-tabs button {
-  font-size: 15px;
+  font-size: 13px;
   min-height: 47px;
   padding: 0 13px;
   position: relative;
@@ -5602,11 +5602,11 @@
 }
 
 .admin-app .activity-list strong {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .admin-app .activity-list small, .admin-app .activity-list time, .admin-app .activity-actor {
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .admin-app .modal-backdrop {
@@ -5684,11 +5684,11 @@
   }
 
   .admin-app .page-heading h1 {
-    font-size: 25px;
+    font-size: 23px;
   }
 
   .admin-app .page-heading p {
-    font-size: 15px;
+    font-size: 13px;
     line-height: 1.55;
   }
 
@@ -5706,11 +5706,11 @@
   }
 
   .admin-app .data-table th {
-    font-size: 14px;
+    font-size: 12px;
   }
 
   .admin-app .data-table td {
-    font-size: 15px;
+    font-size: 13px;
   }
 
   .admin-app .panel-header {

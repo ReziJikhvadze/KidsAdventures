@@ -1,5 +1,5 @@
 import { Compass, Sparkles } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 
 import { AppHeader } from "@/components/adventrya/AppHeader";
@@ -22,6 +22,7 @@ type Props = {
 export function WorldStage({ draft, onChange, header }: Props) {
   const WORLDS = useWorlds();
   const t = useT();
+  const router = useRouter();
   const hero = primaryCharacter(draft);
   const heroName = hero.name.trim() || t.common.fallbackHeroName;
   const [hovered, setHovered] = useState<WorldId | null>(null);
@@ -29,9 +30,6 @@ export function WorldStage({ draft, onChange, header }: Props) {
   const activeId = hovered ?? selectedId ?? WORLDS[0]?.id ?? null;
   const selected = WORLDS.find((w) => w.id === selectedId) ?? WORLDS.find((w) => w.id === activeId);
   const copy = t.journey.firstMap;
-  const previewHref = selectedId
-    ? `/create?mode=first&world=${selectedId}#preview`
-    : "/create#preview";
 
   return (
     <main
@@ -111,17 +109,28 @@ export function WorldStage({ draft, onChange, header }: Props) {
           <Link className="button button-quiet button-back" to="/create" hash="profile">
             უკან
           </Link>
-          <a
+          {/*
+            A router navigation, not a plain <a>. An anchor here was a full page load,
+            which unmounted the draft provider and threw away everything the parent had
+            entered — the child's name arrived at checkout empty, and creating the
+            character then failed outright.
+          */}
+          <button
+            type="button"
             className={`button button-primary${!selectedId ? " is-disabled" : ""}`}
-            href={selectedId ? previewHref : undefined}
-            aria-disabled={!selectedId}
-            onClick={(e) => {
-              if (!selectedId) e.preventDefault();
+            disabled={!selectedId}
+            onClick={() => {
+              if (!selectedId) return;
+              void router.navigate({
+                to: "/create",
+                search: { mode: "first", world: selectedId },
+                hash: "preview",
+              });
             }}
           >
             {copy.continue}
             <Sparkles aria-hidden="true" />
-          </a>
+          </button>
         </div>
       </section>
 

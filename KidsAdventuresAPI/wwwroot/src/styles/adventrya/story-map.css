@@ -36,7 +36,7 @@
   gap: 7px;
   margin: 0 0 4px;
   color: #f1c970;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.16em;
 }
@@ -56,7 +56,7 @@
 .story-map-topline > div:first-child > span {
   margin-top: 4px;
   color: #f7f0e58f;
-  font-size: 16px;
+  font-size: 14px;
   text-shadow: 0 2px 12px #09041a;
 }
 .story-map-progress {
@@ -77,12 +77,12 @@
   grid-row: 1 / span 2;
   color: #f3cd79;
   font-family: "Adventrya Serif", serif;
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1;
 }
 .story-map-progress span {
   color: #f9f3e9bf;
-  font-size: 15px;
+  font-size: 13px;
   line-height: 1.35;
 }
 .story-map-progress > i {
@@ -357,12 +357,12 @@
 }
 .story-node-copy small {
   color: #edca7d;
-  font-size: 15px;
+  font-size: 13px;
 }
 .story-node-copy strong {
   margin-top: 2px;
   font-family: "Adventrya Serif", serif;
-  font-size: 16px;
+  font-size: 14px;
 }
 .story-world-node:hover .story-node-marker,
 .story-world-node:focus-visible .story-node-marker,
@@ -498,27 +498,27 @@
 }
 .story-map-memory small {
   color: #eecb7e;
-  font-size: 15px;
+  font-size: 13px;
 }
 .story-map-memory strong {
   margin-top: 2px;
   overflow: hidden;
   color: #fff8eb;
   font-family: "Adventrya Serif", serif;
-  font-size: 17px;
+  font-size: 15px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .story-map-memory p {
   margin: 4px 0 0;
   color: #f1eaf19c;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.45;
 }
 .story-memory-status {
   max-width: 78px;
   color: #f1ce82;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 800;
   line-height: 1.4;
   text-align: right;
@@ -795,18 +795,18 @@
 }
 .selected-world-inline small {
   color: #edcb7f;
-  font-size: 15px;
+  font-size: 13px;
 }
 .selected-world-inline strong {
   margin-top: 2px;
   color: #fff8eb;
   font-family: "Adventrya Serif", serif;
-  font-size: 16px;
+  font-size: 14px;
 }
 .selected-world-inline p {
   margin: 3px 0 0;
   color: #f1eaf187;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.4;
 }
 .legend-current {
@@ -856,7 +856,7 @@
 .map-dashboard-heading > div:first-child > p:last-child {
   margin: 6px 0 0;
   color: #f2eaf28c;
-  font-size: 16px;
+  font-size: 14px;
 }
 .map-dashboard-summary {
   display: flex;
@@ -872,12 +872,12 @@
   border-radius: 12px;
   color: #f7f0e68f;
   background: #ffffff09;
-  font-size: 15px;
+  font-size: 13px;
 }
 .map-dashboard-summary strong {
   color: #edca7b;
   font-family: "Adventrya Serif", serif;
-  font-size: 17px;
+  font-size: 15px;
 }
 .dashboard-map-frame {
   position: relative;
@@ -912,21 +912,21 @@
 }
 .dashboard-map-action small {
   color: #edca7b;
-  font-size: 15px;
+  font-size: 13px;
 }
 .dashboard-map-action strong {
   margin-top: 3px;
   overflow: hidden;
   color: #fff8eb;
   font-family: "Adventrya Serif", serif;
-  font-size: 16px;
+  font-size: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .dashboard-map-action p {
   margin: 5px 0 0;
   color: #f2eaf294;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.48;
 }
 .dashboard-map-action .button {
@@ -934,7 +934,7 @@
   min-height: 42px;
   justify-content: space-between;
   padding-inline: 14px;
-  font-size: 16px;
+  font-size: 14px;
 }
 .map-library-heading {
   color: #fff8eb;
@@ -1067,7 +1067,7 @@
   }
   .story-map-topline h2 {
     max-width: 225px;
-    font-size: 18px;
+    font-size: 16px;
   }
   .story-map-topline > div:first-child > span {
     max-width: 220px;
@@ -1082,7 +1082,7 @@
   }
   .story-map-progress strong {
     grid-row: auto;
-    font-size: 20px;
+    font-size: 18px;
   }
   .story-map-progress span {
     margin-top: 2px;
@@ -1115,7 +1115,7 @@
     z-index: 12;
   }
   .story-node-copy strong {
-    font-size: 16px;
+    font-size: 14px;
   }
   .story-map-memory {
     left: 14px;
@@ -1145,7 +1145,7 @@
     border-radius: 999px;
     color: #f9f3e9b8;
     background: #130a2d94;
-    font-size: 15px;
+    font-size: 13px;
     pointer-events: none;
     transform: translate(-50%);
     -webkit-backdrop-filter: blur(10px);
@@ -1196,7 +1196,7 @@
     gap: 14px;
   }
   .map-dashboard-heading h1 {
-    font-size: 29px;
+    font-size: 27px;
   }
   .map-dashboard-summary {
     width: 100%;
@@ -1249,7 +1249,7 @@
   }
   .story-map-topline h2 {
     max-width: 200px;
-    font-size: 16px;
+    font-size: 14px;
   }
   .story-map-topline > div:first-child > span {
     display: none;

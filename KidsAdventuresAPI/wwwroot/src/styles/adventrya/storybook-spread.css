@@ -104,12 +104,12 @@
   border-radius: 50%;
   color: #8f6248;
   font-family: "Adventrya Serif", serif;
-  font-size: 25px;
+  font-size: 23px;
   box-shadow: 0 8px 26px #5d3b381a;
 }
 .storybook-inside-cover small {
   color: #9b6c4e;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.12em;
 }
@@ -129,7 +129,7 @@
   position: absolute;
   bottom: 8%;
   color: #69484280;
-  font-size: 12px;
+  font-size: 11px;
   font-style: normal;
   letter-spacing: 0.12em;
 }
@@ -295,7 +295,7 @@
     padding: 19% 8.5% 8.5%;
   }
   .storybook-page-copy > p {
-    font-size: 15px;
+    font-size: 13px;
     line-height: 1.58;
   }
 }
