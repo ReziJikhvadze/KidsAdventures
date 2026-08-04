@@ -68,6 +68,24 @@ internal sealed class AdventurePromptLocale
     /// untranslated locale still compiles; the instruction works in either language because
     /// the reader-facing text it governs is still written in the book's language.
     /// </summary>
+    /// <summary>
+    /// Forbids foreign characters inside the reader-facing text. Not theoretical: live books
+    /// came back with a Cyrillic "д" inside "დინოზავრის" and a Korean "작은" mid-sentence.
+    /// Georgian is low-resource enough that a model reaches for a visually similar glyph from
+    /// another script, and a single wrong character makes a printed page look defective.
+    /// {0} is the language name.
+    /// </summary>
+    public string ScriptPurityRule { get; init; } =
+        "SCRIPT PURITY: every reader-facing sentence must be written entirely in the script of {0}, with no characters borrowed from any other alphabet. Do not substitute a visually similar Cyrillic, Latin, Greek, Chinese, Japanese or Korean character for a letter of that script, not even inside a single word. Before returning, re-read every sentence and replace any stray foreign character with the correct one.";
+
+    /// <summary>
+    /// Stops examples in this prompt being copied into the book. Live output contained the
+    /// literal seed string "ბებია-მოვაჭრე საიდუმლოთი" and the safety example "cute robot
+    /// creature" as actual characters, because nothing said the examples were not content.
+    /// </summary>
+    public string NoPromptEchoRule { get; init; } =
+        "DO NOT COPY THIS BRIEF: every example, seed, hook, tone note and safety illustration in these instructions is guidance for you, never text for the book. Never place their wording, character labels or phrasing into the story. Invent your own specific names, characters and descriptions that fit this child.";
+
     public string WholeStoryFirstRule { get; init; } =
         "WRITE ONE STORY, THEN DIVIDE IT: compose the complete adventure as a single continuous narrative first — one problem, one journey, one resolution — and only then split it across the pages at natural turning points. Do not write pages as separate little scenes that merely share a setting. Read the finished pages in order as if aloud to a child: each one must continue the exact sentence-level situation the previous page left, using the same objects, the same place unless the hero physically moves, and the same moment in time. If any page could be removed or reordered without the reader noticing, the story is not yet continuous and must be rewritten.";
 
@@ -301,6 +319,17 @@ internal static class AdventurePromptTexts
             "სწორედ იქ ხდებოდეს გვერდის მთავარი ამბავი და არა ცარიელი ადგილი.",
         ImageTextSafeTop = "ზედა",
         ImageTextSafeBottom = "ქვედა",
+        ScriptPurityRule =
+            "დამწერლობის სისუფთავე: მკითხველისთვის განკუთვნილი ყოველი წინადადება მთლიანად ქართული ანბანით " +
+            "(მხედრულით) უნდა დაიწეროს და არცერთი ასო არ უნდა იყოს სხვა დამწერლობიდან აღებული. არ ჩასვა " +
+            "ვიზუალურად მსგავსი კირილიცის, ლათინური, ბერძნული, ჩინური, იაპონური ან კორეული სიმბოლო ქართული " +
+            "ასოს ნაცვლად — არც ერთი სიტყვის შიგნითაც კი. დაბრუნებამდე თავიდან წაიკითხე ყველა წინადადება და " +
+            "ნებისმიერი უცხო სიმბოლო სწორი ქართული ასოთი ჩაანაცვლე.",
+        NoPromptEchoRule =
+            "ეს ინსტრუქცია არ გადაიწერო: აქ მოცემული ყოველი მაგალითი, seed, კაუჭი, ტონის შენიშვნა და " +
+            "უსაფრთხოების ილუსტრაცია შენთვისაა მითითება და არა წიგნის ტექსტი. არასოდეს გადაიტანო მათი " +
+            "ფორმულირება, პერსონაჟის აღწერა ან ფრაზა ისტორიაში. მოიფიქრე შენი კონკრეტული სახელები, " +
+            "პერსონაჟები და აღწერები, რომლებიც სწორედ ამ ბავშვს შეეფერება.",
         WholeStoryFirstRule =
             "ჯერ დაწერე ერთი მთლიანი ისტორია, მერე დაყავი გვერდებად: სრული თავგადასავალი ჯერ ერთ უწყვეტ " +
             "თხრობად შეადგინე — ერთი პრობლემა, ერთი მოგზაურობა, ერთი გადაწყვეტა — და მხოლოდ ამის შემდეგ " +

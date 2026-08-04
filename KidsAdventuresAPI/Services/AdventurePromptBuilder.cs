@@ -59,6 +59,10 @@ internal static class AdventurePromptBuilder
         lines.Add(texts.RulesHeader);
         lines.Add($"- {texts.IncludeFamilyRule}");
         lines.Add($"- {string.Format(texts.WriteInLanguageRule, texts.LanguageName)}");
+        // Immediately after the language rule, because both govern the same thing: what the
+        // reader actually sees on the page.
+        lines.Add($"- {string.Format(texts.ScriptPurityRule, texts.LanguageName)}");
+        lines.Add($"- {texts.NoPromptEchoRule}");
         lines.Add($"- {string.Format(texts.PageCountRule, pageCount)}");
         lines.Add($"- {texts.NoExtraPagesRule}");
         lines.Add(storyArc);

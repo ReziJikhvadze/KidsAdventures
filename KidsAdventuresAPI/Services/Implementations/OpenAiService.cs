@@ -303,11 +303,26 @@ public sealed class OpenAiService(
     private async Task<byte[]> GenerateStoryImageViaResponsesApiAsync(string imagePrompt, CancellationToken cancellationToken)
     {
         var client = CreateClient();
+
+        // The tool was declared with no settings at all, so every illustration came back at
+        // the model's own default — a 1024x1024 square — no matter what OpenAI:ImageSize and
+        // OpenAI:ImageQuality were set to. This is the default provider, so that silently
+        // applied to essentially every picture the product has ever produced, and made those
+        // two settings look broken. A storybook page is portrait; state it explicitly.
         var payload = new
         {
             model = _options.Model,
             input = imagePrompt,
-            tools = new[] { new { type = "image_generation" } }
+            tools = new[]
+            {
+                new
+                {
+                    type = "image_generation",
+                    model = ResolveImagesApiModel(),
+                    size = _options.ImageSize,
+                    quality = MapGptImageQuality(_options.ImageQuality)
+                }
+            }
         };
 
         using var response = await client.PostAsJsonAsync("responses", payload, cancellationToken);
