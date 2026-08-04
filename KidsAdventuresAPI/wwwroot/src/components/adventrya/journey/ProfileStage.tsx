@@ -1,4 +1,4 @@
-import { Camera, Check, Lock, Plus } from "lucide-react";
+import { Camera, Check, Lock, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { SparkleIcon } from "@/components/adventrya/landing/icons";
@@ -440,10 +440,12 @@ function CharacterEditor({
           {character.name.trim() ? copy.profile.saveChanges : copy.profile.saveCharacter}
         </button>
         <button className="ux-inline-link" type="button" onClick={onCancel}>
+          <X aria-hidden="true" />
           {t.common.actions.cancel}
         </button>
         {onRemove ? (
           <button className="ux-inline-link danger" type="button" onClick={onRemove}>
+            <Trash2 aria-hidden="true" />
             {t.common.actions.remove}
           </button>
         ) : null}
@@ -494,10 +496,12 @@ function CharacterSummary({
       </div>
       <div className="ux-summary-actions">
         <button type="button" onClick={onEdit}>
+          <Pencil aria-hidden="true" />
           {t.common.actions.change}
         </button>
         {onRemove ? (
           <button type="button" className="danger" onClick={onRemove}>
+            <Trash2 aria-hidden="true" />
             {t.common.actions.remove}
           </button>
         ) : null}

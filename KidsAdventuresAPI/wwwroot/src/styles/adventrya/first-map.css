@@ -61,7 +61,7 @@
 .first-map-screen .theme-guidance {
   max-width: 390px;
   margin-top: 13px;
-  font-size: 9px;
+  font-size: 14px;
   line-height: 1.62;
 }
 .first-map-controls {
@@ -90,11 +90,11 @@
   width: 20px;
 }
 .first-map-controls .selected-story strong {
-  font-size: 15px;
+  font-size: 17px;
 }
 .first-map-controls .selected-story p {
   margin-top: 4px;
-  font-size: 7px;
+  font-size: 13px;
   line-height: 1.42;
 }
 .first-map-controls .theme-wish-field {
@@ -108,7 +108,7 @@
 }
 .first-map-controls .theme-wish-field small {
   margin-top: 5px;
-  font-size: 6px;
+  font-size: 12px;
   line-height: 1.42;
 }
 .first-map-controls .theme-actions {
@@ -373,7 +373,7 @@
 .first-map-origin small {
   max-width: 90px;
   color: #fff7e0b8;
-  font-size: 6px;
+  font-size: 12px;
   font-weight: 800;
   line-height: 1.35;
   text-shadow: 0 2px 10px #080319;
@@ -505,17 +505,17 @@
 }
 .first-node-copy small {
   color: #edca7db8;
-  font-size: 5px;
+  font-size: 12px;
 }
 .first-node-copy strong {
   margin-top: 2px;
   font-family: "Adventrya Serif", serif;
-  font-size: 9px;
+  font-size: 14px;
 }
 .first-node-copy em {
   margin-top: 3px;
   color: #f5eef773;
-  font-size: 5px;
+  font-size: 12px;
   font-style: normal;
 }
 .first-map-node:hover,
@@ -604,17 +604,17 @@
 }
 .first-map-live-caption small {
   color: #edca7b;
-  font-size: 5px;
+  font-size: 12px;
 }
 .first-map-live-caption strong {
   margin-top: 2px;
   font-family: "Adventrya Serif", serif;
-  font-size: 11px;
+  font-size: 15px;
 }
 .first-map-live-caption em {
   margin-top: 3px;
   color: #f4edf580;
-  font-size: 5px;
+  font-size: 12px;
   font-style: normal;
 }
 .first-map-pan-cue {
@@ -1133,7 +1133,7 @@
   .first-map-screen .theme-guidance {
     max-width: 350px;
     margin-top: 11px;
-    font-size: 9px;
+    font-size: 14px;
   }
   .first-story-map {
     position: relative;
@@ -1185,7 +1185,7 @@
     border-radius: 999px;
     color: #f9f3e9c2;
     background: #130a2da8;
-    font-size: 6px;
+    font-size: 12px;
     pointer-events: none;
     transform: translate(-50%);
     white-space: nowrap;
@@ -1336,7 +1336,7 @@
   }
   .generation-craft-label strong {
     max-width: 66%;
-    font-size: 8px;
+    font-size: 13px;
   }
   .generation-ring.ring-two {
     display: none;

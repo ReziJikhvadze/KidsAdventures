@@ -40,13 +40,19 @@ export function AppHeader({
   return (
     <header className={`app-header ${worldMode ? "app-header-world" : ""}`}>
       <div className="app-header-start">
+        {/*
+          Labelled rather than a bare arrow: on the create journey this is the only way
+          back, and an unlabelled icon in a header full of other controls is easy to miss.
+          The label collapses on narrow screens, where the arrow alone is unambiguous.
+        */}
         <Link
-          className="icon-button"
+          className="back-button"
           to={back.to}
           hash={back.hash}
           aria-label={t.common.actions.backLink}
         >
-          <ArrowLeft />
+          <ArrowLeft aria-hidden="true" />
+          <span>{t.common.actions.backLink}</span>
         </Link>
         <Link className="wordmark wordmark-small" to="/">
           ADVENTRYA
