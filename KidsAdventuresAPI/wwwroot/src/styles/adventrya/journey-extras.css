@@ -25,18 +25,18 @@
 .ux-book-preferences small,
 .world-language-row small {
   color: #efe8f280;
-  font-size: 7px;
+  font-size: 13px;
 }
 .ux-book-preferences strong,
 .world-language-row span {
   color: #fff8eb;
   font-family: "Adventrya Serif", serif;
-  font-size: 12px;
+  font-size: 15px;
 }
 .ux-book-preferences p {
   margin: 3px 0 0;
   color: #efe8f273;
-  font-size: 7px;
+  font-size: 13px;
 }
 .ux-language-switcher,
 .world-language-switcher,
@@ -61,7 +61,7 @@
   color: #fff8eb94;
   background: transparent;
   font-family: inherit;
-  font-size: 8px;
+  font-size: 13px;
   font-weight: 700;
 }
 .ux-language-switcher button.selected,
@@ -236,7 +236,7 @@
 }
 .preview-loader-copy > small {
   color: #f0cf88;
-  font-size: 7px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.12em;
 }
@@ -273,7 +273,7 @@
   align-items: center;
   gap: 9px;
   color: #f2eaf45c;
-  font-size: 8px;
+  font-size: 13px;
 }
 .preview-loader-stages svg {
   width: 12px;
@@ -368,7 +368,7 @@
 .ux-phone-field b {
   padding: 0 12px;
   color: #4e3857;
-  font-size: 10px;
+  font-size: 14px;
   border-right: 1px solid rgba(67, 48, 85, 0.12);
 }
 .ux-phone-field input {
@@ -378,7 +378,7 @@
 .ux-mock-note {
   margin: 7px 0 12px !important;
   color: #37274c8f !important;
-  font-size: 7px !important;
+  font-size: 13px !important;
 }
 .ux-otp-panel {
   display: flex;
@@ -386,12 +386,12 @@
 }
 .ux-otp-panel > small {
   color: #3526498f;
-  font-size: 8px;
+  font-size: 13px;
 }
 .ux-otp-panel > strong {
   margin-top: 4px;
   color: #35264a;
-  font-size: 10px;
+  font-size: 14px;
 }
 .ux-otp-inputs {
   display: grid;
@@ -429,7 +429,7 @@
   color: #7f5944;
   background: transparent;
   font-family: inherit;
-  font-size: 7px;
+  font-size: 13px;
 }
 .ux-otp-actions button:disabled {
   cursor: default;
@@ -455,12 +455,12 @@
   flex-direction: column;
 }
 .ux-zero-total strong {
-  font-size: 9px;
+  font-size: 14px;
 }
 .ux-zero-total p {
   margin: 3px 0 0;
   color: #def4e88f;
-  font-size: 7px;
+  font-size: 13px;
 }
 .ux-promo-panel {
   margin-top: 14px;
@@ -486,7 +486,7 @@
   color: #f2d99c;
   background: #e8c98a14;
   font-family: inherit;
-  font-size: 7px;
+  font-size: 13px;
   font-weight: 700;
 }
 .ux-promo-panel button:disabled {
@@ -495,7 +495,7 @@
 }
 .ux-promo-panel > p {
   margin: 8px 0 0;
-  font-size: 7px;
+  font-size: 13px;
 }
 .ux-promo-panel > p.valid {
   display: flex;
@@ -526,12 +526,12 @@
 }
 .continuation-section-heading span {
   color: #fff8ebc4;
-  font-size: 8px;
+  font-size: 13px;
   font-weight: 700;
 }
 .continuation-section-heading small {
   color: #fff8eb66;
-  font-size: 6px;
+  font-size: 12px;
 }
 .continuation-character-list {
   display: grid;
@@ -561,7 +561,7 @@
   color: #2d1d4a;
   background: linear-gradient(145deg, #f0d898, #d7a456);
   font-family: "Adventrya Serif", serif;
-  font-size: 13px;
+  font-size: 16px;
 }
 .continuation-character-list article > div {
   display: flex;
@@ -570,12 +570,12 @@
 }
 .continuation-character-list strong {
   color: #fff8eb;
-  font-size: 8px;
+  font-size: 13px;
 }
 .continuation-character-list small {
   margin-top: 2px;
   color: #fff8eb73;
-  font-size: 6px;
+  font-size: 12px;
 }
 .continuation-character-list button {
   min-height: 30px;
@@ -586,7 +586,7 @@
   color: #f1d595;
   background: #e8c98a14;
   font-family: inherit;
-  font-size: 6px;
+  font-size: 12px;
 }
 .continuation-character-list article.selected button {
   color: #b6ead0;
@@ -605,7 +605,7 @@
 .world-language-switcher button {
   min-height: 30px;
   padding-inline: 10px;
-  font-size: 7px;
+  font-size: 13px;
 }
 .library-print-upgrade {
   width: 100%;
@@ -620,7 +620,7 @@
   border-radius: 11px;
   color: #85583e !important;
   background: linear-gradient(135deg, #e5b8672e, #e5b8670f);
-  font-size: 8px !important;
+  font-size: 13px !important;
   font-weight: 800;
 }
 .library-print-upgrade svg {
@@ -632,7 +632,7 @@
   gap: 6px;
   margin-top: 11px;
   color: #588d72;
-  font-size: 7px;
+  font-size: 13px;
   font-weight: 700;
 }
 .library-print-status svg {
@@ -669,7 +669,7 @@
 .reader-shared-heading > p:not(.eyebrow) {
   margin: 13px 0 0;
   color: #f1e9f294;
-  font-size: 9px;
+  font-size: 14px;
   line-height: 1.65;
 }
 .reader-shared-stage > .storybook {
@@ -855,7 +855,7 @@
 .landing-v3-primary-wrap > small {
   max-width: 300px;
   color: #f5efe58a;
-  font-size: 8px;
+  font-size: 13px;
   line-height: 1.45;
 }
 .landing-v3-example-meta a {
@@ -866,7 +866,7 @@
   gap: 7px;
   padding: 10px 0 10px 16px;
   color: #8a5b45;
-  font-size: 9px;
+  font-size: 14px;
   font-weight: 700;
 }
 .landing-v3-example-meta a svg {

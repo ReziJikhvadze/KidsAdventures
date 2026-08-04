@@ -109,7 +109,7 @@
 }
 .storybook-inside-cover small {
   color: #9b6c4e;
-  font-size: 7px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.12em;
 }
@@ -129,7 +129,7 @@
   position: absolute;
   bottom: 8%;
   color: #69484280;
-  font-size: 5px;
+  font-size: 12px;
   font-style: normal;
   letter-spacing: 0.12em;
 }
@@ -295,7 +295,7 @@
     padding: 19% 8.5% 8.5%;
   }
   .storybook-page-copy > p {
-    font-size: 11px;
+    font-size: 15px;
     line-height: 1.58;
   }
 }

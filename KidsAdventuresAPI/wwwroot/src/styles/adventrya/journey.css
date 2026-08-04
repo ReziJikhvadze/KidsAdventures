@@ -51,7 +51,7 @@
 .auth-panel > p,
 .generation-copy > p {
   color: #e5dfecad;
-  font-size: 11px;
+  font-size: 15px;
   line-height: 1.7;
 }
 .profile-stage,
@@ -91,7 +91,7 @@
 .field > span,
 .choice-fieldset legend {
   color: #f8f2e5ad;
-  font-size: 8px;
+  font-size: 13px;
   font-weight: 700;
 }
 .field input,
@@ -116,7 +116,7 @@
   font-family:
     Adventrya Sans,
     sans-serif;
-  font-size: 11px;
+  font-size: 15px;
 }
 .field textarea {
   min-height: 128px;
@@ -125,7 +125,7 @@
   font-family:
     Adventrya Sans,
     sans-serif;
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1.6;
 }
 .field input:focus,
@@ -159,7 +159,7 @@
   cursor: pointer;
   color: #f8f2e59e;
   background: #2e1f5459;
-  font-size: 8px;
+  font-size: 13px;
 }
 .eye-options button.selected {
   color: #fff8eb;
@@ -191,7 +191,7 @@
   gap: 8px;
   margin-top: 17px;
   color: #e6e0ec85;
-  font-size: 8px;
+  font-size: 13px;
 }
 .privacy-inline svg {
   width: 14px;
@@ -253,7 +253,7 @@
 .photo-drop small {
   margin-top: 23px;
   color: var(--story-gold);
-  font-size: 8px;
+  font-size: 13px;
 }
 .photo-drop strong {
   margin-top: 6px;
@@ -265,7 +265,7 @@
   max-width: 330px;
   margin: 11px 0 0;
   color: #e7e1ed8f;
-  font-size: 8px;
+  font-size: 13px;
   line-height: 1.65;
 }
 .photo-drop button {
@@ -276,7 +276,7 @@
   cursor: pointer;
   color: #fff8eb;
   background: #281c4c85;
-  font-size: 9px;
+  font-size: 14px;
   font-weight: 700;
 }
 .photo-example {
@@ -301,12 +301,12 @@
   flex-direction: column;
 }
 .photo-example strong {
-  font-size: 9px;
+  font-size: 14px;
 }
 .photo-example p {
   margin: 3px 0 0;
   color: #e7e1ed7a;
-  font-size: 7px;
+  font-size: 13px;
 }
 .details-stage {
   grid-template-columns: 0.98fr 1.02fr;
@@ -331,7 +331,7 @@
   cursor: pointer;
   color: #f8f2e5a3;
   background: #2f205561;
-  font-size: 8px;
+  font-size: 13px;
 }
 .interest-cloud button.selected {
   color: #2c1d4a;
@@ -361,7 +361,7 @@
 }
 .preference-block > small {
   color: #f8f2e5b3;
-  font-size: 8px;
+  font-size: 13px;
   font-weight: 700;
 }
 .segmented {
@@ -381,7 +381,7 @@
   cursor: pointer;
   color: #f8f2e58a;
   background: transparent;
-  font-size: 9px;
+  font-size: 14px;
 }
 .segmented button.selected {
   color: #2b1d49;
@@ -390,7 +390,7 @@
 .preference-block p {
   margin: 8px 0 0;
   color: #e7e1ed6b;
-  font-size: 7px;
+  font-size: 13px;
   line-height: 1.5;
 }
 .field-textarea {
@@ -398,7 +398,7 @@
 }
 .field-textarea > small {
   color: #e7e1ed66;
-  font-size: 7px;
+  font-size: 13px;
 }
 .age-adaptation {
   display: flex;
@@ -409,7 +409,7 @@
   border-radius: 13px;
   color: #f8f2e5a8;
   background: #3c786429;
-  font-size: 8px;
+  font-size: 13px;
 }
 .age-adaptation > svg {
   width: 20px;
@@ -422,7 +422,7 @@
 .age-adaptation small {
   margin-bottom: 2px;
   color: #8fbaa8;
-  font-size: 7px;
+  font-size: 13px;
 }
 .story-preferences .journey-primary {
   width: 100%;
@@ -437,7 +437,7 @@
   border-radius: 16px;
   color: #f8f2e5a8;
   background: linear-gradient(135deg, #e8c98a1f, #4f3a7940);
-  font-size: 8px;
+  font-size: 13px;
   line-height: 1.55;
 }
 .memory-carry > svg {
@@ -453,7 +453,7 @@
 .memory-carry small {
   margin-bottom: 4px;
   color: var(--story-gold);
-  font-size: 7px;
+  font-size: 13px;
   font-weight: 700;
 }
 .preview-stage {
@@ -524,7 +524,7 @@
   top: 18px;
   left: 22px;
   color: var(--story-gold);
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.18em;
 }
@@ -532,7 +532,7 @@
   left: 24px;
   bottom: 126px;
   color: var(--story-gold);
-  font-size: 7px;
+  font-size: 13px;
 }
 .personalized-cover h2 {
   left: 24px;
@@ -561,7 +561,7 @@
   left: 24px;
   bottom: 22px;
   color: #f8f2e5a8;
-  font-size: 6px;
+  font-size: 12px;
   letter-spacing: 0.08em;
 }
 .preview-copy {
@@ -581,13 +581,13 @@
 }
 .synopsis small {
   color: var(--story-gold);
-  font-size: 8px;
+  font-size: 13px;
 }
 .synopsis p {
   margin: 8px 0 0;
   color: #f8f2e5b8;
   font-family: "Adventrya Serif", serif;
-  font-size: 12px;
+  font-size: 15px;
   line-height: 1.7;
 }
 .preview-facts {
@@ -601,7 +601,7 @@
   flex-direction: column;
   gap: 3px;
   color: #e6e0ec80;
-  font-size: 7px;
+  font-size: 13px;
 }
 .preview-facts strong {
   color: #fff8eb;
@@ -611,7 +611,7 @@
 .preview-note {
   margin-top: 19px !important;
   color: #e6e0ec73 !important;
-  font-size: 8px !important;
+  font-size: 13px !important;
 }
 .journey-actions {
   display: flex;
@@ -685,7 +685,7 @@
   border-radius: 10px;
   color: #fff8eb;
   background: var(--deep-violet);
-  font-size: 6px;
+  font-size: 12px;
   font-weight: 700;
 }
 .package-check {
@@ -709,7 +709,7 @@
 .package-option > small {
   margin-top: 28px;
   color: var(--deep-violet);
-  font-size: 7px;
+  font-size: 13px;
   font-weight: 700;
 }
 .package-option h2 {
@@ -729,7 +729,7 @@
   margin: 25px 0 0;
   padding: 0;
   list-style: none;
-  font-size: 9px;
+  font-size: 14px;
 }
 .package-option li {
   display: flex;
@@ -745,7 +745,7 @@
   padding-top: 18px;
   border-top: 1px solid rgba(41, 35, 58, 0.12);
   color: #29233a94;
-  font-size: 7px;
+  font-size: 13px;
   line-height: 1.55;
 }
 .purchase-footer {
@@ -761,7 +761,7 @@
 }
 .purchase-footer > div > span {
   color: #f8f2e58f;
-  font-size: 8px;
+  font-size: 13px;
 }
 .auth-stage {
   display: grid;
@@ -798,7 +798,7 @@
   bottom: 29px;
   color: #f8f2e5ad;
   font-family: "Adventrya Serif", serif;
-  font-size: 12px;
+  font-size: 15px;
 }
 .auth-panel {
   width: 100%;
@@ -835,7 +835,7 @@
   cursor: pointer;
   color: var(--ink);
   background: #ffffff94;
-  font-size: 9px;
+  font-size: 14px;
   font-weight: 700;
 }
 .social-auth > span {
@@ -846,7 +846,7 @@
   border-radius: 7px;
   color: #fff;
   background: var(--ink);
-  font-size: 9px;
+  font-size: 14px;
 }
 .auth-divider {
   position: relative;
@@ -868,7 +868,7 @@
   padding: 0 11px;
   color: #29233a6b;
   background: #eee3cf;
-  font-size: 7px;
+  font-size: 13px;
 }
 .auth-email > span {
   color: #29233a99;
@@ -905,7 +905,7 @@
   cursor: pointer;
   color: #29233a80;
   background: transparent;
-  font-size: 8px;
+  font-size: 13px;
 }
 .text-back svg {
   width: 13px;
@@ -933,7 +933,7 @@
   cursor: pointer;
   color: #fff;
   background: #111;
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 700;
 }
 .checkout-form .auth-divider:before {
@@ -968,7 +968,7 @@
 }
 .card-input small {
   color: #f8f2e561;
-  font-size: 7px;
+  font-size: 13px;
 }
 .checkout-form .form-grid {
   margin-top: 13px;
@@ -984,7 +984,7 @@
   margin-top: 14px;
   color: #f8f2e57a;
   text-decoration: none;
-  font-size: 8px;
+  font-size: 13px;
   background: transparent;
   border: 0;
   cursor: pointer;
@@ -1028,7 +1028,7 @@
   bottom: 16px;
   color: #fff8eb;
   font-family: "Adventrya Serif", serif;
-  font-size: 15px;
+  font-size: 17px;
 }
 .summary-lines {
   color: var(--ink);
@@ -1045,13 +1045,13 @@
   padding: 10px 0;
   border-bottom: 1px solid rgba(41, 35, 58, 0.1);
   color: #29233a9e;
-  font-size: 8px;
+  font-size: 13px;
 }
 .summary-lines > div {
   padding-top: 14px;
   color: var(--ink);
   border-bottom: 0;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 700;
 }
 .order-summary > p {
@@ -1063,7 +1063,7 @@
   border-radius: 12px;
   color: #29233a8c;
   background: #3c786417;
-  font-size: 7px;
+  font-size: 13px;
 }
 .order-summary > p svg {
   width: 14px;
@@ -1160,7 +1160,7 @@
   align-items: center;
   justify-content: space-between;
   color: #f5ebdb75;
-  font-size: 6px;
+  font-size: 12px;
   letter-spacing: 0.11em;
 }
 .generation-atelier-topline span {
@@ -1175,7 +1175,7 @@
 }
 .generation-atelier-topline strong {
   color: #edcb82;
-  font-size: 7px;
+  font-size: 13px;
 }
 .generation-paper-trail {
   position: absolute;
@@ -1240,12 +1240,12 @@
 }
 .generation-craft-label small {
   color: #f6ede073;
-  font-size: 6px;
+  font-size: 12px;
 }
 .generation-craft-label strong {
   color: #f2d28d;
   font-family: "Adventrya Serif", serif;
-  font-size: 10px;
+  font-size: 14px;
   text-align: right;
 }
 .generation-copy {
@@ -1274,7 +1274,7 @@
   align-items: center;
   gap: 9px;
   color: #e8e2ed5c;
-  font-size: 9px;
+  font-size: 14px;
 }
 .generation-steps svg {
   width: 15px;
@@ -1298,7 +1298,7 @@
   gap: 11px;
   margin-top: 25px;
   color: #e8e2ed80;
-  font-size: 8px;
+  font-size: 13px;
 }
 .soft-time > span {
   width: 130px;
@@ -1381,7 +1381,7 @@
   border-radius: 12px;
   color: #dff2e8;
   background: #3c786452;
-  font-size: 8px;
+  font-size: 13px;
 }
 .ready-badge svg {
   width: 13px;
@@ -1450,14 +1450,14 @@
 .book-page > p {
   margin: 17px 28px 0;
   font-family: "Adventrya Serif", serif;
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1.55;
 }
 .book-page > span {
   position: absolute;
   bottom: 10px;
   color: #29233a66;
-  font-size: 7px;
+  font-size: 13px;
 }
 .page-left > span {
   left: 17px;
@@ -1519,7 +1519,7 @@
   right: 4px;
   bottom: 3px;
   color: #fff;
-  font-size: 6px;
+  font-size: 12px;
   text-shadow: 0 1px 4px #000;
 }
 .qr-page {
@@ -1531,7 +1531,7 @@
   border-radius: 8px;
   color: #f8f2e58c;
   text-align: center;
-  font-size: 6px;
+  font-size: 12px;
 }
 .book-approval {
   grid-column: 2;
@@ -1548,7 +1548,7 @@
 .book-approval > p {
   margin: 0;
   color: #f8f2e5a8;
-  font-size: 9px;
+  font-size: 14px;
   line-height: 1.65;
 }
 .book-approval > div:last-of-type {
@@ -1561,7 +1561,7 @@
   width: 100%;
   min-height: 50px;
   padding-inline: 14px;
-  font-size: 9px;
+  font-size: 14px;
 }
 .correction-inline {
   margin-top: 13px;
@@ -1569,7 +1569,7 @@
   border-radius: 12px;
   color: #f8f2e59e;
   background: #e8c98a1f;
-  font-size: 7px;
+  font-size: 13px;
   line-height: 1.5;
 }
 .approval-next {
@@ -1579,7 +1579,7 @@
   gap: 7px;
   margin-top: 13px;
   color: var(--story-gold);
-  font-size: 8px;
+  font-size: 13px;
 }
 .approval-next svg {
   width: 13px;

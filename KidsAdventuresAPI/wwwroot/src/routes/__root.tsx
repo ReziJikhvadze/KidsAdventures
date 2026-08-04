@@ -18,6 +18,7 @@ import { GoogleAuthProvider } from "@/lib/auth/GoogleAuthProvider";
 import { BRAND_LOGO_URL } from "@/lib/brand";
 import { LocalizedDocumentTitle } from "@/components/LocalizedDocumentTitle";
 import { LocaleProvider } from "@/lib/i18n";
+import { JourneyDraftProvider } from "@/lib/journey/draft";
 import { buildRootMeta } from "@/lib/seo";
 
 function NotFoundComponent() {
@@ -225,10 +226,18 @@ function RootComponent() {
       <LocaleProvider>
         <GoogleAuthProvider>
           <AuthProvider>
-            <PinterestEnhancedMatch />
-            <LocalizedDocumentTitle />
-            <Outlet />
-            <Toaster />
+            {/*
+              Above the routes on purpose: the create journey steps out to /themes and
+              back, and this is what carries the parent's answers across that move
+              without writing anything to the device. A real page load remounts it, so
+              every visit still starts a new story from scratch.
+            */}
+            <JourneyDraftProvider>
+              <PinterestEnhancedMatch />
+              <LocalizedDocumentTitle />
+              <Outlet />
+              <Toaster />
+            </JourneyDraftProvider>
           </AuthProvider>
         </GoogleAuthProvider>
       </LocaleProvider>

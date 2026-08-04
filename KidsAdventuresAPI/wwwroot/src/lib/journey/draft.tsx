@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 import type { BookLanguage } from "@/lib/i18n";
 import { DEFAULT_BOOK_LANGUAGE } from "@/lib/i18n";
@@ -102,48 +110,28 @@ export function emptyDraft(): JourneyDraft {
 /**
  * Builds the starting draft for a visit.
  *
- * The draft lives in sessionStorage, not localStorage. That distinction is the whole
- * design: sessionStorage dies with the browser tab, so a new visit still opens a blank
- * form and the next person on a shared device never sees the previous child — while the
- * journey survives the one thing that would otherwise destroy it.
+ * Nothing is ever read back from storage. Every arrival at /create — a new visit, a
+ * reload, "add a child" from the dashboard — starts genuinely blank, so a parent never
+ * meets the previous child's name, photo or preview, and a new story can always be
+ * created from scratch.
  *
- * That thing is real: choosing a world leaves /create entirely
- * (`window.location.assign("/themes")`) and comes back as a fresh page load. With the
- * draft held only in React state, the name, birth date and photo the parent had just
- * typed were gone by the time they returned, and every later screen fell back to
- * "პატარა გმირი" with no child information at all.
+ * The draft survives the journey because it is held in a provider above the routes and
+ * every step navigates client-side, not because anything is written to the device. A
+ * real page load is therefore a real reset, which is exactly the intended behaviour.
  */
 function loadDraft(): JourneyDraft {
   if (typeof window === "undefined") return emptyDraft();
-  let draft = emptyDraft();
+  const draft = emptyDraft();
 
-  // Drafts written by earlier versions sit in localStorage holding a child's name, birth
-  // date, photo and shipping address. Nothing reads them now, so clear them out rather
-  // than leaving that data on the device indefinitely.
-  try {
-    localStorage.removeItem(DRAFT_KEY);
-  } catch {
-    /* private mode / quota */
-  }
-
-  try {
-    const raw = sessionStorage.getItem(DRAFT_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<JourneyDraft>;
-      const base = emptyDraft();
-      draft = {
-        ...base,
-        ...parsed,
-        characters:
-          Array.isArray(parsed.characters) && parsed.characters.length > 0
-            ? parsed.characters
-            : base.characters,
-        shipping: { ...base.shipping, ...parsed.shipping },
-      };
+  // Drafts written by earlier versions still sit in localStorage holding a child's name,
+  // birth date, photo and shipping address. Nothing reads them now, so clear them out
+  // rather than leaving that data on the device indefinitely.
+  for (const store of [localStorage, sessionStorage]) {
+    try {
+      store.removeItem(DRAFT_KEY);
+    } catch {
+      /* private mode / quota */
     }
-  } catch {
-    // A corrupt draft must not strand the parent on a broken form.
-    draft = emptyDraft();
   }
 
   // Deep-link query carries continue / world selection, and the order id Stripe returns with.
@@ -199,68 +187,62 @@ function loadDraft(): JourneyDraft {
   return draft;
 }
 
-function persistDraft(draft: JourneyDraft) {
-  if (typeof window === "undefined") return;
-  try {
-    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  } catch {
-    /* quota / private mode — losing persistence is better than breaking the form */
-  }
-}
-
-/**
- * The draft is scoped to the browser tab: it survives the /themes round trip and a
- * reload, and disappears when the tab closes. A returning visitor therefore always
- * starts a fresh book, and can generate as many previews as they like.
- */
-export function useJourneyDraft(): [
+export type JourneyDraftValue = [
   JourneyDraft,
   (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => void,
   () => void,
-] {
+];
+
+const JourneyDraftContext = createContext<JourneyDraftValue | null>(null);
+
+/**
+ * Holds the draft above the routes.
+ *
+ * This is what lets the journey keep the parent's answers while they go to /themes and
+ * come back, without writing anything to the device: the provider is mounted at the
+ * root, so a client-side route change does not unmount it, while a genuine page load
+ * builds a fresh one. Storage would have persisted across visits — which is precisely
+ * what must not happen.
+ */
+export function JourneyDraftProvider({ children }: { children: ReactNode }) {
   const [draft, setDraftState] = useState<JourneyDraft>(emptyDraft);
 
-  // Deferred to an effect rather than a useState initialiser because it reads
+  // Deferred to an effect rather than a useState initialiser because loadDraft reads
   // window.location, which does not exist during server rendering.
   useEffect(() => {
     setDraftState(loadDraft());
   }, []);
 
-  // Signing out on a shared device must not leave the previous parent's child on screen,
-  // in memory or in the tab's storage.
+  // Signing out on a shared device must not leave the previous parent's child on screen.
   useEffect(() => {
-    const onCleared = () => {
-      try {
-        sessionStorage.removeItem(DRAFT_KEY);
-      } catch {
-        /* ignore */
-      }
-      setDraftState(emptyDraft());
-    };
+    const onCleared = () => setDraftState(emptyDraft());
     window.addEventListener(SESSION_CLEARED_EVENT, onCleared);
     return () => window.removeEventListener(SESSION_CLEARED_EVENT, onCleared);
   }, []);
 
   const setDraft = useCallback(
     (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) =>
-      setDraftState((prev) => {
-        const next = typeof patch === "function" ? patch(prev) : { ...prev, ...patch };
-        persistDraft(next);
-        return next;
-      }),
+      setDraftState((prev) => (typeof patch === "function" ? patch(prev) : { ...prev, ...patch })),
     [],
   );
 
-  const resetDraft = useCallback(() => {
-    try {
-      sessionStorage.removeItem(DRAFT_KEY);
-    } catch {
-      /* ignore */
-    }
-    setDraftState(emptyDraft());
-  }, []);
+  const resetDraft = useCallback(() => setDraftState(emptyDraft()), []);
 
-  return [draft, setDraft, resetDraft];
+  const value = useMemo<JourneyDraftValue>(
+    () => [draft, setDraft, resetDraft],
+    [draft, setDraft, resetDraft],
+  );
+
+  return <JourneyDraftContext.Provider value={value}>{children}</JourneyDraftContext.Provider>;
+}
+
+export function useJourneyDraft(): JourneyDraftValue {
+  const value = useContext(JourneyDraftContext);
+  if (!value) {
+    throw new Error("useJourneyDraft must be used inside JourneyDraftProvider.");
+  }
+
+  return value;
 }
 
 export function primaryCharacter(draft: JourneyDraft): DraftCharacter {

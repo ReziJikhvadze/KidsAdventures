@@ -15,6 +15,9 @@ export const common = {
     apply: "გამოყენება",
     seeAll: "ყველას ნახვა",
     checking: "მოწმდება…",
+    signOut: "გასვლა",
+    previous: "წინა",
+    next: "შემდეგი",
   },
 
   labels: {

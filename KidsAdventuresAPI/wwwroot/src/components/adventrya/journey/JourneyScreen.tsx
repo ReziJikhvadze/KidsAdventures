@@ -78,12 +78,14 @@ export function JourneyScreen() {
   }, [draft.characters, isAuthenticated, isLoading, setDraft]);
 
   const goAfterProfile = useCallback(() => {
-    // Demo flow: profile → /themes (first-map), not an in-journey #world stage.
+    // Profile → /themes (first-map), not an in-journey #world stage. Routed through
+    // goToStage so the navigation stays client-side; a hard assign would unmount the
+    // draft provider and throw away everything the parent just entered.
     if (draft.worldId) {
       goToStage("preview");
       return;
     }
-    window.location.assign("/themes");
+    goToStage("world");
   }, [draft.worldId, goToStage]);
 
   const goAfterPreview = useCallback(() => {
@@ -141,7 +143,7 @@ export function JourneyScreen() {
   // Legacy hash from older rebuild — send users to the real demo /themes route.
   if (stage === "world") {
     if (typeof window !== "undefined") {
-      window.location.replace("/themes");
+      goToStage("world");
     }
     return null;
   }

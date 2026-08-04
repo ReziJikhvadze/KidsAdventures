@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, ChevronDown, ChevronRight, Globe } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Globe, LogOut } from "lucide-react";
 
 import { LanguageSwitcher } from "@/components/adventrya/LanguageSwitcher";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { useT } from "@/lib/i18n";
 
 export interface AppHeaderProps {
@@ -35,6 +36,7 @@ export function AppHeader({
   childName,
 }: AppHeaderProps) {
   const t = useT();
+  const { isAuthenticated, logout } = useAuth();
   const back = splitHref(backHref);
 
   return (
@@ -96,6 +98,23 @@ export function AppHeader({
           </span>
           <ChevronRight />
         </Link>
+
+        {/*
+          Sign out was only ever in the marketing header, so once a parent was inside
+          the app there was no way out of the session at all. That matters most on a
+          shared device, which is exactly where these screens get used.
+        */}
+        {isAuthenticated ? (
+          <button
+            type="button"
+            className="icon-button"
+            onClick={logout}
+            title={t.common.actions.signOut}
+            aria-label={t.common.actions.signOut}
+          >
+            <LogOut />
+          </button>
+        ) : null}
       </div>
     </header>
   );

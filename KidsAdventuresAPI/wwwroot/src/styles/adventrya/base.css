@@ -110,7 +110,7 @@ svg {
   align-items: center;
   gap: 30px;
   color: #f8f2e5d1;
-  font-size: 13px;
+  font-size: 16px;
 }
 .landing-nav a,
 .frame-links a {
@@ -147,7 +147,7 @@ svg {
   gap: 8px;
   padding: 11px 15px;
   border-radius: 16px;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
 }
 .language-button svg,
@@ -180,7 +180,7 @@ svg {
   gap: 10px;
   margin: 0 0 14px;
   color: var(--story-gold);
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.16em;
 }
@@ -218,7 +218,7 @@ svg {
   max-width: 530px;
   margin: 14px 0 0;
   color: #dedae8c7;
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1.75;
 }
 .price-block {
@@ -229,7 +229,7 @@ svg {
 }
 .price-block span {
   color: var(--story-gold);
-  font-size: 10px;
+  font-size: 14px;
 }
 .price-block strong {
   color: #fff8eb;
@@ -255,7 +255,7 @@ svg {
   border: 1px solid transparent;
   border-radius: 17px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
   transition:
     transform 0.18s ease,
@@ -293,7 +293,7 @@ svg {
   gap: 34px;
   margin-top: 26px;
   color: #e2dceb9e;
-  font-size: 9px;
+  font-size: 14px;
 }
 .trust-row span {
   display: flex;
@@ -316,7 +316,7 @@ svg {
   gap: 11px;
   color: #f8f2e5ad;
   font-family: "Adventrya Serif", serif;
-  font-size: 11px;
+  font-size: 15px;
 }
 .world-caption span {
   width: 40px;
@@ -368,7 +368,7 @@ svg {
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
   box-shadow: inset 0 1px #ffffff0f;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 600;
   text-decoration: none;
   transition:
@@ -415,7 +415,7 @@ svg {
 }
 .step-progress span {
   color: #f8f2e5b3;
-  font-size: 10px;
+  font-size: 14px;
   letter-spacing: 0.09em;
 }
 .step-progress > div {
@@ -443,7 +443,7 @@ svg {
   gap: 9px;
   padding: 0 15px;
   color: #f8f2e5c7;
-  font-size: 10px;
+  font-size: 14px;
 }
 .header-pill svg {
   width: 16px;
@@ -470,20 +470,20 @@ svg {
   width: 34px;
   height: 34px;
   border-radius: 12px;
-  font-size: 14px;
+  font-size: 16px;
 }
 .child-pill > span:nth-child(2) {
   min-width: 74px;
   display: flex;
   flex-direction: column;
   color: var(--cream);
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 700;
 }
 .child-pill small {
   margin-bottom: 2px;
   color: #f8f2e57a;
-  font-size: 7px;
+  font-size: 13px;
   font-weight: 400;
 }
 .theme-art {
@@ -513,7 +513,7 @@ svg {
   gap: 11px;
   margin-bottom: 25px;
   color: var(--cream);
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
 }
 .mini-avatar {
@@ -528,7 +528,7 @@ svg {
 .profile-line small {
   margin-bottom: 3px;
   color: #f8f2e57a;
-  font-size: 8px;
+  font-size: 13px;
   font-weight: 400;
 }
 .theme-intro h1 {
@@ -541,7 +541,7 @@ svg {
   max-width: 440px;
   margin: 17px 0 0;
   color: #e2dcebb3;
-  font-size: 11px;
+  font-size: 15px;
   line-height: 1.72;
 }
 .selected-story {
@@ -593,7 +593,7 @@ svg {
 }
 .selected-story small {
   color: var(--story-gold);
-  font-size: 8px;
+  font-size: 13px;
 }
 .selected-story strong {
   margin-top: 3px;
@@ -605,7 +605,7 @@ svg {
   max-width: 290px;
   margin: 7px 0 0;
   color: #e8e3eda8;
-  font-size: 9px;
+  font-size: 14px;
   line-height: 1.55;
 }
 .theme-actions {
@@ -675,13 +675,13 @@ svg {
 }
 .destination-copy small {
   color: #e8c98a9e;
-  font-size: 7px;
+  font-size: 13px;
   letter-spacing: 0.14em;
 }
 .destination-copy strong {
   margin-top: 2px;
   font-family: "Adventrya Serif", serif;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
 }
 .destination-orbit {
@@ -768,7 +768,7 @@ svg {
   gap: 10px;
   color: #f8f2e5b3;
   font-family: "Adventrya Serif", serif;
-  font-size: 10px;
+  font-size: 14px;
 }
 .universe-note span {
   width: 28px;
@@ -816,7 +816,7 @@ svg {
 }
 .world-profile small {
   color: #e8e1ef8c;
-  font-size: 8px;
+  font-size: 13px;
 }
 .world-profile h1 {
   margin: 5px 0 0;
@@ -862,21 +862,21 @@ svg {
 }
 .memory-note small {
   color: var(--story-gold);
-  font-size: 7px;
+  font-size: 13px;
 }
 .memory-note p {
   max-width: 260px;
   margin: 5px 0 0;
   color: #fbf3e4;
   font-family: "Adventrya Serif", serif;
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1.45;
 }
 .world-explanation {
   max-width: 385px;
   margin: 24px 0 0;
   color: #e2dceba3;
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1.7;
 }
 .world-actions {
@@ -897,7 +897,7 @@ svg {
   gap: 8px;
   margin-top: auto;
   color: #e2dceb8c;
-  font-size: 8px;
+  font-size: 13px;
 }
 .world-legend span {
   display: flex;
@@ -940,12 +940,12 @@ svg {
 .map-heading span {
   color: #fff8ebd1;
   font-family: "Adventrya Serif", serif;
-  font-size: 13px;
+  font-size: 16px;
 }
 .map-heading small {
   margin-top: 4px;
   color: #e9e1ef75;
-  font-size: 7px;
+  font-size: 13px;
 }
 .map-count {
   display: flex;
@@ -963,7 +963,7 @@ svg {
   font-family:
     Adventrya Sans,
     sans-serif;
-  font-size: 7px;
+  font-size: 13px;
   line-height: 1.35;
 }
 .adventure-path {
@@ -1036,13 +1036,13 @@ svg {
 }
 .map-label small {
   color: var(--story-gold);
-  font-size: 7px;
+  font-size: 13px;
 }
 .map-label strong {
   margin-top: 2px;
   color: #fff8eb;
   font-family: "Adventrya Serif", serif;
-  font-size: 10px;
+  font-size: 14px;
 }
 .state-future {
   opacity: 0.62;
@@ -1136,18 +1136,18 @@ svg {
 }
 .story-echo small {
   color: var(--story-gold);
-  font-size: 7px;
+  font-size: 13px;
 }
 .story-echo strong {
   margin-top: 2px;
   color: #fff8eb;
   font-family: "Adventrya Serif", serif;
-  font-size: 12px;
+  font-size: 15px;
 }
 .story-echo p {
   margin: 4px 0 0;
   color: #e5dfea9e;
-  font-size: 8px;
+  font-size: 13px;
 }
 .story-echo button,
 .story-echo > a {
@@ -1160,7 +1160,7 @@ svg {
   cursor: pointer;
   color: #2b1d4a;
   background: var(--story-gold);
-  font-size: 8px;
+  font-size: 13px;
   font-weight: 700;
 }
 .story-echo button svg,
@@ -1259,7 +1259,7 @@ svg {
   color: #fff8ebc4;
   background: transparent;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
 }
 .language-menu-list button:hover {

@@ -131,7 +131,7 @@
 }
 .theme-stage-caption small {
   color: #f0ca7e;
-  font-size: 6px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -143,7 +143,7 @@
 .theme-stage-caption span {
   margin-top: 5px;
   color: #fff8eb94;
-  font-size: 6px;
+  font-size: 12px;
 }
 .theme-local-motion {
   z-index: 4;
@@ -472,21 +472,21 @@
 }
 .theme-dock .destination-copy small {
   color: #fff8eb61;
-  font-size: 5px;
+  font-size: 12px;
 }
 .theme-dock .destination-copy strong {
   margin-top: 3px;
   overflow: hidden;
   color: #fff8eb;
   font-family: "Adventrya Serif", serif;
-  font-size: 8px;
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .destination-state {
   grid-column: 1 / -1;
   color: #fff8eb59;
-  font-size: 5px;
+  font-size: 12px;
   text-align: left;
 }
 .theme-destination.is-selected .destination-state {
@@ -668,7 +668,7 @@
   }
   .storybook-progress {
     min-width: 74px;
-    font-size: 7px;
+    font-size: 13px;
   }
   .storybook-page-rail {
     width: 100%;
@@ -686,7 +686,7 @@
     height: 33px;
   }
   .storybook-gesture-hint {
-    font-size: 7px;
+    font-size: 13px;
   }
   .landing-v3-hero-product > .storybook {
     position: relative;
@@ -804,7 +804,7 @@
     height: 31px;
   }
   .ux-preview-book-note {
-    font-size: 7px;
+    font-size: 13px;
   }
   .ux-auth-book .storybook-display {
     --book-width: min(186px, 53vw);

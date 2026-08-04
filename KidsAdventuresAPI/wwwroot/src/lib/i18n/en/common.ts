@@ -15,6 +15,9 @@ export const common = {
     apply: "Apply",
     seeAll: "See all",
     checking: "Checking…",
+    signOut: "Sign out",
+    previous: "Previous",
+    next: "Next",
   },
 
   labels: {

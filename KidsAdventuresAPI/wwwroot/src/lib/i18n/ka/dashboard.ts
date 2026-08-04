@@ -19,6 +19,8 @@ export const dashboard = {
     orderPrint: "შეუკვეთე ბეჭდური ვერსია · 65 ₾ ",
     formatDigital: "Digital",
     formatBoth: "Digital + Printed",
+    pagingLabel: "წიგნების გვერდები",
+    pageOf: (page: number, total: number) => `გვერდი ${page} / ${total}`,
   },
 
   empty: {

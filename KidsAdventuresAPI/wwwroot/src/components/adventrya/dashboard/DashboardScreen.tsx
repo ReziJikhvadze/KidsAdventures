@@ -37,6 +37,9 @@ import { formatGel, normalizeGeorgianPhone, useT } from "@/lib/i18n";
 import { PRICES } from "@/lib/pricing";
 import { useWorldById, WORLD_COVER_ART, isWorldId, type WorldId } from "@/lib/worlds";
 
+/** Books per shelf page. Six fills the grid without a wall of illustrations to load. */
+const LIBRARY_PAGE_SIZE = 6;
+
 const emptyShipping = (): ShippingAddressRequest => ({
   recipientName: "",
   recipientPhone: "",
@@ -142,6 +145,20 @@ export function DashboardScreen() {
     [packs, characterId],
   );
   const hasStories = childPacks.length > 0 || (map?.completedCount ?? 0) > 0;
+
+  // The shelf is paged rather than infinite: a family buying a book a month has a wall
+  // of covers by the second year, and every one of them loads an illustration.
+  const [libraryPage, setLibraryPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(childPacks.length / LIBRARY_PAGE_SIZE));
+  const visiblePacks = useMemo(
+    () => childPacks.slice((libraryPage - 1) * LIBRARY_PAGE_SIZE, libraryPage * LIBRARY_PAGE_SIZE),
+    [childPacks, libraryPage],
+  );
+
+  // Switching child leaves the old page number behind, which can land past the end.
+  useEffect(() => {
+    setLibraryPage(1);
+  }, [childPacks.length]);
   const activeNode = map?.worlds.find((w) => w.worldId === activeWorldId);
   const worldId = (activeWorldId && isWorldId(activeWorldId) ? activeWorldId : "dinosaurs") as WorldId;
   const world = WORLD_BY_ID[worldId];
@@ -442,11 +459,13 @@ export function DashboardScreen() {
           </div>
 
           <div className="book-library">
-            {childPacks.map((pack, index) => (
+            {visiblePacks.map((pack, index) => (
               <LibraryBookCard
                 key={pack.id}
                 pack={pack}
-                index={index + 1}
+                // Continuous across pages: book 7 stays book 7 on page two.
+                index={(libraryPage - 1) * LIBRARY_PAGE_SIZE + index + 1}
+                heroName={heroName}
                 printOrder={printByBook[pack.id]}
                 onOrderPrint={() => {
                   setEditPrintOrderId(null);
@@ -458,6 +477,26 @@ export function DashboardScreen() {
               />
             ))}
           </div>
+
+          {pageCount > 1 ? (
+            <nav className="library-paging" aria-label={t.dashboard.library.pagingLabel}>
+              <button
+                type="button"
+                onClick={() => setLibraryPage((p) => Math.max(1, p - 1))}
+                disabled={libraryPage === 1}
+              >
+                {t.common.actions.previous}
+              </button>
+              <span>{t.dashboard.library.pageOf(libraryPage, pageCount)}</span>
+              <button
+                type="button"
+                onClick={() => setLibraryPage((p) => Math.min(pageCount, p + 1))}
+                disabled={libraryPage === pageCount}
+              >
+                {t.common.actions.next}
+              </button>
+            </nav>
+          ) : null}
 
           {printBookId || editPrintOrderId ? (
             <PrintUpgradePanel
@@ -494,12 +533,15 @@ export function DashboardScreen() {
 function LibraryBookCard({
   pack,
   index,
+  heroName,
   printOrder,
   onOrderPrint,
   onEditPrintAddress,
 }: {
   pack: AdventurePackResponse;
   index: number;
+  /** The child this shelf belongs to, so an untitled book still carries their name. */
+  heroName: string;
   printOrder?: PrintOrderResponse;
   onOrderPrint: () => void;
   onEditPrintAddress: (order: PrintOrderResponse) => void;
@@ -509,7 +551,9 @@ function LibraryBookCard({
   const worldId = pack.worldId && isWorldId(pack.worldId) ? pack.worldId : "dinosaurs";
   const world = WORLD_BY_ID[worldId];
   const cover = useIllustrationUrl(pack.coverImageUrl) ?? WORLD_COVER_ART[worldId];
-  const title = pack.title?.trim() || world.bookTitle(t.common.fallbackHeroName);
+  // An untitled book fell back to the generic "პატარა გმირი". The shelf is already
+  // filtered to one child, so it can name them instead of describing them.
+  const title = pack.title?.trim() || world.bookTitle(heroName);
   const hasPrint = pack.hasPrintEntitlement || !!printOrder;
   const format = hasPrint
     ? t.dashboard.library.formatBoth

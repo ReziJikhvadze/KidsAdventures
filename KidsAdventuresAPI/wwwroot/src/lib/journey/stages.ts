@@ -43,7 +43,9 @@ export function useJourneyStage(): [JourneyStage, (next: JourneyStage) => void] 
   const goToStage = useCallback(
     (next: JourneyStage) => {
       if (next === "world") {
-        window.location.assign("/themes");
+        // Client-side: a hard navigation would unmount JourneyDraftProvider and lose
+        // everything the parent has entered.
+        void router.navigate({ to: "/themes" });
         return;
       }
 

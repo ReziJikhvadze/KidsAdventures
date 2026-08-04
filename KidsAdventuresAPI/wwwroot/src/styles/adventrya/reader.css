@@ -34,13 +34,13 @@
 }
 .reader-title small {
   color: #f8f2e566;
-  font-size: 6px;
+  font-size: 12px;
 }
 .reader-title strong {
   margin-top: 3px;
   color: #fff8eb;
   font-family: "Adventrya Serif", serif;
-  font-size: 11px;
+  font-size: 15px;
 }
 .reader-header > div:last-child {
   display: flex;
@@ -58,7 +58,7 @@
   border-radius: 11px;
   color: #f8f2e5b8;
   background: #f8f2e50f;
-  font-size: 7px;
+  font-size: 13px;
 }
 .reader-header svg {
   width: 13px;
@@ -155,7 +155,7 @@
   left: 25px;
   top: 22px;
   color: var(--story-gold);
-  font-size: 9px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.16em;
 }
@@ -164,7 +164,7 @@
   z-index: 4;
   bottom: 14px;
   color: #29233a61;
-  font-size: 7px;
+  font-size: 13px;
 }
 .reader-page-art > small {
   left: 18px;
@@ -185,7 +185,7 @@
   margin: 23px 0 0;
   color: #29233ab8;
   font-family: "Adventrya Serif", serif;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.9;
 }
 .reader-qr {
@@ -206,7 +206,7 @@
   border-radius: 9px;
   color: #fff;
   background: repeating-linear-gradient(45deg, #291b4e 0 3px, #fff 3px 6px);
-  font-size: 7px;
+  font-size: 13px;
 }
 .reader-qr > div {
   display: flex;
@@ -214,7 +214,7 @@
 }
 .reader-qr strong {
   font-family: "Adventrya Serif", serif;
-  font-size: 9px;
+  font-size: 14px;
 }
 .reader-qr a {
   display: inline-flex;
@@ -222,7 +222,7 @@
   gap: 5px;
   margin-top: 5px;
   color: var(--deep-violet);
-  font-size: 7px;
+  font-size: 13px;
   font-weight: 700;
 }
 .reader-qr svg {
@@ -247,7 +247,7 @@
   cursor: pointer;
   color: #f8f2e5a1;
   background: transparent;
-  font-size: 7px;
+  font-size: 13px;
 }
 .reader-controls > button:disabled {
   opacity: 0.25;
@@ -283,7 +283,7 @@
   align-items: center;
   gap: 7px;
   color: #f8f2e557;
-  font-size: 6px;
+  font-size: 12px;
 }
 .reader-memory svg {
   width: 13px;
@@ -348,14 +348,14 @@
     border-radius: 12px;
   }
   .app-header .wordmark-small {
-    font-size: 13px;
+    font-size: 16px;
   }
   .step-progress {
     top: 18px;
     width: 118px;
   }
   .step-progress span {
-    font-size: 7px;
+    font-size: 13px;
   }
   .step-progress > div {
     margin-top: 7px;
@@ -418,7 +418,7 @@
   .purchase-heading > p,
   .auth-panel > p,
   .generation-copy > p {
-    font-size: 10px;
+    font-size: 14px;
   }
   .form-grid,
   .quick-pay,

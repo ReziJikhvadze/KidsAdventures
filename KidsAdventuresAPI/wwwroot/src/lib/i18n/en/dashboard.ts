@@ -19,6 +19,8 @@ export const dashboard = {
     orderPrint: "Order the printed edition · 65 ₾ ",
     formatDigital: "Digital",
     formatBoth: "Digital + Printed",
+    pagingLabel: "Library pages",
+    pageOf: (page: number, total: number) => `Page ${page} of ${total}`,
   },
 
   empty: {

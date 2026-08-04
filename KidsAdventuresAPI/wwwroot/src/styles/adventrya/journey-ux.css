@@ -29,7 +29,7 @@
   max-width: 640px;
   margin: 15px 0 0;
   color: #ebe5f0ab;
-  font-size: 11px;
+  font-size: 15px;
   line-height: 1.7;
 }
 .ux-profile-stage,
@@ -84,7 +84,7 @@
   color: #30204f;
   background: linear-gradient(145deg, #f1d899, #dca85a);
   font-family: "Adventrya Serif", serif;
-  font-size: 14px;
+  font-size: 16px;
 }
 .ux-form-intro > div {
   display: flex;
@@ -92,7 +92,7 @@
 }
 .ux-form-intro small {
   color: var(--story-gold);
-  font-size: 7px;
+  font-size: 13px;
   font-weight: 700;
 }
 .ux-form-intro h2 {
@@ -113,10 +113,10 @@
 .ux-character-form .choice-fieldset legend,
 .theme-wish-field > span,
 .world-wish-field > span {
-  font-size: 9px;
+  font-size: 14px;
 }
 .ux-character-form .field input {
-  font-size: 11px;
+  font-size: 15px;
 }
 .ux-photo-upload {
   min-height: 205px;
@@ -145,19 +145,19 @@
 }
 .ux-photo-upload small {
   color: var(--story-gold);
-  font-size: 7px;
+  font-size: 13px;
 }
 .ux-photo-upload strong {
   margin-top: 4px;
   color: #fff8eb;
   font-family: "Adventrya Serif", serif;
-  font-size: 14px;
+  font-size: 16px;
 }
 .ux-photo-upload p {
   max-width: 190px;
   margin: 8px 0 12px;
   color: #eae3ef87;
-  font-size: 7px;
+  font-size: 13px;
   line-height: 1.55;
 }
 .ux-photo-upload button {
@@ -169,7 +169,7 @@
   color: #fff4dc;
   background: #e8c98a1a;
   font-family: inherit;
-  font-size: 8px;
+  font-size: 13px;
   font-weight: 700;
 }
 .ux-photo-upload.ready {
@@ -207,7 +207,7 @@
   color: #f8f2e5b3;
   background: #26194b7a;
   font-family: inherit;
-  font-size: 8px;
+  font-size: 13px;
 }
 .ux-choice-chips button.selected {
   color: #2c1c49;
@@ -254,7 +254,7 @@
 }
 .ux-character-summary small {
   color: #aee8c7;
-  font-size: 7px;
+  font-size: 13px;
 }
 .ux-character-summary h2 {
   margin: 3px 0 0;
@@ -265,7 +265,7 @@
 .ux-character-summary p {
   margin: 3px 0 0;
   color: #e9f0eb99;
-  font-size: 8px;
+  font-size: 13px;
 }
 .ux-summary-actions {
   display: flex;
@@ -293,7 +293,7 @@
   color: #fff8ebdd;
   background: #ffffff0d;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.01em;
   transition:
@@ -361,7 +361,7 @@
   color: #fff6e6;
   background: transparent;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   transition:
     border-color 0.16s ease,
@@ -391,7 +391,7 @@
 }
 .ux-add-character small {
   color: #e8e1eeaa;
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 400;
   line-height: 1.4;
 }
@@ -402,7 +402,7 @@
   border-radius: 12px;
   color: #ffd8d4;
   background: #9c434324;
-  font-size: 9px;
+  font-size: 14px;
 }
 .ux-profile-footer {
   display: flex;
@@ -465,7 +465,7 @@
   color: #fff8eb;
   background: #2d1f548a;
   font-family: inherit;
-  font-size: 9px;
+  font-size: 14px;
   line-height: 1.55;
 }
 .theme-wish-field textarea:focus,
@@ -475,7 +475,7 @@
 .theme-wish-field small,
 .world-wish-field small {
   color: #e9e2ee75;
-  font-size: 7px;
+  font-size: 13px;
   line-height: 1.5;
 }
 .theme-intro .theme-actions {
@@ -518,7 +518,7 @@
   gap: 6px;
   max-width: 120px;
   color: var(--story-gold);
-  font-size: 7px;
+  font-size: 13px;
   font-weight: 700;
   line-height: 1.45;
 }
@@ -592,13 +592,13 @@
   top: 19px;
   left: 21px;
   color: var(--story-gold);
-  font-size: 8px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.16em;
 }
 .ux-book-cover > small {
   color: var(--story-gold);
-  font-size: 7px;
+  font-size: 13px;
 }
 .ux-book-cover h2 {
   margin: 7px 0 0;
@@ -611,7 +611,7 @@
 .ux-cover-name {
   margin-top: 13px;
   color: #fff8eb9e;
-  font-size: 7px;
+  font-size: 13px;
   letter-spacing: 0.05em;
 }
 .ux-story-page {
@@ -634,13 +634,13 @@
 }
 .ux-story-text small {
   color: #9d654c;
-  font-size: 7px;
+  font-size: 13px;
   font-weight: 700;
 }
 .ux-story-text p {
   margin: 8px 0 0;
   font-family: "Adventrya Serif", serif;
-  font-size: 10px;
+  font-size: 14px;
   line-height: 1.65;
 }
 .ux-story-text span {
@@ -649,7 +649,7 @@
   gap: 6px;
   margin-top: 10px;
   color: #8b6547;
-  font-size: 6px;
+  font-size: 12px;
 }
 .ux-story-text span svg {
   width: 12px;
@@ -676,11 +676,11 @@
 }
 .ux-locked-pages span {
   font-family: "Adventrya Serif", serif;
-  font-size: 12px;
+  font-size: 15px;
 }
 .ux-locked-pages small {
   margin-top: 4px;
-  font-size: 5px;
+  font-size: 12px;
 }
 .ux-package-panel {
   display: flex;
@@ -698,7 +698,7 @@
 }
 .ux-package-heading small {
   color: var(--story-gold);
-  font-size: 7px;
+  font-size: 13px;
 }
 .ux-package-heading h2 {
   margin: 4px 0 5px;
@@ -750,7 +750,7 @@
   color: #fff8eb;
 }
 .ux-package-title strong {
-  font-size: 10px;
+  font-size: 14px;
 }
 .ux-package-title b {
   color: var(--story-gold);
@@ -768,7 +768,7 @@
   display: flex;
   align-items: flex-start;
   gap: 5px;
-  font-size: 7px;
+  font-size: 13px;
   line-height: 1.45;
 }
 .ux-package-list svg {
@@ -784,7 +784,7 @@
   border-radius: 999px;
   color: #31204d;
   background: var(--story-gold);
-  font-size: 5px;
+  font-size: 12px;
   font-weight: 700;
 }
 .ux-preview-total {
@@ -795,11 +795,11 @@
 }
 .ux-preview-total span {
   color: #ede6f180;
-  font-size: 7px;
+  font-size: 13px;
 }
 .ux-preview-total strong {
   color: #fff8eb;
-  font-size: 9px;
+  font-size: 14px;
 }
 .ux-preview-total b {
   grid-row: 1 / span 2;
@@ -836,7 +836,7 @@
   gap: 7px;
   margin: 26px 0 0;
   color: #efe8f294;
-  font-size: 8px;
+  font-size: 13px;
   line-height: 1.55;
 }
 .ux-auth-book > p svg {
@@ -880,13 +880,13 @@
 }
 .ux-saved-row small {
   color: #eee6f07a;
-  font-size: 7px;
+  font-size: 13px;
 }
 .ux-saved-row strong {
   margin-top: 4px;
   overflow: hidden;
   color: #fff8eb;
-  font-size: 9px;
+  font-size: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -905,7 +905,7 @@
   color: var(--story-gold);
   background: #ffffff0a;
   font-family: inherit;
-  font-size: 7px;
+  font-size: 13px;
 }
 .ux-saved-row .ux-saved-actions button:last-child {
   color: #fff8eba8;
@@ -941,13 +941,13 @@
 }
 .ux-compact-product small {
   color: var(--story-gold);
-  font-size: 7px;
+  font-size: 13px;
 }
 .ux-compact-product strong {
   margin-top: 6px;
   color: #fff8eb;
   font-family: "Adventrya Serif", serif;
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.35;
 }
 .ux-compact-product span {
@@ -1021,13 +1021,13 @@
 }
 .ux-reader-page small {
   color: #9b674d;
-  font-size: 7px;
+  font-size: 13px;
   font-weight: 700;
 }
 .ux-reader-page p {
   margin: 10px 0 0;
   font-family: "Adventrya Serif", serif;
-  font-size: 12px;
+  font-size: 15px;
   line-height: 1.7;
 }
 .ux-reader-controls {
@@ -1051,7 +1051,7 @@
   color: #fff8eb;
   background: #231747db;
   font-family: inherit;
-  font-size: 8px;
+  font-size: 13px;
   pointer-events: auto;
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
@@ -1082,7 +1082,7 @@
   color: #f8f2e5a3;
   background: #32225b8c;
   font-family: inherit;
-  font-size: 8px;
+  font-size: 13px;
 }
 .ux-page-strip button.selected {
   color: #2d1d4a;
@@ -1130,13 +1130,13 @@
   }
   .landing-v3-kicker {
     max-width: 330px;
-    font-size: 8px;
+    font-size: 13px;
     letter-spacing: 0.11em;
   }
   .landing-v3-hero-lead {
     max-width: 375px;
     margin-top: 18px;
-    font-size: 11px;
+    font-size: 15px;
     line-height: 1.65;
   }
   .landing-v3-hero-actions {
@@ -1169,7 +1169,7 @@
   }
   .ux-stage-heading > p:not(.eyebrow),
   .ux-generated-header > div > p {
-    font-size: 10px;
+    font-size: 14px;
   }
   .ux-profile-stage {
     display: flex;
@@ -1342,7 +1342,7 @@
     padding: 19px;
   }
   .ux-story-text p {
-    font-size: 11px;
+    font-size: 15px;
   }
   .ux-locked-pages {
     grid-template-columns: repeat(3, 1fr);
@@ -1390,7 +1390,7 @@
     aspect-ratio: 0.8;
   }
   .ux-compact-product strong {
-    font-size: 12px;
+    font-size: 15px;
   }
   .ux-compact-product span {
     font-size: 17px;
@@ -1442,7 +1442,7 @@
     place-items: center;
     min-width: 50px;
     color: #f8f2e599;
-    font-size: 8px;
+    font-size: 13px;
   }
   .ux-page-strip {
     justify-content: flex-start;
@@ -1600,7 +1600,7 @@
   }
   .destination-copy strong,
   .map-label strong {
-    font-size: 9px;
+    font-size: 14px;
   }
   .ux-package-title b {
     font-size: 16px;
