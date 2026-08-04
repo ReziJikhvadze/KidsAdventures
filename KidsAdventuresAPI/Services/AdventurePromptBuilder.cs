@@ -96,6 +96,27 @@ internal static class AdventurePromptBuilder
             lines.Add($"- {string.Format(texts.HeroGenderRule, input.ChildName, genderWord)}");
         }
         lines.Add(string.Format(texts.ThemeLabel, input.Theme));
+
+        // The theme alone is one word, so the model invented its own version of that world
+        // in every book. Naming the actual place, its landmarks and its companion is what
+        // makes a story belong to the world the parent chose rather than to a generic idea
+        // of the theme — and what keeps a series set in one world recognisably the same
+        // place across books.
+        var world = AdventureWorldCanon.For(input.Theme, input.StoryLanguage);
+        if (world is not null)
+        {
+            lines.Add(string.Empty);
+            lines.Add(texts.WorldCanonHeader);
+            lines.Add(string.Format(texts.WorldCanonPlace, world.Place));
+            lines.Add(string.Format(texts.WorldCanonLandmarks, world.Landmarks));
+            lines.Add(string.Format(texts.WorldCanonAtmosphere, world.Atmosphere));
+            if (!string.IsNullOrWhiteSpace(world.Companion))
+            {
+                lines.Add(string.Format(texts.WorldCanonCompanion, world.Companion));
+            }
+
+            lines.Add($"- {texts.WorldCanonRule}");
+        }
         FormatAppearanceLine(texts.HeroAppearanceLabel, input.ChildAppearanceDescription, lines);
         lines.Add($"{texts.FamilyMembersLabel}{Environment.NewLine}{familyMembersText}");
 

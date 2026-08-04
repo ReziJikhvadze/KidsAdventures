@@ -83,6 +83,22 @@ internal sealed class AdventurePromptLocale
     public string GenderGirl { get; init; } = "girl";
     public string GenderBoy { get; init; } = "boy";
 
+    /// <summary>
+    /// Heads the world canon block. Without it the model only knew a one-word theme and
+    /// invented its own version of that world in every book.
+    /// {0} place, {1} landmarks, {2} atmosphere.
+    /// </summary>
+    public string WorldCanonHeader { get; init; } =
+        "THE WORLD THIS BOOK IS SET IN (use it; do not invent a different version of this theme):";
+
+    public string WorldCanonPlace { get; init; } = "Place: {0}";
+    public string WorldCanonLandmarks { get; init; } = "Things that exist here: {0}";
+    public string WorldCanonAtmosphere { get; init; } = "How it feels: {0}";
+    public string WorldCanonCompanion { get; init; } = "Known companion of this world: {0}";
+
+    public string WorldCanonRule { get; init; } =
+        "Set the whole story inside this world. Use at least two of its named places or landmarks as real locations the child moves through, and let the world's own atmosphere shape the mood. You may invent new corners of it, but never relocate the story to a different kind of world, and never contradict what is stated above. The named companion may appear when it fits naturally, and must not take over the child's decisions.";
+
     public string HeroGenderRule { get; init; } =
         "THE HERO'S GENDER IS FIXED: {0} is a {1}. Use the correct pronouns and gendered forms for {1} consistently on every page, in the title, and in the cover description. Never change, soften, or leave this ambiguous, and never write the hero as any other gender.";
 
@@ -330,6 +346,18 @@ internal static class AdventurePromptTexts
             "სწორედ იქ ხდებოდეს გვერდის მთავარი ამბავი და არა ცარიელი ადგილი.",
         ImageTextSafeTop = "ზედა",
         ImageTextSafeBottom = "ქვედა",
+        WorldCanonHeader = "სამყარო, რომელშიც ეს წიგნი ვითარდება (გამოიყენე ის; ამ თემის სხვა ვერსია არ მოიგონო):",
+        WorldCanonPlace = "ადგილი: {0}",
+        WorldCanonLandmarks = "რა არსებობს აქ: {0}",
+        WorldCanonAtmosphere = "როგორია აქ განცდა: {0}",
+        WorldCanonCompanion = "ამ სამყაროს ნაცნობი თანამგზავრი: {0}",
+        WorldCanonRule =
+            "მთელი ისტორია ამ სამყაროში გაითამაშე. გამოიყენე მისი დასახელებული ადგილებიდან ან " +
+            "ღირსშესანიშნაობებიდან სულ მცირე ორი, როგორც რეალური ადგილი, სადაც ბავშვი გადაადგილდება, " +
+            "და სამყაროს საკუთარმა ატმოსფერომ განსაზღვროს განწყობა. შეგიძლია მისი ახალი კუთხეები " +
+            "მოიგონო, მაგრამ ისტორია სხვა ტიპის სამყაროში არ გადაიტანო და ზემოთ დაწერილს არ " +
+            "დაუპირისპირდე. დასახელებული თანამგზავრი შეიძლება გამოჩნდეს, როცა ბუნებრივია, და " +
+            "ბავშვის გადაწყვეტილებები არ უნდა წაართვას.",
         GenderGirl = "გოგო",
         GenderBoy = "ბიჭი",
         HeroGenderRule =
