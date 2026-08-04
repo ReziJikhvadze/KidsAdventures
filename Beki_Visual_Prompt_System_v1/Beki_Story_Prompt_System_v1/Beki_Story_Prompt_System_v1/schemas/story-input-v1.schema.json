@@ -1,0 +1,297 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://beki.example/schemas/story-input-v1.schema.json",
+  "title": "Beki Story Input v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "childName",
+    "age",
+    "ageBand",
+    "gender",
+    "eyeColor",
+    "interests",
+    "theme",
+    "extraWish",
+    "selectedSupportingCharacters",
+    "bookNumber",
+    "continuationMode",
+    "pageCount",
+    "language",
+    "thirdPartyCharacterMode",
+    "fearReframingAllowed",
+    "creativeSeed",
+    "previousStoryMemory"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "childName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "age": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 10
+    },
+    "ageBand": {
+      "enum": [
+        "2-4",
+        "5-7",
+        "8-10"
+      ]
+    },
+    "gender": {
+      "enum": [
+        "girl",
+        "boy",
+        "nonbinary",
+        "not_specified"
+      ]
+    },
+    "eyeColor": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 50
+    },
+    "interests": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100
+      }
+    },
+    "theme": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "extraWish": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 1000
+    },
+    "selectedSupportingCharacters": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "relationship",
+          "description"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "relationship": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 300
+          }
+        }
+      }
+    },
+    "bookNumber": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "continuationMode": {
+      "enum": [
+        "first_book",
+        "continue_previous_chapter",
+        "new_adventure_same_universe",
+        "new_world_with_existing_relationships"
+      ]
+    },
+    "pageCount": {
+      "const": 12
+    },
+    "language": {
+      "const": "ka"
+    },
+    "thirdPartyCharacterMode": {
+      "enum": [
+        "licensed",
+        "private_test",
+        "originalize",
+        "exclude"
+      ]
+    },
+    "fearReframingAllowed": {
+      "type": "boolean"
+    },
+    "creativeSeed": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "seedId",
+        "tone",
+        "storyHook",
+        "sceneAnchor"
+      ],
+      "properties": {
+        "seedId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "tone": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "storyHook": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "sceneAnchor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        }
+      }
+    },
+    "previousStoryMemory": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "relationshipWithBekiEn",
+        "knownCompanions",
+        "worldsVisited",
+        "worldRulesEn",
+        "importantObjects",
+        "promisesKa",
+        "resolvedThreadsKa",
+        "openThreadsKa",
+        "recentPlotPatternsToAvoidEn",
+        "lastChapterHookKa"
+      ],
+      "properties": {
+        "relationshipWithBekiEn": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "knownCompanions": {
+          "type": "array",
+          "maxItems": 30,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150
+          }
+        },
+        "worldsVisited": {
+          "type": "array",
+          "maxItems": 30,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150
+          }
+        },
+        "worldRulesEn": {
+          "type": "array",
+          "maxItems": 30,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "importantObjects": {
+          "type": "array",
+          "maxItems": 30,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150
+          }
+        },
+        "promisesKa": {
+          "type": "array",
+          "maxItems": 30,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "resolvedThreadsKa": {
+          "type": "array",
+          "maxItems": 30,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "openThreadsKa": {
+          "type": "array",
+          "maxItems": 30,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "recentPlotPatternsToAvoidEn": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "lastChapterHookKa": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 500
+        }
+      }
+    }
+  }
+}

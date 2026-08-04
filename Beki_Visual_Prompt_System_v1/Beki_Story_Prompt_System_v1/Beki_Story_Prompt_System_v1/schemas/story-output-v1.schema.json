@@ -1,0 +1,432 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://beki.example/schemas/story-output-v1.schema.json",
+  "title": "Beki Story Output v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "titleKa",
+    "childName",
+    "ageBand",
+    "theme",
+    "cover",
+    "storyPages",
+    "page12CtaKa",
+    "storyCustomization",
+    "continuationMemory",
+    "reviewMetadata"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "requestId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "titleKa": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 150
+    },
+    "childName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "ageBand": {
+      "enum": [
+        "2-4",
+        "5-7",
+        "8-10"
+      ]
+    },
+    "theme": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "cover": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subtitleKa",
+        "coverSceneSummaryEn",
+        "featuredCharacters"
+      ],
+      "properties": {
+        "subtitleKa": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 180
+        },
+        "coverSceneSummaryEn": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "featuredCharacters": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          }
+        }
+      }
+    },
+    "storyPages": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pageNumber",
+          "storyTextKa",
+          "narrativeBeatEn",
+          "sceneSummaryEn",
+          "charactersPresent",
+          "bekiPresent",
+          "childAgencyEn",
+          "pageTurnFunction",
+          "continuityFromPreviousEn"
+        ],
+        "properties": {
+          "pageNumber": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12
+          },
+          "storyTextKa": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1500
+          },
+          "narrativeBeatEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "sceneSummaryEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "charactersPresent": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "bekiPresent": {
+            "type": "boolean"
+          },
+          "childAgencyEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "pageTurnFunction": {
+            "enum": [
+              "invitation",
+              "curiosity",
+              "choice",
+              "discovery",
+              "consequence",
+              "relationship",
+              "humor",
+              "setback",
+              "reveal",
+              "resolution",
+              "continuation_reveal"
+            ]
+          },
+          "continuityFromPreviousEn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
+          }
+        }
+      }
+    },
+    "page12CtaKa": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "storyCustomization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "extraWishUsed",
+        "extraWishIntegrationEn",
+        "thirdPartyHandlingEn",
+        "safetyAdaptationsEn",
+        "continuityAdaptationsEn",
+        "bekiPages"
+      ],
+      "properties": {
+        "extraWishUsed": {
+          "type": "boolean"
+        },
+        "extraWishIntegrationEn": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "thirdPartyHandlingEn": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "safetyAdaptationsEn": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "continuityAdaptationsEn": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "bekiPages": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 5,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12
+          }
+        }
+      }
+    },
+    "continuationMemory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bookSummaryKa",
+        "worldStateEn",
+        "locationsDiscovered",
+        "charactersIntroduced",
+        "returningCharacters",
+        "relationshipUpdatesEn",
+        "importantObjects",
+        "childStrengthsShownKa",
+        "promisesMadeKa",
+        "resolvedThreadKa",
+        "openThreadsKa",
+        "nextChapterHookKa",
+        "recentPlotPatternsToAvoidEn"
+      ],
+      "properties": {
+        "bookSummaryKa": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1500
+        },
+        "worldStateEn": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "locationsDiscovered": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150
+          }
+        },
+        "charactersIntroduced": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150
+          }
+        },
+        "returningCharacters": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150
+          }
+        },
+        "relationshipUpdatesEn": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "importantObjects": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150
+          }
+        },
+        "childStrengthsShownKa": {
+          "type": "array",
+          "maxItems": 12,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "promisesMadeKa": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        },
+        "resolvedThreadKa": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "openThreadsKa": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "nextChapterHookKa": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "recentPlotPatternsToAvoidEn": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
+        }
+      }
+    },
+    "reviewMetadata": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "issuesFound",
+        "changesMadeEn",
+        "humanReviewFlagsEn"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "approved_without_changes",
+            "revised",
+            "needs_human_review"
+          ]
+        },
+        "issuesFound": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "severity",
+              "pageNumber",
+              "descriptionEn"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "severity": {
+                "enum": [
+                  "low",
+                  "medium",
+                  "high",
+                  "critical"
+                ]
+              },
+              "pageNumber": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1,
+                "maximum": 12
+              },
+              "descriptionEn": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            }
+          }
+        },
+        "changesMadeEn": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "humanReviewFlagsEn": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
+      }
+    }
+  }
+}

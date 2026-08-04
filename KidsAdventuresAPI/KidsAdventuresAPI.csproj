@@ -32,6 +32,11 @@
     <Content Include="Data\Scripts\README.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Data\Scripts\Manual\**\*" CopyToOutputDirectory="Never" />
     <Content Include="Assets\Fonts\*.ttf" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Beki prompt system: the .md files are the system prompts themselves, loaded at
+         runtime rather than pasted into C#, so a prompt revision is a content change and
+         its version can be recorded against every generated story. -->
+    <Content Include="Prompts\Beki\*.md" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Beki\*.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- Drop stale static web asset manifests (VS can cache old wwwroot/azure-ssr paths). -->

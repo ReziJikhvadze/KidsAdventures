@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Beki Visual Input v1",
+  "type": "object",
+  "required": [
+    "adventureId",
+    "childProfile",
+    "layoutConfig",
+    "coverSpec",
+    "pageScenes"
+  ],
+  "properties": {
+    "adventureId": {
+      "type": "string"
+    },
+    "childProfile": {
+      "type": "object",
+      "required": [
+        "childName",
+        "age",
+        "ageBand",
+        "eyeColor",
+        "theme"
+      ],
+      "properties": {
+        "childName": {
+          "type": "string"
+        },
+        "age": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 10
+        },
+        "ageBand": {
+          "type": "string",
+          "enum": [
+            "2-4",
+            "5-7",
+            "8-10"
+          ]
+        },
+        "gender": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "eyeColor": {
+          "type": "string"
+        },
+        "theme": {
+          "type": "string"
+        },
+        "extraWishMode": {
+          "type": "string",
+          "enum": [
+            "licensed",
+            "private_test",
+            "originalize",
+            "exclude"
+          ]
+        },
+        "extraWishApprovedVisuals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "layoutConfig": {
+      "type": "object",
+      "required": [
+        "interiorAspectRatio",
+        "coverAspectRatio",
+        "interiorAssetType"
+      ],
+      "properties": {
+        "interiorAspectRatio": {
+          "type": "string"
+        },
+        "coverAspectRatio": {
+          "type": "string"
+        },
+        "interiorAssetType": {
+          "type": "string",
+          "enum": [
+            "single_page_portrait"
+          ]
+        },
+        "textSafeAreaGuideline": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "coverSpec": {
+      "$ref": "#/definitions/sceneSpec"
+    },
+    "pageScenes": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {
+        "$ref": "#/definitions/sceneSpec"
+      }
+    }
+  },
+  "definitions": {
+    "sceneSpec": {
+      "type": "object",
+      "required": [
+        "sceneId",
+        "pageNumber",
+        "charactersPresent",
+        "childAction",
+        "sceneSummaryEn",
+        "composition"
+      ],
+      "properties": {
+        "sceneId": {
+          "type": "string"
+        },
+        "pageNumber": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "charactersPresent": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "childAction": {
+          "type": "string"
+        },
+        "sceneSummaryEn": {
+          "type": "string"
+        },
+        "mainEmotionalBeat": {
+          "type": "string"
+        },
+        "environment": {
+          "type": "string"
+        },
+        "keyObject": {
+          "type": "string"
+        },
+        "continuityState": {
+          "type": "object"
+        },
+        "composition": {
+          "type": "object",
+          "required": [
+            "shotType",
+            "cameraAngle",
+            "heroPlacement",
+            "textSafeArea"
+          ],
+          "properties": {
+            "shotType": {
+              "type": "string"
+            },
+            "cameraAngle": {
+              "type": "string"
+            },
+            "heroPlacement": {
+              "type": "string"
+            },
+            "textSafeArea": {
+              "type": "string"
+            },
+            "supportingPlacement": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

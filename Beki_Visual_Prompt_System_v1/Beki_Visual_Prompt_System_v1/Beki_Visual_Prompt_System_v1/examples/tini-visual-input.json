@@ -1,0 +1,291 @@
+{
+  "adventureId": "beki-tini-magic-snow-001",
+  "childProfile": {
+    "childName": "თინი",
+    "age": 3,
+    "ageBand": "2-4",
+    "gender": "girl",
+    "eyeColor": "blue",
+    "theme": "magical_world",
+    "extraWishMode": "originalize",
+    "extraWishApprovedVisuals": [
+      "two original magical snow-sister companions inspired by a warm winter fantasy feeling"
+    ]
+  },
+  "layoutConfig": {
+    "interiorAspectRatio": "2:3",
+    "coverAspectRatio": "2:3",
+    "interiorAssetType": "single_page_portrait",
+    "textSafeAreaGuideline": "reserve a clean upper or side area for later Georgian text placement"
+  },
+  "coverSpec": {
+    "sceneId": "cover",
+    "pageNumber": null,
+    "charactersPresent": [
+      "Tini",
+      "Beki",
+      "Snow Sister One",
+      "Snow Sister Two"
+    ],
+    "childAction": "Tini stands confidently at the entrance of the magical snow kingdom, holding a glowing blue snowflake",
+    "sceneSummaryEn": "Tini stands at the entrance of a glowing magical snow kingdom. Beki peeks nearby while two original snow-sister companions welcome her from behind. A silent bell tower glows in the distance.",
+    "mainEmotionalBeat": "invitation and wonder",
+    "environment": "magical snowy kingdom entrance under a glowing sky",
+    "keyObject": "glowing blue snowflake",
+    "continuityState": {},
+    "composition": {
+      "shotType": "medium-wide",
+      "cameraAngle": "child eye level",
+      "heroPlacement": "center-lower",
+      "textSafeArea": "upper third kept calm and readable for title",
+      "supportingPlacement": "Beki lower side; snow-sisters slightly behind"
+    }
+  },
+  "pageScenes": [
+    {
+      "sceneId": "p1",
+      "pageNumber": 1,
+      "charactersPresent": [
+        "Tini"
+      ],
+      "childAction": "Tini looks in wonder at a glowing blue snowflake landing on her hand",
+      "sceneSummaryEn": "In a cozy room at twilight, Tini watches a glowing blue snowflake rest on her open hand.",
+      "mainEmotionalBeat": "curiosity",
+      "environment": "warm bedroom at twilight",
+      "keyObject": "glowing blue snowflake",
+      "continuityState": {},
+      "composition": {
+        "shotType": "medium close-up",
+        "cameraAngle": "child eye level",
+        "heroPlacement": "lower center",
+        "textSafeArea": "upper left",
+        "supportingPlacement": "none"
+      }
+    },
+    {
+      "sceneId": "p2",
+      "pageNumber": 2,
+      "charactersPresent": [
+        "Tini",
+        "Beki"
+      ],
+      "childAction": "Tini performs the main action for page 2",
+      "sceneSummaryEn": "Approved visual scene summary for page 2.",
+      "mainEmotionalBeat": "story progression",
+      "environment": "magical snow world",
+      "keyObject": "story object",
+      "continuityState": {},
+      "composition": {
+        "shotType": "medium-wide",
+        "cameraAngle": "child eye level",
+        "heroPlacement": "center or lower center",
+        "textSafeArea": "upper side area",
+        "supportingPlacement": "secondary"
+      }
+    },
+    {
+      "sceneId": "p3",
+      "pageNumber": 3,
+      "charactersPresent": [
+        "Tini",
+        "Snow Sister One",
+        "Snow Sister Two"
+      ],
+      "childAction": "Tini performs the main action for page 3",
+      "sceneSummaryEn": "Approved visual scene summary for page 3.",
+      "mainEmotionalBeat": "story progression",
+      "environment": "magical snow world",
+      "keyObject": "story object",
+      "continuityState": {},
+      "composition": {
+        "shotType": "medium-wide",
+        "cameraAngle": "child eye level",
+        "heroPlacement": "center or lower center",
+        "textSafeArea": "upper side area",
+        "supportingPlacement": "secondary"
+      }
+    },
+    {
+      "sceneId": "p4",
+      "pageNumber": 4,
+      "charactersPresent": [
+        "Tini"
+      ],
+      "childAction": "Tini performs the main action for page 4",
+      "sceneSummaryEn": "Approved visual scene summary for page 4.",
+      "mainEmotionalBeat": "story progression",
+      "environment": "magical snow world",
+      "keyObject": "story object",
+      "continuityState": {},
+      "composition": {
+        "shotType": "medium-wide",
+        "cameraAngle": "child eye level",
+        "heroPlacement": "center or lower center",
+        "textSafeArea": "upper side area",
+        "supportingPlacement": "secondary"
+      }
+    },
+    {
+      "sceneId": "p5",
+      "pageNumber": 5,
+      "charactersPresent": [
+        "Tini"
+      ],
+      "childAction": "Tini performs the main action for page 5",
+      "sceneSummaryEn": "Approved visual scene summary for page 5.",
+      "mainEmotionalBeat": "story progression",
+      "environment": "magical snow world",
+      "keyObject": "story object",
+      "continuityState": {},
+      "composition": {
+        "shotType": "medium-wide",
+        "cameraAngle": "child eye level",
+        "heroPlacement": "center or lower center",
+        "textSafeArea": "upper side area",
+        "supportingPlacement": "secondary"
+      }
+    },
+    {
+      "sceneId": "p6",
+      "pageNumber": 6,
+      "charactersPresent": [
+        "Tini",
+        "Beki"
+      ],
+      "childAction": "Tini performs the main action for page 6",
+      "sceneSummaryEn": "Approved visual scene summary for page 6.",
+      "mainEmotionalBeat": "story progression",
+      "environment": "magical snow world",
+      "keyObject": "story object",
+      "continuityState": {},
+      "composition": {
+        "shotType": "medium-wide",
+        "cameraAngle": "child eye level",
+        "heroPlacement": "center or lower center",
+        "textSafeArea": "upper side area",
+        "supportingPlacement": "secondary"
+      }
+    },
+    {
+      "sceneId": "p7",
+      "pageNumber": 7,
+      "charactersPresent": [
+        "Tini"
+      ],
+      "childAction": "Tini performs the main action for page 7",
+      "sceneSummaryEn": "Approved visual scene summary for page 7.",
+      "mainEmotionalBeat": "story progression",
+      "environment": "magical snow world",
+      "keyObject": "story object",
+      "continuityState": {},
+      "composition": {
+        "shotType": "medium-wide",
+        "cameraAngle": "child eye level",
+        "heroPlacement": "center or lower center",
+        "textSafeArea": "upper side area",
+        "supportingPlacement": "secondary"
+      }
+    },
+    {
+      "sceneId": "p8",
+      "pageNumber": 8,
+      "charactersPresent": [
+        "Tini"
+      ],
+      "childAction": "Tini performs the main action for page 8",
+      "sceneSummaryEn": "Approved visual scene summary for page 8.",
+      "mainEmotionalBeat": "story progression",
+      "environment": "magical snow world",
+      "keyObject": "story object",
+      "continuityState": {},
+      "composition": {
+        "shotType": "medium-wide",
+        "cameraAngle": "child eye level",
+        "heroPlacement": "center or lower center",
+        "textSafeArea": "upper side area",
+        "supportingPlacement": "secondary"
+      }
+    },
+    {
+      "sceneId": "p9",
+      "pageNumber": 9,
+      "charactersPresent": [
+        "Tini"
+      ],
+      "childAction": "Tini performs the main action for page 9",
+      "sceneSummaryEn": "Approved visual scene summary for page 9.",
+      "mainEmotionalBeat": "story progression",
+      "environment": "magical snow world",
+      "keyObject": "story object",
+      "continuityState": {},
+      "composition": {
+        "shotType": "medium-wide",
+        "cameraAngle": "child eye level",
+        "heroPlacement": "center or lower center",
+        "textSafeArea": "upper side area",
+        "supportingPlacement": "secondary"
+      }
+    },
+    {
+      "sceneId": "p10",
+      "pageNumber": 10,
+      "charactersPresent": [
+        "Tini"
+      ],
+      "childAction": "Tini performs the main action for page 10",
+      "sceneSummaryEn": "Approved visual scene summary for page 10.",
+      "mainEmotionalBeat": "story progression",
+      "environment": "magical snow world",
+      "keyObject": "story object",
+      "continuityState": {},
+      "composition": {
+        "shotType": "medium-wide",
+        "cameraAngle": "child eye level",
+        "heroPlacement": "center or lower center",
+        "textSafeArea": "upper side area",
+        "supportingPlacement": "secondary"
+      }
+    },
+    {
+      "sceneId": "p11",
+      "pageNumber": 11,
+      "charactersPresent": [
+        "Tini",
+        "Beki"
+      ],
+      "childAction": "Tini performs the main action for page 11",
+      "sceneSummaryEn": "Approved visual scene summary for page 11.",
+      "mainEmotionalBeat": "story progression",
+      "environment": "magical snow world",
+      "keyObject": "story object",
+      "continuityState": {},
+      "composition": {
+        "shotType": "medium-wide",
+        "cameraAngle": "child eye level",
+        "heroPlacement": "center or lower center",
+        "textSafeArea": "upper side area",
+        "supportingPlacement": "secondary"
+      }
+    },
+    {
+      "sceneId": "p12",
+      "pageNumber": 12,
+      "charactersPresent": [
+        "Tini"
+      ],
+      "childAction": "Tini performs the main action for page 12",
+      "sceneSummaryEn": "Approved visual scene summary for page 12.",
+      "mainEmotionalBeat": "story progression",
+      "environment": "magical snow world",
+      "keyObject": "story object",
+      "continuityState": {},
+      "composition": {
+        "shotType": "medium-wide",
+        "cameraAngle": "child eye level",
+        "heroPlacement": "center or lower center",
+        "textSafeArea": "upper side area",
+        "supportingPlacement": "secondary"
+      }
+    }
+  ]
+}

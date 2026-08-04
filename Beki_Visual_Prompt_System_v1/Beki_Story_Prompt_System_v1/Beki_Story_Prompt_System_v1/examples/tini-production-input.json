@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "1.0",
+  "requestId": "test-tini-001",
+  "childName": "თინი",
+  "age": 3,
+  "ageBand": "2-4",
+  "gender": "girl",
+  "eyeColor": "ცისფერი",
+  "interests": [
+    "მაგიური სამყარო",
+    "თოვლი",
+    "მეგობრობა"
+  ],
+  "theme": "მაგიური სამყარო",
+  "extraWish": "მინდა თინისთან ერთად მოგზაურობაში იყვნენ Frozen-ის პერსონაჟები ანა და ელზა.",
+  "selectedSupportingCharacters": [],
+  "bookNumber": 1,
+  "continuationMode": "first_book",
+  "pageCount": 12,
+  "language": "ka",
+  "thirdPartyCharacterMode": "originalize",
+  "fearReframingAllowed": false,
+  "creativeSeed": {
+    "seedId": "snow-bell-001",
+    "tone": "warm magical mystery",
+    "storyHook": "A magical snow bell has gone silent, and only an attentive child can discover why.",
+    "sceneAnchor": "A winter kingdom where sleeping blue flowers hide a trail of golden thread."
+  },
+  "previousStoryMemory": null
+}

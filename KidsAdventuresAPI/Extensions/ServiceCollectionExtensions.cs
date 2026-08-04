@@ -4,6 +4,7 @@ using AdventurePacks.Api.Data;
 using AdventurePacks.Api.Domain;
 using AdventurePacks.Api.Repositories.Implementations;
 using AdventurePacks.Api.Repositories.Interfaces;
+using AdventurePacks.Api.Services.Beki;
 using AdventurePacks.Api.Services.Implementations;
 using AdventurePacks.Api.Services.Interfaces;
 using Hangfire;
@@ -19,6 +20,7 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
+        services.Configure<BekiOptions>(configuration.GetSection(BekiOptions.SectionName));
         // App Service refuses an app setting named "AzureBlobStorage__ConnectionString"
         // ("AppSetting with name ... is not allowed"), so on Azure the value has to come
         // from the Connection strings section, which .NET surfaces as
@@ -243,6 +245,18 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAdventureGenerationService, AdventureGenerationService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddSingleton<IGuestRateLimiter, GuestRateLimiter>();
+
+        // Beki pipelines. Registered unconditionally so the services can be resolved and
+        // exercised in staging; BekiOptions.Enabled is the flag that decides whether any
+        // caller actually routes a book through them, keeping the old flow available for
+        // side-by-side comparison until the regression set passes.
+        services.AddSingleton<IBekiPromptProvider, BekiPromptProvider>();
+        services.AddSingleton<IBekiCreativeSeedPool, BekiCreativeSeedPool>();
+        services.AddSingleton<BekiStoryValidator>();
+        services.AddSingleton<BekiSceneSpecBuilder>();
+        services.AddScoped<IBekiOpenAiClient, BekiOpenAiClient>();
+        services.AddScoped<IBekiStoryPipeline, BekiStoryPipeline>();
+        services.AddScoped<IBekiVisualPipeline, BekiVisualPipeline>();
 
         return services;
     }
