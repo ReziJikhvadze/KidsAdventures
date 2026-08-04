@@ -8,6 +8,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { useLocation } from "@tanstack/react-router";
+
 import type { BookLanguage } from "@/lib/i18n";
 import { DEFAULT_BOOK_LANGUAGE } from "@/lib/i18n";
 import type { BookPackage } from "@/lib/pricing";
@@ -134,9 +136,23 @@ function loadDraft(): JourneyDraft {
     }
   }
 
-  // Deep-link query carries continue / world selection, and the order id Stripe returns with.
+  return applyDeepLink(draft, window.location.search);
+}
+
+/**
+ * Merges the query string into a draft.
+ *
+ * This has to run on every navigation, not once at mount. The journey now moves
+ * client-side, so the provider mounts when the app loads and the world the parent picks
+ * on /themes arrives afterwards as ?worldId=… . Reading it only at mount meant the
+ * choice was never seen, and the preview stopped with "choose a world first" even
+ * though one had been chosen.
+ */
+function applyDeepLink(base: JourneyDraft, search: string): JourneyDraft {
+  const draft: JourneyDraft = { ...base, characters: [...base.characters] };
+
   try {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(search);
     const world = params.get("worldId") || params.get("world");
     if (world && isWorldId(world)) draft.worldId = world;
     const fromBook = params.get("continuesFromBookId");
@@ -181,7 +197,7 @@ function loadDraft(): JourneyDraft {
       }
     }
   } catch {
-    /* ignore */
+    /* a malformed query string must not break the form */
   }
 
   return draft;
@@ -212,6 +228,15 @@ export function JourneyDraftProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setDraftState(loadDraft());
   }, []);
+
+  // Deep-link parameters arrive after mount now that the journey moves client-side: the
+  // world the parent picks on /themes comes back as ?worldId=… , and Stripe returns with
+  // ?orderId=… . Merging on every location change is what makes those choices land —
+  // reading them once at mount silently dropped them.
+  const location = useLocation();
+  useEffect(() => {
+    setDraftState((prev) => applyDeepLink(prev, location.searchStr ?? ""));
+  }, [location.searchStr]);
 
   // Signing out on a shared device must not leave the previous parent's child on screen.
   useEffect(() => {
