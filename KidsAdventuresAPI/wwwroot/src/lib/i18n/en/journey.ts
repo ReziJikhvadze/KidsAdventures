@@ -194,7 +194,7 @@ export const journey = {
     orCard: "or a bank card",
     cardNumber: "Card number",
     expiry: "Expiry date",
-    shippingAddress: "Delivery address",
+    shippingAddress: "Recipient's address",
     addAnotherAddress: "Add another address",
     useSavedAddress: "Use the saved address",
     promoPlaceholder: "Enter a code",

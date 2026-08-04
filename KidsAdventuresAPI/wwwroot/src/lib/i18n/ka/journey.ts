@@ -187,7 +187,7 @@ export const journey = {
     orCard: "ან საბანკო ბარათი",
     cardNumber: "ბარათის ნომერი",
     expiry: "მოქმედების ვადა",
-    shippingAddress: "მიწოდების მისამართი",
+    shippingAddress: "მიმღების მისამართი",
     addAnotherAddress: "სხვა მისამართის დამატება",
     useSavedAddress: "შენახული მისამართის გამოყენება",
     promoPlaceholder: "შეიყვანე კოდი",

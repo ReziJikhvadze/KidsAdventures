@@ -100,24 +100,50 @@ export function emptyDraft(): JourneyDraft {
 }
 
 /**
- * Builds the starting draft for a visit. Nothing is restored from storage: every visit to
- * /create begins blank, so a parent never opens the form onto the previous child's name,
- * photo or generated preview, and can create as many previews as they like.
+ * Builds the starting draft for a visit.
  *
- * The URL is the only thing that carries state into the journey. That is deliberate —
- * it survives the Stripe round trip without keeping personal data on the device.
+ * The draft lives in sessionStorage, not localStorage. That distinction is the whole
+ * design: sessionStorage dies with the browser tab, so a new visit still opens a blank
+ * form and the next person on a shared device never sees the previous child — while the
+ * journey survives the one thing that would otherwise destroy it.
+ *
+ * That thing is real: choosing a world leaves /create entirely
+ * (`window.location.assign("/themes")`) and comes back as a fresh page load. With the
+ * draft held only in React state, the name, birth date and photo the parent had just
+ * typed were gone by the time they returned, and every later screen fell back to
+ * "პატარა გმირი" with no child information at all.
  */
 function loadDraft(): JourneyDraft {
   if (typeof window === "undefined") return emptyDraft();
-  const draft = emptyDraft();
+  let draft = emptyDraft();
 
-  // Drafts written by earlier versions are still sitting in visitors' browsers, holding a
-  // child's name, birth date, photo and shipping address. Nothing reads them now, so remove
-  // them on the next visit rather than leaving that data on the device indefinitely.
+  // Drafts written by earlier versions sit in localStorage holding a child's name, birth
+  // date, photo and shipping address. Nothing reads them now, so clear them out rather
+  // than leaving that data on the device indefinitely.
   try {
     localStorage.removeItem(DRAFT_KEY);
   } catch {
     /* private mode / quota */
+  }
+
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<JourneyDraft>;
+      const base = emptyDraft();
+      draft = {
+        ...base,
+        ...parsed,
+        characters:
+          Array.isArray(parsed.characters) && parsed.characters.length > 0
+            ? parsed.characters
+            : base.characters,
+        shipping: { ...base.shipping, ...parsed.shipping },
+      };
+    }
+  } catch {
+    // A corrupt draft must not strand the parent on a broken form.
+    draft = emptyDraft();
   }
 
   // Deep-link query carries continue / world selection, and the order id Stripe returns with.
@@ -173,10 +199,19 @@ function loadDraft(): JourneyDraft {
   return draft;
 }
 
+function persistDraft(draft: JourneyDraft) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  } catch {
+    /* quota / private mode — losing persistence is better than breaking the form */
+  }
+}
+
 /**
- * The draft lives in memory for the length of the visit and is never written anywhere.
- * A reload starts a fresh book, which is the point: the form should not reopen onto the
- * previous child, and a preview should never be the one generated last time.
+ * The draft is scoped to the browser tab: it survives the /themes round trip and a
+ * reload, and disappears when the tab closes. A returning visitor therefore always
+ * starts a fresh book, and can generate as many previews as they like.
  */
 export function useJourneyDraft(): [
   JourneyDraft,
@@ -191,20 +226,39 @@ export function useJourneyDraft(): [
     setDraftState(loadDraft());
   }, []);
 
-  // Signing out on a shared device must not leave the previous parent's child on screen.
+  // Signing out on a shared device must not leave the previous parent's child on screen,
+  // in memory or in the tab's storage.
   useEffect(() => {
-    const onCleared = () => setDraftState(emptyDraft());
+    const onCleared = () => {
+      try {
+        sessionStorage.removeItem(DRAFT_KEY);
+      } catch {
+        /* ignore */
+      }
+      setDraftState(emptyDraft());
+    };
     window.addEventListener(SESSION_CLEARED_EVENT, onCleared);
     return () => window.removeEventListener(SESSION_CLEARED_EVENT, onCleared);
   }, []);
 
   const setDraft = useCallback(
     (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) =>
-      setDraftState((prev) => (typeof patch === "function" ? patch(prev) : { ...prev, ...patch })),
+      setDraftState((prev) => {
+        const next = typeof patch === "function" ? patch(prev) : { ...prev, ...patch };
+        persistDraft(next);
+        return next;
+      }),
     [],
   );
 
-  const resetDraft = useCallback(() => setDraftState(emptyDraft()), []);
+  const resetDraft = useCallback(() => {
+    try {
+      sessionStorage.removeItem(DRAFT_KEY);
+    } catch {
+      /* ignore */
+    }
+    setDraftState(emptyDraft());
+  }, []);
 
   return [draft, setDraft, resetDraft];
 }
