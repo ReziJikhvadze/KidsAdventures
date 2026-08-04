@@ -18,13 +18,13 @@ public sealed class BekiOptions
     // ---- Story pipeline -------------------------------------------------
 
     /// <summary>Writes the 12-page draft. The most quality-sensitive call in the product.</summary>
-    public string StoryGeneratorModel { get; set; } = "gpt-5.6";
+    public string StoryGeneratorModel { get; set; } = "gpt-5.6-luna";
 
     /// <summary>Audits and rewrites the draft: Georgian quality, child agency, safety, continuity.</summary>
-    public string StoryReviewerModel { get; set; } = "gpt-5.6";
+    public string StoryReviewerModel { get; set; } = "gpt-5.6-luna";
 
     /// <summary>Fixes structural violations only. A cheaper model is fine for mechanical repair.</summary>
-    public string StoryRepairModel { get; set; } = "gpt-5.6";
+    public string StoryRepairModel { get; set; } = "gpt-5.6-luna";
 
     /// <summary>The repair prompt runs at most this many times before the book is failed.</summary>
     public int MaxRepairAttempts { get; set; } = 1;
@@ -35,16 +35,16 @@ public sealed class BekiOptions
     // ---- Visual pipeline ------------------------------------------------
 
     /// <summary>Reads the child's photo and returns a structured identity spec.</summary>
-    public string IdentityAnalyzerModel { get; set; } = "gpt-5.6";
+    public string IdentityAnalyzerModel { get; set; } = "gpt-5.6-luna";
 
     /// <summary>Turns the approved story plus identity into the book's Visual Bible.</summary>
-    public string VisualBibleModel { get; set; } = "gpt-5.6";
+    public string VisualBibleModel { get; set; } = "gpt-5.6-luna";
 
     /// <summary>Writes the labelled image prompts for the cover and each page.</summary>
-    public string VisualPromptModel { get; set; } = "gpt-5.6";
+    public string VisualPromptModel { get; set; } = "gpt-5.6-luna";
 
     /// <summary>Scores a finished illustration against the references. Must be vision-capable.</summary>
-    public string VisualReviewerModel { get; set; } = "gpt-5.6";
+    public string VisualReviewerModel { get; set; } = "gpt-5.6-luna";
 
     /// <summary>Renders illustrations.</summary>
     public string ImageModel { get; set; } = "gpt-image-2";
