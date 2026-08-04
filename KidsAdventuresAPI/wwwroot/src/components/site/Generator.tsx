@@ -148,33 +148,6 @@ type Member = {
 
 const MAX_MEMBERS = 6;
 
-/** Marks that this browser already used its single free no-login sample page. */
-const GUEST_USED_KEY = SESSION_KEYS.guestPreviewUsed;
-
-function guestPreviewUsed(): boolean {
-  try {
-    return localStorage.getItem(GUEST_USED_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function markGuestPreviewUsed(): void {
-  try {
-    localStorage.setItem(GUEST_USED_KEY, "1");
-  } catch {
-    /* ignore */
-  }
-}
-
-function clearGuestPreviewUsed(): void {
-  try {
-    localStorage.removeItem(GUEST_USED_KEY);
-  } catch {
-    /* ignore */
-  }
-}
-
 /** Family cast sends extra reference photos to OpenAI per page — disabled to reduce cost. */
 const ENABLE_STORY_CAST = false;
 
@@ -427,10 +400,6 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     setErrorMessage(null);
     setGuestResult(null);
 
-    // Lock the free preview up-front so a refresh or second tab mid-generation can't start another
-    // (and rack up OpenAI cost). We only release it again if generation genuinely fails.
-    markGuestPreviewUsed();
-
     // The guest endpoint is one long request; nudge the bar so it feels alive.
     const timer = window.setInterval(() => {
       setProgress((p) => (p < 90 ? p + 2 : p));
@@ -457,18 +426,14 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       });
     } catch (err) {
       if (err instanceof ApiError && err.status === 429) {
-        // Rate-limited: keep the lock and push them to sign in.
-        markGuestPreviewUsed();
+        // The anti-bot ceiling, not a per-visitor quota — so this is "slow down", not "sign in".
         setStatus("idle");
         setProgress(0);
-        setAuthOpen(true);
-        notify.info("Sign in to keep creating", {
-          description: "You've used your free sample. Sign in to make the full storybook.",
+        notify.info("That's a lot of stories!", {
+          description: "Give it a few minutes and you can create more.",
         });
         return;
       }
-      // Genuine failure (network/server): release the lock so they can try their free preview again.
-      clearGuestPreviewUsed();
       const message =
         err instanceof ApiError
           ? err.message
@@ -525,7 +490,6 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
 
       // The teaser ids are claimed now — drop them so they can't be replayed onto another account.
       clearGuestPreviewIds();
-      clearGuestPreviewUsed();
       setGuestResult(null);
 
       if (giftStory) {
@@ -584,11 +548,9 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       return;
     }
     if (!isAuthenticated || !getToken()) {
-      // Logged-out visitors get one free no-login sample page; after that they must sign in.
-      if (guestPreviewUsed()) {
-        setAuthOpen(true);
-        return;
-      }
+      // Logged-out visitors may generate as many sample pages as they like — trying different
+      // names, ages and themes is how the product sells itself. Signing in is what unlocks the
+      // full illustrated book, not what unlocks a second look.
       void runGuestPreview();
       return;
     }
@@ -1111,9 +1073,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4" />
-                    {!isAuthenticated && !isLoading && !guestPreviewUsed()
-                      ? "Create free first page"
-                      : "Create story"}
+                    {!isAuthenticated && !isLoading ? "Create free first page" : "Create story"}
                   </>
                 )}
               </button>

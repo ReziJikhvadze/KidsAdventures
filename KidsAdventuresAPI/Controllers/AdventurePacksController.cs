@@ -93,8 +93,7 @@ public sealed class AdventurePacksController(
                     StoryLanguage = storyLanguage,
                     OptionalStoryNotes = string.IsNullOrWhiteSpace(optionalStoryNotes) ? null : optionalStoryNotes.Trim(),
                     PhotoBytes = photoBytes,
-                    PhotoContentType = contentType,
-                    ClientKey = GetClientKey()
+                    PhotoContentType = contentType
                 },
                 cancellationToken);
 

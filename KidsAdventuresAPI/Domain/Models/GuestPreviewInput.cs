@@ -12,7 +12,4 @@ public sealed class GuestPreviewInput
     public string? OptionalStoryNotes { get; init; }
     public byte[]? PhotoBytes { get; init; }
     public string PhotoContentType { get; init; } = "image/jpeg";
-
-    /// <summary>Best-effort client identity (IP) for abuse analysis on the persisted preview record.</summary>
-    public string? ClientKey { get; init; }
 }

@@ -14,7 +14,6 @@ public sealed class AdventureGenerationService(
     IBackgroundJobClient backgroundJobClient,
     IAdventurePackRepository adventurePackRepository,
     IUserRepository userRepository,
-    IGuestPreviewRepository guestPreviewRepository,
     IBookCastResolver bookCastResolver,
     IOpenAiService openAiService,
     IReferenceImageNormalizer referenceImageNormalizer,
@@ -114,27 +113,15 @@ public sealed class AdventureGenerationService(
         // Ensure the saved childName matches the parent's input (so the account copy is consistent).
         content.ChildName = input.ChildName;
 
-        // Record this teaser server-side so the welcome-gift entitlement is reliable and device-independent.
+        // A teaser stores nothing. The child's name, age, photo and the parent's notes exist only for
+        // the length of this request: the photo is described to text and discarded, the story and cover
+        // are returned inline, and no row is written. A visitor who never signs up leaves no trace.
+        //
+        // The id below is handed to the client for the sign-up round trip only. It deliberately matches
+        // no record, so WelcomeGiftService resolves it to null and treats the account as a fresh signup —
+        // which grants the standard welcome gift. That was already the outcome for anyone who signed up
+        // without replaying a teaser, so nothing is lost by not recording it.
         var guestPreviewId = Guid.NewGuid();
-        try
-        {
-            await guestPreviewRepository.CreateAsync(new GuestPreview
-            {
-                Id = guestPreviewId,
-                StoryId = adventureId,
-                PreviewUsed = true,
-                Redeemed = false,
-                ClientKey = input.ClientKey,
-                ChildName = input.ChildName,
-                Theme = input.Theme.ToString(),
-                CreatedAt = DateTime.UtcNow
-            }, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            // Never fail the teaser over bookkeeping; entitlement will simply fall back to "fresh signup".
-            logger.LogWarning(ex, "Failed to persist guest preview record {GuestPreviewId}.", guestPreviewId);
-        }
 
         return new GuestPreviewResult
         {
