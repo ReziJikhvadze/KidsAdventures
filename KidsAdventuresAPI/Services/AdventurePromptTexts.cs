@@ -96,6 +96,19 @@ internal sealed class AdventurePromptLocale
     public string WorldCanonAtmosphere { get; init; } = "How it feels: {0}";
     public string WorldCanonCompanion { get; init; } = "Known companion of this world: {0}";
 
+    /// <summary>
+    /// The book the theme card already promised the parent. {0} title, {1} premise.
+    /// Without this the card sold one story and the model wrote another, which is what
+    /// made the content feel unrelated to the chosen title.
+    /// </summary>
+    public string PromisedStoryRule { get; init; } =
+        """
+        THE BOOK THIS PARENT WAS PROMISED — the theme card showed them this before they chose, so the story must deliver it:
+        Title shown: {0}
+        Premise shown: {1}
+        Write this story. Use the promised title as the book's title, or a very close variation of it in the same words and spirit, and make the premise actually happen: the events it describes must be the spine of the book, not a passing mention. Everything else — the exact plot, the discoveries, the supporting characters — is yours to invent around it.
+        """;
+
     public string WorldCanonRule { get; init; } =
         "Set the whole story inside this world. Use at least two of its named places or landmarks as real locations the child moves through, and let the world's own atmosphere shape the mood. You may invent new corners of it, but never relocate the story to a different kind of world, and never contradict what is stated above. The named companion may appear when it fits naturally, and must not take over the child's decisions.";
 
@@ -351,6 +364,13 @@ internal static class AdventurePromptTexts
         WorldCanonLandmarks = "რა არსებობს აქ: {0}",
         WorldCanonAtmosphere = "როგორია აქ განცდა: {0}",
         WorldCanonCompanion = "ამ სამყაროს ნაცნობი თანამგზავრი: {0}",
+        PromisedStoryRule =
+            """
+            წიგნი, რომელიც ამ მშობელს დაჰპირდნენ — თემის ბარათზე არჩევამდე ზუსტად ეს ნახა, ამიტომ ისტორიამ ეს უნდა შეასრულოს:
+            ნაჩვენები სათაური: {0}
+            ნაჩვენები შინაარსი: {1}
+            სწორედ ეს ისტორია დაწერე. წიგნის სათაურად გამოიყენე დაპირებული სათაური ან მისი ძალიან ახლო ვარიაცია იმავე სიტყვებითა და სულისკვეთებით, და შინაარსი ნამდვილად მოხდეს: მასში აღწერილი მოვლენები წიგნის ხერხემალი უნდა იყოს და არა გაკვრით ნახსენები. დანარჩენი — ზუსტი სიუჟეტი, აღმოჩენები, დამხმარე პერსონაჟები — შენ მოიფიქრე მის გარშემო.
+            """,
         WorldCanonRule =
             "მთელი ისტორია ამ სამყაროში გაითამაშე. გამოიყენე მისი დასახელებული ადგილებიდან ან " +
             "ღირსშესანიშნაობებიდან სულ მცირე ორი, როგორც რეალური ადგილი, სადაც ბავშვი გადაადგილდება, " +

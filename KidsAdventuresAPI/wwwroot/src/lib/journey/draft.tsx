@@ -149,10 +149,21 @@ function loadDraft(): JourneyDraft {
  * though one had been chosen.
  */
 function applyDeepLink(base: JourneyDraft, search: string): JourneyDraft {
-  const draft: JourneyDraft = { ...base, characters: [...base.characters] };
+  let params: URLSearchParams;
+  try {
+    params = new URLSearchParams(search);
+  } catch {
+    return base;
+  }
+
+  // Entry points that mean "begin a new story" say so in the URL. Without it, arriving
+  // from the dashboard is a client-side navigation, the provider is never remounted, and
+  // the parent would meet the previous child's details already filled in.
+  const draft: JourneyDraft = params.has("new")
+    ? emptyDraft()
+    : { ...base, characters: [...base.characters] };
 
   try {
-    const params = new URLSearchParams(search);
     const world = params.get("worldId") || params.get("world");
     if (world && isWorldId(world)) draft.worldId = world;
     const fromBook = params.get("continuesFromBookId");

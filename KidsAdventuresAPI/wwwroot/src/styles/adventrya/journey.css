@@ -144,12 +144,14 @@
 }
 .eye-options {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   margin-top: 8px;
 }
 .eye-options button {
-  height: 42px;
+  height: 44px;
+  min-width: 0;
+  padding: 0 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -200,6 +202,17 @@
 .journey-primary {
   margin-top: 22px;
   min-width: 210px;
+  color: #25183f;
+  border-color: transparent;
+  background: linear-gradient(145deg, #f2dc9e, #dda95c);
+  box-shadow:
+    0 16px 38px #e2a65333,
+    inset 0 1px #ffffffa6;
+}
+.journey-primary:hover {
+  box-shadow:
+    0 20px 42px #e2a65347,
+    inset 0 1px #ffffffbf;
 }
 .photo-panel,
 .story-preferences {

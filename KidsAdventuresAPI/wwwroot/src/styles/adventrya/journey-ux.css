@@ -188,7 +188,13 @@
   margin-top: 18px;
 }
 .ux-form-actions .button {
-  min-height: 45px;
+  min-height: 46px;
+}
+/* Cancel and remove sit beside Save, so they share its height rather than floating
+   at a different size. */
+.ux-form-actions .ux-inline-link {
+  min-height: 46px;
+  padding: 0 18px;
 }
 .relationship-fieldset {
   margin-bottom: 18px;
@@ -1575,7 +1581,7 @@
     gap: 6px;
   }
   .eye-options button {
-    padding-inline: 8px;
+    padding-inline: 10px;
   }
   .ux-character-summary {
     grid-template-columns: 28px 39px 1fr;

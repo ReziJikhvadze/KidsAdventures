@@ -1,5 +1,7 @@
 export const dashboard = {
   sidebar: {
+    pagingLabel: "Children pages",
+    newBook: "Create a new book",
     parentLabel: "Child profiles",
     addChild: "＋ Add a child profile",
     noStoriesYet: "No stories yet",

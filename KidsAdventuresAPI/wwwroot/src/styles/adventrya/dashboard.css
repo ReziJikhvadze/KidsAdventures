@@ -485,3 +485,83 @@
   outline: 2px solid var(--story-gold);
   outline-offset: 2px;
 }
+
+/*
+  Sidebar paging. A family with several children pushed the navigation links off the
+  bottom of the sidebar entirely, so the list is paged like the shelf.
+*/
+.sidebar-paging {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 10px 0 4px;
+  color: #efe6f5b0;
+  font-size: 12px;
+}
+.sidebar-paging button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(240, 229, 207, 0.18);
+  border-radius: 10px;
+  cursor: pointer;
+  color: #fff8ebcc;
+  background: #ffffff0d;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+}
+.sidebar-paging button:hover:not(:disabled) {
+  border-color: rgba(240, 229, 207, 0.34);
+  background: #ffffff1a;
+}
+.sidebar-paging button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/*
+  Starting a new book for the child already selected. This is the action a returning
+  parent wants most, and it was only reachable from the main panel — so it leads, and
+  "add a child" sits below it as the quieter, less frequent intention.
+*/
+.sidebar-new-book {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 46px;
+  margin-top: 12px;
+  padding: 0 16px;
+  border-radius: 14px;
+  color: #25183f;
+  background: linear-gradient(145deg, #f2dc9e, #dda95c);
+  box-shadow:
+    0 12px 30px #e2a65330,
+    inset 0 1px #ffffffa6;
+  font-size: 14px;
+  font-weight: 700;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease;
+}
+.sidebar-new-book:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 16px 34px #e2a65344,
+    inset 0 1px #ffffffbf;
+}
+.sidebar-new-book svg {
+  width: 17px;
+  height: 17px;
+}
+.add-child {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.add-child svg {
+  width: 16px;
+  height: 16px;
+}

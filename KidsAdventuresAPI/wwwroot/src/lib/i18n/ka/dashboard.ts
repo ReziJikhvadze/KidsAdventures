@@ -1,5 +1,7 @@
 export const dashboard = {
   sidebar: {
+    pagingLabel: "ბავშვების გვერდები",
+    newBook: "ახალი წიგნის შექმნა",
     parentLabel: "ბავშვის პროფილები",
     addChild: "＋ დაამატე ბავშვის პროფილი",
     noStoriesYet: "ჯერ არ აქვს ისტორია",

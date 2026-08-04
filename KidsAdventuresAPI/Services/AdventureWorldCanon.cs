@@ -26,6 +26,16 @@ internal static class AdventureWorldCanon
 
         /// <summary>The companion this world is known for. Empty when it has none.</summary>
         public string Companion { get; init; } = string.Empty;
+
+        /// <summary>
+        /// The book the theme card promises, with {0} for the child's name. The card shows
+        /// this before the parent pays, so a story that ignores it breaks a promise the
+        /// product already made.
+        /// </summary>
+        public required string PromisedTitle { get; init; }
+
+        /// <summary>The premise the card promises, with {0} for the child's name.</summary>
+        public required string PromisedPremise { get; init; }
     }
 
     private static readonly Dictionary<ThemeType, WorldFacts> Georgian = new()
@@ -36,6 +46,8 @@ internal static class AdventureWorldCanon
             Landmarks = "გიგანტური გვიმრები, თბილი ტალახის გუბეები, ქვის ბილიკები კლდეებში, უძველესი კვალი მიწაზე, ჩანჩქერი ხეობის ბოლოს",
             Atmosphere = "მზიანი, ცოცხალი და უსაფრთხო; დინოზავრები მეგობრული და ცნობისმოყვარეა, არასოდეს საშიში",
             Companion = "რექსი — პატარა, მეგობრული დინოზავრი, რომელიც გმირს ხეობაში ხვდება",
+                    PromisedTitle = "{0} და დაკარგული ხეობის საიდუმლო",
+            PromisedPremise = "როდესაც {0} უცნაურ კვალს აღმოაჩენს, მეგობარ რექსთან ერთად იწყებს მოგზაურობას, რომელიც სიმამაცის ნამდვილ მნიშვნელობას აჩვენებს.",
         },
         [ThemeType.Space] = new WorldFacts
         {
@@ -43,6 +55,8 @@ internal static class AdventureWorldCanon
             Landmarks = "ვარსკვლავური რუკები, მცურავი ქვის კუნძულები, ობსერვატორია მინის გუმბათით, კომეტების ბილიკი, მშვიდი პლანეტები რბილი ფერებით",
             Atmosphere = "მშვიდი, საოცრებით სავსე და უჰაერო სიცივის გარეშე; კოსმოსი აქ თბილი და მისასალმებელია",
             Companion = "რექსი, რომელიც გმირს ამ მოგზაურობაშიც აჰყვება",
+                    PromisedTitle = "{0} და დაკარგული ვარსკვლავის გზა",
+            PromisedPremise = "{0} და რექსი მთვარის იქით მიმავალ მანათობელ კვალს მიჰყვებიან — იქ, სადაც ძველი მეგობრობა ახალ სამყაროს ხსნის.",
         },
         [ThemeType.Pirates] = new WorldFacts
         {
@@ -50,6 +64,8 @@ internal static class AdventureWorldCanon
             Landmarks = "ოქროსფერი რუკა, ქვიშის სანაპირო ნიჟარებით, გამოქვაბულები ზღვის მხრიდან, ძველი ხის ხომალდი, შუქურა კლდეზე",
             Atmosphere = "სათავგადასავლო და მხიარული; მეკობრეები კეთილები არიან და საგანძური ყოველთვის რაღაც სასიკეთოა",
             Companion = "კეთილი მეკობრე, რომელიც რუკის კითხვას ასწავლის",
+                    PromisedTitle = "{0} და მბრწყინავი კუნძულის საიდუმლო",
+            PromisedPremise = "ძველი ოქროსფერი რუკა {0}-ს ზღვაში დამალულ კუნძულამდე მიიყვანს, სადაც ყოველი ნაბიჯი ახალ საიდუმლოს ხსნის.",
         },
         [ThemeType.Animals] = new WorldFacts
         {
@@ -57,6 +73,8 @@ internal static class AdventureWorldCanon
             Landmarks = "მანათობელი სოკოები, ხის ხიდები ტოტებს შორის, ჩუმი ტბა, ციცინათელების მინდორი, ძველი მოლაპარაკე ხე",
             Atmosphere = "თბილი, ჩურჩულით სავსე და ნაზი; ცხოველები საუბრობენ და მეგობრობა მოულოდნელად იბადება",
             Companion = "ტყის ცხოველები, რომლებიც თანდათან ენდობიან გმირს",
+                    PromisedTitle = "{0} და მოჯადოებული ტყის მეგობრები",
+            PromisedPremise = "{0} მანათობელ ტყეში შედის, სადაც ყველა ბინადარს თავისი პატარა საიდუმლო აქვს და მეგობრობა ყველაზე მოულოდნელად იბადება.",
         },
         [ThemeType.Airplanes] = new WorldFacts
         {
@@ -64,6 +82,8 @@ internal static class AdventureWorldCanon
             Landmarks = "ღრუბლების ბაქნები, ქარის წისქვილები, პატარა თვითმფრინავები ფერადი ფრთებით, ხიდები ღრუბლებს შორის, სიმაღლის შუქურა",
             Atmosphere = "ღია, მსუბუქი და თავისუფალი; სიმაღლე აქ სასიხარულოა და არა საშიში",
             Companion = "პატარა თვითმფრინავი, რომელსაც საკუთარი ხასიათი აქვს",
+                    PromisedTitle = "{0} და ღრუბლებს მიღმა დამალული ქალაქი",
+            PromisedPremise = "{0}-ის პირველი დიდი ფრენა უცნობი ჰორიზონტისკენ მიდის — იქ, სადაც ღრუბლებს მიღმა მთელი ქალაქია დამალული.",
         },
         [ThemeType.Magic] = new WorldFacts
         {
@@ -71,6 +91,8 @@ internal static class AdventureWorldCanon
             Landmarks = "სინათლის კარიბჭე, ცოცხალი წიგნები, ფარნების ქუჩა, სარკის მოედანი, კოშკი, რომელიც სახელს იმახსოვრებს",
             Atmosphere = "ჯადოსნური, თბილი და ოდნავ საიდუმლოებით მოცული; პატარა არჩევანიც კი სინათლეს ტოვებს",
             Companion = "ქალაქის ფარნების მცველი, რომელიც გამოცანებით ელაპარაკება",
+                    PromisedTitle = "{0} და სინათლის ქალაქის კარიბჭე",
+            PromisedPremise = "ერთი კეთილი სურვილი {0}-ს მოჯადოებულ ქალაქამდე მიიყვანს, სადაც პატარა არჩევანიც კი დიდ სინათლეს ტოვებს.",
         },
     };
 
@@ -82,6 +104,8 @@ internal static class AdventureWorldCanon
             Landmarks = "giant ferns, warm mud pools, stone paths in the cliffs, ancient tracks in the earth, a waterfall at the valley's end",
             Atmosphere = "sunlit, alive and safe; the dinosaurs are friendly and curious, never threatening",
             Companion = "Rex, a small friendly dinosaur who meets the hero in the valley",
+                    PromisedTitle = "{0} and the Secret of the Lost Valley",
+            PromisedPremise = "When {0} finds strange tracks, a journey with Rex begins that shows what courage really means.",
         },
         [ThemeType.Space] = new WorldFacts
         {
@@ -89,6 +113,8 @@ internal static class AdventureWorldCanon
             Landmarks = "star maps, floating stone islands, an observatory under a glass dome, a comet trail, calm planets in soft colours",
             Atmosphere = "calm and full of wonder, without airless cold; space here is warm and welcoming",
             Companion = "Rex, who comes along on this journey too",
+                    PromisedTitle = "{0} and the Lost Star Path",
+            PromisedPremise = "{0} and Rex follow a glowing trail out past the moon, where an old friendship opens a new world.",
         },
         [ThemeType.Pirates] = new WorldFacts
         {
@@ -96,6 +122,8 @@ internal static class AdventureWorldCanon
             Landmarks = "the golden map, a shell-strewn shore, sea caves, an old wooden ship, a lighthouse on the rocks",
             Atmosphere = "adventurous and cheerful; the pirates are kind and the treasure is always something good",
             Companion = "a kind pirate who teaches the hero to read the map",
+                    PromisedTitle = "{0} and the Secret of the Shining Island",
+            PromisedPremise = "An old golden map leads {0} to an island hidden at sea, where every step uncovers another secret.",
         },
         [ThemeType.Animals] = new WorldFacts
         {
@@ -103,6 +131,8 @@ internal static class AdventureWorldCanon
             Landmarks = "glowing mushrooms, rope bridges between branches, a quiet lake, a firefly meadow, an old talking tree",
             Atmosphere = "warm, whispering and gentle; the animals speak and friendship arrives unexpectedly",
             Companion = "the forest animals, who come to trust the hero",
+                    PromisedTitle = "{0} and the Friends of the Enchanted Forest",
+            PromisedPremise = "{0} steps into a glowing forest where every resident keeps a small secret and friendship arrives unexpectedly.",
         },
         [ThemeType.Airplanes] = new WorldFacts
         {
@@ -110,6 +140,8 @@ internal static class AdventureWorldCanon
             Landmarks = "cloud platforms, windmills, small aeroplanes with colourful wings, bridges between clouds, a beacon at altitude",
             Atmosphere = "open, light and free; height here is a joy rather than a danger",
             Companion = "a little aeroplane with a character of its own",
+                    PromisedTitle = "{0} and the City Hidden Beyond the Clouds",
+            PromisedPremise = "{0}'s first great flight heads for an unknown horizon, where a whole city waits above the clouds.",
         },
         [ThemeType.Magic] = new WorldFacts
         {
@@ -117,6 +149,8 @@ internal static class AdventureWorldCanon
             Landmarks = "the gate of light, living books, a street of lanterns, a mirror square, a tower that remembers names",
             Atmosphere = "magical, warm and lightly mysterious; even a small choice leaves light behind",
             Companion = "the keeper of the city's lanterns, who speaks in riddles",
+                    PromisedTitle = "{0} and the Gate of the City of Light",
+            PromisedPremise = "One kind wish leads {0} to an enchanted city, where even a small choice leaves light behind.",
         },
     };
 

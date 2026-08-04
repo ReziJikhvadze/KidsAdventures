@@ -175,9 +175,7 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
       <div className="ux-character-stack">
         <div className="ux-book-preferences" aria-label={copy.bookSettings.title}>
           <div>
-            <small>{copy.bookSettings.languageLabel}</small>
             <strong>{copy.bookSettings.languageQuestion}</strong>
-            <p>{copy.bookSettings.platformLanguageNote}</p>
           </div>
           <div className="ux-language-switcher" role="group">
             {BOOK_LANGUAGES.map((lang) => (
@@ -405,8 +403,6 @@ function CharacterEditor({
               ? copy.characterForm.photoReady
               : copy.characterForm.photoRequired}
           </small>
-          <strong>{copy.characterForm.photoPrompt}</strong>
-          <p>{copy.characterForm.photoHint}</p>
           {character.photoDataUrl ? (
             <img
               src={character.photoDataUrl}

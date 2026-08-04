@@ -40,6 +40,9 @@ import { useWorldById, WORLD_COVER_ART, isWorldId, type WorldId } from "@/lib/wo
 /** Books per shelf page. Six fills the grid without a wall of illustrations to load. */
 const LIBRARY_PAGE_SIZE = 6;
 
+/** Children per sidebar page, chosen so the nav links below stay on screen. */
+const SIDEBAR_PAGE_SIZE = 5;
+
 const emptyShipping = (): ShippingAddressRequest => ({
   recipientName: "",
   recipientPhone: "",
@@ -159,6 +162,13 @@ export function DashboardScreen() {
   useEffect(() => {
     setLibraryPage(1);
   }, [childPacks.length]);
+
+  const [childPage, setChildPage] = useState(1);
+  const childPageCount = Math.max(1, Math.ceil(characters.length / SIDEBAR_PAGE_SIZE));
+  const visibleChildren = useMemo(
+    () => characters.slice((childPage - 1) * SIDEBAR_PAGE_SIZE, childPage * SIDEBAR_PAGE_SIZE),
+    [characters, childPage],
+  );
   const activeNode = map?.worlds.find((w) => w.worldId === activeWorldId);
   const worldId = (activeWorldId && isWorldId(activeWorldId) ? activeWorldId : "dinosaurs") as WorldId;
   const world = WORLD_BY_ID[worldId];
@@ -309,7 +319,7 @@ export function DashboardScreen() {
 
         <p className="sidebar-title">{t.dashboard.sidebar.parentLabel}</p>
 
-        {characters.map((c) => (
+        {visibleChildren.map((c) => (
           <button
             key={c.id}
             type="button"
@@ -331,7 +341,43 @@ export function DashboardScreen() {
           </button>
         ))}
 
-        <Link className="add-child" to="/create" hash="profile">
+        {childPageCount > 1 ? (
+          <nav className="sidebar-paging" aria-label={t.dashboard.sidebar.pagingLabel}>
+            <button
+              type="button"
+              onClick={() => setChildPage((p) => Math.max(1, p - 1))}
+              disabled={childPage === 1}
+            >
+              {t.common.actions.previous}
+            </button>
+            <span>{t.dashboard.library.pageOf(childPage, childPageCount)}</span>
+            <button
+              type="button"
+              onClick={() => setChildPage((p) => Math.min(childPageCount, p + 1))}
+              disabled={childPage === childPageCount}
+            >
+              {t.common.actions.next}
+            </button>
+          </nav>
+        ) : null}
+
+        {/* A new book for the child already selected — the common case, and previously
+            only reachable from the main panel. */}
+        {characterId ? (
+          <Link
+            className="sidebar-new-book"
+            to={actionParts.to}
+            search={actionParts.search}
+            hash={actionParts.hash}
+          >
+            <Sparkles aria-hidden="true" />
+            {t.dashboard.sidebar.newBook}
+          </Link>
+        ) : null}
+
+        {/* Adding a child is a different intention, and must begin genuinely blank. */}
+        <Link className="add-child" to="/create" search={{ new: "1" }} hash="profile">
+          <Plus aria-hidden="true" />
           {t.dashboard.sidebar.addChild}
         </Link>
 

@@ -116,6 +116,19 @@ internal static class AdventurePromptBuilder
             }
 
             lines.Add($"- {texts.WorldCanonRule}");
+
+            // The theme card showed the parent a specific title and premise before they
+            // chose. Until now the writer never saw either, so the card sold one book and
+            // the model wrote another — which is exactly why the content felt unrelated to
+            // the chosen story. Only for a first book: a continuation follows its own
+            // series memory, and forcing the opening premise again would reset the arc.
+            if (string.IsNullOrWhiteSpace(input.SeriesMemory))
+            {
+                lines.Add(string.Format(
+                    texts.PromisedStoryRule,
+                    string.Format(world.PromisedTitle, input.ChildName),
+                    string.Format(world.PromisedPremise, input.ChildName)));
+            }
         }
         FormatAppearanceLine(texts.HeroAppearanceLabel, input.ChildAppearanceDescription, lines);
         lines.Add($"{texts.FamilyMembersLabel}{Environment.NewLine}{familyMembersText}");
