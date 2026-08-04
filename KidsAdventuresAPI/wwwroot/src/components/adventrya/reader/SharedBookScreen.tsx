@@ -173,7 +173,7 @@ export function SharedBookScreen() {
                       {t.story.storybook.belongsToSuffix}
                     </small>
                     <h2>{title}</h2>
-                    <span>{t.story.storybook.coverOwner}</span>
+                    <span>{t.story.storybook.coverOwnerLine(heroName)}</span>
                   </div>
                 </article>
               </div>

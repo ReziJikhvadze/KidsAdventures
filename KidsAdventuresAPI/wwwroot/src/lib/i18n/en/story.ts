@@ -2,6 +2,7 @@ export const story = {
   storybook: {
     brand: "ADVENTRYA",
     coverOwner: "This book belongs to",
+    coverOwnerLine: (hero: string) => `This book belongs to ${hero}`,
     coverEpigraph: "Every great world begins with one small story.",
     belongsToPrefix: "A story that belongs to ",
     belongsToSuffix: "",

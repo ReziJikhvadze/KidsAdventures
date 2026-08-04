@@ -2,6 +2,7 @@ export const story = {
   storybook: {
     brand: "ADVENTRYA",
     coverOwner: "ეს წიგნი ეკუთვნის",
+    coverOwnerLine: (hero: string) => `ეს წიგნი ეკუთვნის ${hero}ს`,
     coverEpigraph: "ყოველი დიდი სამყარო ერთი პატარა ამბით იწყება.",
     belongsToPrefix: "ამბავი, რომელიც ",
     belongsToSuffix: "-ს ეკუთვნის",

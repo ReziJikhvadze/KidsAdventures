@@ -389,7 +389,9 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             pages={thumbPages}
             lockedPageCount={0}
             isUnlocked={false}
-            interactive={false}
+            // The parent is looking at their own book here; freezing it made these two
+          // screens the only places it could not be turned.
+          interactive
             initialIndex={0}
           />
           <div>

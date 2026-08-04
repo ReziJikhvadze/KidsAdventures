@@ -230,6 +230,19 @@ internal static class AdventurePromptBuilder
             parts.Add(string.Format(texts.ImageInventHero, heroLook));
         }
 
+        // The story prompt was told the gender; the illustrator never was, so a girl's book
+        // could be written about a girl and drawn with a boy.
+        var imageGender = input.Gender?.Trim().ToLowerInvariant() switch
+        {
+            "girl" => texts.GenderGirl,
+            "boy" => texts.GenderBoy,
+            _ => null,
+        };
+        if (imageGender is not null)
+        {
+            parts.Add(string.Format(texts.ImageHeroGender, imageGender));
+        }
+
         parts.Add(texts.ImageStyle);
         parts.Add(string.Format(texts.ImageSafeForAge, input.Age, input.Theme));
         parts.Add(string.Format(texts.ImagePageTitle, pageIndex + 1, page.Title));

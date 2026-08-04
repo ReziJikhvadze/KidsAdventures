@@ -161,6 +161,14 @@ internal sealed class AdventurePromptLocale
     public required string ImageFamilyRole { get; init; }
     public required string ImageInventCastLook { get; init; }
     public required string ImageHeroNoPhoto { get; init; }
+
+    /// <summary>
+    /// States the hero's gender to the illustrator. It was only ever in the story prompt,
+    /// so a parent could choose a girl, read a story about a girl, and be shown a boy.
+    /// {0} is the gender word.
+    /// </summary>
+    public string ImageHeroGender { get; init; } =
+        "HERO GENDER (must be obeyed): the hero child is a {0}. Draw the child unmistakably as a {0} in every illustration — hair, clothing cut and overall read. Never depict the hero as any other gender.";
     public required string PixarFromPhotoStylePrompt { get; init; }
     public required string AnimatedIllustrationStylePrompt { get; init; }
 }
@@ -438,6 +446,9 @@ internal static class AdventurePromptTexts
         ImageFamilyRole = "ოჯახი — {0}",
         ImageInventCastLook = "გამოიგონე თანმიმდევრული გარეგნობა {0}-სთვის.",
         ImageHeroNoPhoto = "გმირი ბავშვი სახელად {0}, ასაკი {1}",
+        ImageHeroGender =
+            "გმირის სქესი (სავალდებულოა): გმირი ბავშვი არის {0}. ყოველ ილუსტრაციაში ბავშვი ცალსახად " +
+            "{0}-ად დახატე — თმა, ტანსაცმლის ჭრილი და საერთო აღქმა. გმირი არასოდეს გამოსახო სხვა სქესის.",
         PixarFromPhotoStylePrompt =
             "შექმენი სრული Pixar-სტილის 3D ანიმაციური კადრი. საცნობარო ფოტო განსაზღვრავს გმირის იდენტობას — " +
             "დააემთხვიე სახის ფორმა, თვალები, ცხვირი, პირი, ყბა, თმის ფერი და სტილი, კანის ტონი და სავარაუდო ასაკი. " +
