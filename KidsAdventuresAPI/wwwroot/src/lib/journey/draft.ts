@@ -99,36 +99,40 @@ export function emptyDraft(): JourneyDraft {
   };
 }
 
+/**
+ * Builds the starting draft for a visit. Nothing is restored from storage: every visit to
+ * /create begins blank, so a parent never opens the form onto the previous child's name,
+ * photo or generated preview, and can create as many previews as they like.
+ *
+ * The URL is the only thing that carries state into the journey. That is deliberate —
+ * it survives the Stripe round trip without keeping personal data on the device.
+ */
 function loadDraft(): JourneyDraft {
   if (typeof window === "undefined") return emptyDraft();
-  let draft = emptyDraft();
+  const draft = emptyDraft();
+
+  // Drafts written by earlier versions are still sitting in visitors' browsers, holding a
+  // child's name, birth date, photo and shipping address. Nothing reads them now, so remove
+  // them on the next visit rather than leaving that data on the device indefinitely.
   try {
-    const raw = localStorage.getItem(DRAFT_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<JourneyDraft>;
-      const base = emptyDraft();
-      draft = {
-        ...base,
-        ...parsed,
-        characters:
-          Array.isArray(parsed.characters) && parsed.characters.length > 0
-            ? parsed.characters
-            : base.characters,
-        shipping: { ...base.shipping, ...parsed.shipping },
-        continuesFromBookId: parsed.continuesFromBookId ?? base.continuesFromBookId,
-      };
-    }
+    localStorage.removeItem(DRAFT_KEY);
   } catch {
-    draft = emptyDraft();
+    /* private mode / quota */
   }
 
-  // Deep-link query wins for continue / world selection when present.
+  // Deep-link query carries continue / world selection, and the order id Stripe returns with.
   try {
     const params = new URLSearchParams(window.location.search);
     const world = params.get("worldId") || params.get("world");
     if (world && isWorldId(world)) draft.worldId = world;
     const fromBook = params.get("continuesFromBookId");
     if (fromBook) draft.continuesFromBookId = fromBook;
+
+    // Stripe returns to /create?orderId=… . This is what resumes a paid order now that the
+    // draft is not persisted: without it a parent would come back from checkout to a blank
+    // form with no sign of the book they just paid for.
+    const orderId = params.get("orderId");
+    if (orderId) draft.orderId = orderId;
     const characterId = params.get("characterId");
     if (characterId) {
       draft.characters = draft.characters.map((c) =>
@@ -169,15 +173,11 @@ function loadDraft(): JourneyDraft {
   return draft;
 }
 
-function persistDraft(draft: JourneyDraft) {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-  } catch {
-    /* quota / private mode */
-  }
-}
-
+/**
+ * The draft lives in memory for the length of the visit and is never written anywhere.
+ * A reload starts a fresh book, which is the point: the form should not reopen onto the
+ * previous child, and a preview should never be the one generated last time.
+ */
 export function useJourneyDraft(): [
   JourneyDraft,
   (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => void,
@@ -185,12 +185,13 @@ export function useJourneyDraft(): [
 ] {
   const [draft, setDraftState] = useState<JourneyDraft>(emptyDraft);
 
+  // Deferred to an effect rather than a useState initialiser because it reads
+  // window.location, which does not exist during server rendering.
   useEffect(() => {
     setDraftState(loadDraft());
   }, []);
 
-  // Signing out wipes the stored draft; drop the in-memory copy too, or the next
-  // edit would persist the previous parent's child straight back into storage.
+  // Signing out on a shared device must not leave the previous parent's child on screen.
   useEffect(() => {
     const onCleared = () => setDraftState(emptyDraft());
     window.addEventListener(SESSION_CLEARED_EVENT, onCleared);
@@ -198,21 +199,12 @@ export function useJourneyDraft(): [
   }, []);
 
   const setDraft = useCallback(
-    (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => {
-      setDraftState((prev) => {
-        const next = typeof patch === "function" ? patch(prev) : { ...prev, ...patch };
-        persistDraft(next);
-        return next;
-      });
-    },
+    (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) =>
+      setDraftState((prev) => (typeof patch === "function" ? patch(prev) : { ...prev, ...patch })),
     [],
   );
 
-  const resetDraft = useCallback(() => {
-    const next = emptyDraft();
-    persistDraft(next);
-    setDraftState(next);
-  }, []);
+  const resetDraft = useCallback(() => setDraftState(emptyDraft()), []);
 
   return [draft, setDraft, resetDraft];
 }

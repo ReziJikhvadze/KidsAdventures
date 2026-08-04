@@ -103,6 +103,18 @@ export function JourneyScreen() {
     }
   }, [stage, isAuthenticated, isLoading, goToStage]);
 
+  // Returning from Stripe. The order id comes back in the query string, and the draft is no
+  // longer persisted, so this is what reconnects a parent to the book they just paid for —
+  // even if the stage hash was lost on the way back. Guarded by a ref so that finishing a
+  // book and starting another does not drag them back to the generating stage.
+  const resumedPaidOrder = useRef(false);
+  useEffect(() => {
+    if (resumedPaidOrder.current || stage === "generating") return;
+    if (!new URLSearchParams(window.location.search).get("orderId")) return;
+    resumedPaidOrder.current = true;
+    goToStage("generating");
+  }, [stage, goToStage]);
+
   const onPaid = useCallback(
     (orderId: string, bookId?: string | null) => {
       setDraft({ orderId, bookId: bookId ?? null });

@@ -78,12 +78,6 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
         };
 
         storeGuestPreviewIds(result.guestPreviewId, result.storyId);
-        try {
-          localStorage.setItem("ka_guest_preview_used", "1");
-        } catch {
-          /* ignore */
-        }
-
         onChange({ preview: teaser });
         setLoading(false);
       } catch (err) {
