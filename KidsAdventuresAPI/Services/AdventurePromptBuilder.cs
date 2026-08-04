@@ -64,6 +64,10 @@ internal static class AdventurePromptBuilder
         lines.Add(storyArc);
         lines.Add($"- {texts.PageLengthRule}");
         lines.Add($"- {texts.CaptionRule}");
+        // Placed immediately before the continuity rule: one says how to compose the story,
+        // the other says what the result must satisfy. Together they are what stops a book
+        // reading as twelve unrelated postcards.
+        lines.Add($"- {texts.WholeStoryFirstRule}");
         lines.Add($"- {texts.ContinuityRule}");
         lines.Add($"- {texts.JsonOnlyRule}");
         lines.Add($"- {texts.RawJsonRule}");
@@ -179,6 +183,16 @@ internal static class AdventurePromptBuilder
         parts.Add(string.Format(texts.ImageSafeForAge, input.Age, input.Theme));
         parts.Add(string.Format(texts.ImagePageTitle, pageIndex + 1, page.Title));
         parts.Add(string.Format(texts.ImageScene, scene));
+
+        // The caption is laid over the finished picture, so the illustration has to leave
+        // room for it. Alternating the reserved edge by page keeps consecutive spreads from
+        // putting text in the same corner twice, and stops the composition becoming
+        // monotonous. The rule also demands the opposite half carry the real action, so
+        // reserving space does not turn into half an empty page.
+        var (reserved, opposite) = pageIndex % 2 == 0
+            ? (texts.ImageTextSafeTop, texts.ImageTextSafeBottom)
+            : (texts.ImageTextSafeBottom, texts.ImageTextSafeTop);
+        parts.Add(string.Format(texts.ImageTextSafeArea, reserved, opposite));
 
         // Illustrations are now text-free; the app overlays the page caption. Keep words out of the picture.
         parts.Add(texts.ImageNoText);

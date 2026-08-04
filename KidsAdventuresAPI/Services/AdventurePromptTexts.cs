@@ -48,6 +48,29 @@ internal sealed class AdventurePromptLocale
     public string SeriesMemoryRule { get; init; } =
         "SERIES CONTINUITY: this book continues the world above, so honour it. Bring back at least one named companion the child already knows and let the reunion carry warmth from how they last parted. Refer to at least one earlier moment the way a friend would — briefly, in passing, never as a recap. Move the series' running goal one real step forward without resolving it, unless this book is clearly its ending. Never contradict what the memory establishes, and never re-introduce a returning companion as though they were a stranger.";
 
+    /// <summary>
+    /// Reserves the strip the Georgian caption is laid over. Defaulted rather than required
+    /// so an untranslated locale still compiles and simply reads in English — the model
+    /// follows composition instructions in either language, and a missing rule would put
+    /// text back over the child's face.
+    /// {0} is the reserved edge, {1} the opposite one.
+    /// </summary>
+    public string ImageTextSafeArea { get; init; } =
+        "TEXT-SAFE COMPOSITION: the story caption is placed over the {0} of this picture after it is drawn. Keep roughly the {0} quarter visually calm — open sky, water, wall, mist or plain ground — with no faces, hands, or important detail there, so the words stay readable without a box behind them. Place the child, the action and anything the reader must notice in the {1} portion of the frame, and let that area carry the real content of the page rather than leaving it empty.";
+
+    /// <summary>Edge names substituted into <see cref="ImageTextSafeArea"/>.</summary>
+    public string ImageTextSafeTop { get; init; } = "top";
+    public string ImageTextSafeBottom { get; init; } = "bottom";
+
+    /// <summary>
+    /// Forces the story to be written as one continuous narrative and then divided into
+    /// pages, rather than as a set of pages that happen to share a theme. Defaulted so an
+    /// untranslated locale still compiles; the instruction works in either language because
+    /// the reader-facing text it governs is still written in the book's language.
+    /// </summary>
+    public string WholeStoryFirstRule { get; init; } =
+        "WRITE ONE STORY, THEN DIVIDE IT: compose the complete adventure as a single continuous narrative first — one problem, one journey, one resolution — and only then split it across the pages at natural turning points. Do not write pages as separate little scenes that merely share a setting. Read the finished pages in order as if aloud to a child: each one must continue the exact sentence-level situation the previous page left, using the same objects, the same place unless the hero physically moves, and the same moment in time. If any page could be removed or reordered without the reader noticing, the story is not yet continuous and must be rewritten.";
+
     public required string LooksLikePrefix { get; init; }
     public required string ExtraWishesHeader { get; init; }
     public required string ExtraWishesWelcomePages { get; init; }
@@ -270,6 +293,23 @@ internal static class AdventurePromptTexts
         HeroAppearanceLabel = "გმირის გარეგნობა (შეინარჩუნე თანმიმდევრული ისტორიაში): {0}",
         FamilyMembersLabel = "ოჯახის წევრები:",
         NoFamilyMembers = "ოჯახის წევრები არ არის მოცემული.",
+        ImageTextSafeArea =
+            "ტექსტისთვის თავისუფალი კომპოზიცია: ისტორიის წარწერა სურათის {0} ნაწილზე დაიდება დახატვის შემდეგ. " +
+            "{0} მეოთხედი დატოვე ვიზუალურად მშვიდი — ღია ცა, წყალი, კედელი, ნისლი ან სუფთა მიწა — იქ არ იყოს " +
+            "სახეები, ხელები ან მნიშვნელოვანი დეტალი, რომ ტექსტი ფონის გარეშეც იკითხებოდეს. " +
+            "ბავშვი, მოქმედება და ყველაფერი, რაც მკითხველმა უნდა შენიშნოს, კადრის {1} ნაწილში განათავსე და " +
+            "სწორედ იქ ხდებოდეს გვერდის მთავარი ამბავი და არა ცარიელი ადგილი.",
+        ImageTextSafeTop = "ზედა",
+        ImageTextSafeBottom = "ქვედა",
+        WholeStoryFirstRule =
+            "ჯერ დაწერე ერთი მთლიანი ისტორია, მერე დაყავი გვერდებად: სრული თავგადასავალი ჯერ ერთ უწყვეტ " +
+            "თხრობად შეადგინე — ერთი პრობლემა, ერთი მოგზაურობა, ერთი გადაწყვეტა — და მხოლოდ ამის შემდეგ " +
+            "დაყავი გვერდებად ბუნებრივ გარდატეხის წერტილებში. გვერდები არ დაწერო როგორც ცალკეული პატარა " +
+            "სცენები, რომლებსაც უბრალოდ საერთო გარემო აქვთ. წაიკითხე მზა გვერდები თანმიმდევრობით, თითქოს " +
+            "ბავშვს ხმამაღლა უკითხავ: თითოეულმა უნდა გააგრძელოს ზუსტად ის სიტუაცია, რომელიც წინა გვერდმა " +
+            "დატოვა — იგივე საგნები, იგივე ადგილი (თუ გმირი ფიზიკურად არ გადაადგილდა) და იგივე მომენტი. " +
+            "თუ რომელიმე გვერდის ამოღება ან გადაადგილება შეუმჩნეველი დარჩება, ისტორია ჯერ არ არის უწყვეტი " +
+            "და თავიდან უნდა დაიწეროს.",
         SeriesMemoryHeader = "რას ახსოვს უკვე ამ ბავშვის სამყაროს (ეს არის სერიის {0}-ე წიგნი):",
         SeriesMemoryRule = "სერიის უწყვეტობა: ეს წიგნი ზემოთ აღწერილ სამყაროს აგრძელებს — პატივი ეცი მას. დააბრუნე სულ მცირე ერთი უკვე ნაცნობი პერსონაჟი სახელით და შეხვედრას მიეცი სითბო იმისა, როგორც ბოლოს დაშორდნენ. მოიხსენიე სულ მცირე ერთი წინა მომენტი ისე, როგორც მეგობარი გაიხსენებდა — მოკლედ, გაკვრით, არასოდეს როგორც შეჯამება. სერიის მთავარი მიზანი გადაწიე ერთი ნამდვილი ნაბიჯით წინ, ოღონდ არ დაასრულო, თუ ეს წიგნი აშკარად მისი დასასრული არ არის. არასოდეს დაუპირისპირდე იმას, რაც მეხსიერებაშია, და დაბრუნებული პერსონაჟი არასოდეს წარადგინო ისე, თითქოს უცნობი იყოს.",
         LooksLikePrefix = " — გარეგნობა: {0}",
