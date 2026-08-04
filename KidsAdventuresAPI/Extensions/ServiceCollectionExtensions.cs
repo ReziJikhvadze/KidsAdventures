@@ -257,6 +257,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBekiOpenAiClient, BekiOpenAiClient>();
         services.AddScoped<IBekiStoryPipeline, BekiStoryPipeline>();
         services.AddScoped<IBekiVisualPipeline, BekiVisualPipeline>();
+        services.AddScoped<IBekiStoryService, BekiStoryService>();
+        services.AddScoped<IBekiStoryRepository, BekiStoryRepository>();
 
         return services;
     }
