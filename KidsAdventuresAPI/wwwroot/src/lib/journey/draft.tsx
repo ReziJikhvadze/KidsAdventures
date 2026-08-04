@@ -218,6 +218,13 @@ export type JourneyDraftValue = [
   JourneyDraft,
   (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => void,
   () => void,
+  /**
+   * False until the URL has been read on the client. Screens that decide something from
+   * the draft must wait for this: React runs child effects before parent ones, so a stage
+   * mounting inside the provider sees an empty draft on its first pass, before the world
+   * from ?world= has been merged in.
+   */
+  boolean,
 ];
 
 const JourneyDraftContext = createContext<JourneyDraftValue | null>(null);
@@ -233,11 +240,15 @@ const JourneyDraftContext = createContext<JourneyDraftValue | null>(null);
  */
 export function JourneyDraftProvider({ children }: { children: ReactNode }) {
   const [draft, setDraftState] = useState<JourneyDraft>(emptyDraft);
+  const [hydrated, setHydrated] = useState(false);
 
   // Deferred to an effect rather than a useState initialiser because loadDraft reads
-  // window.location, which does not exist during server rendering.
+  // window.location, which does not exist during server rendering. That delay is why
+  // `hydrated` exists: without it a stage would judge an empty draft and, in the case of
+  // the preview, refuse to generate a book whose world had in fact been chosen.
   useEffect(() => {
     setDraftState(loadDraft());
+    setHydrated(true);
   }, []);
 
   // Deep-link parameters arrive after mount now that the journey moves client-side: the
@@ -265,8 +276,8 @@ export function JourneyDraftProvider({ children }: { children: ReactNode }) {
   const resetDraft = useCallback(() => setDraftState(emptyDraft()), []);
 
   const value = useMemo<JourneyDraftValue>(
-    () => [draft, setDraft, resetDraft],
-    [draft, setDraft, resetDraft],
+    () => [draft, setDraft, resetDraft, hydrated],
+    [draft, setDraft, resetDraft, hydrated],
   );
 
   return <JourneyDraftContext.Provider value={value}>{children}</JourneyDraftContext.Provider>;

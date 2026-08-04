@@ -11,6 +11,7 @@ import { formatGel, useT } from "@/lib/i18n";
 import {
   ageFromBirthDate,
   primaryCharacter,
+  useJourneyDraft,
   type JourneyDraft,
   type PreviewTeaser,
 } from "@/lib/journey/draft";
@@ -27,6 +28,8 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
   const WORLD_BY_ID = useWorldById();
   const t = useT();
   const hero = primaryCharacter(draft);
+  // Fourth slot: false until the URL has been read, see JourneyDraftProvider.
+  const hydrated = useJourneyDraft()[3];
   const worldId = (draft.worldId ?? "dinosaurs") as WorldId;
   const world = WORLD_BY_ID[worldId];
   const [loading, setLoading] = useState(!draft.preview);
@@ -44,9 +47,15 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
     }
     if (requestedRef.current) return;
 
-    // Without a chosen world there is no story to write. Generating anyway produced a
-    // book about the wrong subject, which costs a generation and reads as a bug to the
-    // parent — so stop and send them back to choose.
+    // The draft is filled from the URL in a parent effect, and React runs child effects
+    // first — so on the very first pass the world chosen on /themes has not arrived yet.
+    // Judging it here produced "choose a world first" for a world that had been chosen,
+    // which cleared only by leaving and coming back.
+    if (!hydrated) return;
+
+    // Once the draft is known, a missing world is real: there is no story to write.
+    // Generating anyway produced a book about the wrong subject, which costs a real
+    // generation and reads as a bug — so stop and send them back to choose.
     const apiTheme = draft.worldId ? THEME_ID_TO_API[draft.worldId] : undefined;
     if (!apiTheme) {
       setLoading(false);
@@ -54,6 +63,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
       return;
     }
 
+    setError(null);
     requestedRef.current = true;
 
     let cancelled = false;
@@ -110,9 +120,10 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
       cancelled = true;
       window.clearInterval(stageTimer);
     };
-    // Intentionally once per mount when preview is missing.
+    // Re-evaluated when the draft hydrates or the world changes; `requestedRef` is what
+    // guarantees the paid call itself still happens only once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hydrated, draft.worldId]);
 
   const coverSrc = draft.preview?.coverImageDataUrl || WORLD_COVER_ART[worldId];
   const bookTitle =
