@@ -30,6 +30,14 @@ public static class StoryEngineServiceCollectionExtensions
         services.AddScoped<IStoryModelClient, StoryModelClient>();
         services.AddScoped<IStoryPlanner, StoryPlanner>();
 
+        // The master call, which is the path books actually take today. It depends only on the
+        // model client, so unlike the pipeline below it is complete and safe to resolve.
+        services.AddScoped<IMasterStoryService, MasterStoryService>();
+
+        // IMasterBookService is registered with the application services instead. It reaches
+        // outside the engine — blob storage, the image model, Hangfire — and this slice is kept
+        // resolvable on its own so a test can validate it without standing up any of that.
+
         // IStoryPipeline is deliberately absent until IStoryWriter and ICraftReviewer exist.
         //
         // Registering it early cost a red build: the container validates on startup in

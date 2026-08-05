@@ -98,6 +98,54 @@ public sealed class StoryPageContentDto
     public bool IsLocked { get; set; }
 }
 
+public sealed class MasterStoryRunStartedDto
+{
+    [JsonPropertyName("runId")]
+    public Guid RunId { get; set; }
+}
+
+/// <summary>
+/// What the browser sees while a book is being written, and what it gets when one is finished.
+/// </summary>
+public sealed class MasterStoryRunStatusDto
+{
+    [JsonPropertyName("runId")]
+    public Guid RunId { get; set; }
+
+    /// <summary>Pending | Writing | Illustrating | Ready | Failed</summary>
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = string.Empty;
+
+    [JsonPropertyName("progressMessage")]
+    public string? ProgressMessage { get; set; }
+
+    [JsonPropertyName("errorMessage")]
+    public string? ErrorMessage { get; set; }
+
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("childName")]
+    public string? ChildName { get; set; }
+
+    [JsonPropertyName("coverImageUrl")]
+    public string? CoverImageUrl { get; set; }
+
+    [JsonPropertyName("firstPageTitle")]
+    public string? FirstPageTitle { get; set; }
+
+    [JsonPropertyName("firstPageText")]
+    public string? FirstPageText { get; set; }
+
+    /// <summary>Sixteen, for a book of eight spreads.</summary>
+    [JsonPropertyName("pageCount")]
+    public int PageCount { get; set; }
+
+    /// <summary>The whole book, replayed into the account after sign-in.</summary>
+    [JsonPropertyName("storyJson")]
+    public string? StoryJson { get; set; }
+}
+
 public sealed class AdventureContentDto
 {
     [JsonPropertyName("title")]
@@ -111,6 +159,14 @@ public sealed class AdventureContentDto
 
     [JsonPropertyName("storyPages")]
     public List<StoryPageDto> StoryPages { get; set; } = [];
+
+    /// <summary>
+    /// The hero's unchanging visual description, quoted verbatim into every illustration prompt.
+    /// Stored with the book rather than recomputed, so a picture redrawn months later matches the
+    /// ones beside it.
+    /// </summary>
+    [JsonPropertyName("characterLock")]
+    public string? CharacterLock { get; set; }
 
     [JsonPropertyName("activities")]
     public List<ActivityDto> Activities { get; set; } = [];
@@ -133,6 +189,26 @@ public sealed class StoryPageDto
 
     [JsonPropertyName("illustrationUrl")]
     public string? IllustrationUrl { get; set; }
+
+    /// <summary>
+    /// True for the prose half of a spread, which prints facing a picture and carries none of
+    /// its own. Named for the exception rather than the rule on purpose: books written before
+    /// spreads existed have no such field, and absent must keep meaning "illustrate this page"
+    /// or every book already in the library would lose its artwork.
+    /// </summary>
+    [JsonPropertyName("isTextOnlyPage")]
+    public bool IsTextOnlyPage { get; set; }
+
+    /// <summary>
+    /// The illustration prompt written by the same pass that wrote the story, with the character
+    /// lock already inside it. Present only on books from the master call; when it is missing the
+    /// prompt is rebuilt from the page, which is how every earlier book was drawn.
+    /// </summary>
+    [JsonPropertyName("imagePrompt")]
+    public string? ImagePrompt { get; set; }
+
+    [JsonPropertyName("negativePrompt")]
+    public string? NegativePrompt { get; set; }
 
     /// <summary>Illustration bytes (set after OpenAI image generation; not part of story JSON).</summary>
     [JsonIgnore]

@@ -108,6 +108,23 @@ export type ChildResponse = {
 
 export type PreviewIllustrationStatus = "None" | "Generating" | "Ready" | "Failed";
 
+/** Where a book is in being written. Polled while the loader is on screen. */
+export type MasterStoryRunStatus = {
+  runId: string;
+  status: "Pending" | "Writing" | "Illustrating" | "Ready" | "Failed";
+  progressMessage?: string | null;
+  errorMessage?: string | null;
+  title?: string | null;
+  childName?: string | null;
+  coverImageUrl?: string | null;
+  firstPageTitle?: string | null;
+  firstPageText?: string | null;
+  /** Sixteen, for a book of eight spreads. */
+  pageCount?: number;
+  /** The whole book, replayed into the account after sign-in. */
+  storyJson?: string | null;
+};
+
 export type StoryPageContent = {
   title: string;
   /** Short evocative phrase (3-8 words) shown overlaid on the illustration. */

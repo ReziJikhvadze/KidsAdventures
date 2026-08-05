@@ -19,6 +19,12 @@ export const SESSION_KEYS = {
   guestPreviewUsed: "ka_guest_preview_used",
   guestPreviewId: "ka_guest_preview_id",
   guestStoryId: "ka_guest_story_id",
+  /**
+   * A book currently being written. Kept so a reload rejoins the one in progress instead of
+   * paying for a second, and listed here so it leaves with the session like everything else —
+   * it points at a row holding a named child's story.
+   */
+  pendingBookRunId: "ka_pending_book_run_id",
 } as const;
 
 /**

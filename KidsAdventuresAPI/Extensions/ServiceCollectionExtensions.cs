@@ -222,6 +222,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IAuthChallengeRepository, AuthChallengeRepository>();
         services.AddScoped<IGuestPreviewRepository, GuestPreviewRepository>();
+        services.AddScoped<IMasterStoryRunRepository, MasterStoryRunRepository>();
+        services.AddScoped<IMasterBookService, MasterBookService>();
         services.AddScoped<IChildRepository, ChildRepository>();
         services.AddScoped<ICharacterRepository, CharacterRepository>();
         services.AddScoped<ICharacterService, CharacterService>();

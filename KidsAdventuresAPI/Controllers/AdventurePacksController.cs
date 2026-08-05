@@ -3,7 +3,9 @@ using AdventurePacks.Api.Domain.Enums;
 using AdventurePacks.Api.Domain.Models;
 using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.Repositories.Interfaces;
+using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.Services.Interfaces;
+using AdventurePacks.Api.Services.Story;
 
 namespace AdventurePacks.Api.Controllers;
 
@@ -22,12 +24,156 @@ public sealed class AdventurePacksController(
     IBlobStorageService blobStorageService,
     IUserContextService userContext,
     IGuestRateLimiter guestRateLimiter,
+    IMasterBookService masterBookService,
     ILogger<AdventurePacksController> logger) : ControllerBase
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     /// <summary>Pages a parent may read before paying: the cover and page one.</summary>
     private const int PreviewReadablePages = 1;
+
+    /// <summary>
+    /// Starts a whole book and hands back an id to watch.
+    ///
+    /// This replaces generating inside the request. A sixteen-page book takes minutes to write and
+    /// Azure closes an inbound request at 230 seconds, so the old shape could only ever have
+    /// worked for the short books it was built for.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("guest-preview/start")]
+    [RequestSizeLimit(24_000_000)]
+    public async Task<ActionResult<MasterStoryRunStartedDto>> StartGuestPreview(
+        [FromForm] string name,
+        [FromForm] int age,
+        [FromForm] string theme,
+        [FromForm] string? gender,
+        [FromForm] string? eyeColor,
+        [FromForm] string? storyLanguage,
+        [FromForm] string? optionalStoryNotes,
+        IFormFile? photo,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(new { message = "Child's name is required." });
+        }
+
+        if (age < 1 || age > 18)
+        {
+            return BadRequest(new { message = "Please enter a valid age." });
+        }
+
+        if (!Enum.TryParse<ThemeType>(theme, ignoreCase: true, out var themeType))
+        {
+            return BadRequest(new { message = "Please choose a valid theme." });
+        }
+
+        if (!guestRateLimiter.TryAcquire(GetClientKey()))
+        {
+            return StatusCode(
+                StatusCodes.Status429TooManyRequests,
+                new { message = "You've reached the free preview limit. Please sign in to keep creating stories." });
+        }
+
+        var photoBytes = await ReadPhotoAsync(photo, cancellationToken);
+        if (photoBytes.TooLarge)
+        {
+            return BadRequest(new { message = "That photo is too large. Please choose a smaller one." });
+        }
+
+        try
+        {
+            var runId = await masterBookService.StartAsync(
+                new GuestPreviewInput
+                {
+                    ChildName = name.Trim(),
+                    Age = age,
+                    Theme = themeType,
+                    Gender = NormalizeGender(gender),
+                    EyeColor = string.IsNullOrWhiteSpace(eyeColor) ? null : eyeColor.Trim(),
+                    StoryLanguage = storyLanguage,
+                    OptionalStoryNotes = string.IsNullOrWhiteSpace(optionalStoryNotes) ? null : optionalStoryNotes.Trim(),
+                    PhotoBytes = photoBytes.Bytes,
+                    PhotoContentType = photoBytes.ContentType
+                },
+                cancellationToken);
+
+            return Accepted(new MasterStoryRunStartedDto { RunId = runId });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not start a guest book");
+            return StatusCode(
+                StatusCodes.Status502BadGateway,
+                new { message = "We couldn't start your story right now. Please try again in a moment." });
+        }
+    }
+
+    /// <summary>What the waiting browser polls.</summary>
+    [AllowAnonymous]
+    [HttpGet("guest-preview/{runId:guid}")]
+    public async Task<ActionResult<MasterStoryRunStatusDto>> GetGuestPreview(Guid runId, CancellationToken cancellationToken)
+    {
+        var run = await masterBookService.GetAsync(runId, cancellationToken);
+        if (run is null)
+        {
+            return NotFound(new { message = "That story has expired. Please create a new one." });
+        }
+
+        var dto = new MasterStoryRunStatusDto
+        {
+            RunId = run.Id,
+            Status = run.Status,
+            ProgressMessage = run.ProgressMessage,
+            ErrorMessage = run.ErrorMessage
+        };
+
+        if (run.Status != MasterStoryRunStatus.Ready || string.IsNullOrWhiteSpace(run.ContentJson))
+        {
+            return Ok(dto);
+        }
+
+        var content = JsonSerializer.Deserialize<AdventureContentDto>(run.ContentJson, JsonOptions);
+        if (content is null)
+        {
+            return Ok(dto);
+        }
+
+        // Only the cover comes back before payment. The story text of page one is the taste; the
+        // other eight illustrations are the thing being sold, and sending them here would give
+        // the book away.
+        dto.Title = content.Title;
+        dto.ChildName = content.ChildName;
+        dto.CoverImageUrl = run.CoverImageUrl;
+        dto.FirstPageTitle = content.StoryPages.FirstOrDefault()?.Title;
+        dto.FirstPageText = content.StoryPages.Skip(1).FirstOrDefault()?.Content;
+        dto.PageCount = content.StoryPages.Count;
+        dto.StoryJson = run.ContentJson;
+
+        return Ok(dto);
+    }
+
+    private async Task<(byte[]? Bytes, string ContentType, bool TooLarge)> ReadPhotoAsync(
+        IFormFile? photo,
+        CancellationToken cancellationToken)
+    {
+        if (photo is not { Length: > 0 })
+        {
+            return (null, "image/jpeg", false);
+        }
+
+        if (photo.Length > 12_000_000)
+        {
+            // Reached through the action, so the response carries CORS headers and the parent sees
+            // a real message instead of a request the browser can only describe as a CORS error.
+            return (null, "image/jpeg", true);
+        }
+
+        using var ms = new MemoryStream();
+        await photo.CopyToAsync(ms, cancellationToken);
+        var contentType = string.IsNullOrWhiteSpace(photo.ContentType) ? "image/jpeg" : photo.ContentType;
+        return (ms.ToArray(), contentType, false);
+    }
 
     /// <summary>Free, no-login single-page teaser. Generates inline and returns the image as a data URL.</summary>
     [AllowAnonymous]
@@ -333,11 +479,15 @@ public sealed class AdventurePacksController(
                 ? content.StoryPages.Count
                 : Math.Min(PreviewReadablePages, content.StoryPages.Count);
 
+            // A spread book keeps its cover apart from its pages, so the page-one fallback below
+            // does not apply to it.
+            var isSpreadBook = content.StoryPages.Any(p => p.IsTextOnlyPage);
+
             detail.StoryPages = content.StoryPages
                 .Select((page, index) =>
                 {
                     var isLocked = index >= unlockedPages;
-                    var isIllustrated = !isLocked && IsPageIllustrated(pack, page, index);
+                    var isIllustrated = !isLocked && IsPageIllustrated(pack, page, index, isSpreadBook);
                     return new StoryPageContentDto
                     {
                         Title = page.Title,
@@ -387,11 +537,19 @@ public sealed class AdventurePacksController(
         }
     }
 
-    private static bool IsPageIllustrated(AdventurePack pack, StoryPageDto page, int pageIndex)
+    private static bool IsPageIllustrated(AdventurePack pack, StoryPageDto page, int pageIndex, bool isSpreadBook)
     {
         if (!string.IsNullOrWhiteSpace(page.IllustrationUrl))
         {
             return true;
+        }
+
+        // In a spread book PreviewIllustrationUrl holds the cover, which is not any page's
+        // picture. Treating it as page one's would show the cover twice and mark a page
+        // illustrated before it had been drawn.
+        if (isSpreadBook)
+        {
+            return false;
         }
 
         return pageIndex == 0

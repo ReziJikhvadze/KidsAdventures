@@ -45,8 +45,15 @@ export type PreviewTeaser = {
   title: string;
   firstPageTitle: string;
   firstPageText: string;
+  /**
+   * Whatever an `<img src>` accepts. Books written by the master call put a stored URL here
+   * rather than an inlined data URL, because a sixteen-page book's cover is fetched by the
+   * browser rather than carried through the JSON.
+   */
   coverImageDataUrl: string;
   storyJson?: string;
+  /** How many pages the finished book has. Sixteen for a book of eight spreads. */
+  pageCount?: number;
 };
 
 export type JourneyDraft = {

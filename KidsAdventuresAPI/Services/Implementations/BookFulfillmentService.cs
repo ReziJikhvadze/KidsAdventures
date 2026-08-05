@@ -77,7 +77,7 @@ public sealed class BookFulfillmentService(
             Status = AdventurePackStatus.Pending,
             OptionalStoryNotes = Trimmed(draft.StoryNotes),
             StoryLanguage = NormalizeBookLanguage(draft.BookLanguage),
-            StoryPageCount = AdventureStoryConstants.FullPageCount,
+            StoryPageCount = AdventureStoryConstants.MaxPageCount,
             // Paid up front, so the book is fully readable the moment it exists. There is
             // no half-bought state any more: the free sample is the guest teaser.
             AccessLevel = BookAccessLevel.Full,
@@ -218,7 +218,25 @@ public sealed class BookFulfillmentService(
             var coverUrl = await StorePreviewCoverAsync(book, draft.PreviewCoverImage, cancellationToken);
             if (coverUrl is not null)
             {
-                content.StoryPages[0].IllustrationUrl = coverUrl;
+                // A spread book's cover is not its first page. Page one has its own illustration,
+                // its own prompt and its own moment in the story; putting the cover there would
+                // both hide that page's picture and stop it ever being drawn, since the
+                // illustration pass skips pages that already have a URL.
+                //
+                // Legacy books, whose cover genuinely was page one's picture, keep that behaviour.
+                var isSpreadBook = content.StoryPages.Any(page => page.IsTextOnlyPage);
+                if (isSpreadBook)
+                {
+                    await packRepository.UpdatePreviewIllustrationAsync(
+                        book.Id,
+                        PreviewIllustrationStatus.Ready,
+                        coverUrl,
+                        cancellationToken);
+                }
+                else
+                {
+                    content.StoryPages[0].IllustrationUrl = coverUrl;
+                }
             }
 
             await packRepository.UpdateStatusAsync(
@@ -250,6 +268,33 @@ public sealed class BookFulfillmentService(
         if (string.IsNullOrWhiteSpace(dataUrl))
         {
             return null;
+        }
+
+        // Books written by the master call keep their cover in blob storage and send its URL
+        // rather than inlining megabytes of base64 into the order. Copy it under this book's own
+        // name by way of our own storage: a URL we cannot read is a URL that is not ours, so this
+        // both validates it and stops a paid order from pointing its cover at somewhere else.
+        if (!dataUrl.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var storedBytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(dataUrl, cancellationToken);
+                if (storedBytes is not { Length: > 0 })
+                {
+                    return null;
+                }
+
+                return await blobStorageService.UploadAsync(
+                    PreviewCoverBlobName(book),
+                    storedBytes,
+                    "image/webp",
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Could not copy the preview cover for book {BookId}.", book.Id);
+                return null;
+            }
         }
 
         var comma = dataUrl.IndexOf(',');
@@ -288,6 +333,13 @@ public sealed class BookFulfillmentService(
             contentType,
             cancellationToken);
     }
+
+    /// <summary>
+    /// The cover has its own name. It used to share "page-0" with the first page, which was
+    /// harmless while the cover *was* the first page's picture and destroys one of them now that
+    /// a book has eight illustrated pages and a cover of its own.
+    /// </summary>
+    private static string PreviewCoverBlobName(AdventurePack book) => $"{book.UserId}/{book.Id}/cover.webp";
 
     private static string ExtensionFor(string contentType) => contentType.ToLowerInvariant() switch
     {

@@ -19,8 +19,8 @@ internal static class AdventurePromptBuilder
         var sceneVariety = texts.SceneVarietySeeds[Random.Shared.Next(texts.SceneVarietySeeds.Length)];
         var guestCharacter = texts.GuestCharacterSeeds[Random.Shared.Next(texts.GuestCharacterSeeds.Length)];
 
-        var pageCount = input.StoryPageCount > 0 ? input.StoryPageCount : AdventureStoryConstants.FullPageCount;
-        pageCount = Math.Min(pageCount, AdventureStoryConstants.FullPageCount);
+        var pageCount = input.StoryPageCount > 0 ? input.StoryPageCount : AdventureStoryConstants.LegacyPageCount;
+        pageCount = Math.Min(pageCount, AdventureStoryConstants.LegacyPageCount);
         var isWelcomeGift = pageCount <= AdventureStoryConstants.WelcomeGiftPageCount;
         var storyArc = isWelcomeGift ? texts.WelcomeArc : texts.FullArc;
 
@@ -149,7 +149,7 @@ internal static class AdventurePromptBuilder
             lines.Add(string.Empty);
             var wishPages = isWelcomeGift
                 ? texts.ExtraWishesWelcomePages
-                : pageCount <= AdventureStoryConstants.FullPageCount
+                : pageCount <= AdventureStoryConstants.LegacyPageCount
                     ? texts.ExtraWishesFullPages
                     : texts.ExtraWishesManyPages;
             lines.Add(string.Format(texts.ExtraWishesHeader, wishPages));

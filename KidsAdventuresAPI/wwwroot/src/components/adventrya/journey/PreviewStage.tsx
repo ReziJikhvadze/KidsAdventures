@@ -5,7 +5,7 @@ import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolum
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
 import { storeGuestPreviewIds } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { THEME_ID_TO_API, type StoryPageContent } from "@/lib/api/types";
+import { THEME_ID_TO_API, type MasterStoryRunStatus, type StoryPageContent } from "@/lib/api/types";
 import { dataUrlToFile } from "@/lib/api/utils";
 import { formatGel, useT } from "@/lib/i18n";
 import {
@@ -16,6 +16,7 @@ import {
   type PreviewTeaser,
 } from "@/lib/journey/draft";
 import { type BookPackage, PRICES } from "@/lib/pricing";
+import { SESSION_KEYS } from "@/lib/storage/session";
 import { useWorldById, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
 
 type Props = {
@@ -23,6 +24,32 @@ type Props = {
   onChange: (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => void;
   onContinue: () => void;
 };
+
+// Storage can throw — Safari in private mode is the usual culprit — and a book that is already
+// being written should not be lost to a failed write of its own id.
+function readPendingRunId(): string | null {
+  try {
+    return localStorage.getItem(SESSION_KEYS.pendingBookRunId);
+  } catch {
+    return null;
+  }
+}
+
+function writePendingRunId(runId: string): void {
+  try {
+    localStorage.setItem(SESSION_KEYS.pendingBookRunId, runId);
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearPendingRunId(): void {
+  try {
+    localStorage.removeItem(SESSION_KEYS.pendingBookRunId);
+  } catch {
+    /* ignore */
+  }
+}
 
 export function PreviewStage({ draft, onChange, onContinue }: Props) {
   const WORLD_BY_ID = useWorldById();
@@ -34,8 +61,9 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
   const world = WORLD_BY_ID[worldId];
   const [loading, setLoading] = useState(!draft.preview);
   const [loaderStep, setLoaderStep] = useState(0);
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // One teaser is one vision call + one story call + one cover image. A remounted
+  // One book is one vision call + one whole-book call + a cover image. A remounted
   // or re-run effect must not buy a second one, and `cancelled` alone only drops
   // the result — the request is already in flight and already billed.
   const requestedRef = useRef(false);
@@ -67,20 +95,87 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
     requestedRef.current = true;
 
     let cancelled = false;
+    let pollTimer = 0;
     const stageTimer = window.setInterval(() => {
       setLoaderStep((s) => Math.min(s + 1, t.journey.previewLoader.stages.length - 1));
-    }, 5500);
+    }, 20000);
+
+    const finish = (status: MasterStoryRunStatus) => {
+      const teaser: PreviewTeaser = {
+        guestPreviewId: status.runId,
+        storyId: status.runId,
+        title: status.title || "",
+        firstPageTitle: status.firstPageTitle || "",
+        firstPageText: status.firstPageText || "",
+        coverImageDataUrl: status.coverImageUrl || "",
+        storyJson: status.storyJson || undefined,
+        pageCount: status.pageCount,
+      };
+
+      storeGuestPreviewIds(status.runId, status.runId);
+      clearPendingRunId();
+      onChange({ preview: teaser });
+      setLoading(false);
+    };
+
+    // Books take minutes, so a poll every four seconds costs almost nothing and still feels
+    // immediate at the moment one finishes.
+    const poll = (runId: string) => {
+      pollTimer = window.setTimeout(async () => {
+        if (cancelled) return;
+        try {
+          const status = await adventurePacksApi.getGuestPreviewStatus(runId);
+          if (cancelled) return;
+
+          if (status.status === "Failed") {
+            clearPendingRunId();
+            setError(status.errorMessage || "წიგნი ვერ დაიწერა. სცადე თავიდან.");
+            setLoading(false);
+            return;
+          }
+
+          if (status.status === "Ready") {
+            finish(status);
+            return;
+          }
+
+          if (status.progressMessage) setProgressMessage(status.progressMessage);
+          poll(runId);
+        } catch (err) {
+          if (cancelled) return;
+          // A run that no longer exists is gone for good — its row has expired. Anything
+          // else is worth another poll rather than throwing away a book that is still
+          // being written.
+          if (err instanceof ApiError && err.status === 404) {
+            clearPendingRunId();
+            setError("შენი ზღაპარი ვადაგასულია. შექმენი ახალი.");
+            setLoading(false);
+            return;
+          }
+          poll(runId);
+        }
+      }, 4000);
+    };
 
     void (async () => {
       try {
+        // A reload used to throw away a book that was already being written and start
+        // another. The id is kept so the page comes back to the one in progress.
+        const pending = readPendingRunId();
+        if (pending) {
+          poll(pending);
+          return;
+        }
+
         const photo = hero.photoDataUrl
           ? dataUrlToFile(hero.photoDataUrl, `${hero.name || "hero"}.jpg`)
           : null;
 
-        const result = await adventurePacksApi.generateGuestPreview({
+        const { runId } = await adventurePacksApi.startGuestPreview({
           name: hero.name.trim() || t.common.fallbackHeroName,
           age: ageFromBirthDate(hero.birthDate),
           gender: hero.gender ?? undefined,
+          eyeColor: hero.eyeColor ?? undefined,
           // No silent default. A missing mapping used to fall back to "Dinosaurs", which
           // is how choosing the star path produced a dinosaur book: the theme was wrong
           // before the model ever saw it.
@@ -91,20 +186,8 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
         });
 
         if (cancelled) return;
-
-        const teaser: PreviewTeaser = {
-          guestPreviewId: result.guestPreviewId,
-          storyId: result.storyId,
-          title: result.title,
-          firstPageTitle: result.firstPageTitle,
-          firstPageText: result.firstPageText,
-          coverImageDataUrl: result.coverImageDataUrl,
-          storyJson: result.storyJson,
-        };
-
-        storeGuestPreviewIds(result.guestPreviewId, result.storyId);
-        onChange({ preview: teaser });
-        setLoading(false);
+        writePendingRunId(runId);
+        poll(runId);
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof ApiError ? err.message : "Preview ვერ შეიქმნა. სცადე თავიდან.");
@@ -115,6 +198,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
     return () => {
       cancelled = true;
       window.clearInterval(stageTimer);
+      window.clearTimeout(pollTimer);
     };
     // Re-evaluated when the draft hydrates or the world changes; `requestedRef` is what
     // guarantees the paid call itself still happens only once.
@@ -185,7 +269,12 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
 
           <div className="preview-loader-copy">
             <small>{t.journey.previewLoader.atelier}</small>
-            <strong>{t.journey.previewLoader.stages[loaderStep]}</strong>
+            {/*
+              The server says what it is actually doing, so prefer that over the timed
+              guess. The stage list stays as the fallback for the seconds before the first
+              poll comes back.
+            */}
+            <strong>{progressMessage || t.journey.previewLoader.stages[loaderStep]}</strong>
             <div className="preview-loader-progress" aria-hidden="true">
               <i style={{ width: `${(loaderStep + 1) * 20}%` }} />
             </div>

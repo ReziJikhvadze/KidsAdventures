@@ -3,6 +3,7 @@ import type {
   AdventurePackDetailResponse,
   AdventurePackResponse,
   AdventurePackStatus,
+  MasterStoryRunStatus,
   ThemeType,
 } from "./types";
 
@@ -64,6 +65,76 @@ export async function generateGuestPreview(input: GuestPreviewInput): Promise<Gu
   }
 
   return (await response.json()) as GuestPreviewResult;
+}
+
+export type StartGuestPreviewInput = {
+  name: string;
+  age: number;
+  gender?: string;
+  eyeColor?: string;
+  theme: ThemeType;
+  storyLanguage?: string;
+  optionalStoryNotes?: string;
+  photo?: File | null;
+};
+
+/**
+ * Starts a whole sixteen-page book and returns an id to watch.
+ *
+ * The book is written by a background job rather than inside this request: it takes minutes,
+ * and Azure closes an inbound request at 230 seconds, so waiting on it here could only ever
+ * have timed out.
+ */
+export async function startGuestPreview(input: StartGuestPreviewInput): Promise<{ runId: string }> {
+  const body = new FormData();
+  body.append("name", input.name);
+  body.append("age", String(input.age));
+  body.append("theme", input.theme);
+  // Both of these are chosen on the profile screen and neither used to reach the story. Gender
+  // was accepted by the old caller and then dropped before the request was built, which is why
+  // picking a girl could still produce a book about a boy.
+  if (input.gender) body.append("gender", input.gender);
+  if (input.eyeColor) body.append("eyeColor", input.eyeColor);
+  if (input.storyLanguage) body.append("storyLanguage", input.storyLanguage);
+  if (input.optionalStoryNotes?.trim())
+    body.append("optionalStoryNotes", input.optionalStoryNotes.trim());
+  if (input.photo) body.append("photo", input.photo);
+
+  const response = await fetch(`${getApiBaseUrl()}/api/adventure-packs/guest-preview/start`, {
+    method: "POST",
+    body,
+  });
+
+  if (!response.ok) {
+    let message = "We couldn't start your story. Please try again.";
+    try {
+      const data = await response.json();
+      if (data?.message) message = data.message;
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(message, response.status);
+  }
+
+  return (await response.json()) as { runId: string };
+}
+
+/** One poll. Cheap enough to run every few seconds while a book is being written. */
+export async function getGuestPreviewStatus(runId: string): Promise<MasterStoryRunStatus> {
+  const response = await fetch(`${getApiBaseUrl()}/api/adventure-packs/guest-preview/${runId}`);
+
+  if (!response.ok) {
+    let message = "We lost track of your story. Please try again.";
+    try {
+      const data = await response.json();
+      if (data?.message) message = data.message;
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(message, response.status);
+  }
+
+  return (await response.json()) as MasterStoryRunStatus;
 }
 
 /** Saves a teaser story (created while logged out) to the now signed-in parent's account. */

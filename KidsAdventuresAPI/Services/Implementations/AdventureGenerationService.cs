@@ -70,12 +70,12 @@ public sealed class AdventureGenerationService(
             OptionalStoryNotes = input.OptionalStoryNotes,
             StoryLanguage = language,
             // Write the WHOLE story now (text is cheap) so we can save it verbatim after sign-in.
-            StoryPageCount = AdventureStoryConstants.FullPageCount
+            StoryPageCount = AdventureStoryConstants.LegacyPageCount
         };
 
         var adventureId = Guid.NewGuid();
         var content = await openAiService.GenerateAdventureContentAsync(generationInput, adventureId, cancellationToken);
-        NormalizeStoryPages(content, AdventureStoryConstants.FullPageCount);
+        NormalizeStoryPages(content, AdventureStoryConstants.LegacyPageCount);
 
         var firstPage = content.StoryPages.FirstOrDefault()
                         ?? throw new InvalidOperationException("The story preview could not be generated. Please try again.");
@@ -1116,7 +1116,7 @@ public sealed class AdventureGenerationService(
         }
     }
 
-    /// <summary>Welcome gift = 2 pages; full stories cap at <see cref="AdventureStoryConstants.FullPageCount"/>.</summary>
+    /// <summary>Books cap at <see cref="AdventureStoryConstants.MaxPageCount"/> pages.</summary>
     private static int ResolveEffectivePageCount(AdventurePack pack) =>
         AdventureStoryConstants.ResolvePageCount(pack.StoryPageCount, pack.IsWelcomeGiftStory);
 
@@ -1166,6 +1166,14 @@ public sealed class AdventureGenerationService(
                 continue;
             }
 
+            // Half the pages of a spread book are prose facing a picture. Drawing them would
+            // double the images a book costs to produce and put a picture where the words are
+            // supposed to have the page to themselves.
+            if (page.IsTextOnlyPage)
+            {
+                continue;
+            }
+
             pendingPages.Add(i);
         }
 
@@ -1190,13 +1198,21 @@ public sealed class AdventureGenerationService(
 
             var page = content.StoryPages[pageIndex];
             var pageCastPhotos = SelectCastPhotosForPage(castPhotos, anchor is not { Length: > 0 });
-            var imagePrompt = AdventurePromptBuilder.BuildStoryImagePrompt(
-                input,
-                page,
-                pageIndex,
-                pack.Id,
-                anchor is { Length: > 0 },
-                pageCastPhotos);
+
+            // When the story call wrote the prompt, use it as written. It was composed by the pass
+            // that also wrote the words, with the character lock quoted inside it, so it describes
+            // this scene and this hero. Rebuilding it here from the page text would throw that
+            // away and re-introduce the drift the master call exists to prevent. Books written
+            // before the master call carry no prompt, and those still get one built for them.
+            var imagePrompt = string.IsNullOrWhiteSpace(page.ImagePrompt)
+                ? AdventurePromptBuilder.BuildStoryImagePrompt(
+                    input,
+                    page,
+                    pageIndex,
+                    pack.Id,
+                    anchor is { Length: > 0 },
+                    pageCastPhotos)
+                : page.ImagePrompt;
 
             return await openAiService.GenerateStoryImageAsync(
                 imagePrompt,

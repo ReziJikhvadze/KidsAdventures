@@ -119,7 +119,7 @@ public sealed class AdminDemoDataController(
                     Theme = Themes[worldIndex],
                     Status = status,
                     StoryLanguage = "ka",
-                    StoryPageCount = AdventureStoryConstants.FullPageCount,
+                    StoryPageCount = AdventureStoryConstants.LegacyPageCount,
                     AccessLevel = BookAccessLevel.Full,
                     HasPrintEntitlement = isPrint,
                     WorldId = Worlds[worldIndex],

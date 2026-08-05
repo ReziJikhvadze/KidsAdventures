@@ -67,10 +67,10 @@ public sealed class OpenAiService(
             throw new InvalidOperationException("Generated content is incomplete.");
         }
 
-        var expectedPages = input.StoryPageCount > 0 ? input.StoryPageCount : AdventureStoryConstants.FullPageCount;
-        if (expectedPages > AdventureStoryConstants.FullPageCount)
+        var expectedPages = input.StoryPageCount > 0 ? input.StoryPageCount : AdventureStoryConstants.LegacyPageCount;
+        if (expectedPages > AdventureStoryConstants.LegacyPageCount)
         {
-            expectedPages = AdventureStoryConstants.FullPageCount;
+            expectedPages = AdventureStoryConstants.LegacyPageCount;
         }
 
         if (content.StoryPages.Count > expectedPages)

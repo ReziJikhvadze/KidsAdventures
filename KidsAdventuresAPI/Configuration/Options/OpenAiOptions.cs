@@ -5,6 +5,13 @@ public sealed class OpenAiOptions
     public const string SectionName = "OpenAI";
     public string ApiKey { get; set; } = string.Empty;
     public string Model { get; set; } = "gpt-4.1-mini";
+
+    /// <summary>
+    /// The model that writes whole books. Left empty it falls back to <see cref="Model"/>, but a
+    /// book is one long reasoning pass and the cheap model that is fine for short utility calls
+    /// writes noticeably flatter stories, so this is worth setting separately.
+    /// </summary>
+    public string MasterStoryModel { get; set; } = string.Empty;
     public string BaseUrl { get; set; } = "https://api.openai.com/v1";
     /// <summary>responses = Responses API + image_generation tool (recommended). dall-e = Images API only.</summary>
     public string ImageGenerationProvider { get; set; } = "responses";
