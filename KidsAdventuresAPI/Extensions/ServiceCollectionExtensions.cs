@@ -6,6 +6,8 @@ using AdventurePacks.Api.Repositories.Implementations;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Beki;
 using AdventurePacks.Api.Services.Implementations;
+using AdventurePacks.Api.Services.Story;
+using AdventurePacks.Api.Services.Story.Validation;
 using AdventurePacks.Api.Services.Interfaces;
 using Hangfire;
 using Hangfire.SqlServer;
@@ -20,6 +22,7 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
+        services.Configure<StoryModelOptions>(configuration.GetSection(StoryModelOptions.SectionName));
         services.Configure<BekiOptions>(configuration.GetSection(BekiOptions.SectionName));
         // App Service refuses an app setting named "AzureBlobStorage__ConnectionString"
         // ("AppSetting with name ... is not allowed"), so on Azure the value has to come
@@ -240,6 +243,17 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IReferenceImageNormalizer, ReferenceImageNormalizer>();
         services.AddScoped<IOpenAiService, OpenAiService>();
+
+        // Story engine v2. Registered but not yet reachable from any endpoint: the old
+        // generation path is untouched until this one has been proved on real books.
+        services.AddScoped<IStoryValidator, StoryValidator>();
+        services.AddScoped<IStoryModelClient, StoryModelClient>();
+        services.AddScoped<IStoryPlanner, StoryPlanner>();
+        services.AddSingleton(sp =>
+            sp.GetRequiredService<IConfiguration>()
+                .GetSection($"{StoryModelOptions.SectionName}:Pipeline")
+                .Get<StoryPipelineOptions>() ?? new StoryPipelineOptions());
+        services.AddScoped<IStoryPipeline, StoryPipeline>();
         services.AddScoped<IAdventurePdfService, AdventurePdfService>();
         services.AddScoped<IBlobStorageService, AzureBlobStorageService>();
         services.AddScoped<IAdventureGenerationService, AdventureGenerationService>();
