@@ -4,14 +4,23 @@ using System.Text;
 namespace AdventurePacks.Api.Domain.Story;
 
 /// <summary>
-/// The single source of truth for one book.
+/// The single source of truth for one book, append-only and versioned.
 ///
-/// One rule governs the whole engine and is worth stating plainly: no stage may read anything
-/// except this object. No stage re-derives a fact from prose. That constraint is what stops a
-/// key existing in the text but not in the picture, and it is the difference between an engine
-/// that remembers and one that is merely reminded.
+/// Two rules govern the whole engine. First: no stage may read anything except this object, and
+/// no stage may derive a fact from prose — facts come from the blueprint and the deltas, and
+/// prose is only a human-readable rendering of them. That is what stops a key existing in the
+/// text but not in the picture.
+///
+/// Second: nothing here is ever mutated. Each stage returns a new state carrying one more
+/// revision, so the history of how a book was made survives alongside the book. When a story
+/// reads badly six months from now, the question "what did the planner actually produce, before
+/// two repairs rewrote it" has an answer.
+///
+/// Page state is deliberately absent. Deltas are the only stored truth; snapshots are projected
+/// on demand by <c>StateProjector</c>. Persisting them would leave them silently stale behind a
+/// repair, which is the worst kind of wrong.
 /// </summary>
-public sealed class BookState
+public sealed record BookState
 {
     public required BookMeta Meta { get; init; }
     public required CastingBible Casting { get; init; }
@@ -20,19 +29,100 @@ public sealed class BookState
     /// <summary>Carried in from earlier books in this child's series. Empty for a first book.</summary>
     public StoryMemory Memory { get; init; } = StoryMemory.Empty;
 
-    public StoryBlueprint? Blueprint { get; set; }
-    public IReadOnlyList<WrittenPage> Pages { get; set; } = [];
-    public IReadOnlyList<ScenePlan> Scenes { get; set; } = [];
-    public StoryAnalytics Analytics { get; set; } = new();
+    public StoryBlueprint? Blueprint { get; init; }
+    public IReadOnlyList<WrittenPage> Pages { get; init; } = [];
+    public IReadOnlyList<ScenePlan> Scenes { get; init; } = [];
+
+    /// <summary>Every review this book has been through, oldest first. Never replaced, only added to.</summary>
+    public IReadOnlyList<StoryReview> Reviews { get; init; } = [];
+
+    /// <summary>What each stage did, in order. The audit trail of how this book came to exist.</summary>
+    public IReadOnlyList<BookRevision> Revisions { get; init; } = [];
+
+    public StoryAnalytics Analytics { get; init; } = new();
+
+    /// <summary>Which revision this is. Zero is the state before any stage has run.</summary>
+    public int Version => Revisions.Count;
+
+    public BookState WithBlueprint(StoryBlueprint blueprint, string stage, string? note = null) =>
+        this with
+        {
+            Blueprint = blueprint,
+            Revisions = [.. Revisions, BookRevision.Create(stage, note)]
+        };
+
+    public BookState WithPages(IReadOnlyList<WrittenPage> pages, string stage, string? note = null) =>
+        this with
+        {
+            Pages = pages,
+            Revisions = [.. Revisions, BookRevision.Create(stage, note)]
+        };
+
+    public BookState WithScenes(IReadOnlyList<ScenePlan> scenes, string stage, string? note = null) =>
+        this with
+        {
+            Scenes = scenes,
+            Revisions = [.. Revisions, BookRevision.Create(stage, note)]
+        };
+
+    /// <summary>Reviews accumulate. An earlier verdict is evidence, not something to overwrite.</summary>
+    public BookState WithReview(StoryReview review) =>
+        this with
+        {
+            Reviews = [.. Reviews, review],
+            Revisions = [.. Revisions, BookRevision.Create(review.Stage, $"{review.Findings.Count} findings")]
+        };
+
+    public BookState WithAnalytics(StoryAnalytics analytics) =>
+        this with { Analytics = analytics };
+
+    public BookState WithMemory(StoryMemory memory) =>
+        this with { Memory = memory };
 }
 
-public sealed class BookMeta
+/// <summary>One stage's contribution, recorded so the path to a finished book stays readable.</summary>
+public sealed record BookRevision(int Ordinal, string Stage, string? Note, DateTime AtUtc)
+{
+    private static int _counter;
+
+    public static BookRevision Create(string stage, string? note) =>
+        new(Interlocked.Increment(ref _counter), stage, note, DateTime.UtcNow);
+}
+
+/// <summary>
+/// A verdict on the book at one moment. Kept forever: the point of analytics is to compare what
+/// the reviewer said before and after a change, which is impossible if the earlier answer was
+/// thrown away.
+/// </summary>
+public sealed record StoryReview
+{
+    public required string Stage { get; init; }
+    public required DateTime AtUtc { get; init; }
+
+    /// <summary>Rendered validation findings, so a review is readable without the validator.</summary>
+    public required IReadOnlyList<string> Findings { get; init; }
+
+    /// <summary>Per-page delight, keyed by page. Absent for purely structural reviews.</summary>
+    public IReadOnlyDictionary<int, double> PageScores { get; init; } =
+        new Dictionary<int, double>();
+
+    public string? Summary { get; init; }
+}
+
+public sealed record BookMeta
 {
     public required Guid BookId { get; init; }
     public required Guid ChildId { get; init; }
     public required string Language { get; init; }
     public required string WorldId { get; init; }
+
+    /// <summary>
+    /// How long this book is. Nothing in the engine assumes a particular value: rules scale from
+    /// it through <see cref="StoryScale"/>, so eight, twelve or twenty pages all work without a
+    /// domain change.
+    /// </summary>
     public required int PageCount { get; init; }
+
     public required int ChildAge { get; init; }
 
     /// <summary>Which book this is in the child's series. 1 for a first adventure.</summary>
@@ -43,7 +133,7 @@ public sealed class BookMeta
 }
 
 /// <summary>One page of finished prose. The writer owns these and nothing else.</summary>
-public sealed class WrittenPage
+public sealed record WrittenPage
 {
     public required int Page { get; init; }
     public required string Title { get; init; }
@@ -58,11 +148,11 @@ public sealed class WrittenPage
 /// <summary>
 /// An illustration, planned as structure rather than as a sentence.
 ///
-/// Stored as fields and rendered to a prompt at the very end. A string would be unreviewable
-/// and undiffable; this can be inspected field by field, and the vision reviewer can be handed
+/// Stored as fields and rendered to a prompt at the very end. A string would be unreviewable and
+/// undiffable; this can be inspected field by field, and the vision reviewer can be handed
 /// exactly the checklist it needs.
 /// </summary>
-public sealed class ScenePlan
+public sealed record ScenePlan
 {
     public required int Page { get; init; }
     public required string SceneDescription { get; init; }
@@ -125,35 +215,40 @@ public sealed record VisualHash(string Value, IReadOnlyList<string> Components)
 /// thousands of real books instead of an impression. Without it, "the stories feel weak" stays
 /// an opinion; with it, it becomes a number that moved.
 /// </summary>
-public sealed class StoryAnalytics
+public sealed record StoryAnalytics
 {
-    public int PlannerRepairCount { get; set; }
-    public int WriterRepairCount { get; set; }
-    public int SceneRepairCount { get; set; }
+    public int PlannerRepairCount { get; init; }
+    public int WriterRepairCount { get; init; }
+    public int SceneRepairCount { get; init; }
 
     /// <summary>Every rule that fired, including ones that were repaired away.</summary>
-    public List<string> RuleFailures { get; set; } = [];
+    public IReadOnlyList<string> RuleFailures { get; init; } = [];
 
     /// <summary>Pages the craft reviewer ranked lowest, worst first.</summary>
-    public List<int> WeakestPages { get; set; } = [];
+    public IReadOnlyList<int> WeakestPages { get; init; } = [];
 
     /// <summary>Would a child ask for this page again, 0-10, averaged across pages.</summary>
-    public double? DelightScore { get; set; }
+    public double? DelightScore { get; init; }
 
     /// <summary>Share of pages containing spoken dialogue.</summary>
-    public double DialogueRatio { get; set; }
+    public double DialogueRatio { get; init; }
 
     /// <summary>Share of pages carrying a joke or a piece of physical comedy.</summary>
-    public double HumorDensity { get; set; }
+    public double HumorDensity { get; init; }
 
-    public Dictionary<string, int> EmotionDistribution { get; set; } = [];
-    public Dictionary<string, int> PurposeDistribution { get; set; } = [];
-    public Dictionary<string, int> EnergyDistribution { get; set; } = [];
+    public IReadOnlyDictionary<string, int> EmotionDistribution { get; init; } =
+        new Dictionary<string, int>();
 
-    public int PromptTokens { get; set; }
-    public int CompletionTokens { get; set; }
-    public long TotalMilliseconds { get; set; }
+    public IReadOnlyDictionary<string, int> PurposeDistribution { get; init; } =
+        new Dictionary<string, int>();
+
+    public IReadOnlyDictionary<string, int> EnergyDistribution { get; init; } =
+        new Dictionary<string, int>();
+
+    public int PromptTokens { get; init; }
+    public int CompletionTokens { get; init; }
+    public long TotalMilliseconds { get; init; }
 
     /// <summary>Craft rules that were still failing when the book shipped. Tier two never blocks.</summary>
-    public List<string> ShippedWithWarnings { get; set; } = [];
+    public IReadOnlyList<string> ShippedWithWarnings { get; init; } = [];
 }

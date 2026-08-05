@@ -195,6 +195,133 @@ public static class StoryFixtures
         Deltas = deltas ?? beat.Deltas, Hook = beat.Hook, ThreadRefs = beat.ThreadRefs
     };
 
+    /// <summary>
+    /// A valid book of any length, so the engine's independence from page count can be proved
+    /// rather than asserted. The middle is padded with distinct goals, rotating emotions,
+    /// purposes and energies, which is what the craft rules are looking for.
+    /// </summary>
+    public static StoryBlueprint OfLength(int pageCount)
+    {
+        if (pageCount < 4)
+        {
+            throw new ArgumentOutOfRangeException(nameof(pageCount), "a book needs at least four pages");
+        }
+
+        var emotions = new[]
+        {
+            StoryEmotion.Wonder, StoryEmotion.Curiosity, StoryEmotion.Suspense, StoryEmotion.Fear,
+            StoryEmotion.Hope, StoryEmotion.Relief, StoryEmotion.Joy, StoryEmotion.Courage
+        };
+        var purposes = new[]
+        {
+            NarrativePurpose.Discovery, NarrativePurpose.Relationship, NarrativePurpose.Comedy,
+            NarrativePurpose.Puzzle, NarrativePurpose.Danger, NarrativePurpose.Reflection,
+            NarrativePurpose.Twist
+        };
+        var energies = new[]
+        {
+            NarrativeEnergy.Discovery, NarrativeEnergy.Humor, NarrativeEnergy.Tension,
+            NarrativeEnergy.Reflection, NarrativeEnergy.Action, NarrativeEnergy.Wonder
+        };
+
+        var beats = new List<StoryBeat>
+        {
+            Beat(1, "find out what the map shows", "the map only glows in shadow", "the map is alive",
+                NarrativePurpose.Hook, StoryEmotion.Wonder, NarrativeEnergy.Wonder, ForestId,
+                [HeroId], introduced: [MapId],
+                deltas: [Add(MapId), Open("where does the map lead")],
+                hook: "what is the map pointing at?"),
+
+            Beat(2, "follow the map into the trees", "Rust insists on leading", "Rust is louder than he is brave",
+                NarrativePurpose.Relationship, StoryEmotion.Curiosity, NarrativeEnergy.Humor, ForestId,
+                [HeroId, FoxId], deltas: [Join(FoxId)],
+                hook: "who is following them?", threads: ["brave-fox"])
+        };
+
+        for (var page = 3; page <= pageCount - 2; page++)
+        {
+            var i = page - 3;
+            beats.Add(Beat(page,
+                $"get past the obstacle at stage {i + 1}",
+                $"the way is blocked in a new manner at stage {i + 1}",
+                $"something about the clearing becomes clearer at stage {i + 1}",
+                purposes[i % purposes.Length],
+                emotions[i % emotions.Length],
+                energies[i % energies.Length],
+                page == 3 ? ClearingId : ClearingId,
+                [HeroId, FoxId],
+                deltas: page == 3 ? [Move(ClearingId)] : [Open($"riddle {i}"), Resolve($"riddle {i}")],
+                hook: $"what waits beyond stage {i + 1}?"));
+        }
+
+        beats.Add(Beat(pageCount - 1, "find the door the key belongs to", "the door has no keyhole",
+            "the door listens instead of locking",
+            NarrativePurpose.Twist, StoryEmotion.Courage, NarrativeEnergy.Reflection, ClearingId,
+            [HeroId, FoxId], introduced: [KeyId], deltas: [Add(KeyId), Shift("brave")],
+            hook: "will she dare to speak to it?"));
+
+        beats.Add(Beat(pageCount, "open the door", "she must say what she fears, out loud",
+            "the door opens for the truth",
+            NarrativePurpose.Resolution, StoryEmotion.Triumph, NarrativeEnergy.Action, ClearingId,
+            [HeroId, FoxId], used: [KeyId, MapId],
+            deltas: [Resolve("where does the map lead")],
+            hook: null, threads: ["brave-fox"]));
+
+        var surprises = Enumerable.Range(0, StoryScale.MinimumSurprises(pageCount))
+            .Select(i => new Surprise
+            {
+                Kind = (SurpriseKind)(i % 4),
+                Description = $"an unexpected turn number {i + 1}",
+                UsedOnPage = Math.Min(3 + i, pageCount)
+            })
+            .ToList();
+
+        return new StoryBlueprint
+        {
+            Promise = "Where does the glowing map lead?",
+            Answer = "To a door only Tamar's own courage can open.",
+            EmotionCurve = [.. beats.Select(b => b.Emotion)],
+            Locations =
+            [
+                new StoryLocation { Id = ForestId, Name = "Whispering forest", SensoryAnchors = ["moss", "low mist"] },
+                new StoryLocation { Id = ClearingId, Name = "Glass clearing", SensoryAnchors = ["glass trees", "chimes"] }
+            ],
+            Objects =
+            [
+                new StoryObject { Id = MapId, Name = "glowing map", Significance = "shows the way" },
+                new StoryObject { Id = KeyId, Name = "golden key", Significance = "opens the last door" }
+            ],
+            Cast = [HeroId, FoxId],
+            Threads =
+            [
+                new RunningThread
+                {
+                    Id = "brave-fox", Kind = ThreadKind.Joke,
+                    Setup = "Rust announces he is the bravest",
+                    Payoff = "Rust admits he was a little scared",
+                    SetupPage = 2, PayoffPage = pageCount
+                }
+            ],
+            Surprises = surprises,
+            Beats = beats
+        };
+    }
+
+    /// <summary>A book state with nothing generated yet, for testing the append-only guarantees.</summary>
+    public static BookState EmptyBookState() => new()
+    {
+        Meta = Meta(),
+        Casting = Casting(),
+        Inspiration = new Inspiration
+        {
+            WonderSeed = "a floating whale",
+            HumorSeed = "a fox afraid of butterflies",
+            VisualSeed = "trees made of glass",
+            EmotionalSeed = "helping someone smaller",
+            MysterySeed = "a door that only appears at sunset"
+        }
+    };
+
     private static StoryBeat Beat(
         int page, string goal, string obstacle, string discovery,
         NarrativePurpose purpose, StoryEmotion emotion, NarrativeEnergy energy,

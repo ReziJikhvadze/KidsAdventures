@@ -170,13 +170,7 @@ public sealed class PageLengthRule : IProseRule
 
     public IEnumerable<ValidationFinding> Check(ProseContext context)
     {
-        var (min, max) = context.Meta.ChildAge switch
-        {
-            <= 4 => (6, 28),
-            <= 6 => (10, 45),
-            <= 8 => (18, 70),
-            _ => (25, 95)
-        };
+        var (min, max) = StoryScale.PageWordBudget(context.Meta.ChildAge);
 
         foreach (var page in context.Pages)
         {
@@ -348,3 +342,4 @@ public sealed class NoGenericOpeningRule : IProseRule
         }
     }
 }
+

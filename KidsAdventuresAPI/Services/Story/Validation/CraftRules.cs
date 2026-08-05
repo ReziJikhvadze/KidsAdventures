@@ -48,22 +48,31 @@ public sealed class EmotionDiversityRule : IBlueprintRule
     {
         var beats = context.Blueprint.Beats.OrderBy(b => b.Page).ToList();
 
-        for (var i = 2; i < beats.Count; i++)
+        var run = StoryScale.MaximumSameRun(beats.Count);
+
+        for (var i = run - 1; i < beats.Count; i++)
         {
-            if (beats[i].Emotion == beats[i - 1].Emotion && beats[i].Emotion == beats[i - 2].Emotion)
+            var window = beats.Skip(i - run + 1).Take(run).Select(b => b.Emotion);
+            if (window.Distinct().Count() == 1)
             {
                 yield return new ValidationFinding(Id, Tier, beats[i].Page,
-                    $"three pages in a row are '{beats[i].Emotion}'",
+                    $"{run} pages in a row are '{beats[i].Emotion}'",
                     "break the run with a different feeling");
             }
         }
 
+        if (!StoryScale.SupportsDistributionRules(beats.Count))
+        {
+            yield break;
+        }
+
+        var required = StoryScale.MinimumDistinctEmotions(beats.Count);
         var distinct = beats.Select(b => b.Emotion).Distinct().Count();
-        if (beats.Count >= 8 && distinct < 4)
+        if (distinct < required)
         {
             yield return new ValidationFinding(Id, Tier, null,
                 $"the whole book uses only {distinct} emotions",
-                "a book this long needs at least four to stay alive");
+                $"a {beats.Count} page book needs at least {required} to stay alive");
         }
     }
 }
@@ -84,19 +93,23 @@ public sealed class StoryRhythmRule : IBlueprintRule
     {
         var beats = context.Blueprint.Beats.OrderBy(b => b.Page).ToList();
 
-        for (var i = 2; i < beats.Count; i++)
+        var run = StoryScale.MaximumSameRun(beats.Count);
+
+        for (var i = run - 1; i < beats.Count; i++)
         {
-            if (beats[i].Energy == beats[i - 1].Energy && beats[i].Energy == beats[i - 2].Energy)
+            var window = beats.Skip(i - run + 1).Take(run).Select(b => b.Energy);
+            if (window.Distinct().Count() == 1)
             {
                 yield return new ValidationFinding(Id, Tier, beats[i].Page,
-                    $"three pages in a row are '{beats[i].Energy}' — the tempo never changes",
+                    $"{run} pages in a row are '{beats[i].Energy}' — the tempo never changes",
                     "put a different energy between them; loud pages need quiet ones to land");
             }
         }
 
         // A book with no still page never lets the reader feel anything. A book with no quick
-        // page never makes them hurry. Both are worth flagging.
-        if (beats.Count >= 8)
+        // page never makes them hurry. Both are worth flagging, but only once a book is long
+        // enough for the absence to be a choice rather than a consequence of its length.
+        if (StoryScale.SupportsDistributionRules(beats.Count))
         {
             if (!beats.Any(b => b.Energy is NarrativeEnergy.Reflection))
             {
@@ -125,17 +138,20 @@ public sealed class PurposeDistributionRule : IBlueprintRule
     {
         var beats = context.Blueprint.Beats.OrderBy(b => b.Page).ToList();
 
-        for (var i = 3; i < beats.Count; i++)
+        var run = StoryScale.MaximumSameRun(beats.Count) + 1;
+
+        for (var i = run - 1; i < beats.Count; i++)
         {
-            if (beats.Skip(i - 3).Take(4).Select(b => b.Purpose).Distinct().Count() == 1)
+            if (beats.Skip(i - run + 1).Take(run).Select(b => b.Purpose).Distinct().Count() == 1)
             {
                 yield return new ValidationFinding(Id, Tier, beats[i].Page,
-                    $"four pages in a row all serve '{beats[i].Purpose}'",
+                    $"{run} pages in a row all serve '{beats[i].Purpose}'",
                     "vary what these pages are for");
             }
         }
 
-        if (beats.Count >= 8 && !beats.Any(b => b.Purpose == NarrativePurpose.Comedy))
+        if (StoryScale.SupportsDistributionRules(beats.Count)
+            && !beats.Any(b => b.Purpose == NarrativePurpose.Comedy))
         {
             yield return new ValidationFinding(Id, Tier, null,
                 "nothing in this book is funny",
@@ -254,17 +270,16 @@ public sealed class SurpriseBudgetRule : IBlueprintRule
     public string Id => "SURPRISE";
     public RuleTier Tier => RuleTier.Craft;
 
-    private const int MinimumSurprises = 3;
-
     public IEnumerable<ValidationFinding> Check(BlueprintContext context)
     {
         var surprises = context.Blueprint.Surprises;
+        var required = StoryScale.MinimumSurprises(context.Blueprint.Beats.Count);
 
-        if (surprises.Count < MinimumSurprises)
+        if (surprises.Count < required)
         {
             yield return new ValidationFinding(Id, Tier, null,
-                $"only {surprises.Count} planned surprises",
-                $"a book needs at least {MinimumSurprises} — an unexpected character, solution, joke or image");
+                $"only {surprises.Count} planned surprises for {context.Blueprint.Beats.Count} pages",
+                $"a book this length needs at least {required} — an unexpected character, solution, joke or image");
         }
 
         var pages = context.Blueprint.Beats.Select(b => b.Page).ToHashSet();
