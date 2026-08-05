@@ -395,6 +395,34 @@ public sealed class AdventurePacksController(
         return Ok(await MapDetailAsync(row, userId, cancellationToken));
     }
 
+    [HttpGet("{id:guid}/cover")]
+    public async Task<IActionResult> GetCover(Guid id, CancellationToken cancellationToken)
+    {
+        var pack = await adventurePackRepository.GetByIdAsync(id, userContext.GetUserId(), cancellationToken);
+        if (pack is null || string.IsNullOrWhiteSpace(pack.CoverImageUrl))
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(pack.CoverImageUrl, cancellationToken);
+            var etag = new EntityTagHeaderValue('"' + Convert.ToHexString(SHA256.HashData(bytes)) + '"');
+            if (Request.Headers.IfNoneMatch.Any(value => value == etag.Tag.ToString()))
+            {
+                return StatusCode(StatusCodes.Status304NotModified);
+            }
+
+            Response.Headers.CacheControl = "private, max-age=604800";
+            return File(bytes, "image/webp", lastModified: null, entityTag: etag);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Cover blob missing for pack {PackId}", id);
+            return NotFound();
+        }
+    }
+
     [HttpGet("{id:guid}/illustrations/{pageIndex:int}")]
     public async Task<IActionResult> GetIllustration(Guid id, int pageIndex, CancellationToken cancellationToken)
     {
@@ -497,7 +525,13 @@ public sealed class AdventurePacksController(
         target.AccessLevel = x.AccessLevel;
         target.IsUnlocked = x.IsFullyUnlocked;
         target.HasPrintEntitlement = x.HasPrintEntitlement;
-        target.CoverImageUrl = x.CoverImageUrl;
+        // Served, not linked. CoverImageUrl holds a storage path, and the container is private,
+        // so handing it to a browser produces a 404 — Azure hides existence rather than refusing
+        // — and the cover silently fails to appear. Exactly the fault already fixed on the teaser
+        // cover; this is the same one on the book itself.
+        target.CoverImageUrl = string.IsNullOrWhiteSpace(x.CoverImageUrl)
+            ? null
+            : $"/api/adventure-packs/{x.Id}/cover";
         target.Title = x.Title;
     }
 

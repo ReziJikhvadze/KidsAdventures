@@ -44,6 +44,8 @@ export const story = {
     illustrating: {
       atelier: "ADVENTRYA BOOK ATELIER",
       title: "Painting the pictures",
+      leadWaiting:
+        "We'll show the book once every picture is done, so you meet it finished rather than half-drawn.",
       lead: "The story is written — you can read it below. The pictures arrive one at a time.",
       email: "You can close this page. We'll email you when the book is ready.",
       progress: (done: number, total: number) => `${done} of ${total} pictures`,

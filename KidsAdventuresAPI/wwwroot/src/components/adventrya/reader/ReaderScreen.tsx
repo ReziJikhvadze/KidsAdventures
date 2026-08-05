@@ -185,7 +185,7 @@ export function ReaderScreen() {
                   illustrationProgress.total,
                 )}
               </p>
-              <p>{t.story.reader.illustrating.lead}</p>
+              <p>{t.story.reader.illustrating.leadWaiting}</p>
               {/*
                 The single most useful thing to say here. A book takes minutes, and without this
                 a parent either sits watching a progress bar or closes the tab wondering whether
@@ -207,7 +207,7 @@ export function ReaderScreen() {
           <p className="eyebrow" style={{ color: "#f1c970" }}>
             {error}
           </p>
-        ) : pack ? (
+        ) : pack && !isIllustrating ? (
           <StorybookVolume
             className="storybook storybook-full"
             heroName={heroName}

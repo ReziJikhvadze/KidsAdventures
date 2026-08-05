@@ -437,7 +437,13 @@ public sealed class AdventureGenerationService(
                 throw new InvalidOperationException("Story has no pages.");
             }
 
-            var pageCount = ResolveEffectivePageCount(pack);
+            // Derived from the book, not from the row.
+            //
+            // This trimmed the story to StoryPageCount and saved the shortened version back, so a
+            // sixteen-page book whose row still said six lost ten pages permanently — the pages
+            // were not hidden, they were deleted from the stored story on the way to being
+            // illustrated.
+            var pageCount = EffectivePageCount(pack, content);
             if (NormalizeStoryPages(content, pageCount))
             {
                 var trimmedJson = JsonSerializer.Serialize(content, JsonOptions);
@@ -1047,7 +1053,7 @@ public sealed class AdventureGenerationService(
                 : "ილუსტრაციებს ვამზადებთ… ~40%",
             cancellationToken);
 
-        var pageCount = ResolveEffectivePageCount(pack);
+        var pageCount = EffectivePageCount(pack, content);
         NormalizeStoryPages(content, pageCount);
 
         for (var i = 0; i < pageCount && i < content.StoryPages.Count; i++)
@@ -1141,7 +1147,7 @@ public sealed class AdventureGenerationService(
                 return false;
             }
 
-            var pageCount = ResolveEffectivePageCount(pack);
+            var pageCount = EffectivePageCount(pack, content);
             var pages = content.StoryPages.Take(pageCount).ToList();
 
             // Only the pages that are meant to carry a picture. Half of a spread book is prose
@@ -1162,6 +1168,22 @@ public sealed class AdventureGenerationService(
     /// <summary>Books cap at <see cref="AdventureStoryConstants.MaxPageCount"/> pages.</summary>
     private static int ResolveEffectivePageCount(AdventurePack pack) =>
         AdventureStoryConstants.ResolvePageCount(pack.StoryPageCount, pack.IsWelcomeGiftStory);
+
+    /// <summary>
+    /// How many pages a book actually has, according to the book.
+    ///
+    /// StoryPageCount is written when the row is created, before the story exists, and books
+    /// created under an older constant carry an older number. Bounding the illustration pass by
+    /// it means a sixteen-page book whose row still says six gets its first six pages drawn and
+    /// is then declared finished — three pictures in a book that should have eight, with nothing
+    /// reporting a fault, because every page it looked at did have one.
+    ///
+    /// The stored count is a guess made in advance. The content is the answer.
+    /// </summary>
+    private static int EffectivePageCount(AdventurePack pack, AdventureContentDto content) =>
+        content.StoryPages.Count > 0
+            ? Math.Min(content.StoryPages.Count, AdventureStoryConstants.MaxPageCount)
+            : ResolveEffectivePageCount(pack);
 
     private static bool NormalizeStoryPages(AdventureContentDto content, int pageCount)
     {
