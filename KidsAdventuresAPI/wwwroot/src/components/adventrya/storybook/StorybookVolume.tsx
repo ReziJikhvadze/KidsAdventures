@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Lock, Sparkles } from "lucide-react";
 
-import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
+import { preloadIllustration, useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { useT } from "@/lib/i18n";
 import { WORLD_COVER_ART, type WorldId, isWorldId } from "@/lib/worlds";
@@ -275,6 +275,23 @@ export function StorybookVolume({
   const totalStoryPages = pages.length + lockedPageCount;
 
   useEffect(() => () => timers.current.forEach((id) => window.clearTimeout(id)), []);
+
+  // Fetch the pictures on either side of where the reader is standing.
+  //
+  // A page used to start downloading its illustration only once it had been turned to, so every
+  // turn began with a blank frame for as long as the image took. Reading forward is the common
+  // case, so the next few leaves matter most; one leaf back covers a child flipping to look at
+  // a picture again. Already-cached paths return immediately and cost nothing.
+  useEffect(() => {
+    const ahead = 3;
+    for (let i = index - 1; i <= index + ahead; i++) {
+      if (i < 0 || i > lastIndex || i === index) continue;
+      const leaf = leaves[i];
+      if (leaf?.kind === "story" && !leaf.page.isLocked) {
+        preloadIllustration(leaf.page.illustrationUrl);
+      }
+    }
+  }, [index, lastIndex, leaves]);
 
   // Desktop spreads land on even content indices (except cover / inside cover).
   useEffect(() => {

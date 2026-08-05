@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using AdventurePacks.Api.Domain.Enums;
 using AdventurePacks.Api.Domain.Models;
@@ -6,6 +7,7 @@ using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.Services.Interfaces;
 using AdventurePacks.Api.Services.Story;
+using Microsoft.Net.Http.Headers;
 
 namespace AdventurePacks.Api.Controllers;
 
@@ -377,7 +379,22 @@ public sealed class AdventurePacksController(
         try
         {
             var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(storedUrl, cancellationToken);
-            return File(bytes, "image/webp");
+
+            // An illustration never changes once it has been drawn, and there are nine of them in
+            // a book. Without these headers the browser re-downloaded every picture on every page
+            // turn and again on every reopen, which is the whole reason a finished book felt slow
+            // to read.
+            //
+            // private, because this is an authorised per-book resource and must not sit in a
+            // shared proxy where another parent could be handed it.
+            var etag = new EntityTagHeaderValue('"' + Convert.ToHexString(SHA256.HashData(bytes)) + '"');
+            if (Request.Headers.IfNoneMatch.Any(value => value == etag.Tag.ToString()))
+            {
+                return StatusCode(StatusCodes.Status304NotModified);
+            }
+
+            Response.Headers.CacheControl = "private, max-age=31536000, immutable";
+            return File(bytes, "image/webp", lastModified: null, entityTag: etag);
         }
         catch (Exception ex)
         {
