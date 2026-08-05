@@ -387,3 +387,60 @@
     font-size: clamp(11px, 2.3vw, 14px);
   }
 }
+
+/*
+  The reader's "still painting" panel.
+
+  It borrows the preview's atelier illustration wholesale, because a parent has just watched
+  that exact animation while their story was written — meeting it again says "the same thing is
+  still happening" without a word of explanation.
+
+  It sits above the book rather than replacing it. The story is finished and readable by this
+  point, and hiding a book somebody has paid for behind a progress bar, for minutes, to tell
+  them it is nearly done, is the wrong trade.
+*/
+.reader-illustrating {
+  display: flex;
+  gap: clamp(16px, 3vw, 34px);
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 760px;
+  margin: 0 auto 28px;
+  padding: clamp(16px, 2.5vw, 26px);
+  border: 1px solid #f4dfae2e;
+  border-radius: 18px;
+  background: #17102b8f;
+}
+.reader-illustrating .preview-atelier-book {
+  flex: 0 0 auto;
+  width: clamp(96px, 14vw, 150px);
+}
+.reader-illustrating .preview-loader-copy {
+  flex: 1 1 260px;
+  min-width: 240px;
+}
+.reader-illustrating-count {
+  margin: 6px 0 0;
+  color: #f5d996;
+  font-size: 13px;
+  font-weight: 500;
+}
+.reader-illustrating-email {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid #f4dfae1f;
+  color: #f8f2e5c4;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.reader-illustrating-email svg {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: #f5d996;
+}

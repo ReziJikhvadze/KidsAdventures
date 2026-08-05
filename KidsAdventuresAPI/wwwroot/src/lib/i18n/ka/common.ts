@@ -3,6 +3,11 @@ export const common = {
   brandTagline: "stories that remember",
   currencySymbol: "₾",
 
+  states: {
+    loading: "იტვირთება…",
+    bookFailed: "წიგნი ვერ ჩაიტვირთა.",
+  },
+
   actions: {
     back: "უკან",
     backLink: "უკან დაბრუნება",

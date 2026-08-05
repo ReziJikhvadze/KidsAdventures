@@ -41,6 +41,14 @@ export const story = {
     ariaLabel: (hero: string) => `${hero}ს სრული Online Reader`,
     memoryPrefix: "ეს მოგონება ",
     memorySuffix: "ს მომავალ ისტორიებში შენახული დარჩება.",
+    illustrating: {
+      atelier: "ADVENTRYA BOOK ATELIER",
+      title: "ვხატავთ წიგნის სურათებს",
+      lead: "ზღაპარი უკვე დაწერილია — ქვემოთ შეგიძლია წაიკითხო. სურათები სათითაოდ ჩნდება.",
+      email: "შეგიძლია დახურო ეს გვერდი. როცა წიგნი მზად იქნება, მეილს მოგწერთ.",
+      progress: (done: number, total: number) => `${done} სურათი ${total}-დან`,
+      failed: "სურათების ნაწილი ვერ დაიხატა — ხელახლა ვცდილობთ. ტექსტი შენახულია.",
+    },
   },
 
   map: {

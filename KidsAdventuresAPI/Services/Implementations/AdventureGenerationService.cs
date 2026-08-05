@@ -333,17 +333,49 @@ public sealed class AdventureGenerationService(
             return;
         }
 
+        if (!pack.IsFullyUnlocked)
+        {
+            return;
+        }
+
+        // A book whose status says Ready but whose pages have no pictures.
+        //
+        // The illustration job claims a book only when this status is None, Failed or a stale
+        // Generating, so a book left saying Ready is a book that can never be picked up again —
+        // it would sit unillustrated forever, and the parent has already paid for it. Reaching
+        // here means the status is not telling the truth, so it is reset and the work re-queued.
+        if (pack.PreviewIllustrationStatus == PreviewIllustrationStatus.Ready)
+        {
+            logger.LogWarning(
+                "Book {PackId} says its illustrations are ready but is missing them; queueing again.",
+                packId);
+
+            await adventurePackRepository.UpdatePreviewIllustrationAsync(
+                packId,
+                PreviewIllustrationStatus.None,
+                pack.PreviewIllustrationUrl,
+                cancellationToken);
+
+            EnqueuePreviewIllustrationJob(packId);
+            return;
+        }
+
         // Resume a stalled illustration job for a paid book. New jobs are kicked off by
         // order fulfilment (via ProcessStoryGenerationAsync) or QueueIllustrationAsync —
         // this path only restarts one that already started and went quiet.
-        if (pack.IsFullyUnlocked
-            && pack.PreviewIllustrationStatus == PreviewIllustrationStatus.Generating
+        if (pack.PreviewIllustrationStatus == PreviewIllustrationStatus.Generating
             && IsPreviewIllustrationStale(pack))
         {
             EnqueuePreviewIllustrationJob(packId);
+            return;
         }
 
-        await Task.CompletedTask;
+        // Never started at all: fulfilment queued it and the process died before the job ran.
+        if (pack.PreviewIllustrationStatus is PreviewIllustrationStatus.None
+            or PreviewIllustrationStatus.Failed)
+        {
+            EnqueuePreviewIllustrationJob(packId);
+        }
     }
 
     private void EnqueuePreviewIllustrationJob(Guid packId)
@@ -448,10 +480,13 @@ public sealed class AdventureGenerationService(
 
             // The library list only carries these two columns, so without this the shelf
             // shows a generic world title and stock art instead of the book that was made.
+            // A spread book already has the cover the parent chose to buy. Page one's
+            // illustration is a scene from the story, not the cover, so it only fills in for a
+            // book that never had one.
             await adventurePackRepository.UpdateBookPresentationAsync(
                 packId,
                 string.IsNullOrWhiteSpace(content.Title) ? null : content.Title,
-                previewUrl,
+                string.IsNullOrWhiteSpace(pack.CoverImageUrl) ? previewUrl : null,
                 cancellationToken);
 
             await SetProgressAsync(
@@ -1108,8 +1143,15 @@ public sealed class AdventureGenerationService(
 
             var pageCount = ResolveEffectivePageCount(pack);
             var pages = content.StoryPages.Take(pageCount).ToList();
+
+            // Only the pages that are meant to carry a picture. Half of a spread book is prose
+            // facing an illustration and will never have a URL, so requiring one of every page
+            // made this permanently false — which told the queueing paths there was still work
+            // to do on a book that was finished.
+            var illustrated = pages.Where(p => !p.IsTextOnlyPage).ToList();
             return pages.Count == pageCount
-                   && pages.All(p => !string.IsNullOrWhiteSpace(p.IllustrationUrl));
+                   && illustrated.Count > 0
+                   && illustrated.All(p => !string.IsNullOrWhiteSpace(p.IllustrationUrl));
         }
         catch
         {

@@ -242,10 +242,16 @@ public sealed class BookFulfillmentService(
                 var isSpreadBook = content.StoryPages.Any(page => page.IsTextOnlyPage);
                 if (isSpreadBook)
                 {
-                    await packRepository.UpdatePreviewIllustrationAsync(
+                    // CoverImageUrl, not PreviewIllustrationStatus.
+                    //
+                    // Marking the illustration status Ready to park the cover stopped the book
+                    // ever being illustrated at all: the illustration job claims a book only when
+                    // that status is None, Failed or a stale Generating, so Ready read as "already
+                    // done" and every paid spread book sat there with no pictures.
+                    await packRepository.UpdateBookPresentationAsync(
                         book.Id,
-                        PreviewIllustrationStatus.Ready,
-                        coverUrl,
+                        title: null,
+                        coverImageUrl: coverUrl,
                         cancellationToken);
                 }
                 else

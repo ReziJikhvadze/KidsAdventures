@@ -3,6 +3,11 @@ export const common = {
   brandTagline: "stories that remember",
   currencySymbol: "₾",
 
+  states: {
+    loading: "Loading…",
+    bookFailed: "The book could not be loaded.",
+  },
+
   actions: {
     back: "Back",
     backLink: "Go back",

@@ -80,8 +80,9 @@ public static class MasterStorySchema
             ["title"] = Text("Short heading for this scene."),
             ["caption"] = Text("The short line beside the picture. Two to five words."),
             ["text"] = Text(
-                "The read-aloud text for this scene. It has a whole page to itself, so it can be "
-                + "a little longer than a caption-sized line, while still suiting the child's age."),
+                "The read-aloud text for this scene: three to five short sentences. It has a page "
+                + "to itself, but filling the page is not the goal — a child follows the picture "
+                + "and the voice, not the length of the paragraph."),
             ["illustration"] = IllustrationSchema(
                 "The picture for this scene, on the facing page.")
         }

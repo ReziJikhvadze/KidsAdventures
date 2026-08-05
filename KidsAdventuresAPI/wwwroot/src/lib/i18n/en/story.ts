@@ -41,6 +41,14 @@ export const story = {
     ariaLabel: (hero: string) => `${hero}'s full Online Reader`,
     memoryPrefix: "This memory stays with ",
     memorySuffix: " in future stories.",
+    illustrating: {
+      atelier: "ADVENTRYA BOOK ATELIER",
+      title: "Painting the pictures",
+      lead: "The story is written — you can read it below. The pictures arrive one at a time.",
+      email: "You can close this page. We'll email you when the book is ready.",
+      progress: (done: number, total: number) => `${done} of ${total} pictures`,
+      failed: "Some pictures could not be drawn — we're trying again. The story is safe.",
+    },
   },
 
   map: {

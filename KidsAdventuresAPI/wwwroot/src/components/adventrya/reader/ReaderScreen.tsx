@@ -1,5 +1,5 @@
-import { BookOpen, Download, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { BookOpen, Download, Mail, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 
 import { AppHeader } from "@/components/adventrya/AppHeader";
@@ -25,7 +25,7 @@ export function ReaderScreen() {
     if (authLoading) return;
     if (!isAuthenticated) {
       setLoading(false);
-      setError("წიგნის წასაკითხად გაიარე ავტორიზაცია.");
+      setError(t.common.states.bookFailed);
       return;
     }
 
@@ -39,7 +39,7 @@ export function ReaderScreen() {
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err instanceof ApiError ? err.message : "წიგნი ვერ ჩაიტვირთა.");
+        setError(err instanceof ApiError ? err.message : t.common.states.bookFailed);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -49,6 +49,43 @@ export function ReaderScreen() {
       cancelled = true;
     };
   }, [bookId, isAuthenticated, authLoading]);
+
+  // How far the illustrations have got. Only pages meant to carry a picture count: half of a
+  // spread book is prose, and counting those would make a finished book look half done.
+  const illustrationProgress = useMemo(() => {
+    const pages = pack?.storyPages ?? [];
+    const wanted = pages.filter((page) => !page.isTextOnlyPage);
+    return { done: wanted.filter((page) => page.isIllustrated).length, total: wanted.length };
+  }, [pack?.storyPages]);
+
+  const isIllustrating =
+    pack !== null &&
+    (pack.isUnlocked === true || pack.accessLevel === "Full") &&
+    illustrationProgress.total > 0 &&
+    illustrationProgress.done < illustrationProgress.total;
+
+  // A book takes minutes to illustrate and the page said nothing about it, so a parent who
+  // refreshed could not tell whether anything was happening. Polling while there is work left
+  // means a reload — or simply leaving it open — shows the pictures as they land.
+  useEffect(() => {
+    if (!isIllustrating) return;
+
+    let cancelled = false;
+    const timer = window.setInterval(() => {
+      void getAdventurePack(bookId)
+        .then((detail) => {
+          if (!cancelled) setPack(detail);
+        })
+        .catch(() => {
+          /* a failed refresh is not worth interrupting the reading for */
+        });
+    }, 8000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [bookId, isIllustrating]);
 
   const heroName = pack?.childName?.trim() || t.common.fallbackHeroName;
   const worldId = pack?.worldId && isWorldId(pack.worldId) ? pack.worldId : null;
@@ -66,7 +103,7 @@ export function ReaderScreen() {
     try {
       await downloadAdventurePack(pack.id, `${title}.pdf`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "PDF ვერ ჩამოიტვირთა.");
+      setError(err instanceof ApiError ? err.message : t.common.states.bookFailed);
     } finally {
       setDownloading(false);
     }
@@ -107,9 +144,64 @@ export function ReaderScreen() {
           </div>
         </div>
 
+        {isIllustrating ? (
+          <div className="reader-illustrating" aria-live="polite">
+            <div className="preview-atelier-book" aria-hidden="true">
+              <div
+                className="preview-atelier-art"
+                style={
+                  pack?.coverImageUrl
+                    ? { backgroundImage: `url("${pack.coverImageUrl}")` }
+                    : undefined
+                }
+              />
+              <div className="preview-atelier-cover-lines" />
+              <span className="preview-atelier-spine" />
+              <div className="preview-atelier-page">
+                <i />
+                <i />
+                <i />
+              </div>
+              <div className="preview-atelier-sparkles">
+                {Array.from({ length: 6 }, (_, i) => (
+                  <i key={i} />
+                ))}
+              </div>
+            </div>
+
+            <div className="preview-loader-copy">
+              <small>{t.story.reader.illustrating.atelier}</small>
+              <strong>{t.story.reader.illustrating.title}</strong>
+              <div className="preview-loader-progress" aria-hidden="true">
+                <i
+                  style={{
+                    width: `${Math.round((illustrationProgress.done / illustrationProgress.total) * 100)}%`,
+                  }}
+                />
+              </div>
+              <p className="reader-illustrating-count">
+                {t.story.reader.illustrating.progress(
+                  illustrationProgress.done,
+                  illustrationProgress.total,
+                )}
+              </p>
+              <p>{t.story.reader.illustrating.lead}</p>
+              {/*
+                The single most useful thing to say here. A book takes minutes, and without this
+                a parent either sits watching a progress bar or closes the tab wondering whether
+                they have just lost what they paid for.
+              */}
+              <p className="reader-illustrating-email">
+                <Mail aria-hidden="true" />
+                {t.story.reader.illustrating.email}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
         {loading || authLoading ? (
           <p className="eyebrow" style={{ color: "#f8f2e5a8" }}>
-            იტვირთება…
+            {t.common.states.loading}
           </p>
         ) : error ? (
           <p className="eyebrow" style={{ color: "#f1c970" }}>
