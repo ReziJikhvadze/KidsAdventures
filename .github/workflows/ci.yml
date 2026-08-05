@@ -37,6 +37,14 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      # Without this every run downloads the whole package graph again. The key is the
+      # project file, so the cache is only rebuilt when a dependency actually changes.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
       - name: Restore
         run: dotnet restore KidsAdventuresAPI/KidsAdventuresAPI.csproj
 
@@ -48,8 +56,32 @@ jobs:
           --no-restore -c Release -p:SkipFrontendBuild=true
           -warnaserror
 
+  # Whether the schema changed at all. Standing up SQL Server pulls a 1.5GB image and
+  # boots the whole application — several minutes — to answer a question that can only
+  # have changed if a migration, the data layer or the startup path changed.
+  changes:
+    name: What changed
+    runs-on: ubuntu-latest
+    outputs:
+      schema: ${{ steps.filter.outputs.schema }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            schema:
+              - 'KidsAdventuresAPI/Data/**'
+              - 'KidsAdventuresAPI/Repositories/**'
+              - 'KidsAdventuresAPI/Program.cs'
+              - 'KidsAdventuresAPI/Extensions/**'
+              - 'KidsAdventuresAPI/**/*.csproj'
+              - '.github/workflows/ci.yml'
+
   migrations:
     name: Migrations apply cleanly
+    needs: changes
+    if: ${{ needs.changes.outputs.schema == 'true' }}
     runs-on: ubuntu-latest
     services:
       sql:
@@ -67,6 +99,12 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
 
       # Migrations run at application startup, so "does the app boot" and "do the
       # migrations apply" are the same question. Booting against an empty database
@@ -111,12 +149,17 @@ jobs:
 
       - run: npm ci
 
-      # Typecheck first: it is the fastest signal and the one that caught real bugs.
-      - name: Typecheck
-        run: npx tsc --noEmit -p tsconfig.json
-
-      - name: Lint
-        run: npm run lint
+      # Typecheck and lint read the same files but do not depend on each other, so they
+      # run together rather than one after the other. `wait` without an argument returns
+      # the first non-zero exit, so a failure in either still fails the job.
+      - name: Typecheck and lint
+        run: |
+          npx tsc --noEmit -p tsconfig.json & tsc_pid=$!
+          npm run lint & lint_pid=$!
+          failed=0
+          wait $tsc_pid || failed=1
+          wait $lint_pid || failed=1
+          exit $failed
 
       - name: Build
         run: npm run build

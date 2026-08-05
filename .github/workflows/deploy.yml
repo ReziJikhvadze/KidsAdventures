@@ -44,6 +44,14 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      # The deploy job restores the same package graph CI just restored. Cached on the
+      # project files, so it is only rebuilt when a dependency really changes.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -126,15 +134,15 @@ jobs:
             --query defaultHostName -o tsv)
           echo "Probing $host"
           url="https://$host/api/auth/config"
-          for i in $(seq 1 30); do
+          for i in $(seq 1 60); do
             code=$(curl -s -o /tmp/body -w "%{http_code}" "$url" || echo 000)
             if [ "$code" = "200" ]; then
-              echo "API healthy."
+              echo "API healthy after ${i} probes."
               head -c 300 /tmp/body
               exit 0
             fi
             echo "attempt $i: HTTP $code"
-            sleep 10
+            sleep 5
           done
           echo "::error::API did not become healthy after deploy. Check App Service log stream — a failed migration blocks startup."
           exit 1
@@ -182,11 +190,11 @@ jobs:
             --query defaultHostName -o tsv)
           echo "Probing $host"
           url="https://$host/"
-          for i in $(seq 1 30); do
+          for i in $(seq 1 60); do
             code=$(curl -s -o /dev/null -w "%{http_code}" "$url" || echo 000)
-            if [ "$code" = "200" ]; then echo "Frontend healthy."; exit 0; fi
+            if [ "$code" = "200" ]; then echo "Frontend healthy after ${i} probes."; exit 0; fi
             echo "attempt $i: HTTP $code"
-            sleep 10
+            sleep 5
           done
           echo "::error::Frontend did not become healthy after deploy."
           exit 1
