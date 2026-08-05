@@ -11,7 +11,20 @@ public sealed class OpenAiOptions
     /// book is one long reasoning pass and the cheap model that is fine for short utility calls
     /// writes noticeably flatter stories, so this is worth setting separately.
     /// </summary>
-    public string MasterStoryModel { get; set; } = string.Empty;
+    public string MasterStoryModel { get; set; } = "gpt-5.6-luna";
+
+    /// <summary>
+    /// Writes the full prompts and the returned story to the log.
+    ///
+    /// On, because it was asked for and a flag you have to discover is a flag that never gets
+    /// switched on when it is needed. It should not stay on: a prompt carries the child's name,
+    /// age and a description of their face, so this writes a named child's personal details into
+    /// log storage. Set OpenAI__LogPrompts to false before real families use the site.
+    ///
+    /// Returned illustrations are never logged either way — only what was asked for. Image bytes
+    /// would be megabytes of base64 per picture, which makes the log both useless and expensive.
+    /// </summary>
+    public bool LogPrompts { get; set; } = true;
     public string BaseUrl { get; set; } = "https://api.openai.com/v1";
     /// <summary>responses = Responses API + image_generation tool (recommended). dall-e = Images API only.</summary>
     public string ImageGenerationProvider { get; set; } = "responses";

@@ -187,6 +187,23 @@ public sealed class OpenAiService(
         }
 
         var referenceImages = CollectReferenceImages(reference);
+
+        if (_options.LogPrompts)
+        {
+            // What we asked for, never what came back. A returned illustration is megabytes of
+            // base64 and putting that in a log makes the log useless and expensive at once; the
+            // prompt is the part that explains why the picture looks the way it does.
+            logger.LogInformation(
+                "OpenAI image request → model={Model} size={Size} quality={Quality} references={ReferenceCount} route={Route}\n" +
+                "--- prompt ---\n{Prompt}",
+                referenceImages.Count > 0 ? _options.ImageEditModel : _options.ImageModel,
+                _options.ImageSize,
+                _options.ImageQuality,
+                referenceImages.Count,
+                referenceImages.Count > 0 ? "images/edits" : "images/generations",
+                imagePrompt);
+        }
+
         if (referenceImages.Count > 0)
         {
             try

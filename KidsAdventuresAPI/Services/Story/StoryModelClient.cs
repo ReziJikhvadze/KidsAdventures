@@ -62,6 +62,19 @@ public sealed class StoryModelClient(
             }
         };
 
+        if (_options.LogPrompts)
+        {
+            // Everything that decides what comes back, in one entry. Split across several and the
+            // one that matters is always the one that scrolled away.
+            logger.LogInformation(
+                "OpenAI story request → model={Model} schema={Schema} strict=true format=json_schema\n" +
+                "--- instructions ---\n{System}\n--- input ---\n{User}",
+                model,
+                schemaName,
+                systemPrompt,
+                userPrompt);
+        }
+
         using var client = CreateClient();
         using var response = await client.PostAsJsonAsync("responses", payload, StoryJson.Options, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -78,6 +91,13 @@ public sealed class StoryModelClient(
         if (string.IsNullOrWhiteSpace(text))
         {
             throw new InvalidOperationException("The story model returned an empty response.");
+        }
+
+        if (_options.LogPrompts)
+        {
+            // The story as it arrived, before deserialising or projecting it. What the model
+            // actually wrote is the only thing worth comparing a disappointing book against.
+            logger.LogInformation("OpenAI story response ←\n{Story}", text);
         }
 
         T value;
