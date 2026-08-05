@@ -63,6 +63,10 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
   const [loaderStep, setLoaderStep] = useState(0);
   const [progressMessage, setProgressMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Bumped to ask for another attempt. The draft lives in memory above the routes and is
+  // deliberately never restored from storage, so reloading the page to retry threw away the
+  // child's name, birth date, photo and everything else the parent had just typed.
+  const [retryToken, setRetryToken] = useState(0);
   // One book is one vision call + one whole-book call + a cover image. A remounted
   // or re-run effect must not buy a second one, and `cancelled` alone only drops
   // the result — the request is already in flight and already billed.
@@ -151,16 +155,32 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
 
     // Books take minutes, so a poll every four seconds costs almost nothing and still feels
     // immediate at the moment one finishes.
+    //
+    // Bounded, because a job whose process died between being queued and being run leaves a row
+    // that says "Writing" and never changes. Polling that forever is a spinner with nothing
+    // behind it; better to say so and offer another attempt, which no longer costs the parent
+    // their answers.
+    const startedAt = Date.now();
+    const giveUpAfterMs = 15 * 60 * 1000;
+
     const poll = (runId: string) => {
       pollTimer = window.setTimeout(async () => {
         if (cancelled) return;
+
+        if (Date.now() - startedAt > giveUpAfterMs) {
+          clearPendingRunId();
+          setError(t.journey.preview.tookTooLong);
+          setLoading(false);
+          return;
+        }
+
         try {
           const status = await adventurePacksApi.getGuestPreviewStatus(runId);
           if (cancelled) return;
 
           if (status.status === "Failed") {
             clearPendingRunId();
-            setError(status.errorMessage || "წიგნი ვერ დაიწერა. სცადე თავიდან.");
+            setError(t.journey.preview.failed);
             setLoading(false);
             return;
           }
@@ -179,7 +199,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
           // being written.
           if (err instanceof ApiError && err.status === 404) {
             clearPendingRunId();
-            setError("შენი ზღაპარი ვადაგასულია. შექმენი ახალი.");
+            setError(t.journey.preview.expired);
             setLoading(false);
             return;
           }
@@ -221,7 +241,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
         poll(runId);
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof ApiError ? err.message : "Preview ვერ შეიქმნა. სცადე თავიდან.");
+        setError(err instanceof ApiError ? err.message : t.journey.preview.failed);
         setLoading(false);
       }
     })();
@@ -234,7 +254,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
     // Re-evaluated when the draft hydrates or the world changes; `requestedRef` is what
     // guarantees the paid call itself still happens only once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, draft.worldId]);
+  }, [hydrated, draft.worldId, retryToken]);
 
   const coverSrc = draft.preview?.coverImageDataUrl || WORLD_COVER_ART[worldId];
   const bookTitle = draft.preview?.title || world.bookTitle(hero.name || t.common.fallbackHeroName);
@@ -335,19 +355,23 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
     return (
       <section className="ux-preview-stage">
         <header className="ux-stage-heading ux-preview-heading">
-          <p className="eyebrow">Preview</p>
-          <h1>Preview ვერ მზადაა</h1>
+          <p className="eyebrow">{t.journey.preview.eyebrow}</p>
+          <h1>{t.journey.preview.failedTitle}</h1>
           <p className="ux-form-error">{error}</p>
           <button
             className="button journey-primary"
             type="button"
             onClick={() => {
-              onChange({ preview: null });
-              window.location.hash = "preview";
-              window.location.reload();
+              clearPendingRunId();
+              requestedRef.current = false;
+              setError(null);
+              setProgressMessage(null);
+              setLoaderStep(0);
+              setLoading(true);
+              setRetryToken((token) => token + 1);
             }}
           >
-            თავიდან ცდა
+            {t.journey.preview.tryAgain}
           </button>
         </header>
       </section>

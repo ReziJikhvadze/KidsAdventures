@@ -108,6 +108,13 @@ export const journey = {
 
   preview: {
     chooseWorldFirst: "Choose a world first, so the story matches what you picked.",
+    failedTitle: "The story couldn't be written",
+    failed:
+      "Something went wrong while writing the story. Try again — nothing you entered has been lost.",
+    expired: "Your story has expired. Create a new one.",
+    tookTooLong:
+      "This is taking longer than it should. Try again — nothing you entered has been lost.",
+    tryAgain: "Try again",
     eyebrow: " Your personalised preview is ready",
     titlePrefix: "See how ",
     titleSuffix: "'s story begins",

@@ -138,6 +138,26 @@ public sealed class MasterBookService(
         var started = System.Diagnostics.Stopwatch.StartNew();
         var writingDoneMs = 0L;
 
+        // A book already written is never written twice.
+        //
+        // Hangfire re-queues a job whose process died, and this one dies in the most expensive
+        // place available: mid-way through a call that takes minutes and costs real money. On a
+        // deploy or a restart the retry would start again from the top and buy a second book —
+        // and hand the parent a different story from the one they had been waiting for.
+        //
+        // Exceptions do not reach this path, because the catch below marks the run failed and
+        // swallows them, so Hangfire never sees a failure to retry. This is for the case where
+        // nothing threw and the process simply stopped existing.
+        if (!string.IsNullOrWhiteSpace(run.StoryJson) && !string.IsNullOrWhiteSpace(run.ContentJson))
+        {
+            logger.LogInformation(
+                "Run {RunId} already has its story; resuming at the cover rather than rewriting it.",
+                runId);
+
+            await ResumeAtCoverAsync(run, cancellationToken);
+            return;
+        }
+
         try
         {
             await runRepository.SetProgressAsync(
@@ -219,6 +239,41 @@ public sealed class MasterBookService(
         {
             logger.LogError(ex, "Master story run {RunId} failed.", runId);
             await runRepository.MarkFailedAsync(runId, ex.Message, CancellationToken.None);
+        }
+    }
+
+    /// <summary>
+    /// Finishes a run whose story survived but whose job did not. The cover is the only step
+    /// after the story, and it is cheap enough to simply attempt again.
+    /// </summary>
+    private async Task ResumeAtCoverAsync(MasterStoryRun run, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await runRepository.MarkReadyAsync(run.Id, run.ContentJson!, cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(run.CoverImageUrl))
+            {
+                return;
+            }
+
+            var story = JsonSerializer.Deserialize<MasterStory>(run.StoryJson!, JsonOptions);
+            if (story is null)
+            {
+                return;
+            }
+
+            var coverUrl = await DrawCoverAsync(run, story, cancellationToken);
+            if (coverUrl is not null)
+            {
+                await runRepository.SaveCoverAsync(run.Id, coverUrl, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            // The story is safe and the reader can open on the world's artwork, so a cover that
+            // cannot be redrawn is not worth failing a finished book over.
+            logger.LogWarning(ex, "Could not finish the cover for resumed run {RunId}.", run.Id);
         }
     }
 
