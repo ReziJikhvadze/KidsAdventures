@@ -58,4 +58,10 @@
     <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\scripts\package-frontend-zip.ps1&quot;" />
   </Target>
 
+  <ItemGroup>
+    <!-- The prompt builders are internal, and the tests need to assert on what they produce.
+         Exposing them to the test assembly is preferable to widening their visibility. -->
+    <InternalsVisibleTo Include="Adventrya.Story.Tests" />
+  </ItemGroup>
+
 </Project>

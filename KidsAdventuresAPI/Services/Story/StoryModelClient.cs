@@ -104,9 +104,10 @@ public sealed class StoryModelClient(
         client.BaseAddress = new Uri(_options.BaseUrl.TrimEnd('/') + "/");
         client.DefaultRequestHeaders.Authorization = new("Bearer", _options.ApiKey);
 
-        // Planning and writing are reasoning-heavy and legitimately slow. A short timeout here
-        // fails books that would have been fine.
-        client.Timeout = TimeSpan.FromMinutes(5);
+        // Reasoning-heavy work is legitimately slow, and a short timeout fails books that
+        // would have been fine. Generous here; the pipeline is what decides a call has taken
+        // too long to be worth waiting for.
+        client.Timeout = TimeSpan.FromMinutes(12);
         return client;
     }
 

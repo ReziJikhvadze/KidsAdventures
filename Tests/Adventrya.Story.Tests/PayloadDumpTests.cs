@@ -1,0 +1,127 @@
+using System.Text.Json;
+using AdventurePacks.Api.Domain.Enums;
+using AdventurePacks.Api.Domain.Models;
+using AdventurePacks.Api.DTOs.AdventurePacks;
+using AdventurePacks.Api.Services;
+using Xunit.Abstractions;
+
+namespace Adventrya.Story.Tests;
+
+/// <summary>
+/// Prints exactly what the live engine sends to OpenAI.
+///
+/// Not an assertion so much as a window. Prompts are assembled from a dozen places and then
+/// thrown away after the call, so "what did we actually send" has until now been a question
+/// nobody could answer without reading six files and guessing at the random seeds. This builds
+/// the real payloads from the real builders and writes them out.
+///
+///   dotnet test --filter PayloadDump -v normal
+/// </summary>
+public class PayloadDumpTests(ITestOutputHelper output)
+{
+    private static readonly JsonSerializerOptions Pretty = new()
+    {
+        WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
+    [Fact]
+    public void Dump_the_story_call()
+    {
+        var input = LiveInput();
+        var adventureId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+        var prompt = AdventurePromptBuilder.BuildStoryPrompt(input, adventureId);
+
+        // Exactly the shape OpenAiService.GenerateAdventureContentAsync posts.
+        var payload = new
+        {
+            model = "gpt-5.6-luna",
+            input = prompt,
+            text = new { format = new { type = "json_object" } }
+        };
+
+        output.WriteLine("=== POST https://api.openai.com/v1/responses  (story) ===");
+        output.WriteLine(JsonSerializer.Serialize(payload, Pretty));
+        output.WriteLine("");
+        output.WriteLine($"prompt characters: {prompt.Length}");
+    }
+
+    [Fact]
+    public void Dump_the_image_call()
+    {
+        var input = LiveInput();
+        var page = new StoryPageDto
+        {
+            Title = "The glass clearing",
+            Caption = "The chimes begin to sing",
+            Content = "Nini pressed her hand to the nearest glass tree and the whole clearing rang."
+        };
+
+        var prompt = AdventurePromptBuilder.BuildStoryImagePrompt(
+            input, page, pageIndex: 2, Guid.Parse("11111111-2222-3333-4444-555555555555"),
+            hasCharacterAnchor: true, castPhotos: []);
+
+        var payload = new
+        {
+            model = "gpt-5.6-luna",
+            input = prompt,
+            tools = new[]
+            {
+                new
+                {
+                    type = "image_generation",
+                    model = "gpt-image-1.5",
+                    size = "1024x1536",
+                    quality = "medium"
+                }
+            }
+        };
+
+        output.WriteLine("=== POST https://api.openai.com/v1/responses  (illustration) ===");
+        output.WriteLine(JsonSerializer.Serialize(payload, Pretty));
+        output.WriteLine("");
+        output.WriteLine($"prompt characters: {prompt.Length}");
+    }
+
+    [Fact]
+    public void Dump_the_vision_call()
+    {
+        var prompt = AdventurePromptBuilder.BuildHeroPhotoDescribePrompt("ka", "ნინი", 5);
+
+        var payload = new
+        {
+            model = "gpt-5.6-luna",
+            input = new object[]
+            {
+                new
+                {
+                    role = "user",
+                    content = new object[]
+                    {
+                        new { type = "input_text", text = prompt },
+                        new { type = "input_image", image_url = "data:image/jpeg;base64,<the uploaded photo>" }
+                    }
+                }
+            }
+        };
+
+        output.WriteLine("=== POST https://api.openai.com/v1/responses  (describe the photo) ===");
+        output.WriteLine(JsonSerializer.Serialize(payload, Pretty));
+    }
+
+    /// <summary>The inputs a real Georgian preview carries, as the frontend sends them.</summary>
+    private static AdventureGenerationInput LiveInput() => new()
+    {
+        ChildName = "ნინი",
+        Age = 5,
+        Gender = "girl",
+        Theme = ThemeType.Space,
+        StoryLanguage = "ka",
+        StoryPageCount = 6,
+        ChildAppearanceDescription =
+            "მოკლე მუქი ყავისფერი თმა ორ კუდად, მოყავისფრო თვალები, თბილი კანის ტონი, ღიმილიანი მრგვალი სახე",
+        OptionalStoryNotes = "ძალიან უყვარს ვარსკვლავები",
+        FamilyMembers = [],
+        ChapterNumber = 1
+    };
+}
