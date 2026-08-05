@@ -32,7 +32,11 @@ public sealed class AdventurePacksController(
     /// <summary>Free, no-login single-page teaser. Generates inline and returns the image as a data URL.</summary>
     [AllowAnonymous]
     [HttpPost("guest-preview")]
-    [RequestSizeLimit(8_000_000)]
+    // Generous on purpose. The browser downscales portraits before upload, so a request
+    // anywhere near this is a client that did not — an older cached bundle, or a script. Being
+    // rejected by the server before the action runs produces a response with no CORS headers,
+    // which a browser can only report as a CORS error, hiding the real cause completely.
+    [RequestSizeLimit(24_000_000)]
     public async Task<ActionResult<GuestPreviewResult>> GuestPreview(
         [FromForm] string name,
         [FromForm] int age,
@@ -69,9 +73,11 @@ public sealed class AdventurePacksController(
         var contentType = "image/jpeg";
         if (photo is { Length: > 0 })
         {
-            if (photo.Length > 6_000_000)
+            if (photo.Length > 12_000_000)
             {
-                return BadRequest(new { message = "Photo is too large (max 6 MB)." });
+                // Reached through the action, so the response carries CORS headers and the
+                // parent sees a real message instead of a blocked request.
+                return BadRequest(new { message = "That photo is too large. Please choose a smaller one." });
             }
 
             using var ms = new MemoryStream();

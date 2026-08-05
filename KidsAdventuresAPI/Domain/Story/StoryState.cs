@@ -8,7 +8,7 @@ namespace AdventurePacks.Api.Domain.Story;
 /// every cached snapshot after it is silently stale, which is exactly the class of error this
 /// engine exists to remove.
 /// </summary>
-public sealed class StoryState
+public sealed record StoryState
 {
     public required int Page { get; init; }
     public required string LocationId { get; init; }
@@ -50,7 +50,7 @@ public sealed class StoryState
 /// habit in book one still has it in book four; a catchphrase a child started repeating comes
 /// back. None of it is left to the model to recall — it is written down and handed forward.
 /// </summary>
-public sealed class StoryMemory
+public sealed record StoryMemory
 {
     public IReadOnlyList<string> ActivePromises { get; init; } = [];
     public IReadOnlyList<string> ActiveMysteries { get; init; } = [];
@@ -90,7 +90,7 @@ public sealed class StoryMemory
 /// must build structure around them, and they are drawn from a pool that excludes what this
 /// child has already had.
 /// </summary>
-public sealed class Inspiration
+public sealed record Inspiration
 {
     public required string WonderSeed { get; init; }
     public required string HumorSeed { get; init; }

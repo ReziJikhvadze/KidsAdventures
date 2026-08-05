@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { SparkleIcon } from "@/components/adventrya/landing/icons";
 import { BOOK_LANGUAGES, type BookLanguage, useT } from "@/lib/i18n";
+import { preparePortrait } from "@/lib/images/preparePortrait";
 import type { CharacterGender, EyeColor } from "@/lib/api/types";
 import {
   emptyCharacter,
@@ -289,14 +290,12 @@ function CharacterEditor({
 
   const onPhoto = (file: File | null) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      onChange({
-        photoDataUrl: typeof reader.result === "string" ? reader.result : null,
-        photoReady: true,
-      });
-    };
-    reader.readAsDataURL(file);
+    // Downscaled before it is stored, never at full camera resolution. A phone photo plus
+    // base64 overhead exceeds the upload limit, and an oversized request is rejected before
+    // our code runs — so it comes back with no CORS headers and the browser blames CORS.
+    void preparePortrait(file)
+      .then(({ dataUrl }) => onChange({ photoDataUrl: dataUrl, photoReady: true }))
+      .catch(() => onChange({ photoDataUrl: null, photoReady: false }));
   };
 
   return (

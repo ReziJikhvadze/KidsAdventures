@@ -12,7 +12,7 @@ namespace AdventurePacks.Api.Domain.Story;
 /// undeclared entity is precisely the failure that puts papers on page three that nobody
 /// introduced. Declaration is what makes that checkable rather than hopeful.
 /// </summary>
-public sealed class StoryBlueprint
+public sealed record StoryBlueprint
 {
     /// <summary>The question this book asks. One sentence.</summary>
     public required string Promise { get; init; }
@@ -52,7 +52,7 @@ public sealed class StoryBlueprint
 }
 
 /// <summary>One page, planned. Everything except the sentences.</summary>
-public sealed class StoryBeat
+public sealed record StoryBeat
 {
     /// <summary>1-based, matching the printed page.</summary>
     public required int Page { get; init; }
@@ -99,7 +99,7 @@ public sealed class StoryBeat
 /// have to understand every change exactly, so a beat cannot invent a kind of change the
 /// engine cannot reason about.
 /// </summary>
-public sealed class StateDelta
+public sealed record StateDelta
 {
     public required DeltaKind Kind { get; init; }
 
@@ -110,7 +110,7 @@ public sealed class StateDelta
     public string? Value { get; init; }
 }
 
-public sealed class StoryLocation
+public sealed record StoryLocation
 {
     public required string Id { get; init; }
     public required string Name { get; init; }
@@ -119,7 +119,7 @@ public sealed class StoryLocation
     public required IReadOnlyList<string> SensoryAnchors { get; init; }
 }
 
-public sealed class StoryObject
+public sealed record StoryObject
 {
     public required string Id { get; init; }
     public required string Name { get; init; }
@@ -128,7 +128,7 @@ public sealed class StoryObject
     public required string Significance { get; init; }
 }
 
-public sealed class RunningThread
+public sealed record RunningThread
 {
     public required string Id { get; init; }
     public required ThreadKind Kind { get; init; }
@@ -143,7 +143,7 @@ public sealed class RunningThread
     public required int PayoffPage { get; init; }
 }
 
-public sealed class Surprise
+public sealed record Surprise
 {
     public required SurpriseKind Kind { get; init; }
     public required string Description { get; init; }

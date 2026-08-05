@@ -9,7 +9,7 @@ namespace AdventurePacks.Api.Domain.Story;
 /// prompts are assembled from this plus tracked state, never from whatever the prose happened
 /// to mention on that page.
 /// </summary>
-public sealed class CastingBible
+public sealed record CastingBible
 {
     /// <summary>Everyone who can appear. Exactly one has <see cref="CharacterRole.Hero"/>.</summary>
     public required IReadOnlyList<StoryCharacter> Characters { get; init; }
@@ -25,7 +25,7 @@ public sealed class CastingBible
         Characters.FirstOrDefault(c => string.Equals(c.Id, id, StringComparison.OrdinalIgnoreCase));
 }
 
-public sealed class StoryCharacter
+public sealed record StoryCharacter
 {
     /// <summary>Stable slug used by beats, deltas and prompts. Never shown to a reader.</summary>
     public required string Id { get; init; }
@@ -55,7 +55,7 @@ public sealed class StoryCharacter
     public string? ArtNotes { get; init; }
 }
 
-public sealed class CharacterAppearance
+public sealed record CharacterAppearance
 {
     public required string HairColor { get; init; }
     public required string HairLength { get; init; }
@@ -67,7 +67,7 @@ public sealed class CharacterAppearance
     public string? Height { get; init; }
 }
 
-public sealed class Outfit
+public sealed record Outfit
 {
     public required string Top { get; init; }
     public required string Bottom { get; init; }
@@ -89,7 +89,7 @@ public sealed class Outfit
     }
 }
 
-public sealed class CharacterPersonality
+public sealed record CharacterPersonality
 {
     public required IReadOnlyList<string> Traits { get; init; }
     public required string Strength { get; init; }
@@ -101,7 +101,7 @@ public sealed class CharacterPersonality
     public required string Want { get; init; }
 }
 
-public sealed class CharacterVoice
+public sealed record CharacterVoice
 {
     /// <summary>e.g. "eager and blurts things out", "slow, picks words carefully".</summary>
     public required string Register { get; init; }
@@ -114,7 +114,7 @@ public sealed class CharacterVoice
 }
 
 /// <summary>Art direction that applies to every page, so the book looks like one book.</summary>
-public sealed class VisualDirection
+public sealed record VisualDirection
 {
     public required string Style { get; init; }
     public required string Palette { get; init; }
