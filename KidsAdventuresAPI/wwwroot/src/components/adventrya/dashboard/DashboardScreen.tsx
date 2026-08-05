@@ -607,13 +607,16 @@ function LibraryBookCard({
 
   return (
     <article className="library-book">
-      <div
+      <Link
+        to="/reader/$bookId"
+        params={{ bookId: pack.id }}
         className={`library-cover cover-${worldId === "space" ? "space" : "dino"}`}
         style={{ backgroundImage: `url("${cover}")`, backgroundSize: "cover" }}
+        aria-label={t.dashboard.library.openBook(title)}
       >
         <span>{t.dashboard.library.bookIndex(index)}</span>
         <strong>{title}</strong>
-      </div>
+      </Link>
       <div>
         <small>
           {world.theme} · {format}

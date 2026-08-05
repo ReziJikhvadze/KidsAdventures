@@ -16,6 +16,7 @@ export const dashboard = {
 
   library: {
     heading: (name: string) => `${name}ს უკვე გახსნილი ისტორიები`,
+    openBook: (title: string) => `გახსენი "${title}"`,
     bookIndex: (index: number) => `წიგნი ${index}`,
     printOrdered: " ბეჭდური ვერსია შეკვეთილია",
     orderPrint: "შეუკვეთე ბეჭდური ვერსია · 65 ₾ ",

@@ -16,6 +16,7 @@ export const dashboard = {
 
   library: {
     heading: (name: string) => `${name}'s stories opened so far`,
+    openBook: (title: string) => `Open "${title}"`,
     bookIndex: (index: number) => `Book ${index}`,
     printOrdered: " Printed edition ordered",
     orderPrint: "Order the printed edition · 65 ₾ ",
