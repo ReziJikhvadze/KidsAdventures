@@ -100,6 +100,34 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
       setLoaderStep((s) => Math.min(s + 1, t.journey.previewLoader.stages.length - 1));
     }, 20000);
 
+    // The cover is painted after the story is finished, so a book can be ready to read while
+    // its picture is still a minute away. Rather than hold the whole preview back for it, the
+    // story is shown against the world's own artwork and the cover is collected afterwards.
+    const waitForCover = (runId: string, attemptsLeft: number) => {
+      if (attemptsLeft <= 0) return;
+      pollTimer = window.setTimeout(async () => {
+        if (cancelled) return;
+        try {
+          const status = await adventurePacksApi.getGuestPreviewStatus(runId);
+          if (cancelled) return;
+          if (status.coverImageUrl) {
+            onChange((prev) =>
+              prev.preview
+                ? {
+                    ...prev,
+                    preview: { ...prev.preview, coverImageDataUrl: status.coverImageUrl! },
+                  }
+                : prev,
+            );
+            return;
+          }
+          waitForCover(runId, attemptsLeft - 1);
+        } catch {
+          waitForCover(runId, attemptsLeft - 1);
+        }
+      }, 5000);
+    };
+
     const finish = (status: MasterStoryRunStatus) => {
       const teaser: PreviewTeaser = {
         guestPreviewId: status.runId,
@@ -108,7 +136,6 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
         firstPageTitle: status.firstPageTitle || "",
         firstPageText: status.firstPageText || "",
         coverImageDataUrl: status.coverImageUrl || "",
-        storyJson: status.storyJson || undefined,
         pageCount: status.pageCount,
       };
 
@@ -116,6 +143,10 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
       clearPendingRunId();
       onChange({ preview: teaser });
       setLoading(false);
+
+      // Roughly two minutes of looking, which is far longer than a cover takes; a book whose
+      // cover never arrives simply keeps the world artwork.
+      if (!status.coverImageUrl) waitForCover(status.runId, 24);
     };
 
     // Books take minutes, so a poll every four seconds costs almost nothing and still feels

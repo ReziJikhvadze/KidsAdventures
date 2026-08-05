@@ -8,6 +8,15 @@ public interface IMasterStoryRunRepository
 
     Task<MasterStoryRun?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Status, progress and the cover, without the story.
+    ///
+    /// The browser asks this every few seconds for the several minutes a book takes. GetById
+    /// reads the whole row, and two of its columns are NVARCHAR(MAX) holding the entire book —
+    /// so every poll was dragging a finished story out of SQL to look at one short string.
+    /// </summary>
+    Task<MasterStoryRunProgress?> GetProgressAsync(Guid id, CancellationToken cancellationToken);
+
     /// <summary>Records progress copy without touching anything the job has already written.</summary>
     Task SetProgressAsync(Guid id, string status, string? progressMessage, CancellationToken cancellationToken);
 

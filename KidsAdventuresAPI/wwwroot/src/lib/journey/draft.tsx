@@ -51,7 +51,6 @@ export type PreviewTeaser = {
    * browser rather than carried through the JSON.
    */
   coverImageDataUrl: string;
-  storyJson?: string;
   /** How many pages the finished book has. Sixteen for a book of eight spreads. */
   pageCount?: number;
 };

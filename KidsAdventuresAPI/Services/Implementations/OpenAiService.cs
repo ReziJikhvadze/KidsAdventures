@@ -232,7 +232,7 @@ public sealed class OpenAiService(
         IReadOnlyList<(byte[] Bytes, string FileName, string ContentType)> referenceImages,
         CancellationToken cancellationToken)
     {
-        const int maxAttempts = 4;
+        var maxAttempts = Math.Clamp(_options.ImageRetryAttempts, 1, 6);
         Exception? last = null;
 
         for (var attempt = 0; attempt < maxAttempts; attempt++)
@@ -249,7 +249,7 @@ public sealed class OpenAiService(
                     throw;
                 }
 
-                var delaySeconds = 8 * (attempt + 1);
+                var delaySeconds = Math.Max(1, _options.ImageRetryBackoffSeconds) * (attempt + 1);
                 logger.LogWarning(
                     ex,
                     "Image edit attempt {Attempt} hit a retryable OpenAI error; waiting {Delay}s",

@@ -116,21 +116,37 @@ public sealed class AdventurePacksController(
     [HttpGet("guest-preview/{runId:guid}")]
     public async Task<ActionResult<MasterStoryRunStatusDto>> GetGuestPreview(Guid runId, CancellationToken cancellationToken)
     {
-        var run = await masterBookService.GetAsync(runId, cancellationToken);
-        if (run is null)
+        // Status first, and only status. This is asked every few seconds for the minutes a book
+        // takes to write; reading the whole row each time pulled the entire finished story out of
+        // SQL to look at one short string.
+        var progress = await masterBookService.GetProgressAsync(runId, cancellationToken);
+        if (progress is null)
         {
             return NotFound(new { message = "That story has expired. Please create a new one." });
         }
 
         var dto = new MasterStoryRunStatusDto
         {
-            RunId = run.Id,
-            Status = run.Status,
-            ProgressMessage = run.ProgressMessage,
-            ErrorMessage = run.ErrorMessage
+            RunId = progress.Id,
+            Status = progress.Status,
+            ProgressMessage = progress.ProgressMessage,
+            ErrorMessage = progress.ErrorMessage,
+            // Ready now means the story is written. The cover is painted after it, so this stays
+            // null for a little longer and the reader opens on the world's own artwork until it
+            // arrives.
+            CoverImageUrl = progress.CoverImageUrl is null
+                ? null
+                : $"/api/adventure-packs/guest-preview/{progress.Id}/cover"
         };
 
-        if (run.Status != MasterStoryRunStatus.Ready || string.IsNullOrWhiteSpace(run.ContentJson))
+        if (progress.Status != MasterStoryRunStatus.Ready)
+        {
+            return Ok(dto);
+        }
+
+        // Only once, when there is a book to describe.
+        var run = await masterBookService.GetAsync(runId, cancellationToken);
+        if (run?.ContentJson is null)
         {
             return Ok(dto);
         }
@@ -141,21 +157,15 @@ public sealed class AdventurePacksController(
             return Ok(dto);
         }
 
-        // Only the cover comes back before payment. The story text of page one is the taste; the
-        // other eight illustrations are the thing being sold, and sending them here would give
-        // the book away.
+        // The first page and the cover are the taste. The rest of the book is not sent: it used
+        // to travel back so the client could hand it in at checkout, and fulfilment reads it from
+        // our own row now — which also stops nine illustration prompts being published to anyone
+        // who asks for a preview.
         dto.Title = content.Title;
         dto.ChildName = content.ChildName;
-        // Never the storage URL itself. The container is private, so a browser sent there is
-        // answered with a 404 — Azure hides existence rather than returning 403 — and the cover
-        // silently fails to load. It is served through the endpoint below instead.
-        dto.CoverImageUrl = run.CoverImageUrl is null
-            ? null
-            : $"/api/adventure-packs/guest-preview/{run.Id}/cover";
         dto.FirstPageTitle = content.StoryPages.FirstOrDefault()?.Title;
         dto.FirstPageText = content.StoryPages.Skip(1).FirstOrDefault()?.Content;
         dto.PageCount = content.StoryPages.Count;
-        dto.StoryJson = run.ContentJson;
 
         return Ok(dto);
     }

@@ -145,9 +145,10 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
           storyNotes: draft.storyNotes || undefined,
           continuesFromBookId: draft.continuesFromBookId || undefined,
           previewBookId: draft.preview?.storyId || undefined,
-          // Without these the paid book is written from scratch and the parent receives a
-          // different story from the one they just read and chose to buy.
-          previewStoryJson: draft.preview?.storyJson || undefined,
+          // previewBookId is what carries the story now: fulfilment reads it from the run we
+          // wrote rather than from a copy that has been through a browser. Without it the paid
+          // book is written from scratch and the parent receives a different story from the one
+          // they read and chose to buy.
           previewCoverImage: draft.preview?.coverImageDataUrl || undefined,
         },
         shippingAddress: isPrint

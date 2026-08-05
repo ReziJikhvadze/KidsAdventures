@@ -45,4 +45,17 @@ public sealed class OpenAiOptions
     public int IllustrationMaxParallel { get; set; } = 2;
     /// <summary>Stagger parallel illustration starts to avoid burst rate limits.</summary>
     public int IllustrationStaggerSeconds { get; set; } = 2;
+
+    /// <summary>
+    /// Attempts at one illustration before giving up. Retries are for a rate limit or a blip; a
+    /// fourth attempt is waiting out a bad afternoon, and somebody is watching a loading screen
+    /// while it happens.
+    /// </summary>
+    public int ImageRetryAttempts { get; set; } = 3;
+
+    /// <summary>
+    /// Base seconds between attempts; the wait grows with each one. At the old eight this cost
+    /// up to forty-eight seconds of pure waiting on a request nobody had cancelled.
+    /// </summary>
+    public int ImageRetryBackoffSeconds { get; set; } = 3;
 }

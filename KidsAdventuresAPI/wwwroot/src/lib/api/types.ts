@@ -121,8 +121,6 @@ export type MasterStoryRunStatus = {
   firstPageText?: string | null;
   /** Sixteen, for a book of eight spreads. */
   pageCount?: number;
-  /** The whole book, replayed into the account after sign-in. */
-  storyJson?: string | null;
 };
 
 export type StoryPageContent = {

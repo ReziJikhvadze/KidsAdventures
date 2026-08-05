@@ -21,6 +21,9 @@ public interface IMasterBookService
     Task WriteBookAsync(Guid runId, CancellationToken cancellationToken);
 
     Task<MasterStoryRun?> GetAsync(Guid runId, CancellationToken cancellationToken);
+
+    /// <summary>Status only. What the polling client asks for, several times a minute.</summary>
+    Task<MasterStoryRunProgress?> GetProgressAsync(Guid runId, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -183,10 +186,15 @@ public sealed class MasterBookService(
             logger.LogInformation(
                 "Run {RunId}: story written in {Seconds:F1}s.", runId, writingDoneMs / 1000.0);
 
-            await runRepository.SetProgressAsync(
+            // Ready means the story is written, not that the picture is painted.
+            //
+            // The cover used to be drawn first, so a parent whose book had been finished for a
+            // minute was still watching a loading screen while an image model worked. The reader
+            // opens on the world's own artwork and swaps in the real cover when it lands, which
+            // costs a late change of picture and saves everyone that minute.
+            await runRepository.MarkReadyAsync(
                 runId,
-                MasterStoryRunStatus.Illustrating,
-                "ზღაპარი დაწერილია — ვხატავთ ყდას…",
+                JsonSerializer.Serialize(content, JsonOptions),
                 cancellationToken);
 
             // The cover is the book's cover, not page one. Writing it onto the first page would
@@ -198,11 +206,6 @@ public sealed class MasterBookService(
             {
                 await runRepository.SaveCoverAsync(runId, coverUrl, cancellationToken);
             }
-
-            await runRepository.MarkReadyAsync(
-                runId,
-                JsonSerializer.Serialize(content, JsonOptions),
-                cancellationToken);
 
             logger.LogInformation(
                 "Run {RunId} ready in {Total:F1}s — story {Story:F1}s, cover {Cover:F1}s: \"{Title}\".",
@@ -221,6 +224,9 @@ public sealed class MasterBookService(
 
     public Task<MasterStoryRun?> GetAsync(Guid runId, CancellationToken cancellationToken) =>
         runRepository.GetByIdAsync(runId, cancellationToken);
+
+    public Task<MasterStoryRunProgress?> GetProgressAsync(Guid runId, CancellationToken cancellationToken) =>
+        runRepository.GetProgressAsync(runId, cancellationToken);
 
     /// <summary>
     /// Draws the cover only. The other eight illustrations belong to a bought book and are drawn

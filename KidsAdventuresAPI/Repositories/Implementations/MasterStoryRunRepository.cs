@@ -41,6 +41,18 @@ public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFac
             new CommandDefinition(sql, new { Id = id }, cancellationToken: cancellationToken));
     }
 
+    public async Task<MasterStoryRunProgress?> GetProgressAsync(Guid id, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           SELECT TOP 1 Id, Status, ProgressMessage, ErrorMessage, CoverImageUrl
+                           FROM dbo.MasterStoryRuns WHERE Id = @Id;
+                           """;
+
+        using var connection = connectionFactory.CreateConnection();
+        return await connection.QueryFirstOrDefaultAsync<MasterStoryRunProgress>(
+            new CommandDefinition(sql, new { Id = id }, cancellationToken: cancellationToken));
+    }
+
     public async Task SetProgressAsync(Guid id, string status, string? progressMessage, CancellationToken cancellationToken)
     {
         const string sql = """

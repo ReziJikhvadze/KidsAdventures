@@ -29,29 +29,21 @@ export function AuthStage({ draft, onAuthenticated }: Props) {
   const bookTitle = draft.preview?.title || world.bookTitle(heroName);
 
   const displayPages = useMemo((): StoryPageContent[] => {
-    if (draft.preview?.storyJson) {
-      try {
-        const parsed = JSON.parse(draft.preview.storyJson) as {
-          pages?: Array<{
-            title?: string;
-            text?: string;
-            content?: string;
-            illustrationUrl?: string | null;
-          }>;
-        };
-        if (parsed.pages?.length) {
-          return parsed.pages.slice(0, 1).map((page) => ({
-            title: page.title || "",
-            content: page.content || page.text || "",
-            illustrationUrl: page.illustrationUrl ?? null,
-          }));
-        }
-      } catch {
-        /* fall through */
-      }
+    // The teaser's own first page, which the preview already holds. This used to dig it out of
+    // the serialised book by looking for a "pages" key — the book serialises "storyPages", so the
+    // lookup always missed and every parent signing up read the same demo paragraph instead of
+    // the story written for their child.
+    if (draft.preview?.firstPageText) {
+      return [
+        {
+          title: draft.preview.firstPageTitle || "",
+          content: draft.preview.firstPageText,
+          isTextOnlyPage: true,
+        },
+      ];
     }
     return heroDemoPages(heroName, worldId).slice(0, 1);
-  }, [draft.preview?.storyJson, heroName, worldId]);
+  }, [draft.preview?.firstPageText, draft.preview?.firstPageTitle, heroName, worldId]);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) onAuthenticated();

@@ -64,3 +64,13 @@ public sealed class MasterStoryRun
     /// <summary>Null means keep. Guest runs carry a value and are deleted once it passes.</summary>
     public DateTime? ExpiresAt { get; set; }
 }
+
+/// <summary>The small half of a run: everything a waiting browser needs and nothing it does not.</summary>
+public sealed class MasterStoryRunProgress
+{
+    public Guid Id { get; set; }
+    public string Status { get; set; } = MasterStoryRunStatus.Pending;
+    public string? ProgressMessage { get; set; }
+    public string? ErrorMessage { get; set; }
+    public string? CoverImageUrl { get; set; }
+}

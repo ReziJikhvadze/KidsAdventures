@@ -155,10 +155,6 @@ public sealed class MasterStoryRunStatusDto
     /// <summary>Sixteen, for a book of eight spreads.</summary>
     [JsonPropertyName("pageCount")]
     public int PageCount { get; set; }
-
-    /// <summary>The whole book, replayed into the account after sign-in.</summary>
-    [JsonPropertyName("storyJson")]
-    public string? StoryJson { get; set; }
 }
 
 public sealed class AdventureContentDto
