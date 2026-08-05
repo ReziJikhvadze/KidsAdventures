@@ -130,6 +130,11 @@ public sealed class MasterBookService(
             return;
         }
 
+        // Where a preview's minutes actually go. Asked often enough — and guessed at often
+        // enough — to be worth measuring rather than reasoning about.
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        var writingDoneMs = 0L;
+
         try
         {
             await runRepository.SetProgressAsync(
@@ -174,6 +179,10 @@ public sealed class MasterBookService(
                 result.CompletionTokens,
                 cancellationToken);
 
+            writingDoneMs = started.ElapsedMilliseconds;
+            logger.LogInformation(
+                "Run {RunId}: story written in {Seconds:F1}s.", runId, writingDoneMs / 1000.0);
+
             await runRepository.SetProgressAsync(
                 runId,
                 MasterStoryRunStatus.Illustrating,
@@ -195,7 +204,13 @@ public sealed class MasterBookService(
                 JsonSerializer.Serialize(content, JsonOptions),
                 cancellationToken);
 
-            logger.LogInformation("Book ready for run {RunId}: \"{Title}\".", runId, result.Story.Concept.Title);
+            logger.LogInformation(
+                "Run {RunId} ready in {Total:F1}s — story {Story:F1}s, cover {Cover:F1}s: \"{Title}\".",
+                runId,
+                started.ElapsedMilliseconds / 1000.0,
+                writingDoneMs / 1000.0,
+                (started.ElapsedMilliseconds - writingDoneMs) / 1000.0,
+                result.Story.Concept.Title);
         }
         catch (Exception ex)
         {
