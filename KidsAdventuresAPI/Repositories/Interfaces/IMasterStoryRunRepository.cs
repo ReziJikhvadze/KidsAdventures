@@ -52,6 +52,14 @@ public interface IMasterStoryRunRepository
     /// </summary>
     Task ClaimAsync(Guid id, Guid userId, Guid? packId, CancellationToken cancellationToken);
 
-    /// <summary>Removes guest runs whose expiry has passed. Returns how many went.</summary>
-    Task<int> DeleteExpiredAsync(CancellationToken cancellationToken);
+    /// <summary>
+    /// Guest runs whose expiry has passed, with the blobs they own.
+    ///
+    /// Listed before deleting rather than deleted outright, because a row is not the only thing
+    /// an expired run leaves behind: the portrait it was given is a photograph of a named child,
+    /// and dropping the row is what makes it unreachable rather than gone.
+    /// </summary>
+    Task<IReadOnlyList<ExpiredMasterStoryRun>> ListExpiredAsync(int limit, CancellationToken cancellationToken);
+
+    Task<int> DeleteAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken);
 }

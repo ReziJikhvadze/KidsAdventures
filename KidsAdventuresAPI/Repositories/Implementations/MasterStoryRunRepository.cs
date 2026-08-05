@@ -172,16 +172,34 @@ public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFac
             sql, new { Id = id, UserId = userId, PackId = packId }, cancellationToken: cancellationToken));
     }
 
-    public async Task<int> DeleteExpiredAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<ExpiredMasterStoryRun>> ListExpiredAsync(
+        int limit,
+        CancellationToken cancellationToken)
     {
-        // Batched so a long-neglected table cannot lock itself out of being tidied.
         const string sql = """
-                           DELETE TOP (500) FROM dbo.MasterStoryRuns
-                           WHERE ExpiresAt IS NOT NULL AND ExpiresAt < SYSUTCDATETIME();
+                           SELECT TOP (@Limit) Id, PhotoBlobUrl, CoverImageUrl
+                           FROM dbo.MasterStoryRuns
+                           WHERE ExpiresAt IS NOT NULL AND ExpiresAt < SYSUTCDATETIME()
+                           ORDER BY ExpiresAt;
                            """;
 
         using var connection = connectionFactory.CreateConnection();
-        return await connection.ExecuteAsync(new CommandDefinition(sql, cancellationToken: cancellationToken));
+        var rows = await connection.QueryAsync<ExpiredMasterStoryRun>(
+            new CommandDefinition(sql, new { Limit = limit }, cancellationToken: cancellationToken));
+        return rows.ToList();
+    }
+
+    public async Task<int> DeleteAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken)
+    {
+        if (ids.Count == 0)
+        {
+            return 0;
+        }
+
+        const string sql = "DELETE FROM dbo.MasterStoryRuns WHERE Id IN @Ids;";
+        using var connection = connectionFactory.CreateConnection();
+        return await connection.ExecuteAsync(
+            new CommandDefinition(sql, new { Ids = ids }, cancellationToken: cancellationToken));
     }
 
     private static string Truncate(string value, int max) =>

@@ -13,6 +13,25 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         PrimaryCharacterId, Title, CoverImageUrl, HasPrintEntitlement
         """;
 
+    /// <summary>
+    /// The same columns without GeneratedJson, for queries that return many books.
+    ///
+    /// GeneratedJson holds an entire book. A shelf listing every book a family owns was reading
+    /// all of them out of SQL and mapping them into memory to render covers and titles — which
+    /// is the one thing the story is not needed for. A sixteen-page book made that noticeably
+    /// worse, and it grows with every book bought.
+    ///
+    /// Everything that actually reads a story fetches one book by id, and those still get it.
+    /// </summary>
+    private const string PackListColumns = """
+        Id, UserId, ChildId, Theme, Status, PdfUrl, ErrorMessage,
+        OptionalStoryNotes, StoryLanguage, ProgressMessage, PdfCreditCharged,
+        PreviewIllustrationUrl, PreviewIllustrationStatus, PreviewIllustrationUpdatedAt,
+        StoryPageCount, IsWelcomeGiftStory, CreatedAt,
+        SeriesId, SequenceNumber, ContinuesFromBookId, AccessLevel, WorldId,
+        PrimaryCharacterId, Title, CoverImageUrl, HasPrintEntitlement
+        """;
+
     public async Task<Guid> CreatePendingAsync(AdventurePack pack, CancellationToken cancellationToken)
     {
         const string sql = """
@@ -72,7 +91,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         // Matches on either side of the cast: the hero the book is about, or a
         // supporting role, so a sibling's appearances show up on their shelf too.
         var sql = $"""
-                   SELECT {PackColumns}
+                   SELECT {PackListColumns}
                    FROM AdventurePacks AS p
                    WHERE p.UserId = @UserId
                      AND (
@@ -176,7 +195,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
     public async Task<IReadOnlyList<AdventurePack>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken)
     {
         var sql = $"""
-                     SELECT {PackColumns}
+                     SELECT {PackListColumns}
                      FROM AdventurePacks
                      WHERE UserId = @UserId
                      ORDER BY CreatedAt DESC;

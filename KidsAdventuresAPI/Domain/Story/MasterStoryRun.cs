@@ -74,3 +74,14 @@ public sealed class MasterStoryRunProgress
     public string? ErrorMessage { get; set; }
     public string? CoverImageUrl { get; set; }
 }
+
+/// <summary>
+/// An expired guest run and what it left in storage. Deleting the row alone would orphan the
+/// child's photograph, which is the file that mattered most for it to go.
+/// </summary>
+public sealed class ExpiredMasterStoryRun
+{
+    public Guid Id { get; set; }
+    public string? PhotoBlobUrl { get; set; }
+    public string? CoverImageUrl { get; set; }
+}

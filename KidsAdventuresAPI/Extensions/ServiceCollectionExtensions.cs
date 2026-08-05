@@ -224,6 +224,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IGuestPreviewRepository, GuestPreviewRepository>();
         services.AddScoped<IMasterStoryRunRepository, MasterStoryRunRepository>();
         services.AddScoped<IMasterBookService, MasterBookService>();
+        services.AddScoped<IMasterStoryRunCleanupService, MasterStoryRunCleanupService>();
         services.AddScoped<IChildRepository, ChildRepository>();
         services.AddScoped<ICharacterRepository, CharacterRepository>();
         services.AddScoped<ICharacterService, CharacterService>();

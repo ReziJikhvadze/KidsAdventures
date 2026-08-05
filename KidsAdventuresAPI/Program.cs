@@ -2,6 +2,7 @@ using AdventurePacks.Api.Data;
 using AdventurePacks.Api.Extensions;
 using AdventurePacks.Api.Infrastructure;
 using AdventurePacks.Api.Services.Interfaces;
+using AdventurePacks.Api.Services.Story;
 using Hangfire;
 
 DapperTypeHandlers.Register();
@@ -59,6 +60,15 @@ RecurringJob.AddOrUpdate<IOrderService>(
     "orders-retry-fulfilment",
     service => service.RetryStalledFulfilmentAsync(),
     "*/5 * * * *");
+
+// A guest preview stores a child's name, age and photograph so the browser has something to
+// poll while the book is written. The expiry on those rows is the promise that none of it is
+// kept; this is what makes the promise true. Hourly, because a day-long expiry does not need
+// finer granularity and the sweep is cheap when there is nothing to do.
+RecurringJob.AddOrUpdate<IMasterStoryRunCleanupService>(
+    "guest-runs-purge",
+    service => service.PurgeExpiredAsync(),
+    Cron.Hourly);
 
 app.MapControllers();
 app.UseFrontendHosting();

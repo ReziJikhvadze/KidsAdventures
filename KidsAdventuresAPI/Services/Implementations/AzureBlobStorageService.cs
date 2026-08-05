@@ -56,6 +56,20 @@ public sealed class AzureBlobStorageService(IOptions<AzureBlobOptions> options) 
         return memory.ToArray();
     }
 
+    public async Task<bool> DeleteByStoredUrlAsync(string storedUrl, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(storedUrl))
+        {
+            return false;
+        }
+
+        var (containerName, blobName) = ResolveBlobLocation(storedUrl);
+        var container = await GetContainerAsync(containerName, cancellationToken);
+        var response = await container.GetBlobClient(blobName).DeleteIfExistsAsync(
+            cancellationToken: cancellationToken);
+        return response.Value;
+    }
+
     /// <summary>
     /// Parses container + blob path from a full Azure blob URL, or falls back to configured container.
     /// </summary>
