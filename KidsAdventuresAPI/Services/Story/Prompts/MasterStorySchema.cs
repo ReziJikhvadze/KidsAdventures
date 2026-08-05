@@ -56,20 +56,16 @@ public static class MasterStorySchema
     {
         type = "object",
         additionalProperties = false,
-        required = new[] { "title", "logline", "learningGoal", "heroDescription", "outline", "ageRationale" },
+        required = new[] { "title", "outline" },
         properties = new Dictionary<string, object>
         {
             ["title"] = Text("The book's title."),
-            ["logline"] = Text("The whole story in one sentence."),
-            ["learningGoal"] = Text("The skill this book is built around."),
-            ["heroDescription"] = Text("Who the hero is, briefly."),
             ["outline"] = new
             {
                 type = "array",
                 description = "Five to eight beats, in order.",
                 items = new { type = "string" }
-            },
-            ["ageRationale"] = Text("Why this suits the child's age. Written for a parent to read.")
+            }
         }
     };
 
@@ -96,32 +92,26 @@ public static class MasterStorySchema
         type = "object",
         description,
         additionalProperties = false,
-        required = new[]
-        {
-            "moment", "action", "emotion", "environment",
-            "shot", "essentialDetails", "prompt", "negativePrompt"
-        },
+        required = new[] { "prompt", "negativePrompt" },
         properties = new Dictionary<string, object>
         {
-            ["moment"] = Text("Which moment of the text this picture shows."),
-            ["action"] = Text("The main action."),
-            ["emotion"] = Text("What the characters are feeling."),
-            ["environment"] = Text("Place, objects, weather, time of day."),
-            ["shot"] = Text("Full body, medium shot or close-up, plus the camera angle."),
-            ["essentialDetails"] = new
-            {
-                type = "array",
-                description = "What the picture must contain for the story to read without words.",
-                items = new { type = "string" }
-            },
+            // The scene used to be broken out into moment, action, emotion, environment, shot and
+            // a list of essential details, and then again into the prompt below. Nothing ever read
+            // the six — they were planning written down. Multiplied across nine illustrations they
+            // were most of what the call had to produce, and output length is what a reader waits
+            // on. The planning still has to happen; it just does not have to be typed out. What it
+            // must contain is stated here instead.
             ["prompt"] = new
             {
                 type = "string",
                 description =
                     "ENGLISH ONLY. The finished image prompt, beginning with the characterLock "
-                    + "text repeated verbatim, then scene, emotion, environment, composition, "
-                    + "lighting, style and format. The picture has its own page, so it may fill "
-                    + "the frame — no space needs to be reserved for text."
+                    + "text repeated verbatim. Then, in this order: which moment of the text is "
+                    + "shown, the main action, what the characters feel, the place with its "
+                    + "objects, weather and time of day, the shot and camera angle, the details "
+                    + "the picture needs for the story to read without words, then lighting, "
+                    + "style and format. The picture has its own page, so it may fill the frame — "
+                    + "no space needs to be reserved for text."
             },
             ["negativePrompt"] = new
             {

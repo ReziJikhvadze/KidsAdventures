@@ -72,23 +72,17 @@ public sealed record StorySpread
     public required IllustrationBrief Illustration { get; init; }
 }
 
+/// <summary>
+/// What the model committed to before writing. Deliberately small: the logline, the stated
+/// learning goal, the hero description and the age rationale were all asked for, stored and
+/// never read by anything, and every one of them was output a reader had to wait for.
+/// </summary>
 public sealed record StoryConcept
 {
     public required string Title { get; init; }
 
-    /// <summary>The whole book in one sentence.</summary>
-    public required string Logline { get; init; }
-
-    /// <summary>The skill or value this book is built around, as it was handed to the model.</summary>
-    public required string LearningGoal { get; init; }
-
-    public required string HeroDescription { get; init; }
-
-    /// <summary>Five to eight beats. What the model committed to before writing.</summary>
+    /// <summary>Five to eight beats. The one piece of planning worth having written down.</summary>
     public required IReadOnlyList<string> Outline { get; init; }
-
-    /// <summary>Why this suits the child's age. Written for a parent to read, not for us.</summary>
-    public required string AgeRationale { get; init; }
 }
 
 /// <summary>
@@ -96,19 +90,6 @@ public sealed record StoryConcept
 /// </summary>
 public sealed record IllustrationBrief
 {
-    /// <summary>Which moment of the text this picture shows.</summary>
-    public required string Moment { get; init; }
-
-    public required string Action { get; init; }
-    public required string Emotion { get; init; }
-    public required string Environment { get; init; }
-
-    /// <summary>Full body, medium shot or close-up, with the camera angle.</summary>
-    public required string Shot { get; init; }
-
-    /// <summary>Details the picture must contain for the story to read without the words.</summary>
-    public required IReadOnlyList<string> EssentialDetails { get; init; }
-
     /// <summary>
     /// The finished English prompt, with <see cref="MasterStory.CharacterLock"/> already
     /// inside it. Sent to the image model as written.

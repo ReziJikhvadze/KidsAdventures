@@ -86,10 +86,7 @@ public class LiveMasterStoryTests(ITestOutputHelper output)
         text.AppendLine();
         text.AppendLine($"*{elapsed.TotalSeconds:0}s · {result.PromptTokens} + {result.CompletionTokens} tokens*");
         text.AppendLine();
-        text.AppendLine($"**იდეა:** {story.Concept.Logline}");
         text.AppendLine($"**უნარი (რუკიდან):** {skill.Georgian}");
-        text.AppendLine($"**უნარი (მოდელის სიტყვებით):** {story.Concept.LearningGoal}");
-        text.AppendLine($"**ასაკობრივი დასაბუთება:** {story.Concept.AgeRationale}");
         text.AppendLine();
 
         text.AppendLine("## გეგმა");
@@ -129,10 +126,7 @@ public class LiveMasterStoryTests(ITestOutputHelper output)
         {
             var brief = spread.Illustration;
             text.AppendLine();
-            text.AppendLine($"### სცენა {spread.Number} — {brief.Shot}");
-            text.AppendLine($"- მომენტი: {brief.Moment}");
-            text.AppendLine($"- ემოცია: {brief.Emotion}");
-            text.AppendLine($"- გარემო: {brief.Environment}");
+            text.AppendLine($"### სცენა {spread.Number} — {spread.Title}");
             text.AppendLine();
             text.AppendLine("```");
             text.AppendLine(brief.Prompt);

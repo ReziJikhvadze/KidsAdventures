@@ -90,11 +90,7 @@ public class MasterStoryProjectionTests
         Concept = new StoryConcept
         {
             Title = "თამარი და ვარსკვლავი",
-            Logline = "one line",
-            LearningGoal = "courage",
-            HeroDescription = "a girl",
-            Outline = ["a", "b", "c", "d", "e"],
-            AgeRationale = "because"
+            Outline = ["a", "b", "c", "d", "e"]
         },
         Spreads = Enumerable.Range(1, spreads).Select(BuildSpread).ToList(),
         CharacterLock = "a girl with green eyes",
@@ -112,12 +108,6 @@ public class MasterStoryProjectionTests
 
     private static IllustrationBrief BuildBrief(int number) => new()
     {
-        Moment = "moment",
-        Action = "action",
-        Emotion = "emotion",
-        Environment = "environment",
-        Shot = "medium shot",
-        EssentialDetails = ["detail"],
         Prompt = $"prompt-{number}",
         NegativePrompt = "no drift"
     };
