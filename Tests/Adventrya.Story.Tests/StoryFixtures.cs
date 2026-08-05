@@ -179,6 +179,16 @@ public static class StoryFixtures
             Beats = [.. blueprint.Beats.Select(mutate)]
         };
 
+    /// <summary>Restates a beat's feeling and tempo, leaving its structure untouched.</summary>
+    public static StoryBeat WithFeel(this StoryBeat beat, StoryEmotion emotion, NarrativeEnergy energy) => new()
+    {
+        Page = beat.Page, Goal = beat.Goal, Obstacle = beat.Obstacle, Discovery = beat.Discovery,
+        Action = beat.Action, Purpose = beat.Purpose, Emotion = emotion, Energy = energy,
+        LocationId = beat.LocationId, TimeOfDay = beat.TimeOfDay, Weather = beat.Weather,
+        CharactersPresent = beat.CharactersPresent, ObjectsIntroduced = beat.ObjectsIntroduced,
+        ObjectsUsed = beat.ObjectsUsed, Deltas = beat.Deltas, Hook = beat.Hook, ThreadRefs = beat.ThreadRefs
+    };
+
     public static StoryBeat Replace(this StoryBeat beat,
         IReadOnlyList<string>? charactersPresent = null,
         IReadOnlyList<string>? objectsUsed = null,
