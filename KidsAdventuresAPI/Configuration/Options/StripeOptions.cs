@@ -10,6 +10,17 @@ public sealed class StripeOptions
     /// </summary>
     public bool Enabled { get; set; }
 
+    /// <summary>
+    /// Testing only: treat every order as already paid.
+    ///
+    /// No payment provider is contacted and no money is collected — the order is marked
+    /// paid and fulfilled inline, down the same path a real payment takes. That reuse is
+    /// the point: skipping straight past fulfilment would test a flow that does not exist
+    /// in production. This exists so the end-to-end journey can be exercised in a testing
+    /// environment; anything with real customers must have it false.
+    /// </summary>
+    public bool BypassPayment { get; set; }
+
     public string SecretKey { get; set; } = string.Empty;
     public string PublishableKey { get; set; } = string.Empty;
     public string WebhookSecret { get; set; } = string.Empty;

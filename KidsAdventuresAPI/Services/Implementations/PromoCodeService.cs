@@ -1,3 +1,4 @@
+using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.DTOs.Orders;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
@@ -6,8 +7,11 @@ namespace AdventurePacks.Api.Services.Implementations;
 
 public sealed class PromoCodeService(
     IPromoCodeRepository promoCodeRepository,
+    IOptions<StripeOptions> stripeOptions,
     ILogger<PromoCodeService> logger) : IPromoCodeService
 {
+    private readonly StripeOptions _stripe = stripeOptions.Value;
+
     private static class Messages
     {
         public const string Unknown = "ასეთი პრომოკოდი არ არსებობს.";
@@ -74,7 +78,10 @@ public sealed class PromoCodeService(
             SubtotalMinor = priced.SubtotalMinor,
             DiscountMinor = priced.DiscountMinor,
             TotalMinor = priced.TotalMinor,
-            IsFree = priced.IsFree,
+            // While payment is bypassed the quote reports free, so the checkout screen
+            // stops asking for a card it will never charge. The prices themselves are
+            // untouched — only the collection step is skipped.
+            IsFree = priced.IsFree || _stripe.BypassPayment,
             Promo = priced.Quote
         };
     }

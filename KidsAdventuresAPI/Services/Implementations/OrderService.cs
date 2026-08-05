@@ -279,8 +279,19 @@ public sealed class OrderService(
         string lineDescription,
         CancellationToken cancellationToken)
     {
-        if (order.IsFree)
+        // BypassPayment is the testing switch: it takes the same route a free order
+        // takes, so the end-to-end journey exercises the real fulfilment path rather than
+        // a shortcut that only exists while testing.
+        if (order.IsFree || _stripe.BypassPayment)
         {
+            if (_stripe.BypassPayment && !order.IsFree)
+            {
+                logger.LogWarning(
+                    "Payment bypass is ON: order {OrderId} for {TotalMinor} {Currency} is being "
+                    + "fulfilled without collecting payment. This must be off in production.",
+                    order.Id, order.TotalMinor, order.Currency);
+            }
+
             // Nothing to collect. Mark it paid ourselves and fulfil inline, so the parent
             // goes straight from "GIFT100 applied" to a book being written.
             await orderRepository.TryMarkPaidAsync(order.Id, null, cancellationToken);
