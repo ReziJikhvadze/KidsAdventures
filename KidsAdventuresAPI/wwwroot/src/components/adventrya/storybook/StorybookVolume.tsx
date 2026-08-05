@@ -184,6 +184,26 @@ function StoryFace({
       ? leaf.page.content || (isSpreadArt ? "" : leaf.page.caption || leaf.page.title)
       : `${t.story.storybook.lockedPagePrefix}${leaf.pageNumber}${t.story.storybook.lockedPageSuffix}`;
 
+  // The prose page borrows the inside cover's treatment: paper, a ruled frame and serif type.
+  //
+  // It used to reuse the page-copy overlay, which is a light-on-dark gradient built to sit on
+  // top of an illustration. With no picture underneath, that gradient is a dark panel over
+  // nothing — and the prose was sized to be a caption on artwork rather than a page to read.
+  if (isSpreadText && leaf.kind === "story") {
+    return (
+      <article
+        className={`storybook-page storybook-text-page ${pageSide ? `page-${pageSide}` : ""}`}
+      >
+        <div className="inside-cover-constellation" aria-hidden="true" />
+        {leaf.page.caption || leaf.page.title ? (
+          <small>{leaf.page.caption || leaf.page.title}</small>
+        ) : null}
+        <p>{leaf.page.content}</p>
+        <i>{t.story.storybook.pageLabel(pageNumber, totalStoryPages)}</i>
+      </article>
+    );
+  }
+
   return (
     <article
       className={`storybook-page ${pageSide ? `page-${pageSide}` : ""} ${

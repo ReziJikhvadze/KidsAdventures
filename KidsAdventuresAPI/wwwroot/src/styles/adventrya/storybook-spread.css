@@ -299,3 +299,91 @@
     line-height: 1.58;
   }
 }
+
+/*
+  The prose half of a spread.
+
+  It shares the inside cover's paper, ruled frame and serif voice, because that page already
+  reads like the inside of a book rather than a caption laid over artwork. What it does not
+  share is the inside cover's type scale: that page holds a dedication of a few words, this one
+  holds a page of a story a parent reads aloud, so the prose is set at a size meant for reading
+  and the text is left-aligned rather than centred — centred prose is fine for four words and
+  tiring for forty.
+*/
+.storybook-text-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 12% 11% 13%;
+  color: #51394d;
+  text-align: center;
+  border: 7px solid #e7dbc4;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(227, 190, 119, 0.18), transparent 30%),
+    repeating-linear-gradient(0deg, rgba(91, 64, 55, 0.025) 0 1px, transparent 1px 4px), #f5ead7;
+  box-shadow:
+    inset -20px 0 30px #4f333a1f,
+    inset 0 0 0 1px #ffffff80;
+}
+.storybook-text-page:before,
+.storybook-text-page:after {
+  content: "";
+  position: absolute;
+  inset: 5%;
+  pointer-events: none;
+  border: 1px solid rgba(137, 91, 61, 0.18);
+  border-radius: 7px;
+}
+.storybook-text-page:after {
+  inset: 7%;
+  border-color: #b5844b21;
+}
+.storybook-text-page > .inside-cover-constellation {
+  inset: 6% 12% auto;
+  height: 14%;
+  opacity: 0.3;
+}
+.storybook-text-page > small {
+  margin-bottom: 14px;
+  color: #9b6c4e;
+  font-size: clamp(10px, 0.8vw, 12px);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.storybook-text-page > p {
+  margin: 0;
+  font-family: "Adventrya Serif", serif;
+  /* Read aloud to a child, so it is set nearer a printed picture book than a UI label. */
+  /*
+    Half what it was, which is where the inside cover already sits. Centred prose wants a
+    narrow measure — long centred lines make the eye hunt for the start of the next one — so
+    the column is capped rather than filling the page.
+  */
+  max-width: 24em;
+  font-size: clamp(10px, 0.85vw, 13px);
+  line-height: 1.8;
+  text-wrap: pretty;
+}
+.storybook-text-page > i {
+  position: absolute;
+  bottom: 7%;
+  left: 0;
+  width: 100%;
+  color: #69484280;
+  font-size: 11px;
+  font-style: normal;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+/* A phone shows one page at a time, so the prose page has the whole screen and can breathe. */
+@media (max-width: 780px) {
+  .storybook-text-page {
+    padding: 13% 9% 15%;
+  }
+  .storybook-text-page > p {
+    font-size: clamp(11px, 2.3vw, 14px);
+  }
+}
