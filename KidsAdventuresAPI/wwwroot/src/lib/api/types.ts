@@ -290,6 +290,10 @@ export type BookDraftRequest = {
   storyNotes?: string;
   continuesFromBookId?: string;
   previewBookId?: string;
+  /** The story the parent actually read in the preview, kept verbatim for the paid book. */
+  previewStoryJson?: string;
+  /** That preview's cover, reused as page one instead of being redrawn. */
+  previewCoverImage?: string;
 };
 
 export type CreateOrderRequest = {

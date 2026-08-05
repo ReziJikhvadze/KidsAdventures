@@ -222,6 +222,25 @@ public sealed class AdventureGenerationService(
 
         try
         {
+            // The book already carries the story the parent read in the preview, adopted at
+            // fulfilment. Writing another one here would replace the story they chose to buy
+            // with a different one, which is the whole reason that adoption exists.
+            if (pack.Status == AdventurePackStatus.StoryReady
+                && !string.IsNullOrWhiteSpace(pack.GeneratedJson))
+            {
+                logger.LogInformation(
+                    "Book {PackId} already has its previewed story; going straight to illustrations.",
+                    packId);
+
+                await SetProgressAsync(
+                    packId,
+                    "ისტორია მზადაა — ვხატავთ წიგნის გვერდებს…",
+                    cancellationToken);
+
+                EnqueuePreviewIllustrationJob(packId);
+                return;
+            }
+
             await adventurePackRepository.UpdateStatusAsync(
                 packId,
                 AdventurePackStatus.GeneratingStory,

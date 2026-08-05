@@ -3,6 +3,7 @@ using System.Text.Json;
 using Hangfire;
 
 using AdventurePacks.Api.Domain;
+using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.DTOs.Orders;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
@@ -15,6 +16,7 @@ public sealed class BookFulfillmentService(
     ICharacterRepository characterRepository,
     IWorldProgressService worldProgressService,
     IPrintOrderService printOrderService,
+    IBlobStorageService blobStorageService,
     IBackgroundJobClient backgroundJobClient,
     ILogger<BookFulfillmentService> logger) : IBookFulfillmentService
 {
@@ -91,6 +93,11 @@ public sealed class BookFulfillmentService(
 
         await packRepository.CreatePendingAsync(book, cancellationToken);
         await orderRepository.SetBookIdAsync(order.Id, book.Id, cancellationToken);
+
+        // The parent already read a story and chose to buy it. Keep that one rather than
+        // writing a new one, and reuse its cover as page one so only the pages they have
+        // not seen cost a generation.
+        await AdoptPreviewAsync(book, draft, cancellationToken);
 
         var cast = BuildCast(hero.Id, draft.SupportingCharacterIds);
         await characterRepository.SetBookCastAsync(book.Id, cast, cancellationToken);
@@ -174,6 +181,120 @@ public sealed class BookFulfillmentService(
         return JsonSerializer.Deserialize<BookDraftRequest>(order.DraftJson, JsonOptions)
                ?? throw new InvalidOperationException("შეკვეთის მონაცემები დაზიანებულია.");
     }
+
+    /// <summary>
+    /// Carries the previewed story, and its cover, onto the book that was just bought.
+    ///
+    /// Until this existed the paid book was written from scratch: a parent read one story,
+    /// paid for it, and received a different one. The teaser was only ever shown, never
+    /// kept. Saving it here means the book they bought is the book they read.
+    ///
+    /// The cover is stored as page one's illustration, and the illustrator skips any page
+    /// that already has one — so the picture the parent chose is the picture they get, and
+    /// only the unseen pages cost a generation.
+    ///
+    /// Best effort on purpose: a book that cannot adopt its preview is still a book, and
+    /// falling back to generating a fresh story is far better than failing a paid order.
+    /// </summary>
+    private async Task AdoptPreviewAsync(
+        AdventurePack book,
+        BookDraftRequest draft,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(draft.PreviewStoryJson))
+        {
+            return;
+        }
+
+        try
+        {
+            var content = JsonSerializer.Deserialize<AdventureContentDto>(draft.PreviewStoryJson, JsonOptions);
+            if (content is null || content.StoryPages.Count == 0)
+            {
+                logger.LogWarning("Preview story for book {BookId} was empty; writing a fresh one.", book.Id);
+                return;
+            }
+
+            var coverUrl = await StorePreviewCoverAsync(book, draft.PreviewCoverImage, cancellationToken);
+            if (coverUrl is not null)
+            {
+                content.StoryPages[0].IllustrationUrl = coverUrl;
+            }
+
+            await packRepository.UpdateStatusAsync(
+                book.Id,
+                AdventurePackStatus.StoryReady,
+                JsonSerializer.Serialize(content, JsonOptions),
+                null,
+                null,
+                cancellationToken);
+
+            logger.LogInformation(
+                "Book {BookId} adopted its preview story ({PageCount} pages){CoverNote}.",
+                book.Id,
+                content.StoryPages.Count,
+                coverUrl is null ? " without a cover" : " and its cover");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not adopt the preview for book {BookId}; writing a fresh story.", book.Id);
+        }
+    }
+
+    /// <summary>Uploads the preview cover data URL, returning null when there is nothing usable.</summary>
+    private async Task<string?> StorePreviewCoverAsync(
+        AdventurePack book,
+        string? dataUrl,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(dataUrl))
+        {
+            return null;
+        }
+
+        var comma = dataUrl.IndexOf(',');
+        if (comma < 0)
+        {
+            return null;
+        }
+
+        var header = dataUrl[..comma];
+        var contentType = header.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
+            ? header[5..].Split(';')[0]
+            : "image/webp";
+
+        byte[] bytes;
+        try
+        {
+            bytes = Convert.FromBase64String(dataUrl[(comma + 1)..]);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+
+        // A cover this size is not one of ours. Dropping it costs one redrawn page;
+        // accepting anything the client sends would let a paid order carry arbitrary bytes
+        // into blob storage.
+        const int maxCoverBytes = 6 * 1024 * 1024;
+        if (bytes.Length == 0 || bytes.Length > maxCoverBytes)
+        {
+            return null;
+        }
+
+        return await blobStorageService.UploadAsync(
+            $"{book.UserId}/{book.Id}/page-0{ExtensionFor(contentType)}",
+            bytes,
+            contentType,
+            cancellationToken);
+    }
+
+    private static string ExtensionFor(string contentType) => contentType.ToLowerInvariant() switch
+    {
+        "image/png" => ".png",
+        "image/jpeg" or "image/jpg" => ".jpg",
+        _ => ".webp",
+    };
 
     private static List<Guid> BuildCast(Guid heroId, IEnumerable<Guid> supporting)
     {

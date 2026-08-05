@@ -28,6 +28,24 @@ public sealed class BookDraftRequest
 
     /// <summary>The teaser the parent already saw, so the paid book keeps that opening.</summary>
     public Guid? PreviewBookId { get; set; }
+
+    /// <summary>
+    /// The story the parent was actually shown in the preview, serialized exactly as the
+    /// model returned it.
+    ///
+    /// Without this the paid book is written from scratch, so a parent reads one story,
+    /// pays, and receives a different one — the product breaking its own promise at the
+    /// moment money changes hands. When present the book keeps this text verbatim and no
+    /// second story call is made.
+    /// </summary>
+    public string? PreviewStoryJson { get; set; }
+
+    /// <summary>
+    /// The cover image from that preview, as a data URL. Reused as page one rather than
+    /// redrawn, so the cover is the one the parent chose and only the remaining pages
+    /// cost a generation.
+    /// </summary>
+    public string? PreviewCoverImage { get; set; }
 }
 
 public sealed class CreateOrderRequest
