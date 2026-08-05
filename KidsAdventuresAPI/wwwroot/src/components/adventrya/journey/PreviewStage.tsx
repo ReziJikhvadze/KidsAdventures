@@ -214,12 +214,13 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
         title: draft.preview?.firstPageTitle || world.teaserTitle,
         caption: draft.preview?.firstPageTitle || t.journey.preview.freeFirstPage,
         content: draft.preview?.firstPageText || world.teaserBody,
-        illustrationUrl: coverSrc,
-        isIllustrated: true,
+        // The cover is already shown as the cover. Repeating it here printed the first page's
+        // words across the picture, which is the one thing giving the text its own page was
+        // supposed to prevent.
+        isTextOnlyPage: true,
       },
     ];
   }, [
-    coverSrc,
     draft.preview?.firstPageText,
     draft.preview?.firstPageTitle,
     world.teaserBody,
@@ -346,6 +347,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
             coverImageUrl={coverSrc}
             worldId={worldId}
             pages={previewPages}
+            isSpreadBook
             lockedPageCount={6}
             isUnlocked={false}
             interactive

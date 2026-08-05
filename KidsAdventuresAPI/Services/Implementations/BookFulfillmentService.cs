@@ -17,6 +17,7 @@ public sealed class BookFulfillmentService(
     IWorldProgressService worldProgressService,
     IPrintOrderService printOrderService,
     IBlobStorageService blobStorageService,
+    IMasterStoryRunRepository masterStoryRunRepository,
     IBackgroundJobClient backgroundJobClient,
     ILogger<BookFulfillmentService> logger) : IBookFulfillmentService
 {
@@ -201,21 +202,35 @@ public sealed class BookFulfillmentService(
         BookDraftRequest draft,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(draft.PreviewStoryJson))
+        // Prefer the run we wrote ourselves over the copy the client sends back.
+        //
+        // The client's copy is a round trip through a browser, so it is a claim rather than a
+        // fact: it can be edited, and its cover is a URL we would have to trust. The row holds
+        // the same story and the storage path we put the cover at, which is why the story was
+        // stored in the first place. The client's copy stays as the fallback for a run that has
+        // already expired.
+        var storedRun = draft.PreviewBookId is { } runId
+            ? await masterStoryRunRepository.GetByIdAsync(runId, cancellationToken)
+            : null;
+
+        var storyJson = storedRun?.ContentJson ?? draft.PreviewStoryJson;
+        var coverSource = storedRun?.CoverImageUrl ?? draft.PreviewCoverImage;
+
+        if (string.IsNullOrWhiteSpace(storyJson))
         {
             return;
         }
 
         try
         {
-            var content = JsonSerializer.Deserialize<AdventureContentDto>(draft.PreviewStoryJson, JsonOptions);
+            var content = JsonSerializer.Deserialize<AdventureContentDto>(storyJson, JsonOptions);
             if (content is null || content.StoryPages.Count == 0)
             {
                 logger.LogWarning("Preview story for book {BookId} was empty; writing a fresh one.", book.Id);
                 return;
             }
 
-            var coverUrl = await StorePreviewCoverAsync(book, draft.PreviewCoverImage, cancellationToken);
+            var coverUrl = await StorePreviewCoverAsync(book, coverSource, cancellationToken);
             if (coverUrl is not null)
             {
                 // A spread book's cover is not its first page. Page one has its own illustration,
@@ -246,6 +261,11 @@ public sealed class BookFulfillmentService(
                 null,
                 null,
                 cancellationToken);
+
+            if (storedRun is not null)
+            {
+                await masterStoryRunRepository.ClaimAsync(storedRun.Id, book.UserId, book.Id, cancellationToken);
+            }
 
             logger.LogInformation(
                 "Book {BookId} adopted its preview story ({PageCount} pages){CoverNote}.",

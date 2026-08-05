@@ -132,6 +132,11 @@ export type StoryPageContent = {
   content: string;
   illustrationUrl?: string | null;
   isIllustrated?: boolean;
+  /**
+   * True for the prose half of a spread. The reader draws art and copy on the same page, so
+   * without this a page whose only text is a caption prints that caption across the picture.
+   */
+  isTextOnlyPage?: boolean;
   /** Past the free preview allowance: text is readable, artwork is withheld and blurred. */
   isLocked?: boolean;
 };
@@ -170,6 +175,11 @@ export type AdventurePackDetailResponse = AdventurePackResponse & {
   lockedPageCount?: number;
   /** True when AccessLevel is Full. */
   isUnlocked?: boolean;
+  /**
+   * Eight spreads rather than pages that each carry art and text. Book-level on purpose: an
+   * older book's page also reports isTextOnlyPage false, so the page alone cannot say.
+   */
+  isSpreadBook?: boolean;
 };
 
 export type CheckoutSessionResponse = {

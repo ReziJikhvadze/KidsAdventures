@@ -6,6 +6,7 @@ using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services;
 using AdventurePacks.Api.Services.Interfaces;
+using AdventurePacks.Api.Services.Story;
 using Hangfire;
 
 namespace AdventurePacks.Api.Services.Implementations;
@@ -1212,7 +1213,7 @@ public sealed class AdventureGenerationService(
                     pack.Id,
                     anchor is { Length: > 0 },
                     pageCastPhotos)
-                : page.ImagePrompt;
+                : IllustrationPrompt.Compose(page.ImagePrompt, page.NegativePrompt);
 
             return await openAiService.GenerateStoryImageAsync(
                 imagePrompt,

@@ -52,6 +52,14 @@ public sealed class AdventurePackDetailResponse : AdventurePackResponse
 
     /// <summary>How many of the returned pages are locked (illustration withheld).</summary>
     public int LockedPageCount { get; set; }
+
+    /// <summary>
+    /// True when this book is eight spreads rather than pages that each carry art and text.
+    /// The reader needs it at the book level: a page from an older book deserialises with
+    /// IsTextOnlyPage false, which is indistinguishable from the illustration side of a spread,
+    /// and treating one as the other would strip every older book of its words.
+    /// </summary>
+    public bool IsSpreadBook { get; set; }
 }
 
 /// <summary>
@@ -87,6 +95,13 @@ public sealed class StoryPageContentDto
     public string Content { get; set; } = string.Empty;
     public string? IllustrationUrl { get; set; }
     public bool IsIllustrated { get; set; }
+
+    /// <summary>
+    /// True for the prose half of a spread, which prints facing a picture rather than over one.
+    /// The reader needs this: it draws art and copy on the same page, so without it a page whose
+    /// only text is a caption puts that caption across the illustration.
+    /// </summary>
+    public bool IsTextOnlyPage { get; set; }
 
     /// <summary>
     /// True for a page past the free preview allowance. The text is still returned — a

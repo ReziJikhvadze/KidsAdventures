@@ -146,13 +146,48 @@ public sealed class AdventurePacksController(
         // the book away.
         dto.Title = content.Title;
         dto.ChildName = content.ChildName;
-        dto.CoverImageUrl = run.CoverImageUrl;
+        // Never the storage URL itself. The container is private, so a browser sent there is
+        // answered with a 404 — Azure hides existence rather than returning 403 — and the cover
+        // silently fails to load. It is served through the endpoint below instead.
+        dto.CoverImageUrl = run.CoverImageUrl is null
+            ? null
+            : $"/api/adventure-packs/guest-preview/{run.Id}/cover";
         dto.FirstPageTitle = content.StoryPages.FirstOrDefault()?.Title;
         dto.FirstPageText = content.StoryPages.Skip(1).FirstOrDefault()?.Content;
         dto.PageCount = content.StoryPages.Count;
         dto.StoryJson = run.ContentJson;
 
         return Ok(dto);
+    }
+
+    /// <summary>
+    /// The teaser cover, served rather than linked.
+    ///
+    /// Anonymous because the parent has not signed up yet, and safe because the run id is a GUID
+    /// nobody can guess and the row it names expires. Only the cover is reachable this way — the
+    /// eight illustrations of a bought book are not.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("guest-preview/{runId:guid}/cover")]
+    public async Task<IActionResult> GetGuestPreviewCover(Guid runId, CancellationToken cancellationToken)
+    {
+        var run = await masterBookService.GetAsync(runId, cancellationToken);
+        if (run?.CoverImageUrl is null)
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(run.CoverImageUrl, cancellationToken);
+            Response.Headers.CacheControl = "private, max-age=86400";
+            return File(bytes, "image/webp");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Cover blob missing for run {RunId}", runId);
+            return NotFound();
+        }
     }
 
     private async Task<(byte[]? Bytes, string ContentType, bool TooLarge)> ReadPhotoAsync(
@@ -512,6 +547,7 @@ public sealed class AdventurePacksController(
                         Content = page.Content,
                         IsLocked = isLocked,
                         IsIllustrated = isIllustrated,
+                        IsTextOnlyPage = page.IsTextOnlyPage,
                         IllustrationUrl = isIllustrated
                             ? $"/api/adventure-packs/{pack.Id}/illustrations/{index}"
                             : null
@@ -520,6 +556,7 @@ public sealed class AdventurePacksController(
                 .ToList();
 
             detail.LockedPageCount = content.StoryPages.Count - unlockedPages;
+            detail.IsSpreadBook = isSpreadBook;
         }
         catch
         {

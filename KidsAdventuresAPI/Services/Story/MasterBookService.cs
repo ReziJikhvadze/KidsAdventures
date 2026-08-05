@@ -238,7 +238,7 @@ public sealed class MasterBookService(
             // The prompt is used exactly as the story call wrote it: the character lock is already
             // inside it, and rewriting it here is how the hero used to drift between pages.
             var imageBytes = await openAiService.GenerateStoryImageAsync(
-                story.Cover.Prompt,
+                IllustrationPrompt.Compose(story.Cover.Prompt, story.Cover.NegativePrompt),
                 new StoryImageReference { CharacterAnchorBytes = null, CastPhotos = castPhotos },
                 cancellationToken);
 

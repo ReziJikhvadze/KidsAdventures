@@ -22,6 +22,12 @@ export type StorybookVolumeProps = {
   pages: StoryPageContent[];
   lockedPageCount?: number;
   isUnlocked?: boolean;
+  /**
+   * Eight spreads rather than pages carrying art and text together. Comes from the book, not
+   * from a page: an older book's page reports isTextOnlyPage false too, so reading it per page
+   * would strip every older book of its words.
+   */
+  isSpreadBook?: boolean;
   className?: string;
   /** When false, omit controls / rail (thumbnail / shared teaser). */
   interactive?: boolean;
@@ -110,6 +116,7 @@ function StoryFace({
   heroName,
   pageSide,
   totalStoryPages,
+  isSpreadBook = false,
 }: {
   leaf:
     | Extract<StorybookLeaf, { kind: "story" }>
@@ -118,6 +125,7 @@ function StoryFace({
   heroName: string;
   pageSide?: "left" | "right";
   totalStoryPages: number;
+  isSpreadBook?: boolean;
 }) {
   const t = useT();
   const artUrl = useIllustrationUrl(leaf.kind === "story" ? leaf.page.illustrationUrl : null);
@@ -160,9 +168,20 @@ function StoryFace({
   // count and no text at all — those still render the full-page lock panel.
   const artLocked = leaf.kind === "story" && leaf.page.isLocked === true;
 
+  // A spread is a picture and the page of words facing it, so each side shows one of the two.
+  //
+  // Every page used to draw both, and the copy fell back to the caption when a page had no prose
+  // of its own — which printed the caption across the illustration, the exact thing giving the
+  // words their own page was meant to stop. Older books, where a page really did carry art and
+  // text together, still render both, which is why this asks the book and not the page.
+  const isSpreadArt = isSpreadBook && leaf.kind === "story" && !leaf.page.isTextOnlyPage;
+  const isSpreadText = isSpreadBook && leaf.kind === "story" && leaf.page.isTextOnlyPage === true;
+  const showArt = !isSpreadText;
+  const showCopy = !isSpreadArt;
+
   const copy =
     leaf.kind === "story"
-      ? leaf.page.content || leaf.page.caption || leaf.page.title
+      ? leaf.page.content || (isSpreadArt ? "" : leaf.page.caption || leaf.page.title)
       : `${t.story.storybook.lockedPagePrefix}${leaf.pageNumber}${t.story.storybook.lockedPageSuffix}`;
 
   return (
@@ -172,10 +191,12 @@ function StoryFace({
       } ${artLocked ? "is-art-locked" : ""}`}
     >
       <div className="storybook-page-content">
-        <div
-          className="storybook-page-art"
-          style={artUrl ? { backgroundImage: `url("${artUrl}")` } : undefined}
-        />
+        {showArt ? (
+          <div
+            className="storybook-page-art"
+            style={artUrl ? { backgroundImage: `url("${artUrl}")` } : undefined}
+          />
+        ) : null}
         {/* Sibling of the art, not a child: a CSS filter blurs its descendants too, so a
             badge nested inside the blurred element would be unreadable. */}
         {artLocked ? (
@@ -184,16 +205,18 @@ function StoryFace({
             <small>{t.story.storybook.lockedNote}</small>
           </span>
         ) : null}
-        <div className="storybook-page-copy">
-          <small>
-            {leaf.kind === "story"
-              ? leaf.page.caption ||
-                leaf.page.title ||
-                t.story.storybook.pageLabel(pageNumber, totalStoryPages)
-              : t.story.storybook.lockedNote}
-          </small>
-          <p>{copy}</p>
-        </div>
+        {showCopy ? (
+          <div className="storybook-page-copy">
+            <small>
+              {leaf.kind === "story"
+                ? leaf.page.caption ||
+                  leaf.page.title ||
+                  t.story.storybook.pageLabel(pageNumber, totalStoryPages)
+                : t.story.storybook.lockedNote}
+            </small>
+            <p>{copy}</p>
+          </div>
+        ) : null}
       </div>
       {locked ? (
         <div className="storybook-lock">
@@ -219,6 +242,7 @@ function LeafView({
   coverSrc,
   pageSide,
   totalStoryPages,
+  isSpreadBook = false,
 }: {
   leaf: StorybookLeaf | null;
   heroName: string;
@@ -226,6 +250,7 @@ function LeafView({
   coverSrc: string;
   pageSide?: "left" | "right";
   totalStoryPages: number;
+  isSpreadBook?: boolean;
 }) {
   if (!leaf) return <InsideCoverFace heroName={heroName} />;
   if (leaf.kind === "cover")
@@ -237,6 +262,7 @@ function LeafView({
       heroName={heroName}
       pageSide={pageSide}
       totalStoryPages={totalStoryPages}
+      isSpreadBook={isSpreadBook}
     />
   );
 }
@@ -249,6 +275,7 @@ export function StorybookVolume({
   pages,
   lockedPageCount = 0,
   isUnlocked = false,
+  isSpreadBook = false,
   className,
   interactive = true,
   initialIndex = 0,
@@ -430,6 +457,7 @@ export function StorybookVolume({
                   coverSrc={resolvedCover}
                   pageSide="left"
                   totalStoryPages={totalStoryPages}
+                  isSpreadBook={isSpreadBook}
                 />
               </div>
               <div className="storybook-spread-gutter" aria-hidden="true" />
@@ -441,6 +469,7 @@ export function StorybookVolume({
                   coverSrc={resolvedCover}
                   pageSide="right"
                   totalStoryPages={totalStoryPages}
+                  isSpreadBook={isSpreadBook}
                 />
               </div>
             </div>
@@ -451,6 +480,7 @@ export function StorybookVolume({
               title={title}
               coverSrc={resolvedCover}
               totalStoryPages={totalStoryPages}
+              isSpreadBook={isSpreadBook}
             />
           )}
         </div>
@@ -464,6 +494,7 @@ export function StorybookVolume({
                 title={title}
                 coverSrc={resolvedCover}
                 totalStoryPages={totalStoryPages}
+                isSpreadBook={isSpreadBook}
               />
             </div>
             <div className="storybook-turn-face storybook-turn-back">
@@ -473,6 +504,7 @@ export function StorybookVolume({
                 title={title}
                 coverSrc={resolvedCover}
                 totalStoryPages={totalStoryPages}
+                isSpreadBook={isSpreadBook}
               />
             </div>
             <i className="storybook-page-curl" />
@@ -488,6 +520,7 @@ export function StorybookVolume({
                 title={title}
                 coverSrc={resolvedCover}
                 totalStoryPages={totalStoryPages}
+                isSpreadBook={isSpreadBook}
               />
             </div>
             <div className="storybook-turn-face storybook-turn-back">
@@ -497,6 +530,7 @@ export function StorybookVolume({
                 title={title}
                 coverSrc={resolvedCover}
                 totalStoryPages={totalStoryPages}
+                isSpreadBook={isSpreadBook}
               />
             </div>
             <i className="storybook-page-curl" />
@@ -512,6 +546,7 @@ export function StorybookVolume({
                 title={title}
                 coverSrc={resolvedCover}
                 totalStoryPages={totalStoryPages}
+                isSpreadBook={isSpreadBook}
               />
             </div>
             <div className="storybook-turn-face storybook-turn-back">
@@ -521,6 +556,7 @@ export function StorybookVolume({
                 title={title}
                 coverSrc={resolvedCover}
                 totalStoryPages={totalStoryPages}
+                isSpreadBook={isSpreadBook}
               />
             </div>
             <i className="storybook-page-curl" />

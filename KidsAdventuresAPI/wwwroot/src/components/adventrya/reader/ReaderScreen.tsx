@@ -125,6 +125,7 @@ export function ReaderScreen() {
             pages={pages}
             lockedPageCount={lockedPageCount}
             isUnlocked={isUnlocked}
+            isSpreadBook={pack.isSpreadBook}
             interactive
           />
         ) : null}
