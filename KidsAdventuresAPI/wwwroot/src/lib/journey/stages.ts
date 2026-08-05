@@ -79,9 +79,7 @@ export function backHrefForStage(
     case "world":
       return "/create#profile";
     case "preview":
-      return options.mode === "continue" || options.hasWorld
-        ? "/create#profile"
-        : "/themes";
+      return options.mode === "continue" || options.hasWorld ? "/create#profile" : "/themes";
     case "auth":
       return "/create#preview";
     case "checkout":

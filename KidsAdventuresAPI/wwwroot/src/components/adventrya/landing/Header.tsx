@@ -28,7 +28,11 @@ export function Header() {
           chevron={<ChevronDownIcon />}
           labelStyle="short"
         />
-        <Link className="landing-v3-dashboard-link" to="/dashboard" aria-label={t.common.nav.openDashboard}>
+        <Link
+          className="landing-v3-dashboard-link"
+          to="/dashboard"
+          aria-label={t.common.nav.openDashboard}
+        >
           <DashboardIcon />
           <span>{t.common.nav.mySpace}</span>
         </Link>

@@ -21,8 +21,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
   const worldId = (draft.worldId ?? "dinosaurs") as WorldId;
   const world = WORLD_BY_ID[worldId];
   const coverSrc = draft.preview?.coverImageDataUrl || WORLD_COVER_ART[worldId];
-  const bookTitle =
-    draft.preview?.title || world.bookTitle(hero.name || t.common.fallbackHeroName);
+  const bookTitle = draft.preview?.title || world.bookTitle(hero.name || t.common.fallbackHeroName);
 
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +67,9 @@ export function GeneratingStage({ draft, onChange }: Props) {
         }
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "შეცდომა");
+        setError(
+          err instanceof ApiError ? err.message : err instanceof Error ? err.message : "შეცდომა",
+        );
       }
     })();
 

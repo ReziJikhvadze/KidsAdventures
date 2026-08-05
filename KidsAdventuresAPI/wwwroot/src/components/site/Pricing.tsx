@@ -238,8 +238,8 @@ export function Pricing() {
           </div>
 
           <p className="mt-8 text-center text-xs text-muted-foreground max-w-2xl mx-auto">
-            One $4.99 payment unlocks one complete illustrated book. No subscription, no hidden fees -
-            the printable PDF download is included.
+            One $4.99 payment unlocks one complete illustrated book. No subscription, no hidden fees
+            - the printable PDF download is included.
           </p>
         </div>
       </section>

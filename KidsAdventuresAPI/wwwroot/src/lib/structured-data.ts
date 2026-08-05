@@ -179,11 +179,7 @@ export function buildProfilePageSchema(input: {
   };
 }
 
-export function buildWebPageSchema(input: {
-  path: string;
-  title: string;
-  description: string;
-}) {
+export function buildWebPageSchema(input: { path: string; title: string; description: string }) {
   return {
     "@context": "https://schema.org",
     "@type": "WebPage",
@@ -227,9 +223,7 @@ export function buildThemeProductSchema(theme: {
   };
 }
 
-export function buildGiftGuideItemListSchema(
-  items: { name: string; description: string }[],
-) {
+export function buildGiftGuideItemListSchema(items: { name: string; description: string }[]) {
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",

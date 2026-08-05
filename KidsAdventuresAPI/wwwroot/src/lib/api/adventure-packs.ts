@@ -1,5 +1,10 @@
 import { ApiError, apiRequest, getApiBaseUrl, getToken } from "./client";
-import type { AdventurePackDetailResponse, AdventurePackResponse, AdventurePackStatus, ThemeType } from "./types";
+import type {
+  AdventurePackDetailResponse,
+  AdventurePackResponse,
+  AdventurePackStatus,
+  ThemeType,
+} from "./types";
 
 export type GenerateAdventurePackOptions = {
   optionalStoryNotes?: string;
@@ -38,7 +43,8 @@ export async function generateGuestPreview(input: GuestPreviewInput): Promise<Gu
   body.append("age", String(input.age));
   body.append("theme", input.theme);
   if (input.storyLanguage) body.append("storyLanguage", input.storyLanguage);
-  if (input.optionalStoryNotes?.trim()) body.append("optionalStoryNotes", input.optionalStoryNotes.trim());
+  if (input.optionalStoryNotes?.trim())
+    body.append("optionalStoryNotes", input.optionalStoryNotes.trim());
   if (input.photo) body.append("photo", input.photo);
 
   const response = await fetch(`${getApiBaseUrl()}/api/adventure-packs/guest-preview`, {
@@ -88,37 +94,45 @@ export async function generateAdventurePack(
   return apiRequest<{ id: string; status: string; welcomeStoryRemaining?: number }>(
     "/api/adventure-packs/generate",
     {
-    method: "POST",
-    body: JSON.stringify({
-      childId,
-      theme,
-      optionalStoryNotes: options?.optionalStoryNotes?.trim() || undefined,
-      storyLanguage: options?.storyLanguage || "en",
-    }),
-  });
+      method: "POST",
+      body: JSON.stringify({
+        childId,
+        theme,
+        optionalStoryNotes: options?.optionalStoryNotes?.trim() || undefined,
+        storyLanguage: options?.storyLanguage || "en",
+      }),
+    },
+  );
 }
 
 /** Spends one $4.99 book credit and starts illustrating an existing, text-ready pack. */
-export async function illustrateAdventurePack(
-  packId: string,
-): Promise<{ id: string; status: string; previewIllustrationStatus?: string; bookCredits?: number }> {
-  return apiRequest<{ id: string; status: string; previewIllustrationStatus?: string; bookCredits?: number }>(
-    `/api/adventure-packs/${packId}/illustrate`,
-    {
-      method: "POST",
-    },
-  );
+export async function illustrateAdventurePack(packId: string): Promise<{
+  id: string;
+  status: string;
+  previewIllustrationStatus?: string;
+  bookCredits?: number;
+}> {
+  return apiRequest<{
+    id: string;
+    status: string;
+    previewIllustrationStatus?: string;
+    bookCredits?: number;
+  }>(`/api/adventure-packs/${packId}/illustrate`, {
+    method: "POST",
+  });
 }
 
 export async function generatePackPdf(
   packId: string,
 ): Promise<{ id: string; status: string; bookCredits?: number; usesSlideshowImages?: boolean }> {
-  return apiRequest<{ id: string; status: string; bookCredits?: number; usesSlideshowImages?: boolean }>(
-    `/api/adventure-packs/${packId}/generate-pdf`,
-    {
-      method: "POST",
-    },
-  );
+  return apiRequest<{
+    id: string;
+    status: string;
+    bookCredits?: number;
+    usesSlideshowImages?: boolean;
+  }>(`/api/adventure-packs/${packId}/generate-pdf`, {
+    method: "POST",
+  });
 }
 
 export async function listAdventurePacks(): Promise<AdventurePackResponse[]> {
@@ -201,7 +215,11 @@ function parseIllustrationPageProgress(message: string | null | undefined): numb
 
 /** True once the story TEXT exists (free preview), regardless of whether illustrations are unlocked yet. */
 export function isStoryTextReady(pack: AdventurePackDetailResponse): boolean {
-  if (pack.status !== "StoryReady" && pack.status !== "GeneratingPdf" && pack.status !== "Completed") {
+  if (
+    pack.status !== "StoryReady" &&
+    pack.status !== "GeneratingPdf" &&
+    pack.status !== "Completed"
+  ) {
     return false;
   }
   return (pack.storyPages?.length ?? 0) > 0;
@@ -268,7 +286,7 @@ export function computePackProgressPercent(pack: AdventurePackDetailResponse): n
 
   if (pack.status === "StoryReady") {
     const pages = pack.storyPages ?? [];
-      const total = pack.storyPageCount ?? (pages.length || 6);
+    const total = pack.storyPageCount ?? (pages.length || 6);
     const done = pages.filter((p) => p.isIllustrated).length;
     if (total > 0) return Math.min(95, Math.round(35 + (done / total) * 60));
     return 40;
@@ -329,7 +347,9 @@ export async function pollAdventurePack(
     }
 
     if (pack.status === "Failed") {
-      throw new Error(pack.errorMessage ?? pack.progressMessage ?? "Generation failed. Please try again.");
+      throw new Error(
+        pack.errorMessage ?? pack.progressMessage ?? "Generation failed. Please try again.",
+      );
     }
 
     await new Promise((r) => setTimeout(r, intervalMs));

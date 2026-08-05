@@ -61,7 +61,11 @@ export function PhotoPickerActions({
             </button>
           </>
         ) : (
-          <button type="button" onClick={() => libraryRef.current?.click()} className={prominentButtonClass}>
+          <button
+            type="button"
+            onClick={() => libraryRef.current?.click()}
+            className={prominentButtonClass}
+          >
             {hasPhoto ? (
               <>
                 <Plus className="h-4 w-4" />
@@ -99,17 +103,29 @@ export function PhotoPickerActions({
     <div className={cn("flex flex-wrap gap-2", className)}>
       {isMobile ? (
         <>
-          <button type="button" onClick={() => cameraRef.current?.click()} className={compactButtonClass}>
+          <button
+            type="button"
+            onClick={() => cameraRef.current?.click()}
+            className={compactButtonClass}
+          >
             <Camera className="h-3.5 w-3.5" />
             Take photo
           </button>
-          <button type="button" onClick={() => libraryRef.current?.click()} className={compactButtonClass}>
+          <button
+            type="button"
+            onClick={() => libraryRef.current?.click()}
+            className={compactButtonClass}
+          >
             <ImageIcon className="h-3.5 w-3.5" />
             Choose from library
           </button>
         </>
       ) : (
-        <button type="button" onClick={() => libraryRef.current?.click()} className={compactButtonClass}>
+        <button
+          type="button"
+          onClick={() => libraryRef.current?.click()}
+          className={compactButtonClass}
+        >
           <Upload className="h-3.5 w-3.5" />
           {hasPhoto ? "Change photo" : "Upload photo"}
         </button>

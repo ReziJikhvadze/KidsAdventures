@@ -1,12 +1,5 @@
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { getAuthConfig } from "@/lib/api/auth";
 

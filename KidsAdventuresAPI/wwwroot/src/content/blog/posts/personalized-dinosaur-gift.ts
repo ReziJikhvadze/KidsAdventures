@@ -75,7 +75,7 @@ export const personalizedDinosaurGift: BlogPost = {
     {
       heading: "Perfect for grandparents",
       paragraphs: [
-        "Grandparents often want a meaningful gift without guessing toy sizes. Email the PDF or print it at home and wrap it with a note: \"You are the star of this adventure.\"",
+        'Grandparents often want a meaningful gift without guessing toy sizes. Email the PDF or print it at home and wrap it with a note: "You are the star of this adventure."',
         "Explore our dinosaur theme page or gift guide for more ideas.",
       ],
     },

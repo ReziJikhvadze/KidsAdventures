@@ -1,9 +1,7 @@
 import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 import { LEGAL_CONTACT_EMAILS, LEGAL_WEBSITE } from "@/lib/legal";
 
-export const SITE_URL = (
-  import.meta.env.VITE_SITE_URL?.trim() || LEGAL_WEBSITE
-).replace(/\/$/, "");
+export const SITE_URL = (import.meta.env.VITE_SITE_URL?.trim() || LEGAL_WEBSITE).replace(/\/$/, "");
 
 /** Stable public path — copied to public/og-default.jpg at build time. */
 export const DEFAULT_OG_IMAGE_PATH = "/og-default.jpg";

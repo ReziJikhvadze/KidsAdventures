@@ -111,7 +111,10 @@ function StoryFace({
   pageSide,
   totalStoryPages,
 }: {
-  leaf: Extract<StorybookLeaf, { kind: "story" }> | Extract<StorybookLeaf, { kind: "locked" }> | Extract<StorybookLeaf, { kind: "qr" }>;
+  leaf:
+    | Extract<StorybookLeaf, { kind: "story" }>
+    | Extract<StorybookLeaf, { kind: "locked" }>
+    | Extract<StorybookLeaf, { kind: "qr" }>;
   heroName: string;
   pageSide?: "left" | "right";
   totalStoryPages: number;
@@ -120,13 +123,20 @@ function StoryFace({
   const artUrl = useIllustrationUrl(leaf.kind === "story" ? leaf.page.illustrationUrl : null);
   const locked = leaf.kind === "locked";
   const pageNumber =
-    leaf.kind === "story" ? leaf.storyIndex + 1 : leaf.kind === "locked" ? leaf.pageNumber : totalStoryPages;
+    leaf.kind === "story"
+      ? leaf.storyIndex + 1
+      : leaf.kind === "locked"
+        ? leaf.pageNumber
+        : totalStoryPages;
 
   if (leaf.kind === "qr") {
     return (
       <article className={`storybook-page ${pageSide ? `page-${pageSide}` : ""}`}>
         <div className="storybook-page-content">
-          <div className="storybook-page-art" style={{ backgroundImage: `url("${fallbackCover()}")` }} />
+          <div
+            className="storybook-page-art"
+            style={{ backgroundImage: `url("${fallbackCover()}")` }}
+          />
           <div className="storybook-page-copy">
             <div className="storybook-qr-moment">
               <span className="storybook-qr" aria-hidden="true" />
@@ -177,7 +187,9 @@ function StoryFace({
         <div className="storybook-page-copy">
           <small>
             {leaf.kind === "story"
-              ? leaf.page.caption || leaf.page.title || t.story.storybook.pageLabel(pageNumber, totalStoryPages)
+              ? leaf.page.caption ||
+                leaf.page.title ||
+                t.story.storybook.pageLabel(pageNumber, totalStoryPages)
               : t.story.storybook.lockedNote}
           </small>
           <p>{copy}</p>
@@ -216,10 +228,16 @@ function LeafView({
   totalStoryPages: number;
 }) {
   if (!leaf) return <InsideCoverFace heroName={heroName} />;
-  if (leaf.kind === "cover") return <CoverFace heroName={heroName} title={title} coverSrc={coverSrc} />;
+  if (leaf.kind === "cover")
+    return <CoverFace heroName={heroName} title={title} coverSrc={coverSrc} />;
   if (leaf.kind === "inside") return <InsideCoverFace heroName={heroName} />;
   return (
-    <StoryFace leaf={leaf} heroName={heroName} pageSide={pageSide} totalStoryPages={totalStoryPages} />
+    <StoryFace
+      leaf={leaf}
+      heroName={heroName}
+      pageSide={pageSide}
+      totalStoryPages={totalStoryPages}
+    />
   );
 }
 
@@ -291,11 +309,9 @@ export function StorybookVolume({
   );
 
   const stepIndex = desktopSpread ? spreadSteps.indexOf(index) : index;
-  const prevTarget = desktopSpread
-    ? spreadSteps[Math.max(0, stepIndex - 1)] ?? 0
-    : index - 1;
+  const prevTarget = desktopSpread ? (spreadSteps[Math.max(0, stepIndex - 1)] ?? 0) : index - 1;
   const nextTarget = desktopSpread
-    ? spreadSteps[Math.min(spreadSteps.length - 1, stepIndex + 1)] ?? lastIndex
+    ? (spreadSteps[Math.min(spreadSteps.length - 1, stepIndex + 1)] ?? lastIndex)
     : index + 1;
   const canPrev = index > 0;
   const canNext = desktopSpread ? stepIndex < spreadSteps.length - 1 : index < lastIndex;
@@ -330,18 +346,20 @@ export function StorybookVolume({
         : leaves[index]?.kind === "qr"
           ? t.story.storybook.qrTitle
           : desktopSpread && index >= 2
-            ? t.story.storybook.spreadLabel(index - 1, Math.min(totalStoryPages, index), totalStoryPages || 1)
+            ? t.story.storybook.spreadLabel(
+                index - 1,
+                Math.min(totalStoryPages, index),
+                totalStoryPages || 1,
+              )
             : t.story.storybook.pageLabel(Math.max(1, index - 1), totalStoryPages || 1);
 
   const spreadClass = desktopSpread ? "uses-desktop-spread" : "uses-single-page";
   const openClass = index === 0 ? "is-closed" : "is-open";
   const showSpread = desktopSpread && index > 0;
 
-  const leftLeaf = index === 1 ? leaves[1] ?? null : leaves[index] ?? null;
+  const leftLeaf = index === 1 ? (leaves[1] ?? null) : (leaves[index] ?? null);
   const rightLeaf =
-    index === 1
-      ? leaves[2] ?? null
-      : leaves[Math.min(lastIndex, index + 1)] ?? null;
+    index === 1 ? (leaves[2] ?? null) : (leaves[Math.min(lastIndex, index + 1)] ?? null);
 
   return (
     <div

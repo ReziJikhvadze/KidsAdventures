@@ -25,7 +25,9 @@ const PAGE_SIZE = 25;
 function OrdersPage() {
   // The shell's global search navigates here with ?q=, so seed the filter from it.
   const initialSearch =
-    typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("q") ?? "";
+    typeof window === "undefined"
+      ? ""
+      : (new URLSearchParams(window.location.search).get("q") ?? "");
 
   const [search, setSearch] = useState(initialSearch);
   const [status, setStatus] = useState("");
@@ -45,11 +47,7 @@ function OrdersPage() {
   const lastPage = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE));
 
   return (
-    <AdminScreen
-      active="orders"
-      title="შეკვეთები"
-      subtitle="ყველა მომხმარებლის შეკვეთა"
-    >
+    <AdminScreen active="orders" title="შეკვეთები" subtitle="ყველა მომხმარებლის შეკვეთა">
       <div className="panel orders-workspace">
         <div className="orders-toolbar">
           <input
@@ -72,7 +70,9 @@ function OrdersPage() {
           >
             <option value="">ყველა სტატუსი</option>
             {STATUSES.map((s) => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s} value={s}>
+                {s}
+              </option>
             ))}
           </select>
           {data ? <span className="filter-count">{data.total}</span> : null}

@@ -70,7 +70,11 @@ function renderLegalText(text: string) {
     const [, label, href] = match;
     if (href.startsWith("/")) {
       return (
-        <Link key={`${label}-${index}`} to={href} className="text-primary font-semibold hover:underline">
+        <Link
+          key={`${label}-${index}`}
+          to={href}
+          className="text-primary font-semibold hover:underline"
+        >
           {label}
         </Link>
       );

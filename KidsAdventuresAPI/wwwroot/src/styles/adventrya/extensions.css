@@ -57,7 +57,9 @@
   text-decoration: none;
   color: var(--twilight);
   background: linear-gradient(90deg, var(--amber), var(--story-gold));
-  transition: transform 160ms ease, filter 160ms ease;
+  transition:
+    transform 160ms ease,
+    filter 160ms ease;
 }
 
 .ux-auth-landing-primary:hover {

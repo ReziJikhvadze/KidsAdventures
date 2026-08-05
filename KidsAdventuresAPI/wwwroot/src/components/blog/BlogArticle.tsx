@@ -28,7 +28,10 @@ export function BlogArticle({ post, relatedPosts = [] }: BlogArticleProps) {
   const updated = post.updatedAt && post.updatedAt !== post.publishedAt ? post.updatedAt : null;
   const tocSections = post.sections
     .filter((section) => section.heading)
-    .map((section) => ({ heading: section.heading as string, id: slugifyHeading(section.heading as string) }));
+    .map((section) => ({
+      heading: section.heading as string,
+      id: slugifyHeading(section.heading as string),
+    }));
 
   return (
     <article className="mx-auto max-w-3xl px-6 py-12 md:py-16">
@@ -102,7 +105,10 @@ export function BlogArticle({ post, relatedPosts = [] }: BlogArticleProps) {
 
       {/* Table of contents — improves dwell time and can earn SERP jump links. */}
       {tocSections.length > 1 ? (
-        <nav aria-label="On this page" className="mt-8 rounded-2xl border border-border bg-secondary/40 p-5">
+        <nav
+          aria-label="On this page"
+          className="mt-8 rounded-2xl border border-border bg-secondary/40 p-5"
+        >
           <p className="text-sm font-semibold text-foreground">On this page</p>
           <ul className="mt-3 space-y-1.5">
             {tocSections.map((section) => (
@@ -148,10 +154,7 @@ export function BlogArticle({ post, relatedPosts = [] }: BlogArticleProps) {
       {/* Visible FAQ that mirrors the FAQPage schema. */}
       {post.faqs && post.faqs.length > 0 ? (
         <section className="mt-12" aria-labelledby="post-faq-heading">
-          <h2
-            id="post-faq-heading"
-            className="font-display text-2xl font-semibold text-foreground"
-          >
+          <h2 id="post-faq-heading" className="font-display text-2xl font-semibold text-foreground">
             Frequently asked questions
           </h2>
           <dl className="mt-5 space-y-5">
@@ -232,7 +235,9 @@ export function BlogArticle({ post, relatedPosts = [] }: BlogArticleProps) {
                   params={{ slug: related.slug }}
                   className="block rounded-2xl border border-border bg-card p-5 hover:shadow-soft transition"
                 >
-                  <span className="font-display font-semibold text-foreground">{related.title}</span>
+                  <span className="font-display font-semibold text-foreground">
+                    {related.title}
+                  </span>
                   <span className="mt-1.5 block text-sm text-muted-foreground line-clamp-2">
                     {related.description}
                   </span>

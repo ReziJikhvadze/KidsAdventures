@@ -11,8 +11,7 @@ export function How() {
       <div className="landing-v3-how-heading">
         <p>{t.landing.how.eyebrow}</p>
         <h2>
-          {t.landing.how.titleLine1}{" "}
-          <em>{t.landing.how.titleEm}</em>
+          {t.landing.how.titleLine1} <em>{t.landing.how.titleEm}</em>
         </h2>
       </div>
 

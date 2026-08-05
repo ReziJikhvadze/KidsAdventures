@@ -1,7 +1,11 @@
 import { BookHeart, GraduationCap, Heart, ShieldCheck } from "lucide-react";
 
 const items = [
-  { icon: BookHeart, title: "Bedtime that feels personal", desc: "A story where your child hears their own name and feels like the brave main character." },
+  {
+    icon: BookHeart,
+    title: "Bedtime that feels personal",
+    desc: "A story where your child hears their own name and feels like the brave main character.",
+  },
   {
     icon: GraduationCap,
     title: "Learning without worksheets",
@@ -12,7 +16,11 @@ const items = [
     title: "Confidence in small moments",
     desc: "The adventure can model courage, kindness, curiosity, and problem-solving in kid-sized choices.",
   },
-  { icon: ShieldCheck, title: "Parent-first preview", desc: "Try the opening for free before paying, printing, or sharing it with your child." },
+  {
+    icon: ShieldCheck,
+    title: "Parent-first preview",
+    desc: "Try the opening for free before paying, printing, or sharing it with your child.",
+  },
 ];
 
 export function Benefits() {

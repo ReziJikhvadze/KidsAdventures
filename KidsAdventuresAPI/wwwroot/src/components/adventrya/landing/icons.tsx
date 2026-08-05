@@ -12,7 +12,14 @@ export function SparkleIcon({ className }: IconProps) {
 
 export function ArrowIcon({ className }: IconProps) {
   return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <path d="M5 12h14M13 6l6 6-6 6" />
     </svg>
   );
@@ -20,7 +27,14 @@ export function ArrowIcon({ className }: IconProps) {
 
 export function CheckIcon({ className }: IconProps) {
   return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <path d="m5 12.5 4.3 4.3L19.5 6.5" />
     </svg>
   );
@@ -28,7 +42,14 @@ export function CheckIcon({ className }: IconProps) {
 
 export function BookIcon({ className }: IconProps) {
   return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
       <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
       <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
     </svg>
@@ -37,7 +58,14 @@ export function BookIcon({ className }: IconProps) {
 
 export function GlobeIcon({ className }: IconProps) {
   return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
       <circle cx="12" cy="12" r="9" />
       <path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18" />
     </svg>
@@ -46,7 +74,14 @@ export function GlobeIcon({ className }: IconProps) {
 
 export function ChevronDownIcon({ className }: IconProps) {
   return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
       <path d="m6 9 6 6 6-6" />
     </svg>
   );
@@ -54,7 +89,14 @@ export function ChevronDownIcon({ className }: IconProps) {
 
 export function DashboardIcon({ className }: IconProps) {
   return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+    >
       <rect x="3" y="3" width="7" height="9" rx="1.5" />
       <rect x="14" y="3" width="7" height="5" rx="1.5" />
       <rect x="14" y="12" width="7" height="9" rx="1.5" />
@@ -68,7 +110,15 @@ export function WorldIcon({ type }: { type: WorldId }) {
     return (
       <svg viewBox="0 0 28 28" aria-hidden="true">
         <circle cx="14" cy="14" r="4" />
-        <ellipse cx="14" cy="14" rx="11" ry="5.5" transform="rotate(-24 14 14)" fill="none" stroke="currentColor" />
+        <ellipse
+          cx="14"
+          cy="14"
+          rx="11"
+          ry="5.5"
+          transform="rotate(-24 14 14)"
+          fill="none"
+          stroke="currentColor"
+        />
       </svg>
     );
   }

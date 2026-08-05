@@ -33,17 +33,14 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const worldId = (draft.worldId ?? "dinosaurs") as WorldId;
   const world = WORLD_BY_ID[worldId];
   const coverSrc = draft.preview?.coverImageDataUrl || WORLD_COVER_ART[worldId];
-  const bookTitle =
-    draft.preview?.title?.trim() || world.bookTitle(heroName);
+  const bookTitle = draft.preview?.title?.trim() || world.bookTitle(heroName);
   const orderPackage: OrderPackage = draft.bookPackage === "print" ? "Print" : "Digital";
   const isPrint = orderPackage === "Print";
   const langLabel = draft.bookLanguage === "en" ? "English" : "ქართული";
 
   const [promoInput, setPromoInput] = useState(draft.promoCode);
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
-  const [promoState, setPromoState] = useState<"idle" | "applying" | "applied" | "invalid">(
-    "idle",
-  );
+  const [promoState, setPromoState] = useState<"idle" | "applying" | "applied" | "invalid">("idle");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,9 +49,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const discountMinor = quote?.discountMinor ?? 0;
   const totalMinor = quote?.totalMinor ?? baseMinor;
   const isFree = quote?.isFree === true || totalMinor === 0;
-  const packageLabel = isPrint
-    ? t.journey.packages.print.title
-    : t.journey.packages.digital.title;
+  const packageLabel = isPrint ? t.journey.packages.print.title : t.journey.packages.digital.title;
 
   useEffect(() => {
     let cancelled = false;
@@ -254,7 +249,11 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
         )}
 
         {isPrint ? (
-          <label className="field field-wide" htmlFor="checkout-ship-recipient" style={{ marginTop: 16 }}>
+          <label
+            className="field field-wide"
+            htmlFor="checkout-ship-recipient"
+            style={{ marginTop: 16 }}
+          >
             <span>{t.journey.checkout.shippingAddress}</span>
             <input
               id="checkout-ship-recipient"
@@ -290,7 +289,11 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                 onChange={(e) => updateShipping({ city: e.target.value })}
               />
             </label>
-            <label className="field" htmlFor="checkout-ship-address" style={{ gridColumn: "1 / -1" }}>
+            <label
+              className="field"
+              htmlFor="checkout-ship-address"
+              style={{ gridColumn: "1 / -1" }}
+            >
               <span>მისამართი</span>
               <input
                 id="checkout-ship-address"

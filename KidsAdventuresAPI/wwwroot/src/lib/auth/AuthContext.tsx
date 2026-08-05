@@ -53,9 +53,7 @@ function normalizeUser(raw: Partial<AuthUser>): AuthUser {
   const subscriptionType = raw.subscriptionType ?? "Free";
   const bookCredits = typeof raw.bookCredits === "number" ? raw.bookCredits : 0;
   const storiesAllowedThisMonth =
-    typeof raw.storiesAllowedThisMonth === "number"
-      ? raw.storiesAllowedThisMonth
-      : 1 + bookCredits;
+    typeof raw.storiesAllowedThisMonth === "number" ? raw.storiesAllowedThisMonth : 1 + bookCredits;
   const storiesUsedThisMonth =
     typeof raw.storiesUsedThisMonth === "number" ? raw.storiesUsedThisMonth : 0;
   const storiesRemainingThisMonth =
@@ -275,7 +273,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshAccountBalance,
       setBookCredits,
     }),
-    [user, isLoading, canCreatePdf, login, loginWithGoogle, register, continueWith, signInWithMagicLink, signInWithPhoneCode, logout, applySession, refreshAccountBalance, setBookCredits],
+    [
+      user,
+      isLoading,
+      canCreatePdf,
+      login,
+      loginWithGoogle,
+      register,
+      continueWith,
+      signInWithMagicLink,
+      signInWithPhoneCode,
+      logout,
+      applySession,
+      refreshAccountBalance,
+      setBookCredits,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -6,13 +6,7 @@ import { BrandLogo } from "@/components/brand/BrandLogo";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { formatNavQuotaTitle, formatCreditsBadgeLabel } from "@/lib/account/storyQuota";
 import { PasswordlessAuthDialog } from "@/components/auth/PasswordlessAuthDialog";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 const anchorLinks: { label: string; href: string; isRoute?: boolean }[] = [
   { label: "Themes", href: "/#themes" },

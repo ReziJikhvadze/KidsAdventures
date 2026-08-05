@@ -101,7 +101,6 @@ export const journey = {
   },
 
   preview: {
-
     chooseWorldFirst: "ჯერ აირჩიე სამყარო, რომ ზღაპარი შენს არჩევანს დაემთხვეს.",
     eyebrow: " პერსონალიზებული Preview მზადაა",
     titlePrefix: "უკვე შეგიძლია ნახო, როგორ იწყება ",

@@ -83,11 +83,7 @@ export function AppHeader({
       )}
 
       <div className="app-header-end">
-        <LanguageSwitcher
-          className="header-pill"
-          globe={<Globe />}
-          chevron={<ChevronDown />}
-        />
+        <LanguageSwitcher className="header-pill" globe={<Globe />} chevron={<ChevronDown />} />
         <Link className="child-pill" to="/dashboard" aria-label={t.common.nav.openDashboard}>
           <span className="child-avatar" aria-hidden="true">
             {childName?.trim().charAt(0) ?? "A"}

@@ -2,13 +2,7 @@ export type SubscriptionType = "Free" | "Premium";
 
 export type BookPackPlan = "Book1";
 
-export type ThemeType =
-  | "Airplanes"
-  | "Dinosaurs"
-  | "Space"
-  | "Pirates"
-  | "Animals"
-  | "Magic";
+export type ThemeType = "Airplanes" | "Dinosaurs" | "Space" | "Pirates" | "Animals" | "Magic";
 
 export type AdventurePackStatus =
   | "Pending"
@@ -262,13 +256,7 @@ export type AdventureMapResponse = {
 
 export type OrderPackage = "Digital" | "Print";
 export type OrderType = "NewBook" | "PrintUpgrade";
-export type OrderStatus =
-  | "Pending"
-  | "Paid"
-  | "Fulfilled"
-  | "Failed"
-  | "Cancelled"
-  | "Refunded";
+export type OrderStatus = "Pending" | "Paid" | "Fulfilled" | "Failed" | "Cancelled" | "Refunded";
 
 export type ShippingAddressRequest = {
   recipientName: string;
@@ -372,12 +360,7 @@ export type OrderStatusResponse = {
   failureReason?: string | null;
 };
 
-export type PrintOrderStatus =
-  | "AwaitingPrint"
-  | "Printing"
-  | "Shipped"
-  | "Delivered"
-  | "Cancelled";
+export type PrintOrderStatus = "AwaitingPrint" | "Printing" | "Shipped" | "Delivered" | "Cancelled";
 
 export type PrintOrderResponse = {
   id: string;

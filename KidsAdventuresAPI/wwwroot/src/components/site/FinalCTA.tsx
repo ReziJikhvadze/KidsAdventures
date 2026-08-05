@@ -11,7 +11,8 @@ export function FinalCTA() {
               Make a story they can point to and say, "that's me."
             </h2>
             <p className="mt-5 text-lg text-background/70">
-              Create the first page free. Unlock the full illustrated book only when it feels special.
+              Create the first page free. Unlock the full illustrated book only when it feels
+              special.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <a

@@ -24,11 +24,7 @@ body {
 }
 body {
   color: var(--cream);
-  font-family:
-    "Adventrya Sans",
-    "Noto Sans Georgian",
-    system-ui,
-    sans-serif;
+  font-family: "Adventrya Sans", "Noto Sans Georgian", system-ui, sans-serif;
   overflow-x: hidden;
 }
 button,

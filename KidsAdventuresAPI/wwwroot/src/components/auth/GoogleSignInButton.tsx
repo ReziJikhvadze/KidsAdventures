@@ -199,7 +199,11 @@ function GoogleGlyph() {
   );
 }
 
-export function GoogleSignInBusyButton({ variant = "default" }: { variant?: "default" | "social" }) {
+export function GoogleSignInBusyButton({
+  variant = "default",
+}: {
+  variant?: "default" | "social";
+}) {
   const t = useT();
   if (variant === "social") {
     return (

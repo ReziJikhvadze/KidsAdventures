@@ -107,7 +107,6 @@ export const journey = {
   },
 
   preview: {
-
     chooseWorldFirst: "Choose a world first, so the story matches what you picked.",
     eyebrow: " Your personalised preview is ready",
     titlePrefix: "See how ",

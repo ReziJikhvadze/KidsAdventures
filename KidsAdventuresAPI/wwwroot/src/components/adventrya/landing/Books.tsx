@@ -22,7 +22,10 @@ export function Books() {
           const theme = example.theme as WorldId;
           const image = WORLD_COVER_ART[theme] ?? WORLD_COVER_ART.dinosaurs;
           return (
-            <article key={example.theme} className={`landing-v3-example-book example-book-${index + 1}`}>
+            <article
+              key={example.theme}
+              className={`landing-v3-example-book example-book-${index + 1}`}
+            >
               <div className="landing-v3-example-art">
                 <img src={image} alt={t.landing.books.exampleAlt(example.title)} />
                 <div className="landing-v3-example-overlay" />

@@ -22,6 +22,7 @@ import {
 
 export function JourneyScreen() {
   const [stage, goToStage] = useJourneyStage();
+  const t = useT();
   const [draft, setDraft] = useJourneyDraft();
   const { isAuthenticated, isLoading } = useAuth();
   const hydratedServerIds = useRef<string>("");
@@ -29,9 +30,7 @@ export function JourneyScreen() {
   // When continuing from the map, draft slots may only have serverIds — fill names/photos.
   useEffect(() => {
     if (isLoading || !isAuthenticated) return;
-    const needsHydration = draft.characters.filter(
-      (c) => c.serverId && !c.name.trim(),
-    );
+    const needsHydration = draft.characters.filter((c) => c.serverId && !c.name.trim());
     if (needsHydration.length === 0) return;
     const key = needsHydration.map((c) => c.serverId).join(",");
     if (hydratedServerIds.current === key) return;
@@ -43,9 +42,7 @@ export function JourneyScreen() {
         needsHydration.map(async (slot) => {
           try {
             const remote = await getCharacter(slot.serverId!);
-            const birthDate = remote.birthDate
-              ? remote.birthDate.slice(0, 10)
-              : "";
+            const birthDate = remote.birthDate ? remote.birthDate.slice(0, 10) : "";
             const patch: Partial<DraftCharacter> = {
               name: remote.name,
               birthDate,
@@ -163,6 +160,7 @@ export function JourneyScreen() {
         goAfterProfile,
         goAfterPreview,
         onPaid,
+        t,
       })}
     </div>
   );
@@ -177,37 +175,25 @@ function renderStage(
     goAfterProfile: () => void;
     goAfterPreview: () => void;
     onPaid: (orderId: string, bookId?: string | null) => void;
+    // Read in the component, not here: renderStage is a plain function, and a hook
+    // called from one only works while every branch happens to run in the same order.
+    t: ReturnType<typeof useT>;
   },
 ) {
-  const t = useT();
+  const { t } = ctx;
   switch (stage) {
     case "profile":
       return (
-        <ProfileStage
-          draft={ctx.draft}
-          onChange={ctx.setDraft}
-          onContinue={ctx.goAfterProfile}
-        />
+        <ProfileStage draft={ctx.draft} onChange={ctx.setDraft} onContinue={ctx.goAfterProfile} />
       );
     case "preview":
       return (
-        <PreviewStage
-          draft={ctx.draft}
-          onChange={ctx.setDraft}
-          onContinue={ctx.goAfterPreview}
-        />
+        <PreviewStage draft={ctx.draft} onChange={ctx.setDraft} onContinue={ctx.goAfterPreview} />
       );
     case "auth":
-      return (
-        <AuthStage
-          draft={ctx.draft}
-          onAuthenticated={() => ctx.goToStage("checkout")}
-        />
-      );
+      return <AuthStage draft={ctx.draft} onAuthenticated={() => ctx.goToStage("checkout")} />;
     case "checkout":
-      return (
-        <CheckoutStage draft={ctx.draft} onChange={ctx.setDraft} onPaid={ctx.onPaid} />
-      );
+      return <CheckoutStage draft={ctx.draft} onChange={ctx.setDraft} onPaid={ctx.onPaid} />;
     case "generating":
     case "generated":
       return <GeneratingStage draft={ctx.draft} onChange={ctx.setDraft} />;

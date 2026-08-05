@@ -15,10 +15,7 @@ import { AppHeader } from "@/components/adventrya/AppHeader";
 import { StoryPathMap } from "@/components/adventrya/world/StoryPathMap";
 import { PasswordlessAuthDialog } from "@/components/auth/PasswordlessAuthDialog";
 import { ApiError } from "@/lib/api/client";
-import {
-  downloadAdventurePack,
-  listAdventurePacks,
-} from "@/lib/api/adventure-packs";
+import { downloadAdventurePack, listAdventurePacks } from "@/lib/api/adventure-packs";
 import { listCharacters } from "@/lib/api/characters";
 import { createPrintUpgradeOrder } from "@/lib/api/orders";
 import { listPrintOrders, updatePrintOrderAddress } from "@/lib/api/print-orders";
@@ -144,7 +141,11 @@ export function DashboardScreen() {
     () =>
       packs
         .filter((p) => !characterId || p.primaryCharacterId === characterId)
-        .sort((a, b) => (a.sequenceNumber ?? 0) - (b.sequenceNumber ?? 0) || a.createdAt.localeCompare(b.createdAt)),
+        .sort(
+          (a, b) =>
+            (a.sequenceNumber ?? 0) - (b.sequenceNumber ?? 0) ||
+            a.createdAt.localeCompare(b.createdAt),
+        ),
     [packs, characterId],
   );
   const hasStories = childPacks.length > 0 || (map?.completedCount ?? 0) > 0;
@@ -170,7 +171,9 @@ export function DashboardScreen() {
     [characters, childPage],
   );
   const activeNode = map?.worlds.find((w) => w.worldId === activeWorldId);
-  const worldId = (activeWorldId && isWorldId(activeWorldId) ? activeWorldId : "dinosaurs") as WorldId;
+  const worldId = (
+    activeWorldId && isWorldId(activeWorldId) ? activeWorldId : "dinosaurs"
+  ) as WorldId;
   const world = WORLD_BY_ID[worldId];
 
   const actionHref = useMemo(() => {
@@ -601,9 +604,7 @@ function LibraryBookCard({
   // filtered to one child, so it can name them instead of describing them.
   const title = pack.title?.trim() || world.bookTitle(heroName);
   const hasPrint = pack.hasPrintEntitlement || !!printOrder;
-  const format = hasPrint
-    ? t.dashboard.library.formatBoth
-    : t.dashboard.library.formatDigital;
+  const format = hasPrint ? t.dashboard.library.formatBoth : t.dashboard.library.formatDigital;
 
   return (
     <article className="library-book">
@@ -628,7 +629,9 @@ function LibraryBookCard({
           </Link>
           <button
             type="button"
-            onClick={() => void downloadAdventurePack(pack.id, `${title}.pdf`).catch(() => undefined)}
+            onClick={() =>
+              void downloadAdventurePack(pack.id, `${title}.pdf`).catch(() => undefined)
+            }
             disabled={!pack.pdfUrl}
           >
             <Download aria-hidden="true" /> PDF
@@ -734,7 +737,11 @@ function PrintUpgradePanel({
               onChange={(e) => onChange({ city: e.target.value })}
             />
           </label>
-          <label className="field" htmlFor="dashboard-ship-address" style={{ gridColumn: "1 / -1" }}>
+          <label
+            className="field"
+            htmlFor="dashboard-ship-address"
+            style={{ gridColumn: "1 / -1" }}
+          >
             <span>მისამართი</span>
             <input
               id="dashboard-ship-address"

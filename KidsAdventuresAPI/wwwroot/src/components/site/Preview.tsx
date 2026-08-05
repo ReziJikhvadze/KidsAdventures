@@ -51,8 +51,8 @@ export function Preview() {
               <li className="flex items-start gap-3">
                 <Lock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                 <span>
-                  <strong className="text-foreground">PDF export is included</strong> - download, print,
-                  and share anytime.
+                  <strong className="text-foreground">PDF export is included</strong> - download,
+                  print, and share anytime.
                 </span>
               </li>
               <li className="flex items-start gap-3">
@@ -80,7 +80,8 @@ export function Preview() {
                 isCompleted={false}
               />
               <p className="mt-4 text-center text-xs text-muted-foreground">
-                Sample story with demo art - your book uses your child&apos;s name and optional photo.
+                Sample story with demo art - your book uses your child&apos;s name and optional
+                photo.
               </p>
             </div>
           </div>

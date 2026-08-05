@@ -90,7 +90,9 @@ export function ChildWorldScreen() {
   const character = characters.find((c) => c.id === characterId) ?? null;
   const heroName = map?.characterName || character?.name || t.common.fallbackHeroName;
   const activeNode = map?.worlds.find((w) => w.worldId === activeWorldId);
-  const worldId = (activeWorldId && isWorldId(activeWorldId) ? activeWorldId : "dinosaurs") as WorldId;
+  const worldId = (
+    activeWorldId && isWorldId(activeWorldId) ? activeWorldId : "dinosaurs"
+  ) as WorldId;
   const world = WORLD_BY_ID[worldId];
 
   const continueHref = useMemo(() => {
@@ -107,7 +109,9 @@ export function ChildWorldScreen() {
           fromSequenceNumber: activeNode.sequenceNumber ?? 1,
           nextSequenceNumber: (activeNode.sequenceNumber ?? 1) + 1,
           suggestedWorldId: map?.nextWorldId ?? worldId,
-          carryForwardCharacters: [{ id: characterId, name: heroName, characterType: "child", isPrimary: true }],
+          carryForwardCharacters: [
+            { id: characterId, name: heroName, characterType: "child", isPrimary: true },
+          ],
         },
         characterId,
         map?.nextWorldId ?? worldId,
@@ -127,9 +131,7 @@ export function ChildWorldScreen() {
   }, [continueHref]);
 
   const ctaLabel =
-    activeNode?.state === "Completed"
-      ? t.story.world.continueFromMemory
-      : t.story.world.unlockNext;
+    activeNode?.state === "Completed" ? t.story.world.continueFromMemory : t.story.world.unlockNext;
 
   const lockedSelected = activeNode?.state === "Locked";
 
@@ -148,10 +150,7 @@ export function ChildWorldScreen() {
           </span>
           <div>
             <small>
-              {t.story.world.profileLine(
-                character?.age ?? 5,
-                map?.completedCount ?? 0,
-              )}
+              {t.story.world.profileLine(character?.age ?? 5, map?.completedCount ?? 0)}
             </small>
             <h1>{heroName}ს სამყარო</h1>
           </div>
@@ -246,11 +245,7 @@ export function ChildWorldScreen() {
 
       <div className="living-map living-map-v2">
         {map ? (
-          <StoryPathMap
-            map={map}
-            activeWorldId={activeWorldId}
-            onSelect={setActiveWorldId}
-          />
+          <StoryPathMap map={map} activeWorldId={activeWorldId} onSelect={setActiveWorldId} />
         ) : null}
       </div>
     </div>

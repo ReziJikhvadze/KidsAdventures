@@ -257,9 +257,7 @@ function PageIllustration({
         style={{ background: `color-mix(in oklab, ${themeTint} 55%, white)` }}
       >
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm font-medium text-muted-foreground">
-          Painting page {pageIndex + 1}…
-        </p>
+        <p className="text-sm font-medium text-muted-foreground">Painting page {pageIndex + 1}…</p>
         <p className="text-xs text-muted-foreground/80">
           Page {pageIndex + 1} of {totalPages} · about 1 minute each
         </p>
@@ -408,7 +406,9 @@ export function StoryBookReader({
                 aria-pressed={showNarration}
               >
                 <BookOpen className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{showNarration ? "Hide words" : "Read aloud"}</span>
+                <span className="hidden sm:inline">
+                  {showNarration ? "Hide words" : "Read aloud"}
+                </span>
               </button>
             )}
             <button

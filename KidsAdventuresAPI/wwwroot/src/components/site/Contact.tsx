@@ -15,10 +15,7 @@ export function Contact() {
   const [sent, setSent] = useState(false);
 
   const canSubmit =
-    name.trim().length > 0 &&
-    email.trim().length > 0 &&
-    message.trim().length > 0 &&
-    !sending;
+    name.trim().length > 0 && email.trim().length > 0 && message.trim().length > 0 && !sending;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +63,8 @@ export function Contact() {
               </div>
               <p className="mt-5 font-display text-xl font-semibold">Message sent</p>
               <p className="mt-2 text-sm text-muted-foreground max-w-sm mx-auto">
-                Thanks for reaching out. The {BRAND_NAME} team will get back to you at the email you provided.
+                Thanks for reaching out. The {BRAND_NAME} team will get back to you at the email you
+                provided.
               </p>
               <button
                 type="button"

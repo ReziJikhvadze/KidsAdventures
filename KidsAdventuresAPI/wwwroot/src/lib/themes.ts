@@ -5,13 +5,7 @@ import pirates from "@/assets/theme-pirates.jpg";
 import animals from "@/assets/theme-animals.jpg";
 import type { ThemeType } from "@/lib/api/types";
 
-export type StoryThemeId =
-  | "airplanes"
-  | "dinosaurs"
-  | "space"
-  | "pirates"
-  | "animals"
-  | "magic";
+export type StoryThemeId = "airplanes" | "dinosaurs" | "space" | "pirates" | "animals" | "magic";
 
 export type StoryTheme = {
   id: StoryThemeId;
@@ -173,11 +167,7 @@ export const STORY_THEMES: StoryTheme[] = [
       "ჯადოსნური სამყარო Adventrya-ს მეექვსე თავგადასავალია — რბილი მაგია, მეგობრობა და აღმოჩენა, ძალადობის გარეშე.",
       "დაამატე პორტრეტი და გმირი ბავშვს ჰგავს ყოველ გვერდზე. სრული წიგნი იქმნება გადახდის შემდეგ.",
     ],
-    highlights: [
-      "რბილი, უსაფრთხო ჯადო",
-      "ასაკზე მორგებული ტექსტი",
-      "გაგრძელება Adventure Map-ზე",
-    ],
+    highlights: ["რბილი, უსაფრთხო ჯადო", "ასაკზე მორგებული ტექსტი", "გაგრძელება Adventure Map-ზე"],
   },
 ];
 

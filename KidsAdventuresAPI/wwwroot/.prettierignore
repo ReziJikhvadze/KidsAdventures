@@ -6,3 +6,7 @@ pnpm-lock.yaml
 package-lock.json
 bun.lock
 routeTree.gen.ts
+
+# Vendored and static: not ours to format, and eslint never looked at them anyway.
+Adventrya_Partner_Demo_v13
+public

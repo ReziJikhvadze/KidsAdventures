@@ -14,10 +14,7 @@ export type BookPackage = "digital" | "print";
 
 export type PurchaseType = "new_book" | "print_upgrade";
 
-export function basePriceMinor(
-  purchaseType: PurchaseType,
-  bookPackage: BookPackage,
-): number {
+export function basePriceMinor(purchaseType: PurchaseType, bookPackage: BookPackage): number {
   if (purchaseType === "print_upgrade") return PRICES.printUpgrade;
   return bookPackage === "print" ? PRICES.print : PRICES.digital;
 }

@@ -11,8 +11,7 @@ import type {
   PaymentProvider,
 } from "./types";
 
-const RETIRED =
-  "კრედიტების საფულე აღარ გამოიყენება. გამოიყენე შეკვეთები (/api/orders).";
+const RETIRED = "კრედიტების საფულე აღარ გამოიყენება. გამოიყენე შეკვეთები (/api/orders).";
 
 export async function getAccountBalance(): Promise<AccountBalanceResponse> {
   throw new ApiError(RETIRED, 410);

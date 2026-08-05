@@ -14,10 +14,7 @@ const PLACE: Record<WorldId, string> = {
  * Demo sample pages used by the Partner Demo hero storybook (`ea()` in app.js).
  * Keeps the landing page page-turn / scroll experience without a paid book.
  */
-export function heroDemoPages(
-  heroName: string,
-  theme: WorldId = "dinosaurs",
-): StoryPageContent[] {
+export function heroDemoPages(heroName: string, theme: WorldId = "dinosaurs"): StoryPageContent[] {
   const place = PLACE[theme] ?? PLACE.dinosaurs;
   const cover = WORLD_COVER_ART[theme] ?? WORLD_COVER_ART.dinosaurs;
   const friendLine = "იქ პატარა რექსი ელოდებოდა.";

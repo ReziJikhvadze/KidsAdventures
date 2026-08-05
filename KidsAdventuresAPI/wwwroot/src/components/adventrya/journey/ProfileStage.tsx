@@ -5,11 +5,7 @@ import { SparkleIcon } from "@/components/adventrya/landing/icons";
 import { BOOK_LANGUAGES, type BookLanguage, useT } from "@/lib/i18n";
 import { preparePortrait } from "@/lib/images/preparePortrait";
 import type { CharacterGender, EyeColor } from "@/lib/api/types";
-import {
-  emptyCharacter,
-  type DraftCharacter,
-  type JourneyDraft,
-} from "@/lib/journey/draft";
+import { emptyCharacter, type DraftCharacter, type JourneyDraft } from "@/lib/journey/draft";
 
 const MAX_CHARACTERS = 3;
 // The keys are the stored values, not display copy, so they stay literal rather than
@@ -34,9 +30,7 @@ function entryEditingId(characters: DraftCharacter[]): string | null {
 
 export function ProfileStage({ draft, onChange, onContinue }: Props) {
   const t = useT();
-  const [editingId, setEditingId] = useState<string | null>(() =>
-    entryEditingId(draft.characters),
-  );
+  const [editingId, setEditingId] = useState<string | null>(() => entryEditingId(draft.characters));
   const [error, setError] = useState<string | null>(null);
 
   // The draft is only read from localStorage after the first render (SSR safety),
@@ -65,8 +59,7 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
   const validateCharacter = (character: DraftCharacter): string | null => {
     if (!character.name.trim()) return copy.validation.nameRequired;
     if (character.isPrimary && !character.birthDate) return copy.validation.birthDateRequired;
-    const needsGender =
-      character.characterType === "child" || character.characterType === "adult";
+    const needsGender = character.characterType === "child" || character.characterType === "adult";
     if (needsGender && !character.gender) return copy.validation.genderRequired;
     if (!character.isPrimary) {
       if (!character.relationship) return copy.validation.relationshipRequired;
@@ -281,8 +274,7 @@ function CharacterEditor({
   const t = useT();
   const fileRef = useRef<HTMLInputElement>(null);
   const copy = t.journey;
-  const needsGender =
-    character.characterType === "child" || character.characterType === "adult";
+  const needsGender = character.characterType === "child" || character.characterType === "adult";
 
   const title = character.isPrimary
     ? copy.profile.primaryCharacter
@@ -394,9 +386,7 @@ function CharacterEditor({
         </div>
 
         <div className={`ux-photo-upload ${character.photoReady ? "ready" : ""}`}>
-          <span aria-hidden="true">
-            {character.photoReady ? <Check /> : <Camera />}
-          </span>
+          <span aria-hidden="true">{character.photoReady ? <Check /> : <Camera />}</span>
           <small>
             {character.photoReady
               ? copy.characterForm.photoReady
@@ -478,9 +468,7 @@ function CharacterSummary({
       <span className="ux-ready-check" aria-hidden="true">
         <Check />
       </span>
-      <span className="ux-summary-avatar">
-        {character.name.trim().slice(0, 1) || "A"}
-      </span>
+      <span className="ux-summary-avatar">{character.name.trim().slice(0, 1) || "A"}</span>
       <div>
         <small>{label}</small>
         <h2>{character.name}</h2>

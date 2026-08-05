@@ -60,7 +60,9 @@ export function Footer() {
       </div>
       <div className="border-t border-border">
         <div className="mx-auto max-w-7xl px-6 py-6 flex flex-col sm:flex-row gap-3 justify-between items-center text-xs text-muted-foreground">
-          <div>© {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.</div>
+          <div>
+            © {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.
+          </div>
           <div>Made with love for curious kids.</div>
         </div>
       </div>

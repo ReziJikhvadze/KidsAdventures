@@ -107,11 +107,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
         setLoading(false);
       } catch (err) {
         if (cancelled) return;
-        setError(
-          err instanceof ApiError
-            ? err.message
-            : "Preview ვერ შეიქმნა. სცადე თავიდან.",
-        );
+        setError(err instanceof ApiError ? err.message : "Preview ვერ შეიქმნა. სცადე თავიდან.");
         setLoading(false);
       }
     })();
@@ -126,8 +122,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
   }, [hydrated, draft.worldId]);
 
   const coverSrc = draft.preview?.coverImageDataUrl || WORLD_COVER_ART[worldId];
-  const bookTitle =
-    draft.preview?.title || world.bookTitle(hero.name || t.common.fallbackHeroName);
+  const bookTitle = draft.preview?.title || world.bookTitle(hero.name || t.common.fallbackHeroName);
 
   const previewPages: StoryPageContent[] = useMemo(() => {
     return [
@@ -198,11 +193,13 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
               {t.journey.previewLoader.stages.map((label, index) => (
                 <span
                   key={label}
-                  className={
-                    index < loaderStep ? "done" : index === loaderStep ? "active" : ""
-                  }
+                  className={index < loaderStep ? "done" : index === loaderStep ? "active" : ""}
                 >
-                  {index < loaderStep ? <Check aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+                  {index < loaderStep ? (
+                    <Check aria-hidden="true" />
+                  ) : (
+                    <Sparkles aria-hidden="true" />
+                  )}
                   {label}
                 </span>
               ))}
@@ -294,10 +291,7 @@ function PackagePanel({
   onContinue: () => void;
 }) {
   const t = useT();
-  const total = useMemo(
-    () => (selected === "print" ? PRICES.print : PRICES.digital),
-    [selected],
-  );
+  const total = useMemo(() => (selected === "print" ? PRICES.print : PRICES.digital), [selected]);
 
   return (
     <aside className="ux-package-panel">
@@ -327,14 +321,16 @@ function PackagePanel({
       <div className="ux-preview-total">
         <span>{t.journey.preview.selectedPackage}</span>
         <strong>
-          {selected === "print"
-            ? t.journey.packages.print.title
-            : t.journey.packages.digital.title}
+          {selected === "print" ? t.journey.packages.print.title : t.journey.packages.digital.title}
         </strong>
         <b>{formatGel(total)}</b>
       </div>
 
-      <button className="button journey-primary ux-preview-continue" type="button" onClick={onContinue}>
+      <button
+        className="button journey-primary ux-preview-continue"
+        type="button"
+        onClick={onContinue}
+      >
         {t.journey.preview.continue}
         {formatGel(total)}
       </button>

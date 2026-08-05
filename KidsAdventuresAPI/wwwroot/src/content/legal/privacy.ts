@@ -116,7 +116,9 @@ export const privacySections: LegalSection[] = [
     paragraphs: [
       "Depending on your location, you may have the right to access, correct, delete, restrict, or object to certain processing of your personal data, and to data portability.",
       "You may also withdraw consent where processing is based on consent, without affecting prior lawful processing.",
-      "To exercise these rights, contact us at [Contact us](/contact) or " + LEGAL_CONTACT_EMAIL + ". We may need to verify your identity.",
+      "To exercise these rights, contact us at [Contact us](/contact) or " +
+        LEGAL_CONTACT_EMAIL +
+        ". We may need to verify your identity.",
       "If you are in the EU/EEA, you may lodge a complaint with your local data protection authority.",
     ],
   },

@@ -30,7 +30,7 @@ export const printStorybookAtHome: BlogPost = {
     {
       heading: "Printer settings",
       paragraphs: [
-        "Use a color inkjet or laser printer on A4 or US Letter paper. Select \"Actual size\" or 100% scale — do not fit to page, or margins may clip illustrations.",
+        'Use a color inkjet or laser printer on A4 or US Letter paper. Select "Actual size" or 100% scale — do not fit to page, or margins may clip illustrations.',
         "For richer colors, choose a heavier paper (32 lb / 120 gsm) if your printer supports it. Plain copy paper works fine for bedtime reading.",
       ],
       bullets: [
@@ -54,7 +54,7 @@ export const printStorybookAtHome: BlogPost = {
     },
     {
       q: "Why do my printed illustrations get cut off?",
-      a: "Set your printer to \"Actual size\" or 100% scale rather than \"fit to page.\" Shrink-to-fit can clip the edges of full-bleed illustrations.",
+      a: 'Set your printer to "Actual size" or 100% scale rather than "fit to page." Shrink-to-fit can clip the edges of full-bleed illustrations.',
     },
     {
       q: "How can I bind the printed book at home?",

@@ -162,12 +162,7 @@
   background:
     /* Clear through the upper two thirds so the artwork reads, then darkening only
        across the band the title occupies. */
-    linear-gradient(
-      180deg,
-      transparent 0 52%,
-      rgba(13, 7, 29, 0.42) 74%,
-      rgba(13, 7, 29, 0.88)
-    ),
+    linear-gradient(180deg, transparent 0 52%, rgba(13, 7, 29, 0.42) 74%, rgba(13, 7, 29, 0.88)),
     radial-gradient(circle at 62% 34%, transparent 0 46%, rgba(16, 8, 35, 0.18));
 }
 .storybook-brand {

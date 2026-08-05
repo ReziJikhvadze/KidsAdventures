@@ -163,7 +163,8 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
   const [age, setAge] = useState<number | "">("");
   const [childPhoto, setChildPhoto] = useState<string | null>(null);
   const [optionalNotes, setOptionalNotes] = useState("");
-  const [storyLanguage, setStoryLanguage] = useState<(typeof storyLanguages)[number]["value"]>("en");
+  const [storyLanguage, setStoryLanguage] =
+    useState<(typeof storyLanguages)[number]["value"]>("en");
   const [theme, setTheme] = useState<ThemeId | null>(initialTheme);
 
   useEffect(() => {
@@ -208,8 +209,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
   useEffect(() => {
     // On mobile the preview sits below the long form. Only reveal it once there's something to SEE
     // (a finished result), and use block:"nearest" so the page eases to it instead of yanking.
-    const resultReady =
-      status === "guestReady" || status === "storyReady" || status === "done";
+    const resultReady = status === "guestReady" || status === "storyReady" || status === "done";
     if (resultReady) {
       previewRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
@@ -290,9 +290,8 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       if (!apiTheme) throw new Error("Invalid theme selected.");
 
       setProgress(12);
-      const heroFile =
-        childPhoto?.startsWith("data:") ?
-          dataUrlToFile(childPhoto, "hero")
+      const heroFile = childPhoto?.startsWith("data:")
+        ? dataUrlToFile(childPhoto, "hero")
         : undefined;
       const child = await createChild(name.trim(), age as number, heroFile);
 
@@ -406,8 +405,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     }, 1500);
 
     try {
-      const photo =
-        childPhoto?.startsWith("data:") ? dataUrlToFile(childPhoto, "hero") : undefined;
+      const photo = childPhoto?.startsWith("data:") ? dataUrlToFile(childPhoto, "hero") : undefined;
       const result = await adventurePacksApi.generateGuestPreview({
         name: name.trim(),
         age: age as number,
@@ -467,8 +465,9 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     setErrorMessage(null);
 
     try {
-      const heroFile =
-        childPhoto?.startsWith("data:") ? dataUrlToFile(childPhoto, "hero") : undefined;
+      const heroFile = childPhoto?.startsWith("data:")
+        ? dataUrlToFile(childPhoto, "hero")
+        : undefined;
       const child = await createChild(name.trim(), age as number, heroFile);
 
       const imported = await adventurePacksApi.importGuestStory({
@@ -691,8 +690,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
   };
 
   const selectedTheme = STORY_THEMES.find((t) => t.id === theme);
-  const fullyIllustrated =
-    storyPages.length > 0 && storyPages.every((p) => p.isIllustrated);
+  const fullyIllustrated = storyPages.length > 0 && storyPages.every((p) => p.isIllustrated);
   const canExportPdf =
     storyPages.length > 0 &&
     (fullyIllustrated || (isWelcomeGiftStory && storyPages.some((p) => p.isIllustrated)));
@@ -850,14 +848,11 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                   <div className="flex-1 min-w-0 w-full">
                     <div className="text-sm font-semibold">Photo of your child (hero)</div>
                     <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-                      Optional but powerful: we turn it into a cartoon hero that looks like your child. Use a
-                      clear, front-facing photo.
+                      Optional but powerful: we turn it into a cartoon hero that looks like your
+                      child. Use a clear, front-facing photo.
                     </p>
                     <div className="mt-2 flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                      <PhotoPickerActions
-                        hasPhoto={!!childPhoto}
-                        onFileSelected={addHeroPhoto}
-                      />
+                      <PhotoPickerActions hasPhoto={!!childPhoto} onFileSelected={addHeroPhoto} />
                       {childPhoto && (
                         <button
                           type="button"
@@ -878,179 +873,185 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 className="mt-6 w-full flex items-center justify-between rounded-xl border border-border bg-secondary/30 px-4 py-3 text-sm font-semibold hover:bg-secondary/50 transition"
               >
                 Customize (optional)
-                <ChevronDown
-                  className={`h-4 w-4 transition ${showOptional ? "rotate-180" : ""}`}
-                />
+                <ChevronDown className={`h-4 w-4 transition ${showOptional ? "rotate-180" : ""}`} />
               </button>
 
               {showOptional && (
-              <div className="mt-4 space-y-6 animate-rise">
-              {ENABLE_STORY_CAST && (
-              <div className="rounded-2xl bg-secondary/40 border border-border p-5">
-                <div className="flex items-center justify-between gap-3 mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-lg bg-primary/10 grid place-items-center">
-                      <Users className="h-4 w-4 text-primary" />
+                <div className="mt-4 space-y-6 animate-rise">
+                  {ENABLE_STORY_CAST && (
+                    <div className="rounded-2xl bg-secondary/40 border border-border p-5">
+                      <div className="flex items-center justify-between gap-3 mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-lg bg-primary/10 grid place-items-center">
+                            <Users className="h-4 w-4 text-primary" />
+                          </div>
+                          <div>
+                            <div className="font-display font-semibold">
+                              Story cast{" "}
+                              <span className="font-normal text-muted-foreground">(optional)</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Add up to {MAX_MEMBERS} family members with photos — each upload is
+                              sent to OpenAI to create a matching cartoon character in the
+                              illustrations.
+                            </div>
+                          </div>
+                        </div>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {members.length}/{MAX_MEMBERS}
+                        </span>
+                      </div>
+
+                      {/* Member list */}
+                      {members.length > 0 && (
+                        <ul className="space-y-3 mb-3">
+                          {members.map((m) => {
+                            const roles = m.relation ? roleOptions[m.relation] : [];
+                            return (
+                              <li
+                                key={m.id}
+                                className="rounded-xl bg-background border border-border p-3 animate-rise"
+                              >
+                                <div className="flex items-start gap-3">
+                                  <img
+                                    src={m.photo}
+                                    alt="Family member"
+                                    className="h-14 w-14 rounded-xl object-cover border border-border shrink-0"
+                                  />
+                                  <div className="flex-1 min-w-0 space-y-2">
+                                    <div>
+                                      <label className="text-[11px] font-semibold text-foreground/60 uppercase tracking-wide">
+                                        Who is this?
+                                      </label>
+                                      <div className="mt-1 flex flex-wrap gap-1">
+                                        {relationOptions.map((rel) => {
+                                          const active = m.relation === rel.value;
+                                          return (
+                                            <button
+                                              key={rel.value}
+                                              type="button"
+                                              onClick={() =>
+                                                updateMember(m.id, {
+                                                  relation: rel.value,
+                                                  role: "",
+                                                })
+                                              }
+                                              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
+                                                active
+                                                  ? "bg-primary text-primary-foreground"
+                                                  : "bg-card border border-border hover:border-foreground/30"
+                                              }`}
+                                            >
+                                              <User className="h-3 w-3" />
+                                              {rel.label}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+
+                                    {m.relation && (
+                                      <div className="animate-rise">
+                                        <label className="text-[11px] font-semibold text-foreground/60 uppercase tracking-wide">
+                                          Role in the story
+                                        </label>
+                                        <div className="mt-1 flex flex-wrap gap-1">
+                                          {roles.map((role) => {
+                                            const active = m.role === role.value;
+                                            return (
+                                              <button
+                                                key={role.value}
+                                                type="button"
+                                                onClick={() =>
+                                                  updateMember(m.id, { role: role.value })
+                                                }
+                                                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
+                                                  active
+                                                    ? "bg-foreground text-background"
+                                                    : "bg-card border border-border hover:border-foreground/30"
+                                                }`}
+                                              >
+                                                <role.icon className="h-3 w-3" />
+                                                {role.label}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeMember(m.id)}
+                                    className="h-7 w-7 rounded-full grid place-items-center text-muted-foreground hover:text-foreground hover:bg-secondary transition shrink-0"
+                                    aria-label="Remove member"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+
+                      {/* Add another */}
+                      {members.length < MAX_MEMBERS ? (
+                        <PhotoPickerActions
+                          size="prominent"
+                          hasPhoto={members.length > 0}
+                          onFileSelected={addMemberFromFile}
+                        />
+                      ) : (
+                        <p className="text-xs text-center text-muted-foreground py-2">
+                          You've reached the maximum cast size.
+                        </p>
+                      )}
                     </div>
+                  )}
+
+                  {/* Language + optional wishes */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <div className="font-display font-semibold">
-                        Story cast{" "}
+                      <label className="text-sm font-semibold">Story language</label>
+                      <select
+                        value={storyLanguage}
+                        onChange={(e) =>
+                          setStoryLanguage(
+                            e.target.value as (typeof storyLanguages)[number]["value"],
+                          )
+                        }
+                        className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition"
+                      >
+                        {storyLanguages.map((lang) => (
+                          <option key={lang.value} value={lang.value}>
+                            {lang.label}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        The whole story is written in this language.
+                      </p>
+                    </div>
+                    <div className="sm:col-span-1">
+                      <label className="text-sm font-semibold">
+                        Extra wishes{" "}
                         <span className="font-normal text-muted-foreground">(optional)</span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        Add up to {MAX_MEMBERS} family members with photos — each upload is sent to
-                        OpenAI to create a matching cartoon character in the illustrations.
-                      </div>
+                      </label>
+                      <textarea
+                        value={optionalNotes}
+                        maxLength={500}
+                        rows={3}
+                        onChange={(e) => setOptionalNotes(e.target.value)}
+                        placeholder="e.g. loves unicorns, afraid of loud noises, include little brother Niko"
+                        className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition resize-none"
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Woven into the story across pages.
+                      </p>
                     </div>
                   </div>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {members.length}/{MAX_MEMBERS}
-                  </span>
                 </div>
-
-                {/* Member list */}
-                {members.length > 0 && (
-                  <ul className="space-y-3 mb-3">
-                    {members.map((m) => {
-                      const roles = m.relation ? roleOptions[m.relation] : [];
-                      return (
-                        <li
-                          key={m.id}
-                          className="rounded-xl bg-background border border-border p-3 animate-rise"
-                        >
-                          <div className="flex items-start gap-3">
-                            <img
-                              src={m.photo}
-                              alt="Family member"
-                              className="h-14 w-14 rounded-xl object-cover border border-border shrink-0"
-                            />
-                            <div className="flex-1 min-w-0 space-y-2">
-                              <div>
-                                <label className="text-[11px] font-semibold text-foreground/60 uppercase tracking-wide">
-                                  Who is this?
-                                </label>
-                                <div className="mt-1 flex flex-wrap gap-1">
-                                  {relationOptions.map((rel) => {
-                                    const active = m.relation === rel.value;
-                                    return (
-                                      <button
-                                        key={rel.value}
-                                        type="button"
-                                        onClick={() =>
-                                          updateMember(m.id, { relation: rel.value, role: "" })
-                                        }
-                                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
-                                          active
-                                            ? "bg-primary text-primary-foreground"
-                                            : "bg-card border border-border hover:border-foreground/30"
-                                        }`}
-                                      >
-                                        <User className="h-3 w-3" />
-                                        {rel.label}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-
-                              {m.relation && (
-                                <div className="animate-rise">
-                                  <label className="text-[11px] font-semibold text-foreground/60 uppercase tracking-wide">
-                                    Role in the story
-                                  </label>
-                                  <div className="mt-1 flex flex-wrap gap-1">
-                                    {roles.map((role) => {
-                                      const active = m.role === role.value;
-                                      return (
-                                        <button
-                                          key={role.value}
-                                          type="button"
-                                          onClick={() => updateMember(m.id, { role: role.value })}
-                                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
-                                            active
-                                              ? "bg-foreground text-background"
-                                              : "bg-card border border-border hover:border-foreground/30"
-                                          }`}
-                                        >
-                                          <role.icon className="h-3 w-3" />
-                                          {role.label}
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeMember(m.id)}
-                              className="h-7 w-7 rounded-full grid place-items-center text-muted-foreground hover:text-foreground hover:bg-secondary transition shrink-0"
-                              aria-label="Remove member"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-
-                {/* Add another */}
-                {members.length < MAX_MEMBERS ? (
-                  <PhotoPickerActions
-                    size="prominent"
-                    hasPhoto={members.length > 0}
-                    onFileSelected={addMemberFromFile}
-                  />
-                ) : (
-                  <p className="text-xs text-center text-muted-foreground py-2">
-                    You've reached the maximum cast size.
-                  </p>
-                )}
-              </div>
-              )}
-
-              {/* Language + optional wishes */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-semibold">Story language</label>
-                  <select
-                    value={storyLanguage}
-                    onChange={(e) =>
-                      setStoryLanguage(e.target.value as (typeof storyLanguages)[number]["value"])
-                    }
-                    className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition"
-                  >
-                    {storyLanguages.map((lang) => (
-                      <option key={lang.value} value={lang.value}>
-                        {lang.label}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    The whole story is written in this language.
-                  </p>
-                </div>
-                <div className="sm:col-span-1">
-                  <label className="text-sm font-semibold">
-                    Extra wishes{" "}
-                    <span className="font-normal text-muted-foreground">(optional)</span>
-                  </label>
-                  <textarea
-                    value={optionalNotes}
-                    maxLength={500}
-                    rows={3}
-                    onChange={(e) => setOptionalNotes(e.target.value)}
-                    placeholder="e.g. loves unicorns, afraid of loud noises, include little brother Niko"
-                    className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition resize-none"
-                  />
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Woven into the story across pages.
-                  </p>
-                </div>
-              </div>
-              </div>
               )}
 
               {/* CTA */}
@@ -1068,7 +1069,9 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 {status === "generatingStory" || status === "generatingGuest" ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    {status === "generatingGuest" ? "Creating your sample..." : "Writing your story..."}
+                    {status === "generatingGuest"
+                      ? "Creating your sample..."
+                      : "Writing your story..."}
                   </>
                 ) : (
                   <>
@@ -1083,17 +1086,15 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                 </p>
               )}
               <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                {["No card", "Photo optional", "Full book $4.99", "PDF included"].map(
-                  (chip) => (
-                    <span
-                      key={chip}
-                      className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
-                    >
-                      <Check className="h-3 w-3 text-primary" />
-                      {chip}
-                    </span>
-                  ),
-                )}
+                {["No card", "Photo optional", "Full book $4.99", "PDF included"].map((chip) => (
+                  <span
+                    key={chip}
+                    className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+                  >
+                    <Check className="h-3 w-3 text-primary" />
+                    {chip}
+                  </span>
+                ))}
               </div>
             </div>
 
@@ -1125,7 +1126,9 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                         className="h-44 w-36 rounded-2xl border border-border bg-card shadow-card grid place-items-center overflow-hidden"
                         style={
                           selectedTheme
-                            ? { background: `color-mix(in oklab, ${selectedTheme.tint} 22%, var(--card))` }
+                            ? {
+                                background: `color-mix(in oklab, ${selectedTheme.tint} 22%, var(--card))`,
+                              }
                             : undefined
                         }
                       >
@@ -1174,22 +1177,20 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                   </div>
                 )}
 
-                {(status === "generatingStory" || status === "generatingGuest" || status === "generatingPdf" || status === "illustrating") && (
+                {(status === "generatingStory" ||
+                  status === "generatingGuest" ||
+                  status === "generatingPdf" ||
+                  status === "illustrating") && (
                   <div className="relative h-full flex flex-col items-center justify-center text-center py-6 sm:py-10 px-2 max-w-full">
                     <div className="relative">
                       <div className="h-40 w-32 rounded-xl bg-card border border-border shadow-card grid place-items-center overflow-hidden">
                         {childPhoto ? (
-                          <img
-                            src={childPhoto}
-                            alt=""
-                            className="h-full w-full object-cover"
-                          />
+                          <img src={childPhoto} alt="" className="h-full w-full object-cover" />
                         ) : (
-                          selectedTheme && (() => {
+                          selectedTheme &&
+                          (() => {
                             const ThemeIcon = THEME_ICONS[selectedTheme.id];
-                            return (
-                              <ThemeIcon className="h-12 w-12 text-primary animate-float" />
-                            );
+                            return <ThemeIcon className="h-12 w-12 text-primary animate-float" />;
                           })()
                         )}
                       </div>
@@ -1218,13 +1219,13 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
                       <div className="mt-4 rounded-xl bg-card/80 border border-border p-3 text-left text-xs text-muted-foreground">
                         {status === "generatingGuest" ? (
                           <p>
-                            <strong className="text-foreground">Keep this page open</strong> - about a
-                            minute. You'll see the cover and first page.
+                            <strong className="text-foreground">Keep this page open</strong> - about
+                            a minute. You'll see the cover and first page.
                           </p>
                         ) : (
                           <p>
-                            <strong className="text-foreground">You can leave this page.</strong> Find
-                            every book in{" "}
+                            <strong className="text-foreground">You can leave this page.</strong>{" "}
+                            Find every book in{" "}
                             <Link to="/my-packs" className="text-primary font-semibold underline">
                               My Books
                             </Link>

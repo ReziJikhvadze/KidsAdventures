@@ -17,10 +17,7 @@ export const Route = createFileRoute("/confirm-email")({
     return { meta, links };
   },
   validateSearch: (search: Record<string, unknown>) => ({
-    success:
-      search.success === "1" ||
-      search.success === 1 ||
-      search.success === true,
+    success: search.success === "1" || search.success === 1 || search.success === true,
     token: typeof search.token === "string" ? search.token : undefined,
   }),
   component: ConfirmEmailPage,
@@ -74,9 +71,7 @@ function ConfirmEmailPage() {
               ? `Click the button below to activate your ${BRAND_NAME} account.`
               : "This link may have expired. If you already clicked it once, try signing in — your email may already be confirmed."}
         </p>
-        {error ? (
-          <p className="mt-3 text-destructive text-sm">{error}</p>
-        ) : null}
+        {error ? <p className="mt-3 text-destructive text-sm">{error}</p> : null}
         {showConfirmButton ? (
           <button
             type="button"

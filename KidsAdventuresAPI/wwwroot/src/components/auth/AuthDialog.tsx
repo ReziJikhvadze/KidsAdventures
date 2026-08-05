@@ -73,10 +73,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
     onSuccess?.();
   };
 
-  const handleGoogleSuccess = async (credential: {
-    idToken?: string;
-    accessToken?: string;
-  }) => {
+  const handleGoogleSuccess = async (credential: { idToken?: string; accessToken?: string }) => {
     setGoogleBusy(true);
     try {
       await loginWithGoogle(credential);
@@ -162,9 +159,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
           </div>
           <DialogHeader className="relative mt-4 space-y-1.5 text-left">
             <DialogTitle className="font-display text-2xl font-bold text-balance">
-              {step === "password" && mode === "signin" && (
-                <span className="mr-1">👋</span>
-              )}
+              {step === "password" && mode === "signin" && <span className="mr-1">👋</span>}
               {dialogTitle}
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">

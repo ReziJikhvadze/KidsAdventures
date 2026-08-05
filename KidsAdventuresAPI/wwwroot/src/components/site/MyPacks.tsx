@@ -25,10 +25,7 @@ import type { AdventurePackDetailResponse, AdventurePackStatus } from "@/lib/api
 
 const BOOKS_PER_PAGE = 6;
 
-const statusStyles: Record<
-  AdventurePackStatus,
-  { label: string; className: string }
-> = {
+const statusStyles: Record<AdventurePackStatus, { label: string; className: string }> = {
   Pending: { label: "Queued", className: "bg-amber-100 text-amber-900" },
   Generating: { label: "Writing story…", className: "bg-sky-100 text-sky-900" },
   GeneratingStory: { label: "Writing story…", className: "bg-sky-100 text-sky-900" },
@@ -46,7 +43,10 @@ function needsPreviewPoll(pack: AdventurePackDetailResponse): boolean {
   return adventurePacksApi.isPackIllustrating(pack);
 }
 
-function packStatusDisplay(pack: AdventurePackDetailResponse): { label: string; className: string } {
+function packStatusDisplay(pack: AdventurePackDetailResponse): {
+  label: string;
+  className: string;
+} {
   if (adventurePacksApi.isPackIllustrating(pack)) {
     return { label: "Creating illustrations…", className: "bg-sky-100 text-sky-900" };
   }
@@ -73,45 +73,48 @@ export function MyPacks() {
     setPacks((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)));
   }, []);
 
-  const load = useCallback(async (options?: { refreshInProgressOnly?: boolean }) => {
-    if (!isAuthenticated) return;
-    const refreshInProgressOnly = options?.refreshInProgressOnly ?? false;
-    if (!refreshInProgressOnly) {
-      setLoading(true);
-    }
-    setError(null);
-    try {
-      const packRows = await adventurePacksApi.listAdventurePacks();
-      const children = refreshInProgressOnly ? null : await listChildren();
-      const sorted = [...packRows].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      );
-      const detailTargets = sorted.filter(
-        (p) =>
-          adventurePacksApi.isPackGenerating(p) ||
-          needsPreviewPoll(p) ||
-          p.status === "StoryReady" ||
-          p.status === "Completed",
-      );
-      const details = await Promise.all(
-        detailTargets.map((p) => adventurePacksApi.getAdventurePack(p.id).catch(() => p)),
-      );
-      const detailMap = Object.fromEntries(details.map((d) => [d.id, d]));
-      setPacks((prev) => {
-        const prevMap = Object.fromEntries(prev.map((p) => [p.id, p]));
-        return sorted.map((p) => detailMap[p.id] ?? prevMap[p.id] ?? p);
-      });
-      if (children) {
-        setChildNames(Object.fromEntries(children.map((c) => [c.id, c.name])));
-      }
-    } catch {
-      setError("Could not load your books. Try again.");
-    } finally {
+  const load = useCallback(
+    async (options?: { refreshInProgressOnly?: boolean }) => {
+      if (!isAuthenticated) return;
+      const refreshInProgressOnly = options?.refreshInProgressOnly ?? false;
       if (!refreshInProgressOnly) {
-        setLoading(false);
+        setLoading(true);
       }
-    }
-  }, [isAuthenticated]);
+      setError(null);
+      try {
+        const packRows = await adventurePacksApi.listAdventurePacks();
+        const children = refreshInProgressOnly ? null : await listChildren();
+        const sorted = [...packRows].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+        const detailTargets = sorted.filter(
+          (p) =>
+            adventurePacksApi.isPackGenerating(p) ||
+            needsPreviewPoll(p) ||
+            p.status === "StoryReady" ||
+            p.status === "Completed",
+        );
+        const details = await Promise.all(
+          detailTargets.map((p) => adventurePacksApi.getAdventurePack(p.id).catch(() => p)),
+        );
+        const detailMap = Object.fromEntries(details.map((d) => [d.id, d]));
+        setPacks((prev) => {
+          const prevMap = Object.fromEntries(prev.map((p) => [p.id, p]));
+          return sorted.map((p) => detailMap[p.id] ?? prevMap[p.id] ?? p);
+        });
+        if (children) {
+          setChildNames(Object.fromEntries(children.map((c) => [c.id, c.name])));
+        }
+      } catch {
+        setError("Could not load your books. Try again.");
+      } finally {
+        if (!refreshInProgressOnly) {
+          setLoading(false);
+        }
+      }
+    },
+    [isAuthenticated],
+  );
 
   useEffect(() => {
     void load();
@@ -153,7 +156,9 @@ export function MyPacks() {
     if (illustrating.length === 0) return;
 
     const timer = window.setInterval(() => {
-      void Promise.all(illustrating.map((p) => adventurePacksApi.getAdventurePack(p.id).then(updatePack)));
+      void Promise.all(
+        illustrating.map((p) => adventurePacksApi.getAdventurePack(p.id).then(updatePack)),
+      );
     }, 3000);
 
     return () => window.clearInterval(timer);
@@ -238,7 +243,9 @@ export function MyPacks() {
 
     setOpenReaderIds((prev) => new Set(prev).add(pack.id));
     requestAnimationFrame(() => {
-      document.getElementById(`reader-${pack.id}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      document
+        .getElementById(`reader-${pack.id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     });
   };
 
@@ -309,16 +316,13 @@ export function MyPacks() {
         await refreshAccountBalance();
       }
       notify.info("Building your PDF", {
-        description: "We're assembling your printable storybook from the slideshow — about 30 seconds.",
+        description:
+          "We're assembling your printable storybook from the slideshow — about 30 seconds.",
       });
-      await adventurePacksApi.pollAdventurePack(
-        pack.id,
-        updatePack,
-        {
-          untilStatus: "Completed",
-          maxAttempts: 30,
-        },
-      );
+      await adventurePacksApi.pollAdventurePack(pack.id, updatePack, {
+        untilStatus: "Completed",
+        maxAttempts: 30,
+      });
       notify.success("Your storybook PDF is ready!", {
         description: "Download it now or find it anytime in My Books.",
       });
@@ -342,11 +346,14 @@ export function MyPacks() {
                 <Library className="h-7 w-7 text-primary" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-primary uppercase tracking-wide">Your library</p>
+                <p className="text-sm font-semibold text-primary uppercase tracking-wide">
+                  Your library
+                </p>
                 <h2 className="font-display text-3xl font-bold tracking-tight mt-0.5">My Books</h2>
                 <p className="text-muted-foreground mt-2 max-w-xl text-sm">
-                  Read every story free. <strong className="text-foreground">Unlock illustrations</strong> for $4.99
-                  per book.
+                  Read every story free.{" "}
+                  <strong className="text-foreground">Unlock illustrations</strong> for $4.99 per
+                  book.
                 </p>
               </div>
             </div>
@@ -402,7 +409,11 @@ export function MyPacks() {
                       disabled={buyingCredit}
                       className="inline-flex items-center gap-1.5 rounded-2xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-md transition hover:opacity-90 disabled:opacity-60"
                     >
-                      {buyingCredit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                      {buyingCredit ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-4 w-4" />
+                      )}
                       Buy a book — $4.99
                     </button>
                   )}
@@ -414,7 +425,9 @@ export function MyPacks() {
           {isAuthenticated && user && (
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="rounded-2xl border border-border bg-card px-4 py-3 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Stories saved</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Stories saved
+                </p>
                 <p className="font-display text-2xl font-bold mt-1">{packs.length}</p>
               </div>
               <div className="rounded-2xl border border-border bg-card px-4 py-3 shadow-sm flex flex-col justify-center">
@@ -430,7 +443,11 @@ export function MyPacks() {
                     disabled={buyingCredit}
                     className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full bg-primary px-3.5 py-1.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 disabled:opacity-60"
                   >
-                    {buyingCredit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    {buyingCredit ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4" />
+                    )}
                     Get a book ($4.99)
                   </button>
                 )}
@@ -473,228 +490,231 @@ export function MyPacks() {
           </div>
         ) : (
           <>
-          <ul className="grid gap-4 sm:gap-5">
-            {paginatedPacks.map((pack) => {
-              const status = packStatusDisplay(pack);
-              const childName = childNames[pack.childId ?? ""] ?? pack.childName ?? "Child";
-              const generating = adventurePacksApi.isPackGenerating(pack);
-              const progressPct = adventurePacksApi.computePackProgressPercent(pack);
-              const readable = slideshowIllustrationsReady(pack);
-              const canExportPdf = adventurePacksApi.canExportPackPdf(pack);
-              const illustrating = needsPreviewPoll(pack);
-              const awaitingUnlock = adventurePacksApi.isAwaitingIllustrationUnlock(pack);
-              const hasBookCredit = (user?.bookCredits ?? 0) > 0;
-              const readerLoading = loadingReaderIds.has(pack.id);
-              const canReadStory =
-                readable ||
-                illustrating ||
-                pack.status === "StoryReady" ||
-                pack.status === "Completed";
-              const readerOpen = openReaderIds.has(pack.id);
-              return (
-                <li
-                  key={pack.id}
-                  className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-5"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${status.className}`}>
-                          {status.label}
-                        </span>
+            <ul className="grid gap-4 sm:gap-5">
+              {paginatedPacks.map((pack) => {
+                const status = packStatusDisplay(pack);
+                const childName = childNames[pack.childId ?? ""] ?? pack.childName ?? "Child";
+                const generating = adventurePacksApi.isPackGenerating(pack);
+                const progressPct = adventurePacksApi.computePackProgressPercent(pack);
+                const readable = slideshowIllustrationsReady(pack);
+                const canExportPdf = adventurePacksApi.canExportPackPdf(pack);
+                const illustrating = needsPreviewPoll(pack);
+                const awaitingUnlock = adventurePacksApi.isAwaitingIllustrationUnlock(pack);
+                const hasBookCredit = (user?.bookCredits ?? 0) > 0;
+                const readerLoading = loadingReaderIds.has(pack.id);
+                const canReadStory =
+                  readable ||
+                  illustrating ||
+                  pack.status === "StoryReady" ||
+                  pack.status === "Completed";
+                const readerOpen = openReaderIds.has(pack.id);
+                return (
+                  <li
+                    key={pack.id}
+                    className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-5"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <span
+                            className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${status.className}`}
+                          >
+                            {status.label}
+                          </span>
+                          {generating && (
+                            <span className="text-xs font-medium text-sky-700 flex items-center gap-1">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              In progress
+                            </span>
+                          )}
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(pack.createdAt), "MMM d, yyyy · h:mm a")}
+                          </span>
+                        </div>
+                        <p className="font-display text-lg font-semibold truncate">
+                          {pack.title ?? `${childName}'s ${pack.theme} story`}
+                        </p>
                         {generating && (
-                          <span className="text-xs font-medium text-sky-700 flex items-center gap-1">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            In progress
-                          </span>
-                        )}
-                        <span className="text-xs text-muted-foreground">
-                          {format(new Date(pack.createdAt), "MMM d, yyyy · h:mm a")}
-                        </span>
-                      </div>
-                      <p className="font-display text-lg font-semibold truncate">
-                        {pack.title ?? `${childName}'s ${pack.theme} story`}
-                      </p>
-                      {generating && (
-                        <div className="mt-3 max-w-md">
-                          <div className="h-2 rounded-full bg-border overflow-hidden">
-                            <div
-                              className="h-full bg-primary transition-all duration-500"
-                              style={{ width: `${Math.max(5, progressPct)}%` }}
-                            />
+                          <div className="mt-3 max-w-md">
+                            <div className="h-2 rounded-full bg-border overflow-hidden">
+                              <div
+                                className="h-full bg-primary transition-all duration-500"
+                                style={{ width: `${Math.max(5, progressPct)}%` }}
+                              />
+                            </div>
+                            <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
+                              {progressPct}% ·{" "}
+                              {pack.progressMessage ?? "Working on your storybook…"}
+                            </p>
                           </div>
-                          <p className="mt-1.5 text-xs text-muted-foreground tabular-nums">
-                            {progressPct}% · {pack.progressMessage ?? "Working on your storybook…"}
+                        )}
+                        {pack.status === "Failed" && pack.errorMessage && (
+                          <p className="text-xs text-destructive/90 mt-1 line-clamp-3">
+                            {pack.errorMessage}
                           </p>
-                        </div>
-                      )}
-                      {pack.status === "Failed" && pack.errorMessage && (
-                        <p className="text-xs text-destructive/90 mt-1 line-clamp-3">
-                          {pack.errorMessage}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 shrink-0">
-                      {canReadStory && (
-                        <button
-                          type="button"
-                          onClick={() => void toggleReadStory(pack)}
-                          disabled={readerLoading}
-                          className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2.5 text-sm font-semibold hover:opacity-90 transition disabled:opacity-60"
-                        >
-                          {readerLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <BookOpen className="h-4 w-4" />
-                          )}
-                          {readerOpen ? "Hide story" : "Read story"}
-                        </button>
-                      )}
-                      {awaitingUnlock && isAuthenticated && (
-                        <button
-                          type="button"
-                          onClick={() => void startIllustration(pack)}
-                          disabled={unlockingId === pack.id}
-                          className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2.5 text-sm font-semibold hover:opacity-90 transition disabled:opacity-60"
-                        >
-                          {unlockingId === pack.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Sparkles className="h-4 w-4" />
-                          )}
-                          {hasBookCredit
-                            ? "Unlock the full storybook (1 credit)"
-                            : "Buy the full storybook — $4.99"}
-                        </button>
-                      )}
-                      {canExportPdf && pack.status === "StoryReady" && isAuthenticated && (
-                        <button
-                          type="button"
-                          onClick={() => void startPdf(pack)}
-                          disabled={pdfStartingId === pack.id}
-                          className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:bg-secondary transition disabled:opacity-60"
-                        >
-                          {pdfStartingId === pack.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Sparkles className="h-4 w-4" />
-                          )}
-                          {pack.isWelcomeGiftStory && !readable
-                            ? "Export preview PDF (free)"
-                            : "Export PDF (free)"}
-                        </button>
-                      )}
-                      {pack.status === "Completed" && (
-                        <button
-                          type="button"
-                          onClick={() => void openDownload(pack)}
-                          disabled={downloadingId === pack.id}
-                          className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:bg-secondary transition disabled:opacity-60"
-                        >
-                          {downloadingId === pack.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Download className="h-4 w-4" />
-                          )}
-                          Download storybook PDF
-                        </button>
-                      )}
-                      {pack.status === "Failed" && (
-                        <Link
-                          to="/"
-                          hash="generator"
-                          className="inline-flex items-center rounded-full border border-border px-4 py-2.5 text-sm font-semibold hover:bg-secondary transition"
-                        >
-                          Try again
-                        </Link>
-                      )}
-                    </div>
-                  </div>
-                  {canReadStory && readerOpen && (
-                    <div
-                      id={`reader-${pack.id}`}
-                      className="animate-rise w-full min-w-0 border-t border-border/60 pt-4"
-                    >
-                      <div className="mb-3 flex items-center gap-2">
-                        <BookOpen className="h-4 w-4 text-primary shrink-0" />
-                        <p className="text-sm font-semibold text-foreground">
-                          {readable
-                            ? "Illustrated slideshow"
-                            : illustrating
-                              ? "Illustrated slideshow loading…"
-                              : "Story preview (text)"}
-                        </p>
-                        {awaitingUnlock && (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
-                            Illustrations locked
-                          </span>
                         )}
                       </div>
-                      {readerLoading || (illustrating && !pack.storyPages?.length) ? (
-                        <div className="flex min-h-[12rem] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-secondary/30 px-4 py-12 text-muted-foreground sm:min-h-[16rem]">
-                          <Loader2 className="h-6 w-6 animate-spin" />
-                          <p className="text-sm text-center">
-                            {pack.progressMessage ?? "Painting your picture-book pages…"}
-                          </p>
-                        </div>
-                      ) : pack.storyPages && pack.storyPages.length > 0 ? (
-                        <StoryBookReader
-                          pages={pack.storyPages}
-                          theme={pack.theme}
-                          title={pack.title ?? `${childName}'s ${pack.theme} story`}
-                          childName={childName}
-                          previewIllustrationStatus={pack.previewIllustrationStatus}
-                          isCompleted={pack.status === "Completed"}
-                          storiesRemainingThisMonth={user?.storiesRemainingThisMonth}
-                          bookCredits={user?.bookCredits}
-                          isWelcomeGiftStory={pack.isWelcomeGiftStory}
-                        />
-                      ) : (
-                        <div className="rounded-2xl border border-dashed border-border bg-secondary/20 px-4 py-10 text-center text-sm text-muted-foreground">
-                          Story pages will appear here when your book is ready.
-                        </div>
-                      )}
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        {canReadStory && (
+                          <button
+                            type="button"
+                            onClick={() => void toggleReadStory(pack)}
+                            disabled={readerLoading}
+                            className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2.5 text-sm font-semibold hover:opacity-90 transition disabled:opacity-60"
+                          >
+                            {readerLoading ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <BookOpen className="h-4 w-4" />
+                            )}
+                            {readerOpen ? "Hide story" : "Read story"}
+                          </button>
+                        )}
+                        {awaitingUnlock && isAuthenticated && (
+                          <button
+                            type="button"
+                            onClick={() => void startIllustration(pack)}
+                            disabled={unlockingId === pack.id}
+                            className="inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2.5 text-sm font-semibold hover:opacity-90 transition disabled:opacity-60"
+                          >
+                            {unlockingId === pack.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-4 w-4" />
+                            )}
+                            {hasBookCredit
+                              ? "Unlock the full storybook (1 credit)"
+                              : "Buy the full storybook — $4.99"}
+                          </button>
+                        )}
+                        {canExportPdf && pack.status === "StoryReady" && isAuthenticated && (
+                          <button
+                            type="button"
+                            onClick={() => void startPdf(pack)}
+                            disabled={pdfStartingId === pack.id}
+                            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:bg-secondary transition disabled:opacity-60"
+                          >
+                            {pdfStartingId === pack.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-4 w-4" />
+                            )}
+                            {pack.isWelcomeGiftStory && !readable
+                              ? "Export preview PDF (free)"
+                              : "Export PDF (free)"}
+                          </button>
+                        )}
+                        {pack.status === "Completed" && (
+                          <button
+                            type="button"
+                            onClick={() => void openDownload(pack)}
+                            disabled={downloadingId === pack.id}
+                            className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2.5 text-sm font-semibold hover:bg-secondary transition disabled:opacity-60"
+                          >
+                            {downloadingId === pack.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                            Download storybook PDF
+                          </button>
+                        )}
+                        {pack.status === "Failed" && (
+                          <Link
+                            to="/"
+                            hash="generator"
+                            className="inline-flex items-center rounded-full border border-border px-4 py-2.5 text-sm font-semibold hover:bg-secondary transition"
+                          >
+                            Try again
+                          </Link>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                    {canReadStory && readerOpen && (
+                      <div
+                        id={`reader-${pack.id}`}
+                        className="animate-rise w-full min-w-0 border-t border-border/60 pt-4"
+                      >
+                        <div className="mb-3 flex items-center gap-2">
+                          <BookOpen className="h-4 w-4 text-primary shrink-0" />
+                          <p className="text-sm font-semibold text-foreground">
+                            {readable
+                              ? "Illustrated slideshow"
+                              : illustrating
+                                ? "Illustrated slideshow loading…"
+                                : "Story preview (text)"}
+                          </p>
+                          {awaitingUnlock && (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900">
+                              Illustrations locked
+                            </span>
+                          )}
+                        </div>
+                        {readerLoading || (illustrating && !pack.storyPages?.length) ? (
+                          <div className="flex min-h-[12rem] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-secondary/30 px-4 py-12 text-muted-foreground sm:min-h-[16rem]">
+                            <Loader2 className="h-6 w-6 animate-spin" />
+                            <p className="text-sm text-center">
+                              {pack.progressMessage ?? "Painting your picture-book pages…"}
+                            </p>
+                          </div>
+                        ) : pack.storyPages && pack.storyPages.length > 0 ? (
+                          <StoryBookReader
+                            pages={pack.storyPages}
+                            theme={pack.theme}
+                            title={pack.title ?? `${childName}'s ${pack.theme} story`}
+                            childName={childName}
+                            previewIllustrationStatus={pack.previewIllustrationStatus}
+                            isCompleted={pack.status === "Completed"}
+                            storiesRemainingThisMonth={user?.storiesRemainingThisMonth}
+                            bookCredits={user?.bookCredits}
+                            isWelcomeGiftStory={pack.isWelcomeGiftStory}
+                          />
+                        ) : (
+                          <div className="rounded-2xl border border-dashed border-border bg-secondary/20 px-4 py-10 text-center text-sm text-muted-foreground">
+                            Story pages will appear here when your book is ready.
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
 
-          {totalPages > 1 && (
-            <nav
-              className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3"
-              aria-label="Books pagination"
-            >
-              <p className="text-sm text-muted-foreground">
-                Showing {(page - 1) * BOOKS_PER_PAGE + 1}–
-                {Math.min(page * BOOKS_PER_PAGE, packs.length)} of {packs.length} books
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-semibold hover:bg-secondary transition disabled:opacity-40"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </button>
-                <span className="text-sm font-medium px-2">
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page === totalPages}
-                  className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-semibold hover:bg-secondary transition disabled:opacity-40"
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            </nav>
-          )}
+            {totalPages > 1 && (
+              <nav
+                className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3"
+                aria-label="Books pagination"
+              >
+                <p className="text-sm text-muted-foreground">
+                  Showing {(page - 1) * BOOKS_PER_PAGE + 1}–
+                  {Math.min(page * BOOKS_PER_PAGE, packs.length)} of {packs.length} books
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-semibold hover:bg-secondary transition disabled:opacity-40"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </button>
+                  <span className="text-sm font-medium px-2">
+                    Page {page} of {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-sm font-semibold hover:bg-secondary transition disabled:opacity-40"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </nav>
+            )}
           </>
         )}
 

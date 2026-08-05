@@ -8,11 +8,7 @@ type BrandLogoProps = {
   variant?: "default" | "header";
 };
 
-export function BrandLogo({
-  className = "",
-  asLink = true,
-  variant = "default",
-}: BrandLogoProps) {
+export function BrandLogo({ className = "", asLink = true, variant = "default" }: BrandLogoProps) {
   const isHeader = variant === "header";
 
   const logo = isHeader ? (
@@ -48,9 +44,7 @@ export function BrandLogo({
       {BRAND_HEADER_NAME}
     </span>
   ) : (
-    <span className="font-display text-lg font-bold tracking-tight sm:text-xl">
-      {BRAND_NAME}
-    </span>
+    <span className="font-display text-lg font-bold tracking-tight sm:text-xl">{BRAND_NAME}</span>
   );
 
   const layoutClass = isHeader

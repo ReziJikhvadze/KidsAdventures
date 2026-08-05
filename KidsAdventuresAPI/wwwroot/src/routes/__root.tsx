@@ -140,7 +140,6 @@ function RootShell({ children }: { children: ReactNode }) {
         />
         {/* Google Tag Manager — placed as high in <head> as possible. */}
         <script
-          // eslint-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{
             __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -151,12 +150,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         />
         {/* End Google Tag Manager */}
         {/* Google tag (gtag.js) — Google Analytics, rendered into the head of every page. */}
+        <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`} />
         <script
-          async
-          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-        />
-        <script
-          // eslint-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{
             __html: `window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
@@ -166,7 +161,6 @@ gtag('config', '${GA_MEASUREMENT_ID}');`,
         />
         {/* Pinterest Tag — base pixel (enhanced-match email intentionally omitted). */}
         <script
-          // eslint-disable-next-line react/no-danger
           dangerouslySetInnerHTML={{
             __html: `!function(e){if(!window.pintrk){window.pintrk = function () {
 window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var

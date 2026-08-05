@@ -21,8 +21,15 @@ function nodeCssState(state: WorldNodeState): "completed" | "next" | "unexplored
   return "unexplored";
 }
 
-function statusLabel(state: WorldNodeState, sequenceNumber?: number | null): string {
-  const t = useT();
+// These two are plain helpers, not components, so they take the translations and the
+// world dictionary as arguments instead of calling the hooks themselves. The component
+// below already holds both, and a hook called from a helper is only ever correct by
+// accident — the moment one of these is called conditionally the hook order breaks.
+function statusLabel(
+  t: ReturnType<typeof useT>,
+  state: WorldNodeState,
+  sequenceNumber?: number | null,
+): string {
   if (state === "Completed") {
     return t.story.map.statusCompleted(sequenceNumber ?? 1);
   }
@@ -30,9 +37,12 @@ function statusLabel(state: WorldNodeState, sequenceNumber?: number | null): str
   return t.story.map.statusFuture;
 }
 
-function memoryCopy(node: WorldNodeResponse | undefined, worldId: WorldId) {
-  const WORLD_BY_ID = useWorldById();
-  const world = WORLD_BY_ID[worldId];
+function memoryCopy(
+  worlds: ReturnType<typeof useWorldById>,
+  node: WorldNodeResponse | undefined,
+  worldId: WorldId,
+) {
+  const world = worlds[worldId];
   if (!node) {
     return { title: world.mapTitle, body: world.memoryBody, chapter: world.chapter };
   }
@@ -114,7 +124,7 @@ export function StoryPathMap({
   const activeId = activeWorldId ?? activeNode?.worldId ?? null;
   const cssState = activeNode ? nodeCssState(activeNode.state) : "unexplored";
   const worldIdForCopy = (activeId && isWorldId(activeId) ? activeId : "dinosaurs") as WorldId;
-  const memory = memoryCopy(activeNode, worldIdForCopy);
+  const memory = memoryCopy(WORLD_BY_ID, activeNode, worldIdForCopy);
 
   useCenterMapNode(scrollRef, `[data-world-id="${activeId}"]`, activeId);
 
@@ -243,7 +253,7 @@ export function StoryPathMap({
           <p>{memory.body}</p>
         </div>
         <span className="story-memory-status">
-          {statusLabel(activeNode?.state ?? "Locked", activeNode?.sequenceNumber)}
+          {statusLabel(t, activeNode?.state ?? "Locked", activeNode?.sequenceNumber)}
         </span>
       </div>
 

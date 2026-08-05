@@ -29,11 +29,7 @@ function OverviewPage() {
       title="Operations Overview"
       subtitle="დღევანდელი მდგომარეობა და ყურადღების რიგი"
       actions={
-        <select
-          value={days}
-          onChange={(e) => setDays(Number(e.target.value))}
-          aria-label="პერიოდი"
-        >
+        <select value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="პერიოდი">
           <option value={7}>ბოლო 7 დღე</option>
           <option value={30}>ბოლო 30 დღე</option>
           <option value={90}>ბოლო 90 დღე</option>
@@ -45,10 +41,26 @@ function OverviewPage() {
         {data ? (
           <>
             <section className="kpi-grid">
-              <Metric label="შემოსავალი" value={admin.gel(data.revenueMinorInWindow)} detail="გადახდილი და შესრულებული" />
-              <Metric label="შეკვეთები" value={data.ordersInWindow} detail={`${data.paidOrdersInWindow} გადახდილი`} />
-              <Metric label="ახალი მომხმარებლები" value={data.newCustomersInWindow} detail="რეგისტრაციები პერიოდში" />
-              <Metric label="შექმნილი წიგნები" value={data.booksGeneratedInWindow} detail={`${data.booksInFlight} მუშავდება`} />
+              <Metric
+                label="შემოსავალი"
+                value={admin.gel(data.revenueMinorInWindow)}
+                detail="გადახდილი და შესრულებული"
+              />
+              <Metric
+                label="შეკვეთები"
+                value={data.ordersInWindow}
+                detail={`${data.paidOrdersInWindow} გადახდილი`}
+              />
+              <Metric
+                label="ახალი მომხმარებლები"
+                value={data.newCustomersInWindow}
+                detail="რეგისტრაციები პერიოდში"
+              />
+              <Metric
+                label="შექმნილი წიგნები"
+                value={data.booksGeneratedInWindow}
+                detail={`${data.booksInFlight} მუშავდება`}
+              />
             </section>
 
             <section className="overview-grid">
@@ -92,7 +104,15 @@ function OverviewPage() {
   );
 }
 
-function Metric({ label, value, detail }: { label: string; value: string | number; detail: string }) {
+function Metric({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string | number;
+  detail: string;
+}) {
   return (
     <article className="metric-card">
       <div className="metric-head">

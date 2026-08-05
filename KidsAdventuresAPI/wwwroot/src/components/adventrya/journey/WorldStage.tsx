@@ -204,9 +204,7 @@ export function WorldStage({ draft, onChange, header }: Props) {
               <span>
                 <Compass />
               </span>
-              <small>
-                {heroName}ს ამბავი აქ იწყება
-              </small>
+              <small>{heroName}ს ამბავი აქ იწყება</small>
             </div>
 
             {WORLDS.map((world, index) => {
@@ -231,9 +229,7 @@ export function WorldStage({ draft, onChange, header }: Props) {
                     <Compass />
                   </span>
                   <span className="first-node-copy">
-                    <small>
-                      სამყარო 0{index + 1}
-                    </small>
+                    <small>სამყარო 0{index + 1}</small>
                     <strong>{world.mapTitle}</strong>
                     <em>{isSelected ? copy.selected : copy.activate}</em>
                   </span>

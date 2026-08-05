@@ -30,7 +30,7 @@ export const screenFreeActivities: BlogPost = {
     {
       heading: "2. Draw the next chapter",
       paragraphs: [
-        "Leave the last page open-ended: \"What happens next?\" Kids draw a sequel page while you write captions. Scan it and keep a growing adventure folder.",
+        'Leave the last page open-ended: "What happens next?" Kids draw a sequel page while you write captions. Scan it and keep a growing adventure folder.',
       ],
     },
     {

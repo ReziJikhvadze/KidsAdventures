@@ -265,7 +265,9 @@
   border: 1px solid var(--border);
   background: var(--background);
   color: var(--muted-foreground);
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .adventrya-toast-close:hover {
