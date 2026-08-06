@@ -27,6 +27,7 @@ public interface IMasterStoryRunRepository
     Task SavePromptsAsync(
         Guid id,
         string model,
+        string promptVersion,
         string systemPrompt,
         string userPrompt,
         CancellationToken cancellationToken);

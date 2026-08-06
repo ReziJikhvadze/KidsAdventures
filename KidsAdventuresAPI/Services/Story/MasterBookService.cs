@@ -188,10 +188,14 @@ public sealed class MasterBookService(
 
             // The prompts are stored before the call rather than after, so that a call which
             // times out still leaves behind what it was asked to do.
-            var systemPrompt = MasterStoryPrompt.System(storyInput);
-            var userPrompt = MasterStoryPrompt.User(storyInput);
+            var (systemPrompt, userPrompt) = masterStoryService.BuildPrompts(storyInput);
             await runRepository.SavePromptsAsync(
-                runId, masterStoryService.ModelName, systemPrompt, userPrompt, cancellationToken);
+                runId,
+                masterStoryService.ModelName,
+                masterStoryService.PromptVersion,
+                systemPrompt,
+                userPrompt,
+                cancellationToken);
 
             var result = await masterStoryService.WriteAsync(storyInput, cancellationToken);
             var content = MasterStoryProjection.ToContent(result.Story, run.ChildName, run.Theme);

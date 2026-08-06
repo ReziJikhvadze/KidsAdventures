@@ -51,6 +51,9 @@ public sealed class MasterStoryRun
     public int SpreadCount { get; set; } = BookFormat.SpreadCount;
 
     public string? Model { get; set; }
+
+    /// <summary>v1 or v2 — which prompt variant wrote this book.</summary>
+    public string? PromptVersion { get; set; }
     public string? SystemPrompt { get; set; }
     public string? UserPrompt { get; set; }
     public int PromptTokens { get; set; }

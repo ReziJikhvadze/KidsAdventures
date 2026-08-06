@@ -9,7 +9,7 @@ public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFac
         Id, UserId, PackId, Status, ProgressMessage, ChildName, BirthDate, Age, Gender, Theme, EyeColor,
         ExtraWishes, AppearanceDescription, PhotoBlobUrl, StoryLanguage, SpreadCount, Model, SystemPrompt,
         UserPrompt, PromptTokens, CompletionTokens, StoryJson, ContentJson, CoverImageUrl,
-        ErrorMessage, CreatedAt, UpdatedAt, ExpiresAt
+        ErrorMessage, PromptVersion, CreatedAt, UpdatedAt, ExpiresAt
         """;
 
     public async Task CreateAsync(MasterStoryRun run, CancellationToken cancellationToken)
@@ -69,13 +69,15 @@ public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFac
     public async Task SavePromptsAsync(
         Guid id,
         string model,
+        string promptVersion,
         string systemPrompt,
         string userPrompt,
         CancellationToken cancellationToken)
     {
         const string sql = """
                            UPDATE dbo.MasterStoryRuns
-                           SET Model = @Model, SystemPrompt = @SystemPrompt, UserPrompt = @UserPrompt,
+                           SET Model = @Model, PromptVersion = @PromptVersion,
+                               SystemPrompt = @SystemPrompt, UserPrompt = @UserPrompt,
                                UpdatedAt = SYSUTCDATETIME()
                            WHERE Id = @Id;
                            """;
@@ -83,7 +85,14 @@ public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFac
         using var connection = connectionFactory.CreateConnection();
         await connection.ExecuteAsync(new CommandDefinition(
             sql,
-            new { Id = id, Model = model, SystemPrompt = systemPrompt, UserPrompt = userPrompt },
+            new
+            {
+                Id = id,
+                Model = model,
+                PromptVersion = promptVersion,
+                SystemPrompt = systemPrompt,
+                UserPrompt = userPrompt
+            },
             cancellationToken: cancellationToken));
     }
 

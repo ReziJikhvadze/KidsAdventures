@@ -26,6 +26,12 @@ public interface IMasterStoryService
     /// <summary>The model this service will use. Exposed so callers can record it before the call.</summary>
     string ModelName { get; }
 
+    /// <summary>Which prompt variant is in force. Recorded on the run so books can be compared.</summary>
+    string PromptVersion { get; }
+
+    /// <summary>The prompts this input would produce, without making the call.</summary>
+    (string System, string User) BuildPrompts(MasterStoryInput input);
+
     Task<MasterStoryResult> WriteAsync(MasterStoryInput input, CancellationToken cancellationToken);
 }
 
@@ -48,20 +54,28 @@ public sealed class MasterStoryService(
     public string ModelName =>
         string.IsNullOrWhiteSpace(_options.MasterStoryModel) ? _options.Model : _options.MasterStoryModel;
 
+    public string PromptVersion =>
+        string.Equals(_options.StoryPromptVersion, "v2", StringComparison.OrdinalIgnoreCase) ? "v2" : "v1";
+
+    public (string System, string User) BuildPrompts(MasterStoryInput input) =>
+        PromptVersion == "v2"
+            ? (MasterStoryPromptV2.System(input), MasterStoryPromptV2.User(input))
+            : (MasterStoryPrompt.System(input), MasterStoryPrompt.User(input));
+
     public async Task<MasterStoryResult> WriteAsync(MasterStoryInput input, CancellationToken cancellationToken)
     {
-        var systemPrompt = MasterStoryPrompt.System(input);
-        var userPrompt = MasterStoryPrompt.User(input);
+        var (systemPrompt, userPrompt) = BuildPrompts(input);
         var schema = MasterStorySchema.Build(input.SpreadCount);
         var model = ModelName;
 
         logger.LogInformation(
-            "Writing a {Spreads}-spread book for {Child}, age {Age}, theme {Theme}, using {Model}.",
+            "Writing a {Spreads}-spread book for {Child}, age {Age}, theme {Theme}, using {Model} and prompt {PromptVersion}.",
             input.SpreadCount,
             input.ChildName,
             input.Age,
             input.Theme,
-            model);
+            model,
+            PromptVersion);
 
         var result = await modelClient.CompleteAsync<MasterStory>(
             model,

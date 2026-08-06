@@ -14,6 +14,15 @@ public sealed class OpenAiOptions
     public string MasterStoryModel { get; set; } = "gpt-5.6-luna";
 
     /// <summary>
+    /// Which prompt variant writes books: "v1" or "v2".
+    ///
+    /// A switch rather than an edit, so the version that is known to work stays reachable while
+    /// the other one changes. Every run records which wrote it, which is what makes two prompts
+    /// comparable rather than just sequential.
+    /// </summary>
+    public string StoryPromptVersion { get; set; } = "v1";
+
+    /// <summary>
     /// Writes the full prompts and the returned story to the log.
     ///
     /// On, because it was asked for and a flag you have to discover is a flag that never gets
