@@ -127,26 +127,25 @@ public static class MasterStoryPrompt
               ერთი წინადადება მოაკლდეს, ვიდრე ერთი ზედმეტი ჰქონდეს — ბავშვის ყურადღება
               სურათსა და ხმას მიჰყვება, არა აბზაცის სიგრძეს.
 
-            ## ილუსტრაციების prompt-ები
+            ## ილუსტრაციები
 
-            characterLock დაწერე ერთხელ, ინგლისურად, და **სიტყვასიტყვით ჩასვი ყოველი სცენის
-            prompt-ის დასაწყისში**. ის არასოდეს შეცვალო გვერდიდან გვერდზე.
+            ყოველი სცენისთვის დაწერე **მხოლოდ ის, რაც ამ სურათს ეხება**: რომელი მომენტია,
+            მთავარი მოქმედება, ემოცია, გარემო თავისი საგნებით, ამინდითა და დროით, კადრი და
+            კამერის კუთხე, და ის დეტალები, რომლებიც სიტყვების გარეშეც ყვება ამბავს.
 
-            ვიზუალური მიმართულება ყოველ prompt-ში:
-            "High-quality cinematic 3D animated family-film aesthetic, expressive characters,
-            rounded and appealing forms, detailed environments, warm emotional storytelling,
-            soft global illumination, polished textures, vibrant but harmonious colors,
-            cinematic composition, child-friendly atmosphere."
+            **არ დაწერო** სტილი, ფორმატი, ფოტოს შესახებ ინსტრუქცია და პერსონაჟების მუდმივი
+            გარეგნობა. ეს ოთხი ჩვენს მხარეს ემატება ყოველ prompt-ს ავტომატურად —
+            თუ მაინც დაწერ, სურათის აღწერაში ერთი და იგივე აბზაცი ცხრაჯერ გამეორდება
+            და ადგილს დაიკავებს იმისთვის, რაც მართლა ამ სცენას ეხება.
 
-            prompt-ის სტრუქტურა: პერსონაჟის აღწერა → სცენა და მოქმედება → ემოცია →
-            გარემო → კომპოზიცია და კამერა → განათება და ფერები → სტილი → ფორმატი → შეზღუდვები.
-
-            {PhotoInstruction(input)}
+            characterLock დაწერე **ერთხელ**, ინგლისურად, ცალკე ველში: მხოლოდ გარეგნობა —
+            სახე, თმა, თვალები, კანი, აღნაგობა და ზუსტად ის ტანსაცმელი, რომელიც ყველა
+            სცენაშია. ის ავტომატურად ჩაისმება ყოველ prompt-ში, ამიტომ არსად გაიმეორო.
 
             ## პასუხის ენა
 
-            ისტორია, სათაური, caption-ები და განმავითარებელი ნაწილი — {LanguageName(input.Language)} ენაზე.
-            characterLock, prompt და negativePrompt — **მხოლოდ ინგლისურად**.
+            ისტორია, სათაური და caption-ები — {LanguageName(input.Language)} ენაზე.
+            characterLock, scene და avoid — **მხოლოდ ინგლისურად**.
 
             ## დაბრუნებამდე ჩუმად გადაამოწმე
 
@@ -156,8 +155,8 @@ public static class MasterStoryPrompt
             - ბუნებრივად ვითარდება თუ არა უნარი „{skill.Georgian}“;
             - არის თუ არა ემოციური კონფლიქტი უსაფრთხო;
             - **ყველა გვერდზე ერთი და იგივე სახელით არიან თუ არა პერსონაჟები**;
-            - არის თუ არა characterLock ყოველ prompt-ში სიტყვასიტყვით;
-            - გასაგებია თუ არა თითოეული prompt დამოუკიდებლად.
+                        - გასაგებია თუ არა თითოეული სცენა დამოუკიდებლად;
+            - არსად ხომ არ გაიმეორე გარეგნობა, სტილი ან ფოტოს ინსტრუქცია.
             """;
     }
 
@@ -172,7 +171,7 @@ public static class MasterStoryPrompt
         prompt.AppendLine($"- სქესი: {GenderWord(input.Gender)}");
         prompt.AppendLine($"- თემა და გარემო: {ThemeDescription(input.Theme)}");
         prompt.AppendLine($"- თვალის ფერი: {input.EyeColor}");
-        prompt.AppendLine($"- ისტორიის ენა: {LanguageName(input.Language)}");
+        prompt.AppendLine($"- ისტორიის ენა: {LanguageName(input.Language)} ენა");
         prompt.AppendLine($"- სცენების რაოდენობა: {input.SpreadCount} (ანუ {input.SpreadCount * 2} დაბეჭდილი გვერდი)");
 
         prompt.AppendLine();
@@ -203,16 +202,19 @@ public static class MasterStoryPrompt
         prompt.AppendLine("- concept: სათაური და 5–8 პუნქტიანი გეგმა;");
         prompt.AppendLine($"- spreads: ზუსტად {input.SpreadCount} სცენა, თითოეულს სათაური, caption, ტექსტი (3–5 წინადადება) და თავისი ილუსტრაცია;");
         prompt.AppendLine("- characterLock: ინგლისურად, ერთი აბზაცი;");
-        prompt.AppendLine($"- cover: ყდის ილუსტრაცია — გმირის პორტრეტი ამ სამყაროში, სათაურისთვის მშვიდი ადგილით;");
-        prompt.AppendLine($"სულ {input.SpreadCount + 1} ილუსტრაცია: ყდა და {input.SpreadCount} სცენა. ყოველ prompt-ში characterLock სიტყვასიტყვით.");
+        prompt.AppendLine("- cover: ყდის სცენა — გმირის პორტრეტი ამ სამყაროში, სათაურისთვის მშვიდი ადგილით;");
+        prompt.AppendLine($"სულ {input.SpreadCount + 1} ილუსტრაცია: ყდა და {input.SpreadCount} სცენა.");
 
         return prompt.ToString();
     }
 
     /// <summary>
-    /// The photograph instruction, only when a photograph exists. Identity accuracy is stated as
-    /// taking priority over stylisation, because the failure a parent notices first is a child
-    /// who does not look like their child.
+    /// What the photograph means for the writing, and nothing about how to phrase it.
+    ///
+    /// This used to hand the model the whole English photograph directive and ask it to copy the
+    /// paragraph verbatim into the character lock — which then travelled into all nine prompts.
+    /// The directive is written by <see cref="Services.Story.IllustrationPrompt"/> now, so
+    /// repeating it here would only invite the model to write it again.
     /// </summary>
     private static string PhotoInstruction(MasterStoryInput input) =>
         string.IsNullOrWhiteSpace(input.AppearanceDescription)
@@ -220,19 +222,14 @@ public static class MasterStoryPrompt
             : """
               ## რეალური ფოტო
 
-              ბავშვის ფოტო თან ერთვის ილუსტრაციის გენერაციისას. characterLock-ში ჩადე ეს ფრაზა
-              სიტყვასიტყვით, prompt-ის დასაწყისში:
+              ბავშვის ნამდვილი ფოტო თან ერთვის სურათების გენერაციისას, და ის არის გმირის
+              გარეგნობის საბოლოო წყარო. შენი საქმეა characterLock — ანუ ის, რაც ფოტოზე ჩანს,
+              ინგლისურად და მოკლედ ჩამოაყალიბო: სახე, თმა, თვალები, კანი, აღნაგობა და
+              ტანსაცმელი.
 
-              "Use the attached reference photograph as the primary and authoritative identity
-              reference. Preserve the person's recognizable facial identity, facial geometry,
-              eye shape and spacing, eyebrows, nose, lips, smile, cheeks, jawline, skin tone,
-              hairstyle, hair color, age appearance, body build and natural body proportions as
-              accurately as possible while translating them into a polished cinematic 3D
-              animated character. Apply moderate stylization only; identity accuracy has
-              priority over exaggerated cartoon features."
-
-              არ შეცვალო ეთნიკური ნიშნები, კანის ფერი ან სხეულის ტიპი. არ დაამატო მაკიაჟი ან
-              აქსესუარები, რომლებიც ფოტოზე არ ჩანს.
+              არ დაწერო ინსტრუქცია იმაზე, თუ როგორ უნდა მოეპყრას მოდელი ფოტოს — ეს ჩვენს
+              მხარეს ემატება. არ შეცვალო ეთნიკური ნიშნები, კანის ფერი ან სხეულის ტიპი, და
+              არ დაამატო ის, რაც ფოტოზე არ ჩანს.
               """;
 
     private static string GenderWord(string gender) =>

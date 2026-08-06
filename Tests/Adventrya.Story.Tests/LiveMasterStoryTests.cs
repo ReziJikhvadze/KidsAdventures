@@ -65,15 +65,20 @@ public class LiveMasterStoryTests(ITestOutputHelper output)
         
         Assert.False(string.IsNullOrWhiteSpace(story.CharacterLock));
 
-        // The point of the whole design: the lock is quoted into every prompt, not remembered.
-        var lockOpening = string.Concat(story.CharacterLock.Take(40));
-        var prompts = story.Spreads.Select(s => s.Illustration.Prompt).Append(story.Cover.Prompt).ToList();
-        var carrying = prompts.Count(p => p.Contains(lockOpening, StringComparison.Ordinal));
-        output.WriteLine($"\ncharacterLock repeated in {carrying}/{prompts.Count} prompts");
+        // The lock reaches every prompt because the assembler puts it there, not because the
+        // model remembered to. What is worth watching now is the opposite: whether the model has
+        // stopped writing the invariant parts into the scenes, since that repetition was two
+        // thirds of what a book cost to generate.
+        var scenes = story.Spreads.Select(s => s.Illustration.Scene).Append(story.Cover.Scene).ToList();
+        var repeating = scenes.Count(scene =>
+            scene.Contains("reference photograph", StringComparison.OrdinalIgnoreCase)
+            || scene.Contains("cinematic 3D animated family-film", StringComparison.OrdinalIgnoreCase));
+        output.WriteLine($"\nscenes still repeating boilerplate: {repeating}/{scenes.Count}");
+        output.WriteLine($"average scene length: {scenes.Average(scene => scene.Length):0} chars");
 
         // The cover plus one per spread. Nine rather than twelve, because a picture now has its
         // own page and no longer shares one with the words.
-        Assert.Equal(BookFormat.ImageCount, prompts.Count);
+        Assert.Equal(BookFormat.ImageCount, scenes.Count);
     }
 
     private static string Render(
@@ -119,7 +124,7 @@ public class LiveMasterStoryTests(ITestOutputHelper output)
         text.AppendLine();
         text.AppendLine("### ყდა");
         text.AppendLine("```");
-        text.AppendLine(story.Cover.Prompt);
+        text.AppendLine(story.Cover.Scene);
         text.AppendLine("```");
 
         foreach (var spread in story.Spreads.OrderBy(s => s.Number))
@@ -129,7 +134,7 @@ public class LiveMasterStoryTests(ITestOutputHelper output)
             text.AppendLine($"### სცენა {spread.Number} — {spread.Title}");
             text.AppendLine();
             text.AppendLine("```");
-            text.AppendLine(brief.Prompt);
+            text.AppendLine(brief.Scene);
             text.AppendLine("```");
         }
 

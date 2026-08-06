@@ -1,25 +1,69 @@
 namespace AdventurePacks.Api.Services.Story;
 
 /// <summary>
-/// Puts an illustration brief together into the one string an image model actually reads.
+/// Assembles the string an image model actually reads, out of the parts that vary and the parts
+/// that never do.
 ///
-/// The image APIs have no separate field for what to avoid, so an exclusion list is only
-/// honoured if it is written into the prompt. Until this existed the master call authored a
-/// negative prompt, we stored it, and nothing ever sent it — which mattered most for the entry
-/// it always contains: no text, no captions. An image model asked to illustrate a scene with a
-/// caption in mind will happily letter one onto the picture, in garbled approximations of
-/// Georgian, across the child's face.
+/// The model used to write the whole thing, nine times per book. Measured on a real run: of
+/// 6,334 completion tokens, roughly two thirds were the same paragraphs typed out again — the
+/// photograph instruction, the house style, the format line, the character description and a
+/// near-identical exclusion list. About seven hundred characters per prompt were the scene.
+///
+/// Everything invariant is written here instead. That buys back most of the generation time,
+/// and it makes the invariant parts genuinely invariant: the model can no longer paraphrase the
+/// photograph instruction on page six, which is precisely the drift the character lock exists to
+/// prevent.
+///
+/// Order matters. Identity first, because an image model weights the opening of a prompt most
+/// heavily and the child's face is the thing a parent checks first.
 /// </summary>
 public static class IllustrationPrompt
 {
-    public static string Compose(string prompt, string? negativePrompt)
+    /// <summary>
+    /// Tells the image model the attached photograph is the authority on the face. Written once
+    /// here rather than nine times by the model.
+    /// </summary>
+    public const string PhotographDirective =
+        "Use the attached reference photograph as the primary and authoritative identity "
+        + "reference. Preserve the person's recognizable facial identity, facial geometry, eye "
+        + "shape and spacing, eyebrows, nose, lips, smile, cheeks, jawline, skin tone, hairstyle, "
+        + "hair color, age appearance, body build and natural body proportions as accurately as "
+        + "possible while translating them into a polished cinematic 3D animated character. Apply "
+        + "moderate stylization only; identity accuracy has priority over exaggerated cartoon "
+        + "features. Do not change ethnicity, skin tone or body type, and add no makeup or "
+        + "accessories that are not in the photograph.";
+
+    /// <summary>The house look. Every picture in every book shares it, so nothing decides it per page.</summary>
+    public const string StyleDirective =
+        "High-quality cinematic 3D animated family-film aesthetic, expressive characters, rounded "
+        + "and appealing forms, detailed environments, warm emotional storytelling, soft global "
+        + "illumination, polished textures, vibrant but harmonious colors, cinematic composition, "
+        + "child-friendly atmosphere.";
+
+    /// <summary>
+    /// A page of its own means the picture may fill the frame. This is the instruction that keeps
+    /// an image model from leaving a polite empty band for a caption that will never be printed.
+    /// </summary>
+    public const string FormatDirective =
+        "Portrait format, full-frame illustration. No text, no lettering, no caption and no "
+        + "reserved space for text anywhere in the image.";
+
+    public static string Compose(string characterLock, string scene, string? extraExclusions)
     {
-        var exclusions = string.IsNullOrWhiteSpace(negativePrompt)
+        var exclusions = string.IsNullOrWhiteSpace(extraExclusions)
             ? Prompts.MasterStorySchema.DefaultNegativePrompt
-            : negativePrompt.Trim();
+            : $"{extraExclusions.Trim()}, {Prompts.MasterStorySchema.DefaultNegativePrompt}";
 
         return $"""
-            {prompt.Trim()}
+            {PhotographDirective}
+
+            {characterLock.Trim()}
+
+            {scene.Trim()}
+
+            {StyleDirective}
+
+            {FormatDirective}
 
             Do not include: {exclusions}
             """;

@@ -38,14 +38,15 @@ public static class MasterStorySchema
                 {
                     type = "string",
                     description =
-                        "ENGLISH ONLY. One paragraph fixing every recurring character's appearance: "
-                        + "face, hair, eyes, skin, build, and the exact clothing worn in every scene. "
-                        + "This text must appear verbatim at the start of every illustration prompt, "
-                        + "including the cover."
+                        "ENGLISH ONLY. One paragraph describing every recurring character's "
+                        + "appearance: face, hair, eyes, skin, build, and the exact clothing worn "
+                        + "in every scene. Appearance only — no instruction about the photograph "
+                        + "and no scene. Written once; it is placed into every illustration "
+                        + "prompt automatically, so it must not be repeated anywhere else."
                 },
                 ["cover"] = IllustrationSchema(
-                    "The cover illustration. It carries no story text, so compose it as a portrait "
-                    + "of the hero in this world, with calm space where a title will be placed.")
+                    "The cover scene. It carries no story text, so compose it as a portrait of the "
+                    + "hero in this world, with calm space where a title will be placed.")
             }
         };
 
@@ -93,31 +94,31 @@ public static class MasterStorySchema
         type = "object",
         description,
         additionalProperties = false,
-        required = new[] { "prompt", "negativePrompt" },
+        required = new[] { "scene", "avoid" },
         properties = new Dictionary<string, object>
         {
-            // The scene used to be broken out into moment, action, emotion, environment, shot and
-            // a list of essential details, and then again into the prompt below. Nothing ever read
-            // the six — they were planning written down. Multiplied across nine illustrations they
-            // were most of what the call had to produce, and output length is what a reader waits
-            // on. The planning still has to happen; it just does not have to be typed out. What it
-            // must contain is stated here instead.
-            ["prompt"] = new
+            // The scene only. The photograph instruction, the house style, the format rule and
+            // the standard exclusions are added by our code, so writing them here would be nine
+            // copies of text that never changes — measured at roughly two thirds of everything
+            // the model produced for a book.
+            ["scene"] = new
             {
                 type = "string",
                 description =
-                    "ENGLISH ONLY. The finished image prompt, beginning with the characterLock "
-                    + "text repeated verbatim. Then, in this order: which moment of the text is "
-                    + "shown, the main action, what the characters feel, the place with its "
-                    + "objects, weather and time of day, the shot and camera angle, the details "
-                    + "the picture needs for the story to read without words, then lighting, "
-                    + "style and format. The picture has its own page, so it may fill the frame — "
-                    + "no space needs to be reserved for text."
+                    "ENGLISH ONLY. This picture, and nothing else — no style, no format, no "
+                    + "instruction about the photograph, and no description of the characters' "
+                    + "permanent appearance. In one flowing paragraph: which moment of the text "
+                    + "is shown, the main action, what the characters feel, the place with its "
+                    + "objects, weather and time of day, the shot and camera angle, and the "
+                    + "details the picture needs for the story to read without words."
             },
-            ["negativePrompt"] = new
+            ["avoid"] = new
             {
                 type = "string",
-                description = "ENGLISH ONLY. What must not appear, identity drift first."
+                description =
+                    "ENGLISH ONLY. Only what would go wrong in THIS picture — a hazard the scene "
+                    + "could imply, a character who should not appear. Leave it empty when there "
+                    + "is nothing particular; identity and artefact exclusions are always added."
             }
         }
     };

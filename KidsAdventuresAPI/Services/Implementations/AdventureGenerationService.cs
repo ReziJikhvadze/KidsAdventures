@@ -1277,7 +1277,7 @@ public sealed class AdventureGenerationService(
                     pack.Id,
                     anchor is { Length: > 0 },
                     pageCastPhotos)
-                : IllustrationPrompt.Compose(page.ImagePrompt, page.NegativePrompt);
+                : page.ImagePrompt;
 
             return await openAiService.GenerateStoryImageAsync(
                 imagePrompt,

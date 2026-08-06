@@ -88,14 +88,22 @@ public sealed record StoryConcept
 /// <summary>
 /// One illustration, planned and prompted in the same breath as the words it belongs to.
 /// </summary>
+/// <summary>
+/// One picture, described in the only terms that change between pictures.
+///
+/// The model used to return the finished prompt — style, format, photograph instruction and
+/// character description included — for all nine illustrations. Two thirds of a book's output
+/// was those paragraphs typed out again. Everything invariant is assembled by
+/// <see cref="Services.Story.IllustrationPrompt"/> now, so this holds only the scene.
+/// </summary>
 public sealed record IllustrationBrief
 {
-    /// <summary>
-    /// The finished English prompt, with <see cref="MasterStory.CharacterLock"/> already
-    /// inside it. Sent to the image model as written.
-    /// </summary>
-    public required string Prompt { get; init; }
+    /// <summary>This picture and nothing else: moment, action, feeling, place, shot, details.</summary>
+    public required string Scene { get; init; }
 
-    /// <summary>What must not appear. Identity drift first, artefacts second.</summary>
-    public required string NegativePrompt { get; init; }
+    /// <summary>
+    /// Only what would go wrong in this particular picture. The standing exclusions — identity
+    /// drift, artefacts, text — are added to every prompt regardless.
+    /// </summary>
+    public string Avoid { get; init; } = string.Empty;
 }

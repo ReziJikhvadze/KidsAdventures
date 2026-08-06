@@ -58,9 +58,9 @@ public class MasterStoryProjectionTests
 
         // Off-by-one here would put the wrong picture beside the wrong words, which is exactly
         // what pairing them on the spread was meant to make impossible.
-        Assert.Equal("prompt-1", content.StoryPages[0].ImagePrompt);
-        Assert.Equal("prompt-2", content.StoryPages[2].ImagePrompt);
-        Assert.Equal("prompt-3", content.StoryPages[4].ImagePrompt);
+        Assert.Contains("scene-1", content.StoryPages[0].ImagePrompt);
+        Assert.Contains("scene-2", content.StoryPages[2].ImagePrompt);
+        Assert.Contains("scene-3", content.StoryPages[4].ImagePrompt);
     }
 
     [Fact]
@@ -73,8 +73,24 @@ public class MasterStoryProjectionTests
 
         var content = MasterStoryProjection.ToContent(story, "თამარი", "Space");
 
-        Assert.Equal("prompt-1", content.StoryPages[0].ImagePrompt);
-        Assert.Equal("prompt-3", content.StoryPages[4].ImagePrompt);
+        Assert.Contains("scene-1", content.StoryPages[0].ImagePrompt);
+        Assert.Contains("scene-3", content.StoryPages[4].ImagePrompt);
+    }
+
+    [Fact]
+    public void Every_prompt_carries_the_lock_and_the_house_rules_without_the_model_writing_them()
+    {
+        var content = MasterStoryProjection.ToContent(BuildStory(2), "თამარი", "Space");
+        var prompt = content.StoryPages[0].ImagePrompt!;
+
+        // The model returns the scene alone. Assembling the rest here is what stopped two thirds
+        // of a book's generated output being the same paragraphs typed out nine times.
+        Assert.Contains("a girl with green eyes", prompt);
+        Assert.Contains(IllustrationPrompt.PhotographDirective, prompt);
+        Assert.Contains(IllustrationPrompt.StyleDirective, prompt);
+        Assert.Contains(IllustrationPrompt.FormatDirective, prompt);
+        Assert.Contains("no drift", prompt);
+        Assert.Contains("text, captions, watermark, logo", prompt);
     }
 
     [Fact]
@@ -108,7 +124,7 @@ public class MasterStoryProjectionTests
 
     private static IllustrationBrief BuildBrief(int number) => new()
     {
-        Prompt = $"prompt-{number}",
-        NegativePrompt = "no drift"
+        Scene = $"scene-{number}",
+        Avoid = "no drift"
     };
 }

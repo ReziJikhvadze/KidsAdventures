@@ -29,8 +29,9 @@ public static class MasterStoryProjection
                 Caption = spread.Caption,
                 Content = string.Empty,
                 IsTextOnlyPage = false,
-                ImagePrompt = spread.Illustration.Prompt,
-                NegativePrompt = spread.Illustration.NegativePrompt
+                ImagePrompt = IllustrationPrompt.Compose(
+                    story.CharacterLock, spread.Illustration.Scene, spread.Illustration.Avoid),
+                NegativePrompt = null
             });
 
             // The facing text page. It carries the read-aloud prose and never an image, which is

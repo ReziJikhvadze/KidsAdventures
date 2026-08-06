@@ -179,11 +179,18 @@ public sealed class AdventureContentDto
     [JsonPropertyName("characterLock")]
     public string? CharacterLock { get; set; }
 
+    /// <summary>
+    /// Left over from a format that had worksheets and a certificate. Nothing writes or reads
+    /// them, and they were being serialised into every stored book as an empty list and an empty
+    /// object. Omitted when empty so a new book stops carrying them.
+    /// </summary>
     [JsonPropertyName("activities")]
-    public List<ActivityDto> Activities { get; set; } = [];
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public List<ActivityDto>? Activities { get; set; }
 
     [JsonPropertyName("certificate")]
-    public CertificateDto Certificate { get; set; } = new();
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public CertificateDto? Certificate { get; set; }
 }
 
 public sealed class StoryPageDto
