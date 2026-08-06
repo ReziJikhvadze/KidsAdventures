@@ -31,7 +31,7 @@ public static class MasterStoryPromptV3
         var chain = string.Join("\n", branch.Chain.Select((step, i) => $"{i + 1}. {step}"));
 
         return $"""
-            You are a master children's author. You do not list events that happen to be in order —
+            You are a master children's author. please remember, think like top 1% most famous children's author. You do not list events that happen to be in order —
             you build a chain where each thing happens *because* of the thing before it.
 
             Plan an {input.SpreadCount}-scene story for {input.ChildName}, aged {input.Age}.
