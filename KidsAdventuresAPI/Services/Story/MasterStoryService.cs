@@ -68,8 +68,38 @@ public sealed class MasterStoryService(
     public string ModelName =>
         string.IsNullOrWhiteSpace(_options.MasterStoryModel) ? _options.Model : _options.MasterStoryModel;
 
-    public string PromptVersion =>
-        string.Equals(_options.StoryPromptVersion, "v2", StringComparison.OrdinalIgnoreCase) ? "v2" : "v1";
+    /// <summary>
+    /// Which variant is in force.
+    ///
+    /// Forgiving about how it is written, because it is typed into a portal text box by hand and
+    /// "2" is at least as natural a thing to enter as "v2". The first attempt at switching was
+    /// spent on exactly that: the value said 2, the comparison wanted v2, and the run quietly
+    /// carried on with v1 — a setting that silently does something other than what was asked is
+    /// worse than one that refuses.
+    /// </summary>
+    public string PromptVersion
+    {
+        get
+        {
+            var configured = (_options.StoryPromptVersion ?? string.Empty).Trim().TrimStart('v', 'V');
+
+            return configured switch
+            {
+                "2" => "v2",
+                "1" or "" => "v1",
+                _ => WarnAndDefault(configured)
+            };
+        }
+    }
+
+    private string WarnAndDefault(string configured)
+    {
+        logger.LogWarning(
+            "OpenAI:StoryPromptVersion is \"{Configured}\", which is neither v1 nor v2. Using v1.",
+            configured);
+
+        return "v1";
+    }
 
     public (string System, string User) BuildPrompts(MasterStoryInput input) =>
         PromptVersion == "v2"
