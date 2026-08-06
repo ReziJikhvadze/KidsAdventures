@@ -72,6 +72,8 @@ export type StartGuestPreviewInput = {
   age: number;
   gender?: string;
   eyeColor?: string;
+  /** As entered, yyyy-mm-dd. The server derives the age from it rather than trusting ours. */
+  birthDate?: string;
   theme: ThemeType;
   storyLanguage?: string;
   optionalStoryNotes?: string;
@@ -95,6 +97,7 @@ export async function startGuestPreview(input: StartGuestPreviewInput): Promise<
   // picking a girl could still produce a book about a boy.
   if (input.gender) body.append("gender", input.gender);
   if (input.eyeColor) body.append("eyeColor", input.eyeColor);
+  if (input.birthDate) body.append("birthDate", input.birthDate);
   if (input.storyLanguage) body.append("storyLanguage", input.storyLanguage);
   if (input.optionalStoryNotes?.trim())
     body.append("optionalStoryNotes", input.optionalStoryNotes.trim());

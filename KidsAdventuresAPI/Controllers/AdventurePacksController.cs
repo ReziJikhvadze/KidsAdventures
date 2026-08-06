@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
 using AdventurePacks.Api.Domain.Enums;
@@ -50,6 +51,7 @@ public sealed class AdventurePacksController(
         [FromForm] string theme,
         [FromForm] string? gender,
         [FromForm] string? eyeColor,
+        [FromForm] string? birthDate,
         [FromForm] string? storyLanguage,
         [FromForm] string? optionalStoryNotes,
         IFormFile? photo,
@@ -60,9 +62,23 @@ public sealed class AdventurePacksController(
             return BadRequest(new { message = "Child's name is required." });
         }
 
-        if (age < 1 || age > 18)
+        // The age the browser worked out is a conclusion; the date is the evidence. A book once
+        // came back written for a one-year-old from a birth date the parent was sure said 2023,
+        // and with only the number stored there was no way to tell which end was wrong. When a
+        // date arrives it decides, and it is kept.
+        var parsedBirthDate = ParseBirthDate(birthDate);
+        var resolvedAge = parsedBirthDate is { } born ? AgeOn(born, DateOnly.FromDateTime(DateTime.UtcNow)) : age;
+
+        if (resolvedAge < 1 || resolvedAge > 18)
         {
             return BadRequest(new { message = "Please enter a valid age." });
+        }
+
+        if (parsedBirthDate is not null && resolvedAge != age)
+        {
+            logger.LogWarning(
+                "Age sent as {Sent} but the birth date {BirthDate} gives {Resolved}; using {Resolved}.",
+                age, parsedBirthDate, resolvedAge, resolvedAge);
         }
 
         if (!Enum.TryParse<ThemeType>(theme, ignoreCase: true, out var themeType))
@@ -89,7 +105,8 @@ public sealed class AdventurePacksController(
                 new GuestPreviewInput
                 {
                     ChildName = name.Trim(),
-                    Age = age,
+                    Age = resolvedAge,
+                    BirthDate = parsedBirthDate,
                     Theme = themeType,
                     Gender = NormalizeGender(gender),
                     EyeColor = string.IsNullOrWhiteSpace(eyeColor) ? null : eyeColor.Trim(),
@@ -198,6 +215,23 @@ public sealed class AdventurePacksController(
             logger.LogWarning(ex, "Cover blob missing for run {RunId}", runId);
             return NotFound();
         }
+    }
+
+    /// <summary>Accepts what an &lt;input type="date"&gt; sends, and nothing more inventive.</summary>
+    private static DateOnly? ParseBirthDate(string? value) =>
+        DateOnly.TryParseExact(
+            value?.Trim(),
+            "yyyy-MM-dd",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out var parsed)
+            ? parsed
+            : null;
+
+    private static int AgeOn(DateOnly birthDate, DateOnly today)
+    {
+        var age = today.Year - birthDate.Year;
+        return birthDate > today.AddYears(-age) ? age - 1 : age;
     }
 
     private async Task<(byte[]? Bytes, string ContentType, bool TooLarge)> ReadPhotoAsync(

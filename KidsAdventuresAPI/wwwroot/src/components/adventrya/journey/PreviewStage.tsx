@@ -227,6 +227,8 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
           age: ageFromBirthDate(hero.birthDate),
           gender: hero.gender ?? undefined,
           eyeColor: hero.eyeColor ?? undefined,
+          // Sent alongside the age we worked out, so the server can disagree with us and win.
+          birthDate: hero.birthDate || undefined,
           // No silent default. A missing mapping used to fall back to "Dinosaurs", which
           // is how choosing the star path produced a dinosaur book: the theme was wrong
           // before the model ever saw it.

@@ -31,6 +31,13 @@ public sealed class MasterStoryRun
     public string? ProgressMessage { get; set; }
 
     public string ChildName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// What the parent actually entered. <see cref="Age"/> is derived from it, and keeping only
+    /// the derived number left no way to tell a mistyped date from a miscalculated age.
+    /// </summary>
+    public DateOnly? BirthDate { get; set; }
+
     public int Age { get; set; }
     public string Gender { get; set; } = string.Empty;
     public string Theme { get; set; } = string.Empty;

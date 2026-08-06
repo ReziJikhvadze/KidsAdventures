@@ -6,7 +6,7 @@ namespace AdventurePacks.Api.Repositories.Implementations;
 public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFactory) : IMasterStoryRunRepository
 {
     private const string Columns = """
-        Id, UserId, PackId, Status, ProgressMessage, ChildName, Age, Gender, Theme, EyeColor,
+        Id, UserId, PackId, Status, ProgressMessage, ChildName, BirthDate, Age, Gender, Theme, EyeColor,
         ExtraWishes, AppearanceDescription, PhotoBlobUrl, StoryLanguage, SpreadCount, Model, SystemPrompt,
         UserPrompt, PromptTokens, CompletionTokens, StoryJson, ContentJson, CoverImageUrl,
         ErrorMessage, CreatedAt, UpdatedAt, ExpiresAt
@@ -16,11 +16,11 @@ public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFac
     {
         const string sql = """
                            INSERT INTO dbo.MasterStoryRuns (
-                               Id, UserId, Status, ProgressMessage, ChildName, Age, Gender, Theme, EyeColor,
+                               Id, UserId, Status, ProgressMessage, ChildName, BirthDate, Age, Gender, Theme, EyeColor,
                                ExtraWishes, AppearanceDescription, PhotoBlobUrl, StoryLanguage, SpreadCount, Model,
                                SystemPrompt, UserPrompt, CreatedAt, UpdatedAt, ExpiresAt)
                            VALUES (
-                               @Id, @UserId, @Status, @ProgressMessage, @ChildName, @Age, @Gender, @Theme, @EyeColor,
+                               @Id, @UserId, @Status, @ProgressMessage, @ChildName, @BirthDate, @Age, @Gender, @Theme, @EyeColor,
                                @ExtraWishes, @AppearanceDescription, @PhotoBlobUrl, @StoryLanguage, @SpreadCount, @Model,
                                @SystemPrompt, @UserPrompt, @CreatedAt, @UpdatedAt, @ExpiresAt);
                            """;

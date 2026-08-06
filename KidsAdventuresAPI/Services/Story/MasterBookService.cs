@@ -103,6 +103,7 @@ public sealed class MasterBookService(
             Status = MasterStoryRunStatus.Pending,
             ProgressMessage = null,
             ChildName = input.ChildName.Trim(),
+            BirthDate = input.BirthDate,
             Age = input.Age,
             Gender = string.IsNullOrWhiteSpace(input.Gender) ? string.Empty : input.Gender.Trim(),
             Theme = input.Theme.ToString(),

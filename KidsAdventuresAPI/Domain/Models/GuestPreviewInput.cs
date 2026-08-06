@@ -7,6 +7,9 @@ public sealed class GuestPreviewInput
 {
     public required string ChildName { get; init; }
     public required int Age { get; init; }
+
+    /// <summary>When given, the age is derived from this rather than trusted from the browser.</summary>
+    public DateOnly? BirthDate { get; init; }
     public required ThemeType Theme { get; init; }
 
     /// <summary>girl | boy, when the parent chose. Without it the model decides, and a
