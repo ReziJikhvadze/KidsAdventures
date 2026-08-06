@@ -29,16 +29,28 @@ public static class MasterStoryPromptV2
     public static string PlannerSystem(MasterStoryInput input)
     {
         var skill = SkillMatrix.For(input.Theme, input.Age);
+        var world = StoryWorlds.For(input.Theme);
+        var maxCharacters = AgeDirectives.MaxSecondaryCharacters(input.Age);
 
         return $"""
             You are a children's book architect. You decide what happens; somebody else writes it.
 
             Plan an {input.SpreadCount}-scene story for a {input.Age}-year-old child.
 
+            ## The world
+
+            This book is set in **{world.Place}**, and nowhere else. The parent chose it from a
+            card with that name on it, so a story set anywhere else is the wrong book.
+
+            {world.Environment}
+
+            Use what is there. The writer will be asked for something heard, touched or smelled in
+            most scenes, and can only reach for what you put in the plan.
+
             ## Characters
 
-            Besides the hero, {input.ChildName}, there may be **at most two** others. A book this
-            short cannot hold more, and a child this age cannot follow more.
+            Besides the hero, {input.ChildName}, there may be **at most {maxCharacters}**. A book
+            this short cannot hold more, and a child this age cannot follow more.
 
             For each of them, decide the scene they first appear in, and give the number. They do
             not exist in the story before it — not named, not present, not hinted at.
@@ -77,7 +89,7 @@ public static class MasterStoryPromptV2
         prompt.AppendLine($"- ბავშვის სახელი: {input.ChildName}");
         prompt.AppendLine($"- ასაკი: {input.Age}");
         prompt.AppendLine($"- სქესი: {GenderWord(input.Gender)}");
-        prompt.AppendLine($"- თემა და გარემო: {ThemeDescription(input.Theme)}");
+        prompt.AppendLine($"- სამყარო: {StoryWorlds.For(input.Theme).Place}");
         prompt.AppendLine($"- თვალის ფერი: {input.EyeColor}");
         prompt.AppendLine($"- ისტორიის ენა: {LanguageName(input.Language)} ენა");
         prompt.AppendLine($"- სცენების რაოდენობა: {input.SpreadCount}");
@@ -109,29 +121,36 @@ public static class MasterStoryPromptV2
 
     // ---- Step two: the writer ---------------------------------------------------------------
 
-    public static string WriterSystem(MasterStoryInput input) =>
-        $"""
+    public static string WriterSystem(MasterStoryInput input)
+    {
+        var world = StoryWorlds.For(input.Theme);
+
+        return $"""
         You are a children's book writer. The plan is already made. Write it.
 
-        Target age: {input.Age}.
+        Target age: {input.Age}. World: **{world.Place}**.
+
+        ## Writing for this age
+
+        {AgeDirectives.WritingRules(input.Age)}
 
         ## The story text — {LanguageName(input.Language)}
 
-        Three to four short sentences per scene. At most one line of dialogue.
-        Vary sentence length; three sentences of equal length read as a list, not a story.
+        **Write Georgian, not translated English.** Avoid calques — „ფოთლები შრიალებენ“, not
+        „ფოთლები დარბიან“. This is read aloud by a parent who will hear every awkward phrase.
 
         **Nobody appears before their scene.** The plan gives every character the scene they enter
         in. Do not name them, place them, or hint at them before it.
-
-        **Show, don't tell.** Never write the feeling — write what the body did.
-        Bad: „შეეშინდა“ · Good: „ნაბიჯი უკან გადადგა“
-        Bad: „გახარებული იყო“ · Good: „ტაში დაუკრა“
 
         **The refrain** is in the plan. Use it three times, in three different positions — once
         near a beginning, once mid-scene, once inside dialogue — and let it mean something
         different each time: playful, then brave, then triumphant. Never end three pages with it.
 
         Every scene leaves one question open. A child turns the page because they need to know.
+
+        **The last scene ends warm, and leaves one small thing open.** The problem is solved and
+        the child is safe — then a new track in the sand, a feather that was not there before, a
+        small key. Not a cliffhanger: a world that carries on after the book closes.
 
         ## The illustrations — English only
 
@@ -158,6 +177,7 @@ public static class MasterStoryPromptV2
 
         If any answer is no, improve it before returning.
         """;
+    }
 
     public static string WriterUser(StoryPlan plan, string planJson)
     {
@@ -210,15 +230,4 @@ public static class MasterStoryPromptV2
             "en" or "eng" or "english" => "English",
             _ => "Georgian"
         };
-
-    private static string ThemeDescription(ThemeType theme) => theme switch
-    {
-        ThemeType.Dinosaurs => "დინოზავრები — დაკარგული ხეობა, სადაც დინოზავრები მშვიდად ცხოვრობენ",
-        ThemeType.Space => "კოსმოსი — ვარსკვლავების გზა, სადაც ყოველი პლანეტა ერთ საიდუმლოს ინახავს",
-        ThemeType.Pirates => "მეკობრეები — თბილი ზღვა, რუკები და კუნძულები",
-        ThemeType.Animals => "ცხოველები — მოჯადოებული ტყე, სადაც ყველას თავისი საიდუმლო აქვს",
-        ThemeType.Magic => "ჯადოქრობა — სახლი, სადაც კარები სხვა სამყაროებში გადის",
-        ThemeType.Airplanes => "თვითმფრინავები — ღრუბლების ქალაქი და პატარა აეროდრომი",
-        _ => "თავგადასავალი"
-    };
 }
