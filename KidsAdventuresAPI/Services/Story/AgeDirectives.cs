@@ -61,6 +61,10 @@ public static class AgeDirectives
             რა არის?“, „სად დაიმალა?“, „თითი დაადე!“ At this age a book is something you do
             together, not something you are told.
 
+            **Speech: two to four words, and worth repeating.** A child this age says the lines
+            back before they can read them. Keep them tiny, and make it obvious who is talking —
+            „ლოლომ თქვა: «ნელა!»“ rather than a bare quotation mark.
+
             One friend besides the hero, and no more. A second one is a name this child will not
             hold on to.
             """,
@@ -79,6 +83,9 @@ public static class AgeDirectives
             puddle, picks the wrong stone, says the name backwards. Not for the plot: children
             trust a character who is not perfect, and they laugh before they trust.
 
+            **Speech carries character.** One line per scene, but the friend must not sound like
+            the child: give them a word they keep using, or a way of answering that is theirs.
+
             At most two friends, arriving one at a time.
             """,
 
@@ -95,8 +102,11 @@ public static class AgeDirectives
             tracks that are fresher on one side. Give the child something to work out a page
             before the hero does — being right ahead of the story is the pleasure at this age.
 
-            Up to three friends, and they should not all sound alike: one talks too much, one
-            barely at all.
+            **Speech should be worth quoting.** Give each character a real manner — one talks too
+            much, one answers in three words, one asks questions instead of answering. A child
+            this age notices when everybody in a book has the same voice.
+
+            Up to three friends, and they should not all sound alike.
             """
     };
 }

@@ -85,6 +85,7 @@ public sealed class MasterStoryService(
 
             return configured switch
             {
+                "3" => "v3",
                 "2" => "v2",
                 "1" or "" => "v1",
                 _ => WarnAndDefault(configured)
@@ -101,15 +102,21 @@ public sealed class MasterStoryService(
         return "v1";
     }
 
-    public (string System, string User) BuildPrompts(MasterStoryInput input) =>
-        PromptVersion == "v2"
-            ? (MasterStoryPromptV2.PlannerSystem(input), MasterStoryPromptV2.PlannerUser(input))
-            : (MasterStoryPrompt.System(input), MasterStoryPrompt.User(input));
+    public (string System, string User) BuildPrompts(MasterStoryInput input) => PromptVersion switch
+    {
+        "v3" => (MasterStoryPromptV3.PlannerSystem(input, StoryBranches.For(input.Theme, Guid.NewGuid())),
+                 MasterStoryPromptV3.PlannerUser(input)),
+        "v2" => (MasterStoryPromptV2.PlannerSystem(input), MasterStoryPromptV2.PlannerUser(input)),
+        _ => (MasterStoryPrompt.System(input), MasterStoryPrompt.User(input))
+    };
 
     public Task<MasterStoryResult> WriteAsync(MasterStoryInput input, CancellationToken cancellationToken) =>
-        PromptVersion == "v2"
-            ? WriteInTwoStepsAsync(input, cancellationToken)
-            : WriteInOneStepAsync(input, cancellationToken);
+        PromptVersion switch
+        {
+            "v3" => WriteAlongAChainAsync(input, cancellationToken),
+            "v2" => WriteInTwoStepsAsync(input, cancellationToken),
+            _ => WriteInOneStepAsync(input, cancellationToken)
+        };
 
     // ---- V1 ---------------------------------------------------------------------------------
 
@@ -202,6 +209,81 @@ public sealed class MasterStoryService(
             model,
             planned.PromptTokens + written.PromptTokens,
             planned.CompletionTokens + written.CompletionTokens);
+    }
+
+    // ---- V3 ---------------------------------------------------------------------------------
+
+    private async Task<MasterStoryResult> WriteAlongAChainAsync(
+        MasterStoryInput input,
+        CancellationToken cancellationToken)
+    {
+        var model = ModelName;
+
+        // Chosen here, not by the model. Asked to pick one of three a model picks the first far
+        // more often than a third of the time, and having three is only useful if consecutive
+        // books land on different ones.
+        var branch = StoryBranches.For(input.Theme, Guid.NewGuid());
+
+        var plannerSystem = MasterStoryPromptV3.PlannerSystem(input, branch);
+        var plannerUser = MasterStoryPromptV3.PlannerUser(input);
+
+        logger.LogInformation(
+            "Planning a {Spreads}-scene book for {Child}, age {Age}, theme {Theme} along „{Branch}“ (v3).",
+            input.SpreadCount, input.ChildName, input.Age, input.Theme, branch.Name);
+
+        var planned = await modelClient.CompleteAsync<StoryPlan>(
+            model,
+            plannerSystem,
+            plannerUser,
+            StoryPlanSchema.Name,
+            StoryPlanSchema.Build(input.SpreadCount),
+            cancellationToken);
+
+        var plan = Sanitise(planned.Value, input);
+
+        logger.LogInformation(
+            "Plan for \"{Title}\": {Characters} secondary character(s), refrain „{Refrain}“.",
+            plan.StoryTitle, plan.CharacterManifest.Count, plan.RefrainPhrase);
+
+        var writerSystem = MasterStoryPromptV3.WriterSystem(input);
+        var writerUser = MasterStoryPromptV3.WriterUser(plan, StoryJson.Describe(plan), branch);
+
+        var written = await modelClient.CompleteAsync<MasterStory>(
+            model,
+            writerSystem,
+            writerUser,
+            MasterStorySchema.Name,
+            MasterStorySchema.Build(input.SpreadCount),
+            cancellationToken);
+
+        return Finish(
+            input,
+            written.Value,
+            plannerSystem + StepSeparator + writerSystem,
+            plannerUser + StepSeparator + writerUser,
+            model,
+            planned.PromptTokens + written.PromptTokens,
+            planned.CompletionTokens + written.CompletionTokens);
+    }
+
+    /// <summary>
+    /// Checks the plan is usable, and corrects what is cheaper to correct than to reject.
+    /// </summary>
+    private static StoryPlan Sanitise(StoryPlan plan, MasterStoryInput input)
+    {
+        if (plan.Outline.Count != input.SpreadCount)
+        {
+            throw new InvalidOperationException(
+                $"The architect returned {plan.Outline.Count} scenes, expected {input.SpreadCount}.");
+        }
+
+        // A character introduced outside the book is a nonsense the writer would have to
+        // interpret; correcting it costs nothing, failing the book would cost a generation.
+        var manifest = plan.CharacterManifest
+            .Select(c => c with { IntroducedInSpread = Math.Clamp(c.IntroducedInSpread, 1, input.SpreadCount) })
+            .ToList();
+
+        return plan with { CharacterManifest = manifest };
     }
 
     // ---- Shared -----------------------------------------------------------------------------

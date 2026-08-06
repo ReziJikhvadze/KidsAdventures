@@ -60,8 +60,13 @@ public static class MasterStoryPromptV2
             The book is built around this: **{skill.Georgian}**
             How it should show: {skill.GeorgianHowToShow}
 
-            Never state it. For every scene decide one thing the child physically does or notices
-            that shows it. An action, not a feeling.
+            Never state it, and do not put it in every scene. A skill practised on all eight pages
+            is not a story, it is a drill: the same admission and the same small step, eight times.
+            It belongs at the turning points — one scene where it is hard, one where it decides
+            the outcome. Elsewhere the child is simply in the world.
+
+            What every scene does need is its own purpose. Give each one a different job:
+            noticing, meeting, trying and failing, being surprised, choosing, arriving.
 
             ## The refrain
 
@@ -76,6 +81,11 @@ public static class MasterStoryPromptV2
 
             Each scene must be impossible to move. If scenes three and six could swap places
             without the story losing anything, one of them is not a scene.
+
+            The obstacles must differ **in kind**, not in scenery. One physical — something in the
+            way. One social — somebody to be understood or asked. One inward — something the child
+            has decided about themselves. Four stones to step across is one obstacle drawn four
+            times.
 
             Every scene leaves one question a child would want answered.
             """;
@@ -141,6 +151,13 @@ public static class MasterStoryPromptV2
 
         **Nobody appears before their scene.** The plan gives every character the scene they enter
         in. Do not name them, place them, or hint at them before it.
+
+        **Everyone sounds like themselves.** The narrator describes; the hero speaks simply, in
+        their own words, sometimes in half a sentence. A companion must not sound like the hero —
+        give them a habit that is theirs: a word they always use, a way of starting, a thing they
+        always notice first. A companion whose only line is the refrain is not a character.
+
+        Make it clear who is speaking. A parent reading aloud should never have to guess.
 
         **The refrain** is in the plan. Use it three times, in three different positions — once
         near a beginning, once mid-scene, once inside dialogue — and let it mean something
