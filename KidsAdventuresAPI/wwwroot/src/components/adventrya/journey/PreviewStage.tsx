@@ -71,6 +71,9 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
   // or re-run effect must not buy a second one, and `cancelled` alone only drops
   // the result — the request is already in flight and already billed.
   const requestedRef = useRef(false);
+  // When the story finished, so the wait for its cover can be bounded from that moment rather
+  // than from the start of a generation that takes minutes on its own.
+  const readyAt = useRef(Infinity);
 
   useEffect(() => {
     if (draft.preview) {
@@ -148,9 +151,9 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
       onChange({ preview: teaser });
       setLoading(false);
 
-      // Roughly two minutes of looking, which is far longer than a cover takes; a book whose
-      // cover never arrives simply keeps the world artwork.
-      if (!status.coverImageUrl) waitForCover(status.runId, 24);
+      // Only reached when the grace period ran out, so the cover is late rather than coming.
+      // Keep looking a little longer: it can still arrive while they read page one.
+      if (!status.coverImageUrl) waitForCover(status.runId, 12);
     };
 
     // Books take minutes, so a poll every four seconds costs almost nothing and still feels
@@ -162,6 +165,8 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
     // their answers.
     const startedAt = Date.now();
     const giveUpAfterMs = 15 * 60 * 1000;
+    // How long the finished story waits for its cover before being shown without one.
+    const coverGraceMs = 90 * 1000;
 
     const poll = (runId: string) => {
       pollTimer = window.setTimeout(async () => {
@@ -186,7 +191,24 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
           }
 
           if (status.status === "Ready") {
-            finish(status);
+            // Wait for the cover before showing anything.
+            //
+            // Marking a book ready as soon as its text exists saves a minute in the reader, where
+            // the story is the thing. On the preview it is the wrong trade: the cover is what a
+            // parent is deciding about, and revealing the book against stock world art means the
+            // first thing they see of their child's book is not their child. They noticed
+            // immediately — the real cover turned up one screen later.
+            //
+            // Bounded, so a cover that never arrives costs a minute and a half rather than the
+            // whole preview.
+            if (status.coverImageUrl || Date.now() - readyAt.current > coverGraceMs) {
+              finish(status);
+              return;
+            }
+
+            readyAt.current = readyAt.current === Infinity ? Date.now() : readyAt.current;
+            setProgressMessage(t.journey.previewLoader.paintingCover);
+            poll(runId);
             return;
           }
 

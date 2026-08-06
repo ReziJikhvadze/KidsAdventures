@@ -86,6 +86,7 @@ export const journey = {
   },
 
   previewLoader: {
+    paintingCover: "ზღაპარი დაწერილია — ვხატავთ ყდას…",
     heading: " პერსონალიზებული Preview იქმნება",
     subheading: "ს პირველი გვერდი უკვე იბადება",
     reassurance: "დარჩი ამ ჯადოსნურ მომენტში — დაახლოებით 30 წამი.",

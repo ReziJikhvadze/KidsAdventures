@@ -92,6 +92,7 @@ export const journey = {
   },
 
   previewLoader: {
+    paintingCover: "The story is written — painting the cover…",
     heading: " Your personalised preview is being made",
     subheading: "'s first page is already taking shape",
     reassurance: "Stay for this bit of magic — it takes about 30 seconds.",
