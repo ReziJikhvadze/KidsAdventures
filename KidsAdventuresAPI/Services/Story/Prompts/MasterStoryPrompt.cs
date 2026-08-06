@@ -66,9 +66,13 @@ public static class MasterStoryPrompt
         Write ENGLISH, 60 to 90 words, as one paragraph of plain description — not instructions,
         and no sentences beginning "preserve" or "do not".
 
-        Cover, in this order: hair colour, length and how it falls; skin tone; eye colour and
-        shape; face shape and any distinctive feature; and the clothing worn in the photograph,
-        with its colours.
+        Cover, in this order: hair colour, length and how it falls; skin tone; eye shape; face
+        shape and any distinctive feature; and the clothing worn in the photograph, with its
+        colours.
+
+        Describe the shape of the eyes but **never their colour**. The parent chooses that
+        separately, and a photograph read one way against a parent's answer read another is a
+        contradiction handed to whatever comes next.
 
         Describe nothing you cannot see. No glasses, freckles, jewellery or accessories unless
         they are in the photograph. Do not guess at mood, personality or setting.
@@ -290,7 +294,10 @@ public static class MasterStoryPrompt
             // Arrives in English and short, so it goes almost straight into the character lock.
             prompt.AppendLine("## ბავშვის გარეგნობა (ატვირთული ფოტოდან, ინგლისურად)");
             prompt.AppendLine(input.AppearanceDescription.Trim());
-            prompt.AppendLine($"Eye colour: {input.EyeColor}.");
+            // Stated after the description and marked as deciding, because the two can
+            // disagree: a photograph read as blue against a parent who chose green.
+            prompt.AppendLine($"Eye colour: **{input.EyeColor}** — this is what the parent chose "
+                              + "and it decides, whatever the photograph appears to show.");
             prompt.AppendLine();
             prompt.AppendLine("ეს არის characterLock-ის საფუძველი — გამოიყენე თითქმის უცვლელად,");
             prompt.AppendLine("დაამატე მხოლოდ ის, რაც ისტორიისთვის გჭირდება (მაგ. თანამგზავრი ცხოველი).");

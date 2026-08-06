@@ -87,7 +87,10 @@ public static class MasterStoryPromptV2
             prompt.AppendLine();
             prompt.AppendLine("## ბავშვის გარეგნობა (ატვირთული ფოტოდან, ინგლისურად)");
             prompt.AppendLine(input.AppearanceDescription.Trim());
-            prompt.AppendLine($"Eye colour: {input.EyeColor}.");
+            // Stated after the description and marked as deciding, because the two can
+            // disagree: a photograph read as blue against a parent who chose green.
+            prompt.AppendLine($"Eye colour: **{input.EyeColor}** — this is what the parent chose "
+                              + "and it decides, whatever the photograph appears to show.");
             prompt.AppendLine();
             prompt.AppendLine("ეს არის characterLock-ის საფუძველი — გამოიყენე თითქმის უცვლელად.");
             prompt.AppendLine("არაფერი დაუმატო გარეგნობას, რაც აღწერაში არ წერია.");
