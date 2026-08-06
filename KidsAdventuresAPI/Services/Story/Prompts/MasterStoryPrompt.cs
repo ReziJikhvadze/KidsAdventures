@@ -45,6 +45,36 @@ public sealed record MasterStoryInput
 /// </summary>
 public static class MasterStoryPrompt
 {
+    /// <summary>
+    /// What to ask the vision model about the photograph, for a book written by the master call.
+    ///
+    /// The older prompt asked in the book's language, so a Georgian book got fifteen hundred
+    /// characters of Georgian written as instructions to an illustrator — "preserve this", "do
+    /// not add that". Three costs followed: Georgian is expensive in tokens and this travels in
+    /// every story prompt; the model then had to translate it, because the character lock must be
+    /// English; and instructions phrased at a model sit oddly inside a block that is otherwise
+    /// facts about a child.
+    ///
+    /// English, short, and description rather than orders. It becomes the character lock almost
+    /// as written.
+    /// </summary>
+    public const string PhotoDescribe =
+        """
+        Describe only what is visible in this photograph of a child, for an illustrator who will
+        draw them as a 3D animated character.
+
+        Write ENGLISH, 60 to 90 words, as one paragraph of plain description — not instructions,
+        and no sentences beginning "preserve" or "do not".
+
+        Cover, in this order: hair colour, length and how it falls; skin tone; eye colour and
+        shape; face shape and any distinctive feature; and the clothing worn in the photograph,
+        with its colours.
+
+        Describe nothing you cannot see. No glasses, freckles, jewellery or accessories unless
+        they are in the photograph. Do not guess at mood, personality or setting.
+        """;
+
+
     public static string System(MasterStoryInput input)
     {
         var skill = SkillMatrix.For(input.Theme, input.Age);
@@ -183,10 +213,14 @@ public static class MasterStoryPrompt
         if (!string.IsNullOrWhiteSpace(input.AppearanceDescription))
         {
             prompt.AppendLine();
-            prompt.AppendLine("## ბავშვის გარეგნობა (ატვირთული ფოტოდან)");
+            // Arrives in English and short, so it goes almost straight into the character lock.
+            prompt.AppendLine("## ბავშვის გარეგნობა (ატვირთული ფოტოდან, ინგლისურად)");
             prompt.AppendLine(input.AppearanceDescription.Trim());
-            prompt.AppendLine($"თვალის ფერი: {input.EyeColor}.");
-            prompt.AppendLine("სწორედ ეს აღწერა უნდა გახდეს characterLock-ის საფუძველი.");
+            prompt.AppendLine($"Eye colour: {input.EyeColor}.");
+            prompt.AppendLine();
+            prompt.AppendLine("ეს არის characterLock-ის საფუძველი — გამოიყენე თითქმის უცვლელად,");
+            prompt.AppendLine("დაამატე მხოლოდ ის, რაც ისტორიისთვის გჭირდება (მაგ. თანამგზავრი ცხოველი).");
+            prompt.AppendLine("არაფერი დაუმატო გარეგნობას, რაც აღწერაში არ წერია.");
         }
 
         if (!string.IsNullOrWhiteSpace(input.ExtraWishes))

@@ -70,10 +70,11 @@ public sealed class MasterBookService(
         {
             try
             {
-                var describePrompt = AdventurePromptBuilder.BuildHeroPhotoDescribePrompt(
-                    language, input.ChildName, input.Age);
                 appearance = await openAiService.DescribeCharacterFromPhotoAsync(
-                    input.PhotoBytes, input.PhotoContentType, describePrompt, cancellationToken);
+                    input.PhotoBytes,
+                    input.PhotoContentType,
+                    MasterStoryPrompt.PhotoDescribe,
+                    cancellationToken);
             }
             catch (Exception ex)
             {
