@@ -2,7 +2,9 @@ using System.Text.Json;
 using AdventurePacks.Api.Domain.Enums;
 using AdventurePacks.Api.Domain.Models;
 using AdventurePacks.Api.DTOs.AdventurePacks;
+using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.Services;
+using AdventurePacks.Api.Services.Story.Prompts;
 using Xunit.Abstractions;
 
 namespace Adventrya.Story.Tests;
@@ -25,25 +27,35 @@ public class PayloadDumpTests(ITestOutputHelper output)
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
+    /// <summary>Everything the master call sends, as it is sent, with nothing in flight.</summary>
     [Fact]
-    public void Dump_the_story_call()
+    public void Dump_the_master_story_call()
     {
-        var input = LiveInput();
-        var adventureId = Guid.Parse("11111111-2222-3333-4444-555555555555");
-        var prompt = AdventurePromptBuilder.BuildStoryPrompt(input, adventureId);
-
-        // Exactly the shape OpenAiService.GenerateAdventureContentAsync posts.
-        var payload = new
+        var input = new MasterStoryInput
         {
-            model = "gpt-5.6-luna",
-            input = prompt,
-            text = new { format = new { type = "json_object" } }
+            ChildName = "იაკო",
+            Age = 2,
+            Gender = "girl",
+            Theme = ThemeType.Dinosaurs,
+            EyeColor = "green",
+            AppearanceDescription =
+                "The child has dark brown hair gathered high, with short wavy curls. Light skin, "
+                + "rounded dark brown eyes, a softly oval face with rounded cheeks and a small "
+                + "nose. She wears a mustard-yellow turtleneck and loose black trousers.",
+            SpreadCount = BookFormat.SpreadCount,
+            Language = "ka"
         };
 
-        output.WriteLine("=== POST https://api.openai.com/v1/responses  (story) ===");
-        output.WriteLine(JsonSerializer.Serialize(payload, Pretty));
+        var system = MasterStoryPrompt.System(input);
+        var user = MasterStoryPrompt.User(input);
+
+        output.WriteLine("=== instructions (system) ===");
+        output.WriteLine(system);
         output.WriteLine("");
-        output.WriteLine($"prompt characters: {prompt.Length}");
+        output.WriteLine("=== input (user) ===");
+        output.WriteLine(user);
+        output.WriteLine("");
+        output.WriteLine($"system: {system.Length} chars   user: {user.Length} chars");
     }
 
     [Fact]

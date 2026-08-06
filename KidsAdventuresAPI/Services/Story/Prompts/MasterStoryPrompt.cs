@@ -184,20 +184,18 @@ public static class MasterStoryPrompt
             და ერთი მკაცრი წესი: **უსახელო პერსონაჟი არ არსებობს.** თუ ვინმე ლაპარაკობს ან
             მოქმედებს, მას სახელი აქვს. „ერთმა ჩიტმა“ და „ერთმა ცხოველმა“ ისტორიას ასუსტებს.
 
-            ## ბავშვის გონება
+            ## How children learn
 
-            - კონკრეტული ჯობია აბსტრაქტულს: ბავშვს ესმის მოქმედება, სანამ ცნებას გაიგებს;
-            - ახალი უნარი ოდნავ რთული უნდა იყოს, მაგრამ მისაწვდომი — ისეთი, რომ ბავშვმა
-              თქვას „მეც შემიძლია“;
-            - ბავშვი აღმოაჩენს, არავინ ეუბნება. პასუხი ტექსტში არ იწერება — ის მოქმედებაში ჩანს;
-            - ახალი სიტყვა კონტექსტში ისწავლება, არა ახსნით.
+            Children learn through action.
+            Children understand concrete experiences.
+            Children remember repeated emotional moments.
 
-            ## ამბის ფორმა
+            ## Shape of the story
 
-            გმირს აქვს სურვილი ან პატარა პრობლემა. რაღაც მოულოდნელი მას თავგადასავალში იწვევს.
-            გზაზე ხვდება 2–3 დაბრკოლება, ყოველი სხვა სახის. გადამწყვეტ მომენტში **გმირი თავად
-            მოქმედებს** — არა ჯადოქრობა, არა ზრდასრული, არა შემთხვევა. ბოლოს ბრუნდება ოდნავ
-            შეცვლილი, და დასასრული თბილია.
+            Beginning: something changes.
+            Middle: the child tries.
+            Ending: the child succeeds because of their own choice — not magic, not an adult,
+            not luck.
 
             ეს უნარი ისტორიის ხერხემალია: **„{skill.Georgian}“**.
             როგორ უნდა გამოჩნდეს: {skill.GeorgianHowToShow}
@@ -208,18 +206,16 @@ public static class MasterStoryPrompt
             შექმენი სრულიად ორიგინალური ტექსტი. არ მიბაძო კონკრეტული ავტორის ტექსტს,
             პერსონაჟებს, სამყაროს ან ცნობილ სიუჟეტს.
 
-            ## უსაფრთხოების წესები
+            ## Safety
 
-            - არ გამოიყენო ასაკისთვის შეუფერებელი ძალადობა, საშინელება ან ემოციური ზეწოლა;
-            - საფრთხე მსუბუქი, მართვადი და უსაფრთხოდ დასრულებული უნდა იყოს;
-            - არ შეარცხვინო ბავშვი შეცდომის, შიშის ან წარუმატებლობის გამო;
-            - არ შექმნა შთაბეჭდილება, რომ სიყვარული კარგი ქცევის სანაცვლოდ მოიპოვება.
+            Keep the emotional world completely safe for the child's age.
+            Fear may exist, but never hopelessness.
+            The child must always feel protected.
 
-            ## პერსონაჟების თანმიმდევრულობა — სავალდებულო
+            ## Character consistency
 
-            ყოველ პერსონაჟს ერთხელ დაარქვი სახელი და **ყველა გვერდზე ზუსტად იგივე სახელით
-            მოიხსენიე**. არ შეამოკლო და არ ჩაანაცვლო. თუ პირველ გვერდზე მელიას ჰქვია „ბუბუ“,
-            ის ყველგან „ბუბუა“ — არა „ბუ“, არა სხვა ცხოველი. იგივე ეხება გარეგნობასა და ხასიათს.
+            Never rename characters.
+            Never change appearance unless the story explicitly changes it.
 
             ## წიგნის აგებულება
 
@@ -250,21 +246,21 @@ public static class MasterStoryPrompt
             ისტორია, სათაური და caption-ები — ქართულ ენაზე.
             characterLock, scene და avoid — **მხოლოდ ინგლისურად**.
 
-            ## სანამ დააბრუნებ — გადაიკითხე
+            ## Final editorial pass (do not output)
 
-            გადაიკითხე მთელი ისტორია პირველი სცენიდან ბოლომდე, როგორც მშობელი კითხულობს
-            ხმამაღლა. იპოვე და გაასწორე ყველა ადგილი, სადაც:
+            Forget the rules for a moment.
 
-            - **სცენის გამოტოვება არაფერს შეცვლიდა** — ასეთი სცენა ან გადააკეთე, ან სხვა
-              დანიშნულება მიეცი;
-            - ორი სცენა ერთსა და იმავეს აკეთებს სხვა დეკორაციით;
-            - ემოცია სუსტდება ან ერთ დონეზე დგას;
-            - დიალოგი ხელოვნურად ჟღერს ან ყველა ერთნაირად ლაპარაკობს;
-            - გვერდი კითხვას აღარ ტოვებს და ცნობისმოყვარეობა კვდება;
-            - რეფრენი მიწებებულია და არა ჩაქსოვილი, ან წესის გამო ჩნდება და არა ბუნებრივად;
-            - ორი სცენა ადგილს გაუცვლის და ისტორია არაფერს კარგავს;
-            - გმირისადმი სიყვარული არ იზრდება — ის მხოლოდ მოქმედებს, ვერ გიყვარდება;
-            - პერსონაჟს სახელი შეეცვალა ან უსახელო პერსონაჟი გაჩნდა.
+            Read the entire story from beginning to end as a children's book editor.
+            Do not ask whether the rules were followed. Ask whether the experience works.
+
+            Would a parent genuinely enjoy reading this aloud?
+            Would a two-year-old stay curious until the final page?
+            Does every spread feel necessary?
+            Does every spread contain one memorable moment?
+            Does the hero become more lovable as the story progresses?
+            Does the ending create warmth instead of simply ending the plot?
+
+            If any answer is "no", improve the story before returning it.
             """;
     }
 
