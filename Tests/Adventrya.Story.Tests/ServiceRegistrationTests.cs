@@ -1,7 +1,6 @@
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Extensions;
 using AdventurePacks.Api.Services.Story;
-using AdventurePacks.Api.Services.Story.Validation;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -28,10 +27,8 @@ public class ServiceRegistrationTests
 
         // Resolving each one is the assertion: a missing dependency throws here rather than at
         // startup in an environment where it is far more expensive to discover.
-        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IStoryValidator>());
         Assert.NotNull(scope.ServiceProvider.GetRequiredService<IStoryModelClient>());
-        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IStoryPlanner>());
-        Assert.NotNull(scope.ServiceProvider.GetRequiredService<StoryPipelineOptions>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<IMasterStoryService>());
     }
 
     [Fact]
@@ -44,37 +41,13 @@ public class ServiceRegistrationTests
         Assert.Null(exception);
     }
 
-    [Fact]
-    public void The_pipeline_is_only_registered_once_it_can_be_built()
-    {
-        using var provider = BuildProvider();
-        using var scope = provider.CreateScope();
-
-        var pipeline = scope.ServiceProvider.GetService<IStoryPipeline>();
-        var writer = scope.ServiceProvider.GetService<IStoryWriter>();
-        var reviewer = scope.ServiceProvider.GetService<ICraftReviewer>();
-
-        // While the writer and reviewer are unwritten the pipeline must stay unregistered.
-        // Once they exist this flips, and the assertion above it is what keeps them honest:
-        // a pipeline registered without them fails The_container_validates.
-        if (writer is null || reviewer is null)
-        {
-            Assert.Null(pipeline);
-        }
-        else
-        {
-            Assert.NotNull(pipeline);
-        }
-    }
-
     private static ServiceProvider BuildProvider(bool validateOnBuild = false)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["OpenAI:ApiKey"] = "test-key",
-                ["OpenAI:BaseUrl"] = "https://api.openai.com/v1",
-                ["StoryEngine:PlannerModel"] = "test-model"
+                ["OpenAI:BaseUrl"] = "https://api.openai.com/v1"
             })
             .Build();
 
@@ -83,7 +56,7 @@ public class ServiceRegistrationTests
         services.AddHttpClient();
         services.AddSingleton<IConfiguration>(configuration);
         services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
-        services.AddStoryEngine(configuration);
+        services.AddStoryEngine();
 
         return services.BuildServiceProvider(new ServiceProviderOptions
         {

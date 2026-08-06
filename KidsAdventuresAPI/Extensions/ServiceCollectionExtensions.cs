@@ -7,7 +7,6 @@ using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Beki;
 using AdventurePacks.Api.Services.Implementations;
 using AdventurePacks.Api.Services.Story;
-using AdventurePacks.Api.Services.Story.Validation;
 using AdventurePacks.Api.Services.Interfaces;
 using Hangfire;
 using Hangfire.SqlServer;
@@ -148,9 +147,7 @@ public static class ServiceCollectionExtensions
                 }));
         services.AddHangfireServer();
 
-        // Story engine v2. Registered but not reachable from any endpoint: the old
-        // generation path is untouched until this one has been proved on real books.
-        services.AddStoryEngine(configuration);
+        services.AddStoryEngine();
 
         services.AddHttpClient("OpenAI", (sp, client) =>
         {

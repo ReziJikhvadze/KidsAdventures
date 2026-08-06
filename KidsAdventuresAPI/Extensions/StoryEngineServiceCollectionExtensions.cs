@@ -1,52 +1,33 @@
 using AdventurePacks.Api.Services.Story;
-using AdventurePacks.Api.Services.Story.Validation;
 
 namespace AdventurePacks.Api.Extensions;
 
 /// <summary>
-/// Registration for story engine v2, kept apart from the rest of the container.
+/// Registration for the story engine, kept apart from the rest of the container so a test can
+/// validate exactly this slice without standing up a database, Hangfire and everything else the
+/// application needs to boot.
 ///
-/// Separate for a reason worth stating: the engine is being built stage by stage, so at any
-/// moment some of its pieces exist and some do not. Keeping the registrations here means the
-/// half-built state is visible in one file, and a test can validate exactly this slice of the
-/// container without standing up a database, Hangfire and everything else the application
-/// needs to boot.
+/// It is two services. It used to be a planner, a validator, a pipeline and twenty-four rules,
+/// none of which any running code ever called — that architecture was designed, built, and then
+/// superseded by the single master call before it was ever wired in. Keeping it made the project
+/// look like something it was not, to the point where a review of the codebase critiqued the
+/// pipeline as though books were being written by it.
 /// </summary>
 public static class StoryEngineServiceCollectionExtensions
 {
-    public static IServiceCollection AddStoryEngine(
-        this IServiceCollection services,
-        IConfiguration configuration)
+    /// <summary>
+    /// Takes no configuration: everything either service needs comes from OpenAiOptions, which
+    /// the application already binds.
+    /// </summary>
+    public static IServiceCollection AddStoryEngine(this IServiceCollection services)
     {
-        services.Configure<StoryModelOptions>(
-            configuration.GetSection(StoryModelOptions.SectionName));
-
-        services.AddSingleton(sp =>
-            sp.GetRequiredService<IConfiguration>()
-                .GetSection($"{StoryModelOptions.SectionName}:Pipeline")
-                .Get<StoryPipelineOptions>() ?? new StoryPipelineOptions());
-
-        services.AddScoped<IStoryValidator, StoryValidator>();
+        // The only door to a model, and the one call that writes a book.
         services.AddScoped<IStoryModelClient, StoryModelClient>();
-        services.AddScoped<IStoryPlanner, StoryPlanner>();
-
-        // The master call, which is the path books actually take today. It depends only on the
-        // model client, so unlike the pipeline below it is complete and safe to resolve.
         services.AddScoped<IMasterStoryService, MasterStoryService>();
 
         // IMasterBookService is registered with the application services instead. It reaches
         // outside the engine — blob storage, the image model, Hangfire — and this slice is kept
-        // resolvable on its own so a test can validate it without standing up any of that.
-
-        // IStoryPipeline is deliberately absent until IStoryWriter and ICraftReviewer exist.
-        //
-        // Registering it early cost a red build: the container validates on startup in
-        // Development, found a dependency that had not been written yet, and the API refused to
-        // boot. Production survived only because validation is off there by default and nothing
-        // resolved it — which is luck rather than safety, and exactly the kind of difference
-        // between environments that hides a fault until it is expensive.
-        //
-        // Add it here, in one line, when the writer and the reviewer land.
+        // resolvable on its own so a test can validate it without any of that.
 
         return services;
     }
