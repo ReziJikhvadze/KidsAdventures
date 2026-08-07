@@ -299,10 +299,17 @@ export function isStoryTextReady(pack: AdventurePackDetailResponse): boolean {
   return (pack.storyPages?.length ?? 0) > 0;
 }
 
-/** True once every page has an illustration (i.e. the $4.99 unlock finished). */
+/**
+ * True once every page that is meant to carry art has it.
+ *
+ * Half of a spread book is prose facing an illustration and never gets one of its own, so
+ * `every(isIllustrated)` was permanently false there — which disabled the PDF button on books
+ * that were completely finished.
+ */
 export function isPackFullyIllustrated(pack: AdventurePackDetailResponse): boolean {
   const pages = pack.storyPages ?? [];
-  return pages.length > 0 && pages.every((p) => p.isIllustrated);
+  const illustratable = pages.filter((p) => !p.isTextOnlyPage);
+  return illustratable.length > 0 && illustratable.every((p) => p.isIllustrated);
 }
 
 /** Welcome-gift stories can export a preview PDF after the free illustrated page; full books need every page illustrated. */
@@ -397,6 +404,11 @@ export async function pollAdventurePack(
     untilReadable?: boolean;
     untilStoryText?: boolean;
     untilPagesIllustrated?: number;
+    /**
+     * Wait for the PDF file itself. A pack can sit at "Completed" with no pdfUrl, so waiting on
+     * the status returns instantly and the download that follows 404s.
+     */
+    untilPdfReady?: boolean;
   },
 ): Promise<AdventurePackDetailResponse> {
   const intervalMs = options?.intervalMs ?? 2000;
@@ -405,12 +417,15 @@ export async function pollAdventurePack(
   const untilReadable = options?.untilReadable ?? false;
   const untilStoryText = options?.untilStoryText ?? false;
   const untilPagesIllustrated = options?.untilPagesIllustrated ?? 0;
+  const untilPdfReady = options?.untilPdfReady ?? false;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const pack = await getAdventurePack(id);
     onProgress?.(pack);
 
-    if (untilPagesIllustrated > 0) {
+    if (untilPdfReady) {
+      if (pack.pdfUrl) return pack;
+    } else if (untilPagesIllustrated > 0) {
       if (isPackReadable(pack) || countIllustratedPages(pack) >= untilPagesIllustrated) return pack;
     } else if (untilStoryText) {
       if (isStoryTextReady(pack)) return pack;

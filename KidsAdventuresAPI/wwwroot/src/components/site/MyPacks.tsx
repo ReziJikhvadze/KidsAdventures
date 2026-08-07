@@ -303,7 +303,7 @@ export function MyPacks() {
       notify.info("PDF not ready yet", {
         description: pack.isWelcomeGiftStory
           ? "Wait until your free illustrated page is ready, then export your preview PDF."
-          : "Wait until all 6 pages are illustrated, then export your free PDF.",
+          : "Wait until every illustration is ready, then export your free PDF.",
       });
       return;
     }

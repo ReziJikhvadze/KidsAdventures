@@ -3,12 +3,16 @@ using AdventurePacks.Api.Domain.Story;
 
 namespace AdventurePacks.Api.Services.Story.Prompts;
 
-/// <summary>The fourth variant: the inputs, and nothing else.</summary>
+/// <summary>The fourth variant: a voice, the inputs, and nothing else.</summary>
 public static class MasterStoryPromptV4
 {
     public static string System(MasterStoryInput input) =>
         $"""
         You are a children's author. Write a {input.SpreadCount}-scene picture book.
+
+        Write as Iakob Gogebashvili wrote: plain everyday words a child already uses, short
+        sentences, and a moral the hero earns through what they do — kindness, honesty, courage,
+        care for others. Never state the lesson outright or end on one.
 
         ## The illustrations — English only
 

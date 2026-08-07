@@ -15,7 +15,12 @@ import { AppHeader } from "@/components/adventrya/AppHeader";
 import { StoryPathMap } from "@/components/adventrya/world/StoryPathMap";
 import { PasswordlessAuthDialog } from "@/components/auth/PasswordlessAuthDialog";
 import { ApiError } from "@/lib/api/client";
-import { downloadAdventurePack, listAdventurePacks } from "@/lib/api/adventure-packs";
+import {
+  downloadAdventurePack,
+  generatePackPdf,
+  listAdventurePacks,
+  pollAdventurePack,
+} from "@/lib/api/adventure-packs";
 import { listCharacters } from "@/lib/api/characters";
 import { createPrintUpgradeOrder } from "@/lib/api/orders";
 import { listPrintOrders, updatePrintOrderAddress } from "@/lib/api/print-orders";
@@ -597,6 +602,8 @@ function LibraryBookCard({
 }) {
   const WORLD_BY_ID = useWorldById();
   const t = useT();
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
   const worldId = pack.worldId && isWorldId(pack.worldId) ? pack.worldId : "dinosaurs";
   const world = WORLD_BY_ID[worldId];
   const cover = useIllustrationUrl(pack.coverImageUrl) ?? WORLD_COVER_ART[worldId];
@@ -605,6 +612,26 @@ function LibraryBookCard({
   const title = pack.title?.trim() || world.bookTitle(heroName);
   const hasPrint = pack.hasPrintEntitlement || !!printOrder;
   const format = hasPrint ? t.dashboard.library.formatBoth : t.dashboard.library.formatDigital;
+
+  // This button could only download a PDF, never ask for one, so a finished book whose PDF was
+  // never built showed a permanently disabled button and no reason why. Build it on demand.
+  const handlePdf = async () => {
+    setPdfError(null);
+    setPdfBusy(true);
+    try {
+      if (!pack.pdfUrl) {
+        await generatePackPdf(pack.id);
+        await pollAdventurePack(pack.id, undefined, { untilPdfReady: true, maxAttempts: 60 });
+      }
+      await downloadAdventurePack(pack.id, `${title}.pdf`);
+    } catch (err) {
+      setPdfError(
+        err instanceof ApiError ? err.message : (err as Error)?.message || "PDF ვერ მომზადდა.",
+      );
+    } finally {
+      setPdfBusy(false);
+    }
+  };
 
   return (
     <article className="library-book">
@@ -627,16 +654,11 @@ function LibraryBookCard({
           <Link to="/reader/$bookId" params={{ bookId: pack.id }}>
             Online Reader
           </Link>
-          <button
-            type="button"
-            onClick={() =>
-              void downloadAdventurePack(pack.id, `${title}.pdf`).catch(() => undefined)
-            }
-            disabled={!pack.pdfUrl}
-          >
-            <Download aria-hidden="true" /> PDF
+          <button type="button" onClick={() => void handlePdf()} disabled={pdfBusy}>
+            <Download aria-hidden="true" /> {pdfBusy ? "მზადდება…" : "PDF"}
           </button>
         </div>
+        {pdfError ? <small role="alert">{pdfError}</small> : null}
         {hasPrint ? (
           <div className="library-print-status">
             <Package aria-hidden="true" />

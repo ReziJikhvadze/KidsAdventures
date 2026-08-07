@@ -1100,7 +1100,7 @@ public sealed class AdventureGenerationService(
         }
     }
 
-    private static bool CanExportPdf(AdventurePack pack)
+    internal static bool CanExportPdf(AdventurePack pack)
     {
         if (string.IsNullOrWhiteSpace(pack.GeneratedJson))
         {
@@ -1115,7 +1115,10 @@ public sealed class AdventureGenerationService(
                 return false;
             }
 
-            var pageCount = ResolveEffectivePageCount(pack);
+            // This used to require art on all 16 pages of a spread book, 8 of which never get
+            // any, so a finished book could never be exported.
+            var pageCount = EffectivePageCount(pack, content);
+            var expected = IllustratablePages(content, pageCount);
             var illustratedCount = CountIllustratedPages(pack, content, pageCount);
 
             if (pack.IsWelcomeGiftStory)
@@ -1123,7 +1126,7 @@ public sealed class AdventureGenerationService(
                 return illustratedCount >= AdventureStoryConstants.WelcomeGiftPageCount;
             }
 
-            return illustratedCount == pageCount;
+            return expected.Count > 0 && illustratedCount == expected.Count;
         }
         catch
         {
@@ -1131,12 +1134,25 @@ public sealed class AdventureGenerationService(
         }
     }
 
+    /// <summary>
+    /// The pages a finished book is expected to have art on. Every "is this book fully
+    /// illustrated" check goes through here so they cannot drift apart again.
+    /// </summary>
+    private static List<StoryPageDto> IllustratablePages(AdventureContentDto content, int pageCount) =>
+        content.StoryPages.Take(pageCount).Where(p => !p.IsTextOnlyPage).ToList();
+
     private static int CountIllustratedPages(AdventurePack pack, AdventureContentDto content, int pageCount)
     {
         var count = 0;
         for (var i = 0; i < pageCount && i < content.StoryPages.Count; i++)
         {
-            if (!string.IsNullOrWhiteSpace(ResolvePageIllustrationUrl(pack, content.StoryPages[i], i)))
+            var page = content.StoryPages[i];
+            if (page.IsTextOnlyPage)
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(ResolvePageIllustrationUrl(pack, page, i)))
             {
                 count++;
             }
@@ -1157,7 +1173,7 @@ public sealed class AdventureGenerationService(
             : null;
     }
 
-    private static bool HasAllSlideshowIllustrations(AdventurePack pack)
+    internal static bool HasAllSlideshowIllustrations(AdventurePack pack)
     {
         if (string.IsNullOrWhiteSpace(pack.GeneratedJson))
         {
@@ -1174,12 +1190,8 @@ public sealed class AdventureGenerationService(
 
             var pageCount = EffectivePageCount(pack, content);
             var pages = content.StoryPages.Take(pageCount).ToList();
+            var illustrated = IllustratablePages(content, pageCount);
 
-            // Only the pages that are meant to carry a picture. Half of a spread book is prose
-            // facing an illustration and will never have a URL, so requiring one of every page
-            // made this permanently false — which told the queueing paths there was still work
-            // to do on a book that was finished.
-            var illustrated = pages.Where(p => !p.IsTextOnlyPage).ToList();
             return pages.Count == pageCount
                    && illustrated.Count > 0
                    && illustrated.All(p => !string.IsNullOrWhiteSpace(p.IllustrationUrl));
