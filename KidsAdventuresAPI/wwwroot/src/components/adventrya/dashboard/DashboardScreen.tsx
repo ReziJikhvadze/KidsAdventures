@@ -620,8 +620,12 @@ function LibraryBookCard({
     setPdfBusy(true);
     try {
       if (!pack.pdfUrl) {
-        await generatePackPdf(pack.id);
-        await pollAdventurePack(pack.id, undefined, { untilPdfReady: true, maxAttempts: 60 });
+        // Queuing rejects a pack that is not StoryReady, so a build already under way is
+        // joined rather than started again.
+        if (pack.status !== "GeneratingPdf") {
+          await generatePackPdf(pack.id);
+        }
+        await pollAdventurePack(pack.id, undefined, { untilPdfReady: true, maxAttempts: 90 });
       }
       await downloadAdventurePack(pack.id, `${title}.pdf`);
     } catch (err) {

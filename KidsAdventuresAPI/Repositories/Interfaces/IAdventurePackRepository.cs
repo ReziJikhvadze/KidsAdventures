@@ -21,6 +21,9 @@ public interface IAdventurePackRepository
     Task<int> CountForMonthAsync(Guid userId, DateTime utcMonthStart, DateTime utcMonthEnd, CancellationToken cancellationToken);
     Task<bool> UpdateStatusAsync(Guid id, AdventurePackStatus status, string? generatedJson, string? pdfUrl, string? errorMessage, CancellationToken cancellationToken);
     Task UpdateProgressMessageAsync(Guid id, string? progressMessage, CancellationToken cancellationToken);
+
+    /// <summary>Message and percentage together, so a progress bar and its caption never disagree.</summary>
+    Task UpdateProgressAsync(Guid id, string? progressMessage, int? progressPercent, CancellationToken cancellationToken);
     Task SetPdfCreditChargedAsync(Guid id, bool charged, CancellationToken cancellationToken);
     Task UpdatePreviewIllustrationAsync(
         Guid id,

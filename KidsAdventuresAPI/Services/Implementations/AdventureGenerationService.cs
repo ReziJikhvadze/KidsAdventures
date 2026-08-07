@@ -204,10 +204,7 @@ public sealed class AdventureGenerationService(
             null,
             cancellationToken);
 
-        await SetProgressAsync(
-            packId,
-            "Building your printable PDF from slideshow illustrations… ~30 seconds",
-            cancellationToken);
+        await SetProgressAsync(packId, "PDF-ს ვამზადებთ…", 5, cancellationToken);
 
         backgroundJobClient.Enqueue<IAdventureGenerationService>(service =>
             service.ProcessPdfGenerationAsync(packId, CancellationToken.None));
@@ -599,7 +596,7 @@ public sealed class AdventureGenerationService(
 
             await LoadIllustrationsForPdfAsync(pack, content, cancellationToken);
 
-            await SetProgressAsync(packId, "PDF-ს ვაწყობთ… ~90%", cancellationToken);
+            await SetProgressAsync(packId, "PDF-ს ვაწყობთ…", 85, cancellationToken);
 
             // The cover is the book's own, fetched here rather than reused from page one:
             // those are different pictures, and printing one as the other both duplicated a
@@ -627,6 +624,8 @@ public sealed class AdventureGenerationService(
                 CoverImage = coverBytes,
                 Language = pack.StoryLanguage ?? "ka"
             });
+            await SetProgressAsync(packId, "წიგნს ვინახავთ…", 95, cancellationToken);
+
             var blobName = $"{pack.UserId}/{pack.Id}.pdf";
             var pdfUrl = await blobStorageService.UploadAsync(blobName, pdfBytes, "application/pdf", cancellationToken);
 
@@ -642,6 +641,7 @@ public sealed class AdventureGenerationService(
             await SetProgressAsync(
                 packId,
                 "მზადაა! PDF-ის ჩამოსატვირთად გახსენი ბიბლიოთეკა.",
+                100,
                 cancellationToken);
 
             try
@@ -671,6 +671,7 @@ public sealed class AdventureGenerationService(
             await SetProgressAsync(
                 packId,
                 "PDF ვერ შეიქმნა. ისტორია შენახულია — სცადე ხელახლა.",
+                null,
                 cancellationToken);
         }
     }
@@ -934,7 +935,9 @@ public sealed class AdventureGenerationService(
                 return;
             }
 
-            var packUrl = $"{_emailOptions.BaseUrl.TrimEnd('/')}/my-packs";
+            // Straight to the book. /my-packs is a shelf, and the parent then has to find the
+            // one book the email was about.
+            var packUrl = $"{_emailOptions.BaseUrl.TrimEnd('/')}/reader/{pack.Id}";
             await emailService.SendPdfReadyAsync(
                 user.Email,
                 childName,
@@ -968,12 +971,27 @@ public sealed class AdventureGenerationService(
         await SetProgressAsync(
             packId,
             "რაღაც შეფერხდა. სცადე ხელახლა ან აირჩიე სხვა თემა.",
+            null,
             cancellationToken);
     }
 
     private async Task SetProgressAsync(Guid packId, string message, CancellationToken cancellationToken)
     {
         await adventurePackRepository.UpdateProgressMessageAsync(packId, message, cancellationToken);
+    }
+
+    /// <summary>
+    /// Progress with a number the client can draw. Percentages used to live inside the Georgian
+    /// message ("PDF-ს ვაწყობთ… ~90%"), which meant the only way to render a bar was to parse prose.
+    /// </summary>
+    /// <param name="percent">Null clears the bar, which is what a finished or failed job wants.</param>
+    private async Task SetProgressAsync(Guid packId, string message, int? percent, CancellationToken cancellationToken)
+    {
+        await adventurePackRepository.UpdateProgressAsync(
+            packId,
+            message,
+            percent is { } value ? Math.Clamp(value, 0, 100) : null,
+            cancellationToken);
     }
 
     private static string InferImageContentType(string url)
@@ -1074,8 +1092,9 @@ public sealed class AdventureGenerationService(
         await SetProgressAsync(
             pack.Id,
             pack.IsWelcomeGiftStory && !HasAllSlideshowIllustrations(pack)
-                ? "უფასო preview PDF-ს ვქმნით… ~40%"
-                : "ილუსტრაციებს ვამზადებთ… ~40%",
+                ? "უფასო preview PDF-ს ვქმნით…"
+                : "ილუსტრაციებს ვამზადებთ…",
+            10,
             cancellationToken);
 
         var pageCount = EffectivePageCount(pack, content);
@@ -1092,10 +1111,12 @@ public sealed class AdventureGenerationService(
                     cancellationToken);
             }
 
-            var pct = 40 + (int)Math.Round(45.0 * (i + 1) / Math.Max(1, pageCount));
+            // 10 to 80: the pages are the long part, and the assembly that follows is quick.
+            var pct = 10 + (int)Math.Round(70.0 * (i + 1) / Math.Max(1, pageCount));
             await SetProgressAsync(
                 pack.Id,
-                $"PDF-ისთვის ვამზადებთ გვერდს {i + 1} / {pageCount}… ~{pct}%",
+                $"PDF-ისთვის ვამზადებთ გვერდს {i + 1} / {pageCount}…",
+                pct,
                 cancellationToken);
         }
     }

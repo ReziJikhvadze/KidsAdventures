@@ -147,6 +147,8 @@ export type AdventurePackResponse = {
   status: AdventurePackStatus;
   pdfUrl: string | null;
   progressMessage: string | null;
+  /** 0-100 while a job is running, null otherwise. */
+  progressPercent?: number | null;
   errorMessage: string | null;
   storyLanguage: string | null;
   previewIllustrationStatus?: PreviewIllustrationStatus;

@@ -425,6 +425,11 @@ export async function pollAdventurePack(
 
     if (untilPdfReady) {
       if (pack.pdfUrl) return pack;
+      // A failed PDF puts the book back to StoryReady and records why, so the "Failed" check
+      // below never fires. Without this the caller waits out every attempt in silence.
+      if (pack.status === "StoryReady" && pack.errorMessage) {
+        throw new Error(pack.errorMessage);
+      }
     } else if (untilPagesIllustrated > 0) {
       if (isPackReadable(pack) || countIllustratedPages(pack) >= untilPagesIllustrated) return pack;
     } else if (untilStoryText) {

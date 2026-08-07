@@ -51,6 +51,13 @@ export const story = {
       progress: (done: number, total: number) => `${done} სურათი ${total}-დან`,
       failed: "სურათების ნაწილი ვერ დაიხატა — ხელახლა ვცდილობთ. ტექსტი შენახულია.",
     },
+    pdf: {
+      building: "მზადდება…",
+      atelier: "ADVENTRYA PRINT ATELIER",
+      title: "საბეჭდ PDF-ს ვამზადებთ",
+      lead: "წიგნს საბეჭდად ვაწყობთ — ჩამოტვირთვა ავტომატურად დაიწყება.",
+      email: "შეგიძლია დახურო ეს გვერდი. როცა PDF მზად იქნება, მეილს მოგწერთ.",
+    },
   },
 
   map: {

@@ -10,6 +10,10 @@ public class AdventurePackResponse
     public AdventurePackStatus Status { get; set; }
     public string? PdfUrl { get; set; }
     public string? ProgressMessage { get; set; }
+
+    /// <summary>0-100 while a job is running, null otherwise. Drives the loader bar.</summary>
+    public int? ProgressPercent { get; set; }
+
     public string? ErrorMessage { get; set; }
     public string? StoryLanguage { get; set; }
     public PreviewIllustrationStatus PreviewIllustrationStatus { get; set; }

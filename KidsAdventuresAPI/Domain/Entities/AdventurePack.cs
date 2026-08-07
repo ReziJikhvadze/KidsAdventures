@@ -17,6 +17,12 @@ public sealed class AdventurePack
     public string? OptionalStoryNotes { get; set; }
     public string? StoryLanguage { get; set; }
     public string? ProgressMessage { get; set; }
+
+    /// <summary>
+    /// How far the running job has got, 0-100, or null when nothing is running. The message
+    /// used to carry this inside its own sentence, which no progress bar can read.
+    /// </summary>
+    public int? ProgressPercent { get; set; }
     public bool PdfCreditCharged { get; set; }
     public string? PreviewIllustrationUrl { get; set; }
     public PreviewIllustrationStatus PreviewIllustrationStatus { get; set; } = PreviewIllustrationStatus.None;

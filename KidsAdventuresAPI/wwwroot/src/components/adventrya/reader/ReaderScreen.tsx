@@ -5,7 +5,12 @@ import { Link, useParams } from "@tanstack/react-router";
 import { AppHeader } from "@/components/adventrya/AppHeader";
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
 import { ApiError } from "@/lib/api/client";
-import { downloadAdventurePack, getAdventurePack } from "@/lib/api/adventure-packs";
+import {
+  downloadAdventurePack,
+  generatePackPdf,
+  getAdventurePack,
+  pollAdventurePack,
+} from "@/lib/api/adventure-packs";
 import type { AdventurePackDetailResponse } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useT } from "@/lib/i18n";
@@ -20,6 +25,9 @@ export function ReaderScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
+  // Kept apart from `error`, which replaces the whole book with a message. A PDF that failed
+  // is no reason to stop showing the story.
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -57,6 +65,10 @@ export function ReaderScreen() {
     const wanted = pages.filter((page) => !page.isTextOnlyPage);
     return { done: wanted.filter((page) => page.isIllustrated).length, total: wanted.length };
   }, [pack?.storyPages]);
+
+  // A floor of 5 so the bar reads as "started" rather than "stuck" during the first poll, and
+  // so a book whose PDF already exists does not flash an empty bar on its way to the download.
+  const pdfPercent = Math.min(100, Math.max(5, pack?.progressPercent ?? 0));
 
   const isIllustrating =
     pack !== null &&
@@ -97,13 +109,34 @@ export function ReaderScreen() {
   const isUnlocked = pack?.isUnlocked === true || pack?.accessLevel === "Full";
   const lockedPageCount = pack?.lockedPageCount ?? (isUnlocked ? 0 : Math.max(0, 7 - pages.length));
 
+  // The button used to be disabled whenever the book had no PDF yet, and nothing on this page
+  // could ask for one — so a finished book showed a dead button and no explanation. It now
+  // starts the job, watches it, and downloads when the file exists.
   const onDownload = async () => {
     if (!pack || downloading) return;
     setDownloading(true);
+    setPdfError(null);
     try {
-      await downloadAdventurePack(pack.id, `${title}.pdf`);
+      let ready = pack;
+      if (!ready.pdfUrl) {
+        // A job already running is joined rather than started again: queuing rejects any pack
+        // that is not StoryReady, so a second click during the build would only raise an error.
+        if (ready.status !== "GeneratingPdf") {
+          await generatePackPdf(ready.id);
+        }
+        ready = await pollAdventurePack(ready.id, (fresh) => setPack(fresh), {
+          untilPdfReady: true,
+          maxAttempts: 90,
+        });
+        setPack(ready);
+      }
+      await downloadAdventurePack(ready.id, `${title}.pdf`);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t.common.states.bookFailed);
+      setPdfError(
+        err instanceof ApiError
+          ? err.message
+          : (err as Error)?.message || t.common.states.bookFailed,
+      );
     } finally {
       setDownloading(false);
     }
@@ -131,18 +164,64 @@ export function ReaderScreen() {
             <button
               className="button button-quiet"
               type="button"
-              disabled={!pack?.pdfUrl || downloading}
+              disabled={!pack || downloading || isIllustrating}
               onClick={() => void onDownload()}
             >
               <Download aria-hidden="true" />
-              {downloading ? "…" : t.journey.generated.downloadPdf}
+              {downloading ? t.story.reader.pdf.building : t.journey.generated.downloadPdf}
             </button>
             <Link className="button button-quiet" to="/dashboard">
               <BookOpen aria-hidden="true" />
               {t.story.reader.library.trim()}
             </Link>
           </div>
+          {pdfError ? (
+            <p className="eyebrow" role="alert" style={{ color: "#f1c970", marginTop: 12 }}>
+              {pdfError}
+            </p>
+          ) : null}
         </div>
+
+        {downloading ? (
+          <div className="reader-illustrating" aria-live="polite">
+            <div className="preview-atelier-book" aria-hidden="true">
+              <div
+                className="preview-atelier-art"
+                style={
+                  pack?.coverImageUrl
+                    ? { backgroundImage: `url("${pack.coverImageUrl}")` }
+                    : undefined
+                }
+              />
+              <div className="preview-atelier-cover-lines" />
+              <span className="preview-atelier-spine" />
+              <div className="preview-atelier-page">
+                <i />
+                <i />
+                <i />
+              </div>
+              <div className="preview-atelier-sparkles">
+                {Array.from({ length: 6 }, (_, i) => (
+                  <i key={i} />
+                ))}
+              </div>
+            </div>
+
+            <div className="preview-loader-copy">
+              <small>{t.story.reader.pdf.atelier}</small>
+              <strong>{t.story.reader.pdf.title}</strong>
+              <div className="preview-loader-progress" aria-hidden="true">
+                <i style={{ width: `${pdfPercent}%` }} />
+              </div>
+              <p className="reader-illustrating-count">{pdfPercent}%</p>
+              <p>{pack?.progressMessage || t.story.reader.pdf.lead}</p>
+              <p className="reader-illustrating-email">
+                <Mail aria-hidden="true" />
+                {t.story.reader.pdf.email}
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         {isIllustrating ? (
           <div className="reader-illustrating" aria-live="polite">

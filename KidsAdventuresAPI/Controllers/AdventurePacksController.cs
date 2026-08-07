@@ -545,6 +545,7 @@ public sealed class AdventurePacksController(
         target.Status = x.Status;
         target.PdfUrl = x.PdfUrl;
         target.ProgressMessage = x.ProgressMessage;
+        target.ProgressPercent = x.ProgressPercent;
         target.ErrorMessage = x.ErrorMessage;
         target.StoryLanguage = x.StoryLanguage;
         target.PreviewIllustrationStatus = x.PreviewIllustrationStatus;

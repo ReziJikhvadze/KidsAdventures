@@ -96,8 +96,8 @@ public sealed class SmtpEmailService(
         var html = $"""
             <p>Hi there,</p>
             <p>Your printable storybook PDF for <strong>{childName}'s {theme} adventure</strong> is ready to download.</p>
-            <p>Open My Books and tap <strong>Download storybook PDF</strong> — perfect for printing or sharing with grandparents.</p>
-            <p><a href="{packUrl}">Download from My Books</a></p>
+            <p>Open the book and tap <strong>Download storybook PDF</strong> — perfect for printing or sharing with grandparents.</p>
+            <p><a href="{packUrl}">Open the book</a></p>
             <p>With warmth,<br/>Adventrya Books</p>
             """;
         return SendEmailCoreAsync(toAddress, $"Your storybook PDF is ready — {childName}", html, cancellationToken);

@@ -6,7 +6,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
 {
     private const string PackColumns = """
         Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, ErrorMessage,
-        OptionalStoryNotes, StoryLanguage, ProgressMessage, PdfCreditCharged,
+        OptionalStoryNotes, StoryLanguage, ProgressMessage, ProgressPercent, PdfCreditCharged,
         PreviewIllustrationUrl, PreviewIllustrationStatus, PreviewIllustrationUpdatedAt,
         StoryPageCount, IsWelcomeGiftStory, CreatedAt,
         SeriesId, SequenceNumber, ContinuesFromBookId, AccessLevel, WorldId,
@@ -25,7 +25,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
     /// </summary>
     private const string PackListColumns = """
         Id, UserId, ChildId, Theme, Status, PdfUrl, ErrorMessage,
-        OptionalStoryNotes, StoryLanguage, ProgressMessage, PdfCreditCharged,
+        OptionalStoryNotes, StoryLanguage, ProgressMessage, ProgressPercent, PdfCreditCharged,
         PreviewIllustrationUrl, PreviewIllustrationStatus, PreviewIllustrationUpdatedAt,
         StoryPageCount, IsWelcomeGiftStory, CreatedAt,
         SeriesId, SequenceNumber, ContinuesFromBookId, AccessLevel, WorldId,
@@ -37,13 +37,13 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         const string sql = """
                            INSERT INTO AdventurePacks (
                                Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, ErrorMessage,
-                               OptionalStoryNotes, StoryLanguage, ProgressMessage, PdfCreditCharged,
+                               OptionalStoryNotes, StoryLanguage, ProgressMessage, ProgressPercent, PdfCreditCharged,
                                PreviewIllustrationUrl, PreviewIllustrationStatus, StoryPageCount, IsWelcomeGiftStory, CreatedAt,
                                SeriesId, SequenceNumber, ContinuesFromBookId, AccessLevel, WorldId,
                                PrimaryCharacterId, Title, CoverImageUrl, HasPrintEntitlement)
                            VALUES (
                                @Id, @UserId, @ChildId, @Theme, @Status, @GeneratedJson, @PdfUrl, @ErrorMessage,
-                               @OptionalStoryNotes, @StoryLanguage, @ProgressMessage, @PdfCreditCharged,
+                               @OptionalStoryNotes, @StoryLanguage, @ProgressMessage, @ProgressPercent, @PdfCreditCharged,
                                @PreviewIllustrationUrl, @PreviewIllustrationStatus, @StoryPageCount, @IsWelcomeGiftStory, @CreatedAt,
                                @SeriesId, @SequenceNumber, @ContinuesFromBookId, @AccessLevel, @WorldId,
                                @PrimaryCharacterId, @Title, @CoverImageUrl, @HasPrintEntitlement);
@@ -64,6 +64,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
             pack.OptionalStoryNotes,
             pack.StoryLanguage,
             pack.ProgressMessage,
+            pack.ProgressPercent,
             pack.PdfCreditCharged,
             pack.PreviewIllustrationUrl,
             PreviewIllustrationStatus = pack.PreviewIllustrationStatus.ToString(),
@@ -263,6 +264,21 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         await connection.ExecuteAsync(new CommandDefinition(sql, new { Id = id, ProgressMessage = progressMessage }, cancellationToken: cancellationToken));
     }
 
+    public async Task UpdateProgressAsync(Guid id, string? progressMessage, int? progressPercent, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE AdventurePacks
+                           SET ProgressMessage = @ProgressMessage,
+                               ProgressPercent = @ProgressPercent
+                           WHERE Id = @Id;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new { Id = id, ProgressMessage = progressMessage, ProgressPercent = progressPercent },
+            cancellationToken: cancellationToken));
+    }
+
     public async Task SetPdfCreditChargedAsync(Guid id, bool charged, CancellationToken cancellationToken)
     {
         const string sql = """
@@ -378,6 +394,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         OptionalStoryNotes = row.OptionalStoryNotes,
         StoryLanguage = row.StoryLanguage,
         ProgressMessage = row.ProgressMessage,
+        ProgressPercent = row.ProgressPercent,
         PdfCreditCharged = row.PdfCreditCharged,
         PreviewIllustrationUrl = row.PreviewIllustrationUrl,
         PreviewIllustrationStatus = Enum.Parse<PreviewIllustrationStatus>(row.PreviewIllustrationStatus),
@@ -411,6 +428,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         public string? OptionalStoryNotes { get; set; }
         public string? StoryLanguage { get; set; }
         public string? ProgressMessage { get; set; }
+        public int? ProgressPercent { get; set; }
         public bool PdfCreditCharged { get; set; }
         public string? PreviewIllustrationUrl { get; set; }
         public string PreviewIllustrationStatus { get; set; } = "None";

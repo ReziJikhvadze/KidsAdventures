@@ -51,6 +51,13 @@ export const story = {
       progress: (done: number, total: number) => `${done} of ${total} pictures`,
       failed: "Some pictures could not be drawn — we're trying again. The story is safe.",
     },
+    pdf: {
+      building: "Preparing…",
+      atelier: "ADVENTRYA PRINT ATELIER",
+      title: "Preparing your printable PDF",
+      lead: "We're setting the book for print — the download starts on its own.",
+      email: "You can close this page. We'll email you when the PDF is ready.",
+    },
   },
 
   map: {
