@@ -162,7 +162,8 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
             {
                 page.Content().Layers(layers =>
                 {
-                    layers.PrimaryLayer().Image(request.CoverImage).FitArea();
+                    layers.PrimaryLayer().AlignCenter().AlignMiddle()
+                        .Image(request.CoverImage).FitArea();
 
                     // A solid band, not a translucent scrim over the art.
                     //
@@ -236,7 +237,12 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
                 // FitArea, not a crop-to-fill. The illustration was composed as a whole frame,
                 // and cropping a children's picture to the page is how a character loses the
                 // top of their head. Any letterboxing sits on the theme colour.
-                layers.PrimaryLayer().Image(pageContent.ImageBytes).FitArea();
+                //
+                // Centred, because it is not centred by default: a 2:3 picture on this page
+                // leaves a few millimetres over, and all of it landing against one edge reads
+                // as a trimming error rather than a margin.
+                layers.PrimaryLayer().AlignCenter().AlignMiddle()
+                    .Image(pageContent.ImageBytes).FitArea();
 
                 var caption = pageContent.Caption?.Trim();
                 if (!string.IsNullOrWhiteSpace(caption))
@@ -307,8 +313,15 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
 
                 if (pageContent.ImageBytes is { Length: > 0 })
                 {
+                    // Capped, and fitted rather than stretched to the column width.
+                    //
+                    // FitWidth makes the height whatever the aspect ratio demands, so a portrait
+                    // illustration came out one and a half times the text column tall, overflowed
+                    // the page and made QuestPDF throw — no PDF at all for that book. It only
+                    // ever fitted because every illustration used to be square.
                     column.Item().PaddingVertical(4)
-                        .Image(pageContent.ImageBytes).FitWidth();
+                        .MaxHeight(LegacyImageMaxHeightMm, Unit.Millimetre)
+                        .Image(pageContent.ImageBytes).FitArea();
                 }
 
                 if (!string.IsNullOrWhiteSpace(pageContent.Content))
@@ -355,6 +368,13 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
     // ---- Geometry -------------------------------------------------------
 
     private float SafeInsetMm => _layout.SafeMarginMm;
+
+    /// <summary>
+    /// The most of a legacy page an illustration may take, leaving the title and prose room to
+    /// sit under it. Derived from the trim so it survives a change of page size.
+    /// </summary>
+    private float LegacyImageMaxHeightMm =>
+        (_layout.TrimHeightMm - (_layout.SafeMarginMm * 2)) * 0.5f;
 
     /// <summary>
     /// A page whose content runs to the bleed line: covers, pictures, blanks. The sheet is the

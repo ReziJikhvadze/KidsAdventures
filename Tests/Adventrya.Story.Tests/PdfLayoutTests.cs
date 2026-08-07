@@ -270,9 +270,16 @@ public class PdfLayoutTests(ITestOutputHelper output)
         };
     }
 
-    /// <summary>A 1x1 opaque PNG — enough to exercise the image path without a fixture file.</summary>
+    /// <summary>
+    /// A tiny 2:3 PNG, matching the shape the image model is asked for.
+    ///
+    /// It was a 1x1 square, which exercised the image path but made the rendered sample lie: a
+    /// square letterboxes deep on a portrait page, so the proofs showed a band of empty page
+    /// colour that a real illustration does not leave.
+    /// </summary>
     private static byte[] PixelPng() => Convert.FromBase64String(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+        "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAMCAIAAADQ/GvKAAAASklEQVR4nG3CIRWAQAAFwU1CAxrQgAar"
+        + "MRj0aQwGfRpzBn0agyEWBf68YfCLGX1iJnvM7B2jV8xqjSmeMYd7TLXENLeY7hLzavwDJZqCUR1CwS0A");
 
     /// <summary>
     /// Counts pages from the page tree. The <c>/Count</c> entry on the root <c>/Pages</c> node is

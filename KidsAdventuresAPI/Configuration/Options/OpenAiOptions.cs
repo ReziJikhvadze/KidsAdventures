@@ -45,8 +45,19 @@ public sealed class OpenAiOptions
     public string ImageModel { get; set; } = "gpt-image-1.5";
     /// <summary>Model for character-anchor edits (images/edits) on pages 2+.</summary>
     public string ImageEditModel { get; set; } = "gpt-image-1.5";
-    /// <summary>Landscape 3:2 fits picture-book pages better than square. gpt-image also supports 1024x1024, 1024x1536.</summary>
-    public string ImageSize { get; set; } = "1024x1024";
+    /// <summary>
+    /// Portrait 2:3, because that is the page it has to fill.
+    ///
+    /// This was square while the story prompt asked the image model for a "Portrait format,
+    /// full-frame illustration" — so every picture was drawn fighting its own instruction, and
+    /// the printed page letterboxed it top and bottom. It also matters for print resolution:
+    /// 1024px across A5 is roughly 90 DPI against the 300 a press wants, and the taller frame
+    /// is half again as many pixels down the page.
+    ///
+    /// gpt-image accepts 1024x1024, 1024x1536 and 1536x1024. A taller image costs proportionally
+    /// more, so this is a per-picture price rise, not a free change.
+    /// </summary>
+    public string ImageSize { get; set; } = "1024x1536";
     /// <summary>low | medium | high (gpt-image) or standard | hd (dall-e-3).</summary>
     public string ImageQuality { get; set; } = "medium";
     /// <summary>Legacy setting — story images now use ImageQuality for Pixar-style output.</summary>
