@@ -34,7 +34,9 @@ public static class MasterStoryPromptV4
         prompt.AppendLine($"- ბავშვის სახელი: {input.ChildName}");
         prompt.AppendLine($"- ასაკი: {input.Age}");
         prompt.AppendLine($"- სქესი: {input.Gender}");
-        prompt.AppendLine($"- სამყარო: {StoryWorlds.For(input.Theme).Place}");
+        var world = StoryWorlds.For(input.Theme);
+        prompt.AppendLine($"- თემა: {world.Subject}");
+        prompt.AppendLine($"- სამყარო: {world.Place}");
         prompt.AppendLine($"- თვალის ფერი: {input.EyeColor}");
         prompt.AppendLine($"- ენა: {input.Language}");
         prompt.AppendLine($"- სცენების რაოდენობა: {input.SpreadCount}");

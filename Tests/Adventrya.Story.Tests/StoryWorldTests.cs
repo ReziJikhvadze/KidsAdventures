@@ -13,14 +13,22 @@ namespace Adventrya.Story.Tests;
 public class StoryWorldTests
 {
     [Theory]
-    [InlineData(ThemeType.Dinosaurs, "დაკარგული ხეობა")]
-    [InlineData(ThemeType.Space, "ვარსკვლავების გზა")]
-    [InlineData(ThemeType.Pirates, "მბრწყინავი კუნძული")]
-    [InlineData(ThemeType.Animals, "მოჯადოებული ტყე")]
-    [InlineData(ThemeType.Airplanes, "ღრუბლების ქალაქი")]
-    [InlineData(ThemeType.Magic, "სინათლის ქალაქი")]
-    public void Each_theme_names_its_world(ThemeType theme, string place) =>
-        Assert.Equal(place, StoryWorlds.For(theme).Place);
+    [InlineData(ThemeType.Dinosaurs, "დინოზავრები", "დაკარგული ხეობა")]
+    [InlineData(ThemeType.Space, "კოსმოსი", "ვარსკვლავების გზა")]
+    [InlineData(ThemeType.Pirates, "მეკობრეები", "მბრწყინავი კუნძული")]
+    [InlineData(ThemeType.Animals, "ცხოველები", "მოჯადოებული ტყე")]
+    [InlineData(ThemeType.Airplanes, "თვითმფრინავები", "ღრუბლების ქალაქი")]
+    [InlineData(ThemeType.Magic, "მაგიური სამყარო", "სინათლის ქალაქი")]
+    public void Each_theme_names_its_world(ThemeType theme, string subject, string place)
+    {
+        var world = StoryWorlds.For(theme);
+
+        Assert.Equal(place, world.Place);
+
+        // The subject is what the card says the book is about. Without it a valley is only a
+        // valley, and the dinosaurs the parent chose never arrive.
+        Assert.Equal(subject, world.Subject);
+    }
 
     /// <summary>
     /// A seventh theme would fall to the generic "თავგადასავალი" and nobody would notice, because

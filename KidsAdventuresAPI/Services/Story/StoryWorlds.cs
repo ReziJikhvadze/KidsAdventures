@@ -27,6 +27,15 @@ public static class StoryWorlds
         /// <summary>The place, named as the site names it.</summary>
         public required string Place { get; init; }
 
+        /// <summary>
+        /// What the card is about, in the site's words — „დინოზავრები“, not „Dinosaurs“.
+        ///
+        /// A place name alone does not carry it. Given only „დაკარგული ხეობა“ a model wrote three
+        /// good books about a valley, with a fox, a mountain goat and nobody: the parent chose
+        /// dinosaurs and got none. The word for the subject has to be in the prompt.
+        /// </summary>
+        public required string Subject { get; init; }
+
         /// <summary>What it is made of — the raw material for sound, texture and smell.</summary>
         public required string Environment { get; init; }
     }
@@ -36,6 +45,7 @@ public static class StoryWorlds
         ThemeType.Dinosaurs => new World
         {
             Place = "დაკარგული ხეობა",
+            Subject = "დინოზავრები",
             Environment =
                 "ხშირი უძველესი ხეობა: გიგანტური გვიმრები, თბილი ნისლი დილით, მშვიდი "
                 + "მცენარეჭამია დინოზავრები, სველ ქვიშაში დარჩენილი ნაკვალევი, მოციმციმე "
@@ -45,6 +55,7 @@ public static class StoryWorlds
         ThemeType.Space => new World
         {
             Place = "ვარსკვლავების გზა",
+            Subject = "კოსმოსი",
             Environment =
                 "რბილად მბზინავი ნისლეულები, მეგობრული მოლივლივე ვარსკვლავის მტვერი, ჩუმი "
                 + "ვარსკვლავური ბილიკები, მანათობელი თანავარსკვლავედები, პატარა წყნარი "
@@ -54,6 +65,7 @@ public static class StoryWorlds
         ThemeType.Pirates => new World
         {
             Place = "მბრწყინავი კუნძული",
+            Subject = "მეკობრეები",
             Environment =
                 "ოქროსფერი ქვიშიანი სანაპირო, ნიჟარების კვალი, ნაზი ტალღები, პალმებით "
                 + "დაფარული მიმალული გამოქვაბულები, მბზინავი კომპასები და მეგობრული ზღვის "
@@ -63,6 +75,7 @@ public static class StoryWorlds
         ThemeType.Animals => new World
         {
             Place = "მოჯადოებული ტყე",
+            Subject = "ცხოველები",
             Environment =
                 "ხავსიანი ბილიკები, მჩურჩულე მუხები, ცვარი ფოთლებზე, ტყის რბილი ხმები, "
                 + "მეგობრული ტყის ცხოველები და მანათობელი სოკოები."
@@ -71,6 +84,7 @@ public static class StoryWorlds
         ThemeType.Airplanes => new World
         {
             Place = "ღრუბლების ქალაქი",
+            Subject = "თვითმფრინავები",
             Environment =
                 "ბამბისებრი ღრუბლები, თბილი ცისარტყელები, ნაზი ცის ნიავი, მეგობრული "
                 + "ცაში მოლივლივე პლანერები და მოტივტივე ღრუბლის კუნძულები."
@@ -79,6 +93,7 @@ public static class StoryWorlds
         ThemeType.Magic => new World
         {
             Place = "სინათლის ქალაქი",
+            Subject = "მაგიური სამყარო",
             Environment =
                 "მბზინავი ბროლის ფარნები, მოციმციმე ქვაფენილი, ნაზი ჯადოსნური ბუშტები, "
                 + "მეგობრული სინათლის ფერიები და თბილი თაღები."
@@ -87,6 +102,7 @@ public static class StoryWorlds
         _ => new World
         {
             Place = "თავგადასავალი",
+            Subject = "თავგადასავალი",
             Environment = "ღია, მეგობრული ადგილი, სადაც ყოველ კუთხეს თავისი ხმა აქვს."
         }
     };
