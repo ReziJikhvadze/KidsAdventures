@@ -601,7 +601,32 @@ public sealed class AdventureGenerationService(
 
             await SetProgressAsync(packId, "PDF-ს ვაწყობთ… ~90%", cancellationToken);
 
-            var pdfBytes = adventurePdfService.GeneratePdf(content, pack.Theme.ToString());
+            // The cover is the book's own, fetched here rather than reused from page one:
+            // those are different pictures, and printing one as the other both duplicated a
+            // page and left the real cover out of the book. Best effort — a book with no
+            // cover art still prints, with a typeset cover instead.
+            byte[]? coverBytes = null;
+            if (!string.IsNullOrWhiteSpace(pack.CoverImageUrl))
+            {
+                try
+                {
+                    coverBytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(
+                        pack.CoverImageUrl,
+                        cancellationToken);
+                }
+                catch (Exception coverEx)
+                {
+                    logger.LogWarning(coverEx, "Cover art unavailable for pack {PackId}; typesetting one.", packId);
+                }
+            }
+
+            var pdfBytes = adventurePdfService.GeneratePdf(new PdfBookRequest
+            {
+                Content = content,
+                ThemeName = pack.Theme.ToString(),
+                CoverImage = coverBytes,
+                Language = pack.StoryLanguage ?? "ka"
+            });
             var blobName = $"{pack.UserId}/{pack.Id}.pdf";
             var pdfUrl = await blobStorageService.UploadAsync(blobName, pdfBytes, "application/pdf", cancellationToken);
 

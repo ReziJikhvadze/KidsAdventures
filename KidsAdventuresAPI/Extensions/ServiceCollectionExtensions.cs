@@ -22,6 +22,7 @@ public static class ServiceCollectionExtensions
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
         services.Configure<BekiOptions>(configuration.GetSection(BekiOptions.SectionName));
+        services.Configure<PrintLayoutOptions>(configuration.GetSection(PrintLayoutOptions.SectionName));
         // App Service refuses an app setting named "AzureBlobStorage__ConnectionString"
         // ("AppSetting with name ... is not allowed"), so on Azure the value has to come
         // from the Connection strings section, which .NET surfaces as
