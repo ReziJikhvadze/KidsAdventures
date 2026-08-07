@@ -49,8 +49,13 @@ public static class MasterStoryPromptV3
 
             {chain}
 
-            Follow it in order. Your work is not to invent what happens; it is to make it happen to
-            **this** child, in **this** world, carrying **this** skill.
+            One step, one scene, in this order. Your work is not to invent what happens; it is to
+            make it happen to **this** child, in **this** world, carrying **this** skill.
+
+            **A step's outcome is fixed.** If the step says an egg is carried somewhere safe, the
+            egg is carried somewhere safe — it does not hatch, does not break, does not turn out
+            to be something else. You decide how it happens, who helps, and what it costs. You do
+            not decide whether it happens.
 
             ## The three continuity laws
 
@@ -71,6 +76,11 @@ public static class MasterStoryPromptV3
             first appear in — they do not exist before it, not named, not present, not hinted at.
             They must arrive at a point the chain has physically reached.
 
+            **Only what is on this list speaks.** The world is full of stones, ferns, water and
+            wind. They rustle, splash, crack and knock, and a child hears all of it — but none of
+            them say words. If something has to speak, it is a character: put it on the list, or
+            leave it silent.
+
             ## The skill
 
             The book carries this: **{skill.Georgian}**
@@ -82,8 +92,9 @@ public static class MasterStoryPromptV3
 
             ## The refrain
 
-            One short phrase, two to four words in {LanguageName(input.Language)}, recurring three
-            times. It must sound like something a character would actually say.
+            One short phrase, two to four words in {LanguageName(input.Language)}. It must sound
+            like something a character would actually say — and it has to still work when somebody
+            else says it back to them, because the writer will put it in three different mouths.
             """;
     }
 
@@ -161,8 +172,22 @@ public static class MasterStoryPromptV3
         their own words. A companion must not sound like the hero — give them a habit of their
         own. Make it clear who is speaking; a parent should never have to guess.
 
-        **The refrain** is in the plan. Three times, in three different positions, meaning
-        something different each time. Never at the end of three pages in a row.
+        **Only the characters in the plan speak.** Stones, trees, rivers and wind belong to the
+        world, not to the cast. They crack, rustle, splash and creak — a child hears every bit of
+        it — but they do not say words. A stone that talks is a second world arriving in the
+        middle of the one this book has been careful about.
+
+        **The refrain** is in the plan, and it is used exactly three times — each time in a
+        different mouth, at a different kind of moment:
+
+        - once the hero says it to themselves, where the next step is frightening;
+        - once somebody else says it back to the hero, at the moment the hero is the one who has
+          stopped;
+        - once at the end, where nothing is frightening any more, so it means something warmer
+          than it did the first time.
+
+        Never in the same place on the page twice. If it is the last line of one scene, it cannot
+        be the last line of another.
 
         **The last scene ends warm, and leaves one small thing open** — a new track, a feather
         that was not there before, a small key. Not a cliffhanger: a world that carries on.
@@ -199,6 +224,21 @@ public static class MasterStoryPromptV3
 
         prompt.AppendLine($"Write the book from this plan. It follows the chain „{branch.Name}“.");
         prompt.AppendLine();
+
+        // The writer used to get the chain's name and nothing else, and a book that hatched an egg
+        // the chain had asked to be carried somewhere safe is what that cost. The plan is supposed
+        // to carry the chain — but the plan is the part that can drift, and the chain cannot.
+        prompt.AppendLine("## The chain — one step per scene, in this order");
+        foreach (var (step, i) in branch.Chain.Select((s, i) => (s, i)))
+        {
+            prompt.AppendLine($"{i + 1}. {step}");
+        }
+
+        prompt.AppendLine();
+        prompt.AppendLine("What a step says happens, happens. You choose the words, the pace and "
+                          + "the feeling — not the outcome. Where the plan and this list disagree, "
+                          + "this list is right.");
+        prompt.AppendLine();
         prompt.AppendLine(planJson);
         prompt.AppendLine();
 
@@ -219,7 +259,9 @@ public static class MasterStoryPromptV3
         }
 
         prompt.AppendLine("## The refrain");
-        prompt.AppendLine($"„{plan.RefrainPhrase}“ — three times, in three different positions.");
+        prompt.AppendLine($"„{plan.RefrainPhrase}“ — three times: the hero to themselves, somebody "
+                          + "else back to the hero, and once at the end. Not in the same place on "
+                          + "the page twice.");
         prompt.AppendLine();
         prompt.AppendLine("## Return");
         prompt.AppendLine("- concept: the title from the plan, and its outline;");

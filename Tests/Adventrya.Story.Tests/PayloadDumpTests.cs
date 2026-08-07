@@ -4,6 +4,7 @@ using AdventurePacks.Api.Domain.Models;
 using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.Services;
+using AdventurePacks.Api.Services.Story;
 using AdventurePacks.Api.Services.Story.Prompts;
 using Xunit.Abstractions;
 
@@ -25,6 +26,80 @@ public class PayloadDumpTests(ITestOutputHelper output)
     {
         WriteIndented = true,
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
+    /// <summary>The whole of V4, with and without the optional parent wish.</summary>
+    [Fact]
+    public void Dump_the_v4_call()
+    {
+        var input = new MasterStoryInput
+        {
+            ChildName = "თამარი",
+            Age = 3,
+            Gender = "girl",
+            Theme = ThemeType.Dinosaurs,
+            EyeColor = "green",
+            SpreadCount = BookFormat.SpreadCount,
+            Language = "ka"
+        };
+
+        output.WriteLine("--- instructions ---");
+        output.WriteLine(MasterStoryPromptV4.System(input));
+        output.WriteLine("");
+        output.WriteLine("--- input, no wish ---");
+        output.WriteLine(MasterStoryPromptV4.User(input));
+        output.WriteLine("--- input, with a wish ---");
+        output.WriteLine(MasterStoryPromptV4.User(input with { ExtraWishes = "ძალიან უყვარს მელიები" }));
+    }
+
+    /// <summary>
+    /// Both halves of a V3 book, for the exact input the sweep used. Deterministic given the
+    /// input and the chain, so this is the same text those books were written from.
+    /// </summary>
+    [Fact]
+    public void Dump_the_v3_calls()
+    {
+        var input = new MasterStoryInput
+        {
+            ChildName = "თამარი",
+            Age = 3,
+            Gender = "girl",
+            Theme = ThemeType.Dinosaurs,
+            EyeColor = "green",
+            AppearanceDescription = null,
+            SpreadCount = BookFormat.SpreadCount,
+            Language = "ka"
+        };
+
+        var branch = StoryBranches.All(ThemeType.Dinosaurs)[0];
+
+        output.WriteLine("########## CALL 1 — ARCHITECT ##########");
+        output.WriteLine("");
+        output.WriteLine("--- instructions ---");
+        output.WriteLine(MasterStoryPromptV3.PlannerSystem(input, branch));
+        output.WriteLine("");
+        output.WriteLine("--- input ---");
+        output.WriteLine(MasterStoryPromptV3.PlannerUser(input));
+        output.WriteLine("");
+        output.WriteLine("########## CALL 2 — WRITER ##########");
+        output.WriteLine("");
+        output.WriteLine("--- instructions ---");
+        output.WriteLine(MasterStoryPromptV3.WriterSystem(input));
+        output.WriteLine("");
+        output.WriteLine("--- input: the plan from call 1, plus ---");
+        output.WriteLine(MasterStoryPromptV3.WriterUser(
+            SamplePlan(), "{ … the architect's JSON … }", branch));
+    }
+
+    private static StoryPlan SamplePlan() => new()
+    {
+        StoryTitle = "…",
+        RefrainPhrase = "ნელა, თამარ, ნელა!",
+        CharacterLock = "…",
+        CharacterManifest = [new PlannedCharacter { Name = "ბუბუ", Role = "პატარა დინოზავრი", IntroducedInSpread = 4 }],
+        Outline = Enumerable.Range(1, BookFormat.SpreadCount)
+            .Select(n => new PlannedSpread { SpreadNumber = n, Title = "…", PlotSummary = "…", ChildAction = "…" })
+            .ToList()
     };
 
     /// <summary>Everything the master call sends, as it is sent, with nothing in flight.</summary>

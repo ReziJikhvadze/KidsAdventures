@@ -85,6 +85,7 @@ public sealed class MasterStoryService(
 
             return configured switch
             {
+                "4" => "v4",
                 "3" => "v3",
                 "2" => "v2",
                 "1" or "" => "v1",
@@ -96,7 +97,7 @@ public sealed class MasterStoryService(
     private string WarnAndDefault(string configured)
     {
         logger.LogWarning(
-            "OpenAI:StoryPromptVersion is \"{Configured}\", which is neither v1 nor v2. Using v1.",
+            "OpenAI:StoryPromptVersion is \"{Configured}\", which is not v1, v2, v3 or v4. Using v1.",
             configured);
 
         return "v1";
@@ -104,6 +105,7 @@ public sealed class MasterStoryService(
 
     public (string System, string User) BuildPrompts(MasterStoryInput input) => PromptVersion switch
     {
+        "v4" => (MasterStoryPromptV4.System(input), MasterStoryPromptV4.User(input)),
         "v3" => (MasterStoryPromptV3.PlannerSystem(input, StoryBranches.For(input.Theme, Guid.NewGuid())),
                  MasterStoryPromptV3.PlannerUser(input)),
         "v2" => (MasterStoryPromptV2.PlannerSystem(input), MasterStoryPromptV2.PlannerUser(input)),
@@ -113,6 +115,7 @@ public sealed class MasterStoryService(
     public Task<MasterStoryResult> WriteAsync(MasterStoryInput input, CancellationToken cancellationToken) =>
         PromptVersion switch
         {
+            "v4" => WriteWithV4Async(input, cancellationToken),
             "v3" => WriteAlongAChainAsync(input, cancellationToken),
             "v2" => WriteInTwoStepsAsync(input, cancellationToken),
             _ => WriteInOneStepAsync(input, cancellationToken)
@@ -284,6 +287,40 @@ public sealed class MasterStoryService(
             .ToList();
 
         return plan with { CharacterManifest = manifest };
+    }
+
+    // ---- V4 ---------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The fourth variant: one call, and no prompt beyond the parameters the parent gave us.
+    ///
+    /// Structurally this is V1 again, which is the point — V1's prompt grew for three variants
+    /// running, and the only way to find out which of that growth the model actually needed is to
+    /// run a book without any of it and read the result.
+    /// </summary>
+    private async Task<MasterStoryResult> WriteWithV4Async(
+        MasterStoryInput input,
+        CancellationToken cancellationToken)
+    {
+        var systemPrompt = MasterStoryPromptV4.System(input);
+        var userPrompt = MasterStoryPromptV4.User(input);
+        var model = ModelName;
+
+        logger.LogInformation(
+            "Writing a {Spreads}-spread book for {Child}, age {Age}, theme {Theme}, using {Model} (v4).",
+            input.SpreadCount, input.ChildName, input.Age, input.Theme, model);
+
+        var result = await modelClient.CompleteAsync<MasterStory>(
+            model,
+            systemPrompt,
+            userPrompt,
+            MasterStorySchema.Name,
+            MasterStorySchema.Build(input.SpreadCount),
+            cancellationToken);
+
+        return Finish(
+            input, result.Value, systemPrompt, userPrompt, model,
+            result.PromptTokens, result.CompletionTokens);
     }
 
     // ---- Shared -----------------------------------------------------------------------------
