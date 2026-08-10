@@ -78,6 +78,7 @@ export function Hero() {
             pages={pages}
             lockedPageCount={0}
             isUnlocked
+            isSpreadBook
             interactive
             initialIndex={0}
           />

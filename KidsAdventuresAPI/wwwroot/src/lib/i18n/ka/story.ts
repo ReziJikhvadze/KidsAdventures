@@ -4,8 +4,12 @@ export const story = {
     coverOwner: "ეს წიგნი ეკუთვნის",
     coverOwnerLine: (hero: string) => `ეს წიგნი ეკუთვნის ${hero}ს`,
     coverEpigraph: "ყოველი დიდი სამყარო ერთი პატარა ამბით იწყება.",
-    belongsToPrefix: "ამბავი, რომელიც ",
-    belongsToSuffix: "-ს ეკუთვნის",
+    /*
+      One string, not a prefix and a suffix with the name wedged between them. Georgian declines
+      a name — the suffix was a literal "-ს", so the cover read "ზუკა-ს ეკუთვნის", which is a
+      template seam rather than a sentence. A name is in the dative here and takes ს either way.
+    */
+    belongsTo: (hero: string) => `ამბავი, რომელიც ${hero.trim()}ს ეკუთვნის`,
     nextChapter: (hero: string) => `${hero}ს შემდეგი თავი`,
     adventureOf: (hero: string) => `${hero}ს თავგადასავალი`,
     coverLabel: (total: number) => `ყდა · ${total} გვერდი`,

@@ -85,11 +85,7 @@ function CoverFace({
       <div className="storybook-cover-wash" aria-hidden="true" />
       <span className="storybook-brand">{t.story.storybook.brand}</span>
       <div className="storybook-cover-copy">
-        <small>
-          {t.story.storybook.belongsToPrefix}
-          {heroName}
-          {t.story.storybook.belongsToSuffix}
-        </small>
+        <small>{t.story.storybook.belongsTo(heroName)}</small>
         <h2>{title}</h2>
         <span>{t.story.storybook.coverOwnerLine(heroName)}</span>
       </div>
