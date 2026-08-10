@@ -75,14 +75,28 @@ public sealed class StoryModelClient(
                 userPrompt);
         }
 
-        using var client = CreateClient();
-        using var response = await client.PostAsJsonAsync("responses", payload, StoryJson.Options, cancellationToken);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        var attempts = Math.Max(1, _options.StoryRetryAttempts);
+        string body;
 
-        if (!response.IsSuccessStatusCode)
+        for (var attempt = 1; ; attempt++)
         {
-            logger.LogError("Story model call failed ({Status}): {Body}", (int)response.StatusCode, Truncate(body));
-            throw new InvalidOperationException($"The story model returned {(int)response.StatusCode}.");
+            try
+            {
+                body = await SendAsync(payload, cancellationToken);
+                break;
+            }
+            catch (TransientStoryModelException ex) when (attempt < attempts)
+            {
+                var delay = ex.RetryAfter
+                            ?? TimeSpan.FromSeconds(Math.Max(1, _options.StoryRetryBackoffSeconds) * attempt);
+                logger.LogWarning(
+                    "Story model attempt {Attempt}/{Total} failed ({Reason}); retrying in {Delay}s.",
+                    attempt,
+                    attempts,
+                    ex.Message,
+                    delay.TotalSeconds);
+                await Task.Delay(delay, cancellationToken);
+            }
         }
 
         using var document = JsonDocument.Parse(body);
@@ -116,6 +130,87 @@ public sealed class StoryModelClient(
 
         var (promptTokens, completionTokens) = ExtractUsage(document.RootElement);
         return new ModelResult<T>(value, promptTokens, completionTokens);
+    }
+
+    /// <summary>One attempt. Returns the raw body, or throws — transiently or not.</summary>
+    private async Task<string> SendAsync(object payload, CancellationToken cancellationToken)
+    {
+        using var client = CreateClient();
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await client.PostAsJsonAsync("responses", payload, StoryJson.Options, cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            // A connection that never landed. Nothing was generated, so another attempt costs
+            // nothing but the wait.
+            throw new TransientStoryModelException("the connection failed", null, ex);
+        }
+
+        using (response)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+            if (response.IsSuccessStatusCode)
+            {
+                return body;
+            }
+
+            var status = (int)response.StatusCode;
+            logger.LogError("Story model call failed ({Status}): {Body}", status, Truncate(body));
+
+            if (IsTransient(status))
+            {
+                throw new TransientStoryModelException(
+                    $"The story model returned {status}.",
+                    RetryAfter(response));
+            }
+
+            throw new InvalidOperationException($"The story model returned {status}.");
+        }
+    }
+
+    /// <summary>
+    /// Worth another attempt. 429 and 5xx are the provider asking to be asked again; 520-530 are
+    /// its edge failing in front of it, which is the case that cost a real book. A 4xx is our
+    /// request being wrong and will be exactly as wrong the second time.
+    /// </summary>
+    private static bool IsTransient(int status) =>
+        status is 408 or 429 || status >= 500;
+
+    private static TimeSpan? RetryAfter(HttpResponseMessage response)
+    {
+        var delta = response.Headers.RetryAfter?.Delta;
+        if (delta is { } d && d > TimeSpan.Zero)
+        {
+            return d;
+        }
+
+        var date = response.Headers.RetryAfter?.Date;
+        if (date is { } at)
+        {
+            var wait = at - DateTimeOffset.UtcNow;
+            if (wait > TimeSpan.Zero)
+            {
+                return wait;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Derives from InvalidOperationException so that exhausting the attempts leaves callers —
+    /// and the message a parent eventually sees — exactly as they were before retries existed.
+    /// </summary>
+    private sealed class TransientStoryModelException(
+        string message,
+        TimeSpan? retryAfter,
+        Exception? inner = null) : InvalidOperationException(message, inner)
+    {
+        public TimeSpan? RetryAfter { get; } = retryAfter;
     }
 
     private HttpClient CreateClient()

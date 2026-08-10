@@ -82,4 +82,14 @@ public sealed class OpenAiOptions
     /// up to forty-eight seconds of pure waiting on a request nobody had cancelled.
     /// </summary>
     public int ImageRetryBackoffSeconds { get; set; } = 3;
+
+    /// <summary>
+    /// Attempts at the story call before giving up. It had none: a single 520 from the provider's
+    /// edge — which is what actually happened — threw away a run that takes minutes, and the
+    /// parent watching it was told the story could not be written.
+    /// </summary>
+    public int StoryRetryAttempts { get; set; } = 3;
+
+    /// <summary>Base seconds between story attempts; the wait grows with each one.</summary>
+    public int StoryRetryBackoffSeconds { get; set; } = 4;
 }
