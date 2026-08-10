@@ -14,6 +14,7 @@ internal static class AdventurePromptBuilder
             : string.Join(Environment.NewLine, input.FamilyMembers.Select(m =>
                 $"- {m.Name} ({m.Relationship}){FormatAppearance(texts.LooksLikePrefix, m.AppearanceDescription)}"));
 
+
         var storySeed = texts.StorySeeds[Random.Shared.Next(texts.StorySeeds.Length)];
         var toneSeed = texts.ToneSeeds[Random.Shared.Next(texts.ToneSeeds.Length)];
         var sceneVariety = texts.SceneVarietySeeds[Random.Shared.Next(texts.SceneVarietySeeds.Length)];
