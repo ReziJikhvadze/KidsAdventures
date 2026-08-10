@@ -194,9 +194,10 @@
   max-width: 95%;
   margin: 8px 0 0;
   display: -webkit-box;
-  /* Three lines rather than two: at this size a Georgian title like
-     "თამარი და დაკარგული ხეობის საიდუმლო" needs the room to finish. */
-  -webkit-line-clamp: 3;
+  /* Four lines, not three. A real Georgian title — "ზუკა და დაკარგული ხეობის საიდუმლო" — wraps
+     to four on a narrow cover, and clamping at three cut it mid-word on the one book a parent
+     looks at before buying. Measured rather than guessed: it needed 4 and was shown 3. */
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
   color: #fff8eb;
@@ -546,13 +547,19 @@
     inset 12px 0 23px #442a3821,
     inset -1px 0 #ffffff57;
 }
+/*
+  0.9s, not 0.78s, because goTo waits 900ms before swapping the real page in. The sheet used to
+  finish 120ms early and hold its last frame — a hitch at the end of every turn, and most
+  visible coming back, where that frame is the page you are turning to.
+*/
 .storybook-turn-sheet.turn-next {
   transform-origin: 1.6% 50%;
-  animation: storybook-leaf-next 0.78s cubic-bezier(0.36, 0.02, 0.2, 1) both;
+  animation: storybook-leaf-next 0.9s cubic-bezier(0.36, 0.02, 0.2, 1) both;
 }
+/* The forward easing run backwards, so the return mirrors the outgoing turn rather than trailing it. */
 .storybook-turn-sheet.turn-previous {
   transform-origin: 1.6% 50%;
-  animation: storybook-leaf-previous 0.78s cubic-bezier(0.36, 0.02, 0.2, 1) both;
+  animation: storybook-leaf-previous 0.9s cubic-bezier(0.8, 0, 0.64, 0.98) both;
 }
 .storybook-page-curl {
   position: absolute;
@@ -572,7 +579,7 @@
   );
   mix-blend-mode: multiply;
   transform: translateZ(2px);
-  animation: storybook-curl-shadow 0.78s ease-in-out both;
+  animation: storybook-curl-shadow 0.9s ease-in-out both;
 }
 .storybook-turn-sheet.turn-previous .storybook-page-curl {
   right: auto;
@@ -601,22 +608,23 @@
     filter: brightness(1);
   }
 }
+/* storybook-leaf-next reversed in time: same stops subtracted from 100, same shading dip. */
 @keyframes storybook-leaf-previous {
   0% {
     transform: rotateY(-180deg) skewY(0) scaleX(1);
     filter: brightness(1);
   }
-  26% {
-    transform: rotateY(-148deg) skewY(-0.35deg) scaleX(0.986);
+  24% {
+    transform: rotateY(-151deg) skewY(-0.35deg) scaleX(0.986);
     filter: brightness(0.9);
   }
-  53% {
-    transform: rotateY(-82deg) skewY(0.6deg) scaleX(0.965);
+  47% {
+    transform: rotateY(-102deg) skewY(0.6deg) scaleX(0.965);
     filter: brightness(0.74);
   }
-  76% {
-    transform: rotateY(-35deg) skewY(-0.6deg) scaleX(0.986);
-    filter: brightness(0.95);
+  72% {
+    transform: rotateY(-48deg) skewY(-0.7deg) scaleX(0.985);
+    filter: brightness(0.94);
   }
   to {
     transform: rotateY(0) skewY(0) scaleX(1);

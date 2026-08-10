@@ -239,10 +239,16 @@
   transform-origin: 0 50%;
   animation: storybook-leaf-next 0.9s cubic-bezier(0.33, 0.01, 0.16, 1) both;
 }
+/*
+  Reversed keyframes need a reversed easing to be a true mirror.
+  cubic-bezier(x1,y1,x2,y2) run backwards is cubic-bezier(1-x2, 1-y2, 1-x1, 1-y1); with the
+  forward curve still applied, the returning page lagged the outgoing one by up to 18 degrees
+  in mid-flight even though both ends lined up.
+*/
 .storybook-spread-turn.turn-previous {
   left: 0;
   transform-origin: 100% 50%;
-  animation: storybook-spread-leaf-previous 0.9s cubic-bezier(0.33, 0.01, 0.16, 1) both;
+  animation: storybook-spread-leaf-previous 0.9s cubic-bezier(0.84, 0, 0.67, 0.99) both;
 }
 .storybook-cover-turn.turn-next {
   transform-origin: 1.6% 50%;
@@ -250,7 +256,7 @@
 }
 .storybook-cover-turn.turn-previous {
   transform-origin: 1.6% 50%;
-  animation: storybook-leaf-previous 0.9s cubic-bezier(0.33, 0.01, 0.16, 1) both;
+  animation: storybook-leaf-previous 0.9s cubic-bezier(0.84, 0, 0.67, 0.99) both;
 }
 .storybook-spread-turn .storybook-turn-face,
 .storybook-cover-turn .storybook-turn-face {
@@ -262,23 +268,50 @@
 .storybook-cover-turn.turn-previous .storybook-turn-back {
   transform: rotateY(180deg) scaleX(-1);
 }
+/*
+  The same leaf, running the other way.
+
+  This used to be its own curve — four stops against the forward turn's five, a different
+  brightness floor and a different easing shape — so the page came back as a rotating rectangle
+  rather than the sheet of paper that had just gone the other way. It is now storybook-leaf-next
+  reversed in time and mirrored in sign: the stops are the forward ones subtracted from 100, the
+  skews keep their magnitude and flip direction, and the shading dips at the same moment.
+*/
 @keyframes storybook-spread-leaf-previous {
   0% {
     transform: rotateY(180deg) skewY(0) scaleX(1);
-    filter: brightness(0.98);
+    filter: brightness(1);
   }
-  46% {
-    transform: rotateY(92deg) skewY(-0.65deg) scaleX(0.96);
-    filter: brightness(0.72);
+  24% {
+    transform: rotateY(151deg) skewY(-0.35deg) scaleX(0.986);
+    filter: brightness(0.9);
   }
-  76% {
-    transform: rotateY(34deg) skewY(0.35deg) scaleX(0.985);
+  47% {
+    transform: rotateY(102deg) skewY(0.6deg) scaleX(0.965);
+    filter: brightness(0.74);
+  }
+  72% {
+    transform: rotateY(48deg) skewY(-0.7deg) scaleX(0.985);
     filter: brightness(0.94);
   }
   to {
     transform: rotateY(0) skewY(0) scaleX(1);
     filter: brightness(1);
   }
+}
+
+/*
+  The curl belongs on the edge that moves.
+
+  A backward spread turn hinges on its right edge, but the curl kept the base rule's
+  `right: -1px` and so rode the hinge — a highlight pinned to the spine, where paper never
+  catches light. Only the mobile sheet had ever been mirrored; the desktop spread, which is what
+  the hero and the reader use, had not.
+*/
+.storybook-spread-turn.turn-previous .storybook-page-curl {
+  right: auto;
+  left: -1px;
+  transform: translateZ(2px) scaleX(-1);
 }
 .storybook-spread-turn .storybook-page-copy {
   padding-inline: 9%;
