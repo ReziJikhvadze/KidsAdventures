@@ -31,7 +31,14 @@ public static class MasterStorySchema
                     type = "array",
                     description =
                         $"Exactly {spreadCount} spreads, numbered 1 to {spreadCount}, in order. "
-                        + "Each is one scene: a picture on one page and its words on the facing page.",
+                        + "Each is one scene: a picture on one page and its words on the facing page. "
+                        // Every book is one chapter of a series, and the last page used to simply
+                        // stop. A thread left open is what makes a child ask for the next one.
+                        + "The last spread settles what this book began and then leaves one thread "
+                        + "open — a door not yet gone through, a map with a further mark, a promise "
+                        + "to meet again — so the next book has somewhere to start. A hook, not a "
+                        + "cliffhanger: nothing frightening, and nothing the child was worried "
+                        + "about left unresolved.",
                     items = SpreadSchema()
                 },
                 ["characterLock"] = new
@@ -109,8 +116,13 @@ public static class MasterStorySchema
                     + "instruction about the photograph, and no description of the characters' "
                     + "permanent appearance. In one flowing paragraph: which moment of the text "
                     + "is shown, the main action, what the characters feel, the place with its "
-                    + "objects, weather and time of day, the shot and camera angle, and the "
-                    + "details the picture needs for the story to read without words."
+                    + "objects, weather and time of day, and the shot and camera angle. "
+                    // This used to end by asking for "the details the picture needs for the story
+                    // to read without words", which is an invitation to invent: a star turned up
+                    // on page one of a story that never mentioned one. The picture illustrates
+                    // the text; it does not add to it.
+                    + "Draw only what this spread's own text says is there. Do not add any "
+                    + "object, creature, character or symbol the text does not mention."
             },
             ["avoid"] = new
             {

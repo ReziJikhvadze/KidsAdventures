@@ -54,4 +54,10 @@ public sealed class PrintLayoutOptions
     /// as a separate spread with a spine, so this can be turned off to emit the interior alone.
     /// </summary>
     public bool IncludeCoverInInterior { get; set; } = true;
+
+    /// <summary>
+    /// Print the closing page the reader shows — the invitation to the next book, with a QR
+    /// where the screen has a button. Off only if a vendor supplies its own back cover.
+    /// </summary>
+    public bool IncludeBackCover { get; set; } = true;
 }

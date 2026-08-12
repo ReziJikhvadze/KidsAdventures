@@ -1,14 +1,10 @@
 export const story = {
   storybook: {
     brand: "ADVENTRYA",
-    coverOwner: "This book belongs to",
-    coverOwnerLine: (hero: string) => `This book belongs to ${hero}`,
-    coverEpigraph: "Every great world begins with one small story.",
     belongsTo: (hero: string) => `A story that belongs to ${hero.trim()}`,
     nextChapter: (hero: string) => `${hero}'s next chapter`,
     adventureOf: (hero: string) => `${hero}'s adventure`,
     coverLabel: (total: number) => `Cover · ${total} pages`,
-    insideCover: "Inside cover · page 1",
     spreadLabel: (from: number, to: number, total: number) => `Pages ${from}–${to} / ${total}`,
     pageLabel: (page: number, total: number) => `Page ${page} / ${total}`,
     railSpread: (from: number, to: number) => `Pages ${from}–${to}`,
@@ -23,8 +19,10 @@ export const story = {
     flipAria: (hero: string) => `${hero} — a book you can leaf through`,
 
     qrTitle: "The adventure does not end here",
-    qrScanPrefix: "Scan and continue ",
-    qrWorldSuffix: "'s world",
+    /* Print gets a QR; a screen gets a button, so the two ask for different verbs. */
+    backScan: (hero: string) => `Scan and continue ${hero}'s journey in another world.`,
+    backTap: (hero: string) => `Continue ${hero}'s journey in another world.`,
+    backCta: "A new adventure",
 
     lockedNote: "The full book is created after payment",
     lockedPagePrefix: "Page ",

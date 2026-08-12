@@ -30,16 +30,37 @@ public class PdfLayoutTests(ITestOutputHelper output)
         var content = SpreadBook();
         var pdf = Render(content, cover: PixelPng());
 
-        // Cover + 16 content pages = 17, padded to 20 so folded sheets divide by four.
+        // Front cover + 16 content pages + back cover = 18, padded to 20 so folded sheets
+        // divide by four.
         Assert.Equal(20, CountPages(pdf));
     }
 
+    /// <summary>A vendor printing the covers itself gets the interior and nothing else.</summary>
     [Fact]
     public void The_interior_alone_needs_no_padding()
     {
-        var pdf = Render(SpreadBook(), cover: null, layout => layout.IncludeCoverInInterior = false);
+        var pdf = Render(SpreadBook(), cover: null, layout =>
+        {
+            layout.IncludeCoverInInterior = false;
+            layout.IncludeBackCover = false;
+        });
 
         Assert.Equal(16, CountPages(pdf));
+    }
+
+    /// <summary>
+    /// The blank leaves belong inside the book. Padding added after the back cover would bind
+    /// the closing page in the middle and leave the reader finishing on an empty sheet.
+    /// </summary>
+    [Fact]
+    public void The_back_cover_is_the_last_leaf_and_padding_falls_before_it()
+    {
+        var plan = AdventurePdfService.BuildPlan(SpreadBook(), new PrintLayoutOptions());
+
+        Assert.Equal(PrintPageKind.Back, plan[^1].Kind);
+        Assert.Equal(PrintPageKind.Blank, plan[^2].Kind);
+        Assert.Single(plan, p => p.Kind == PrintPageKind.Back);
+        Assert.Equal(plan.Count, plan[^1].PhysicalPage);
     }
 
     /// <summary>
@@ -230,7 +251,10 @@ public class PdfLayoutTests(ITestOutputHelper output)
             Content = content,
             ThemeName = "Dinosaurs",
             CoverImage = cover,
-            Language = language
+            Language = language,
+            // Without a destination the back cover draws no QR, so the sample would show a
+            // closing page that is missing the one thing the printed book needs.
+            ContinueUrl = "https://adventrya.com/create"
         });
     }
 

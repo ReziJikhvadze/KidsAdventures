@@ -1,9 +1,6 @@
 export const story = {
   storybook: {
     brand: "ADVENTRYA",
-    coverOwner: "ეს წიგნი ეკუთვნის",
-    coverOwnerLine: (hero: string) => `ეს წიგნი ეკუთვნის ${hero}ს`,
-    coverEpigraph: "ყოველი დიდი სამყარო ერთი პატარა ამბით იწყება.",
     /*
       One string, not a prefix and a suffix with the name wedged between them. Georgian declines
       a name — the suffix was a literal "-ს", so the cover read "ზუკა-ს ეკუთვნის", which is a
@@ -13,7 +10,6 @@ export const story = {
     nextChapter: (hero: string) => `${hero}ს შემდეგი თავი`,
     adventureOf: (hero: string) => `${hero}ს თავგადასავალი`,
     coverLabel: (total: number) => `ყდა · ${total} გვერდი`,
-    insideCover: "შიდა ყდა · გვერდი 1",
     spreadLabel: (from: number, to: number, total: number) => `გვერდები ${from}–${to} / ${total}`,
     pageLabel: (page: number, total: number) => `გვერდი ${page} / ${total}`,
     railSpread: (from: number, to: number) => `გვერდები ${from}–${to}`,
@@ -27,9 +23,11 @@ export const story = {
     gestureHint: "გადაფურცლე, გამოიყენე ისრები ან კლავიატურა",
     flipAria: (hero: string) => `${hero} — გადასაფურცლი წიგნი`,
 
-    qrTitle: "თავგადასავალი აქ არ მთავრდება",
-    qrScanPrefix: "დაასკანერე და გააგრძელე ",
-    qrWorldSuffix: "ს სამყარო",
+    qrTitle: "თავგადასავალი აქ არ სრულდება",
+    /* Print gets a QR; a screen gets a button, so the two ask for different verbs. */
+    backScan: (hero: string) => `დაასკანერე და გააგრძელე ${hero}ს მოგზაურობა სხვა სამყაროში.`,
+    backTap: (hero: string) => `გააგრძელე ${hero}ს მოგზაურობა სხვა სამყაროში.`,
+    backCta: "ახალი თავგადასავალი",
 
     lockedNote: "სრული წიგნი შეიქმნება გადახდის შემდეგ",
     lockedPagePrefix: "გვერდი ",

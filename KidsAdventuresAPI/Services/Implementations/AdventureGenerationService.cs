@@ -622,7 +622,9 @@ public sealed class AdventureGenerationService(
                 Content = content,
                 ThemeName = pack.Theme.ToString(),
                 CoverImage = coverBytes,
-                Language = pack.StoryLanguage ?? "ka"
+                Language = pack.StoryLanguage ?? "ka",
+                // The back cover's QR goes where the reader's button goes: start the next book.
+                ContinueUrl = $"{_emailOptions.BaseUrl.TrimEnd('/')}/create"
             });
             await SetProgressAsync(packId, "წიგნს ვინახავთ…", 95, cancellationToken);
 

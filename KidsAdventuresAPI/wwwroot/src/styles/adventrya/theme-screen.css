@@ -650,7 +650,7 @@
     width: 72px;
   }
   .storybook-cover-copy h2 {
-    font-size: clamp(18px, 7.1vw, 25px);
+    font-size: clamp(20px, 7.1vw, 27px);
   }
   .storybook-page-copy > p {
     font-size: clamp(10px, 3.2vw, 12px);
@@ -793,15 +793,6 @@
   .storybook-page-copy > p {
     margin-top: 6px;
     line-height: 1.52;
-  }
-  .storybook-qr-moment {
-    grid-template-columns: 33px 1fr;
-    margin-top: 7px;
-    padding-top: 7px;
-  }
-  .storybook-qr {
-    width: 31px;
-    height: 31px;
   }
   .ux-preview-book-note {
     font-size: 11px;

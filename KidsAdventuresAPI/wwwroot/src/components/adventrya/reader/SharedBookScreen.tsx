@@ -98,11 +98,7 @@ export function SharedBookScreen() {
             {heroName}
             {t.story.reader.flipSuffix}
           </h1>
-          <p>
-            {t.story.storybook.qrScanPrefix}
-            {heroName}
-            {t.story.storybook.qrWorldSuffix}
-          </p>
+          <p>{t.story.storybook.backTap(heroName)}</p>
 
           <div className="ux-generated-actions" style={{ marginTop: 20 }}>
             {isAuthenticated ? (
@@ -169,7 +165,6 @@ export function SharedBookScreen() {
                   <div className="storybook-cover-copy">
                     <small>{t.story.storybook.belongsTo(heroName)}</small>
                     <h2>{title}</h2>
-                    <span>{t.story.storybook.coverOwnerLine(heroName)}</span>
                   </div>
                 </article>
               </div>

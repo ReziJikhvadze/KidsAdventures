@@ -25,7 +25,14 @@ public enum PrintPageKind
     Legacy,
 
     /// <summary>Padding, so the folded sheets divide.</summary>
-    Blank
+    Blank,
+
+    /// <summary>
+    /// The last leaf: the same closing page the reader shows, with a QR where the screen has a
+    /// button. It comes after the padding, because a back cover with blank leaves behind it is
+    /// not a back cover.
+    /// </summary>
+    Back
 }
 
 /// <summary>One physical page, numbered from the front cover.</summary>
@@ -81,6 +88,9 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
                     case PrintPageKind.Legacy:
                         ComposeLegacyPage(container, slot.Source!, palette, strings, slot.PhysicalPage, childName);
                         break;
+                    case PrintPageKind.Back:
+                        ComposeBackCoverPage(container, request, palette, strings, childName);
+                        break;
                     default:
                         ComposeBlankPage(container, palette);
                         break;
@@ -125,13 +135,22 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
         // Folded sheets, so the count has to divide. Left to the printer this becomes a surprise
         // on the quote; done here it is a few blank leaves at the back, which is what a picture
         // book has anyway.
+        //
+        // The back cover is counted before the padding is worked out and added after it, so the
+        // blanks fall inside the book and the closing page is the last thing bound.
         var multiple = Math.Max(1, layout.BindingMultiple);
-        var remainder = plan.Count % multiple;
+        var backLeaves = layout.IncludeBackCover ? 1 : 0;
+        var remainder = (plan.Count + backLeaves) % multiple;
         var padding = remainder == 0 ? 0 : multiple - remainder;
 
         for (var i = 0; i < padding; i++)
         {
             plan.Add(new PrintPage(PrintPageKind.Blank, plan.Count + 1, null));
+        }
+
+        if (layout.IncludeBackCover)
+        {
+            plan.Add(new PrintPage(PrintPageKind.Back, plan.Count + 1, null));
         }
 
         return plan;
@@ -336,6 +355,111 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
         });
     }
 
+    /// <summary>
+    /// The back cover, set to match the reader's closing page.
+    ///
+    /// Same words, same order, same guide seeing the child off. The one thing that cannot be the
+    /// same is the button: paper has no tap, so the invitation is a QR to the same address.
+    /// </summary>
+    private void ComposeBackCoverPage(
+        IDocumentContainer container,
+        PdfBookRequest request,
+        ThemePalette palette,
+        PrintStrings strings,
+        string childName)
+    {
+        var guide = request.GuidePortrait ?? GuidePortraitFromDisk();
+        var qr = QrPng(request.ContinueUrl);
+
+        container.Page(page =>
+        {
+            page.Size(new PageSize(
+                _layout.TrimWidthMm + (_layout.BleedMm * 2),
+                _layout.TrimHeightMm + (_layout.BleedMm * 2),
+                Unit.Millimetre));
+            page.Margin(0);
+
+            // Dark, like the closing page on screen — and it is the reason Beki can be printed
+            // at all: his portrait carries its own deep backdrop, which on the book's pale paper
+            // was a dark rectangle stuck to the page.
+            page.PageColor(BackCoverInk);
+
+            page.Content()
+                .PaddingHorizontal(SafeInsetMm + _layout.BleedMm, Unit.Millimetre)
+                .PaddingVertical(SafeInsetMm + _layout.BleedMm, Unit.Millimetre)
+                .AlignMiddle()
+                .Column(column =>
+                {
+                    column.Spacing(5, Unit.Millimetre);
+
+                    column.Item().AlignCenter().Text("ADVENTRYA")
+                        .FontFamily(PdfFontBootstrap.BodyFamily).SemiBold().FontSize(9)
+                        .LetterSpacing(0.18f).FontColor(BackCoverMuted);
+
+                    if (guide is { Length: > 0 })
+                    {
+                        column.Item().AlignCenter()
+                            .MaxHeight(_layout.TrimHeightMm * 0.32f, Unit.Millimetre)
+                            .Image(guide).FitArea();
+                    }
+
+                    column.Item().AlignCenter().Text(strings.BackTitle)
+                        .FontFamily(PdfFontBootstrap.DisplayFamily).Bold().FontSize(16)
+                        .FontColor(BackCoverText);
+
+                    column.Item().AlignCenter().Text(strings.BackScan(childName))
+                        .FontFamily(PdfFontBootstrap.BodyFamily).FontSize(11)
+                        .LineHeight(1.45f).FontColor(BackCoverMuted);
+
+                    if (qr is { Length: > 0 })
+                    {
+                        // On white, with a quiet zone. A QR printed straight onto the dark page
+                        // is a QR no phone will read.
+                        column.Item().PaddingTop(1, Unit.Millimetre).AlignCenter()
+                            .Background(Colors.White).Padding(2.5f, Unit.Millimetre)
+                            .Width(26, Unit.Millimetre).Height(26, Unit.Millimetre)
+                            .Image(qr).FitArea();
+                    }
+                });
+        });
+    }
+
+    /// <summary>The reader's closing page in print: the same near-black violet, cream and gold.</summary>
+    private const string BackCoverInk = "#241A33";
+    private const string BackCoverText = "#FFF8EB";
+    private const string BackCoverMuted = "#C9BBD6";
+
+    /// <summary>
+    /// Beki's canonical portrait, read from the assets that ship with the app. Best effort: a
+    /// back cover without him is still a back cover, and a missing file is not worth failing a
+    /// book that is otherwise finished.
+    /// </summary>
+    private static byte[]? GuidePortraitFromDisk()
+    {
+        try
+        {
+            var path = Path.Combine(AppContext.BaseDirectory, "Assets", "Beki", "beki-canonical-v1.png");
+            return File.Exists(path) ? File.ReadAllBytes(path) : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The QR itself. No destination means no code rather than a code that goes nowhere.</summary>
+    private static byte[]? QrPng(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return null;
+        }
+
+        using var generator = new QRCoder.QRCodeGenerator();
+        using var data = generator.CreateQrCode(url.Trim(), QRCoder.QRCodeGenerator.ECCLevel.Q);
+        return new QRCoder.PngByteQRCode(data).GetGraphic(16);
+    }
+
     /// <summary>Padding to the binding multiple. Blank, but the right size and the right colour.</summary>
     private void ComposeBlankPage(IDocumentContainer container, ThemePalette palette)
     {
@@ -426,17 +550,27 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
     /// carried "Story Time", "Chapter 3" and "Page 7" — alongside a logo box reading "LH",
     /// which belonged to no brand this product has ever had.
     /// </summary>
-    private sealed record PrintStrings(Func<string, string> Starring, Func<string, string> RunningHead)
+    private sealed record PrintStrings(
+        Func<string, string> Starring,
+        Func<string, string> RunningHead,
+        string BackTitle,
+        Func<string, string> BackScan)
     {
         public static PrintStrings For(string? language) =>
             (language ?? string.Empty).Trim().ToLowerInvariant() switch
             {
                 "en" => new PrintStrings(
                     name => $"Starring {name}",
-                    name => $"{name}'s adventure"),
+                    name => $"{name}'s adventure",
+                    "The adventure does not end here",
+                    name => $"Scan and continue {name}'s journey in another world."),
+                // Word for word what the reader's closing page says, so a family that reads the
+                // book on paper and the book on a screen is read the same sentence.
                 _ => new PrintStrings(
                     name => $"მთავარ როლში — {name}",
-                    name => $"{GeorgianGenitive(name)} თავგადასავალი")
+                    name => $"{GeorgianGenitive(name)} თავგადასავალი",
+                    "თავგადასავალი აქ არ სრულდება",
+                    name => $"დაასკანერე და გააგრძელე {name.Trim()}ს მოგზაურობა სხვა სამყაროში.")
             };
 
         /// <summary>

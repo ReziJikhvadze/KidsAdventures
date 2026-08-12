@@ -24,6 +24,15 @@ public sealed record PdfBookRequest
 
     /// <summary>"ka" or "en". Decides the running heads, not the story, which is already written.</summary>
     public string Language { get; init; } = "ka";
+
+    /// <summary>
+    /// Where the back cover's QR sends a parent. A printed book has no button, so this is the
+    /// only way out of it — and it goes to the same place the reader's button does.
+    /// </summary>
+    public string? ContinueUrl { get; init; }
+
+    /// <summary>Beki on the closing page. Null falls back to the canonical portrait on disk.</summary>
+    public byte[]? GuidePortrait { get; init; }
 }
 
 public interface IAdventurePdfService

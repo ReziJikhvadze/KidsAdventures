@@ -204,7 +204,7 @@
   font-family: "Adventrya Serif", serif;
   /* Half the previous size. This was set as a display headline, but it is a real
      sentence carrying the child's name and has to be readable in full on the cover. */
-  font-size: clamp(9px, 0.85vw, 12px);
+  font-size: clamp(11px, 0.85vw, 14px);
   font-weight: 700;
   line-height: 1.3;
   letter-spacing: -0.01em;
@@ -278,41 +278,108 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.storybook-qr-moment {
-  display: grid;
-  grid-template-columns: 39px 1fr;
-  align-items: center;
-  gap: 9px;
-  margin-top: 10px;
-  padding-top: 9px;
-  border-top: 1px solid rgba(118, 82, 72, 0.15);
-}
-.storybook-qr {
-  width: 37px;
-  height: 37px;
-  border: 3px solid #fff;
-  border-radius: 3px;
+/*
+  The back cover.
+
+  Built as the cover's sibling rather than as another page of the book: it is what a child is
+  left looking at once the story has shut, and it carries the one invitation the book makes.
+  The old version was a story page with a checkerboard square pretending to be a QR code, which
+  on a screen is a picture of something you cannot use.
+*/
+.storybook-back {
+  position: relative;
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--book-radius);
   background:
-    linear-gradient(90deg, #35243d 25%, transparent 25% 50%, #35243d 50% 75%, transparent 75%),
-    linear-gradient(#35243d 25%, transparent 25% 50%, #35243d 50% 75%, transparent 75%);
-  background-size: 11px 11px;
-  box-shadow: 0 2px 8px #432c3b2e;
+    radial-gradient(120% 90% at 50% 0%, #4a3459 0%, transparent 62%),
+    linear-gradient(180deg, #2f2140 0%, #241a33 100%);
 }
-.storybook-qr-moment strong,
-.storybook-qr-moment small {
+.storybook-back-glow {
+  position: absolute;
+  z-index: 0;
+  top: -18%;
+  left: 50%;
+  width: 78%;
+  height: 52%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(closest-side, #f1c97033, transparent 72%);
+}
+.storybook-back .storybook-brand {
+  z-index: 1;
+  top: 6%;
+  left: 0;
+  width: 100%;
+  text-align: center;
+}
+/*
+  The canonical portrait carries its own dark backdrop, so it is faded into the page with a mask
+  rather than dropped on it as a rectangle with visible edges.
+*/
+.storybook-back-guide {
+  position: absolute;
+  z-index: 0;
+  top: 9%;
+  left: 50%;
+  width: 60%;
+  max-height: 52%;
+  transform: translateX(-50%);
+  object-fit: contain;
+  -webkit-mask-image: radial-gradient(ellipse 58% 56% at 50% 44%, #000 44%, transparent 80%);
+  mask-image: radial-gradient(ellipse 58% 56% at 50% 44%, #000 44%, transparent 80%);
+  pointer-events: none;
+}
+.storybook-back-copy {
+  position: relative;
+  z-index: 1;
+  padding: 0 11% 13%;
+  text-align: center;
+}
+.storybook-back-copy strong {
   display: block;
-}
-.storybook-qr-moment strong {
-  color: #51394d;
+  color: #fff8eb;
   font-family: "Adventrya Serif", serif;
-  font-size: 11px;
+  font-size: clamp(12px, 1.15vw, 17px);
+  font-weight: 700;
   line-height: 1.3;
 }
-.storybook-qr-moment small {
-  margin-top: 3px;
-  color: #8d6f71;
-  font-size: 11px;
-  line-height: 1.45;
+.storybook-back-copy p {
+  margin: 7px 0 0;
+  color: #fff8ebb0;
+  font-size: clamp(9px, 0.8vw, 12px);
+  line-height: 1.5;
+}
+.storybook-back-cta {
+  display: inline-block;
+  margin-top: 13px;
+  padding: 8px 17px;
+  border-radius: 999px;
+  background: #f1c970;
+  color: #2d1d4a;
+  font-size: clamp(9px, 0.78vw, 12px);
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 0.16s ease;
+}
+.storybook-back-cta:hover {
+  transform: translateY(-1px);
+}
+@media (max-width: 780px) {
+  .storybook-back-copy strong {
+    font-size: 22px;
+  }
+  .storybook-back-copy p {
+    font-size: 14px;
+  }
+  .storybook-back-cta {
+    font-size: 14px;
+    padding: 11px 22px;
+  }
 }
 .storybook-page.is-locked .storybook-page-content {
   filter: blur(8px) saturate(0.86);

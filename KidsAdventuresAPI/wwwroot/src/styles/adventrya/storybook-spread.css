@@ -42,15 +42,6 @@
   color: #fff9ed;
   text-wrap: pretty;
 }
-.storybook-qr-moment {
-  border-color: #fff4dc42;
-}
-.storybook-qr-moment strong {
-  color: #fff9ed;
-}
-.storybook-qr-moment small {
-  color: #fff9edb8;
-}
 .storybook-inside-cover {
   position: absolute;
   inset: 0;

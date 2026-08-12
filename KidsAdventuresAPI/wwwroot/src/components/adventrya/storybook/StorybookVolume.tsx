@@ -9,7 +9,6 @@ import type { StoryPageContent } from "@/lib/api/types";
 
 export type StorybookLeaf =
   | { kind: "cover" }
-  | { kind: "inside" }
   | { kind: "story"; page: StoryPageContent; storyIndex: number }
   | { kind: "locked"; pageNumber: number }
   | { kind: "qr" };
@@ -39,6 +38,9 @@ export type StorybookVolumeProps = {
   variant?: "full" | "hero" | "preview" | "display";
 };
 
+/** Beki's canonical portrait, shown until a book carries one drawn for its own world. */
+const BEKI_PORTRAIT = "/adventrya/beki.webp";
+
 function fallbackCover(worldId?: string | null): string {
   if (worldId && isWorldId(worldId)) return WORLD_COVER_ART[worldId as WorldId];
   return WORLD_COVER_ART.dinosaurs;
@@ -49,7 +51,10 @@ function buildLeaves(options: {
   lockedPageCount: number;
   isUnlocked: boolean;
 }): StorybookLeaf[] {
-  const leaves: StorybookLeaf[] = [{ kind: "cover" }, { kind: "inside" }];
+  // No title page. It carried "this book belongs to <name>" and an epigraph, which the cover
+  // had already said, so the second thing a child saw was the first thing repeated. The story
+  // starts on the page after the cover now.
+  const leaves: StorybookLeaf[] = [{ kind: "cover" }];
   options.pages.forEach((page, storyIndex) => {
     leaves.push({ kind: "story", page, storyIndex });
   });
@@ -85,24 +90,11 @@ function CoverFace({
       <div className="storybook-cover-wash" aria-hidden="true" />
       <span className="storybook-brand">{t.story.storybook.brand}</span>
       <div className="storybook-cover-copy">
+        {/* The cover said the book was the child's twice, above and below the title. Once is
+            the point; twice reads as a template that forgot it had already said it. */}
         <small>{t.story.storybook.belongsTo(heroName)}</small>
         <h2>{title}</h2>
-        <span>{t.story.storybook.coverOwnerLine(heroName)}</span>
       </div>
-    </article>
-  );
-}
-
-function InsideCoverFace({ heroName }: { heroName: string }) {
-  const t = useT();
-  return (
-    <article className="storybook-inside-cover">
-      <div className="inside-cover-constellation" aria-hidden="true" />
-      <span className="inside-cover-mark">A</span>
-      <small>{t.story.storybook.coverOwner}</small>
-      <strong>{heroName}</strong>
-      <p>{t.story.storybook.coverEpigraph}</p>
-      <i>ADVENTRYA · PERSONAL STORY</i>
     </article>
   );
 }
@@ -133,27 +125,26 @@ function StoryFace({
         ? leaf.pageNumber
         : totalStoryPages;
 
+  // The back cover.
+  //
+  // It used to be a story page with a decorative square standing in for a QR code, which on a
+  // screen is a picture of a thing you cannot use. Print gets the QR; here the same invitation
+  // is a button that works, and the page is built as the cover's sibling rather than as another
+  // page of the book, because it is the last thing a child sees when the book shuts.
   if (leaf.kind === "qr") {
     return (
-      <article className={`storybook-page ${pageSide ? `page-${pageSide}` : ""}`}>
-        <div className="storybook-page-content">
-          <div
-            className="storybook-page-art"
-            style={{ backgroundImage: `url("${fallbackCover()}")` }}
-          />
-          <div className="storybook-page-copy">
-            <div className="storybook-qr-moment">
-              <span className="storybook-qr" aria-hidden="true" />
-              <div>
-                <strong>{t.story.storybook.qrTitle}</strong>
-                <small>
-                  {t.story.storybook.qrScanPrefix}
-                  {heroName}
-                  {t.story.storybook.qrWorldSuffix}
-                </small>
-              </div>
-            </div>
-          </div>
+      <article className={`storybook-back ${pageSide ? `page-${pageSide}` : ""}`}>
+        <div className="storybook-back-glow" aria-hidden="true" />
+        <span className="storybook-brand">{t.story.storybook.brand}</span>
+        {/* Beki sees the child off. The canonical art is the fallback: a book drawn before
+            per-book Beki existed, or one whose extra picture failed, still has him here. */}
+        <img className="storybook-back-guide" src={BEKI_PORTRAIT} alt="" aria-hidden="true" />
+        <div className="storybook-back-copy">
+          <strong>{t.story.storybook.qrTitle}</strong>
+          <p>{t.story.storybook.backTap(heroName)}</p>
+          <a className="storybook-back-cta" href="/create">
+            {t.story.storybook.backCta}
+          </a>
         </div>
       </article>
     );
@@ -268,10 +259,11 @@ function LeafView({
   totalStoryPages: number;
   isSpreadBook?: boolean;
 }) {
-  if (!leaf) return <InsideCoverFace heroName={heroName} />;
+  // Nothing to draw rather than a filler page: with the title page gone, an out-of-range leaf
+  // is the blank right-hand side of the last spread, and a blank page is what belongs there.
+  if (!leaf) return <article className="storybook-page storybook-page-blank" aria-hidden="true" />;
   if (leaf.kind === "cover")
     return <CoverFace heroName={heroName} title={title} coverSrc={coverSrc} />;
-  if (leaf.kind === "inside") return <InsideCoverFace heroName={heroName} />;
   return (
     <StoryFace
       leaf={leaf}
@@ -336,18 +328,31 @@ export function StorybookVolume({
     }
   }, [index, lastIndex, leaves]);
 
-  // Desktop spreads land on even content indices (except cover / inside cover).
+  // The shape of the book, now that the title page is gone.
+  //
+  //   0            the cover, alone, closed
+  //   1 .. content the story in picture/prose pairs, so a spread always starts on an odd index
+  //   last         the back cover, alone, closed again
+  //
+  // Everything below is derived from those three facts rather than restated, because the old
+  // version had the same rule written four times with different off-by-ones.
+  const backIndex = leaves[lastIndex]?.kind === "qr" ? lastIndex : -1;
+  const contentLast = backIndex === -1 ? lastIndex : lastIndex - 1;
+
+  // Desktop spreads begin on odd indices; nudge off an even one.
   useEffect(() => {
-    if (!desktopSpread || index === 0 || index === 1 || index % 2 === 0) return;
-    const id = window.setTimeout(() => setIndex(Math.max(2, index - 1)), 0);
+    if (!desktopSpread) return;
+    if (index === 0 || index === backIndex || index % 2 === 1) return;
+    const id = window.setTimeout(() => setIndex(Math.max(1, index - 1)), 0);
     return () => window.clearTimeout(id);
-  }, [desktopSpread, index]);
+  }, [desktopSpread, index, backIndex]);
 
   const spreadSteps = useMemo(() => {
-    const steps = [0, 1];
-    for (let i = 2; i <= lastIndex; i += 2) steps.push(i);
+    const steps = [0];
+    for (let i = 1; i <= contentLast; i += 2) steps.push(i);
+    if (backIndex !== -1) steps.push(backIndex);
     return steps;
-  }, [lastIndex]);
+  }, [contentLast, backIndex]);
 
   const goTo = useCallback(
     (next: number, direction: "next" | "previous") => {
@@ -396,30 +401,32 @@ export function StorybookVolume({
     return () => node.removeEventListener("wheel", handler);
   }, [interactive, turning, canNext, canPrev, goTo, nextTarget, prevTarget]);
 
-  // The QR leaf sits past the last story page, so numbering it produces inverted
+  // The back cover sits past the last story page, so numbering it produces inverted
   // ranges like "7–6" on the final step. It gets its own label instead.
+  //
+  // Story page N is leaf N, now that nothing stands between the cover and the story.
   const progressLabel =
     index === 0
-      ? t.story.storybook.coverLabel(totalStoryPages || leaves.length - 2)
-      : index === 1
-        ? t.story.storybook.insideCover
-        : leaves[index]?.kind === "qr"
-          ? t.story.storybook.qrTitle
-          : desktopSpread && index >= 2
-            ? t.story.storybook.spreadLabel(
-                index - 1,
-                Math.min(totalStoryPages, index),
-                totalStoryPages || 1,
-              )
-            : t.story.storybook.pageLabel(Math.max(1, index - 1), totalStoryPages || 1);
+      ? t.story.storybook.coverLabel(totalStoryPages || leaves.length - 1)
+      : index === backIndex
+        ? t.story.storybook.qrTitle
+        : desktopSpread
+          ? t.story.storybook.spreadLabel(
+              index,
+              Math.min(totalStoryPages, index + 1),
+              totalStoryPages || 1,
+            )
+          : t.story.storybook.pageLabel(index, totalStoryPages || 1);
 
   const spreadClass = desktopSpread ? "uses-desktop-spread" : "uses-single-page";
-  const openClass = index === 0 ? "is-closed" : "is-open";
-  const showSpread = desktopSpread && index > 0;
+  // A book is shut at both ends. It used to open on the last page and stay open, so a story
+  // that had just finished sat there gaping instead of closing the way it started.
+  const isClosed = index === 0 || index === backIndex;
+  const openClass = isClosed ? "is-closed" : "is-open";
+  const showSpread = desktopSpread && !isClosed;
 
-  const leftLeaf = index === 1 ? (leaves[1] ?? null) : (leaves[index] ?? null);
-  const rightLeaf =
-    index === 1 ? (leaves[2] ?? null) : (leaves[Math.min(lastIndex, index + 1)] ?? null);
+  const leftLeaf = leaves[index] ?? null;
+  const rightLeaf = index + 1 <= contentLast ? (leaves[index + 1] ?? null) : null;
 
   return (
     <div
@@ -634,17 +641,15 @@ export function StorybookVolume({
                     ? t.story.storybook.railCover
                     : leaves[step]?.kind === "qr"
                       ? t.story.storybook.qrTitle
-                      : desktopSpread && step > 1
-                        ? t.story.storybook.railSpread(step - 1, Math.min(totalStoryPages, step))
-                        : t.story.storybook.railPage(Math.max(1, step - 1))
+                      : desktopSpread
+                        ? t.story.storybook.railSpread(step, Math.min(totalStoryPages, step + 1))
+                        : t.story.storybook.railPage(step)
                 }
               >
-                {step === 0 ? (
+                {step === 0 || leaves[step]?.kind === "qr" ? (
                   <Sparkles size={11} absoluteStrokeWidth />
-                ) : leaves[step]?.kind === "qr" ? (
-                  <Sparkles size={11} absoluteStrokeWidth />
-                ) : desktopSpread && step > 1 ? (
-                  `${step - 1}–${Math.min(totalStoryPages, step)}`
+                ) : desktopSpread ? (
+                  `${step}–${Math.min(totalStoryPages, step + 1)}`
                 ) : (
                   step
                 )}
