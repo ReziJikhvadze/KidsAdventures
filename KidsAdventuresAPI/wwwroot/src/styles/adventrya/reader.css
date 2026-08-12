@@ -360,12 +360,22 @@
   .step-progress > div {
     margin-top: 7px;
   }
+  /*
+    The language switcher stays. Hiding it left a Georgian-or-English product with no way to
+    change language on a phone, which is the device these screens are actually used on.
+  */
   .app-header-end .header-pill {
-    display: none;
+    gap: 4px;
+    padding: 0 9px;
+    height: 44px;
   }
+  /*
+    44px, not 37. This is a round target hard against the right edge of the screen, and below
+    44 a thumb misses it — which reads as a button that does nothing rather than one you missed.
+  */
   .app-header-end .child-pill {
-    width: 37px;
-    height: 37px;
+    width: 44px;
+    height: 44px;
     padding: 0;
     border-radius: 50%;
   }

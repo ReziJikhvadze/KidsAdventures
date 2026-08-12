@@ -1,6 +1,7 @@
 import { Camera, Check, Lock, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { BirthDateField } from "@/components/adventrya/journey/BirthDateField";
 import { SparkleIcon } from "@/components/adventrya/landing/icons";
 import { BOOK_LANGUAGES, type BookLanguage, useT } from "@/lib/i18n";
 import { preparePortrait } from "@/lib/images/preparePortrait";
@@ -202,7 +203,6 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
                   }
                   setError(null);
                 }}
-                onRemove={removeAction(character)}
               />
             );
           }
@@ -261,15 +261,12 @@ function CharacterEditor({
   onChange,
   onSave,
   onCancel,
-  onRemove,
 }: {
   character: DraftCharacter;
   index: number;
   onChange: (patch: Partial<DraftCharacter>) => void;
   onSave: () => void;
   onCancel: () => void;
-  /** Removes a supporting character outright; clears the hero in place. */
-  onRemove?: () => void;
 }) {
   const t = useT();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -311,14 +308,11 @@ function CharacterEditor({
                 autoComplete="off"
               />
             </label>
-            <label className="field">
-              <span>{copy.characterForm.birthDateLabel}</span>
-              <input
-                type="date"
-                value={character.birthDate}
-                onChange={(e) => onChange({ birthDate: e.target.value })}
-              />
-            </label>
+            <BirthDateField
+              label={copy.characterForm.birthDateLabel}
+              value={character.birthDate}
+              onChange={(birthDate) => onChange({ birthDate })}
+            />
           </div>
 
           {needsGender ? (
@@ -420,18 +414,24 @@ function CharacterEditor({
         </div>
       </div>
 
+      {/*
+        One way forward and at most one way back.
+
+        This offered save, cancel and delete at once, while the card behind it offered change and
+        delete again — four words for what a parent experiences as two decisions, and cancel and
+        delete did nearly the same thing to a character that had never been saved. Deleting now
+        belongs to the card, which is where the character being deleted is actually shown. And a
+        hero who has never been filled in gets no way back, because there is nothing behind them
+        to go back to.
+      */}
       <div className="ux-form-actions">
         <button className="button journey-primary" type="button" onClick={onSave}>
           {character.name.trim() ? copy.profile.saveChanges : copy.profile.saveCharacter}
         </button>
-        <button className="ux-inline-link" type="button" onClick={onCancel}>
-          <X aria-hidden="true" />
-          {t.common.actions.cancel}
-        </button>
-        {onRemove ? (
-          <button className="ux-inline-link danger" type="button" onClick={onRemove}>
-            <Trash2 aria-hidden="true" />
-            {t.common.actions.remove}
+        {character.name.trim() || !character.isPrimary ? (
+          <button className="ux-inline-link" type="button" onClick={onCancel}>
+            <X aria-hidden="true" />
+            {t.common.actions.cancel}
           </button>
         ) : null}
       </div>

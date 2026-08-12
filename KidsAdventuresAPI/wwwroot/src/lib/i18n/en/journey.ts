@@ -64,7 +64,7 @@ export const journey = {
     relationshipRequired: "Choose who this extra character is to the main hero.",
     relationshipTextRequired: "Describe the relationship or the kind of character.",
     photoRequired: "Add a clear portrait.",
-    finishEditing: "Finish or cancel editing the extra character first.",
+    finishEditing: "Finish or cancel editing this character first.",
     phoneInvalid: "Enter a valid 9-digit Georgian number.",
     otpInvalid: "That code is not correct.",
   },

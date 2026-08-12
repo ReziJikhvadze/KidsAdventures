@@ -23,42 +23,6 @@
 .landing-v3 input {
   font-family: inherit;
 }
-.landing-v3-announcement {
-  min-height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-  padding: 8px 24px;
-  color: #fffaeee0;
-  background: #160f2a;
-  font-size: 12px;
-  letter-spacing: 0.025em;
-}
-.landing-v3-announcement > span,
-.landing-v3-announcement a {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.landing-v3-announcement svg {
-  width: 13px;
-}
-.landing-v3-announcement > span svg {
-  color: var(--lv3-gold);
-  fill: currentColor;
-}
-.landing-v3-announcement a {
-  color: var(--story-gold);
-  font-weight: 700;
-}
-.landing-v3-announcement a svg {
-  width: 14px;
-  transition: transform 0.18s ease;
-}
-.landing-v3-announcement a:hover svg {
-  transform: translate(3px);
-}
 .landing-v3-header {
   position: sticky;
   z-index: 50;
@@ -2070,14 +2034,6 @@
   }
 }
 @media (max-width: 900px) {
-  .landing-v3-announcement {
-    justify-content: space-between;
-  }
-  .landing-v3-announcement > span {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
   .landing-v3-header {
     min-height: 78px;
     margin-bottom: -78px;
@@ -2086,21 +2042,40 @@
   .landing-v3-logo {
     font-size: 16px;
   }
+  /*
+    The language switcher was hidden below 900px, which left a Georgian-or-English product with
+    no way to change language on the device most families read it on. It stays, compact.
+  */
   .landing-v3-language {
-    display: none;
-  }
-  .landing-v3-header-cta {
+    padding: 0 9px;
     min-height: 39px;
-    padding: 0 13px;
+  }
+  /*
+    And the header's own "create a book" goes, because the bar at the foot of the screen is the
+    one that follows the reader. Two buttons for the same act, one above the other, is a choice
+    the reader has to make twice.
+  */
+  .landing-v3-header-cta {
+    display: none;
   }
   .landing-v3-dashboard-link {
     min-height: 39px;
   }
   .landing-v3-hero {
     min-height: auto;
-    grid-template-columns: 1fr;
+    /*
+      minmax(0, 1fr), not 1fr. A plain 1fr is minmax(auto, 1fr), and `auto` refuses to go below
+      the widest item's min-content — the book, whose page rail does not wrap. That pushed the
+      single column to 681px on a 375px phone and dragged the headline, the lead and both
+      buttons out of the screen with it. Every one of those looked like its own bug.
+    */
+    grid-template-columns: minmax(0, 1fr);
     gap: 20px;
     padding: 140px 24px 75px;
+  }
+  .landing-v3-hero-copy,
+  .landing-v3-hero-product {
+    min-width: 0;
   }
   .landing-v3-hero-wash {
     background: linear-gradient(180deg, #160d2cf0, #160d2cdb 43%, #130b27ab 72%, #110a23f0);
@@ -2112,11 +2087,23 @@
     max-width: 700px;
     font-size: clamp(43px, 8vw, 68px);
   }
+  /*
+    Height by content, not by decree. A fixed 600px was set for a book alone; the book plus its
+    prev/next controls and its page rail needs more, and the surplus ran straight into the
+    section underneath — which is why the way to turn a page appeared to be missing.
+  */
   .landing-v3-hero-product {
     width: min(100%, 650px);
-    height: 600px;
+    height: auto;
     justify-self: center;
     transform: none;
+  }
+  /*
+    The floating notes are decoration for a wide screen. Stacked on a phone they land on top of
+    the book they are meant to point at, so they stay behind on the layout that has room.
+  */
+  .landing-v3-floating-note {
+    display: none;
   }
   .landing-v3-scroll {
     display: none;
@@ -2218,17 +2205,6 @@
   }
 }
 @media (max-width: 640px) {
-  .landing-v3-announcement {
-    min-height: 34px;
-    padding: 7px 14px;
-  }
-  .landing-v3-announcement > span {
-    font-size: 11px;
-  }
-  .landing-v3-announcement a {
-    flex: 0 0 auto;
-    font-size: 11px;
-  }
   .landing-v3-header {
     top: 0;
     min-height: 69px;
@@ -2241,9 +2217,9 @@
   .landing-v3-logo small {
     display: none;
   }
-  .landing-v3-header-cta {
+  .landing-v3-language {
     min-height: 36px;
-    padding: 0 11px;
+    padding: 0 8px;
     font-size: 11px;
   }
   .landing-v3-dashboard-link {
@@ -2252,9 +2228,6 @@
     padding: 0;
   }
   .landing-v3-dashboard-link span {
-    display: none;
-  }
-  .landing-v3-header-cta svg {
     display: none;
   }
   .landing-v3-hero {
@@ -2293,7 +2266,7 @@
     font-size: 16px;
   }
   .landing-v3-hero-product {
-    height: 440px;
+    height: auto;
     margin-top: 8px;
   }
   .landing-v3-book-stack {
@@ -2312,19 +2285,6 @@
   }
   .landing-v3-cover-copy span {
     font-size: 11px;
-  }
-  .landing-v3-floating-note {
-    min-width: 174px;
-    padding: 10px 12px;
-    font-size: 11px;
-  }
-  .note-one {
-    top: 32px;
-    left: 0;
-  }
-  .note-two {
-    right: -4px;
-    bottom: 34px;
   }
   .landing-v3-confidence > div {
     padding: 20px;
@@ -2549,6 +2509,14 @@
     right: 10px;
     bottom: 10px;
     min-height: 66px;
+    /* Held off the screen until the hero's own button has scrolled away. */
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+      opacity 0.22s ease,
+      transform 0.22s ease,
+      visibility 0s linear 0.22s;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -2561,6 +2529,12 @@
     box-shadow: 0 19px 44px #0c071b4f;
     -webkit-backdrop-filter: blur(17px);
     backdrop-filter: blur(17px);
+  }
+  .landing-v3-mobile-cta.is-visible {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+    transition-delay: 0s;
   }
   .landing-v3-mobile-cta > span {
     display: flex;

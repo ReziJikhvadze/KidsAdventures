@@ -83,7 +83,14 @@ export function AppHeader({
       )}
 
       <div className="app-header-end">
-        <LanguageSwitcher className="header-pill" globe={<Globe />} chevron={<ChevronDown />} />
+        {/* "KA"/"EN", as in the marketing header. The full name is wide enough to sit on top of
+            the step counter on a phone, and the code is the part a parent reads anyway. */}
+        <LanguageSwitcher
+          className="header-pill"
+          globe={<Globe />}
+          chevron={<ChevronDown />}
+          labelStyle="short"
+        />
         <Link className="child-pill" to="/dashboard" aria-label={t.common.nav.openDashboard}>
           <span className="child-avatar" aria-hidden="true">
             {childName?.trim().charAt(0) ?? "A"}

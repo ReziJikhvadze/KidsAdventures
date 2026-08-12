@@ -90,6 +90,26 @@ export const common = {
     boy: "Boy",
   },
 
+  date: {
+    day: "Day",
+    month: "Month",
+    year: "Year",
+    months: [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ],
+  },
+
   eyeColors: {
     brown: "Brown",
     blue: "Blue",

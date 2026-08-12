@@ -58,7 +58,12 @@ export const journey = {
     relationshipRequired: "აირჩიე, ვინ არის დამატებითი პერსონაჟი მთავარი გმირისთვის.",
     relationshipTextRequired: "ჩაწერე ურთიერთობა ან პერსონაჟის ტიპი.",
     photoRequired: "დაამატე მკაფიო პორტრეტი.",
-    finishEditing: "ჯერ დაასრულე ან გააუქმე დამატებითი პერსონაჟის რედაქტირება.",
+    /*
+      It said "the ADDITIONAL character" even when the open form was the main hero's, so the
+      message named something that was not on the screen. It is about whichever character is
+      open, which is the only one it can be.
+    */
+    finishEditing: "ჯერ დაასრულე ან გააუქმე პერსონაჟის რედაქტირება.",
     phoneInvalid: "შეიყვანე სწორი 9-ნიშნა ქართული ნომერი.",
     otpInvalid: "კოდი არასწორია.",
   },

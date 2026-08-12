@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { Announcement } from "@/components/adventrya/landing/Announcement";
 import { Books } from "@/components/adventrya/landing/Books";
 import { Header } from "@/components/adventrya/landing/Header";
 import { Hero } from "@/components/adventrya/landing/Hero";
@@ -338,11 +337,36 @@ function Footer() {
   );
 }
 
+/**
+ * The bar that follows you down the page.
+ *
+ * It used to be fixed and always on, so the first screen of a phone carried three ways to start
+ * a book at once: this one, the one in the header, and the one under the headline. It now waits
+ * until the headline's button has scrolled out of sight, which is the only moment it adds
+ * anything — and the header's own button is gone on small screens.
+ */
 function MobileCta() {
   const t = useT();
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const anchor = document.querySelector(".landing-v3-primary");
+    if (!anchor || typeof IntersectionObserver === "undefined") {
+      // No hero button to follow: better to show the bar than to hide the action entirely.
+      setVisible(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(([entry]) => setVisible(!entry.isIntersecting), {
+      rootMargin: "-8px",
+    });
+    observer.observe(anchor);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="landing-v3-mobile-cta">
-      <Link to={CREATE_PROFILE} hash="profile">
+    <div className={`landing-v3-mobile-cta ${visible ? "is-visible" : ""}`} aria-hidden={!visible}>
+      <Link to={CREATE_PROFILE} hash="profile" tabIndex={visible ? undefined : -1}>
         {t.landing.hero.primaryCta}
         <ArrowIcon />
       </Link>
@@ -354,7 +378,6 @@ function MobileCta() {
 export function LandingPage() {
   return (
     <div className="landing-v3">
-      <Announcement />
       <Header />
       <main>
         <Hero />

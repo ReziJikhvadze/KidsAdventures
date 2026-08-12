@@ -547,9 +547,17 @@
   color: #fff8ebb8;
   font-size: 11px;
 }
+/*
+  Sixteen page buttons and a cover. On a phone that row is wider than the screen, and because it
+  refused to wrap it set a min-content the whole hero grid had to honour — which is how a page
+  rail ended up pushing the headline and both call-to-action buttons off the side of the page.
+  It wraps now, and the flex basis is zero so it can never dictate a width again.
+*/
 .storybook-page-rail {
   max-width: 100%;
+  min-width: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
   gap: 5px;
