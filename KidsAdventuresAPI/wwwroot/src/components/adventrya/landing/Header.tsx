@@ -16,7 +16,6 @@ export function Header() {
 
       <nav className="landing-v3-nav" aria-label={t.common.nav.primaryNav}>
         <a href="#books">{t.common.nav.books}</a>
-        <a href="#how">{t.common.nav.howItWorks}</a>
         <a href="#pricing">{t.common.nav.pricing}</a>
         <a href="#faq">{t.common.nav.faq}</a>
       </nav>

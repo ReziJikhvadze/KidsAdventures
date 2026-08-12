@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { Books } from "@/components/adventrya/landing/Books";
 import { Header } from "@/components/adventrya/landing/Header";
 import { Hero } from "@/components/adventrya/landing/Hero";
-import { How } from "@/components/adventrya/landing/How";
 import { ArrowIcon, CheckIcon, SparkleIcon, WorldIcon } from "@/components/adventrya/landing/icons";
 import { formatGel, useT } from "@/lib/i18n";
 import { PRICES } from "@/lib/pricing";
@@ -382,7 +381,6 @@ export function LandingPage() {
       <main>
         <Hero />
         <Books />
-        <How />
         <Memory />
         <Worlds />
         <Pricing />

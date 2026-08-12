@@ -497,7 +497,11 @@
   border: 8px solid #e7d7ba;
   border-left-width: 17px;
   border-radius: 8px 18px 18px 8px;
-  transform: rotateY(8deg) rotate(-1deg);
+  /*
+    Square to the page. The tilt was set for a book seen as an object, but the title, the child's
+    name and the dedication all live on this face — rotating it leans every line of type the
+    parent is meant to read. The depth is carried by the shadow below, which does not tilt text.
+  */
   box-shadow:
     -16px 20px #6c4b4a,
     -24px 32px 45px #07041294,

@@ -208,7 +208,6 @@
 .landing-v3-kicker,
 .landing-v3-books .landing-v3-section-heading > p,
 .landing-v3-preview-intro > p,
-.landing-v3-how-heading > p,
 .landing-v3-worlds .landing-v3-section-heading > p,
 .landing-v3-pricing-copy > p,
 .landing-v3-voices-heading > p,
@@ -509,53 +508,6 @@
     opacity: 1;
   }
 }
-.landing-v3-confidence {
-  position: relative;
-  z-index: 5;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  margin: 0 auto;
-  color: var(--lv3-ink);
-  border-bottom: 1px solid rgba(55, 34, 95, 0.1);
-  background: var(--lv3-paper);
-}
-.landing-v3-confidence > div {
-  min-height: 128px;
-  display: flex;
-  align-items: center;
-  gap: 17px;
-  padding: 25px clamp(28px, 4vw, 66px);
-  border-right: 1px solid rgba(55, 34, 95, 0.1);
-}
-.landing-v3-confidence > div:last-child {
-  border-right: 0;
-}
-.landing-v3-confidence-icon {
-  width: 39px;
-  height: 39px;
-  flex: 0 0 39px;
-  display: grid;
-  place-items: center;
-  color: #9e734a;
-  border: 1px solid rgba(182, 139, 79, 0.28);
-  border-radius: 50%;
-  font-family: "Adventrya Serif", serif;
-  font-size: 12px;
-}
-.landing-v3-confidence p {
-  margin: 0;
-  color: var(--lv3-muted);
-  font-size: 12px;
-  line-height: 1.6;
-}
-.landing-v3-confidence strong {
-  display: block;
-  margin-bottom: 5px;
-  color: var(--lv3-ink);
-  font-family: "Adventrya Serif", serif;
-  font-size: 14px;
-  font-weight: 700;
-}
 .landing-v3-section {
   position: relative;
   padding: clamp(92px, 9vw, 142px) clamp(28px, 5vw, 78px);
@@ -639,7 +591,19 @@
     8px 7px #d8c6aa,
     12px 10px #f6ecdc;
 }
+/*
+  Fill the card.
+
+  object-fit: cover was already here, but the image had no size to fit into — so a landscape
+  cover laid itself out at its own aspect and stopped a little over halfway down, leaving the
+  rest as flat purple. It reads as a full-bleed cover with the title over it now, which is what
+  the book itself looks like everywhere else on the site.
+*/
 .landing-v3-example-art img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   transition: transform 0.8s cubic-bezier(0.2, 0.75, 0.2, 1);
 }
@@ -1005,25 +969,6 @@
   color: #fff9ed;
   border-color: #ffffff21;
   background: #ffffff0f;
-}
-.landing-v3-how {
-  color: var(--lv3-ink);
-  background:
-    radial-gradient(circle at 88% 9%, rgba(188, 148, 92, 0.11), transparent 24%), var(--lv3-paper);
-}
-.landing-v3-how-heading {
-  max-width: none;
-}
-.landing-v3-how-heading h2 {
-  max-width: none;
-  font-size: clamp(20px, 2.1vw, 32px);
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-}
-.landing-v3-how-heading h2 em {
-  display: inline;
-  color: #9e684c;
 }
 .landing-v3-steps {
   width: min(100%, 1280px);
@@ -2108,14 +2053,6 @@
   .landing-v3-scroll {
     display: none;
   }
-  .landing-v3-confidence {
-    grid-template-columns: 1fr;
-  }
-  .landing-v3-confidence > div {
-    min-height: 104px;
-    border-right: 0;
-    border-bottom: 1px solid rgba(55, 34, 95, 0.1);
-  }
   .landing-v3-book-gallery {
     gap: 24px;
     overflow-x: auto;
@@ -2286,12 +2223,6 @@
   .landing-v3-cover-copy span {
     font-size: 11px;
   }
-  .landing-v3-confidence > div {
-    padding: 20px;
-  }
-  .landing-v3-confidence strong {
-    font-size: 13px;
-  }
   .landing-v3-section {
     padding: 78px 20px;
   }
@@ -2364,14 +2295,6 @@
     padding: 0 9px;
     font-size: 11px;
   }
-  .landing-v3-how-heading > p {
-    font-size: 11px;
-  }
-  .landing-v3-how-heading h2 {
-    font-size: clamp(16px, 4.2vw, 22px);
-    text-wrap: balance;
-    white-space: normal;
-  }
   .landing-v3-steps {
     margin-top: 38px;
   }
@@ -2393,13 +2316,28 @@
     margin: -4px auto;
     transform: rotate(90deg);
   }
+  /*
+    The three cards are pinned to the corners of the map, which works while the map is wide.
+    On a phone the container is narrower than two cards side by side, so "unlocked" and "future"
+    were laid over each other by about 80px. Below this width they stop being pins and become a
+    list: the decorative path stays behind them, and each card is readable on its own line.
+  */
   .landing-v3-map-story {
-    width: calc(100% + 10px);
-    height: 420px;
-    margin-left: -5px;
+    width: 100%;
+    height: auto;
+    margin-left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 0 4px;
+  }
+  .map-story-path {
+    display: none;
   }
   .map-story-node {
-    min-width: 176px;
+    position: static;
+    min-width: 0;
+    width: 100%;
     grid-template-columns: 38px 1fr;
     column-gap: 9px;
     padding: 11px;
@@ -2415,15 +2353,16 @@
     left: 0;
     bottom: 8%;
   }
-  .map-story-node.next {
-    top: 5%;
-    right: 0;
-  }
+  /*
+    The corner offsets and the shrink belonged to the pinned layout. In a stacked list they only
+    make the last card a different size from the two above it, which reads as a mistake rather
+    than as depth.
+  */
+  .map-story-node.unlocked,
+  .map-story-node.next,
   .map-story-node.future {
-    right: -3%;
-    bottom: 10%;
-    transform: scale(0.82);
-    transform-origin: right bottom;
+    inset: auto;
+    transform: none;
   }
   .landing-v3-world-grid {
     grid-template-columns: 1fr;

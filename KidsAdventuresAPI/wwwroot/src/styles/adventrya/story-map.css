@@ -15,6 +15,92 @@
     inset 0 1px #ffffff0f;
   isolation: isolate;
 }
+/*
+  The six worlds as a list.
+
+  Hidden where the map has room to label its own pins; on a phone this is how the worlds are
+  read and chosen. Each row is a full-width target with the chapter, the world and its state on
+  one line each — nothing clipped, nothing to drag.
+*/
+.story-map-worlds {
+  display: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/*
+  Two columns, not three. The state ("not yet explored") is longer than some of the world names,
+  and as its own column it took half the row — leaving the name 118px and wrapping it over three
+  lines. It sits under the name instead, where it belongs: a caption, not a heading.
+*/
+.story-world-row {
+  width: 100%;
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  cursor: pointer;
+  text-align: left;
+  color: #fff8eb;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 15px;
+  background: #1b123bb8;
+  font-family: inherit;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease;
+}
+.story-world-row.is-selected {
+  border-color: #e8c98a;
+  background: #2a1c53;
+}
+.story-world-row.is-unexplored {
+  opacity: 0.62;
+}
+.story-world-row-mark {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: #25163e;
+  background: var(--story-gold, #e8c98a);
+}
+.story-world-row.is-next .story-world-row-mark {
+  color: #fff9ed;
+  background: #7455b2;
+}
+.story-world-row.is-unexplored .story-world-row-mark {
+  color: #fffaeeb3;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: #ffffff12;
+}
+.story-world-row-mark svg {
+  width: 17px;
+  height: 17px;
+}
+.story-world-row-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.story-world-row-copy small {
+  color: #fff8eb8c;
+  font-size: 11px;
+}
+.story-world-row-copy strong {
+  font-family: "Adventrya Serif", serif;
+  font-size: 14px;
+  line-height: 1.25;
+}
+.story-world-row-state {
+  margin-top: 3px;
+  color: #fff8eb7a;
+  font-size: 10px;
+}
 .story-map-topline {
   position: absolute;
   z-index: 20;
@@ -1055,30 +1141,44 @@
   }
 }
 @media (max-width: 780px) {
+  /*
+    The map stops being a thing you pan and reads top to bottom.
+
+    Height by content: the heading, the picture, the six worlds and the memory each get their own
+    band. Before this the heading sat on top of the painting with the progress badge clipped
+    against the right edge and the "drag the map" cue printed across the title.
+  */
   .story-path-map {
-    height: 610px;
-    min-height: 610px;
+    height: auto;
+    min-height: 0;
     border-radius: 23px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
   }
   .story-map-topline {
-    top: 17px;
-    left: 17px;
-    right: 17px;
+    position: static;
+    flex-direction: column;
+    gap: 12px;
+    pointer-events: auto;
   }
   .story-map-topline h2 {
-    max-width: 225px;
-    font-size: 16px;
+    max-width: none;
+    font-size: 18px;
   }
   .story-map-topline > div:first-child > span {
-    max-width: 220px;
-    line-height: 1.4;
+    max-width: none;
+    line-height: 1.45;
   }
+  /* Full width and in the flow, so nothing of it is cut off. */
   .story-map-progress {
-    width: 58px;
-    grid-template-columns: 1fr;
-    justify-items: center;
-    padding: 8px 7px;
-    text-align: center;
+    width: 100%;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 4px 10px;
+    padding: 10px 12px;
+    text-align: left;
   }
   .story-map-progress strong {
     grid-row: auto;
@@ -1088,20 +1188,53 @@
     margin-top: 2px;
   }
   .story-map-progress > i {
+    grid-column: 1 / -1;
     width: 100%;
   }
   .story-map-scroll {
     overflow-x: auto;
     overflow-y: hidden;
+    border-radius: 18px;
     scroll-snap-type: x proximity;
     touch-action: pan-x;
   }
+  /*
+    Shorter, because it is now a picture in a column rather than the whole screen. Still wider
+    than the phone — the painting is one continuous landscape — so it still scrolls, but nothing
+    depends on finding something inside it any more.
+  */
   .story-map-canvas {
-    width: 930px;
-    min-width: 930px;
-    height: 610px;
-    min-height: 610px;
+    width: 760px;
+    min-width: 760px;
+    height: 320px;
+    min-height: 320px;
     scroll-snap-align: center;
+  }
+  /*
+    Pins, without their captions. The card each pin carried was wider than the gap to the edge
+    of the window, so every label was cut mid-word. The names are in the list below.
+  */
+  .story-node-copy {
+    display: none;
+  }
+  .story-map-worlds {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  /* The list is the way to choose a world now, so the drag hint has nothing left to explain. */
+  .story-map-pan-cue {
+    display: none;
+  }
+  /* Room to finish the sentence rather than an ellipsis mid-word. */
+  .story-map-memory {
+    position: static;
+    width: 100%;
+  }
+  .story-map-memory strong {
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
   }
   .story-map-painting {
     background-position: 50% 51%;
@@ -1131,26 +1264,6 @@
     max-width: none;
     margin-top: -3px;
     text-align: left;
-  }
-  .story-map-pan-cue {
-    position: absolute;
-    z-index: 24;
-    top: 90px;
-    left: 50%;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 6px 9px;
-    border: 1px solid rgba(241, 226, 198, 0.18);
-    border-radius: 999px;
-    color: #f9f3e9b8;
-    background: #130a2d94;
-    font-size: 13px;
-    pointer-events: none;
-    transform: translate(-50%);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-    animation: story-pan-cue 3.8s ease-in-out 2;
   }
   @keyframes story-pan-cue {
     0%,

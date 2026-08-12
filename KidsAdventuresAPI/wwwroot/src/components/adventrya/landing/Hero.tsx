@@ -97,18 +97,6 @@ export function Hero() {
           {t.landing.hero.scroll}
         </a>
       </section>
-
-      <section className="landing-v3-confidence" aria-label={t.landing.benefits.eyebrow}>
-        {t.landing.benefits.items.map((item, index) => (
-          <div key={item.title}>
-            <span className="landing-v3-confidence-icon">{String(index + 1).padStart(2, "0")}</span>
-            <p>
-              <strong>{item.title}</strong>
-              {item.body}
-            </p>
-          </div>
-        ))}
-      </section>
     </>
   );
 }

@@ -710,7 +710,7 @@
   }
   .ux-auth-book .storybook-display {
     --book-width: min(205px, 56vw);
-    transform: perspective(900px) rotateY(5deg) rotate(-1deg);
+    /* Square to the page: this face carries the title and the child's name. */
   }
   .ux-auth-book > p {
     max-width: 290px;

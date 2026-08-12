@@ -243,6 +243,50 @@ export function StoryPathMap({
         </div>
       </div>
 
+      {/*
+        The worlds, written out.
+
+        On a phone the map is 930px of painting inside a 350px window, and every pin carried its
+        chapter and its name on a card that ran off the edge — "თავი I · დაკარგ…", "დინოზავრებ…".
+        Reading the six worlds meant dragging a picture sideways and squinting at clipped labels.
+        The pins stay pins; the names live here, where they fit, and tapping one moves the map to
+        it. On a wide screen the pins carry their own labels and this list stays out of the way.
+      */}
+      <ul className="story-map-worlds">
+        {WORLD_IDS.map((id) => {
+          const node = nodesById[id];
+          const visual = nodeCssState(node?.state ?? "Locked");
+          const world = WORLD_BY_ID[id];
+          return (
+            <li key={id}>
+              <button
+                type="button"
+                className={`story-world-row is-${visual} ${activeId === id ? "is-selected" : ""}`}
+                aria-pressed={activeId === id}
+                onClick={() => onSelect(id)}
+              >
+                <span className="story-world-row-mark" aria-hidden="true">
+                  {visual === "completed" ? (
+                    <Check />
+                  ) : visual === "next" ? (
+                    <Sparkles />
+                  ) : (
+                    <span className="story-lock" />
+                  )}
+                </span>
+                <span className="story-world-row-copy">
+                  <small>{world.chapter}</small>
+                  <strong>{world.mapTitle}</strong>
+                  <span className="story-world-row-state">
+                    {statusLabel(t, node?.state ?? "Locked", node?.sequenceNumber)}
+                  </span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
       <div className={`story-map-memory memory-${cssState}`} aria-live="polite">
         <span className="story-memory-icon">
           {cssState === "completed" ? <Check /> : <Sparkles />}

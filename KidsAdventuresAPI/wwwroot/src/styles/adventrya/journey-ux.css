@@ -423,11 +423,28 @@
   row and share the width evenly — min-width: 0 so the year, which is the widest, cannot push the
   other two out of the card.
 */
+/*
+  No numbered rail in the sample.
+
+  A row of page numbers is a table of contents, and the preview has two leaves — so it counted
+  to two and offered a shortcut to a page already one tap away. Previous and next say everything
+  there is to say here, and the eye goes to the packages instead of to a row of buttons.
+*/
+.storybook-preview .storybook-page-rail,
+.storybook-preview .storybook-gesture-hint {
+  display: none;
+}
 .ux-birthdate {
   min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
+  /*
+    A whole row of the form grid. Sharing a two-column row with the name left three controls
+    fighting over 200px — 54px for a year, which fits "2019" and nothing else. The name is one
+    short field and is happy on a row of its own.
+  */
+  grid-column: 1 / -1;
 }
 /* A legend is not a label by default; match the field labels beside it exactly. */
 .ux-birthdate > legend {
@@ -891,7 +908,7 @@
 .ux-auth-book .ux-book-cover {
   width: 330px;
   min-height: 470px;
-  transform: rotateY(5deg) rotate(-1deg);
+  /* Square to the page — see the note on .book-cover in journey.css. */
 }
 .ux-auth-book > p {
   max-width: 340px;

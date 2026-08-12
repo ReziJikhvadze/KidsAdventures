@@ -427,7 +427,15 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
             worldId={worldId}
             pages={previewPages}
             isSpreadBook
-            lockedPageCount={6}
+            /*
+              No locked placeholders. The preview is one cover and one page — all that is
+              generated — but the book used to be handed six blank locked leaves as well, so a
+              parent could page forward into six empty pages that only said the book was locked.
+              A stack of empty pages is a worse answer than none: it makes the sample feel hollow
+              at the moment the buying decision is made. Previous and next now move between the
+              two things that exist, and the package panel beside them is the next step.
+            */
+            lockedPageCount={0}
             isUnlocked={false}
             interactive
             initialIndex={0}
