@@ -86,7 +86,7 @@ export function SharedBookScreen() {
       <div className="reader-glow" aria-hidden="true" />
       <div className="grain" aria-hidden="true" />
 
-      <AppHeader backHref="/" childName={heroName} />
+      <AppHeader backHref="/" />
 
       <main className="reader-shared-stage">
         <div className="reader-shared-heading">

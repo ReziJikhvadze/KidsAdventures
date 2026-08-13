@@ -60,7 +60,7 @@
   opacity: 0;
   background: radial-gradient(
     circle at var(--focus-x, 50%) var(--focus-y, 50%),
-    rgba(255, 214, 138, 0.5),
+    color-mix(in oklab, var(--focus-tint, #ffd68a) 52%, transparent),
     transparent 17%
   );
   mix-blend-mode: screen;
@@ -243,7 +243,9 @@
   .first-map-stars i,
   .first-route-active,
   .beki-sprite,
-  .beki-bubble {
+  .beki-bubble,
+  .world-pick-pin-halo,
+  .world-pick-pin-halo:after {
     animation: none !important;
     transition-duration: 0.01ms !important;
   }
@@ -426,46 +428,156 @@
 .world-pick-pin:focus-visible {
   outline: none;
 }
+/*
+  The badge is a lit gateway, not a bullet point.
+
+  Six identical cream discs said "six things are clickable" and nothing more. Each one is now a
+  lamp in its world's own colour — a well of that colour under glass, a bright rim, and light
+  spilling onto the painting around it. The colour arrives as --world-tint / --world-deep from
+  worldMap.ts, so the whole badge is one rule rather than six.
+*/
 .world-pick-pin-dot {
   position: relative;
   z-index: 2;
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
   display: grid;
   place-items: center;
-  border: 2px solid rgba(255, 248, 235, 0.5);
+  border: 2px solid var(--world-tint);
   border-radius: 50%;
-  color: #2a1a46;
-  background: rgba(255, 248, 235, 0.9);
-  box-shadow: 0 10px 26px rgba(6, 3, 18, 0.55);
-  font-family: "Adventrya Serif", serif;
-  font-size: 17px;
-  font-weight: 700;
+  /* Near-white, not the tint: a tinted mark on a tinted well is the same colour twice, and at
+     21px the shape stops reading. The tint goes in the glow around it instead. */
+  color: color-mix(in oklab, var(--world-tint) 26%, #fff);
+  background:
+    radial-gradient(circle at 50% 112%, var(--world-tint), transparent 68%),
+    linear-gradient(
+      165deg,
+      color-mix(in oklab, var(--world-tint) 42%, var(--world-deep)),
+      var(--world-deep)
+    );
+  box-shadow:
+    /* the light it throws onto the island */
+    0 0 22px 2px color-mix(in oklab, var(--world-tint) 55%, transparent),
+    0 10px 26px rgba(6, 3, 18, 0.6),
+    /* glass: a highlight along the top rim and a pooled glow at the bottom */ inset 0 1px 1px
+      rgba(255, 255, 255, 0.45),
+    inset 0 -8px 14px -6px var(--world-tint);
+  transition:
+    box-shadow 0.24s ease,
+    border-color 0.24s ease;
 }
 .world-pick-pin-dot svg {
-  width: 20px;
-  height: 20px;
+  width: 25px;
+  height: 25px;
+  stroke-width: 1.8;
+  filter: drop-shadow(0 0 7px color-mix(in oklab, var(--world-tint) 85%, transparent))
+    drop-shadow(0 1px 2px rgba(6, 3, 18, 0.5));
 }
+.world-pick-pin:hover .world-pick-pin-dot,
+.world-pick-pin:focus-visible .world-pick-pin-dot,
+.world-pick-pin.is-focus .world-pick-pin-dot {
+  border-color: color-mix(in oklab, var(--world-tint) 60%, #fff);
+  box-shadow:
+    0 0 34px 6px color-mix(in oklab, var(--world-tint) 70%, transparent),
+    0 12px 30px rgba(6, 3, 18, 0.6),
+    inset 0 1px 1px rgba(255, 255, 255, 0.55),
+    inset 0 -10px 18px -6px var(--world-tint);
+}
+/* Chosen: the lamp is turned all the way up and the icon sits in the light rather than beside it. */
 .world-pick-pin.is-selected .world-pick-pin-dot {
-  border-color: #f1c970;
-  color: #2a1a46;
-  background: #f1c970;
-  box-shadow: 0 0 0 6px rgba(241, 201, 112, 0.22);
+  color: color-mix(in oklab, var(--world-deep) 72%, #000);
+  border-color: #fff8eb;
+  background:
+    radial-gradient(circle at 50% 116%, #fff, transparent 58%),
+    linear-gradient(165deg, color-mix(in oklab, var(--world-tint) 88%, #fff), var(--world-tint));
+  box-shadow:
+    0 0 0 5px color-mix(in oklab, var(--world-tint) 26%, transparent),
+    0 0 42px 8px color-mix(in oklab, var(--world-tint) 62%, transparent),
+    0 12px 30px rgba(6, 3, 18, 0.55);
 }
-/* The halo is what makes a pin feel alive without adding a word to the screen. */
+.world-pick-pin.is-selected .world-pick-pin-dot svg {
+  filter: none;
+}
+
+/*
+  Two haloes. The soft one is the light on the painting; the ring is a gateway opening, and it
+  only turns when a world is actually being looked at — a map where all six spin at once is a
+  fairground, and nothing on it stands out.
+*/
 .world-pick-pin-halo {
   position: absolute;
-  inset: -14px;
+  inset: -15px;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(241, 201, 112, 0.34), transparent 72%);
-  opacity: 0;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklab, var(--world-tint) 38%, transparent),
+    transparent 72%
+  );
+  opacity: 0.42;
   transition: opacity 0.22s ease;
+  animation: world-pin-breathe 3.4s ease-in-out infinite;
+}
+.world-pick-pin-halo:after {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    color-mix(in oklab, var(--world-tint) 85%, transparent) 70deg,
+    transparent 150deg,
+    transparent 360deg
+  );
+  mask: radial-gradient(circle, transparent 63%, #000 66%);
+  opacity: 0;
+  transition: opacity 0.24s ease;
 }
 .world-pick-pin:hover .world-pick-pin-halo,
 .world-pick-pin:focus-visible .world-pick-pin-halo,
 .world-pick-pin.is-focus .world-pick-pin-halo,
 .world-pick-pin.is-selected .world-pick-pin-halo {
   opacity: 1;
+}
+.world-pick-pin:hover .world-pick-pin-halo:after,
+.world-pick-pin:focus-visible .world-pick-pin-halo:after,
+.world-pick-pin.is-focus .world-pick-pin-halo:after,
+.world-pick-pin.is-selected .world-pick-pin-halo:after {
+  opacity: 1;
+  animation: world-pin-gate 2.6s linear infinite;
+}
+/* Each starts at a different point in the breath so the six do not pulse in lockstep. */
+.first-node-space .world-pick-pin-halo {
+  animation-delay: -0.4s;
+}
+.first-node-airplanes .world-pick-pin-halo {
+  animation-delay: -1.1s;
+}
+.first-node-dinosaurs .world-pick-pin-halo {
+  animation-delay: -1.8s;
+}
+.first-node-animals .world-pick-pin-halo {
+  animation-delay: -2.4s;
+}
+.first-node-pirates .world-pick-pin-halo {
+  animation-delay: -0.8s;
+}
+.first-node-magic .world-pick-pin-halo {
+  animation-delay: -2.9s;
+}
+@keyframes world-pin-breathe {
+  0%,
+  to {
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+@keyframes world-pin-gate {
+  to {
+    rotate: 360deg;
+  }
 }
 
 /*
@@ -639,11 +751,15 @@
 }
 
 /*
-  On a desktop the label opens sideways, into the empty middle of the painting rather than
+  On a wide screen the label opens sideways, into the empty middle of the painting rather than
   down onto whatever the island is standing on. Which side is data — see worldMap.ts — because
   it depends on where the island sits, and that changes when the art does.
+
+  1100px, not the 781px where the desktop layout starts: a sideways label needs horizontal room
+  it does not have on a tablet, where the magic label reached back across the painting and
+  landed on the animals badge. Below that width the labels hang under their pins instead.
 */
-@media (min-width: 781px) {
+@media (min-width: 1100px) {
   .world-pick-pin[data-side="left"] .world-pick-pin-name {
     top: 50%;
     left: calc(100% + 9px);
@@ -666,7 +782,7 @@
   .first-map-focus {
     background: radial-gradient(
       circle at var(--focus-x-tall, 50%) var(--focus-y-tall, 50%),
-      rgba(255, 214, 138, 0.5),
+      color-mix(in oklab, var(--focus-tint, #ffd68a) 52%, transparent),
       transparent 22%
     );
   }
@@ -755,22 +871,46 @@
     padding: 2px 8px;
     font-size: 11px;
   }
-  /*
-    The two pins nearest the right edge sit at 83% and 85%, so a centred label under them hangs
-    off the screen — and the magic one reached back far enough to land on the animals label. They
-    hang from their right edge instead, which keeps the whole name on screen and unstacked.
-  */
+}
+
+/*
+  Everywhere the label hangs under its pin — a phone, and now a tablet too.
+
+  The two pins nearest the right edge sit at 83% and 85%, so a centred label under them hangs
+  off the screen. They hang from their right edge instead, which keeps the whole name on screen.
+  And magic at 85%/68% is close enough to animals at 61%/66% that their labels share a line and
+  touch, so this one drops a row.
+*/
+@media (max-width: 1099px) {
   .world-pick-pin.first-node-airplanes .world-pick-pin-name,
   .world-pick-pin.first-node-magic .world-pick-pin-name {
     left: auto;
     right: -6px;
     transform: none;
   }
-  /*
-    Magic sits at 85%/68% and animals at 61%/66% — close enough that on a narrow screen their
-    labels share a line and touch. Dropping this one a row apart separates them without moving
-    either pin off the landmark it names.
-  */
+}
+/*
+  On a tablet Beki shares the bottom right corner with the magic island, whose label hangs
+  under its badge at this width rather than beside it. He gives up a little height for it.
+*/
+@media (min-width: 781px) and (max-width: 1099px) {
+  .beki-guide {
+    bottom: 6px;
+  }
+  .beki-sprite {
+    width: 78px;
+  }
+  .beki-bubble {
+    max-width: 182px;
+    margin-bottom: 10px;
+  }
+}
+/*
+  Only on a phone. Magic and animals are two percent apart vertically, which is nine pixels of
+  a phone-height map and forty of a tablet's — so their labels touch on the one and clear each
+  other on the other. Dropping it a row on a tablet as well pushed it down onto Beki instead.
+*/
+@media (max-width: 780px) {
   .world-pick-pin.first-node-magic .world-pick-pin-name {
     top: calc(100% + 24px);
   }

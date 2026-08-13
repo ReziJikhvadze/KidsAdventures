@@ -137,7 +137,6 @@ export function JourneyScreen() {
       backHref={backHref}
       progressLabel={progressLabelForStage(stage)}
       progressValue={STAGE_PROGRESS[stage]}
-      childName={draft.characters.find((c) => c.isPrimary)?.name}
     />
   );
 

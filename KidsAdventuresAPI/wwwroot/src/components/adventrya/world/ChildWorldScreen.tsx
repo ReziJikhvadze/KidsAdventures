@@ -141,7 +141,7 @@ export function ChildWorldScreen() {
       <div className="world-shade" aria-hidden="true" />
       <div className="grain" aria-hidden="true" />
 
-      <AppHeader backHref="/dashboard" worldMode activeLink="world" childName={heroName} />
+      <AppHeader backHref="/dashboard" worldMode activeLink="world" />
 
       <aside className="world-panel">
         <div className="world-profile">

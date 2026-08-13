@@ -314,7 +314,7 @@ export function DashboardScreen() {
       <div className="dashboard-sky" aria-hidden="true" />
       <div className="grain" aria-hidden="true" />
 
-      <AppHeader backHref="/" worldMode={hasStories} childName={heroName} />
+      <AppHeader backHref="/" worldMode={hasStories} />
 
       <aside className="dashboard-sidebar">
         <div className="parent-label">

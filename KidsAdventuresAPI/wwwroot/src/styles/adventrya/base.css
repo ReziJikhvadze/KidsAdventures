@@ -418,6 +418,25 @@ svg {
     display: none;
   }
 }
+/*
+  The step counter is centred absolutely, so it does not push the two blocks either side of it
+  apart — it lands on top of them. Under about 1080px it reached the wordmark on the left and
+  the dashboard link on the right at the same time, and the three read as one run of letters.
+  Both of those are the parts a parent halfway through the funnel needs least: the brand they
+  are already looking at, and the two words beside an avatar that still links where it linked.
+*/
+@media (max-width: 1080px) {
+  .app-header .wordmark-small {
+    display: none;
+  }
+  .app-header-end .child-pill > span:not(.child-avatar),
+  .app-header-end .child-pill > svg {
+    display: none;
+  }
+  .app-header-end .child-avatar {
+    margin: 0;
+  }
+}
 .step-progress {
   position: absolute;
   left: 50%;

@@ -147,7 +147,7 @@ export function ReaderScreen() {
       <div className="reader-glow" aria-hidden="true" />
       <div className="grain" aria-hidden="true" />
 
-      <AppHeader backHref="/dashboard" childName={heroName} />
+      <AppHeader backHref="/dashboard" />
 
       <main className="reader-shared-stage">
         <div className="reader-shared-heading">

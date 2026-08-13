@@ -64,3 +64,29 @@ export const MAP_ORIGIN: Record<MapLayout, { x: number; y: number }> = {
   wide: { x: 43, y: 80 },
   tall: { x: 43, y: 80 },
 };
+
+/**
+ * The light each world gives off.
+ *
+ * Six identical cream discs told a parent that six things were clickable and nothing else.
+ * A colour per world is the cheapest thing on the screen that carries meaning: the badge, its
+ * halo and the glow that lands on the island are all lit by the same lamp, so a child who
+ * cannot read "ტყე" still learns that the green one is the forest.
+ *
+ * `deep` is the base the disc is filled from and `tint` the bright rim and the light it
+ * throws. Both are written rather than derived, because a colour that reads well as a 2px rim
+ * over a painted night sky is not one a formula finds from the fill.
+ */
+export interface WorldTint {
+  tint: string;
+  deep: string;
+}
+
+export const WORLD_TINT: Record<WorldId, WorldTint> = {
+  space: { tint: "#a889ff", deep: "#3a2470" },
+  airplanes: { tint: "#67b6ff", deep: "#173a72" },
+  dinosaurs: { tint: "#f0b64a", deep: "#5a3a12" },
+  animals: { tint: "#6fd07a", deep: "#1c4a28" },
+  pirates: { tint: "#4fd6e0", deep: "#10464f" },
+  magic: { tint: "#ffa24a", deep: "#6a2f10" },
+};

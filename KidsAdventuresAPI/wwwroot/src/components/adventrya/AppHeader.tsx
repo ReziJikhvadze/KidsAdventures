@@ -14,8 +14,6 @@ export interface AppHeaderProps {
   /** Highlights the "child world" nav link and switches the header to its dark variant. */
   worldMode?: boolean;
   activeLink?: "home" | "themes" | "world";
-  /** Name of the child whose space the header links into, if any. */
-  childName?: string;
 }
 
 function splitHref(href: string): { to: string; hash?: string } {
@@ -33,11 +31,19 @@ export function AppHeader({
   progressValue = 0,
   worldMode = false,
   activeLink,
-  childName,
 }: AppHeaderProps) {
   const t = useT();
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, user } = useAuth();
   const back = splitHref(backHref);
+
+  /*
+    This pill says "Parent Dashboard" and opens the parent's account, so it wears the parent's
+    initial. It wore the child's — and on the world picker, where no child has been entered
+    yet, that was the first letter of the placeholder name "პატარა გმირი": a "პ" that belonged
+    to nobody. Falls back to the brand letter while signed out, when there is no one to name.
+  */
+  const parentInitial =
+    (user?.displayName?.trim() || user?.email?.trim() || "").charAt(0).toUpperCase() || "A";
 
   return (
     <header className={`app-header ${worldMode ? "app-header-world" : ""}`}>
@@ -93,7 +99,7 @@ export function AppHeader({
         />
         <Link className="child-pill" to="/dashboard" aria-label={t.common.nav.openDashboard}>
           <span className="child-avatar" aria-hidden="true">
-            {childName?.trim().charAt(0) ?? "A"}
+            {parentInitial}
           </span>
           <span>
             <small>Parent Dashboard</small>

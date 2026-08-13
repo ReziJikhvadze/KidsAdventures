@@ -9,7 +9,7 @@ import { useT } from "@/lib/i18n";
 import type { JourneyDraft } from "@/lib/journey/draft";
 import { primaryCharacter } from "@/lib/journey/draft";
 import { STAGE_PROGRESS, progressLabelForStage } from "@/lib/journey/stages";
-import { WORLD_MAP } from "@/lib/journey/worldMap";
+import { WORLD_MAP, WORLD_TINT } from "@/lib/journey/worldMap";
 import { useWorlds, type WorldId } from "@/lib/worlds";
 
 type Props = {
@@ -101,7 +101,6 @@ export function WorldStage({ draft, onChange, header }: Props) {
           backHref="/"
           progressLabel={progressLabelForStage("world")}
           progressValue={STAGE_PROGRESS.world}
-          childName={heroName}
         />
       )}
 
@@ -126,12 +125,14 @@ export function WorldStage({ draft, onChange, header }: Props) {
           className={`first-map-focus ${focusId ? "is-lit" : ""}`}
           aria-hidden="true"
           style={
-            focusAnchor && focusAnchorTall
+            focusAnchor && focusAnchorTall && focusId
               ? ({
                   "--focus-x": `${focusAnchor.x}%`,
                   "--focus-y": `${focusAnchor.y}%`,
                   "--focus-x-tall": `${focusAnchorTall.x}%`,
                   "--focus-y-tall": `${focusAnchorTall.y}%`,
+                  // The island is lit by its own lamp, not a generic warm one.
+                  "--focus-tint": WORLD_TINT[focusId].tint,
                 } as CSSProperties)
               : undefined
           }
@@ -197,6 +198,7 @@ export function WorldStage({ draft, onChange, header }: Props) {
         {WORLDS.map((world) => {
           const wide = WORLD_MAP.anchors.wide[world.id];
           const tall = WORLD_MAP.anchors.tall[world.id];
+          const lamp = WORLD_TINT[world.id];
           return (
             <button
               key={world.id}
@@ -212,6 +214,8 @@ export function WorldStage({ draft, onChange, header }: Props) {
                   "--pin-y": `${wide.y}%`,
                   "--pin-x-tall": `${tall.x}%`,
                   "--pin-y-tall": `${tall.y}%`,
+                  "--world-tint": lamp.tint,
+                  "--world-deep": lamp.deep,
                 } as CSSProperties
               }
               aria-pressed={selectedId === world.id}
