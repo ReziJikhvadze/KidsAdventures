@@ -5,8 +5,10 @@ import { submitContactForm } from "@/lib/api/contact";
 import { notify } from "@/lib/ui/notify";
 import { BRAND_NAME } from "@/lib/brand";
 import { SocialLinks } from "@/components/brand/SocialLinks";
+import { useT } from "@/lib/i18n";
 
 export function Contact() {
+  const c = useT().common.contactForm;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -35,7 +37,7 @@ export function Contact() {
       setMessage("");
       notify.success(result.message);
     } catch (err) {
-      notify.fromError(err, "Could not send your message.");
+      notify.fromError(err, c.failed);
     } finally {
       setSending(false);
     }
@@ -45,13 +47,11 @@ export function Contact() {
     <section className="py-16 md:py-24">
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
         <div className="text-center max-w-xl mx-auto">
-          <p className="text-sm font-semibold text-primary tracking-wide uppercase">კონტაქტი</p>
+          <p className="text-sm font-semibold text-primary tracking-wide uppercase">{c.eyebrow}</p>
           <h1 className="mt-3 font-display text-4xl md:text-5xl font-bold text-balance">
-            მოხარული ვიქნებით შენი წერილის
+            {c.title}
           </h1>
-          <p className="mt-4 text-muted-foreground">
-            კითხვები ამბების, ბეჭდვის ან მიწოდების შესახებ? მოგვწერე — პასუხს ელფოსტაზე მიიღებ.
-          </p>
+          <p className="mt-4 text-muted-foreground">{c.lead}</p>
           <SocialLinks className="mt-6 justify-center" />
         </div>
 
@@ -61,17 +61,16 @@ export function Contact() {
               <div className="mx-auto h-14 w-14 rounded-2xl bg-primary/10 grid place-items-center">
                 <Mail className="h-7 w-7 text-primary" />
               </div>
-              <p className="mt-5 font-display text-xl font-semibold">Message sent</p>
+              <p className="mt-5 font-display text-xl font-semibold">{c.sentTitle}</p>
               <p className="mt-2 text-sm text-muted-foreground max-w-sm mx-auto">
-                Thanks for reaching out. The {BRAND_NAME} team will get back to you at the email you
-                provided.
+                {c.sentBody(BRAND_NAME)}
               </p>
               <button
                 type="button"
                 onClick={() => setSent(false)}
                 className="mt-6 text-sm font-semibold text-primary hover:underline"
               >
-                Send another message
+                {c.sendAnother}
               </button>
             </div>
           ) : (
@@ -79,21 +78,21 @@ export function Contact() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="contact-name" className="text-sm font-semibold">
-                    Your name
+                    {c.nameLabel}
                   </label>
                   <input
                     id="contact-name"
                     value={name}
                     maxLength={100}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Ana"
+                    placeholder={c.namePlaceholder}
                     className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition"
                     required
                   />
                 </div>
                 <div>
                   <label htmlFor="contact-email" className="text-sm font-semibold">
-                    Email
+                    {c.emailLabel}
                   </label>
                   <input
                     id="contact-email"
@@ -101,7 +100,7 @@ export function Contact() {
                     value={email}
                     maxLength={200}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
+                    placeholder={c.emailPlaceholder}
                     className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition"
                     required
                   />
@@ -110,7 +109,7 @@ export function Contact() {
 
               <div>
                 <label htmlFor="contact-message" className="text-sm font-semibold">
-                  Message
+                  {c.messageLabel}
                 </label>
                 <textarea
                   id="contact-message"
@@ -118,7 +117,7 @@ export function Contact() {
                   maxLength={2000}
                   rows={6}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="How can we help?"
+                  placeholder={c.messagePlaceholder}
                   className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition resize-none"
                   required
                 />
@@ -143,12 +142,12 @@ export function Contact() {
                 {sending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Sending…
+                    {c.sending}
                   </>
                 ) : (
                   <>
                     <Send className="h-4 w-4" />
-                    Send message
+                    {c.send}
                   </>
                 )}
               </button>

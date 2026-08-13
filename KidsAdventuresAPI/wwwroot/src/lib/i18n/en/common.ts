@@ -118,4 +118,23 @@ export const common = {
   },
 
   fallbackHeroName: "little hero",
+
+  contactForm: {
+    eyebrow: "Contact",
+    title: "We would love to hear from you",
+    lead: "Questions about the stories, printing or delivery? Write to us — we'll reply by email.",
+    nameLabel: "Your name",
+    namePlaceholder: "e.g. Ana",
+    emailLabel: "Email",
+    emailPlaceholder: "you@example.com",
+    messageLabel: "Message",
+    messagePlaceholder: "How can we help?",
+    send: "Send message",
+    sending: "Sending…",
+    sentTitle: "Message sent",
+    sentBody: (brand: string) =>
+      `Thanks for reaching out. The ${brand} team will get back to you at the email you provided.`,
+    sendAnother: "Send another message",
+    failed: "Could not send your message.",
+  },
 };

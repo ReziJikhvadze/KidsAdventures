@@ -119,4 +119,27 @@ export const common = {
   },
 
   fallbackHeroName: "პატარა გმირი",
+
+  /*
+    The contact page was written half in each language: a Georgian heading over an English form.
+    Both are here now, so the page follows the language the visitor chose like every other screen.
+  */
+  contactForm: {
+    eyebrow: "კონტაქტი",
+    title: "მოხარული ვიქნებით შენი წერილის",
+    lead: "კითხვები ამბების, ბეჭდვის ან მიწოდების შესახებ? მოგვწერე — პასუხს ელფოსტაზე მიიღებ.",
+    nameLabel: "შენი სახელი",
+    namePlaceholder: "მაგ. ანა",
+    emailLabel: "ელფოსტა",
+    emailPlaceholder: "you@example.com",
+    messageLabel: "შეტყობინება",
+    messagePlaceholder: "როგორ დაგეხმაროთ?",
+    send: "გაგზავნა",
+    sending: "იგზავნება…",
+    sentTitle: "შეტყობინება გაიგზავნა",
+    sentBody: (brand: string) =>
+      `გმადლობთ, რომ მოგვწერეთ. ${brand}-ის გუნდი მითითებულ ელფოსტაზე გიპასუხებთ.`,
+    sendAnother: "კიდევ ერთი შეტყობინების გაგზავნა",
+    failed: "შეტყობინება ვერ გაიგზავნა.",
+  },
 };
