@@ -1265,17 +1265,6 @@
     margin-top: -3px;
     text-align: left;
   }
-  @keyframes story-pan-cue {
-    0%,
-    to {
-      opacity: 0.55;
-      transform: translate(-50%);
-    }
-    50% {
-      opacity: 1;
-      transform: translate(calc(-50% + 6px));
-    }
-  }
   .living-map-v2 {
     position: relative;
     inset: auto;

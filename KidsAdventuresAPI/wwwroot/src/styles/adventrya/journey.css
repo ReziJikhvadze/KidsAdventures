@@ -1335,17 +1335,6 @@
 .generation-copy .button {
   margin-top: 25px;
 }
-@keyframes portal-breathe {
-  0%,
-  to {
-    transform: scale(0.98);
-    filter: saturate(0.86) brightness(0.94);
-  }
-  50% {
-    transform: scale(1.025);
-    filter: saturate(1) brightness(1.05);
-  }
-}
 @keyframes generation-orbit {
   to {
     transform: translate(-50%, -50%) rotate(360deg);

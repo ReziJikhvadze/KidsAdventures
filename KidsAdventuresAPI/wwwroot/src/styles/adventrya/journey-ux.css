@@ -1270,91 +1270,6 @@
     min-height: 98px;
     line-height: 1.45;
   }
-  .theme-screen {
-    min-width: 0;
-    min-height: 100svh;
-    height: auto;
-    max-height: none;
-    overflow: visible;
-  }
-  .theme-screen .theme-art,
-  .theme-screen .theme-shade {
-    position: fixed;
-  }
-  .theme-intro {
-    width: 100%;
-    height: auto;
-    min-height: calc(100svh - 72px);
-    padding: 25px 18px 38px;
-    overflow: visible;
-  }
-  .theme-intro h1 {
-    font-size: 29px;
-  }
-  .theme-intro .selected-story {
-    max-width: none;
-  }
-  .theme-wish-field {
-    width: 100%;
-    margin-top: 18px;
-  }
-  .theme-wish-field textarea {
-    min-height: 96px;
-  }
-  .theme-actions {
-    width: 100%;
-    flex-direction: column-reverse;
-  }
-  .theme-actions .button {
-    width: 100%;
-  }
-  .theme-universe {
-    position: relative;
-    inset: auto;
-    width: 100%;
-    min-height: 620px;
-    margin-top: 20px;
-    border: 1px solid rgba(240, 226, 197, 0.14);
-    border-radius: 24px;
-    background: #170e3466;
-  }
-  .theme-destination {
-    transform: scale(0.92);
-  }
-  .theme-destination:hover,
-  .theme-destination.is-selected {
-    transform: scale(0.96);
-  }
-  .theme-dinosaurs {
-    left: 4%;
-    top: 8%;
-  }
-  .theme-space {
-    left: 47%;
-    top: 5%;
-  }
-  .theme-pirates {
-    left: 7%;
-    top: 36%;
-  }
-  .theme-animals {
-    left: 49%;
-    top: 34%;
-  }
-  .theme-airplanes {
-    left: 5%;
-    top: 66%;
-  }
-  .theme-magic {
-    left: 48%;
-    top: 64%;
-  }
-  .universe-note {
-    left: 50%;
-    bottom: 18px;
-    transform: translate(-50%);
-    white-space: nowrap;
-  }
   .ux-preview-heading {
     margin-bottom: 22px;
   }
@@ -1655,20 +1570,6 @@
   .ux-choice-chips button {
     min-height: 40px;
     padding-inline: 12px;
-  }
-  .theme-destination,
-  .map-destination {
-    transform: scale(0.77);
-  }
-  .theme-destination:hover,
-  .theme-destination.is-selected,
-  .map-destination:hover,
-  .map-destination.is-active {
-    transform: scale(0.8);
-  }
-  .destination-copy strong,
-  .map-label strong {
-    font-size: 12px;
   }
   .ux-package-title b {
     font-size: 14px;
