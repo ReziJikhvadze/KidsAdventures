@@ -26,6 +26,15 @@ export interface WorldAnchor {
    * off the edge of the screen, which is what used to happen to "თვითმფრინავები".
    */
   side: "left" | "right";
+  /**
+   * Extra pixels to drop the label by when it hangs under its pin instead of beside it.
+   *
+   * Two islands the painting places close together give their labels the same line, and they
+   * touch. Which two is a fact about the painting, not about the layout, so it belongs here
+   * with the rest of what the painting decided — and it is one number to revisit when the art
+   * changes, rather than a media query to rediscover.
+   */
+  drop?: number;
 }
 
 export interface MapArt {
@@ -46,7 +55,8 @@ export const WORLD_MAP: MapArt = {
       dinosaurs: { x: 24, y: 48, side: "left" },
       pirates: { x: 69, y: 43, side: "right" },
       animals: { x: 61, y: 66, side: "right" },
-      magic: { x: 85, y: 68, side: "right" },
+      // Two percent below animals and twenty-four across: same line, touching labels.
+      magic: { x: 85, y: 68, side: "right", drop: 26 },
     },
     tall: {
       space: { x: 43.5, y: 20, side: "left" },
@@ -54,7 +64,8 @@ export const WORLD_MAP: MapArt = {
       dinosaurs: { x: 24, y: 48, side: "left" },
       pirates: { x: 69, y: 43, side: "right" },
       animals: { x: 61, y: 66, side: "right" },
-      magic: { x: 85, y: 68, side: "right" },
+      // Two percent below animals and twenty-four across: same line, touching labels.
+      magic: { x: 85, y: 68, side: "right", drop: 26 },
     },
   },
 };

@@ -700,19 +700,38 @@
   pointer-events: none;
 }
 /*
-  beki.webp is not a cutout — it is a portrait on its own dark violet backdrop, and dropped on
-  the map as-is it reads as a photograph taped to the painting. The mask feathers that backdrop
-  out into the dark corner of the map it sits in.
+  Beki is a real cutout now, so nothing has to be hidden.
 
-  Screen blending was the other way to hide it, and it does erase the backdrop completely, but
-  it also washes Beki himself into a ghost. Feathering keeps him solid, which matters more.
-  Both tricks go away the day a transparent PNG of the new sprite lands.
+  beki.webp is a portrait on its own dark violet backdrop; dropped on the map it read as a
+  photograph taped to the painting, and the elliptical mask that softened the join left a
+  visible bruise of shadow around him. beki-cutout.webp carries an alpha channel, which lets
+  the shadow follow his actual silhouette — the difference between a figure standing in a
+  scene and a picture lying on one.
+
+  Two shadows: a tight dark one that reads as contact, and a wide warm one picking up the
+  golden light the map throws from below, which is what stops him looking pasted on.
 */
 .beki-sprite {
   width: clamp(96px, 9vw, 132px);
   height: auto;
-  mask-image: radial-gradient(ellipse 62% 62% at 50% 46%, #000 58%, transparent 96%);
+  filter: drop-shadow(0 6px 10px rgba(6, 3, 18, 0.75)) drop-shadow(0 18px 34px rgba(9, 4, 26, 0.55))
+    drop-shadow(0 -2px 16px rgba(255, 198, 112, 0.2));
   animation: beki-float 4.6s ease-in-out infinite;
+}
+/*
+  The pool of light he casts down onto the map. It sits under the sprite rather than on it, so
+  it stays put while he bobs — a shadow that floats with its owner is not a shadow.
+*/
+.beki-guide:after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  right: 6%;
+  bottom: -6px;
+  width: clamp(76px, 7vw, 104px);
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(8, 4, 20, 0.55), transparent 78%);
 }
 /* A small lift when a world is chosen — the one moment he has something to celebrate. */
 .beki-guide.is-chosen .beki-sprite {
@@ -759,7 +778,51 @@
   it does not have on a tablet, where the magic label reached back across the painting and
   landed on the animals badge. Below that width the labels hang under their pins instead.
 */
-@media (min-width: 1100px) {
+/*
+  The wide layout: a column of words, and the map beside it.
+
+  The map used to run the full width with the question laid over its top-left corner, and the
+  question and the upper-left island fought for that corner — at 1024px the space badge landed
+  in the middle of the heading. No amount of nudging fixes that, because it is two things
+  wanting the same place: one of them has to move out of the other's way.
+
+  So the map starts where the column ends. It is still the biggest thing on the screen and it
+  is still uncropped by anything the app draws; it simply has its own territory. The painting
+  is object-fit: cover inside the narrower stage, and the pins are positioned in percentages of
+  that stage, so every pin still lands on its island.
+*/
+@media (min-width: 1000px) {
+  .world-pick-stage {
+    left: clamp(320px, 31%, 440px);
+  }
+  /* A soft seam rather than a hard edge, so the column reads as the same night as the map. */
+  .world-pick-stage:before {
+    content: "";
+    position: absolute;
+    z-index: 4;
+    inset: 0 auto 0 0;
+    width: 90px;
+    background: linear-gradient(90deg, #0c071f, transparent);
+    pointer-events: none;
+  }
+  .world-pick-ask {
+    max-width: clamp(272px, 31%, 392px);
+    margin-top: clamp(10px, 3vh, 34px);
+  }
+  .world-pick-panel {
+    width: clamp(272px, calc(31% - 40px), 392px);
+  }
+}
+
+/*
+  Sideways labels, but only once the map itself is wide enough for them.
+
+  1340px of window, not 1000px: the map is no longer the window. It is the window minus the
+  column, so at 1024px the stage is about 700px across and a label reaching inward from the
+  right edge arrives at the label reaching outward from the left. What matters is the width of
+  the stage, and this is the window width at which it clears 900px.
+*/
+@media (min-width: 1340px) {
   .world-pick-pin[data-side="left"] .world-pick-pin-name {
     top: 50%;
     left: calc(100% + 9px);
@@ -773,8 +836,12 @@
   }
 }
 
+/*
+  The phone gets the portrait coordinates, because the phone is where <picture> switches to the
+  portrait painting. These two breakpoints have to stay equal to each other: coordinates for one
+  painting used against the other put every pin in the wrong place.
+*/
 @media (max-width: 780px) {
-  /* The phone gets the portrait coordinates for the portrait painting. */
   .world-pick-pin {
     left: var(--pin-x-tall);
     top: var(--pin-y-tall);
@@ -786,6 +853,14 @@
       transparent 22%
     );
   }
+}
+
+/*
+  Below the wide layout, the question sits above the map instead of on it — the same stacking a
+  phone gets, because the reason is the same: there is not enough width to put words beside the
+  map, and putting them on top of it means landing on an island.
+*/
+@media (max-width: 999px) {
   /*
     Beki shrinks and moves to the bottom-left corner of the map — the open book, the one part
     of the painting no pin sits on. At the top right, which is where the reference puts him,
@@ -793,24 +868,6 @@
     the bottom empty. Sprite first, bubble to its right, so the bubble opens into the map
     rather than off the left edge.
   */
-  .beki-guide {
-    right: auto;
-    bottom: 6px;
-    left: 6px;
-    flex-direction: row-reverse;
-  }
-  .beki-sprite {
-    width: 74px;
-  }
-  /* Sits flush with the bottom of the group, which clears the lowest pin label above it. */
-  .beki-bubble {
-    max-width: 42vw;
-    margin: 0;
-    padding: 8px 11px;
-    border-radius: 14px 14px 14px 4px;
-    font-size: 11.5px;
-  }
-
   /*
     On a phone the panel stops floating and the map ends where it begins.
 
@@ -874,44 +931,51 @@
 }
 
 /*
-  Everywhere the label hangs under its pin — a phone, and now a tablet too.
+  Wherever the label hangs under its pin rather than beside it.
 
   The two pins nearest the right edge sit at 83% and 85%, so a centred label under them hangs
   off the screen. They hang from their right edge instead, which keeps the whole name on screen.
-  And magic at 85%/68% is close enough to animals at 61%/66% that their labels share a line and
-  touch, so this one drops a row.
 */
-@media (max-width: 1099px) {
+/*
+  Beki moves to the bottom-left of the map wherever the labels hang under their pins.
+
+  He belongs in the bottom-right corner — it is the far side from the panel and it is the part
+  of the painting with the fewest landmarks — but that corner is also where the magic island's
+  label falls once it hangs under its badge rather than beside it. The bottom-left is the open
+  book: no pin stands there in either painting. Sprite first, bubble opening right into the map.
+*/
+@media (max-width: 1339px) {
+  .beki-guide {
+    right: auto;
+    bottom: 6px;
+    left: 6px;
+    flex-direction: row-reverse;
+  }
+  .beki-sprite {
+    width: clamp(74px, 8vw, 104px);
+  }
+  /* Flush with the bottom of the group, which clears the lowest pin label above it. */
+  .beki-bubble {
+    max-width: min(42vw, 230px);
+    margin: 0;
+    padding: 8px 11px;
+    border-radius: 14px 14px 14px 4px;
+    font-size: 11.5px;
+  }
+
   .world-pick-pin.first-node-airplanes .world-pick-pin-name,
   .world-pick-pin.first-node-magic .world-pick-pin-name {
     left: auto;
     right: -6px;
     transform: none;
   }
-}
-/*
-  On a tablet Beki shares the bottom right corner with the magic island, whose label hangs
-  under its badge at this width rather than beside it. He gives up a little height for it.
-*/
-@media (min-width: 781px) and (max-width: 1099px) {
-  .beki-guide {
-    bottom: 6px;
-  }
-  .beki-sprite {
-    width: 78px;
-  }
-  .beki-bubble {
-    max-width: 182px;
-    margin-bottom: 10px;
+  /* --label-drop separates the pair the painting put on the same line. See worldMap.ts. */
+  .world-pick-pin .world-pick-pin-name {
+    top: calc(100% + 7px + var(--label-drop, 0px));
   }
 }
-/*
-  Only on a phone. Magic and animals are two percent apart vertically, which is nine pixels of
-  a phone-height map and forty of a tablet's — so their labels touch on the one and clear each
-  other on the other. Dropping it a row on a tablet as well pushed it down onto Beki instead.
-*/
 @media (max-width: 780px) {
-  .world-pick-pin.first-node-magic .world-pick-pin-name {
-    top: calc(100% + 24px);
+  .world-pick-pin .world-pick-pin-name {
+    top: calc(100% + 5px + var(--label-drop-tall, 0px));
   }
 }

@@ -31,6 +31,18 @@
 კუნძულები **მარცხენა და მარჯვენა კიდეებზეა, სამ-სამი.** შუა ვერტიკალური დერეფანი და
 კუნძულებს შორის ცა **მუქი და ცარიელი უნდა დარჩეს** — იქ დაჯდება წარწერები.
 
+### ⚠ უსაფრთხო ზონა — ეს ყველაზე ადვილად გამოსაპარია
+
+დესკტოპზე რუკა მთელ ეკრანს აღარ იკავებს: მარცხნივ ტექსტის სვეტია, რუკა კი მარჯვნივ ~69%-ზე.
+ეს ნიშნავს, რომ **სურათის კიდეები იჭრება** — მაღალ ფანჯარაზე მარცხნიდან და მარჯვნიდან
+13-13% ქრება.
+
+ამიტომ: **ექვსივე კარიბჭე უნდა მოხვდეს სურათის ცენტრალურ 70%-ში ჰორიზონტალურად**
+(ანუ 15%-სა და 85%-ს შორის, უსაფრთხოდ — 20%-სა და 80%-ს შორის). გარეთ დახატული კუნძული
+დესკტოპზე უბრალოდ არ ჩანს.
+
+ქვემოთ მოცემული კოორდინატები უკვე ამ წესს ემორჩილება.
+
 ### ჰორიზონტალური (დესკტოპი), 3:2
 
 პროცენტები სურათის სიგანე/სიმაღლიდან. წერტილი = კუნძულის **მანათობელი კარიბჭის ცენტრი**.
@@ -39,10 +51,10 @@
 |---|---|---|
 | კოსმოსი | 26% / 22% | ობსერვატორია და პორტალი ვარსკვლავთა ნისლეულში |
 | თვითმფრინავები | 75% / 20% | ღრუბლების ზემოთ ამოსული ციხე-ქალაქი, დირიჟაბლი |
-| დინოზავრები | 20% / 50% | ხეობა ჩანჩქერით, ბრახიოზავრი |
-| ცხოველები | 79% / 52% | მოჩუქურთმებული ხის კარიბჭე, ფარნები, მელა და დათვი |
-| მეკობრეები | 23% / 76% | ლაგუნა, ხომალდი, პალმები, წყალქვეშა ნათება |
-| ჯადოსნური | 77% / 74% | ფარნებით სავსე ქალაქი, გუმბათები |
+| დინოზავრები | 22% / 50% | ხეობა ჩანჩქერით, ბრახიოზავრი |
+| ცხოველები | 78% / 52% | მოჩუქურთმებული ხის კარიბჭე, ფარნები, მელა და დათვი |
+| მეკობრეები | 24% / 76% | ლაგუნა, ხომალდი, პალმები, წყალქვეშა ნათება |
+| ჯადოსნური | 76% / 74% | ფარნებით სავსე ქალაქი, გუმბათები |
 | ბავშვი + ბეკი | 49% / 82% | ზურგით, გადაშლილ წიგნზე, ბილიკის დასაწყისში |
 
 ### ვერტიკალური (მობაილი), 9:16
@@ -61,6 +73,15 @@
 | ბავშვი + ბეკი | 47% / 79% |
 
 ორივეში: ზედა 12% და ქვედა 10% შედარებით მშვიდი — ზემოთ ჰედერი აზის, ქვემოთ ღილაკი.
+
+### ბავშვის გვერდით ბეკი დგას, არა დინოზავრი
+
+დღევანდელ სურათზე ბავშვს დინოზავრი უდგას გვერდით. დინოზავრი **ერთი სამყაროა ექვსიდან** —
+თუ ის ბავშვთან ერთად ბილიკის დასაწყისში დგას, ის აღარ არის ერთ-ერთი არჩევანი, ის უკვე
+თანამგზავრია. ეს არჩევანს ასუსტებს.
+
+ბილიკის დასაწყისში ბავშვს **მხოლოდ ბეკი** უნდა ეჭიროს ხელი. დინოზავრი თავის კუნძულზე
+რჩება, დანარჩენ ხუთთან ერთად, თანაბარ პირობებში.
 
 ---
 
@@ -82,22 +103,29 @@ Island placement, precise:
   nebula
 - upper right, near 75% across and 20% down: a castle town on top of towering
   moonlit clouds, small airship drifting nearby, glowing archway at its base
-- middle left, near 20% across and 50% down: a green valley island with a waterfall,
+- middle left, near 22% across and 50% down: a green valley island with a waterfall,
   tall ferns and a long-necked dinosaur, a lit stone gateway at the cliff edge
-- middle right, near 79% across and 52% down: an ancient carved tree with a glowing
+- middle right, near 78% across and 52% down: an ancient carved tree with a glowing
   doorway in its trunk, hanging lanterns, a fox and a bear in the grass
-- lower left, near 23% across and 76% down: a turquoise lagoon island with palm trees
+- lower left, near 24% across and 76% down: a turquoise lagoon island with palm trees
   and a wooden sailing ship, glowing underwater light, a lit stone arch on the shore
-- lower right, near 77% across and 74% down: a warm amber city of domes and hanging
+- lower right, near 76% across and 74% down: a warm amber city of domes and hanging
   lanterns, a glowing gate at its entrance
 
 At the bottom centre, near 49% across and 82% down, seen from behind and small in the
-frame: a child in a explorer coat and backpack, holding the hand of a tiny glowing
-companion creature. They stand on the open pages at the start of the golden path.
+frame: a child in an explorer coat and backpack, standing on the open pages at the start
+of the golden path. Holding the child's hand is one small companion creature: a
+round-bodied sprite with deep violet-purple skin, wrapped in flowing pale parchment and
+dried-leaf robes that curl upward from its head into a single tall curling wisp, a warm
+golden light glowing at its chest. Only these two figures stand on the book.
 
 Critical: the vertical centre corridor and the sky between the islands must stay dark,
 empty and uncluttered. Each island is clearly separated from the others by empty night
-sky. No island touches another.
+sky. No island touches another. Every one of the six gateways must fall between 20% and
+80% across the frame — the outer edges of this image get cropped away on screen.
+
+No dinosaur or any other animal beside the child at the bottom; the dinosaur stays on
+its own island, so that it is one of six choices rather than a companion already chosen.
 
 Absolutely no text, no letters, no numbers, no logos, no user interface, no buttons,
 no arrows, no coloured circular badges or icons on the islands. Pure painted scene only.
@@ -135,8 +163,11 @@ Island placement, precise:
   glowing gate at its entrance
 
 At the bottom centre, near 47% across and 79% down, seen from behind and small: a child
-in an explorer coat and backpack holding the hand of a tiny glowing companion creature,
-standing on the open pages at the start of the golden path.
+in an explorer coat and backpack, standing on the open pages at the start of the golden
+path, holding the hand of one small companion creature — a round-bodied sprite with deep
+violet-purple skin wrapped in pale parchment and dried-leaf robes that curl upward from
+its head into a single tall wisp, a warm golden light at its chest. Only these two
+figures stand on the book; no dinosaur or other animal beside them.
 
 Critical: the vertical centre corridor and the sky between the islands must stay dark,
 empty and uncluttered. Each island clearly separated by empty night sky.

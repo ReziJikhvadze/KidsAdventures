@@ -11,9 +11,9 @@ export type BekiMood = "greeting" | "peek" | "chosen";
  * See design/world-map-art-brief.md, section 4, for the poses being drawn.
  */
 const BEKI_POSE: Record<BekiMood, string> = {
-  greeting: "/adventrya/beki.webp",
-  peek: "/adventrya/beki.webp",
-  chosen: "/adventrya/beki.webp",
+  greeting: "/adventrya/beki-cutout.webp",
+  peek: "/adventrya/beki-cutout.webp",
+  chosen: "/adventrya/beki-cutout.webp",
 };
 
 type Props = {
@@ -48,7 +48,7 @@ export function BekiGuide({ mood, peekTheme }: Props) {
       <p className="beki-bubble" key={line} aria-live="polite">
         {line}
       </p>
-      <img className="beki-sprite" src={BEKI_POSE[mood]} alt={copy.alt} width={132} height={198} />
+      <img className="beki-sprite" src={BEKI_POSE[mood]} alt={copy.alt} width={420} height={512} />
     </div>
   );
 }

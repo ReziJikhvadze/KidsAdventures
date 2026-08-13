@@ -216,6 +216,8 @@ export function WorldStage({ draft, onChange, header }: Props) {
                   "--pin-y-tall": `${tall.y}%`,
                   "--world-tint": lamp.tint,
                   "--world-deep": lamp.deep,
+                  "--label-drop": `${wide.drop ?? 0}px`,
+                  "--label-drop-tall": `${tall.drop ?? 0}px`,
                 } as CSSProperties
               }
               aria-pressed={selectedId === world.id}
