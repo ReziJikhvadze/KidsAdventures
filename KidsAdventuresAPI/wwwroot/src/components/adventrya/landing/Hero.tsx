@@ -34,7 +34,7 @@ export function Hero() {
 
           <div className="landing-v3-hero-actions">
             <div className="landing-v3-primary-wrap">
-              <Link className="landing-v3-primary" to="/create" hash="profile">
+              <Link className="landing-v3-primary" to="/themes">
                 {t.landing.hero.primaryCta}
                 <ArrowIcon />
               </Link>

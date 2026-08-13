@@ -75,9 +75,13 @@ export function JourneyScreen() {
   }, [draft.characters, isAuthenticated, isLoading, setDraft]);
 
   const goAfterProfile = useCallback(() => {
-    // Profile → /themes (first-map), not an in-journey #world stage. Routed through
-    // goToStage so the navigation stays client-side; a hard assign would unmount the
-    // draft provider and throw away everything the parent just entered.
+    // The world is chosen before the details now, so this normally goes straight to the preview.
+    // The fallback stays for anyone who arrives at /create#profile directly — a bookmark, a
+    // stale link — with no world picked yet; they are sent to pick one rather than into a
+    // preview that has no world to be set in.
+    //
+    // Routed through goToStage so the navigation stays client-side; a hard assign would unmount
+    // the draft provider and throw away everything the parent just entered.
     if (draft.worldId) {
       goToStage("preview");
       return;

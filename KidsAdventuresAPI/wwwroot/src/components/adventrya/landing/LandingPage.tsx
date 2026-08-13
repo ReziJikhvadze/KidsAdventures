@@ -9,7 +9,8 @@ import { formatGel, useT } from "@/lib/i18n";
 import { PRICES } from "@/lib/pricing";
 import { WORLD_IDS } from "@/lib/worlds";
 
-const CREATE_PROFILE = "/create";
+/* Every generic call to action starts at the world, which is now the first step. */
+const START_JOURNEY = "/themes";
 
 function Memory() {
   const t = useT();
@@ -91,10 +92,14 @@ function Worlds() {
       <div className="landing-v3-world-grid">
         {WORLD_IDS.map((id, index) => {
           const world = t.worlds[id];
+          // A world card is the theme step, already answered. It carries the world it names
+          // straight into the details, so tapping "dinosaurs" here does not then ask which
+          // world you meant.
           return (
             <Link
               key={id}
               to="/create"
+              search={{ mode: "first", world: id }}
               hash="profile"
               className={`landing-v3-world-card world-card-${index + 1}`}
             >
@@ -153,10 +158,10 @@ function Pricing() {
               </li>
             ))}
           </ul>
-          <a href={`/create?package=Digital#profile`}>
+          <Link to={START_JOURNEY}>
             {L.digital.cta}
             <ArrowIcon />
-          </a>
+          </Link>
           <p className="landing-v3-upgrade">{L.digital.upgrade}</p>
         </article>
 
@@ -175,10 +180,10 @@ function Pricing() {
               </li>
             ))}
           </ul>
-          <a href={`/create?package=Print#profile`}>
+          <Link to={START_JOURNEY}>
             {L.print.cta}
             <ArrowIcon />
-          </a>
+          </Link>
           <p className="landing-v3-upgrade">{L.print.upgrade}</p>
         </article>
       </div>
@@ -288,7 +293,7 @@ function Final() {
           <em>{L.titleEm}</em>
         </h2>
         <span>{L.lead}</span>
-        <Link to={CREATE_PROFILE} hash="profile">
+        <Link to={START_JOURNEY}>
           {t.landing.hero.primaryCta}
           <ArrowIcon />
         </Link>
@@ -313,9 +318,7 @@ function Footer() {
       <nav>
         <div>
           <strong>{F.product}</strong>
-          <Link to={CREATE_PROFILE} hash="profile">
-            {t.common.nav.createBook}
-          </Link>
+          <Link to={START_JOURNEY}>{t.common.nav.createBook}</Link>
           <a href="#pricing">{t.common.nav.pricing}</a>
           <Link to="/world">{F.myWorld}</Link>
         </div>
@@ -365,7 +368,7 @@ function MobileCta() {
 
   return (
     <div className={`landing-v3-mobile-cta ${visible ? "is-visible" : ""}`} aria-hidden={!visible}>
-      <Link to={CREATE_PROFILE} hash="profile" tabIndex={visible ? undefined : -1}>
+      <Link to={START_JOURNEY} tabIndex={visible ? undefined : -1}>
         {t.landing.hero.primaryCta}
         <ArrowIcon />
       </Link>

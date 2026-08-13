@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/adventrya/AppHeader";
 import { useT } from "@/lib/i18n";
 import type { JourneyDraft } from "@/lib/journey/draft";
 import { primaryCharacter } from "@/lib/journey/draft";
+import { STAGE_PROGRESS, progressLabelForStage } from "@/lib/journey/stages";
 import { useWorlds, type WorldId } from "@/lib/worlds";
 
 type Props = {
@@ -39,10 +40,11 @@ export function WorldStage({ draft, onChange, header }: Props) {
       <div className="first-map-page-sky" aria-hidden="true" />
       <div className="grain" aria-hidden="true" />
       {header ?? (
+        // First step now: choosing the world comes before the child's details.
         <AppHeader
-          backHref="/create#profile"
-          progressLabel="ნაბიჯი 2 / 3"
-          progressValue={66}
+          backHref="/"
+          progressLabel={progressLabelForStage("world")}
+          progressValue={STAGE_PROGRESS.world}
           childName={heroName}
         />
       )}
@@ -106,7 +108,8 @@ export function WorldStage({ draft, onChange, header }: Props) {
         </label>
 
         <div className="theme-actions">
-          <Link className="button button-quiet button-back" to="/create" hash="profile">
+          {/* First step of the journey now, so back leads out of it rather than to the form. */}
+          <Link className="button button-quiet button-back" to="/">
             უკან
           </Link>
           {/*
@@ -124,7 +127,7 @@ export function WorldStage({ draft, onChange, header }: Props) {
               void router.navigate({
                 to: "/create",
                 search: { mode: "first", world: selectedId },
-                hash: "preview",
+                hash: "profile",
               });
             }}
           >

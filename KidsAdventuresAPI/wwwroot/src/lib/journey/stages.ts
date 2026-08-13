@@ -74,12 +74,13 @@ export function backHrefForStage(
   options: { mode: "first" | "continue"; isPrintUpgrade: boolean; hasWorld: boolean },
 ): string {
   switch (stage) {
-    case "profile":
-      return "/";
+    // World first, so it is the one that leads back out of the journey; details step back to it.
     case "world":
-      return "/create#profile";
+      return "/";
+    case "profile":
+      return options.mode === "continue" ? "/dashboard" : "/themes";
     case "preview":
-      return options.mode === "continue" || options.hasWorld ? "/create#profile" : "/themes";
+      return "/create#profile";
     case "auth":
       return "/create#preview";
     case "checkout":
@@ -91,9 +92,16 @@ export function backHrefForStage(
   }
 }
 
+/*
+  The world comes first.
+
+  Choosing the world is one tap and it is the part a child wants to do; entering a name, a date
+  of birth and a photograph is the part a parent has to sit down for. Asking for the form first
+  made the effort the price of admission. The order is now world, then details, then the preview.
+*/
 export const STAGE_PROGRESS: Record<JourneyStage, number> = {
-  profile: 33,
-  world: 66,
+  world: 33,
+  profile: 66,
   preview: 100,
   auth: 100,
   checkout: 100,
@@ -103,9 +111,9 @@ export const STAGE_PROGRESS: Record<JourneyStage, number> = {
 
 export function progressLabelForStage(stage: JourneyStage): string {
   switch (stage) {
-    case "profile":
-      return "ნაბიჯი 1 / 3";
     case "world":
+      return "ნაბიჯი 1 / 3";
+    case "profile":
       return "ნაბიჯი 2 / 3";
     case "preview":
       return "ნაბიჯი 3 / 3 · Preview";

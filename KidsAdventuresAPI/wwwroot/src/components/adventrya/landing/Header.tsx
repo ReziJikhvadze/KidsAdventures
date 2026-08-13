@@ -35,7 +35,7 @@ export function Header() {
           <DashboardIcon />
           <span>{t.common.nav.mySpace}</span>
         </Link>
-        <Link className="landing-v3-header-cta" to="/create" hash="profile">
+        <Link className="landing-v3-header-cta" to="/themes">
           {t.common.nav.createBook}
           <ArrowIcon />
         </Link>

@@ -25,7 +25,8 @@ export const journey = {
     addCharacterLimit: "more · up to 3 characters per book",
     addAnother: "Add another character",
     privacyNote: "These details are used only to create the personalised book.",
-    continue: "Choose a theme ",
+    /* The theme is already chosen by the time this button is reached. */
+    continue: "Personalised preview",
     ready: "Character ready",
     saveCharacter: " Save character",
     saveChanges: " Save changes",
@@ -88,7 +89,8 @@ export const journey = {
     wishPlaceholder: "e.g. a favourite toy, a special friend…",
     wishHint:
       "For example: a favourite toy, a particular goal, or a detail you would like to see in the story.",
-    continue: "Personalised preview",
+    /* The world is chosen first now, so this leads to the child's details, not to the preview. */
+    continue: "Meet the little hero",
   },
 
   previewLoader: {

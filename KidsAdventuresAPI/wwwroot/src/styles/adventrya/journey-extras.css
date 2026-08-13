@@ -128,7 +128,8 @@
   border-radius: 4px 10px 10px 4px;
   background-position: 50% 48%;
   background-size: cover;
-  opacity: 0.78;
+  /* Nearly opaque: this is the artwork, not a texture behind something else. */
+  opacity: 0.96;
   animation: preview-paint-reveal 6s ease-in-out infinite alternate;
 }
 .preview-atelier-cover-lines {
@@ -289,10 +290,19 @@
 .preview-loader-stages .done {
   color: #9ee0bd;
 }
+/*
+  The cover breathes; it does not empty itself.
+
+  This used to sweep from clip-path: inset(0 52% 0 0) — half the cover cut away — and, because it
+  alternates, it spent as long taking the picture off as putting it on. Whatever moment you
+  looked at the loading screen, the odds were you saw a book with a bare panel where the artwork
+  should be, which is the opposite of what a screen selling an illustrated book should show while
+  a parent waits. It now stays at least six sevenths painted and only warms up from there.
+*/
 @keyframes preview-paint-reveal {
   0% {
-    filter: saturate(0.45) brightness(0.66);
-    clip-path: inset(0 52% 0 0);
+    filter: saturate(0.72) brightness(0.84);
+    clip-path: inset(0 14% 0 0);
   }
   to {
     filter: saturate(1.04) brightness(1);

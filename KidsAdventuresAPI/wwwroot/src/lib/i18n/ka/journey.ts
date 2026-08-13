@@ -19,7 +19,8 @@ export const journey = {
     addCharacterLimit: "პერსონაჟი · მაქსიმუმ 3 გმირი წიგნში",
     addAnother: "დაამატე კიდევ ერთი პერსონაჟი",
     privacyNote: "მონაცემები გამოიყენება მხოლოდ პერსონალიზებული წიგნის შესაქმნელად.",
-    continue: "თემის არჩევა ",
+    /* The theme is already chosen by the time this button is reached. */
+    continue: "პერსონალიზებული Preview",
     ready: "პერსონაჟი მზადაა",
     saveCharacter: " პერსონაჟის შენახვა",
     saveChanges: " ცვლილებების შენახვა",
@@ -87,7 +88,8 @@ export const journey = {
     wishPlaceholder: "მაგ. საყვარელი სათამაშო, განსაკუთრებული მეგობარი...",
     wishHint:
       "მაგალითად: საყვარელი სათამაშო, კონკრეტული მიზანი ან დეტალი, რომელიც გინდა ისტორიაში გამოჩნდეს.",
-    continue: "პერსონალიზებული Preview",
+    /* The world is chosen first now, so this leads to the child's details, not to the preview. */
+    continue: "გავიცნოთ პატარა გმირი",
   },
 
   previewLoader: {
