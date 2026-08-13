@@ -498,71 +498,40 @@
 .ux-profile-footer .journey-primary {
   flex: 0 0 auto;
 }
-.theme-intro {
-  width: 42%;
-  overflow-y: auto;
-  padding-top: 28px;
-  padding-bottom: 24px;
-}
-.theme-universe {
-  left: 42%;
-}
-.theme-intro .profile-line {
-  margin-bottom: 14px;
-}
-.theme-intro h1 {
-  font-size: clamp(31px, 2.65vw, 43px);
-}
-.theme-intro .selected-story {
-  min-height: 105px;
-  margin-top: 16px;
-  padding: 14px 17px;
-}
-.theme-wish-field,
-.world-wish-field {
+/*
+  The one special wish, now that it is asked on the details step rather than over the map.
+  Sized to sit with the name and the date of birth above it rather than as a panel of its own.
+*/
+.ux-wish-field {
   display: flex;
   flex-direction: column;
   gap: 7px;
+  margin-top: 4px;
 }
-.theme-wish-field {
-  width: min(450px, 100%);
-  margin-top: 15px;
-}
-.theme-wish-field > span,
-.world-wish-field > span {
-  color: #f8f2e5bf;
-  font-weight: 700;
-  line-height: 1.4;
-}
-.theme-wish-field textarea,
-.world-wish-field textarea {
-  width: 100%;
-  min-height: 74px;
-  padding: 12px 14px;
-  resize: vertical;
-  border: 1px solid rgba(239, 227, 207, 0.2);
-  outline: none;
-  border-radius: 14px;
-  color: #fff8eb;
-  background: #2d1f548a;
-  font-family: inherit;
+.ux-wish-field > span {
+  color: rgba(248, 242, 229, 0.68);
   font-size: 12px;
-  line-height: 1.55;
+  font-weight: 700;
 }
-.theme-wish-field textarea:focus,
-.world-wish-field textarea:focus {
-  border-color: #e8c98aa8;
+.ux-wish-field input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 12px;
+  color: #fff6e6;
+  border: 1px solid rgba(240, 229, 207, 0.22);
+  border-radius: 13px;
+  background: #241a3f;
+  font-family: inherit;
+  font-size: 14px;
 }
-.theme-wish-field small,
-.world-wish-field small {
-  color: #e9e2ee75;
+.ux-wish-field input:focus-visible {
+  outline: 2px solid var(--story-gold);
+  outline-offset: 2px;
+}
+.ux-wish-field small {
+  color: rgba(233, 226, 238, 0.46);
   font-size: 11px;
   line-height: 1.5;
-}
-.theme-intro .theme-actions {
-  display: flex;
-  gap: 9px;
-  margin-top: 17px;
 }
 .world-panel {
   width: 36%;

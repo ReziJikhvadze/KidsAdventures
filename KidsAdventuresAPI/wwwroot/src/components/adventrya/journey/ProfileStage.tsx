@@ -239,6 +239,21 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
           </button>
         ) : null}
 
+        {/*
+          The one special wish. It used to sit on the world picker, where the only question being
+          asked was which of six places — a free-text box about the story, next to a map. It is a
+          question about the story, so it belongs with the other things we ask about the child.
+        */}
+        <label className="ux-wish-field">
+          <span>{t.journey.firstMap.wishLabel}</span>
+          <input
+            value={draft.storyNotes}
+            placeholder={t.journey.firstMap.wishPlaceholder}
+            onChange={(e) => onChange({ storyNotes: e.target.value })}
+          />
+          <small>{t.journey.firstMap.wishHint}</small>
+        </label>
+
         {error ? <p className="ux-form-error">{error}</p> : null}
 
         <div className="ux-profile-footer">

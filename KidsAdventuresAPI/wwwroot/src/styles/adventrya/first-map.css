@@ -1,159 +1,7 @@
-/* First-journey map */
-/* Ported verbatim from Adventrya_Partner_Demo_v13/assets/app.css (rules 1507-1673). */
-
-.first-map-screen {
-  position: relative;
-  min-height: 820px;
-  height: 100svh;
-  overflow: hidden;
-  color: #fff8eb;
-  background: #100925;
-  isolation: isolate;
-}
-.first-map-page-sky {
-  position: absolute;
-  z-index: -5;
-  inset: 0;
-  background:
-    radial-gradient(circle at 72% 24%, rgba(117, 86, 192, 0.24), transparent 34%),
-    radial-gradient(circle at 18% 78%, rgba(226, 154, 82, 0.08), transparent 31%),
-    linear-gradient(145deg, #140a2b, #100925 52%, #07051a);
-}
-.first-map-page-sky:before,
-.first-map-page-sky:after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  filter: blur(70px);
-}
-.first-map-page-sky:before {
-  top: -18%;
-  left: 26%;
-  width: 52%;
-  height: 56%;
-  background: #5645a029;
-}
-.first-map-page-sky:after {
-  right: -10%;
-  bottom: -20%;
-  width: 48%;
-  height: 54%;
-  background: #4d2c8533;
-}
-.first-map-screen .theme-intro {
-  position: absolute;
-  z-index: 12;
-  top: 96px;
-  left: 0;
-  width: 37%;
-  height: auto;
-  padding: clamp(30px, 4.5vh, 48px) 28px 0 clamp(40px, 4.8vw, 76px);
-}
-.first-map-screen .theme-intro .profile-line {
-  margin-bottom: clamp(15px, 2.4vh, 24px);
-}
-.first-map-screen .theme-intro h1 {
-  max-width: 410px;
-  font-size: clamp(30px, 2.8vw, 43px);
-  line-height: 1.12;
-}
-.first-map-screen .theme-guidance {
-  max-width: 390px;
-  margin-top: 13px;
-  font-size: 14px;
-  line-height: 1.62;
-}
-.first-map-controls {
-  position: absolute;
-  z-index: 13;
-  top: clamp(360px, 45vh, 425px);
-  bottom: 20px;
-  left: 0;
-  width: 37%;
-  display: flex;
-  flex-direction: column;
-  padding: 0 28px 0 clamp(40px, 4.8vw, 76px);
-}
-.first-map-controls .selected-story {
-  min-height: 96px;
-  margin: 0;
-  padding: 13px 15px;
-  border-radius: 17px 17px 28px;
-}
-.first-map-controls .selected-glyph {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-}
-.first-map-controls .selected-glyph svg {
-  width: 20px;
-}
-.first-map-controls .selected-story strong {
-  font-size: 15px;
-}
-.first-map-controls .selected-story p {
-  margin-top: 4px;
-  font-size: 14px;
-  line-height: 1.42;
-}
-.first-map-controls .theme-wish-field {
-  width: 100%;
-  max-width: 450px;
-  margin-top: 13px;
-}
-.first-map-controls .theme-wish-field textarea {
-  min-height: 62px;
-  padding: 11px 13px;
-}
-.first-map-controls .theme-wish-field small {
-  margin-top: 5px;
-  font-size: 13px;
-  line-height: 1.42;
-}
-.first-map-controls .theme-actions {
-  width: 100%;
-  max-width: 450px;
-  margin-top: auto;
-}
-.first-story-map {
-  position: absolute;
-  z-index: 10;
-  inset: 108px 16px auto 37%;
-  aspect-ratio: 3 / 2;
-  overflow: hidden;
-  border: 1px solid rgba(238, 217, 176, 0.18);
-  border-radius: 28px 28px 48px;
-  background: #0c071f;
-  box-shadow:
-    0 34px 90px #04020e75,
-    inset 0 1px #ffffff12;
-  isolation: isolate;
-}
-.first-story-map-scroll {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  overscroll-behavior: contain;
-  scrollbar-width: none;
-}
-.first-story-map-scroll::-webkit-scrollbar {
-  display: none;
-}
-.first-story-map-canvas {
-  position: relative;
-  width: 100%;
-  min-width: 770px;
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-  isolation: isolate;
-}
 .first-map-painting,
 .first-map-vignette,
 .first-map-focus,
-.first-map-stars,
-.first-map-motion {
+.first-map-stars {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -342,62 +190,6 @@
   opacity: 1;
   animation: first-map-route-travel 2.8s linear infinite;
 }
-.first-map-origin {
-  position: absolute;
-  z-index: 7;
-  left: 43%;
-  bottom: 7%;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: #fff2c2;
-  transform: translate(-50%);
-  pointer-events: none;
-}
-.first-map-origin > span {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(255, 236, 184, 0.68);
-  border-radius: 50%;
-  color: #362450;
-  background: linear-gradient(145deg, #ffe5a1, #d7a04b);
-  box-shadow:
-    0 0 0 7px #f2c15b1f,
-    0 0 35px #f7c4568c;
-}
-.first-map-origin svg {
-  width: 18px;
-}
-.first-map-origin small {
-  max-width: 90px;
-  color: #fff7e0b8;
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1.35;
-  text-shadow: 0 2px 10px #080319;
-}
-.first-map-node {
-  position: absolute;
-  z-index: 9;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0;
-  border: 0;
-  outline: none;
-  color: #fff8eb;
-  text-align: left;
-  background: transparent;
-  cursor: pointer;
-  filter: brightness(0.74) saturate(0.8);
-  transform: translate(-50%, -50%) scale(0.9);
-  transition:
-    filter 0.26s ease,
-    transform 0.26s ease,
-    opacity 0.26s ease;
-}
 .first-node-dinosaurs {
   left: 24%;
   top: 48%;
@@ -421,548 +213,6 @@
 .first-node-magic {
   left: 85%;
   top: 68%;
-}
-.first-node-pirates,
-.first-node-airplanes,
-.first-node-magic,
-.first-node-animals {
-  flex-direction: row-reverse;
-  text-align: right;
-}
-.first-node-orbit {
-  position: absolute;
-  z-index: -1;
-  left: 22px;
-  top: 50%;
-  width: 58px;
-  height: 58px;
-  border: 1px dashed rgba(255, 232, 169, 0.48);
-  border-radius: 50%;
-  opacity: 0;
-  transform: translate(-50%, -50%);
-}
-.first-node-pirates .first-node-orbit,
-.first-node-airplanes .first-node-orbit,
-.first-node-magic .first-node-orbit,
-.first-node-animals .first-node-orbit {
-  right: 22px;
-  left: auto;
-  transform: translate(50%, -50%);
-}
-.first-node-marker {
-  position: relative;
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  border: 1px solid rgba(224, 211, 247, 0.44);
-  border-radius: 50%;
-  color: #f4ecffdb;
-  background: linear-gradient(145deg, #5d4c91e0, #2b1e5bf0);
-  box-shadow:
-    0 0 0 5px #b9a2ec12,
-    0 0 25px #b292ef33;
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  transition:
-    transform 0.24s ease,
-    color 0.24s ease,
-    background 0.24s ease,
-    box-shadow 0.24s ease;
-}
-.first-node-marker svg {
-  width: 20px;
-}
-.first-node-copy {
-  min-width: 108px;
-  display: flex;
-  flex-direction: column;
-  padding: 8px 11px 9px;
-  border: 1px solid rgba(241, 226, 199, 0.12);
-  border-radius: 8px 17px 17px 8px;
-  background: linear-gradient(90deg, #150b32e0, #180e3970);
-  box-shadow: 0 12px 28px #04020f38;
-  text-shadow: 0 2px 10px #080319;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  transition:
-    border-color 0.24s ease,
-    background 0.24s ease,
-    transform 0.24s ease;
-}
-.first-node-pirates .first-node-copy,
-.first-node-airplanes .first-node-copy,
-.first-node-magic .first-node-copy,
-.first-node-animals .first-node-copy {
-  border-radius: 17px 8px 8px 17px;
-  background: linear-gradient(270deg, #150b32e0, #180e3970);
-}
-.first-node-copy small,
-.first-node-copy strong,
-.first-node-copy em {
-  display: block;
-}
-.first-node-copy small {
-  color: #edca7db8;
-  font-size: 13px;
-}
-.first-node-copy strong {
-  margin-top: 2px;
-  font-family: "Adventrya Serif", serif;
-  font-size: 14px;
-}
-.first-node-copy em {
-  margin-top: 3px;
-  color: #f5eef773;
-  font-size: 13px;
-  font-style: normal;
-}
-.first-map-node:hover,
-.first-map-node:focus-visible,
-.first-map-node.is-active,
-.first-map-node.is-selected {
-  z-index: 12;
-  filter: brightness(1.08) saturate(1.08);
-  transform: translate(-50%, -50%) scale(1);
-}
-.first-map-node:hover .first-node-marker,
-.first-map-node:focus-visible .first-node-marker,
-.first-map-node.is-active .first-node-marker,
-.first-map-node.is-selected .first-node-marker {
-  color: #342149;
-  background: linear-gradient(145deg, #ffe5a0, #dda44e);
-  box-shadow:
-    0 0 0 8px #edbd5e1f,
-    0 0 46px #f7c762c7;
-  transform: scale(1.08);
-}
-.first-map-node:hover .first-node-copy,
-.first-map-node:focus-visible .first-node-copy,
-.first-map-node.is-active .first-node-copy,
-.first-map-node.is-selected .first-node-copy {
-  border-color: #f4daa361;
-  background: linear-gradient(90deg, #1d0f41f5, #2a1753b8);
-}
-.first-node-pirates:hover .first-node-copy,
-.first-node-pirates:focus-visible .first-node-copy,
-.first-node-pirates.is-active .first-node-copy,
-.first-node-pirates.is-selected .first-node-copy,
-.first-node-airplanes:hover .first-node-copy,
-.first-node-airplanes:focus-visible .first-node-copy,
-.first-node-airplanes.is-active .first-node-copy,
-.first-node-airplanes.is-selected .first-node-copy,
-.first-node-magic:hover .first-node-copy,
-.first-node-magic:focus-visible .first-node-copy,
-.first-node-magic.is-active .first-node-copy,
-.first-node-magic.is-selected .first-node-copy,
-.first-node-animals:hover .first-node-copy,
-.first-node-animals:focus-visible .first-node-copy,
-.first-node-animals.is-active .first-node-copy,
-.first-node-animals.is-selected .first-node-copy {
-  background: linear-gradient(270deg, #1d0f41f5, #2a1753b8);
-}
-.first-map-node.is-selected .first-node-orbit {
-  opacity: 1;
-  animation: first-node-orbit 6s linear infinite;
-}
-.first-map-node.is-selected .first-node-copy em {
-  color: #f2ce7e;
-}
-.first-map-node:focus-visible .first-node-marker {
-  outline: 2px solid #fff1c5;
-  outline-offset: 4px;
-}
-.first-map-live-caption {
-  position: absolute;
-  z-index: 14;
-  right: 20px;
-  bottom: 18px;
-  width: min(285px, 31%);
-  display: grid;
-  grid-template-columns: 38px 1fr;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 13px;
-  border: 1px solid rgba(241, 222, 186, 0.2);
-  border-radius: 16px 16px 27px;
-  background: linear-gradient(135deg, #180d38e0, #2d1956ad);
-  box-shadow:
-    0 20px 44px #04020f59,
-    inset 0 1px #ffffff0f;
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
-}
-.first-map-live-caption .selected-glyph {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-}
-.first-map-live-caption > span:last-child {
-  display: flex;
-  flex-direction: column;
-}
-.first-map-live-caption small {
-  color: #edca7b;
-  font-size: 13px;
-}
-.first-map-live-caption strong {
-  margin-top: 2px;
-  font-family: "Adventrya Serif", serif;
-  font-size: 15px;
-}
-.first-map-live-caption em {
-  margin-top: 3px;
-  color: #f4edf580;
-  font-size: 13px;
-  font-style: normal;
-}
-.first-map-pan-cue {
-  display: none;
-}
-.first-world-aura {
-  position: absolute;
-  z-index: 2;
-  width: 190px;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  opacity: 0;
-  filter: blur(24px);
-  transform: translate(-50%, -50%) scale(0.72);
-  transition:
-    opacity 0.36s ease,
-    transform 0.62s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.first-aura-dinosaurs {
-  left: 25%;
-  top: 47%;
-  background: #ffc14d;
-}
-.first-aura-space {
-  left: 46%;
-  top: 19%;
-  background: #78a7ff;
-}
-.first-aura-pirates {
-  left: 68%;
-  top: 42%;
-  background: #52b7d0;
-}
-.first-aura-animals {
-  left: 61%;
-  top: 64%;
-  background: #f5b34d;
-}
-.first-aura-airplanes {
-  left: 83%;
-  top: 19%;
-  background: #f3d5a7;
-}
-.first-aura-magic {
-  left: 84%;
-  top: 68%;
-  background: #bd82ff;
-}
-.motion-for-dinosaurs .first-aura-dinosaurs,
-.motion-for-space .first-aura-space,
-.motion-for-pirates .first-aura-pirates,
-.motion-for-animals .first-aura-animals,
-.motion-for-airplanes .first-aura-airplanes,
-.motion-for-magic .first-aura-magic {
-  opacity: 0.35;
-  transform: translate(-50%, -50%) scale(1.15);
-}
-.first-dino-motion {
-  position: absolute;
-  z-index: 5;
-  left: 18%;
-  top: 34%;
-  width: 130px;
-  height: 155px;
-  opacity: 0;
-  border-radius: 50%;
-  background: radial-gradient(ellipse at center, rgba(255, 222, 138, 0.22), transparent 66%);
-  transition: opacity 0.28s ease;
-}
-.first-dino-motion i {
-  position: absolute;
-  bottom: 3px;
-  width: 8px;
-  height: 4px;
-  border-radius: 50%;
-  background: #ffde9b8c;
-  filter: blur(1px);
-  animation: first-dino-dust 3.8s ease-in-out infinite;
-}
-.first-dino-motion i:nth-child(1) {
-  left: 24px;
-}
-.first-dino-motion i:nth-child(2) {
-  left: 60px;
-  animation-delay: -1.3s;
-}
-.first-dino-motion i:nth-child(3) {
-  left: 96px;
-  animation-delay: -2.5s;
-}
-.motion-for-dinosaurs .first-dino-motion {
-  opacity: 1;
-  animation: first-dino-breathe 4.6s ease-in-out infinite;
-}
-.first-space-motion {
-  position: absolute;
-  z-index: 5;
-  left: 40%;
-  top: 5%;
-  width: 125px;
-  height: 125px;
-  opacity: 0;
-  border: 1px solid rgba(172, 199, 255, 0.52);
-  border-radius: 50%;
-  transition: opacity 0.28s ease;
-}
-.first-space-motion > span {
-  position: absolute;
-  top: -11px;
-  left: 50%;
-  width: 25px;
-  height: 25px;
-  display: grid;
-  place-items: center;
-  color: #dbe7ff;
-  filter: drop-shadow(0 0 9px #80aaff);
-}
-.first-space-motion > span svg {
-  width: 25px;
-}
-.first-space-motion i {
-  position: absolute;
-  border-radius: 50%;
-  background: #d9e5ff;
-  box-shadow: 0 0 12px #8af;
-}
-.first-space-motion i:nth-of-type(1) {
-  right: 9px;
-  top: 22px;
-  width: 6px;
-  height: 6px;
-}
-.first-space-motion i:nth-of-type(2) {
-  left: 4px;
-  bottom: 28px;
-  width: 4px;
-  height: 4px;
-}
-.motion-for-space .first-space-motion {
-  opacity: 0.95;
-  animation: first-space-orbit 10s linear infinite;
-}
-.first-pirate-motion {
-  position: absolute;
-  z-index: 5;
-  left: 61%;
-  top: 27%;
-  width: 130px;
-  height: 115px;
-  opacity: 0;
-  transition: opacity 0.28s ease;
-}
-.first-pirate-motion > span {
-  position: absolute;
-  z-index: 2;
-  left: 48px;
-  top: 14px;
-  width: 47px;
-  height: 47px;
-  display: grid;
-  place-items: center;
-  color: #ffe0a5;
-  filter: drop-shadow(0 0 12px rgba(246, 195, 91, 0.72));
-  transform-origin: 50% 80%;
-}
-.first-pirate-motion > span svg {
-  width: 36px;
-}
-.first-pirate-motion i {
-  position: absolute;
-  right: -18px;
-  left: -18px;
-  height: 25px;
-  border-top: 2px solid rgba(135, 207, 224, 0.66);
-  border-radius: 50%;
-  animation: first-pirate-wave 5.8s ease-in-out infinite;
-}
-.first-pirate-motion i:nth-of-type(1) {
-  bottom: 20px;
-}
-.first-pirate-motion i:nth-of-type(2) {
-  bottom: 11px;
-  opacity: 0.58;
-  animation-delay: -1.9s;
-}
-.first-pirate-motion i:nth-of-type(3) {
-  bottom: 2px;
-  opacity: 0.32;
-  animation-delay: -3.8s;
-}
-.motion-for-pirates .first-pirate-motion {
-  opacity: 1;
-}
-.motion-for-pirates .first-pirate-motion > span {
-  animation: first-pirate-ship 4.8s ease-in-out infinite;
-}
-.first-animal-motion {
-  position: absolute;
-  z-index: 5;
-  left: 53%;
-  top: 51%;
-  width: 190px;
-  height: 130px;
-  opacity: 0;
-  transition: opacity 0.28s ease;
-}
-.first-animal-motion i,
-.first-magic-motion i {
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #ffe392;
-  box-shadow: 0 0 12px 2px #ffd86fc7;
-  animation: first-firefly 4.2s ease-in-out infinite;
-}
-.first-animal-motion i:nth-child(1) {
-  left: 6%;
-  top: 65%;
-  animation-delay: -0.5s;
-}
-.first-animal-motion i:nth-child(2) {
-  left: 28%;
-  top: 21%;
-  animation-delay: -1.4s;
-}
-.first-animal-motion i:nth-child(3) {
-  left: 50%;
-  top: 72%;
-  animation-delay: -2.4s;
-}
-.first-animal-motion i:nth-child(4) {
-  left: 74%;
-  top: 36%;
-  animation-delay: -0.9s;
-}
-.first-animal-motion i:nth-child(5) {
-  left: 94%;
-  top: 56%;
-  animation-delay: -3s;
-}
-.motion-for-animals .first-animal-motion {
-  opacity: 1;
-}
-.first-plane-motion {
-  position: absolute;
-  z-index: 5;
-  left: 75%;
-  top: 7%;
-  width: 175px;
-  height: 90px;
-  opacity: 0;
-  color: #ffe3b0;
-  transition: opacity 0.28s ease;
-}
-.first-plane-motion > span {
-  position: absolute;
-  z-index: 2;
-  top: 12px;
-  left: 16px;
-  width: 35px;
-  filter: drop-shadow(0 0 10px rgba(255, 218, 149, 0.78));
-}
-.first-plane-motion > span svg {
-  width: 33px;
-}
-.first-plane-motion i {
-  position: absolute;
-  top: 38px;
-  left: 6px;
-  width: 155px;
-  height: 2px;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 225, 172, 0.12),
-    rgba(255, 225, 172, 0.78),
-    transparent
-  );
-  transform: rotate(-10deg);
-  transform-origin: left;
-}
-.motion-for-airplanes .first-plane-motion {
-  opacity: 1;
-  animation: first-plane-flight 6.4s ease-in-out infinite;
-}
-.first-magic-motion {
-  position: absolute;
-  z-index: 5;
-  left: 77%;
-  top: 54%;
-  width: 165px;
-  height: 145px;
-  opacity: 0;
-  transition: opacity 0.28s ease;
-}
-.first-magic-motion > span {
-  position: absolute;
-  left: 50%;
-  top: 38%;
-  width: 63px;
-  height: 63px;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(223, 194, 255, 0.55);
-  border-radius: 50%;
-  color: #e7ceff;
-  box-shadow:
-    0 0 35px #bc7effa3,
-    inset 0 0 28px #c691ff42;
-  transform: translate(-50%, -50%);
-}
-.first-magic-motion > span svg {
-  width: 33px;
-}
-.first-magic-motion i {
-  background: #dcbaff;
-  box-shadow: 0 0 13px 2px #bf84ffd1;
-}
-.first-magic-motion i:nth-of-type(1) {
-  left: 8%;
-  top: 68%;
-  animation-delay: -0.8s;
-}
-.first-magic-motion i:nth-of-type(2) {
-  left: 31%;
-  top: 14%;
-  animation-delay: -2s;
-}
-.first-magic-motion i:nth-of-type(3) {
-  left: 61%;
-  top: 79%;
-  animation-delay: -1.3s;
-}
-.first-magic-motion i:nth-of-type(4) {
-  left: 82%;
-  top: 28%;
-  animation-delay: -2.8s;
-}
-.first-magic-motion i:nth-of-type(5) {
-  left: 94%;
-  top: 61%;
-  animation-delay: -3.4s;
-}
-.motion-for-magic .first-magic-motion {
-  opacity: 1;
-}
-.motion-for-magic .first-magic-motion > span {
-  animation: first-magic-portal 4s ease-in-out infinite;
 }
 @keyframes first-map-breathe {
   0% {
@@ -997,269 +247,11 @@
     stroke-dashoffset: -42;
   }
 }
-@keyframes first-node-orbit {
-  to {
-    transform: translate(-50%, -50%) rotate(360deg);
-  }
-}
-@keyframes first-dino-breathe {
-  0%,
-  to {
-    transform: scale(0.94) translateY(3px);
-    filter: brightness(0.96);
-  }
-  50% {
-    transform: scale(1.04) translateY(-3px);
-    filter: brightness(1.12);
-  }
-}
-@keyframes first-dino-dust {
-  0%,
-  to {
-    opacity: 0;
-    transform: translate(0) scale(0.7);
-  }
-  50% {
-    opacity: 0.75;
-    transform: translate(8px, -5px) scale(1.3);
-  }
-}
-@keyframes first-space-orbit {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@keyframes first-pirate-ship {
-  0%,
-  to {
-    transform: rotate(-4deg) translateY(2px);
-  }
-  50% {
-    transform: rotate(4deg) translateY(-4px);
-  }
-}
-@keyframes first-pirate-wave {
-  0%,
-  to {
-    transform: translate(-3%) scaleY(0.82);
-  }
-  50% {
-    transform: translate(4%) scaleY(1.16);
-  }
-}
-@keyframes first-firefly {
-  0%,
-  to {
-    opacity: 0.18;
-    transform: translate3d(-3px, 6px, 0) scale(0.65);
-  }
-  50% {
-    opacity: 1;
-    transform: translate3d(7px, -10px, 0) scale(1.25);
-  }
-}
-@keyframes first-plane-flight {
-  0%,
-  to {
-    transform: translate3d(-10px, 6px, 0) rotate(-2deg);
-  }
-  50% {
-    transform: translate3d(17px, -7px, 0) rotate(2deg);
-  }
-}
-@keyframes first-magic-portal {
-  0%,
-  to {
-    transform: translate(-50%, -50%) scale(0.94) rotate(-3deg);
-    box-shadow:
-      0 0 24px #bc7eff6b,
-      inset 0 0 22px #c691ff33;
-  }
-  50% {
-    transform: translate(-50%, -50%) scale(1.08) rotate(3deg);
-    box-shadow:
-      0 0 48px #cd9bffd1,
-      inset 0 0 34px #dab1ff5c;
-  }
-}
-@media (max-height: 860px) and (min-width: 781px) {
-  .first-map-screen .theme-intro {
-    padding-top: 23px;
-  }
-  .first-map-screen .theme-intro .profile-line {
-    margin-bottom: 13px;
-  }
-  .first-map-screen .theme-intro h1 {
-    font-size: clamp(28px, 2.55vw, 38px);
-  }
-  .first-map-controls {
-    top: 338px;
-  }
-  .first-map-controls .selected-story {
-    min-height: 82px;
-  }
-  .first-map-controls .theme-wish-field textarea {
-    min-height: 50px;
-  }
-}
-@media (max-width: 780px) {
-  .first-map-screen {
-    min-height: 100svh;
-    height: auto;
-    display: flex;
-    flex-direction: column;
-    overflow-x: hidden;
-    overflow-y: visible;
-  }
-  .first-map-screen .app-header {
-    order: 0;
-  }
-  .first-map-screen .theme-intro {
-    position: relative;
-    top: auto;
-    left: auto;
-    order: 1;
-    width: 100%;
-    min-height: 0;
-    padding: 24px 18px 16px;
-  }
-  .first-map-screen .theme-intro .profile-line {
-    margin-bottom: 17px;
-  }
-  .first-map-screen .theme-intro h1 {
-    max-width: 350px;
-    font-size: clamp(29px, 9vw, 36px);
-  }
-  .first-map-screen .theme-guidance {
-    max-width: 350px;
-    margin-top: 11px;
-    font-size: 14px;
-  }
-  .first-story-map {
-    position: relative;
-    inset: auto;
-    order: 2;
-    width: calc(100% - 24px);
-    height: 560px;
-    margin: 2px 12px 0;
-    overflow: hidden;
-    border-radius: 24px;
-  }
-  .first-story-map-scroll {
-    overflow-x: auto;
-    overflow-y: hidden;
-    scroll-snap-type: x proximity;
-    touch-action: pan-x;
-  }
-  .first-story-map-canvas {
-    width: 870px;
-    min-width: 870px;
-    height: 560px;
-    min-height: 560px;
-    scroll-snap-align: center;
-  }
-  .first-map-node {
-    transform: translate(-50%, -50%) scale(0.94);
-  }
-  .first-map-node:hover,
-  .first-map-node:focus-visible,
-  .first-map-node.is-active,
-  .first-map-node.is-selected {
-    transform: translate(-50%, -50%) scale(1);
-  }
-  .first-map-live-caption {
-    right: 14px;
-    bottom: 13px;
-    width: 260px;
-  }
-  .first-map-pan-cue {
-    position: absolute;
-    z-index: 18;
-    top: 13px;
-    left: 50%;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 7px 10px;
-    border: 1px solid rgba(241, 226, 198, 0.18);
-    border-radius: 999px;
-    color: #f9f3e9c2;
-    background: #130a2da8;
-    font-size: 13px;
-    pointer-events: none;
-    transform: translate(-50%);
-    white-space: nowrap;
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-    animation: first-map-pan-cue 3.8s ease-in-out 2;
-  }
-  .first-map-controls {
-    position: relative;
-    z-index: 13;
-    top: auto;
-    bottom: auto;
-    left: auto;
-    order: 3;
-    width: 100%;
-    display: flex;
-    padding: 18px 18px 38px;
-  }
-  .first-map-controls .selected-story,
-  .first-map-controls .theme-wish-field,
-  .first-map-controls .theme-actions {
-    max-width: none;
-  }
-  .first-map-controls .theme-wish-field textarea {
-    min-height: 92px;
-  }
-  .first-map-controls .theme-actions {
-    margin-top: 18px;
-  }
-  @keyframes first-map-pan-cue {
-    0%,
-    to {
-      opacity: 0.56;
-      transform: translate(-50%);
-    }
-    50% {
-      opacity: 1;
-      transform: translate(calc(-50% + 7px));
-    }
-  }
-}
-@media (max-width: 430px) {
-  .first-story-map {
-    height: 520px;
-  }
-  .first-story-map-canvas {
-    width: 810px;
-    min-width: 810px;
-    height: 520px;
-    min-height: 520px;
-  }
-  .first-node-copy {
-    min-width: 98px;
-    padding: 7px 9px 8px;
-  }
-  .first-node-marker {
-    width: 40px;
-    height: 40px;
-  }
-  .first-map-live-caption {
-    width: 245px;
-  }
-  .first-map-origin {
-    bottom: 4%;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .first-map-painting,
   .first-map-focus,
   .first-map-stars i,
-  .first-route-active,
-  .first-node-orbit,
-  .first-map-motion *,
-  .first-map-pan-cue {
+  .first-route-active {
     animation: none !important;
     transition-duration: 0.01ms !important;
   }
@@ -1328,16 +320,6 @@
     left: 52%;
     --book-width: min(196px, 52vw);
   }
-  .generation-craft-label {
-    right: 11px;
-    bottom: 11px;
-    left: 11px;
-    padding: 9px 10px;
-  }
-  .generation-craft-label strong {
-    max-width: 66%;
-    font-size: 14px;
-  }
   .generation-ring.ring-two {
     display: none;
   }
@@ -1347,10 +329,314 @@
   .storybook-cover-turn,
   .storybook-spread-turn,
   .storybook-page-curl,
-  .storybook-binding-light,
   .generation-ring,
   .generation-paper-trail i {
     animation: none !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===========================================================================
+   The world picker, rebuilt.
+
+   The old layout gave the map 38% of a desktop and put 134 words beside it; on a phone the map
+   did not appear until 393px down. The map is the page now — everything else floats over it as
+   one question and one panel. Text before a choice is made: about twenty words.
+   =========================================================================== */
+.world-pick {
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+  color: #fff8eb;
+  background: #0c071f;
+}
+.world-pick-stage {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+}
+.world-pick .app-header {
+  position: relative;
+  z-index: 20;
+}
+
+/* The question: one eyebrow, one line, nothing else. */
+.world-pick-ask {
+  position: relative;
+  z-index: 5;
+  max-width: min(560px, calc(100% - 48px));
+  margin: 4px 0 0 clamp(18px, 4vw, 46px);
+  pointer-events: none;
+}
+.world-pick-ask p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  color: #f1c970;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.world-pick-ask p svg {
+  width: 14px;
+  height: 14px;
+}
+.world-pick-ask h1 {
+  margin: 0;
+  font-family: "Adventrya Serif", serif;
+  font-size: clamp(24px, 3.1vw, 40px);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  text-shadow: 0 4px 26px rgba(8, 4, 22, 0.72);
+  text-wrap: balance;
+}
+
+/* A pin is a pin. The name of the place is said once, in the panel. */
+.world-pick-pin {
+  position: absolute;
+  z-index: 9;
+  padding: 0;
+  cursor: pointer;
+  border: 0;
+  background: none;
+  transform: translate(-50%, -50%);
+  transition: transform 0.22s cubic-bezier(0.2, 0.75, 0.2, 1);
+}
+.world-pick-pin:hover,
+.world-pick-pin:focus-visible,
+.world-pick-pin.is-focus {
+  transform: translate(-50%, -50%) scale(1.14);
+}
+.world-pick-pin:focus-visible {
+  outline: none;
+}
+.world-pick-pin-dot {
+  position: relative;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 2px solid rgba(255, 248, 235, 0.5);
+  border-radius: 50%;
+  color: #2a1a46;
+  background: rgba(255, 248, 235, 0.9);
+  box-shadow: 0 10px 26px rgba(6, 3, 18, 0.55);
+  font-family: "Adventrya Serif", serif;
+  font-size: 17px;
+  font-weight: 700;
+}
+.world-pick-pin-dot svg {
+  width: 20px;
+  height: 20px;
+}
+.world-pick-pin.is-selected .world-pick-pin-dot {
+  border-color: #f1c970;
+  color: #2a1a46;
+  background: #f1c970;
+  box-shadow: 0 0 0 6px rgba(241, 201, 112, 0.22);
+}
+/* The halo is what makes a pin feel alive without adding a word to the screen. */
+.world-pick-pin-halo {
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(241, 201, 112, 0.34), transparent 72%);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+.world-pick-pin:hover .world-pick-pin-halo,
+.world-pick-pin:focus-visible .world-pick-pin-halo,
+.world-pick-pin.is-focus .world-pick-pin-halo,
+.world-pick-pin.is-selected .world-pick-pin-halo {
+  opacity: 1;
+}
+
+/*
+  The name under the pin.
+
+  Short, centred, on a dark lozenge so it stays readable over a bright painting. It is set on one
+  line and never wraps: a label that reflows moves the pin's visual centre and the eye loses the
+  place it was looking at.
+*/
+.world-pick-pin-name {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 7px);
+  left: 50%;
+  padding: 3px 10px;
+  color: #fff8eb;
+  border-radius: 999px;
+  background: rgba(14, 8, 32, 0.72);
+  font-family: "Adventrya Serif", serif;
+  font-size: 13px;
+  line-height: 1.25;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.world-pick-pin:hover .world-pick-pin-name,
+.world-pick-pin:focus-visible .world-pick-pin-name,
+.world-pick-pin.is-focus .world-pick-pin-name {
+  background: rgba(14, 8, 32, 0.9);
+}
+.world-pick-pin.is-selected .world-pick-pin-name {
+  color: #2a1a46;
+  background: #f1c970;
+  font-weight: 700;
+}
+
+/* One world at a time, with room to say it properly. */
+.world-pick-panel {
+  position: absolute;
+  z-index: 12;
+  bottom: clamp(18px, 3vw, 34px);
+  left: clamp(18px, 4vw, 46px);
+  width: min(420px, calc(100% - 36px));
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  padding: 16px;
+  border: 1px solid rgba(255, 248, 235, 0.14);
+  border-radius: 22px;
+  background: rgba(18, 11, 38, 0.82);
+  box-shadow: 0 26px 70px rgba(5, 2, 16, 0.6);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+.world-pick-panel-copy small {
+  display: block;
+  color: #f1c970;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+.world-pick-panel-copy strong {
+  display: block;
+  margin-top: 3px;
+  font-family: "Adventrya Serif", serif;
+  font-size: 19px;
+  line-height: 1.2;
+}
+.world-pick-panel-copy p {
+  margin: 6px 0 0;
+  color: rgba(255, 248, 235, 0.72);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.world-pick-hint {
+  margin: 0;
+  color: rgba(255, 248, 235, 0.66);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.world-pick-actions {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 9px;
+}
+.world-pick-actions .button {
+  min-height: 46px;
+  justify-content: center;
+}
+/*
+  A disabled button that looks enabled is worse than no button: it is tapped, nothing happens,
+  and nothing on the screen says why. Until a world is chosen this one reads as waiting.
+*/
+.world-pick-actions .button-primary:disabled,
+.world-pick-actions .button-primary.is-disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+  filter: saturate(0.5);
+}
+
+@media (max-width: 780px) {
+  /*
+    On a phone the panel stops floating and the map ends where it begins.
+
+    A panel laid over a full-bleed map always covers part of that map, and here it covered the
+    lower pins — including, more often than not, the one just chosen, so the map stopped showing
+    the answer the moment it was given. Stacking them costs nothing: the map still takes every
+    pixel that is not the header, the question or the panel.
+  */
+  .world-pick {
+    display: flex;
+    flex-direction: column;
+  }
+  .world-pick-stage {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    inset: auto;
+    order: 2;
+  }
+  .world-pick-ask {
+    order: 1;
+    margin-left: 18px;
+    margin-right: 18px;
+    padding-bottom: 10px;
+  }
+  /* Compact: the panel takes screen the map would otherwise have. */
+  .world-pick-panel {
+    position: relative;
+    order: 3;
+    inset: auto;
+    margin: 0 10px 10px;
+    width: auto;
+    gap: 9px;
+    padding: 12px;
+    border-radius: 20px;
+  }
+  .world-pick-panel-copy {
+    min-width: 0;
+  }
+  .world-pick-panel-copy strong {
+    font-size: 16px;
+  }
+  .world-pick-panel-copy p {
+    display: -webkit-box;
+    overflow: hidden;
+    margin-top: 4px;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    font-size: 12px;
+  }
+  .world-pick-pin-dot {
+    width: 40px;
+    height: 40px;
+    font-size: 15px;
+  }
+  .world-pick-pin-name {
+    top: calc(100% + 5px);
+    padding: 2px 8px;
+    font-size: 11px;
+  }
+  /*
+    The two pins nearest the right edge sit at 83% and 85%, so a centred label under them hangs
+    off the screen — and the magic one reached back far enough to land on the animals label. They
+    hang from their right edge instead, which keeps the whole name on screen and unstacked.
+  */
+  .world-pick-pin.first-node-airplanes .world-pick-pin-name,
+  .world-pick-pin.first-node-magic .world-pick-pin-name {
+    left: auto;
+    right: -6px;
+    transform: none;
+  }
+  /*
+    Magic sits at 85%/68% and animals at 61%/66% — close enough that on a narrow screen their
+    labels share a line and touch. Dropping this one a row apart separates them without moving
+    either pin off the landmark it names.
+  */
+  .world-pick-pin.first-node-magic .world-pick-pin-name {
+    top: calc(100% + 24px);
   }
 }
