@@ -90,6 +90,13 @@ export const journey = {
       "მაგალითად: საყვარელი სათამაშო, კონკრეტული მიზანი ან დეტალი, რომელიც გინდა ისტორიაში გამოჩნდეს.",
     /* The world is chosen first now, so this leads to the child's details, not to the preview. */
     continue: "გავიცნოთ პატარა გმირი",
+    /* Beki says one short line at a time. A child is listening, not reading. */
+    beki: {
+      greeting: "გამარჯობა! მე ბეკი ვარ — შენი გზამკვლევი.",
+      peek: (theme: string) => `${theme}? კარგი არჩევანია.`,
+      chosen: "მშვენიერია. წამო, გმირი გავიცნოთ.",
+      alt: "ბეკი, შენი გზამკვლევი",
+    },
   },
 
   previewLoader: {

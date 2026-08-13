@@ -6,14 +6,27 @@
   inset: 0;
   pointer-events: none;
 }
+/*
+  The painting is an <img> in a <picture> now, not a background-image, so the browser can pick
+  the portrait art for a phone and the landscape art for a desktop before it downloads either.
+  A background-image cannot be art-directed that way; it can only be cropped, and cropping a
+  landscape scene to a 9:16 phone throws away the two islands at its edges.
+*/
+.world-pick-stage picture {
+  display: contents;
+}
 .first-map-painting {
   z-index: -5;
   inset: 0;
-  background: url("/adventrya/adventrya-world-map-v11.png") center / 100% 100% no-repeat;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   filter: saturate(0.98) brightness(0.9) contrast(1.03);
-  transform: scale(1.012);
   animation: first-map-breathe 18s ease-in-out infinite alternate;
-  will-change: transform;
+  /* --drift-* is written by the pointer handler; it is 0 until a pointer actually moves. */
+  translate: var(--drift-x, 0) var(--drift-y, 0);
+  transition: translate 0.5s cubic-bezier(0.2, 0.75, 0.2, 1);
+  will-change: transform, translate;
 }
 .first-map-vignette {
   z-index: -4;
@@ -34,10 +47,29 @@
     ),
     radial-gradient(circle at 58% 47%, transparent 35%, rgba(11, 5, 29, 0.38) 100%);
 }
+/*
+  The warm light on the island being looked at.
+
+  This was six hand-written rules, one per world, each repeating the island's position in a
+  gradient — a second copy of coordinates that already existed elsewhere, and one that silently
+  went stale whenever the art moved. The position arrives as a custom property from the same
+  table the pins use, so there is one number per island in the whole codebase.
+*/
 .first-map-focus {
   z-index: -2;
-  opacity: 0.95;
+  opacity: 0;
+  background: radial-gradient(
+    circle at var(--focus-x, 50%) var(--focus-y, 50%),
+    rgba(255, 214, 138, 0.5),
+    transparent 17%
+  );
   mix-blend-mode: screen;
+  transition:
+    opacity 0.32s ease,
+    background-position 0.4s ease;
+}
+.first-map-focus.is-lit {
+  opacity: 0.95;
   animation: first-map-focus-pulse 3.8s ease-in-out infinite;
 }
 .first-map-focus:after {
@@ -46,24 +78,6 @@
   inset: 0;
   background: #07031752;
   mix-blend-mode: multiply;
-}
-.first-map-focus.focus-dinosaurs {
-  background: radial-gradient(circle at 25% 47%, rgba(255, 196, 75, 0.54), transparent 17%);
-}
-.first-map-focus.focus-space {
-  background: radial-gradient(circle at 46% 19%, rgba(102, 153, 255, 0.6), transparent 17%);
-}
-.first-map-focus.focus-pirates {
-  background: radial-gradient(circle at 68% 42%, rgba(91, 193, 219, 0.48), transparent 17%);
-}
-.first-map-focus.focus-animals {
-  background: radial-gradient(circle at 61% 64%, rgba(255, 185, 67, 0.48), transparent 16%);
-}
-.first-map-focus.focus-airplanes {
-  background: radial-gradient(circle at 83% 19%, rgba(255, 224, 169, 0.52), transparent 15%);
-}
-.first-map-focus.focus-magic {
-  background: radial-gradient(circle at 84% 68%, rgba(190, 125, 255, 0.58), transparent 16%);
 }
 .first-map-stars {
   z-index: 1;
@@ -190,30 +204,6 @@
   opacity: 1;
   animation: first-map-route-travel 2.8s linear infinite;
 }
-.first-node-dinosaurs {
-  left: 24%;
-  top: 48%;
-}
-.first-node-space {
-  left: 43.5%;
-  top: 20%;
-}
-.first-node-pirates {
-  left: 69%;
-  top: 43%;
-}
-.first-node-animals {
-  left: 61%;
-  top: 66%;
-}
-.first-node-airplanes {
-  left: 83%;
-  top: 20%;
-}
-.first-node-magic {
-  left: 85%;
-  top: 68%;
-}
 @keyframes first-map-breathe {
   0% {
     transform: scale(1.02) translate3d(-0.2%, -0.1%, 0);
@@ -251,12 +241,15 @@
   .first-map-painting,
   .first-map-focus,
   .first-map-stars i,
-  .first-route-active {
+  .first-route-active,
+  .beki-sprite,
+  .beki-bubble {
     animation: none !important;
     transition-duration: 0.01ms !important;
   }
+  /* The pointer drift is the whole point of this one, so it goes rather than slows. */
   .first-map-painting {
-    transform: scale(1.02);
+    translate: none;
   }
 }
 @media (max-width: 780px) {
@@ -343,9 +336,18 @@
    did not appear until 393px down. The map is the page now — everything else floats over it as
    one question and one panel. Text before a choice is made: about twenty words.
    =========================================================================== */
+/*
+  .screen carries `min-width: 1100px` from the desktop-only demo this design system was
+  ported from. Below 1100px it does not shrink, it scrolls — so every width between the phone
+  breakpoint and 1100px, which is an iPad in landscape and any half-width laptop window, got a
+  horizontal scrollbar and a map cropped by it. This screen is fluid, so it opts out.
+*/
 .world-pick {
   position: relative;
+  min-width: 0;
   min-height: 100svh;
+  max-height: none;
+  height: auto;
   overflow: hidden;
   color: #fff8eb;
   background: #0c071f;
@@ -396,10 +398,19 @@
   text-wrap: balance;
 }
 
-/* A pin is a pin. The name of the place is said once, in the panel. */
+/*
+  A pin is a pin. The name of the place is said once, in the panel.
+
+  Both sets of coordinates ride on the element as custom properties and the media query below
+  picks between them. Choosing in JavaScript would mean the server and the browser disagreeing
+  about which layout is in play on the first paint, which is a hydration mismatch — and the one
+  we already paid for once this week.
+*/
 .world-pick-pin {
   position: absolute;
   z-index: 9;
+  left: var(--pin-x);
+  top: var(--pin-y);
   padding: 0;
   cursor: pointer;
   border: 0;
@@ -559,7 +570,131 @@
   filter: saturate(0.5);
 }
 
+/*
+  Beki, the guide.
+
+  He is the only thing on this screen that talks, and he says one short sentence at a time
+  because a child is listening to it rather than reading it. He sits opposite the panel so the
+  two never fight for the same corner: words on the left, the creature who says them on the right.
+*/
+.beki-guide {
+  position: absolute;
+  z-index: 13;
+  right: clamp(14px, 3vw, 38px);
+  bottom: clamp(18px, 3vw, 34px);
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+/*
+  beki.webp is not a cutout — it is a portrait on its own dark violet backdrop, and dropped on
+  the map as-is it reads as a photograph taped to the painting. The mask feathers that backdrop
+  out into the dark corner of the map it sits in.
+
+  Screen blending was the other way to hide it, and it does erase the backdrop completely, but
+  it also washes Beki himself into a ghost. Feathering keeps him solid, which matters more.
+  Both tricks go away the day a transparent PNG of the new sprite lands.
+*/
+.beki-sprite {
+  width: clamp(96px, 9vw, 132px);
+  height: auto;
+  mask-image: radial-gradient(ellipse 62% 62% at 50% 46%, #000 58%, transparent 96%);
+  animation: beki-float 4.6s ease-in-out infinite;
+}
+/* A small lift when a world is chosen — the one moment he has something to celebrate. */
+.beki-guide.is-chosen .beki-sprite {
+  animation-duration: 2.4s;
+}
+.beki-bubble {
+  max-width: 210px;
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  color: #fff8eb;
+  border: 1px solid rgba(255, 248, 235, 0.16);
+  border-radius: 16px 16px 4px 16px;
+  background: rgba(18, 11, 38, 0.88);
+  box-shadow: 0 18px 44px rgba(5, 2, 16, 0.5);
+  font-size: 13px;
+  line-height: 1.45;
+  text-wrap: balance;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  animation: beki-say 0.34s cubic-bezier(0.2, 0.75, 0.2, 1);
+}
+@keyframes beki-float {
+  0%,
+  to {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-9px);
+  }
+}
+@keyframes beki-say {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+}
+
+/*
+  On a desktop the label opens sideways, into the empty middle of the painting rather than
+  down onto whatever the island is standing on. Which side is data — see worldMap.ts — because
+  it depends on where the island sits, and that changes when the art does.
+*/
+@media (min-width: 781px) {
+  .world-pick-pin[data-side="left"] .world-pick-pin-name {
+    top: 50%;
+    left: calc(100% + 9px);
+    transform: translateY(-50%);
+  }
+  .world-pick-pin[data-side="right"] .world-pick-pin-name {
+    top: 50%;
+    right: calc(100% + 9px);
+    left: auto;
+    transform: translateY(-50%);
+  }
+}
+
 @media (max-width: 780px) {
+  /* The phone gets the portrait coordinates for the portrait painting. */
+  .world-pick-pin {
+    left: var(--pin-x-tall);
+    top: var(--pin-y-tall);
+  }
+  .first-map-focus {
+    background: radial-gradient(
+      circle at var(--focus-x-tall, 50%) var(--focus-y-tall, 50%),
+      rgba(255, 214, 138, 0.5),
+      transparent 22%
+    );
+  }
+  /*
+    Beki shrinks and moves to the bottom-left corner of the map — the open book, the one part
+    of the painting no pin sits on. At the top right, which is where the reference puts him,
+    he stood on the airplanes pin: six pins in a portrait crop leave the top corners busy and
+    the bottom empty. Sprite first, bubble to its right, so the bubble opens into the map
+    rather than off the left edge.
+  */
+  .beki-guide {
+    right: auto;
+    bottom: 6px;
+    left: 6px;
+    flex-direction: row-reverse;
+  }
+  .beki-sprite {
+    width: 74px;
+  }
+  /* Sits flush with the bottom of the group, which clears the lowest pin label above it. */
+  .beki-bubble {
+    max-width: 42vw;
+    margin: 0;
+    padding: 8px 11px;
+    border-radius: 14px 14px 14px 4px;
+    font-size: 11.5px;
+  }
+
   /*
     On a phone the panel stops floating and the map ends where it begins.
 

@@ -323,8 +323,15 @@ svg {
   border-bottom: 1px solid rgba(239, 227, 207, 0.1);
   background: linear-gradient(180deg, #100a2794, #130c2d14);
 }
+/*
+  min-width: 0 because a flex item refuses to shrink below its content by default, and the
+  three parts of this header add up to 1100px of content. Between the phone breakpoint and
+  about 1100px — an iPad in landscape, a half-width laptop window — that pushed the header
+  wider than the window and gave every journey screen a horizontal scrollbar.
+*/
 .app-header-start,
 .app-header-end {
+  min-width: 0;
   display: flex;
   align-items: center;
 }
@@ -333,6 +340,17 @@ svg {
 }
 .app-header-end {
   gap: 11px;
+}
+/* The one part with arbitrary-length content: a child's name. It gives way first. */
+.app-header .child-pill {
+  min-width: 0;
+}
+.app-header .child-pill > span,
+.app-header .child-pill strong,
+.app-header .child-pill small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .icon-button {
   width: 42px;

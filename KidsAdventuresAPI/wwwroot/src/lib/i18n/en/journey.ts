@@ -91,6 +91,13 @@ export const journey = {
       "For example: a favourite toy, a particular goal, or a detail you would like to see in the story.",
     /* The world is chosen first now, so this leads to the child's details, not to the preview. */
     continue: "Meet the little hero",
+    /* Beki says one short line at a time. A child is listening, not reading. */
+    beki: {
+      greeting: "Hello! I'm Beki — your guide.",
+      peek: (theme: string) => `${theme}? Good choice.`,
+      chosen: "Wonderful. Come, let's meet the hero.",
+      alt: "Beki, your guide",
+    },
   },
 
   previewLoader: {
