@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { setPinterestEnhancedMatch } from "@/lib/analytics/pinterest";
+import { GTM_ID, PINTEREST_TAG_ID, mountMarketingTags } from "@/lib/analytics/marketingTags";
 import { AuthProvider, useAuth } from "@/lib/auth/AuthContext";
 import { GoogleAuthProvider } from "@/lib/auth/GoogleAuthProvider";
 import { BRAND_LOGO_URL } from "@/lib/brand";
@@ -123,56 +124,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
-const GA_MEASUREMENT_ID = "G-7ZL6C5SB29";
-const GTM_ID = "GTM-K9Q596H3";
-const PINTEREST_TAG_ID = "2614019108945";
-
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="ka">
+      {/*
+        Nothing but head management here. The marketing tags that used to sit in this <head>
+        are injected after hydration instead — see lib/analytics/marketingTags.ts for why.
+      */}
       <head>
         <HeadContent />
-        {/* Google AdSense — site verification + ad serving. */}
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9730875401500289"
-          crossOrigin="anonymous"
-        />
-        {/* Google Tag Manager — placed as high in <head> as possible. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','${GTM_ID}');`,
-          }}
-        />
-        {/* End Google Tag Manager */}
-        {/* Google tag (gtag.js) — Google Analytics, rendered into the head of every page. */}
-        <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`} />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', '${GA_MEASUREMENT_ID}');`,
-          }}
-        />
-        {/* Pinterest Tag — base pixel (enhanced-match email intentionally omitted). */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `!function(e){if(!window.pintrk){window.pintrk = function () {
-window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var
-  n=window.pintrk;n.queue=[],n.version="3.0";var
-  t=document.createElement("script");t.async=!0,t.src=e;var
-  r=document.getElementsByTagName("script")[0];
-  r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js");
-pintrk('load', '${PINTEREST_TAG_ID}');
-pintrk('page');`,
-          }}
-        />
-        {/* End Pinterest Tag */}
       </head>
       <body>
         {/* Google Tag Manager (noscript) — immediately after the opening <body> tag. */}
@@ -212,6 +172,14 @@ function PinterestEnhancedMatch() {
   return null;
 }
 
+/** Loads GTM, Analytics, AdSense and the Pinterest pixel once the page is hydrated. */
+function MarketingTags() {
+  useEffect(() => {
+    mountMarketingTags();
+  }, []);
+  return null;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
@@ -227,6 +195,7 @@ function RootComponent() {
               every visit still starts a new story from scratch.
             */}
             <JourneyDraftProvider>
+              <MarketingTags />
               <PinterestEnhancedMatch />
               <LocalizedDocumentTitle />
               <Outlet />
