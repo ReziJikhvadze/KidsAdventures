@@ -48,7 +48,7 @@ export function BekiGuide({ mood, peekTheme }: Props) {
       <p className="beki-bubble" key={line} aria-live="polite">
         {line}
       </p>
-      <img className="beki-sprite" src={BEKI_POSE[mood]} alt={copy.alt} width={420} height={512} />
+      <img className="beki-sprite" src={BEKI_POSE[mood]} alt={copy.alt} width={320} height={490} />
     </div>
   );
 }
