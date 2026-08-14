@@ -1069,12 +1069,16 @@
   pointer-events: none;
 }
 /*
-  Beki carries an alpha channel, so the shadow can follow his actual silhouette rather than the
-  edges of a rectangle — the difference between a figure standing in a scene and a picture
-  lying on one. Cut from the canonical art with design/tools/cutout-flat.py.
+  Beki is a real cutout now, so nothing has to be hidden.
 
-  Three shadows: a tight dark one that reads as contact, a wide soft one for depth, and a warm
-  one from below picking up the golden light the map throws upward.
+  beki.webp is a portrait on its own dark violet backdrop; dropped on the map it read as a
+  photograph taped to the painting, and the elliptical mask that softened the join left a
+  visible bruise of shadow around him. beki-cutout.webp carries an alpha channel, which lets
+  the shadow follow his actual silhouette — the difference between a figure standing in a
+  scene and a picture lying on one.
+
+  Two shadows: a tight dark one that reads as contact, and a wide warm one picking up the
+  golden light the map throws from below, which is what stops him looking pasted on.
 */
 .beki-sprite {
   width: clamp(96px, 9vw, 132px);

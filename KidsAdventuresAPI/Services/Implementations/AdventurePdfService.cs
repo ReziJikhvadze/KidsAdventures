@@ -379,9 +379,9 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
                 Unit.Millimetre));
             page.Margin(0);
 
-            // Dark, like the closing page on screen. Beki is printed as a cutout so that this
-            // stays a choice about how the back cover should look, rather than one forced by
-            // whatever backdrop his portrait happened to be painted on.
+            // Dark, like the closing page on screen — and it is the reason Beki can be printed
+            // at all: his portrait carries its own deep backdrop, which on the book's pale paper
+            // was a dark rectangle stuck to the page.
             page.PageColor(BackCoverInk);
 
             page.Content()
@@ -438,23 +438,8 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
     {
         try
         {
-            var assets = Path.Combine(AppContext.BaseDirectory, "Assets", "Beki");
-
-            // The cutout first. The canonical art is painted on a cream field because that is
-            // what the image model is shown as a reference, and printing it onto the dark back
-            // cover puts a pale rectangle behind him. The cutout is the same portrait with that
-            // field taken out; see design/tools/cutout-flat.py. Falling back to the canonical
-            // file keeps a back cover with a slightly wrong Beki rather than none at all.
-            foreach (var name in new[] { "beki-canonical-v1-cutout.png", "beki-canonical-v1.png" })
-            {
-                var path = Path.Combine(assets, name);
-                if (File.Exists(path))
-                {
-                    return File.ReadAllBytes(path);
-                }
-            }
-
-            return null;
+            var path = Path.Combine(AppContext.BaseDirectory, "Assets", "Beki", "beki-canonical-v1.png");
+            return File.Exists(path) ? File.ReadAllBytes(path) : null;
         }
         catch
         {
