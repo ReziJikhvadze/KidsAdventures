@@ -149,15 +149,34 @@ export const WORLD_TINT: Record<WorldId, WorldTint> = {
  * were how the old map worked, and they were wrong the moment anything moved — a path is not a
  * fact about a world, it is the line between two places this table already knows.
  */
-export function routeFor(layout: MapLayout, world: WorldId): string {
+export interface RouteGeometry {
+  /** The whole curve, from the book to the island's landing point. */
+  d: string;
+  /** Where it arrives — the far end, for the marker that sits there. */
+  x: number;
+  y: number;
+}
+
+export function routeFor(layout: MapLayout, world: WorldId): RouteGeometry {
   const from = BOOK_LAYOUT[layout];
   const to = ISLAND_LAYOUT[layout][world];
   const [ox, oy] = [from.pathX * 10, from.pathY * 6.5];
-  const [tx, ty] = [to.x * 10, to.y * 6.5];
+
+  // Not the island's centre: a route ending there stops underneath the sprite, and what a
+  // reader sees is a line that fades out rather than one that arrives. It ends a little below,
+  // where the rock hangs, so the last of it tucks under the island and the marker sits on the
+  // edge — the difference between a path that goes somewhere and a path that stops.
+  const landing = to.y + to.w * 0.18;
+  const [tx, ty] = [to.x * 10, landing * 6.5];
+
   // Bowed towards the middle, so the routes lean rather than run straight and a route to a far
   // corner leaves the book going roughly the way the painted path already points.
   const mx = (ox + tx) / 2;
   const cx = mx + (500 - mx) * 0.55;
   const cy = (oy + ty) / 2;
-  return `M ${ox.toFixed(1)} ${oy.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)}`;
+  return {
+    d: `M ${ox.toFixed(1)} ${oy.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)}`,
+    x: tx,
+    y: ty,
+  };
 }
