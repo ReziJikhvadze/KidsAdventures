@@ -16,8 +16,16 @@ import type { WorldId } from "@/lib/worlds";
  * Cut from the delivered sheet by design/tools/split-sprites.py.
  */
 
-/** A wide screen gets a spread; a narrow one gets a trail running down the page. */
-export type MapLayout = "wide" | "tall";
+/**
+ * Three arrangements, one per shape of stage.
+ *
+ * "wide" is a spread across a tall desktop stage. "tall" is two columns down a phone. "mid" is
+ * the one in between and the one that had to be drawn from scratch: a browser window between
+ * the two layouts leaves a map band about 280px high and the full width, which is the wrong
+ * shape for either. A single row of six across a shallow arc is the arrangement a short wide
+ * strip actually wants.
+ */
+export type MapLayout = "wide" | "mid" | "tall";
 
 export interface IslandPlacement {
   /** Centre of the sprite, as a percentage of the stage. */
@@ -50,13 +58,33 @@ export const ISLAND_LAYOUT: Record<MapLayout, Record<WorldId, IslandPlacement>> 
     the picture a parent sees matches the one the artist composed.
   */
   wide: {
-    space: { x: 16, y: 22, w: 30, side: "left" },
-    airplanes: { x: 50, y: 16, w: 31, side: "left" },
-    dinosaurs: { x: 84, y: 22, w: 30, side: "right" },
-    pirates: { x: 16, y: 53, w: 31, side: "left" },
-    animals: { x: 50, y: 47, w: 30, side: "right" },
-    magic: { x: 84, y: 53, w: 31, side: "right" },
+    // The rows sit two percent further apart than they look like they need to: the label hangs
+    // under its island, and at the tighter spacing it arrived within a few pixels of the island
+    // below whenever a hover scaled the one it belongs to.
+    space: { x: 16, y: 21, w: 30, side: "left" },
+    airplanes: { x: 50, y: 15, w: 31, side: "left" },
+    dinosaurs: { x: 84, y: 21, w: 30, side: "right" },
+    pirates: { x: 16, y: 54, w: 31, side: "left" },
+    animals: { x: 50, y: 48, w: 30, side: "right" },
+    magic: { x: 84, y: 54, w: 31, side: "right" },
   },
+  /*
+    One row of six, on a shallow arc.
+
+    A window between the two layouts is wide but leaves the map only about 280px tall, and two
+    rows of anything readable will not fit in that. Six across will: the width is the one thing
+    this shape has. The arc keeps it from reading as a filmstrip, and the ends dip so the row
+    settles into the corners rather than running out of them.
+  */
+  mid: {
+    space: { x: 10, y: 34, w: 15, side: "left" },
+    airplanes: { x: 26, y: 30, w: 15, side: "left" },
+    dinosaurs: { x: 42, y: 28, w: 15, side: "left" },
+    pirates: { x: 58, y: 28, w: 15, side: "right" },
+    animals: { x: 74, y: 30, w: 15, side: "right" },
+    magic: { x: 90, y: 34, w: 15, side: "right" },
+  },
+
   /*
     Two by three on a phone, not a zigzag down six rows.
 
@@ -89,6 +117,7 @@ export const BOOK_LAYOUT: Record<
   { x: number; y: number; w: number; pathX: number; pathY: number }
 > = {
   wide: { x: 50, y: 84, w: 66, pathX: 54, pathY: 72 },
+  mid: { x: 50, y: 78, w: 40, pathX: 52, pathY: 63 },
   tall: { x: 50, y: 88, w: 96, pathX: 55, pathY: 81 },
 };
 

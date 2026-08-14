@@ -91,8 +91,13 @@ export function WorldStage({ draft, onChange, header }: Props) {
     stage.style.setProperty("--drift-y", "0px");
   };
 
-  const litWide = focusId ? ISLAND_LAYOUT.wide[focusId] : null;
-  const litTall = focusId ? ISLAND_LAYOUT.tall[focusId] : null;
+  const lit = focusId
+    ? {
+        wide: ISLAND_LAYOUT.wide[focusId],
+        mid: ISLAND_LAYOUT.mid[focusId],
+        tall: ISLAND_LAYOUT.tall[focusId],
+      }
+    : null;
 
   return (
     <main
@@ -129,12 +134,14 @@ export function WorldStage({ draft, onChange, header }: Props) {
           className={`first-map-focus ${focusId ? "is-lit" : ""}`}
           aria-hidden="true"
           style={
-            litWide && litTall && focusId
+            lit && focusId
               ? ({
-                  "--focus-x": `${litWide.x}%`,
-                  "--focus-y": `${litWide.y}%`,
-                  "--focus-x-tall": `${litTall.x}%`,
-                  "--focus-y-tall": `${litTall.y}%`,
+                  "--focus-x": `${lit.wide.x}%`,
+                  "--focus-y": `${lit.wide.y}%`,
+                  "--focus-x-mid": `${lit.mid.x}%`,
+                  "--focus-y-mid": `${lit.mid.y}%`,
+                  "--focus-x-tall": `${lit.tall.x}%`,
+                  "--focus-y-tall": `${lit.tall.y}%`,
                   "--focus-tint": WORLD_TINT[focusId].tint,
                 } as CSSProperties)
               : undefined
@@ -146,7 +153,7 @@ export function WorldStage({ draft, onChange, header }: Props) {
           attribute rather than a style and a media query cannot rewrite it. Hiding costs six
           unused path elements; choosing in JavaScript would cost a hydration mismatch.
         */}
-        {(["wide", "tall"] as const).map((layout) => (
+        {(["wide", "mid", "tall"] as const).map((layout) => (
           <svg
             key={layout}
             className={`first-map-routes routes-${layout}`}
@@ -175,6 +182,7 @@ export function WorldStage({ draft, onChange, header }: Props) {
 
         {WORLDS.map((world) => {
           const wide = ISLAND_LAYOUT.wide[world.id];
+          const mid = ISLAND_LAYOUT.mid[world.id];
           const tall = ISLAND_LAYOUT.tall[world.id];
           const lamp = WORLD_TINT[world.id];
           return (
@@ -189,6 +197,9 @@ export function WorldStage({ draft, onChange, header }: Props) {
                   "--pin-x": `${wide.x}%`,
                   "--pin-y": `${wide.y}%`,
                   "--pin-w": `${wide.w}%`,
+                  "--pin-x-mid": `${mid.x}%`,
+                  "--pin-y-mid": `${mid.y}%`,
+                  "--pin-w-mid": `${mid.w}%`,
                   "--pin-x-tall": `${tall.x}%`,
                   "--pin-y-tall": `${tall.y}%`,
                   "--pin-w-tall": `${tall.w}%`,
@@ -234,6 +245,9 @@ export function WorldStage({ draft, onChange, header }: Props) {
               "--book-x": `${BOOK_LAYOUT.wide.x}%`,
               "--book-y": `${BOOK_LAYOUT.wide.y}%`,
               "--book-w": `${BOOK_LAYOUT.wide.w}%`,
+              "--book-x-mid": `${BOOK_LAYOUT.mid.x}%`,
+              "--book-y-mid": `${BOOK_LAYOUT.mid.y}%`,
+              "--book-w-mid": `${BOOK_LAYOUT.mid.w}%`,
               "--book-x-tall": `${BOOK_LAYOUT.tall.x}%`,
               "--book-y-tall": `${BOOK_LAYOUT.tall.y}%`,
               "--book-w-tall": `${BOOK_LAYOUT.tall.w}%`,

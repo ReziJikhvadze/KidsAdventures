@@ -291,6 +291,8 @@
   overflow: visible;
   pointer-events: none;
 }
+/* Wide is the default; the other two arrangements' routes are switched on by their own query. */
+.routes-mid,
 .routes-tall {
   display: none;
 }
@@ -773,45 +775,67 @@
 }
 
 /*
-  The awkward middle: wide enough for the desktop spread of islands, not tall enough for it.
+  The awkward middle, with an arrangement of its own.
 
-  A laptop window at 800x620 leaves the map band about 320px high, and an island sized purely
-  from the stage width came out 190px tall — so two rows of them sat on top of each other. The
-  cap is in vh because in this band the stage height tracks the window height; a share of the
-  container's own height would have been better still, but the stage is a flex item and cqh
-  resolves to nothing against a height the flex algorithm has not finished deciding.
+  A window between the two layouts is wide but leaves the map band about 280px tall. The desktop
+  spread does not fit in that: two rows of islands sized from the stage width came out 190px
+  each and sat on top of each other, and shrinking them until they fitted left six thumbnails
+  and no map. So this band gets its own row of numbers - one line of six across a shallow arc,
+  which is what the shape it actually has is good for.
+
+  The label sits on its island rather than under it, because under it is where the book is.
 */
 @media (min-width: 781px) and (max-width: 999px) {
   .world-island {
-    width: min(var(--pin-w), 19vh);
+    left: var(--pin-x-mid);
+    top: var(--pin-y-mid);
+    width: var(--pin-w-mid);
   }
   .world-map-book {
-    width: min(var(--book-w), 44vh);
+    left: var(--book-x-mid);
+    top: var(--book-y-mid);
+    width: var(--book-w-mid);
   }
-  /*
-    The rows end up six pixels apart here, so a label hanging below an island lands on the one
-    underneath. It sits on its own island instead, over the rocks at its base, where dark glass
-    reads cleanly and it can reach nothing but the thing it names.
-  */
+  .first-map-focus {
+    background: radial-gradient(
+      circle at var(--focus-x-mid, 50%) var(--focus-y-mid, 50%),
+      color-mix(in oklab, var(--focus-tint, #ffd68a) 46%, transparent),
+      transparent 20%
+    );
+  }
+  .routes-wide {
+    display: none;
+  }
+  .routes-mid {
+    display: block;
+  }
   .world-island-name {
     top: auto;
-    bottom: 4px;
+    bottom: 2px;
+    padding: 3px 8px;
+    font-size: 11px;
   }
-  /* The panel is below the map in this band, which leaves the bottom right of the stage empty
-     — and keeps Beki off the island in the bottom left. */
   /*
-    And Beki steps out entirely.
-
-    A map band 280px tall already holds six islands, six labels and the book. He was placed in
-    every corner in turn and each one belonged to something: the bottom left to the lagoon, the
-    bottom right to the sun city, the middle to the book. Shrinking him to fit made a guide too
-    small to read as a character, and his speech bubble still landed on an island.
-
-    He is charm rather than function — the panel underneath already says what to do — so in the
-    one band where the map cannot afford him, he goes. Every other width keeps him.
+    An island is 120px wide here and the name plus "Enter →" is nearly 170, so the label reached
+    across its neighbours on both sides. The hint goes, as it does on a phone and for the same
+    reason: it is the part that is nice to have, and the name is the part that is needed.
   */
-  .beki-guide {
+  .world-island-name b {
     display: none;
+  }
+  /* The row leaves the bottom corners open, which is the one place Beki can stand here. */
+  .beki-guide {
+    right: 8px;
+    left: auto;
+    bottom: 6px;
+    flex-direction: row;
+  }
+  .beki-sprite {
+    width: 72px;
+  }
+  .beki-bubble {
+    max-width: 190px;
+    margin-bottom: 8px;
   }
 }
 
