@@ -91,6 +91,8 @@ export const journey = {
       "For example: a favourite toy, a particular goal, or a detail you would like to see in the story.",
     /* The world is chosen first now, so this leads to the child's details, not to the preview. */
     continue: "Meet the little hero",
+    /* On the label that appears over an emblem: the name, and what taking it does. */
+    enter: "Enter →",
     /* Beki says one short line at a time. A child is listening, not reading. */
     beki: {
       greeting: "Hello! I'm Beki — your guide.",

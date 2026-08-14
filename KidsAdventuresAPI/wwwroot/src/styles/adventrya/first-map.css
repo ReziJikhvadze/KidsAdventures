@@ -581,41 +581,105 @@
 }
 
 /*
-  The name under the pin.
+  The name, on a small pane of dark glass.
 
-  Short, centred, on a dark lozenge so it stays readable over a bright painting. It is set on one
-  line and never wraps: a label that reflows moves the pin's visual centre and the eye loses the
-  place it was looking at.
+  Set on one line and never wrapping: a label that reflows moves the pin's visual centre and the
+  eye loses the place it was looking at.
 */
 .world-pick-pin-name {
   position: absolute;
   z-index: 1;
-  top: calc(100% + 7px);
+  top: calc(100% + 7px + var(--label-drop, 0px));
   left: 50%;
-  padding: 3px 10px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 11px;
   color: #fff8eb;
-  border-radius: 999px;
-  background: rgba(14, 8, 32, 0.72);
+  border: 1px solid color-mix(in oklab, var(--world-tint) 32%, transparent);
+  border-radius: 13px;
+  background: rgba(12, 7, 28, 0.78);
+  box-shadow: 0 12px 30px rgba(5, 2, 16, 0.5);
   font-family: "Adventrya Serif", serif;
   font-size: 13px;
   line-height: 1.25;
   white-space: nowrap;
   transform: translateX(-50%);
   transition:
-    background-color 0.2s ease,
-    color 0.2s ease;
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+    opacity 0.2s ease,
+    translate 0.2s cubic-bezier(0.2, 0.75, 0.2, 1),
+    border-color 0.2s ease;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+/* "Enter →" — what taking this one does, in the world's own colour. */
+.world-pick-pin-name b {
+  color: var(--world-tint);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
 }
 .world-pick-pin:hover .world-pick-pin-name,
 .world-pick-pin:focus-visible .world-pick-pin-name,
 .world-pick-pin.is-focus .world-pick-pin-name {
-  background: rgba(14, 8, 32, 0.9);
+  border-color: color-mix(in oklab, var(--world-tint) 62%, transparent);
 }
 .world-pick-pin.is-selected .world-pick-pin-name {
   color: #2a1a46;
+  border-color: #f1c970;
   background: #f1c970;
   font-weight: 700;
+}
+.world-pick-pin.is-selected .world-pick-pin-name b {
+  color: #7a5a12;
+}
+
+/*
+  Where there is a pointer, the label is contextual: it belongs to the island being looked at,
+  and six of them on the painting at once is the page of text pinned to a picture this screen
+  was rebuilt to get rid of. Where there is no pointer there is no hover to reveal it with, so
+  it stays — a phone would otherwise show six unlabelled emblems and no way to learn the names
+  short of tapping each one.
+*/
+@media (hover: hover) {
+  .world-pick-pin-name {
+    opacity: 0;
+    translate: 0 -5px;
+    pointer-events: none;
+  }
+  .world-pick-pin:hover .world-pick-pin-name,
+  .world-pick-pin:focus-visible .world-pick-pin-name,
+  .world-pick-pin.is-focus .world-pick-pin-name,
+  .world-pick-pin.is-selected .world-pick-pin-name {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+/*
+  "Enter →" is a hint for a pointer hovering over one island. Where every label is on screen at
+  once it is the same three words six times, and it makes each label wide enough that they run
+  into each other — on a phone the tap is the affordance, and the panel below says where it goes.
+*/
+@media (hover: none) {
+  .world-pick-pin-name b {
+    display: none;
+  }
+}
+
+/*
+  When the painting carries its own emblems the pin draws nothing at rest: it is a target over
+  the artwork's mark, sized in percent of the map so it stays on that mark at every width. All
+  it adds is what paint cannot — the light of being looked at, and of having been chosen.
+*/
+.world-pick-pin.is-emblem {
+  width: var(--emblem-size, 6%);
+  aspect-ratio: 1;
+}
+.world-pick-pin.is-emblem .world-pick-pin-halo {
+  inset: -18%;
+}
+.world-pick-pin.is-emblem .world-pick-pin-name {
+  top: calc(100% + 10px + var(--label-drop, 0px));
 }
 
 /* One world at a time, with room to say it properly. */
@@ -819,13 +883,18 @@
   the stage, and this is the window width at which it clears 900px.
 */
 @media (min-width: 1340px) {
+  /*
+    --label-drop applies here too. Opening sideways does not stop two islands the painting put
+    close together from sharing a line — it only changes which way the label reaches to get
+    there, and magic's reaches back far enough to arrive at the animals emblem.
+  */
   .world-pick-pin[data-side="left"] .world-pick-pin-name {
-    top: 50%;
+    top: calc(50% + var(--label-drop, 0px));
     left: calc(100% + 9px);
     transform: translateY(-50%);
   }
   .world-pick-pin[data-side="right"] .world-pick-pin-name {
-    top: 50%;
+    top: calc(50% + var(--label-drop, 0px));
     right: calc(100% + 9px);
     left: auto;
     transform: translateY(-50%);

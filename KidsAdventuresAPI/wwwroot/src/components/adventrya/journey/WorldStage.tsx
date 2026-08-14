@@ -205,7 +205,7 @@ export function WorldStage({ draft, onChange, header }: Props) {
               type="button"
               /* first-node-{id} carries no position any more; it is left for the handful of
                  per-world label nudges the narrow layout still needs. */
-              className={`world-pick-pin first-node-${world.id}${selectedId === world.id ? " is-selected" : ""}${focusId === world.id ? " is-focus" : ""}`}
+              className={`world-pick-pin first-node-${world.id}${WORLD_MAP.emblemsInArt ? " is-emblem" : ""}${selectedId === world.id ? " is-selected" : ""}${focusId === world.id ? " is-focus" : ""}`}
               data-first-world-id={world.id}
               data-side={wide.side}
               style={
@@ -218,6 +218,7 @@ export function WorldStage({ draft, onChange, header }: Props) {
                   "--world-deep": lamp.deep,
                   "--label-drop": `${wide.drop ?? 0}px`,
                   "--label-drop-tall": `${tall.drop ?? 0}px`,
+                  "--emblem-size": `${WORLD_MAP.emblemSize}%`,
                 } as CSSProperties
               }
               aria-pressed={selectedId === world.id}
@@ -229,19 +230,24 @@ export function WorldStage({ draft, onChange, header }: Props) {
             >
               <span className="world-pick-pin-halo" aria-hidden="true" />
               {/*
-                The world's own mark, not a number. "1" through "6" told a parent the order
-                we happened to list them in, which is not a fact about the worlds; the icon
-                says what the place is before the name is even read.
+                Drawn only when the painting has no emblem of its own. Where it does, that
+                emblem is the marker and this would be the same world's identity stated twice,
+                by two things that never quite agree on size, colour or centre.
               */}
-              <span className="world-pick-pin-dot" aria-hidden="true">
-                <WorldIcon type={world.id} />
-              </span>
+              {WORLD_MAP.emblemsInArt ? null : (
+                <span className="world-pick-pin-dot" aria-hidden="true">
+                  <WorldIcon type={world.id} />
+                </span>
+              )}
               {/*
-                Short name on the map, full title in the panel. The old pins carried the
-                whole book title on cards up to 329px wide, which is what made six of them
-                unreadable over one painting.
+                The name, and what happens if you take it. Where there is a pointer this
+                appears on hover and goes away again, so six labels are never on the painting
+                at once; where there is no pointer to hover with, it stays.
               */}
-              <span className="world-pick-pin-name">{world.theme}</span>
+              <span className="world-pick-pin-name">
+                {world.theme}
+                <b aria-hidden="true">{copy.enter}</b>
+              </span>
             </button>
           );
         })}

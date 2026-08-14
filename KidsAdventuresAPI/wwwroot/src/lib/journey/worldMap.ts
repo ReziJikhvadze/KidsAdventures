@@ -40,6 +40,26 @@ export interface WorldAnchor {
 export interface MapArt {
   /** One painting per layout. The phone is not a crop of the desktop: see the brief. */
   src: Record<MapLayout, string>;
+  /**
+   * Whether the painting already carries a lit emblem on each island — a star over the
+   * observatory, a palm over the lagoon.
+   *
+   * When it does, the app must not draw its own: a painted emblem and a drawn badge on the
+   * same island is the world's identity said twice, and the two never agree about size, colour
+   * or centre. The illustration is the marker; code only lights it. The pin becomes an
+   * invisible target over the emblem, carrying the states the painting cannot have — hover,
+   * chosen, and the route to it.
+   *
+   * It lives here because it is a fact about the artwork, in the same table as everything else
+   * the artwork decided.
+   */
+  emblemsInArt: boolean;
+  /**
+   * Diameter of the painted emblem, as a percentage of the painting's width, so the target
+   * scales with the map instead of drifting off it on a phone. Ignored when the app draws
+   * the badge itself.
+   */
+  emblemSize: number;
   anchors: Record<MapLayout, Record<WorldId, WorldAnchor>>;
 }
 
@@ -48,6 +68,10 @@ export const WORLD_MAP: MapArt = {
     wide: "/adventrya/adventrya-world-map.png",
     tall: "/adventrya/adventrya-world-map.png",
   },
+  // The painting in use has no emblems, so the app still draws the badges. The next one does
+  // carry them: flipping this to true is the whole of that change.
+  emblemsInArt: false,
+  emblemSize: 6,
   anchors: {
     wide: {
       space: { x: 43.5, y: 20, side: "left" },
@@ -56,7 +80,7 @@ export const WORLD_MAP: MapArt = {
       pirates: { x: 69, y: 43, side: "right" },
       animals: { x: 61, y: 66, side: "right" },
       // Two percent below animals and twenty-four across: same line, touching labels.
-      magic: { x: 85, y: 68, side: "right", drop: 26 },
+      magic: { x: 85, y: 68, side: "right", drop: 34 },
     },
     tall: {
       space: { x: 43.5, y: 20, side: "left" },
