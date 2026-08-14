@@ -321,26 +321,17 @@
   The canonical portrait carries its own dark backdrop, so it is faded into the page with a mask
   rather than dropped on it as a rectangle with visible edges.
 */
-/*
-  Beki, seeing the child off the back cover.
-
-  This carried the same elliptical mask the map used, for the same reason: the portrait was
-  painted on its own backdrop and the ellipse hid the rectangle. He is a cutout now, so the
-  mask has nothing left to hide and would only clip the curl above his head and the tail below
-  it — both of which reach well outside any ellipse drawn around his body. A shadow instead,
-  which is what he actually needs against the dark cover.
-*/
 .storybook-back-guide {
   position: absolute;
   z-index: 0;
   top: 9%;
   left: 50%;
-  width: 52%;
+  width: 60%;
   max-height: 52%;
   transform: translateX(-50%);
   object-fit: contain;
-  filter: drop-shadow(0 5px 10px rgba(6, 3, 18, 0.6))
-    drop-shadow(0 -2px 14px rgba(255, 198, 112, 0.18));
+  -webkit-mask-image: radial-gradient(ellipse 58% 56% at 50% 44%, #000 44%, transparent 80%);
+  mask-image: radial-gradient(ellipse 58% 56% at 50% 44%, #000 44%, transparent 80%);
   pointer-events: none;
 }
 .storybook-back-copy {

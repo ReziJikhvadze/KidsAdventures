@@ -38,13 +38,8 @@ export type StorybookVolumeProps = {
   variant?: "full" | "hero" | "preview" | "display";
 };
 
-/**
- * Beki's canonical portrait, shown until a book carries one drawn for its own world.
- *
- * The cutout rather than the raw art: this sits on the book's dark back cover, and the raw
- * file is painted on a cream field that would land there as a pale rectangle behind him.
- */
-const BEKI_PORTRAIT = "/adventrya/beki-cutout.webp";
+/** Beki's canonical portrait, shown until a book carries one drawn for its own world. */
+const BEKI_PORTRAIT = "/adventrya/beki.webp";
 
 function fallbackCover(worldId?: string | null): string {
   if (worldId && isWorldId(worldId)) return WORLD_COVER_ART[worldId as WorldId];

@@ -1,7 +1,259 @@
-/* ===========================================================================
-   The generation screen. Unrelated to the map below it, and left where it was
-   found rather than moved for tidiness during a map rewrite.
-   =========================================================================== */
+.first-map-painting,
+.first-map-vignette,
+.first-map-focus,
+.first-map-stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+/*
+  The painting is an <img> in a <picture> now, not a background-image, so the browser can pick
+  the portrait art for a phone and the landscape art for a desktop before it downloads either.
+  A background-image cannot be art-directed that way; it can only be cropped, and cropping a
+  landscape scene to a 9:16 phone throws away the two islands at its edges.
+*/
+.world-pick-stage picture {
+  display: contents;
+}
+.first-map-painting {
+  z-index: -5;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(0.98) brightness(0.9) contrast(1.03);
+  animation: first-map-breathe 18s ease-in-out infinite alternate;
+  /* --drift-* is written by the pointer handler; it is 0 until a pointer actually moves. */
+  translate: var(--drift-x, 0) var(--drift-y, 0);
+  transition: translate 0.5s cubic-bezier(0.2, 0.75, 0.2, 1);
+  will-change: transform, translate;
+}
+.first-map-vignette {
+  z-index: -4;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(8, 4, 22, 0.4),
+      transparent 29%,
+      transparent 66%,
+      rgba(7, 3, 19, 0.65)
+    ),
+    linear-gradient(
+      90deg,
+      rgba(9, 4, 25, 0.28),
+      transparent 22%,
+      transparent 78%,
+      rgba(8, 4, 23, 0.38)
+    ),
+    radial-gradient(circle at 58% 47%, transparent 35%, rgba(11, 5, 29, 0.38) 100%);
+}
+/*
+  The warm light on the island being looked at.
+
+  This was six hand-written rules, one per world, each repeating the island's position in a
+  gradient — a second copy of coordinates that already existed elsewhere, and one that silently
+  went stale whenever the art moved. The position arrives as a custom property from the same
+  table the pins use, so there is one number per island in the whole codebase.
+*/
+.first-map-focus {
+  z-index: -2;
+  opacity: 0;
+  background: radial-gradient(
+    circle at var(--focus-x, 50%) var(--focus-y, 50%),
+    color-mix(in oklab, var(--focus-tint, #ffd68a) 52%, transparent),
+    transparent 17%
+  );
+  mix-blend-mode: screen;
+  transition:
+    opacity 0.32s ease,
+    background-position 0.4s ease;
+}
+.first-map-focus.is-lit {
+  opacity: 0.95;
+  animation: first-map-focus-pulse 3.8s ease-in-out infinite;
+}
+.first-map-focus:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #07031752;
+  mix-blend-mode: multiply;
+}
+.first-map-stars {
+  z-index: 1;
+}
+.first-map-stars i {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  opacity: 0.25;
+  background: #fff0be;
+  box-shadow: 0 0 10px 2px #ffdc8b99;
+  animation: first-map-twinkle 3.6s ease-in-out infinite;
+}
+.first-map-stars i:nth-child(1) {
+  left: 9%;
+  top: 14%;
+  animation-delay: -0.5s;
+}
+.first-map-stars i:nth-child(2) {
+  left: 17%;
+  top: 31%;
+  animation-delay: -2.1s;
+}
+.first-map-stars i:nth-child(3) {
+  left: 28%;
+  top: 12%;
+  animation-delay: -1.2s;
+}
+.first-map-stars i:nth-child(4) {
+  left: 39%;
+  top: 24%;
+  animation-delay: -3s;
+}
+.first-map-stars i:nth-child(5) {
+  left: 49%;
+  top: 9%;
+  animation-delay: -0.8s;
+}
+.first-map-stars i:nth-child(6) {
+  left: 58%;
+  top: 19%;
+  animation-delay: -2.5s;
+}
+.first-map-stars i:nth-child(7) {
+  left: 68%;
+  top: 11%;
+  animation-delay: -1.6s;
+}
+.first-map-stars i:nth-child(8) {
+  left: 78%;
+  top: 27%;
+  animation-delay: -3.2s;
+}
+.first-map-stars i:nth-child(9) {
+  left: 91%;
+  top: 9%;
+  animation-delay: -0.3s;
+}
+.first-map-stars i:nth-child(10) {
+  left: 94%;
+  top: 36%;
+  animation-delay: -1.9s;
+}
+.first-map-stars i:nth-child(11) {
+  left: 21%;
+  top: 54%;
+  animation-delay: -2.7s;
+}
+.first-map-stars i:nth-child(12) {
+  left: 34%;
+  top: 69%;
+  animation-delay: -0.9s;
+}
+.first-map-stars i:nth-child(13) {
+  left: 57%;
+  top: 58%;
+  animation-delay: -1.4s;
+}
+.first-map-stars i:nth-child(14) {
+  left: 67%;
+  top: 79%;
+  animation-delay: -3.4s;
+}
+.first-map-stars i:nth-child(15) {
+  left: 82%;
+  top: 59%;
+  animation-delay: -0.7s;
+}
+.first-map-stars i:nth-child(16) {
+  left: 93%;
+  top: 76%;
+  animation-delay: -2.3s;
+}
+.first-map-routes {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.first-route-future,
+.first-route-active {
+  fill: none;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.first-route-future {
+  stroke: url(#firstPathFuture);
+  stroke-width: 1.4;
+  stroke-dasharray: 2 12;
+  opacity: 0.45;
+}
+.first-route-active {
+  stroke: url(#firstPathActive);
+  stroke-width: 3.2;
+  stroke-dasharray: 5 9;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+.first-route-active.is-active {
+  opacity: 1;
+  animation: first-map-route-travel 2.8s linear infinite;
+}
+@keyframes first-map-breathe {
+  0% {
+    transform: scale(1.02) translate3d(-0.2%, -0.1%, 0);
+  }
+  to {
+    transform: scale(1.045) translate3d(0.35%, 0.25%, 0);
+  }
+}
+@keyframes first-map-focus-pulse {
+  0%,
+  to {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes first-map-twinkle {
+  0%,
+  to {
+    opacity: 0.16;
+    transform: scale(0.72);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.35);
+  }
+}
+@keyframes first-map-route-travel {
+  to {
+    stroke-dashoffset: -42;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .first-map-painting,
+  .first-map-focus,
+  .first-map-stars i,
+  .first-route-active,
+  .beki-sprite,
+  .beki-bubble,
+  .world-pick-pin-halo,
+  .world-pick-pin-halo:after {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+  /* The pointer drift is the whole point of this one, so it goes rather than slows. */
+  .first-map-painting {
+    translate: none;
+  }
+}
 @media (max-width: 780px) {
   .ux-generating {
     display: flex;
@@ -80,19 +332,20 @@
 }
 
 /* ===========================================================================
-   The world picker.
+   The world picker, rebuilt.
 
-   Seven pictures the app arranges: six islands and the open book they grow out of. Each island
-   carries its own lit emblem, so nothing is drawn on top of it — the code adds the light, the
-   route and the name, and otherwise stays out of the painting's way.
-
-   Every position arrives from lib/journey/worldMap.ts as a custom property, both layouts at
-   once, with the media queries below choosing. Nothing here knows where an island is.
+   The old layout gave the map 38% of a desktop and put 134 words beside it; on a phone the map
+   did not appear until 393px down. The map is the page now — everything else floats over it as
+   one question and one panel. Text before a choice is made: about twenty words.
    =========================================================================== */
+/*
+  .screen carries `min-width: 1100px` from the desktop-only demo this design system was
+  ported from. Below 1100px it does not shrink, it scrolls — so every width between the phone
+  breakpoint and 1100px, which is an iPad in landscape and any half-width laptop window, got a
+  horizontal scrollbar and a map cropped by it. This screen is fluid, so it opts out.
+*/
 .world-pick {
   position: relative;
-  /* .screen carries min-width: 1100px from the desktop-only demo this system was ported from,
-     which below 1100px does not shrink but scrolls. This screen is fluid, so it opts out. */
   min-width: 0;
   min-height: 100svh;
   max-height: none;
@@ -111,398 +364,6 @@
 .world-pick .app-header {
   position: relative;
   z-index: 20;
-}
-
-/*
-  The sky.
-
-  The islands arrive as cut-outs, so for the first time the night behind them is the app's to
-  make rather than the painting's. Three lights: a cold one high on the left, a warm one low in
-  the middle where the book sits, and a violet wash over the whole thing.
-*/
-.first-map-sky {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  background:
-    radial-gradient(120% 80% at 22% 8%, rgba(84, 62, 158, 0.55), transparent 60%),
-    radial-gradient(90% 60% at 50% 104%, rgba(226, 158, 74, 0.28), transparent 62%),
-    radial-gradient(140% 100% at 78% 30%, rgba(58, 40, 118, 0.5), transparent 65%),
-    linear-gradient(180deg, #0a0620, #140c33 46%, #1a0f38 78%, #0b0620);
-  pointer-events: none;
-}
-.first-map-stars {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  pointer-events: none;
-}
-.first-map-stars i {
-  position: absolute;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  opacity: 0.25;
-  background: #fff0be;
-  box-shadow: 0 0 10px 2px #ffdc8b99;
-  animation: first-map-twinkle 3.6s ease-in-out infinite;
-}
-.first-map-stars i:nth-child(1) {
-  left: 6%;
-  top: 12%;
-  animation-delay: -0.5s;
-}
-.first-map-stars i:nth-child(2) {
-  left: 14%;
-  top: 33%;
-  animation-delay: -2.1s;
-}
-.first-map-stars i:nth-child(3) {
-  left: 24%;
-  top: 7%;
-  animation-delay: -1.2s;
-}
-.first-map-stars i:nth-child(4) {
-  left: 33%;
-  top: 26%;
-  animation-delay: -3s;
-}
-.first-map-stars i:nth-child(5) {
-  left: 41%;
-  top: 5%;
-  animation-delay: -0.8s;
-}
-.first-map-stars i:nth-child(6) {
-  left: 52%;
-  top: 31%;
-  animation-delay: -2.5s;
-}
-.first-map-stars i:nth-child(7) {
-  left: 63%;
-  top: 9%;
-  animation-delay: -1.6s;
-}
-.first-map-stars i:nth-child(8) {
-  left: 71%;
-  top: 34%;
-  animation-delay: -3.2s;
-}
-.first-map-stars i:nth-child(9) {
-  left: 88%;
-  top: 7%;
-  animation-delay: -0.3s;
-}
-.first-map-stars i:nth-child(10) {
-  left: 94%;
-  top: 29%;
-  animation-delay: -1.9s;
-}
-.first-map-stars i:nth-child(11) {
-  left: 9%;
-  top: 52%;
-  animation-delay: -2.7s;
-}
-.first-map-stars i:nth-child(12) {
-  left: 31%;
-  top: 63%;
-  animation-delay: -0.9s;
-}
-.first-map-stars i:nth-child(13) {
-  left: 47%;
-  top: 58%;
-  animation-delay: -1.4s;
-}
-.first-map-stars i:nth-child(14) {
-  left: 66%;
-  top: 66%;
-  animation-delay: -3.4s;
-}
-.first-map-stars i:nth-child(15) {
-  left: 84%;
-  top: 55%;
-  animation-delay: -0.7s;
-}
-.first-map-stars i:nth-child(16) {
-  left: 96%;
-  top: 70%;
-  animation-delay: -2.3s;
-}
-.first-map-stars i:nth-child(17) {
-  left: 19%;
-  top: 20%;
-  animation-delay: -1.1s;
-}
-.first-map-stars i:nth-child(18) {
-  left: 78%;
-  top: 18%;
-  animation-delay: -2.9s;
-}
-@keyframes first-map-twinkle {
-  0%,
-  to {
-    opacity: 0.16;
-    transform: scale(0.72);
-  }
-  50% {
-    opacity: 0.95;
-    transform: scale(1.35);
-  }
-}
-
-/*
-  The light under the island being looked at. Behind the sprites, so the island glows rather
-  than having a lamp shone at it.
-*/
-.first-map-focus {
-  position: absolute;
-  z-index: 2;
-  inset: 0;
-  opacity: 0;
-  background: radial-gradient(
-    circle at var(--focus-x, 50%) var(--focus-y, 50%),
-    color-mix(in oklab, var(--focus-tint, #ffd68a) 46%, transparent),
-    transparent 22%
-  );
-  mix-blend-mode: screen;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-}
-.first-map-focus.is-lit {
-  opacity: 1;
-  animation: first-map-focus-pulse 3.8s ease-in-out infinite;
-}
-@keyframes first-map-focus-pulse {
-  0%,
-  to {
-    opacity: 0.78;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-/* The route from the book to the island being looked at. One layout's paths are hidden. */
-.first-map-routes {
-  position: absolute;
-  z-index: 3;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  pointer-events: none;
-}
-/* Wide is the default; the other two arrangements' routes are switched on by their own query. */
-.routes-mid,
-.routes-tall {
-  display: none;
-}
-.first-route-active {
-  fill: none;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-dasharray: 5 9;
-  opacity: 0;
-  vector-effect: non-scaling-stroke;
-  transition: opacity 0.28s ease;
-}
-.first-route-active.is-active {
-  opacity: 1;
-  animation: first-map-route-travel 2.8s linear infinite;
-}
-@keyframes first-map-route-travel {
-  to {
-    stroke-dashoffset: -42;
-  }
-}
-
-/*
-  An island.
-
-  The button is the sprite: no badge, no icon, no card. Hovering lifts it a little and lights it
-  from beneath, and that is the whole of the affordance — a thing that answers when you point at
-  it is understood by a five-year-old without a word being written.
-*/
-.world-island {
-  position: absolute;
-  z-index: 5;
-  left: var(--pin-x);
-  top: var(--pin-y);
-  width: var(--pin-w);
-  padding: 0;
-  border: 0;
-  cursor: pointer;
-  background: none;
-  transform: translate(-50%, -50%);
-  transition: transform 0.26s cubic-bezier(0.2, 0.75, 0.2, 1);
-}
-.world-island-art {
-  display: block;
-  width: 100%;
-  height: auto;
-  /* --drift-* is written by the pointer handler; 0 until a pointer actually moves. */
-  translate: var(--drift-x, 0) var(--drift-y, 0);
-  filter: drop-shadow(0 18px 26px rgba(5, 2, 16, 0.55));
-  transition:
-    translate 0.5s cubic-bezier(0.2, 0.75, 0.2, 1),
-    filter 0.26s ease,
-    opacity 0.26s ease;
-  pointer-events: none;
-}
-/* The glow sits under the sprite, and is the only thing that says "this one". */
-.world-island-glow {
-  position: absolute;
-  z-index: -1;
-  inset: -12% -8% -22%;
-  border-radius: 50%;
-  background: radial-gradient(
-    closest-side,
-    color-mix(in oklab, var(--world-tint) 46%, transparent),
-    transparent 72%
-  );
-  opacity: 0;
-  transition:
-    opacity 0.26s ease,
-    transform 0.26s ease;
-  pointer-events: none;
-}
-.world-island:hover,
-.world-island:focus-visible,
-.world-island.is-focus {
-  transform: translate(-50%, calc(-50% - 8px)) scale(1.05);
-}
-.world-island:focus-visible {
-  outline: none;
-}
-.world-island:hover .world-island-glow,
-.world-island:focus-visible .world-island-glow,
-.world-island.is-focus .world-island-glow {
-  opacity: 1;
-}
-.world-island:hover .world-island-art,
-.world-island:focus-visible .world-island-art,
-.world-island.is-focus .world-island-art {
-  filter: drop-shadow(0 22px 30px rgba(5, 2, 16, 0.6))
-    drop-shadow(0 0 26px color-mix(in oklab, var(--world-tint) 55%, transparent));
-}
-.world-island.is-selected {
-  transform: translate(-50%, calc(-50% - 10px)) scale(1.07);
-}
-.world-island.is-selected .world-island-glow {
-  opacity: 1;
-  animation: world-island-chosen 3.6s ease-in-out infinite;
-}
-.world-island.is-selected .world-island-art {
-  filter: drop-shadow(0 24px 34px rgba(5, 2, 16, 0.62))
-    drop-shadow(0 0 34px color-mix(in oklab, var(--world-tint) 72%, transparent));
-}
-@keyframes world-island-chosen {
-  0%,
-  to {
-    transform: scale(1.06);
-  }
-  50% {
-    transform: scale(1.2);
-  }
-}
-/*
-  Once a world is chosen the others stand back. Not hidden — a choice you cannot see you can
-  change is a trap — only quieter, so the map shows the answer it was given.
-*/
-.world-pick-stage.has-choice .world-island:not(.is-selected) .world-island-art {
-  opacity: 0.55;
-  filter: saturate(0.65) brightness(0.72) drop-shadow(0 14px 22px rgba(5, 2, 16, 0.5));
-}
-.world-pick-stage.has-choice .world-island:not(.is-selected):hover .world-island-art,
-.world-pick-stage.has-choice .world-island:not(.is-selected).is-focus .world-island-art {
-  opacity: 0.92;
-  filter: saturate(0.95) brightness(0.95) drop-shadow(0 20px 28px rgba(5, 2, 16, 0.55));
-}
-
-/*
-  The book, and the child and Beki standing on it. Nearest the viewer, so an island that reaches
-  down to it passes behind.
-*/
-.world-map-book {
-  position: absolute;
-  z-index: 6;
-  left: var(--book-x);
-  top: var(--book-y);
-  width: var(--book-w);
-  height: auto;
-  transform: translate(-50%, -50%);
-  filter: drop-shadow(0 20px 40px rgba(4, 2, 14, 0.7));
-  pointer-events: none;
-}
-
-/* The name, on a small pane of dark glass, set on one line so it never reflows. */
-.world-island-name {
-  position: absolute;
-  z-index: 2;
-  top: calc(100% - 6px);
-  left: 50%;
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 5px 11px;
-  color: #fff8eb;
-  border: 1px solid color-mix(in oklab, var(--world-tint) 34%, transparent);
-  border-radius: 13px;
-  background: rgba(12, 7, 28, 0.8);
-  box-shadow: 0 12px 30px rgba(5, 2, 16, 0.5);
-  font-family: "Adventrya Serif", serif;
-  font-size: 13px;
-  line-height: 1.25;
-  white-space: nowrap;
-  transform: translateX(-50%);
-  transition:
-    opacity 0.2s ease,
-    translate 0.2s cubic-bezier(0.2, 0.75, 0.2, 1),
-    border-color 0.2s ease;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-}
-.world-island-name b {
-  color: var(--world-tint);
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 700;
-}
-.world-island.is-selected .world-island-name {
-  color: #2a1a46;
-  border-color: #f1c970;
-  background: #f1c970;
-  font-weight: 700;
-}
-.world-island.is-selected .world-island-name b {
-  color: #7a5a12;
-}
-/*
-  Where there is a pointer, the label belongs to the island being looked at and appears with it.
-  Where there is none there is no hover to reveal it with, so it stays — six unnamed islands and
-  no way to learn a name short of tapping each one is worse than six labels.
-*/
-@media (hover: hover) {
-  .world-island-name {
-    opacity: 0;
-    translate: 0 -5px;
-    pointer-events: none;
-  }
-  .world-island:hover .world-island-name,
-  .world-island:focus-visible .world-island-name,
-  .world-island.is-focus .world-island-name,
-  .world-island.is-selected .world-island-name {
-    opacity: 1;
-    translate: 0 0;
-  }
-}
-/*
-  "Enter →" is a hint for a hovering cursor. Where every label is on screen at once it is the
-  same three words six times, and it makes each one wide enough to reach its neighbour.
-*/
-@media (hover: none) {
-  .world-island-name b {
-    display: none;
-  }
 }
 
 /* The question: one eyebrow, one line, nothing else. */
@@ -537,6 +398,224 @@
   letter-spacing: -0.02em;
   text-shadow: 0 4px 26px rgba(8, 4, 22, 0.72);
   text-wrap: balance;
+}
+
+/*
+  A pin is a pin. The name of the place is said once, in the panel.
+
+  Both sets of coordinates ride on the element as custom properties and the media query below
+  picks between them. Choosing in JavaScript would mean the server and the browser disagreeing
+  about which layout is in play on the first paint, which is a hydration mismatch — and the one
+  we already paid for once this week.
+*/
+.world-pick-pin {
+  position: absolute;
+  z-index: 9;
+  left: var(--pin-x);
+  top: var(--pin-y);
+  padding: 0;
+  cursor: pointer;
+  border: 0;
+  background: none;
+  transform: translate(-50%, -50%);
+  transition: transform 0.22s cubic-bezier(0.2, 0.75, 0.2, 1);
+}
+.world-pick-pin:hover,
+.world-pick-pin:focus-visible,
+.world-pick-pin.is-focus {
+  transform: translate(-50%, -50%) scale(1.14);
+}
+.world-pick-pin:focus-visible {
+  outline: none;
+}
+/*
+  The badge is a lit gateway, not a bullet point.
+
+  Six identical cream discs said "six things are clickable" and nothing more. Each one is now a
+  lamp in its world's own colour — a well of that colour under glass, a bright rim, and light
+  spilling onto the painting around it. The colour arrives as --world-tint / --world-deep from
+  worldMap.ts, so the whole badge is one rule rather than six.
+*/
+.world-pick-pin-dot {
+  position: relative;
+  z-index: 2;
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--world-tint);
+  border-radius: 50%;
+  /* Near-white, not the tint: a tinted mark on a tinted well is the same colour twice, and at
+     21px the shape stops reading. The tint goes in the glow around it instead. */
+  color: color-mix(in oklab, var(--world-tint) 26%, #fff);
+  background:
+    radial-gradient(circle at 50% 112%, var(--world-tint), transparent 68%),
+    linear-gradient(
+      165deg,
+      color-mix(in oklab, var(--world-tint) 42%, var(--world-deep)),
+      var(--world-deep)
+    );
+  box-shadow:
+    /* the light it throws onto the island */
+    0 0 22px 2px color-mix(in oklab, var(--world-tint) 55%, transparent),
+    0 10px 26px rgba(6, 3, 18, 0.6),
+    /* glass: a highlight along the top rim and a pooled glow at the bottom */ inset 0 1px 1px
+      rgba(255, 255, 255, 0.45),
+    inset 0 -8px 14px -6px var(--world-tint);
+  transition:
+    box-shadow 0.24s ease,
+    border-color 0.24s ease;
+}
+.world-pick-pin-dot svg {
+  width: 25px;
+  height: 25px;
+  stroke-width: 1.8;
+  filter: drop-shadow(0 0 7px color-mix(in oklab, var(--world-tint) 85%, transparent))
+    drop-shadow(0 1px 2px rgba(6, 3, 18, 0.5));
+}
+.world-pick-pin:hover .world-pick-pin-dot,
+.world-pick-pin:focus-visible .world-pick-pin-dot,
+.world-pick-pin.is-focus .world-pick-pin-dot {
+  border-color: color-mix(in oklab, var(--world-tint) 60%, #fff);
+  box-shadow:
+    0 0 34px 6px color-mix(in oklab, var(--world-tint) 70%, transparent),
+    0 12px 30px rgba(6, 3, 18, 0.6),
+    inset 0 1px 1px rgba(255, 255, 255, 0.55),
+    inset 0 -10px 18px -6px var(--world-tint);
+}
+/* Chosen: the lamp is turned all the way up and the icon sits in the light rather than beside it. */
+.world-pick-pin.is-selected .world-pick-pin-dot {
+  color: color-mix(in oklab, var(--world-deep) 72%, #000);
+  border-color: #fff8eb;
+  background:
+    radial-gradient(circle at 50% 116%, #fff, transparent 58%),
+    linear-gradient(165deg, color-mix(in oklab, var(--world-tint) 88%, #fff), var(--world-tint));
+  box-shadow:
+    0 0 0 5px color-mix(in oklab, var(--world-tint) 26%, transparent),
+    0 0 42px 8px color-mix(in oklab, var(--world-tint) 62%, transparent),
+    0 12px 30px rgba(6, 3, 18, 0.55);
+}
+.world-pick-pin.is-selected .world-pick-pin-dot svg {
+  filter: none;
+}
+
+/*
+  Two haloes. The soft one is the light on the painting; the ring is a gateway opening, and it
+  only turns when a world is actually being looked at — a map where all six spin at once is a
+  fairground, and nothing on it stands out.
+*/
+.world-pick-pin-halo {
+  position: absolute;
+  inset: -15px;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in oklab, var(--world-tint) 38%, transparent),
+    transparent 72%
+  );
+  opacity: 0.42;
+  transition: opacity 0.22s ease;
+  animation: world-pin-breathe 3.4s ease-in-out infinite;
+}
+.world-pick-pin-halo:after {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    color-mix(in oklab, var(--world-tint) 85%, transparent) 70deg,
+    transparent 150deg,
+    transparent 360deg
+  );
+  mask: radial-gradient(circle, transparent 63%, #000 66%);
+  opacity: 0;
+  transition: opacity 0.24s ease;
+}
+.world-pick-pin:hover .world-pick-pin-halo,
+.world-pick-pin:focus-visible .world-pick-pin-halo,
+.world-pick-pin.is-focus .world-pick-pin-halo,
+.world-pick-pin.is-selected .world-pick-pin-halo {
+  opacity: 1;
+}
+.world-pick-pin:hover .world-pick-pin-halo:after,
+.world-pick-pin:focus-visible .world-pick-pin-halo:after,
+.world-pick-pin.is-focus .world-pick-pin-halo:after,
+.world-pick-pin.is-selected .world-pick-pin-halo:after {
+  opacity: 1;
+  animation: world-pin-gate 2.6s linear infinite;
+}
+/* Each starts at a different point in the breath so the six do not pulse in lockstep. */
+.first-node-space .world-pick-pin-halo {
+  animation-delay: -0.4s;
+}
+.first-node-airplanes .world-pick-pin-halo {
+  animation-delay: -1.1s;
+}
+.first-node-dinosaurs .world-pick-pin-halo {
+  animation-delay: -1.8s;
+}
+.first-node-animals .world-pick-pin-halo {
+  animation-delay: -2.4s;
+}
+.first-node-pirates .world-pick-pin-halo {
+  animation-delay: -0.8s;
+}
+.first-node-magic .world-pick-pin-halo {
+  animation-delay: -2.9s;
+}
+@keyframes world-pin-breathe {
+  0%,
+  to {
+    transform: scale(0.9);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+@keyframes world-pin-gate {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/*
+  The name under the pin.
+
+  Short, centred, on a dark lozenge so it stays readable over a bright painting. It is set on one
+  line and never wraps: a label that reflows moves the pin's visual centre and the eye loses the
+  place it was looking at.
+*/
+.world-pick-pin-name {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 7px);
+  left: 50%;
+  padding: 3px 10px;
+  color: #fff8eb;
+  border-radius: 999px;
+  background: rgba(14, 8, 32, 0.72);
+  font-family: "Adventrya Serif", serif;
+  font-size: 13px;
+  line-height: 1.25;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.world-pick-pin:hover .world-pick-pin-name,
+.world-pick-pin:focus-visible .world-pick-pin-name,
+.world-pick-pin.is-focus .world-pick-pin-name {
+  background: rgba(14, 8, 32, 0.9);
+}
+.world-pick-pin.is-selected .world-pick-pin-name {
+  color: #2a1a46;
+  background: #f1c970;
+  font-weight: 700;
 }
 
 /* One world at a time, with room to say it properly. */
@@ -604,9 +683,11 @@
 }
 
 /*
-  Beki, the guide. He is the only thing on this screen that talks, and he says one short
-  sentence at a time because a child is listening to it rather than reading it. He sits opposite
-  the panel so the two never fight for the same corner.
+  Beki, the guide.
+
+  He is the only thing on this screen that talks, and he says one short sentence at a time
+  because a child is listening to it rather than reading it. He sits opposite the panel so the
+  two never fight for the same corner: words on the left, the creature who says them on the right.
 */
 .beki-guide {
   position: absolute;
@@ -619,17 +700,40 @@
   pointer-events: none;
 }
 /*
-  Beki carries an alpha channel, so the shadow follows his silhouette rather than a rectangle —
-  the difference between a figure standing in a scene and a picture lying on one. Cut from the
-  canonical art with design/tools/cutout-flat.py.
+  Beki is a real cutout now, so nothing has to be hidden.
+
+  beki.webp is a portrait on its own dark violet backdrop; dropped on the map it read as a
+  photograph taped to the painting, and the elliptical mask that softened the join left a
+  visible bruise of shadow around him. beki-cutout.webp carries an alpha channel, which lets
+  the shadow follow his actual silhouette — the difference between a figure standing in a
+  scene and a picture lying on one.
+
+  Two shadows: a tight dark one that reads as contact, and a wide warm one picking up the
+  golden light the map throws from below, which is what stops him looking pasted on.
 */
 .beki-sprite {
-  width: clamp(90px, 8vw, 124px);
+  width: clamp(96px, 9vw, 132px);
   height: auto;
   filter: drop-shadow(0 6px 10px rgba(6, 3, 18, 0.75)) drop-shadow(0 18px 34px rgba(9, 4, 26, 0.55))
     drop-shadow(0 -2px 16px rgba(255, 198, 112, 0.2));
   animation: beki-float 4.6s ease-in-out infinite;
 }
+/*
+  The pool of light he casts down onto the map. It sits under the sprite rather than on it, so
+  it stays put while he bobs — a shadow that floats with its owner is not a shadow.
+*/
+.beki-guide:after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  right: 6%;
+  bottom: -6px;
+  width: clamp(76px, 7vw, 104px);
+  height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(8, 4, 20, 0.55), transparent 78%);
+}
+/* A small lift when a world is chosen — the one moment he has something to celebrate. */
 .beki-guide.is-chosen .beki-sprite {
   animation-duration: 2.4s;
 }
@@ -666,50 +770,112 @@
 }
 
 /*
+  On a wide screen the label opens sideways, into the empty middle of the painting rather than
+  down onto whatever the island is standing on. Which side is data — see worldMap.ts — because
+  it depends on where the island sits, and that changes when the art does.
+
+  1100px, not the 781px where the desktop layout starts: a sideways label needs horizontal room
+  it does not have on a tablet, where the magic label reached back across the painting and
+  landed on the animals badge. Below that width the labels hang under their pins instead.
+*/
+/*
   The wide layout: a column of words, and the map beside it.
 
   The map used to run the full width with the question laid over its top-left corner, and the
-  question and the upper-left island wanted that corner equally. The words have a column now and
-  the map starts where it ends — which is also the layout in the mockup.
+  question and the upper-left island fought for that corner — at 1024px the space badge landed
+  in the middle of the heading. No amount of nudging fixes that, because it is two things
+  wanting the same place: one of them has to move out of the other's way.
+
+  So the map starts where the column ends. It is still the biggest thing on the screen and it
+  is still uncropped by anything the app draws; it simply has its own territory. The painting
+  is object-fit: cover inside the narrower stage, and the pins are positioned in percentages of
+  that stage, so every pin still lands on its island.
 */
 @media (min-width: 1000px) {
-  /*
-    One number for the column, used by all three things that have to agree about where it ends.
-    They were three separate clamps before, and at 1024px they disagreed by 38px — enough for
-    the heading to reach past the edge of its own column and into the map, where the first
-    island's label was waiting.
-  */
-  .world-pick {
-    --map-column: clamp(320px, 31%, 440px);
-  }
   .world-pick-stage {
-    left: var(--map-column);
+    left: clamp(320px, 31%, 440px);
   }
   /* A soft seam rather than a hard edge, so the column reads as the same night as the map. */
   .world-pick-stage:before {
     content: "";
     position: absolute;
-    z-index: 7;
+    z-index: 4;
     inset: 0 auto 0 0;
     width: 90px;
     background: linear-gradient(90deg, #0c071f, transparent);
     pointer-events: none;
   }
   .world-pick-ask {
-    max-width: calc(var(--map-column) - 70px);
+    max-width: clamp(272px, 31%, 392px);
     margin-top: clamp(10px, 3vh, 34px);
   }
   .world-pick-panel {
-    width: calc(var(--map-column) - 70px);
+    width: clamp(272px, calc(31% - 40px), 392px);
   }
 }
 
 /*
-  Below the wide layout the question sits above the map instead of on it, the same stacking a
-  phone gets: there is not enough width to put words beside the map, and putting them on top of
-  it means landing on an island.
+  Sideways labels, but only once the map itself is wide enough for them.
+
+  1340px of window, not 1000px: the map is no longer the window. It is the window minus the
+  column, so at 1024px the stage is about 700px across and a label reaching inward from the
+  right edge arrives at the label reaching outward from the left. What matters is the width of
+  the stage, and this is the window width at which it clears 900px.
+*/
+@media (min-width: 1340px) {
+  .world-pick-pin[data-side="left"] .world-pick-pin-name {
+    top: 50%;
+    left: calc(100% + 9px);
+    transform: translateY(-50%);
+  }
+  .world-pick-pin[data-side="right"] .world-pick-pin-name {
+    top: 50%;
+    right: calc(100% + 9px);
+    left: auto;
+    transform: translateY(-50%);
+  }
+}
+
+/*
+  The phone gets the portrait coordinates, because the phone is where <picture> switches to the
+  portrait painting. These two breakpoints have to stay equal to each other: coordinates for one
+  painting used against the other put every pin in the wrong place.
+*/
+@media (max-width: 780px) {
+  .world-pick-pin {
+    left: var(--pin-x-tall);
+    top: var(--pin-y-tall);
+  }
+  .first-map-focus {
+    background: radial-gradient(
+      circle at var(--focus-x-tall, 50%) var(--focus-y-tall, 50%),
+      color-mix(in oklab, var(--focus-tint, #ffd68a) 52%, transparent),
+      transparent 22%
+    );
+  }
+}
+
+/*
+  Below the wide layout, the question sits above the map instead of on it — the same stacking a
+  phone gets, because the reason is the same: there is not enough width to put words beside the
+  map, and putting them on top of it means landing on an island.
 */
 @media (max-width: 999px) {
+  /*
+    Beki shrinks and moves to the bottom-left corner of the map — the open book, the one part
+    of the painting no pin sits on. At the top right, which is where the reference puts him,
+    he stood on the airplanes pin: six pins in a portrait crop leave the top corners busy and
+    the bottom empty. Sprite first, bubble to its right, so the bubble opens into the map
+    rather than off the left edge.
+  */
+  /*
+    On a phone the panel stops floating and the map ends where it begins.
+
+    A panel laid over a full-bleed map always covers part of that map, and here it covered the
+    lower pins — including, more often than not, the one just chosen, so the map stopped showing
+    the answer the moment it was given. Stacking them costs nothing: the map still takes every
+    pixel that is not the header, the question or the panel.
+  */
   .world-pick {
     display: flex;
     flex-direction: column;
@@ -727,6 +893,7 @@
     margin-right: 18px;
     padding-bottom: 10px;
   }
+  /* Compact: the panel takes screen the map would otherwise have. */
   .world-pick-panel {
     position: relative;
     order: 3;
@@ -751,11 +918,33 @@
     -webkit-line-clamp: 2;
     font-size: 12px;
   }
-  .world-island-name {
-    padding: 4px 9px;
-    font-size: 11.5px;
+  .world-pick-pin-dot {
+    width: 40px;
+    height: 40px;
+    font-size: 15px;
   }
-  /* Beki moves to the bottom-left, clear of the panel that now sits below the map. */
+  .world-pick-pin-name {
+    top: calc(100% + 5px);
+    padding: 2px 8px;
+    font-size: 11px;
+  }
+}
+
+/*
+  Wherever the label hangs under its pin rather than beside it.
+
+  The two pins nearest the right edge sit at 83% and 85%, so a centred label under them hangs
+  off the screen. They hang from their right edge instead, which keeps the whole name on screen.
+*/
+/*
+  Beki moves to the bottom-left of the map wherever the labels hang under their pins.
+
+  He belongs in the bottom-right corner — it is the far side from the panel and it is the part
+  of the painting with the fewest landmarks — but that corner is also where the magic island's
+  label falls once it hangs under its badge rather than beside it. The bottom-left is the open
+  book: no pin stands there in either painting. Sprite first, bubble opening right into the map.
+*/
+@media (max-width: 1339px) {
   .beki-guide {
     right: auto;
     bottom: 6px;
@@ -763,121 +952,30 @@
     flex-direction: row-reverse;
   }
   .beki-sprite {
-    width: clamp(70px, 8vw, 96px);
+    width: clamp(74px, 8vw, 104px);
   }
+  /* Flush with the bottom of the group, which clears the lowest pin label above it. */
   .beki-bubble {
-    max-width: min(42vw, 220px);
+    max-width: min(42vw, 230px);
     margin: 0;
     padding: 8px 11px;
     border-radius: 14px 14px 14px 4px;
     font-size: 11.5px;
   }
-}
 
-/*
-  The awkward middle, with an arrangement of its own.
-
-  A window between the two layouts is wide but leaves the map band about 280px tall. The desktop
-  spread does not fit in that: two rows of islands sized from the stage width came out 190px
-  each and sat on top of each other, and shrinking them until they fitted left six thumbnails
-  and no map. So this band gets its own row of numbers - one line of six across a shallow arc,
-  which is what the shape it actually has is good for.
-
-  The label sits on its island rather than under it, because under it is where the book is.
-*/
-@media (min-width: 781px) and (max-width: 999px) {
-  .world-island {
-    left: var(--pin-x-mid);
-    top: var(--pin-y-mid);
-    width: var(--pin-w-mid);
-  }
-  .world-map-book {
-    left: var(--book-x-mid);
-    top: var(--book-y-mid);
-    width: var(--book-w-mid);
-  }
-  .first-map-focus {
-    background: radial-gradient(
-      circle at var(--focus-x-mid, 50%) var(--focus-y-mid, 50%),
-      color-mix(in oklab, var(--focus-tint, #ffd68a) 46%, transparent),
-      transparent 20%
-    );
-  }
-  .routes-wide {
-    display: none;
-  }
-  .routes-mid {
-    display: block;
-  }
-  .world-island-name {
-    top: auto;
-    bottom: 2px;
-    padding: 3px 8px;
-    font-size: 11px;
-  }
-  /*
-    An island is 120px wide here and the name plus "Enter →" is nearly 170, so the label reached
-    across its neighbours on both sides. The hint goes, as it does on a phone and for the same
-    reason: it is the part that is nice to have, and the name is the part that is needed.
-  */
-  .world-island-name b {
-    display: none;
-  }
-  /* The row leaves the bottom corners open, which is the one place Beki can stand here. */
-  .beki-guide {
-    right: 8px;
+  .world-pick-pin.first-node-airplanes .world-pick-pin-name,
+  .world-pick-pin.first-node-magic .world-pick-pin-name {
     left: auto;
-    bottom: 6px;
-    flex-direction: row;
+    right: -6px;
+    transform: none;
   }
-  .beki-sprite {
-    width: 72px;
-  }
-  .beki-bubble {
-    max-width: 190px;
-    margin-bottom: 8px;
+  /* --label-drop separates the pair the painting put on the same line. See worldMap.ts. */
+  .world-pick-pin .world-pick-pin-name {
+    top: calc(100% + 7px + var(--label-drop, 0px));
   }
 }
-
-/* The phone arrangement: a trail down the page rather than a spread across it. */
 @media (max-width: 780px) {
-  .world-island {
-    left: var(--pin-x-tall);
-    top: var(--pin-y-tall);
-    width: var(--pin-w-tall);
-  }
-  .world-map-book {
-    left: var(--book-x-tall);
-    top: var(--book-y-tall);
-    width: var(--book-w-tall);
-  }
-  .first-map-focus {
-    background: radial-gradient(
-      circle at var(--focus-x-tall, 50%) var(--focus-y-tall, 50%),
-      color-mix(in oklab, var(--focus-tint, #ffd68a) 46%, transparent),
-      transparent 26%
-    );
-  }
-  .routes-wide {
-    display: none;
-  }
-  .routes-tall {
-    display: block;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .first-map-stars i,
-  .first-map-focus,
-  .first-route-active,
-  .world-island-glow,
-  .beki-sprite,
-  .beki-bubble {
-    animation: none !important;
-    transition-duration: 0.01ms !important;
-  }
-  /* The pointer drift is the whole point of this one, so it goes rather than slows. */
-  .world-island-art {
-    translate: none;
+  .world-pick-pin .world-pick-pin-name {
+    top: calc(100% + 5px + var(--label-drop-tall, 0px));
   }
 }
