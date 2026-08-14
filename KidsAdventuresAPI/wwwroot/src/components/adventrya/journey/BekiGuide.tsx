@@ -33,7 +33,7 @@ export function BekiGuide({ mood, peekTheme }: Props) {
   const copy = useT().journey.firstMap.beki;
   const line =
     mood === "chosen"
-      ? copy.chosen
+      ? copy.chosen(peekTheme ?? "")
       : mood === "peek" && peekTheme
         ? copy.peek(peekTheme)
         : copy.greeting;

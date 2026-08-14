@@ -71,14 +71,16 @@ export const journey = {
   },
 
   firstMap: {
-    eyebrow: "STORY PATH · first gateway",
+    title: "Choose your story",
+    eyebrow: "Beki's path · first gateway",
     creating: "You are creating the first adventure",
     titlePrefix: "Where will ",
     titleSuffix: "'s great world begin?",
-    guidance:
-      "Tap a world on the map. It becomes the first place to open, and the path to every later book starts there.",
+    guidance: "Tap the world you love — Beki will light the way.",
+    letBekiChoose: "Let Beki choose",
+    bekiChoosing: "Beki is choosing…",
     selectedHeading: "Chosen world and wish",
-    emptySelection: "Pick the world where the first adventure begins",
+    emptySelection: "Tap a world — that’s where your story begins.",
     emptyGlyph: "World 0",
     selected: "Selected",
     activate: "Bring it to life",
@@ -91,11 +93,13 @@ export const journey = {
       "For example: a favourite toy, a particular goal, or a detail you would like to see in the story.",
     /* The world is chosen first now, so this leads to the child's details, not to the preview. */
     continue: "Meet the little hero",
+    continueTo: (place: string) => `Let's go to ${place}!`,
     /* Beki says one short line at a time. A child is listening, not reading. */
     beki: {
       greeting: "Hello! I'm Beki — your guide.",
       peek: (theme: string) => `${theme}? Good choice.`,
-      chosen: "Wonderful. Come, let's meet the hero.",
+      chosen: (place: string) => `Wonderful. ${place} is waiting for us!`,
+      chosenByBeki: (place: string) => `I choose ${place}! Let's begin there.`,
       alt: "Beki, your guide",
     },
   },

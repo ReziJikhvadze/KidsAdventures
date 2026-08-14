@@ -1,5 +1,5 @@
 import { ArrowRight, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 
 import { AppHeader } from "@/components/adventrya/AppHeader";
@@ -7,13 +7,18 @@ import { StoryPathMap } from "@/components/adventrya/world/StoryPathMap";
 import { ApiError } from "@/lib/api/client";
 import { listCharacters } from "@/lib/api/characters";
 import type { AdventureMapResponse, CharacterResponse } from "@/lib/api/types";
-import { getAdventureMap } from "@/lib/api/worlds";
+import { getAdventureMap, listAdventureMaps } from "@/lib/api/worlds";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { continueHrefFromMap, firstJourneyHref } from "@/lib/continue";
 import { useT } from "@/lib/i18n";
 import { useWorldById, isWorldId, type WorldId } from "@/lib/worlds";
 
-export function ChildWorldScreen() {
+type ChildWorldScreenProps = {
+  /** The just-finished book, supplied by the reader through the transient URL query. */
+  celebrationBookId?: string;
+};
+
+export function ChildWorldScreen({ celebrationBookId }: ChildWorldScreenProps) {
   const WORLD_BY_ID = useWorldById();
   const t = useT();
   const navigate = useNavigate();
@@ -22,8 +27,11 @@ export function ChildWorldScreen() {
   const [characterId, setCharacterId] = useState<string | null>(null);
   const [map, setMap] = useState<AdventureMapResponse | null>(null);
   const [activeWorldId, setActiveWorldId] = useState<string | null>(null);
+  const [celebrationWorldId, setCelebrationWorldId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const initialCelebrationBookId = useRef(celebrationBookId);
+  const consumedCelebrationBookId = useRef<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -34,21 +42,41 @@ export function ChildWorldScreen() {
     }
 
     let cancelled = false;
-    void listCharacters()
-      .then((rows) => {
+    void (async () => {
+      try {
+        const rows = await listCharacters();
         if (cancelled) return;
         const kids = rows.filter((c) => c.characterType === "child" || c.isPrimary);
         const list = kids.length ? kids : rows;
         setCharacters(list);
         const primary = list.find((c) => c.isPrimary) ?? list[0] ?? null;
-        setCharacterId(primary?.id ?? null);
-      })
-      .catch((err) => {
+        let selectedCharacterId = primary?.id ?? null;
+
+        // A family can have more than one child. Find the finished book's owner before
+        // selecting the default hero, so a sibling's map can receive its earned celebration.
+        const handoffBookId = initialCelebrationBookId.current;
+        if (handoffBookId) {
+          const maps = await listAdventureMaps().catch(() => null);
+          if (cancelled) return;
+          const eligibleCharacterIds = new Set(list.map((character) => character.id));
+          const mapWithCompletedBook = maps?.find(
+            (candidate) =>
+              eligibleCharacterIds.has(candidate.characterId) &&
+              candidate.worlds.some(
+                (node) => node.state === "Completed" && node.bookId === handoffBookId,
+              ),
+          );
+          selectedCharacterId = mapWithCompletedBook?.characterId ?? selectedCharacterId;
+        }
+
+        setCharacterId(selectedCharacterId);
+      } catch (err) {
         if (!cancelled) {
           setError(err instanceof ApiError ? err.message : "პერსონაჟები ვერ ჩაიტვირთა.");
           setLoading(false);
         }
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
@@ -86,6 +114,26 @@ export function ChildWorldScreen() {
       cancelled = true;
     };
   }, [characterId, isAuthenticated]);
+
+  useEffect(() => {
+    if (!celebrationBookId || !map || consumedCelebrationBookId.current === celebrationBookId) {
+      return;
+    }
+
+    // The query is deliberately only a hint. The authenticated map response owns progress,
+    // so a guessed or stale book id cannot select or celebrate an unrelated world.
+    const completedNode = map.worlds.find(
+      (node) => node.state === "Completed" && node.bookId === celebrationBookId,
+    );
+    if (!completedNode) return;
+
+    consumedCelebrationBookId.current = celebrationBookId;
+    setActiveWorldId(completedNode.worldId);
+    setCelebrationWorldId(completedNode.worldId);
+
+    // Keep the handoff ephemeral: preserving it would replay the celebration after a refresh.
+    void navigate({ to: "/world", search: { bookId: undefined }, replace: true });
+  }, [celebrationBookId, map, navigate]);
 
   const character = characters.find((c) => c.id === characterId) ?? null;
   const heroName = map?.characterName || character?.name || t.common.fallbackHeroName;
@@ -245,7 +293,12 @@ export function ChildWorldScreen() {
 
       <div className="living-map living-map-v2">
         {map ? (
-          <StoryPathMap map={map} activeWorldId={activeWorldId} onSelect={setActiveWorldId} />
+          <StoryPathMap
+            map={map}
+            activeWorldId={activeWorldId}
+            celebrationWorldId={celebrationWorldId}
+            onSelect={setActiveWorldId}
+          />
         ) : null}
       </div>
     </div>

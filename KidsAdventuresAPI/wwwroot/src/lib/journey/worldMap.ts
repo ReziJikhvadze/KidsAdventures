@@ -16,10 +16,18 @@ import type { WorldId } from "@/lib/worlds";
 /** Landscape art for wide screens, portrait art for phones. */
 export type MapLayout = "wide" | "tall";
 
+export interface MapPoint {
+  x: number;
+  y: number;
+}
+
 export interface WorldAnchor {
   /** Percent across and down the painting, at the world's lit gateway. */
   x: number;
   y: number;
+  /** Generous interactive destination area, as a percentage of the painting. */
+  hitWidth: number;
+  hitHeight: number;
   /**
    * Which way the label opens. Islands on the left of the painting open right, into the
    * empty middle; islands on the right open left. A label that opened outward would run
@@ -34,46 +42,69 @@ export interface WorldAnchor {
    * with the rest of what the painting decided — and it is one number to revisit when the art
    * changes, rather than a media query to rediscover.
    */
-  drop?: number;
 }
 
 export interface MapArt {
-  /** One painting per layout. The phone is not a crop of the desktop: see the brief. */
+  /** PNG fallback for the two illustrations. */
   src: Record<MapLayout, string>;
+  /** High-quality, compact primary source for modern browsers. */
+  optimizedSrc: Record<MapLayout, string>;
   anchors: Record<MapLayout, Record<WorldId, WorldAnchor>>;
+  /** Beki's lantern: the starting point for guide and selection light. */
+  origin: Record<MapLayout, MapPoint>;
+  /** Separate hand-tuned light trails keep both illustrations visually truthful. */
+  routes: Record<MapLayout, Record<WorldId, string>>;
 }
 
 export const WORLD_MAP: MapArt = {
   src: {
-    wide: "/adventrya/adventrya-world-map.png",
-    tall: "/adventrya/adventrya-world-map.png",
+    wide: "/adventrya/adventrya-world-map-portals-wide.png",
+    tall: "/adventrya/adventrya-world-map-portals-tall.png",
+  },
+  optimizedSrc: {
+    wide: "/adventrya/adventrya-world-map-portals-wide.jpg",
+    tall: "/adventrya/adventrya-world-map-portals-tall.jpg",
   },
   anchors: {
     wide: {
-      space: { x: 43.5, y: 20, side: "left" },
-      airplanes: { x: 83, y: 20, side: "right" },
-      dinosaurs: { x: 24, y: 48, side: "left" },
-      pirates: { x: 69, y: 43, side: "right" },
-      animals: { x: 61, y: 66, side: "right" },
-      // Two percent below animals and twenty-four across: same line, touching labels.
-      magic: { x: 85, y: 68, side: "right", drop: 26 },
+      dinosaurs: { x: 17.5, y: 31, hitWidth: 24, hitHeight: 34, side: "left" },
+      space: { x: 40.2, y: 30.8, hitWidth: 20, hitHeight: 34, side: "left" },
+      airplanes: { x: 59.4, y: 30, hitWidth: 19, hitHeight: 34, side: "right" },
+      pirates: { x: 81.6, y: 31, hitWidth: 24, hitHeight: 35, side: "right" },
+      animals: { x: 16.2, y: 69.5, hitWidth: 27, hitHeight: 29, side: "left" },
+      magic: { x: 82.1, y: 69.8, hitWidth: 27, hitHeight: 30, side: "right" },
     },
     tall: {
-      space: { x: 43.5, y: 20, side: "left" },
-      airplanes: { x: 83, y: 20, side: "right" },
-      dinosaurs: { x: 24, y: 48, side: "left" },
-      pirates: { x: 69, y: 43, side: "right" },
-      animals: { x: 61, y: 66, side: "right" },
-      // Two percent below animals and twenty-four across: same line, touching labels.
-      magic: { x: 85, y: 68, side: "right", drop: 26 },
+      space: { x: 29.6, y: 20.3, hitWidth: 39, hitHeight: 25, side: "left" },
+      airplanes: { x: 69.7, y: 19.7, hitWidth: 38, hitHeight: 25, side: "right" },
+      dinosaurs: { x: 28, y: 45, hitWidth: 40, hitHeight: 22, side: "left" },
+      pirates: { x: 77.3, y: 45.7, hitWidth: 39, hitHeight: 22, side: "right" },
+      animals: { x: 27, y: 69, hitWidth: 42, hitHeight: 21, side: "left" },
+      magic: { x: 76.6, y: 69, hitWidth: 41, hitHeight: 21, side: "right" },
     },
   },
-};
-
-/** Where the golden path begins — the child's feet, in the same percentages. */
-export const MAP_ORIGIN: Record<MapLayout, { x: number; y: number }> = {
-  wide: { x: 43, y: 80 },
-  tall: { x: 43, y: 80 },
+  origin: {
+    wide: { x: 46.3, y: 71.5 },
+    tall: { x: 54, y: 82.5 },
+  },
+  routes: {
+    wide: {
+      dinosaurs: "M46.3 71.5 C42 59 29 45 17.5 31",
+      space: "M46.3 71.5 C46 56 44 42 40.2 30.8",
+      airplanes: "M46.3 71.5 C51 56 57 42 59.4 30",
+      pirates: "M46.3 71.5 C58 60 74 48 81.6 31",
+      animals: "M46.3 71.5 C38 65 27 67 16.2 69.5",
+      magic: "M46.3 71.5 C57 64 71 65 82.1 69.8",
+    },
+    tall: {
+      dinosaurs: "M54 82.5 C46 70 35 58 28 45",
+      space: "M54 82.5 C48 61 39 37 29.6 20.3",
+      airplanes: "M54 82.5 C59 60 65 36 69.7 19.7",
+      pirates: "M54 82.5 C61 70 71 57 77.3 45.7",
+      animals: "M54 82.5 C47 76 36 71 27 69",
+      magic: "M54 82.5 C61 76 70 71 76.6 69",
+    },
+  },
 };
 
 /**
@@ -90,14 +121,13 @@ export const MAP_ORIGIN: Record<MapLayout, { x: number; y: number }> = {
  */
 export interface WorldTint {
   tint: string;
-  deep: string;
 }
 
 export const WORLD_TINT: Record<WorldId, WorldTint> = {
-  space: { tint: "#a889ff", deep: "#3a2470" },
-  airplanes: { tint: "#67b6ff", deep: "#173a72" },
-  dinosaurs: { tint: "#f0b64a", deep: "#5a3a12" },
-  animals: { tint: "#6fd07a", deep: "#1c4a28" },
-  pirates: { tint: "#4fd6e0", deep: "#10464f" },
-  magic: { tint: "#ffa24a", deep: "#6a2f10" },
+  space: { tint: "#a889ff" },
+  airplanes: { tint: "#67b6ff" },
+  dinosaurs: { tint: "#f0b64a" },
+  animals: { tint: "#6fd07a" },
+  pirates: { tint: "#4fd6e0" },
+  magic: { tint: "#ffa24a" },
 };

@@ -14,6 +14,8 @@ export interface AppHeaderProps {
   /** Highlights the "child world" nav link and switches the header to its dark variant. */
   worldMode?: boolean;
   activeLink?: "home" | "themes" | "world";
+  /** Strip account and brand controls from a child-facing, immersive step. */
+  minimal?: boolean;
 }
 
 function splitHref(href: string): { to: string; hash?: string } {
@@ -31,6 +33,7 @@ export function AppHeader({
   progressValue = 0,
   worldMode = false,
   activeLink,
+  minimal = false,
 }: AppHeaderProps) {
   const t = useT();
   const { isAuthenticated, logout, user } = useAuth();
@@ -46,7 +49,9 @@ export function AppHeader({
     (user?.displayName?.trim() || user?.email?.trim() || "").charAt(0).toUpperCase() || "A";
 
   return (
-    <header className={`app-header ${worldMode ? "app-header-world" : ""}`}>
+    <header
+      className={`app-header ${worldMode ? "app-header-world" : ""}${minimal ? " app-header-minimal" : ""}`}
+    >
       <div className="app-header-start">
         {/*
           Labelled rather than a bare arrow: on the create journey this is the only way
@@ -62,9 +67,11 @@ export function AppHeader({
           <ArrowLeft aria-hidden="true" />
           <span>{t.common.actions.backLink}</span>
         </Link>
-        <Link className="wordmark wordmark-small" to="/">
-          ADVENTRYA
-        </Link>
+        {!minimal ? (
+          <Link className="wordmark wordmark-small" to="/">
+            ADVENTRYA
+          </Link>
+        ) : null}
       </div>
 
       {progressLabel ? (
@@ -97,23 +104,25 @@ export function AppHeader({
           chevron={<ChevronDown />}
           labelStyle="short"
         />
-        <Link className="child-pill" to="/dashboard" aria-label={t.common.nav.openDashboard}>
-          <span className="child-avatar" aria-hidden="true">
-            {parentInitial}
-          </span>
-          <span>
-            <small>Parent Dashboard</small>
-            {t.common.nav.myFamily}
-          </span>
-          <ChevronRight />
-        </Link>
+        {!minimal ? (
+          <Link className="child-pill" to="/dashboard" aria-label={t.common.nav.openDashboard}>
+            <span className="child-avatar" aria-hidden="true">
+              {parentInitial}
+            </span>
+            <span>
+              <small>Parent Dashboard</small>
+              {t.common.nav.myFamily}
+            </span>
+            <ChevronRight />
+          </Link>
+        ) : null}
 
         {/*
           Sign out was only ever in the marketing header, so once a parent was inside
           the app there was no way out of the session at all. That matters most on a
           shared device, which is exactly where these screens get used.
         */}
-        {isAuthenticated ? (
+        {isAuthenticated && !minimal ? (
           <button
             type="button"
             className="icon-button"

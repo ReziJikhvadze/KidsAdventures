@@ -1,5 +1,5 @@
 import { Check, Compass, Sparkles } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { WorldIcon } from "@/components/adventrya/landing/icons";
 import { useCenterMapNode } from "@/lib/hooks/useCenterMapNode";
@@ -10,6 +10,8 @@ import { STORY_MAP_ROUTES, useWorldById, WORLD_IDS, isWorldId, type WorldId } fr
 export type StoryPathMapProps = {
   map: AdventureMapResponse;
   activeWorldId: string | null;
+  /** A server-verified world that has just been opened by the finished reader flow. */
+  celebrationWorldId?: string | null;
   onSelect: (worldId: string) => void;
   compact?: boolean;
   className?: string;
@@ -93,6 +95,7 @@ function MapMotion({ activeId }: { activeId: string | null }) {
 export function StoryPathMap({
   map,
   activeWorldId,
+  celebrationWorldId = null,
   onSelect,
   compact = false,
   className = "",
@@ -101,6 +104,8 @@ export function StoryPathMap({
   const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [celebratingId, setCelebratingId] = useState<string | null>(celebrationWorldId);
+  const celebratedWorldIds = useRef(new Set<string>());
   const emphasizedId = hoveredId ?? activeWorldId;
   const childName = map.characterName || t.common.fallbackHeroName;
   const unlockedCount = map.worlds.filter(
@@ -127,6 +132,22 @@ export function StoryPathMap({
   const memory = memoryCopy(WORLD_BY_ID, activeNode, worldIdForCopy);
 
   useCenterMapNode(scrollRef, `[data-world-id="${activeId}"]`, activeId);
+
+  // The handoff only happens once per mounted map. Parent state can keep the selected node
+  // after the query is removed without replaying the entrance animation on a later re-render.
+  useEffect(() => {
+    if (!celebrationWorldId || celebratedWorldIds.current.has(celebrationWorldId)) return;
+    celebratedWorldIds.current.add(celebrationWorldId);
+    setCelebratingId(celebrationWorldId);
+  }, [celebrationWorldId]);
+
+  useEffect(() => {
+    if (!celebratingId) return;
+    const timer = window.setTimeout(() => {
+      setCelebratingId((current) => (current === celebratingId ? null : current));
+    }, 1600);
+    return () => window.clearTimeout(timer);
+  }, [celebratingId]);
 
   return (
     <section
@@ -209,11 +230,12 @@ export function StoryPathMap({
             const world = WORLD_BY_ID[id];
             const selected = activeId === id;
             const emphasized = emphasizedId === id;
+            const celebrating = celebratingId === id;
             return (
               <button
                 key={id}
                 type="button"
-                className={`story-world-node story-node-${id} is-${visual} ${selected ? "is-selected" : ""} ${emphasized ? "is-emphasized" : ""}`}
+                className={`story-world-node story-node-${id} is-${visual} ${selected ? "is-selected" : ""} ${emphasized ? "is-emphasized" : ""} ${celebrating ? "is-celebrating" : ""}`}
                 data-world-id={id}
                 aria-pressed={selected}
                 aria-label={`${world.mapTitle}. ${world.chapter}`}

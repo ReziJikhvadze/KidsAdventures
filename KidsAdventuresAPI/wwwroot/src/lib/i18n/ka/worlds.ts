@@ -8,6 +8,7 @@
 export const worlds = {
   dinosaurs: {
     theme: "დინოზავრები",
+    mapLabel: "რექსის ხეობა",
     place: "დაკარგული ხეობა",
     into: "დინოზავრების სამყაროში",
     mapTitle: "დაკარგული დინოზავრების ხეობა",
@@ -23,6 +24,7 @@ export const worlds = {
   },
   space: {
     theme: "კოსმოსი",
+    mapLabel: "ვარსკვლავების გზა",
     place: "ვარსკვლავების გზა",
     into: "კოსმოსში",
     mapTitle: "დაკარგული ვარსკვლავის გზა",
@@ -37,6 +39,7 @@ export const worlds = {
   },
   pirates: {
     theme: "მეკობრეები",
+    mapLabel: "საიდუმლო კუნძული",
     place: "მბრწყინავი კუნძული",
     into: "მეკობრეების სამყაროში",
     mapTitle: "მბრწყინავი კუნძულის საიდუმლო",
@@ -51,6 +54,7 @@ export const worlds = {
   },
   animals: {
     theme: "ცხოველები",
+    mapLabel: "მეგობრების ტყე",
     place: "მოჯადოებული ტყე",
     into: "ცხოველების სამყაროში",
     mapTitle: "მოჯადოებული ტყის მეგობრები",
@@ -65,6 +69,7 @@ export const worlds = {
   },
   airplanes: {
     theme: "თვითმფრინავები",
+    mapLabel: "ღრუბლების ქალაქი",
     place: "ღრუბლების ქალაქი",
     into: "თვითმფრინავების სამყაროში",
     mapTitle: "ღრუბლებს მიღმა დამალული ქალაქი",
@@ -79,6 +84,7 @@ export const worlds = {
   },
   magic: {
     theme: "მაგიური სამყარო",
+    mapLabel: "სინათლის კარიბჭე",
     place: "სინათლის ქალაქი",
     into: "მაგიურ სამყაროში",
     mapTitle: "სინათლის ქალაქის კარიბჭე",

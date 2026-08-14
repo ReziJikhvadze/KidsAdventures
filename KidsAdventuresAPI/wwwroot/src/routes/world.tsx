@@ -4,7 +4,17 @@ import { ChildWorldScreen } from "@/components/adventrya/world/ChildWorldScreen"
 import { BRAND_NAME } from "@/lib/brand";
 import { buildPageMeta } from "@/lib/seo";
 
+type WorldSearch = {
+  bookId?: string;
+};
+
 export const Route = createFileRoute("/world")({
+  // `bookId` is a short-lived handoff from the finished reader. It is never trusted as
+  // progress data: ChildWorldScreen only uses it after the map API confirms that this
+  // child's completed node belongs to the book.
+  validateSearch: (search: Record<string, unknown>): WorldSearch => ({
+    bookId: typeof search.bookId === "string" ? search.bookId : undefined,
+  }),
   head: () => {
     const { meta, links } = buildPageMeta({
       title: `ბავშვის სამყარო — ${BRAND_NAME}`,
@@ -15,5 +25,10 @@ export const Route = createFileRoute("/world")({
     });
     return { meta, links };
   },
-  component: ChildWorldScreen,
+  component: WorldRoute,
 });
+
+function WorldRoute() {
+  const { bookId } = Route.useSearch();
+  return <ChildWorldScreen celebrationBookId={bookId} />;
+}

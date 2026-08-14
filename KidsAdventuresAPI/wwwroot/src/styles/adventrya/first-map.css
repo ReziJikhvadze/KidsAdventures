@@ -1,5 +1,7 @@
 .first-map-painting,
 .first-map-vignette,
+.first-map-aurora,
+.first-map-mist,
 .first-map-focus,
 .first-map-stars {
   position: absolute;
@@ -12,7 +14,7 @@
   A background-image cannot be art-directed that way; it can only be cropped, and cropping a
   landscape scene to a 9:16 phone throws away the two islands at its edges.
 */
-.world-pick-stage picture {
+.world-pick-map picture {
   display: contents;
 }
 .first-map-painting {
@@ -46,6 +48,297 @@
       rgba(8, 4, 23, 0.38)
     ),
     radial-gradient(circle at 58% 47%, transparent 35%, rgba(11, 5, 29, 0.38) 100%);
+}
+/* A slow aurora and foreground mist make the map feel like a place rather than a poster. */
+.first-map-aurora {
+  z-index: -3;
+  opacity: 0.36;
+  background:
+    radial-gradient(ellipse 42% 30% at 72% 4%, rgba(125, 101, 255, 0.42), transparent 72%),
+    radial-gradient(ellipse 36% 24% at 28% 16%, rgba(255, 194, 102, 0.23), transparent 70%);
+  mix-blend-mode: screen;
+  animation: first-map-aurora-shift 14s ease-in-out infinite alternate;
+}
+.first-map-mist {
+  z-index: 2;
+  overflow: hidden;
+}
+.first-map-mist i {
+  position: absolute;
+  width: 44%;
+  height: 18%;
+  border-radius: 50%;
+  opacity: 0.18;
+  background: radial-gradient(ellipse, rgba(240, 224, 255, 0.44), transparent 68%);
+  filter: blur(10px);
+  animation: first-map-mist-drift 18s ease-in-out infinite alternate;
+}
+.first-map-mist i:nth-child(1) {
+  left: 5%;
+  top: 44%;
+}
+.first-map-mist i:nth-child(2) {
+  right: 4%;
+  top: 28%;
+  animation-delay: -7s;
+}
+.first-map-mist i:nth-child(3) {
+  left: 35%;
+  bottom: 2%;
+  animation-delay: -11s;
+}
+.first-map-guide-origin {
+  position: absolute;
+  z-index: 5;
+  left: var(--origin-x);
+  top: var(--origin-y);
+  width: 34px;
+  height: 34px;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+.first-map-guide-origin:before,
+.first-map-guide-origin i {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  content: "";
+}
+.first-map-guide-origin:before {
+  border: 1px solid rgba(255, 231, 158, 0.82);
+  box-shadow: 0 0 20px 5px rgba(255, 198, 93, 0.44);
+  animation: first-map-origin-breathe 2.5s ease-in-out infinite;
+}
+.first-map-guide-origin i {
+  inset: 9px;
+  background: #fff0b3;
+  box-shadow: 0 0 16px 5px #ffc563;
+}
+.first-map-discovery {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  pointer-events: none;
+}
+.first-map-discovery i {
+  position: absolute;
+  left: var(--guide-x);
+  top: var(--guide-y);
+  width: clamp(36px, 3.8vw, 62px);
+  height: clamp(36px, 3.8vw, 62px);
+  border: 1px solid rgba(255, 242, 184, 0.88);
+  border-radius: 50%;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.5);
+  box-shadow: 0 0 30px 8px rgba(255, 203, 101, 0.38);
+  animation: first-map-discovery-beacon 4.32s ease-out infinite;
+  animation-delay: var(--guide-delay);
+}
+.first-map-selection-route {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.first-map-selection-route-tall {
+  display: none;
+}
+.first-map-selection-route path {
+  fill: none;
+  stroke: #fff0b3;
+  stroke-width: 0.76;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  filter: drop-shadow(0 0 4px #ffc55f) drop-shadow(0 0 12px rgba(255, 209, 113, 0.86));
+  animation: first-map-route-draw 0.84s cubic-bezier(0.22, 0.8, 0.24, 1) forwards;
+}
+@keyframes first-map-aurora-shift {
+  to {
+    transform: scale(1.14) translate3d(-2%, 2%, 0);
+    opacity: 0.58;
+  }
+}
+@keyframes first-map-mist-drift {
+  to {
+    transform: translate3d(12%, -7%, 0) scale(1.12);
+    opacity: 0.3;
+  }
+}
+@keyframes first-map-origin-breathe {
+  0%,
+  to {
+    opacity: 0.35;
+    transform: scale(0.72);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.28);
+  }
+}
+@keyframes first-map-discovery-beacon {
+  0%,
+  58%,
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.54);
+  }
+  12% {
+    opacity: 0.9;
+  }
+  30% {
+    opacity: 0.45;
+    transform: translate(-50%, -50%) scale(1.18);
+  }
+}
+@keyframes first-map-route-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+/* A different kind of magic for every portal. The effect exists only while a portal is active. */
+.first-map-theme-fx {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.first-map-theme-fx i {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  opacity: 0;
+}
+.first-map-theme-fx i:nth-child(1) {
+  left: 15%;
+  top: 44%;
+}
+.first-map-theme-fx i:nth-child(2) {
+  left: 28%;
+  top: 37%;
+}
+.first-map-theme-fx i:nth-child(3) {
+  left: 40%;
+  top: 24%;
+}
+.first-map-theme-fx i:nth-child(4) {
+  left: 56%;
+  top: 45%;
+}
+.first-map-theme-fx i:nth-child(5) {
+  left: 66%;
+  top: 63%;
+}
+.first-map-theme-fx i:nth-child(6) {
+  left: 78%;
+  top: 27%;
+}
+.first-map-theme-fx i:nth-child(7) {
+  left: 86%;
+  top: 68%;
+}
+.first-map-theme-fx.is-space i,
+.first-map-theme-fx.is-magic i,
+.first-map-theme-fx.is-animals i {
+  background: #fff3bd;
+  box-shadow: 0 0 14px 4px currentColor;
+  animation: world-fx-spark 2.6s ease-in-out infinite;
+}
+.first-map-theme-fx.is-space {
+  color: #bba7ff;
+}
+.first-map-theme-fx.is-magic {
+  color: #ffbd69;
+}
+.first-map-theme-fx.is-animals {
+  color: #9eff93;
+}
+.first-map-theme-fx.is-dinosaurs {
+  background: radial-gradient(
+    ellipse 26% 14% at 24% 48%,
+    rgba(255, 187, 78, 0.18),
+    transparent 78%
+  );
+  animation: world-fx-rumble 1.6s ease-in-out infinite;
+}
+.first-map-theme-fx.is-dinosaurs i:nth-child(-n + 3) {
+  background: #f7c15e;
+  box-shadow: 0 0 12px #f7c15e;
+  animation: world-fx-dust 1.7s ease-out infinite;
+}
+.first-map-theme-fx.is-pirates {
+  background: linear-gradient(
+    112deg,
+    transparent 42%,
+    rgba(94, 228, 235, 0.14) 49%,
+    transparent 56%
+  );
+  background-size: 220% 100%;
+  animation: world-fx-wave 2.8s linear infinite;
+}
+.first-map-theme-fx.is-airplanes i:nth-child(-n + 4) {
+  width: 46px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(154, 218, 255, 0.9), transparent);
+  animation: world-fx-wind 2.4s ease-in-out infinite;
+}
+@keyframes world-fx-spark {
+  0%,
+  to {
+    opacity: 0;
+    transform: scale(0.4) translateY(8px);
+  }
+  45% {
+    opacity: 0.85;
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.3) translateY(-16px);
+  }
+}
+@keyframes world-fx-dust {
+  0%,
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.4);
+  }
+  45% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(20px, -16px) scale(1.1);
+  }
+}
+@keyframes world-fx-rumble {
+  50% {
+    transform: translateX(1px);
+  }
+}
+@keyframes world-fx-wave {
+  to {
+    background-position: -220% 0;
+  }
+}
+@keyframes world-fx-wind {
+  0%,
+  to {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+  40% {
+    opacity: 0.75;
+  }
+  70% {
+    opacity: 0;
+    transform: translateX(34px);
+  }
 }
 /*
   The warm light on the island being looked at.
@@ -241,6 +534,13 @@
   .first-map-painting,
   .first-map-focus,
   .first-map-stars i,
+  .first-map-aurora,
+  .first-map-mist i,
+  .first-map-guide-origin:before,
+  .first-map-discovery i,
+  .first-map-selection-route path,
+  .first-map-theme-fx,
+  .first-map-theme-fx i,
   .first-route-active,
   .beki-sprite,
   .beki-bubble,
@@ -358,8 +658,19 @@
   position: absolute;
   z-index: 0;
   inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.world-pick-map {
+  position: relative;
+  width: min(100%, 177.7778svh);
+  aspect-ratio: 16 / 9;
   overflow: hidden;
   isolation: isolate;
+  border: 1px solid rgba(255, 248, 235, 0.08);
+  border-radius: clamp(22px, 3vw, 40px);
+  box-shadow: 0 28px 100px rgba(3, 1, 14, 0.58);
 }
 .world-pick .app-header {
   position: relative;
@@ -370,8 +681,15 @@
 .world-pick-ask {
   position: relative;
   z-index: 5;
-  max-width: min(560px, calc(100% - 48px));
-  margin: 4px 0 0 clamp(18px, 4vw, 46px);
+  max-width: min(390px, calc(100% - 48px));
+  margin: 14px 0 0 clamp(18px, 4vw, 46px);
+  padding: 12px 14px 14px;
+  border: 1px solid rgba(255, 248, 235, 0.09);
+  border-radius: 20px;
+  background: linear-gradient(125deg, rgba(12, 7, 31, 0.88), rgba(12, 7, 31, 0.42));
+  box-shadow: 0 18px 54px rgba(3, 1, 14, 0.32);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   pointer-events: none;
 }
 .world-pick-ask p {
@@ -392,12 +710,21 @@
 .world-pick-ask h1 {
   margin: 0;
   font-family: "Adventrya Serif", serif;
-  font-size: clamp(24px, 3.1vw, 40px);
+  font-size: clamp(24px, 2.7vw, 34px);
   font-weight: 400;
   line-height: 1.1;
   letter-spacing: -0.02em;
   text-shadow: 0 4px 26px rgba(8, 4, 22, 0.72);
   text-wrap: balance;
+}
+.world-pick-instruction {
+  display: block;
+  max-width: 28ch;
+  margin-top: 7px;
+  color: rgba(255, 248, 235, 0.84);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
 }
 
 /*
@@ -413,20 +740,21 @@
   z-index: 9;
   left: var(--pin-x);
   top: var(--pin-y);
+  width: var(--hit-width);
+  height: var(--hit-height);
   padding: 0;
   cursor: pointer;
   border: 0;
   background: none;
   transform: translate(-50%, -50%);
-  transition: transform 0.22s cubic-bezier(0.2, 0.75, 0.2, 1);
 }
-.world-pick-pin:hover,
-.world-pick-pin:focus-visible,
-.world-pick-pin.is-focus {
-  transform: translate(-50%, -50%) scale(1.14);
+.world-pick-pin:disabled {
+  cursor: wait;
 }
 .world-pick-pin:focus-visible {
-  outline: none;
+  outline: 2px solid color-mix(in oklab, var(--world-tint) 74%, #fff);
+  outline-offset: -5px;
+  border-radius: 50%;
 }
 /*
   The badge is a lit gateway, not a bullet point.
@@ -437,66 +765,47 @@
   worldMap.ts, so the whole badge is one rule rather than six.
 */
 .world-pick-pin-dot {
-  position: relative;
+  position: absolute;
   z-index: 2;
-  width: 52px;
-  height: 52px;
-  display: grid;
-  place-items: center;
-  border: 2px solid var(--world-tint);
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: clamp(34px, 3vw, 52px);
+  height: clamp(34px, 3vw, 52px);
   border-radius: 50%;
-  /* Near-white, not the tint: a tinted mark on a tinted well is the same colour twice, and at
-     21px the shape stops reading. The tint goes in the glow around it instead. */
-  color: color-mix(in oklab, var(--world-tint) 26%, #fff);
-  background:
-    radial-gradient(circle at 50% 112%, var(--world-tint), transparent 68%),
-    linear-gradient(
-      165deg,
-      color-mix(in oklab, var(--world-tint) 42%, var(--world-deep)),
-      var(--world-deep)
-    );
-  box-shadow:
-    /* the light it throws onto the island */
-    0 0 22px 2px color-mix(in oklab, var(--world-tint) 55%, transparent),
-    0 10px 26px rgba(6, 3, 18, 0.6),
-    /* glass: a highlight along the top rim and a pooled glow at the bottom */ inset 0 1px 1px
-      rgba(255, 255, 255, 0.45),
-    inset 0 -8px 14px -6px var(--world-tint);
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--world-tint) 42%, transparent),
+    transparent 67%
+  );
+  box-shadow: 0 0 22px 3px color-mix(in oklab, var(--world-tint) 38%, transparent);
+  opacity: 0.42;
+  transform: translate(-50%, -50%);
   transition:
+    opacity 0.24s ease,
+    transform 0.24s ease,
     box-shadow 0.24s ease,
-    border-color 0.24s ease;
-}
-.world-pick-pin-dot svg {
-  width: 25px;
-  height: 25px;
-  stroke-width: 1.8;
-  filter: drop-shadow(0 0 7px color-mix(in oklab, var(--world-tint) 85%, transparent))
-    drop-shadow(0 1px 2px rgba(6, 3, 18, 0.5));
+    background-color 0.24s ease;
 }
 .world-pick-pin:hover .world-pick-pin-dot,
 .world-pick-pin:focus-visible .world-pick-pin-dot,
 .world-pick-pin.is-focus .world-pick-pin-dot {
-  border-color: color-mix(in oklab, var(--world-tint) 60%, #fff);
-  box-shadow:
-    0 0 34px 6px color-mix(in oklab, var(--world-tint) 70%, transparent),
-    0 12px 30px rgba(6, 3, 18, 0.6),
-    inset 0 1px 1px rgba(255, 255, 255, 0.55),
-    inset 0 -10px 18px -6px var(--world-tint);
+  opacity: 0.92;
+  transform: translate(-50%, -50%) scale(1.16);
+  box-shadow: 0 0 40px 10px color-mix(in oklab, var(--world-tint) 68%, transparent);
 }
-/* Chosen: the lamp is turned all the way up and the icon sits in the light rather than beside it. */
+/* Chosen: a light blooms over the illustrated destination; no separate badge is needed. */
 .world-pick-pin.is-selected .world-pick-pin-dot {
-  color: color-mix(in oklab, var(--world-deep) 72%, #000);
-  border-color: #fff8eb;
-  background:
-    radial-gradient(circle at 50% 116%, #fff, transparent 58%),
-    linear-gradient(165deg, color-mix(in oklab, var(--world-tint) 88%, #fff), var(--world-tint));
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.3);
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--world-tint) 72%, #fff),
+    transparent 62%
+  );
   box-shadow:
-    0 0 0 5px color-mix(in oklab, var(--world-tint) 26%, transparent),
     0 0 42px 8px color-mix(in oklab, var(--world-tint) 62%, transparent),
-    0 12px 30px rgba(6, 3, 18, 0.55);
-}
-.world-pick-pin.is-selected .world-pick-pin-dot svg {
-  filter: none;
+    0 0 0 1px color-mix(in oklab, var(--world-tint) 80%, transparent);
 }
 
 /*
@@ -506,7 +815,7 @@
 */
 .world-pick-pin-halo {
   position: absolute;
-  inset: -15px;
+  inset: 10%;
   border-radius: 50%;
   background: radial-gradient(
     closest-side,
@@ -589,21 +898,24 @@
 */
 .world-pick-pin-name {
   position: absolute;
-  z-index: 1;
-  top: calc(100% + 7px);
+  z-index: 3;
+  top: 50%;
   left: 50%;
   padding: 3px 10px;
   color: #fff8eb;
   border-radius: 999px;
-  background: rgba(14, 8, 32, 0.72);
+  background: rgba(14, 8, 32, 0.86);
   font-family: "Adventrya Serif", serif;
   font-size: 13px;
   line-height: 1.25;
   white-space: nowrap;
-  transform: translateX(-50%);
+  opacity: 0;
+  transform: translate(-50%, calc(-50% + 8px));
   transition:
     background-color 0.2s ease,
-    color 0.2s ease;
+    color 0.2s ease,
+    opacity 0.2s ease,
+    transform 0.2s ease;
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
 }
@@ -611,11 +923,35 @@
 .world-pick-pin:focus-visible .world-pick-pin-name,
 .world-pick-pin.is-focus .world-pick-pin-name {
   background: rgba(14, 8, 32, 0.9);
+  opacity: 1;
+  transform: translate(-50%, -50%);
 }
 .world-pick-pin.is-selected .world-pick-pin-name {
   color: #2a1a46;
   background: #f1c970;
   font-weight: 700;
+  opacity: 1;
+  transform: translate(-50%, -50%);
+}
+/* Keep a revealed caption inside the illustrated world, including on a narrow phone canvas. */
+.world-pick-pin[data-side="left"] .world-pick-pin-name {
+  left: 6%;
+  transform: translate(0, calc(-50% + 8px));
+}
+.world-pick-pin[data-side="right"] .world-pick-pin-name {
+  right: 6%;
+  left: auto;
+  transform: translate(0, calc(-50% + 8px));
+}
+.world-pick-pin[data-side="left"]:hover .world-pick-pin-name,
+.world-pick-pin[data-side="left"]:focus-visible .world-pick-pin-name,
+.world-pick-pin[data-side="left"].is-focus .world-pick-pin-name,
+.world-pick-pin[data-side="left"].is-selected .world-pick-pin-name,
+.world-pick-pin[data-side="right"]:hover .world-pick-pin-name,
+.world-pick-pin[data-side="right"]:focus-visible .world-pick-pin-name,
+.world-pick-pin[data-side="right"].is-focus .world-pick-pin-name,
+.world-pick-pin[data-side="right"].is-selected .world-pick-pin-name {
+  transform: translateY(-50%);
 }
 
 /* One world at a time, with room to say it properly. */
@@ -635,6 +971,9 @@
   box-shadow: 0 26px 70px rgba(5, 2, 16, 0.6);
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
+}
+.world-pick-panel.is-selected {
+  border-color: color-mix(in oklab, #f1c970 42%, rgba(255, 248, 235, 0.14));
 }
 .world-pick-panel-copy small {
   display: block;
@@ -657,19 +996,49 @@
   line-height: 1.5;
 }
 .world-pick-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0;
   color: rgba(255, 248, 235, 0.66);
   font-size: 13px;
   line-height: 1.5;
+}
+.world-pick-beki-line {
+  margin: -3px 0 0;
+  color: rgba(255, 242, 208, 0.78);
+  font-size: 12px;
+  font-style: italic;
+  line-height: 1.42;
+}
+.world-pick-panel-copy {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 .world-pick-actions {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 9px;
 }
+.world-pick-panel.is-selected .world-pick-actions {
+  grid-template-columns: 1fr;
+}
+.world-pick-actions-idle {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
 .world-pick-actions .button {
   min-height: 46px;
   justify-content: center;
+}
+.world-pick-surprise {
+  min-width: 0;
+  border-color: rgba(241, 201, 112, 0.48);
+  color: #fff3c6;
+}
+.world-pick-surprise:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 /*
   A disabled button that looks enabled is worse than no button: it is tapped, nothing happens,
@@ -788,25 +1157,12 @@
   that stage, so every pin still lands on its island.
 */
 @media (min-width: 1000px) {
-  .world-pick-stage {
-    left: clamp(320px, 31%, 440px);
-  }
-  /* A soft seam rather than a hard edge, so the column reads as the same night as the map. */
-  .world-pick-stage:before {
-    content: "";
-    position: absolute;
-    z-index: 4;
-    inset: 0 auto 0 0;
-    width: 90px;
-    background: linear-gradient(90deg, #0c071f, transparent);
-    pointer-events: none;
-  }
   .world-pick-ask {
-    max-width: clamp(272px, 31%, 392px);
+    max-width: min(470px, calc(100% - 48px));
     margin-top: clamp(10px, 3vh, 34px);
   }
   .world-pick-panel {
-    width: clamp(272px, calc(31% - 40px), 392px);
+    width: min(360px, calc(100% - 36px));
   }
 }
 
@@ -818,29 +1174,32 @@
   right edge arrives at the label reaching outward from the left. What matters is the width of
   the stage, and this is the window width at which it clears 900px.
 */
-@media (min-width: 1340px) {
-  .world-pick-pin[data-side="left"] .world-pick-pin-name {
-    top: 50%;
-    left: calc(100% + 9px);
-    transform: translateY(-50%);
-  }
-  .world-pick-pin[data-side="right"] .world-pick-pin-name {
-    top: 50%;
-    right: calc(100% + 9px);
-    left: auto;
-    transform: translateY(-50%);
-  }
-}
-
 /*
   The phone gets the portrait coordinates, because the phone is where <picture> switches to the
   portrait painting. These two breakpoints have to stay equal to each other: coordinates for one
   painting used against the other put every pin in the wrong place.
 */
-@media (max-width: 780px) {
+@media (max-width: 999px) and (orientation: portrait),
+  (min-width: 1000px) and (max-aspect-ratio: 4 / 3) {
   .world-pick-pin {
     left: var(--pin-x-tall);
     top: var(--pin-y-tall);
+    width: var(--hit-width-tall);
+    height: var(--hit-height-tall);
+  }
+  .first-map-guide-origin {
+    left: var(--origin-x-tall);
+    top: var(--origin-y-tall);
+  }
+  .first-map-discovery i {
+    left: var(--guide-x-tall);
+    top: var(--guide-y-tall);
+  }
+  .first-map-selection-route-wide {
+    display: none;
+  }
+  .first-map-selection-route-tall {
+    display: block;
   }
   .first-map-focus {
     background: radial-gradient(
@@ -851,12 +1210,24 @@
   }
 }
 
+/* A tall desktop or portrait tablet needs the same composition as a phone. Without this
+   art-direction switch a 16:9 painting sits as a thin floating strip in the middle of a long
+   screen, leaving both the story and its targets needlessly small. */
+@media (min-width: 1000px) and (max-aspect-ratio: 4 / 3) {
+  .world-pick-map {
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+    aspect-ratio: 9 / 16;
+  }
+}
+
 /*
   Below the wide layout, the question sits above the map instead of on it — the same stacking a
   phone gets, because the reason is the same: there is not enough width to put words beside the
   map, and putting them on top of it means landing on an island.
 */
-@media (max-width: 999px) {
+@media (max-width: 999px) and (orientation: portrait) {
   /*
     Beki shrinks and moves to the bottom-left corner of the map — the open book, the one part
     of the painting no pin sits on. At the top right, which is where the reference puts him,
@@ -873,6 +1244,7 @@
     pixel that is not the header, the question or the panel.
   */
   .world-pick {
+    height: 100svh;
     display: flex;
     flex-direction: column;
   }
@@ -883,22 +1255,47 @@
     inset: auto;
     order: 2;
   }
+  .world-pick-map {
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+    aspect-ratio: 9 / 16;
+    border-radius: 20px 20px 0 0;
+  }
   .world-pick-ask {
     order: 1;
-    margin-left: 18px;
-    margin-right: 18px;
-    padding-bottom: 10px;
+    max-width: none;
+    margin: 8px 18px 2px;
+    padding-bottom: 4px;
   }
-  /* Compact: the panel takes screen the map would otherwise have. */
+  .world-pick-ask p {
+    margin-bottom: 4px;
+    font-size: 10px;
+    letter-spacing: 0.11em;
+  }
+  .world-pick-ask h1 {
+    max-width: 22ch;
+    font-size: clamp(23px, 6.8vw, 30px);
+    line-height: 1.06;
+  }
+  .world-pick-instruction {
+    margin-top: 7px;
+    font-size: 12px;
+  }
+  /* The action shelf remains visible at the bottom; only the map gives up space. */
   .world-pick-panel {
     position: relative;
     order: 3;
     inset: auto;
-    margin: 0 10px 10px;
+    margin: 0;
     width: auto;
-    gap: 9px;
-    padding: 12px;
-    border-radius: 20px;
+    gap: 8px;
+    padding: 11px max(14px, env(safe-area-inset-right)) calc(11px + env(safe-area-inset-bottom))
+      max(14px, env(safe-area-inset-left));
+    border-width: 1px 0 0;
+    border-radius: 22px 22px 0 0;
+    background: rgba(14, 8, 31, 0.94);
+    box-shadow: 0 -16px 34px rgba(5, 2, 16, 0.4);
   }
   .world-pick-panel-copy {
     min-width: 0;
@@ -915,14 +1312,71 @@
     font-size: 12px;
   }
   .world-pick-pin-dot {
-    width: 40px;
-    height: 40px;
-    font-size: 15px;
+    width: 48px;
+    height: 48px;
   }
   .world-pick-pin-name {
-    top: calc(100% + 5px);
     padding: 2px 8px;
     font-size: 11px;
+  }
+  .world-pick-actions {
+    grid-template-columns: 1fr;
+  }
+  .world-pick-actions-idle {
+    gap: 2px;
+  }
+  .world-pick-actions-idle .world-pick-surprise {
+    min-height: 44px;
+  }
+  .world-pick-actions .button-primary {
+    min-height: 52px;
+    font-size: 15px;
+    box-shadow: 0 10px 24px rgba(241, 201, 112, 0.18);
+  }
+}
+
+/* A short, wide phone still uses the full map rather than the portrait stack. Keep the
+   overlays compact so the destinations, not the controls, remain the main event. */
+@media (max-width: 999px) and (orientation: landscape) {
+  .world-pick-ask {
+    max-width: min(330px, calc(100% - 48px));
+    margin: 6px 0 0 24px;
+    padding: 10px 12px;
+  }
+  .world-pick-ask p {
+    margin-bottom: 4px;
+    font-size: 9px;
+    letter-spacing: 0.11em;
+  }
+  .world-pick-ask h1 {
+    font-size: clamp(21px, 3vw, 27px);
+    line-height: 1.04;
+  }
+  .world-pick-instruction {
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.3;
+  }
+  .world-pick-panel {
+    bottom: 14px;
+    left: 24px;
+    width: min(338px, calc(100% - 48px));
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .world-pick-panel-copy strong {
+    font-size: 16px;
+  }
+  .world-pick-panel-copy p {
+    display: none;
+  }
+  .world-pick-hint {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+  .world-pick-actions .button {
+    min-height: 40px;
+    font-size: 13px;
   }
 }
 
@@ -958,20 +1412,597 @@
     border-radius: 14px 14px 14px 4px;
     font-size: 11.5px;
   }
+}
 
-  .world-pick-pin.first-node-airplanes .world-pick-pin-name,
-  .world-pick-pin.first-node-magic .world-pick-pin-name {
-    left: auto;
-    right: -6px;
-    transform: none;
+/*
+  Portal-map art direction
+
+  The gateways are painted into the artwork, so UI should guide attention without covering
+  them with a second set of dots, rings, mist, or parallax. These overrides deliberately keep
+  the interaction layer quiet and let the illustrated portals do the storytelling.
+*/
+.world-pick-map .first-map-painting {
+  filter: saturate(0.94) brightness(0.97) contrast(1.02);
+  animation: none;
+  translate: 0 0;
+}
+.world-pick-map .first-map-vignette {
+  background: linear-gradient(
+    180deg,
+    rgba(4, 7, 24, 0.18),
+    transparent 23%,
+    transparent 72%,
+    rgba(4, 7, 24, 0.32)
+  );
+}
+.first-map-guide-origin {
+  z-index: 6;
+  width: 26px;
+  height: 26px;
+}
+.first-map-guide-origin:before {
+  border-color: rgba(255, 230, 154, 0.66);
+  box-shadow: 0 0 16px 4px rgba(255, 196, 85, 0.32);
+}
+.first-map-guide-origin i {
+  inset: 7px;
+  box-shadow: 0 0 12px 3px rgba(255, 197, 91, 0.7);
+}
+.first-map-focus {
+  z-index: 2;
+  background: radial-gradient(
+    ellipse 16% 20% at var(--focus-x, 50%) var(--focus-y, 50%),
+    color-mix(in oklab, var(--focus-tint, #ffd68a) 38%, transparent),
+    transparent 72%
+  );
+  mix-blend-mode: screen;
+}
+.first-map-focus.is-lit {
+  opacity: 0.7;
+  animation: first-map-focus-pulse 3.8s ease-in-out infinite;
+}
+.first-map-focus:after {
+  display: none;
+}
+.first-map-selection-route {
+  z-index: 3;
+}
+.first-map-selection-route path {
+  stroke: rgba(255, 234, 171, 0.84);
+  stroke-width: 0.42;
+  filter: drop-shadow(0 0 2px rgba(255, 197, 91, 0.72));
+}
+
+.world-pick-pin {
+  isolation: isolate;
+}
+.world-pick-pin::after {
+  position: absolute;
+  z-index: 1;
+  inset: 6%;
+  border: 1px solid color-mix(in oklab, var(--world-tint) 54%, transparent);
+  border-radius: 38%;
+  content: "";
+  opacity: 0;
+  background: radial-gradient(
+    ellipse,
+    color-mix(in oklab, var(--world-tint) 20%, transparent),
+    transparent 70%
+  );
+  box-shadow: 0 0 32px 8px color-mix(in oklab, var(--world-tint) 22%, transparent);
+  transition:
+    opacity 0.24s ease,
+    border-color 0.24s ease,
+    box-shadow 0.24s ease;
+  pointer-events: none;
+}
+.world-pick-pin:hover::after,
+.world-pick-pin:focus-visible::after,
+.world-pick-pin.is-focus::after,
+.world-pick-pin.is-selected::after {
+  opacity: 1;
+}
+.world-pick-pin.is-selected::after {
+  border-color: color-mix(in oklab, var(--world-tint) 64%, #fff);
+  box-shadow: 0 0 42px 12px color-mix(in oklab, var(--world-tint) 34%, transparent);
+}
+.world-pick-pin[data-side="left"] .world-pick-pin-name,
+.world-pick-pin[data-side="right"] .world-pick-pin-name {
+  right: auto;
+  left: 50%;
+  transform: translate(-50%, calc(-50% + 8px));
+}
+.world-pick-pin[data-side="left"]:hover .world-pick-pin-name,
+.world-pick-pin[data-side="left"]:focus-visible .world-pick-pin-name,
+.world-pick-pin[data-side="left"].is-focus .world-pick-pin-name,
+.world-pick-pin[data-side="left"].is-selected .world-pick-pin-name,
+.world-pick-pin[data-side="right"]:hover .world-pick-pin-name,
+.world-pick-pin[data-side="right"]:focus-visible .world-pick-pin-name,
+.world-pick-pin[data-side="right"].is-focus .world-pick-pin-name,
+.world-pick-pin[data-side="right"].is-selected .world-pick-pin-name {
+  transform: translate(-50%, -50%);
+}
+
+@media (min-width: 1000px) {
+  .world-pick-ask {
+    max-width: 330px;
+    margin: 12px auto 0;
+    padding: 6px 14px 8px;
+    border: 0;
+    text-align: center;
+    background: transparent;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
-  /* --label-drop separates the pair the painting put on the same line. See worldMap.ts. */
-  .world-pick-pin .world-pick-pin-name {
-    top: calc(100% + 7px + var(--label-drop, 0px));
+  .world-pick-ask p {
+    justify-content: center;
+    margin-bottom: 5px;
+  }
+  .world-pick-ask h1 {
+    font-size: clamp(23px, 2.2vw, 31px);
+  }
+  .world-pick-instruction {
+    margin-inline: auto;
+    font-size: 12px;
+  }
+  .world-pick-panel {
+    bottom: clamp(14px, 2vw, 26px);
+    left: 50%;
+    width: min(400px, calc(100% - 36px));
+    transform: translateX(-50%);
   }
 }
-@media (max-width: 780px) {
-  .world-pick-pin .world-pick-pin-name {
-    top: calc(100% + 5px + var(--label-drop-tall, 0px));
+
+.world-pick-panel.is-selected .world-pick-actions-selected {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+@media (max-width: 999px) and (orientation: landscape) {
+  .world-pick-ask {
+    max-width: 292px;
+    margin: 5px auto 0;
+    border: 0;
+    text-align: center;
+    background: transparent;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .world-pick-ask p {
+    justify-content: center;
+  }
+  .world-pick-panel {
+    right: auto;
+    bottom: 8px;
+    left: 50%;
+    width: min(340px, calc(100% - 30px));
+    transform: translateX(-50%);
+  }
+}
+
+@media (max-width: 999px) and (orientation: portrait) {
+  .world-pick-pin::after {
+    inset: 4%;
+  }
+  .world-pick-panel.is-selected .world-pick-actions-selected {
+    grid-template-columns: 1fr;
+  }
+}
+
+/*
+  A short phone has very little vertical room once its browser chrome is visible. Keep the
+  illustrated map generous: the header already asks the question, so the repeated instruction
+  can yield its space to the portals without taking any choice away from the child.
+*/
+@media (max-width: 999px) and (orientation: portrait) and (max-height: 650px) {
+  .world-pick-ask {
+    margin: 4px 14px 0;
+    padding-bottom: 2px;
+  }
+  .world-pick-ask p,
+  .world-pick-instruction,
+  .world-pick-hint {
+    display: none;
+  }
+  .world-pick-ask h1 {
+    max-width: 24ch;
+    font-size: clamp(20px, 7vw, 24px);
+    line-height: 1.04;
+  }
+  .world-pick-panel {
+    gap: 5px;
+    padding-top: 8px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+  .world-pick-panel-copy small {
+    font-size: 9px;
+  }
+  .world-pick-panel-copy strong {
+    font-size: 14px;
+  }
+  .world-pick-panel-copy p {
+    display: none;
+  }
+  .world-pick-beki-line {
+    display: -webkit-box;
+    overflow: hidden;
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.3;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .world-pick-actions-idle .world-pick-surprise,
+  .world-pick-actions .button-primary {
+    min-height: 42px;
+  }
+}
+
+/* On a phone held sideways, every vertical pixel should belong to the destinations. The Beki
+   message in the action shelf still explains the task, while removing the duplicate heading
+   keeps the two upper gateways completely unobscured. */
+@media (max-width: 999px) and (orientation: landscape) and (max-height: 540px) {
+  .world-pick-ask {
+    display: none;
+  }
+}
+
+/*
+  Final portal-map polish
+
+  The map is the hero. Text should read like a quiet invitation above it, never like a card laid
+  on top of the illustration. The shorter title also reads naturally as a child-facing choice.
+*/
+.world-pick-ask {
+  max-width: min(30rem, calc(100% - 28px));
+  margin: 8px auto 0;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: none;
+  text-align: center;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.world-pick-ask .world-pick-kicker {
+  display: block;
+  margin: 0 0 4px;
+  color: rgba(255, 224, 145, 0.88);
+  font-family: "Adventrya Sans", sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: none;
+}
+.world-pick-ask h1 {
+  max-width: 20ch;
+  margin-inline: auto;
+  color: #fff8eb;
+  font-size: clamp(20px, 2vw, 26px);
+  font-weight: 650;
+  line-height: 1.14;
+  letter-spacing: 0;
+  text-shadow: 0 2px 16px rgba(4, 7, 24, 0.78);
+}
+.world-pick-instruction {
+  max-width: 24ch;
+  margin: 5px auto 0;
+  color: rgba(255, 248, 235, 0.78);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.world-pick-beki-line {
+  font-family: "Adventrya Sans", sans-serif;
+  font-style: normal;
+}
+
+/* A selected portal is defined by its warm light and route, not an outlined oval. */
+.world-pick-pin::after {
+  border: 0;
+  transition:
+    opacity 0.24s ease,
+    box-shadow 0.24s ease;
+}
+.world-pick-pin.is-selected::after {
+  border-color: transparent;
+}
+/* The named label, map-level light, and route are also the focus feedback. A geometric outline
+   around the oversized invisible hit area would read as a border around the painted gateway. */
+.world-pick-pin.is-selected:focus-visible {
+  outline: 0;
+}
+.world-pick-pin.is-selected .world-pick-pin-name {
+  color: #fff8eb;
+  background: rgba(14, 8, 32, 0.78);
+  font-family: "Adventrya Sans", sans-serif;
+  font-weight: 700;
+  text-shadow: 0 1px 8px rgba(4, 7, 24, 0.8);
+}
+.world-pick-panel.is-selected {
+  border-color: rgba(255, 248, 235, 0.14);
+}
+
+/* Full-screen wide desktop art without losing the portal coordinate system. The map itself grows
+   to the cover size, so both the painting and its buttons are clipped by exactly the same amount.
+   Tall desktops retain the complete portrait painting below: cropping the top would hide the
+   first two worlds just to remove otherwise unobtrusive side space. */
+@media (min-width: 1000px) and (min-aspect-ratio: 4 / 3) {
+  .world-pick-map {
+    width: max(100%, 177.7778svh);
+    max-width: none;
+    aspect-ratio: 16 / 9;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+@media (min-width: 1000px) and (max-aspect-ratio: 4 / 3) {
+  .world-pick-map {
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+    aspect-ratio: 9 / 16;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+/* Near-square desktops need the complete portrait map for all six destinations. The softly
+   blurred duplicate fills the outer space without turning the visible canvas into a crop. */
+@media (min-width: 1000px) and (max-aspect-ratio: 4 / 3) {
+  .world-pick-stage {
+    isolation: isolate;
+  }
+  .world-pick-stage::before {
+    position: absolute;
+    z-index: 0;
+    inset: -24px;
+    content: "";
+    background:
+      linear-gradient(rgba(9, 5, 26, 0.34), rgba(9, 5, 26, 0.58)),
+      url("/adventrya/adventrya-world-map-portals-tall.jpg") center / cover no-repeat;
+    filter: blur(22px) brightness(0.52) saturate(0.82);
+    transform: scale(1.06);
+  }
+  .world-pick-map {
+    z-index: 1;
+  }
+}
+@media (min-width: 1000px) {
+  .world-pick-ask .world-pick-kicker,
+  .world-pick-instruction {
+    display: none;
+  }
+  .world-pick-ask h1 {
+    max-width: none;
+    white-space: nowrap;
+  }
+  .world-pick-panel {
+    width: min(360px, calc(100% - 32px));
+    gap: 9px;
+    padding: 12px 14px;
+  }
+  .world-pick-panel:not(.is-selected) .world-pick-beki-line {
+    display: none;
+  }
+  .world-pick-panel:not(.is-selected) .world-pick-hint {
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+/* On a phone, retain one short instruction but not a decorative badge around it. */
+@media (max-width: 999px) and (orientation: portrait) {
+  .world-pick-ask .world-pick-kicker {
+    display: none;
+  }
+  .world-pick-ask {
+    margin-top: 6px;
+  }
+  .world-pick-ask h1 {
+    max-width: none;
+    font-size: clamp(20px, 6vw, 25px);
+    white-space: nowrap;
+  }
+  .world-pick-instruction {
+    display: block;
+  }
+}
+@media (max-width: 999px) and (orientation: portrait) and (max-height: 650px) {
+  .world-pick-instruction {
+    display: none;
+  }
+}
+
+/* The tall art uses a different coordinate system. This override must come after the shared
+   portal glow so a mobile selection is illuminated on the same world as its light trail. */
+@media (max-width: 999px) and (orientation: portrait),
+  (min-width: 1000px) and (max-aspect-ratio: 4 / 3) {
+  .first-map-focus {
+    background: radial-gradient(
+      ellipse 26% 16% at var(--focus-x-tall, 50%) var(--focus-y-tall, 50%),
+      color-mix(in oklab, var(--focus-tint, #ffd68a) 38%, transparent),
+      transparent 72%
+    );
+  }
+}
+
+/* A short landscape phone has two lower portals. Keep the compact action dock between their
+   centres, and make blank panel space transparent to taps, so neither destination is blocked. */
+@media (max-width: 999px) and (orientation: landscape) and (max-height: 540px) {
+  .world-pick-panel {
+    bottom: 6px;
+    width: min(270px, calc(100% - 24px));
+    gap: 4px;
+    padding: 7px 10px;
+    pointer-events: none;
+  }
+  .world-pick-panel-copy,
+  .world-pick-hint,
+  .world-pick-beki-line {
+    display: none;
+  }
+  .world-pick-panel .world-pick-actions,
+  .world-pick-panel.is-selected .world-pick-actions-selected {
+    grid-template-columns: 1fr;
+    gap: 2px;
+    pointer-events: auto;
+  }
+  .world-pick-actions .button,
+  .world-pick-actions-idle .world-pick-surprise {
+    min-height: 36px;
+    font-size: 11px;
+  }
+}
+
+/* The map-level aura and route are sufficient selection feedback. The old hit-area halo formed
+   a visible oval around a painted gateway, so it read as a border rather than as light. */
+.world-pick-pin::after {
+  background: transparent;
+  box-shadow: none;
+}
+.world-pick-pin.is-selected::after {
+  box-shadow: none;
+}
+.world-pick-pin:focus-visible {
+  outline: 0;
+}
+
+/* Once a child has picked a gateway, the map itself already shows the destination. Keep the
+   confirmation to its short name and one decisive action on every screen size. */
+.world-pick-panel.is-selected .world-pick-panel-copy small,
+.world-pick-panel.is-selected .world-pick-panel-copy p,
+.world-pick-panel.is-selected .world-pick-beki-line {
+  display: none;
+}
+
+/* Phone screens cannot fit an uncropped 9:16 painting plus the header and action shelf at
+   once. The complete map canvas still expands to both side edges; the stage crops the same
+   canvas (art, light trail, and generous hit areas) together, so a portal never drifts away
+   from the place it is painted. */
+@media (max-width: 999px) and (orientation: portrait) {
+  .world-pick-stage {
+    margin-top: 6px;
+  }
+  .world-pick-map {
+    width: 100%;
+    height: auto;
+    max-width: none;
+    aspect-ratio: 9 / 16;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+/* A chosen story needs one clear next action, not a large card over Beki's book. On a wide
+   screen it becomes a compact bottom-right action dock: this leaves every gateway and Beki's
+   book unobstructed while keeping the next step in a familiar, predictable corner. */
+@media (min-width: 1000px) {
+  .world-pick-panel {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: min(280px, calc(100% - 12px));
+    gap: 5px;
+    padding: 8px 10px;
+    transform: none;
+    border-right: 0;
+    border-bottom: 0;
+    border-radius: 18px 0 0 0;
+    background: rgba(18, 11, 38, 0.72);
+    box-shadow: 0 16px 40px rgba(5, 2, 16, 0.36);
+  }
+  .world-pick-panel:not(.is-selected) .world-pick-hint {
+    font-size: 11px;
+    line-height: 1.3;
+  }
+  .world-pick-panel:not(.is-selected) .world-pick-actions .button {
+    min-height: 40px;
+    font-size: 12px;
+  }
+  .world-pick-panel.is-selected {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: min(280px, calc(100% - 12px));
+    transform: none;
+    border-right: 0;
+    border-bottom: 0;
+    border-radius: 18px 0 0 0;
+  }
+  .world-pick-panel.is-selected .world-pick-panel-copy small,
+  .world-pick-panel.is-selected .world-pick-panel-copy p,
+  .world-pick-panel.is-selected .world-pick-beki-line {
+    display: none;
+  }
+  .world-pick-panel.is-selected .world-pick-panel-copy strong {
+    margin: 0;
+    color: #fff8eb;
+    font-family: "Adventrya Sans", sans-serif;
+    font-size: 15px;
+    font-weight: 750;
+    line-height: 1.25;
+    text-align: center;
+  }
+  .world-pick-panel.is-selected .world-pick-actions .button-primary {
+    min-height: 44px;
+    font-size: 13px;
+  }
+}
+
+/* The illustrated gateway and its warm ambient light already say “tap here”. On desktop a
+   floating rounded label looked like a border around the destination, so keep only readable
+   text with a soft shadow. Keyboard users retain the normal focus outline. */
+@media (min-width: 1000px) {
+  .world-pick-pin:hover .world-pick-pin-name,
+  .world-pick-pin:focus-visible .world-pick-pin-name,
+  .world-pick-pin.is-focus .world-pick-pin-name,
+  .world-pick-pin.is-selected .world-pick-pin-name {
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    text-shadow:
+      0 2px 10px rgba(4, 7, 24, 0.95),
+      0 0 14px rgba(4, 7, 24, 0.72);
+  }
+}
+
+/* Keep the compact controls outside the portrait map on near-square desktops. The right-side
+   blurred artwork is deliberately a UI shelf, so the two upper portals stay fully tappable. */
+@media (min-width: 1000px) and (max-aspect-ratio: 4 / 3) {
+  .world-pick-panel {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: min(210px, calc(50% - 12px));
+    gap: 5px;
+    padding: 8px 10px;
+    transform: none;
+    border-right: 0;
+    border-radius: 16px 0 0 16px;
+  }
+  .world-pick-panel.is-selected {
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: min(210px, calc(50% - 12px));
+    border-right: 0;
+    border-bottom: 0;
+    border-radius: 16px 0 0 0;
+  }
+  .world-pick-panel-copy p {
+    font-size: 11px;
+    line-height: 1.35;
   }
 }

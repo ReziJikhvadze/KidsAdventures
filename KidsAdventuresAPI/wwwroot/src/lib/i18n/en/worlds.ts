@@ -8,6 +8,7 @@
 export const worlds = {
   dinosaurs: {
     theme: "Dinosaurs",
+    mapLabel: "Rex’s Valley",
     place: "The Lost Valley",
     into: "into the world of dinosaurs",
     mapTitle: "The Lost Valley of the Dinosaurs",
@@ -23,6 +24,7 @@ export const worlds = {
   },
   space: {
     theme: "Space",
+    mapLabel: "Path of Stars",
     place: "The Path of Stars",
     into: "into space",
     mapTitle: "The Lost Path of Stars",
@@ -37,6 +39,7 @@ export const worlds = {
   },
   pirates: {
     theme: "Pirates",
+    mapLabel: "Secret Island",
     place: "The Shimmering Island",
     into: "into the world of pirates",
     mapTitle: "The Secret of the Shimmering Island",
@@ -51,6 +54,7 @@ export const worlds = {
   },
   animals: {
     theme: "Animals",
+    mapLabel: "Friends’ Forest",
     place: "The Enchanted Forest",
     into: "into the world of animals",
     mapTitle: "Friends of the Enchanted Forest",
@@ -65,6 +69,7 @@ export const worlds = {
   },
   airplanes: {
     theme: "Aeroplanes",
+    mapLabel: "City of Clouds",
     place: "The City of Clouds",
     into: "into the world of aeroplanes",
     mapTitle: "The City Hidden Beyond the Clouds",
@@ -79,6 +84,7 @@ export const worlds = {
   },
   magic: {
     theme: "A magical world",
+    mapLabel: "Gate of Light",
     place: "The City of Light",
     into: "into the magical world",
     mapTitle: "The Gate to the City of Light",

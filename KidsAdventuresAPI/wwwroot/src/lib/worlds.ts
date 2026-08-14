@@ -17,20 +17,6 @@ export function isWorldId(value: unknown): value is WorldId {
   return typeof value === "string" && (WORLD_IDS as readonly string[]).includes(value);
 }
 
-/**
- * Bezier path each world's route traces out from the origin marker on the
- * first-journey map. Drawn inside a `0 0 1000 650` viewBox with
- * preserveAspectRatio="none", matching the demo exactly.
- */
-const FIRST_MAP_ROUTES: Record<WorldId, string> = {
-  dinosaurs: "M430 520 C385 478 326 378 255 304",
-  space: "M430 520 C445 420 420 250 462 124",
-  pirates: "M430 520 C522 458 590 343 680 280",
-  animals: "M430 520 C490 518 548 460 615 410",
-  airplanes: "M430 520 C600 430 708 245 830 122",
-  magic: "M430 520 C575 548 738 520 842 430",
-};
-
 /** Fixed routes on the progression map, independent of which worlds are unlocked. */
 export const STORY_MAP_ROUTES = {
   open: "M250 330 C320 310 360 214 435 130 S560 184 690 280",
@@ -42,6 +28,8 @@ export interface World {
   id: WorldId;
   /** Short theme label, e.g. "დინოზავრები". */
   theme: string;
+  /** Short, story-led label used only on the first interactive map. */
+  mapLabel: string;
   /** Place name, e.g. "დაკარგული ხეობა". */
   place: string;
   /** Locative form used inside generated sentences. */
@@ -55,14 +43,12 @@ export interface World {
   memoryBody: string;
   bookTitle: (hero: string) => string;
   synopsis: (hero: string) => string;
-  firstMapRoute: string;
 }
 
 function buildWorlds(messages: Messages): World[] {
   return WORLD_IDS.map((id) => ({
     id,
     ...messages.worlds[id],
-    firstMapRoute: FIRST_MAP_ROUTES[id],
   }));
 }
 

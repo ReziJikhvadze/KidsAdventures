@@ -43,6 +43,7 @@ export const story = {
     ariaLabel: (hero: string) => `${hero}ს სრული Online Reader`,
     memoryPrefix: "ეს მოგონება ",
     memorySuffix: "ს მომავალ ისტორიებში შენახული დარჩება.",
+    worldPassport: "ნახე გახსნილი სამყარო",
     illustrating: {
       atelier: "ADVENTRYA BOOK ATELIER",
       title: "ვხატავთ წიგნის სურათებს",

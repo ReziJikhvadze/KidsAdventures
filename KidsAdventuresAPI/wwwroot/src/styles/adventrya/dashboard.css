@@ -11,7 +11,7 @@
   inset: 0;
   background:
     linear-gradient(90deg, #1c123ffc 0 22.5%, #f8f2e5f7 22.5% 100%),
-    url("/adventrya/adventrya-world-map.png") center/cover;
+    url("/adventrya/adventrya-world-map-portals-wide.jpg") center/cover;
 }
 .dashboard-shell .app-header {
   color: #fff8eb;
@@ -196,7 +196,7 @@
 .empty-book-art {
   position: absolute;
   inset: 0;
-  background-image: url("/adventrya/adventrya-world-map.png");
+  background-image: url("/adventrya/adventrya-world-map-portals-wide.jpg");
   background-size: cover;
 }
 .world-window-art {
@@ -564,4 +564,13 @@
 .add-child svg {
   width: 16px;
   height: 16px;
+}
+
+/* The empty family dashboard uses the same world painting the child will meet in the chooser. */
+@media (max-width: 780px) and (orientation: portrait) {
+  .world-window-art,
+  .empty-book-art {
+    background-image: url("/adventrya/adventrya-world-map-portals-tall.jpg");
+    background-position: center 60%;
+  }
 }

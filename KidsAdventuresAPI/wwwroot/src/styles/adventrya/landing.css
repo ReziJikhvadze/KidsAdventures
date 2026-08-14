@@ -175,7 +175,7 @@
   pointer-events: none;
 }
 .landing-v3-hero-art {
-  background: url("/adventrya/adventrya-world-map.png") 58% 49% / cover no-repeat;
+  background: url("/adventrya/adventrya-world-map-portals-wide.jpg") 58% 49% / cover no-repeat;
   filter: saturate(0.84) contrast(1.03);
   transform: scale(1.01);
 }
@@ -1129,7 +1129,7 @@
   z-index: -4;
 }
 .landing-v3-memory-art {
-  background: url("/adventrya/adventrya-world-map.png") 54% 48% / cover no-repeat;
+  background: url("/adventrya/adventrya-world-map-portals-wide.jpg") 54% 48% / cover no-repeat;
   filter: saturate(0.82) brightness(0.78);
 }
 .landing-v3-memory-shade {
@@ -2511,5 +2511,18 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* The portrait portal painting keeps the complete set of worlds visible on phones instead of
+   forcing a landscape illustration through a narrow hero crop. */
+@media (max-width: 900px) and (orientation: portrait) {
+  .landing-v3-hero-art {
+    background-image: url("/adventrya/adventrya-world-map-portals-tall.jpg");
+    background-position: center 58%;
+  }
+  .landing-v3-memory-art {
+    background-image: url("/adventrya/adventrya-world-map-portals-tall.jpg");
+    background-position: center 60%;
   }
 }

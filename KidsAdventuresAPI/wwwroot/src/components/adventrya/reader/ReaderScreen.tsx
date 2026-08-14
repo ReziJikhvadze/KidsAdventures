@@ -108,6 +108,12 @@ export function ReaderScreen() {
   const pages = pack?.storyPages ?? [];
   const isUnlocked = pack?.isUnlocked === true || pack?.accessLevel === "Full";
   const lockedPageCount = pack?.lockedPageCount ?? (isUnlocked ? 0 : Math.max(0, 7 - pages.length));
+  const canVisitWorldPassport =
+    Boolean(pack?.worldId) &&
+    isUnlocked &&
+    (pack?.status === "StoryReady" ||
+      pack?.status === "GeneratingPdf" ||
+      pack?.status === "Completed");
 
   // The button used to be disabled whenever the book had no PDF yet, and nothing on this page
   // could ask for one — so a finished book showed a dead button and no explanation. It now
@@ -170,6 +176,12 @@ export function ReaderScreen() {
               <Download aria-hidden="true" />
               {downloading ? t.story.reader.pdf.building : t.journey.generated.downloadPdf}
             </button>
+            {canVisitWorldPassport && pack ? (
+              <Link className="button button-primary" to="/world" search={{ bookId: pack.id }}>
+                <Sparkles aria-hidden="true" />
+                {t.story.reader.worldPassport}
+              </Link>
+            ) : null}
             <Link className="button button-quiet" to="/dashboard">
               <BookOpen aria-hidden="true" />
               {t.story.reader.library.trim()}

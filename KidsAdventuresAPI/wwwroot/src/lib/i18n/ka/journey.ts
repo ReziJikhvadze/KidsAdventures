@@ -70,14 +70,17 @@ export const journey = {
   },
 
   firstMap: {
-    eyebrow: "STORY PATH · პირველი კარიბჭე",
+    title: "აირჩიე შენი ზღაპარი",
+    letBekiChoose: "ბეკიმ აირჩიოს",
+    bekiChoosing: "ბეკი არჩევს…",
+    continueTo: (place: string) => `${place} — წავიდეთ!`,
+    eyebrow: "ბეკის გზა · პირველი კარიბჭე",
     creating: "პირველ თავგადასავალს ქმნი",
     titlePrefix: "საიდან დაიწყება ",
     titleSuffix: "ს დიდი სამყარო?",
-    guidance:
-      "შეეხე რუკაზე სამყაროს. ეს იქნება პირველი გახსნილი ადგილი, საიდანაც შემდეგი წიგნების გზა გაგრძელდება.",
+    guidance: "დააჭირე შენს საყვარელ სამყაროს — ბეკი გზას გაგინათებს.",
     selectedHeading: "არჩეული სამყარო და სურვილი",
-    emptySelection: "აირჩიე პირველი თავგადასავლის სამყარო რუკაზე",
+    emptySelection: "დააჭირე ერთ სამყაროს — შენი ამბავი აქ დაიწყება.",
     emptyGlyph: "სამყარო 0",
     selected: "არჩეულია",
     activate: "გააცოცხლე",
@@ -94,7 +97,8 @@ export const journey = {
     beki: {
       greeting: "გამარჯობა! მე ბეკი ვარ — შენი გზამკვლევი.",
       peek: (theme: string) => `${theme}? კარგი არჩევანია.`,
-      chosen: "მშვენიერია. წამო, გმირი გავიცნოთ.",
+      chosen: (place: string) => `შესანიშნავია! ${place} გველოდება.`,
+      chosenByBeki: (place: string) => `მე ვირჩევ: ${place}! წავიდეთ.`,
       alt: "ბეკი, შენი გზამკვლევი",
     },
   },

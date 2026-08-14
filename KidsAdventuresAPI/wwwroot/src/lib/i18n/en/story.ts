@@ -38,6 +38,7 @@ export const story = {
     ariaLabel: (hero: string) => `${hero}'s full Online Reader`,
     memoryPrefix: "This memory stays with ",
     memorySuffix: " in future stories.",
+    worldPassport: "See the world you opened",
     illustrating: {
       atelier: "ADVENTRYA BOOK ATELIER",
       title: "Painting the pictures",
