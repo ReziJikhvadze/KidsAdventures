@@ -222,6 +222,38 @@ Consistent character design across all nine. No text, no numbers, no labels, no 
 
 ---
 
+## 4b. ფონი — ცარიელი სივრცის შესავსებად
+
+კუნძულები ცალკე სპრაიტებია, ანუ **ღამის ცა ახლა კოდის დასახატია.** ამჟამად CSS-ის
+გრადიენტია — მუშაობს, მაგრამ ბრტყელია. ნახატი ფონი ბევრად უკეთესი იქნება.
+
+**ის ფაილი, რომელიც გამომიგზავნე (`map_background_without_islands.png`), ამად არ გამოდგება** —
+ის მოკაპის სქრინშოტია, რომელშიც ჩახატულია ჰედერი, სათაური, ღილაკები, ბარათები და ბეკი, და
+კუნძულების ადგილას დაბლერილი ლაქებია. ინტერფეისი კოდისაა, ის ნახატში ვერ იქნება.
+
+გვჭირდება **სუფთა ფონი — არც კუნძულები, არც ინტერფეისი, არც წიგნი:**
+
+```
+A wide empty night sky for a children's storybook map, painted digital illustration,
+same warm hand-painted fantasy style as the islands.
+
+Deep indigo and violet sky filling the whole frame. A soft nebula glowing pale violet
+in the upper left, a scattering of small stars across the top two thirds, a thin
+crescent moon high on the left. Low along the bottom, distant mountain ridges in
+silhouette and banks of soft lavender cloud, with a faint warm amber glow rising from
+behind them as if a lantern-lit city lay just out of sight below the horizon.
+
+The middle of the frame is open sky and nothing else.
+
+No islands, no floating rocks, no buildings, no characters, no book, no path, no text,
+no user interface. Only sky, cloud, distant mountains and stars.
+```
+
+**პარამეტრები:** 3:2, 4K თუ შესაძლებელია. ცალკე ვერტიკალური (9:16) ვერსიაც გამოგვადგება
+მობაილისთვის, იმავე ტექსტით.
+
+---
+
 ## 5. რაც უნდა იცოდე ბეკის შეცვლაზე
 
 ბეკი უკვე ჩაშენებულია წიგნის გენერაციაში, არა მარტო საიტზე:

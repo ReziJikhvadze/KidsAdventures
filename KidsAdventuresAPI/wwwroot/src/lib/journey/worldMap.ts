@@ -1,116 +1,103 @@
 import type { WorldId } from "@/lib/worlds";
 
 /**
- * Where each world sits on the painting.
+ * The map, as seven pictures the app arranges rather than one it can only crop.
  *
- * This used to live in first-map.css as six `.first-node-{id} { left; top }` rules, which
- * meant the painting and the thing that points at it were described in different languages in
- * different files. Repainting the map meant hunting percentages through a stylesheet.
+ * It used to be a single painting with the islands fixed inside it. Everything hard about this
+ * screen came from that: a phone needed a second painting because cropping a landscape scene
+ * threw away the islands at its edges; a desktop column narrowed the frame and pulled every pin
+ * off its island; and two islands the painter happened to place close together produced labels
+ * that touched, which the layout then had to work around.
  *
- * It is data now, and there is exactly one of these tables per painting. When new art lands,
- * the numbers here change and nothing else does.
+ * Now each island is its own transparent sprite and this table says where it goes. A different
+ * arrangement for a phone is a column of numbers rather than a second commission, nothing is
+ * ever cropped, and an island that sits awkwardly is moved by editing one line.
  *
- * See design/world-map-art-brief.md for the composition the next painting is drawn to.
+ * Cut from the delivered sheet by design/tools/split-sprites.py.
  */
 
-/** Landscape art for wide screens, portrait art for phones. */
+/** A wide screen gets a spread; a narrow one gets a trail running down the page. */
 export type MapLayout = "wide" | "tall";
 
-export interface WorldAnchor {
-  /** Percent across and down the painting, at the world's lit gateway. */
+export interface IslandPlacement {
+  /** Centre of the sprite, as a percentage of the stage. */
   x: number;
   y: number;
+  /** Sprite width, as a percentage of the stage width, so it scales with the map. */
+  w: number;
   /**
-   * Which way the label opens. Islands on the left of the painting open right, into the
-   * empty middle; islands on the right open left. A label that opened outward would run
-   * off the edge of the screen, which is what used to happen to "თვითმფრინავები".
+   * Which way the label opens. Islands on the left open right, into the middle; islands on the
+   * right open left. A label opening outward would run off the edge of the screen.
    */
   side: "left" | "right";
-  /**
-   * Extra pixels to drop the label by when it hangs under its pin instead of beside it.
-   *
-   * Two islands the painting places close together give their labels the same line, and they
-   * touch. Which two is a fact about the painting, not about the layout, so it belongs here
-   * with the rest of what the painting decided — and it is one number to revisit when the art
-   * changes, rather than a media query to rediscover.
-   */
-  drop?: number;
 }
 
-export interface MapArt {
-  /** One painting per layout. The phone is not a crop of the desktop: see the brief. */
-  src: Record<MapLayout, string>;
-  /**
-   * Whether the painting already carries a lit emblem on each island — a star over the
-   * observatory, a palm over the lagoon.
-   *
-   * When it does, the app must not draw its own: a painted emblem and a drawn badge on the
-   * same island is the world's identity said twice, and the two never agree about size, colour
-   * or centre. The illustration is the marker; code only lights it. The pin becomes an
-   * invisible target over the emblem, carrying the states the painting cannot have — hover,
-   * chosen, and the route to it.
-   *
-   * It lives here because it is a fact about the artwork, in the same table as everything else
-   * the artwork decided.
-   */
-  emblemsInArt: boolean;
-  /**
-   * Diameter of the painted emblem, as a percentage of the painting's width, so the target
-   * scales with the map instead of drifting off it on a phone. Ignored when the app draws
-   * the badge itself.
-   */
-  emblemSize: number;
-  anchors: Record<MapLayout, Record<WorldId, WorldAnchor>>;
-}
+export const ISLAND_SRC: Record<WorldId, string> = {
+  space: "/adventrya/worlds/space.webp",
+  airplanes: "/adventrya/worlds/airplanes.webp",
+  dinosaurs: "/adventrya/worlds/dinosaurs.webp",
+  pirates: "/adventrya/worlds/pirates.webp",
+  animals: "/adventrya/worlds/animals.webp",
+  magic: "/adventrya/worlds/magic.webp",
+};
 
-export const WORLD_MAP: MapArt = {
-  src: {
-    wide: "/adventrya/adventrya-world-map.png",
-    tall: "/adventrya/adventrya-world-map.png",
+/** The open book the child and Beki stand on, where the path begins. */
+export const BOOK_SRC = "/adventrya/worlds/book.webp";
+
+export const ISLAND_LAYOUT: Record<MapLayout, Record<WorldId, IslandPlacement>> = {
+  /*
+    Two rows of three above the book. The order across the top is the order on the sheet, so
+    the picture a parent sees matches the one the artist composed.
+  */
+  wide: {
+    space: { x: 16, y: 22, w: 30, side: "left" },
+    airplanes: { x: 50, y: 16, w: 31, side: "left" },
+    dinosaurs: { x: 84, y: 22, w: 30, side: "right" },
+    pirates: { x: 16, y: 53, w: 31, side: "left" },
+    animals: { x: 50, y: 47, w: 30, side: "right" },
+    magic: { x: 84, y: 53, w: 31, side: "right" },
   },
-  // The painting in use has no emblems, so the app still draws the badges. The next one does
-  // carry them: flipping this to true is the whole of that change.
-  emblemsInArt: false,
-  emblemSize: 6,
-  anchors: {
-    wide: {
-      space: { x: 43.5, y: 20, side: "left" },
-      airplanes: { x: 83, y: 20, side: "right" },
-      dinosaurs: { x: 24, y: 48, side: "left" },
-      pirates: { x: 69, y: 43, side: "right" },
-      animals: { x: 61, y: 66, side: "right" },
-      // Two percent below animals and twenty-four across: same line, touching labels.
-      magic: { x: 85, y: 68, side: "right", drop: 34 },
-    },
-    tall: {
-      space: { x: 43.5, y: 20, side: "left" },
-      airplanes: { x: 83, y: 20, side: "right" },
-      dinosaurs: { x: 24, y: 48, side: "left" },
-      pirates: { x: 69, y: 43, side: "right" },
-      animals: { x: 61, y: 66, side: "right" },
-      // Two percent below animals and twenty-four across: same line, touching labels.
-      magic: { x: 85, y: 68, side: "right", drop: 26 },
-    },
+  /*
+    Two by three on a phone, not a zigzag down six rows.
+
+    The zigzag read beautifully on paper and did not fit: the map band on a phone is about 520px
+    tall, and six rows of island leave 85px a row for a sprite 130px high. They overlapped, their
+    labels landed on the island below, and the book at the bottom disappeared behind the last of
+    them. Two columns halve the rows, which is the only thing that buys back the height.
+  */
+  tall: {
+    space: { x: 27, y: 13, w: 36, side: "left" },
+    airplanes: { x: 73, y: 13, w: 36, side: "right" },
+    dinosaurs: { x: 27, y: 38, w: 36, side: "left" },
+    animals: { x: 73, y: 38, w: 36, side: "right" },
+    pirates: { x: 27, y: 63, w: 36, side: "left" },
+    magic: { x: 73, y: 63, w: 36, side: "right" },
   },
 };
 
-/** Where the golden path begins — the child's feet, in the same percentages. */
-export const MAP_ORIGIN: Record<MapLayout, { x: number; y: number }> = {
-  wide: { x: 43, y: 80 },
-  tall: { x: 43, y: 80 },
+/**
+ * Where the book sits, and where the route leaves it.
+ *
+ * pathX/pathY are not the book's centre. The book sprite has a golden path painted into it,
+ * rising from the child's feet and off the top edge; a route drawn from the middle of the book
+ * started underneath that painted one and ran beside it, so the map had two golden paths
+ * disagreeing about where the journey begins. These are the point where the painted one leaves
+ * the sprite, which is where the drawn one picks it up.
+ */
+export const BOOK_LAYOUT: Record<
+  MapLayout,
+  { x: number; y: number; w: number; pathX: number; pathY: number }
+> = {
+  wide: { x: 50, y: 84, w: 66, pathX: 54, pathY: 72 },
+  tall: { x: 50, y: 88, w: 96, pathX: 55, pathY: 81 },
 };
 
 /**
  * The light each world gives off.
  *
- * Six identical cream discs told a parent that six things were clickable and nothing else.
- * A colour per world is the cheapest thing on the screen that carries meaning: the badge, its
- * halo and the glow that lands on the island are all lit by the same lamp, so a child who
- * cannot read "ტყე" still learns that the green one is the forest.
- *
- * `deep` is the base the disc is filled from and `tint` the bright rim and the light it
- * throws. Both are written rather than derived, because a colour that reads well as a 2px rim
- * over a painted night sky is not one a formula finds from the fill.
+ * The sprite carries its own lit emblem — a star over the observatory, a palm over the lagoon —
+ * so the app never draws an icon. What it draws is the light: the glow under an island being
+ * looked at, the ring around the one that has been chosen, and the route to it.
  */
 export interface WorldTint {
   tint: string;
@@ -125,3 +112,23 @@ export const WORLD_TINT: Record<WorldId, WorldTint> = {
   pirates: { tint: "#4fd6e0", deep: "#10464f" },
   magic: { tint: "#ffa24a", deep: "#6a2f10" },
 };
+
+/**
+ * The route from the book to an island, in the SVG's own 1000x650 space.
+ *
+ * Drawn from the same numbers as the islands rather than written by hand. Hand-drawn curves
+ * were how the old map worked, and they were wrong the moment anything moved — a path is not a
+ * fact about a world, it is the line between two places this table already knows.
+ */
+export function routeFor(layout: MapLayout, world: WorldId): string {
+  const from = BOOK_LAYOUT[layout];
+  const to = ISLAND_LAYOUT[layout][world];
+  const [ox, oy] = [from.pathX * 10, from.pathY * 6.5];
+  const [tx, ty] = [to.x * 10, to.y * 6.5];
+  // Bowed towards the middle, so the routes lean rather than run straight and a route to a far
+  // corner leaves the book going roughly the way the painted path already points.
+  const mx = (ox + tx) / 2;
+  const cx = mx + (500 - mx) * 0.55;
+  const cy = (oy + ty) / 2;
+  return `M ${ox.toFixed(1)} ${oy.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)}`;
+}
