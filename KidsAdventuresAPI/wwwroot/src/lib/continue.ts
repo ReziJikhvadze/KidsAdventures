@@ -1,6 +1,25 @@
 import type { ContinuationResponse } from "@/lib/api/types";
 import type { WorldId } from "@/lib/worlds";
 
+/**
+ * Where a parent starting a *new* book goes: the world picker.
+ *
+ * Not `/create`. Every href in this file used to end in `#preview`, which mounts the stage that
+ * fires a generation on sight — so "create a new book" spent money before anyone had chosen a
+ * world or said whose book it was. A new book begins with a choice, and the choice lives on
+ * `/themes`.
+ *
+ * The child is carried in the query, because a new book for a child who already exists must
+ * arrive at the profile step knowing which child. Without it the journey creates a second copy
+ * of the same kid at checkout.
+ */
+export function newBookHref(characterId?: string | null): string {
+  const params = new URLSearchParams();
+  if (characterId) params.set("characterId", characterId);
+  const query = params.toString();
+  return query ? `/themes?${query}` : "/themes";
+}
+
 /** Builds the `/create` deep-link used when continuing a child's adventure. */
 export function buildContinueHref(options: {
   worldId?: string | null;
@@ -41,10 +60,8 @@ export function continueHrefFromMap(
   });
 }
 
-export function firstJourneyHref(worldId: WorldId, characterId?: string | null): string {
-  return buildContinueHref({
-    mode: "first",
-    worldId,
-    characterId: characterId ?? undefined,
-  });
-}
+/*
+  `firstJourneyHref` used to live here. It built a `/create#preview` link for a book that did not
+  exist yet, which is the shape of the bug rather than a helper: a first book has no world, no
+  child and nothing to preview. `newBookHref` replaces it.
+*/

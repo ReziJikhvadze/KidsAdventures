@@ -105,9 +105,19 @@ export function WorldStage({ draft, onChange, header }: Props) {
 
   const start = () => {
     if (!selectedId) return;
+    /*
+      Carry the child through.
+
+      This used to hard-code the whole query, which was fine while the only way here was from
+      the landing page with nobody chosen yet. The dashboard now sends parents here to start a
+      new book for a child who already exists, and dropping the id made the journey create a
+      second copy of the same kid at checkout.
+    */
+    const incoming = router.state.location.search as Record<string, unknown>;
+    const characterId = typeof incoming.characterId === "string" ? incoming.characterId : undefined;
     void router.navigate({
       to: "/create",
-      search: { mode: "first", world: selectedId },
+      search: { mode: "first", world: selectedId, ...(characterId ? { characterId } : {}) },
       hash: "profile",
     });
   };

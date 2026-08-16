@@ -9,7 +9,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { AppHeader } from "@/components/adventrya/AppHeader";
 import { StoryPathMap } from "@/components/adventrya/world/StoryPathMap";
@@ -34,7 +34,7 @@ import type {
 import { getAdventureMap } from "@/lib/api/worlds";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
-import { continueHrefFromMap, firstJourneyHref } from "@/lib/continue";
+import { continueHrefFromMap, newBookHref } from "@/lib/continue";
 import { formatGel, normalizeGeorgianPhone, useT } from "@/lib/i18n";
 import { PRICES } from "@/lib/pricing";
 import { useWorldById, WORLD_COVER_ART, isWorldId, type WorldId } from "@/lib/worlds";
@@ -181,21 +181,42 @@ export function DashboardScreen() {
   ) as WorldId;
   const world = WORLD_BY_ID[worldId];
 
-  const actionHref = useMemo(() => {
-    if (!characterId) return firstJourneyHref(worldId);
-    if (!hasStories || map?.isFirstJourney) return firstJourneyHref(worldId, characterId);
-    return continueHrefFromMap(map?.continuation, characterId, worldId);
-  }, [characterId, hasStories, map, worldId]);
+  /*
+    Two actions, not one.
 
-  const actionParts = useMemo(() => {
-    const [pathAndQuery, hash] = actionHref.split("#");
+    A single href used to serve "create a new book", the empty state and the map's call to
+    action, and it resolved to a continuation for any family that already had books — which
+    lands on the preview stage and starts a billed generation on sight. Starting a book and
+    carrying one on are different things and now say so: `newHref` opens the world picker,
+    `continueHref` picks up where the last book left off.
+  */
+  const newHref = useMemo(() => newBookHref(characterId), [characterId]);
+
+  const continueHref = useMemo(
+    () => (characterId ? continueHrefFromMap(map?.continuation, characterId, worldId) : null),
+    [characterId, map, worldId],
+  );
+
+  // A continuation only exists once there is a finished book to continue from.
+  const canContinue = Boolean(continueHref && hasStories && !map?.isFirstJourney);
+
+  const hrefParts = useCallback((href: string) => {
+    const [pathAndQuery, hash] = href.split("#");
     const [to, query = ""] = (pathAndQuery || "/create").split("?");
     return {
       to: to || "/create",
       search: Object.fromEntries(new URLSearchParams(query).entries()),
-      hash: hash || "preview",
+      // No `|| "preview"` fallback. That default is what put every hash-less href back on the
+      // preview stage, which is the whole bug this is fixing.
+      hash: hash || undefined,
     };
-  }, [actionHref]);
+  }, []);
+
+  const newParts = useMemo(() => hrefParts(newHref), [hrefParts, newHref]);
+  const continueParts = useMemo(
+    () => (continueHref ? hrefParts(continueHref) : null),
+    [hrefParts, continueHref],
+  );
 
   const printByBook = useMemo(() => {
     const dict: Record<string, PrintOrderResponse> = {};
@@ -374,9 +395,9 @@ export function DashboardScreen() {
         {characterId ? (
           <Link
             className="sidebar-new-book"
-            to={actionParts.to}
-            search={actionParts.search}
-            hash={actionParts.hash}
+            to={newParts.to}
+            search={newParts.search}
+            hash={newParts.hash}
           >
             <Sparkles aria-hidden="true" />
             {t.dashboard.sidebar.newBook}
@@ -423,9 +444,9 @@ export function DashboardScreen() {
             <p>{t.dashboard.empty.body(heroName)}</p>
             <Link
               className="button button-primary"
-              to={actionParts.to}
-              search={actionParts.search}
-              hash={actionParts.hash}
+              to={newParts.to}
+              search={newParts.search}
+              hash={newParts.hash}
             >
               {t.dashboard.empty.cta}
               <ArrowRight aria-hidden="true" />
@@ -490,11 +511,16 @@ export function DashboardScreen() {
                       : t.story.world.lockedNote}
                 </p>
               </div>
+              {/*
+                The map's own action is a continuation — the next chapter of the adventure this
+                map is showing. It falls back to the world picker only when there is nothing yet
+                to continue from, which is also the only case where the label reads as a start.
+              */}
               <Link
                 className="button button-primary"
-                to={actionParts.to}
-                search={actionParts.search}
-                hash={actionParts.hash}
+                to={canContinue && continueParts ? continueParts.to : newParts.to}
+                search={canContinue && continueParts ? continueParts.search : newParts.search}
+                hash={canContinue && continueParts ? continueParts.hash : newParts.hash}
               >
                 {activeNode?.state === "Completed"
                   ? t.story.world.continueFromMemory

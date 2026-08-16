@@ -9,7 +9,7 @@ import { listCharacters } from "@/lib/api/characters";
 import type { AdventureMapResponse, CharacterResponse } from "@/lib/api/types";
 import { getAdventureMap, listAdventureMaps } from "@/lib/api/worlds";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { continueHrefFromMap, firstJourneyHref } from "@/lib/continue";
+import { continueHrefFromMap, newBookHref } from "@/lib/continue";
 import { useT } from "@/lib/i18n";
 import { useWorldById, isWorldId, type WorldId } from "@/lib/worlds";
 
@@ -144,8 +144,10 @@ export function ChildWorldScreen({ celebrationBookId }: ChildWorldScreenProps) {
   const world = WORLD_BY_ID[worldId];
 
   const continueHref = useMemo(() => {
-    if (!characterId) return firstJourneyHref(worldId);
-    if (map?.isFirstJourney) return firstJourneyHref(worldId, characterId);
+    // Nothing to continue from yet, so this is a new book: it starts at the world picker rather
+    // than on the preview stage, which would generate one before anything had been chosen.
+    if (!characterId) return newBookHref();
+    if (map?.isFirstJourney) return newBookHref(characterId);
     if (activeNode?.canStart || activeNode?.state === "Next" || activeNode?.state === "Unlocked") {
       return continueHrefFromMap(map?.continuation, characterId, worldId);
     }
@@ -174,7 +176,9 @@ export function ChildWorldScreen({ celebrationBookId }: ChildWorldScreenProps) {
     return {
       to: to || "/create",
       search: Object.fromEntries(new URLSearchParams(query).entries()),
-      hash: hash || "preview",
+      // No `|| "preview"`: a href that deliberately carries no hash means the world picker, and
+      // defaulting it back to the preview is what started generations nobody asked for.
+      hash: hash || undefined,
     };
   }, [continueHref]);
 
