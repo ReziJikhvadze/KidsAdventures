@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Lock, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 
 import { preloadIllustration, useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
@@ -28,9 +28,17 @@ export type StorybookVolumeProps = {
    */
   isSpreadBook?: boolean;
   className?: string;
-  /** When false, omit controls / rail (thumbnail / shared teaser). */
+  /** When false, omit controls (thumbnail / shared teaser). */
   interactive?: boolean;
   initialIndex?: number;
+  /**
+   * Turn the book by itself every N ms, wrapping back to the cover at the end.
+   *
+   * Opt-in, and set only on the landing hero: a book that keeps turning under someone who has
+   * started reading is worse than one that never moved. It stops for good at the first sign of a
+   * human — a click, a key, a wheel, a swipe — and never resumes.
+   */
+  autoAdvanceMs?: number;
   /**
    * Demo variants. `preview` stays single-page in the create layout so
    * `uses-desktop-spread` does not fight `ux-preview-product` max-height.
@@ -288,6 +296,7 @@ export function StorybookVolume({
   interactive = true,
   initialIndex = 0,
   variant = "full",
+  autoAdvanceMs,
 }: StorybookVolumeProps) {
   const t = useT();
   // Demo Ot uses min-width: 1024px for desktop spreads (not 781).
@@ -303,7 +312,15 @@ export function StorybookVolume({
   const lastIndex = Math.max(0, leaves.length - 1);
   const [index, setIndex] = useState(Math.min(initialIndex, lastIndex));
   const [turning, setTurning] = useState<"next" | "previous" | null>(null);
-  const [fromIndex, setFromIndex] = useState<number | null>(null);
+  /*
+    Where the turn is going, held for as long as it runs.
+
+    This used to be `fromIndex`, the page being left — which was the same thing as `index`,
+    because `index` is not moved until the animation commits. Both faces of the turning sheet
+    were therefore built from the same leaf, and the page being turned to never appeared until
+    it snapped in at the end. The destination is the half that was missing.
+  */
+  const [turnTo, setTurnTo] = useState<number | null>(null);
   const timers = useRef<number[]>([]);
   const swipeX = useRef<number | null>(null);
   const resolvedCover = useIllustrationUrl(coverImageUrl) ?? fallbackCover(worldId);
@@ -361,18 +378,25 @@ export function StorybookVolume({
         setIndex(next);
         return;
       }
-      setFromIndex(index);
+      setTurnTo(next);
       setTurning(direction);
       const id = window.setTimeout(() => {
         setIndex(next);
         setTurning(null);
-        setFromIndex(null);
+        setTurnTo(null);
       }, 900);
       timers.current.push(id);
     },
-    [interactive, turning, lastIndex, index],
+    [interactive, turning, lastIndex],
   );
 
+  /*
+    Turning by itself, until somebody takes over.
+
+    `handedOver` is one-way: the first interaction of any kind ends the demonstration for the
+    life of the component. Reaching the end resets to the cover rather than turning back through
+    the whole book, which is what "start again" looks like on a shelf.
+  */
   const stepIndex = desktopSpread ? spreadSteps.indexOf(index) : index;
   const prevTarget = desktopSpread ? (spreadSteps[Math.max(0, stepIndex - 1)] ?? 0) : index - 1;
   const nextTarget = desktopSpread
@@ -380,6 +404,39 @@ export function StorybookVolume({
     : index + 1;
   const canPrev = index > 0;
   const canNext = desktopSpread ? stepIndex < spreadSteps.length - 1 : index < lastIndex;
+
+  /*
+    Turning by itself, until somebody takes over.
+
+    `handedOver` is one-way: the first interaction of any kind ends the demonstration for the
+    life of the component. At the end it resets to the cover rather than turning back through
+    the whole book, which is what "start again" looks like on a shelf.
+
+    It steps by `nextTarget` rather than index + 1 — on a desktop spread only odd indices are
+    valid landings, and stepping by one put the book on an even index that the nudge effect
+    immediately undid, so it turned once and then sat rocking between two pages.
+  */
+  const [handedOver, setHandedOver] = useState(false);
+  const handOver = useCallback(() => setHandedOver(true), []);
+
+  // A ref, so the timer reads where the book is without listing it as a dependency: depending on
+  // the index would tear the interval down and rebuild it on every turn, drifting the cadence.
+  const live = useRef({ turning, canNext, nextTarget, goTo });
+  live.current = { turning, canNext, nextTarget, goTo };
+
+  useEffect(() => {
+    if (!autoAdvanceMs || !interactive || handedOver) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const id = window.setInterval(() => {
+      // Nothing turns in a tab nobody is looking at; it would only land them mid-book.
+      if (document.hidden || live.current.turning) return;
+      if (live.current.canNext) live.current.goTo(live.current.nextTarget, "next");
+      else setIndex(0);
+    }, autoAdvanceMs);
+
+    return () => window.clearInterval(id);
+  }, [autoAdvanceMs, interactive, handedOver]);
 
   // Native non-passive wheel so preventDefault actually stops page scroll over the book.
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -435,6 +492,14 @@ export function StorybookVolume({
       tabIndex={interactive ? 0 : undefined}
       role={interactive ? "region" : undefined}
       aria-label={t.story.storybook.flipAria(heroName)}
+      /*
+        One place to notice a reader has arrived. Capture-phase and on the root, so it fires for
+        every way of turning a page — corner, control, key, wheel, swipe — without each handler
+        having to remember to say so.
+      */
+      onPointerDownCapture={handOver}
+      onKeyDownCapture={handOver}
+      onWheelCapture={handOver}
       onKeyDown={(event) => {
         if (!interactive) return;
         if (event.key === "ArrowLeft") goTo(prevTarget, "previous");
@@ -508,11 +573,16 @@ export function StorybookVolume({
           )}
         </div>
 
-        {turning && fromIndex !== null && desktopSpread && (index === 0 || fromIndex === 0) ? (
+        {/*
+          Which face shows which page follows from the direction the sheet swings. Turning
+          forward, the face you start looking at is the page you are leaving and the one revealed
+          is the page you are going to; turning back, the sheet starts flipped, so the two swap.
+        */}
+        {turning && turnTo !== null && desktopSpread && (index === 0 || turnTo === 0) ? (
           <div className={`storybook-cover-turn turn-${turning}`} aria-hidden="true">
             <div className="storybook-turn-face storybook-turn-front">
               <LeafView
-                leaf={leaves[turning === "next" ? fromIndex : index] ?? null}
+                leaf={leaves[turning === "next" ? index : turnTo] ?? null}
                 heroName={heroName}
                 title={title}
                 coverSrc={resolvedCover}
@@ -522,7 +592,7 @@ export function StorybookVolume({
             </div>
             <div className="storybook-turn-face storybook-turn-back">
               <LeafView
-                leaf={leaves[turning === "next" ? index : fromIndex] ?? null}
+                leaf={leaves[turning === "next" ? turnTo : index] ?? null}
                 heroName={heroName}
                 title={title}
                 coverSrc={resolvedCover}
@@ -534,11 +604,12 @@ export function StorybookVolume({
           </div>
         ) : null}
 
-        {turning && fromIndex !== null && desktopSpread && fromIndex > 0 && index > 0 ? (
+        {turning && turnTo !== null && desktopSpread && index > 0 && turnTo > 0 ? (
           <div className={`storybook-spread-turn turn-${turning}`} aria-hidden="true">
+            {/* The recto of the spread being left is the leaf that physically turns. */}
             <div className="storybook-turn-face storybook-turn-front">
               <LeafView
-                leaf={leaves[turning === "next" ? fromIndex + 1 : index] ?? null}
+                leaf={leaves[turning === "next" ? index + 1 : turnTo] ?? null}
                 heroName={heroName}
                 title={title}
                 coverSrc={resolvedCover}
@@ -548,7 +619,7 @@ export function StorybookVolume({
             </div>
             <div className="storybook-turn-face storybook-turn-back">
               <LeafView
-                leaf={leaves[turning === "next" ? index : fromIndex + 1] ?? null}
+                leaf={leaves[turning === "next" ? turnTo : index + 1] ?? null}
                 heroName={heroName}
                 title={title}
                 coverSrc={resolvedCover}
@@ -560,11 +631,11 @@ export function StorybookVolume({
           </div>
         ) : null}
 
-        {turning && fromIndex !== null && !desktopSpread ? (
+        {turning && turnTo !== null && !desktopSpread ? (
           <div className={`storybook-turn-sheet turn-${turning}`} aria-hidden="true">
             <div className="storybook-turn-face storybook-turn-front">
               <LeafView
-                leaf={leaves[turning === "next" ? fromIndex : index] ?? null}
+                leaf={leaves[turning === "next" ? index : turnTo] ?? null}
                 heroName={heroName}
                 title={title}
                 coverSrc={resolvedCover}
@@ -574,7 +645,7 @@ export function StorybookVolume({
             </div>
             <div className="storybook-turn-face storybook-turn-back">
               <LeafView
-                leaf={leaves[turning === "next" ? index : fromIndex] ?? null}
+                leaf={leaves[turning === "next" ? turnTo : index] ?? null}
                 heroName={heroName}
                 title={title}
                 coverSrc={resolvedCover}
@@ -629,33 +700,12 @@ export function StorybookVolume({
               <ChevronRight size={13} absoluteStrokeWidth />
             </button>
           </div>
-          <div className="storybook-page-rail" aria-label={t.story.storybook.pages}>
-            {(desktopSpread ? spreadSteps : leaves.map((_, i) => i)).map((step) => (
-              <button
-                key={step}
-                className={index === step ? "selected" : ""}
-                type="button"
-                onClick={() => goTo(step, step > index ? "next" : "previous")}
-                aria-label={
-                  step === 0
-                    ? t.story.storybook.railCover
-                    : leaves[step]?.kind === "qr"
-                      ? t.story.storybook.qrTitle
-                      : desktopSpread
-                        ? t.story.storybook.railSpread(step, Math.min(totalStoryPages, step + 1))
-                        : t.story.storybook.railPage(step)
-                }
-              >
-                {step === 0 || leaves[step]?.kind === "qr" ? (
-                  <Sparkles size={11} absoluteStrokeWidth />
-                ) : desktopSpread ? (
-                  `${step}–${Math.min(totalStoryPages, step + 1)}`
-                ) : (
-                  step
-                )}
-              </button>
-            ))}
-          </div>
+          {/*
+            The page rail is gone: a row of eighteen numbered buttons under a picture book is a
+            table of contents nobody asked for, and it was already hidden in the preview. Prev,
+            next and the progress counter above are what remain, and nothing is unreachable —
+            every page is still one turn from its neighbour.
+          */}
           <p className="storybook-gesture-hint">{t.story.storybook.gestureHint}</p>
         </>
       ) : null}

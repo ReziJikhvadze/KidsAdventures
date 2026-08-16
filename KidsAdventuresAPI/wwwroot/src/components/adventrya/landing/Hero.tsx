@@ -80,6 +80,8 @@ export function Hero() {
             isUnlocked
             isSpreadBook
             interactive
+            /* The one place the book turns by itself: a shop window, until somebody touches it. */
+            autoAdvanceMs={2000}
             initialIndex={0}
           />
 
