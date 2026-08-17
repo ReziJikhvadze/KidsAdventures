@@ -14,7 +14,7 @@
   A background-image cannot be art-directed that way; it can only be cropped, and cropping a
   landscape scene to a 9:16 phone throws away the two islands at its edges.
 */
-.world-pick-map picture {
+.world-map-canvas picture {
   display: contents;
 }
 .first-map-painting {
@@ -661,6 +661,17 @@
   display: grid;
   place-items: center;
   overflow: hidden;
+}
+/*
+  What is true of the painting wherever it is shown: the pins and the light layers are positioned
+  against it, it clips whatever reaches past its edge — a label under the rightmost island would
+  otherwise widen the page it sits on — and it stacks its own layers. Size and frame are the
+  screen's business, so they are not here.
+*/
+.world-map-canvas {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
 }
 .world-pick-map {
   position: relative;
@@ -1425,12 +1436,15 @@
   them with a second set of dots, rings, mist, or parallax. These overrides deliberately keep
   the interaction layer quiet and let the illustrated portals do the storytelling.
 */
-.world-pick-map .first-map-painting {
+/* Scoped to the canvas rather than to the picker, because a still painting with pins standing
+   exactly where the art puts them is true of every map: the breathing scale moves the islands a
+   percent or two and the pins do not follow. */
+.world-map-canvas .first-map-painting {
   filter: saturate(0.94) brightness(0.97) contrast(1.02);
   animation: none;
   translate: 0 0;
 }
-.world-pick-map .first-map-vignette {
+.world-map-canvas .first-map-vignette {
   background: linear-gradient(
     180deg,
     rgba(4, 7, 24, 0.18),

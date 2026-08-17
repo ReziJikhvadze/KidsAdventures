@@ -85,11 +85,9 @@ export const landing = {
       },
     ],
     cta: "დაათვალიერე ზუკას სამყარო ",
-    mapNodes: [
-      { state: "unlocked", label: "გახსნილი", title: "დინოზავრების ხეობა" },
-      { state: "next", label: "შემდეგი თავგადასავალი", title: "კოსმოსის სამყარო" },
-      { state: "future", label: "ჯერ შეუსწავლელი", title: "ახალი სამყარო მალე გაიხსნება" },
-    ],
+    /* A pin on the map shows only the short name of the place. This is what it says to a screen
+       reader, which has to hear where the link goes rather than see the island it stands on. */
+    mapPin: (world: string) => `დაიწყე თავგადასავალი — ${world}`,
   },
 
   worlds: {

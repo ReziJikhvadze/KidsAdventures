@@ -85,11 +85,9 @@ export const landing = {
       },
     ],
     cta: "Explore Zuka's world ",
-    mapNodes: [
-      { state: "unlocked", label: "Opened", title: "Valley of the Dinosaurs" },
-      { state: "next", label: "Next adventure", title: "The World of Space" },
-      { state: "future", label: "Not yet explored", title: "A new world opens soon" },
-    ],
+    /* A pin on the map shows only the short name of the place. This is what it says to a screen
+       reader, which has to hear where the link goes rather than see the island it stands on. */
+    mapPin: (world: string) => `Start an adventure — ${world}`,
   },
 
   worlds: {

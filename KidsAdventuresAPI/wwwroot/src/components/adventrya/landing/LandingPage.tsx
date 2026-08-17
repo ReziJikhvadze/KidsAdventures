@@ -1,19 +1,38 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
+import { WorldMapCanvas, WorldMapPin } from "@/components/adventrya/journey/WorldMapCanvas";
 import { Books } from "@/components/adventrya/landing/Books";
 import { Header, useLogoToTop } from "@/components/adventrya/landing/Header";
 import { Hero } from "@/components/adventrya/landing/Hero";
-import { ArrowIcon, CheckIcon, SparkleIcon, WorldIcon } from "@/components/adventrya/landing/icons";
+import { ArrowIcon, CheckIcon, SparkleIcon } from "@/components/adventrya/landing/icons";
 import { formatGel, useT } from "@/lib/i18n";
 import { PRICES } from "@/lib/pricing";
+import { useWorlds, type WorldId } from "@/lib/worlds";
 
 /* Every generic call to action starts at the world, which is now the first step. */
 const START_JOURNEY = "/themes";
 
+/**
+ * The section that says the world outlives the book — and now shows it.
+ *
+ * What stood here was a drawing of a map: three cards pinned to the corners of an empty box with
+ * a dashed CSS arc between them, naming two worlds and a placeholder. It described the product
+ * instead of being it, and every word of it was a second copy of something the app already knew.
+ * This is the real map from /themes — the same component reading the same anchor table — so the
+ * section cannot name a world the picker does not have, or put an island where the painting has
+ * open sea.
+ *
+ * It stays a marketing section, though: nothing is chosen here. A pin lights when it is pointed
+ * at and leads into the journey with that world already picked.
+ */
 function Memory() {
   const t = useT();
   const L = t.landing.memory;
+  const worlds = useWorlds();
+  // The one piece of state: which island the light is on. Not a selection — it is forgotten the
+  // moment the pointer leaves, and nothing on the page reads it but the glow.
+  const [lit, setLit] = useState<WorldId | null>(null);
   return (
     <section className="landing-v3-memory">
       <div className="landing-v3-memory-art" aria-hidden="true" />
@@ -47,27 +66,20 @@ function Memory() {
         <Link to="/world">{L.cta}</Link>
       </div>
 
-      <div className="landing-v3-map-story" aria-hidden="true">
-        <div className="map-story-path">
-          <i />
-          <i />
-          <i />
-          <i />
-        </div>
-        {L.mapNodes.map((node) => (
-          <div key={node.state} className={`map-story-node ${node.state}`}>
-            <span>
-              {node.state === "future" ? (
-                "…"
-              ) : (
-                <WorldIcon type={node.state === "next" ? "space" : "dinosaurs"} />
-              )}
-            </span>
-            <small>{node.label}</small>
-            <strong>{node.title}</strong>
-          </div>
+      <WorldMapCanvas focusId={lit} className="landing-v3-memory-map">
+        {worlds.map((world) => (
+          <WorldMapPin
+            key={world.id}
+            world={world}
+            as="entrance"
+            label={L.mapPin(world.mapTitle)}
+            onMouseEnter={() => setLit(world.id)}
+            onMouseLeave={() => setLit(null)}
+            onFocus={() => setLit(world.id)}
+            onBlur={() => setLit(null)}
+          />
         ))}
-      </div>
+      </WorldMapCanvas>
     </section>
   );
 }

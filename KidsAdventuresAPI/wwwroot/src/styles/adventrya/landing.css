@@ -1015,9 +1015,18 @@
   inset: 0;
   z-index: -4;
 }
+/*
+  Out of focus, on purpose.
+
+  This is the same painting the card in front of it now shows for real, and two copies of one
+  picture at different scales read as a printing error. Blurred it goes back to being what it was
+  always doing here — the night the section happens in. The inset is negative so the blur has
+  material to smear at the edges instead of fading into the flat colour behind it.
+*/
 .landing-v3-memory-art {
+  inset: -40px;
   background: url("/adventrya/adventrya-world-map-portals-wide.jpg") 54% 48% / cover no-repeat;
-  filter: saturate(0.82) brightness(0.78);
+  filter: saturate(0.7) brightness(0.52) blur(20px);
 }
 .landing-v3-memory-shade {
   z-index: -3;
@@ -1120,124 +1129,23 @@
 .landing-v3-memory-copy > a svg {
   width: 14px;
 }
-.landing-v3-map-story {
-  position: relative;
+/*
+  The real map, framed as a card in the second column.
+
+  Only the frame is here: the painting, the pins and their light are WorldMapCanvas, shared with
+  the picker at /themes. The aspect ratio is the one part of the frame that is not free — the
+  painting fills the card with object-fit: cover and the pins are placed in percentages of it, so
+  a card that is not the shape of the art crops it and leaves every pin off its island. It
+  therefore switches between 16/9 and 9/16 at exactly the widths the <picture> switches art.
+*/
+.landing-v3-memory-map {
   z-index: 3;
   width: min(100%, 720px);
-  height: 610px;
+  aspect-ratio: 16 / 9;
   justify-self: end;
-}
-.map-story-node {
-  position: absolute;
-  z-index: 4;
-  min-width: 210px;
-  display: grid;
-  grid-template-columns: 45px 1fr;
-  grid-template-rows: auto auto;
-  column-gap: 12px;
-  padding: 14px;
-  color: #fff9ed;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 17px;
-  background: #1b1139b3;
-  box-shadow:
-    0 20px 38px #07031245,
-    inset 0 1px #ffffff0f;
-  -webkit-backdrop-filter: blur(13px);
-  backdrop-filter: blur(13px);
-}
-.map-story-node > span {
-  grid-row: 1 / span 2;
-  width: 45px;
-  height: 45px;
-  display: grid;
-  place-items: center;
-  color: #25163e;
-  border-radius: 13px;
-  background: var(--lv3-gold);
-}
-.map-story-node > span svg {
-  width: 23px;
-}
-.map-story-node small {
-  align-self: end;
-  color: #fffaee7a;
-  font-size: 11px;
-}
-.map-story-node strong {
-  align-self: start;
-  margin-top: 3px;
-  font-family: "Adventrya Serif", serif;
-  font-size: 13px;
-}
-.map-story-node.unlocked {
-  left: 4%;
-  bottom: 13%;
-}
-.map-story-node.next {
-  top: 9%;
-  right: 3%;
-}
-.map-story-node.next > span {
-  color: #fff9ed;
-  background: #7455b2;
-  box-shadow: 0 0 23px #936dde80;
-}
-.map-story-node.future {
-  right: 0;
-  bottom: 16%;
-  opacity: 0.65;
-  filter: grayscale(0.2);
-}
-.map-story-node.future > span {
-  color: #fffaeeb3;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: #ffffff12;
-  font-style: normal;
-}
-.map-story-path {
-  position: absolute;
-  top: 25%;
-  left: 23%;
-  width: 50%;
-  height: 47%;
-  border: 2px dashed rgba(244, 192, 95, 0.78);
-  border-left-color: transparent;
-  border-bottom-color: #976fdd9e;
-  border-radius: 0 58% 45% 0;
-  transform: rotate(-13deg);
-  filter: drop-shadow(0 0 7px rgba(232, 181, 87, 0.54));
-}
-.map-story-path i {
-  position: absolute;
-  width: 7px;
-  height: 7px;
-  border: 1px solid #fff4d8;
-  border-radius: 50%;
-  background: var(--lv3-gold);
-  box-shadow: 0 0 15px #f4c05fe6;
-}
-.map-story-path i:nth-child(1) {
-  left: 8%;
-  top: -4px;
-}
-.map-story-path i:nth-child(2) {
-  right: 27%;
-  top: -4px;
-}
-.map-story-path i:nth-child(3) {
-  right: -4px;
-  top: 36%;
-}
-.map-story-path i:nth-child(4) {
-  right: 14%;
-  bottom: -4px;
-  background: #9d79e3;
-}
-.map-story-path i:nth-child(5) {
-  left: 19%;
-  bottom: -4px;
-  background: #9d79e3;
+  border: 1px solid rgba(255, 248, 235, 0.1);
+  border-radius: clamp(18px, 2.2vw, 28px);
+  box-shadow: 0 28px 76px rgba(3, 1, 14, 0.5);
 }
 .landing-v3-world-card {
   position: relative;
@@ -1812,10 +1720,6 @@
   .landing-v3-memory {
     grid-template-columns: minmax(390px, 0.8fr) minmax(500px, 1.2fr);
   }
-  .landing-v3-map-story {
-    transform: scale(0.9);
-    transform-origin: right center;
-  }
 }
 @media (max-width: 900px) {
   .landing-v3-header {
@@ -1943,9 +1847,8 @@
   .landing-v3-memory-copy {
     max-width: 700px;
   }
-  .landing-v3-map-story {
+  .landing-v3-memory-map {
     justify-self: center;
-    transform: none;
   }
   .landing-v3-price-cards {
     justify-self: center;
@@ -2139,54 +2042,6 @@
     margin: -4px auto;
     transform: rotate(90deg);
   }
-  /*
-    The three cards are pinned to the corners of the map, which works while the map is wide.
-    On a phone the container is narrower than two cards side by side, so "unlocked" and "future"
-    were laid over each other by about 80px. Below this width they stop being pins and become a
-    list: the decorative path stays behind them, and each card is readable on its own line.
-  */
-  .landing-v3-map-story {
-    width: 100%;
-    height: auto;
-    margin-left: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 14px 0 4px;
-  }
-  .map-story-path {
-    display: none;
-  }
-  .map-story-node {
-    position: static;
-    min-width: 0;
-    width: 100%;
-    grid-template-columns: 38px 1fr;
-    column-gap: 9px;
-    padding: 11px;
-  }
-  .map-story-node > span {
-    width: 38px;
-    height: 38px;
-  }
-  .map-story-node strong {
-    font-size: 12px;
-  }
-  .map-story-node.unlocked {
-    left: 0;
-    bottom: 8%;
-  }
-  /*
-    The corner offsets and the shrink belonged to the pinned layout. In a stacked list they only
-    make the last card a different size from the two above it, which reads as a mistake rather
-    than as depth.
-  */
-  .map-story-node.unlocked,
-  .map-story-node.next,
-  .map-story-node.future {
-    inset: auto;
-    transform: none;
-  }
   .landing-v3-world-card {
     min-height: 142px;
     grid-template-columns: 50px 1fr 28px;
@@ -2371,6 +2226,22 @@
   .landing-v3-memory-art {
     background-image: url("/adventrya/adventrya-world-map-portals-tall.jpg");
     background-position: center 60%;
+  }
+}
+
+/*
+  The card follows the painting.
+
+  These are the two conditions <picture> uses to hand over the portrait art — they have to stay
+  written the same way in both places, because a card in the shape of one painting holding the
+  other crops the islands out from under the pins. The width is capped as well: a 9:16 card given
+  a full 800px column would be 1400px tall and the section would be nothing but map.
+*/
+@media (max-width: 999px) and (orientation: portrait),
+  (min-width: 1000px) and (max-aspect-ratio: 4 / 3) {
+  .landing-v3-memory-map {
+    width: min(100%, 400px);
+    aspect-ratio: 9 / 16;
   }
 }
 
