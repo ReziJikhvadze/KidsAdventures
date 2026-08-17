@@ -269,6 +269,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBekiStoryRepository, BekiStoryRepository>();
         services.AddScoped<IBekiVisualRepository, BekiVisualRepository>();
 
+        // The intake gate is not part of a pipeline: it runs on its own, in front of everything,
+        // while a parent is still on the form.
+        services.AddScoped<IPortraitGate, PortraitGate>();
+
         return services;
     }
 }

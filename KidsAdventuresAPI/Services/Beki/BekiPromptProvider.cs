@@ -40,6 +40,7 @@ public sealed class BekiPromptProvider(ILogger<BekiPromptProvider> logger) : IBe
     public const string PageImageGenerator = "page-image-generator-v1";
     public const string VisualReviewer = "visual-reviewer-v1";
     public const string VisualRepair = "visual-repair-v1";
+    public const string PortraitGate = "portrait-gate-v1";
 
     private static readonly string PromptDirectory =
         Path.Combine(AppContext.BaseDirectory, "Prompts", "Beki");
@@ -66,6 +67,7 @@ public sealed class BekiPromptProvider(ILogger<BekiPromptProvider> logger) : IBe
     public const string StoryOutputSchema = "story-output-v1";
     public const string VisualBibleSchema = "visual-bible-v1";
     public const string VisualReviewSchema = "visual-review-v1";
+    public const string PortraitGateSchema = "portrait-gate-v1";
 
     private readonly ConcurrentDictionary<string, object?> _schemas = new();
 

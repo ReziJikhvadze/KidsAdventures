@@ -40,6 +40,31 @@ export const journey = {
     photoHint: "სახე სრულად ჩანს · კარგი განათება · მზის სათვალის გარეშე",
     photoUpload: "ფოტოს ატვირთვა",
     photoReplace: "ფოტოს შეცვლა",
+    /* The two examples. A parent sees what is wanted before choosing, not after being refused. */
+    photoGuide: {
+      title: "როგორი ფოტო გამოდგება",
+      goodLabel: "გამოდგება",
+      goodReason: "სახე კადრს ავსებს, წინიდან განათებულია და კამერას უყურებს.",
+      badLabel: "არ გამოდგება",
+      badReason: "შორია, ბნელია და სახე გვერდზეა მიბრუნებული.",
+    },
+    photoChecking: "ვამოწმებთ ფოტოს…",
+    /*
+      Keyed by the code the server returns, so each refusal says what to do differently.
+      "This photo will not do" sends a parent back to the picker with nothing to change.
+    */
+    photoRejected: {
+      not_a_person: "ეს ბავშვის ფოტო არ არის — ატვირთე სურათი, სადაც ბავშვის სახე ჩანს.",
+      no_face: "სახე არ ჩანს — ატვირთე ფოტო, სადაც ბავშვი კამერას უყურებს.",
+      multiple_people: "ფოტოზე რამდენიმე ადამიანია — ატვირთე სურათი მხოლოდ ერთი ბავშვით.",
+      face_obscured: "სახე დაფარული ან ბუნდოვანია — ატვირთე მკაფიო ფოტო სათვალის ან ნიღბის გარეშე.",
+      face_too_small: "ბავშვი ძალიან შორსაა — ატვირთე ფოტო, სადაც სახე კადრს ავსებს.",
+      too_dark: "ფოტო ძალიან ბნელია — ატვირთე კარგად განათებული სურათი.",
+      unsuitable: "ეს ფოტო არ გამოდგება — ატვირთე მკაფიო პორტრეტი, სადაც ბავშვის სახე კარგად ჩანს.",
+      unreadable: "ფაილი ვერ წავიკითხეთ — ატვირთე JPG, PNG ან WEBP ფოტო.",
+      too_large: "ფოტო ძალიან დიდია — აირჩიე უფრო პატარა სურათი.",
+      unavailable: "ფოტოს შემოწმება ვერ მოხერხდა — სცადე ხელახლა ატვირთვა.",
+    },
   },
 
   bookSettings: {

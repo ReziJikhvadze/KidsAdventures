@@ -181,6 +181,99 @@
   color: #b9f0d0;
   background: #53bc8f30;
 }
+/* A refused photo borrows the ready state's shape and inverts its colour, so the box reads as
+   answered-and-wrong rather than as the untouched box it was a second ago. */
+.ux-photo-upload.rejected {
+  border-style: solid;
+  border-color: #f0a08c73;
+  background: linear-gradient(145deg, #a4575730, #1a113a61);
+}
+.ux-photo-upload.rejected > span {
+  color: #ffc9bb;
+  background: #bc635330;
+}
+.ux-photo-upload button:disabled {
+  cursor: progress;
+  opacity: 0.55;
+}
+.ux-photo-spinner {
+  animation: ux-photo-spin 0.9s linear infinite;
+}
+@keyframes ux-photo-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* The check runs for about a second, and a still icon for that long reads as a frozen form. */
+@media (prefers-reduced-motion: reduce) {
+  .ux-photo-spinner {
+    animation-duration: 2.4s;
+  }
+}
+.ux-photo-rejection {
+  max-width: 190px;
+  margin: 10px 0 12px;
+  color: #ffd3c7;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.ux-photo-guide {
+  width: 100%;
+  margin: 12px 0;
+}
+.ux-photo-guide figcaption {
+  margin-bottom: 8px;
+  color: #eae3ef87;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ux-photo-guide-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.ux-photo-guide-shot img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border: 1px solid transparent;
+  border-radius: 12px;
+}
+.ux-photo-guide-shot span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.ux-photo-guide-shot span svg {
+  width: 11px;
+  height: 11px;
+}
+.ux-photo-guide-shot small {
+  display: block;
+  margin-top: 2px;
+  color: #eae3ef87;
+  font-size: 10px;
+  line-height: 1.45;
+}
+/* Which one is which has to survive being read in a hurry, so the border, the tick and the
+   label all say it rather than colour alone. */
+.ux-photo-guide-shot.good img {
+  border-color: #7ad8ae73;
+}
+.ux-photo-guide-shot.good span {
+  color: #b9f0d0;
+}
+.ux-photo-guide-shot.bad img {
+  border-color: #f0a08c73;
+}
+.ux-photo-guide-shot.bad span {
+  color: #ffc9bb;
+}
 .ux-form-actions {
   display: flex;
   justify-content: flex-end;

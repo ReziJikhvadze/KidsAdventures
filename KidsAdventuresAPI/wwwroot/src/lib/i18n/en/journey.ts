@@ -46,6 +46,27 @@ export const journey = {
     photoHint: "Whole face visible · good lighting · no sunglasses",
     photoUpload: "Upload a photo",
     photoReplace: "Replace photo",
+    photoGuide: {
+      title: "What makes a usable photo",
+      goodLabel: "Works",
+      goodReason: "The face fills the frame, lit from the front, looking at the camera.",
+      badLabel: "Won't work",
+      badReason: "Too far away, too dark, and the face is turned away.",
+    },
+    photoChecking: "Checking the photo…",
+    photoRejected: {
+      not_a_person: "That isn't a photo of a child — upload one showing the child's face.",
+      no_face: "No face visible — upload a photo where the child is looking at the camera.",
+      multiple_people: "There are several people in this photo — upload one with a single child.",
+      face_obscured:
+        "The face is covered or blurred — upload a clear photo without sunglasses or a mask.",
+      face_too_small: "The child is too far away — upload a photo where the face fills the frame.",
+      too_dark: "This photo is too dark — upload a well-lit one.",
+      unsuitable: "This photo won't work — upload a clear portrait showing the child's face.",
+      unreadable: "We couldn't read that file — upload a JPG, PNG or WEBP photo.",
+      too_large: "That photo is too large — please choose a smaller one.",
+      unavailable: "We couldn't check the photo — please try uploading it again.",
+    },
   },
 
   bookSettings: {

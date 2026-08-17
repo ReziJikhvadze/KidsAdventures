@@ -1,8 +1,9 @@
-import { Camera, Check, Lock, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Camera, Check, Loader2, Lock, Pencil, Plus, Trash2, TriangleAlert, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BirthDateField } from "@/components/adventrya/journey/BirthDateField";
 import { SparkleIcon } from "@/components/adventrya/landing/icons";
+import { checkPortrait, type PortraitRejection } from "@/lib/api/portraits";
 import { BOOK_LANGUAGES, type BookLanguage, useT } from "@/lib/i18n";
 import { preparePortrait } from "@/lib/images/preparePortrait";
 import type { CharacterGender, EyeColor } from "@/lib/api/types";
@@ -267,19 +268,67 @@ function CharacterEditor({
   const copy = t.journey;
   const needsGender = character.characterType === "child" || character.characterType === "adult";
 
+  const [checking, setChecking] = useState(false);
+  const [rejection, setRejection] = useState<PortraitRejection | null>(null);
+  /*
+    Which check the answer belongs to. A parent who picks a second photo while the first is
+    still being judged would otherwise see the older verdict land on the newer photo — and the
+    older one is as likely to be an acceptance as a refusal.
+  */
+  const checkRef = useRef(0);
+
   const title = character.isPrimary
     ? copy.profile.primaryCharacter
     : copy.profile.nthCharacter(index + 1);
 
   const onPhoto = (file: File | null) => {
     if (!file) return;
-    // Downscaled before it is stored, never at full camera resolution. A phone photo plus
-    // base64 overhead exceeds the upload limit, and an oversized request is rejected before
-    // our code runs — so it comes back with no CORS headers and the browser blames CORS.
-    void preparePortrait(file)
-      .then(({ dataUrl }) => onChange({ photoDataUrl: dataUrl, photoReady: true }))
-      .catch(() => onChange({ photoDataUrl: null, photoReady: false }));
+
+    const ticket = ++checkRef.current;
+    setRejection(null);
+    setChecking(true);
+    // The photo being replaced stops counting the moment a new one is chosen. Leaving the old
+    // one ready would let the form continue on a portrait the parent has already moved on from.
+    onChange({ photoDataUrl: null, photoReady: false });
+
+    void (async () => {
+      try {
+        // Downscaled before it is stored, never at full camera resolution. A phone photo plus
+        // base64 overhead exceeds the upload limit, and an oversized request is rejected before
+        // our code runs — so it comes back with no CORS headers and the browser blames CORS.
+        const { dataUrl } = await preparePortrait(file);
+
+        // Asked here rather than at generation: this is the last moment the answer costs one
+        // small call, and the only moment a parent can still pick a different photo.
+        const verdict = await checkPortrait(dataUrl);
+        if (ticket !== checkRef.current) return;
+
+        if (verdict.accepted) {
+          onChange({ photoDataUrl: dataUrl, photoReady: true });
+        } else {
+          setRejection(verdict.reason);
+        }
+      } catch {
+        // preparePortrait only throws when the file cannot be read at all — which used to end
+        // here silently, leaving a parent looking at a button that would not go ready and no
+        // word about why.
+        if (ticket !== checkRef.current) return;
+        setRejection("unreadable");
+      } finally {
+        if (ticket === checkRef.current) setChecking(false);
+      }
+    })();
   };
+
+  // The upload box says one thing at a time, and the state it is in decides which.
+  let photoIcon = <Camera />;
+  if (checking) photoIcon = <Loader2 className="ux-photo-spinner" />;
+  else if (rejection) photoIcon = <TriangleAlert />;
+  else if (character.photoReady) photoIcon = <Check />;
+
+  let photoLabel = copy.characterForm.photoRequired;
+  if (checking) photoLabel = copy.characterForm.photoChecking;
+  else if (character.photoReady) photoLabel = copy.characterForm.photoReady;
 
   return (
     <div className={`ux-character-form ${character.isPrimary ? "" : "ux-second-character-form"}`}>
@@ -382,13 +431,13 @@ function CharacterEditor({
           ) : null}
         </div>
 
-        <div className={`ux-photo-upload ${character.photoReady ? "ready" : ""}`}>
-          <span aria-hidden="true">{character.photoReady ? <Check /> : <Camera />}</span>
-          <small>
-            {character.photoReady
-              ? copy.characterForm.photoReady
-              : copy.characterForm.photoRequired}
-          </small>
+        <div
+          className={`ux-photo-upload ${character.photoReady ? "ready" : ""} ${
+            rejection ? "rejected" : ""
+          }`}
+        >
+          <span aria-hidden="true">{photoIcon}</span>
+          <small>{photoLabel}</small>
           {character.photoDataUrl ? (
             <img
               src={character.photoDataUrl}
@@ -402,7 +451,24 @@ function CharacterEditor({
               }}
             />
           ) : null}
-          <button type="button" onClick={() => fileRef.current?.click()}>
+
+          {/*
+            The examples go where the decision is made, and only while it is still open. Once a
+            portrait is accepted they are answering a question nobody is asking any more.
+          */}
+          {!character.photoReady && !checking ? <PhotoGuide /> : null}
+
+          {/*
+            role="status" because the refusal arrives a second after the file dialog closed —
+            long after focus moved on — so a screen reader has to be told it appeared.
+          */}
+          {rejection ? (
+            <p className="ux-photo-rejection" role="status">
+              {copy.characterForm.photoRejected[rejection]}
+            </p>
+          ) : null}
+
+          <button type="button" disabled={checking} onClick={() => fileRef.current?.click()}>
             {character.photoReady
               ? copy.characterForm.photoReplace
               : copy.characterForm.photoUpload}
@@ -412,7 +478,12 @@ function CharacterEditor({
             type="file"
             accept="image/jpeg,image/png,image/webp"
             hidden
-            onChange={(e) => onPhoto(e.target.files?.[0] ?? null)}
+            onChange={(e) => {
+              onPhoto(e.target.files?.[0] ?? null);
+              // Cleared so that choosing the same file again still fires a change — otherwise a
+              // parent who retries the photo they just had refused gets no reaction at all.
+              e.target.value = "";
+            }}
           />
         </div>
       </div>
@@ -446,6 +517,53 @@ function CharacterEditor({
         ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * Two real photographs, side by side, of what is wanted and what is not.
+ *
+ * The upload box used to describe a good portrait in words, which is the one thing a photo is
+ * better at than a sentence: "the face fills the frame" is abstract until it is shown next to a
+ * child standing across a dark room.
+ *
+ * The files live in `public/adventrya/photo-guide/`. Until both are in place the block removes
+ * itself rather than showing a parent two broken frames on the form that asks for their photo.
+ */
+const PHOTO_GUIDE_SHOTS = {
+  good: "/adventrya/photo-guide/good.jpg",
+  bad: "/adventrya/photo-guide/bad.jpg",
+};
+
+function PhotoGuide() {
+  const guide = useT().journey.characterForm.photoGuide;
+  const [missing, setMissing] = useState(false);
+
+  if (missing) return null;
+
+  return (
+    <figure className="ux-photo-guide">
+      <figcaption>{guide.title}</figcaption>
+      <div className="ux-photo-guide-pair">
+        <div className="ux-photo-guide-shot good">
+          {/* The label and the reason beside it carry the meaning, so the image is decorative. */}
+          <img src={PHOTO_GUIDE_SHOTS.good} alt="" onError={() => setMissing(true)} />
+          <span>
+            <Check aria-hidden="true" />
+            {guide.goodLabel}
+          </span>
+          <small>{guide.goodReason}</small>
+        </div>
+        <div className="ux-photo-guide-shot bad">
+          <img src={PHOTO_GUIDE_SHOTS.bad} alt="" onError={() => setMissing(true)} />
+          <span>
+            <X aria-hidden="true" />
+            {guide.badLabel}
+          </span>
+          <small>{guide.badReason}</small>
+        </div>
+      </div>
+    </figure>
   );
 }
 

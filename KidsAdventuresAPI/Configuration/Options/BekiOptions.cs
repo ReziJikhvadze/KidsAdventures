@@ -37,6 +37,20 @@ public sealed class BekiOptions
     /// <summary>Reads the child's photo and returns a structured identity spec.</summary>
     public string IdentityAnalyzerModel { get; set; } = "gpt-5.6-luna";
 
+    /// <summary>
+    /// Decides whether a chosen photo is a usable portrait at all, before anything is generated.
+    /// Its own setting rather than the analyzer's: this one runs while a parent waits on the form,
+    /// so it is the first place a cheaper or faster model would be worth trying.
+    /// </summary>
+    public string PortraitGateModel { get; set; } = "gpt-5.6-luna";
+
+    /// <summary>
+    /// The gate runs between choosing a file and seeing it accepted, so it is bounded far tighter
+    /// than the generation calls. A parent will wait a second; past ten they assume it broke, and
+    /// waiting longer costs more than asking them to try the photo again.
+    /// </summary>
+    public int PortraitGateTimeoutSeconds { get; set; } = 10;
+
     /// <summary>Turns the approved story plus identity into the book's Visual Bible.</summary>
     public string VisualBibleModel { get; set; } = "gpt-5.6-luna";
 

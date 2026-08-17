@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "portrait-gate-v1",
+  "title": "Beki Portrait Gate v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["accepted", "reason", "explanation"],
+  "properties": {
+    "accepted": {
+      "type": "boolean",
+      "description": "True only when the photo can be used as an identity reference."
+    },
+    "reason": {
+      "type": "string",
+      "description": "One code. 'ok' when accepted; otherwise the single best reason for the refusal.",
+      "enum": [
+        "ok",
+        "not_a_person",
+        "no_face",
+        "multiple_people",
+        "face_obscured",
+        "face_too_small",
+        "too_dark"
+      ]
+    },
+    "explanation": {
+      "type": "string",
+      "description": "One short English sentence describing the image, for the product log only.",
+      "maxLength": 300
+    }
+  }
+}
