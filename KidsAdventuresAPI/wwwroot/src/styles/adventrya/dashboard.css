@@ -536,11 +536,92 @@
   height: 16px;
 }
 
+/*
+  Signed out: the dashboard itself, blurred, behind a gate.
+
+  The layer holding the preview is absolutely positioned over the whole shell so the panes
+  inside it keep the coordinates they already use — `.dashboard-sidebar` and `.dashboard-main`
+  are absolute against it, and a filtered element is a containing block for both. The blur is
+  paint; `pointer-events: none` and `inert` on the element are what actually make it a picture,
+  and dropping the pointer events is also what lets a click land on the catcher underneath.
+*/
+.dashboard-preview-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  user-select: none;
+  filter: blur(6px) saturate(0.9);
+}
+.dashboard-preview-catch {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  cursor: pointer;
+  background: radial-gradient(circle at 50% 45%, #100925a3, #100925d6 78%);
+}
+/*
+  Fixed, not absolute: between 781px and 1100px the shell is wider than the window and scrolls
+  sideways, and on a phone it is taller than the window and scrolls down. The gate is the one
+  thing that must never be scrolled away from, so it is anchored to the window instead. Its
+  z-index clears the header's 20 — on a short screen the two would otherwise overlap.
+*/
+.dashboard-preview-gate {
+  position: fixed;
+  z-index: 30;
+  top: 50%;
+  left: 50%;
+  width: min(430px, calc(100vw - 36px));
+  padding: 26px 24px 24px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(240, 221, 183, 0.24);
+  border-radius: 24px 24px 34px;
+  color: #fff8eb;
+  text-align: center;
+  background: linear-gradient(150deg, #241247f5, #170c33fb);
+  box-shadow:
+    0 28px 70px #05021173,
+    inset 0 1px #ffffff12;
+}
+.dashboard-preview-gate .eyebrow {
+  justify-content: center;
+  margin-bottom: 0;
+  color: #edca7b;
+}
+.dashboard-preview-gate h1 {
+  margin: 12px 0 0;
+  font-family: "Adventrya Serif", serif;
+  font-size: clamp(20px, 2.1vw, 25px);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+.dashboard-preview-gate p:not(.eyebrow) {
+  margin: 12px 0 0;
+  color: #f2eaf2a8;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.dashboard-preview-gate .button {
+  width: 100%;
+  margin-top: 20px;
+}
+
 /* The empty family dashboard uses the same world painting the child will meet in the chooser. */
 @media (max-width: 780px) and (orientation: portrait) {
   .world-window-art,
   .empty-book-art {
     background-image: url("/adventrya/adventrya-world-map-portals-tall.jpg");
     background-position: center 60%;
+  }
+}
+
+/*
+  On a phone the two panes leave absolute positioning and stack in flow, so the layer holding
+  them has to as well — left absolute it would collapse to nothing and take the preview with it.
+*/
+@media (max-width: 780px) {
+  .dashboard-preview-layer {
+    position: relative;
+    inset: auto;
   }
 }

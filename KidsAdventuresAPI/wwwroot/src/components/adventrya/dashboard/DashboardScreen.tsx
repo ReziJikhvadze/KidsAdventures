@@ -12,6 +12,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { AppHeader } from "@/components/adventrya/AppHeader";
+import { DashboardDemo } from "@/components/adventrya/dashboard/DashboardDemo";
 import { StoryPathMap } from "@/components/adventrya/world/StoryPathMap";
 import { PasswordlessAuthDialog } from "@/components/auth/PasswordlessAuthDialog";
 import { ApiError } from "@/lib/api/client";
@@ -77,12 +78,13 @@ export function DashboardScreen() {
 
   useEffect(() => {
     if (authLoading) return;
+    // Signed out there is nothing to load and nothing to open: the preview below renders from
+    // constants, and the auth dialog is now something a parent asks for rather than something
+    // that lands on them.
     if (!isAuthenticated) {
       setLoading(false);
-      setAuthOpen(true);
       return;
     }
-    setAuthOpen(false);
 
     let cancelled = false;
     void (async () => {
@@ -301,26 +303,52 @@ export function DashboardScreen() {
     }
   };
 
+  /*
+    Signed out, the dashboard shows itself rather than a door.
+
+    This was a bare panel — a heading, one line of Georgian and a sign-in button — with an
+    effect that threw the auth dialog open the moment the screen mounted. A parent who had
+    just signed out landed on a modal over an empty page, with nothing behind it to say what
+    they had left or what signing back in would give them. The real layout is rendered here
+    instead, filled with a sample family, blurred and genuinely out of reach; the gate on top
+    says what it is. The dialog opens on the gate's button or on a click anywhere across the
+    preview, so a parent who reaches for a control they cannot use is answered rather than
+    ignored.
+  */
   if (!authLoading && !isAuthenticated) {
     return (
-      <div className="screen dashboard-shell">
+      <div className="screen dashboard-shell dashboard-shell-story-map">
         <div className="dashboard-sky" aria-hidden="true" />
         <div className="grain" aria-hidden="true" />
-        <AppHeader backHref="/" />
-        <main className="dashboard-empty" style={{ padding: "48px 24px", textAlign: "center" }}>
-          <h1>{t.common.nav.myFamily}</h1>
-          <p style={{ marginTop: 12, opacity: 0.75 }}>
-            Parent Dashboard-ის სანახავად გთხოვთ შეხვიდეთ.
+        <AppHeader backHref="/" worldMode />
+
+        {/* `inert` is the part that matters: it takes the whole subtree out of hit-testing, the
+            tab order and the accessibility tree at once. A blur is only paint — without this
+            every control under it stays tabbable and every heading stays readable aloud. */}
+        <div className="dashboard-preview-layer" inert aria-hidden="true">
+          <DashboardDemo />
+        </div>
+
+        {/* The catcher sits below the header's z-index, so the way back out of the screen and
+            the language switcher stay live while everything under them asks for a sign-in. */}
+        <div
+          className="dashboard-preview-catch"
+          aria-hidden="true"
+          onClick={() => setAuthOpen(true)}
+        />
+
+        <div className="dashboard-preview-gate">
+          <p className="eyebrow">
+            <Sparkles aria-hidden="true" /> {t.dashboard.preview.label}
           </p>
-          <button
-            className="button button-primary"
-            type="button"
-            style={{ marginTop: 20 }}
-            onClick={() => setAuthOpen(true)}
-          >
-            შესვლა
+          <h1>{t.dashboard.preview.title}</h1>
+          <p>{t.dashboard.preview.body}</p>
+          <button className="button button-primary" type="button" onClick={() => setAuthOpen(true)}>
+            {t.dashboard.preview.cta}
+            <ArrowRight aria-hidden="true" />
           </button>
-        </main>
+        </div>
+
         <PasswordlessAuthDialog
           open={authOpen}
           onOpenChange={setAuthOpen}

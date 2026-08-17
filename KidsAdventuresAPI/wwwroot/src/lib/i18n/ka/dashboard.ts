@@ -20,6 +20,15 @@ export const dashboard = {
     pageOf: (page: number, total: number) => `გვერდი ${page} / ${total}`,
   },
 
+  /* The sign-in gate over the blurred preview. The sample family itself is not translated —
+     it lives in the preview component as constants, so it cannot be fetched by mistake. */
+  preview: {
+    label: "ნიმუში",
+    title: "ასე გამოიყურება შენი Parent Dashboard",
+    body: "ეს სხვისი ოჯახის ნიმუშია. შედი და აქ შენი ბავშვების პროფილები, მათი რუკა და უკვე შექმნილი წიგნები გამოჩნდება.",
+    cta: "შესვლა",
+  },
+
   empty: {
     title: (name: string) => ` ${name}ს სამყარო ჯერ ცარიელია`,
     lead: "პირველი თავგადასავალი აქედან იწყება",
