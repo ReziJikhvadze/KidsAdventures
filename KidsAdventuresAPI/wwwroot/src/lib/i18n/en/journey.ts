@@ -25,8 +25,8 @@ export const journey = {
     addCharacterLimit: "more · up to 3 characters per book",
     addAnother: "Add another character",
     privacyNote: "These details are used only to create the personalised book.",
-    /* The theme is already chosen by the time this button is reached. */
-    continue: "Personalised preview",
+    /* The one action on this form: it makes the book. */
+    continue: "Create the book",
     ready: "Character ready",
     saveCharacter: " Save character",
     saveChanges: " Save changes",

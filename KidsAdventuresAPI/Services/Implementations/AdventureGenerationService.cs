@@ -617,7 +617,14 @@ public sealed class AdventureGenerationService(
                 }
             }
 
-            var pdfBytes = adventurePdfService.GeneratePdf(new PdfBookRequest
+            // Two files, from one book.
+            //
+            // The reading copy is what a parent downloads and the print copy is what goes to the
+            // binder; they differ by two blank leaves, which saddle-stitch needs and a screen
+            // does not. Rendering both here rather than at order time keeps the printable file
+            // ready the moment somebody buys one, and costs one more pass over a book we have
+            // already laid out.
+            var request = new PdfBookRequest
             {
                 Content = content,
                 ThemeName = pack.Theme.ToString(),
@@ -625,11 +632,19 @@ public sealed class AdventureGenerationService(
                 Language = pack.StoryLanguage ?? "ka",
                 // The back cover's QR goes where the reader's button goes: start the next book.
                 ContinueUrl = $"{_emailOptions.BaseUrl.TrimEnd('/')}/create"
-            });
+            };
+
+            var pdfBytes = adventurePdfService.GeneratePdf(request with { ForPrint = false });
+            var printBytes = adventurePdfService.GeneratePdf(request with { ForPrint = true });
             await SetProgressAsync(packId, "წიგნს ვინახავთ…", 95, cancellationToken);
 
             var blobName = $"{pack.UserId}/{pack.Id}.pdf";
             var pdfUrl = await blobStorageService.UploadAsync(blobName, pdfBytes, "application/pdf", cancellationToken);
+            await blobStorageService.UploadAsync(
+                $"{pack.UserId}/{pack.Id}-print.pdf",
+                printBytes,
+                "application/pdf",
+                cancellationToken);
 
             var generatedJson = JsonSerializer.Serialize(content, JsonOptions);
             await adventurePackRepository.UpdateStatusAsync(

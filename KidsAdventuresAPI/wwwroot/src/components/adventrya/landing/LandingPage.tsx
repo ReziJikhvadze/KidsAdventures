@@ -2,12 +2,11 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { Books } from "@/components/adventrya/landing/Books";
-import { Header } from "@/components/adventrya/landing/Header";
+import { Header, useLogoToTop } from "@/components/adventrya/landing/Header";
 import { Hero } from "@/components/adventrya/landing/Hero";
 import { ArrowIcon, CheckIcon, SparkleIcon, WorldIcon } from "@/components/adventrya/landing/icons";
 import { formatGel, useT } from "@/lib/i18n";
 import { PRICES } from "@/lib/pricing";
-import { WORLD_IDS } from "@/lib/worlds";
 
 /* Every generic call to action starts at the world, which is now the first step. */
 const START_JOURNEY = "/themes";
@@ -68,52 +67,6 @@ function Memory() {
             <strong>{node.title}</strong>
           </div>
         ))}
-      </div>
-    </section>
-  );
-}
-
-function Worlds() {
-  const t = useT();
-  const L = t.landing.worlds;
-  return (
-    <section id="worlds" className="landing-v3-section landing-v3-worlds">
-      <div className="landing-v3-section-heading">
-        <p>
-          <span aria-hidden="true" />
-          {L.eyebrow}
-        </p>
-        <h2>
-          {L.titleLine1} <em>{L.titleEm}</em>
-        </h2>
-        <span>{L.lead}</span>
-      </div>
-
-      <div className="landing-v3-world-grid">
-        {WORLD_IDS.map((id, index) => {
-          const world = t.worlds[id];
-          // A world card is the theme step, already answered. It carries the world it names
-          // straight into the details, so tapping "dinosaurs" here does not then ask which
-          // world you meant.
-          return (
-            <Link
-              key={id}
-              to="/create"
-              search={{ mode: "first", world: id }}
-              hash="profile"
-              className={`landing-v3-world-card world-card-${index + 1}`}
-            >
-              <span>
-                <WorldIcon type={id} />
-              </span>
-              <small>{world.theme}</small>
-              <strong>{world.place}</strong>
-              <i>
-                <ArrowIcon />
-              </i>
-            </Link>
-          );
-        })}
       </div>
     </section>
   );
@@ -187,21 +140,6 @@ function Pricing() {
           <p className="landing-v3-upgrade">{L.print.upgrade}</p>
         </article>
       </div>
-    </section>
-  );
-}
-
-function Assurance() {
-  const t = useT();
-  return (
-    <section className="landing-v3-assurance" aria-label="რატომ Adventrya">
-      {t.landing.pricing.assurance.map((item) => (
-        <div key={item.title}>
-          <small>{item.title}</small>
-          <strong>{item.heading}</strong>
-          <p>{item.body}</p>
-        </div>
-      ))}
     </section>
   );
 }
@@ -306,10 +244,13 @@ function Final() {
 function Footer() {
   const t = useT();
   const F = t.common.footer;
+  // The footer mark is the same mark, and at the bottom of a long page it is the one a reader is
+  // actually next to when they want the top.
+  const toTop = useLogoToTop();
   return (
     <footer className="landing-v3-footer">
       <div>
-        <Link to="/" className="landing-v3-logo">
+        <Link to="/" className="landing-v3-logo" onClick={toTop}>
           ADVENTRYA
           <small>{t.common.brandTagline}</small>
         </Link>
@@ -385,9 +326,7 @@ export function LandingPage() {
         <Hero />
         <Books />
         <Memory />
-        <Worlds />
         <Pricing />
-        <Assurance />
         <Voices />
         <Faq />
         <Final />

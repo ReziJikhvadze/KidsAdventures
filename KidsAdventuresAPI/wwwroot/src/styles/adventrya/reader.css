@@ -357,22 +357,6 @@
     padding-bottom: 10px;
     row-gap: 8px;
   }
-  .app-header .frame-links {
-    order: 3;
-    width: 100%;
-    overflow-x: auto;
-    gap: 18px;
-    padding-bottom: 2px;
-    font-size: 13px;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-  .app-header .frame-links::-webkit-scrollbar {
-    display: none;
-  }
-  .app-header .frame-links a {
-    white-space: nowrap;
-  }
   .app-header .icon-button {
     width: 36px;
     height: 36px;
@@ -621,9 +605,7 @@
     width: 100%;
     padding: 20px;
   }
-  .sidebar-title,
-  .sidebar-links,
-  .privacy-mini {
+  .sidebar-title {
     display: none;
   }
   .dashboard-sidebar > div:first-child {
@@ -723,5 +705,28 @@
     bottom: auto;
     justify-content: center;
     padding: 0 16px 24px;
+  }
+}
+
+/*
+  The cover title on a phone while the book is being made.
+
+  `.ux-book-cover` is `overflow: hidden` with a fixed 350px height here, and the h2 had no
+  wrapping rule — so a long Georgian title ran off the cover and was cut mid-word. It also
+  carried `max-width: 112vw`, which is wider than the phone it was written for.
+*/
+@media (max-width: 780px) {
+  .ux-generating .generation-book {
+    max-width: 100%;
+  }
+  .ux-generating .ux-book-cover h2 {
+    font-size: clamp(15px, 4.6vw, 19px);
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+    /* Four lines of a title is already a lot on a cover; past that it is the wrong title. */
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    overflow: hidden;
   }
 }

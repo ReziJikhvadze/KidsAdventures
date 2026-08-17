@@ -19,8 +19,8 @@ export const journey = {
     addCharacterLimit: "პერსონაჟი · მაქსიმუმ 3 გმირი წიგნში",
     addAnother: "დაამატე კიდევ ერთი პერსონაჟი",
     privacyNote: "მონაცემები გამოიყენება მხოლოდ პერსონალიზებული წიგნის შესაქმნელად.",
-    /* The theme is already chosen by the time this button is reached. */
-    continue: "პერსონალიზებული Preview",
+    /* The one action on this form: it makes the book. */
+    continue: "შექმენი წიგნი",
     ready: "პერსონაჟი მზადაა",
     saveCharacter: " პერსონაჟის შენახვა",
     saveChanges: " ცვლილებების შენახვა",

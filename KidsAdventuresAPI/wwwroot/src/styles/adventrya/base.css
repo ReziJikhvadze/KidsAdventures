@@ -100,33 +100,6 @@ svg {
   justify-content: space-between;
   padding: 0 clamp(48px, 5vw, 80px);
 }
-.landing-nav,
-.frame-links {
-  display: flex;
-  align-items: center;
-  gap: 30px;
-  color: #f8f2e5d1;
-  font-size: 14px;
-}
-.landing-nav a,
-.frame-links a {
-  position: relative;
-  transition: color 0.18s ease;
-}
-.landing-nav a:hover,
-.frame-links a:hover,
-.frame-links .active {
-  color: var(--story-gold);
-}
-.frame-links .active:after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -9px;
-  height: 1px;
-  background: var(--story-gold);
-}
 .language-button,
 .header-pill,
 .child-pill,

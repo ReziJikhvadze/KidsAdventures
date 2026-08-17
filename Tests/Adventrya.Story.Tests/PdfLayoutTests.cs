@@ -25,14 +25,26 @@ public class PdfLayoutTests(ITestOutputHelper output)
     private static string? OutputDirectory => Environment.GetEnvironmentVariable("ADVENTRYA_PDF_DIR");
 
     [Fact]
-    public void A_spread_book_prints_every_page_and_pads_to_the_binding_multiple()
+    public void The_print_copy_pads_to_the_binding_multiple()
     {
-        var content = SpreadBook();
-        var pdf = Render(content, cover: PixelPng());
+        var pdf = Render(SpreadBook(), cover: PixelPng(), forPrint: true);
 
         // Front cover + 16 content pages + back cover = 18, padded to 20 so folded sheets
         // divide by four.
         Assert.Equal(20, CountPages(pdf));
+    }
+
+    /// <summary>
+    /// The copy a parent downloads has no fold, so it has no blank leaves either — it ends on
+    /// the back cover with nothing after it. Two empty pages before the ending are correct for
+    /// a binder and read as a book that failed to finish.
+    /// </summary>
+    [Fact]
+    public void The_reading_copy_is_not_padded()
+    {
+        var pdf = Render(SpreadBook(), cover: PixelPng());
+
+        Assert.Equal(18, CountPages(pdf));
     }
 
     /// <summary>A vendor printing the covers itself gets the interior and nothing else.</summary>
@@ -55,7 +67,7 @@ public class PdfLayoutTests(ITestOutputHelper output)
     [Fact]
     public void The_back_cover_is_the_last_leaf_and_padding_falls_before_it()
     {
-        var plan = AdventurePdfService.BuildPlan(SpreadBook(), new PrintLayoutOptions());
+        var plan = AdventurePdfService.BuildPlan(SpreadBook(), new PrintLayoutOptions(), forPrint: true);
 
         Assert.Equal(PrintPageKind.Back, plan[^1].Kind);
         Assert.Equal(PrintPageKind.Blank, plan[^2].Kind);
@@ -240,7 +252,8 @@ public class PdfLayoutTests(ITestOutputHelper output)
         AdventureContentDto content,
         byte[]? cover,
         Action<PrintLayoutOptions>? configure = null,
-        string language = "en")
+        string language = "en",
+        bool forPrint = false)
     {
         var layout = new PrintLayoutOptions();
         configure?.Invoke(layout);
@@ -254,7 +267,8 @@ public class PdfLayoutTests(ITestOutputHelper output)
             Language = language,
             // Without a destination the back cover draws no QR, so the sample would show a
             // closing page that is missing the one thing the printed book needs.
-            ContinueUrl = "https://adventrya.com/create"
+            ContinueUrl = "https://adventrya.com/create",
+            ForPrint = forPrint
         });
     }
 

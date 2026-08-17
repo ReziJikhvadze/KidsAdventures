@@ -168,23 +168,11 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
       </header>
 
       <div className="ux-character-stack">
-        <div className="ux-book-preferences" aria-label={copy.bookSettings.title}>
-          <div>
-            <strong>{copy.bookSettings.languageQuestion}</strong>
-          </div>
-          <div className="ux-language-switcher" role="group">
-            {BOOK_LANGUAGES.map((lang) => (
-              <button
-                key={lang.code}
-                type="button"
-                className={draft.bookLanguage === lang.code ? "selected" : ""}
-                onClick={() => onChange({ bookLanguage: lang.code as BookLanguage })}
-              >
-                {lang.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/*
+          The book-language switcher went. It was a second language control on a page that
+          already has one in the header, asking the same question in different words — and the
+          book now simply follows the interface it was ordered in.
+        */}
 
         {draft.characters.map((character, index) => {
           if (editingId === character.localId) {
@@ -224,20 +212,11 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
           );
         })}
 
-        {!editing && remainingSlots > 0 ? (
-          <button className="ux-add-character" type="button" onClick={addSupporting}>
-            <span>
-              <Plus aria-hidden="true" />
-            </span>
-            <div>
-              <strong>{copy.profile.addCharacterTitle}</strong>
-              <small>
-                {copy.profile.addCharacterHint}
-                {remainingSlots} {copy.profile.addCharacterLimit}
-              </small>
-            </div>
-          </button>
-        ) : null}
+        {/*
+          "Add a supporting character" went: one book, one child, and the shortest form that
+          gets there. The machinery stays — a continuation still carries a sister or a dog
+          forward through ?characterIds — but nobody is asked to build a cast up front.
+        */}
 
         {/*
           The one special wish. It used to sit on the world picker, where the only question being
@@ -333,11 +312,20 @@ function CharacterEditor({
           {needsGender ? (
             <fieldset className="choice-fieldset gender-fieldset">
               <legend>{copy.characterForm.genderLegend}</legend>
-              <div className="ux-segmented-control">
+              {/*
+                A toggle with a side each, rather than two buttons that happen to be adjacent.
+                `data-picked` slides the indicator; aria-pressed says out loud which side is
+                chosen, which these had never done while the package options next door did.
+              */}
+              <div
+                className="ux-segmented-control ux-gender-toggle"
+                data-picked={character.gender ?? "none"}
+              >
                 {(["girl", "boy"] as CharacterGender[]).map((gender) => (
                   <button
                     key={gender}
                     type="button"
+                    aria-pressed={character.gender === gender}
                     className={character.gender === gender ? "selected" : ""}
                     onClick={() => onChange({ gender })}
                   >
@@ -439,9 +427,16 @@ function CharacterEditor({
         hero who has never been filled in gets no way back, because there is nothing behind them
         to go back to.
       */}
+      {/*
+        No "save changes" here any more.
+
+        It closed the editor and nothing else — the draft lives in memory until checkout — so it
+        promised a save that never happened and put a second primary-looking button on a form
+        whose only real action is at the bottom. Done is the one button that makes the book.
+      */}
       <div className="ux-form-actions">
-        <button className="button journey-primary" type="button" onClick={onSave}>
-          {character.name.trim() ? copy.profile.saveChanges : copy.profile.saveCharacter}
+        <button className="button ux-inline-link" type="button" onClick={onSave}>
+          {t.common.actions.close}
         </button>
         {character.name.trim() || !character.isPrimary ? (
           <button className="ux-inline-link" type="button" onClick={onCancel}>

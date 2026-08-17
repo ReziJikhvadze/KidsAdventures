@@ -106,50 +106,20 @@
   background: transparent;
   font-size: 11px;
 }
-.sidebar-links {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 32px;
-  padding-top: 22px;
-  border-top: 1px solid rgba(239, 227, 207, 0.11);
-}
-.sidebar-links button {
-  height: 39px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 11px;
-  border: 0;
-  border-radius: 12px;
-  cursor: pointer;
-  color: #f8f2e57a;
-  background: transparent;
-  text-align: left;
-  font-size: 11px;
-}
-.sidebar-links button.active {
-  color: #fff8eb;
-  background: #f8f2e517;
-}
-.sidebar-links svg {
-  width: 15px;
-}
-.privacy-mini {
-  position: absolute;
-  left: clamp(36px, 4vw, 62px);
-  right: 24px;
-  bottom: 25px;
-  margin: 0;
-  color: #f8f2e54d;
-  font-size: 11px;
-  line-height: 1.55;
-}
+/*
+  The dashboard does not scroll inside itself.
+
+  `.dashboard-main` was an absolutely-positioned pane with its own scrollbar inside a shell
+  capped at `max-height: 1000px` — so a family's books scrolled in a box while the page around
+  them stayed put, and on a short window the box was clipped rather than reachable. The shelf is
+  already paged six at a time, so there is nothing here that needs a scrollbar of its own: the
+  pane is laid out in flow and the page grows to fit it.
+*/
 .dashboard-main {
   position: absolute;
   inset: 96px 0 0 22.5%;
   padding: 29px clamp(38px, 4vw, 62px);
-  overflow: auto;
+  overflow: visible;
 }
 .dashboard-greeting {
   display: flex;

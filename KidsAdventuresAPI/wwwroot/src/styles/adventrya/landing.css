@@ -97,8 +97,7 @@
   gap: 9px;
 }
 .landing-v3-language,
-.landing-v3-dashboard-link,
-.landing-v3-header-cta {
+.landing-v3-dashboard-link {
   min-height: 42px;
   display: inline-flex;
   align-items: center;
@@ -141,17 +140,6 @@
   background: #37275e94;
 }
 .landing-v3-dashboard-link svg {
-  width: 14px;
-}
-.landing-v3-header-cta {
-  padding: 0 17px;
-  color: #27183e;
-  background: linear-gradient(135deg, #f3d28b, #edae58);
-  box-shadow: inset 0 1px #ffffffa6;
-  font-size: 12px;
-  font-weight: 700;
-}
-.landing-v3-header-cta svg {
   width: 14px;
 }
 .landing-v3-hero {
@@ -208,7 +196,6 @@
 .landing-v3-kicker,
 .landing-v3-books .landing-v3-section-heading > p,
 .landing-v3-preview-intro > p,
-.landing-v3-worlds .landing-v3-section-heading > p,
 .landing-v3-pricing-copy > p,
 .landing-v3-voices-heading > p,
 .landing-v3-faq-heading > p {
@@ -263,8 +250,7 @@
   gap: 12px;
   margin-top: 30px;
 }
-.landing-v3-primary,
-.landing-v3-secondary {
+.landing-v3-primary {
   min-height: 58px;
   display: inline-flex;
   align-items: center;
@@ -286,15 +272,7 @@
     0 18px 44px #e6a64c38,
     inset 0 1px #ffffffad;
 }
-.landing-v3-secondary {
-  color: #fffaeee0;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: #23184261;
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-}
-.landing-v3-primary:hover,
-.landing-v3-secondary:hover {
+.landing-v3-primary:hover {
   transform: translateY(-2px);
 }
 .landing-v3-primary:hover {
@@ -302,8 +280,7 @@
     0 22px 48px #e6a64c4d,
     inset 0 1px #ffffffb3;
 }
-.landing-v3-primary svg,
-.landing-v3-secondary svg {
+.landing-v3-primary svg {
   width: 17px;
 }
 .landing-v3-hero-proof {
@@ -409,62 +386,6 @@
   margin-top: 14px;
   color: #fffaeea3;
   font-size: 12px;
-}
-.landing-v3-floating-note {
-  position: absolute;
-  z-index: 8;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 210px;
-  padding: 14px 16px;
-  color: #fffaeedb;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 16px;
-  background: #1c1238b3;
-  box-shadow:
-    0 18px 40px #0904183b,
-    inset 0 1px #ffffff0f;
-  -webkit-backdrop-filter: blur(17px);
-  backdrop-filter: blur(17px);
-  font-size: 12px;
-  line-height: 1.4;
-}
-.landing-v3-floating-note svg {
-  width: 19px;
-  color: var(--lv3-gold);
-  fill: currentColor;
-}
-.landing-v3-floating-note > span:not(.landing-v3-avatar) {
-  display: flex;
-  flex-direction: column;
-}
-.landing-v3-floating-note small {
-  margin-bottom: 2px;
-  color: #fffaee78;
-  font-size: 11px;
-}
-.note-one {
-  top: 98px;
-  left: -6px;
-}
-.note-two {
-  right: -2px;
-  bottom: 86px;
-}
-.landing-v3-avatar {
-  width: 35px;
-  height: 35px;
-  flex: 0 0 35px;
-  display: grid;
-  place-items: center;
-  color: #32204e;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  border-radius: 50%;
-  background: linear-gradient(145deg, #f4d59a, #efa762);
-  font-family: "Adventrya Serif", serif;
-  font-size: 15px;
-  font-weight: 700;
 }
 .landing-v3-scroll {
   position: absolute;
@@ -650,40 +571,6 @@
   width: 8px;
   border-right: 1px solid rgba(250, 221, 161, 0.26);
   box-shadow: 4px 0 11px #0a05185c;
-}
-.landing-v3-example-meta {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 4px 14px;
-  padding: 25px 5px 0;
-}
-.landing-v3-example-meta > span {
-  color: var(--lv3-muted);
-  font-size: 12px;
-}
-.landing-v3-example-meta > strong {
-  grid-column: 1;
-  color: var(--lv3-ink);
-  font-family: "Adventrya Serif", serif;
-  font-size: 16px;
-}
-.landing-v3-example-meta button {
-  grid-row: 1 / span 2;
-  grid-column: 2;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 10px 0 10px 16px;
-  color: #8a5b45;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
-}
-.landing-v3-example-meta button svg {
-  width: 14px;
 }
 .landing-v3-preview {
   display: grid;
@@ -1352,17 +1239,6 @@
   bottom: -4px;
   background: #9d79e3;
 }
-.landing-v3-worlds {
-  background:
-    radial-gradient(circle at 90% 11%, rgba(218, 172, 92, 0.12), transparent 24%), #f9f3e8;
-}
-.landing-v3-world-grid {
-  width: min(100%, 1280px);
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 13px;
-  margin: 0 auto;
-}
 .landing-v3-world-card {
   position: relative;
   min-height: 190px;
@@ -1632,43 +1508,6 @@
 }
 .featured .landing-v3-upgrade {
   color: #fffaee73;
-}
-.landing-v3-assurance {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  color: #fff9ed;
-  background: #1b1232;
-}
-.landing-v3-assurance > div {
-  min-height: 230px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 38px clamp(28px, 4.5vw, 76px);
-  border-right: 1px solid rgba(255, 255, 255, 0.09);
-}
-.landing-v3-assurance > div:last-child {
-  border-right: 0;
-}
-.landing-v3-assurance small {
-  color: var(--lv3-gold);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-.landing-v3-assurance strong {
-  margin-top: 9px;
-  font-family: "Adventrya Serif", serif;
-  font-size: 16px;
-  font-weight: 400;
-}
-.landing-v3-assurance p {
-  max-width: 350px;
-  margin: 10px 0 0;
-  color: #fffaee85;
-  font-size: 12px;
-  line-height: 1.7;
 }
 .landing-v3-voices {
   background: radial-gradient(circle at 48% 9%, rgba(221, 170, 89, 0.14), transparent 22%), #f5ecde;
@@ -2000,9 +1839,6 @@
     one that follows the reader. Two buttons for the same act, one above the other, is a choice
     the reader has to make twice.
   */
-  .landing-v3-header-cta {
-    display: none;
-  }
   .landing-v3-dashboard-link {
     min-height: 39px;
   }
@@ -2047,9 +1883,6 @@
     The floating notes are decoration for a wide screen. Stacked on a phone they land on top of
     the book they are meant to point at, so they stay behind on the layout that has room.
   */
-  .landing-v3-floating-note {
-    display: none;
-  }
   .landing-v3-scroll {
     display: none;
   }
@@ -2114,20 +1947,11 @@
     justify-self: center;
     transform: none;
   }
-  .landing-v3-world-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
   .landing-v3-price-cards {
     justify-self: center;
   }
-  .landing-v3-assurance,
   .landing-v3-quote-grid {
     grid-template-columns: 1fr;
-  }
-  .landing-v3-assurance > div {
-    min-height: 170px;
-    border-right: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
   }
   .landing-v3-quote-grid {
     max-width: 720px;
@@ -2188,8 +2012,7 @@
     flex-direction: column;
     margin-top: 23px;
   }
-  .landing-v3-primary,
-  .landing-v3-secondary {
+  .landing-v3-primary {
     min-height: 52px;
     width: 100%;
     padding-inline: 15px;
@@ -2364,9 +2187,6 @@
     inset: auto;
     transform: none;
   }
-  .landing-v3-world-grid {
-    grid-template-columns: 1fr;
-  }
   .landing-v3-world-card {
     min-height: 142px;
     grid-template-columns: 50px 1fr 28px;
@@ -2380,16 +2200,43 @@
   .landing-v3-world-card > span svg {
     width: 24px;
   }
+  /*
+    Two across, still, on a phone.
+
+    They used to stack, which put the printed book below the fold and turned a comparison into
+    a list — and the whole point of two prices side by side is that you can see both at once.
+    What had to give is the height: 430px of card at 176px wide is a column, so the padding and
+    the feature list shrink rather than the type.
+  */
   .landing-v3-price-cards {
-    grid-template-columns: 1fr;
+    /* minmax(0, 1fr), not 1fr: a bare 1fr refuses to go below its content's minimum, and the
+       featured card's minimum is wider — so the two columns came out 182px and 148px. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 8px;
     margin-top: 10px;
   }
   .landing-v3-price-cards article,
   .landing-v3-price-cards article.featured {
-    min-height: 430px;
+    min-height: 0;
+    padding: 20px 14px 18px;
   }
-  .landing-v3-assurance > div {
-    padding: 30px 20px;
+  .landing-v3-price-cards article.featured {
+    padding-top: 30px;
+  }
+  .landing-v3-price-cards ul {
+    gap: 9px;
+    margin-bottom: 18px;
+  }
+  .landing-v3-price-cards li {
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+  .landing-v3-popular {
+    right: 12px;
+    height: 22px;
+    padding: 0 8px;
+    font-size: 10px;
   }
   .landing-v3-voices-heading {
     text-align: left;
@@ -2524,5 +2371,149 @@
   .landing-v3-memory-art {
     background-image: url("/adventrya/adventrya-world-map-portals-tall.jpg");
     background-position: center 60%;
+  }
+}
+
+/* ===========================================================================
+   Additions from the redesign pass: the card that reacts as a card, the link
+   that replaced a row of metadata, and a menu for a phone.
+   =========================================================================== */
+
+/*
+  The whole price card answers, not just its button.
+
+  Only the button moved before, which made the card a poster with a control on it. The article
+  is the thing being chosen, so the article is what lifts — and the button still carries the
+  click, because a card wrapped in an anchor around a nested anchor is two links in one place.
+*/
+.landing-v3-price-cards article {
+  cursor: pointer;
+  transition:
+    transform 0.22s cubic-bezier(0.2, 0.75, 0.2, 1),
+    box-shadow 0.22s ease,
+    border-color 0.22s ease;
+}
+.landing-v3-price-cards article:hover,
+.landing-v3-price-cards article:focus-within {
+  transform: translateY(-6px);
+  border-color: #c9a76a80;
+  box-shadow: 0 26px 48px rgba(53, 35, 72, 0.22);
+}
+.landing-v3-price-cards article.featured:hover,
+.landing-v3-price-cards article.featured:focus-within {
+  border-color: #f0c570b8;
+  box-shadow: 0 40px 70px rgba(53, 35, 72, 0.42);
+}
+/* The card moves; the button inside must not move again on top of it. */
+.landing-v3-price-cards article:hover .landing-v3-price-cta {
+  transform: none;
+}
+
+/*
+  What is left of the book card's footer: one action, full width, where the row of age and
+  price used to be.
+*/
+.landing-v3-example-action {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: #2c1d48;
+  border-radius: 14px;
+  background: var(--lv3-gold, #e8c98a);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    transform 0.18s ease,
+    filter 0.18s ease;
+}
+.landing-v3-example-action svg {
+  width: 15px;
+}
+.landing-v3-example-book:hover .landing-v3-example-action {
+  filter: brightness(1.06);
+}
+.landing-v3-example-action:hover {
+  transform: translateX(2px);
+}
+
+/*
+  The phone's menu.
+
+  Hidden wherever the real nav fits, which is the only place it is not needed.
+*/
+.landing-v3-menu-toggle {
+  display: none;
+  width: 42px;
+  height: 42px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0;
+  cursor: pointer;
+  border: 1px solid rgba(240, 229, 207, 0.22);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.landing-v3-menu-toggle i {
+  width: 16px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+.landing-v3-menu-toggle.is-open i:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+.landing-v3-menu-toggle.is-open i:nth-child(2) {
+  opacity: 0;
+}
+.landing-v3-menu-toggle.is-open i:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+.landing-v3-menu-sheet {
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  grid-column: 1 / -1;
+  margin-top: 12px;
+  padding: 8px;
+  border: 1px solid rgba(240, 229, 207, 0.16);
+  border-radius: 16px;
+  background: rgba(16, 10, 38, 0.94);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+.landing-v3-menu-sheet a {
+  padding: 12px 14px;
+  border-radius: 11px;
+  color: #fff8eb;
+  font-size: 14px;
+  text-decoration: none;
+}
+.landing-v3-menu-sheet a:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+@media (max-width: 1180px) {
+  .landing-v3-menu-toggle {
+    display: flex;
+  }
+  .landing-v3-menu-sheet {
+    display: flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-v3-price-cards article,
+  .landing-v3-example-action,
+  .landing-v3-menu-toggle i {
+    transition-duration: 0.01ms !important;
   }
 }

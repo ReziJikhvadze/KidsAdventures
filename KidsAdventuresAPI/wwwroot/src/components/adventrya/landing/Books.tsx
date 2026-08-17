@@ -7,13 +7,9 @@ export function Books() {
   const t = useT();
   return (
     <section className="landing-v3-books landing-v3-section" id="books">
+      {/* The h2 went: the books below say what they are, and the eyebrow already names them. */}
       <div className="landing-v3-section-heading">
         <p>{t.landing.books.eyebrow}</p>
-        <h2>
-          {t.landing.books.titleLine1}
-          <em>{t.landing.books.titleEm}</em>
-          {t.landing.books.titleLine2}
-        </h2>
         <span>{t.landing.books.lead}</span>
       </div>
 
@@ -35,14 +31,15 @@ export function Books() {
                 </div>
                 <span className="landing-v3-book-spine" />
               </div>
-              <div className="landing-v3-example-meta">
-                <span>{example.age}</span>
-                <strong>{t.landing.books.priceFrom}</strong>
-                <a href={`/create?world=${theme}#profile`}>
-                  {t.landing.books.createSimilar}
-                  <ArrowIcon />
-                </a>
-              </div>
+              {/*
+                The age and the price went. The price is on the pricing section, said properly;
+                repeating "from ₾14" under six covers is the same number six times, and the age
+                was a hedge nobody reads. What is left is the one thing a card is for.
+              */}
+              <a className="landing-v3-example-action" href={`/create?world=${theme}#profile`}>
+                {t.landing.books.createSimilar}
+                <ArrowIcon />
+              </a>
             </article>
           );
         })}

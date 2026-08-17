@@ -33,6 +33,19 @@ public sealed record PdfBookRequest
 
     /// <summary>Beki on the closing page. Null falls back to the canonical portrait on disk.</summary>
     public byte[]? GuidePortrait { get; init; }
+
+    /// <summary>
+    /// Whether this copy is going to a printer.
+    ///
+    /// Saddle-stitch folds sheets in fours, so a print file has blank leaves added until the
+    /// page count divides — for a standard book that is two, sitting between the last page and
+    /// the back cover. Correct on paper, and wrong on a screen: a parent who opens the download
+    /// pages past the ending into two empty sheets and reasonably concludes the book is broken.
+    ///
+    /// So there are two files. This one is the difference between them, and it is the only one:
+    /// same story, same art, same back cover.
+    /// </summary>
+    public bool ForPrint { get; init; }
 }
 
 public interface IAdventurePdfService

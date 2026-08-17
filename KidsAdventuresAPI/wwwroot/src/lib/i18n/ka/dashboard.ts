@@ -6,12 +6,6 @@ export const dashboard = {
     addChild: "＋ დაამატე ბავშვის პროფილი",
     noStoriesYet: "ჯერ არ აქვს ისტორია",
     storyCount: (count: number) => (count === 1 ? "1 თავგადასავალი" : `${count} თავგადასავალი`),
-    links: {
-      home: " მთავარი",
-      myBooks: " ჩემი წიგნები",
-      downloads: " ჩამოტვირთვები",
-    },
-    privacy: "ბავშვების მონაცემები დაცულია და გამოიყენება მხოლოდ მათი ისტორიებისთვის.",
   },
 
   library: {

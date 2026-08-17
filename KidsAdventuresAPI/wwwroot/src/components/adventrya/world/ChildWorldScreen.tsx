@@ -193,7 +193,7 @@ export function ChildWorldScreen({ celebrationBookId }: ChildWorldScreenProps) {
       <div className="world-shade" aria-hidden="true" />
       <div className="grain" aria-hidden="true" />
 
-      <AppHeader backHref="/dashboard" worldMode activeLink="world" />
+      <AppHeader backHref="/dashboard" worldMode />
 
       <aside className="world-panel">
         <div className="world-profile">

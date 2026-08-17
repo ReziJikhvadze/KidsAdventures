@@ -11,9 +11,8 @@ export interface AppHeaderProps {
   /** When set, the centre slot shows a step progress bar instead of the nav links. */
   progressLabel?: string;
   progressValue?: number;
-  /** Highlights the "child world" nav link and switches the header to its dark variant. */
+  /** Switches the header to its dark, child-facing variant. */
   worldMode?: boolean;
-  activeLink?: "home" | "themes" | "world";
   /** Strip account and brand controls from a child-facing, immersive step. */
   minimal?: boolean;
 }
@@ -32,7 +31,6 @@ export function AppHeader({
   progressLabel,
   progressValue = 0,
   worldMode = false,
-  activeLink,
   minimal = false,
 }: AppHeaderProps) {
   const t = useT();
@@ -74,6 +72,14 @@ export function AppHeader({
         ) : null}
       </div>
 
+      {/*
+        The middle slot is the step counter or nothing.
+
+        It used to fall back to a three-link nav — home, themes, the child's world — on every
+        screen without a counter: the dashboard, the reader, the child's world, the legal pages
+        and a shared book. On a phone it became a third row that scrolled sideways, and it
+        duplicated navigation the back button and the dashboard pill already provide.
+      */}
       {progressLabel ? (
         <div className="step-progress" aria-label={progressLabel}>
           <span>{progressLabel}</span>
@@ -81,19 +87,7 @@ export function AppHeader({
             <i style={{ width: `${progressValue}%` }} />
           </div>
         </div>
-      ) : (
-        <nav className="frame-links" aria-label={t.common.nav.screenNav}>
-          <Link className={activeLink === "home" ? "active" : ""} to="/">
-            {t.common.nav.home}
-          </Link>
-          <Link className={activeLink === "themes" ? "active" : ""} to="/themes">
-            {t.common.nav.themes}
-          </Link>
-          <Link className={activeLink === "world" ? "active" : ""} to="/world">
-            {t.common.nav.childWorld}
-          </Link>
-        </nav>
-      )}
+      ) : null}
 
       <div className="app-header-end">
         {/* "KA"/"EN", as in the marketing header. The full name is wide enough to sit on top of

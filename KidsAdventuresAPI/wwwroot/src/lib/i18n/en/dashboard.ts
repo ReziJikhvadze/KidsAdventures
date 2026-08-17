@@ -6,12 +6,6 @@ export const dashboard = {
     addChild: "＋ Add a child profile",
     noStoriesYet: "No stories yet",
     storyCount: (count: number) => (count === 1 ? "1 adventure" : `${count} adventures`),
-    links: {
-      home: " Home",
-      myBooks: " My books",
-      downloads: " Downloads",
-    },
-    privacy: "Children's details are protected and used only for their own stories.",
   },
 
   library: {

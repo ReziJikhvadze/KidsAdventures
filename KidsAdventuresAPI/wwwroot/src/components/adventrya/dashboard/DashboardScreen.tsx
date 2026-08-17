@@ -410,22 +410,14 @@ export function DashboardScreen() {
           {t.dashboard.sidebar.addChild}
         </Link>
 
-        <div className="sidebar-links">
-          <Link to="/">
-            <Home aria-hidden="true" />
-            {t.dashboard.sidebar.links.home}
-          </Link>
-          <button type="button" className="active">
-            <BookOpen aria-hidden="true" />
-            {t.dashboard.sidebar.links.myBooks}
-          </button>
-          <Link to="/world">
-            <Sparkles aria-hidden="true" />
-            {t.common.nav.childWorld}
-          </Link>
-        </div>
+        {/*
+          The sidebar's nav and its privacy footnote are gone.
 
-        <p className="privacy-mini">{t.dashboard.sidebar.privacy}</p>
+          One of the three links was a button that did not navigate and was permanently "active",
+          one repeated the header's home link, and the third repeated the child's world. The
+          privacy line was pinned to the bottom of a column that does not scroll, so a family
+          with several children pushed it under their own names.
+        */}
       </aside>
 
       {!hasStories ? (

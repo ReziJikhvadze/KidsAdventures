@@ -882,3 +882,70 @@
 .landing-v3-example-meta a svg {
   width: 14px;
 }
+
+/*
+  The gender toggle: one control divided, not two buttons side by side.
+
+  It was already a two-up segmented control, but nothing said the two halves were one question —
+  no divider, and the choice was carried entirely by a background colour. A rule between them and
+  an indicator that slides makes it read as a switch, which is what it is.
+*/
+.ux-gender-toggle {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* The divider. It fades out once a side is chosen, because the indicator marks the split. */
+.ux-gender-toggle:before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: 22%;
+  bottom: 22%;
+  left: 50%;
+  width: 1px;
+  background: rgba(240, 229, 207, 0.28);
+  transition: opacity 0.22s ease;
+}
+.ux-gender-toggle[data-picked="girl"]:before,
+.ux-gender-toggle[data-picked="boy"]:before {
+  opacity: 0;
+}
+/* The indicator, parked off-screen until one side is picked. */
+.ux-gender-toggle:after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 3px auto 3px 3px;
+  width: calc(50% - 3px);
+  border-radius: 11px;
+  background: linear-gradient(145deg, #f1d899, #dca85a);
+  opacity: 0;
+  transition:
+    transform 0.24s cubic-bezier(0.2, 0.75, 0.2, 1),
+    opacity 0.18s ease;
+}
+.ux-gender-toggle[data-picked="girl"]:after {
+  opacity: 1;
+  transform: translateX(0);
+}
+.ux-gender-toggle[data-picked="boy"]:after {
+  opacity: 1;
+  transform: translateX(100%);
+}
+.ux-gender-toggle button {
+  position: relative;
+  z-index: 2;
+  background: transparent;
+  transition: color 0.2s ease;
+}
+/* The indicator paints the selection now, so the button must not paint it again. */
+.ux-gender-toggle button.selected {
+  background: transparent;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ux-gender-toggle:after,
+  .ux-gender-toggle:before {
+    transition-duration: 0.01ms !important;
+  }
+}

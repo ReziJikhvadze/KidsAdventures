@@ -40,10 +40,6 @@ export function Hero() {
               </Link>
               <small>{t.landing.hero.primaryNote}</small>
             </div>
-            <a className="landing-v3-secondary" href="#books">
-              <BookIcon />
-              {t.landing.hero.secondaryCta}
-            </a>
           </div>
 
           <div className="landing-v3-hero-proof">
@@ -60,14 +56,6 @@ export function Hero() {
         </div>
 
         <div className="landing-v3-hero-product" aria-label={t.landing.hero.bookExample}>
-          <div className="landing-v3-floating-note note-one">
-            <SparkleIcon />
-            <span>
-              <small>{t.landing.hero.floatingNoteOne}</small>
-              {t.landing.hero.floatingNoteTwo}
-            </span>
-          </div>
-
           {/* Demo uses interactive Ot storybook (variant=hero), not a static cover stack. */}
           <StorybookVolume
             className="storybook storybook-hero theme-dinosaurs"
@@ -84,14 +72,6 @@ export function Hero() {
             autoAdvanceMs={2000}
             initialIndex={0}
           />
-
-          <div className="landing-v3-floating-note note-two">
-            <span className="landing-v3-avatar">ზ</span>
-            <span>
-              <small>{t.landing.hero.confidence[0]}</small>
-              {t.landing.hero.confidence[1]}
-            </span>
-          </div>
         </div>
 
         <a className="landing-v3-scroll" href="#books">

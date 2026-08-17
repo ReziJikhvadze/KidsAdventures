@@ -68,7 +68,7 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
         var palette = GetPalette(request.ThemeName);
         var strings = PrintStrings.For(request.Language);
         var childName = request.Content.ChildName;
-        var plan = BuildPlan(request.Content, _layout);
+        var plan = BuildPlan(request.Content, _layout, request.ForPrint);
 
         var document = Document.Create(container =>
         {
@@ -109,7 +109,10 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
     /// twice, a book whose page count will not divide by four. Those are decisions, so they are
     /// made somewhere they can be read back and asserted on.
     /// </summary>
-    public static IReadOnlyList<PrintPage> BuildPlan(AdventureContentDto content, PrintLayoutOptions layout)
+    public static IReadOnlyList<PrintPage> BuildPlan(
+        AdventureContentDto content,
+        PrintLayoutOptions layout,
+        bool forPrint = true)
     {
         // Books written before spreads existed have no text-only pages and carry a picture and
         // prose together on every page. They are still in the library, and they still print.
@@ -138,7 +141,10 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
         //
         // The back cover is counted before the padding is worked out and added after it, so the
         // blanks fall inside the book and the closing page is the last thing bound.
-        var multiple = Math.Max(1, layout.BindingMultiple);
+        //
+        // Only for print. A screen has no fold, and on a screen those leaves are two empty pages
+        // between the last page and the ending — which reads as a book that failed to finish.
+        var multiple = forPrint ? Math.Max(1, layout.BindingMultiple) : 1;
         var backLeaves = layout.IncludeBackCover ? 1 : 0;
         var remainder = (plan.Count + backLeaves) % multiple;
         var padding = remainder == 0 ? 0 : multiple - remainder;
