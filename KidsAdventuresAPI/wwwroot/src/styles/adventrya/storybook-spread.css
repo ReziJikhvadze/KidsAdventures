@@ -231,15 +231,47 @@
   animation: storybook-leaf-next 0.9s cubic-bezier(0.33, 0.01, 0.16, 1) both;
 }
 /*
-  Reversed keyframes need a reversed easing to be a true mirror.
-  cubic-bezier(x1,y1,x2,y2) run backwards is cubic-bezier(1-x2, 1-y2, 1-x1, 1-y1); with the
-  forward curve still applied, the returning page lagged the outgoing one by up to 18 degrees
-  in mid-flight even though both ends lined up.
+  A backward turn moves the other way.
+
+  This hinges on the spine at its right edge and starts flat on the left, so the sheet lifts off
+  the left page and swings right — the mirror image of the forward turn, which starts flat on the
+  right and swings left.
+
+  It used to run the forward keyframes backwards in time: 180deg to 0. Both ends looked right, but
+  180deg about this hinge *is* the right-hand half, so the sheet started on the right and finished
+  on the left — travelling in exactly the same direction as a forward turn. Going back was
+  therefore indistinguishable from going on, which is the one thing a page turn has to make clear.
+  The easing is the forward curve, not its reverse, because the animation now plays forwards.
 */
 .storybook-spread-turn.turn-previous {
   left: 0;
   transform-origin: 100% 50%;
-  animation: storybook-spread-leaf-previous 0.9s cubic-bezier(0.84, 0, 0.67, 0.99) both;
+  animation: storybook-spread-leaf-previous 0.9s cubic-bezier(0.33, 0.01, 0.16, 1) both;
+}
+/*
+  A cover is a leaf like any other.
+
+  It used to span the whole volume and hinge on the far left edge, which is right for a book that
+  is one page wide and wrong for an open spread: the sheet was two pages across, and it swung
+  about the outside edge of the book instead of the spine, so it left the footprint entirely
+  before the book snapped to its open width behind it.
+
+  On a spread it is simply the leaf on the side it is currently lying on — the right half when the
+  book is shut and opening, the left half when it is open and closing — hinged on the spine, with
+  the same two animations the story leaves use. Below the spread breakpoint the book is a single
+  page and the original full-width, outside-edge hinge is still the correct one.
+*/
+.storybook.uses-desktop-spread .storybook-cover-turn {
+  width: 50%;
+}
+.storybook.uses-desktop-spread .storybook-cover-turn.turn-next {
+  inset-inline: 50% 0;
+  transform-origin: 0 50%;
+}
+.storybook.uses-desktop-spread .storybook-cover-turn.turn-previous {
+  inset-inline: 0 50%;
+  transform-origin: 100% 50%;
+  animation: storybook-spread-leaf-previous 0.9s cubic-bezier(0.33, 0.01, 0.16, 1) both;
 }
 .storybook-cover-turn.turn-next {
   transform-origin: 1.6% 50%;
@@ -248,6 +280,12 @@
 .storybook-cover-turn.turn-previous {
   transform-origin: 1.6% 50%;
   animation: storybook-leaf-previous 0.9s cubic-bezier(0.84, 0, 0.67, 0.99) both;
+}
+/* The free edge of a closing cover is its left one, the same as a backward story leaf. */
+.storybook.uses-desktop-spread .storybook-cover-turn.turn-previous .storybook-page-curl {
+  right: auto;
+  left: -1px;
+  transform: translateZ(2px) scaleX(-1);
 }
 .storybook-spread-turn .storybook-turn-face,
 .storybook-cover-turn .storybook-turn-face {
@@ -260,33 +298,33 @@
   transform: rotateY(180deg) scaleX(-1);
 }
 /*
-  The same leaf, running the other way.
+  The same leaf, going the other way.
 
-  This used to be its own curve — four stops against the forward turn's five, a different
-  brightness floor and a different easing shape — so the page came back as a rotating rectangle
-  rather than the sheet of paper that had just gone the other way. It is now storybook-leaf-next
-  reversed in time and mirrored in sign: the stops are the forward ones subtracted from 100, the
-  skews keep their magnitude and flip direction, and the shading dips at the same moment.
+  storybook-leaf-next mirrored in sign, not reversed in time: the stops sit at the same moments
+  and the rotation runs 0 to +180 instead of 0 to -180, so the sheet leaves the left page and
+  arrives on the right. The skews keep their magnitude and flip direction, and the shading dips
+  at the same point in the arc, so the two turns are the same piece of paper seen from either
+  side rather than two different animations that happen to share endpoints.
 */
 @keyframes storybook-spread-leaf-previous {
   0% {
-    transform: rotateY(180deg) skewY(0) scaleX(1);
+    transform: rotateY(0) skewY(0) scaleX(1);
     filter: brightness(1);
   }
-  24% {
-    transform: rotateY(151deg) skewY(-0.35deg) scaleX(0.986);
-    filter: brightness(0.9);
-  }
-  47% {
-    transform: rotateY(102deg) skewY(0.6deg) scaleX(0.965);
-    filter: brightness(0.74);
-  }
-  72% {
+  28% {
     transform: rotateY(48deg) skewY(-0.7deg) scaleX(0.985);
     filter: brightness(0.94);
   }
+  53% {
+    transform: rotateY(102deg) skewY(0.6deg) scaleX(0.965);
+    filter: brightness(0.74);
+  }
+  76% {
+    transform: rotateY(151deg) skewY(-0.35deg) scaleX(0.986);
+    filter: brightness(0.9);
+  }
   to {
-    transform: rotateY(0) skewY(0) scaleX(1);
+    transform: rotateY(180deg) skewY(0) scaleX(1);
     filter: brightness(1);
   }
 }

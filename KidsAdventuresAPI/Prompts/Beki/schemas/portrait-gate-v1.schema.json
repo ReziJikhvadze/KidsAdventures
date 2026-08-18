@@ -8,20 +8,12 @@
   "properties": {
     "accepted": {
       "type": "boolean",
-      "description": "True only when the photo can be used as an identity reference."
+      "description": "True unless the photo plainly contains no usable person at all."
     },
     "reason": {
       "type": "string",
       "description": "One code. 'ok' when accepted; otherwise the single best reason for the refusal.",
-      "enum": [
-        "ok",
-        "not_a_person",
-        "no_face",
-        "multiple_people",
-        "face_obscured",
-        "face_too_small",
-        "too_dark"
-      ]
+      "enum": ["ok", "not_a_person", "no_face", "too_dark"]
     },
     "explanation": {
       "type": "string",

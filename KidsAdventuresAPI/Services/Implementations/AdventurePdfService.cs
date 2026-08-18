@@ -1,4 +1,4 @@
-using AdventurePacks.Api.Configuration.Options;
+﻿using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.Services.Interfaces;
 using AdventurePacks.Api.Services.Pdf;
@@ -70,10 +70,21 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
         var childName = request.Content.ChildName;
         var plan = BuildPlan(request.Content, _layout, request.ForPrint);
 
+        // The reader numbers the pages of the story, not the leaves of the printed book — "page
+        // 7 of 16" counts the same sevens on paper and on screen only if the covers and the
+        // blanks are left out of the counting, which is what having a story page here does.
+        var totalStoryPages = plan.Count(slot => slot.Source is not null);
+        var storyPage = 0;
+
         var document = Document.Create(container =>
         {
             foreach (var slot in plan)
             {
+                if (slot.Source is not null)
+                {
+                    storyPage++;
+                }
+
                 switch (slot.Kind)
                 {
                     case PrintPageKind.Cover:
@@ -83,7 +94,7 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
                         ComposePicturePage(container, slot.Source!, palette);
                         break;
                     case PrintPageKind.Prose:
-                        ComposeProsePage(container, slot.Source!, palette, strings, slot.PhysicalPage, childName);
+                        ComposeProsePage(container, slot.Source!, strings, slot.PhysicalPage, storyPage, totalStoryPages);
                         break;
                     case PrintPageKind.Legacy:
                         ComposeLegacyPage(container, slot.Source!, palette, strings, slot.PhysicalPage, childName);
@@ -236,11 +247,16 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
     }
 
     /// <summary>
-    /// The picture half of a spread: art to the bleed line, caption over it, nothing else.
+    /// The picture half of a spread: art to the bleed line and nothing else.
     ///
-    /// No title and no running head. The title belongs to the spread and is set once, on the
-    /// prose page facing this one; repeating it here is what made every chapter heading appear
-    /// twice in the printed book.
+    /// No title, no running head and no caption band. On screen this page is the illustration
+    /// and only the illustration — the words of the spread live on the page facing it — and the
+    /// printed book is meant to be the same book. The band printed the caption a second time,
+    /// over the picture, which is the exact thing giving the words their own page removed.
+    ///
+    /// Where the picture does not reach the edge it sits on the same near-black the reader puts
+    /// behind a page, not on the pale theme colour: a letterbox the colour of paper reads as a
+    /// misprint, one the colour of the screen's page reads as the frame of the picture.
     /// </summary>
     private void ComposePicturePage(
         IDocumentContainer container,
@@ -253,67 +269,100 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
 
             if (pageContent.ImageBytes is not { Length: > 0 })
             {
-                page.Content().Background(palette.CardBackground);
+                page.Content().Background(ScreenPageBackground);
                 return;
             }
 
-            page.Content().Layers(layers =>
-            {
-                // FitArea, not a crop-to-fill. The illustration was composed as a whole frame,
-                // and cropping a children's picture to the page is how a character loses the
-                // top of their head. Any letterboxing sits on the theme colour.
-                //
-                // Centred, because it is not centred by default: a 2:3 picture on this page
-                // leaves a few millimetres over, and all of it landing against one edge reads
-                // as a trimming error rather than a margin.
-                layers.PrimaryLayer().AlignCenter().AlignMiddle()
-                    .Image(pageContent.ImageBytes).FitArea();
-
-                var caption = pageContent.Caption?.Trim();
-                if (!string.IsNullOrWhiteSpace(caption))
-                {
-                    layers.Layer().AlignBottom().Background(palette.Primary)
-                        .PaddingVertical(6, Unit.Millimetre)
-                        .PaddingHorizontal(SafeInsetMm, Unit.Millimetre)
-                        .Text(caption)
-                        .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(15)
-                        .FontColor(Colors.White).LineHeight(1.3f);
-                }
-            });
+            // FitArea, not a crop-to-fill. The illustration was composed as a whole frame,
+            // and cropping a children's picture to the page is how a character loses the
+            // top of their head.
+            //
+            // Centred, because it is not centred by default: a 2:3 picture on this page
+            // leaves a few millimetres over, and all of it landing against one edge reads
+            // as a trimming error rather than a margin.
+            page.Content().Background(ScreenPageBackground)
+                .AlignCenter().AlignMiddle()
+                .Image(pageContent.ImageBytes).FitArea();
         });
     }
 
-    /// <summary>The prose half: the spread's title once, then the text, set clear of the binding.</summary>
+    /// <summary>
+    /// The prose half, set the way the reader sets it: a leaf of paper inside a ruled frame.
+    ///
+    /// This used to be a plain page — a coloured heading, a short accent rule, ranged-left body
+    /// text and a running foot — which is a perfectly good page and not the page anybody had
+    /// seen. On screen the words of a spread sit on the inside-cover treatment: cream stock, a
+    /// broad border with two hairline rules inside it, the caption above in small capitals, the
+    /// story centred in serif on a narrow measure, and the page number at the foot. A parent who
+    /// reads the book on a screen and then opens the PDF is looking at the same book, so it is
+    /// laid out from the same description.
+    ///
+    /// The colours are the screen's own rather than the theme's, exactly as they are in the
+    /// stylesheet: this leaf is paper in every world, and the theme reaches the printed book
+    /// through the pictures.
+    /// </summary>
     private void ComposeProsePage(
         IDocumentContainer container,
         StoryPageDto pageContent,
-        ThemePalette palette,
         PrintStrings strings,
         int physicalPage,
-        string childName)
+        int storyPage,
+        int totalStoryPages)
     {
         container.Page(page =>
         {
-            ApplyTextPageGeometry(page, palette, physicalPage);
+            ApplyProsePageGeometry(page, physicalPage);
 
-            page.Content().PaddingTop(6, Unit.Millimetre).Column(column =>
-            {
-                column.Spacing(8);
+            // The caption is what the screen prints above the prose, falling back to the title.
+            // Reading the title first put a heading on a page that shows a caption.
+            var eyebrow = FirstNonEmpty(pageContent.Caption, pageContent.Title);
 
-                column.Item().Text(pageContent.Title)
-                    .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(20).Bold()
-                    .FontColor(palette.Primary).LineHeight(1.2f);
+            page.Content()
+                .Background(PaperBackground)
+                .Border(PaperBorderMm, Unit.Millimetre).BorderColor(PaperBorderColor)
+                // The two rules the screen insets at 5% and 7% of the leaf.
+                .Padding(PaperFrameOuterMm, Unit.Millimetre)
+                .Border(0.3f).BorderColor(PaperRuleOuterColor)
+                .Padding(PaperFrameInnerMm, Unit.Millimetre)
+                .Border(0.3f).BorderColor(PaperRuleInnerColor)
+                .Padding(PaperFrameInnerMm, Unit.Millimetre)
+                /*
+                  Layers, not a column with an extending first item.
 
-                column.Item().Width(28).Height(2).Background(palette.Accent);
+                  The prose is centred in the leaf and the page number sits at its foot, which as
+                  a column means one item that grows to fill and one that does not — and an item
+                  told to fill inside a page is a page whose content is taller than the page, so
+                  every prose leaf broke onto a second sheet and a sixteen-page book came out
+                  twenty-six. A layer takes its height from the leaf it is drawn on and adds none.
+                */
+                .Layers(layers =>
+                {
+                    layers.PrimaryLayer().AlignMiddle().Column(inner =>
+                    {
+                        if (!string.IsNullOrWhiteSpace(eyebrow))
+                        {
+                            inner.Item().AlignCenter().PaddingBottom(5, Unit.Millimetre)
+                                .Text(eyebrow.ToUpperInvariant())
+                                .FontFamily(PdfFontBootstrap.BodyFamily).FontSize(9).Bold()
+                                .LetterSpacing(0.1f).FontColor(PaperEyebrowColor);
+                        }
 
-                column.Item().PaddingTop(4).Text(pageContent.Content)
-                    .FontFamily(PdfFontBootstrap.BodyFamily).FontSize(15)
-                    .LineHeight(1.7f).FontColor(palette.BodyText);
-            });
+                        inner.Item().Text(pageContent.Content)
+                            .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(13)
+                            .LineHeight(1.8f).FontColor(PaperTextColor).AlignCenter();
+                    });
 
-            ComposeRunningFoot(page, palette, strings, physicalPage, childName);
+                    // Where the screen puts the page label: at the foot, centred, quiet.
+                    layers.Layer().AlignBottom().AlignCenter()
+                        .Text(strings.PageLabel(storyPage, totalStoryPages))
+                        .FontFamily(PdfFontBootstrap.BodyFamily).FontSize(8)
+                        .LetterSpacing(0.12f).FontColor(PaperFootColor);
+                });
         });
     }
+
+    private static string? FirstNonEmpty(params string?[] values) =>
+        values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))?.Trim();
 
     /// <summary>A page from a book written before spreads: picture and prose together.</summary>
     private void ComposeLegacyPage(
@@ -495,9 +544,70 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
         });
     }
 
+    // ---- The reader's own colours ---------------------------------------
+
+    /*
+      Taken from the stylesheet the reader uses, not from the theme.
+
+      A page of this book looks the same in every world: the picture carries the world, and the
+      paper the words are set on is paper. These are the literal values behind `.storybook-page-content`
+      and `.storybook-text-page`, so the printed leaf and the leaf on screen are the same leaf.
+    */
+
+    /// <summary>Behind an illustration, where it does not reach the trim. `.storybook-page-content`.</summary>
+    private static readonly Color ScreenPageBackground = Color.FromHex("#281B3F");
+
+    /// <summary>Cream stock. `.storybook-text-page` background.</summary>
+    private static readonly Color PaperBackground = Color.FromHex("#F5EAD7");
+
+    /// <summary>The broad outer border of the leaf.</summary>
+    private static readonly Color PaperBorderColor = Color.FromHex("#E7DBC4");
+
+    /// <summary>The two hairlines inside it, the second fainter than the first.</summary>
+    private static readonly Color PaperRuleOuterColor = Color.FromHex("#BC9070");
+    private static readonly Color PaperRuleInnerColor = Color.FromHex("#D8BE9B");
+
+    /// <summary>The caption above the prose, in small capitals.</summary>
+    private static readonly Color PaperEyebrowColor = Color.FromHex("#9B6C4E");
+
+    /// <summary>The story itself.</summary>
+    private static readonly Color PaperTextColor = Color.FromHex("#51394D");
+
+    /// <summary>The page number at the foot.</summary>
+    private static readonly Color PaperFootColor = Color.FromHex("#8A736D");
+
+    /// <summary>The 7px border of the screen leaf, at print scale.</summary>
+    private const float PaperBorderMm = 2.4f;
+
+    /// <summary>The screen insets its rules at 5% and 7% of the leaf; on A5 that is about this.</summary>
+    private const float PaperFrameOuterMm = 7f;
+    private const float PaperFrameInnerMm = 3f;
+
     // ---- Geometry -------------------------------------------------------
 
     private float SafeInsetMm => _layout.SafeMarginMm;
+
+    /// <summary>
+    /// The prose leaf runs to the bleed line, because the paper and its border are the design
+    /// rather than a margin: a cream page with a ruled frame has to reach the trim or it prints
+    /// as a small card floating on a coloured sheet. The gutter is kept as a nudge of the frame
+    /// towards the outer edge, so the binding does not eat the rule on the spine side.
+    /// </summary>
+    private void ApplyProsePageGeometry(PageDescriptor page, int physicalPage)
+    {
+        page.Size(new PageSize(
+            _layout.TrimWidthMm + (_layout.BleedMm * 2),
+            _layout.TrimHeightMm + (_layout.BleedMm * 2),
+            Unit.Millimetre));
+
+        var isRecto = physicalPage % 2 == 1;
+        page.MarginTop(_layout.BleedMm, Unit.Millimetre);
+        page.MarginBottom(_layout.BleedMm, Unit.Millimetre);
+        page.MarginLeft(isRecto ? _layout.BleedMm + _layout.GutterMm : _layout.BleedMm, Unit.Millimetre);
+        page.MarginRight(isRecto ? _layout.BleedMm : _layout.BleedMm + _layout.GutterMm, Unit.Millimetre);
+
+        page.PageColor(PaperBackground);
+    }
 
     /// <summary>
     /// The most of a legacy page an illustration may take, leaving the title and prose room to
@@ -560,7 +670,8 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
         Func<string, string> Starring,
         Func<string, string> RunningHead,
         string BackTitle,
-        Func<string, string> BackScan)
+        Func<string, string> BackScan,
+        Func<int, int, string> PageLabel)
     {
         public static PrintStrings For(string? language) =>
             (language ?? string.Empty).Trim().ToLowerInvariant() switch
@@ -569,14 +680,16 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
                     name => $"Starring {name}",
                     name => $"{name}'s adventure",
                     "The adventure does not end here",
-                    name => $"Scan and continue {name}'s journey in another world."),
+                    name => $"Scan and continue {name}'s journey in another world.",
+                    (page, total) => $"Page {page} / {total}"),
                 // Word for word what the reader's closing page says, so a family that reads the
                 // book on paper and the book on a screen is read the same sentence.
                 _ => new PrintStrings(
                     name => $"მთავარ როლში — {name}",
                     name => $"{GeorgianGenitive(name)} თავგადასავალი",
                     "თავგადასავალი აქ არ სრულდება",
-                    name => $"დაასკანერე და გააგრძელე {name.Trim()}ს მოგზაურობა სხვა სამყაროში.")
+                    name => $"დაასკანერე და გააგრძელე {name.Trim()}ს მოგზაურობა სხვა სამყაროში.",
+                    (page, total) => $"გვერდი {page} / {total}")
             };
 
         /// <summary>

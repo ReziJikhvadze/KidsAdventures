@@ -1,4 +1,4 @@
-namespace AdventurePacks.Api.Configuration.Options;
+﻿namespace AdventurePacks.Api.Configuration.Options;
 
 /// <summary>
 /// Configuration for the Beki story and visual pipelines.
@@ -38,11 +38,18 @@ public sealed class BekiOptions
     public string IdentityAnalyzerModel { get; set; } = "gpt-5.6-luna";
 
     /// <summary>
-    /// Decides whether a chosen photo is a usable portrait at all, before anything is generated.
-    /// Its own setting rather than the analyzer's: this one runs while a parent waits on the form,
-    /// so it is the first place a cheaper or faster model would be worth trying.
+    /// Decides whether a chosen photo shows a child at all, before anything is generated.
+    ///
+    /// Empty by default, and empty means <see cref="OpenAiOptions.Model"/> — the vision model the
+    /// account is already configured with. It used to default to a name from the Beki handoff that
+    /// nothing had ever pointed at a real deployment, so every check 400'd on an unknown model,
+    /// every 400 became "could not reach the model", and every photo was refused. A default that
+    /// only works once somebody configures it is not a default.
+    ///
+    /// Set it to override — this is the first place a cheaper or faster model is worth trying,
+    /// because it runs while a parent waits on the form.
     /// </summary>
-    public string PortraitGateModel { get; set; } = "gpt-5.6-luna";
+    public string PortraitGateModel { get; set; } = string.Empty;
 
     /// <summary>
     /// The gate runs between choosing a file and seeing it accepted, so it is bounded far tighter

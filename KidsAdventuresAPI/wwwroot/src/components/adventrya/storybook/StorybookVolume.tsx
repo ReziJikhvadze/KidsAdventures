@@ -478,12 +478,45 @@ export function StorybookVolume({
   const spreadClass = desktopSpread ? "uses-desktop-spread" : "uses-single-page";
   // A book is shut at both ends. It used to open on the last page and stay open, so a story
   // that had just finished sat there gaping instead of closing the way it started.
-  const isClosed = index === 0 || index === backIndex;
+  const shutAt = (at: number) => at === 0 || at === backIndex;
+  /*
+    A book that is opening is already open.
+
+    This used to read `index` alone, and `index` does not move until the turn commits — so for the
+    whole 900ms of opening the cover, the volume was still one page wide, and the moment the turn
+    ended it snapped to two. The cover therefore swung across a book of one width and landed on a
+    book of another. Counting the destination as well means the covers turn inside the footprint
+    the book is going to have, and nothing resizes underneath them.
+  */
+  const isClosed = shutAt(index) && (turnTo === null || shutAt(turnTo));
   const openClass = isClosed ? "is-closed" : "is-open";
   const showSpread = desktopSpread && !isClosed;
 
-  const leftLeaf = leaves[index] ?? null;
-  const rightLeaf = index + 1 <= contentLast ? (leaves[index + 1] ?? null) : null;
+  /*
+    Which spread lies under a turning sheet.
+
+    A leaf carries one page on each face, so the two pages it is not carrying belong to the paper
+    underneath: turning forward, the left page stays put and the right is the one being uncovered;
+    turning back, it is the other way round. Reading both from `index` meant the page revealed
+    behind a departing leaf was the page that had just left on it.
+
+    Opening or closing the covers is the exception — one of the two indices is the closed book,
+    which has no spread of its own — so the open side is what lies underneath either way.
+  */
+  const turningCover = turning !== null && turnTo !== null && (index === 0 || turnTo === 0);
+  const spreadPages = ((): { left: number; right: number } => {
+    if (turning === null || turnTo === null) return { left: index, right: index + 1 };
+    if (turningCover) {
+      const open = Math.max(index, turnTo);
+      return { left: open, right: open + 1 };
+    }
+    return turning === "next"
+      ? { left: index, right: turnTo + 1 }
+      : { left: turnTo, right: index + 1 };
+  })();
+
+  const leftLeaf = leaves[spreadPages.left] ?? null;
+  const rightLeaf = spreadPages.right <= contentLast ? (leaves[spreadPages.right] ?? null) : null;
 
   return (
     <div
@@ -574,15 +607,18 @@ export function StorybookVolume({
         </div>
 
         {/*
-          Which face shows which page follows from the direction the sheet swings. Turning
-          forward, the face you start looking at is the page you are leaving and the one revealed
-          is the page you are going to; turning back, the sheet starts flipped, so the two swap.
+          Which face shows which page no longer depends on the direction.
+
+          Both turns now start the sheet flat and unflipped, so the face you are looking at when a
+          turn begins is always the page you are on, and the face revealed as it lands is always
+          the page you are going to. The old rule swapped the two for a backward turn, to
+          compensate for a backward animation that started flipped — and that animation is gone.
         */}
         {turning && turnTo !== null && desktopSpread && (index === 0 || turnTo === 0) ? (
           <div className={`storybook-cover-turn turn-${turning}`} aria-hidden="true">
             <div className="storybook-turn-face storybook-turn-front">
               <LeafView
-                leaf={leaves[turning === "next" ? index : turnTo] ?? null}
+                leaf={leaves[index] ?? null}
                 heroName={heroName}
                 title={title}
                 coverSrc={resolvedCover}
@@ -592,7 +628,7 @@ export function StorybookVolume({
             </div>
             <div className="storybook-turn-face storybook-turn-back">
               <LeafView
-                leaf={leaves[turning === "next" ? turnTo : index] ?? null}
+                leaf={leaves[turnTo] ?? null}
                 heroName={heroName}
                 title={title}
                 coverSrc={resolvedCover}
@@ -606,10 +642,14 @@ export function StorybookVolume({
 
         {turning && turnTo !== null && desktopSpread && index > 0 && turnTo > 0 ? (
           <div className={`storybook-spread-turn turn-${turning}`} aria-hidden="true">
-            {/* The recto of the spread being left is the leaf that physically turns. */}
+            {/*
+              One leaf, two faces, and which two depends on the way it is going: forward it lifts
+              the right page of this spread and puts down the left page of the next; backward it
+              lifts the left page of this spread and puts down the right page of the previous one.
+            */}
             <div className="storybook-turn-face storybook-turn-front">
               <LeafView
-                leaf={leaves[turning === "next" ? index + 1 : turnTo] ?? null}
+                leaf={leaves[turning === "next" ? index + 1 : index] ?? null}
                 heroName={heroName}
                 title={title}
                 coverSrc={resolvedCover}
@@ -619,7 +659,7 @@ export function StorybookVolume({
             </div>
             <div className="storybook-turn-face storybook-turn-back">
               <LeafView
-                leaf={leaves[turning === "next" ? turnTo : index + 1] ?? null}
+                leaf={leaves[turning === "next" ? turnTo : turnTo + 1] ?? null}
                 heroName={heroName}
                 title={title}
                 coverSrc={resolvedCover}

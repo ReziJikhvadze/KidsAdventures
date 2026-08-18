@@ -44,13 +44,10 @@ function isRejection(reason: string): reason is PortraitRejection {
 /**
  * Asks the server whether a chosen photo is usable, before it becomes the face of a book.
  *
- * Never rejects the promise. A photo the model dislikes, a server that is down and a phone that
- * lost signal all mean the same thing on this form — this photo is not ready, try again — and a
- * caller with one thing to do about any of them should not have to catch to find that out.
- *
- * The failure path refuses rather than waving the photo through. Letting uploads past during an
- * outage means a bottle is discovered at the end of a finished, paid-for book; refusing costs the
- * parent one more tap.
+ * Never rejects the promise, and never blocks on its own failure. A server that is down and a
+ * phone that lost signal are not evidence about the photo, and treating them as a refusal put the
+ * words "this photo will not do" in front of a parent whose photo was fine. Only an answer from
+ * the server can turn a photo away; anything else lets it through.
  */
 export async function checkPortrait(photoDataUrl: string): Promise<PortraitVerdict> {
   try {
@@ -67,6 +64,6 @@ export async function checkPortrait(photoDataUrl: string): Promise<PortraitVerdi
       reason: isRejection(result.reason) ? result.reason : "unsuitable",
     };
   } catch {
-    return { accepted: false, reason: "unavailable" };
+    return { accepted: true };
   }
 }

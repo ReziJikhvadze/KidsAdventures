@@ -1,4 +1,4 @@
-using AdventurePacks.Api.Configuration.Options;
+﻿using AdventurePacks.Api.Configuration.Options;
 
 namespace AdventurePacks.Api.Services.Beki;
 
@@ -82,14 +82,18 @@ public interface IPortraitGate
 /// the moment the file is picked, which is the only moment the answer is still cheap and the only
 /// moment a parent can do anything about it.
 ///
-/// It fails closed. When the model cannot be reached the photo is refused and the parent is asked
-/// to try again — chosen deliberately over letting uploads through during an outage, because a
-/// photo that slips past here is discovered at the end of a generated book.
+/// It fails open. When the model cannot be reached the photo is let through, because this is a
+/// courtesy and not a guarantee: it exists to catch the parent who picked a bottle by mistake,
+/// not to stand between a family and their book. Refusing during an outage meant an outage looked
+/// exactly like "your child's photo is not good enough", which is the worse of the two failures
+/// and the one nobody can act on. A photo that slips past is still caught downstream by a book
+/// that looks wrong; a photo wrongly refused just ends the visit.
 /// </summary>
 public sealed class PortraitGate(
     IBekiOpenAiClient client,
     IBekiPromptProvider prompts,
     IOptions<BekiOptions> options,
+    IOptions<OpenAiOptions> openAiOptions,
     ILogger<PortraitGate> logger) : IPortraitGate
 {
     /// <summary>
@@ -100,6 +104,14 @@ public sealed class PortraitGate(
     public const int MaxPhotoBytes = 8_000_000;
 
     private readonly BekiOptions _beki = options.Value;
+    private readonly OpenAiOptions _openAi = openAiOptions.Value;
+
+    /// <summary>
+    /// The configured gate model, or the account's ordinary vision model when none is set.
+    /// A gate that cannot name a model it can actually reach refuses every photo.
+    /// </summary>
+    private string GateModel =>
+        string.IsNullOrWhiteSpace(_beki.PortraitGateModel) ? _openAi.Model : _beki.PortraitGateModel;
 
     public async Task<PortraitVerdict> InspectAsync(
         byte[] photoBytes,
@@ -125,7 +137,7 @@ public sealed class PortraitGate(
         try
         {
             response = await client.CompleteJsonWithImagesAsync<PortraitGateResponse>(
-                _beki.PortraitGateModel,
+                GateModel,
                 prompts.Get(BekiPromptProvider.PortraitGate),
                 new { task = "portrait_intake_check" },
                 [new BekiImageAttachment("Chosen photo", photoBytes, contentType)],
@@ -139,14 +151,14 @@ public sealed class PortraitGate(
         }
         catch (OperationCanceledException)
         {
-            logger.LogWarning("Portrait gate timed out after {Seconds}s; refusing the photo.",
+            logger.LogWarning("Portrait gate timed out after {Seconds}s; letting the photo through.",
                 _beki.PortraitGateTimeoutSeconds);
-            return PortraitVerdict.Fail(PortraitGateReasons.Unavailable);
+            return PortraitVerdict.Pass();
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Portrait gate could not reach the vision model; refusing the photo.");
-            return PortraitVerdict.Fail(PortraitGateReasons.Unavailable);
+            logger.LogError(ex, "Portrait gate could not reach the vision model; letting the photo through.");
+            return PortraitVerdict.Pass();
         }
 
         return Interpret(response, logger);
@@ -161,8 +173,8 @@ public sealed class PortraitGate(
     {
         if (response is null)
         {
-            logger.LogWarning("Portrait gate returned nothing parsable; refusing the photo.");
-            return PortraitVerdict.Fail(PortraitGateReasons.Unavailable);
+            logger.LogWarning("Portrait gate returned nothing parsable; letting the photo through.");
+            return PortraitVerdict.Pass();
         }
 
         if (response.Accepted)

@@ -711,13 +711,23 @@
     padding-top: clamp(20px, 3.3vh, 34px);
     padding-bottom: 20px;
   }
+  /*
+    One screen, no scroll.
+
+    This column used to be given its own scrollbar as an escape hatch: whatever the form came
+    to, it could always scroll. But a parent filling in one child's details should never be
+    asked to scroll a panel inside a page that already fits — and a scrollbar appearing halfway
+    down a form reads as "there is more here than we can show you". The form is short enough to
+    fit, so it is laid out to fit: the column takes the height it is given and the space between
+    the cards absorbs the difference.
+  */
   .ux-character-stack {
     max-height: calc(100svh - 126px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding-right: 5px;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(232, 201, 138, 0.28) transparent;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: clamp(6px, 1.1vh, 15px);
   }
   .ux-profile-footer {
     position: sticky;
@@ -725,6 +735,23 @@
     bottom: 0;
     padding: 10px 0 2px;
     background: linear-gradient(180deg, transparent, rgba(26, 16, 57, 0.94) 27%);
+  }
+  /*
+    The rhythm inside the card is measured in viewport height for the same reason: on a short
+    laptop the paddings are what has to give, not the reader. Fixed pixels here are what made
+    the column outgrow the screen and reach for a scrollbar in the first place.
+  */
+  .ux-character-form {
+    padding: clamp(11px, 1.7vh, 20px);
+  }
+  .ux-character-fields {
+    gap: clamp(7px, 1.2vh, 14px);
+  }
+  .ux-form-intro {
+    margin-bottom: clamp(8px, 1.4vh, 18px);
+  }
+  .ux-wish-field {
+    gap: clamp(3px, 0.6vh, 7px);
   }
   .ux-preview-heading {
     margin-bottom: clamp(12px, 2vh, 20px);
