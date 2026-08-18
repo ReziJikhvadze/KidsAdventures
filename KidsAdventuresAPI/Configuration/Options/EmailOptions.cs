@@ -1,11 +1,16 @@
-namespace AdventurePacks.Api.Configuration.Options;
+﻿namespace AdventurePacks.Api.Configuration.Options;
 
 public sealed class EmailOptions
 {
     public const string SectionName = "Email";
     public bool Enabled { get; set; } = true;
     public string FromAddress { get; set; } = "rezijikhvadze@gmail.com";
-    public string FromName { get; set; } = "Adventrya Books";
+    /// <summary>
+    /// The name on the envelope, and the name the letters sign themselves with — the email
+    /// templates read it from here rather than repeating it. Production overrides it, so this is
+    /// only what an unconfigured deployment says.
+    /// </summary>
+    public string FromName { get; set; } = "Beki";
     public string SmtpHost { get; set; } = "smtp.gmail.com";
     public int SmtpPort { get; set; } = 587;
     public string SmtpUser { get; set; } = "rezijikhvadze@gmail.com";

@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Mail;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Services.Interfaces;
@@ -11,6 +11,17 @@ public sealed class SmtpEmailService(
 {
     private readonly EmailOptions _options = options.Value;
 
+    /// <summary>
+    /// What the emails call the product, taken from the same setting that signs them.
+    ///
+    /// The name used to be written out at every mention — fifteen of them, in two languages,
+    /// across subjects and sign-offs — so a rename changed the sender and left every signature
+    /// behind. A parent then received a letter from one company signed by another. Reading it
+    /// from <see cref="EmailOptions.FromName"/> means the envelope and the letter can never
+    /// disagree again, whatever the name happens to be.
+    /// </summary>
+    private string Brand => string.IsNullOrWhiteSpace(_options.FromName) ? "Beki" : _options.FromName.Trim();
+
     public Task SendEmailAsync(string toAddress, string subject, string htmlBody, CancellationToken cancellationToken = default)
         => SendEmailCoreAsync(toAddress, subject, htmlBody, cancellationToken);
 
@@ -18,13 +29,13 @@ public sealed class SmtpEmailService(
     {
         var html = $"""
             <p>Hello,</p>
-            <p>Thank you for creating an account with <strong>Adventrya Books</strong>.</p>
+            <p>Thank you for creating an account with <strong>{Brand}</strong>.</p>
             <p>Please confirm your email address to start creating personalized storybooks for your child:</p>
             <p><a href="{confirmationUrl}">Confirm my email</a></p>
             <p>If you did not create this account, you can ignore this message.</p>
-            <p>— Adventrya Books</p>
+            <p>— {Brand}</p>
             """;
-        return SendEmailCoreAsync(toAddress, "Confirm your Adventrya Books account", html, cancellationToken);
+        return SendEmailCoreAsync(toAddress, $"Confirm your {Brand} account", html, cancellationToken);
     }
 
     public Task SendMagicLinkAsync(
@@ -37,7 +48,7 @@ public sealed class SmtpEmailService(
         var html = $"""
             <div style="font-family:'Noto Sans Georgian',Arial,sans-serif;font-size:16px;line-height:1.7;color:#29233a">
               <p>გამარჯობა,</p>
-              <p>დააჭირეთ ქვემოთ მოცემულ ღილაკს <strong>Adventrya</strong>-ში შესასვლელად.</p>
+              <p>დააჭირეთ ქვემოთ მოცემულ ღილაკს <strong>{Brand}</strong>-ში შესასვლელად.</p>
               <p style="margin:28px 0">
                 <a href="{safeUrl}"
                    style="background:#e9ac5b;color:#21183f;text-decoration:none;padding:14px 28px;border-radius:999px;font-weight:700;display:inline-block">
@@ -46,10 +57,10 @@ public sealed class SmtpEmailService(
               </p>
               <p style="font-size:14px;color:#6b6480">ბმული მოქმედებს {validForMinutes} წუთი და მხოლოდ ერთხელ გამოიყენება.</p>
               <p style="font-size:14px;color:#6b6480">თუ ეს თქვენ არ მოგითხოვიათ, უბრალოდ იგნორირება გაუკეთეთ ამ წერილს.</p>
-              <p>— Adventrya</p>
+              <p>— {Brand}</p>
             </div>
             """;
-        return SendEmailCoreAsync(toAddress, "Adventrya — შესვლის ბმული", html, cancellationToken);
+        return SendEmailCoreAsync(toAddress, $"{Brand} — შესვლის ბმული", html, cancellationToken);
     }
 
     public Task SendStoryReadyAsync(
@@ -64,9 +75,9 @@ public sealed class SmtpEmailService(
             <p>Good news — <strong>{childName}'s {theme} story</strong> has been written and is waiting for you.</p>
             <p>We're now painting the picture-book pages. You'll get another note when the slideshow is ready to read together.</p>
             <p><a href="{packUrl}">Open My Books</a></p>
-            <p>With warmth,<br/>Adventrya Books</p>
+            <p>With warmth,<br/>{Brand}</p>
             """;
-        return SendEmailCoreAsync(toAddress, $"{childName}'s story is ready — Adventrya Books", html, cancellationToken);
+        return SendEmailCoreAsync(toAddress, $"{childName}'s story is ready — {Brand}", html, cancellationToken);
     }
 
     public Task SendSlideshowReadyAsync(
@@ -81,9 +92,9 @@ public sealed class SmtpEmailService(
             <p>Your picture-book slideshow for <strong>{childName}'s {theme} adventure</strong> is ready — every page is illustrated and waiting for bedtime.</p>
             <p>Snuggle up, tap <strong>Read story</strong>, and swipe through the pages together. When you're ready, you can export a printable PDF from My Books.</p>
             <p><a href="{packUrl}">Read the slideshow</a></p>
-            <p>With warmth,<br/>Adventrya Books</p>
+            <p>With warmth,<br/>{Brand}</p>
             """;
-        return SendEmailCoreAsync(toAddress, $"{childName}'s picture book is ready to read — Adventrya Books", html, cancellationToken);
+        return SendEmailCoreAsync(toAddress, $"{childName}'s picture book is ready to read — {Brand}", html, cancellationToken);
     }
 
     public Task SendPdfReadyAsync(
@@ -98,7 +109,7 @@ public sealed class SmtpEmailService(
             <p>Your printable storybook PDF for <strong>{childName}'s {theme} adventure</strong> is ready to download.</p>
             <p>Open the book and tap <strong>Download storybook PDF</strong> — perfect for printing or sharing with grandparents.</p>
             <p><a href="{packUrl}">Open the book</a></p>
-            <p>With warmth,<br/>Adventrya Books</p>
+            <p>With warmth,<br/>{Brand}</p>
             """;
         return SendEmailCoreAsync(toAddress, $"Your storybook PDF is ready — {childName}", html, cancellationToken);
     }
@@ -118,7 +129,7 @@ public sealed class SmtpEmailService(
         var safeMessage = WebUtility.HtmlEncode(message).Replace("\r\n", "<br/>").Replace("\n", "<br/>");
 
         var html = $"""
-            <p>You received a message from the Adventrya Books contact form.</p>
+            <p>You received a message from the {Brand} contact form.</p>
             <p><strong>Name:</strong> {safeName}<br/>
             <strong>Email:</strong> <a href="mailto:{safeEmail}">{safeEmail}</a></p>
             <p><strong>Message:</strong></p>
@@ -148,7 +159,7 @@ public sealed class SmtpEmailService(
             <p>როგორც კი გამოიგზავნება, თვალის მიდევნების კოდს გამოგიგზავნით.</p>
             """);
 
-        return SendEmailCoreAsync(toAddress, "Adventrya — ბეჭდური წიგნის შეკვეთა მიღებულია", html, cancellationToken);
+        return SendEmailCoreAsync(toAddress, $"{Brand} — ბეჭდური წიგნის შეკვეთა მიღებულია", html, cancellationToken);
     }
 
     public Task SendPrintOrderStatusAsync(
@@ -195,7 +206,7 @@ public sealed class SmtpEmailService(
                 """
         };
 
-        var subject = $"Adventrya — {PrintOrderStatusText.Label(status)}: {bookTitle}";
+        var subject = $"{Brand} — {PrintOrderStatusText.Label(status)}: {bookTitle}";
         return SendEmailCoreAsync(toAddress, subject, GeorgianShell(body), cancellationToken);
     }
 
@@ -213,10 +224,10 @@ public sealed class SmtpEmailService(
     /// Georgian face, several mail clients fall back to a font with no Georgian glyphs
     /// and the parent sees empty boxes.
     /// </summary>
-    private static string GeorgianShell(string bodyHtml) => $"""
+    private string GeorgianShell(string bodyHtml) => $"""
         <div style="font-family:'Noto Sans Georgian',Arial,sans-serif;font-size:16px;line-height:1.7;color:#29233a">
         {bodyHtml}
-          <p>— Adventrya</p>
+          <p>— {Brand}</p>
         </div>
         """;
 
