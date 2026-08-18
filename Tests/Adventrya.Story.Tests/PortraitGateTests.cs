@@ -59,22 +59,21 @@ public class PortraitGateTests
     }
 
     [Fact]
-    public void An_answer_that_did_not_parse_lets_the_photo_through()
+    public void An_answer_that_did_not_parse_is_not_an_acceptance()
     {
         /*
           Null is what the client returns when the model produced nothing usable — a timeout, an
           unreachable endpoint, an answer that would not deserialize.
 
-          This used to be a refusal, on the reasoning that a gate unable to judge should not open.
-          In practice it inverted the product: none of those are facts about the photograph, and a
-          parent whose photo was perfectly good was told, in Georgian, that it would not do. The
-          check is a courtesy that catches somebody who picked a bottle by mistake; when it cannot
-          run there is nothing to say, and nothing to say means carry on.
+          None of those are evidence that the photograph is fine, and treating them as one is how
+          an object reaches a finished book with the parent told it was ready. It refuses — under
+          its own code, so the browser can say "we could not check this" rather than blaming a
+          photograph nobody looked at.
         */
         var verdict = PortraitGate.Interpret(null, NullLogger.Instance);
 
-        Assert.True(verdict.Accepted);
-        Assert.Equal(PortraitGateReasons.Ok, verdict.Reason);
+        Assert.False(verdict.Accepted);
+        Assert.Equal(PortraitGateReasons.Unavailable, verdict.Reason);
     }
 
     [Theory]

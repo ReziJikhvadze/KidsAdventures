@@ -729,12 +729,18 @@
     justify-content: flex-start;
     gap: clamp(6px, 1.1vh, 15px);
   }
+  /*
+    No longer stuck to the bottom of a scrolling column.
+
+    Sticky plus a gradient fading to opaque is how you keep a footer readable over content moving
+    underneath it. The column above does not scroll any more, so nothing ever moved under it —
+    what was left was a dark band painted across a static layout, sitting over the field above and
+    making the whole line look like a mistake. It closes the form now, in the flow, where it is.
+  */
   .ux-profile-footer {
-    position: sticky;
-    z-index: 6;
-    bottom: 0;
-    padding: 10px 0 2px;
-    background: linear-gradient(180deg, transparent, rgba(26, 16, 57, 0.94) 27%);
+    position: static;
+    padding-top: 10px;
+    background: none;
   }
   /*
     The rhythm inside the card is measured in viewport height for the same reason: on a short

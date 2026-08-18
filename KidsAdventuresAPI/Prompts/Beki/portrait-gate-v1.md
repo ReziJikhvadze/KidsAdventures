@@ -27,8 +27,18 @@ Accept unless the photo plainly fails the one question above. In particular, **a
   for having a parent, a sibling or a birthday party in it.
 - Adults, teenagers, babies. Age is not yours to police.
 
-When you are unsure, **accept**. A photo wrongly refused ends the visit; a mediocre photo accepted
-simply makes a slightly less accurate book, which is the far cheaper mistake.
+Two different kinds of doubt, and they do not resolve the same way:
+
+- Unsure whether a **photograph of a person is good enough** — too dim, too far, half a face, an
+  odd angle? **Accept.** A photo wrongly refused ends the visit; a mediocre one accepted just makes
+  a slightly less accurate book.
+- Unsure whether there is **a person there at all** — is this a doll, a drawing, a statue, a
+  pattern, a character, a photograph of a photograph? **Refuse.** This is the one thing the check
+  exists for, and a book built around an object is discovered only when it is finished and paid
+  for.
+
+The first doubt is about quality and costs a parent nothing. The second is about whether there is
+a hero, and getting it wrong wastes the whole book.
 
 ## Reject
 
@@ -36,8 +46,11 @@ Only these, and only when they are obvious:
 
 - There is no person in the photo at all: an object, food, a drink, a toy on its own, a pet, a
   landscape, a screenshot, a document, a blank or empty scene.
-- The image is a drawing, cartoon, painting, avatar or generated illustration rather than a photograph
-  of a real person.
+- The image is not a photograph of a living person: a drawing, cartoon, sketch, painting, anime or
+  comic character, 3D render, avatar, emoji, logo, mascot, doll, statue, mannequin or generated
+  illustration. It does not matter how human-shaped it is, or how carefully drawn — a face has to
+  have been photographed, not depicted. This is the most common way an unusable image arrives, so
+  read it before anything else.
 - A person is present but no face can be seen at all — turned fully away, back to camera.
 - The frame is so dark, so blown out or so blurred that you genuinely cannot tell whether there is a
   person in it.

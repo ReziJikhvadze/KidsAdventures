@@ -44,10 +44,13 @@ function isRejection(reason: string): reason is PortraitRejection {
 /**
  * Asks the server whether a chosen photo is usable, before it becomes the face of a book.
  *
- * Never rejects the promise, and never blocks on its own failure. A server that is down and a
- * phone that lost signal are not evidence about the photo, and treating them as a refusal put the
- * words "this photo will not do" in front of a parent whose photo was fine. Only an answer from
- * the server can turn a photo away; anything else lets it through.
+ * Never rejects the promise. A photo the model turned away, a server that is down and a phone
+ * that lost signal all end the same way on this form — this photo cannot be used yet — and a
+ * caller with one thing to do about any of them should not have to catch to find that out.
+ *
+ * A check that did not happen is not a pass. Waving the photo through on error is how a drawing
+ * reaches a finished book while the parent is told it is ready. The wording differs, though:
+ * `unavailable` says we could not check, not that the photo is wrong.
  */
 export async function checkPortrait(photoDataUrl: string): Promise<PortraitVerdict> {
   try {
@@ -64,6 +67,6 @@ export async function checkPortrait(photoDataUrl: string): Promise<PortraitVerdi
       reason: isRejection(result.reason) ? result.reason : "unsuitable",
     };
   } catch {
-    return { accepted: true };
+    return { accepted: false, reason: "unavailable" };
   }
 }

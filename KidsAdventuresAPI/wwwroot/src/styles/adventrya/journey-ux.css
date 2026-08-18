@@ -578,18 +578,42 @@
   background: #9c434324;
   font-size: 12px;
 }
+/*
+  The line that closes the form: a note about the data on one side, the button on the other.
+
+  Three things were making it sit badly. `.journey-primary` carries `margin-top: 22px` from the
+  places it ends a column, and in a centred flex row that margin pushed the button below the text
+  it is supposed to line up with. The lock was given a width and no height, so its box stayed 24px
+  tall against 14px wide — the glyph kept its shape but reserved a tall slot, lifting the text off
+  the baseline. And `space-between` on a wide column threw the two ends apart with nothing between
+  them, so they read as two unrelated things rather than one closing line.
+
+  The note now takes the slack and the button keeps its size, which holds them together at any
+  width, and a hairline separates the line from the form above it.
+*/
 .ux-profile-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 18px;
+  gap: clamp(14px, 2vw, 26px);
   margin-top: 2px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(239, 224, 193, 0.12);
 }
 .ux-profile-footer .privacy-inline {
+  flex: 1 1 auto;
   margin: 0;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+.ux-profile-footer .privacy-inline svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
 }
 .ux-profile-footer .journey-primary {
   flex: 0 0 auto;
+  min-width: min(210px, 42%);
+  margin-top: 0;
 }
 /*
   The one special wish, now that it is asked on the details step rather than over the map.

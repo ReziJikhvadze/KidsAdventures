@@ -82,12 +82,17 @@ public interface IPortraitGate
 /// the moment the file is picked, which is the only moment the answer is still cheap and the only
 /// moment a parent can do anything about it.
 ///
-/// It fails open. When the model cannot be reached the photo is let through, because this is a
-/// courtesy and not a guarantee: it exists to catch the parent who picked a bottle by mistake,
-/// not to stand between a family and their book. Refusing during an outage meant an outage looked
-/// exactly like "your child's photo is not good enough", which is the worse of the two failures
-/// and the one nobody can act on. A photo that slips past is still caught downstream by a book
-/// that looks wrong; a photo wrongly refused just ends the visit.
+/// It fails closed, and says so in its own words.
+///
+/// This was briefly the other way round, to get past a gate that refused everything because it
+/// was configured with a model name nothing had deployed. That was the right diagnosis and the
+/// wrong remedy: with the model fixed, letting photos through whenever the check could not run
+/// meant an object could still reach a finished book, silently, and the only sign was a parent
+/// being told their drawing was "ready".
+///
+/// So a check that cannot run is a refusal — but a distinct one. "We could not check this, try
+/// again" is a different sentence from "this is not a photo of a child", and the parent whose
+/// photo was fine is told the truth rather than being blamed for an outage.
 /// </summary>
 public sealed class PortraitGate(
     IBekiOpenAiClient client,
@@ -151,14 +156,14 @@ public sealed class PortraitGate(
         }
         catch (OperationCanceledException)
         {
-            logger.LogWarning("Portrait gate timed out after {Seconds}s; letting the photo through.",
+            logger.LogWarning("Portrait gate timed out after {Seconds}s; refusing as unchecked.",
                 _beki.PortraitGateTimeoutSeconds);
-            return PortraitVerdict.Pass();
+            return PortraitVerdict.Fail(PortraitGateReasons.Unavailable);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Portrait gate could not reach the vision model; letting the photo through.");
-            return PortraitVerdict.Pass();
+            logger.LogError(ex, "Portrait gate could not reach the vision model; refusing as unchecked.");
+            return PortraitVerdict.Fail(PortraitGateReasons.Unavailable);
         }
 
         return Interpret(response, logger);
@@ -173,12 +178,16 @@ public sealed class PortraitGate(
     {
         if (response is null)
         {
-            logger.LogWarning("Portrait gate returned nothing parsable; letting the photo through.");
-            return PortraitVerdict.Pass();
+            logger.LogWarning("Portrait gate returned nothing parsable; refusing as unchecked.");
+            return PortraitVerdict.Fail(PortraitGateReasons.Unavailable);
         }
 
         if (response.Accepted)
         {
+            // Logged as well as the refusals. When a photo gets through that should not have,
+            // the model's own description of what it saw is the only way to tell whether the
+            // prompt was too generous or the picture genuinely looked like a child.
+            logger.LogInformation("Portrait gate accepted a photo: {Explanation}", response.Explanation);
             return PortraitVerdict.Pass();
         }
 
