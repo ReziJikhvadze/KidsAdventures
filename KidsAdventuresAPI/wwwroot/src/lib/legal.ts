@@ -10,4 +10,4 @@ export const LEGAL_CONTACT_EMAIL = LEGAL_CONTACT_EMAILS.join(" or ");
 
 export const LEGAL_OPERATOR_NAME = BRAND_NAME;
 
-export const LEGAL_WEBSITE = "https://adventrya.com";
+export const LEGAL_WEBSITE = "https://beki.ge";

@@ -50,7 +50,7 @@ export const bestPersonalizedChildrensBooks: BlogPost = {
       heading: "Printable beats clutter",
       paragraphs: [
         "Parents tired of toy clutter love printable storybooks. Download once, print at home, gift the PDF to family — no shipping wait, no plastic packaging.",
-        "Create your free preview at adventrya.com — takes about a minute.",
+        "Create your free preview at beki.ge — takes about a minute.",
       ],
     },
   ],
