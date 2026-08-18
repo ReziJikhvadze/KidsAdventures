@@ -12,7 +12,7 @@ export const Route = createFileRoute("/contact")({
     const { meta, links } = buildPageMeta({
       title: `კონტაქტი — ${BRAND_NAME}`,
       description:
-        "დაგვიკავშირდი Adventrya გუნდს — კითხვები ამბების, ბეჭდვის ან პირადი საჩუქრების შესახებ.",
+        "დაგვიკავშირდი Beki გუნდს — კითხვები ამბების, ბეჭდვის ან პირადი საჩუქრების შესახებ.",
       path: "/contact",
     });
     return { meta, links };

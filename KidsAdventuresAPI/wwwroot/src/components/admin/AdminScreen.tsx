@@ -72,7 +72,7 @@ export function AdminScreen({
           <main className="main-content">
             <header className="page-heading">
               <div>
-                <h1>Adventrya Admin</h1>
+                <h1>Beki Admin</h1>
                 <p>Sign in with an administrator account to continue.</p>
               </div>
             </header>

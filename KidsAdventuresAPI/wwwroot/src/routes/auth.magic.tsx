@@ -11,7 +11,7 @@ export const Route = createFileRoute("/auth/magic")({
   head: () => {
     const { meta, links } = buildPageMeta({
       title: `შესვლა — ${BRAND_NAME}`,
-      description: "Adventrya-ს ერთჯერადი ბმულით შესვლა.",
+      description: "Beki-ს ერთჯერადი ბმულით შესვლა.",
       path: "/auth/magic",
       noindex: true,
     });

@@ -3,7 +3,7 @@ import { BRAND_NAME, BRAND_SOCIAL_LINKS } from "@/lib/brand";
 export type Author = {
   id: string;
   name: string;
-  /** Short role/title shown under the name, e.g. "Founder, Adventrya Books". */
+  /** Short role/title shown under the name, e.g. "Founder, Beki". */
   role: string;
   /** 1–2 sentence factual bio. Keep claims honest — fabricated credentials hurt E-E-A-T. */
   bio: string;

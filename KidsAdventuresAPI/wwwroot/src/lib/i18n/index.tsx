@@ -12,7 +12,7 @@ import { en } from "./en";
 import { ka } from "./ka";
 
 /**
- * Adventrya ships Georgian and English interfaces.
+ * Beki ships Georgian and English interfaces.
  *
  * The catalogue used to be a module-level constant, which meant a language control
  * could never do anything: the value was captured at import time and no component

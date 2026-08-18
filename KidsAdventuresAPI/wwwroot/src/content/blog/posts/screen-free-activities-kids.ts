@@ -19,7 +19,7 @@ export const screenFreeActivities: BlogPost = {
     "personalized storybook activities",
   ],
   intro:
-    "Personalized books are more than bedtime stories. Here are practical ways families use Adventrya Books without adding more screen time.",
+    "Personalized books are more than bedtime stories. Here are practical ways families use Beki without adding more screen time.",
   sections: [
     {
       heading: "1. Act out the adventure",

@@ -1,5 +1,5 @@
 /**
- * Copy for the six Adventrya worlds.
+ * Copy for the six Beki worlds.
  *
  * `into` is the locative form used inside generated sentences ("the map leads
  * them <into the dinosaur world>"), which is why it cannot be derived from

@@ -456,7 +456,15 @@ function CharacterEditor({
             The examples go where the decision is made, and only while it is still open. Once a
             portrait is accepted they are answering a question nobody is asking any more.
           */}
-          {!character.photoReady && !checking ? <PhotoGuide /> : null}
+          {/*
+            The good/bad photo pair is switched off until the two photographs exist.
+
+            It was written to remove itself when the files are missing, and it does — but only
+            after the browser has asked for both and been given two 404s, on every visit to the
+            form, for a block nobody ever sees. Rendering nothing is the same result without the
+            failed requests. Put good.jpg and bad.jpg in public/adventrya/photo-guide/ and put
+            <PhotoGuide /> back.
+          */}
 
           {/*
             role="status" because the refusal arrives a second after the file dialog closed —

@@ -1,5 +1,5 @@
 export const common = {
-  brand: "Adventrya",
+  brand: "Beki",
   brandTagline: "stories that remember",
   currencySymbol: "₾",
 
@@ -40,7 +40,7 @@ export const common = {
 
   nav: {
     home: "Home",
-    homeAria: "Adventrya home",
+    homeAria: "Beki home",
     primaryNav: "Primary navigation",
     books: "Books",
     howItWorks: "How it works",

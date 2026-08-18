@@ -55,7 +55,7 @@ export function SocialLinks({ className = "", iconClassName = "h-5 w-5" }: Socia
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground hover:text-foreground hover:border-primary/40 transition"
-          aria-label={`Follow Adventrya on ${link.label}`}
+          aria-label={`Follow Beki on ${link.label}`}
         >
           <SocialIcon label={link.label} className={iconClassName} />
         </a>

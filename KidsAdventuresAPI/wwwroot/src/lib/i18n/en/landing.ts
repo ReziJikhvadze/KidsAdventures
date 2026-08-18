@@ -72,7 +72,7 @@ export const landing = {
   },
 
   memory: {
-    eyebrow: " What makes Adventrya different",
+    eyebrow: " What makes Beki different",
     titleLine1: "The book ends.",
     titleEm: "Their world does not.",
     lead: "Friends made in the first book, the moments that mattered, and your child's goals come back naturally in later stories.",

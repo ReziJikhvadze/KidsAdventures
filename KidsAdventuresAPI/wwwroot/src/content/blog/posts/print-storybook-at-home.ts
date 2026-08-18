@@ -5,7 +5,7 @@ export const printStorybookAtHome: BlogPost = {
   slug: "print-storybook-at-home",
   title: "How to print your child's adventure book at home",
   description:
-    "Step-by-step guide to printing Adventrya Books PDFs on A4 or US Letter paper — binding tips, paper choices, and screen-free reading ideas.",
+    "Step-by-step guide to printing Beki PDFs on A4 or US Letter paper — binding tips, paper choices, and screen-free reading ideas.",
   publishedAt: "2026-06-02",
   updatedAt: "2026-06-24",
   readingTimeMinutes: 4,

@@ -1,8 +1,12 @@
 import brandLogoUrl from "@/assets/adventrya_logo.png";
 
-export const BRAND_NAME = "Adventrya Books";
-/** Shorter label for the cramped header bar */
-export const BRAND_HEADER_NAME = "Books";
+export const BRAND_NAME = "Beki";
+/**
+ * The header used to need a shorter label, because "Adventrya Books" did not fit its bar and was
+ * cut to "Books" — a word that names the category rather than the product. "Beki" is already
+ * short, so the header can say the name.
+ */
+export const BRAND_HEADER_NAME = "Beki";
 export const BRAND_TAGLINE = "Personalized storybooks for kids";
 export const BRAND_LOGO_URL = brandLogoUrl;
 

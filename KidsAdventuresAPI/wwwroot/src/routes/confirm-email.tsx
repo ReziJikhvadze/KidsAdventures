@@ -10,7 +10,7 @@ export const Route = createFileRoute("/confirm-email")({
   head: () => {
     const { meta, links } = buildPageMeta({
       title: `Confirm email — ${BRAND_NAME}`,
-      description: "Confirm your Adventrya Books account email address.",
+      description: "Confirm your Beki account email address.",
       path: "/confirm-email",
       noindex: true,
     });

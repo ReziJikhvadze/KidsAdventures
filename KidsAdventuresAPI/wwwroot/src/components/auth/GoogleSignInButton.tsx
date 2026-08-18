@@ -13,7 +13,7 @@ type GoogleSignInButtonProps = {
   onError?: () => void;
   /** Fired when Google auth is not configured and the social chrome is clicked. */
   onUnavailable?: () => void;
-  /** Adventrya journey chrome matching Partner Demo `button.social-auth`. */
+  /** Beki journey chrome matching Partner Demo `button.social-auth`. */
   variant?: "default" | "social";
   label?: string;
 };

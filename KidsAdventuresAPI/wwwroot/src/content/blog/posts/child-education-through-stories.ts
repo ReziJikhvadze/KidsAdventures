@@ -30,7 +30,7 @@ export const childEducationThroughStories: BlogPost = {
     {
       heading: "Vocabulary that matches their age",
       paragraphs: [
-        "Good learning adventures adapt language to the reader. Younger children get shorter sentences; older kids get richer plots. Adventrya Books tailors text to your child's age so storytime supports literacy without frustration.",
+        "Good learning adventures adapt language to the reader. Younger children get shorter sentences; older kids get richer plots. Beki tailors text to your child's age so storytime supports literacy without frustration.",
       ],
     },
     {
@@ -43,7 +43,7 @@ export const childEducationThroughStories: BlogPost = {
       heading: "Screen-free learning parents actually stick with",
       paragraphs: [
         "Educational apps compete with games. A printable adventure book competes with nothing — it is a physical object kids can flip, color, and shelve. Pair reading with acting out scenes for multisensory learning.",
-        "Try a free 2-page preview on Adventrya Books before buying credits for the full illustrated PDF.",
+        "Try a free 2-page preview on Beki before buying credits for the full illustrated PDF.",
       ],
     },
   ],

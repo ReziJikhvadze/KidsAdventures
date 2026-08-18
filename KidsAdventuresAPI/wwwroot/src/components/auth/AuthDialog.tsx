@@ -155,7 +155,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
             <span className="grid h-9 w-9 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-card">
               <Wand2 className="h-5 w-5" />
             </span>
-            <span className="text-sm font-semibold tracking-wide">Adventrya</span>
+            <span className="text-sm font-semibold tracking-wide">Beki</span>
           </div>
           <DialogHeader className="relative mt-4 space-y-1.5 text-left">
             <DialogTitle className="font-display text-2xl font-bold text-balance">

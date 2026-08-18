@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { AppHeader } from "@/components/adventrya/AppHeader";
 import { useT } from "@/lib/i18n";
 
-/** Shared Adventrya chrome for privacy / terms / contact (replaces old English site Nav/Footer). */
+/** Shared Beki chrome for privacy / terms / contact (replaces old English site Nav/Footer). */
 export function LegalPageShell({ children }: { children: ReactNode }) {
   const t = useT();
   const F = t.common.footer;

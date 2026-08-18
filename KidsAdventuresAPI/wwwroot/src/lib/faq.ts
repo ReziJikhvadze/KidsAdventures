@@ -1,7 +1,7 @@
 export const FAQ_ITEMS = [
   {
     q: "What are personalized children's books?",
-    a: "Personalized children's books are custom storybooks where your child's name, age, and optional photo appear in an illustrated adventure. Adventrya Books creates printable PDF storybooks with themes like dinosaurs, space, pirates, animals, and airplanes.",
+    a: "Personalized children's books are custom storybooks where your child's name, age, and optional photo appear in an illustrated adventure. Beki creates printable PDF storybooks with themes like dinosaurs, space, pirates, animals, and airplanes.",
   },
   {
     q: "Are these good for child education and learning at home?",

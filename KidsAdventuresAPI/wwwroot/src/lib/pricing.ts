@@ -1,5 +1,5 @@
 /**
- * Adventrya prices, held in tetri (GEL minor units) so no float arithmetic ever
+ * Beki prices, held in tetri (GEL minor units) so no float arithmetic ever
  * touches a total. The server is authoritative; these values drive display and
  * the optimistic total shown before the order is created.
  */

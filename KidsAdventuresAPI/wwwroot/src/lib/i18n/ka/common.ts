@@ -1,5 +1,5 @@
 export const common = {
-  brand: "Adventrya",
+  brand: "Beki",
   brandTagline: "stories that remember",
   currencySymbol: "₾",
 
@@ -40,7 +40,7 @@ export const common = {
 
   nav: {
     home: "მთავარი",
-    homeAria: "Adventrya მთავარი",
+    homeAria: "Beki მთავარი",
     primaryNav: "მთავარი ნავიგაცია",
     books: "წიგნები",
     howItWorks: "როგორ მუშაობს",

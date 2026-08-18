@@ -43,7 +43,7 @@ export const parentingBedtimeReading: BlogPost = {
       heading: "Grandparents on video call",
       paragraphs: [
         "Long-distance parenting? Email the PDF to grandparents for bedtime read-aloud over FaceTime. Your child follows along with a printed copy — connection without another toy in the mail.",
-        "Start with a free welcome preview on Adventrya Books tonight.",
+        "Start with a free welcome preview on Beki tonight.",
       ],
     },
   ],

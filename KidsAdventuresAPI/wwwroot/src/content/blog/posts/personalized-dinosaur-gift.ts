@@ -52,7 +52,7 @@ export const personalizedDinosaurGift: BlogPost = {
     "personalized kids book gift",
   ],
   intro:
-    "If you are shopping for a dinosaur-obsessed child, a personalized storybook beats another plastic figure. Here is why parents and grandparents choose Adventrya Books.",
+    "If you are shopping for a dinosaur-obsessed child, a personalized storybook beats another plastic figure. Here is why parents and grandparents choose Beki.",
   sections: [
     {
       heading: "It feels made just for them",

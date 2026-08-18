@@ -43,7 +43,7 @@ export const bestPersonalizedChildrensBooks: BlogPost = {
     {
       heading: "Try before you buy",
       paragraphs: [
-        "Credits and subscriptions add up. A free preview lets you test quality before paying for a full illustrated PDF. Adventrya Books offers a 2-page welcome story free, then book packs for full 6-page adventures.",
+        "Credits and subscriptions add up. A free preview lets you test quality before paying for a full illustrated PDF. Beki offers a 2-page welcome story free, then book packs for full 6-page adventures.",
       ],
     },
     {
@@ -65,7 +65,7 @@ export const bestPersonalizedChildrensBooks: BlogPost = {
     },
     {
       q: "How much should a personalized children's book cost?",
-      a: "Prices range widely. Adventrya Books keeps the full story free to read and charges a one-time $4.99 to unlock the complete illustrated book, with a free printable PDF — far less than typical $30–40 physical custom books.",
+      a: "Prices range widely. Beki keeps the full story free to read and charges a one-time $4.99 to unlock the complete illustrated book, with a free printable PDF — far less than typical $30–40 physical custom books.",
     },
   ],
 };

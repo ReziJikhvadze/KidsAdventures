@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 const TOPICS = [
   {
     heading: "Personalized children's books & kids adventure stories",
-    body: "Parents search for custom storybooks where their child is the hero — not a generic character. Adventrya Books creates illustrated adventure books with your child's name, age, and optional photo turned into a cartoon character. Choose dinosaur, space, pirate, animal, or airplane themes and get a printable PDF for bedtime, birthdays, or classroom gifts.",
+    body: "Parents search for custom storybooks where their child is the hero — not a generic character. Beki creates illustrated adventure books with your child's name, age, and optional photo turned into a cartoon character. Choose dinosaur, space, pirate, animal, or airplane themes and get a printable PDF for bedtime, birthdays, or classroom gifts.",
     link: { label: "See all adventure themes", to: "/themes" as const },
   },
   {
@@ -41,8 +41,8 @@ export function SeoContent() {
           </h2>
           <p className="mt-4 text-muted-foreground text-lg">
             Whether you are looking for personalized children's books, educational storytime, or
-            adventure tales starring your kid, Adventrya Books is built for families who want
-            reading that feels made just for them.
+            adventure tales starring your kid, Beki is built for families who want reading that
+            feels made just for them.
           </p>
         </div>
 
