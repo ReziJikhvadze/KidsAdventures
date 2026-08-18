@@ -13,6 +13,7 @@ using SixLabors.ImageSharp.Processing;
 using SourceImage = SixLabors.ImageSharp.Image;
 using SourceSize = SixLabors.ImageSharp.Size;
 using SourcePoint = SixLabors.ImageSharp.PointF;
+using SourceColor = SixLabors.ImageSharp.Color;
 
 namespace AdventurePacks.Api.Services.Implementations;
 
@@ -217,7 +218,7 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
             {
                 // 48% down rather than the middle, which is where the screen holds it: a cover
                 // portrait's face sits above centre, and a centred crop takes the top of the head.
-                var art = FillSheet(request.CoverImage, CoverArtFocusY);
+                var art = FillSheet(request.CoverImage, CoverArtFocusY, CoverInk);
 
                 page.Content().Layers(layers =>
                 {
@@ -317,7 +318,8 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
             }
 
             page.Content().Background(ScreenPageBackground)
-                .Image(FillSheet(pageContent.ImageBytes, PageArtFocusY)).FitUnproportionally();
+                .Image(FillSheet(pageContent.ImageBytes, PageArtFocusY, ScreenPageInk))
+                .FitUnproportionally();
         });
     }
 
@@ -331,8 +333,15 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
     /// It only ever removes pixels — the crop is taken at the picture's own resolution and never
     /// scaled up, so a 1024-wide illustration is not resampled to a print raster it has no detail
     /// for. <paramref name="focusY"/> is the point held still while the rest is trimmed away.
+    ///
+    /// <paramref name="backdropHex"/> is what any transparency is laid onto first. Untouched
+    /// bytes used to reach the page with their alpha intact and the page colour showed through;
+    /// re-encoding as JPEG throws alpha away, and JPEG's idea of a discarded alpha channel is
+    /// black. The browser hit the same thing preparing portraits — a transparent PNG flattened
+    /// onto nothing arrives as a silhouette — so it is laid onto the colour the page was going
+    /// to paint anyway, and the result is what it always was.
     /// </summary>
-    private byte[] FillSheet(byte[] source, float focusY)
+    private byte[] FillSheet(byte[] source, float focusY, string backdropHex)
     {
         var sheetAspect = SheetWidthMm / SheetHeightMm;
 
@@ -346,12 +355,14 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
                 return source;
             }
 
-            image.Mutate(x => x.Resize(new ResizeOptions
-            {
-                Size = new SourceSize(targetWidth, targetHeight),
-                Mode = ResizeMode.Crop,
-                CenterCoordinates = new SourcePoint(0.5f, focusY),
-            }));
+            image.Mutate(x => x
+                .Resize(new ResizeOptions
+                {
+                    Size = new SourceSize(targetWidth, targetHeight),
+                    Mode = ResizeMode.Crop,
+                    CenterCoordinates = new SourcePoint(0.5f, focusY),
+                })
+                .BackgroundColor(SourceColor.ParseHex(backdropHex)));
 
             using var buffer = new MemoryStream();
             // The encoder is named rather than reached through SaveAsJpeg, whose extension method
@@ -692,7 +703,8 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
     */
 
     /// <summary>Behind an illustration that never arrived. `.storybook-page-content`.</summary>
-    private static readonly Color ScreenPageBackground = Color.FromHex("#281B3F");
+    private const string ScreenPageInk = "#281B3F";
+    private static readonly Color ScreenPageBackground = Color.FromHex(ScreenPageInk);
 
     // ---- The cover, from `.storybook-cover` -----------------------------
 
@@ -705,6 +717,9 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
     /// together, and this is the one line to change on this side.
     /// </summary>
     private const string BrandMark = "ADVENTRYA";
+
+    /// <summary>Under the cover art, where it is transparent. `.storybook-cover` background.</summary>
+    private const string CoverInk = "#261738";
 
     /// <summary>The frame: `border: 7px solid #5c3c49` on the leaf.</summary>
     private static readonly Color CoverFrameColor = Color.FromHex("#5C3C49");
