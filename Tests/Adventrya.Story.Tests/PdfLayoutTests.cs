@@ -113,6 +113,45 @@ public class PdfLayoutTests(ITestOutputHelper output)
         Assert.All(prose, slot => Assert.Equal(1, slot.PhysicalPage % 2));
     }
 
+    /// <summary>
+    /// A picture is cropped to the sheet, never enlarged past it.
+    ///
+    /// The printed book letterboxed every illustration — a 2:3 picture fitted inside an A5 sheet
+    /// leaves a dark band down each long edge, and no such band exists on screen, where the art
+    /// is `background-size: cover`. Cropping is what removes them, and cropping the wrong axis
+    /// does not fail loudly: it blows the picture up until the child's face leaves the page.
+    /// </summary>
+    [Theory]
+    // The real case: the image model's 2:3 portrait onto A5 plus bleed. The sheet is
+    // proportionally the wider of the two, so height is what gives.
+    [InlineData(1024, 1536, 154f, 216f, 1024, 1436)]
+    // A landscape photograph onto the same sheet loses width instead.
+    [InlineData(1600, 900, 154f, 216f, 642, 900)]
+    // Already the sheet's shape: nothing to trim.
+    [InlineData(770, 1080, 154f, 216f, 770, 1080)]
+    public void A_picture_is_cropped_to_the_sheet_and_never_enlarged(
+        int width,
+        int height,
+        float sheetWidthMm,
+        float sheetHeightMm,
+        int expectedWidth,
+        int expectedHeight)
+    {
+        var (croppedWidth, croppedHeight) =
+            AdventurePdfService.CropToAspect(width, height, sheetWidthMm / sheetHeightMm);
+
+        Assert.Equal(expectedWidth, croppedWidth);
+        Assert.Equal(expectedHeight, croppedHeight);
+
+        // Never larger than the original in either direction: this is a crop, not a resize, so
+        // no pixel is invented and the picture keeps whatever resolution it arrived with.
+        Assert.True(croppedWidth <= width);
+        Assert.True(croppedHeight <= height);
+
+        // And it really is the sheet's shape, to within a pixel of rounding.
+        Assert.Equal(sheetWidthMm / sheetHeightMm, (float)croppedWidth / croppedHeight, 2);
+    }
+
     /// <summary>The whole point: sixteen pages reach the printer, not the legacy six.</summary>
     [Fact]
     public void Every_spread_reaches_the_plan()

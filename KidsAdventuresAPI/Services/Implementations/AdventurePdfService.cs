@@ -6,6 +6,13 @@ using Microsoft.Extensions.Options;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using SixLabors.ImageSharp.Processing;
+// Aliased rather than imported: ImageSharp and QuestPDF both publish a Color, a Size and a
+// PointF, and this file is mostly QuestPDF. Naming the two ImageSharp types it needs keeps
+// every unqualified Color in here the one that paints.
+using SourceImage = SixLabors.ImageSharp.Image;
+using SourceSize = SixLabors.ImageSharp.Size;
+using SourcePoint = SixLabors.ImageSharp.PointF;
 
 namespace AdventurePacks.Api.Services.Implementations;
 
@@ -176,11 +183,23 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
     // ---- Page composition ----------------------------------------------
 
     /// <summary>
-    /// The cover: full-bleed art if the book has any, and the title set over it.
+    /// The cover: the reader's own cover, printed.
     ///
     /// The art is the book's own cover, not page one's illustration. Those are different
     /// pictures — page one has its own moment in the story — and printing one in place of the
     /// other both duplicated a page and dropped the cover from the book.
+    ///
+    /// What is set over the art is `.storybook-cover` from the stylesheet, element for element:
+    /// the brand mark at the head, the line naming whose story this is, the title under it, all
+    /// standing on the same darkening wash, inside the same frame.
+    ///
+    /// It used to be a solid band in the theme's colour with "starring —" under the title. That
+    /// band exists nowhere on screen: a parent who had looked at the cover for a week opened the
+    /// PDF and found an orange stripe across the foot of it. The band was there for a real
+    /// reason — a fitted picture stops short of the page, and a translucent scrim over bare
+    /// paper leaves white text on near-white — but the fix belonged at the picture: it is
+    /// cropped to the sheet now, exactly as `background-size: cover` crops it on screen, so
+    /// there is no bare paper for a wash to fail on.
     /// </summary>
     private void ComposeCover(
         IDocumentContainer container,
@@ -196,29 +215,44 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
 
             if (request.CoverImage is { Length: > 0 })
             {
+                // 48% down rather than the middle, which is where the screen holds it: a cover
+                // portrait's face sits above centre, and a centred crop takes the top of the head.
+                var art = FillSheet(request.CoverImage, CoverArtFocusY);
+
                 page.Content().Layers(layers =>
                 {
-                    layers.PrimaryLayer().AlignCenter().AlignMiddle()
-                        .Image(request.CoverImage).FitArea();
+                    // Cropped to the sheet already, so an unproportional fit is an exact fill
+                    // rather than a stretch — and unlike FitArea it cannot leave a letterbox.
+                    layers.PrimaryLayer().Image(art).FitUnproportionally();
 
-                    // A solid band, not a translucent scrim over the art.
-                    //
-                    // The picture is fitted rather than cropped, so it does not always reach the
-                    // foot of the page — and where it stops, a scrim tints the pale page colour
-                    // instead of the illustration, leaving white text on near-white. A band in
-                    // the theme's own colour is legible wherever the picture happens to end.
-                    layers.Layer().AlignBottom().Background(palette.Primary)
-                        .PaddingVertical(SafeInsetMm, Unit.Millimetre)
-                        .PaddingHorizontal(SafeInsetMm, Unit.Millimetre)
+                    layers.Layer().AlignBottom().Height(CoverWashHeightMm, Unit.Millimetre)
+                        .Column(ComposeCoverWash);
+
+                    layers.Layer().Padding(_layout.BleedMm, Unit.Millimetre)
+                        .Border(CoverFrameMm, Unit.Millimetre).BorderColor(CoverFrameColor)
+                        .Padding(CoverFrameGapMm, Unit.Millimetre)
+                        .Border(0.25f).BorderColor(CoverHairlineColor);
+
+                    layers.Layer().AlignTop().PaddingTop(CoverInsetMm, Unit.Millimetre)
+                        .PaddingLeft(CoverInsetMm, Unit.Millimetre)
+                        .Text(BrandMark)
+                        .FontFamily(PdfFontBootstrap.BodyFamily).Bold().FontSize(8)
+                        .LetterSpacing(0.2f).FontColor(CoverBrandColor);
+
+                    layers.Layer().AlignBottom().Padding(CoverInsetMm, Unit.Millimetre)
                         .Column(column =>
                         {
-                            column.Spacing(4);
+                            column.Spacing(6);
+
+                            // Above the title, as on screen. This line is the cover's one piece
+                            // of warmth — it names whose story it is — and it was the piece the
+                            // printed cover dropped.
+                            column.Item().Text(strings.BelongsTo(content.ChildName))
+                                .FontFamily(PdfFontBootstrap.BodyFamily).SemiBold().FontSize(10)
+                                .FontColor(CoverEyebrowColor);
                             column.Item().Text(content.Title)
-                                .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(26).Bold()
-                                .FontColor(Colors.White).LineHeight(1.15f);
-                            column.Item().Text(strings.Starring(content.ChildName))
-                                .FontFamily(PdfFontBootstrap.BodyFamily).FontSize(13)
-                                .FontColor(Colors.White);
+                                .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(24).Bold()
+                                .FontColor(CoverTitleColor).LineHeight(1.3f);
                         });
                 });
 
@@ -254,9 +288,18 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
     /// printed book is meant to be the same book. The band printed the caption a second time,
     /// over the picture, which is the exact thing giving the words their own page removed.
     ///
-    /// Where the picture does not reach the edge it sits on the same near-black the reader puts
-    /// behind a page, not on the pale theme colour: a letterbox the colour of paper reads as a
-    /// misprint, one the colour of the screen's page reads as the frame of the picture.
+    /// The picture fills the sheet, as it fills its frame on screen.
+    ///
+    /// It used to be fitted, on the near-black the reader puts behind a page — the reasoning
+    /// being that cropping a children's picture is how a character loses the top of their head.
+    /// True in general, and wrong here: a 2:3 illustration on an A5 sheet is fitted with about
+    /// seven millimetres to spare, which printed as two dark bands down the long edges of every
+    /// picture in the book. Nobody has seen those bands on screen, where `.storybook-page-art`
+    /// is `background-size: cover` and the picture is cropped to its frame.
+    ///
+    /// So it is cropped, by the same rule and by the same few per cent. The near-black remains
+    /// for a page whose illustration never arrived, which is the one case where there is
+    /// genuinely nothing to fill the sheet with.
     /// </summary>
     private void ComposePicturePage(
         IDocumentContainer container,
@@ -273,17 +316,111 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
                 return;
             }
 
-            // FitArea, not a crop-to-fill. The illustration was composed as a whole frame,
-            // and cropping a children's picture to the page is how a character loses the
-            // top of their head.
-            //
-            // Centred, because it is not centred by default: a 2:3 picture on this page
-            // leaves a few millimetres over, and all of it landing against one edge reads
-            // as a trimming error rather than a margin.
             page.Content().Background(ScreenPageBackground)
-                .AlignCenter().AlignMiddle()
-                .Image(pageContent.ImageBytes).FitArea();
+                .Image(FillSheet(pageContent.ImageBytes, PageArtFocusY)).FitUnproportionally();
         });
+    }
+
+    /// <summary>
+    /// Crops a picture to the shape of the sheet, the way `background-size: cover` crops it.
+    ///
+    /// Done to the pixels rather than in the layout because QuestPDF fits a picture inside its
+    /// container and has no crop: asked to fill, it either letterboxes or distorts. Cropping
+    /// first makes "fill this box" and "keep the proportions" the same instruction.
+    ///
+    /// It only ever removes pixels — the crop is taken at the picture's own resolution and never
+    /// scaled up, so a 1024-wide illustration is not resampled to a print raster it has no detail
+    /// for. <paramref name="focusY"/> is the point held still while the rest is trimmed away.
+    /// </summary>
+    private byte[] FillSheet(byte[] source, float focusY)
+    {
+        var sheetAspect = SheetWidthMm / SheetHeightMm;
+
+        try
+        {
+            using var image = SourceImage.Load(source);
+
+            var (targetWidth, targetHeight) = CropToAspect(image.Width, image.Height, sheetAspect);
+            if (targetWidth <= 0 || targetHeight <= 0)
+            {
+                return source;
+            }
+
+            image.Mutate(x => x.Resize(new ResizeOptions
+            {
+                Size = new SourceSize(targetWidth, targetHeight),
+                Mode = ResizeMode.Crop,
+                CenterCoordinates = new SourcePoint(0.5f, focusY),
+            }));
+
+            using var buffer = new MemoryStream();
+            // The encoder is named rather than reached through SaveAsJpeg, whose extension method
+            // lives in the namespace this file deliberately does not import.
+            image.Save(buffer, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder { Quality = 92 });
+            return buffer.ToArray();
+        }
+        catch
+        {
+            // A picture this library cannot read is still the book's picture. Printed with a
+            // letterbox it is a flawed page; dropped, it is a missing one.
+            return source;
+        }
+    }
+
+    /// <summary>
+    /// The largest rectangle of the sheet's shape that fits inside a picture, without leaving it.
+    ///
+    /// The whole risk of cropping is here, and it is a comparison that reads correctly whichever
+    /// way you write it: a picture proportionally *taller* than the sheet keeps its full width and
+    /// loses height, and one proportionally wider does the opposite. Get it the wrong way round
+    /// and the result is not a letterbox — it is a picture enlarged until the child's face leaves
+    /// the page, which is the failure this crop was meant to avoid.
+    /// </summary>
+    internal static (int Width, int Height) CropToAspect(int width, int height, float sheetAspect)
+    {
+        if (width <= 0 || height <= 0 || sheetAspect <= 0)
+        {
+            return (width, height);
+        }
+
+        return (float)width / height > sheetAspect
+            ? ((int)MathF.Round(height * sheetAspect), height)
+            : (width, (int)MathF.Round(width / sheetAspect));
+    }
+
+    /// <summary>
+    /// The darkening under the cover's words, as a stack of bands.
+    ///
+    /// The screen draws one gradient: clear through the upper half, then down to near-opaque at
+    /// the foot. PDF has no gradient here, so it is stepped — at print resolution the bands are
+    /// a third of a millimetre each and read as a wash rather than as steps.
+    /// </summary>
+    private void ComposeCoverWash(ColumnDescriptor column)
+    {
+        for (var i = 0; i < CoverWashBands; i++)
+        {
+            // The middle of the band, so the ramp is not a half-band darker than the screen's.
+            var t = (i + 0.5f) / CoverWashBands;
+            column.Item().Height(CoverWashHeightMm / CoverWashBands, Unit.Millimetre)
+                .Background(CoverWashAt(t));
+        }
+    }
+
+    /// <summary>
+    /// The stylesheet's own stops: transparent where the wash begins, 0.42 just under half way
+    /// down it, 0.88 at the foot.
+    /// </summary>
+    private static Color CoverWashAt(float t)
+    {
+        const float midpoint = 0.458f;
+        const float midAlpha = 0.42f;
+        const float footAlpha = 0.88f;
+
+        var alpha = t <= midpoint
+            ? midAlpha * (t / midpoint)
+            : midAlpha + ((footAlpha - midAlpha) * ((t - midpoint) / (1f - midpoint)));
+
+        return Color.FromHex($"#{(byte)MathF.Round(alpha * 255f):X2}{CoverWashInk}");
     }
 
     /// <summary>
@@ -554,8 +691,55 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
       and `.storybook-text-page`, so the printed leaf and the leaf on screen are the same leaf.
     */
 
-    /// <summary>Behind an illustration, where it does not reach the trim. `.storybook-page-content`.</summary>
+    /// <summary>Behind an illustration that never arrived. `.storybook-page-content`.</summary>
     private static readonly Color ScreenPageBackground = Color.FromHex("#281B3F");
+
+    // ---- The cover, from `.storybook-cover` -----------------------------
+
+    /// <summary>
+    /// The mark at the head of the cover.
+    ///
+    /// This is `t.story.storybook.brand`, which still reads ADVENTRYA while `BRAND_NAME` in the
+    /// same frontend reads Beki — a spot the rename missed. It is copied rather than corrected
+    /// because the printed cover and the cover on screen have to say the same word; change them
+    /// together, and this is the one line to change on this side.
+    /// </summary>
+    private const string BrandMark = "ADVENTRYA";
+
+    /// <summary>The frame: `border: 7px solid #5c3c49` on the leaf.</summary>
+    private static readonly Color CoverFrameColor = Color.FromHex("#5C3C49");
+
+    /// <summary>
+    /// The gold hairline inset inside it, `.storybook-cover:after` — rgba(244, 213, 152, 0.32).
+    /// Hex here is AARRGGBB, alpha first, so 0.32 leads.
+    /// </summary>
+    private static readonly Color CoverHairlineColor = Color.FromHex("#52F4D598");
+
+    private static readonly Color CoverBrandColor = Color.FromHex("#F2CD84");
+    private static readonly Color CoverEyebrowColor = Color.FromHex("#F1CF8E");
+    private static readonly Color CoverTitleColor = Color.FromHex("#FFF8EB");
+
+    /// <summary>rgb(13, 7, 29) — the ink the screen's wash darkens towards.</summary>
+    private const string CoverWashInk = "0D071D";
+
+    /// <summary>The wash begins 52% down the cover, so it covers the lower 48% of it.</summary>
+    private float CoverWashHeightMm => SheetHeightMm * 0.48f;
+
+    /// <summary>Enough bands that the ramp is smooth at print resolution; more is wasted ink.</summary>
+    private const int CoverWashBands = 48;
+
+    /// <summary>7px of a 340px cover, at print scale, and its inner gold rule 4px in.</summary>
+    private const float CoverFrameMm = 2.4f;
+    private const float CoverFrameGapMm = 1.4f;
+
+    /// <summary>The screen sets the cover's copy 9% in from the edge.</summary>
+    private float CoverInsetMm => Math.Max(SafeInsetMm, SheetWidthMm * 0.09f);
+
+    /// <summary>`background-position: 50% 48%` — a face sits above the middle of a portrait.</summary>
+    private const float CoverArtFocusY = 0.48f;
+
+    /// <summary>The page art has no such offset on screen; it is centred.</summary>
+    private const float PageArtFocusY = 0.5f;
 
     /// <summary>Cream stock. `.storybook-text-page` background.</summary>
     private static readonly Color PaperBackground = Color.FromHex("#F5EAD7");
@@ -586,6 +770,10 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
     // ---- Geometry -------------------------------------------------------
 
     private float SafeInsetMm => _layout.SafeMarginMm;
+
+    /// <summary>The sheet as it leaves the press: the trim plus bleed on all four sides.</summary>
+    private float SheetWidthMm => _layout.TrimWidthMm + (_layout.BleedMm * 2);
+    private float SheetHeightMm => _layout.TrimHeightMm + (_layout.BleedMm * 2);
 
     /// <summary>
     /// The prose leaf runs to the bleed line, because the paper and its border are the design
@@ -668,6 +856,7 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
     /// </summary>
     private sealed record PrintStrings(
         Func<string, string> Starring,
+        Func<string, string> BelongsTo,
         Func<string, string> RunningHead,
         string BackTitle,
         Func<string, string> BackScan,
@@ -678,6 +867,7 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
             {
                 "en" => new PrintStrings(
                     name => $"Starring {name}",
+                    name => $"A story that belongs to {name.Trim()}",
                     name => $"{name}'s adventure",
                     "The adventure does not end here",
                     name => $"Scan and continue {name}'s journey in another world.",
@@ -686,6 +876,8 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
                 // book on paper and the book on a screen is read the same sentence.
                 _ => new PrintStrings(
                     name => $"მთავარ როლში — {name}",
+                    // `t.story.storybook.belongsTo`, down to the comma the screen sets.
+                    name => $"ამბავი, რომელიც {name.Trim()}ს ეკუთვნის",
                     name => $"{GeorgianGenitive(name)} თავგადასავალი",
                     "თავგადასავალი აქ არ სრულდება",
                     name => $"დაასკანერე და გააგრძელე {name.Trim()}ს მოგზაურობა სხვა სამყაროში.",
