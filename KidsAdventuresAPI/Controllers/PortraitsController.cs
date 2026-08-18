@@ -1,4 +1,6 @@
+﻿using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.DTOs.Portraits;
+using AdventurePacks.Api.Infrastructure;
 using AdventurePacks.Api.Services.Beki;
 using AdventurePacks.Api.Services.Interfaces;
 
@@ -18,6 +20,7 @@ namespace AdventurePacks.Api.Controllers;
 public sealed class PortraitsController(
     IPortraitGate portraitGate,
     IGuestRateLimiter guestRateLimiter,
+    IOptions<ClientIpOptions> clientIpOptions,
     ILogger<PortraitsController> logger) : ControllerBase
 {
     /// <summary>
@@ -69,15 +72,11 @@ public sealed class PortraitsController(
         Message = verdict.Message,
     };
 
-    /// <summary>Behind a proxy the connection address is the proxy, so the forwarded header wins.</summary>
-    private string GetClientKey()
-    {
-        var forwarded = Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(forwarded))
-        {
-            return forwarded.Split(',')[0].Trim();
-        }
-
-        return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-    }
+    /// <summary>
+    /// Behind a proxy the connection address is the proxy, so the forwarded header has to be
+    /// read — but only the entry the nearest hop wrote. Taking the caller's own entry would
+    /// hand every request a fresh key, and this endpoint pays a vision model per call.
+    /// </summary>
+    private string GetClientKey() =>
+        ClientIpAddress.Resolve(HttpContext, clientIpOptions.Value.TrustedProxyHops);
 }

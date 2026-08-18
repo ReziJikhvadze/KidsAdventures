@@ -7,7 +7,7 @@ import { storeGuestPreviewIds } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { THEME_ID_TO_API, type MasterStoryRunStatus, type StoryPageContent } from "@/lib/api/types";
 import { dataUrlToFile } from "@/lib/api/utils";
-import { formatGel, useT } from "@/lib/i18n";
+import { formatGel, useLocale, useT } from "@/lib/i18n";
 import {
   ageFromBirthDate,
   primaryCharacter,
@@ -54,6 +54,9 @@ function clearPendingRunId(): void {
 export function PreviewStage({ draft, onChange, onContinue }: Props) {
   const WORLD_BY_ID = useWorldById();
   const t = useT();
+  // The story is written in the language the site is being read in; there is no separate
+  // book-language choice to carry through the journey.
+  const { locale } = useLocale();
   const hero = primaryCharacter(draft);
   // Fourth slot: false until the URL has been read, see JourneyDraftProvider.
   const hydrated = useJourneyDraft()[3];
@@ -255,7 +258,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
           // is how choosing the star path produced a dinosaur book: the theme was wrong
           // before the model ever saw it.
           theme: apiTheme,
-          storyLanguage: draft.bookLanguage,
+          storyLanguage: locale,
           optionalStoryNotes: draft.storyNotes || undefined,
           photo,
         });

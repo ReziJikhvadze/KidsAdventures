@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 using AdventurePacks.Api.Domain.Entities;
 using AdventurePacks.Api.DTOs.Print;
@@ -366,15 +366,17 @@ public sealed class PrintOrderService(
             /*
               The printable file, not the reading copy.
 
-              Books are rendered twice and stored side by side — `{id}.pdf` for the parent and
-              `{id}-print.pdf` with the blank leaves saddle-stitch needs. This is the only place
+              Books are rendered twice and stored side by side — the reading copy for the parent
+              and a print copy with the blank leaves saddle-stitch needs. This is the only place
               that wants the second one, and sending the first would mean a page count that does
               not divide by four arriving at the binder.
 
-              Books made before the split have no print file; those fall back to what exists, and
-              the printer pads them as it always did.
+              Books made before the split have no print file and no url recorded for one, so they
+              fall back to what exists and the printer pads them as it always did. That fallback
+              is the reason this reads a stored url rather than deriving one from the reading
+              copy's name: a derived url would point at a blob that was never written.
             */
-            PdfUrl = PrintablePdfUrl(book?.PdfUrl),
+            PdfUrl = book?.PrintPdfUrl ?? book?.PdfUrl,
             TotalMinor = order?.TotalMinor ?? 0,
             TotalFormatted = GelPricing.Format(order?.TotalMinor ?? 0),
             CreatedAt = printOrder.CreatedAt,
@@ -485,25 +487,5 @@ public sealed class PrintOrderService(
 
     private static string? Lookup(IReadOnlyDictionary<Guid, string?> map, Guid key) =>
         map.TryGetValue(key, out var value) ? value : null;
-
-    /// <summary>
-    /// The print sibling of a stored book PDF: `{id}.pdf` becomes `{id}-print.pdf`.
-    ///
-    /// A string swap rather than a second column, because the two files are written together by
-    /// the generator and named by the same rule. Anything that is not a .pdf url is returned
-    /// untouched, which covers both nulls and books generated before the split.
-    /// </summary>
-    private static string? PrintablePdfUrl(string? pdfUrl)
-    {
-        if (string.IsNullOrWhiteSpace(pdfUrl)) return pdfUrl;
-
-        var query = pdfUrl.IndexOf('?');
-        var path = query < 0 ? pdfUrl : pdfUrl[..query];
-        var suffix = query < 0 ? string.Empty : pdfUrl[query..];
-
-        return path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)
-            ? $"{path[..^4]}-print.pdf{suffix}"
-            : pdfUrl;
-    }
 
 }

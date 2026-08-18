@@ -1,4 +1,4 @@
-namespace AdventurePacks.Api.Repositories.Interfaces;
+﻿namespace AdventurePacks.Api.Repositories.Interfaces;
 
 public interface IAdventurePackRepository
 {
@@ -20,6 +20,13 @@ public interface IAdventurePackRepository
     Task UpdateBookPresentationAsync(Guid id, string? title, string? coverImageUrl, CancellationToken cancellationToken);
     Task<int> CountForMonthAsync(Guid userId, DateTime utcMonthStart, DateTime utcMonthEnd, CancellationToken cancellationToken);
     Task<bool> UpdateStatusAsync(Guid id, AdventurePackStatus status, string? generatedJson, string? pdfUrl, string? errorMessage, CancellationToken cancellationToken);
+    /// <summary>
+    /// Records where the printable copy was stored. Its own call rather than another argument to
+    /// <see cref="UpdateStatusAsync"/>, because every other caller of that would pass null and
+    /// quietly erase a url it knows nothing about.
+    /// </summary>
+    Task UpdatePrintPdfUrlAsync(Guid id, string? printPdfUrl, CancellationToken cancellationToken);
+
     Task UpdateProgressMessageAsync(Guid id, string? progressMessage, CancellationToken cancellationToken);
 
     /// <summary>Message and percentage together, so a progress bar and its caption never disagree.</summary>

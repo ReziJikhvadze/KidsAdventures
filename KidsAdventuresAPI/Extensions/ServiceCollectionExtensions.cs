@@ -1,4 +1,4 @@
-using System.Threading.RateLimiting;
+﻿using System.Threading.RateLimiting;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Data;
 using AdventurePacks.Api.Domain;
@@ -44,6 +44,7 @@ public static class ServiceCollectionExtensions
         services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.SectionName));
         services.Configure<RecaptchaOptions>(configuration.GetSection(RecaptchaOptions.SectionName));
         services.Configure<PasswordlessAuthOptions>(configuration.GetSection(PasswordlessAuthOptions.SectionName));
+        services.Configure<ClientIpOptions>(configuration.GetSection(ClientIpOptions.SectionName));
         return services;
     }
 

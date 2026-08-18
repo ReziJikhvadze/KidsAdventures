@@ -1,8 +1,10 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
+using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Enums;
 using AdventurePacks.Api.Domain.Models;
+using AdventurePacks.Api.Infrastructure;
 using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Domain.Story;
@@ -28,6 +30,7 @@ public sealed class AdventurePacksController(
     IUserContextService userContext,
     IGuestRateLimiter guestRateLimiter,
     IMasterBookService masterBookService,
+    IOptions<ClientIpOptions> clientIpOptions,
     ILogger<AdventurePacksController> logger) : ControllerBase
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -352,16 +355,12 @@ public sealed class AdventurePacksController(
             _ => null,
         };
 
-    private string GetClientKey()
-    {
-        var forwarded = Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(forwarded))
-        {
-            return forwarded.Split(',')[0].Trim();
-        }
-
-        return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-    }
+    /// <summary>
+    /// The guest preview's limiter key. Same rule as every other anonymous endpoint: trust the
+    /// entry the nearest proxy wrote, never the one the caller sent.
+    /// </summary>
+    private string GetClientKey() =>
+        ClientIpAddress.Resolve(HttpContext, clientIpOptions.Value.TrustedProxyHops);
 
     /// <summary>
     /// Restarts illustration for a book whose render failed. Only a paid book gets here;

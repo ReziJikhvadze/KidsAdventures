@@ -6,7 +6,14 @@ import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolum
 import { ApiError } from "@/lib/api/client";
 import * as ordersApi from "@/lib/api/orders";
 import type { OrderPackage, QuoteResponse, ShippingAddressRequest } from "@/lib/api/types";
-import { formatGel, formatGelAmount, normalizeGeorgianPhone, useT } from "@/lib/i18n";
+import {
+  bookLanguageLabel,
+  formatGel,
+  formatGelAmount,
+  normalizeGeorgianPhone,
+  useLocale,
+  useT,
+} from "@/lib/i18n";
 import { primaryCharacter, type JourneyDraft } from "@/lib/journey/draft";
 import { ensureServerCharacters } from "@/lib/journey/syncCharacters";
 import { PRICES } from "@/lib/pricing";
@@ -36,7 +43,10 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const bookTitle = draft.preview?.title?.trim() || world.bookTitle(heroName);
   const orderPackage: OrderPackage = draft.bookPackage === "print" ? "Print" : "Digital";
   const isPrint = orderPackage === "Print";
-  const langLabel = draft.bookLanguage === "en" ? "English" : "ქართული";
+  // The book is written in whatever language the parent is reading the site in — there is no
+  // separate choice to make, so there is nothing to remember and nothing to get out of step.
+  const { locale } = useLocale();
+  const langLabel = bookLanguageLabel(locale);
 
   const [promoInput, setPromoInput] = useState(draft.promoCode);
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
@@ -141,7 +151,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
           primaryCharacterId: primaryId,
           supportingCharacterIds: supportingIds,
           worldId: draft.worldId,
-          bookLanguage: draft.bookLanguage,
+          bookLanguage: locale,
           storyNotes: draft.storyNotes || undefined,
           continuesFromBookId: draft.continuesFromBookId || undefined,
           previewBookId: draft.preview?.storyId || undefined,

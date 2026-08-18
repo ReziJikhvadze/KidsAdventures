@@ -1,11 +1,11 @@
-using AdventurePacks.Api.Repositories.Interfaces;
+﻿using AdventurePacks.Api.Repositories.Interfaces;
 
 namespace AdventurePacks.Api.Repositories.Implementations;
 
 public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFactory) : IAdventurePackRepository
 {
     private const string PackColumns = """
-        Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, ErrorMessage,
+        Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, PrintPdfUrl, ErrorMessage,
         OptionalStoryNotes, StoryLanguage, ProgressMessage, ProgressPercent, PdfCreditCharged,
         PreviewIllustrationUrl, PreviewIllustrationStatus, PreviewIllustrationUpdatedAt,
         StoryPageCount, IsWelcomeGiftStory, CreatedAt,
@@ -24,7 +24,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
     /// Everything that actually reads a story fetches one book by id, and those still get it.
     /// </summary>
     private const string PackListColumns = """
-        Id, UserId, ChildId, Theme, Status, PdfUrl, ErrorMessage,
+        Id, UserId, ChildId, Theme, Status, PdfUrl, PrintPdfUrl, ErrorMessage,
         OptionalStoryNotes, StoryLanguage, ProgressMessage, ProgressPercent, PdfCreditCharged,
         PreviewIllustrationUrl, PreviewIllustrationStatus, PreviewIllustrationUpdatedAt,
         StoryPageCount, IsWelcomeGiftStory, CreatedAt,
@@ -36,13 +36,13 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
     {
         const string sql = """
                            INSERT INTO AdventurePacks (
-                               Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, ErrorMessage,
+                               Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, PrintPdfUrl, ErrorMessage,
                                OptionalStoryNotes, StoryLanguage, ProgressMessage, ProgressPercent, PdfCreditCharged,
                                PreviewIllustrationUrl, PreviewIllustrationStatus, StoryPageCount, IsWelcomeGiftStory, CreatedAt,
                                SeriesId, SequenceNumber, ContinuesFromBookId, AccessLevel, WorldId,
                                PrimaryCharacterId, Title, CoverImageUrl, HasPrintEntitlement)
                            VALUES (
-                               @Id, @UserId, @ChildId, @Theme, @Status, @GeneratedJson, @PdfUrl, @ErrorMessage,
+                               @Id, @UserId, @ChildId, @Theme, @Status, @GeneratedJson, @PdfUrl, @PrintPdfUrl, @ErrorMessage,
                                @OptionalStoryNotes, @StoryLanguage, @ProgressMessage, @ProgressPercent, @PdfCreditCharged,
                                @PreviewIllustrationUrl, @PreviewIllustrationStatus, @StoryPageCount, @IsWelcomeGiftStory, @CreatedAt,
                                @SeriesId, @SequenceNumber, @ContinuesFromBookId, @AccessLevel, @WorldId,
@@ -60,6 +60,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
             Status = pack.Status.ToString(),
             pack.GeneratedJson,
             pack.PdfUrl,
+            pack.PrintPdfUrl,
             pack.ErrorMessage,
             pack.OptionalStoryNotes,
             pack.StoryLanguage,
@@ -253,6 +254,20 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         return affected > 0;
     }
 
+    public async Task UpdatePrintPdfUrlAsync(Guid id, string? printPdfUrl, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE AdventurePacks
+                           SET PrintPdfUrl = @PrintPdfUrl
+                           WHERE Id = @Id;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new { Id = id, PrintPdfUrl = printPdfUrl },
+            cancellationToken: cancellationToken));
+    }
+
     public async Task UpdateProgressMessageAsync(Guid id, string? progressMessage, CancellationToken cancellationToken)
     {
         const string sql = """
@@ -390,6 +405,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         Status = Enum.Parse<AdventurePackStatus>(row.Status),
         GeneratedJson = row.GeneratedJson,
         PdfUrl = row.PdfUrl,
+        PrintPdfUrl = row.PrintPdfUrl,
         ErrorMessage = row.ErrorMessage,
         OptionalStoryNotes = row.OptionalStoryNotes,
         StoryLanguage = row.StoryLanguage,
@@ -424,6 +440,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         public string Status { get; set; } = string.Empty;
         public string? GeneratedJson { get; set; }
         public string? PdfUrl { get; set; }
+        public string? PrintPdfUrl { get; set; }
         public string? ErrorMessage { get; set; }
         public string? OptionalStoryNotes { get; set; }
         public string? StoryLanguage { get; set; }

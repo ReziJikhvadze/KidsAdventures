@@ -10,8 +10,6 @@ import {
 
 import { useLocation } from "@tanstack/react-router";
 
-import type { BookLanguage } from "@/lib/i18n";
-import { DEFAULT_BOOK_LANGUAGE } from "@/lib/i18n";
 import type { BookPackage } from "@/lib/pricing";
 import { SESSION_CLEARED_EVENT, SESSION_KEYS } from "@/lib/storage/session";
 import { isWorldId, type WorldId } from "@/lib/worlds";
@@ -57,7 +55,18 @@ export type PreviewTeaser = {
 
 export type JourneyDraft = {
   characters: DraftCharacter[];
-  bookLanguage: BookLanguage;
+  /**
+   * The language a book is written in is not held here.
+   *
+   * It used to be, set once from a fixed default and changed by a control on the profile
+   * form. That control is gone, and the default outlived it: an English visitor got a draft
+   * saying "ka" that nothing ever updated, and ordered a Georgian book. Storing it again
+   * would only move the problem, because every path that starts a fresh draft — a reload,
+   * ?new, signing out — would have to remember to seed it.
+   *
+   * So the interface language is the book language, read from `useLocale()` at the two
+   * points that send it to the server. One source of truth, and no way for it to go stale.
+   */
   worldId: WorldId | null;
   storyNotes: string;
   bookPackage: BookPackage;
@@ -96,7 +105,6 @@ export function emptyCharacter(isPrimary: boolean): DraftCharacter {
 export function emptyDraft(): JourneyDraft {
   return {
     characters: [emptyCharacter(true)],
-    bookLanguage: DEFAULT_BOOK_LANGUAGE,
     worldId: null,
     storyNotes: "",
     bookPackage: "digital",

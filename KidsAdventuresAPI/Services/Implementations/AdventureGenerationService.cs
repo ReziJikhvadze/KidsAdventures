@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Enums;
 using AdventurePacks.Api.Domain.Models;
@@ -640,11 +640,16 @@ public sealed class AdventureGenerationService(
 
             var blobName = $"{pack.UserId}/{pack.Id}.pdf";
             var pdfUrl = await blobStorageService.UploadAsync(blobName, pdfBytes, "application/pdf", cancellationToken);
-            await blobStorageService.UploadAsync(
+            var printPdfUrl = await blobStorageService.UploadAsync(
                 $"{pack.UserId}/{pack.Id}-print.pdf",
                 printBytes,
                 "application/pdf",
                 cancellationToken);
+
+            // Written down rather than worked out later. The naming rule is ours, but the books
+            // already in the library predate it and have no print file at all — so the only
+            // honest way to know one exists is to record the url that was actually uploaded.
+            await adventurePackRepository.UpdatePrintPdfUrlAsync(packId, printPdfUrl, cancellationToken);
 
             var generatedJson = JsonSerializer.Serialize(content, JsonOptions);
             await adventurePackRepository.UpdateStatusAsync(

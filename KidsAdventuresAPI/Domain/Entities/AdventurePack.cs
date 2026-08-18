@@ -1,4 +1,4 @@
-namespace AdventurePacks.Api.Domain.Entities;
+﻿namespace AdventurePacks.Api.Domain.Entities;
 
 public sealed class AdventurePack
 {
@@ -13,6 +13,15 @@ public sealed class AdventurePack
 
     public string? GeneratedJson { get; set; }
     public string? PdfUrl { get; set; }
+
+    /// <summary>
+    /// The copy that goes to the binder, with the blank leaves saddle-stitch needs.
+    ///
+    /// Null for every book made before the two files were split apart. Those have a reading
+    /// copy and nothing else, so anything wanting a printable file falls back to it.
+    /// </summary>
+    public string? PrintPdfUrl { get; set; }
+
     public string? ErrorMessage { get; set; }
     public string? OptionalStoryNotes { get; set; }
     public string? StoryLanguage { get; set; }
