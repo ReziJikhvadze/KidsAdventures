@@ -68,8 +68,13 @@ export function Hero() {
             isUnlocked
             isSpreadBook
             interactive
-            /* The one place the book turns by itself: a shop window, until somebody touches it. */
-            autoAdvanceMs={2000}
+            /*
+              The book waits to be opened rather than turning itself.
+
+              It used to advance every two seconds, on the reasoning that a shop window should
+              move. In practice it took the page out from under anyone who had started reading,
+              and a visitor who wanted a second look at a picture had to race it.
+            */
             initialIndex={0}
           />
         </div>
