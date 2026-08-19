@@ -94,6 +94,32 @@ export const journey = {
     otpInvalid: "კოდი არასწორია.",
   },
 
+  /*
+    The delivered world selector. The island names are not here: they come from the world
+    catalogue like every other mention of a world in the product, so a place renamed once is
+    renamed everywhere rather than only on the page that happens to show a painting of it.
+  */
+  worldSelector: {
+    eyebrow: "შენი ისტორია აქედან იწყება",
+    title: "აირჩიე ჯადოსნური სამყარო",
+    lead: "შეეხე კუნძულს და აღმოაჩინე მისი ამბავი",
+    hint: "გადაატარე კურსორი ან დააჭირე სამყაროს",
+    stageLabel: "ჯადოსნური სამყაროს არჩევა",
+    artLabel: "ექვსი მოფარფატე ჯადოსნური სამყარო, ბექი და მანათობელი წიგნი",
+    brandLabel: "Beki — მთავარი",
+    railLabel: "თავგადასავლის ეტაპები",
+    railWorld: "სამყარო",
+    railHero: "გმირი",
+    railBook: "წიგნი",
+    continue: "ამ სამყაროში წავიდეთ",
+    continueTo: (world: string) => `ამ სამყაროში წავიდეთ — ${world}`,
+    /* Spoken, not shown: the painting says all this in pictures, and a screen reader cannot
+       see a star cross it. */
+    statusIdle: "სამყარო ჯერ არ არის არჩეული.",
+    statusFlying: (world: string) => `${world} არჩეულია. ბექის ვარსკვლავი მიემართება სამყაროსკენ.`,
+    statusReady: (world: string) => `${world} არჩეულია. ღილაკი ამ სამყაროში წასასვლელად მზადაა.`,
+  },
+
   firstMap: {
     title: "აირჩიე შენი ზღაპარი",
     letBekiChoose: "ბეკიმ აირჩიოს",

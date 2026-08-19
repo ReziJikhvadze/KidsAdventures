@@ -91,6 +91,25 @@ export const journey = {
     otpInvalid: "That code is not correct.",
   },
 
+  worldSelector: {
+    eyebrow: "Your story starts here",
+    title: "Choose a magical world",
+    lead: "Touch an island and discover its story",
+    hint: "Hover or tap a world",
+    stageLabel: "Choosing a magical world",
+    artLabel: "Six floating magical worlds, Beki, and a glowing book",
+    brandLabel: "Beki — home",
+    railLabel: "Steps of the adventure",
+    railWorld: "World",
+    railHero: "Hero",
+    railBook: "Book",
+    continue: "Let's go to this world",
+    continueTo: (world: string) => `Let's go to this world — ${world}`,
+    statusIdle: "No world chosen yet.",
+    statusFlying: (world: string) => `${world} chosen. Beki's star is on its way.`,
+    statusReady: (world: string) => `${world} chosen. The button to go there is ready.`,
+  },
+
   firstMap: {
     title: "Choose your story",
     eyebrow: "Beki's path · first gateway",

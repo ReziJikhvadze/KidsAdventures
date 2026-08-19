@@ -1,13 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { WorldStage } from "@/components/adventrya/journey/WorldStage";
+import { WorldSelectorStage } from "@/components/adventrya/journey/WorldSelectorStage";
 import { BRAND_NAME } from "@/lib/brand";
 import { useJourneyDraft } from "@/lib/journey/draft";
 import { buildPageMeta } from "@/lib/seo";
 
 /**
- * Partner Demo first-map theme picker at `/themes`.
- * Continues into `/create#preview` with the selected world.
+ * The world picker at `/themes`, now the delivered selector.
+ *
+ * It carries its own header, its own progress rail and its own full-viewport layout, so the
+ * app header that used to sit above it is gone from this route — two headers stacked on one
+ * painting is the one thing the handoff asks not to do.
  */
 export const Route = createFileRoute("/themes/")({
   head: () => {
@@ -24,5 +27,5 @@ export const Route = createFileRoute("/themes/")({
 
 function ThemesPage() {
   const [draft, setDraft] = useJourneyDraft();
-  return <WorldStage draft={draft} onChange={setDraft} />;
+  return <WorldSelectorStage draft={draft} onChange={setDraft} />;
 }

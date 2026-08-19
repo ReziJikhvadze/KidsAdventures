@@ -18,6 +18,10 @@
 @import "./storybook-responsive.css";
 @import "./story-map.css";
 @import "./first-map.css";
+/* The delivered world selector, taken verbatim from the design handoff apart from the three
+   font URLs, which now point at /fonts. It is last among the map stylesheets on purpose: it
+   owns the /themes page outright and must not be trimmed by first-map.css above it. */
+@import "./world-selector.css";
 @import "./storybook-spread.css";
 @import "./extensions.css";
 @import "./admin-console.css";
