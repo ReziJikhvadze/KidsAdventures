@@ -1059,17 +1059,27 @@
   }
 }
 
+/*
+  The last of the handoff's page-wide rules, fenced like the rest.
+
+  Unscoped, this wildcard reached every route in the product, and shortening a duration is not
+  the same as stopping an animation: the photo-upload and checkout spinners are infinite, so
+  they kept spinning at 0.01ms a turn — a flicker, delivered to precisely the people who asked
+  for less motion. Inside the selector nothing loops, so the rule does there what it was
+  written to do.
+*/
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  .experience-shell,
+  .experience-shell *,
+  .experience-shell *::before,
+  .experience-shell *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-delay: 0ms !important;
   }
 
-  .magic-flight {
+  .experience-shell .magic-flight {
     display: none;
   }
 }
