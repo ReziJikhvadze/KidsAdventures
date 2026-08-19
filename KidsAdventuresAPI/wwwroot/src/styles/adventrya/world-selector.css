@@ -1028,11 +1028,14 @@
 }
 
 @media (max-height: 720px) and (orientation: portrait) {
-  html,
-  body {
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
+  /*
+    The `html, body { overflow-x: hidden; overflow-y: auto }` that stood here is gone rather than
+    scoped, because a stylesheet cannot say "only while this route is on screen" about the
+    document itself: on any short portrait phone it was overriding every other page's overflow,
+    mounted or not. The component sets the horizontal lock on the body while it lives and takes
+    it off on the way out, which is the same rule with the one condition the media query could
+    not express. Vertical scrolling is the browser's default and needs no rule at all.
+  */
 
   .art-stage.mobile-stage {
     min-height: 0;
