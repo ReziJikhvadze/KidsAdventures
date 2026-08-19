@@ -1,0 +1,43 @@
+namespace AdventurePacks.Api.Services.Story.Prompts;
+
+/// <summary>
+/// QA IMAGE — prompt C of the Beki handoff's three.
+///
+/// Kept as the handoff wrote it, with the scene and the requested text side filled in, because
+/// the point of a QA pass is to be a fixed yardstick: a checklist that drifts cannot tell you
+/// whether the images got better or the standard got looser.
+/// </summary>
+public static class BekiImageQaPrompt
+{
+    // Two dollars, so a single brace is literal JSON and {{…}} is the interpolation. The verdict
+    // shapes below are the payload the model must copy, and they are full of braces.
+    public static string For(string scene, string textSide) =>
+        $$"""
+        Review this generated children's book illustration.
+
+        Compare it with the provided scene and reference images.
+
+        Scene it was asked for: {{scene.Trim()}}
+
+        Story text was requested on the {{textSide.Trim().ToLowerInvariant()}} side.
+
+        Check only:
+        1. the child resembles the reference and is rendered as a stylized 3D animated character,
+           not photorealistically,
+        2. recurring characters remain recognizable and consistent,
+        3. Beki matches the canonical Beki reference if present,
+        4. the required scene and action are clearly visible,
+        5. important faces and actions are away from the center gutter,
+        6. there is usable calm space for story text on the requested side,
+        7. there is no unwanted text, lettering, logo, frame or QR code,
+        8. there are no incorrect or unnecessary story characters.
+
+        Return JSON only.
+
+        If usable:
+        {"status":"PASS","issues":[]}
+
+        If not usable:
+        {"status":"FAIL","issues":["specific issue"]}
+        """;
+}

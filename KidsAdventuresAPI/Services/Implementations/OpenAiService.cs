@@ -176,15 +176,72 @@ public sealed class OpenAiService(
         return (ExtractOutputText(body) ?? string.Empty).Trim();
     }
 
+    /// <summary>
+    /// QA IMAGE — the third of the Beki format's three model tasks.
+    ///
+    /// Built on the same vision call as <see cref="DescribeCharacterFromPhotoAsync"/> rather than
+    /// on a new client, and deliberately unopinionated: it hands back whatever JSON the model
+    /// produced instead of parsing it into a verdict type. The prototype is here to find out what
+    /// the model actually says and how often, and a parser written before that is known would
+    /// quietly discard the cases worth reading.
+    ///
+    /// The generated image comes first in the payload, then the references, each announced by a
+    /// line of text — an image model given three pictures and no labels has no way to know which
+    /// one it is being asked to judge.
+    /// </summary>
+    public async Task<string> ReviewIllustrationAsync(
+        byte[] imageBytes,
+        string reviewPrompt,
+        IReadOnlyList<(byte[] Bytes, string ContentType, string Label)> references,
+        CancellationToken cancellationToken)
+    {
+        var client = CreateClient();
+
+        var generated = referenceImageNormalizer.NormalizeForOpenAi(imageBytes, "image/png");
+        var content = new List<object>
+        {
+            new { type = "input_text", text = reviewPrompt },
+            new { type = "input_text", text = "[The generated illustration under review]" },
+            new { type = "input_image", image_url = ToDataUrl(generated.Bytes, generated.ContentType) },
+        };
+
+        foreach (var (bytes, contentType, label) in references)
+        {
+            var normalized = referenceImageNormalizer.NormalizeForOpenAi(bytes, contentType);
+            content.Add(new { type = "input_text", text = $"[{label}]" });
+            content.Add(new { type = "input_image", image_url = ToDataUrl(normalized.Bytes, normalized.ContentType) });
+        }
+
+        var payload = new
+        {
+            model = _options.Model,
+            input = new object[] { new { role = "user", content } },
+        };
+
+        using var response = await client.PostAsJsonAsync("responses", payload, cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"OpenAI image QA failed: {body}");
+        }
+
+        return ExtractOutputText(body).Trim();
+    }
+
     public async Task<byte[]> GenerateStoryImageAsync(
         string imagePrompt,
         StoryImageReference? reference,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? imageSize = null)
     {
         if (!_options.EnableStoryImages)
         {
             throw new InvalidOperationException("Story images are disabled in configuration.");
         }
+
+        // Null means the configured size, which is what every caller but the Beki prototype
+        // passes. Resolved once here so the three routes below cannot disagree about it.
+        var size = string.IsNullOrWhiteSpace(imageSize) ? _options.ImageSize : imageSize!;
 
         var referenceImages = CollectReferenceImages(reference);
 
@@ -197,7 +254,7 @@ public sealed class OpenAiService(
                 "OpenAI image request → model={Model} size={Size} quality={Quality} references={ReferenceCount} route={Route}\n" +
                 "--- prompt ---\n{Prompt}",
                 referenceImages.Count > 0 ? _options.ImageEditModel : _options.ImageModel,
-                _options.ImageSize,
+                size,
                 _options.ImageQuality,
                 referenceImages.Count,
                 referenceImages.Count > 0 ? "images/edits" : "images/generations",
@@ -211,6 +268,7 @@ public sealed class OpenAiService(
                 return await GenerateStoryImageViaEditApiWithRetryAsync(
                     imagePrompt,
                     referenceImages,
+                    size,
                     cancellationToken);
             }
             catch (Exception ex)
@@ -224,12 +282,13 @@ public sealed class OpenAiService(
             }
         }
 
-        return await GenerateStoryImageViaImagesApiAsync(imagePrompt, cancellationToken);
+        return await GenerateStoryImageViaImagesApiAsync(imagePrompt, size, cancellationToken);
     }
 
     private async Task<byte[]> GenerateStoryImageViaEditApiWithRetryAsync(
         string imagePrompt,
         IReadOnlyList<(byte[] Bytes, string FileName, string ContentType)> referenceImages,
+        string size,
         CancellationToken cancellationToken)
     {
         var maxAttempts = Math.Clamp(_options.ImageRetryAttempts, 1, 6);
@@ -239,7 +298,7 @@ public sealed class OpenAiService(
         {
             try
             {
-                return await GenerateStoryImageViaEditApiAsync(imagePrompt, referenceImages, cancellationToken);
+                return await GenerateStoryImageViaEditApiAsync(imagePrompt, referenceImages, size, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -280,6 +339,7 @@ public sealed class OpenAiService(
     private async Task<byte[]> GenerateStoryImageViaEditApiAsync(
         string imagePrompt,
         IReadOnlyList<(byte[] Bytes, string FileName, string ContentType)> referenceImages,
+        string size,
         CancellationToken cancellationToken)
     {
         var client = CreateClient();
@@ -289,7 +349,7 @@ public sealed class OpenAiService(
 
         form.Add(new StringContent(model), "model");
         form.Add(new StringContent(imagePrompt), "prompt");
-        form.Add(new StringContent(_options.ImageSize), "size");
+        form.Add(new StringContent(size), "size");
         form.Add(new StringContent(quality), "quality");
 
         for (var index = 0; index < referenceImages.Count; index++)
@@ -360,6 +420,7 @@ public sealed class OpenAiService(
 
     private async Task<byte[]> GenerateStoryImageViaImagesApiAsync(
         string imagePrompt,
+        string size,
         CancellationToken cancellationToken)
     {
         var client = CreateClient();
@@ -371,7 +432,7 @@ public sealed class OpenAiService(
             ["model"] = imageModel,
             ["prompt"] = imagePrompt,
             ["n"] = 1,
-            ["size"] = _options.ImageSize
+            ["size"] = size
         };
 
         if (IsGptImageModel(imageModel))

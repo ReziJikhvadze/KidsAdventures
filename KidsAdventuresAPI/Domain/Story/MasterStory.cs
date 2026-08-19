@@ -43,6 +43,45 @@ public sealed record MasterStory
 
     /// <summary>The cover illustration, which carries no story text of its own.</summary>
     public required IllustrationBrief Cover { get; init; }
+
+    /*
+      Everything below belongs to the Beki format and is deliberately optional.
+
+      Not `required`, and never made `required`: System.Text.Json throws when a required property
+      is missing, and MasterBookService deserialises StoryJson written by earlier runs to resume a
+      book whose process died. A required field added here would turn every in-flight book at
+      deploy time into an unresumable one — paid for, half generated, unrecoverable. Absent means
+      "an A5 book wrote this", and absent has to keep working forever.
+    */
+
+    /// <summary>The English title. Null for A5 books, which are written in one language.</summary>
+    public string? TitleEn { get; init; }
+
+    /// <summary>
+    /// The recurring characters this particular book invented, each with one short visual
+    /// description. Null for A5 books, where <see cref="CharacterLock"/> carries every character
+    /// in one paragraph and no character has an identity of its own.
+    /// </summary>
+    public IReadOnlyList<StoryCastMember>? Cast { get; init; }
+}
+
+/// <summary>
+/// One recurring character, created for this book only.
+///
+/// The id matters more than it looks: it is what ties a character named in a spread to the first
+/// accepted illustration it appeared in, which then becomes that character's anchor for every
+/// later spread. Without a stable id there is nothing to key an anchor by, and continuity falls
+/// back to hoping the model remembers.
+/// </summary>
+public sealed record StoryCastMember
+{
+    /// <summary>Stable within one book: char_01, char_02. Referenced by spread.characters.</summary>
+    public string Id { get; init; } = string.Empty;
+
+    public string Name { get; init; } = string.Empty;
+
+    /// <summary>One short, concrete sentence. Used verbatim on the character's first appearance.</summary>
+    public string VisualDescription { get; init; } = string.Empty;
 }
 
 /// <summary>
@@ -70,6 +109,18 @@ public sealed record StorySpread
     public required string Text { get; init; }
 
     public required IllustrationBrief Illustration { get; init; }
+
+    /// <summary>
+    /// The same words in English. Null for A5 books — see the note on <see cref="MasterStory"/>
+    /// for why this can never become required.
+    /// </summary>
+    public string? TextEn { get; init; }
+
+    /// <summary>
+    /// Which characters are in this spread: "child" plus any cast ids. Null for A5 books, whose
+    /// prompts describe the cast in prose rather than listing it.
+    /// </summary>
+    public IReadOnlyList<string>? Characters { get; init; }
 }
 
 /// <summary>
