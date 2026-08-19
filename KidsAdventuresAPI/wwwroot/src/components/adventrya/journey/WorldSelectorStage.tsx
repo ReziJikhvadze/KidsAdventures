@@ -77,13 +77,25 @@ export function WorldSelectorStage({ draft, onChange }: Props) {
     Choosing sets `selected` before it touches the draft, so by the time the draft catches up the
     two already agree and this does nothing. A restored world skips the wait for the star, which
     has nothing to announce: nobody just pressed anything.
+
+    It follows the draft down as well as up. The draft is emptied under this page too — signing
+    out on a shared device clears it, and so does arriving with `?new` — and a selector that kept
+    its own copy would still be showing the previous choice, with a live button ready to carry it
+    into a book it no longer belongs to.
   */
   useEffect(() => {
     const fromDraft = SELECTOR_WORLDS.find((world) => world.worldId === draft.worldId)?.id ?? null;
-    if (!fromDraft || fromDraft === selected) return;
+    if (fromDraft === selected) return;
+
+    // A star still on its way belongs to the choice being replaced, and its timer would switch
+    // the button back on after the selection under it had gone.
+    if (ctaTimer.current !== null) {
+      window.clearTimeout(ctaTimer.current);
+      ctaTimer.current = null;
+    }
 
     setSelected(fromDraft);
-    setCtaReady(true);
+    setCtaReady(fromDraft !== null);
   }, [draft.worldId, selected]);
 
   /*
