@@ -1,6 +1,6 @@
-import { ArrowLeft, ArrowRight, Check, CreditCard, Lock, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, CreditCard, Loader2, Lock, Sparkles } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
 import { ApiError } from "@/lib/api/client";
@@ -53,6 +53,15 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const [promoState, setPromoState] = useState<"idle" | "applying" | "applied" | "invalid">("idle");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /** Whether this screen is still the one in front of the parent. See placeOrder. */
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const baseMinor = isPrint ? PRICES.print : PRICES.digital;
   const subtotalMinor = quote?.subtotalMinor ?? baseMinor;
@@ -125,6 +134,11 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   };
 
   const placeOrder = async () => {
+    // A second click on a slow connection is a second order and a second Stripe session, so the
+    // guard is here rather than only on the button's disabled attribute — which is a rendering
+    // detail, and this function is also reached from the two quick-pay buttons.
+    if (busy) return;
+
     const shippingError = validateShipping();
     if (shippingError) {
       setError(shippingError);
@@ -172,15 +186,31 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
 
       onChange({ orderId: checkout.orderId, bookId: checkout.bookId ?? null });
 
+      // Nobody is on this screen any more.
+      //
+      // Placing an order takes seconds — a portrait is uploaded, characters are saved, the order
+      // is created — and a parent who taps "back" during it used to have the answer arrive
+      // anyway: the reply landed on a screen they had left and either pulled them into the
+      // generating stage or opened Stripe from wherever they now were. The order itself is real
+      // and paid for either way, so it is not discarded; it is simply not allowed to seize a
+      // page that has moved on. The dashboard shows it, and returning from Stripe resumes it.
+      if (!mounted.current) return;
+
       if (checkout.isFree || !checkout.checkoutUrl) {
         onPaid(checkout.orderId, checkout.bookId);
         return;
       }
 
       window.location.assign(checkout.checkoutUrl);
+
+      // Deliberately still busy. `assign` only *starts* the navigation and returns at once, so
+      // clearing it here would light the button up again for the second or two the old page is
+      // still on screen — and that click is a second order with a second Stripe session.
     } catch (err) {
+      if (!mounted.current) return;
       setError(err instanceof ApiError ? err.message : "შეკვეთა ვერ შეიქმნა.");
-    } finally {
+      // Only a failure gives the button back. Every success either navigates away or hands the
+      // journey to the generating stage, and neither wants this screen accepting another press.
       setBusy(false);
     }
   };
@@ -205,11 +235,28 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
           </div>
         ) : (
           <>
+            {/* These start the same order as the button below, so they wait the same way. */}
             <div className="quick-pay">
-              <button type="button" disabled={busy} onClick={() => void placeOrder()}>
+              <button
+                type="button"
+                disabled={busy}
+                aria-busy={busy}
+                onClick={() => void placeOrder()}
+              >
+                {busy ? (
+                  <Loader2 className="checkout-spinner" aria-hidden="true" size={15} />
+                ) : null}
                 Pay
               </button>
-              <button type="button" disabled={busy} onClick={() => void placeOrder()}>
+              <button
+                type="button"
+                disabled={busy}
+                aria-busy={busy}
+                onClick={() => void placeOrder()}
+              >
+                {busy ? (
+                  <Loader2 className="checkout-spinner" aria-hidden="true" size={15} />
+                ) : null}
                 G Pay
               </button>
             </div>
@@ -378,16 +425,32 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
 
         {error ? <p className="ux-form-error">{error}</p> : null}
 
+        {/*
+          The button says what it is doing. Behind it a portrait is uploaded and an order is
+          created, which is seconds on a phone connection — and it used to keep its ordinary
+          label throughout, so the only sign anything had happened was that the press did
+          nothing. aria-busy so it is not only the sighted parent who is told.
+        */}
         <button
           className="button button-primary checkout-pay"
           type="button"
           disabled={busy}
+          aria-busy={busy}
           onClick={() => void placeOrder()}
         >
-          {isFree
-            ? t.journey.checkout.activateOrder
-            : t.journey.checkout.pay(formatGelAmount(totalMinor))}
-          <ArrowRight aria-hidden="true" size={16} />
+          {busy ? (
+            <>
+              <Loader2 className="checkout-spinner" aria-hidden="true" size={16} />
+              {t.journey.checkout.placingOrder}
+            </>
+          ) : (
+            <>
+              {isFree
+                ? t.journey.checkout.activateOrder
+                : t.journey.checkout.pay(formatGelAmount(totalMinor))}
+              <ArrowRight aria-hidden="true" size={16} />
+            </>
+          )}
         </button>
 
         <Link className="text-back" to="/create" hash="preview">

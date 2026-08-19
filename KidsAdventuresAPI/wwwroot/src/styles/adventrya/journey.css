@@ -945,6 +945,10 @@
 }
 .quick-pay button {
   height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   border: 0;
   border-radius: 14px;
   cursor: pointer;
@@ -952,6 +956,25 @@
   background: #111;
   font-size: 13px;
   font-weight: 700;
+}
+/* Placing an order takes seconds; a button that only greys out reads as one that did nothing. */
+.quick-pay button:disabled,
+.checkout-pay:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}
+.checkout-spinner {
+  animation: checkout-spin 0.9s linear infinite;
+}
+@keyframes checkout-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .checkout-spinner {
+    animation-duration: 2.4s;
+  }
 }
 .checkout-form .auth-divider:before {
   background: #efe3cf24;

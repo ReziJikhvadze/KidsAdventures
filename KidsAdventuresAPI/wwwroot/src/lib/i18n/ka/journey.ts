@@ -246,6 +246,8 @@ export const journey = {
     promoApplied: " Promocode გამოყენებულია",
     promoInvalid: "ეს Promocode არასწორია ან ვადა გაუვიდა.",
     activateOrder: "შეკვეთის გააქტიურება",
+    /* The photo is uploaded and the order created behind this button; it is seconds, not milliseconds. */
+    placingOrder: "შეკვეთა მუშავდება…",
     pay: (amount: string) => `გადაიხადე ${amount} ₾`,
     summaryHeading: "შეკვეთის შეჯამება",
     summaryAlt: (hero: string) => `${hero}ს წიგნი შეკვეთის შეჯამებაში`,

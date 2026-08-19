@@ -245,6 +245,7 @@ export const journey = {
     promoApplied: " Promocode applied",
     promoInvalid: "This promocode is invalid or has expired.",
     activateOrder: "Activate the order",
+    placingOrder: "Placing your order…",
     pay: (amount: string) => `Pay ${amount} ₾`,
     summaryHeading: "Order summary",
     summaryAlt: (hero: string) => `${hero}'s book in the order summary`,
