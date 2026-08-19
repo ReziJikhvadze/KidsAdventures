@@ -66,6 +66,27 @@ export function WorldSelectorStage({ draft, onChange }: Props) {
   }, []);
 
   /*
+    Adopt a world the draft already knows about.
+
+    The state above is seeded once, and on the first render the draft is always empty: it reads
+    window.location, so JourneyDraftProvider fills it in an effect rather than in an initialiser.
+    Everything that arrives with a world already decided lands after that — `/themes?world=magic`
+    from a shared link, a parent coming back from the details step, the dashboard starting a
+    second book — and without this the painting greets all of them unchosen and asks again.
+
+    Choosing sets `selected` before it touches the draft, so by the time the draft catches up the
+    two already agree and this does nothing. A restored world skips the wait for the star, which
+    has nothing to announce: nobody just pressed anything.
+  */
+  useEffect(() => {
+    const fromDraft = SELECTOR_WORLDS.find((world) => world.worldId === draft.worldId)?.id ?? null;
+    if (!fromDraft || fromDraft === selected) return;
+
+    setSelected(fromDraft);
+    setCtaReady(true);
+  }, [draft.worldId, selected]);
+
+  /*
     Sideways only, and only while the selector is on screen.
 
     The handoff locked `overflow` outright on `body`. Two reasons that is not carried over: in a
