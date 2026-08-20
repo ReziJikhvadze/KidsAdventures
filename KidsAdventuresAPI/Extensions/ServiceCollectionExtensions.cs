@@ -37,6 +37,7 @@ public static class ServiceCollectionExtensions
                     configuration.GetConnectionString(AzureBlobOptions.SectionName) ?? string.Empty;
             }
         });
+        services.Configure<LocalBlobOptions>(configuration.GetSection(LocalBlobOptions.SectionName));
         services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.SectionName));
         services.Configure<CorsOptions>(configuration.GetSection(CorsOptions.SectionName));
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
@@ -250,7 +251,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOpenAiService, OpenAiService>();
 
         services.AddScoped<IAdventurePdfService, AdventurePdfService>();
-        services.AddScoped<IBlobStorageService, AzureBlobStorageService>();
+        // Azure unless a machine has explicitly asked for the local folder. The choice is made
+        // per resolution rather than at startup so the registration needs no IConfiguration,
+        // and LocalBlobOptions.Enabled is false in every committed settings file.
+        services.AddScoped<IBlobStorageService>(sp =>
+            sp.GetRequiredService<IOptions<LocalBlobOptions>>().Value.Enabled
+                ? ActivatorUtilities.CreateInstance<LocalFileBlobStorageService>(sp)
+                : ActivatorUtilities.CreateInstance<AzureBlobStorageService>(sp));
         services.AddScoped<IAdventureGenerationService, AdventureGenerationService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
         services.AddSingleton<IGuestRateLimiter, GuestRateLimiter>();

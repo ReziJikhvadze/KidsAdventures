@@ -3,10 +3,22 @@
   "configurations": [
     {
       "name": "adventrya-web",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "cwd": "KidsAdventuresAPI/wwwroot",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "scripts/run-frontend.sh"
+      ],
+      "cwd": ".",
       "port": 8080
+    },
+    {
+      "name": "adventrya-api",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "scripts/run-backend.sh"
+      ],
+      "cwd": ".",
+      "port": 5080,
+      "url": "http://localhost:5080"
     }
   ]
 }

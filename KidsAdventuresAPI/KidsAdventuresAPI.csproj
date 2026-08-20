@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -9,6 +9,7 @@
     <!-- Set true to skip npm build + frontend-deploy.zip during Publish -->
     <SkipFrontendBuild>false</SkipFrontendBuild>
     <DefaultItemExcludes>$(DefaultItemExcludes);wwwroot\**;frontend-dist\**;frontend-deploy.zip;_build_check\**;publish\**;publish2\**;publish-test\**;publish-test2\**;publish-verify\**</DefaultItemExcludes>
+    <UserSecretsId>e7b3905a-1017-4947-afaa-6235366c1e29</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
