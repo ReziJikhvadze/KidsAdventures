@@ -37,6 +37,12 @@ public sealed class AzureBlobStorageService(IOptions<AzureBlobOptions> options) 
         return response.Value.Content;
     }
 
+    public async Task<bool> ExistsAsync(string blobName, CancellationToken cancellationToken)
+    {
+        var container = await GetContainerAsync(_options.ContainerName, cancellationToken);
+        return await container.GetBlobClient(blobName).ExistsAsync(cancellationToken);
+    }
+
     public async Task<byte[]> DownloadBytesFromStoredUrlAsync(string storedUrl, CancellationToken cancellationToken)
     {
         var (containerName, blobName) = ResolveBlobLocation(storedUrl);

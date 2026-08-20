@@ -63,6 +63,9 @@ public sealed class LocalFileBlobStorageService : IBlobStorageService
         return Task.FromResult<Stream>(File.OpenRead(path));
     }
 
+    public Task<bool> ExistsAsync(string blobName, CancellationToken cancellationToken) =>
+        Task.FromResult(File.Exists(ResolvePath($"{_containerName}/{blobName.TrimStart('/')}")));
+
     public async Task<byte[]> DownloadBytesFromStoredUrlAsync(
         string storedUrl,
         CancellationToken cancellationToken)

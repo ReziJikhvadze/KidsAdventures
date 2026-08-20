@@ -2,11 +2,13 @@ using System.Text.Json;
 
 using Hangfire;
 
+using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain;
 using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.DTOs.Orders;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
+using AdventurePacks.Api.Services.Story;
 
 namespace AdventurePacks.Api.Services.Implementations;
 
@@ -19,6 +21,7 @@ public sealed class BookFulfillmentService(
     IBlobStorageService blobStorageService,
     IMasterStoryRunRepository masterStoryRunRepository,
     IBackgroundJobClient backgroundJobClient,
+    IOptions<BekiOptions> bekiOptions,
     ILogger<BookFulfillmentService> logger) : IBookFulfillmentService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -110,8 +113,7 @@ public sealed class BookFulfillmentService(
         await worldProgressService.MarkCompletedAsync(
             order.UserId, hero.Id, book.WorldId!, book.Id, cancellationToken);
 
-        backgroundJobClient.Enqueue<IAdventureGenerationService>(service =>
-            service.ProcessStoryGenerationAsync(book.Id, CancellationToken.None));
+        EnqueueGeneration(book.Id, await BekiRunForAsync(draft, cancellationToken));
 
         logger.LogInformation(
             "Order {OrderId} fulfilled: book {BookId} ({WorldId}, chapter {SequenceNumber}) queued for generation.",
@@ -167,9 +169,54 @@ public sealed class BookFulfillmentService(
 
         if (book.Status == AdventurePackStatus.Pending || book.Status == AdventurePackStatus.Failed)
         {
-            backgroundJobClient.Enqueue<IAdventureGenerationService>(service =>
-                service.ProcessStoryGenerationAsync(bookId, CancellationToken.None));
+            // Same decision the first attempt made. A retry that fell back to the legacy
+            // pipeline would give the parent a different kind of book than the one that failed.
+            Guid? bekiRunId = null;
+            try
+            {
+                bekiRunId = await BekiRunForAsync(DeserializeDraft(order), cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Retry for book {BookId} could not read its draft; using the legacy pipeline.", bookId);
+            }
+
+            EnqueueGeneration(bookId, bekiRunId);
         }
+    }
+
+    /// <summary>
+    /// Which pipeline draws this book. Beki when the switch is on and the preview run still
+    /// holds what that format needs — the plan and the portrait; the legacy per-page flow
+    /// otherwise. Deciding here rather than failing later means a run that expired between
+    /// preview and purchase costs the parent nothing but the old format.
+    /// </summary>
+    private async Task<Guid?> BekiRunForAsync(BookDraftRequest draft, CancellationToken cancellationToken)
+    {
+        if (!bekiOptions.Value.Enabled || draft.PreviewBookId is not { } runId)
+        {
+            return null;
+        }
+
+        var run = await masterStoryRunRepository.GetByIdAsync(runId, cancellationToken);
+        return run is not null
+               && !string.IsNullOrWhiteSpace(run.StoryJson)
+               && !string.IsNullOrWhiteSpace(run.PhotoBlobUrl)
+            ? runId
+            : null;
+    }
+
+    private void EnqueueGeneration(Guid bookId, Guid? bekiRunId)
+    {
+        if (bekiRunId is { } runId)
+        {
+            backgroundJobClient.Enqueue<IBekiPackFulfillment>(service =>
+                service.ProcessAsync(bookId, runId, CancellationToken.None));
+            return;
+        }
+
+        backgroundJobClient.Enqueue<IAdventureGenerationService>(service =>
+            service.ProcessStoryGenerationAsync(bookId, CancellationToken.None));
     }
 
     private static BookDraftRequest DeserializeDraft(Order order)

@@ -43,6 +43,26 @@ public interface IBekiBookGenerator
         byte[] childPhoto,
         string childPhotoContentType,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Draws a plan that already exists — the fulfilment path, where the story was written at
+    /// preview time and the parent has already read it. Writing another plan here would replace
+    /// the story they chose to buy, which is the exact fault preview adoption exists to prevent.
+    /// When <paramref name="existingCover"/> is given it is adopted instead of drawn, for the
+    /// same reason: the cover the parent decided on is the cover they get.
+    /// </summary>
+    /// <param name="onImage">
+    /// Called once per finished illustration, in drawing order, before the next one starts.
+    /// The book takes minutes and a parent is watching a spinner; this is how the pictures
+    /// reach them while the rest are still being drawn. Null when nobody is watching.
+    /// </param>
+    Task<BekiBookResult> IllustrateAsync(
+        MasterStory plan,
+        byte[] childPhoto,
+        string childPhotoContentType,
+        byte[]? existingCover,
+        Func<BekiImageResult, Task>? onImage,
+        CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -90,8 +110,6 @@ public sealed class BekiBookGenerator(
         string childPhotoContentType,
         CancellationToken cancellationToken)
     {
-        var warnings = new List<string>();
-
         // The child's appearance is read from the photograph, exactly as the A5 flow reads it.
         // The planner needs it for characterLock; it never sees the photograph itself.
         var appearance = await openAi.DescribeCharacterFromPhotoAsync(
@@ -103,10 +121,33 @@ public sealed class BekiBookGenerator(
             "Beki plan \"{Title}\": {Spreads} spreads, {Cast} recurring character(s).",
             plan.Concept.Title, plan.Spreads.Count, plan.Cast?.Count ?? 0);
 
+        var book = await IllustrateAsync(plan, childPhoto, childPhotoContentType, null, null, cancellationToken);
+        return book with { AppearanceDescription = appearance };
+    }
+
+    public async Task<BekiBookResult> IllustrateAsync(
+        MasterStory plan,
+        byte[] childPhoto,
+        string childPhotoContentType,
+        byte[]? existingCover,
+        Func<BekiImageResult, Task>? onImage,
+        CancellationToken cancellationToken)
+    {
+        var warnings = new List<string>();
+
         var castById = (plan.Cast ?? []).ToDictionary(member => member.Id, StringComparer.OrdinalIgnoreCase);
         var anchors = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
 
-        var cover = await DrawCoverAsync(plan, childPhoto, childPhotoContentType, warnings, cancellationToken);
+        var cover = existingCover is null
+            ? await DrawCoverAsync(plan, childPhoto, childPhotoContentType, warnings, cancellationToken)
+            : new BekiImageResult
+            {
+                Image = existingCover,
+                Accepted = true,
+                Verdict = "Adopted from the preview the parent chose; not drawn here.",
+                Attempts = 0,
+                Prompt = string.Empty,
+            };
 
         var spreads = new List<BekiImageResult>(plan.Spreads.Count);
         foreach (var spread in plan.Spreads.OrderBy(s => s.Number))
@@ -115,6 +156,11 @@ public sealed class BekiBookGenerator(
                 plan, spread, castById, anchors, childPhoto, childPhotoContentType, cancellationToken);
 
             spreads.Add(result);
+
+            if (onImage is not null)
+            {
+                await onImage(result);
+            }
 
             /*
               The continuity rule, and the reason spreads are sequential.
@@ -152,7 +198,9 @@ public sealed class BekiBookGenerator(
         return new BekiBookResult
         {
             Plan = plan,
-            AppearanceDescription = appearance,
+            // Only planning reads the photograph's description; an illustrate-only run never
+            // produced one. GenerateAsync stamps its own on before returning.
+            AppearanceDescription = string.Empty,
             Cover = cover,
             Spreads = spreads,
             Warnings = warnings,

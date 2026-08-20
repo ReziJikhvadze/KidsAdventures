@@ -23,6 +23,7 @@ public static class ServiceCollectionExtensions
         services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
         services.Configure<BekiOptions>(configuration.GetSection(BekiOptions.SectionName));
         services.Configure<PrintLayoutOptions>(configuration.GetSection(PrintLayoutOptions.SectionName));
+        services.Configure<BekiPrintLayoutOptions>(configuration.GetSection(BekiPrintLayoutOptions.SectionName));
         // App Service refuses an app setting named "AzureBlobStorage__ConnectionString"
         // ("AppSetting with name ... is not allowed"), so on Azure the value has to come
         // from the Connection strings section, which .NET surfaces as
@@ -276,6 +277,12 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBekiStoryService, BekiStoryService>();
         services.AddScoped<IBekiStoryRepository, BekiStoryRepository>();
         services.AddScoped<IBekiVisualRepository, BekiVisualRepository>();
+
+        // The Beki-format book: spread illustrator, print layout, and the fulfilment job that
+        // runs them for a purchased pack when BekiOptions.Enabled routes it this way.
+        services.AddScoped<IBekiBookGenerator, BekiBookGenerator>();
+        services.AddScoped<IBekiPdfComposer, BekiPdfComposer>();
+        services.AddScoped<IBekiPackFulfillment, BekiPackFulfillment>();
 
         // The intake gate is not part of a pipeline: it runs on its own, in front of everything,
         // while a parent is still on the form.

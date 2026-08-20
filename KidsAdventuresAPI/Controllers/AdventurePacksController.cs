@@ -220,6 +220,67 @@ public sealed class AdventurePacksController(
         }
     }
 
+    /// <summary>
+    /// Which spreads of a book being generated already exist, plus the job's own progress. The
+    /// generating screen polls this to show the parent real pictures instead of a spinner. A
+    /// legacy-pipeline book simply has no spreads under these names and returns an empty list.
+    /// </summary>
+    [HttpGet("{id:guid}/making-of")]
+    public async Task<ActionResult<object>> GetMakingOf(Guid id, CancellationToken cancellationToken)
+    {
+        var pack = await adventurePackRepository.GetByIdAsync(id, userContext.GetUserId(), cancellationToken);
+        if (pack is null)
+        {
+            return NotFound();
+        }
+
+        var ready = new List<int>();
+        for (var number = 1; number <= BookFormat.SpreadCount; number++)
+        {
+            if (await blobStorageService.ExistsAsync(
+                    BekiPackBlobs.SpreadName(pack.UserId, pack.Id, number), cancellationToken))
+            {
+                ready.Add(number);
+            }
+        }
+
+        return Ok(new
+        {
+            progressMessage = pack.ProgressMessage,
+            progressPercent = pack.ProgressPercent,
+            spreads = ready
+        });
+    }
+
+    [HttpGet("{id:guid}/making-of/{spread:int}")]
+    public async Task<IActionResult> GetMakingOfImage(Guid id, int spread, CancellationToken cancellationToken)
+    {
+        if (spread is < 1 or > BookFormat.SpreadCount)
+        {
+            return NotFound();
+        }
+
+        var pack = await adventurePackRepository.GetByIdAsync(id, userContext.GetUserId(), cancellationToken);
+        if (pack is null)
+        {
+            return NotFound();
+        }
+
+        try
+        {
+            var stream = await blobStorageService.DownloadAsync(
+                BekiPackBlobs.SpreadName(pack.UserId, pack.Id, spread), cancellationToken);
+            // Immutable once drawn, so the browser can keep it for the session.
+            Response.Headers.CacheControl = "private, max-age=86400";
+            return File(stream, "image/png");
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Making-of spread {Spread} not available for pack {PackId}.", spread, id);
+            return NotFound();
+        }
+    }
+
     /// <summary>Accepts what an &lt;input type="date"&gt; sends, and nothing more inventive.</summary>
     private static DateOnly? ParseBirthDate(string? value) =>
         DateOnly.TryParseExact(
