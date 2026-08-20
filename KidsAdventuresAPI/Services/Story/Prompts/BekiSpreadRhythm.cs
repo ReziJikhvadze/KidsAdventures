@@ -13,9 +13,14 @@ namespace AdventurePacks.Api.Services.Story.Prompts;
 /// </summary>
 public static class BekiSpreadRhythm
 {
-    /// <summary>left | right, per the handoff's table. Spread 8 stays left for its ending.</summary>
+    /// <summary>
+    /// Right, on every spread. The handoff's table alternated sides, and the product decision
+    /// that replaced it is simpler: story text is always set on the right leaf, so every
+    /// illustration keeps its right third quiet. One rule the reader can rely on page after
+    /// page, and one fewer axis for a generation to get wrong.
+    /// </summary>
     private static readonly string[] TextSides =
-        ["left", "right", "left", "right", "left", "right", "left", "left"];
+        ["right", "right", "right", "right", "right", "right", "right", "right"];
 
     /// <summary>
     /// One short sentence each, as the handoff asks. They name the intent of the beat rather than

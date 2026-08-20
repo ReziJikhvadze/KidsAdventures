@@ -58,8 +58,12 @@ public static class BekiImageQaPrompt
         return side is "left" or "right"
             ? $"The {side} third of this image was reserved for story text printed over it: that "
               + "third was required to hold quiet background only, with no character, face, hands "
-              + "or main action inside it."
-            : "No story text is printed over this image, so no side was reserved. Judge the "
-              + "composition on its own terms.";
+              + "or main action inside it. Faces and the key action were also required to stay "
+              + "inside the central horizontal band, because the top and bottom sixths may be "
+              + "trimmed in print."
+            : "No story text is printed over this image, so no side was reserved. It is printed "
+              + "as a single upright page cut from this wider frame, so the outer left and right "
+              + "edges may be trimmed away: the hero and the calm title space were required to "
+              + "sit within the central portion. Judge the composition on those terms.";
     }
 }

@@ -11,27 +11,25 @@ namespace AdventurePacks.Api.Configuration.Options;
 /// text is set over it, so the geometry starts from the spread and the page is half of it — the
 /// opposite of the A5 book, where a page is a page and a spread is two of them side by side.
 ///
-/// **3:2, and that is the whole reason these numbers look the way they do.** The handoff asked
-/// for a 440×200 spread, which is 2.2:1, and no image model draws it — gpt-image offers 1:1, 2:3
-/// and 3:2 and nothing else. Cropping a 3:2 picture down to 2.2:1 throws away nearly a third of
-/// its height, and stretching it is worse. So the book was moved to the shape the artwork is
-/// actually drawn in: the spread is 3:2, the picture fills it exactly, and no pixel is discarded.
+/// **The sheet is the handoff's 440×200 and the artwork is not.** gpt-image draws 1:1, 2:3 and
+/// 3:2 and nothing else, so every render arrives at 3:2 and the composer centre-crops it to the
+/// sheet — the print keeps the central band and the top and bottom sixths are trimmed away.
+/// This format held the artwork's own 3:2 for a while to avoid that loss; the product decision
+/// went the other way, to the handoff's physical book, and the illustration prompt now confines
+/// faces and action to the central band so the crop never takes anything the story needs.
 /// </summary>
 public sealed class BekiPrintLayoutOptions
 {
     public const string SectionName = "BekiPrintLayout";
 
     /// <summary>
-    /// The finished spread, both leaves together, in millimetres. 440 keeps the handoff's page
-    /// width of 220; the height follows from 3:2 rather than being chosen.
+    /// The finished spread, both leaves together, in millimetres. The handoff's page is
+    /// 220 × 200; the spread is two of them side by side.
     /// </summary>
     public float SpreadWidthMm { get; set; } = 440f;
 
-    /// <summary>
-    /// 440 ÷ 1.5. Set this and the width together or the picture stops fitting the sheet — the
-    /// one property of this format worth protecting.
-    /// </summary>
-    public float SpreadHeightMm { get; set; } = 293.3f;
+    /// <summary>The handoff's page height. The spread and the single leaf share it.</summary>
+    public float SpreadHeightMm { get; set; } = 200f;
 
     /// <summary>Half the spread. A single leaf, portrait, the way a picture book opens.</summary>
     public float PageWidthMm => SpreadWidthMm / 2f;
@@ -65,4 +63,21 @@ public sealed class BekiPrintLayoutOptions
     /// one illustration is twice the text in the space that was reserved for one.
     /// </summary>
     public bool PrintEnglishToo { get; set; }
+
+    /// <summary>
+    /// The stroke drawn around every printed glyph, in points. The wash quiets the artwork
+    /// behind the words; the outline is the guarantee that holds when the wash meets a picture
+    /// it cannot quiet — cream type over a sunlit cloud still has a dark edge to read by.
+    /// Zero turns it off.
+    /// </summary>
+    public float TextOutlineWidth { get; set; } = 0.6f;
+
+    /// <summary>Where the closing page's QR code sends the reader.</summary>
+    public string EndingQrUrl { get; set; } = "https://beki.ge";
+
+    /// <summary>The closing line. Reusable across every order, as the handoff's P18 asks.</summary>
+    public string EndingLine { get; set; } = "ამბავი აქ მთავრდება — თავგადასავალი კი გრძელდება.";
+
+    /// <summary>Printed under the QR code, saying what scanning it is for.</summary>
+    public string EndingQrCaption { get; set; } = "შეაფასე ბეკის წიგნი";
 }

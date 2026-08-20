@@ -21,7 +21,7 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
     private static string? BookDirectory => Environment.GetEnvironmentVariable("ADVENTRYA_BEKI_BOOK");
 
     [Fact]
-    public void Every_spread_and_the_cover_reach_the_pdf()
+    public void Every_spread_the_cover_and_the_ending_reach_the_pdf()
     {
         var plan = SyntheticPlan();
         var spreads = plan.Spreads
@@ -30,9 +30,37 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
 
         var pdf = Compose().Compose(plan, PixelPng(), spreads);
 
-        // Cover plus one page per spread. The spread is one page, not two: the fold is the
-        // printer's to impose, and splitting it here would put a seam through every picture.
-        Assert.Equal(BookFormat.SpreadCount + 1, CountPages(pdf));
+        // Cover, one page per spread, and the closing QR leaf. The spread is one page, not two:
+        // the fold is the printer's to impose, and splitting it here would put a seam through
+        // every picture.
+        Assert.Equal(BookFormat.SpreadCount + 2, CountPages(pdf));
+    }
+
+    /// <summary>
+    /// The cover and the closing leaf are single pages — half a spread wide — and every page
+    /// shares one height. This is the shape of the physical book; a composer that quietly put
+    /// the cover on a spread-wide sheet would print a book with a cover twice the size of its
+    /// pages, and nothing else in the pipeline would notice.
+    /// </summary>
+    [Fact]
+    public void Cover_and_ending_are_half_the_width_of_a_spread()
+    {
+        var layout = new BekiPrintLayoutOptions();
+        var plan = SyntheticPlan();
+        var spreads = plan.Spreads
+            .Select(spread => new BekiSpreadArtwork(spread.Number, PixelPng()))
+            .ToList();
+
+        var pdf = Compose(layout).Compose(plan, PixelPng(), spreads);
+
+        var sizes = MediaBoxSizes(pdf);
+        var leafPt = MmToPt(layout.PageWidthMm + (layout.BleedMm * 2));
+        var spreadPt = MmToPt(layout.SpreadWidthMm + (layout.BleedMm * 2));
+        var heightPt = MmToPt(layout.SpreadHeightMm + (layout.BleedMm * 2));
+
+        Assert.Contains(sizes, size => Math.Abs(size.Width - leafPt) < 1.5);
+        Assert.Contains(sizes, size => Math.Abs(size.Width - spreadPt) < 1.5);
+        Assert.All(sizes, size => Assert.True(Math.Abs(size.Height - heightPt) < 1.5));
     }
 
     /// <summary>
@@ -50,7 +78,7 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
 
         var pdf = Compose().Compose(plan, PixelPng(), spreads);
 
-        Assert.Equal(BookFormat.SpreadCount + 2, CountPages(pdf));
+        Assert.Equal(BookFormat.SpreadCount + 3, CountPages(pdf));
     }
 
     [SkippableFact]
@@ -95,7 +123,7 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
 
         output.WriteLine($"{plan.Concept.Title}: {CountPages(pdf)} pages → {outputPath}");
         output.WriteLine($"page images → {pageDirectory}");
-        Assert.Equal(spreads.Count + 1, CountPages(pdf));
+        Assert.Equal(spreads.Count + 2, CountPages(pdf));
     }
 
     private static BekiPdfComposer Compose(BekiPrintLayoutOptions? layout = null) =>
@@ -129,5 +157,20 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
     {
         var text = System.Text.Encoding.Latin1.GetString(pdf);
         return System.Text.RegularExpressions.Regex.Matches(text, @"/Type\s*/Page[^s]").Count;
+    }
+
+    private static float MmToPt(float mm) => mm / 25.4f * 72f;
+
+    /// <summary>Every distinct page size the PDF declares, read straight from its MediaBoxes.</summary>
+    private static IReadOnlyList<(float Width, float Height)> MediaBoxSizes(byte[] pdf)
+    {
+        var text = System.Text.Encoding.Latin1.GetString(pdf);
+        return System.Text.RegularExpressions.Regex
+            .Matches(text, @"/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)\s*\]")
+            .Select(match => (
+                float.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture),
+                float.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture)))
+            .Distinct()
+            .ToList();
     }
 }

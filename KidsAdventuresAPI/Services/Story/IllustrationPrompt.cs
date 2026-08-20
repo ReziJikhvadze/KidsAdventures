@@ -131,8 +131,12 @@ public static class IllustrationPrompt
         var side = textSide.Trim().ToLowerInvariant();
         if (side is not ("left" or "right"))
         {
+            // The cover. Printed as a single upright leaf cut from a wider render, so its outer
+            // edges are the part the trim takes.
             return "Keep faces and important story action away from the centre of the spread, "
-                + "where the fold falls.";
+                + "where the fold falls. Compose for a single upright page: keep the hero and "
+                + "the calm title space within the central portion of the frame, because the "
+                + "outer left and right edges may be trimmed away in print.";
         }
 
         var heroSide = side == "left" ? "right" : "left";
@@ -146,6 +150,11 @@ public static class IllustrationPrompt
 
             Place the child and the story's action in the {heroSide} two thirds instead, and keep
             every face clear of the vertical centre line, where the fold of the spread falls.
+
+            Keep every face and the story's key action inside the central horizontal band of the
+            image as well: the printed spread is wider than it is tall, so the top and bottom
+            sixths of this picture may be trimmed away. Sky, canopy and ground belong there —
+            nothing the story cannot lose.
             """;
     }
 
