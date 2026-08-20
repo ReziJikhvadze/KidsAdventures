@@ -221,6 +221,20 @@ export function getDownloadUrl(packId: string): string {
   return `${getApiBaseUrl()}/api/adventure-packs/${packId}/download`;
 }
 
+/** Which spreads of a book being generated already exist, with the job's own progress. */
+export async function getMakingOf(packId: string): Promise<{
+  progressMessage: string | null;
+  progressPercent: number | null;
+  spreads: number[];
+}> {
+  return apiRequest(`/api/adventure-packs/${packId}/making-of`);
+}
+
+/** The path fetchIllustrationObjectUrl expects for a making-of spread. */
+export function makingOfImagePath(packId: string, spread: number): string {
+  return `/api/adventure-packs/${packId}/making-of/${spread}`;
+}
+
 export async function fetchIllustrationObjectUrl(illustrationPath: string): Promise<string> {
   const token = getToken();
   const response = await fetch(`${getApiBaseUrl()}${illustrationPath}`, {

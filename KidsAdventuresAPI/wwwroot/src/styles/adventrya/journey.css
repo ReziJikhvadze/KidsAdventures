@@ -1613,3 +1613,28 @@
 .approval-next svg {
   width: 13px;
 }
+
+/* The pages drawn so far, under the book being generated. Landscape spreads, newest lit. */
+.generation-making-of {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 14px;
+  max-width: 420px;
+}
+
+.generation-making-of img {
+  width: 92px;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 8px;
+  opacity: 0.82;
+  border: 1px solid rgba(255, 248, 235, 0.18);
+}
+
+.generation-making-of img.is-newest {
+  opacity: 1;
+  border-color: rgba(255, 214, 130, 0.85);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}

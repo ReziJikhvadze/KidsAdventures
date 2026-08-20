@@ -114,10 +114,15 @@
   them stayed put, and on a short window the box was clipped rather than reachable. The shelf is
   already paged six at a time, so there is nothing here that needs a scrollbar of its own: the
   pane is laid out in flow and the page grows to fit it.
+
+  In flow means in flow. This comment shipped with the intent while the rule below kept
+  `position: absolute`, and an absolutely-positioned pane contributes no height — so the shell
+  collapsed to one viewport, the library rendered beyond it, and the page had nothing to
+  scroll. The margins reproduce the old inset against the header and the sidebar column.
 */
 .dashboard-main {
-  position: absolute;
-  inset: 96px 0 0 22.5%;
+  position: relative;
+  margin: 96px 0 0 22.5%;
   padding: 29px clamp(38px, 4vw, 62px);
   overflow: visible;
 }
@@ -624,4 +629,18 @@
     position: relative;
     inset: auto;
   }
+}
+
+/* The dashboard is a page, not a stage set.
+
+   .screen comes from the partner demo, where every view was a fixed tableau: viewport-high,
+   overflow hidden. The dashboard has outgrown that — the library sits below the map, and a
+   shell that clips at one viewport makes every book unreachable and the page silently
+   unscrollable, which reads as "my books are gone". The shell grows with its content here;
+   the sidebar, absolutely positioned against the shell, simply grows with it. */
+.screen.dashboard-shell {
+  height: auto;
+  max-height: none;
+  min-height: 100svh;
+  overflow: visible;
 }

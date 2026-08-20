@@ -100,7 +100,14 @@ export function DashboardScreen() {
         setCharacters(list);
         setPacks(allPacks);
         setPrintOrders(prints);
-        const primary = list.find((c) => c.isPrimary) ?? list[0] ?? null;
+        // The child whose book just arrived, ahead of the nominal primary. A parent lands
+        // here straight from a purchase, and a dashboard that opens on a different child's
+        // empty shelf reads as the book not existing — which is exactly how it was reported.
+        const newestPack = [...allPacks].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+        const byNewestBook = newestPack?.primaryCharacterId
+          ? list.find((c) => c.id === newestPack.primaryCharacterId)
+          : null;
+        const primary = byNewestBook ?? list.find((c) => c.isPrimary) ?? list[0] ?? null;
         setCharacterId(primary?.id ?? null);
       } catch (err) {
         if (!cancelled) {
@@ -494,10 +501,21 @@ export function DashboardScreen() {
               <p>{t.story.map.lead}</p>
             </div>
             <div className="map-dashboard-summary">
-              <span>
+              {/* A button, because the number answered "how many" while the question a parent
+                  actually arrives with is "where" — the shelf sits below the map, and nothing
+                  above the fold said so. */}
+              <button
+                type="button"
+                className="map-summary-books"
+                onClick={() =>
+                  document
+                    .getElementById("dashboard-library")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+              >
                 <strong>{map?.completedCount ?? childPacks.length}</strong>
                 {t.story.world.statBook}
-              </span>
+              </button>
               <span>
                 <strong>{map?.completedCount ?? 0}</strong>
                 {t.story.world.statMemory}
@@ -550,13 +568,22 @@ export function DashboardScreen() {
             </div>
           </div>
 
-          <div className="dashboard-section-heading map-library-heading">
+          <div className="dashboard-section-heading map-library-heading" id="dashboard-library">
             <div>
               <h2>{t.dashboard.library.heading(heroName)}</h2>
               <p>{t.story.world.archiveNote}</p>
             </div>
             <Link to="/world">{t.common.actions.seeAll}</Link>
           </div>
+
+          {visiblePacks.length === 0 ? (
+            // Silence here read as a bug: books existed, just under another child's name.
+            // Say whose shelf this is and where the books actually are.
+            <p className="map-library-empty">
+              {heroName}-ს ჯერ წიგნი არ აქვს. სხვა ბავშვის წიგნები მარცხენა სიაში მისი
+              პროფილის არჩევით გამოჩნდება.
+            </p>
+          ) : null}
 
           <div className="book-library">
             {visiblePacks.map((pack, index) => (

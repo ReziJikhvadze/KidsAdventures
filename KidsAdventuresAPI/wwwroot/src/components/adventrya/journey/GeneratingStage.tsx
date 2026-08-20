@@ -2,6 +2,7 @@ import { Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 
+import * as adventurePacksApi from "@/lib/api/adventure-packs";
 import { ApiError } from "@/lib/api/client";
 import * as ordersApi from "@/lib/api/orders";
 import { useT } from "@/lib/i18n";
@@ -26,6 +27,9 @@ export function GeneratingStage({ draft, onChange }: Props) {
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<string | null>(null);
+  // The spreads drawn so far, in page order. Real pictures beat a spinner: the book takes
+  // minutes, and each finished illustration appearing here is the proof something is happening.
+  const [pages, setPages] = useState<{ spread: number; url: string }[]>([]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -79,6 +83,51 @@ export function GeneratingStage({ draft, onChange }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.orderId]);
 
+  // Newest artwork, as it lands. The book id arrives with the first order poll; from then on
+  // each finished spread is fetched once and kept — the endpoint returns an empty list for a
+  // legacy-pipeline book, and this whole effect quietly does nothing.
+  useEffect(() => {
+    const bookId = draft.bookId;
+    if (!bookId) return;
+
+    let cancelled = false;
+    const seen = new Set<number>();
+
+    const tick = async () => {
+      try {
+        const status = await adventurePacksApi.getMakingOf(bookId);
+        if (cancelled) return;
+        for (const spread of status.spreads) {
+          if (seen.has(spread)) continue;
+          seen.add(spread);
+          const url = await adventurePacksApi.fetchIllustrationObjectUrl(
+            adventurePacksApi.makingOfImagePath(bookId, spread),
+          );
+          if (cancelled) return;
+          setPages((prev) =>
+            [...prev.filter((p) => p.spread !== spread), { spread, url }].sort(
+              (a, b) => a.spread - b.spread,
+            ),
+          );
+        }
+      } catch {
+        /* generation may not have started yet; the next poll will see it */
+      }
+    };
+
+    void tick();
+    const timer = window.setInterval(tick, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [draft.bookId]);
+
+  // The freshest picture takes the book's own frame, so the cover the parent already saw
+  // gives way to pages they have not.
+  const newest = pages.length > 0 ? pages[pages.length - 1] : null;
+  const artSrc = newest?.url ?? coverSrc;
+
   return (
     <section
       className="journey-stage generating-stage ux-generating"
@@ -103,7 +152,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
           <article className="ux-book-cover generation-book">
             <div
               className="ux-cover-art"
-              style={{ backgroundImage: `url("${coverSrc}")` }}
+              style={{ backgroundImage: `url("${artSrc}")` }}
               aria-hidden="true"
             />
             <div className="ux-cover-shade" aria-hidden="true" />
@@ -114,6 +163,19 @@ export function GeneratingStage({ draft, onChange }: Props) {
           <div className="generation-ring ring-one" aria-hidden="true" />
           <div className="generation-ring ring-two" aria-hidden="true" />
         </div>
+
+        {pages.length > 0 ? (
+          <div className="generation-making-of" aria-label="დახატული გვერდები">
+            {pages.map((page) => (
+              <img
+                key={page.spread}
+                src={page.url}
+                alt={`გვერდი ${page.spread}`}
+                className={page.spread === newest?.spread ? "is-newest" : ""}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div className="generation-copy">

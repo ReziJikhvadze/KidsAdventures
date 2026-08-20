@@ -1441,3 +1441,30 @@
     transform: scale(1.02);
   }
 }
+
+/* The books stat doubles as the way to the shelf; it must read as pressable without
+   breaking the summary row it sits in. */
+.map-summary-books {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35em;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 3px;
+}
+
+.map-summary-books:hover {
+  text-decoration-color: currentColor;
+}
+
+.map-library-empty {
+  opacity: 0.75;
+  margin: 0.5rem 0 1.5rem;
+}
