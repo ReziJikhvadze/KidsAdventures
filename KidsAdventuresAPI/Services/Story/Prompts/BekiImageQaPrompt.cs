@@ -19,7 +19,7 @@ public static class BekiImageQaPrompt
 
         Scene it was asked for: {{scene.Trim()}}
 
-        Story text was requested on the {{textSide.Trim().ToLowerInvariant()}} side.
+        {{TextSideRule(textSide)}}
 
         Check only:
         1. the child resembles the reference and is rendered as a stylized 3D animated character,
@@ -28,7 +28,8 @@ public static class BekiImageQaPrompt
         3. Beki matches the canonical Beki reference if present,
         4. the required scene and action are clearly visible,
         5. important faces and actions are away from the center gutter,
-        6. there is usable calm space for story text on the requested side,
+        6. the reserved third named above holds quiet background only — no character, face, hands
+           or main action anywhere inside it,
         7. there is no unwanted text, lettering, logo, frame or QR code,
         8. there are no incorrect or unnecessary story characters.
 
@@ -40,4 +41,25 @@ public static class BekiImageQaPrompt
         If not usable:
         {"status":"FAIL","issues":["specific issue"]}
         """;
+
+    /// <summary>
+    /// The reviewer is told the rule in the words the illustrator was given it in.
+    ///
+    /// They were phrased differently before — the prompt asked for "calm visual space", the
+    /// checklist asked whether there was "usable calm space" — and two soft phrasings of one rule
+    /// is how an image passes review and still cannot be typeset on. A cover, which carries no
+    /// text over it, is told there is no reserved side rather than being told "either", which the
+    /// reviewer read as a side it could not find.
+    /// </summary>
+    private static string TextSideRule(string textSide)
+    {
+        var side = textSide.Trim().ToLowerInvariant();
+
+        return side is "left" or "right"
+            ? $"The {side} third of this image was reserved for story text printed over it: that "
+              + "third was required to hold quiet background only, with no character, face, hands "
+              + "or main action inside it."
+            : "No story text is printed over this image, so no side was reserved. Judge the "
+              + "composition on its own terms.";
+    }
 }

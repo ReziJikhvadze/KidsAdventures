@@ -99,15 +99,53 @@ public static class IllustrationPrompt
 
             {continuityBlock}{shotInstruction.Trim()}
 
-            Leave calm visual space on the {textSide.Trim().ToLowerInvariant()} for story text.
-
-            Keep faces and important story action away from the centre of the spread.
+            {ComposeTextSide(textSide)}
 
             {StyleDirective}
 
             No text, letters, logos, captions, frames or QR codes anywhere in the image.
 
             Do not include: {exclusions}
+            """;
+    }
+
+    /// <summary>
+    /// Where the words go, said as geometry rather than as a mood.
+    ///
+    /// "Leave calm visual space on the left" was the handoff's wording and it was the single most
+    /// common reason a spread was refused — three of the three failures in the first whole-book
+    /// run. Read back, the refusals say why: the model treated it as a request for a *less busy*
+    /// side and then put the child there anyway, which is calm in the sense of uncluttered and
+    /// useless in the sense that story text would land on her face.
+    ///
+    /// So it names a fraction of the frame, says what may be in it, and says who may not. And it
+    /// says where the hero goes instead — a rule that only forbids leaves the model to guess, and
+    /// what it guesses is the centre, which is where the fold is.
+    ///
+    /// An empty or "either" side means no text is set over this image at all — the cover, whose
+    /// title is typeset later. That case used to reach the model as "on the either", which is not
+    /// a place.
+    /// </summary>
+    private static string ComposeTextSide(string textSide)
+    {
+        var side = textSide.Trim().ToLowerInvariant();
+        if (side is not ("left" or "right"))
+        {
+            return "Keep faces and important story action away from the centre of the spread, "
+                + "where the fold falls.";
+        }
+
+        var heroSide = side == "left" ? "right" : "left";
+
+        return $"""
+            Composition, which is a hard requirement of this page and not a preference: the
+            {side} third of the image is reserved for story text that will be printed over it.
+            Fill that third with quiet background only — open sky, distant landscape, mist, water,
+            or foliage in shadow. No character, no face, no hands and no part of the main action
+            may enter it.
+
+            Place the child and the story's action in the {heroSide} two thirds instead, and keep
+            every face clear of the vertical centre line, where the fold of the spread falls.
             """;
     }
 
