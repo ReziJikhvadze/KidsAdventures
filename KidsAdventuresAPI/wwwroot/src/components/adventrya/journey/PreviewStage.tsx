@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
 import { storeGuestPreviewIds } from "@/lib/api/auth";
-import { ApiError } from "@/lib/api/client";
+import { ApiError, resolveApiUrl } from "@/lib/api/client";
 import { THEME_ID_TO_API, type MasterStoryRunStatus, type StoryPageContent } from "@/lib/api/types";
 import { dataUrlToFile } from "@/lib/api/utils";
 import { formatGel, useLocale, useT } from "@/lib/i18n";
@@ -25,6 +25,16 @@ type Props = {
   onContinue: () => void;
 };
 
+// One book is one vision call + one whole-book call + a cover image, so the paid start must
+// happen once — but "once" guarded by a flag wedged the page: when the effect that set the
+// flag was torn down before its polling began (dev double-mounting, a dependency changing
+// mid-flight), the next run bailed on the flag and nobody was left polling. The server had
+// still been asked — the request is not cancellable and is already billed — so a whole book
+// was generated with nothing on screen waiting for it. Sharing the in-flight promise keeps
+// the guarantee while letting every later effect run await the same result and carry on.
+// Module scope on purpose: it must survive a remount.
+let inflightStart: Promise<string> | null = null;
+
 // Storage can throw — Safari in private mode is the usual culprit — and a book that is already
 // being written should not be lost to a failed write of its own id.
 function readPendingRunId(): string | null {
@@ -44,6 +54,9 @@ function writePendingRunId(runId: string): void {
 }
 
 function clearPendingRunId(): void {
+  // The shared start belongs to the run whose id is being discarded; keeping it would hand
+  // the next book the previous book's runId.
+  inflightStart = null;
   try {
     localStorage.removeItem(SESSION_KEYS.pendingBookRunId);
   } catch {
@@ -70,10 +83,6 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
   // deliberately never restored from storage, so reloading the page to retry threw away the
   // child's name, birth date, photo and everything else the parent had just typed.
   const [retryToken, setRetryToken] = useState(0);
-  // One book is one vision call + one whole-book call + a cover image. A remounted
-  // or re-run effect must not buy a second one, and `cancelled` alone only drops
-  // the result — the request is already in flight and already billed.
-  const requestedRef = useRef(false);
   // When the story finished, so the wait for its cover can be bounded from that moment rather
   // than from the start of a generation that takes minutes on its own.
   const readyAt = useRef(Infinity);
@@ -83,7 +92,6 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
       setLoading(false);
       return;
     }
-    if (requestedRef.current) return;
 
     // The draft is filled from the URL in a parent effect, and React runs child effects
     // first — so on the very first pass the world chosen on /themes has not arrived yet.
@@ -102,7 +110,6 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
     }
 
     setError(null);
-    requestedRef.current = true;
 
     let cancelled = false;
     let pollTimer = 0;
@@ -125,7 +132,13 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
               prev.preview
                 ? {
                     ...prev,
-                    preview: { ...prev.preview, coverImageDataUrl: status.coverImageUrl! },
+                    preview: {
+                      ...prev.preview,
+                      // Resolved against the API origin: the path renders against the page's
+                      // origin otherwise, which is the wrong host whenever the SPA and the
+                      // API are served separately.
+                      coverImageDataUrl: resolveApiUrl(status.coverImageUrl!),
+                    },
                   }
                 : prev,
             );
@@ -145,7 +158,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
         title: status.title || "",
         firstPageTitle: status.firstPageTitle || "",
         firstPageText: status.firstPageText || "",
-        coverImageDataUrl: status.coverImageUrl || "",
+        coverImageDataUrl: status.coverImageUrl ? resolveApiUrl(status.coverImageUrl) : "",
         pageCount: status.pageCount,
       };
 
@@ -247,26 +260,37 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
           ? dataUrlToFile(hero.photoDataUrl, `${hero.name || "hero"}.jpg`)
           : null;
 
-        const { runId } = await adventurePacksApi.startGuestPreview({
-          name: hero.name.trim() || t.common.fallbackHeroName,
-          age: ageFromBirthDate(hero.birthDate),
-          gender: hero.gender ?? undefined,
-          eyeColor: hero.eyeColor ?? undefined,
-          // Sent alongside the age we worked out, so the server can disagree with us and win.
-          birthDate: hero.birthDate || undefined,
-          // No silent default. A missing mapping used to fall back to "Dinosaurs", which
-          // is how choosing the star path produced a dinosaur book: the theme was wrong
-          // before the model ever saw it.
-          theme: apiTheme,
-          storyLanguage: locale,
-          optionalStoryNotes: draft.storyNotes || undefined,
-          photo,
-        });
+        // ??= is the once-guarantee: whichever effect run gets here first pays; every
+        // other run — including one that outlives it — awaits the same promise.
+        inflightStart ??= adventurePacksApi
+          .startGuestPreview({
+            name: hero.name.trim() || t.common.fallbackHeroName,
+            age: ageFromBirthDate(hero.birthDate),
+            gender: hero.gender ?? undefined,
+            eyeColor: hero.eyeColor ?? undefined,
+            // Sent alongside the age we worked out, so the server can disagree with us and win.
+            birthDate: hero.birthDate || undefined,
+            // No silent default. A missing mapping used to fall back to "Dinosaurs", which
+            // is how choosing the star path produced a dinosaur book: the theme was wrong
+            // before the model ever saw it.
+            theme: apiTheme,
+            storyLanguage: locale,
+            optionalStoryNotes: draft.storyNotes || undefined,
+            photo,
+          })
+          .then((r) => r.runId);
 
-        if (cancelled) return;
+        const runId = await inflightStart;
+
+        // Written before the cancelled check: the run exists and is billed whether or not
+        // this effect survived to see the response, and the id in storage is what lets the
+        // next run — or the next page load — pick the book up instead of buying another.
         writePendingRunId(runId);
+        if (cancelled) return;
         poll(runId);
       } catch (err) {
+        // A failed start is not "started": drop the shared promise so retry can try again.
+        inflightStart = null;
         if (cancelled) return;
         setError(err instanceof ApiError ? err.message : t.journey.preview.failed);
         setLoading(false);
@@ -278,8 +302,8 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
       window.clearInterval(stageTimer);
       window.clearTimeout(pollTimer);
     };
-    // Re-evaluated when the draft hydrates or the world changes; `requestedRef` is what
-    // guarantees the paid call itself still happens only once.
+    // Re-evaluated when the draft hydrates or the world changes; the shared `inflightStart`
+    // promise is what guarantees the paid call itself still happens only once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, draft.worldId, retryToken]);
 
@@ -389,8 +413,9 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
             className="button journey-primary"
             type="button"
             onClick={() => {
+              // clearPendingRunId also drops the shared in-flight start, so this really
+              // does buy a fresh book rather than resuming the failed one.
               clearPendingRunId();
-              requestedRef.current = false;
               setError(null);
               setProgressMessage(null);
               setLoaderStep(0);

@@ -1,5 +1,5 @@
 import { Check, Sparkles } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { PasswordlessAuthPanel } from "@/components/auth/PasswordlessAuthPanel";
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
@@ -20,7 +20,10 @@ const RETURN_PATH = "/create#checkout";
 export function AuthStage({ draft, onAuthenticated }: Props) {
   const WORLD_BY_ID = useWorldById();
   const t = useT();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, login } = useAuth();
+  // Dev skip state. Only ever read inside the import.meta.env.DEV block below.
+  const [devSkipBusy, setDevSkipBusy] = useState(false);
+  const [devSkipError, setDevSkipError] = useState<string | null>(null);
   const hero = primaryCharacter(draft);
   const worldId = (draft.worldId ?? "dinosaurs") as WorldId;
   const world = WORLD_BY_ID[worldId];
@@ -96,6 +99,37 @@ export function AuthStage({ draft, onAuthenticated }: Props) {
           </>
         }
       />
+
+      {import.meta.env.DEV && (
+        // Local development only — vite dev sets DEV; production builds eliminate this
+        // block entirely. Signs in as the seeded demo account (SeedOptions defaults, created
+        // by DatabaseSeeder when Seed:Enabled is on) so the journey can be exercised without
+        // real credentials. The isAuthenticated effect above then advances to checkout,
+        // where Stripe:BypassPayment — a user-secrets switch, also local-only — completes
+        // the order without payment.
+        <div className="ux-auth-dev-skip" style={{ marginTop: "1rem", textAlign: "center" }}>
+          <button
+            type="button"
+            className="button"
+            disabled={devSkipBusy}
+            onClick={async () => {
+              setDevSkipBusy(true);
+              setDevSkipError(null);
+              try {
+                await login("demo@adventurepacks.com", "Adventure123!");
+                // No navigation here: the effect watching isAuthenticated calls
+                // onAuthenticated, the same path a real sign-in takes.
+              } catch (err) {
+                setDevSkipError(err instanceof Error ? err.message : "Demo login failed.");
+                setDevSkipBusy(false);
+              }
+            }}
+          >
+            {devSkipBusy ? "Signing in as demo…" : "DEV: Skip — continue as local demo"}
+          </button>
+          {devSkipError && <p className="ux-form-error">{devSkipError}</p>}
+        </div>
+      )}
     </section>
   );
 }

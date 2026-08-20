@@ -19,6 +19,23 @@ export function getApiBaseUrl(): string {
   return base.replace(/\/$/, "");
 }
 
+/**
+ * Resolves a path the API returned in a response body — "/api/…/cover" — against the API's
+ * own origin rather than the page's.
+ *
+ * The API hands back same-origin paths, which render fine when one host serves both the SPA
+ * and the API, and silently break when they are split — dev (Vite on one port, the API on
+ * another) and the separate-App-Service deployment both put the page on a different origin,
+ * so an <img> resolves the path against the wrong host and gets that host's 404 page.
+ * Absolute URLs and data: URLs pass through untouched.
+ */
+export function resolveApiUrl(path: string): string {
+  if (!path || path.includes("://") || path.startsWith("data:")) {
+    return path;
+  }
+  return `${getApiBaseUrl()}${path.startsWith("/") ? "" : "/"}${path}`;
+}
+
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(TOKEN_KEY);
