@@ -45,6 +45,18 @@ export async function confirmOrder(orderId: string): Promise<OrderStatusResponse
   });
 }
 
+/**
+ * The poll ran out of patience but nothing went wrong: the book is still being drawn.
+ * A separate type because the caller must not paint this as a failure — a Beki book is
+ * nine reviewed images and can honestly take longer than any polling window.
+ */
+export class OrderStillWorkingError extends Error {
+  constructor() {
+    super("წიგნი ჯერ კიდევ იქმნება.");
+    this.name = "OrderStillWorkingError";
+  }
+}
+
 export async function pollOrderUntilReady(
   orderId: string,
   onProgress?: (status: OrderStatusResponse) => void,
@@ -65,5 +77,5 @@ export async function pollOrderUntilReady(
     await new Promise((r) => setTimeout(r, intervalMs));
   }
 
-  throw new Error("წიგნი ჯერ კიდევ იქმნება — შეამოწმე Dashboard ცოტა ხანში.");
+  throw new OrderStillWorkingError();
 }

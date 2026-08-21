@@ -730,3 +730,25 @@
     overflow: hidden;
   }
 }
+
+/* Desktop reader: everything reachable, ideally without scrolling at all.
+
+   The base .screen rule clamps to 100svh with overflow:hidden, which on short windows cut
+   the bottom of the open book and its page controls off with no way to scroll to them —
+   the exact fault the dashboard shell already fixed for itself. The shell is unclamped the
+   same way here, and the open spread additionally derives its width from the viewport's
+   height (volume is 2×--book-width at a 1.45 aspect, plus ~240px of header, controls and
+   breathing room), so on any normal window the whole book and its controls fit on screen
+   and scrolling stays a safety net rather than the only way to reach a button. Scoped to
+   desktop widths: below 781px the responsive sheet owns --book-width. */
+@media (min-width: 781px) {
+  .screen.reader-shell {
+    height: auto;
+    max-height: none;
+    min-height: 100svh;
+    overflow: visible;
+  }
+  .reader-shell .storybook {
+    --book-width: min(390px, max(260px, calc((100svh - 240px) * 0.725)));
+  }
+}

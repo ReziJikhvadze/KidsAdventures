@@ -123,6 +123,22 @@ export function DashboardScreen() {
     };
   }, [authLoading, isAuthenticated]);
 
+  // A book still being drawn becomes ready without the parent refreshing: while any pack is
+  // mid-generation the shelf re-asks for the list, and that card's loader turns into the
+  // Reader and PDF buttons the moment the pipeline completes.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (!packs.some((p) => isPackGenerating(p.status))) return;
+    const timer = window.setInterval(() => {
+      void listAdventurePacks()
+        .then((fresh) => setPacks(fresh))
+        .catch(() => {
+          /* a failed refresh keeps the current shelf; the next tick tries again */
+        });
+    }, 10000);
+    return () => window.clearInterval(timer);
+  }, [packs, isAuthenticated]);
+
   useEffect(() => {
     if (!characterId || !isAuthenticated) {
       setMap(null);
@@ -657,6 +673,15 @@ export function DashboardScreen() {
   );
 }
 
+/**
+ * A pack the pipeline is still drawing. "GeneratingPdf" is deliberately absent: that state
+ * belongs to a finished book whose print file is being built on demand, and the card's own
+ * PDF button already narrates it.
+ */
+function isPackGenerating(status: AdventurePackResponse["status"]): boolean {
+  return status === "Pending" || status === "Generating" || status === "GeneratingStory";
+}
+
 function LibraryBookCard({
   pack,
   index,
@@ -727,15 +752,30 @@ function LibraryBookCard({
           {world.theme} · {format}
         </small>
         <h3>{title}</h3>
-        <div>
-          <Link to="/reader/$bookId" params={{ bookId: pack.id }}>
-            Online Reader
-          </Link>
-          <button type="button" onClick={() => void handlePdf()} disabled={pdfBusy}>
-            <Download aria-hidden="true" /> {pdfBusy ? "მზადდება…" : "PDF"}
-          </button>
-        </div>
-        {pdfError ? <small role="alert">{pdfError}</small> : null}
+        {isPackGenerating(pack.status) ? (
+          // No Reader link and no PDF button for a book that does not exist yet — a download
+          // control on a half-drawn book reads as broken. The loader narrates the pipeline's
+          // own progress message and the card flips to the real buttons when it completes.
+          <div className="library-generating" role="status">
+            <i aria-hidden="true" />
+            <span>
+              {pack.progressMessage || "წიგნი იხატება…"}
+              {typeof pack.progressPercent === "number" ? ` · ${pack.progressPercent}%` : ""}
+            </span>
+          </div>
+        ) : (
+          <>
+            <div>
+              <Link to="/reader/$bookId" params={{ bookId: pack.id }}>
+                Online Reader
+              </Link>
+              <button type="button" onClick={() => void handlePdf()} disabled={pdfBusy}>
+                <Download aria-hidden="true" /> {pdfBusy ? "მზადდება…" : "PDF"}
+              </button>
+            </div>
+            {pdfError ? <small role="alert">{pdfError}</small> : null}
+          </>
+        )}
         {hasPrint ? (
           <div className="library-print-status">
             <Package aria-hidden="true" />

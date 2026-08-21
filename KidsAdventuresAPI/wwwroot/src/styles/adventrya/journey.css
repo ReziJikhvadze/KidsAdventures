@@ -1638,3 +1638,19 @@
   border-color: rgba(255, 214, 130, 0.85);
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
 }
+
+/* The poll ran out but the book is fine. A calm card, deliberately nothing like the error
+   styling: this state means "still drawing", and a parent who reads it as failure closes
+   the tab on a book that is minutes from done. */
+.generation-still-working {
+  margin-top: 14px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(255, 248, 235, 0.08);
+  border: 1px solid rgba(255, 214, 130, 0.35);
+}
+.generation-still-working p {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.55;
+}

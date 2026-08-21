@@ -324,6 +324,35 @@
   display: flex;
   gap: 7px;
 }
+/* A book the pipeline is still drawing: the card narrates progress instead of offering a
+   Reader link and a PDF button for pages that do not exist yet. */
+.library-generating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--deep-violet);
+  opacity: 0.85;
+}
+.library-generating i {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(59, 42, 103, 0.2);
+  border-top-color: var(--deep-violet);
+  border-radius: 50%;
+  animation: library-generating-spin 0.9s linear infinite;
+}
+@keyframes library-generating-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .library-generating i {
+    animation: none;
+  }
+}
 .library-book a,
 .library-book button {
   height: 31px;

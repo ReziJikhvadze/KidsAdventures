@@ -5,6 +5,8 @@ import { useNavigate } from "@tanstack/react-router";
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
 import { ApiError } from "@/lib/api/client";
 import * as ordersApi from "@/lib/api/orders";
+import { OrderStillWorkingError } from "@/lib/api/orders";
+import type { OrderStatusResponse } from "@/lib/api/types";
 import { useT } from "@/lib/i18n";
 import { primaryCharacter, type JourneyDraft } from "@/lib/journey/draft";
 import { useWorldById, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
@@ -26,6 +28,9 @@ export function GeneratingStage({ draft, onChange }: Props) {
 
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // The polling window ran out but the book is fine — a calm notice, never an error. A Beki
+  // book is nine reviewed illustrations; taking longer than the poll is normal, not a fault.
+  const [stillWorking, setStillWorking] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   // The spreads drawn so far, in page order. Real pictures beat a spinner: the book takes
   // minutes, and each finished illustration appearing here is the proof something is happening.
@@ -56,11 +61,23 @@ export function GeneratingStage({ draft, onChange }: Props) {
           /* confirm is best-effort when webhook already ran */
         }
 
-        const status = await ordersApi.pollOrderUntilReady(orderId, (current) => {
-          if (cancelled) return;
-          setProgress(current.progressMessage ?? null);
-          if (current.bookId) onChange({ bookId: current.bookId });
-        });
+        // A poll window that runs out is not a failure — the notice goes up and polling
+        // simply starts again, so a parent who stays on this page is still taken to the
+        // finished book, however long it took to draw.
+        let status: OrderStatusResponse | null = null;
+        while (status === null) {
+          try {
+            status = await ordersApi.pollOrderUntilReady(orderId, (current) => {
+              if (cancelled) return;
+              setProgress(current.progressMessage ?? null);
+              if (current.bookId) onChange({ bookId: current.bookId });
+            });
+          } catch (err) {
+            if (cancelled) return;
+            if (!(err instanceof OrderStillWorkingError)) throw err;
+            setStillWorking(true);
+          }
+        }
 
         if (cancelled) return;
         onChange({ bookId: status.bookId ?? draft.bookId });
@@ -206,6 +223,22 @@ export function GeneratingStage({ draft, onChange }: Props) {
           ))}
         </ul>
         {progress ? <p>{progress}</p> : null}
+        {stillWorking && !error ? (
+          <div className="generation-still-working">
+            <p>
+              წიგნის მომზადებას ჩვეულებრივზე ცოტა მეტი დრო სჭირდება — ის ისევ იხატება და
+              არაფერი დაკარგულა. შეგიძლია აქ დაელოდო, ან მოგვიანებით დაფაზე ნახო: როგორც კი
+              მზად იქნება, იქ გამოჩნდება.
+            </p>
+            <button
+              className="button journey-primary"
+              type="button"
+              onClick={() => void navigate({ to: "/dashboard" })}
+            >
+              დაფაზე გადასვლა
+            </button>
+          </div>
+        ) : null}
         {error ? (
           <div>
             <p className="ux-form-error">{error}</p>
