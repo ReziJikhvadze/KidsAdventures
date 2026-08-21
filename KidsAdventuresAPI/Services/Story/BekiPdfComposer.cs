@@ -657,7 +657,7 @@ public sealed class BekiPdfComposer(IOptions<BekiPrintLayoutOptions> options) : 
     {
         if (_bekiVisualLoaded) return _bekiVisual;
 
-        var path = Path.Combine(AppContext.BaseDirectory, "Assets", "Beki", "beki-canonical-v1.png");
+        var path = Path.Combine(AppContext.BaseDirectory, BekiIdentity.ReferenceAssetPath);
         _bekiVisual = File.Exists(path) ? File.ReadAllBytes(path) : null;
         _bekiVisualLoaded = true;
         return _bekiVisual;

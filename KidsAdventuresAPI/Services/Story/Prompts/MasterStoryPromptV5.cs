@@ -44,6 +44,10 @@ public static class MasterStoryPromptV5
         elsewhere and is not yours to invent: no visual detail about what Beki looks like belongs
         in any scene, in characterLock, or in a cast entry.
 
+        For the story's words only: Beki is a small, floating, magical leaf spirit who remembers
+        the child's earlier adventures. If the text ever names what Beki is, it says a leaf
+        spirit — never a lamb, a sheep, or any animal.
+
         Beki must appear in spread 1 and in spread {input.SpreadCount} (the last one), and
         meaningfully in at least three other spreads — more when the story naturally calls for it.
         The child stays the protagonist throughout: the child makes the important decisions, and

@@ -673,12 +673,14 @@ public sealed class BekiVisualPipeline(
     /// the lock explicitly rather than inferring it from a picture.
     /// </summary>
     private const string BekiCanonDescription = """
-        Beki is the platform's canonical magical lamb guide: a cream wool body with a soft
-        felted tactile texture, a dark purple face and limbs, long floppy purple ears, warm
-        golden eyes, and a distinctive cream wool tuft on the head. Round childlike
-        proportions, small and secondary to the child.
-        Never: realistic sheep anatomy, recoloured wool, short or reshaped ears, horns,
-        unapproved clothing, duplication, merging with another character, or any framing
-        that makes Beki visually dominant over the child.
+        Beki is the platform's canonical guide: a small abstract floating leaf spirit — never
+        a lamb, animal or human. A plum-violet face with no nose and no ears, large warm
+        golden eyes, a sincere open smile, a layered cream-gold leaf body that is anatomy
+        rather than clothing, one broad leaf spiral above the head, one long rear leaf-ribbon,
+        a glowing golden memory core in the chest, short violet arms with five-lobed hands,
+        and a tapered floating lower body with no legs. Small and secondary to the child.
+        Never: animal anatomy, ears, horns, wings, legs, hair, clothing, human fingers,
+        duplication, merging with another character, or any framing that makes Beki visually
+        dominant over the child.
         """;
 }

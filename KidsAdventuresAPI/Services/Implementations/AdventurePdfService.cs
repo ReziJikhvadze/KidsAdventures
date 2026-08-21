@@ -641,7 +641,7 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
     {
         try
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "Assets", "Beki", "beki-canonical-v1.png");
+            var path = Path.Combine(AppContext.BaseDirectory, Services.Story.BekiIdentity.ReferenceAssetPath);
             return File.Exists(path) ? File.ReadAllBytes(path) : null;
         }
         catch

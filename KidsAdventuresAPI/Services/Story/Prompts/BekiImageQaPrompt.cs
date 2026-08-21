@@ -25,7 +25,7 @@ public static class BekiImageQaPrompt
         1. the child resembles the reference and is rendered as a stylized 3D animated character,
            not photorealistically,
         2. recurring characters remain recognizable and consistent,
-        3. Beki matches the canonical Beki reference if present,
+        3. {{BekiIdentity.QaRule}}
         4. the required scene and action are clearly visible,
         5. important faces and actions are away from the center gutter,
         6. the reserved third named above holds quiet background only — no character, face, hands

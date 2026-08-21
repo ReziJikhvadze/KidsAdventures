@@ -125,7 +125,7 @@ public sealed class BekiBookGenerator(
     /// </summary>
     public const int MaxRegenerations = 1;
 
-    private const string BekiReferencePath = "Assets/Beki/beki-canonical-v1.png";
+    private const string BekiReferencePath = BekiIdentity.ReferenceAssetPath;
 
     private readonly BekiPrintLayoutOptions _layout = printLayoutOptions.Value;
 
@@ -360,10 +360,7 @@ public sealed class BekiBookGenerator(
         var prompt = IllustrationPrompt.ComposeBeki(
             plan.CharacterLock,
             plan.Cover.Scene,
-            beki is null
-                ? string.Empty
-                : "Include Beki, the story's guide, exactly as shown in the provided Beki reference; "
-                  + "Beki stands with the child as a warm, lovable companion and never in front of them.",
+            beki is null ? string.Empty : BekiIdentity.CoverContinuity,
             // The cover has no story text over it, so no side is reserved; "either" reads as a
             // free composition to the model rather than as a constraint it must satisfy.
             "either",
@@ -377,7 +374,7 @@ public sealed class BekiBookGenerator(
 
         if (beki is not null)
         {
-            references.Add((beki, "image/png", "Beki master reference — the sole authority for Beki's design"));
+            references.Add((beki, "image/png", BekiIdentity.ReferenceLabel));
         }
 
         return await DrawReviewedAsync(
@@ -460,11 +457,8 @@ public sealed class BekiBookGenerator(
             var beki = LoadBekiReference(warnings, $"spread {spread.Number}");
             if (beki is not null)
             {
-                references.Add((beki, "image/png", "Beki master reference — the sole authority for Beki's design"));
-                continuity.Add(
-                    "Beki appears in this scene: include Beki exactly as shown in the Beki master "
-                    + "reference, as the child's warm companion — never leading the action, and "
-                    + "never duplicated.");
+                references.Add((beki, "image/png", BekiIdentity.ReferenceLabel));
+                continuity.Add(BekiIdentity.SpreadContinuity);
             }
         }
 

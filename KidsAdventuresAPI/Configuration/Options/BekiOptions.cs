@@ -103,8 +103,8 @@ public sealed class BekiOptions
     public int MaxPageRegenerationAttempts { get; set; } = 1;
 
     /// <summary>Canonical Beki asset, attached only to pages whose cast includes Beki.</summary>
-    public string BekiReferenceAssetPath { get; set; } = "Assets/Beki/beki-canonical-v1.png";
-    public string BekiAssetVersion { get; set; } = "beki-canonical-v1";
+    public string BekiReferenceAssetPath { get; set; } = Services.Story.BekiIdentity.ReferenceAssetPath;
+    public string BekiAssetVersion { get; set; } = Services.Story.BekiIdentity.Version;
 
     /// <summary>Visual review thresholds. Configurable because they need tuning against real output.</summary>
     public BekiReviewThresholds ReviewThresholds { get; set; } = new();
