@@ -30,10 +30,11 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
 
         var pdf = Compose().Compose(plan, PixelPng(), spreads);
 
-        // Cover, one page per spread, and the closing QR leaf. The spread is one page, not two:
-        // the fold is the printer's to impose, and splitting it here would put a seam through
-        // every picture.
-        Assert.Equal(BookFormat.SpreadCount + 2, CountPages(pdf));
+        // Cover, front endpaper, the P1 invitation, one page per spread, the P18 closing leaf,
+        // back endpaper and back cover — six fixed pages around the spreads. The spread is one
+        // page, not two: the fold is the printer's to impose, and splitting it here would put a
+        // seam through every picture.
+        Assert.Equal(BookFormat.SpreadCount + 6, CountPages(pdf));
     }
 
     /// <summary>
@@ -78,7 +79,7 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
 
         var pdf = Compose().Compose(plan, PixelPng(), spreads);
 
-        Assert.Equal(BookFormat.SpreadCount + 3, CountPages(pdf));
+        Assert.Equal(BookFormat.SpreadCount + 7, CountPages(pdf));
     }
 
     [SkippableFact]
@@ -123,7 +124,7 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
 
         output.WriteLine($"{plan.Concept.Title}: {CountPages(pdf)} pages → {outputPath}");
         output.WriteLine($"page images → {pageDirectory}");
-        Assert.Equal(spreads.Count + 2, CountPages(pdf));
+        Assert.Equal(spreads.Count + 6, CountPages(pdf));
     }
 
     private static BekiPdfComposer Compose(BekiPrintLayoutOptions? layout = null) =>

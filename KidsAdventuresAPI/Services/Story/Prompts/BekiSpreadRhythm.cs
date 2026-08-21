@@ -14,13 +14,18 @@ namespace AdventurePacks.Api.Services.Story.Prompts;
 public static class BekiSpreadRhythm
 {
     /// <summary>
-    /// Right, on every spread. The handoff's table alternated sides, and the product decision
-    /// that replaced it is simpler: story text is always set on the right leaf, so every
-    /// illustration keeps its right third quiet. One rule the reader can rely on page after
-    /// page, and one fewer axis for a generation to get wrong.
+    /// Left, right, left, right, left, right, left, left — the handoff's own alternation (§15),
+    /// not a code simplification of it. A book that set its text on the same leaf spread after
+    /// spread would read as a slideshow with the Georgian always landing in the same corner;
+    /// alternating is what makes the reader's eye move the way a real page-turn does.
+    ///
+    /// Spread 8 breaks the pattern on purpose. Its lower-right corner is where the Continue
+    /// Adventure QR lives, and a QR shares a corner with nothing — so the eighth spread is
+    /// forced left instead of following the alternation to "right", the one deliberate
+    /// exception in an otherwise mechanical rule.
     /// </summary>
     private static readonly string[] TextSides =
-        ["right", "right", "right", "right", "right", "right", "right", "right"];
+        ["left", "right", "left", "right", "left", "right", "left", "left"];
 
     /// <summary>
     /// One short sentence each, as the handoff asks. They name the intent of the beat rather than

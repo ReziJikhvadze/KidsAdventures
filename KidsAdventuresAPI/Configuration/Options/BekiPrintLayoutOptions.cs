@@ -38,11 +38,21 @@ public sealed class BekiPrintLayoutOptions
     public float BleedMm { get; set; } = 3f;
 
     /// <summary>
-    /// How far the story text stays clear of the trim. Larger than the A5 book's margin because
-    /// this text sits over artwork rather than on paper, and a line that runs close to the edge of
-    /// a picture reads as part of the picture.
+    /// How far the story text stays clear of the trim — the spec's outer safe area. Larger than
+    /// the A5 book's margin because this text sits over artwork rather than on paper, and a line
+    /// that runs close to the edge of a picture reads as part of the picture.
     /// </summary>
-    public float SafeMarginMm { get; set; } = 14f;
+    public float SafeMarginMm { get; set; } = 12f;
+
+    /// <summary>
+    /// The width of the low-information band straddling the fold, in millimetres — half of it
+    /// falls on each page. A print gutter swallows a sliver of the sheet into the binding, and
+    /// even before a printer's own imposition is known, nothing planned this close to the fold
+    /// should be trusted to survive it. Not yet wired into a dedicated layout check — that is
+    /// future QA — but used now to hold the story text column's inner edge back from the fold on
+    /// every spread, so a widened <see cref="TextColumnShare"/> can never quietly creep into it.
+    /// </summary>
+    public float GutterZoneMm { get; set; } = 30f;
 
     /// <summary>
     /// The share of the spread reserved for story text — the same third the illustrator was told
@@ -72,12 +82,34 @@ public sealed class BekiPrintLayoutOptions
     /// </summary>
     public float TextOutlineWidth { get; set; } = 0.6f;
 
-    /// <summary>Where the closing page's QR code sends the reader.</summary>
+    /// <summary>
+    /// Where spread 8's Continue Adventure QR sends the reader. Used to be the closing page's own
+    /// code as well, back when one URL did both jobs; <see cref="ReviewQrUrl"/> is the one that
+    /// took over the closing page, so each code can be repointed without disturbing the other.
+    /// </summary>
     public string EndingQrUrl { get; set; } = "https://beki.ge";
+
+    /// <summary>
+    /// Where the closing page's rate-us QR sends the reader — see <see cref="EndingQrUrl"/> for
+    /// the sibling that stayed behind on spread 8.
+    /// </summary>
+    public string ReviewQrUrl { get; set; } = "https://beki.ge";
 
     /// <summary>The closing line. Reusable across every order, as the handoff's P18 asks.</summary>
     public string EndingLine { get; set; } = "ამბავი აქ მთავრდება — თავგადასავალი კი გრძელდება.";
 
     /// <summary>Printed under the QR code, saying what scanning it is for.</summary>
     public string EndingQrCaption { get; set; } = "შეაფასე ბეკის წიგნი";
+
+    /// <summary>
+    /// P1's line, set beside the Beki visual — the book's first words, before the story itself
+    /// begins. Reusable across every order, like P1 as a whole.
+    /// </summary>
+    public string InvitationLine { get; set; } = "მზად ხარ? ბეკი გელოდება.";
+
+    /// <summary>
+    /// The short line beside spread 8's Continue Adventure QR, so the code reads as an invitation
+    /// rather than a bare square the reader has to guess the purpose of.
+    /// </summary>
+    public string ContinueCtaText { get; set; } = "განაგრძე თავგადასავალი ბეკისთან";
 }
