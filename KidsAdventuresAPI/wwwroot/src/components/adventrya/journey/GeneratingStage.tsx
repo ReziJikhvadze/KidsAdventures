@@ -41,7 +41,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
       setStep((s) => Math.min(s + 1, t.journey.generating.stages.length - 1));
     }, 8000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [t.journey.generating.stages.length]);
 
   useEffect(() => {
     const orderId = draft.orderId;
@@ -226,9 +226,9 @@ export function GeneratingStage({ draft, onChange }: Props) {
         {stillWorking && !error ? (
           <div className="generation-still-working">
             <p>
-              წიგნის მომზადებას ჩვეულებრივზე ცოტა მეტი დრო სჭირდება — ის ისევ იხატება და
-              არაფერი დაკარგულა. შეგიძლია აქ დაელოდო, ან მოგვიანებით დაფაზე ნახო: როგორც კი
-              მზად იქნება, იქ გამოჩნდება.
+              წიგნის მომზადებას ჩვეულებრივზე ცოტა მეტი დრო სჭირდება — ის ისევ იხატება და არაფერი
+              დაკარგულა. შეგიძლია აქ დაელოდო, ან მოგვიანებით დაფაზე ნახო: როგორც კი მზად იქნება, იქ
+              გამოჩნდება.
             </p>
             <button
               className="button journey-primary"

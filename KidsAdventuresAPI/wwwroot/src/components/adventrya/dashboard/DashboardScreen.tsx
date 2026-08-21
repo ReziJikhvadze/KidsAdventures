@@ -596,8 +596,8 @@ export function DashboardScreen() {
             // Silence here read as a bug: books existed, just under another child's name.
             // Say whose shelf this is and where the books actually are.
             <p className="map-library-empty">
-              {heroName}-ს ჯერ წიგნი არ აქვს. სხვა ბავშვის წიგნები მარცხენა სიაში მისი
-              პროფილის არჩევით გამოჩნდება.
+              {heroName}-ს ჯერ წიგნი არ აქვს. სხვა ბავშვის წიგნები მარცხენა სიაში მისი პროფილის
+              არჩევით გამოჩნდება.
             </p>
           ) : null}
 
