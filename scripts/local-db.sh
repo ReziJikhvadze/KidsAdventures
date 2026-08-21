@@ -10,6 +10,11 @@
 # API's migrator replays Data/Scripts from 001. Nothing survives a reboot and
 # nothing touches a real database.
 #
+# sqlcmd talks to the container with encryption disabled (-N disable). The engine
+# generates a fresh self-signed certificate on every container start, and go-sqlcmd
+# refuses certificates whose serial number parses negative — a coin flip per start.
+# The API is immune for the same reason: its connection string says Encrypt=False.
+#
 # The SA password is a fixed local constant on purpose: the port is bound to
 # 127.0.0.1 only, and a throwaway container that resets on restart has no
 # secret worth protecting. Never reuse it anywhere else.
@@ -31,7 +36,7 @@ conn_string() {
 wait_ready() {
   echo -n "waiting for SQL Server"
   for _ in $(seq 1 90); do
-    if sqlcmd -S "127.0.0.1,${PORT}" -U sa -P "${SA_PASSWORD}" -C -Q "SELECT 1" >/dev/null 2>&1; then
+    if sqlcmd -S "127.0.0.1,${PORT}" -U sa -P "${SA_PASSWORD}" -C -N disable -Q "SELECT 1" >/dev/null 2>&1; then
       echo " ready"
       return 0
     fi
@@ -60,7 +65,7 @@ up() {
   fi
 
   wait_ready
-  sqlcmd -S "127.0.0.1,${PORT}" -U sa -P "${SA_PASSWORD}" -C \
+  sqlcmd -S "127.0.0.1,${PORT}" -U sa -P "${SA_PASSWORD}" -C -N disable \
     -Q "IF DB_ID(N'${DB_NAME}') IS NULL CREATE DATABASE [${DB_NAME}];"
   echo "database ${DB_NAME} ready"
   echo
@@ -73,7 +78,7 @@ case "${1:-up}" in
   up)    up ;;
   down)  docker rm -f "${CONTAINER}" >/dev/null 2>&1 && echo "removed ${CONTAINER}" || echo "not running" ;;
   reset) "$0" down; "$0" up ;;
-  psql)  sqlcmd -S "127.0.0.1,${PORT}" -U sa -P "${SA_PASSWORD}" -C -d "${DB_NAME}" ;;
+  psql)  sqlcmd -S "127.0.0.1,${PORT}" -U sa -P "${SA_PASSWORD}" -C -N disable -d "${DB_NAME}" ;;
   conn)  conn_string ;;
   *)     echo "usage: $0 {up|down|reset|psql|conn}" >&2; exit 1 ;;
 esac
