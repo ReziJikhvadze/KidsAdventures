@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.Infrastructure;
 using AdventurePacks.Api.Services.Interfaces;
@@ -54,7 +55,16 @@ public interface IBekiBookGenerator
     /// <param name="onImage">
     /// Called once per finished illustration, in drawing order, before the next one starts.
     /// The book takes minutes and a parent is watching a spinner; this is how the pictures
-    /// reach them while the rest are still being drawn. Null when nobody is watching.
+    /// reach them while the rest are still being drawn. Null when nobody is watching. Not called
+    /// for a spread adopted from <paramref name="existingSpreads"/> — it was already delivered
+    /// the run that drew it.
+    /// </param>
+    /// <param name="existingSpreads">
+    /// Accepted artwork a previous, interrupted attempt at this same book already produced,
+    /// keyed by spread number. Resuming a fulfilment job redraws only the spreads missing from
+    /// here — the rest are adopted outright, with no second review and no second bill. Null (the
+    /// default) means nothing survives from an earlier attempt, which is every caller but the
+    /// resumable fulfilment job.
     /// </param>
     Task<BekiBookResult> IllustrateAsync(
         MasterStory plan,
@@ -62,7 +72,19 @@ public interface IBekiBookGenerator
         string childPhotoContentType,
         byte[]? existingCover,
         Func<BekiImageResult, Task>? onImage,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<int, byte[]>? existingSpreads = null);
+
+    /// <summary>
+    /// The Beki cover alone: the child and the Beki master reference, QA-reviewed exactly as
+    /// fulfilment draws it. Exposed so a preview can carry the same cover the parent will get if
+    /// they buy the book, instead of the legacy single-reference cover the A5 flow has always
+    /// drawn. There is no warnings list here for a single image to report into — a missing Beki
+    /// reference or a refused review surface through the result's own
+    /// <see cref="BekiImageResult.Verdict"/> and through this generator's logger instead.
+    /// </summary>
+    Task<BekiImageResult> DrawCoverAsync(
+        MasterStory plan, byte[] childPhoto, string childPhotoContentType, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -86,6 +108,7 @@ public interface IBekiBookGenerator
 public sealed class BekiBookGenerator(
     IStoryModelClient storyClient,
     IOpenAiService openAi,
+    IOptions<BekiPrintLayoutOptions> printLayoutOptions,
     ILogger<BekiBookGenerator> logger) : IBekiBookGenerator
 {
     /// <summary>
@@ -103,6 +126,29 @@ public sealed class BekiBookGenerator(
     public const int MaxRegenerations = 1;
 
     private const string BekiReferencePath = "Assets/Beki/beki-canonical-v1.png";
+
+    private readonly BekiPrintLayoutOptions _layout = printLayoutOptions.Value;
+
+    /// <summary>
+    /// Read once per generator instance and kept: the file never changes mid-run, and a book
+    /// draws it up to nine times — the cover and every spread that carries Beki.
+    /// </summary>
+    private byte[]? _cachedBekiReference;
+    private bool _bekiReferenceLoadAttempted;
+
+    /// <summary>
+    /// QA must judge what the reader will see, not pixels the print crop discards.
+    /// <see cref="BekiPdfComposer"/> centre-crops every render to its sheet at layout time, so
+    /// the reviewer is shown that same crop rather than the full 3:2 provider frame — a face the
+    /// print will trim away should not be able to fail a review, and a face the print keeps
+    /// should not be able to hide from one behind a background band that never ships.
+    /// </summary>
+    private float SpreadCropRatio =>
+        (_layout.SpreadWidthMm + (_layout.BleedMm * 2)) / (_layout.SpreadHeightMm + (_layout.BleedMm * 2));
+
+    /// <summary>The cover prints as a single leaf, half the spread — see <see cref="SpreadCropRatio"/>.</summary>
+    private float CoverCropRatio =>
+        (_layout.PageWidthMm + (_layout.BleedMm * 2)) / (_layout.SpreadHeightMm + (_layout.BleedMm * 2));
 
     public async Task<BekiBookResult> GenerateAsync(
         MasterStoryInput input,
@@ -131,12 +177,39 @@ public sealed class BekiBookGenerator(
         string childPhotoContentType,
         byte[]? existingCover,
         Func<BekiImageResult, Task>? onImage,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<int, byte[]>? existingSpreads = null)
     {
         var warnings = new List<string>();
+        var adopted = existingSpreads ?? new Dictionary<int, byte[]>();
 
         var castById = (plan.Cast ?? []).ToDictionary(member => member.Id, StringComparer.OrdinalIgnoreCase);
         var anchors = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+
+        /*
+          Adopted spreads anchor first, before a single new picture is drawn.
+
+          A resumed run redraws only the holes a previous attempt left; every adopted spread is
+          already part of the book the parent will read, so a redrawn hole has to be drawn against
+          it, not against nothing. Anchoring here — ahead of the loop below — means a redrawn
+          spread 3 sees char_01's face from an adopted spread 2 exactly as it would if spread 2
+          had just been drawn in this same run.
+        */
+        foreach (var spread in plan.Spreads.OrderBy(s => s.Number))
+        {
+            if (!adopted.TryGetValue(spread.Number, out var adoptedImage))
+            {
+                continue;
+            }
+
+            foreach (var id in spread.Characters ?? [])
+            {
+                if (castById.ContainsKey(id) && !anchors.ContainsKey(id))
+                {
+                    anchors[id] = adoptedImage;
+                }
+            }
+        }
 
         var cover = existingCover is null
             ? await DrawCoverAsync(plan, childPhoto, childPhotoContentType, warnings, cancellationToken)
@@ -152,8 +225,28 @@ public sealed class BekiBookGenerator(
         var spreads = new List<BekiImageResult>(plan.Spreads.Count);
         foreach (var spread in plan.Spreads.OrderBy(s => s.Number))
         {
-            var result = await DrawSpreadAsync(
-                plan, spread, castById, anchors, childPhoto, childPhotoContentType, cancellationToken);
+            BekiImageResult result;
+
+            if (adopted.TryGetValue(spread.Number, out var adoptedImage))
+            {
+                // Already accepted, already stored, already anchored above. Redrawing it would
+                // cost a generation for a picture the parent has effectively already seen.
+                result = new BekiImageResult
+                {
+                    SpreadNumber = spread.Number,
+                    Image = adoptedImage,
+                    Accepted = true,
+                    Verdict = "Adopted from a previous run's accepted artwork.",
+                    Attempts = 0,
+                    Prompt = string.Empty,
+                };
+
+                spreads.Add(result);
+                continue;
+            }
+
+            result = await DrawSpreadAsync(
+                plan, spread, castById, anchors, childPhoto, childPhotoContentType, warnings, cancellationToken);
 
             spreads.Add(result);
 
@@ -228,6 +321,26 @@ public sealed class BekiBookGenerator(
     }
 
     /// <summary>
+    /// <inheritdoc cref="IBekiBookGenerator.DrawCoverAsync" />
+    /// </summary>
+    public async Task<BekiImageResult> DrawCoverAsync(
+        MasterStory plan, byte[] childPhoto, string childPhotoContentType, CancellationToken cancellationToken)
+    {
+        var warnings = new List<string>();
+        var result = await DrawCoverAsync(plan, childPhoto, childPhotoContentType, warnings, cancellationToken);
+
+        // The public entry point has nobody to hand a book-wide warnings list to — a single cover
+        // call is not part of a book being assembled — so whatever IllustrateAsync would have
+        // folded into BekiBookResult.Warnings is logged here instead.
+        foreach (var warning in warnings)
+        {
+            logger.LogWarning("Beki cover: {Warning}", warning);
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// The cover, which is the one image with two references: the child and Beki.
     ///
     /// Its subject is the relationship rather than a scene from the story — the handoff asks for
@@ -242,7 +355,7 @@ public sealed class BekiBookGenerator(
         List<string> warnings,
         CancellationToken cancellationToken)
     {
-        var beki = LoadBekiReference(warnings);
+        var beki = LoadBekiReference(warnings, "the cover");
 
         var prompt = IllustrationPrompt.ComposeBeki(
             plan.CharacterLock,
@@ -278,6 +391,7 @@ public sealed class BekiBookGenerator(
         IReadOnlyDictionary<string, byte[]> anchors,
         byte[] childPhoto,
         string childPhotoContentType,
+        List<string> warnings,
         CancellationToken cancellationToken)
     {
         var textSide = BekiSpreadRhythm.TextSideFor(spread.Number);
@@ -334,6 +448,26 @@ public sealed class BekiBookGenerator(
             }
         }
 
+        /*
+          Beki is not a cast member — there is no entry for it in castById, and no
+          visualDescription to fall back on, because the canonical design lives in the reference
+          image alone. So it gets its own branch rather than joining the loop above: every spread
+          that carries Beki attaches the same master reference, described the same way, every
+          time — there is no "first appearance" for a character who is in almost every spread.
+        */
+        if ((spread.Characters ?? []).Any(id => id.Equals(BekiPlanValidator.BekiId, StringComparison.OrdinalIgnoreCase)))
+        {
+            var beki = LoadBekiReference(warnings, $"spread {spread.Number}");
+            if (beki is not null)
+            {
+                references.Add((beki, "image/png", "Beki master reference — the sole authority for Beki's design"));
+                continuity.Add(
+                    "Beki appears in this scene: include Beki exactly as shown in the Beki master "
+                    + "reference, as the child's warm companion — never leading the action, and "
+                    + "never duplicated.");
+            }
+        }
+
         var prompt = IllustrationPrompt.ComposeBeki(
             plan.CharacterLock,
             spread.Illustration.Scene,
@@ -366,10 +500,17 @@ public sealed class BekiBookGenerator(
         var label = spreadNumber is null ? "cover" : $"spread {spreadNumber}";
         var reference = BekiImageReferences.ToStoryImageReference(references);
 
+        // QA must judge what the reader will see, not pixels the print crop discards — a copy
+        // only, cropped to the sheet this image will actually be printed on. The stored/returned
+        // image below stays the full provider frame; BekiPdfComposer does its own crop at layout
+        // time.
+        var reviewRatio = spreadNumber is null ? CoverCropRatio : SpreadCropRatio;
+
         var image = await openAi.GenerateStoryImageAsync(
             prompt, reference, cancellationToken, SpreadImageSize);
 
-        var verdict = await ReviewAsync(image, scene, textSide, references, cancellationToken);
+        var verdict = await ReviewAsync(
+            SpreadArtCrop.CropToRatio(image, reviewRatio), scene, textSide, references, cancellationToken);
         var attempts = 1;
 
         while (!IsPass(verdict) && attempts <= MaxRegenerations)
@@ -380,7 +521,8 @@ public sealed class BekiBookGenerator(
             image = await openAi.GenerateStoryImageAsync(
                 corrected, reference, cancellationToken, SpreadImageSize);
 
-            verdict = await ReviewAsync(image, scene, textSide, references, cancellationToken);
+            verdict = await ReviewAsync(
+                SpreadArtCrop.CropToRatio(image, reviewRatio), scene, textSide, references, cancellationToken);
             attempts++;
         }
 
@@ -406,11 +548,36 @@ public sealed class BekiBookGenerator(
             image, BekiImageQaPrompt.For(scene, textSide), references, cancellationToken);
 
     /// <summary>
-    /// Forgiving about the wrapper, strict about the answer: a verdict inside a code fence is
-    /// still a verdict, and anything that is not recognisably a pass is a failure.
+    /// Forgiving about the wrapper, strict about the answer.
+    ///
+    /// A verdict inside a code fence is still a verdict — <see cref="ModelJsonSanitizer"/> pulls
+    /// the object out the same way <see cref="Corrections"/> does — but once it parses, only an
+    /// exact <c>"status":"PASS"</c> counts. A plain substring search used to accept a verdict that
+    /// merely mentioned PASS anywhere, including inside an issue explaining why something did NOT
+    /// pass; parsing the field is the difference between reading the verdict and reading around
+    /// it. The substring check survives only as the fallback for a verdict whose JSON will not
+    /// parse at all — and even then, anything unrecognisable stays a failure.
     /// </summary>
-    private static bool IsPass(string verdict) =>
-        verdict.Contains("\"PASS\"", StringComparison.OrdinalIgnoreCase);
+    private static bool IsPass(string verdict)
+    {
+        var json = ModelJsonSanitizer.ExtractJsonObject(verdict);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return verdict.Contains("\"PASS\"", StringComparison.OrdinalIgnoreCase);
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return document.RootElement.TryGetProperty("status", out var status)
+                && status.ValueKind == JsonValueKind.String
+                && string.Equals(status.GetString(), "PASS", StringComparison.OrdinalIgnoreCase);
+        }
+        catch (JsonException)
+        {
+            return verdict.Contains("\"PASS\"", StringComparison.OrdinalIgnoreCase);
+        }
+    }
 
     /// <summary>
     /// The faults out of the verdict, and nothing else.
@@ -512,25 +679,41 @@ public sealed class BekiBookGenerator(
     }
 
     /// <summary>
-    /// Beki's canonical picture. A missing file is a warning rather than a failure — a cover
-    /// drawn from the description alone is worse than one drawn from the reference, and better
-    /// than no book.
+    /// Beki's canonical picture. A missing file is a warning rather than a failure — an
+    /// illustration drawn from description alone is worse than one drawn from the reference, and
+    /// better than no book.
+    ///
+    /// The file read happens at most once per generator instance — a book can ask for it up to
+    /// nine times, for the cover and every spread that carries Beki, and it never changes
+    /// mid-run — but a warning is still added on every call that needed it and did not get it,
+    /// because <paramref name="warnings"/> is a different list for a single preview cover than
+    /// it is for a whole book, and each caller needs to know its own picture went without.
     /// </summary>
-    private byte[]? LoadBekiReference(List<string> warnings)
+    private byte[]? LoadBekiReference(List<string> warnings, string context)
     {
-        try
+        if (!_bekiReferenceLoadAttempted)
         {
-            var path = Path.Combine(AppContext.BaseDirectory, BekiReferencePath);
-            if (File.Exists(path)) return File.ReadAllBytes(path);
+            try
+            {
+                var path = Path.Combine(AppContext.BaseDirectory, BekiReferencePath);
+                if (File.Exists(path))
+                {
+                    _cachedBekiReference = File.ReadAllBytes(path);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Could not read the Beki master reference.");
+            }
 
-            warnings.Add("Beki master reference not found; the cover was drawn without it.");
-            return null;
+            _bekiReferenceLoadAttempted = true;
         }
-        catch (Exception ex)
+
+        if (_cachedBekiReference is null)
         {
-            logger.LogWarning(ex, "Could not read the Beki master reference.");
-            warnings.Add("Beki master reference could not be read; the cover was drawn without it.");
-            return null;
+            warnings.Add($"Beki master reference not found; {context} was drawn without it.");
         }
+
+        return _cachedBekiReference;
     }
 }

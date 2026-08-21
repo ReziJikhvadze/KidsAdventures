@@ -60,10 +60,20 @@ public static class BekiImageQaPrompt
               + "third was required to hold quiet background only, with no character, face, hands "
               + "or main action inside it. Faces and the key action were also required to stay "
               + "inside the central horizontal band, because the top and bottom sixths may be "
-              + "trimmed in print."
+              + $"trimmed in print. {GutterRule}"
             : "No story text is printed over this image, so no side was reserved. It is printed "
               + "as a single upright page cut from this wider frame, so the outer left and right "
               + "edges may be trimmed away: the hero and the calm title space were required to "
-              + "sit within the central portion. Judge the composition on those terms.";
+              + $"sit within the central portion. {GutterRule} Judge the composition on those terms.";
     }
+
+    /// <summary>
+    /// The same words <see cref="IllustrationPrompt"/> gives the illustrator, verbatim — a
+    /// reviewer checking a rule phrased differently from how it was asked for is how a spread
+    /// passes review carrying exactly the fault the rule exists to catch.
+    /// </summary>
+    private const string GutterRule =
+        "A narrow vertical strip at the exact centre of the frame was a low-information zone "
+        + "crossing the printed fold: background could continue through it, but no face, no eyes, "
+        + "no hands, no key object and no part of the main action was allowed to sit inside it.";
 }

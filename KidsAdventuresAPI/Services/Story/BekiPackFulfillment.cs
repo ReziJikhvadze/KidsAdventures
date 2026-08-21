@@ -4,12 +4,29 @@ using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
+using Hangfire;
 
 namespace AdventurePacks.Api.Services.Story;
 
 public interface IBekiPackFulfillment
 {
-    /// <summary>Hangfire entry point: draws the book, lays it out, and completes the pack.</summary>
+    /// <summary>
+    /// Hangfire entry point: draws the book, lays it out, and completes the pack.
+    ///
+    /// <see cref="DisableConcurrentExecutionAttribute"/> is declared here rather than only on the
+    /// implementation because jobs enqueued via <c>Enqueue&lt;IBekiPackFulfillment&gt;</c> carry
+    /// the interface's <c>MethodInfo</c>, and Hangfire's filter provider reads attributes off
+    /// exactly the method and type recorded on the job — the implementation's own copy of the
+    /// attribute is for a reader looking at that file, not for Hangfire. One pack, one worker at a
+    /// time: a book that costs nine images must never be drawn twice because a second worker
+    /// picked up the same job while the first was still running.
+    ///
+    /// The lock is keyed by the pack id ({0} is formatted from the first job argument), not by
+    /// the method alone. A method-keyed lock would serialize every Beki book in the system behind
+    /// whichever one is currently drawing — many minutes each — and unrelated paid orders would
+    /// queue up against the 1800-second timeout for no reason.
+    /// </summary>
+    [DisableConcurrentExecution("beki-pack:{0}", 1800)]
     Task ProcessAsync(Guid packId, Guid runId, CancellationToken cancellationToken);
 }
 
@@ -22,6 +39,15 @@ public static class BekiPackBlobs
 {
     public static string SpreadName(Guid userId, Guid packId, int spreadNumber) =>
         $"{userId}/{packId}/spread-{spreadNumber:00}.png";
+
+    /// <summary>
+    /// Where a resumable job's progress lives between attempts. Read and written by its bare
+    /// name, the way <see cref="IBlobStorageService.ExistsAsync"/> and
+    /// <see cref="IBlobStorageService.DownloadAsync"/> both address a blob — never by a stored
+    /// URL, which is exactly the mistake this whole product avoids: a key built by hand reads on
+    /// one storage backend and 404s on the other.
+    /// </summary>
+    public static string ManifestName(Guid userId, Guid packId) => $"{userId}/{packId}/fulfilment.json";
 }
 
 /// <summary>
@@ -47,11 +73,22 @@ public sealed class BekiPackFulfillment(
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    [DisableConcurrentExecution("beki-pack:{0}", 1800)]
     public async Task ProcessAsync(Guid packId, Guid runId, CancellationToken cancellationToken)
     {
         var pack = await packRepository.GetByIdNoOwnershipAsync(packId, cancellationToken);
         if (pack is null)
         {
+            return;
+        }
+
+        // A completed pack is not reprocessed. The lease above stops two workers overlapping on
+        // the same run; this stops a job that reaches this point a second time after the pack had
+        // already finished — a stalled-order sweep re-enqueuing generation whose first attempt
+        // had, in fact, already succeeded.
+        if (pack.Status == AdventurePackStatus.Completed)
+        {
+            logger.LogInformation("Beki pack {PackId} is already completed; skipping.", packId);
             return;
         }
 
@@ -80,6 +117,14 @@ public sealed class BekiPackFulfillment(
             var plan = JsonSerializer.Deserialize<MasterStory>(run.StoryJson, JsonOptions)
                        ?? throw new InvalidOperationException($"Run {runId} has an unreadable plan.");
 
+            // Validated defensively, warnings only: the parent already read and bought this plan,
+            // so a problem here is not this job's to refuse over. It is worth knowing about all
+            // the same — the same checks that would have triggered a retry at preview time.
+            foreach (var problem in BekiPlanValidator.Validate(plan, BookFormat.SpreadCount))
+            {
+                logger.LogWarning("Beki pack {PackId}: plan validation problem — {Problem}", packId, problem);
+            }
+
             await packRepository.UpdateProgressAsync(
                 packId, "ბეკის წიგნის გვერდებს ვხატავთ…", 10, cancellationToken);
 
@@ -102,12 +147,75 @@ public sealed class BekiPackFulfillment(
                 }
             }
 
-            // Each spread lands in storage the moment it is accepted, so the generating screen
-            // can show the parent real pictures while the rest are still being drawn. The
-            // stored URL is whatever UploadAsync returned, never a key assembled here: the two
-            // storage implementations shape their keys differently, and a key built by hand is
-            // a key that reads in one environment and 404s in the other.
+            // The stored URL is whatever UploadAsync returned, never a key assembled here: the
+            // two storage implementations shape their keys differently, and a key built by hand
+            // is a key that reads in one environment and 404s in the other.
             var storedUrls = new Dictionary<int, string>();
+
+            // Resuming a job whose first attempt died partway: read back whatever it had already
+            // drawn and accepted, so this attempt redraws only the holes rather than the whole
+            // book. Any problem reading the manifest — it is absent, it will not parse, its
+            // rhythm is stale — is treated as no manifest at all; the worst that costs is
+            // redrawing spreads that were already fine.
+            var manifestName = BekiPackBlobs.ManifestName(pack.UserId, pack.Id);
+            var currentRhythm = BekiFulfillmentManifest.CurrentRhythm(BookFormat.SpreadCount);
+            var manifest = await TryReadManifestAsync(manifestName, cancellationToken);
+
+            if (manifest is not null && !manifest.RhythmSnapshot.SequenceEqual(currentRhythm))
+            {
+                logger.LogWarning(
+                    "Beki pack {PackId}: manifest's rhythm no longer matches the current one; ignoring it.",
+                    packId);
+                manifest = null;
+            }
+
+            var existingSpreads = new Dictionary<int, byte[]>();
+            if (manifest is not null)
+            {
+                foreach (var entry in manifest.Entries)
+                {
+                    try
+                    {
+                        var bytes = await blobStorage.DownloadBytesFromStoredUrlAsync(
+                            entry.StoredUrl, cancellationToken);
+                        if (bytes is not { Length: > 0 })
+                        {
+                            continue;
+                        }
+
+                        existingSpreads[entry.SpreadNumber] = bytes;
+                        storedUrls[entry.SpreadNumber] = entry.StoredUrl;
+                    }
+                    catch (Exception ex)
+                    {
+                        // A download failure just drops that entry — it will be redrawn, same as
+                        // a spread that was never in the manifest at all.
+                        logger.LogWarning(
+                            ex, "Beki pack {PackId}: could not adopt spread {Spread} from the manifest.",
+                            packId, entry.SpreadNumber);
+                    }
+                }
+
+                if (existingSpreads.Count > 0)
+                {
+                    // Adopted spreads advance the percent immediately, using the same message the
+                    // drawing loop below would use — a resumed job's progress bar should not lie
+                    // by sitting at 10% while most of the book is already done.
+                    var percent = 10 + (int)MathF.Round(existingSpreads.Count * 70f / BookFormat.SpreadCount);
+                    await packRepository.UpdateProgressAsync(
+                        packId,
+                        $"დაიხატა {existingSpreads.Count}/{BookFormat.SpreadCount} ილუსტრაცია…",
+                        percent,
+                        cancellationToken);
+                }
+            }
+
+            // Progress counts spreads processed, not the spread number being drawn. On a resume
+            // the two disagree: with spreads 1 and 3–6 adopted and spread 2 being redrawn, the
+            // number would report "2/8" and yank the bar backwards below the five images the
+            // parent was already shown as done.
+            var processedSpreads = existingSpreads.Count;
+
             var book = await generator.IllustrateAsync(
                 plan,
                 photo,
@@ -120,20 +228,30 @@ public sealed class BekiPackFulfillment(
                         return;
                     }
 
-                    storedUrls[number] = await blobStorage.UploadAsync(
-                        BekiPackBlobs.SpreadName(pack.UserId, pack.Id, number),
-                        image.Image,
-                        "image/png",
-                        cancellationToken);
+                    // Refused spreads are not uploaded mid-run and do not touch the manifest — the
+                    // catch-up pass below still uploads whatever storedUrls lacks once the book is
+                    // whole, unchanged from before this job became resumable.
+                    if (image.Accepted)
+                    {
+                        storedUrls[number] = await blobStorage.UploadAsync(
+                            BekiPackBlobs.SpreadName(pack.UserId, pack.Id, number),
+                            image.Image,
+                            "image/png",
+                            cancellationToken);
 
-                    var percent = 10 + (int)MathF.Round(number * 70f / BookFormat.SpreadCount);
+                        await WriteManifestAsync(manifestName, storedUrls, currentRhythm, cancellationToken);
+                    }
+
+                    processedSpreads++;
+                    var percent = 10 + (int)MathF.Round(processedSpreads * 70f / BookFormat.SpreadCount);
                     await packRepository.UpdateProgressAsync(
                         packId,
-                        $"დაიხატა {number}/{BookFormat.SpreadCount} ილუსტრაცია…",
+                        $"დაიხატა {processedSpreads}/{BookFormat.SpreadCount} ილუსტრაცია…",
                         percent,
                         cancellationToken);
                 },
-                cancellationToken);
+                cancellationToken,
+                existingSpreads.Count > 0 ? existingSpreads : null);
 
             foreach (var warning in book.Warnings)
             {
@@ -195,6 +313,57 @@ public sealed class BekiPackFulfillment(
                 packId, AdventurePackStatus.Failed, pack.GeneratedJson, null, ex.Message,
                 CancellationToken.None);
         }
+    }
+
+    /// <summary>
+    /// Reads the manifest back by its bare name — never a stored URL, since the manifest is
+    /// never handed to anything outside this job. Absence and any parse failure are treated the
+    /// same way: no manifest, so every spread is redrawn. A resumed job must never fail over a
+    /// manifest it cannot trust.
+    /// </summary>
+    private async Task<BekiFulfillmentManifest?> TryReadManifestAsync(
+        string manifestName, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!await blobStorage.ExistsAsync(manifestName, cancellationToken))
+            {
+                return null;
+            }
+
+            await using var stream = await blobStorage.DownloadAsync(manifestName, cancellationToken);
+            return await JsonSerializer.DeserializeAsync<BekiFulfillmentManifest>(
+                stream, JsonOptions, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Beki pack manifest {ManifestName} could not be read; ignoring it.", manifestName);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Rewritten after every accepted spread, current rhythm plus every accepted entry so far —
+    /// the ones this run just adopted from an earlier attempt included. Never after a refusal:
+    /// a spread that did not pass is not something the next attempt should adopt either.
+    /// </summary>
+    private async Task WriteManifestAsync(
+        string manifestName,
+        IReadOnlyDictionary<int, string> storedUrls,
+        IReadOnlyList<string> rhythmSnapshot,
+        CancellationToken cancellationToken)
+    {
+        var manifest = new BekiFulfillmentManifest
+        {
+            RhythmSnapshot = rhythmSnapshot,
+            Entries = storedUrls
+                .OrderBy(pair => pair.Key)
+                .Select(pair => new BekiFulfillmentManifestEntry(pair.Key, pair.Value))
+                .ToList(),
+        };
+
+        var json = JsonSerializer.SerializeToUtf8Bytes(manifest, JsonOptions);
+        await blobStorage.UploadAsync(manifestName, json, "application/json", cancellationToken);
     }
 
     /// <summary>

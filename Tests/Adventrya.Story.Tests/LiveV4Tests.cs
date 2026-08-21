@@ -109,6 +109,7 @@ public class LiveV4Tests(ITestOutputHelper output)
             MasterStoryModel = "gpt-5.6-luna",
             StoryPromptVersion = "4"
         }),
+        Options.Create(new BekiOptions()),
         NullLogger<MasterStoryService>.Instance);
 
     private static string Render(MasterStoryResult result, ThemeType theme, TimeSpan elapsed)

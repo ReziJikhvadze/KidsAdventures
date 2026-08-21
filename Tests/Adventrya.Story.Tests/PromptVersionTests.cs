@@ -79,6 +79,7 @@ public class PromptVersionTests
     private static MasterStoryService Build(string configured) => new(
         new UnusedClient(),
         Options.Create(new OpenAiOptions { StoryPromptVersion = configured }),
+        Options.Create(new BekiOptions()),
         NullLogger<MasterStoryService>.Instance);
 
     /// <summary>Building a prompt makes no call; anything reaching here is the test's own bug.</summary>

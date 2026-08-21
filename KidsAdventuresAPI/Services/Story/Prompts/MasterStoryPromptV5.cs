@@ -37,6 +37,19 @@ public static class MasterStoryPromptV5
 
         Make the child the main hero.
 
+        Beki is the platform's one canonical story character: every book this platform makes gives
+        the child the same warm, curious, brave, magical guide and friend. When Beki appears in a
+        spread, list exactly the id "beki" in that spread's characters — never as a cast member,
+        and never as anything else spelled or capitalised differently. Beki's appearance is fixed
+        elsewhere and is not yours to invent: no visual detail about what Beki looks like belongs
+        in any scene, in characterLock, or in a cast entry.
+
+        Beki must appear in spread 1 and in spread {input.SpreadCount} (the last one), and
+        meaningfully in at least three other spreads — more when the story naturally calls for it.
+        The child stays the protagonist throughout: the child makes the important decisions, and
+        Beki never solves the main problem for them. Beki needs no costume for the theme — Beki is
+        Beki in every world.
+
         Use the selected theme as the world of the story.
 
         Integrate the extra wish naturally when it improves the story. If it would bend the story
@@ -60,6 +73,7 @@ public static class MasterStoryPromptV5
 
         For ages 2–4, keep the story very simple and short.
         For ages 5–8, use slightly richer language while remaining concise and easy to read aloud.
+        Treat an age under 2 as 2, and an age over 8 as 8, when choosing language complexity.
 
         Two things are written by the code that calls you, never by you: the house style and the
         camera. Do not put a style, a format, a shot, a camera angle, a lens, an aspect ratio, a

@@ -40,6 +40,16 @@ public interface IMasterStoryService
     (string System, string User) BuildPrompts(MasterStoryInput input);
 
     Task<MasterStoryResult> WriteAsync(MasterStoryInput input, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Retries the v5 planning call once, with the given problems stapled onto the user prompt as
+    /// a corrective note — the same idiom <see cref="BekiBookGenerator.Corrections"/> uses for a
+    /// refused illustration: the original ask stays whole, and the fix rides along with it.
+    /// Meaningless for any other variant, because only v5 produces the cast list and per-spread
+    /// character placement <see cref="BekiPlanValidator"/> checks.
+    /// </summary>
+    Task<MasterStoryResult> RetryV5WithCorrectionsAsync(
+        MasterStoryInput input, IReadOnlyList<string> problems, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -58,12 +68,22 @@ public interface IMasterStoryService
 public sealed class MasterStoryService(
     IStoryModelClient modelClient,
     IOptions<OpenAiOptions> options,
+    IOptions<BekiOptions> bekiOptions,
     ILogger<MasterStoryService> logger) : IMasterStoryService
 {
     private readonly OpenAiOptions _options = options.Value;
+    private readonly BekiOptions _bekiOptions = bekiOptions.Value;
 
     /// <summary>Marks the two halves apart in the stored prompt columns.</summary>
     private const string StepSeparator = "\n\n===== STEP 2 =====\n\n";
+
+    /// <summary>
+    /// So the <see cref="BekiOptions.BookFormatEnabled"/> override below is logged once for this
+    /// service instance, however many times <see cref="PromptVersion"/> is read while writing one
+    /// preview — <see cref="BuildPrompts"/>, <see cref="WriteAsync"/> and the caller that stores
+    /// the version each read it independently, and three log lines for one decision is noise.
+    /// </summary>
+    private bool _loggedBookFormatOverride;
 
     public string ModelName =>
         string.IsNullOrWhiteSpace(_options.MasterStoryModel) ? _options.Model : _options.MasterStoryModel;
@@ -76,15 +96,35 @@ public sealed class MasterStoryService(
     /// spent on exactly that: the value said 2, the comparison wanted v2, and the run quietly
     /// carried on with v1 — a setting that silently does something other than what was asked is
     /// worse than one that refuses.
+    ///
+    /// <see cref="BekiOptions.BookFormatEnabled"/> overrides whatever is configured here: the Beki
+    /// book format needs a plan with a cast list and per-spread character placement, which only
+    /// v5 produces, so a preview written while the flag is on must never silently fall back to an
+    /// A5-shaped plan just because nobody also updated OpenAI:StoryPromptVersion.
     /// </summary>
     public string PromptVersion
     {
         get
         {
+            if (_bekiOptions.BookFormatEnabled)
+            {
+                if (!_loggedBookFormatOverride)
+                {
+                    logger.LogInformation(
+                        "Beki:BookFormatEnabled is on; writing this preview as v5 regardless of "
+                        + "OpenAI:StoryPromptVersion ({Configured}).",
+                        _options.StoryPromptVersion);
+                    _loggedBookFormatOverride = true;
+                }
+
+                return "v5";
+            }
+
             var configured = (_options.StoryPromptVersion ?? string.Empty).Trim().TrimStart('v', 'V');
 
             return configured switch
             {
+                "5" => "v5",
                 "4" => "v4",
                 "3" => "v3",
                 "2" => "v2",
@@ -105,6 +145,7 @@ public sealed class MasterStoryService(
 
     public (string System, string User) BuildPrompts(MasterStoryInput input) => PromptVersion switch
     {
+        "v5" => (MasterStoryPromptV5.System(input), MasterStoryPromptV5.User(input)),
         "v4" => (MasterStoryPromptV4.System(input), MasterStoryPromptV4.User(input)),
         "v3" => (MasterStoryPromptV3.PlannerSystem(input, StoryBranches.For(input.Theme, Guid.NewGuid())),
                  MasterStoryPromptV3.PlannerUser(input)),
@@ -115,6 +156,7 @@ public sealed class MasterStoryService(
     public Task<MasterStoryResult> WriteAsync(MasterStoryInput input, CancellationToken cancellationToken) =>
         PromptVersion switch
         {
+            "v5" => WriteWithV5Async(input, cancellationToken),
             "v4" => WriteWithV4Async(input, cancellationToken),
             "v3" => WriteAlongAChainAsync(input, cancellationToken),
             "v2" => WriteInTwoStepsAsync(input, cancellationToken),
@@ -321,6 +363,76 @@ public sealed class MasterStoryService(
         return Finish(
             input, result.Value, systemPrompt, userPrompt, model,
             result.PromptTokens, result.CompletionTokens);
+    }
+
+    // ---- V5 ---------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The Beki format's planning call, reused here for previews: one call, against
+    /// <see cref="BekiBookPlanSchema"/> rather than <see cref="MasterStorySchema"/>, because the
+    /// result must carry the cast list and each spread's character placement — the things
+    /// <see cref="BekiPlanValidator"/> checks and the Beki illustrator reads — which the A5 schema
+    /// has no room for.
+    /// </summary>
+    private async Task<MasterStoryResult> WriteWithV5Async(
+        MasterStoryInput input,
+        CancellationToken cancellationToken)
+    {
+        var systemPrompt = MasterStoryPromptV5.System(input);
+        var userPrompt = MasterStoryPromptV5.User(input);
+        var model = ModelName;
+
+        logger.LogInformation(
+            "Planning a {Spreads}-spread Beki book for {Child}, age {Age}, theme {Theme}, using {Model} (v5).",
+            input.SpreadCount, input.ChildName, input.Age, input.Theme, model);
+
+        var result = await modelClient.CompleteAsync<MasterStory>(
+            model,
+            systemPrompt,
+            userPrompt,
+            BekiBookPlanSchema.Name,
+            BekiBookPlanSchema.Build(input.SpreadCount),
+            cancellationToken);
+
+        return Finish(
+            input, result.Value, systemPrompt, userPrompt, model,
+            result.PromptTokens, result.CompletionTokens);
+    }
+
+    public async Task<MasterStoryResult> RetryV5WithCorrectionsAsync(
+        MasterStoryInput input, IReadOnlyList<string> problems, CancellationToken cancellationToken)
+    {
+        var systemPrompt = MasterStoryPromptV5.System(input);
+        var userPrompt = MasterStoryPromptV5.User(input) + "\n\n" + CorrectionNote(problems);
+        var model = ModelName;
+
+        logger.LogInformation(
+            "Retrying the Beki plan for {Child}: {Count} problem(s) from the first attempt.",
+            input.ChildName, problems.Count);
+
+        var result = await modelClient.CompleteAsync<MasterStory>(
+            model,
+            systemPrompt,
+            userPrompt,
+            BekiBookPlanSchema.Name,
+            BekiBookPlanSchema.Build(input.SpreadCount),
+            cancellationToken);
+
+        return Finish(
+            input, result.Value, systemPrompt, userPrompt, model,
+            result.PromptTokens, result.CompletionTokens);
+    }
+
+    /// <summary>
+    /// The same idiom <see cref="BekiBookGenerator.Corrections"/> staples onto a refused
+    /// illustration's prompt: the original ask stays whole, and the fix is numbered and appended
+    /// rather than the whole plan being re-explained.
+    /// </summary>
+    private static string CorrectionNote(IReadOnlyList<string> problems)
+    {
+        var numbered = string.Join("\n", problems.Select((problem, index) => $"{index + 1}. {problem}"));
+        return "The previous plan was rejected for these reasons. Return a corrected plan for the "
+            + $"same book, with each of them fixed:\n{numbered}";
     }
 
     // ---- Shared -----------------------------------------------------------------------------

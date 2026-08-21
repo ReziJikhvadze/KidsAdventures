@@ -197,6 +197,7 @@ public class LiveBekiBookTests(ITestOutputHelper output)
 
         var storyClient = new StoryModelClient(factory, options, NullLogger<StoryModelClient>.Instance);
 
-        return new BekiBookGenerator(storyClient, openAi, NullLogger<BekiBookGenerator>.Instance);
+        return new BekiBookGenerator(
+            storyClient, openAi, Options.Create(new BekiPrintLayoutOptions()), NullLogger<BekiBookGenerator>.Instance);
     }
 }

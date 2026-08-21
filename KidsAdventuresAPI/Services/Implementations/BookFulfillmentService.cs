@@ -187,13 +187,20 @@ public sealed class BookFulfillmentService(
 
     /// <summary>
     /// Which pipeline draws this book. Beki when the switch is on and the preview run still
-    /// holds what that format needs — the plan and the portrait; the legacy per-page flow
+    /// holds what that format needs — a v5 plan and the portrait; the legacy per-page flow
     /// otherwise. Deciding here rather than failing later means a run that expired between
     /// preview and purchase costs the parent nothing but the old format.
+    ///
+    /// The prompt-version check matters on its own, separately from the switch: a preview written
+    /// before <see cref="BekiOptions.BookFormatEnabled"/> was ever turned on carries a v1–v4 plan
+    /// with no cast list and no Beki placement, which the Beki illustrator and PDF composer are
+    /// not built to read. Routing it through the Beki pipeline anyway would not fail loudly — it
+    /// would draw a book that quietly ignores half of what the plan says. That book stays on the
+    /// legacy path it was always going to take.
     /// </summary>
     private async Task<Guid?> BekiRunForAsync(BookDraftRequest draft, CancellationToken cancellationToken)
     {
-        if (!bekiOptions.Value.Enabled || draft.PreviewBookId is not { } runId)
+        if (!bekiOptions.Value.BookFormatEnabled || draft.PreviewBookId is not { } runId)
         {
             return null;
         }
@@ -202,6 +209,7 @@ public sealed class BookFulfillmentService(
         return run is not null
                && !string.IsNullOrWhiteSpace(run.StoryJson)
                && !string.IsNullOrWhiteSpace(run.PhotoBlobUrl)
+               && string.Equals(run.PromptVersion, "v5", StringComparison.OrdinalIgnoreCase)
             ? runId
             : null;
     }

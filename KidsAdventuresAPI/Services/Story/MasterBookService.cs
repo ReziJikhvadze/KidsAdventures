@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Models;
 using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.DTOs.AdventurePacks;
@@ -44,6 +45,8 @@ public sealed class MasterBookService(
     IBlobStorageService blobStorageService,
     IReferenceImageNormalizer referenceImageNormalizer,
     IBackgroundJobClient backgroundJobClient,
+    IBekiBookGenerator bekiBookGenerator,
+    IOptions<BekiOptions> bekiOptions,
     ILogger<MasterBookService> logger) : IMasterBookService
 {
     /// <summary>
@@ -197,7 +200,50 @@ public sealed class MasterBookService(
                 userPrompt,
                 cancellationToken);
 
+            // Kept in step with what was just persisted: `run` was loaded once, above, before
+            // this call wrote its version to the database, and DrawCoverAsync below reads
+            // run.PromptVersion to decide whether this preview gets the Beki cover. Without this,
+            // that check would read the stale, pre-save value — null on a run's first attempt —
+            // and a v5 preview would silently fall back to the legacy cover every time.
+            run.PromptVersion = masterStoryService.PromptVersion;
+
             var result = await masterStoryService.WriteAsync(storyInput, cancellationToken);
+
+            // The v5 schema enforces shape but not the rules that only make sense reading the
+            // whole plan together — Beki spelled the one way everything downstream expects, Beki
+            // not quietly missing from the spreads the format promises. A plan that fails this is
+            // worth one retry with the problems spelled out: a plan the parent never sees costs
+            // far less than a book that ships without it.
+            if (masterStoryService.PromptVersion == "v5")
+            {
+                var problems = BekiPlanValidator.Validate(result.Story, storyInput.SpreadCount);
+                if (problems.Count > 0)
+                {
+                    logger.LogWarning(
+                        "Run {RunId}: the Beki plan failed validation, retrying once: {Problems}",
+                        runId, string.Join(" | ", problems));
+
+                    var retried = await masterStoryService.RetryV5WithCorrectionsAsync(
+                        storyInput, problems, cancellationToken);
+
+                    // Both calls were paid for; the run's token accounting reports both, not just
+                    // the attempt that happened to survive.
+                    result = retried with
+                    {
+                        PromptTokens = result.PromptTokens + retried.PromptTokens,
+                        CompletionTokens = result.CompletionTokens + retried.CompletionTokens,
+                    };
+
+                    var stillWrong = BekiPlanValidator.Validate(result.Story, storyInput.SpreadCount);
+                    if (stillWrong.Count > 0)
+                    {
+                        throw new InvalidOperationException(
+                            $"The Beki plan for run {runId} is still invalid after a retry: "
+                            + string.Join("; ", stillWrong));
+                    }
+                }
+            }
+
             var content = MasterStoryProjection.ToContent(result.Story, run.ChildName, run.Theme);
 
             await runRepository.SaveStoryAsync(
@@ -292,12 +338,28 @@ public sealed class MasterBookService(
     /// <summary>
     /// Draws the cover only. The other eight illustrations belong to a bought book and are drawn
     /// by the existing fulfilment job, which already paces them against rate limits.
+    ///
+    /// A run planned by v5 gets the Beki cover — child and Beki together, QA-reviewed exactly as
+    /// the fulfilment job draws it — so the cover a parent previews is the cover they get if they
+    /// buy the book, rather than the legacy single-reference art the A5 flow has always used. Any
+    /// failure of that path falls back to the legacy cover below: a preview never dies over its
+    /// cover, Beki or not.
     /// </summary>
     private async Task<string?> DrawCoverAsync(
         MasterStoryRun run,
         MasterStory story,
         CancellationToken cancellationToken)
     {
+        if (bekiOptions.Value.BookFormatEnabled
+            && string.Equals(run.PromptVersion, "v5", StringComparison.OrdinalIgnoreCase))
+        {
+            var bekiCover = await TryDrawBekiCoverAsync(run, story, cancellationToken);
+            if (bekiCover is not null)
+            {
+                return bekiCover;
+            }
+        }
+
         try
         {
             var castPhotos = new List<CastPhotoReference>();
@@ -337,6 +399,57 @@ public sealed class MasterBookService(
             // saved, so failing the whole run here would throw away the expensive part over the
             // cheap one.
             logger.LogWarning(ex, "Cover illustration failed for run {RunId}; the story stands without it.", run.Id);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The Beki cover for a preview. Null on any failure — a missing photo, a download that
+    /// fails, a refused review the generator could not correct — so the caller falls back to the
+    /// legacy cover rather than losing the preview over it.
+    /// </summary>
+    private async Task<string?> TryDrawBekiCoverAsync(
+        MasterStoryRun run, MasterStory story, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(run.PhotoBlobUrl))
+            {
+                return null;
+            }
+
+            var photo = await blobStorageService.DownloadBytesFromStoredUrlAsync(run.PhotoBlobUrl, cancellationToken);
+            if (photo is not { Length: > 0 })
+            {
+                return null;
+            }
+
+            // "image/png" regardless of what the portrait was actually uploaded as, matching the
+            // Beki fulfilment job: the generator's edit call reads the bytes rather than trusting
+            // the label, and DownloadBytesFromStoredUrlAsync does not hand back the original
+            // content type to relabel it with.
+            var cover = await bekiBookGenerator.DrawCoverAsync(story, photo, "image/png", cancellationToken);
+
+            // The generator returns its last attempt even when review refused it. For a paid
+            // spread that policy is right — a flawed picture beats a hole — but this is the one
+            // image the parent judges the whole book by, before paying. A refused cover falls
+            // back to the legacy path instead of being stored, because fulfilment later adopts
+            // whatever cover the run holds without reviewing it again.
+            if (!cover.Accepted)
+            {
+                logger.LogWarning(
+                    "Beki cover for run {RunId} was refused by review; using the legacy cover. {Verdict}",
+                    run.Id, cover.Verdict);
+                return null;
+            }
+
+            var stored = referenceImageNormalizer.NormalizeForStorageWebp(cover.Image);
+            return await blobStorageService.UploadAsync(
+                $"master-runs/{run.Id:N}/cover", stored.Bytes, stored.ContentType, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Beki cover failed for run {RunId}; falling back to the legacy cover.", run.Id);
             return null;
         }
     }

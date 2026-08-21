@@ -15,6 +15,19 @@ public sealed class BekiOptions
     /// <summary>Master switch. The previous illustration flow stays available until this is on.</summary>
     public bool Enabled { get; set; }
 
+    /// <summary>
+    /// Turns on the new Beki book format end to end: v5 preview planning, the Beki cover path for
+    /// previews, spread illustrations that carry Beki's own reference, and the manifest-based
+    /// resumable fulfilment job.
+    ///
+    /// Deliberately its own switch rather than reusing <see cref="Enabled"/>. That flag already
+    /// gates the older, unrelated <c>/api/beki/stories</c> pipeline (<c>BekiStoriesController</c>
+    /// and everything under <c>Services/Beki</c>) — coupling the two would mean this format could
+    /// never ship without also turning that pipeline on, or the reverse. Defaults to false, so
+    /// nothing this option controls runs until someone deliberately turns it on.
+    /// </summary>
+    public bool BookFormatEnabled { get; set; }
+
     // ---- Story pipeline -------------------------------------------------
 
     /// <summary>Writes the 12-page draft. The most quality-sensitive call in the product.</summary>

@@ -134,9 +134,9 @@ public static class IllustrationPrompt
             // The cover. Printed as a single upright leaf cut from a wider render, so its outer
             // edges are the part the trim takes.
             return "Keep faces and important story action away from the centre of the spread, "
-                + "where the fold falls. Compose for a single upright page: keep the hero and "
-                + "the calm title space within the central portion of the frame, because the "
-                + "outer left and right edges may be trimmed away in print.";
+                + "where the fold falls. " + GutterRule + " Compose for a single upright page: "
+                + "keep the hero and the calm title space within the central portion of the "
+                + "frame, because the outer left and right edges may be trimmed away in print.";
         }
 
         var heroSide = side == "left" ? "right" : "left";
@@ -150,6 +150,7 @@ public static class IllustrationPrompt
 
             Place the child and the story's action in the {heroSide} two thirds instead, and keep
             every face clear of the vertical centre line, where the fold of the spread falls.
+            {GutterRule}
 
             Keep every face and the story's key action inside the central horizontal band of the
             image as well: the printed spread is wider than it is tall, so the top and bottom
@@ -157,6 +158,18 @@ public static class IllustrationPrompt
             nothing the story cannot lose.
             """;
     }
+
+    /// <summary>
+    /// The centre line was already a rule — no face crosses it — but a line has no width, and the
+    /// fold it stands for does: the gutter swallows a narrow strip on either side of it, not one
+    /// pixel down the middle. Written out as its own sentence, and shared verbatim with
+    /// <see cref="Prompts.BekiImageQaPrompt"/>'s text-side rule, so the illustrator and the
+    /// reviewer are working from the same words rather than two paraphrases of one rule.
+    /// </summary>
+    private const string GutterRule =
+        "A narrow vertical strip at the exact centre of the frame is a low-information zone "
+        + "crossing the printed fold: background may continue through it, but no face, no eyes, "
+        + "no hands, no key object and no part of the main action may sit inside it.";
 
     public static string Compose(string characterLock, string scene, string? extraExclusions)
     {
