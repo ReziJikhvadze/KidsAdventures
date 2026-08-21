@@ -112,4 +112,44 @@ public sealed class BekiPrintLayoutOptions
     /// rather than a bare square the reader has to guess the purpose of.
     /// </summary>
     public string ContinueCtaText { get; set; } = "განაგრძე თავგადასავალი ბეკისთან";
+
+    /// <summary>
+    /// Finished art for P1, the invitation leaf. Null — the default — keeps the code-drawn
+    /// placeholder the composer has always built.
+    ///
+    /// Six of the book's fourteen pages carry nothing from the customer's own story: both
+    /// endpapers, P1, P18 and the back cover are the same paper in every order, and the composer
+    /// draws them from primitives only because the partner has not delivered the real thing yet.
+    /// These four settings are the door that delivery comes through: point one at a file, drop the
+    /// file into the published folder, and that page starts printing the partner's art full bleed
+    /// instead. Nothing else changes — the page count, the sheet size and the bleed are the book's,
+    /// not the asset's.
+    ///
+    /// Relative paths resolve against the published output folder
+    /// (<see cref="AppContext.BaseDirectory"/>), the same way the fonts and the canonical Beki PNG
+    /// do, so a value like <c>Assets/Beki/p1-invitation.png</c> works identically on a developer's
+    /// machine and in a container. An absolute path is used as given. A path that points at
+    /// nothing is not an error: the page falls back to the drawn placeholder, because a
+    /// mistyped setting should cost a page its art, never the order its book.
+    /// </summary>
+    public string? InvitationAssetPath { get; set; }
+
+    /// <summary>Finished art for P18, the closing leaf. See <see cref="InvitationAssetPath"/>.</summary>
+    public string? ClosingAssetPath { get; set; }
+
+    /// <summary>Finished art for the back cover. See <see cref="InvitationAssetPath"/>.</summary>
+    public string? BackCoverAssetPath { get; set; }
+
+    /// <summary>
+    /// Finished art for the endpapers — a template rather than a path, because the endpaper is the
+    /// one reusable page the handoff wants to vary: a book about the sea and a book about space can
+    /// bind different papers. <c>{theme}</c> is replaced with the pack's theme, lowercased and
+    /// stripped to letters, digits, dashes and underscores, so
+    /// <c>Assets/Beki/endpaper-{theme}.png</c> becomes <c>Assets/Beki/endpaper-space.png</c>.
+    ///
+    /// A theme with no file of its own falls back to the drawn dot field, which means a partial
+    /// set of endpapers is a perfectly good state to ship in — the themes that have art get it,
+    /// the rest keep the placeholder. See <see cref="InvitationAssetPath"/> for how paths resolve.
+    /// </summary>
+    public string? EndpaperAssetPathTemplate { get; set; }
 }

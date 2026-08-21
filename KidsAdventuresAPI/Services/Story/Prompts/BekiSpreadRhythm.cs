@@ -28,19 +28,36 @@ public static class BekiSpreadRhythm
         ["left", "right", "left", "right", "left", "right", "left", "left"];
 
     /// <summary>
-    /// One short sentence each, as the handoff asks. They name the intent of the beat rather than
-    /// a lens: an image model does more with "hold on the moment of realisation" than with 35mm.
+    /// One short sentence each, as the handoff asks — but each now opens by naming a camera
+    /// distance, and only then the intent of the beat.
+    ///
+    /// The first wording named intent alone, on the argument that an image model does more with
+    /// "hold on the moment of realisation" than with 35mm. It does, and it also does the same
+    /// thing every time: two whole books came back as runs of medium and close compositions, the
+    /// framing the model reaches for by default when a scene is a child and a friend doing
+    /// something. "Open wide" and "pull back" were read as mood words, not as instructions about
+    /// where the camera is. Spreads 1, 4 and 8 in particular have to be wide — the book opens on
+    /// a world, turns on an atmosphere and closes looking outward — so the distance is stated
+    /// first and the intent follows it, with <see cref="IllustrationPrompt"/> adding the sentence
+    /// that says the distance is not negotiable.
     /// </summary>
     private static readonly string[] Shots =
     [
-        "Open wide, showing the whole world the story begins in.",
-        "Move closer as something is noticed for the first time.",
-        "Frame the action so the movement reads clearly.",
-        "Pull back into an atmospheric, quieter composition.",
-        "Show the journey with depth and distance ahead.",
-        "Hold the major reveal in a dramatic, spacious shot.",
-        "Come close for the emotional beat between the characters.",
-        "Finish on a cinematic wide shot that looks toward what comes next.",
+        "Wide establishing shot: keep the camera far back so the child is small inside the whole "
+        + "world the story begins in.",
+        "Medium shot: closer now, framing the child from about the waist up as something is "
+        + "noticed for the first time.",
+        "Full-figure action shot: whole bodies in frame with room around them, so the movement "
+        + "reads clearly.",
+        "Dramatic atmospheric wide shot: pull far back and let the place and its light dominate "
+        + "the small figures in it.",
+        "Wide travelling shot: near foreground, deep middle distance and a far horizon, showing "
+        + "the journey ahead.",
+        "Medium-wide shot: hold the major reveal large and unmistakable, with open space around "
+        + "it.",
+        "Close shot: come in tight on the faces for the emotional beat between the characters.",
+        "Cinematic wide shot: the characters small against an open view, looking out toward what "
+        + "comes next.",
     ];
 
     /// <summary>1-based, matching the spread numbers a plan uses.</summary>

@@ -79,10 +79,15 @@ public interface IBekiBookGenerator
     /// The Beki cover alone: the child and the Beki master reference, QA-reviewed exactly as
     /// fulfilment draws it. Exposed so a preview can carry the same cover the parent will get if
     /// they buy the book, instead of the legacy single-reference cover the A5 flow has always
-    /// drawn. There is no warnings list here for a single image to report into — a missing Beki
-    /// reference or a refused review surface through the result's own
-    /// <see cref="BekiImageResult.Verdict"/> and through this generator's logger instead.
+    /// drawn. A refused review surfaces through the result's own
+    /// <see cref="BekiImageResult.Verdict"/> rather than as a failure.
     /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The Beki master reference is missing from the deployment. This cover is the child and Beki
+    /// together, and there is no honest way to draw it without the one picture that says what
+    /// Beki looks like — see <see cref="BekiBookGenerator.RequireBekiReference"/>. Callers that
+    /// can fall back to a cover with no companion at all should catch it and do that.
+    /// </exception>
     Task<BekiImageResult> DrawCoverAsync(
         MasterStory plan, byte[] childPhoto, string childPhotoContentType, CancellationToken cancellationToken);
 }
@@ -212,7 +217,7 @@ public sealed class BekiBookGenerator(
         }
 
         var cover = existingCover is null
-            ? await DrawCoverAsync(plan, childPhoto, childPhotoContentType, warnings, cancellationToken)
+            ? await DrawCoverAsync(plan, childPhoto, childPhotoContentType, cancellationToken)
             : new BekiImageResult
             {
                 Image = existingCover,
@@ -246,7 +251,7 @@ public sealed class BekiBookGenerator(
             }
 
             result = await DrawSpreadAsync(
-                plan, spread, castById, anchors, childPhoto, childPhotoContentType, warnings, cancellationToken);
+                plan, spread, castById, anchors, childPhoto, childPhotoContentType, cancellationToken);
 
             spreads.Add(result);
 
@@ -322,64 +327,61 @@ public sealed class BekiBookGenerator(
 
     /// <summary>
     /// <inheritdoc cref="IBekiBookGenerator.DrawCoverAsync" />
-    /// </summary>
-    public async Task<BekiImageResult> DrawCoverAsync(
-        MasterStory plan, byte[] childPhoto, string childPhotoContentType, CancellationToken cancellationToken)
-    {
-        var warnings = new List<string>();
-        var result = await DrawCoverAsync(plan, childPhoto, childPhotoContentType, warnings, cancellationToken);
-
-        // The public entry point has nobody to hand a book-wide warnings list to — a single cover
-        // call is not part of a book being assembled — so whatever IllustrateAsync would have
-        // folded into BekiBookResult.Warnings is logged here instead.
-        foreach (var warning in warnings)
-        {
-            logger.LogWarning("Beki cover: {Warning}", warning);
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// The cover, which is the one image with two references: the child and Beki.
     ///
     /// Its subject is the relationship rather than a scene from the story — the handoff asks for
     /// the child as the hero with Beki beside them, warm and lovable — so the shot instruction is
     /// written here rather than taken from the spread rhythm, and no text side is reserved: a
     /// title is typeset over the cover later and is never drawn.
+    ///
+    /// The cast is closed to two. One shipped cover put a plane beside the child and another put
+    /// half the book's supporting characters there; a cover is the one picture a parent judges
+    /// the whole book by, and it says who the book is about, which is the child and Beki. So the
+    /// shot instruction says the setting stays simple and <see cref="CoverAvoidClause"/> names
+    /// the third character the model would otherwise invent for it.
     /// </summary>
-    private async Task<BekiImageResult> DrawCoverAsync(
-        MasterStory plan,
-        byte[] childPhoto,
-        string childPhotoContentType,
-        List<string> warnings,
-        CancellationToken cancellationToken)
+    public async Task<BekiImageResult> DrawCoverAsync(
+        MasterStory plan, byte[] childPhoto, string childPhotoContentType, CancellationToken cancellationToken)
     {
-        var beki = LoadBekiReference(warnings, "the cover");
+        // No null branch: this cover is the child and Beki together, so it is one of the images
+        // that may not be drawn without the master reference.
+        var beki = RequireBekiReference("the cover");
 
         var prompt = IllustrationPrompt.ComposeBeki(
             plan.CharacterLock,
             plan.Cover.Scene,
-            beki is null ? string.Empty : BekiIdentity.CoverContinuity,
+            BekiIdentity.CoverContinuity,
             // The cover has no story text over it, so no side is reserved; "either" reads as a
             // free composition to the model rather than as a constraint it must satisfy.
             "either",
-            "A warm hero portrait of the child in this world, inviting the reader in.",
-            plan.Cover.Avoid);
+            "A warm hero portrait of the child with Beki beside them, inviting the reader in. "
+            + "These two are the only characters on the cover; keep the setting simple and "
+            + "iconic, one clear suggestion of the world behind them.",
+            CoverAvoid(plan.Cover.Avoid));
 
         var references = new List<(byte[] Bytes, string ContentType, string Label)>
         {
             (childPhoto, childPhotoContentType, "Child reference photograph"),
+            (beki, "image/png", BekiIdentity.ReferenceLabel),
         };
 
-        if (beki is not null)
-        {
-            references.Add((beki, "image/png", BekiIdentity.ReferenceLabel));
-        }
-
         return await DrawReviewedAsync(
-            null, plan.Cover.Scene, "either", prompt, references, [], cancellationToken);
+            null, plan.Cover.Scene, "either", plan.CharacterLock, prompt, references, [], cancellationToken);
     }
+
+    /// <summary>
+    /// What must not be on a cover, whatever the plan's own avoid list says. Appended to it
+    /// rather than replacing it — the plan knows this book's particular hazards, this knows the
+    /// format's.
+    /// </summary>
+    private const string CoverAvoidClause =
+        "any character other than the child and Beki, a second companion, additional creatures or "
+        + "animals, other people, crowds, vehicles or machines drawn as characters, cluttered or "
+        + "busy backgrounds";
+
+    private static string CoverAvoid(string? planAvoid) =>
+        string.IsNullOrWhiteSpace(planAvoid)
+            ? CoverAvoidClause
+            : $"{planAvoid.Trim()}, {CoverAvoidClause}";
 
     private async Task<BekiImageResult> DrawSpreadAsync(
         MasterStory plan,
@@ -388,7 +390,6 @@ public sealed class BekiBookGenerator(
         IReadOnlyDictionary<string, byte[]> anchors,
         byte[] childPhoto,
         string childPhotoContentType,
-        List<string> warnings,
         CancellationToken cancellationToken)
     {
         var textSide = BekiSpreadRhythm.TextSideFor(spread.Number);
@@ -452,14 +453,11 @@ public sealed class BekiBookGenerator(
           that carries Beki attaches the same master reference, described the same way, every
           time — there is no "first appearance" for a character who is in almost every spread.
         */
-        if ((spread.Characters ?? []).Any(id => id.Equals(BekiPlanValidator.BekiId, StringComparison.OrdinalIgnoreCase)))
+        if (SpreadNeedsBeki(spread))
         {
-            var beki = LoadBekiReference(warnings, $"spread {spread.Number}");
-            if (beki is not null)
-            {
-                references.Add((beki, "image/png", BekiIdentity.ReferenceLabel));
-                continuity.Add(BekiIdentity.SpreadContinuity);
-            }
+            var beki = RequireBekiReference($"spread {spread.Number}");
+            references.Add((beki, "image/png", BekiIdentity.ReferenceLabel));
+            continuity.Add(BekiIdentity.SpreadContinuity);
         }
 
         var prompt = IllustrationPrompt.ComposeBeki(
@@ -471,7 +469,43 @@ public sealed class BekiBookGenerator(
             spread.Illustration.Avoid);
 
         return await DrawReviewedAsync(
-            spread.Number, spread.Illustration.Scene, textSide, prompt, references, anchored, cancellationToken);
+            spread.Number,
+            spread.Illustration.Scene,
+            textSide,
+            plan.CharacterLock,
+            prompt,
+            references,
+            anchored,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Whether this spread's illustration must be drawn with Beki's master reference attached.
+    ///
+    /// The characters list is the plan's own answer and is trusted outright. The scene text is a
+    /// backstop for the case that shipped a book: a spread whose scene had Beki pointing at
+    /// something while its characters list did not mention Beki. The reference was not attached,
+    /// the prompt still described Beki doing things, and the model drew whatever the words
+    /// suggested — an invented Beki, which is the one thing this format promises never to
+    /// produce. <see cref="BekiPlanValidator"/> now reports such a plan as broken and the planner
+    /// gets a corrective retry, so this should not be reached for a freshly written plan; it is
+    /// reached for a plan written before that rule existed and drawn after it, which the
+    /// fulfilment job does every time it picks up an older purchase.
+    ///
+    /// The spread's Avoid field wins only when it explicitly forbids Beki — "do not show Beki",
+    /// the one spread of a book where the child is alone. A mere mention of Beki in Avoid is the
+    /// opposite: "Beki with wings" forbids the wings, and suppressing the reference over it would
+    /// draw an invented Beki on exactly the spread that named the real one.
+    /// </summary>
+    private static bool SpreadNeedsBeki(StorySpread spread)
+    {
+        var listed = (spread.Characters ?? [])
+            .Any(id => id.Equals(BekiPlanValidator.BekiId, StringComparison.OrdinalIgnoreCase));
+
+        if (listed) return true;
+
+        return BekiPlanValidator.NamesBeki(spread.Illustration.Scene)
+            && !BekiPlanValidator.ForbidsBeki(spread.Illustration.Avoid);
     }
 
     /// <summary>
@@ -482,10 +516,17 @@ public sealed class BekiBookGenerator(
     /// without the fault. An image that never passes is returned anyway, marked — a book with a
     /// flawed spread can be looked at and judged; a book with a hole cannot.
     /// </summary>
+    /// <param name="characterLock">
+    /// The child's fixed appearance, passed on to the reviewer as well as the illustrator. A
+    /// reviewer asked whether the child's clothes match, without being told what they are
+    /// supposed to be, can only answer from the photograph — and the photograph shows the child's
+    /// real clothes, not the ones the book dressed them in.
+    /// </param>
     private async Task<BekiImageResult> DrawReviewedAsync(
         int? spreadNumber,
         string scene,
         string textSide,
+        string characterLock,
         string prompt,
         IReadOnlyList<(byte[] Bytes, string ContentType, string Label)> references,
         IReadOnlyList<string> anchored,
@@ -504,7 +545,12 @@ public sealed class BekiBookGenerator(
             prompt, reference, cancellationToken, SpreadImageSize);
 
         var verdict = await ReviewAsync(
-            SpreadArtCrop.CropToRatio(image, reviewRatio), scene, textSide, references, cancellationToken);
+            SpreadArtCrop.CropToRatio(image, reviewRatio),
+            scene,
+            textSide,
+            characterLock,
+            references,
+            cancellationToken);
         var attempts = 1;
 
         while (!IsPass(verdict) && attempts <= MaxRegenerations)
@@ -516,7 +562,12 @@ public sealed class BekiBookGenerator(
                 corrected, reference, cancellationToken, SpreadImageSize);
 
             verdict = await ReviewAsync(
-                SpreadArtCrop.CropToRatio(image, reviewRatio), scene, textSide, references, cancellationToken);
+                SpreadArtCrop.CropToRatio(image, reviewRatio),
+                scene,
+                textSide,
+                characterLock,
+                references,
+                cancellationToken);
             attempts++;
         }
 
@@ -536,10 +587,11 @@ public sealed class BekiBookGenerator(
         byte[] image,
         string scene,
         string textSide,
+        string characterLock,
         IReadOnlyList<(byte[] Bytes, string ContentType, string Label)> references,
         CancellationToken cancellationToken) =>
         openAi.ReviewIllustrationAsync(
-            image, BekiImageQaPrompt.For(scene, textSide), references, cancellationToken);
+            image, BekiImageQaPrompt.For(scene, textSide, characterLock), references, cancellationToken);
 
     /// <summary>
     /// Forgiving about the wrapper, strict about the answer.
@@ -673,17 +725,24 @@ public sealed class BekiBookGenerator(
     }
 
     /// <summary>
-    /// Beki's canonical picture. A missing file is a warning rather than a failure — an
-    /// illustration drawn from description alone is worse than one drawn from the reference, and
-    /// better than no book.
+    /// Beki's canonical picture, or an exception. Called only for an illustration that requires
+    /// Beki — the cover, and every spread that lists or names Beki.
     ///
-    /// The file read happens at most once per generator instance — a book can ask for it up to
-    /// nine times, for the cover and every spread that carries Beki, and it never changes
-    /// mid-run — but a warning is still added on every call that needed it and did not get it,
-    /// because <paramref name="warnings"/> is a different list for a single preview cover than
-    /// it is for a whole book, and each caller needs to know its own picture went without.
+    /// A missing file used to be a warning: draw the picture anyway, from the words alone, on the
+    /// reasoning that a book with a described Beki beats no book. Two shipped books are the
+    /// argument against it. Beki is not this book's character, it is the platform's one character,
+    /// and the file at <see cref="BekiIdentity.ReferenceAssetPath"/> is the only thing that says
+    /// what it looks like — so an image drawn without it does not contain a slightly-off Beki, it
+    /// contains a different character wearing the name. That is a worse outcome than a failed job:
+    /// a failure is retried once the asset is deployed, while an invented Beki is printed, posted
+    /// and read to a child.
+    ///
+    /// The file read happens at most once per generator instance — a book asks for it up to nine
+    /// times and it never changes mid-run — but the throw is unconditional, so a run that is
+    /// missing the asset fails on its first illustration rather than producing eight wrong ones.
     /// </summary>
-    private byte[]? LoadBekiReference(List<string> warnings, string context)
+    /// <exception cref="InvalidOperationException">The asset is missing or unreadable.</exception>
+    private byte[] RequireBekiReference(string context)
     {
         if (!_bekiReferenceLoadAttempted)
         {
@@ -697,7 +756,7 @@ public sealed class BekiBookGenerator(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Could not read the Beki master reference.");
+                logger.LogError(ex, "Could not read the Beki master reference.");
             }
 
             _bekiReferenceLoadAttempted = true;
@@ -705,7 +764,14 @@ public sealed class BekiBookGenerator(
 
         if (_cachedBekiReference is null)
         {
-            warnings.Add($"Beki master reference not found; {context} was drawn without it.");
+            logger.LogError(
+                "The Beki master reference is missing from {Path}; {Context} requires it and cannot be drawn.",
+                Path.Combine(AppContext.BaseDirectory, BekiReferencePath), context);
+
+            throw new InvalidOperationException(
+                $"The Beki master reference ({BekiReferencePath}) is missing or unreadable, and "
+                + $"{context} requires it. No illustration containing Beki may be drawn without "
+                + "the one image that defines the character.");
         }
 
         return _cachedBekiReference;

@@ -203,7 +203,8 @@ public class LiveBekiSliceTests(ITestOutputHelper output)
         var image = await openAi.GenerateStoryImageAsync(
             prompt, reference, CancellationToken.None, PrototypeImageSize);
 
-        var verdict = await ReviewAsync(openAi, image, spread, textSide, childPhoto, hasAnchor ? anchorBytes : null);
+        var verdict = await ReviewAsync(
+            openAi, image, spread, textSide, plan.CharacterLock, childPhoto, hasAnchor ? anchorBytes : null);
         var accepted = IsPass(verdict);
         report.AppendLine($"QA: {verdict}");
 
@@ -218,7 +219,8 @@ public class LiveBekiSliceTests(ITestOutputHelper output)
             image = await openAi.GenerateStoryImageAsync(
                 corrected, reference, CancellationToken.None, PrototypeImageSize);
 
-            verdict = await ReviewAsync(openAi, image, spread, textSide, childPhoto, hasAnchor ? anchorBytes : null);
+            verdict = await ReviewAsync(
+                openAi, image, spread, textSide, plan.CharacterLock, childPhoto, hasAnchor ? anchorBytes : null);
             accepted = IsPass(verdict);
             report.AppendLine($"QA: {verdict}");
 
@@ -234,11 +236,17 @@ public class LiveBekiSliceTests(ITestOutputHelper output)
         return (image, accepted, verdict);
     }
 
+    /// <param name="characterLock">
+    /// The same fixed appearance the illustrator was given. The reviewer checks the child's
+    /// clothing against it, so a slice that withheld it would be measuring a different checklist
+    /// from the one production runs.
+    /// </param>
     private static Task<string> ReviewAsync(
         OpenAiService openAi,
         byte[] image,
         StorySpread spread,
         string textSide,
+        string characterLock,
         (byte[] Bytes, string ContentType)? childPhoto,
         byte[]? anchor)
     {
@@ -255,7 +263,7 @@ public class LiveBekiSliceTests(ITestOutputHelper output)
 
         return openAi.ReviewIllustrationAsync(
             image,
-            BekiImageQaPrompt.For(spread.Illustration.Scene, textSide),
+            BekiImageQaPrompt.For(spread.Illustration.Scene, textSide, characterLock),
             references,
             CancellationToken.None);
     }

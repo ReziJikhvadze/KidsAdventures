@@ -344,20 +344,39 @@ public sealed class MasterBookService(
     /// buy the book, rather than the legacy single-reference art the A5 flow has always used. Any
     /// failure of that path falls back to the legacy cover below: a preview never dies over its
     /// cover, Beki or not.
+    ///
+    /// What that fallback draws, though, is not the legacy cover unchanged. A v5 cover scene is
+    /// written for a book whose companion is Beki, and the legacy prompt carries no Beki
+    /// reference and no rule about companions — so it read the scene, found a story about a child
+    /// and a friend, and invented the friend. One shipped cover's companion was a white-and-blue
+    /// robot. A cover with no companion is honest; a cover with the wrong one tells the parent
+    /// this is not their book. So a v5 run that loses the Beki cover falls back to an explicitly
+    /// child-only prompt, and says loudly in the log why it had to.
     /// </summary>
     private async Task<string?> DrawCoverAsync(
         MasterStoryRun run,
         MasterStory story,
         CancellationToken cancellationToken)
     {
+        // Non-null once the Beki path has been tried and lost: it doubles as the reason for the
+        // log line and as the switch onto the child-only prompt below.
+        string? bekiFailure = null;
+
         if (bekiOptions.Value.BookFormatEnabled
             && string.Equals(run.PromptVersion, "v5", StringComparison.OrdinalIgnoreCase))
         {
-            var bekiCover = await TryDrawBekiCoverAsync(run, story, cancellationToken);
+            var (bekiCover, failure) = await TryDrawBekiCoverAsync(run, story, cancellationToken);
             if (bekiCover is not null)
             {
                 return bekiCover;
             }
+
+            bekiFailure = failure ?? "the Beki cover path returned nothing";
+            logger.LogWarning(
+                "Run {RunId}: no Beki cover ({Reason}). Falling back to a child-only cover — the "
+                + "fallback prompt has no Beki reference, so it is forbidden from inventing a "
+                + "companion in Beki's place.",
+                run.Id, bekiFailure);
         }
 
         try
@@ -380,9 +399,17 @@ public sealed class MasterBookService(
             }
 
             // The prompt is used exactly as the story call wrote it: the character lock is already
-            // inside it, and rewriting it here is how the hero used to drift between pages.
+            // inside it, and rewriting it here is how the hero used to drift between pages. The
+            // only difference a lost Beki cover makes is the clause forbidding a stand-in
+            // companion; the scene, the lock and the plan's own avoid list are untouched, and an
+            // A5 run reaches this line exactly as it always has.
+            var coverPrompt = bekiFailure is null
+                ? IllustrationPrompt.Compose(story.CharacterLock, story.Cover.Scene, story.Cover.Avoid)
+                : IllustrationPrompt.ComposeChildOnlyCover(
+                    story.CharacterLock, story.Cover.Scene, story.Cover.Avoid);
+
             var imageBytes = await openAiService.GenerateStoryImageAsync(
-                IllustrationPrompt.Compose(story.CharacterLock, story.Cover.Scene, story.Cover.Avoid),
+                coverPrompt,
                 new StoryImageReference { CharacterAnchorBytes = null, CastPhotos = castPhotos },
                 cancellationToken);
 
@@ -404,24 +431,29 @@ public sealed class MasterBookService(
     }
 
     /// <summary>
-    /// The Beki cover for a preview. Null on any failure — a missing photo, a download that
-    /// fails, a refused review the generator could not correct — so the caller falls back to the
-    /// legacy cover rather than losing the preview over it.
+    /// The Beki cover for a preview. A null url on any failure — a missing photo, a download that
+    /// fails, a refused review the generator could not correct, a missing Beki master reference —
+    /// so the caller falls back rather than losing the preview over its cover.
+    ///
+    /// The reason travels with the null. It used to be logged here and thrown away, which made
+    /// the fallback's own log line say only that a cover had been drawn; the caller needs it both
+    /// to explain itself and because "we could not draw Beki" is exactly the thing an operator
+    /// reading a robot on a cover would have wanted to find in the log.
     /// </summary>
-    private async Task<string?> TryDrawBekiCoverAsync(
+    private async Task<(string? Url, string? Failure)> TryDrawBekiCoverAsync(
         MasterStoryRun run, MasterStory story, CancellationToken cancellationToken)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(run.PhotoBlobUrl))
             {
-                return null;
+                return (null, "the run has no parked portrait");
             }
 
             var photo = await blobStorageService.DownloadBytesFromStoredUrlAsync(run.PhotoBlobUrl, cancellationToken);
             if (photo is not { Length: > 0 })
             {
-                return null;
+                return (null, "the parked portrait could not be downloaded");
             }
 
             // "image/png" regardless of what the portrait was actually uploaded as, matching the
@@ -438,19 +470,23 @@ public sealed class MasterBookService(
             if (!cover.Accepted)
             {
                 logger.LogWarning(
-                    "Beki cover for run {RunId} was refused by review; using the legacy cover. {Verdict}",
-                    run.Id, cover.Verdict);
-                return null;
+                    "Beki cover for run {RunId} was refused by review. {Verdict}", run.Id, cover.Verdict);
+                return (null, $"the Beki cover was refused by review: {cover.Verdict}");
             }
 
             var stored = referenceImageNormalizer.NormalizeForStorageWebp(cover.Image);
-            return await blobStorageService.UploadAsync(
+            var url = await blobStorageService.UploadAsync(
                 $"master-runs/{run.Id:N}/cover", stored.Bytes, stored.ContentType, cancellationToken);
+
+            return (url, null);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Beki cover failed for run {RunId}; falling back to the legacy cover.", run.Id);
-            return null;
+            // Includes the deliberate throw for a missing Beki master reference: the generator
+            // will not draw a cover that needs Beki without it, and this is the caller that can
+            // turn that into a cover with no companion at all rather than no preview.
+            logger.LogWarning(ex, "Beki cover failed for run {RunId}.", run.Id);
+            return (null, $"the Beki cover threw: {ex.Message}");
         }
     }
 }

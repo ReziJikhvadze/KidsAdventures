@@ -7,21 +7,51 @@ public sealed record BekiFulfillmentManifestEntry(int SpreadNumber, string Store
 
 /// <summary>
 /// What a resumed fulfilment job needs to pick up where a dead one left off: which spreads were
-/// already accepted and stored, and the rhythm they were drawn against.
+/// already accepted and stored, and the terms they were drawn under.
 ///
-/// The rhythm snapshot exists because <see cref="BekiSpreadRhythm"/> is code, not data — a
-/// deploy landing between two attempts at the same pack could change which side of a spread
-/// carries the text, and a manifest written against the old rhythm would hand a resumed run a
-/// spread whose text-safe third no longer matches what the composer will typeset it against. A
-/// mismatch there is not a fault worth reconciling image by image; the whole manifest is simply
-/// ignored and every spread is redrawn against the rhythm in force now.
+/// Those terms are code, not data. <see cref="BekiSpreadRhythm"/> decides which side of a spread
+/// carries the text and how the scene is shot; <see cref="BekiIdentity"/> decides who Beki is. All
+/// three live in the binary, and a deploy landing between two attempts at the same pack can change
+/// any of them. A manifest written before such a deploy hands a resumed run pictures drawn under
+/// rules the rest of the book will not be drawn under: a spread whose text-safe third is now on
+/// the other leaf, a close-up where the rhythm now calls for a wide establishing shot, or — worst,
+/// because it is the one a parent notices — a Beki from the retired lamb design sharing a book
+/// with the leaf spirit.
+///
+/// So the snapshot is the whole illustration contract per spread rather than the text side alone,
+/// and any mismatch on resume is handled the way it always was: the manifest is ignored outright
+/// and every spread is redrawn against the rules in force now. Reconciling image by image would be
+/// cheaper and would produce exactly the mixed book this exists to prevent.
 /// </summary>
 public sealed record BekiFulfillmentManifest
 {
-    public required IReadOnlyList<string> RhythmSnapshot { get; init; }
+    /// <summary>
+    /// One line per spread, in spread order. Opaque on purpose — nothing reads the parts back out,
+    /// it is only ever compared whole against <see cref="CurrentContract"/>, and a format nobody
+    /// parses is a format that can gain a term without anyone having to update a reader.
+    ///
+    /// A manifest written before this property existed simply fails to deserialize — the property
+    /// is required — which lands on the same behaviour as a mismatch: no manifest, redraw
+    /// everything. That is the correct answer for those manifests anyway, since they were written
+    /// under rules that had not yet been pinned down.
+    /// </summary>
+    public required IReadOnlyList<string> IllustrationContract { get; init; }
+
     public required IReadOnlyList<BekiFulfillmentManifestEntry> Entries { get; init; }
 
-    /// <summary>The rhythm this pack's spreads are drawn against, right now.</summary>
-    public static IReadOnlyList<string> CurrentRhythm(int spreadCount) =>
-        Enumerable.Range(1, spreadCount).Select(BekiSpreadRhythm.TextSideFor).ToArray();
+    /// <summary>The terms this pack's spreads would be drawn under, right now.</summary>
+    public static IReadOnlyList<string> CurrentContract(int spreadCount) =>
+        Enumerable.Range(1, spreadCount).Select(ContractFor).ToArray();
+
+    /// <summary>
+    /// Text side, shot and Beki's version, joined by a character none of the three contains. The
+    /// shot goes in verbatim rather than as an index: the rhythm's wording is what reaches the
+    /// image model, so a reworded shot is a differently drawn spread even when its position in the
+    /// table did not move.
+    /// </summary>
+    private static string ContractFor(int spreadNumber) => string.Join(
+        '|',
+        BekiSpreadRhythm.TextSideFor(spreadNumber),
+        BekiSpreadRhythm.ShotFor(spreadNumber),
+        BekiIdentity.Version);
 }

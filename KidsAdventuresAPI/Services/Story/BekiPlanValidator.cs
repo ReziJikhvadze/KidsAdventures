@@ -8,9 +8,9 @@ namespace AdventurePacks.Api.Services.Story;
 /// The v5 schema enforces shape — every field exists, every type is right — but not the rules
 /// that only make sense once the whole plan is read together: that "beki" is spelled the one way
 /// everything downstream expects, that Beki is not quietly missing from the spreads the format
-/// promises the reader, that a spread does not name a cast member nobody introduced. A plan can
-/// satisfy the schema and still fail every one of these, because a schema cannot see across its
-/// own fields.
+/// promises the reader, that a spread does not name a cast member nobody introduced, that a scene
+/// naming Beki in prose also lists Beki among its characters. A plan can satisfy the schema and
+/// still fail every one of these, because a schema cannot see across its own fields.
 ///
 /// Static and stateless, like <see cref="BekiBookGenerator.Corrections"/> — a plan is checked the
 /// same way wherever it is read: the preview call about to retry once, or the fulfilment job
@@ -20,6 +20,12 @@ public static class BekiPlanValidator
 {
     /// <summary>The exact id every spread must use to mean Beki. Never a cast id, never a display name.</summary>
     public const string BekiId = "beki";
+
+    /// <summary>
+    /// Beki's name in Georgian, matched as a stem by <see cref="NamesBeki"/> — Georgian has no
+    /// case and inflects by suffix, so the name arrives as ბეკიმ, ბეკის, ბეკისთან and ბეკიც.
+    /// </summary>
+    private const string GeorgianBekiStem = "ბეკი";
 
     private const string ChildId = "child";
 
@@ -34,9 +40,81 @@ public static class BekiPlanValidator
         var castIds = ValidateCast(plan, problems);
         ValidateCharacterReferences(plan, castIds, problems);
         ValidateBekiPresence(plan, expectedSpreadCount, problems);
+        ValidateScenesThatNameBeki(plan, problems);
         ValidateText(plan, problems);
 
         return problems;
+    }
+
+    /// <summary>
+    /// True when a brief names Beki in words — English <c>beki</c> as a whole word, or a Georgian
+    /// token beginning with <c>ბეკი</c>.
+    ///
+    /// A Georgian prefix match covers every inflected form of the name (see
+    /// <see cref="GeorgianBekiStem"/>), and there is no Georgian word that merely begins with
+    /// ბეკი for it to collide with — ბეკონი, bacon, diverges at the fourth letter. English is
+    /// matched whole precisely because a prefix match there would swallow any name starting with
+    /// the same four letters.
+    ///
+    /// Public because the generator asks the same question of the same text: a scene that names
+    /// Beki must be drawn with the master reference attached, and both halves of the pipeline
+    /// have to agree about which scenes those are. Two implementations of one rule is how a
+    /// spread the validator accepts gets drawn with an invented Beki anyway.
+    /// </summary>
+    /// <summary>
+    /// True only for an explicit instruction that Beki be absent — "do not show Beki",
+    /// "ბეკის გარეშე". A mere mention of Beki in an Avoid brief is usually the opposite: "Beki
+    /// with wings" forbids the wings, not Beki, and reading it as an absence was how a spread
+    /// whose scene names Beki could be drawn with no reference attached — an invented Beki, the
+    /// exact fault this file exists to prevent. Conservative by design: an unrecognized phrasing
+    /// attaches the reference, because a needlessly attached reference costs nothing while a
+    /// missing one costs the character.
+    /// </summary>
+    public static bool ForbidsBeki(string? text)
+    {
+        if (!NamesBeki(text)) return false;
+
+        var lowered = text!.ToLowerInvariant();
+        string[] absences =
+        [
+            "no beki", "without beki", "do not show beki", "don't show beki",
+            "do not include beki", "don't include beki", "do not draw beki", "don't draw beki",
+            "not show beki", "exclude beki", "beki must not", "beki should not",
+            "beki does not appear", "beki is absent", "beki is not present",
+            "ბეკის გარეშე", "ბეკი არ ", "ბეკი არაა", "არ დახატო ბეკი", "არ გამოჩნდეს ბეკი",
+            "ნუ დახატავ ბეკის",
+        ];
+
+        return absences.Any(lowered.Contains);
+    }
+
+    public static bool NamesBeki(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+
+        var start = -1;
+        for (var i = 0; i <= text.Length; i++)
+        {
+            // A token is a run of letters; everything else — spaces, commas, apostrophes, quotes,
+            // digits — ends one. The loop runs one past the end so the last token is closed too.
+            var isLetter = i < text.Length && char.IsLetter(text[i]);
+
+            if (isLetter)
+            {
+                if (start < 0) start = i;
+                continue;
+            }
+
+            if (start < 0) continue;
+
+            var token = text.AsSpan(start, i - start);
+            start = -1;
+
+            if (token.Equals(BekiId, StringComparison.OrdinalIgnoreCase)) return true;
+            if (token.StartsWith(GeorgianBekiStem, StringComparison.Ordinal)) return true;
+        }
+
+        return false;
     }
 
     private static void ValidateSpreadNumbers(MasterStory plan, int expectedSpreadCount, List<string> problems)
@@ -134,6 +212,44 @@ public static class BekiPlanValidator
             problems.Add(
                 $"Beki appears in only {bekiSpreads.Count} spread(s); at least {MinimumBekiSpreads} are required "
                 + "(spread 1, the final spread, and at least three more).");
+        }
+    }
+
+    /// <summary>
+    /// A scene that names Beki must also list "beki" among its characters.
+    ///
+    /// The two say the same thing to different readers: the scene is prose the illustrator reads,
+    /// the characters list is what decides whether Beki's master reference is attached to the
+    /// call. A plan that says "ბეკი მიუთითებს ხესკენ" in the scene and omits the id from
+    /// characters asks an image model to draw a character it has never been shown — and it does,
+    /// which is how a book gets a Beki that is not Beki.
+    ///
+    /// It is reported as a plan problem rather than patched over in the generator on purpose. The
+    /// planner is one corrective retry away from writing a plan that is right in both places, and
+    /// a plan that is right is a plan an operator can read; a generator that silently attaches
+    /// references the plan never asked for leaves the stored plan permanently disagreeing with
+    /// the book that was printed from it. (The generator does infer it as a backstop, for plans
+    /// written before this rule existed and resumed afterwards — see BekiBookGenerator.)
+    ///
+    /// The spread's own Avoid field outranks this only when it explicitly forbids Beki
+    /// (<see cref="ForbidsBeki"/>): "do not show Beki" is consistent, not broken. An Avoid that
+    /// merely mentions Beki — "Beki with wings" — forbids a detail, not the character.
+    /// </summary>
+    private static void ValidateScenesThatNameBeki(MasterStory plan, List<string> problems)
+    {
+        foreach (var spread in plan.Spreads)
+        {
+            var listed = (spread.Characters ?? [])
+                .Any(id => id.Equals(BekiId, StringComparison.OrdinalIgnoreCase));
+
+            if (listed) continue;
+            if (!NamesBeki(spread.Illustration.Scene)) continue;
+            if (ForbidsBeki(spread.Illustration.Avoid)) continue;
+
+            problems.Add(
+                $"Spread {spread.Number}'s visual scene names Beki, but its characters list omits "
+                + $"\"{BekiId}\". Either add \"{BekiId}\" to that spread's characters, or take Beki "
+                + "out of the scene.");
         }
     }
 

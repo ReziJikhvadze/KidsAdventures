@@ -154,17 +154,19 @@ public sealed class BekiPackFulfillment(
 
             // Resuming a job whose first attempt died partway: read back whatever it had already
             // drawn and accepted, so this attempt redraws only the holes rather than the whole
-            // book. Any problem reading the manifest — it is absent, it will not parse, its
-            // rhythm is stale — is treated as no manifest at all; the worst that costs is
-            // redrawing spreads that were already fine.
+            // book. Any problem reading the manifest — it is absent, it will not parse, the
+            // illustration contract it was written under is no longer the one in force — is
+            // treated as no manifest at all; the worst that costs is redrawing spreads that were
+            // already fine, and the alternative is a book drawn half under each set of rules.
             var manifestName = BekiPackBlobs.ManifestName(pack.UserId, pack.Id);
-            var currentRhythm = BekiFulfillmentManifest.CurrentRhythm(BookFormat.SpreadCount);
+            var currentContract = BekiFulfillmentManifest.CurrentContract(BookFormat.SpreadCount);
             var manifest = await TryReadManifestAsync(manifestName, cancellationToken);
 
-            if (manifest is not null && !manifest.RhythmSnapshot.SequenceEqual(currentRhythm))
+            if (manifest is not null && !manifest.IllustrationContract.SequenceEqual(currentContract))
             {
                 logger.LogWarning(
-                    "Beki pack {PackId}: manifest's rhythm no longer matches the current one; ignoring it.",
+                    "Beki pack {PackId}: the manifest's illustration contract (text side, shot, Beki "
+                    + "version) no longer matches the current one; ignoring it and redrawing.",
                     packId);
                 manifest = null;
             }
@@ -239,7 +241,7 @@ public sealed class BekiPackFulfillment(
                             "image/png",
                             cancellationToken);
 
-                        await WriteManifestAsync(manifestName, storedUrls, currentRhythm, cancellationToken);
+                        await WriteManifestAsync(manifestName, storedUrls, currentContract, cancellationToken);
                     }
 
                     processedSpreads++;
@@ -280,7 +282,11 @@ public sealed class BekiPackFulfillment(
                 stored.Add(new BekiSpreadArtwork(number, spread.Image));
             }
 
-            var pdf = composer.Compose(plan, book.Cover.Image, stored);
+            // The theme reaches the composer for the endpapers alone: they are the one reusable
+            // page the partner may supply per theme, and the composer has no other way to know
+            // which book it is setting — everything else on those six pages is the same in every
+            // order by design.
+            var pdf = composer.Compose(plan, book.Cover.Image, stored, pack.Theme.ToString());
             var pdfUrl = await blobStorage.UploadAsync(
                 $"{pack.UserId}/{pack.Id}.pdf", pdf, "application/pdf", cancellationToken);
 
@@ -343,19 +349,20 @@ public sealed class BekiPackFulfillment(
     }
 
     /// <summary>
-    /// Rewritten after every accepted spread, current rhythm plus every accepted entry so far —
-    /// the ones this run just adopted from an earlier attempt included. Never after a refusal:
-    /// a spread that did not pass is not something the next attempt should adopt either.
+    /// Rewritten after every accepted spread: the illustration contract these pictures were drawn
+    /// under, plus every accepted entry so far — the ones this run just adopted from an earlier
+    /// attempt included. Never after a refusal: a spread that did not pass is not something the
+    /// next attempt should adopt either.
     /// </summary>
     private async Task WriteManifestAsync(
         string manifestName,
         IReadOnlyDictionary<int, string> storedUrls,
-        IReadOnlyList<string> rhythmSnapshot,
+        IReadOnlyList<string> illustrationContract,
         CancellationToken cancellationToken)
     {
         var manifest = new BekiFulfillmentManifest
         {
-            RhythmSnapshot = rhythmSnapshot,
+            IllustrationContract = illustrationContract,
             Entries = storedUrls
                 .OrderBy(pair => pair.Key)
                 .Select(pair => new BekiFulfillmentManifestEntry(pair.Key, pair.Value))

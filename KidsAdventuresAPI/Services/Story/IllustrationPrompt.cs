@@ -97,7 +97,11 @@ public static class IllustrationPrompt
 
             {characterLock.Trim()}
 
-            {continuityBlock}{shotInstruction.Trim()}
+            {WardrobeRule}
+
+            {continuityBlock}{shotInstruction.Trim()} {ShotDistanceRule}
+
+            {FocusRule}
 
             {ComposeTextSide(textSide)}
 
@@ -108,6 +112,47 @@ public static class IllustrationPrompt
             Do not include: {exclusions}
             """;
     }
+
+    /// <summary>
+    /// The character lock describes the child once; this says the description is not a suggestion
+    /// that expires after the first spread.
+    ///
+    /// A shipped book changed the child's jumper from red to blue between spread 1 and spread 2.
+    /// Nothing had asked for the change and nothing forbade it: the lock names the clothing, but
+    /// an image model reads a description of a person as a description of that moment, and
+    /// redresses them for the next one the way a film would. So the constancy is stated as its own
+    /// rule, and the exception — a scene that deliberately changes what the child is wearing — is
+    /// stated with it, because a rule with no stated exception gets broken silently rather than
+    /// deliberately.
+    /// </summary>
+    private const string WardrobeRule =
+        "The child's hairstyle, clothing, footwear and accessories are exactly as described above "
+        + "in this and every other scene of the book, down to colour and pattern. Do not restyle, "
+        + "recolour or redress the child between scenes; the only exception is a change this "
+        + "scene explicitly asks for.";
+
+    /// <summary>
+    /// The shot instruction names a camera distance, and it is worth saying that it means it.
+    ///
+    /// Two whole books came back as runs of medium and close compositions whatever the rhythm
+    /// asked for — the model's own comfortable framing for "a child and a friend doing something"
+    /// — so a book that was supposed to open wide and breathe read as eight variations of the
+    /// same shot. Naming the default it falls back to is what stops it being fallen back to.
+    /// </summary>
+    private const string ShotDistanceRule =
+        "Obey that camera distance exactly; do not default to a medium close-up.";
+
+    /// <summary>
+    /// One thing in the picture is the story; the rest is where the story happens.
+    ///
+    /// The planner now names exactly one visual focus per scene, and this is the half of that
+    /// rule the illustrator needs: a scene brief listing a discovery among four other true details
+    /// comes back as a picture where all five are drawn at the same weight, which is a picture of
+    /// nothing in particular.
+    /// </summary>
+    private const string FocusRule =
+        "The one focus the scene names must be the visually dominant element — large, clearly lit "
+        + "and readable at a glance. Everything else supports it and never competes with it.";
 
     /// <summary>
     /// Where the words go, said as geometry rather than as a mood.
@@ -125,6 +170,12 @@ public static class IllustrationPrompt
     /// An empty or "either" side means no text is set over this image at all — the cover, whose
     /// title is typeset later. That case used to reach the model as "on the either", which is not
     /// a place.
+    ///
+    /// It also asks for that third to be *light*. "Quiet background" was read as "dark background"
+    /// often enough — foliage in shadow was one of the examples this rule itself gave — and the
+    /// printed page then needs a heavy wash behind the text to keep it legible over the artwork.
+    /// A naturally bright reserved side is what lets that wash stay faint, so the fix is asked for
+    /// here as well as applied at layout time.
     /// </summary>
     private static string ComposeTextSide(string textSide)
     {
@@ -144,9 +195,10 @@ public static class IllustrationPrompt
         return $"""
             Composition, which is a hard requirement of this page and not a preference: the
             {side} third of the image is reserved for story text that will be printed over it.
-            Fill that third with quiet background only — open sky, distant landscape, mist, water,
-            or foliage in shadow. No character, no face, no hands and no part of the main action
-            may enter it.
+            Fill that third with quiet, naturally light background only — bright open sky, mist,
+            sunlit water, pale distant landscape, or a softly lit wall. Keep it light and airy:
+            not shadow, not darkness, and not a dark panel. No character, no face, no hands and no
+            part of the main action may enter it.
 
             Place the child and the story's action in the {heroSide} two thirds instead, and keep
             every face clear of the vertical centre line, where the fold of the spread falls.
@@ -170,6 +222,32 @@ public static class IllustrationPrompt
         "A narrow vertical strip at the exact centre of the frame is a low-information zone "
         + "crossing the printed fold: background may continue through it, but no face, no eyes, "
         + "no hands, no key object and no part of the main action may sit inside it.";
+
+    /// <summary>
+    /// The cover a Beki book falls back to when the Beki cover could not be drawn or was refused.
+    ///
+    /// The fallback used to be <see cref="Compose"/> with the cover scene and nothing else, and
+    /// what shipped was a cover whose companion character was a white-and-blue robot. Nothing had
+    /// asked for a robot: the scene was about a grape flyer, the story's companion is Beki, and
+    /// this prompt carried no Beki reference and no rule about companions — so the model read a
+    /// cover scene for a book about a child and a friend, found no friend, and invented one.
+    ///
+    /// A wrong companion on the cover is worse than no companion at all, because the cover is
+    /// where a parent decides whether the book is about their child. So the fallback says the one
+    /// thing the Beki path would have said with a picture: this cover is the child, alone.
+    ///
+    /// It wraps <see cref="Compose"/> rather than branching inside it — that function draws every
+    /// A5 book in production and is not worth a conditional for a case only v5 can reach.
+    /// </summary>
+    public static string ComposeChildOnlyCover(string characterLock, string scene, string? extraExclusions) =>
+        Compose(characterLock, $"{scene.Trim()}\n\n{ChildOnlyCoverDirective}", extraExclusions);
+
+    /// <summary>The clause that makes <see cref="ComposeChildOnlyCover"/> child-only.</summary>
+    public const string ChildOnlyCoverDirective =
+        "This cover shows the child alone. Do not invent, add or imply any second character of "
+        + "any kind: no companion, friend, sidekick, creature, animal, spirit, robot, toy brought "
+        + "to life, and no vehicle or machine given a face or otherwise drawn as a character. The "
+        + "child is the only character in the frame, and the setting behind them stays simple.";
 
     public static string Compose(string characterLock, string scene, string? extraExclusions)
     {

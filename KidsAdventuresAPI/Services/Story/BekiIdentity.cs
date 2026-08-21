@@ -51,13 +51,19 @@ public static class BekiIdentity
 
     /// <summary>
     /// What the QA reviewer holds an image to when Beki is present. Named features rather than
-    /// "matches the reference": the reviewer that judged the lamb era proved it will call a
-    /// close-enough design a match unless told which parts are not negotiable.
+    /// "matches the reference" — but proportionate. The first strict wording asked for every
+    /// feature to be verifiably present and refused seven spreads out of seven, retries
+    /// included: at storybook distance a small Beki cannot show a checklist, and a gate that
+    /// refuses everything gates nothing — every image ships flagged and none is ever persisted
+    /// as accepted. The rule now names the breaks that actually betray the character, and says
+    /// out loud that small-scale softness is not one of them.
     /// </summary>
     public const string QaRule =
-        "Beki, if present, matches the canonical Beki master reference: an abstract floating "
-        + "leaf spirit with a plum-violet face, warm golden eyes, a layered cream-gold leaf "
-        + "body, one leaf spiral above the head, a rear leaf-ribbon, a glowing chest core, "
-        + "five-lobed hands and no legs. Flag as a fault any lamb, animal, human or robed "
-        + "interpretation, any ears, wings or legs, or a missing spiral, ribbon or chest glow.";
+        "Beki, if present, reads as the character in the Beki master reference: an abstract "
+        + "floating leaf spirit with a plum-violet face, golden eyes and a cream-gold leaf "
+        + "body. Flag as a fault only a clear identity break: Beki drawn as a lamb, animal, "
+        + "human, ghost or robed figure; visible ears, wings or legs; badly wrong colours; or "
+        + "the silhouette losing all three of its signature forms (head spiral, rear ribbon, "
+        + "chest glow). Softness or simplification at small scale is acceptable and is not a "
+        + "fault.";
 }
