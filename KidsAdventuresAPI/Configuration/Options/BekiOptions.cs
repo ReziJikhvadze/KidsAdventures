@@ -1,4 +1,4 @@
-﻿namespace AdventurePacks.Api.Configuration.Options;
+namespace AdventurePacks.Api.Configuration.Options;
 
 /// <summary>
 /// Configuration for the Beki story and visual pipelines.
@@ -101,6 +101,12 @@ public sealed class BekiOptions
     /// <summary>Bounded so a persistently failing page cannot spend without limit.</summary>
     public int MaxPageRepairAttempts { get; set; } = 1;
     public int MaxPageRegenerationAttempts { get; set; } = 1;
+
+    /// <summary>
+    /// How many Beki spreads may draw at once. 1 restores strictly sequential drawing.
+    /// The dependency rule (anchoring) is honoured at any setting.
+    /// </summary>
+    public int SpreadConcurrency { get; set; } = 2;
 
     /// <summary>Canonical Beki asset, attached only to pages whose cast includes Beki.</summary>
     public string BekiReferenceAssetPath { get; set; } = Services.Story.BekiIdentity.ReferenceAssetPath;

@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Text.Json;
 using AdventurePacks.Api.Domain.Enums;
 using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.DTOs.AdventurePacks;
+using AdventurePacks.Api.Infrastructure;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
 using Hangfire;
@@ -76,6 +78,12 @@ public sealed class BekiPackFulfillment(
     [DisableConcurrentExecution("beki-pack:{0}", 1800)]
     public async Task ProcessAsync(Guid packId, Guid runId, CancellationToken cancellationToken)
     {
+        // The spec's telemetry mandate (§27): before any performance work, measure where the
+        // twenty minutes actually go. Total spans the whole job; uploads accumulate across the
+        // mid-run callback, the catch-up pass and the PDF, which run one at a time by design.
+        var totalStopwatch = Stopwatch.StartNew();
+        long uploadMs = 0;
+
         var pack = await packRepository.GetByIdNoOwnershipAsync(packId, cancellationToken);
         if (pack is null)
         {
@@ -120,7 +128,7 @@ public sealed class BekiPackFulfillment(
             // Validated defensively, warnings only: the parent already read and bought this plan,
             // so a problem here is not this job's to refuse over. It is worth knowing about all
             // the same — the same checks that would have triggered a retry at preview time.
-            foreach (var problem in BekiPlanValidator.Validate(plan, BookFormat.SpreadCount))
+            foreach (var problem in BekiPlanValidator.Validate(plan, BookFormat.SpreadCount, run.Age))
             {
                 logger.LogWarning("Beki pack {PackId}: plan validation problem — {Problem}", packId, problem);
             }
@@ -235,6 +243,7 @@ public sealed class BekiPackFulfillment(
                     // whole, unchanged from before this job became resumable.
                     if (image.Accepted)
                     {
+                        var uploadStopwatch = Stopwatch.StartNew();
                         storedUrls[number] = await blobStorage.UploadAsync(
                             BekiPackBlobs.SpreadName(pack.UserId, pack.Id, number),
                             image.Image,
@@ -242,6 +251,7 @@ public sealed class BekiPackFulfillment(
                             cancellationToken);
 
                         await WriteManifestAsync(manifestName, storedUrls, currentContract, cancellationToken);
+                        uploadMs += uploadStopwatch.ElapsedMilliseconds;
                     }
 
                     processedSpreads++;
@@ -272,23 +282,35 @@ public sealed class BekiPackFulfillment(
                 var number = spread.SpreadNumber ?? 0;
                 if (!storedUrls.ContainsKey(number))
                 {
+                    var uploadStopwatch = Stopwatch.StartNew();
                     storedUrls[number] = await blobStorage.UploadAsync(
                         BekiPackBlobs.SpreadName(pack.UserId, pack.Id, number),
                         spread.Image,
                         "image/png",
                         cancellationToken);
+                    uploadMs += uploadStopwatch.ElapsedMilliseconds;
                 }
 
                 stored.Add(new BekiSpreadArtwork(number, spread.Image));
             }
 
-            // The theme reaches the composer for the endpapers alone: they are the one reusable
-            // page the partner may supply per theme, and the composer has no other way to know
-            // which book it is setting — everything else on those six pages is the same in every
-            // order by design.
-            var pdf = composer.Compose(plan, book.Cover.Image, stored, pack.Theme.ToString());
+            // Personalization is what the intro spread prints and the endpapers key on: the
+            // child's name and age from the run, the world as the parent chose it
+            // (StoryWorlds.For, the same canon the planner writes from), and the purchase date —
+            // pack.CreatedAt, never "now", so a job that dies and resumes tomorrow prints the
+            // same date its first attempt would have.
+            var personalization = new BekiBookPersonalization(
+                run.ChildName, run.Age, pack.CreatedAt, pack.Theme.ToString(),
+                StoryWorlds.For(pack.Theme).Place);
+
+            var pdfStopwatch = Stopwatch.StartNew();
+            var pdf = composer.Compose(plan, book.Cover.Image, stored, personalization);
+            pdfStopwatch.Stop();
+
+            var pdfUploadStopwatch = Stopwatch.StartNew();
             var pdfUrl = await blobStorage.UploadAsync(
                 $"{pack.UserId}/{pack.Id}.pdf", pdf, "application/pdf", cancellationToken);
+            uploadMs += pdfUploadStopwatch.ElapsedMilliseconds;
 
             // One file serves both shelves: the Beki layout is print geometry already — bleed,
             // spread pages, the QR leaf — so the reading copy and the print copy are the same
@@ -311,6 +333,67 @@ public sealed class BekiPackFulfillment(
             logger.LogInformation(
                 "Beki pack {PackId} completed from run {RunId}: \"{Title}\", {Spreads} spreads.",
                 packId, runId, plan.Concept.Title, stored.Count);
+
+            // Telemetry last, and best-effort: the order is already complete, and a failed
+            // measurement must never look like a failed book. Per-attempt rows come from the
+            // generator's own stopwatches, so a first attempt the reviewer refused keeps its
+            // verdict here even when the retry passed — the QA failure reasons are the point.
+            try
+            {
+                totalStopwatch.Stop();
+                var telemetry = new
+                {
+                    cover = new
+                    {
+                        attempts = book.Cover.AttemptDetails.Select(a => new
+                        {
+                            generationMs = a.GenerationMs,
+                            reviewMs = a.ReviewMs,
+                            accepted = a.Accepted,
+                            issues = a.Accepted ? Array.Empty<string>() : ParseIssues(a.Verdict),
+                        }).ToList(),
+                        accepted = book.Cover.Accepted,
+                        adopted = book.Cover.AttemptDetails.Count == 0,
+                    },
+                    spreads = book.Spreads.Select(s => new
+                    {
+                        spreadNumber = s.SpreadNumber,
+                        attempts = s.AttemptDetails.Select(a => new
+                        {
+                            generationMs = a.GenerationMs,
+                            reviewMs = a.ReviewMs,
+                            accepted = a.Accepted,
+                            issues = a.Accepted ? Array.Empty<string>() : ParseIssues(a.Verdict),
+                        }).ToList(),
+                        accepted = s.Accepted,
+                        adoptedFromManifest = s.AttemptDetails.Count == 0,
+                    }).ToList(),
+                    uploadMs,
+                    pdfBuildMs = pdfStopwatch.ElapsedMilliseconds,
+                    totalMs = totalStopwatch.ElapsedMilliseconds,
+                    totalImageAttempts = book.Cover.AttemptDetails.Count
+                        + book.Spreads.Sum(s => s.AttemptDetails.Count),
+                    acceptedCount = (book.Cover.Accepted ? 1 : 0) + book.Spreads.Count(s => s.Accepted),
+                    needsReviewCount = (book.Cover.Accepted ? 0 : 1) + book.Spreads.Count(s => !s.Accepted),
+                };
+
+                await blobStorage.UploadAsync(
+                    $"{pack.UserId}/{pack.Id}/telemetry.json",
+                    JsonSerializer.SerializeToUtf8Bytes(telemetry, JsonOptions),
+                    "application/json",
+                    cancellationToken);
+
+                logger.LogInformation(
+                    "Beki pack {PackId} telemetry: totalMs={TotalMs}, pdfBuildMs={PdfBuildMs}, "
+                    + "uploadMs={UploadMs}, imageAttempts={Attempts}, accepted={Accepted}, "
+                    + "needsReview={NeedsReview}.",
+                    packId, telemetry.totalMs, telemetry.pdfBuildMs, telemetry.uploadMs,
+                    telemetry.totalImageAttempts, telemetry.acceptedCount, telemetry.needsReviewCount);
+            }
+            catch (Exception telemetryEx)
+            {
+                logger.LogWarning(telemetryEx, "Beki pack {PackId}: telemetry not written.", packId);
+            }
         }
         catch (Exception ex)
         {
@@ -327,6 +410,7 @@ public sealed class BekiPackFulfillment(
     /// same way: no manifest, so every spread is redrawn. A resumed job must never fail over a
     /// manifest it cannot trust.
     /// </summary>
+
     private async Task<BekiFulfillmentManifest?> TryReadManifestAsync(
         string manifestName, CancellationToken cancellationToken)
     {
@@ -371,6 +455,37 @@ public sealed class BekiPackFulfillment(
 
         var json = JsonSerializer.SerializeToUtf8Bytes(manifest, JsonOptions);
         await blobStorage.UploadAsync(manifestName, json, "application/json", cancellationToken);
+    }
+
+    /// <summary>
+    /// The reviewer's issue strings out of a stored verdict, for telemetry only — parse trouble
+    /// yields an empty list, never an exception, because a malformed verdict already cost its
+    /// retry and must not also cost the measurement.
+    /// </summary>
+    private static string[] ParseIssues(string verdict)
+    {
+        if (string.IsNullOrWhiteSpace(verdict)) return [];
+
+        try
+        {
+            var extracted = ModelJsonSanitizer.ExtractJsonObject(verdict);
+            if (string.IsNullOrEmpty(extracted)) return [];
+
+            using var document = JsonDocument.Parse(extracted);
+            if (document.RootElement.TryGetProperty("issues", out var issues)
+                && issues.ValueKind == JsonValueKind.Array)
+            {
+                return issues.EnumerateArray()
+                    .Select(issue => issue.GetString() ?? string.Empty)
+                    .Where(issue => !string.IsNullOrEmpty(issue))
+                    .ToArray();
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return [];
     }
 
     /// <summary>

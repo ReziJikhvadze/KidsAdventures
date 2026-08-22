@@ -1,4 +1,7 @@
 using System.Text.Json;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
+using SixLabors.ImageSharp.Processing;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.Infrastructure;
@@ -6,6 +9,8 @@ using AdventurePacks.Api.Services.Interfaces;
 using AdventurePacks.Api.Services.Story.Prompts;
 
 namespace AdventurePacks.Api.Services.Story;
+
+public sealed record BekiImageAttempt(long GenerationMs, long ReviewMs, string Verdict, bool Accepted);
 
 /// <summary>What one Beki illustration came out as, and what it cost to get there.</summary>
 public sealed record BekiImageResult
@@ -22,6 +27,8 @@ public sealed record BekiImageResult
     /// <summary>1 means it passed first time.</summary>
     public required int Attempts { get; init; }
 
+    public IReadOnlyList<BekiImageAttempt> AttemptDetails { get; init; } = [];
+
     public required string Prompt { get; init; }
 
     /// <summary>Which characters this image was drawn from an anchor for, rather than a description.</summary>
@@ -30,6 +37,7 @@ public sealed record BekiImageResult
 
 public sealed record BekiBookResult
 {
+    public long PlanMs { get; init; }
     public required MasterStory Plan { get; init; }
     public required string AppearanceDescription { get; init; }
     public required BekiImageResult Cover { get; init; }
@@ -101,10 +109,12 @@ public interface IBekiBookGenerator
 /// nothing else — not the story, not the other spreads, not the extra wish, not a dimension or a
 /// typography rule. Everything a picture must not be told is simply never assembled here.
 ///
-/// Spreads are drawn in order rather than in parallel, which is slower and deliberate: a
-/// character's anchor is the first accepted image it appeared in, so spread 5 cannot be started
-/// until it is known whether spread 2 gave char_01 a face. Parallelism would mean drawing every
-/// early appearance from description and losing the continuity the anchors exist for.
+/// Spreads draw concurrently, capped by <see cref="BekiOptions.SpreadConcurrency"/>, under one
+/// dependency rule: a spread that reuses a recurring character or object waits for the
+/// immediately previous spread listing the same id, so an anchor — the first accepted image a
+/// recurring id appeared in — is always settled before its next use. That chain reproduces the
+/// old sequential semantics exactly; setting the concurrency to 1 reproduces the old order too,
+/// because the scheduler always launches the lowest-numbered ready spread.
 ///
 /// It generates and reviews. It does not lay out, store, bill or persist anything — the layout
 /// and the printed format are a separate decision that has not been taken yet, and a generator
@@ -114,6 +124,7 @@ public sealed class BekiBookGenerator(
     IStoryModelClient storyClient,
     IOpenAiService openAi,
     IOptions<BekiPrintLayoutOptions> printLayoutOptions,
+    IOptions<BekiOptions> bekiOptions,
     ILogger<BekiBookGenerator> logger) : IBekiBookGenerator
 {
     /// <summary>
@@ -133,6 +144,7 @@ public sealed class BekiBookGenerator(
     private const string BekiReferencePath = BekiIdentity.ReferenceAssetPath;
 
     private readonly BekiPrintLayoutOptions _layout = printLayoutOptions.Value;
+    private readonly BekiOptions _bekiOptions = bekiOptions.Value;
 
     /// <summary>
     /// Read once per generator instance and kept: the file never changes mid-run, and a book
@@ -140,6 +152,72 @@ public sealed class BekiBookGenerator(
     /// </summary>
     private byte[]? _cachedBekiReference;
     private bool _bekiReferenceLoadAttempted;
+    private readonly object _bekiReferenceLock = new();
+
+    internal static IReadOnlyDictionary<int, IReadOnlyList<int>> SpreadDependencies(MasterStory plan, IReadOnlySet<int> adopted)
+    {
+        var result = new Dictionary<int, IReadOnlyList<int>>();
+        var castIds = (plan.Cast ?? []).Select(c => c.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var objIds = (plan.Objects ?? []).Select(o => o.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var previousOccurrences = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        var globallyAnchoredByAdoption = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var spread in plan.Spreads)
+        {
+            if (adopted.Contains(spread.Number))
+            {
+                var ids = (spread.Characters ?? []).Concat(spread.Objects ?? []);
+                foreach (var id in ids)
+                {
+                    if (castIds.Contains(id) || objIds.Contains(id))
+                    {
+                        globallyAnchoredByAdoption.Add(id);
+                    }
+                }
+            }
+        }
+
+        foreach (var spread in plan.Spreads.OrderBy(s => s.Number))
+        {
+            var deps = new HashSet<int>();
+            
+            if (adopted.Contains(spread.Number))
+            {
+                result[spread.Number] = [];
+                continue;
+            }
+
+            // Distinct, because nothing upstream forbids a spread listing the same id twice —
+            // and a duplicated id would make the second occurrence see the first as its
+            // "previous" spread, a self-dependency the scheduler can never satisfy.
+            var ids = (spread.Characters ?? []).Concat(spread.Objects ?? [])
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var id in ids)
+            {
+                if (id.Equals("child", StringComparison.OrdinalIgnoreCase) || id.Equals("beki", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                if (!castIds.Contains(id) && !objIds.Contains(id))
+                    continue;
+
+                if (globallyAnchoredByAdoption.Contains(id))
+                    continue;
+
+                if (previousOccurrences.TryGetValue(id, out var prev) && prev != spread.Number)
+                {
+                    deps.Add(prev);
+                }
+
+                previousOccurrences[id] = spread.Number;
+            }
+
+            result[spread.Number] = deps.ToList();
+        }
+
+        return result;
+    }
 
     /// <summary>
     /// QA must judge what the reader will see, not pixels the print crop discards.
@@ -166,14 +244,16 @@ public sealed class BekiBookGenerator(
         var appearance = await openAi.DescribeCharacterFromPhotoAsync(
             childPhoto, childPhotoContentType, MasterStoryPrompt.PhotoDescribe, cancellationToken);
 
+        var planSw = System.Diagnostics.Stopwatch.StartNew();
         var plan = await PlanAsync(input with { AppearanceDescription = appearance }, cancellationToken);
+        planSw.Stop();
 
         logger.LogInformation(
             "Beki plan \"{Title}\": {Spreads} spreads, {Cast} recurring character(s).",
             plan.Concept.Title, plan.Spreads.Count, plan.Cast?.Count ?? 0);
 
         var book = await IllustrateAsync(plan, childPhoto, childPhotoContentType, null, null, cancellationToken);
-        return book with { AppearanceDescription = appearance };
+        return book with { AppearanceDescription = appearance, PlanMs = planSw.ElapsedMilliseconds };
     }
 
     public async Task<BekiBookResult> IllustrateAsync(
@@ -189,6 +269,7 @@ public sealed class BekiBookGenerator(
         var adopted = existingSpreads ?? new Dictionary<int, byte[]>();
 
         var castById = (plan.Cast ?? []).ToDictionary(member => member.Id, StringComparer.OrdinalIgnoreCase);
+        var objById = (plan.Objects ?? []).ToDictionary(o => o.Id, StringComparer.OrdinalIgnoreCase);
         var anchors = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
 
         /*
@@ -207,9 +288,10 @@ public sealed class BekiBookGenerator(
                 continue;
             }
 
-            foreach (var id in spread.Characters ?? [])
+            var ids = (spread.Characters ?? []).Concat(spread.Objects ?? []);
+            foreach (var id in ids)
             {
-                if (castById.ContainsKey(id) && !anchors.ContainsKey(id))
+                if ((castById.ContainsKey(id) || objById.ContainsKey(id)) && !anchors.ContainsKey(id))
                 {
                     anchors[id] = adoptedImage;
                 }
@@ -227,16 +309,107 @@ public sealed class BekiBookGenerator(
                 Prompt = string.Empty,
             };
 
-        var spreads = new List<BekiImageResult>(plan.Spreads.Count);
-        foreach (var spread in plan.Spreads.OrderBy(s => s.Number))
-        {
-            BekiImageResult result;
+        var spreads = new BekiImageResult[plan.Spreads.Count];
+        var dependencies = SpreadDependencies(plan, adopted.Keys.ToHashSet());
+        
+        using var anchorsGate = new SemaphoreSlim(1, 1);
+        using var deliveryGate = new SemaphoreSlim(1, 1);
 
+        var deliveredSpreads = adopted.Keys.ToHashSet();
+        var completedResults = new Dictionary<int, BekiImageResult>();
+
+        // One failure cancels the whole fleet: a spread that dies mid-book must not leave its
+        // siblings generating and reviewing paid images for minutes while the job waits to fail.
+        using var renderCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        async Task<BekiImageResult> ProcessSpreadAsync(StorySpread spread)
+        {
+            renderCts.Token.ThrowIfCancellationRequested();
+
+            IReadOnlyDictionary<string, byte[]> snapshot;
+            await anchorsGate.WaitAsync(renderCts.Token).ConfigureAwait(false);
+            try
+            {
+                snapshot = new Dictionary<string, byte[]>(anchors, StringComparer.OrdinalIgnoreCase);
+            }
+            finally
+            {
+                anchorsGate.Release();
+            }
+
+            var result = await DrawSpreadAsync(
+                plan, spread, castById, objById, snapshot, childPhoto, childPhotoContentType,
+                renderCts.Token).ConfigureAwait(false);
+
+            await anchorsGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+            try
+            {
+                if (result.Accepted)
+                {
+                    var ids = (spread.Characters ?? []).Concat(spread.Objects ?? []);
+                    foreach (var id in ids)
+                    {
+                        if ((castById.ContainsKey(id) || objById.ContainsKey(id)) && !anchors.ContainsKey(id))
+                        {
+                            anchors[id] = result.Image;
+                            logger.LogInformation("Beki: spread {Spread} is now the anchor for {Character}.", spread.Number, id);
+                        }
+                    }
+                }
+                else
+                {
+                    lock (warnings)
+                    {
+                        warnings.Add($"Spread {spread.Number} shipped as NEEDS_REVIEW after {result.Attempts} attempt(s).");
+                    }
+                }
+            }
+            finally
+            {
+                anchorsGate.Release();
+            }
+
+            if (onImage is not null)
+            {
+                await deliveryGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+                try
+                {
+                    completedResults[spread.Number] = result;
+                    for (int n = 1; n <= plan.Spreads.Count; n++)
+                    {
+                        if (!deliveredSpreads.Contains(n))
+                        {
+                            if (completedResults.TryGetValue(n, out var res))
+                            {
+                                await onImage(res).ConfigureAwait(false);
+                                deliveredSpreads.Add(n);
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    deliveryGate.Release();
+                }
+            }
+            
+            return result;
+        }
+
+        var completed = adopted.Keys.ToHashSet();
+        var pending = plan.Spreads.Where(s => !adopted.ContainsKey(s.Number)).OrderBy(s => s.Number).ToList();
+        var running = new Dictionary<int, Task<BekiImageResult>>();
+        var spreadsList = plan.Spreads.OrderBy(s => s.Number).ToList();
+        
+        foreach (var spread in spreadsList)
+        {
             if (adopted.TryGetValue(spread.Number, out var adoptedImage))
             {
-                // Already accepted, already stored, already anchored above. Redrawing it would
-                // cost a generation for a picture the parent has effectively already seen.
-                result = new BekiImageResult
+                var result = new BekiImageResult
                 {
                     SpreadNumber = spread.Number,
                     Image = adoptedImage,
@@ -245,62 +418,82 @@ public sealed class BekiBookGenerator(
                     Attempts = 0,
                     Prompt = string.Empty,
                 };
-
-                spreads.Add(result);
-                continue;
-            }
-
-            result = await DrawSpreadAsync(
-                plan, spread, castById, anchors, childPhoto, childPhotoContentType, cancellationToken);
-
-            spreads.Add(result);
-
-            if (onImage is not null)
-            {
-                await onImage(result);
-            }
-
-            /*
-              The continuity rule, and the reason spreads are sequential.
-
-              An accepted image becomes the anchor for every character in it that did not already
-              have one. Unaccepted images are not promoted: an anchor is what every later
-              appearance is matched against, so a bad one does not stay one picture's problem.
-            */
-            if (result.Accepted)
-            {
-                foreach (var id in spread.Characters ?? [])
-                {
-                    if (castById.ContainsKey(id) && !anchors.ContainsKey(id))
-                    {
-                        anchors[id] = result.Image;
-                        logger.LogInformation(
-                            "Beki: spread {Spread} is now the anchor for {Character}.", spread.Number, id);
-                    }
-                }
-            }
-            else
-            {
-                warnings.Add($"Spread {spread.Number} shipped as NEEDS_REVIEW after {result.Attempts} attempt(s).");
+                spreads[spreadsList.IndexOf(spread)] = result;
             }
         }
 
-        var unanchored = castById.Keys.Where(id => !anchors.ContainsKey(id)).ToList();
+        try
+        {
+            while (pending.Count > 0 || running.Count > 0)
+            {
+                // Clamped to one: a zero or negative setting would leave the loop with ready
+                // work, nothing running, and nothing to await — a silent spin, not a slower book.
+                var concurrency = Math.Max(1, _bekiOptions.SpreadConcurrency);
+
+                var ready = pending.Where(s => dependencies[s.Number].All(d => completed.Contains(d))).ToList();
+
+                // Nothing ready, nothing running, work left: a dependency that can never be
+                // satisfied. SpreadDependencies is built so this cannot happen — every
+                // dependency points at an earlier, distinct spread — but a loop that would
+                // otherwise spin forever fails loudly instead.
+                if (ready.Count == 0 && running.Count == 0)
+                {
+                    throw new InvalidOperationException(
+                        "Beki spread scheduling stalled; unsatisfiable dependencies for "
+                        + $"spread(s) {string.Join(", ", pending.Select(s => s.Number))}.");
+                }
+
+                foreach (var s in ready)
+                {
+                    if (running.Count >= concurrency)
+                        break;
+
+                    cancellationToken.ThrowIfCancellationRequested();
+                    running.Add(s.Number, ProcessSpreadAsync(s));
+                    pending.Remove(s);
+                }
+
+                if (running.Count > 0)
+                {
+                    var finishedTask = await Task.WhenAny(running.Values).ConfigureAwait(false);
+                    var finishedNumber = running.First(x => x.Value == finishedTask).Key;
+                    var result = await finishedTask.ConfigureAwait(false);
+                    
+                    running.Remove(finishedNumber);
+                    completed.Add(finishedNumber);
+                    
+                    var index = spreadsList.FindIndex(s => s.Number == finishedNumber);
+                    spreads[index] = result;
+                }
+            }
+        }
+        catch
+        {
+            // Cancel first, then drain: the siblings observe the linked token inside their own
+            // provider calls, so the drain is bounded by a request timeout rather than by
+            // however many minutes of image generation were still queued up.
+            renderCts.Cancel();
+            if (running.Count > 0)
+            {
+                await Task.WhenAll(running.Values.Select(t => t.ContinueWith(_ => {}))).ConfigureAwait(false);
+            }
+            throw;
+        }
+
+        var unanchored = castById.Keys.Concat(objById.Keys).Where(id => !anchors.ContainsKey(id)).ToList();
         if (unanchored.Count > 0)
         {
             warnings.Add(
                 $"No accepted image ever established an anchor for: {string.Join(", ", unanchored)}. "
-                + "Those characters were drawn from their description every time.");
+                + "Those characters/objects were drawn from their description every time.");
         }
 
         return new BekiBookResult
         {
             Plan = plan,
-            // Only planning reads the photograph's description; an illustrate-only run never
-            // produced one. GenerateAsync stamps its own on before returning.
             AppearanceDescription = string.Empty,
             Cover = cover,
-            Spreads = spreads,
+            Spreads = spreads.ToList(),
             Warnings = warnings,
         };
     }
@@ -387,6 +580,7 @@ public sealed class BekiBookGenerator(
         MasterStory plan,
         StorySpread spread,
         IReadOnlyDictionary<string, StoryCastMember> castById,
+        IReadOnlyDictionary<string, StoryObjectItem> objById,
         IReadOnlyDictionary<string, byte[]> anchors,
         byte[] childPhoto,
         string childPhotoContentType,
@@ -395,8 +589,12 @@ public sealed class BekiBookGenerator(
         var textSide = BekiSpreadRhythm.TextSideFor(spread.Number);
         var shot = BekiSpreadRhythm.ShotFor(spread.Number);
 
-        var present = (spread.Characters ?? [])
+        var presentCast = (spread.Characters ?? [])
             .Where(castById.ContainsKey)
+            .ToList();
+
+        var presentObjects = (spread.Objects ?? [])
+            .Where(objById.ContainsKey)
             .ToList();
 
         var references = new List<(byte[] Bytes, string ContentType, string Label)>
@@ -404,41 +602,29 @@ public sealed class BekiBookGenerator(
             (childPhoto, childPhotoContentType, "Child reference photograph"),
         };
 
-        /*
-          Each recurring character is described the first time and shown every time after.
-
-          Both halves matter. A character introduced by description and then never anchored drifts
-          between spreads; a character anchored but not named in the prompt leaves the model to
-          guess which of the attached pictures it is looking at.
-        */
         var continuity = new List<string>();
         var anchored = new List<string>();
 
-        foreach (var id in present)
+        foreach (var id in presentCast)
         {
             var member = castById[id];
-            if (anchors.TryGetValue(id, out var anchorBytes))
+            if (anchors.TryGetValue(id, out var anchor))
             {
                 /*
-                  An anchored character keeps its description in the prompt.
-
-                  Dropping it was how a spread carrying two anchors came back with the same
-                  creature drawn twice. The two references went in as files whose names both began
-                  "Continuity reference for" and were cut to the same 24 characters, and the prompt
-                  said only "keep ფაფუ identical to its reference" and "keep ლურჯფრთა identical to
-                  its reference" — nothing in the request told the two apart, so the model picked
-                  one design and used it for both.
-
-                  The label is now the character's name alone, so the filename carries it, and the
-                  description stays in the sentence so the model can tell which attached picture is
-                  being talked about even if the labels never reach it.
+                  An anchored character keeps its description in the prompt, and the closing
+                  clause is not decoration: a spread carrying two anchors once came back with the
+                  same creature drawn twice, because nothing in the request told the two attached
+                  references apart. The label is the character's name alone so the filename
+                  carries it, the description stays in the sentence so the model knows which
+                  picture is being talked about, and the "no other character" clause is what
+                  stops one design being reused for both.
                 */
-                references.Add((anchorBytes, "image/png", member.Name));
+                anchored.Add(id);
+                references.Add((anchor, "image/png", member.Name));
                 continuity.Add(
                     $"{member.Name} — {member.VisualDescription} — appears again here: keep "
                     + "it identical to its own continuity reference, and do not give any other "
                     + "character its design.");
-                anchored.Add(id);
             }
             else
             {
@@ -446,13 +632,23 @@ public sealed class BekiBookGenerator(
             }
         }
 
-        /*
-          Beki is not a cast member — there is no entry for it in castById, and no
-          visualDescription to fall back on, because the canonical design lives in the reference
-          image alone. So it gets its own branch rather than joining the loop above: every spread
-          that carries Beki attaches the same master reference, described the same way, every
-          time — there is no "first appearance" for a character who is in almost every spread.
-        */
+        foreach (var id in presentObjects)
+        {
+            var obj = objById[id];
+            if (anchors.TryGetValue(id, out var anchor))
+            {
+                anchored.Add(id);
+                references.Add((anchor, "image/png", obj.Name));
+                continuity.Add(
+                    $"{obj.Name} — {obj.VisualDescription} — appears again here: "
+                    + "keep it identical to its own continuity reference, and do not give any other object its design.");
+            }
+            else
+            {
+                continuity.Add($"Include {obj.Name}: {obj.VisualDescription}");
+            }
+        }
+
         if (SpreadNeedsBeki(spread))
         {
             var beki = RequireBekiReference($"spread {spread.Number}");
@@ -460,13 +656,15 @@ public sealed class BekiBookGenerator(
             continuity.Add(BekiIdentity.SpreadContinuity);
         }
 
+        var ctaSafe = spread.Number == BookFormat.SpreadCount;
         var prompt = IllustrationPrompt.ComposeBeki(
             plan.CharacterLock,
             spread.Illustration.Scene,
             string.Join("\n", continuity),
             textSide,
             shot,
-            spread.Illustration.Avoid);
+            spread.Illustration.Avoid,
+            ctaSafe);
 
         return await DrawReviewedAsync(
             spread.Number,
@@ -476,7 +674,8 @@ public sealed class BekiBookGenerator(
             prompt,
             references,
             anchored,
-            cancellationToken);
+            cancellationToken,
+            ctaSafe);
     }
 
     /// <summary>
@@ -530,27 +729,33 @@ public sealed class BekiBookGenerator(
         string prompt,
         IReadOnlyList<(byte[] Bytes, string ContentType, string Label)> references,
         IReadOnlyList<string> anchored,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool ctaSafe = false)
     {
         var label = spreadNumber is null ? "cover" : $"spread {spreadNumber}";
         var reference = BekiImageReferences.ToStoryImageReference(references);
 
-        // QA must judge what the reader will see, not pixels the print crop discards — a copy
-        // only, cropped to the sheet this image will actually be printed on. The stored/returned
-        // image below stays the full provider frame; BekiPdfComposer does its own crop at layout
-        // time.
         var reviewRatio = spreadNumber is null ? CoverCropRatio : SpreadCropRatio;
+        var attemptDetails = new List<BekiImageAttempt>();
 
+        var genSw = System.Diagnostics.Stopwatch.StartNew();
         var image = await openAi.GenerateStoryImageAsync(
             prompt, reference, cancellationToken, SpreadImageSize);
+        genSw.Stop();
 
+        var reviewCopy = DownscaleForReview(SpreadArtCrop.CropToRatio(image, reviewRatio));
+        var revSw = System.Diagnostics.Stopwatch.StartNew();
         var verdict = await ReviewAsync(
-            SpreadArtCrop.CropToRatio(image, reviewRatio),
+            reviewCopy,
             scene,
             textSide,
             characterLock,
             references,
-            cancellationToken);
+            cancellationToken,
+            ctaSafe);
+        revSw.Stop();
+
+        attemptDetails.Add(new BekiImageAttempt(genSw.ElapsedMilliseconds, revSw.ElapsedMilliseconds, verdict, IsPass(verdict)));
         var attempts = 1;
 
         while (!IsPass(verdict) && attempts <= MaxRegenerations)
@@ -558,16 +763,24 @@ public sealed class BekiBookGenerator(
             logger.LogInformation("Beki {Label} refused by QA; redrawing. {Verdict}", label, verdict);
 
             var corrected = $"{prompt}\n\n{Corrections(verdict)}";
+            genSw.Restart();
             image = await openAi.GenerateStoryImageAsync(
                 corrected, reference, cancellationToken, SpreadImageSize);
+            genSw.Stop();
 
+            reviewCopy = DownscaleForReview(SpreadArtCrop.CropToRatio(image, reviewRatio));
+            revSw.Restart();
             verdict = await ReviewAsync(
-                SpreadArtCrop.CropToRatio(image, reviewRatio),
+                reviewCopy,
                 scene,
                 textSide,
                 characterLock,
                 references,
-                cancellationToken);
+                cancellationToken,
+                ctaSafe);
+            revSw.Stop();
+
+            attemptDetails.Add(new BekiImageAttempt(genSw.ElapsedMilliseconds, revSw.ElapsedMilliseconds, verdict, IsPass(verdict)));
             attempts++;
         }
 
@@ -577,10 +790,24 @@ public sealed class BekiBookGenerator(
             Image = image,
             Accepted = IsPass(verdict),
             Verdict = verdict,
-            Attempts = attempts,
+            Attempts = attemptDetails.Count,
+            AttemptDetails = attemptDetails,
             Prompt = prompt,
             AnchoredCharacters = anchored,
         };
+    }
+
+    private static byte[] DownscaleForReview(byte[] imageBytes)
+    {
+        using var image = Image.Load<Rgba32>(imageBytes);
+        if (image.Width <= 1024) return imageBytes;
+
+        var height = (int)Math.Round(image.Height * (1024.0 / image.Width));
+        image.Mutate(x => x.Resize(1024, height, KnownResamplers.Lanczos3));
+
+        using var ms = new MemoryStream();
+        image.SaveAsPng(ms);
+        return ms.ToArray();
     }
 
     private Task<string> ReviewAsync(
@@ -589,9 +816,10 @@ public sealed class BekiBookGenerator(
         string textSide,
         string characterLock,
         IReadOnlyList<(byte[] Bytes, string ContentType, string Label)> references,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken,
+        bool ctaSafe = false) =>
         openAi.ReviewIllustrationAsync(
-            image, BekiImageQaPrompt.For(scene, textSide, characterLock), references, cancellationToken);
+            image, BekiImageQaPrompt.For(scene, textSide, characterLock, ctaSafe), references, cancellationToken);
 
     /// <summary>
     /// Forgiving about the wrapper, strict about the answer.
@@ -744,25 +972,35 @@ public sealed class BekiBookGenerator(
     /// <exception cref="InvalidOperationException">The asset is missing or unreadable.</exception>
     private byte[] RequireBekiReference(string context)
     {
-        if (!_bekiReferenceLoadAttempted)
+        // The whole check sits under the lock, not just the load: spreads now draw
+        // concurrently, the fields are ordinary (non-volatile), and a lock-free fast path
+        // would be trading a once-per-book file read for a memory-model argument. The read
+        // happens once; every later call takes an uncontended lock and returns the cache.
+        byte[]? cached;
+        lock (_bekiReferenceLock)
         {
-            try
+            if (!_bekiReferenceLoadAttempted)
             {
-                var path = Path.Combine(AppContext.BaseDirectory, BekiReferencePath);
-                if (File.Exists(path))
+                try
                 {
-                    _cachedBekiReference = File.ReadAllBytes(path);
+                    var path = Path.Combine(AppContext.BaseDirectory, BekiReferencePath);
+                    if (File.Exists(path))
+                    {
+                        _cachedBekiReference = File.ReadAllBytes(path);
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Could not read the Beki master reference.");
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Could not read the Beki master reference.");
+                }
+
+                _bekiReferenceLoadAttempted = true;
             }
 
-            _bekiReferenceLoadAttempted = true;
+            cached = _cachedBekiReference;
         }
 
-        if (_cachedBekiReference is null)
+        if (cached is null)
         {
             logger.LogError(
                 "The Beki master reference is missing from {Path}; {Context} requires it and cannot be drawn.",
@@ -774,6 +1012,6 @@ public sealed class BekiBookGenerator(
                 + "the one image that defines the character.");
         }
 
-        return _cachedBekiReference;
+        return cached;
     }
 }

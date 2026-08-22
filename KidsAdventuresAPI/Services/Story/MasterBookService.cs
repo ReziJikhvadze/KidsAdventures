@@ -216,7 +216,7 @@ public sealed class MasterBookService(
             // far less than a book that ships without it.
             if (masterStoryService.PromptVersion == "v5")
             {
-                var problems = BekiPlanValidator.Validate(result.Story, storyInput.SpreadCount);
+                var problems = BekiPlanValidator.Validate(result.Story, storyInput.SpreadCount, storyInput.Age);
                 if (problems.Count > 0)
                 {
                     logger.LogWarning(
@@ -234,7 +234,7 @@ public sealed class MasterBookService(
                         CompletionTokens = result.CompletionTokens + retried.CompletionTokens,
                     };
 
-                    var stillWrong = BekiPlanValidator.Validate(result.Story, storyInput.SpreadCount);
+                    var stillWrong = BekiPlanValidator.Validate(result.Story, storyInput.SpreadCount, storyInput.Age);
                     if (stillWrong.Count > 0)
                     {
                         throw new InvalidOperationException(

@@ -28,7 +28,7 @@ public static class BekiBookPlanSchema
         {
             type = "object",
             additionalProperties = false,
-            required = new[] { "concept", "titleEn", "cast", "spreads", "characterLock", "cover" },
+            required = new[] { "concept", "titleEn", "cast", "objects", "spreads", "characterLock", "cover" },
             properties = new Dictionary<string, object>
             {
                 ["concept"] = new
@@ -70,6 +70,27 @@ public static class BekiBookPlanSchema
                         }
                     }
                 },
+                ["objects"] = new
+                {
+                    type = "array",
+                    description =
+                        "Only as many recurring story objects as the story actually needs — "
+                        + "none is a valid answer.",
+                    items = new
+                    {
+                        type = "object",
+                        additionalProperties = false,
+                        required = new[] { "id", "name", "visualDescription" },
+                        properties = new Dictionary<string, object>
+                        {
+                            ["id"] = Text("obj_01, obj_02, … Stable for the whole book."),
+                            ["name"] = Text("The object's name as the story says it."),
+                            ["visualDescription"] = Text(
+                                "ENGLISH ONLY. One short, concrete sentence an illustrator can draw "
+                                + "from: shape, material, colour, size. No personality.")
+                        }
+                    }
+                },
                 ["spreads"] = new
                 {
                     type = "array",
@@ -101,7 +122,7 @@ public static class BekiBookPlanSchema
     {
         type = "object",
         additionalProperties = false,
-        required = new[] { "number", "title", "caption", "text", "textEn", "characters", "illustration" },
+        required = new[] { "number", "title", "caption", "text", "textEn", "characters", "objects", "illustration" },
         properties = new Dictionary<string, object>
         {
             ["number"] = new { type = "integer", description = "1-based spread number." },
@@ -120,6 +141,14 @@ public static class BekiBookPlanSchema
                 description =
                     "Who appears in this spread: \"child\", plus the id of every cast member present. "
                     + "Nobody who is not visible in the illustration.",
+                items = new { type = "string" }
+            },
+            ["objects"] = new
+            {
+                type = "array",
+                description =
+                    "Which recurring objects appear in this spread: the id of every object present. "
+                    + "Nothing that is not visible in the illustration.",
                 items = new { type = "string" }
             },
             ["illustration"] = IllustrationSchema("The single continuous illustration for this spread.")

@@ -76,7 +76,8 @@ public static class IllustrationPrompt
         string continuity,
         string textSide,
         string shotInstruction,
-        string? extraExclusions)
+        string? extraExclusions,
+        bool ctaSafe = false)
     {
         var exclusions = string.IsNullOrWhiteSpace(extraExclusions)
             ? Prompts.MasterStorySchema.DefaultNegativePrompt
@@ -103,7 +104,7 @@ public static class IllustrationPrompt
 
             {FocusRule}
 
-            {ComposeTextSide(textSide)}
+            {ComposeTextSide(textSide, ctaSafe)}
 
             {StyleDirective}
 
@@ -177,7 +178,7 @@ public static class IllustrationPrompt
     /// A naturally bright reserved side is what lets that wash stay faint, so the fix is asked for
     /// here as well as applied at layout time.
     /// </summary>
-    private static string ComposeTextSide(string textSide)
+    private static string ComposeTextSide(string textSide, bool ctaSafe = false)
     {
         var side = textSide.Trim().ToLowerInvariant();
         if (side is not ("left" or "right"))
@@ -191,6 +192,7 @@ public static class IllustrationPrompt
         }
 
         var heroSide = side == "left" ? "right" : "left";
+        var ctaClause = ctaSafe ? " The lower part of the reserved side must stay especially clear — a printed continuation module sits there in the finished book." : string.Empty;
 
         return $"""
             Composition, which is a hard requirement of this page and not a preference: the
@@ -198,7 +200,7 @@ public static class IllustrationPrompt
             Fill that third with quiet, naturally light background only — bright open sky, mist,
             sunlit water, pale distant landscape, or a softly lit wall. Keep it light and airy:
             not shadow, not darkness, and not a dark panel. No character, no face, no hands and no
-            part of the main action may enter it.
+            part of the main action may enter it.{ctaClause}
 
             Place the child and the story's action in the {heroSide} two thirds instead, and keep
             every face clear of the vertical centre line, where the fold of the spread falls.
