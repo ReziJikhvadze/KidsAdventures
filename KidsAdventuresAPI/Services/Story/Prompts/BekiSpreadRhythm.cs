@@ -14,18 +14,16 @@ namespace AdventurePacks.Api.Services.Story.Prompts;
 public static class BekiSpreadRhythm
 {
     /// <summary>
-    /// Left, right, left, right, left, right, left, left — the handoff's own alternation (§15),
+    /// Left, right, left, right, left, right, left, right — the handoff's own alternation (§15),
     /// not a code simplification of it. A book that set its text on the same leaf spread after
     /// spread would read as a slideshow with the Georgian always landing in the same corner;
     /// alternating is what makes the reader's eye move the way a real page-turn does.
     ///
-    /// Spread 8 breaks the pattern on purpose. Its lower-right corner is where the Continue
-    /// Adventure QR lives, and a QR shares a corner with nothing — so the eighth spread is
-    /// forced left instead of following the alternation to "right", the one deliberate
-    /// exception in an otherwise mechanical rule.
+    /// Spec v2 locks spread 8's text to the RIGHT with the Continue-Adventure module stacked
+    /// below it on the same side, so the alternation now runs unbroken.
     /// </summary>
     private static readonly string[] TextSides =
-        ["left", "right", "left", "right", "left", "right", "left", "left"];
+        ["left", "right", "left", "right", "left", "right", "left", "right"];
 
     /// <summary>
     /// One short sentence each, as the handoff asks — but each now opens by naming a camera

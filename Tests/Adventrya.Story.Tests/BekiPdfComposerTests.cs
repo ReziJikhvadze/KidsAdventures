@@ -34,10 +34,10 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
 
         var pdf = Compose().Compose(plan, PixelPng(), spreads);
 
-        // Cover, front endpaper, the P1 invitation, one page per spread, the P18 closing leaf,
-        // back endpaper and back cover — six fixed pages around the spreads. The spread is one
-        // page, not two: the fold is the printer's to impose, and splitting it here would put a
-        // seam through every picture.
+        // Cover, the front-matter spread, the intro spread, one page per story spread, the
+        // credits spread, the rear endpaper spread and the back cover — six fixed pages around
+        // the spreads. The spread is one page, not two: the fold is the printer's to impose,
+        // and splitting it here would put a seam through every picture.
         Assert.Equal(BookFormat.SpreadCount + 6, CountPages(pdf));
     }
 
@@ -188,29 +188,37 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
         {
             var layout = new BekiPrintLayoutOptions
             {
-                InvitationAssetPath = Path.Combine(folder, "invitation.png"),
+                IntroAssetPathTemplate = Path.Combine(folder, "invitation.png"),
                 EndpaperAssetPathTemplate = Path.Combine(folder, "endpaper-{theme}.png"),
             };
 
             // Nothing on disk yet: both pages fall back to what the composer draws itself.
-            var drawn = Compose(layout).RenderPages(plan, PixelPng(), spreads, "Space");
+            var drawn = Compose(layout).RenderPages(plan, PixelPng(), spreads, new AdventurePacks.Api.Services.Story.BekiBookPersonalization("Luka", 6, System.DateTime.UtcNow, "Space", "ბეკის"));
 
             Assert.Equal(BookFormat.SpreadCount + 6, drawn.Count);
             Assert.NotEqual(Magenta, CentrePixel(drawn[InvitationPage]));
             Assert.NotEqual(Teal, CentrePixel(drawn[FrontEndpaperPage]));
 
-            File.WriteAllBytes(layout.InvitationAssetPath!, SolidPng(Magenta));
+            File.WriteAllBytes(layout.IntroAssetPathTemplate!, SolidPng(Magenta));
 
             // Named for the theme the book is passed, lowercased — the composer resolves the
             // placeholder, so a file named for a different theme would not be found at all.
             File.WriteAllBytes(Path.Combine(folder, "endpaper-space.png"), SolidPng(Teal));
 
-            var supplied = Compose(layout).RenderPages(plan, PixelPng(), spreads, "Space");
+            var supplied = Compose(layout).RenderPages(plan, PixelPng(), spreads, new AdventurePacks.Api.Services.Story.BekiBookPersonalization("Luka", 6, System.DateTime.UtcNow, "Space", "ბეკის"));
 
             Assert.Equal(drawn.Count, supplied.Count);
+
+            // The intro asset spans the whole spread — the partner's six visuals are composed as
+            // one continuous picture with Beki on its own leaf — so the centre of the page is the
+            // asset. The endpaper pattern is per-half: the front spread patterns the left leaf
+            // and leaves the free endpaper blank, the rear spread patterns both, so the halves
+            // are sampled a quarter in from either edge rather than at the fold.
             Assert.Equal(Magenta, CentrePixel(supplied[InvitationPage]));
-            Assert.Equal(Teal, CentrePixel(supplied[FrontEndpaperPage]));
-            Assert.Equal(Teal, CentrePixel(supplied[BackEndpaperPage]));
+            Assert.Equal(Teal, LeftQuarterPixel(supplied[FrontEndpaperPage]));
+            Assert.NotEqual(Teal, RightQuarterPixel(supplied[FrontEndpaperPage]));
+            Assert.Equal(Teal, LeftQuarterPixel(supplied[BackEndpaperPage]));
+            Assert.Equal(Teal, RightQuarterPixel(supplied[BackEndpaperPage]));
 
             // Full bleed, not a picture on a page: the corner is the asset too, right out to where
             // the trim will fall.
@@ -222,7 +230,7 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
 
             // And a book with a different theme finds no endpaper of its own, so it keeps the
             // drawn one — a partial set of themed papers is a perfectly good state to ship in.
-            var otherTheme = Compose(layout).RenderPages(plan, PixelPng(), spreads, "Ocean");
+            var otherTheme = Compose(layout).RenderPages(plan, PixelPng(), spreads, new AdventurePacks.Api.Services.Story.BekiBookPersonalization("Luka", 6, System.DateTime.UtcNow, "Ocean", "ბეკის"));
             Assert.NotEqual(Teal, CentrePixel(otherTheme[FrontEndpaperPage]));
         }
         finally
@@ -318,6 +326,22 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
     {
         using var image = Image.Load<Rgba32>(png);
         var pixel = image[1, 1];
+        return (pixel.R, pixel.G, pixel.B);
+    }
+
+    /// <summary>The middle of the left leaf — a spread page's halves are judged separately.</summary>
+    private static (byte R, byte G, byte B) LeftQuarterPixel(byte[] png)
+    {
+        using var image = Image.Load<Rgba32>(png);
+        var pixel = image[image.Width / 4, image.Height / 2];
+        return (pixel.R, pixel.G, pixel.B);
+    }
+
+    /// <summary>The middle of the right leaf — see <see cref="LeftQuarterPixel"/>.</summary>
+    private static (byte R, byte G, byte B) RightQuarterPixel(byte[] png)
+    {
+        using var image = Image.Load<Rgba32>(png);
+        var pixel = image[image.Width * 3 / 4, image.Height / 2];
         return (pixel.R, pixel.G, pixel.B);
     }
 

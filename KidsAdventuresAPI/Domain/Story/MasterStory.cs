@@ -63,6 +63,25 @@ public sealed record MasterStory
     /// in one paragraph and no character has an identity of its own.
     /// </summary>
     public IReadOnlyList<StoryCastMember>? Cast { get; init; }
+
+    /// <summary>
+    /// The recurring objects this particular book invented. A key object shipped as a glowing
+    /// sphere in one spread and a crescent cradle in another because nothing carried its design
+    /// forward. Null for A5 books.
+    /// </summary>
+    public IReadOnlyList<StoryObjectItem>? Objects { get; init; }
+}
+
+/// <summary>
+/// One recurring object, created for this book only.
+/// </summary>
+public sealed record StoryObjectItem
+{
+    public string Id { get; init; } = string.Empty;
+
+    public string Name { get; init; } = string.Empty;
+
+    public string VisualDescription { get; init; } = string.Empty;
 }
 
 /// <summary>
@@ -121,6 +140,11 @@ public sealed record StorySpread
     /// prompts describe the cast in prose rather than listing it.
     /// </summary>
     public IReadOnlyList<string>? Characters { get; init; }
+
+    /// <summary>
+    /// Which recurring objects are in this spread. Null for A5 books.
+    /// </summary>
+    public IReadOnlyList<string>? Objects { get; init; }
 }
 
 /// <summary>

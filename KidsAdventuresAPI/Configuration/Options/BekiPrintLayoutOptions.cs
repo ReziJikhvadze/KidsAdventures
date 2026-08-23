@@ -95,17 +95,11 @@ public sealed class BekiPrintLayoutOptions
     /// </summary>
     public string ReviewQrUrl { get; set; } = "https://beki.ge";
 
-    /// <summary>The closing line. Reusable across every order, as the handoff's P18 asks.</summary>
+    /// <summary>The credits page's sign-off line. Reusable across every order.</summary>
     public string EndingLine { get; set; } = "ამბავი აქ მთავრდება — თავგადასავალი კი გრძელდება.";
 
     /// <summary>Printed under the QR code, saying what scanning it is for.</summary>
     public string EndingQrCaption { get; set; } = "შეაფასე ბეკის წიგნი";
-
-    /// <summary>
-    /// P1's line, set beside the Beki visual — the book's first words, before the story itself
-    /// begins. Reusable across every order, like P1 as a whole.
-    /// </summary>
-    public string InvitationLine { get; set; } = "მზად ხარ? ბეკი გელოდება.";
 
     /// <summary>
     /// The short line beside spread 8's Continue Adventure QR, so the code reads as an invitation
@@ -114,30 +108,72 @@ public sealed class BekiPrintLayoutOptions
     public string ContinueCtaText { get; set; } = "განაგრძე თავგადასავალი ბეკისთან";
 
     /// <summary>
-    /// Finished art for P1, the invitation leaf. Null — the default — keeps the code-drawn
-    /// placeholder the composer has always built.
+    /// Finished art for the intro spread — a {theme} template naming one of the partner's six
+    /// approved per-world visuals, with Beki already integrated into each. Null — the default —
+    /// keeps the code-drawn placeholder the composer builds.
     ///
-    /// Six of the book's fourteen pages carry nothing from the customer's own story: both
-    /// endpapers, P1, P18 and the back cover are the same paper in every order, and the composer
-    /// draws them from primitives only because the partner has not delivered the real thing yet.
-    /// These four settings are the door that delivery comes through: point one at a file, drop the
-    /// file into the published folder, and that page starts printing the partner's art full bleed
-    /// instead. Nothing else changes — the page count, the sheet size and the bleed are the book's,
-    /// not the asset's.
+    /// Five of the book's fourteen pages carry nothing from the customer's own story: both
+    /// endpaper spreads, the intro spread's artwork and the back cover are the same in every
+    /// order, and the composer draws them from primitives only because the partner has not
+    /// delivered the real thing yet. These settings are the door that delivery comes through:
+    /// point one at a file, drop the file into the published folder, and that page starts
+    /// printing the partner's art full bleed instead. Nothing else changes — the page count, the
+    /// sheet size and the bleed are the book's, not the asset's.
     ///
     /// Relative paths resolve against the published output folder
-    /// (<see cref="AppContext.BaseDirectory"/>), the same way the fonts and the canonical Beki PNG
-    /// do, so a value like <c>Assets/Beki/p1-invitation.png</c> works identically on a developer's
-    /// machine and in a container. An absolute path is used as given. A path that points at
-    /// nothing is not an error: the page falls back to the drawn placeholder, because a
-    /// mistyped setting should cost a page its art, never the order its book.
+    /// (<see cref="AppContext.BaseDirectory"/>), the same way the fonts and the canonical Beki
+    /// PNG do, so a value like <c>Assets/Beki/intro-{theme}.png</c> works identically on a
+    /// developer's machine and in a container. An absolute path is used as given. A path that
+    /// points at nothing is not an error: the page falls back to the drawn placeholder, because
+    /// a mistyped setting should cost a page its art, never the order its book.
     /// </summary>
-    public string? InvitationAssetPath { get; set; }
+    public string? IntroAssetPathTemplate { get; set; }
 
-    /// <summary>Finished art for P18, the closing leaf. See <see cref="InvitationAssetPath"/>.</summary>
-    public string? ClosingAssetPath { get; set; }
+    /// <summary>
+    /// The intro spread's ownership line. <c>{name}</c> and <c>{age}</c> are filled per order;
+    /// the spec's example is "This book belongs to Nina, age 2", said the Georgian way.
+    /// </summary>
+    public string IntroBelongsTemplate { get; set; } = "ეს წიგნი ეკუთვნის {name}-ს — {age} წლის";
 
-    /// <summary>Finished art for the back cover. See <see cref="InvitationAssetPath"/>.</summary>
+    /// <summary>The intro spread's date line. <c>{date}</c> is the purchase, in Tbilisi's clock.</summary>
+    public string IntroDateTemplate { get; set; } = "{date}";
+
+    /// <summary>
+    /// The invitation into the chosen world. <c>{world}</c> is the name the parent picked the
+    /// book by (<see cref="Services.Story.StoryWorlds"/>), quoted in the template itself so an
+    /// arbitrary place name never has to inflect.
+    /// </summary>
+    public string IntroInviteTemplate { get; set; } = "{name}, ძალიან მიხარია, რომ ერთად მივემგზავრებით სამყაროში „{world}“. დროა, დავიწყოთ ჩვენი თავგადასავალი!";
+
+    /// <summary>The credits page's own line, under the review QR.</summary>
+    public string CreditsLine { get; set; } = "Beki • beki.ge";
+
+    /// <summary>
+    /// The spec's starting type targets by reader age (§20): generous for the youngest readers,
+    /// a step down for the readers who get more words. Print-proof-pending — these stay
+    /// configurable because no physical proof has been held yet — and the composer's step-down
+    /// ladder may fall back from them, never below <see cref="StoryFontSize"/>.
+    /// </summary>
+    public float StoryFontSizeAges2To4 { get; set; } = 20f;
+    public float StoryFontSizeAges5To8 { get; set; } = 17.5f;
+
+    /// <summary>
+    /// The print-normalization target (§25): accepted artwork is upscaled once toward this
+    /// density at compose time. Zero disables the step and embeds the native render.
+    /// </summary>
+    public int PrintTargetPpi { get; set; } = 300;
+
+    /// <summary>
+    /// The JPEG quality of normalized print artwork. JPEG rather than PNG is what keeps a
+    /// 300-PPI book tens of megabytes instead of hundreds.
+    /// </summary>
+    public int PrintAssetJpegQuality { get; set; } = 90;
+
+    /// <summary>The story type size a book prints at for this reader's age.</summary>
+    internal static float StoryFontSizeFor(int? age, BekiPrintLayoutOptions layout) =>
+        age == null ? layout.StoryFontSize : (age <= 4 ? layout.StoryFontSizeAges2To4 : layout.StoryFontSizeAges5To8);
+
+    /// <summary>Finished art for the back cover. See <see cref="IntroAssetPathTemplate"/>.</summary>
     public string? BackCoverAssetPath { get; set; }
 
     /// <summary>
@@ -149,7 +185,7 @@ public sealed class BekiPrintLayoutOptions
     ///
     /// A theme with no file of its own falls back to the drawn dot field, which means a partial
     /// set of endpapers is a perfectly good state to ship in — the themes that have art get it,
-    /// the rest keep the placeholder. See <see cref="InvitationAssetPath"/> for how paths resolve.
+    /// the rest keep the placeholder. See <see cref="IntroAssetPathTemplate"/> for how paths resolve.
     /// </summary>
     public string? EndpaperAssetPathTemplate { get; set; }
 }

@@ -32,18 +32,67 @@ public static class BekiPlanValidator
     /// <summary>Spread 1, the final spread, and at least three more — five in total, at minimum.</summary>
     private const int MinimumBekiSpreads = 5;
 
-    public static IReadOnlyList<string> Validate(MasterStory plan, int expectedSpreadCount)
+    public static IReadOnlyList<string> Validate(MasterStory plan, int expectedSpreadCount, int? age = null)
     {
         var problems = new List<string>();
 
         ValidateSpreadNumbers(plan, expectedSpreadCount, problems);
         var castIds = ValidateCast(plan, problems);
+        var objIds = ValidateObjects(plan, castIds, problems);
         ValidateCharacterReferences(plan, castIds, problems);
+        ValidateObjectReferences(plan, objIds, problems);
         ValidateBekiPresence(plan, expectedSpreadCount, problems);
         ValidateScenesThatNameBeki(plan, problems);
-        ValidateText(plan, problems);
+        ValidateText(plan, problems, age);
 
         return problems;
+    }
+
+    private static HashSet<string> ValidateObjects(MasterStory plan, HashSet<string> castIds, List<string> problems)
+    {
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var obj in plan.Objects ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(obj.Id))
+            {
+                problems.Add($"Object \"{obj.Name}\" has no id.");
+                continue;
+            }
+
+            if (obj.Id.Equals(ChildId, StringComparison.OrdinalIgnoreCase) || obj.Id.Equals(BekiId, StringComparison.OrdinalIgnoreCase))
+            {
+                problems.Add($"Object id \"{obj.Id}\" is reserved; \"child\" and \"beki\" must never appear in objects.");
+                continue;
+            }
+
+            if (castIds.Contains(obj.Id))
+            {
+                problems.Add($"Object id \"{obj.Id}\" is already used by a cast member.");
+                continue;
+            }
+
+            if (!ids.Add(obj.Id))
+            {
+                problems.Add($"Object id \"{obj.Id}\" is used more than once.");
+            }
+        }
+
+        return ids;
+    }
+
+    private static void ValidateObjectReferences(MasterStory plan, HashSet<string> objIds, List<string> problems)
+    {
+        foreach (var spread in plan.Spreads)
+        {
+            foreach (var id in spread.Objects ?? [])
+            {
+                if (!objIds.Contains(id))
+                {
+                    problems.Add($"Spread {spread.Number} lists object \"{id}\", which is not a known object id.");
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -253,7 +302,7 @@ public static class BekiPlanValidator
         }
     }
 
-    private static void ValidateText(MasterStory plan, List<string> problems)
+    private static void ValidateText(MasterStory plan, List<string> problems, int? age = null)
     {
         if (string.IsNullOrWhiteSpace(plan.Concept.Title))
         {
@@ -265,6 +314,20 @@ public static class BekiPlanValidator
             if (string.IsNullOrWhiteSpace(spread.Text))
             {
                 problems.Add($"Spread {spread.Number} has no story text.");
+                continue;
+            }
+
+            if (age.HasValue)
+            {
+                var wordCount = spread.Text.Split(new[] { ' ', '\r', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
+                if (age.Value <= 4 && wordCount > 45)
+                {
+                    problems.Add($"Spread {spread.Number} has {wordCount} words; maximum for age {age.Value} is 45.");
+                }
+                else if (age.Value >= 5 && age.Value <= 8 && wordCount > 68)
+                {
+                    problems.Add($"Spread {spread.Number} has {wordCount} words; maximum for age {age.Value} is 68.");
+                }
             }
         }
     }
