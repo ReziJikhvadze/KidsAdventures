@@ -1,4 +1,4 @@
-namespace AdventurePacks.Api.Configuration.Options;
+﻿namespace AdventurePacks.Api.Configuration.Options;
 
 /// <summary>
 /// Configuration for the Beki story and visual pipelines.
@@ -107,6 +107,23 @@ public sealed class BekiOptions
     /// The dependency rule (anchoring) is honoured at any setting.
     /// </summary>
     public int SpreadConcurrency { get; set; } = 2;
+
+    /// <summary>
+    /// How many times a refused Beki illustration is redrawn with the reviewer's corrections
+    /// attached, per image.
+    ///
+    /// Zero, because the first production book measured what a retry actually buys: eight
+    /// spreads, sixteen renders, and eight verdicts that still read NEEDS_REVIEW. The redraw
+    /// doubled both the wall clock and the image bill and changed not one outcome, because the
+    /// refusals were not accidents the model could correct — they were the reserved third, the
+    /// gutter and the trimmed band leaving too little frame for the shot the same prompt asks
+    /// for. A retry is worth paying for once a refusal is rare enough to be a fluke; until the
+    /// composition rules and the QA rules can both be satisfied, it is paying twice for the
+    /// same picture.
+    ///
+    /// Raise it to 1 to restore the old behaviour without a deployment.
+    /// </summary>
+    public int SpreadRegenerationAttempts { get; set; }
 
     /// <summary>Canonical Beki asset, attached only to pages whose cast includes Beki.</summary>
     public string BekiReferenceAssetPath { get; set; } = Services.Story.BekiIdentity.ReferenceAssetPath;

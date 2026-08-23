@@ -1,3 +1,4 @@
+﻿using System.Security.Cryptography;
 using AdventurePacks.Api.Services.Interfaces;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
@@ -12,31 +13,79 @@ public sealed class ReferenceImageNormalizer(ILogger<ReferenceImageNormalizer> l
     private const int OpenAiMinEdgePixels = 256;
     private const int StorageWebpQuality = 88;
 
-    public NormalizedReferenceImage NormalizeForOpenAi(byte[] bytes, string? hintContentType = null)
-    {
-        using var image = LoadAndPrepare(bytes, hintContentType, OpenAiMaxEdgePixels, OpenAiMinEdgePixels);
+    /// <summary>
+    /// Results already computed by this instance, keyed by what decides them: the variant and
+    /// the bytes that went in.
+    ///
+    /// Normalizing is pure — the same bytes always produce the same PNG — and a Beki book asks
+    /// for the same two or three references over and over: every render and every review sends
+    /// the child's photograph and the 2.6 MB Beki master, so one book decoded, resized and
+    /// re-encoded them sixty times over to hand the API sixty identical files. The service is
+    /// scoped, so this cache lives exactly as long as the request or the Hangfire job that owns
+    /// it, and one child's photograph can never be handed to another child's book.
+    ///
+    /// Bounded because a job could, in principle, keep feeding it new images; past the limit it
+    /// simply stops remembering rather than growing.
+    /// </summary>
+    private readonly Dictionary<string, NormalizedReferenceImage> _cache = [];
 
-        using var output = new MemoryStream();
-        image.Save(output, new PngEncoder
+    private const int MaxCacheEntries = 16;
+
+    public NormalizedReferenceImage NormalizeForOpenAi(byte[] bytes, string? hintContentType = null) =>
+        Cached("openai", bytes, () =>
         {
-            CompressionLevel = PngCompressionLevel.Level6
+            using var image = LoadAndPrepare(bytes, hintContentType, OpenAiMaxEdgePixels, OpenAiMinEdgePixels);
+
+            using var output = new MemoryStream();
+            image.Save(output, new PngEncoder
+            {
+                CompressionLevel = PngCompressionLevel.Level6
+            });
+
+            return new NormalizedReferenceImage(output.ToArray(), "image/png", "reference.png");
         });
 
-        return new NormalizedReferenceImage(output.ToArray(), "image/png", "reference.png");
-    }
-
-    public NormalizedReferenceImage NormalizeForStorageWebp(byte[] bytes, string? hintContentType = null)
-    {
-        using var image = LoadAndPrepare(bytes, hintContentType, OpenAiMaxEdgePixels, OpenAiMinEdgePixels);
-
-        using var output = new MemoryStream();
-        image.Save(output, new WebpEncoder
+    public NormalizedReferenceImage NormalizeForStorageWebp(byte[] bytes, string? hintContentType = null) =>
+        Cached("webp", bytes, () =>
         {
-            Quality = StorageWebpQuality,
-            FileFormat = WebpFileFormatType.Lossy
+            using var image = LoadAndPrepare(bytes, hintContentType, OpenAiMaxEdgePixels, OpenAiMinEdgePixels);
+
+            using var output = new MemoryStream();
+            image.Save(output, new WebpEncoder
+            {
+                Quality = StorageWebpQuality,
+                FileFormat = WebpFileFormatType.Lossy
+            });
+
+            return new NormalizedReferenceImage(output.ToArray(), "image/webp", "illustration.webp");
         });
 
-        return new NormalizedReferenceImage(output.ToArray(), "image/webp", "illustration.webp");
+    /// <summary>
+    /// Hashing the input is far cheaper than normalizing it again: SHA-256 over a few megabytes
+    /// is milliseconds, where the decode, resize and re-encode it replaces is seconds. A failure
+    /// is never cached — an unreadable photo must raise its own message every time it is tried.
+    /// </summary>
+    private NormalizedReferenceImage Cached(
+        string variant, byte[] bytes, Func<NormalizedReferenceImage> normalize)
+    {
+        if (bytes is not { Length: > 0 })
+        {
+            return normalize();
+        }
+
+        var key = $"{variant}:{Convert.ToHexString(SHA256.HashData(bytes))}";
+        if (_cache.TryGetValue(key, out var hit))
+        {
+            return hit;
+        }
+
+        var normalized = normalize();
+        if (_cache.Count < MaxCacheEntries)
+        {
+            _cache[key] = normalized;
+        }
+
+        return normalized;
     }
 
     private Image LoadAndPrepare(
