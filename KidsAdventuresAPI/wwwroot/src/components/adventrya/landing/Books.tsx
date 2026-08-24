@@ -1,8 +1,6 @@
 import { useT } from "@/lib/i18n";
 import { WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
 
-import { ArrowIcon } from "./icons";
-
 export function Books() {
   const t = useT();
   return (
@@ -22,23 +20,27 @@ export function Books() {
               key={example.theme}
               className={`landing-v3-example-book example-book-${index + 1}`}
             >
-              <div className="landing-v3-example-art">
-                <img src={image} alt={t.landing.books.exampleAlt(example.title)} />
+              {/*
+                The cover is the link, and it is the only one.
+
+                It used to be a picture with a "create a similar one" line under it — a second
+                thing to read before the obvious thing could be done. A book cover is already a
+                door; making it one costs nothing to explain. It opens the map with this world
+                already lit, because choosing the world is the step that actually comes next,
+                and /themes reads ?world= on arrival.
+              */}
+              <a
+                className="landing-v3-example-art"
+                href={`/themes?world=${theme}`}
+                aria-label={t.landing.books.exampleAlt(example.title)}
+              >
+                <img src={image} alt="" />
                 <div className="landing-v3-example-overlay" />
                 <div className="landing-v3-example-title">
                   <small>{example.meta}</small>
                   <strong>{example.title}</strong>
                 </div>
                 <span className="landing-v3-book-spine" />
-              </div>
-              {/*
-                The age and the price went. The price is on the pricing section, said properly;
-                repeating "from ₾14" under six covers is the same number six times, and the age
-                was a hedge nobody reads. What is left is the one thing a card is for.
-              */}
-              <a className="landing-v3-example-action" href={`/create?world=${theme}#profile`}>
-                {t.landing.books.createSimilar}
-                <ArrowIcon />
               </a>
             </article>
           );
