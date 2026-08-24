@@ -279,7 +279,6 @@ function Footer() {
           <strong>{F.help}</strong>
           <Link to="/contact">{F.contact}</Link>
           <a href="#faq">{t.common.nav.faq}</a>
-          <Link to="/dashboard">{F.adventureMap}</Link>
         </div>
         <div>
           <strong>{F.legal}</strong>

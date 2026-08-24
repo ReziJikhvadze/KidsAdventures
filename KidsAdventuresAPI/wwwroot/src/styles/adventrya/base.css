@@ -353,12 +353,18 @@ svg {
   carries its own label, because on these screens it is the only way back and a bare
   arrow beside a wordmark reads as decoration.
 */
+/*
+  An arrow in a round button. It used to be an arrow and the word "back" in a pill; the word is
+  now only on aria-label, so the control keeps its meaning for a screen reader and stops eating
+  the width of a header on a phone.
+*/
 .back-button {
+  width: 42px;
   height: 42px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 15px 0 12px;
+  justify-content: center;
+  padding: 0;
   border: 1px solid rgba(229, 216, 244, 0.22);
   border-radius: 14px;
   color: #fff8ebdd;

@@ -27,7 +27,6 @@ export function LegalPageShell({ children }: { children: ReactNode }) {
             <strong>{F.product}</strong>
             <Link to="/create">{t.common.nav.createBook}</Link>
             <Link to="/world">{F.myWorld}</Link>
-            <Link to="/dashboard">{F.adventureMap}</Link>
           </div>
           <div>
             <strong>{F.help}</strong>
