@@ -272,6 +272,20 @@ public sealed class GeminiInteractionsClient(
         }
     }
 
+    /// <summary>
+    /// The model's answer, found in two passes: the steps that claim to be output, and then — only
+    /// if those yielded nothing — any step at all.
+    ///
+    /// The order is the whole point. A reply is a timeline, and a thinking step can carry a
+    /// summary of its own reasoning as text; taking the first text in the timeline would hand a
+    /// story call the model's musings to deserialize against a schema, and a QA call an opinion
+    /// instead of a verdict. The first live replies happened to put nothing in their thought
+    /// steps, which is exactly the kind of luck that hides a bug until a book is being paid for.
+    ///
+    /// The second pass stays because the envelope is the provider's to change: a reply that
+    /// stopped labelling its output step should degrade to the old, over-eager behaviour rather
+    /// than return nothing at all.
+    /// </summary>
     private static string? WalkContent(JsonElement root, Func<JsonElement, string?> select)
     {
         if (!root.TryGetProperty("steps", out var steps) || steps.ValueKind != JsonValueKind.Array)
@@ -279,8 +293,18 @@ public sealed class GeminiInteractionsClient(
             return null;
         }
 
+        return Scan(steps, select, outputOnly: true) ?? Scan(steps, select, outputOnly: false);
+    }
+
+    private static string? Scan(JsonElement steps, Func<JsonElement, string?> select, bool outputOnly)
+    {
         foreach (var step in steps.EnumerateArray())
         {
+            if (outputOnly && !IsModelOutput(step))
+            {
+                continue;
+            }
+
             if (!step.TryGetProperty("content", out var content) || content.ValueKind != JsonValueKind.Array)
             {
                 continue;
@@ -298,6 +322,11 @@ public sealed class GeminiInteractionsClient(
 
         return null;
     }
+
+    private static bool IsModelOutput(JsonElement step) =>
+        step.TryGetProperty("type", out var type)
+        && type.ValueKind == JsonValueKind.String
+        && string.Equals(type.GetString(), "model_output", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Token counts, mapped onto the two the rest of the product records. Thinking tokens are

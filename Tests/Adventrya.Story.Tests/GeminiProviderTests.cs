@@ -150,14 +150,15 @@ public class GeminiProviderTests
     }
 
     [Fact]
-    public async Task The_answer_is_found_even_when_the_provider_adds_steps_in_front_of_it()
+    public async Task Reasoning_is_never_mistaken_for_the_answer()
     {
-        // A thinking step before the answer is exactly the shape that breaks a client which
-        // reads steps[0].
+        // The live replies happened to leave their thought steps empty, which hid this: a client
+        // that takes the first text in the timeline hands the model's musings to a schema
+        // deserializer. The thought here carries real prose, and the answer is behind it.
         const string reply = """
         {
           "steps": [
-            { "type": "thought", "content": [ { "type": "text", "text": "" } ] },
+            { "type": "thought", "content": [ { "type": "text", "text": "Let me think about a title." } ] },
             { "type": "model_output", "content": [ { "type": "text", "text": "{\"title\":\"ok\"}" } ] }
           ],
           "usage": { "total_input_tokens": 1, "total_output_tokens": 2 }
@@ -174,6 +175,31 @@ public class GeminiProviderTests
             .CompleteAsync<Plan>("any", "s", "u", "plan", schema, CancellationToken.None);
 
         Assert.Equal("ok", result.Value.Title);
+    }
+
+    [Fact]
+    public async Task An_envelope_that_labels_nothing_still_yields_its_answer()
+    {
+        // The step types are the provider's to rename. If output stops being labelled, reading
+        // any step is better than reading none — the fallback exists so a rename degrades to the
+        // old, over-eager behaviour instead of an outage.
+        const string reply = """
+        {
+          "steps": [ { "content": [ { "type": "text", "text": "{\"title\":\"unlabelled\"}" } ] } ],
+          "usage": { "total_input_tokens": 1, "total_output_tokens": 1 }
+        }
+        """;
+
+        var handler = new CapturingHandler(new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(reply, Encoding.UTF8, "application/json")
+        });
+
+        var schema = JsonDocument.Parse("{\"type\":\"object\"}").RootElement;
+        var result = await StoryClient(handler, out _)
+            .CompleteAsync<Plan>("any", "s", "u", "plan", schema, CancellationToken.None);
+
+        Assert.Equal("unlabelled", result.Value.Title);
     }
 
     [Fact]
