@@ -30,7 +30,11 @@ public static class StoryPolishPrompt
            grammar, spelling and punctuation errors in textEn. The companion's name is one of
            them: it is written „ბეკი“ in every grammatical form, always with კ. „ბექი“, ბექიმ,
            ბექის and any other ქ spelling of that stem is a spelling error — correct it to ბეკ.
-        3. Anything unsafe or inappropriate for readers aged 2–8.
+        3. Anything unsafe or inappropriate for readers aged 2–8 — including harsh, loud or
+           frightening wording in the TITLE, in either language: a title built on roaring,
+           growling, screaming or menace (ღრიალი, ბრდღვინვა, ყვირილი and their kind) is
+           inappropriate for this shelf and must be softened to the gentle side of the same
+           story, keeping the title short and warm.
 
         You must not change anything else. Do not change the plot, the meaning, the characters'
         names, the scene descriptions, the avoid lists, characterLock, worldLock, the cast, the

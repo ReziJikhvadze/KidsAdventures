@@ -135,6 +135,13 @@ public static class MasterStoryPromptV6
         bookish or ornate vocabulary, and no long winding constructions. Every sentence must read
         aloud beautifully. The English textEn carries the same simple warmth in plain English.
 
+        The title: short, warm and inviting — words a parent is happy to say aloud at bedtime,
+        built from wonder, friendship, discovery or light. Never build the title, in either
+        language, on a harsh, loud or frightening word — roaring, growling, howling, screaming,
+        shrieking (ღრიალი, ბრდღვინვა, ყვირილი and their kind), or anything naming danger or
+        menace. If a sound or creature matters to the story, the title names the gentle side of
+        it, not the noise.
+
         For ages 2–4, keep the story very simple and short (approximately 15–30 Georgian words per spread).
         For ages 5–8, use slightly richer language while remaining concise and easy to read aloud (approximately 25–45 Georgian words per spread).
         Treat an age under 2 as 2, and an age over 8 as 8, when choosing language complexity.
