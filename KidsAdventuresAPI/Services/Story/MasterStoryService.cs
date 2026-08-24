@@ -42,13 +42,15 @@ public interface IMasterStoryService
     Task<MasterStoryResult> WriteAsync(MasterStoryInput input, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Retries the v5 planning call once, with the given problems stapled onto the user prompt as
-    /// a corrective note — the same idiom <see cref="BekiBookGenerator.Corrections"/> uses for a
-    /// refused illustration: the original ask stays whole, and the fix rides along with it.
-    /// Meaningless for any other variant, because only v5 produces the cast list and per-spread
-    /// character placement <see cref="BekiPlanValidator"/> checks.
+    /// Retries the printing format's planning call once, with the given problems stapled onto the
+    /// user prompt as a corrective note — the same idiom <see cref="BekiBookGenerator.Corrections"/>
+    /// uses for a refused illustration: the original ask stays whole, and the fix rides along with
+    /// it. The prompts follow <see cref="PromptVersion"/>, and a v6 retry is polished exactly like
+    /// a v6 first attempt, so a corrected book is never a less finished book. Meaningless for any
+    /// other variant, because only v5 and v6 produce the cast list and per-spread character
+    /// placement <see cref="BekiPlanValidator"/> checks.
     /// </summary>
-    Task<MasterStoryResult> RetryV5WithCorrectionsAsync(
+    Task<MasterStoryResult> RetryPlanWithCorrectionsAsync(
         MasterStoryInput input, IReadOnlyList<string> problems, CancellationToken cancellationToken);
 }
 
@@ -78,6 +80,12 @@ public sealed class MasterStoryService(
     private const string StepSeparator = "\n\n===== STEP 2 =====\n\n";
 
     /// <summary>
+    /// How the written book is handed to the polisher: the same camelCase the schema and the
+    /// stored StoryJson use, so what the editor reads is what an operator would read.
+    /// </summary>
+    private static readonly JsonSerializerOptions PolishJsonOptions = new(JsonSerializerDefaults.Web);
+
+    /// <summary>
     /// So the <see cref="BekiOptions.BookFormatEnabled"/> override below is logged once for this
     /// service instance, however many times <see cref="PromptVersion"/> is read while writing one
     /// preview — <see cref="BuildPrompts"/>, <see cref="WriteAsync"/> and the caller that stores
@@ -99,8 +107,10 @@ public sealed class MasterStoryService(
     ///
     /// <see cref="BekiOptions.BookFormatEnabled"/> overrides whatever is configured here: the Beki
     /// book format needs a plan with a cast list and per-spread character placement, which only
-    /// v5 produces, so a preview written while the flag is on must never silently fall back to an
-    /// A5-shaped plan just because nobody also updated OpenAI:StoryPromptVersion.
+    /// the printing versions produce, so a preview written while the flag is on must never
+    /// silently fall back to an A5-shaped plan just because nobody also updated
+    /// OpenAI:StoryPromptVersion. v6 is the current one — v5 plus a voice directive and a polish
+    /// pass — and it stays reachable by configuration for a side-by-side comparison.
     /// </summary>
     public string PromptVersion
     {
@@ -111,19 +121,20 @@ public sealed class MasterStoryService(
                 if (!_loggedBookFormatOverride)
                 {
                     logger.LogInformation(
-                        "Beki:BookFormatEnabled is on; writing this preview as v5 regardless of "
+                        "Beki:BookFormatEnabled is on; writing this preview as v6 regardless of "
                         + "OpenAI:StoryPromptVersion ({Configured}).",
                         _options.StoryPromptVersion);
                     _loggedBookFormatOverride = true;
                 }
 
-                return "v5";
+                return "v6";
             }
 
             var configured = (_options.StoryPromptVersion ?? string.Empty).Trim().TrimStart('v', 'V');
 
             return configured switch
             {
+                "6" => "v6",
                 "5" => "v5",
                 "4" => "v4",
                 "3" => "v3",
@@ -137,7 +148,7 @@ public sealed class MasterStoryService(
     private string WarnAndDefault(string configured)
     {
         logger.LogWarning(
-            "OpenAI:StoryPromptVersion is \"{Configured}\", which is not v1, v2, v3 or v4. Using v1.",
+            "OpenAI:StoryPromptVersion is \"{Configured}\", which is not v1, v2, v3, v4, v5 or v6. Using v1.",
             configured);
 
         return "v1";
@@ -145,6 +156,7 @@ public sealed class MasterStoryService(
 
     public (string System, string User) BuildPrompts(MasterStoryInput input) => PromptVersion switch
     {
+        "v6" => (MasterStoryPromptV6.System(input), MasterStoryPromptV6.User(input)),
         "v5" => (MasterStoryPromptV5.System(input), MasterStoryPromptV5.User(input)),
         "v4" => (MasterStoryPromptV4.System(input), MasterStoryPromptV4.User(input)),
         "v3" => (MasterStoryPromptV3.PlannerSystem(input, StoryBranches.For(input.Theme, Guid.NewGuid())),
@@ -156,6 +168,7 @@ public sealed class MasterStoryService(
     public Task<MasterStoryResult> WriteAsync(MasterStoryInput input, CancellationToken cancellationToken) =>
         PromptVersion switch
         {
+            "v6" => WriteWithV6Async(input, cancellationToken),
             "v5" => WriteWithV5Async(input, cancellationToken),
             "v4" => WriteWithV4Async(input, cancellationToken),
             "v3" => WriteAlongAChainAsync(input, cancellationToken),
@@ -399,16 +412,229 @@ public sealed class MasterStoryService(
             result.PromptTokens, result.CompletionTokens);
     }
 
-    public async Task<MasterStoryResult> RetryV5WithCorrectionsAsync(
-        MasterStoryInput input, IReadOnlyList<string> problems, CancellationToken cancellationToken)
+    // ---- V6 ---------------------------------------------------------------------------------
+
+    /// <summary>
+    /// V5's planning call in a warmer voice, and then one editing pass over what it wrote.
+    ///
+    /// Two calls, but not two writers: the second is asked only to correct language, wording and
+    /// anything unsafe for the age, and <see cref="PolishAndMergeAsync"/> merges back only the
+    /// prose, so the plan the illustrator reads is the one the planner wrote. The polish runs
+    /// after the whole book exists rather than instead of part of it, which is what makes it safe
+    /// to lose: a polish that throws costs a correction, never a story.
+    /// </summary>
+    private async Task<MasterStoryResult> WriteWithV6Async(
+        MasterStoryInput input,
+        CancellationToken cancellationToken)
     {
-        var systemPrompt = MasterStoryPromptV5.System(input);
-        var userPrompt = MasterStoryPromptV5.User(input) + "\n\n" + CorrectionNote(problems);
+        var systemPrompt = MasterStoryPromptV6.System(input);
+        var userPrompt = MasterStoryPromptV6.User(input);
         var model = ModelName;
 
         logger.LogInformation(
-            "Retrying the Beki plan for {Child}: {Count} problem(s) from the first attempt.",
-            input.ChildName, problems.Count);
+            "Planning a {Spreads}-spread Beki book for {Child}, age {Age}, theme {Theme}, using {Model} (v6).",
+            input.SpreadCount, input.ChildName, input.Age, input.Theme, model);
+
+        var written = await modelClient.CompleteAsync<MasterStory>(
+            model,
+            systemPrompt,
+            userPrompt,
+            BekiBookPlanSchema.Name,
+            BekiBookPlanSchema.Build(input.SpreadCount),
+            cancellationToken);
+
+        var polished = await PolishAndMergeAsync(input, written.Value, cancellationToken);
+
+        return FinishPolished(input, model, systemPrompt, userPrompt, written, polished);
+    }
+
+    /// <summary>
+    /// The editing pass, and the merge that keeps it to its job.
+    ///
+    /// The prompt tells the model not to touch the plot, the ids, the scenes, the character lock
+    /// or the cast; this method makes that true whatever the model does, by starting from the
+    /// written book and copying back four fields — the title, the English title, and each spread's
+    /// text in both languages. Nothing else can cross, so a polisher that rewrites a scene or
+    /// invents a cast member has simply wasted its own output.
+    ///
+    /// Returns the merged story with the polish prompts and what they cost, so the caller can
+    /// record both calls the way v2 and v3 record theirs. A polish that never ran comes back as
+    /// empty prompts and no tokens, alongside the written story untouched.
+    /// </summary>
+    private async Task<(MasterStory Story, string PolishSystem, string PolishUser, int PromptTokens, int CompletionTokens)>
+        PolishAndMergeAsync(
+            MasterStoryInput input,
+            MasterStory generated,
+            CancellationToken cancellationToken)
+    {
+        var polishSystem = StoryPolishPrompt.System(input);
+        var polishUser = string.Empty;
+        ModelResult<MasterStory> polished;
+
+        try
+        {
+            polishUser = StoryPolishPrompt.User(
+                input, JsonSerializer.Serialize(generated, PolishJsonOptions));
+
+            polished = await modelClient.CompleteAsync<MasterStory>(
+                ModelName,
+                polishSystem,
+                polishUser,
+                BekiBookPlanSchema.Name,
+                BekiBookPlanSchema.Build(input.SpreadCount),
+                cancellationToken);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Best-effort, deliberately. What came out of the generator is already a whole book,
+            // and a book that ships with an unpolished sentence is better than no book at all.
+            // A cancelled caller is the one exception: falling back would report success for work
+            // the caller has already walked away from, so cancellation passes through.
+            logger.LogWarning(
+                ex, "The polish call failed for {Child}'s book; keeping the written story as it is.",
+                input.ChildName);
+
+            return (generated, string.Empty, string.Empty, 0, 0);
+        }
+
+        // The prompts and the tokens are reported from here on whatever the merge decides: the
+        // call was made and paid for, and a merge we refuse is still a call an operator should be
+        // able to read.
+        var writtenNumbers = generated.Spreads.Select(spread => spread.Number).ToList();
+        var polishedNumbers = polished.Value.Spreads.Select(spread => spread.Number).ToList();
+
+        // The schema fixes the spread count but neither the numbering nor its uniqueness, so the
+        // numbers are checked rather than trusted: without the same set on both sides there is no
+        // correspondence to merge along, and merging by position would put one spread's corrected
+        // text under another spread's picture.
+        if (polishedNumbers.Distinct().Count() != polishedNumbers.Count
+            || !writtenNumbers.ToHashSet().SetEquals(polishedNumbers))
+        {
+            logger.LogWarning(
+                "The polished book numbers its spreads {Polished}, not {Written}; nothing was "
+                + "merged and the written story stands.",
+                string.Join(", ", polishedNumbers), string.Join(", ", writtenNumbers));
+
+            return (generated, polishSystem, polishUser, polished.PromptTokens, polished.CompletionTokens);
+        }
+
+        var polishedByNumber = polished.Value.Spreads.ToDictionary(spread => spread.Number);
+
+        var merged = generated with
+        {
+            Concept = generated.Concept with
+            {
+                Title = Prefer(polished.Value.Concept.Title, generated.Concept.Title)
+            },
+            TitleEn = PreferOptional(polished.Value.TitleEn, generated.TitleEn),
+            Spreads = generated.Spreads
+                .Select(spread => spread with
+                {
+                    Text = Prefer(polishedByNumber[spread.Number].Text, spread.Text),
+                    TextEn = PreferOptional(polishedByNumber[spread.Number].TextEn, spread.TextEn)
+                })
+                .ToList()
+        };
+
+        // The validator is the one reader that can tell whether the correction broke something —
+        // a spread edited past the age's word cap, a title emptied. Only what the merge introduced
+        // counts: a problem the written book already had is the retry's business, not the
+        // polisher's.
+        var before = BekiPlanValidator.Validate(generated, input.SpreadCount, input.Age);
+        var introduced = BekiPlanValidator.Validate(merged, input.SpreadCount, input.Age)
+            .Except(before)
+            .ToList();
+
+        if (introduced.Count == 0)
+        {
+            return (merged, polishSystem, polishUser, polished.PromptTokens, polished.CompletionTokens);
+        }
+
+        logger.LogWarning(
+            "The polished book introduced {Count} problem(s); putting the written prose back where "
+            + "they are: {Problems}",
+            introduced.Count, string.Join(" | ", introduced));
+
+        var revertSpreads = introduced
+            .Select(SpreadNumberIn)
+            .Where(number => number is not null)
+            .Select(number => number!.Value)
+            .ToHashSet();
+
+        // A problem naming no spread is about the book's own title, which is the only other thing
+        // the merge touched.
+        var revertTitle = introduced.Any(problem => SpreadNumberIn(problem) is null);
+
+        // By index rather than by number: `merged` was built one-for-one from `generated`, in
+        // order, so the positions line up even for a plan whose numbering the validator already
+        // objects to.
+        var reverted = merged with
+        {
+            Concept = revertTitle ? generated.Concept : merged.Concept,
+            TitleEn = revertTitle ? generated.TitleEn : merged.TitleEn,
+            Spreads = merged.Spreads
+                .Select((spread, index) => revertSpreads.Contains(spread.Number) ? generated.Spreads[index] : spread)
+                .ToList()
+        };
+
+        // One pass, no loop. If putting the written prose back did not clear what the merge
+        // introduced, the merge is not the thing to keep arguing with.
+        var remaining = BekiPlanValidator.Validate(reverted, input.SpreadCount, input.Age)
+            .Except(before)
+            .ToList();
+
+        if (remaining.Count > 0)
+        {
+            logger.LogWarning(
+                "Reverting the polished prose did not clear {Count} problem(s); dropping the polish "
+                + "entirely: {Problems}",
+                remaining.Count, string.Join(" | ", remaining));
+
+            return (generated, polishSystem, polishUser, polished.PromptTokens, polished.CompletionTokens);
+        }
+
+        return (reverted, polishSystem, polishUser, polished.PromptTokens, polished.CompletionTokens);
+    }
+
+    /// <summary>The corrected value when it is actually a value; the written one otherwise.</summary>
+    private static string Prefer(string? polished, string written) =>
+        string.IsNullOrWhiteSpace(polished) ? written : polished;
+
+    /// <inheritdoc cref="Prefer"/>
+    private static string? PreferOptional(string? polished, string? written) =>
+        string.IsNullOrWhiteSpace(polished) ? written : polished;
+
+    /// <summary>
+    /// The spread a validator problem is about, when it names one. Every per-spread message
+    /// <see cref="BekiPlanValidator"/> writes opens with "Spread {number}", which is all the merge
+    /// guard needs to know whose prose to put back.
+    /// </summary>
+    private static int? SpreadNumberIn(string problem)
+    {
+        const string prefix = "Spread ";
+        if (!problem.StartsWith(prefix, StringComparison.Ordinal)) return null;
+
+        var rest = problem.AsSpan(prefix.Length);
+        var digits = 0;
+        while (digits < rest.Length && char.IsDigit(rest[digits])) digits++;
+
+        return digits > 0 && int.TryParse(rest[..digits], out var number) ? number : null;
+    }
+
+    public async Task<MasterStoryResult> RetryPlanWithCorrectionsAsync(
+        MasterStoryInput input, IReadOnlyList<string> problems, CancellationToken cancellationToken)
+    {
+        var version = PromptVersion;
+        var polishes = version == "v6";
+
+        var systemPrompt = polishes ? MasterStoryPromptV6.System(input) : MasterStoryPromptV5.System(input);
+        var userPrompt = (polishes ? MasterStoryPromptV6.User(input) : MasterStoryPromptV5.User(input))
+            + "\n\n" + CorrectionNote(problems);
+        var model = ModelName;
+
+        logger.LogInformation(
+            "Retrying the Beki plan for {Child} ({Version}): {Count} problem(s) from the first attempt.",
+            input.ChildName, version, problems.Count);
 
         var result = await modelClient.CompleteAsync<MasterStory>(
             model,
@@ -418,9 +644,19 @@ public sealed class MasterStoryService(
             BekiBookPlanSchema.Build(input.SpreadCount),
             cancellationToken);
 
-        return Finish(
-            input, result.Value, systemPrompt, userPrompt, model,
-            result.PromptTokens, result.CompletionTokens);
+        if (!polishes)
+        {
+            return Finish(
+                input, result.Value, systemPrompt, userPrompt, model,
+                result.PromptTokens, result.CompletionTokens);
+        }
+
+        // A retried book is polished exactly like a first-attempt one. The retry answers the
+        // validator; the polish answers a different question, and a corrected book is not a
+        // reason to ship the one unedited book in the format.
+        var polished = await PolishAndMergeAsync(input, result.Value, cancellationToken);
+
+        return FinishPolished(input, model, systemPrompt, userPrompt, result, polished);
     }
 
     /// <summary>
@@ -436,6 +672,35 @@ public sealed class MasterStoryService(
     }
 
     // ---- Shared -----------------------------------------------------------------------------
+
+    /// <summary>
+    /// Records a polished book the way v2 and v3 record their two calls: both prompts in the
+    /// stored columns with <see cref="StepSeparator"/> between them, and both calls' tokens added
+    /// up. A polish that did not happen leaves no separator and no second half behind, so a stored
+    /// prompt never describes a call that was never made.
+    ///
+    /// <see cref="Finish"/> runs once, here, over the merged story — the spread-count guard is
+    /// about the book that will be printed, not about an intermediate draft of it.
+    /// </summary>
+    private MasterStoryResult FinishPolished(
+        MasterStoryInput input,
+        string model,
+        string generatorSystem,
+        string generatorUser,
+        ModelResult<MasterStory> generated,
+        (MasterStory Story, string PolishSystem, string PolishUser, int PromptTokens, int CompletionTokens) polished)
+    {
+        var polishRan = !string.IsNullOrEmpty(polished.PolishSystem);
+
+        return Finish(
+            input,
+            polished.Story,
+            polishRan ? generatorSystem + StepSeparator + polished.PolishSystem : generatorSystem,
+            polishRan ? generatorUser + StepSeparator + polished.PolishUser : generatorUser,
+            model,
+            generated.PromptTokens + polished.PromptTokens,
+            generated.CompletionTokens + polished.CompletionTokens);
+    }
 
     private MasterStoryResult Finish(
         MasterStoryInput input,

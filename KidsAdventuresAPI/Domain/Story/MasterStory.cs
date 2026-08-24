@@ -13,6 +13,16 @@ public static class BookFormat
 
     /// <summary>Illustrations to generate: the cover plus one per spread.</summary>
     public const int ImageCount = SpreadCount + 1;
+
+    /// <summary>
+    /// Whether a plan was written for the printing book format — cast list, per-spread character
+    /// placement, print geometry. This is the gate fulfilment and the cover path key on; it is
+    /// about the format (sizes matter), not any particular prompt version, and every new version
+    /// of the printing flow joins this list.
+    /// </summary>
+    public static bool IsPrintPlan(string? promptVersion) =>
+        string.Equals(promptVersion, "v5", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(promptVersion, "v6", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>
