@@ -4,6 +4,7 @@ using AdventurePacks.Api.Data;
 using AdventurePacks.Api.Domain;
 using AdventurePacks.Api.Repositories.Implementations;
 using AdventurePacks.Api.Repositories.Interfaces;
+using AdventurePacks.Api.Services.Ai;
 using AdventurePacks.Api.Services.Beki;
 using AdventurePacks.Api.Services.Implementations;
 using AdventurePacks.Api.Services.Story;
@@ -11,6 +12,7 @@ using AdventurePacks.Api.Services.Interfaces;
 using Hangfire;
 using Hangfire.SqlServer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace AdventurePacks.Api.Extensions;
@@ -22,6 +24,30 @@ public static class ServiceCollectionExtensions
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
         services.Configure<BekiOptions>(configuration.GetSection(BekiOptions.SectionName));
+        // Validated on first resolution rather than trusted. A misspelled provider name would
+        // otherwise fall through to the default and keep billing the vendor everyone believed
+        // had just been switched away from; a Gemini setting with no key would take the failure
+        // all the way to the middle of a paid book.
+        services.AddOptions<AiProviderOptions>()
+            .Bind(configuration.GetSection(AiProviderOptions.SectionName))
+            .Validate(
+                options => AiProvider.IsKnown(options.Story),
+                $"Providers:Story must be \"{AiProvider.OpenAi}\" or \"{AiProvider.Gemini}\".")
+            .Validate(
+                options => AiProvider.IsKnown(options.Images),
+                $"Providers:Images must be \"{AiProvider.OpenAi}\" or \"{AiProvider.Gemini}\".");
+
+        services.AddOptions<GeminiOptions>()
+            .Bind(configuration.GetSection(GeminiOptions.SectionName))
+            .Validate(
+                options =>
+                {
+                    var providers = new AiProviderOptions();
+                    configuration.GetSection(AiProviderOptions.SectionName).Bind(providers);
+                    return (!providers.UsesGeminiForStory && !providers.UsesGeminiForImages)
+                           || !string.IsNullOrWhiteSpace(options.ApiKey);
+                },
+                "Gemini is selected in Providers but Gemini:ApiKey is empty.");
         services.Configure<PrintLayoutOptions>(configuration.GetSection(PrintLayoutOptions.SectionName));
         services.Configure<BekiPrintLayoutOptions>(configuration.GetSection(BekiPrintLayoutOptions.SectionName));
         // App Service refuses an app setting named "AzureBlobStorage__ConnectionString"
@@ -249,7 +275,22 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPrintOrderService, PrintOrderService>();
 
         services.AddScoped<IReferenceImageNormalizer, ReferenceImageNormalizer>();
-        services.AddScoped<IOpenAiService, OpenAiService>();
+
+        // Which vendor answers which half of the book. Both halves default to OpenAI, and the
+        // choice is made per resolution rather than at startup so that flipping the setting is a
+        // restart rather than a deployment — the same shape the blob-storage switch above uses.
+        services.AddScoped<OpenAiService>();
+        services.AddScoped<IGeminiInteractionsClient, GeminiInteractionsClient>();
+        services.AddScoped<GeminiIllustrationClient>();
+
+        services.AddScoped<IOpenAiService>(sp =>
+        {
+            var openAi = sp.GetRequiredService<OpenAiService>();
+            return sp.GetRequiredService<IOptions<AiProviderOptions>>().Value.UsesGeminiForImages
+                ? ActivatorUtilities.CreateInstance<AiServiceRouter>(
+                    sp, openAi, sp.GetRequiredService<GeminiIllustrationClient>())
+                : openAi;
+        });
 
         services.AddScoped<IAdventurePdfService, AdventurePdfService>();
         // Azure unless a machine has explicitly asked for the local folder. The choice is made
