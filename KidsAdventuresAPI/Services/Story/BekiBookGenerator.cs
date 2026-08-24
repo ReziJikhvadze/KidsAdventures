@@ -563,7 +563,8 @@ public sealed class BekiBookGenerator(
             "A warm hero portrait of the child with Beki beside them, inviting the reader in. "
             + "These two are the only characters on the cover; keep the setting simple and "
             + "iconic, one clear suggestion of the world behind them.",
-            CoverAvoid(plan.Cover.Avoid));
+            CoverAvoid(plan.Cover.Avoid),
+            worldLock: plan.WorldLock);
 
         var references = new List<(byte[] Bytes, string ContentType, string Label)>
         {
@@ -678,7 +679,8 @@ public sealed class BekiBookGenerator(
             textSide,
             shot,
             spread.Illustration.Avoid,
-            ctaSafe);
+            ctaSafe,
+            plan.WorldLock);
 
         return await DrawReviewedAsync(
             spread.Number,

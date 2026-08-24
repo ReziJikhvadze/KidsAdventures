@@ -68,6 +68,17 @@ public sealed record MasterStory
     public string? TitleEn { get; init; }
 
     /// <summary>
+    /// The world's unchanging look, in English, repeated verbatim into every illustration prompt
+    /// the way <see cref="CharacterLock"/> is. Characters had anchors and the place had nothing,
+    /// so a book's palette, light and landscape drifted from spread to spread.
+    ///
+    /// Null for A5 books and for every plan written before this existed. Absent means the prompts
+    /// are assembled exactly as they were then, which is what lets a book that was half drawn
+    /// under the old prompts be finished under the same ones.
+    /// </summary>
+    public string? WorldLock { get; init; }
+
+    /// <summary>
     /// The recurring characters this particular book invented, each with one short visual
     /// description. Null for A5 books, where <see cref="CharacterLock"/> carries every character
     /// in one paragraph and no character has an identity of its own.

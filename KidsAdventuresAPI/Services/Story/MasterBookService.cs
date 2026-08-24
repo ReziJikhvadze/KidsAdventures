@@ -428,12 +428,14 @@ public sealed class MasterBookService(
             // The prompt is used exactly as the story call wrote it: the character lock is already
             // inside it, and rewriting it here is how the hero used to drift between pages. The
             // only difference a lost Beki cover makes is the clause forbidding a stand-in
-            // companion; the scene, the lock and the plan's own avoid list are untouched, and an
-            // A5 run reaches this line exactly as it always has.
+            // companion, and the plan's world lock — this cover is adopted into the book without
+            // being drawn again, so it has to be drawn in the book's world. The scene, the lock
+            // and the plan's own avoid list are untouched, and an A5 run, whose plan carries no
+            // world lock, reaches this line exactly as it always has.
             var coverPrompt = bekiFailure is null
                 ? IllustrationPrompt.Compose(story.CharacterLock, story.Cover.Scene, story.Cover.Avoid)
                 : IllustrationPrompt.ComposeChildOnlyCover(
-                    story.CharacterLock, story.Cover.Scene, story.Cover.Avoid);
+                    story.CharacterLock, story.Cover.Scene, story.Cover.Avoid, story.WorldLock);
 
             var imageBytes = await openAiService.GenerateStoryImageAsync(
                 coverPrompt,

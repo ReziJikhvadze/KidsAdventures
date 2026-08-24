@@ -443,7 +443,14 @@ public sealed class MasterStoryService(
             BekiBookPlanSchema.Build(input.SpreadCount),
             cancellationToken);
 
-        var polished = await PolishAndMergeAsync(input, written.Value, cancellationToken);
+        // Before the polish, so the editor reads the book the illustrator will be given. The lock
+        // is never merged back, so what is enforced here survives whatever the polisher returns.
+        var identified = BekiIdentityRules.EnforceCharacterLock(written.Value, input);
+
+        var polished = await PolishAndMergeAsync(input, identified, cancellationToken);
+
+        // After it, and last: whatever either model spelled, the companion's name prints „ბეკი“.
+        polished.Story = BekiIdentityRules.EnforceBrandSpelling(polished.Story, input.ChildName);
 
         return FinishPolished(input, model, systemPrompt, userPrompt, written, polished);
     }
@@ -651,10 +658,14 @@ public sealed class MasterStoryService(
                 result.PromptTokens, result.CompletionTokens);
         }
 
-        // A retried book is polished exactly like a first-attempt one. The retry answers the
-        // validator; the polish answers a different question, and a corrected book is not a
-        // reason to ship the one unedited book in the format.
-        var polished = await PolishAndMergeAsync(input, result.Value, cancellationToken);
+        // A retried book is polished exactly like a first-attempt one, and held to the same two
+        // identity rules for the same reason. The retry answers the validator; the polish answers
+        // a different question, and a corrected book is not a reason to ship the one unedited
+        // book in the format.
+        var identified = BekiIdentityRules.EnforceCharacterLock(result.Value, input);
+        var polished = await PolishAndMergeAsync(input, identified, cancellationToken);
+
+        polished.Story = BekiIdentityRules.EnforceBrandSpelling(polished.Story, input.ChildName);
 
         return FinishPolished(input, model, systemPrompt, userPrompt, result, polished);
     }

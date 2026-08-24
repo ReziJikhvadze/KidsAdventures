@@ -428,6 +428,12 @@
   font-size: clamp(10px, 0.85vw, 13px);
   line-height: 1.8;
   text-wrap: pretty;
+  /*
+    The story is written as lines now — narration on its own, and one line per speaker — and HTML
+    collapses every newline into a space, so the whole page arrived as one paragraph of dialogue.
+    pre-line keeps the breaks the writer put in and still wraps and collapses runs of spaces.
+  */
+  white-space: pre-line;
 }
 .storybook-text-page > i {
   position: absolute;

@@ -28,7 +28,7 @@ public static class BekiBookPlanSchema
         {
             type = "object",
             additionalProperties = false,
-            required = new[] { "concept", "titleEn", "cast", "objects", "spreads", "characterLock", "cover" },
+            required = new[] { "concept", "titleEn", "cast", "objects", "spreads", "characterLock", "worldLock", "cover" },
             properties = new Dictionary<string, object>
             {
                 ["concept"] = new
@@ -108,6 +108,16 @@ public static class BekiBookPlanSchema
                         "ENGLISH ONLY. The child's unchanging appearance only — face, hair, eyes, "
                         + "skin, build and the clothing worn in every scene. Not the supporting "
                         + "cast: each of those carries its own visualDescription above."
+                },
+                ["worldLock"] = new
+                {
+                    type = "string",
+                    description =
+                        "ENGLISH ONLY. Two or three sentences fixing the constant look of this "
+                        + "book's world: palette, quality of light, terrain or architecture, and "
+                        + "one recurring landmark. No characters, no story events, no camera — "
+                        + "this is repeated word for word into every illustration, so everything "
+                        + "in it must be true of every spread."
                 },
                 ["cover"] = IllustrationSchema(
                     "The cover scene: the child as the hero of this world, with calm space where a "

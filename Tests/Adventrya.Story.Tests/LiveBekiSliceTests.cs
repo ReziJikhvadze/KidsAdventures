@@ -190,7 +190,8 @@ public class LiveBekiSliceTests(ITestOutputHelper output)
             continuity,
             textSide,
             shot,
-            spread.Illustration.Avoid);
+            spread.Illustration.Avoid,
+            worldLock: plan.WorldLock);
 
         var reference = BuildReference(childPhoto, hasAnchor ? anchorBytes : null);
 

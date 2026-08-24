@@ -6,16 +6,25 @@ namespace AdventurePacks.Api.Services.Story.Prompts;
 /// <summary>
 /// PLAN BOOK — v5's planning call plus a voice directive, written for the flow-misho printing flow.
 ///
-/// Word for word <see cref="MasterStoryPromptV5"/> apart from one added block: how the prose should
-/// sound. V5 says nothing at all about the story's voice — its only mentions of style are about the
-/// visual style being code's job — and the books it wrote read like books, not like someone telling
-/// a child a story. The block names Nodar Dumbadze because a named voice a model has actually read
-/// is worth more than an adjective, and it sits immediately before the age/language block so
-/// everything about the words the child hears is in one place.
+/// Word for word <see cref="MasterStoryPromptV5"/> apart from what it has been taught since, and
+/// everything it has been taught came from reading a finished book:
+///
+/// - How the prose should sound. V5 says nothing at all about the story's voice — its only mentions
+///   of style are about the visual style being code's job — and the books it wrote read like books,
+///   not like someone telling a child a story. The block names Nodar Dumbadze because a named voice
+///   a model has actually read is worth more than an adjective, and it sits immediately before the
+///   age/language block so everything about the words the child hears is in one place.
+/// - The identity must-rules. V5 dropped the eye-colour line v2–v4 sent, so the character lock named
+///   no colour and all nine illustrations invented one; the gender was in the input and in nothing
+///   the model was told to write down.
+/// - worldLock, the character lock's counterpart for the place: characters had continuity anchors
+///   and the world had nothing, so the palette and the landscape drifted from spread to spread.
+/// - The companion's Georgian spelling, which a printed book got wrong.
+/// - The shape of the text on the page: a page of dialogue set as one paragraph is a page a parent
+///   cannot read aloud in two voices.
 ///
 /// The rest is kept identical on purpose, for the same reason V5 keeps the handoff's own wording:
-/// two prompt versions are only comparable if the difference between them is the one thing under
-/// test.
+/// two prompt versions are only comparable if the difference between them is the thing under test.
 /// </summary>
 public static class MasterStoryPromptV6
 {
@@ -48,6 +57,10 @@ public static class MasterStoryPromptV6
         than commands, remembers the child's earlier adventures, and celebrates the child's effort.
         If the text ever names what Beki is, it says a leaf spirit — never a lamb, a sheep, or any
         animal.
+
+        In Georgian the companion's name is written exactly „ბეკი“, in every grammatical form —
+        ბეკიმ, ბეკის, ბეკისთან, ბეკიდან, ბეკიო. Always კ, never ქ: „ბექი“ is a different word and
+        is never this character's name.
 
         Beki must appear in spread 1 and in spread {input.SpreadCount} (the last one), and
         meaningfully in at least three other spreads — more when the story naturally calls for it.
@@ -98,6 +111,23 @@ public static class MasterStoryPromptV6
         The visual scene must describe only what should be visible in the illustration, and it
         must name exactly one visual focus — the single thing the reader's eye should land on
         first. Everything else in the scene is there to support it.
+
+        characterLock is the child's identity, and it is quoted word for word into every
+        illustration. It MUST state the child's gender, and it MUST state the eye colour given with
+        the child's details. The parent chose that colour: it wins over the photograph and over
+        anything the appearance description seems to show.
+
+        Write worldLock as well: two or three English sentences that fix the constant look of this
+        book's world — palette, quality of light, terrain or architecture, and one recurring
+        landmark that can appear again. No characters, no story events, no camera or shot. It is
+        repeated word for word into every illustration of this book, so everything in it must be
+        true of every spread.
+
+        Shape on the page: each spread's Georgian text is written as short lines separated by
+        newlines, never as one block. Narration is its own line, and every speaker's words are
+        their own line — never two speakers in one line, and never a line of speech with its
+        narration attached. textEn is written in the same shape, line for line. This is how the
+        words are arranged, not how many there are: the word budgets below still hold.
 
         Voice, for the Georgian story text: write in a warm, simple, spoken storytelling voice, in
         the manner of Nodar Dumbadze's prose — short natural sentences with the rhythm of speech;
@@ -152,6 +182,17 @@ public static class MasterStoryPromptV6
             text.AppendLine();
             text.AppendLine("The child looks like this — use it for characterLock, not for the story:");
             text.AppendLine(input.AppearanceDescription!.Trim());
+        }
+
+        // Stated last, after the description, because the two can disagree: a photograph read as
+        // blue against a parent who chose green. v5 dropped this line and v6 inherited the gap —
+        // the character lock then named no colour, and all nine illustrations invented one.
+        if (!string.IsNullOrWhiteSpace(input.EyeColor))
+        {
+            text.AppendLine();
+            text.AppendLine(
+                $"Eye colour: {input.EyeColor.Trim()} — this is what the parent chose; it "
+                + "overrides anything the photograph suggests.");
         }
 
         return text.ToString();

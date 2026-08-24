@@ -596,7 +596,11 @@ public sealed class OrderService(
             var book = await packRepository.GetByIdAsync(bookId, order.UserId, cancellationToken);
             if (book is not null)
             {
-                response.BookReady = book.IsFullyUnlocked && book.Status == AdventurePackStatus.StoryReady;
+                // Two pipelines, two finishing lines: the legacy one stops at StoryReady, the Beki
+                // one runs on to Completed. Only the first was checked, so a Beki parent's
+                // generating screen polled until it gave up on a book that was already readable.
+                response.BookReady = book.IsFullyUnlocked
+                    && book.Status is AdventurePackStatus.StoryReady or AdventurePackStatus.Completed;
                 response.ProgressMessage = book.ProgressMessage;
             }
         }

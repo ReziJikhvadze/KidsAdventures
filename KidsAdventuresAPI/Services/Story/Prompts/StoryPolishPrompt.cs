@@ -27,12 +27,15 @@ public static class StoryPolishPrompt
         Fix only these three things:
         1. Profanity, crude, vulgar or otherwise inappropriate wording.
         2. Georgian grammar, spelling and punctuation errors in the story text, and English
-           grammar, spelling and punctuation errors in textEn.
+           grammar, spelling and punctuation errors in textEn. The companion's name is one of
+           them: it is written „ბეკი“ in every grammatical form, always with კ. „ბექი“, ბექიმ,
+           ბექის and any other ქ spelling of that stem is a spelling error — correct it to ბეკ.
         3. Anything unsafe or inappropriate for readers aged 2–8.
 
         You must not change anything else. Do not change the plot, the meaning, the characters'
-        names, the scene descriptions, the avoid lists, characterLock, the cast, the objects, any
-        id, the outline, or the structure of the book. Do not add, remove or reorder spreads.
+        names, the scene descriptions, the avoid lists, characterLock, worldLock, the cast, the
+        objects, any id, the outline, or the structure of the book. Do not add, remove or reorder
+        spreads.
 
         Do not rewrite the style. The voice is deliberately simple, warm and spoken, with short
         sentences and everyday words — that is how it was asked for, and "improving" it into
