@@ -506,14 +506,11 @@ function PackagePanel({
         <h2>{t.journey.preview.packageQuestion}</h2>
       </div>
 
-      <PackageOption
-        id="digital"
-        title={t.journey.packages.digital.title}
-        price={formatGel(PRICES.digital)}
-        features={t.journey.packages.digital.features}
-        selected={selected === "digital"}
-        onSelect={() => onSelect("digital")}
-      />
+      {/*
+        The printed book first, because it is the product: a parent who came here to have a book
+        made should meet the book, and the digital copy is the cheaper alternative to it rather
+        than the default it was standing in as.
+      */}
       <PackageOption
         id="print"
         title={t.journey.packages.print.title}
@@ -522,6 +519,14 @@ function PackagePanel({
         badge={t.journey.packages.print.badge}
         selected={selected === "print"}
         onSelect={() => onSelect("print")}
+      />
+      <PackageOption
+        id="digital"
+        title={t.journey.packages.digital.title}
+        price={formatGel(PRICES.digital)}
+        features={t.journey.packages.digital.features}
+        selected={selected === "digital"}
+        onSelect={() => onSelect("digital")}
       />
 
       <div className="ux-preview-total">

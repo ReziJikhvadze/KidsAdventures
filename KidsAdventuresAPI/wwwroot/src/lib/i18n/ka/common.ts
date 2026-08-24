@@ -13,6 +13,9 @@ export const common = {
     backLink: "უკან დაბრუნება",
     cancel: "გაუქმება",
     close: "დახურვა",
+    /* The button under the child's details. It said "close", which described the dialog rather
+       than the act: a parent filling in their child's name is keeping it, not dismissing it. */
+    remember: "დამახსოვრება",
     change: "შეცვლა",
     remove: "წაშლა",
     add: "დამატება",

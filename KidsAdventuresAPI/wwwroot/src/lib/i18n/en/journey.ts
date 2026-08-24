@@ -25,6 +25,8 @@ export const journey = {
     addCharacterLimit: "more · up to 3 characters per book",
     addAnother: "Add another character",
     privacyNote: "These details are used only to create the personalised book.",
+    termsPrefix: "I agree to the ",
+    termsLink: "terms and conditions",
     /* The one action on this form: it makes the book. */
     continue: "Create the book",
     ready: "Character ready",
@@ -86,6 +88,7 @@ export const journey = {
     relationshipRequired: "Choose who this extra character is to the main hero.",
     relationshipTextRequired: "Describe the relationship or the kind of character.",
     photoRequired: "Add a clear portrait.",
+    termsRequired: "Please accept the terms and conditions to create the book.",
     finishEditing: "Finish or cancel editing this character first.",
     phoneInvalid: "Enter a valid 9-digit Georgian number.",
     otpInvalid: "That code is not correct.",

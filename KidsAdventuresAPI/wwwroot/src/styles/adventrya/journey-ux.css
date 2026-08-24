@@ -849,10 +849,15 @@
   margin-top: 4px;
   font-size: 11px;
 }
+/*
+  Ten pixels between the two package cards was less than the height of the ribbon that hangs
+  seven pixels above the printed one, so "the most emotional choice" sat across the other card's
+  price. The gap is now wide enough for the ribbon to have somewhere to be.
+*/
 .ux-package-panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 18px;
   padding: 21px;
   border: 1px solid rgba(240, 226, 197, 0.2);
   border-radius: 24px 24px 40px;
@@ -1790,4 +1795,37 @@
   .ux-preview-book-note {
     margin-top: 10px;
   }
+}
+
+/*
+  The consent tick, above the button it guards.
+
+  Not a line of small print beside the button but a control the parent has to touch: a book is
+  written, illustrated and charged for on the far side of this press, and "by continuing you
+  agree" is not a thing anyone agreed to.
+*/
+.ux-terms-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 2px 0 4px;
+  color: #f8f2e5c4;
+  font-size: 12px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.ux-terms-consent input {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  margin-top: 1px;
+  accent-color: #e8c98a;
+  cursor: pointer;
+}
+
+.ux-terms-consent a {
+  color: #f3d79a;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }

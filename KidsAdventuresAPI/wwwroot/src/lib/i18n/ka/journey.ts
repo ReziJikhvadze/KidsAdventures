@@ -19,6 +19,8 @@ export const journey = {
     addCharacterLimit: "პერსონაჟი · მაქსიმუმ 3 გმირი წიგნში",
     addAnother: "დაამატე კიდევ ერთი პერსონაჟი",
     privacyNote: "მონაცემები გამოიყენება მხოლოდ პერსონალიზებული წიგნის შესაქმნელად.",
+    termsPrefix: "ვეთანხმები ",
+    termsLink: "წესებსა და პირობებს",
     /* The one action on this form: it makes the book. */
     continue: "შექმენი წიგნი",
     ready: "პერსონაჟი მზადაა",
@@ -84,6 +86,7 @@ export const journey = {
     relationshipRequired: "აირჩიე, ვინ არის დამატებითი პერსონაჟი მთავარი გმირისთვის.",
     relationshipTextRequired: "ჩაწერე ურთიერთობა ან პერსონაჟის ტიპი.",
     photoRequired: "დაამატე მკაფიო პორტრეტი.",
+    termsRequired: "წიგნის შესაქმნელად საჭიროა წესებსა და პირობებზე დათანხმება.",
     /*
       It said "the ADDITIONAL character" even when the open form was the main hero's, so the
       message named something that was not on the screen. It is about whichever character is

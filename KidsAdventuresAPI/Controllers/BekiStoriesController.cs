@@ -1,4 +1,4 @@
-using AdventurePacks.Api.Configuration.Options;
+﻿using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.DTOs.Beki;
 using AdventurePacks.Api.Services.Beki;
 using AdventurePacks.Api.Services.Interfaces;
@@ -41,11 +41,15 @@ public sealed class BekiStoriesController(
             return BadRequest(new { message = "Child's name is required." });
         }
 
-        // The prompts adapt vocabulary, cast size and suspense to three bands covering 2-10.
-        // Outside that range there is no band to write for.
-        if (request.Age is < 2 or > 10)
+        // The prompts adapt vocabulary, cast size and suspense to three bands covering 2-10, and
+        // both ends are handled rather than refused: the youngest band is written for a child on
+        // a lap, and the planner is told in as many words to treat an age under two as two. A
+        // one-year-old has a book bought for them by a parent who will read every word of it
+        // aloud, and refusing that order served nobody. The floor matches the one the live path
+        // has always used.
+        if (request.Age is < 1 or > 10)
         {
-            return BadRequest(new { message = "Beki books are written for ages 2 to 10." });
+            return BadRequest(new { message = "Beki books are written for ages 1 to 10." });
         }
 
         if (string.IsNullOrWhiteSpace(request.Theme))

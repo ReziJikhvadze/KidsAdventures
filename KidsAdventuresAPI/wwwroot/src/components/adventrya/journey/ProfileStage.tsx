@@ -34,6 +34,14 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
   const t = useT();
   const [editingId, setEditingId] = useState<string | null>(() => entryEditingId(draft.characters));
   const [error, setError] = useState<string | null>(null);
+  /*
+    Consent to the terms, which is asked for once and here.
+
+    Here because this is the last press before a book is written: the story, the pictures and the
+    money all follow from it. Deliberately not remembered in the draft — a tick that survives a
+    reload is a tick nobody gave.
+  */
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // The draft is only read from localStorage after the first render (SSR safety),
   // and that swap hands every character a brand-new localId. Without re-applying
@@ -153,6 +161,10 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
         return;
       }
     }
+    if (!acceptedTerms) {
+      setError(copy.validation.termsRequired);
+      return;
+    }
     setError(null);
     onContinue();
   };
@@ -241,6 +253,24 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
             <Lock aria-hidden="true" />
             {copy.profile.privacyNote}
           </p>
+
+          <label className="ux-terms-consent">
+            <input
+              type="checkbox"
+              checked={acceptedTerms}
+              onChange={(event) => {
+                setAcceptedTerms(event.target.checked);
+                if (event.target.checked) setError(null);
+              }}
+            />
+            <span>
+              {copy.profile.termsPrefix}
+              <a href="/terms" target="_blank" rel="noreferrer">
+                {copy.profile.termsLink}
+              </a>
+            </span>
+          </label>
+
           <button className="button journey-primary" type="button" onClick={handleContinue}>
             {copy.profile.continue}
           </button>
@@ -515,7 +545,7 @@ function CharacterEditor({
       */}
       <div className="ux-form-actions">
         <button className="button ux-inline-link" type="button" onClick={onSave}>
-          {t.common.actions.close}
+          {t.common.actions.remember}
         </button>
         {character.name.trim() || !character.isPrimary ? (
           <button className="ux-inline-link" type="button" onClick={onCancel}>
