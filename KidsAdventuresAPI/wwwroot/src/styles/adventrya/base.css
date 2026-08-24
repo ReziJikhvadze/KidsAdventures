@@ -12,6 +12,18 @@
   --sky-mist: #cfe3ec;
   --forest: #3c7864;
   --ink: #29233a;
+
+  /*
+   * The type that is read, as opposed to looked at. --font-display — the book's own face,
+   * worn by every heading — is defined once in styles.css, because Tailwind's @theme emits
+   * that name onto :root too and two definitions of one variable is a coin toss.
+   *
+   * Body text stays on Noto deliberately: the display face ships a single weight, so every
+   * bold on the site would become a browser's synthetic smear, and a display face at 15px
+   * tires a reader long before a parent finishes a checkout. To try it anyway, put
+   * "Adventrya Display" at the front of this line — nothing else needs to change.
+   */
+  --font-body: "Adventrya Sans", "Noto Sans Georgian", system-ui, sans-serif;
 }
 * {
   box-sizing: border-box;
@@ -24,7 +36,7 @@ body {
 }
 body {
   color: var(--cream);
-  font-family: "Adventrya Sans", "Noto Sans Georgian", system-ui, sans-serif;
+  font-family: var(--font-body);
   overflow-x: hidden;
 }
 button,
@@ -160,7 +172,7 @@ svg {
 }
 .hero-copy h1 {
   margin: 0;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-weight: 700;
   letter-spacing: -0.035em;
 }
@@ -179,7 +191,7 @@ svg {
 .hero-promise {
   margin: 20px 0 0;
   color: #f8f2e5eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 16px;
 }
 .hero-description {
@@ -283,7 +295,7 @@ svg {
   align-items: center;
   gap: 11px;
   color: #f8f2e5ad;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 13px;
 }
 .world-caption span {
@@ -464,7 +476,7 @@ svg {
   display: grid;
   place-items: center;
   color: #2a1d4c;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-weight: 700;
   background:
     radial-gradient(circle at 38% 32%, #fff4c7 0 16%, transparent 17%),
@@ -537,7 +549,7 @@ svg {
 .world-profile h1 {
   margin: 5px 0 0;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 30px;
 }
 .memory-note {
@@ -571,7 +583,7 @@ svg {
   place-items: center;
   border-radius: 50%;
   color: #eff5d8;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-weight: 700;
   background: radial-gradient(circle at 35% 30%, #84a984, #315b4c 72%);
   box-shadow: inset 0 0 0 3px #ffffff21;
@@ -584,7 +596,7 @@ svg {
   max-width: 260px;
   margin: 5px 0 0;
   color: #fbf3e4;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 14px;
   line-height: 1.45;
 }
@@ -655,7 +667,7 @@ svg {
 }
 .map-heading span {
   color: #fff8ebd1;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 14px;
 }
 .map-heading small {
@@ -671,7 +683,7 @@ svg {
 }
 .map-count strong {
   color: var(--story-gold);
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 23px;
   line-height: 1;
 }
@@ -757,7 +769,7 @@ svg {
 .map-label strong {
   margin-top: 2px;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 12px;
 }
 .state-future {
@@ -857,7 +869,7 @@ svg {
 .story-echo strong {
   margin-top: 2px;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 13px;
 }
 .story-echo p {

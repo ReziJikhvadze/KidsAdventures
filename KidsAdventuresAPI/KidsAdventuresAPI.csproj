@@ -34,7 +34,11 @@
     <Content Include="Data\Scripts\*.sql" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Data\Scripts\README.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Data\Scripts\Manual\**\*" CopyToOutputDirectory="Never" />
+    <!-- Both outline formats: a face bought as .otf and dropped in here would otherwise be
+         left out of the publish silently, and the only symptom would be a PDF set in the
+         wrong font. -->
     <Content Include="Assets\Fonts\*.ttf" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Fonts\*.otf" CopyToOutputDirectory="PreserveNewest" />
     <!-- Beki prompt system: the .md files are the system prompts themselves, loaded at
          runtime rather than pasted into C#, so a prompt revision is a content change and
          its version can be recorded against every generated story. -->

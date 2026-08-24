@@ -39,7 +39,7 @@
 .reader-title strong {
   margin-top: 3px;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 13px;
 }
 .reader-header > div:last-child {
@@ -184,7 +184,7 @@
 .reader-page-copy > p:not(.eyebrow) {
   margin: 23px 0 0;
   color: #29233ab8;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 14px;
   line-height: 1.9;
 }
@@ -213,7 +213,7 @@
   flex-direction: column;
 }
 .reader-qr strong {
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 12px;
 }
 .reader-qr a {

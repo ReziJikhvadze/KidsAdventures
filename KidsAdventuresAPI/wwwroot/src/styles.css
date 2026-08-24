@@ -8,7 +8,17 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-display: "Adventrya Serif", ui-serif, Georgia, serif;
+  /*
+   * The one place the site's display face is chosen. Tailwind emits these onto :root, and
+   * the Adventrya sheets read --font-display through the same name, so this line changes
+   * every heading, title and brand mark in the product at once — and putting Noto back is
+   * deleting one family from the front of it.
+   *
+   * Ottia carries the Georgian alphabet but not the dash, colon, ellipsis or apostrophe.
+   * The Noto family behind it is not decoration: CSS resolves a stack per character, so
+   * those few marks come from Noto while the letters stay Ottia.
+   */
+  --font-display: "Adventrya Display", "Adventrya Serif", ui-serif, Georgia, serif;
   --font-sans: "Adventrya Sans", "Noto Sans Georgian", ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);

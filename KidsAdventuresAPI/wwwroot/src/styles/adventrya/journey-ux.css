@@ -18,7 +18,7 @@
 .ux-generated-header h1 {
   margin: 0;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: clamp(38px, 3.2vw, 50px);
   font-weight: 400;
   line-height: 1.12;
@@ -83,7 +83,7 @@
   border-radius: 14px;
   color: #30204f;
   background: linear-gradient(145deg, #f1d899, #dca85a);
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 14px;
 }
 .ux-form-intro > div {
@@ -98,7 +98,7 @@
 .ux-form-intro h2 {
   margin: 3px 0 0;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 19px;
 }
 .ux-character-fields {
@@ -150,7 +150,7 @@
 .ux-photo-upload strong {
   margin-top: 4px;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 14px;
 }
 .ux-photo-upload p {
@@ -345,7 +345,7 @@
   border-radius: 17px;
   color: #2d1d4a;
   background: linear-gradient(145deg, #f1d99b, #d9a659);
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 18px;
 }
 .ux-character-summary > div:not(.ux-summary-actions) {
@@ -358,7 +358,7 @@
 .ux-character-summary h2 {
   margin: 3px 0 0;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 16px;
 }
 .ux-character-summary p {
@@ -770,7 +770,7 @@
 .ux-book-cover h2 {
   margin: 7px 0 0;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: clamp(18px, 1.5vw, 24px);
   line-height: 1.2;
   text-shadow: 0 4px 18px rgba(8, 3, 22, 0.7);
@@ -806,7 +806,7 @@
 }
 .ux-story-text p {
   margin: 8px 0 0;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 12px;
   line-height: 1.65;
 }
@@ -842,7 +842,7 @@
   filter: blur(0.35px);
 }
 .ux-locked-pages span {
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 13px;
 }
 .ux-locked-pages small {
@@ -870,7 +870,7 @@
 .ux-package-heading h2 {
   margin: 4px 0 5px;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 19px;
 }
 .ux-package-option {
@@ -921,7 +921,7 @@
 }
 .ux-package-title b {
   color: var(--story-gold);
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 16px;
 }
 .ux-package-list {
@@ -973,7 +973,7 @@
   grid-column: 2;
   align-self: center;
   color: var(--story-gold);
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 22px;
 }
 .ux-preview-continue {
@@ -1113,14 +1113,14 @@
 .ux-compact-product strong {
   margin-top: 6px;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 15px;
   line-height: 1.35;
 }
 .ux-compact-product span {
   margin-top: 9px;
   color: var(--story-gold);
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 19px;
 }
 .ux-generating .generation-book {
@@ -1193,7 +1193,7 @@
 }
 .ux-reader-page p {
   margin: 10px 0 0;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 13px;
   line-height: 1.7;
 }

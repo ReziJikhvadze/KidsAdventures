@@ -10,7 +10,7 @@
   through, so it is not shipped either.
 
   So the two rules that asked for them now ask for the faces this product already serves:
-  Adventrya Serif for the display line, Adventrya Sans for everything else. Both carry Georgian,
+  --font-display for the display line, Adventrya Sans for everything else. Both carry Georgian,
   both are preloaded on every page, and neither is a licence to sort out later. The delivered
   files are not committed — four hundred kilobytes of a face that cannot spell "Beki" is not
   worth serving — so restoring the designed typography means working files first, then an
@@ -419,7 +419,7 @@
   justify-items: center;
   pointer-events: auto;
   color: var(--gold-light);
-  font-family: "Adventrya Serif", Georgia, serif;
+  font-family: var(--font-display);
   font-size: clamp(17px, 1.65vw, 28px);
   letter-spacing: 0.2em;
   line-height: 1;

@@ -1,4 +1,4 @@
-using AdventurePacks.Api.Configuration.Options;
+﻿using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.Services.Pdf;
 using QuestPDF.Fluent;
@@ -73,9 +73,19 @@ public interface IBekiPdfComposer
 /// confines faces and action to the central band so the trim never takes anything the story
 /// needs.
 /// </summary>
-public sealed class BekiPdfComposer(IOptions<BekiPrintLayoutOptions> options) : IBekiPdfComposer
+public sealed class BekiPdfComposer(
+    IOptions<BekiPrintLayoutOptions> options,
+    ILogger<BekiPdfComposer>? logger = null) : IBekiPdfComposer
 {
     private readonly BekiPrintLayoutOptions _layout = options.Value;
+
+    /// <summary>
+    /// Defaulted so the layout tests — which build a composer directly, by the dozen, and care
+    /// about pixels rather than logs — are not each made to carry a logger they never read.
+    /// The container always supplies the real one.
+    /// </summary>
+    private readonly ILogger<BekiPdfComposer> _logger =
+        logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<BekiPdfComposer>.Instance;
 
     /// <summary>Every page's ground, unless a page — an endpaper — asks for its own.</summary>
     private static readonly Color PageInk = Color.FromHex("#281B3F");
@@ -229,6 +239,17 @@ public sealed class BekiPdfComposer(IOptions<BekiPrintLayoutOptions> options) : 
         QuestPDF.Settings.License = LicenseType.Community;
         PdfFontBootstrap.EnsureRegistered();
 
+        // A required face that never registered does not stop the book, but it must not pass
+        // unremarked either: the PDF still builds, in whatever Skia falls back to, and nobody
+        // finds out until a printed page looks wrong.
+        if (PdfFontBootstrap.MissingFontFiles.Count > 0)
+        {
+            _logger.LogWarning(
+                "Beki PDF: font file(s) missing from the published output, so the book is set in a "
+                + "fallback face: {MissingFonts}",
+                string.Join(", ", PdfFontBootstrap.MissingFontFiles));
+        }
+
         var bySpread = plan.Spreads.ToDictionary(spread => spread.Number);
 
         return Document.Create(document =>
@@ -289,7 +310,7 @@ public sealed class BekiPdfComposer(IOptions<BekiPrintLayoutOptions> options) : 
                     .Element(item => OutlinedText(
                         item, title, _layout.StoryFontSize * 2f, 1.25f,
                         TextColor, OutlineColor, CoverTitleWidthPt,
-                        PdfFontBootstrap.DisplayFamily, centred: true));
+                        PdfFontBootstrap.TitleFamily, centred: true));
             });
         });
     }
@@ -906,8 +927,13 @@ public sealed class BekiPdfComposer(IOptions<BekiPrintLayoutOptions> options) : 
         IContainer container, string text, float fontSize, float lineHeight,
         Color colour, string fontFamily, bool centred)
     {
+        // The families behind the first one are a per-glyph fallback chain, not a preference:
+        // QuestPDF asks each family in turn for a character the one before it lacks. A display
+        // face that carries the alphabet but not a dash therefore sets the words it can and
+        // borrows the rest from Noto, where without the chain the reader would find a box in the
+        // middle of the title.
         var block = container.Text(text)
-            .FontFamily(fontFamily)
+            .FontFamily(fontFamily, PdfFontBootstrap.DisplayFamily, PdfFontBootstrap.BodyFamily)
             .FontSize(fontSize)
             .LineHeight(lineHeight)
             .FontColor(colour);
