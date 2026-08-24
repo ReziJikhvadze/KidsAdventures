@@ -116,13 +116,24 @@
   box-shadow: 0 0 80px rgba(1, 1, 18, 0.62);
 }
 
+/*
+  The painting fills the screen rather than fitting inside it.
+
+  min() sized the frame to whichever edge ran out first, which on almost every real screen meant
+  bars of flat ambient colour down two sides and a map that never used the display it was drawn
+  for. max() covers instead: the frame grows until both edges are met and the stage's overflow
+  takes the excess, so the map is edge to edge.
+
+  The islands sit far enough inside the frame — none closer than four percent to an edge — that
+  the crop takes clouds, not worlds, on every aspect ratio between 4:3 and 21:9.
+*/
 .desktop-frame {
-  width: min(100vw, calc(100svh * 1.776833));
+  width: max(100vw, calc(100svh * 1.776833));
   aspect-ratio: 1672 / 941;
 }
 
 .mobile-frame {
-  width: min(100vw, calc(100svh * 0.462581));
+  width: max(100vw, calc(100svh * 0.462581));
   aspect-ratio: 853 / 1844;
 }
 
@@ -288,9 +299,16 @@
   animation: heart-awakens 650ms ease-out forwards;
 }
 
-.heart-flare circle:first-child,
 .arrival-glow {
   fill: rgba(255, 213, 95, 0.7);
+}
+
+/*
+  The star at Beki's chest carries its own glow now that the disc behind it is gone — without
+  one it read as a flat paper cut-out over the painted medallion it is covering.
+*/
+.heart-flare path {
+  filter: drop-shadow(0 0 0.6px rgba(255, 224, 150, 0.95));
 }
 
 .heart-flare path,
@@ -299,7 +317,6 @@
   fill: #fff3bd;
 }
 
-.heart-ring,
 .arrival-ring {
   fill: none;
   stroke: rgba(255, 231, 160, 0.9);
@@ -411,6 +428,47 @@
   pointer-events: none;
 }
 
+/*
+  The way back, top-left, where a full-screen painting with no app header above it had none.
+  An arrow and nothing else: the label is for screen readers, and a word here would compete with
+  the one sentence this page is trying to say.
+*/
+.map-back {
+  position: absolute;
+  top: clamp(14px, 1.6vw, 26px);
+  left: clamp(14px, 1.6vw, 26px);
+  z-index: 6;
+  width: clamp(38px, 3vw, 46px);
+  height: clamp(38px, 3vw, 46px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff3d6;
+  border: 1px solid rgba(255, 235, 180, 0.32);
+  border-radius: 50%;
+  background: rgba(20, 11, 44, 0.55);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transition:
+    background 200ms ease,
+    border-color 200ms ease;
+}
+
+.map-back:hover,
+.map-back:focus-visible {
+  border-color: rgba(255, 235, 180, 0.7);
+  background: rgba(28, 16, 60, 0.78);
+}
+
+.map-back svg {
+  width: 55%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .brand {
   position: absolute;
   top: 2.6%;
@@ -488,81 +546,6 @@
   color: rgba(255, 248, 223, 0.78);
   font-size: clamp(7px, 0.66vw, 11px);
 }
-
-.progress-rail {
-  position: absolute;
-  top: 2.5%;
-  right: 2.5%;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(32px, 4.1vw));
-  gap: clamp(2px, 0.5vw, 8px);
-  width: max-content;
-  margin: 0;
-  padding: clamp(4px, 0.55vw, 9px) clamp(6px, 0.8vw, 13px);
-  list-style: none;
-  border: 1px solid rgba(255, 228, 166, 0.18);
-  border-radius: 999px;
-  background: rgba(9, 6, 35, 0.34);
-  box-shadow: 0 8px 28px rgba(2, 1, 18, 0.25);
-  backdrop-filter: blur(8px);
-}
-
-.progress-rail::before {
-  position: absolute;
-  top: 36%;
-  right: 21%;
-  left: 21%;
-  z-index: -1;
-  height: 1px;
-  background: rgba(247, 201, 95, 0.5);
-  content: "";
-}
-
-.progress-rail li {
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-}
-
-.progress-rail span {
-  display: grid;
-  width: clamp(17px, 1.45vw, 25px);
-  height: clamp(17px, 1.45vw, 25px);
-  place-items: center;
-  border: 1px solid rgba(247, 201, 95, 0.55);
-  border-radius: 50%;
-  background: rgba(12, 8, 42, 0.8);
-  box-shadow: 0 0 12px rgba(247, 201, 95, 0.12);
-}
-
-.progress-rail svg {
-  width: 58%;
-  fill: none;
-  stroke: rgba(255, 238, 191, 0.88);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.5;
-}
-
-.progress-rail .is-complete svg {
-  fill: rgba(247, 201, 95, 0.5);
-}
-
-.progress-rail .is-current span {
-  border-color: var(--gold-light);
-  box-shadow: 0 0 16px rgba(247, 201, 95, 0.45);
-}
-
-.progress-rail b {
-  color: rgba(255, 243, 207, 0.7);
-  font-size: clamp(5px, 0.48vw, 8px);
-  font-weight: 400;
-}
-
-.progress-rail .is-current b {
-  color: var(--gold-light);
-}
-
 .world-map {
   z-index: 6;
 }
@@ -602,93 +585,20 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.desktop-frame .hotspot-clouds {
-  top: 3%;
-  left: 5%;
-  width: 42%;
-  height: 35%;
-}
+/*
+  Dead centre of the box, and the box is the island.
 
-.desktop-frame .hotspot-space {
-  top: 3%;
-  left: 56%;
-  width: 39%;
-  height: 35%;
-}
-
-.desktop-frame .hotspot-animals {
-  top: 23%;
-  left: 0;
-  width: 35%;
-  height: 47%;
-}
-
-.desktop-frame .hotspot-ocean {
-  top: 23%;
-  left: 66%;
-  width: 34%;
-  height: 47%;
-}
-
-.desktop-frame .hotspot-kingdom {
-  top: 54%;
-  left: 7%;
-  width: 41%;
-  height: 43%;
-}
-
-.desktop-frame .hotspot-dinosaurs {
-  top: 51%;
-  left: 53%;
-  width: 42%;
-  height: 46%;
-}
-
-.mobile-frame .hotspot-clouds {
-  top: 3%;
-  left: 0;
-  width: 52%;
-  height: 27%;
-}
-
-.mobile-frame .hotspot-space {
-  top: 3%;
-  left: 48%;
-  width: 52%;
-  height: 27%;
-}
-
-.mobile-frame .hotspot-animals {
-  top: 25%;
-  left: 0;
-  width: 50%;
-  height: 26%;
-}
-
-.mobile-frame .hotspot-ocean {
-  top: 25%;
-  left: 50%;
-  width: 50%;
-  height: 26%;
-}
-
-.mobile-frame .hotspot-kingdom {
-  top: 54%;
-  left: 0;
-  width: 52%;
-  height: 27%;
-}
-
-.mobile-frame .hotspot-dinosaurs {
-  top: 54%;
-  left: 48%;
-  width: 52%;
-  height: 27%;
-}
-
+  It used to sit at 53%, three percent low, from the days when the box was a loose rectangle
+  drawn around a whole quadrant of the painting rather than around one island.
+*/
+/*
+  Every island's box is set inline from ISLAND_SPOTS now. The twelve blocks that used to stand
+  here placed them a second time, in percentages measured against the same painting on a
+  different day — which is how a tap near one island came to select its neighbour.
+*/
 .hotspot-marker {
   position: absolute;
-  top: 53%;
+  top: 50%;
   left: 50%;
   width: clamp(18px, 1.8vw, 31px);
   aspect-ratio: 1;
@@ -816,8 +726,16 @@
   font-weight: 700;
 }
 
+/*
+  Below the island, clear of its label.
+
+  The button used to be pinned to the bottom of the old oversized box, which put it against the
+  title on three of the six worlds and floating in cloud on the others. It now hangs a fixed
+  distance under the island itself, so it reads the same wherever it appears.
+*/
 .world-action {
   position: absolute;
+  top: calc(100% + 14px);
   left: 50%;
   z-index: 4;
   width: max-content;
@@ -827,21 +745,6 @@
   transition:
     opacity 220ms ease,
     transform 260ms ease;
-}
-
-.desktop-frame .hotspot-clouds .world-action,
-.desktop-frame .hotspot-space .world-action {
-  bottom: -4%;
-}
-
-.desktop-frame .hotspot-animals .world-action,
-.desktop-frame .hotspot-ocean .world-action {
-  bottom: 5%;
-}
-
-.desktop-frame .hotspot-kingdom .world-action,
-.desktop-frame .hotspot-dinosaurs .world-action {
-  bottom: 2%;
 }
 
 .world-action.is-ready {
@@ -892,38 +795,6 @@
   stroke-linejoin: round;
   stroke-width: 2;
 }
-
-.interaction-hint {
-  position: absolute;
-  right: 2.7%;
-  bottom: 2.3%;
-  z-index: 8;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 0;
-  color: rgba(255, 244, 216, 0.6);
-  font-size: clamp(6px, 0.52vw, 9px);
-  text-shadow: 0 2px 8px #090621;
-}
-
-.interaction-hint span {
-  width: 12px;
-  height: 17px;
-  border: 1px solid rgba(255, 238, 195, 0.65);
-  border-radius: 7px;
-}
-
-.interaction-hint span::before {
-  display: block;
-  width: 2px;
-  height: 4px;
-  margin: 3px auto 0;
-  border-radius: 2px;
-  background: var(--gold);
-  content: "";
-}
-
 /* Mobile artboard rules stay scoped to the mobile master at every viewport.
    The media query below only decides which complete artboard is visible. */
 .mobile-frame .brand {
@@ -952,25 +823,6 @@
 .mobile-frame .headline span {
   display: none;
 }
-
-.mobile-frame .progress-rail {
-  top: max(1.05%, env(safe-area-inset-top, 0px));
-  right: 3%;
-  grid-template-columns: repeat(3, 20px);
-  gap: 1px;
-  padding: 4px 6px;
-}
-
-.mobile-frame .progress-rail::before,
-.mobile-frame .progress-rail b {
-  display: none;
-}
-
-.mobile-frame .progress-rail span {
-  width: clamp(16px, 4vw, 19px);
-  height: clamp(16px, 4vw, 19px);
-}
-
 .mobile-frame .world-label {
   bottom: 3%;
   width: max-content;
@@ -1012,11 +864,6 @@
 .mobile-frame .continue-button svg {
   width: clamp(10px, 2.6vw, 14px);
 }
-
-.mobile-frame .interaction-hint {
-  display: none;
-}
-
 @media (max-width: 899px) and (orientation: portrait), (max-aspect-ratio: 9 / 10) {
   .desktop-stage {
     display: none;

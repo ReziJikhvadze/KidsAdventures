@@ -5,6 +5,7 @@ import { useT } from "@/lib/i18n";
 import type { JourneyDraft } from "@/lib/journey/draft";
 import {
   FLIGHT_ROUTES,
+  ISLAND_SPOTS,
   SELECTOR_ART,
   SELECTOR_WORLDS,
   type SelectorWorldId,
@@ -251,6 +252,17 @@ function WorldStageArt({
         <div className="edge-vignette" aria-hidden="true" />
 
         <header className="experience-header">
+          {/*
+            The only way off this page used to be the browser's own back button: the map is a
+            full-viewport painting with no app header above it, which is deliberate, but it left
+            a parent who opened it from a book cover with nowhere to go.
+          */}
+          <a className="map-back" href="/" aria-label={copy.backLabel}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M19 12H6m5 5-5-5 5-5" />
+            </svg>
+          </a>
+
           <a className="brand" href="/" aria-label={copy.brandLabel}>
             <span>Beki</span>
             <i />
@@ -263,38 +275,10 @@ function WorldStageArt({
           </div>
 
           {/*
-            The rail says where the parent is, and here that is the first step, not the last.
-            The handoff drew the world as step three behind a finished hero and character — the
-            order this journey deliberately reversed, because choosing a world is one tap a child
-            enjoys and the form is the part a parent has to sit down for.
+            No progress rail. It named three steps — world, hero, book — above a painting whose
+            whole proposition is that choosing is one tap; a parent who has not started yet does
+            not need to be told there are two more forms behind this one.
           */}
-          <ol className="progress-rail" aria-label={copy.railLabel}>
-            <li className="is-current" aria-current="step">
-              <span>
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <circle cx="12" cy="12" r="8.4" />
-                  <path d="M3.9 12h16.2M12 3.6c2.4 2.3 3.6 5.1 3.6 8.4s-1.2 6.1-3.6 8.4C9.6 18.1 8.4 15.3 8.4 12S9.6 5.9 12 3.6Z" />
-                </svg>
-              </span>
-              <b>{copy.railWorld}</b>
-            </li>
-            <li>
-              <span>
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 20.4 4.2 13A5.1 5.1 0 0 1 11.4 5.8l.6.7.6-.7A5.1 5.1 0 0 1 19.8 13Z" />
-                </svg>
-              </span>
-              <b>{copy.railHero}</b>
-            </li>
-            <li>
-              <span>
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="m12 2.8 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z" />
-                </svg>
-              </span>
-              <b>{copy.railBook}</b>
-            </li>
-          </ol>
         </header>
 
         <div className="world-map">
@@ -303,6 +287,8 @@ function WorldStageArt({
             const showAction = isSelected && ctaReady;
             const place = worldById[world.worldId];
 
+            const spot = ISLAND_SPOTS[variant][world.id];
+
             return (
               <div
                 key={world.id}
@@ -310,6 +296,14 @@ function WorldStageArt({
                   previewed === world.id ? " is-previewed" : ""
                 }`}
                 data-world-node={world.id}
+                /* Placed from the same island coordinates the star flies to, so a tap and a
+                   landing can never again disagree about where a world is. */
+                style={{
+                  left: `${spot.cx - spot.w / 2}%`,
+                  top: `${spot.cy - spot.h / 2}%`,
+                  width: `${spot.w}%`,
+                  height: `${spot.h}%`,
+                }}
               >
                 <button
                   type="button"
@@ -328,7 +322,8 @@ function WorldStageArt({
                   {/* The stylesheet shows the full title where there is room and the short one
                       where there is not, so both are set and neither is chosen in script. */}
                   <span className="world-label">
-                    <small>{place.chapter}</small>
+                    {/* The "Chapter I ·" line went: it numbered six worlds that are not read in
+                        order, and it was the longest thing in the smallest box. */}
                     <strong className="full-title">{place.mapTitle}</strong>
                     <strong className="short-title">{place.mapLabel}</strong>
                   </span>
@@ -347,7 +342,7 @@ function WorldStageArt({
                     tabIndex={showAction ? 0 : -1}
                     onClick={onStart}
                   >
-                    {copy.continue}
+                    {copy.create}
                     <svg viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M5 12h13m-5-5 5 5-5 5" />
                     </svg>
@@ -360,11 +355,6 @@ function WorldStageArt({
 
         <p className="selection-status sr-only" aria-live="polite">
           {status}
-        </p>
-
-        <p className="interaction-hint" aria-hidden="true">
-          <span />
-          {copy.hint}
         </p>
       </div>
     </section>
@@ -403,11 +393,17 @@ function MagicFlight({ variant, worldId }: { variant: Variant; worldId: Selector
         </filter>
       </defs>
 
+      {/*
+        A star leaves Beki, and a star is what is drawn.
+
+        This was a filled disc inside a thin ring with a small star on top, which at the size it
+        renders reads as a ringed planet sitting on Beki's chest — in a painting that already has
+        three real planets in its sky. The disc and the ring are gone and the star is drawn large
+        enough to cover the round medallion painted underneath it.
+      */}
       <g transform={`translate(${startX} ${startY})`}>
         <g className="heart-flare">
-          <circle r="0.72" />
-          <circle className="heart-ring" r="1.05" />
-          <path d="M0-1.25.34-.34 1.25 0 .34.34 0 1.25-.34.34-1.25 0-.34-.34Z" />
+          <path d="M0-1.7.46-.46 1.7 0 .46.46 0 1.7-.46.46-1.7 0-.46-.46Z" />
         </g>
       </g>
 

@@ -103,16 +103,14 @@ export const journey = {
     eyebrow: "შენი ისტორია აქედან იწყება",
     title: "აირჩიე ჯადოსნური სამყარო",
     lead: "შეეხე კუნძულს და აღმოაჩინე მისი ამბავი",
-    hint: "გადაატარე კურსორი ან დააჭირე სამყაროს",
     stageLabel: "ჯადოსნური სამყაროს არჩევა",
     artLabel: "ექვსი მოფარფატე ჯადოსნური სამყარო, ბექი და მანათობელი წიგნი",
     brandLabel: "Beki — მთავარი",
-    railLabel: "თავგადასავლის ეტაპები",
-    railWorld: "სამყარო",
-    railHero: "გმირი",
-    railBook: "წიგნი",
-    continue: "ამ სამყაროში წავიდეთ",
-    continueTo: (world: string) => `ამ სამყაროში წავიდეთ — ${world}`,
+    backLabel: "უკან, მთავარ გვერდზე",
+    /* "Create", not "let's go to this world": the button makes a book, and the world is already
+       chosen by the time it can be pressed. */
+    create: "შექმნა",
+    continueTo: (world: string) => `შექმნა — ${world}`,
     /* Spoken, not shown: the painting says all this in pictures, and a screen reader cannot
        see a star cross it. */
     statusIdle: "სამყარო ჯერ არ არის არჩეული.",
