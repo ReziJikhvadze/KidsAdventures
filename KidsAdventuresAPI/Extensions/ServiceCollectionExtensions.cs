@@ -24,10 +24,14 @@ public static class ServiceCollectionExtensions
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
         services.Configure<BekiOptions>(configuration.GetSection(BekiOptions.SectionName));
-        // Validated on first resolution rather than trusted. A misspelled provider name would
-        // otherwise fall through to the default and keep billing the vendor everyone believed
-        // had just been switched away from; a Gemini setting with no key would take the failure
-        // all the way to the middle of a paid book.
+        // Validated at boot rather than trusted. A misspelled provider name would otherwise fall
+        // through to the default and keep billing the vendor everyone believed had just been
+        // switched away from; a Gemini setting with no key would take the failure all the way to
+        // the middle of a paid book.
+        //
+        // ValidateOnStart is the whole point: without it these run on first resolution, which is
+        // the first parent to ask for a story — a 500 for them instead of a deployment that
+        // refuses to come up, which is the one moment somebody is watching.
         services.AddOptions<AiProviderOptions>()
             .Bind(configuration.GetSection(AiProviderOptions.SectionName))
             .Validate(
@@ -35,7 +39,8 @@ public static class ServiceCollectionExtensions
                 $"Providers:Story must be \"{AiProvider.OpenAi}\" or \"{AiProvider.Gemini}\".")
             .Validate(
                 options => AiProvider.IsKnown(options.Images),
-                $"Providers:Images must be \"{AiProvider.OpenAi}\" or \"{AiProvider.Gemini}\".");
+                $"Providers:Images must be \"{AiProvider.OpenAi}\" or \"{AiProvider.Gemini}\".")
+            .ValidateOnStart();
 
         services.AddOptions<GeminiOptions>()
             .Bind(configuration.GetSection(GeminiOptions.SectionName))
@@ -47,7 +52,8 @@ public static class ServiceCollectionExtensions
                     return (!providers.UsesGeminiForStory && !providers.UsesGeminiForImages)
                            || !string.IsNullOrWhiteSpace(options.ApiKey);
                 },
-                "Gemini is selected in Providers but Gemini:ApiKey is empty.");
+                "Gemini is selected in Providers but Gemini:ApiKey is empty.")
+            .ValidateOnStart();
         services.Configure<PrintLayoutOptions>(configuration.GetSection(PrintLayoutOptions.SectionName));
         services.Configure<BekiPrintLayoutOptions>(configuration.GetSection(BekiPrintLayoutOptions.SectionName));
         // App Service refuses an app setting named "AzureBlobStorage__ConnectionString"

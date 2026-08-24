@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Text;
 using System.Text.Json;
 using AdventurePacks.Api.Configuration.Options;
@@ -45,7 +45,11 @@ public class GeminiProviderTests
         Assert.DoesNotContain("test-key", request.RequestUri.ToString());
 
         using var body = JsonDocument.Parse(handler.LastBody!);
-        Assert.Equal("gemini-3.7-flash", body.RootElement.GetProperty("model").GetString());
+
+        // The configured model, not the OpenAI product name the caller passed and not whatever
+        // the default happens to be this month — asserting the default made this test fail the
+        // day the default moved, which measured nothing about the client.
+        Assert.Equal("gemini-under-test", body.RootElement.GetProperty("model").GetString());
 
         var format = body.RootElement.GetProperty("response_format");
         Assert.Equal("application/json", format.GetProperty("mime_type").GetString());
@@ -220,7 +224,12 @@ public class GeminiProviderTests
 
     private static GeminiStoryModelClient StoryClient(CapturingHandler handler, out GeminiOptions options)
     {
-        options = new GeminiOptions { ApiKey = "test-key", BaseUrl = "https://gemini.test/v1beta" };
+        options = new GeminiOptions
+        {
+            ApiKey = "test-key",
+            BaseUrl = "https://gemini.test/v1beta",
+            StoryModel = "gemini-under-test",
+        };
         return new GeminiStoryModelClient(
             Transport(handler, options),
             Options.Create(options),
