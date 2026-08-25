@@ -5,7 +5,7 @@ import { BirthDateField } from "@/components/adventrya/journey/BirthDateField";
 import { WorldArtPanel } from "@/components/adventrya/journey/WorldArtPanel";
 import { SparkleIcon } from "@/components/adventrya/landing/icons";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { checkPortrait, type PortraitRejection } from "@/lib/api/portraits";
+import type { PortraitRejection } from "@/lib/api/portraits";
 import { BOOK_LANGUAGES, type BookLanguage, useT } from "@/lib/i18n";
 import { preparePortrait } from "@/lib/images/preparePortrait";
 import type { CharacterGender, EyeColor } from "@/lib/api/types";
@@ -357,21 +357,26 @@ function CharacterEditor({
         // base64 overhead exceeds the upload limit, and an oversized request is rejected before
         // our code runs — so it comes back with no CORS headers and the browser blames CORS.
         const { dataUrl } = await preparePortrait(file);
-
-        // Asked here rather than at generation: this is the last moment the answer costs one
-        // small call, and the only moment a parent can still pick a different photo.
-        const verdict = await checkPortrait(dataUrl);
         if (ticket !== checkRef.current) return;
 
-        if (verdict.accepted) {
-          onChange({ photoDataUrl: dataUrl, photoReady: true });
-        } else {
-          setRejection(verdict.reason);
-        }
+        /*
+          The photo is taken as given.
+
+          There used to be a call here that asked a vision model whether the picture showed a
+          child, on the reasoning that nothing later in the pipeline ever asks — and it was
+          refusing photographs that were perfectly usable. A gate that turns away real customers
+          is worse than no gate, so until its refusals are understood there is no gate: the
+          server side is switched off behind `Beki:PortraitGateEnabled`, and this stops asking.
+
+          `preparePortrait` stays, and is not a check. It downscales, because a phone photo plus
+          base64 overhead exceeds the upload limit and an oversized request is refused by the host
+          before any of our code runs — which reaches the browser as an unexplained CORS error.
+        */
+        onChange({ photoDataUrl: dataUrl, photoReady: true });
       } catch {
-        // preparePortrait only throws when the file cannot be read at all — which used to end
-        // here silently, leaving a parent looking at a button that would not go ready and no
-        // word about why.
+        // preparePortrait only throws when the file cannot be read at all — not a judgement
+        // about the photograph, a broken file. It used to end here silently, leaving a parent
+        // looking at a button that would not go ready and no word about why.
         if (ticket !== checkRef.current) return;
         setRejection("unreadable");
       } finally {

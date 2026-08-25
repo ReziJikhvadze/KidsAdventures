@@ -57,7 +57,7 @@ export const journey = {
       badLabel: "Won't work",
       badReason: "Too far away, too dark, and the face is turned away.",
     },
-    photoChecking: "Checking the photo…",
+    photoChecking: "Preparing the photo…",
     photoRejected: {
       not_a_person: "That isn't a photo of a child — upload one showing the child's face.",
       no_face: "No face visible — upload a photo where the child is looking at the camera.",

@@ -52,7 +52,7 @@ export const journey = {
       badLabel: "არ გამოდგება",
       badReason: "შორია, ბნელია და სახე გვერდზეა მიბრუნებული.",
     },
-    photoChecking: "ვამოწმებთ ფოტოს…",
+    photoChecking: "ფოტო მზადდება…",
     /*
       Keyed by the code the server returns, so each refusal says what to do differently.
       "This photo will not do" sends a parent back to the picker with nothing to change.
