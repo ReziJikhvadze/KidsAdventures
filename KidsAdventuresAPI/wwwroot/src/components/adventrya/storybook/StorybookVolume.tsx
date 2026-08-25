@@ -882,11 +882,19 @@ export function StorybookVolume({
     Nothing needs to be faded. The sheet lands showing the very slot the commit is about to fill,
     so the frame before the commit and the frame after it are the same picture.
 
-    A face gives up its page for one reason of its own, and it is not about duplication: it would
-    carry the back cover inside an open book. The QR is printed on the *outside* of that cover —
-    it is what a shut book shows — so a sheet carrying it while the book is still open shows the
-    inside of it, which is board. The QR is not lost: the moment the turn commits the book is shut
-    and the whole volume is that face.
+    The other end of the book works the same way, which is the whole point of stating it once. The
+    back cover is a face like the front one: closing onto it, it comes down on the sheet and the
+    empty inside it left is what the last page lifts off; opening from it, it lifts away on the
+    sheet and the last spread is underneath. Putting board on the sheet there and letting the back
+    cover appear at the commit was the identical inversion the front cover had — the destination
+    arriving after the turn instead of on it.
+
+    So a face carrying the back cover shows it whenever this turn genuinely starts or ends on it,
+    and shows board only where it cannot be a passenger: a story with an odd number of pages ends
+    with the back cover named by *both* faces of one sheet, and a sheet showing the same thing on
+    both sides is a sheet that visibly does not turn. There the face that is not the one the turn
+    is coming from or going to yields the board, which is also the only half that could be blank
+    underneath anyway.
 
     Below the spread breakpoint none of this applies: the sheet covers the whole volume, so a face
     matching the page underneath is what makes the turn continuous rather than a duplicate anybody
@@ -897,8 +905,19 @@ export function StorybookVolume({
   // Guarded against backIndex's own -1: a book with no back cover must not match NO_LEAF.
   const isBackCover = (leafIndex: number) => backIndex !== -1 && leafIndex === backIndex;
   const turningOnSpread = turning !== null && turnTo !== null && desktopSpread;
-  const boardFront = turningOnSpread && (turnFacesCollide || isBackCover(turnFrontIndex));
-  const boardBack = turningOnSpread && isBackCover(turnBackIndex);
+  // Whether the shut back of the book is this turn's own origin or its own destination, which is
+  // what makes the difference between a face carrying it and a face merely naming it.
+  const backIsOrigin = isBackCover(displayIndex);
+  const backIsDestination = turnTo !== null && isBackCover(turnTo);
+  /*
+    A face that names the back cover carries it when the turn genuinely starts on it — the face
+    lifting away — or genuinely ends on it — the face coming down. Otherwise it is a passenger on
+    somebody else's turn and yields the board. The collide guard is what remains for anything else
+    that could ever name one leaf on both faces of a sheet.
+  */
+  const boardFront =
+    turningOnSpread && (isBackCover(turnFrontIndex) ? !backIsOrigin : turnFacesCollide);
+  const boardBack = turningOnSpread && isBackCover(turnBackIndex) && !backIsDestination;
   /*
     At most one half can be doubled — the closed side of the book only has the one face to spare —
     so the first face carrying a page that is also lying open names the slot that yields. A face
