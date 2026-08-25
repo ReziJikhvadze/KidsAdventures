@@ -1161,6 +1161,16 @@
 .landing-v3-memory-map {
   z-index: 3;
   width: min(115%, 828px);
+  /*
+    The extra width goes rightwards, into the section's own padding, rather than leftwards into
+    the paragraph beside it.
+
+    The map is aligned to the end of its column, so growing it by fifteen percent grew it towards
+    the text: at 1440 wide it reached fifty-two pixels across the last lines of the copy. There
+    are seventy-two pixels of padding on its other side doing nothing, and the map is a painting
+    that runs to the edge of the screen everywhere else on this site.
+  */
+  margin-right: clamp(-72px, -4.5vw, 0px);
   aspect-ratio: 1672 / 941;
   justify-self: end;
   border: 1px solid rgba(255, 248, 235, 0.1);

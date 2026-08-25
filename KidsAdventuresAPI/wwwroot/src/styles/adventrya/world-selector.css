@@ -118,6 +118,15 @@
 }
 
 .master-frame {
+  /*
+    How much of the painting's own top is off-screen.
+
+    The frame covers, so on any window that is not the painting's shape it is taller than the
+    window and centred in it — which hides an equal band top and bottom. Anything pinned to the
+    frame's top edge is pinned into that band. The name is set here so the few things that live
+    up there can add it to their own offset and stay on screen.
+  */
+  --crop-band: max(0px, calc((100% - 100svh) / 2));
   position: relative;
   flex: none;
   overflow: hidden;
@@ -136,13 +145,29 @@
   The islands sit far enough inside the frame — none closer than four percent to an edge — that
   the crop takes clouds, not worlds, on every aspect ratio between 4:3 and 21:9.
 */
+/*
+  Covers the screen, but never crops more of its own height than it can spare.
+
+  Plain cover works on every ordinary screen and fails on a very wide one: at 2.46:1 the frame
+  grew to 1081 tall inside a 780-tall window, which throws away 150 pixels top and bottom — and
+  the two lowest islands keep their button in the last few percent of the painting, so it was
+  cut off with nothing to press. Scrolling to it is not an option; this page is one screen.
+
+  So the height is allowed to exceed the window by one and a half percent and no more. The number
+  is not a taste: the lowest button on the painting sits at about 98 percent of its height, and
+  the arithmetic of a centred crop puts the point where it still lands on screen at 1.03 — this
+  is a little under that, so it clears rather than grazes. Everything up to about 1.8:1 — which is
+  every laptop and every 16:9 monitor — is still edge to edge. Wider than that, a slim margin appears at the sides, and the blurred ambient copy of the
+  same painting behind the frame is what fills it, so the map reads as bleeding into itself
+  rather than as a letterbox.
+*/
 .desktop-frame {
-  width: max(100vw, calc(100svh * 1.776833));
+  width: min(max(100vw, calc(100svh * 1.776833)), calc(100svh * 1.015 * 1.776833));
   aspect-ratio: 1672 / 941;
 }
 
 .mobile-frame {
-  width: max(100vw, calc(100svh * 0.462581));
+  width: min(max(100vw, calc(100svh * 0.462581)), calc(100svh * 1.015 * 0.462581));
   aspect-ratio: 853 / 1844;
 }
 
@@ -444,7 +469,7 @@
 */
 .map-back {
   position: absolute;
-  top: clamp(14px, 1.6vw, 26px);
+  top: calc(var(--crop-band) + clamp(14px, 1.6vw, 26px));
   left: clamp(14px, 1.6vw, 26px);
   z-index: 6;
   width: clamp(38px, 3vw, 46px);
@@ -480,7 +505,7 @@
 
 .brand {
   position: absolute;
-  top: 2.6%;
+  top: calc(var(--crop-band) + 2.6%);
   left: 3.1%;
   display: inline-grid;
   justify-items: center;
@@ -505,7 +530,7 @@
 
 .headline {
   position: absolute;
-  top: 1.7%;
+  top: calc(var(--crop-band) + 1.7%);
   left: 50%;
   width: 37%;
   max-width: 580px;
@@ -736,7 +761,12 @@
 }
 
 /*
-  Below the island, clear of its label.
+  Below the island, clear of its label — the same on all six.
+
+  The two lowest islands were lifted to open upwards for a while, because their button reached
+  the foot of the painting. Above the island is worse: it covers the sky the island floats in and
+  reads as a label for whatever is overhead. Six worlds behaving alike is worth more than two
+  worlds avoiding a tight fit, and the fit is handled by the frame instead.
 
   The button used to be pinned to the bottom of the old oversized box, which put it against the
   title on three of the six worlds and floating in cloud on the others. It now hangs a fixed
@@ -754,19 +784,6 @@
   transition:
     opacity 220ms ease,
     transform 260ms ease;
-}
-
-/*
-  The two islands along the bottom open their button upwards.
-
-  Below them is the edge of the painting: on the light city's gate and in the dinosaur valley the
-  button hung into the last few percent of the frame and was clipped by it. Above the island is
-  open sky on both, and the button is the same distance from its island either way.
-*/
-.desktop-frame .hotspot-kingdom .world-action,
-.desktop-frame .hotspot-dinosaurs .world-action {
-  top: auto;
-  bottom: calc(100% + 14px);
 }
 
 .world-action.is-ready {
@@ -874,17 +891,6 @@
 
 .mobile-frame .world-action {
   bottom: -18%;
-}
-
-/*
-  The same lift on the portrait painting, written after the rule above rather than before it: on
-  mobile the bottom row's islands run to the very foot of the frame, and a button hung under them
-  lands on the island's own label.
-*/
-.mobile-frame .hotspot-kingdom .world-action,
-.mobile-frame .hotspot-dinosaurs .world-action {
-  top: auto;
-  bottom: calc(100% + 12px);
 }
 
 .mobile-frame .continue-button {
