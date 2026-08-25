@@ -214,14 +214,25 @@ export function DashboardScreen() {
     return dict;
   }, [printOrders]);
 
-  const storyCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
+  /*
+    The label under a child's name says "completed adventures", so the number has to mean
+    finished books: what reaches the shelf, minus the ones that never made it.
+
+    Not `status === "Completed"` — that state is only reached once someone asks for a PDF, so
+    a family that never downloads one would be told they have no adventures at all. A book
+    still being drawn is counted separately, because the line below it would otherwise say
+    the first adventure has not started while the parent is watching it being written.
+  */
+  const [storyCounts, drawingCounts] = useMemo(() => {
+    const done: Record<string, number> = {};
+    const drawing: Record<string, number> = {};
     for (const pack of packs) {
       const id = pack.primaryCharacterId;
       if (!id) continue;
-      counts[id] = (counts[id] ?? 0) + 1;
+      if (isPackGenerating(pack.status)) drawing[id] = (drawing[id] ?? 0) + 1;
+      else if (pack.status !== "Failed") done[id] = (done[id] ?? 0) + 1;
     }
-    return counts;
+    return [done, drawing] as const;
   }, [packs]);
 
   const beginEditPrintAddress = (order: PrintOrderResponse) => {
@@ -351,7 +362,9 @@ export function DashboardScreen() {
               <small>
                 {storyCounts[c.id]
                   ? t.dashboard.sidebar.storyCount(storyCounts[c.id])
-                  : t.dashboard.sidebar.noStoriesYet}
+                  : drawingCounts[c.id]
+                    ? t.dashboard.library.drawing
+                    : t.dashboard.sidebar.noStoriesYet}
               </small>
             </span>
             <ArrowRight aria-hidden="true" />
