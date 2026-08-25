@@ -763,8 +763,8 @@
   button hung into the last few percent of the frame and was clipped by it. Above the island is
   open sky on both, and the button is the same distance from its island either way.
 */
-.hotspot-kingdom .world-action,
-.hotspot-dinosaurs .world-action {
+.desktop-frame .hotspot-kingdom .world-action,
+.desktop-frame .hotspot-dinosaurs .world-action {
   top: auto;
   bottom: calc(100% + 14px);
 }
@@ -874,6 +874,17 @@
 
 .mobile-frame .world-action {
   bottom: -18%;
+}
+
+/*
+  The same lift on the portrait painting, written after the rule above rather than before it: on
+  mobile the bottom row's islands run to the very foot of the frame, and a button hung under them
+  lands on the island's own label.
+*/
+.mobile-frame .hotspot-kingdom .world-action,
+.mobile-frame .hotspot-dinosaurs .world-action {
+  top: auto;
+  bottom: calc(100% + 12px);
 }
 
 .mobile-frame .continue-button {
