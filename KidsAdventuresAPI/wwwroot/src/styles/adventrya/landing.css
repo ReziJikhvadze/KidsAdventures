@@ -1567,11 +1567,15 @@
   Something a thumb can hit.
 
   Footer links are twelve-pixel text on one line, which is an eighteen-pixel target — fine for a
-  cursor and far too small for a finger. On touch they get a line's worth of height either side
-  and the column's spacing tightens to compensate, so the list takes the same room and every
-  entry is a comfortable tap.
+  cursor and far too small for a finger. Where the screen can be touched they get a line's worth
+  of height either side and the column's spacing tightens to compensate, so the list takes the
+  same room and every entry is a comfortable tap.
+
+  any-pointer, not pointer: a touchscreen laptop reports a trackpad as its primary pointer and a
+  finger as a secondary one, so asking about the primary pointer alone answers "mouse" on a
+  device the reader is touching. A larger target costs a mouse user nothing.
 */
-@media (hover: none) and (pointer: coarse) {
+@media (any-pointer: coarse) {
   .landing-v3-footer > nav > div {
     gap: 2px;
   }

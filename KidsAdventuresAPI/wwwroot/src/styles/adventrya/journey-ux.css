@@ -1833,11 +1833,15 @@
 /*
   The one control on this form that a finger has to hit precisely.
 
-  Seventeen pixels of checkbox and a fourteen-pixel-tall link are a mouse's measurements. On
-  touch the box grows and the link takes vertical padding — padding rather than a taller box, so
-  the sentence it sits inside keeps its own line spacing while the tappable area grows past it.
+  Seventeen pixels of checkbox and a fourteen-pixel-tall link are a mouse's measurements. Where
+  the screen can be touched the box grows and the link takes vertical padding — padding rather
+  than a taller box, so the sentence it sits inside keeps its own line spacing while the tappable
+  area grows past it.
+
+  any-pointer, so a touchscreen laptop counts: asking only about the primary pointer answers
+  "trackpad" on a machine whose screen is being tapped.
 */
-@media (hover: none) and (pointer: coarse) {
+@media (any-pointer: coarse) {
   .ux-terms-consent {
     gap: 12px;
     align-items: center;
