@@ -29,6 +29,7 @@ import type {
   ShippingAddressRequest,
 } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { wasReadThisSession } from "@/lib/books-read";
 import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { newBookHref } from "@/lib/continue";
 import { formatGel, normalizeGeorgianPhone, useT } from "@/lib/i18n";
@@ -453,7 +454,7 @@ export function DashboardScreen() {
                 key={pack.id}
                 pack={pack}
                 heroName={heroName}
-                isRead={!!pack.lastReadAt}
+                isRead={!!pack.lastReadAt || wasReadThisSession(pack.id)}
                 printOrder={printByBook[pack.id]}
                 onOrderPrint={() => {
                   setEditPrintOrderId(null);
