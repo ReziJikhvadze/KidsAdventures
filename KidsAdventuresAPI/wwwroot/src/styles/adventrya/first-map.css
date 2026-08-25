@@ -720,7 +720,7 @@
 }
 .world-pick-ask h1 {
   margin: 0;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: clamp(24px, 2.7vw, 34px);
   font-weight: 400;
   line-height: 1.1;
@@ -916,7 +916,7 @@
   color: #fff8eb;
   border-radius: 999px;
   background: rgba(14, 8, 32, 0.86);
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 13px;
   line-height: 1.25;
   white-space: nowrap;
@@ -996,7 +996,7 @@
 .world-pick-panel-copy strong {
   display: block;
   margin-top: 3px;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 19px;
   line-height: 1.2;
 }
@@ -1688,7 +1688,7 @@
   display: block;
   margin: 0 0 4px;
   color: rgba(255, 224, 145, 0.88);
-  font-family: "Adventrya Sans", sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -1714,7 +1714,7 @@
   line-height: 1.35;
 }
 .world-pick-beki-line {
-  font-family: "Adventrya Sans", sans-serif;
+  font-family: var(--font-body);
   font-style: normal;
 }
 
@@ -1736,7 +1736,7 @@
 .world-pick-pin.is-selected .world-pick-pin-name {
   color: #fff8eb;
   background: rgba(14, 8, 32, 0.78);
-  font-family: "Adventrya Sans", sans-serif;
+  font-family: var(--font-body);
   font-weight: 700;
   text-shadow: 0 1px 8px rgba(4, 7, 24, 0.8);
 }
@@ -1782,7 +1782,7 @@
     content: "";
     background:
       linear-gradient(rgba(9, 5, 26, 0.34), rgba(9, 5, 26, 0.58)),
-      url("/adventrya/adventrya-world-map-portals-tall.jpg") center / cover no-repeat;
+      url("/adventrya/world-selector/world-map-mobile-master.webp") center / cover no-repeat;
     filter: blur(22px) brightness(0.52) saturate(0.82);
     transform: scale(1.06);
   }
@@ -1963,7 +1963,7 @@
   .world-pick-panel.is-selected .world-pick-panel-copy strong {
     margin: 0;
     color: #fff8eb;
-    font-family: "Adventrya Sans", sans-serif;
+    font-family: var(--font-body);
     font-size: 15px;
     font-weight: 750;
     line-height: 1.25;

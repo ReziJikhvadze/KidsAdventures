@@ -42,7 +42,7 @@
 .reader-page-copy h1 {
   margin: 0;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   letter-spacing: -0.035em;
 }
 .journey-copy > p:not(.eyebrow),
@@ -113,18 +113,14 @@
 .field input {
   height: 48px;
   padding: 0 15px;
-  font-family:
-    Adventrya Sans,
-    sans-serif;
+  font-family: var(--font-body);
   font-size: 13px;
 }
 .field textarea {
   min-height: 128px;
   resize: none;
   padding: 14px 15px;
-  font-family:
-    Adventrya Sans,
-    sans-serif;
+  font-family: var(--font-body);
   font-size: 12px;
   line-height: 1.6;
 }
@@ -271,7 +267,7 @@
 .photo-drop strong {
   margin-top: 6px;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 18px;
 }
 .photo-drop p {
@@ -306,7 +302,7 @@
   place-items: center;
   border-radius: 14px;
   color: #2c1d49;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   background: var(--story-gold);
 }
 .photo-example div {
@@ -512,7 +508,7 @@
 .library-cover,
 .reader-illustration,
 .page-illustration {
-  background-image: url("/adventrya/adventrya-world-map.png");
+  background-image: url("/adventrya/world-selector/world-map-desktop-master.webp");
   background-size: cover;
 }
 .cover-art {
@@ -557,7 +553,7 @@
   bottom: 56px;
   margin: 0;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 20px;
   line-height: 1.22;
   text-shadow: 0 3px 20px rgba(9, 5, 24, 0.75);
@@ -571,7 +567,7 @@
   place-items: center;
   border-radius: 50%;
   color: #2b1d48;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   background: var(--story-gold);
 }
 .cover-ribbon {
@@ -603,7 +599,7 @@
 .synopsis p {
   margin: 8px 0 0;
   color: #f8f2e5b8;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 13px;
   line-height: 1.7;
 }
@@ -622,7 +618,7 @@
 }
 .preview-facts strong {
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 17px;
 }
 .preview-note {
@@ -731,7 +727,7 @@
 }
 .package-option h2 {
   margin: 5px 0 0;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 20px;
 }
 .package-option > strong {
@@ -803,7 +799,7 @@
       rgba(31, 20, 68, 0.18) 48%,
       rgba(24, 15, 55, 0.68) 76%
     ),
-    url("/adventrya/adventrya-world-map.png");
+    url("/adventrya/world-selector/world-map-desktop-master.webp");
   background-size: cover;
   background-position: 50% 55%;
   -webkit-mask-image: linear-gradient(180deg, #000 0 82%, transparent 100%);
@@ -814,7 +810,7 @@
   position: absolute;
   bottom: 29px;
   color: #f8f2e5ad;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 13px;
 }
 .auth-panel {
@@ -1067,7 +1063,7 @@
   right: 18px;
   bottom: 16px;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 15px;
 }
 .summary-lines {
@@ -1075,7 +1071,7 @@
 }
 .summary-lines h2 {
   margin: 18px 0 12px;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 14px;
 }
 .summary-lines > span,
@@ -1284,7 +1280,7 @@
 }
 .generation-craft-label strong {
   color: #f2d28d;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 12px;
   text-align: right;
 }
@@ -1478,7 +1474,7 @@
 }
 .book-page > p {
   margin: 17px 28px 0;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 12px;
   line-height: 1.55;
 }
@@ -1519,7 +1515,7 @@
 .page-thumb {
   position: absolute;
   inset: 0;
-  background-image: url("/adventrya/adventrya-world-map.png");
+  background-image: url("/adventrya/world-selector/world-map-desktop-master.webp");
   background-size: 180px auto;
 }
 .thumb-1 {

@@ -51,19 +51,16 @@ export function AppHeader({
       className={`app-header ${worldMode ? "app-header-world" : ""}${minimal ? " app-header-minimal" : ""}`}
     >
       <div className="app-header-start">
-        {/*
-          Labelled rather than a bare arrow: on the create journey this is the only way
-          back, and an unlabelled icon in a header full of other controls is easy to miss.
-          The label collapses on narrow screens, where the arrow alone is unambiguous.
-        */}
         <Link
           className="back-button"
           to={back.to}
           hash={back.hash}
           aria-label={t.common.actions.backLink}
         >
+          {/* The arrow alone. The word beside it repeated what the arrow already said, in the
+              one place on every page where horizontal room is scarcest; the label lives on
+              aria-label, where it is read to the people who cannot see the arrow. */}
           <ArrowLeft aria-hidden="true" />
-          <span>{t.common.actions.backLink}</span>
         </Link>
         {!minimal ? (
           <Link className="wordmark wordmark-small" to="/">
@@ -99,6 +96,11 @@ export function AppHeader({
           labelStyle="short"
         />
         {!minimal ? (
+          /*
+            Straight to their space, signed in or not: the dashboard opens the sign-in itself now
+            rather than showing a sample household first, so there is no longer a detour to route
+            around.
+          */
           <Link className="child-pill" to="/dashboard" aria-label={t.common.nav.openDashboard}>
             <span className="child-avatar" aria-hidden="true">
               {parentInitial}

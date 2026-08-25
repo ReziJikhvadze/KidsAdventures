@@ -30,7 +30,7 @@
 .ux-book-preferences strong,
 .world-language-row span {
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 13px;
 }
 .ux-book-preferences p {
@@ -245,7 +245,7 @@
   min-height: 62px;
   margin-top: 12px;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: clamp(24px, 2.3vw, 34px);
   line-height: 1.18;
 }
@@ -419,7 +419,7 @@
   border-radius: 11px;
   color: #322246;
   background: #ffffffc7;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 15px;
 }
 .ux-otp-inputs input:focus {
@@ -570,7 +570,7 @@
   border-radius: 10px;
   color: #2d1d4a;
   background: linear-gradient(145deg, #f0d898, #d7a456);
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 14px;
 }
 .continuation-character-list article > div {
@@ -671,7 +671,7 @@
 .reader-shared-heading h1 {
   margin: 9px 0 0;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: clamp(32px, 3vw, 45px);
   font-weight: 400;
   line-height: 1.12;

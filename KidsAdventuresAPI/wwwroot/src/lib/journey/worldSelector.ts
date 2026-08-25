@@ -39,7 +39,7 @@ export type FlightRoute = {
  * neither can be derived from the other. Hand-tuned to the art: if the art changes, these are
  * measured again rather than adjusted.
  */
-export const FLIGHT_ROUTES: Record<"desktop" | "mobile", Record<SelectorWorldId, FlightRoute>> = {
+const AUTHORED_ROUTES: Record<"desktop" | "mobile", Record<SelectorWorldId, FlightRoute>> = {
   desktop: {
     clouds: {
       path: "M49.5 54.7 C46 48 43 42 43 36 C43 29 35 25 29 21",
@@ -105,6 +105,100 @@ export const FLIGHT_ROUTES: Record<"desktop" | "mobile", Record<SelectorWorldId,
     },
   },
 };
+
+/**
+ * Where each island actually sits on the painting, as a share of the frame.
+ *
+ * One set of numbers, because there were four and they disagreed. The clickable box was placed
+ * by the stylesheet, the star's landing was the last point of a hand-drawn path, the arrival
+ * flare was its own pair, and the focus mask a third — all measured separately against the same
+ * artwork, all drifting a few percent apart. That drift is what a parent sees as a star landing
+ * beside an island rather than on it, and as a tap on one world selecting its neighbour.
+ *
+ * `cx`/`cy` is the middle of the island. `w`/`h` is how much of the frame it may be tapped by —
+ * sized to the island's own footprint, not padded out until the boxes touch, because a box that
+ * reaches its neighbour is a box that steals its taps.
+ *
+ * The art is drawn with background-size: 100% 100% into a frame of the master's own aspect
+ * ratio, so these percentages are the painting's own coordinates. If the art is repainted, they
+ * are measured again.
+ */
+export type IslandSpot = {
+  readonly cx: number;
+  readonly cy: number;
+  readonly w: number;
+  readonly h: number;
+};
+
+export const ISLAND_SPOTS: Record<"desktop" | "mobile", Record<SelectorWorldId, IslandSpot>> = {
+  desktop: {
+    clouds: { cx: 30.5, cy: 21, w: 23, h: 23 },
+    space: { cx: 71.5, cy: 23, w: 23, h: 19 },
+    animals: { cx: 16.5, cy: 48.5, w: 24, h: 25 },
+    ocean: { cx: 84, cy: 50, w: 24, h: 23 },
+    kingdom: { cx: 25, cy: 75, w: 26, h: 27 },
+    dinosaurs: { cx: 71.5, cy: 78, w: 26, h: 25 },
+  },
+  mobile: {
+    clouds: { cx: 24, cy: 17, w: 39, h: 18 },
+    space: { cx: 75, cy: 20, w: 44, h: 16 },
+    animals: { cx: 23, cy: 39, w: 36, h: 20 },
+    ocean: { cx: 77, cy: 41, w: 40, h: 19 },
+    kingdom: { cx: 22, cy: 66, w: 40, h: 21 },
+    dinosaurs: { cx: 78, cy: 69, w: 40, h: 19 },
+  },
+};
+
+/**
+ * Moves a hand-drawn flight so it ends on the island rather than near it.
+ *
+ * The curve is the handoff's and worth keeping — it arcs away from Beki before turning, which a
+ * straight line between two points does not. Only its arrival is wrong, so the last cubic is
+ * translated onto the true centre and its control points dragged along, most at the end and
+ * least at the start, which bends the final approach without disturbing the shape of the flight.
+ */
+function landOn(path: string, [cx, cy]: readonly [number, number]): string {
+  const numbers = path.match(/-?\d+(?:\.\d+)?/g);
+  if (!numbers || numbers.length < 8) return path;
+
+  const values = numbers.map(Number);
+  const endX = values[values.length - 2];
+  const endY = values[values.length - 1];
+  const dx = cx - endX;
+  const dy = cy - endY;
+
+  // The last three pairs are the final segment's two controls and its endpoint.
+  const weights = [0.35, 0.85, 1];
+  for (let pair = 0; pair < weights.length; pair++) {
+    const xi = values.length - 2 * (weights.length - pair);
+    values[xi] += dx * weights[pair];
+    values[xi + 1] += dy * weights[pair];
+  }
+
+  let index = 0;
+  return path.replace(/-?\d+(?:\.\d+)?/g, () => {
+    const next = values[index++];
+    return String(Math.round(next * 100) / 100);
+  });
+}
+
+/** The routes as authored, retargeted onto the measured islands. */
+export const FLIGHT_ROUTES: Record<
+  "desktop" | "mobile",
+  Record<SelectorWorldId, FlightRoute>
+> = Object.fromEntries(
+  (["desktop", "mobile"] as const).map((variant) => [
+    variant,
+    Object.fromEntries(
+      SELECTOR_WORLDS.map((world) => {
+        const authored = AUTHORED_ROUTES[variant][world.id];
+        const spot = ISLAND_SPOTS[variant][world.id];
+        const end = [spot.cx, spot.cy] as const;
+        return [world.id, { path: landOn(authored.path, end), start: authored.start, end }];
+      }),
+    ),
+  ]),
+) as Record<"desktop" | "mobile", Record<SelectorWorldId, FlightRoute>>;
 
 /** The two approved masters, landscape and portrait. */
 export const SELECTOR_ART: Record<"desktop" | "mobile", string> = {

@@ -1,4 +1,4 @@
-using SixLabors.ImageSharp;
+﻿using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
@@ -50,6 +50,65 @@ public static class SpreadArtCrop
 
         using var buffer = new MemoryStream();
         image.Save(buffer, new PngEncoder());
+        return buffer.ToArray();
+    }
+
+    /// <summary>
+    /// Crops to <paramref name="targetRatio"/> and reduces the result to <paramref name="maxWidth"/>
+    /// in a single decode, for the reviewer's copy.
+    ///
+    /// The two steps used to be two calls, and two calls meant two decodes and two lossless
+    /// encodes of a 1536×1024 render for every attempt — ten seconds and more of an App Service
+    /// core, per picture, between the render arriving and the review starting, in the one gap
+    /// neither stopwatch was measuring. Same pixels out; one pass to get them.
+    ///
+    /// The encoder is deliberately the fastest one rather than the smallest: this PNG lives for
+    /// one HTTP request and then dies, so every byte the compressor saves is bought with CPU
+    /// nobody gets back.
+    /// </summary>
+    public static byte[] CropAndReduce(byte[] png, float targetRatio, int maxWidth)
+    {
+        using var image = Image.Load<Rgba32>(png);
+
+        var width = image.Width;
+        var height = image.Height;
+        var cropWidth = width;
+        var cropHeight = height;
+
+        if ((float)width / height > targetRatio)
+        {
+            cropWidth = Math.Clamp((int)MathF.Round(height * targetRatio), 1, width);
+        }
+        else
+        {
+            cropHeight = Math.Clamp((int)MathF.Round(width / targetRatio), 1, height);
+        }
+
+        var cropped = cropWidth != width || cropHeight != height;
+        var reduced = maxWidth > 0 && cropWidth > maxWidth;
+
+        if (!cropped && !reduced)
+        {
+            return png;
+        }
+
+        image.Mutate(ctx =>
+        {
+            if (cropped)
+            {
+                ctx.Crop(new Rectangle(
+                    (width - cropWidth) / 2, (height - cropHeight) / 2, cropWidth, cropHeight));
+            }
+
+            if (reduced)
+            {
+                var targetHeight = Math.Max(1, (int)Math.Round(cropHeight * ((double)maxWidth / cropWidth)));
+                ctx.Resize(maxWidth, targetHeight, KnownResamplers.Lanczos3);
+            }
+        });
+
+        using var buffer = new MemoryStream();
+        image.Save(buffer, new PngEncoder { CompressionLevel = PngCompressionLevel.BestSpeed });
         return buffer.ToArray();
     }
 }

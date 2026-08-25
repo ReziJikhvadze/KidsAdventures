@@ -5,6 +5,7 @@ import { useT } from "@/lib/i18n";
 import type { JourneyDraft } from "@/lib/journey/draft";
 import {
   FLIGHT_ROUTES,
+  ISLAND_SPOTS,
   SELECTOR_ART,
   SELECTOR_WORLDS,
   type SelectorWorldId,
@@ -16,6 +17,14 @@ type Variant = "desktop" | "mobile";
 type Props = {
   draft: JourneyDraft;
   onChange: (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => void;
+  /**
+   * Standing inside another page rather than being one.
+   *
+   * The selector carries a page's worth of chrome — the wordmark, and an arrow back to the home
+   * page — which is right at /themes and wrong halfway down the home page itself, where the
+   * header is already on screen and "back" would point at the ground the reader is standing on.
+   */
+  embedded?: boolean;
 };
 
 /**
@@ -34,7 +43,7 @@ type Props = {
  * which is where everything the parent has typed lives. So the behaviour is a component and the
  * CTA is a router navigation.
  */
-export function WorldSelectorStage({ draft, onChange }: Props) {
+export function WorldSelectorStage({ draft, onChange, embedded = false }: Props) {
   const t = useT();
   const router = useRouter();
   const worldById = useWorldById();
@@ -162,8 +171,18 @@ export function WorldSelectorStage({ draft, onChange }: Props) {
       ? copy.statusReady(worldById[selectedWorld.worldId].mapTitle)
       : copy.statusFlying(worldById[selectedWorld.worldId].mapTitle);
 
+  /*
+    A <main> at /themes, a plain element inside another page — a document has one main, and the
+    landing page's own is already open around this.
+  */
+  const Shell = embedded ? "div" : "main";
+
   return (
-    <main className="experience-shell" id="beki-world-selector" data-beki-world-selector>
+    <Shell
+      className={`experience-shell${embedded ? " experience-shell-embedded" : ""}`}
+      id="beki-world-selector"
+      data-beki-world-selector
+    >
       {/*
         Both stages are rendered, and the stylesheet's media queries decide which one is on
         screen. Choosing in JavaScript instead would mean the server and the browser disagreeing
@@ -178,12 +197,13 @@ export function WorldSelectorStage({ draft, onChange }: Props) {
           ctaReady={ctaReady}
           flightRun={flightRun}
           status={status}
+          embedded={embedded}
           onPreview={setPreviewed}
           onChoose={chooseWorld}
           onStart={start}
         />
       ))}
-    </main>
+    </Shell>
   );
 }
 
@@ -202,6 +222,7 @@ function WorldStageArt({
   ctaReady,
   flightRun,
   status,
+  embedded,
   onPreview,
   onChoose,
   onStart,
@@ -212,6 +233,7 @@ function WorldStageArt({
   ctaReady: boolean;
   flightRun: number;
   status: string;
+  embedded: boolean;
   onPreview: (id: SelectorWorldId | null) => void;
   onChoose: (id: SelectorWorldId) => void;
   onStart: () => void;
@@ -251,10 +273,26 @@ function WorldStageArt({
         <div className="edge-vignette" aria-hidden="true" />
 
         <header className="experience-header">
-          <a className="brand" href="/" aria-label={copy.brandLabel}>
-            <span>Beki</span>
-            <i />
-          </a>
+          {/*
+            The only way off this page used to be the browser's own back button: the map is a
+            full-viewport painting with no app header above it, which is deliberate, but it left
+            a parent who opened it from a book cover with nowhere to go. Neither this nor the
+            wordmark belongs to a copy of the map sitting inside another page.
+          */}
+          {!embedded ? (
+            <>
+              <a className="map-back" href="/" aria-label={copy.backLabel}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M19 12H6m5 5-5-5 5-5" />
+                </svg>
+              </a>
+
+              <a className="brand" href="/" aria-label={copy.brandLabel}>
+                <span>Beki</span>
+                <i />
+              </a>
+            </>
+          ) : null}
 
           <div className="headline">
             <p>{copy.eyebrow}</p>
@@ -263,38 +301,10 @@ function WorldStageArt({
           </div>
 
           {/*
-            The rail says where the parent is, and here that is the first step, not the last.
-            The handoff drew the world as step three behind a finished hero and character — the
-            order this journey deliberately reversed, because choosing a world is one tap a child
-            enjoys and the form is the part a parent has to sit down for.
+            No progress rail. It named three steps — world, hero, book — above a painting whose
+            whole proposition is that choosing is one tap; a parent who has not started yet does
+            not need to be told there are two more forms behind this one.
           */}
-          <ol className="progress-rail" aria-label={copy.railLabel}>
-            <li className="is-current" aria-current="step">
-              <span>
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <circle cx="12" cy="12" r="8.4" />
-                  <path d="M3.9 12h16.2M12 3.6c2.4 2.3 3.6 5.1 3.6 8.4s-1.2 6.1-3.6 8.4C9.6 18.1 8.4 15.3 8.4 12S9.6 5.9 12 3.6Z" />
-                </svg>
-              </span>
-              <b>{copy.railWorld}</b>
-            </li>
-            <li>
-              <span>
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 20.4 4.2 13A5.1 5.1 0 0 1 11.4 5.8l.6.7.6-.7A5.1 5.1 0 0 1 19.8 13Z" />
-                </svg>
-              </span>
-              <b>{copy.railHero}</b>
-            </li>
-            <li>
-              <span>
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="m12 2.8 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z" />
-                </svg>
-              </span>
-              <b>{copy.railBook}</b>
-            </li>
-          </ol>
         </header>
 
         <div className="world-map">
@@ -303,6 +313,8 @@ function WorldStageArt({
             const showAction = isSelected && ctaReady;
             const place = worldById[world.worldId];
 
+            const spot = ISLAND_SPOTS[variant][world.id];
+
             return (
               <div
                 key={world.id}
@@ -310,6 +322,14 @@ function WorldStageArt({
                   previewed === world.id ? " is-previewed" : ""
                 }`}
                 data-world-node={world.id}
+                /* Placed from the same island coordinates the star flies to, so a tap and a
+                   landing can never again disagree about where a world is. */
+                style={{
+                  left: `${spot.cx - spot.w / 2}%`,
+                  top: `${spot.cy - spot.h / 2}%`,
+                  width: `${spot.w}%`,
+                  height: `${spot.h}%`,
+                }}
               >
                 <button
                   type="button"
@@ -325,33 +345,49 @@ function WorldStageArt({
                   <span className="hotspot-marker" aria-hidden="true">
                     <i />
                   </span>
+                </button>
+
+                {/*
+                  The title and the button are one object.
+
+                  They used to be two: a name pinned near the island and, on the far side of the
+                  island, a button that appeared from nowhere when it was chosen. A parent had to
+                  find the second thing after reading the first, and on the lowest islands the
+                  button had nowhere to be. Together they read as a card belonging to that
+                  island — the name, then the one thing to do about it, growing downwards out of
+                  the name it belongs to.
+
+                  The card cannot be inside the hotspot: a button does not go inside a button.
+                  It sits over it, transparent to the pointer except for the button itself, so
+                  the whole island stays one big click target until there is something to press.
+                */}
+                <div className="world-card">
                   {/* The stylesheet shows the full title where there is room and the short one
                       where there is not, so both are set and neither is chosen in script. */}
                   <span className="world-label">
-                    <small>{place.chapter}</small>
                     <strong className="full-title">{place.mapTitle}</strong>
                     <strong className="short-title">{place.mapLabel}</strong>
                   </span>
-                </button>
 
-                <div
-                  className={`world-action${showAction ? " is-ready" : ""}`}
-                  aria-hidden={!showAction}
-                >
-                  <button
-                    type="button"
-                    className="continue-button"
-                    data-world-id={world.id}
-                    aria-label={copy.continueTo(place.mapTitle)}
-                    disabled={!showAction}
-                    tabIndex={showAction ? 0 : -1}
-                    onClick={onStart}
+                  <div
+                    className={`world-action${showAction ? " is-ready" : ""}`}
+                    aria-hidden={!showAction}
                   >
-                    {copy.continue}
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M5 12h13m-5-5 5 5-5 5" />
-                    </svg>
-                  </button>
+                    <button
+                      type="button"
+                      className="continue-button"
+                      data-world-id={world.id}
+                      aria-label={copy.continueTo(place.mapTitle)}
+                      disabled={!showAction}
+                      tabIndex={showAction ? 0 : -1}
+                      onClick={onStart}
+                    >
+                      {copy.create}
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 12h13m-5-5 5 5-5 5" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -360,11 +396,6 @@ function WorldStageArt({
 
         <p className="selection-status sr-only" aria-live="polite">
           {status}
-        </p>
-
-        <p className="interaction-hint" aria-hidden="true">
-          <span />
-          {copy.hint}
         </p>
       </div>
     </section>
@@ -403,11 +434,21 @@ function MagicFlight({ variant, worldId }: { variant: Variant; worldId: Selector
         </filter>
       </defs>
 
+      {/*
+        A star leaves Beki, and a star is what is drawn.
+
+        This was a filled disc inside a thin ring with a small star on top, which at the size it
+        renders reads as a ringed planet sitting on Beki's chest — in a painting that already has
+        three real planets in its sky. The disc and the ring are gone and the star is drawn large
+        enough to cover the round medallion painted underneath it.
+
+        Five points, not four. A four-pointed sparkle is a glint of light; a star is the thing a
+        child draws when asked for one, and this one has to be recognised at a couple of
+        millimetres by somebody who is three. The same shape flies and lands.
+      */}
       <g transform={`translate(${startX} ${startY})`}>
         <g className="heart-flare">
-          <circle r="0.72" />
-          <circle className="heart-ring" r="1.05" />
-          <path d="M0-1.25.34-.34 1.25 0 .34.34 0 1.25-.34.34-1.25 0-.34-.34Z" />
+          <path d="M0.0 -1.7 L0.38 -0.53 L1.62 -0.53 L0.62 0.2 L1.0 1.38 L0.0 0.65 L-1.0 1.38 L-0.62 0.2 L-1.62 -0.53 L-0.38 -0.53Z" />
         </g>
       </g>
 
@@ -415,7 +456,7 @@ function MagicFlight({ variant, worldId }: { variant: Variant; worldId: Selector
       <path className="magic-route magic-route-core" d={route.path} pathLength="1" />
 
       <g className="flight-star" filter={`url(#${glowId})`}>
-        <path d="M0-1.15.31-.31 1.15 0 .31.31 0 1.15-.31.31-1.15 0-.31-.31Z" />
+        <path d="M0.0 -1.15 L0.26 -0.36 L1.09 -0.36 L0.42 0.14 L0.68 0.93 L0.0 0.44 L-0.68 0.93 L-0.42 0.14 L-1.09 -0.36 L-0.26 -0.36Z" />
         <circle r="0.22" />
         <animateMotion
           path={route.path}
@@ -432,7 +473,7 @@ function MagicFlight({ variant, worldId }: { variant: Variant; worldId: Selector
         <g className="arrival-flare">
           <circle className="arrival-glow" r="0.8" />
           <circle className="arrival-ring" r="1.15" />
-          <path d="M0-1.35.36-.36 1.35 0 .36.36 0 1.35-.36.36-1.35 0-.36-.36Z" />
+          <path d="M0.0 -1.35 L0.3 -0.42 L1.28 -0.42 L0.49 0.16 L0.79 1.09 L0.0 0.52 L-0.79 1.09 L-0.49 0.16 L-1.28 -0.42 L-0.3 -0.42Z" />
         </g>
       </g>
     </svg>

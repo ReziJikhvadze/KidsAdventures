@@ -11,6 +11,16 @@
       "port": 8080
     },
     {
+      "name": "adventrya-web-win",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "cwd": "KidsAdventuresAPI/wwwroot",
+      "port": 8080
+    },
+    {
       "name": "adventrya-api",
       "runtimeExecutable": "bash",
       "runtimeArgs": [

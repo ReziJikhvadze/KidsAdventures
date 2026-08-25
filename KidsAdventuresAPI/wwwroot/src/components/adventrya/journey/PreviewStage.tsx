@@ -2,6 +2,7 @@ import { Check, Lock, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
+import { WorldArtPanel } from "@/components/adventrya/journey/WorldArtPanel";
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
 import { storeGuestPreviewIds } from "@/lib/api/auth";
 import { ApiError, resolveApiUrl } from "@/lib/api/client";
@@ -469,6 +470,16 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
             initialIndex={0}
           />
 
+          {/*
+            A second picture, because a cover is not a book.
+
+            The sample has exactly one generated illustration — that is what a free preview buys —
+            so the parent was deciding on a closed cover and a page of words. This is the world
+            their story is set in, from the same painting they chose it on: no second generation,
+            nothing invented, and the sample stops looking like a single image.
+          */}
+          <WorldArtPanel worldId={worldId} className="ux-preview-world-glimpse" margin={1.5} />
+
           <p className="ux-preview-book-note">
             <Lock aria-hidden="true" /> {t.journey.preview.bookNote}
           </p>
@@ -506,14 +517,11 @@ function PackagePanel({
         <h2>{t.journey.preview.packageQuestion}</h2>
       </div>
 
-      <PackageOption
-        id="digital"
-        title={t.journey.packages.digital.title}
-        price={formatGel(PRICES.digital)}
-        features={t.journey.packages.digital.features}
-        selected={selected === "digital"}
-        onSelect={() => onSelect("digital")}
-      />
+      {/*
+        The printed book first, because it is the product: a parent who came here to have a book
+        made should meet the book, and the digital copy is the cheaper alternative to it rather
+        than the default it was standing in as.
+      */}
       <PackageOption
         id="print"
         title={t.journey.packages.print.title}
@@ -522,6 +530,14 @@ function PackagePanel({
         badge={t.journey.packages.print.badge}
         selected={selected === "print"}
         onSelect={() => onSelect("print")}
+      />
+      <PackageOption
+        id="digital"
+        title={t.journey.packages.digital.title}
+        price={formatGel(PRICES.digital)}
+        features={t.journey.packages.digital.features}
+        selected={selected === "digital"}
+        onSelect={() => onSelect("digital")}
       />
 
       <div className="ux-preview-total">

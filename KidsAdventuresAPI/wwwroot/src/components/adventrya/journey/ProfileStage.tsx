@@ -2,6 +2,7 @@ import { Camera, Check, Loader2, Lock, Pencil, Plus, Trash2, TriangleAlert, X } 
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BirthDateField } from "@/components/adventrya/journey/BirthDateField";
+import { WorldArtPanel } from "@/components/adventrya/journey/WorldArtPanel";
 import { SparkleIcon } from "@/components/adventrya/landing/icons";
 import { checkPortrait, type PortraitRejection } from "@/lib/api/portraits";
 import { BOOK_LANGUAGES, type BookLanguage, useT } from "@/lib/i18n";
@@ -34,6 +35,14 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
   const t = useT();
   const [editingId, setEditingId] = useState<string | null>(() => entryEditingId(draft.characters));
   const [error, setError] = useState<string | null>(null);
+  /*
+    Consent to the terms, which is asked for once and here.
+
+    Here because this is the last press before a book is written: the story, the pictures and the
+    money all follow from it. Deliberately not remembered in the draft — a tick that survives a
+    reload is a tick nobody gave.
+  */
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // The draft is only read from localStorage after the first render (SSR safety),
   // and that swap hands every character a brand-new localId. Without re-applying
@@ -153,20 +162,35 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
         return;
       }
     }
+    if (!acceptedTerms) {
+      setError(copy.validation.termsRequired);
+      return;
+    }
     setError(null);
     onContinue();
   };
 
   return (
     <section className="ux-profile-stage">
-      <header className="ux-stage-heading">
-        <p className="eyebrow">
-          <SparkleIcon />
-          {copy.profile.eyebrow}
-        </p>
-        <h1>{copy.profile.title}</h1>
-        <p>{copy.profile.lead}</p>
-      </header>
+      {/*
+        The left column is the world the parent just chose, under the heading.
+
+        It held a heading and then nothing — a third of the page of empty space beside the form,
+        and no sign of the island that had been picked one screen earlier. The painting is the
+        same one the map is made of, framed on that island.
+      */}
+      <div className="ux-profile-aside">
+        <header className="ux-stage-heading">
+          <p className="eyebrow">
+            <SparkleIcon />
+            {copy.profile.eyebrow}
+          </p>
+          <h1>{copy.profile.title}</h1>
+          <p>{copy.profile.lead}</p>
+        </header>
+
+        {draft.worldId ? <WorldArtPanel worldId={draft.worldId} /> : null}
+      </div>
 
       <div className="ux-character-stack">
         {/*
@@ -241,6 +265,24 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
             <Lock aria-hidden="true" />
             {copy.profile.privacyNote}
           </p>
+
+          <label className="ux-terms-consent">
+            <input
+              type="checkbox"
+              checked={acceptedTerms}
+              onChange={(event) => {
+                setAcceptedTerms(event.target.checked);
+                if (event.target.checked) setError(null);
+              }}
+            />
+            <span>
+              {copy.profile.termsPrefix}
+              <a href="/terms" target="_blank" rel="noreferrer">
+                {copy.profile.termsLink}
+              </a>
+            </span>
+          </label>
+
           <button className="button journey-primary" type="button" onClick={handleContinue}>
             {copy.profile.continue}
           </button>
@@ -515,7 +557,7 @@ function CharacterEditor({
       */}
       <div className="ux-form-actions">
         <button className="button ux-inline-link" type="button" onClick={onSave}>
-          {t.common.actions.close}
+          {t.common.actions.remember}
         </button>
         {character.name.trim() || !character.isPrimary ? (
           <button className="ux-inline-link" type="button" onClick={onCancel}>

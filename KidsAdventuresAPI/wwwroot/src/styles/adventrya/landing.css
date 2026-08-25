@@ -23,14 +23,26 @@
 .landing-v3 input {
   font-family: inherit;
 }
+/*
+  The header's height, in one place.
+
+  It was written twice — once as min-height, once as the negative margin that lets the page slide
+  under it — and a third time, implicitly, by every in-page link that scrolled a section to y=0
+  and let the header cover its first ninety pixels. That is why pressing "books" in the header
+  arrived with the top of the shelf already cut off. The sections now keep this much clear above
+  themselves, so an anchor lands where it looks like it should.
+*/
+:root {
+  --lv3-header-h: 76px;
+}
 .landing-v3-header {
   position: sticky;
   z-index: 50;
   top: 0;
   left: 0;
   right: 0;
-  min-height: 92px;
-  margin-bottom: -92px;
+  min-height: var(--lv3-header-h);
+  margin-bottom: calc(-1 * var(--lv3-header-h));
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -56,7 +68,7 @@
 }
 .landing-v3-logo small {
   color: #fffaee85;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 11px;
   font-weight: 400;
   letter-spacing: 0.17em;
@@ -163,7 +175,8 @@
   pointer-events: none;
 }
 .landing-v3-hero-art {
-  background: url("/adventrya/adventrya-world-map-portals-wide.jpg") 58% 49% / cover no-repeat;
+  background: url("/adventrya/world-selector/world-map-desktop-master.webp") 58% 49% / cover
+    no-repeat;
   filter: saturate(0.84) contrast(1.03);
   transform: scale(1.01);
 }
@@ -221,7 +234,7 @@
 .landing-v3-hero h1 {
   margin: 0;
   max-width: 680px;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: clamp(47px, 4.65vw, 72px);
   font-weight: 400;
   line-height: 1.03;
@@ -282,32 +295,6 @@
 }
 .landing-v3-primary svg {
   width: 17px;
-}
-.landing-v3-hero-proof {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  margin-top: 30px;
-}
-.landing-v3-hero-proof div {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.landing-v3-hero-proof strong {
-  color: #fff9ed;
-  font-family: "Adventrya Serif", serif;
-  font-size: 19px;
-  font-weight: 400;
-}
-.landing-v3-hero-proof span {
-  color: #f5efe57a;
-  font-size: 12px;
-}
-.landing-v3-hero-proof > i {
-  width: 1px;
-  height: 29px;
-  background: #ffffff2e;
 }
 .landing-v3-hero-product {
   position: relative;
@@ -377,7 +364,7 @@
   letter-spacing: 0.12em;
 }
 .landing-v3-cover-copy strong {
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: clamp(23px, 2.1vw, 34px);
   font-weight: 400;
   line-height: 1.14;
@@ -432,6 +419,28 @@
 .landing-v3-section {
   position: relative;
   padding: clamp(92px, 9vw, 142px) clamp(28px, 5vw, 78px);
+  scroll-margin-top: var(--lv3-header-h);
+}
+/*
+  The shelf has to fit the screen it is jumped to, whole.
+
+  Scroll-margin stopped the header covering its top, which was only half the problem: at 755px
+  against a 720px viewport the last row of the covers still fell off the bottom, so a visitor who
+  pressed "books" saw books they could not see all of. The three numbers that decide that height
+  — the room above, the gap under the heading, and the room below — are measured against the
+  viewport now rather than the page width, so the section keeps fitting as the screen shrinks
+  instead of fitting only the screen it was tuned on.
+
+  vw sizing was the original mistake: it made a short, wide laptop screen — the shape this is
+  most often opened on — pay the padding of a tall one.
+*/
+.landing-v3-books {
+  padding-top: clamp(24px, 3.4vh, 44px);
+  padding-bottom: clamp(48px, 7vh, 104px);
+}
+
+.landing-v3-books .landing-v3-section-heading {
+  margin-bottom: clamp(22px, 3.6vh, 46px);
 }
 .landing-v3-section-heading {
   max-width: 760px;
@@ -445,7 +454,7 @@
 .landing-v3-memory h2,
 .landing-v3-final h2 {
   margin: 0;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: clamp(40px, 4.2vw, 64px);
   font-weight: 400;
   line-height: 1.08;
@@ -493,7 +502,8 @@
 }
 .landing-v3-example-art {
   position: relative;
-  aspect-ratio: 0.76;
+  display: block;
+  aspect-ratio: 0.82;
   overflow: hidden;
   border-radius: 6px 15px 15px 6px;
   background: #2d2052;
@@ -558,7 +568,7 @@
   text-transform: uppercase;
 }
 .landing-v3-example-title strong {
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: clamp(20px, 2vw, 31px);
   font-weight: 400;
   line-height: 1.15;
@@ -793,7 +803,7 @@
 .landing-v3-preview-synopsis h3,
 .landing-v3-preview-memory h3 {
   margin: 0;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: clamp(20px, 2.2vw, 34px);
   font-weight: 400;
   line-height: 1.13;
@@ -814,7 +824,7 @@
 .landing-v3-preview-memory p {
   margin: 15px 0 0;
   color: #fffaeead;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 13px;
   line-height: 1.75;
 }
@@ -850,7 +860,7 @@
 }
 .landing-v3-preview-pages button span {
   color: var(--lv3-gold);
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
 }
 .landing-v3-preview-pages button.selected {
   color: #fff9ed;
@@ -876,7 +886,7 @@
 }
 .landing-v3-steps article > span {
   color: #a67651;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 13px;
 }
 .landing-v3-step-visual {
@@ -901,7 +911,7 @@
   border-radius: 50%;
   background: linear-gradient(145deg, #f0c77d, #e99468);
   box-shadow: 0 13px 30px #67455033;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 23px;
   font-style: normal;
 }
@@ -971,7 +981,7 @@
 }
 .landing-v3-steps h3 {
   margin: 0;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 18px;
   line-height: 1.25;
 }
@@ -996,139 +1006,23 @@
 .landing-v3-text-link svg {
   width: 15px;
 }
+/*
+  The world picker, standing on the home page.
+
+  This was a two-column argument for the map — copy on one side, a picture of it on the other.
+  It is the map now, so the section has nothing left to lay out: no columns, no padding, no
+  background of its own. The picker brings all three and is built to be exactly one screen tall,
+  which is what it is here too.
+*/
 .landing-v3-memory {
   position: relative;
-  min-height: 860px;
-  display: grid;
-  grid-template-columns: minmax(430px, 0.82fr) minmax(620px, 1.18fr);
-  align-items: center;
-  gap: 50px;
-  padding: clamp(90px, 8vw, 132px) clamp(34px, 5vw, 78px);
-  overflow: hidden;
   isolation: isolate;
-  color: #fff9ed;
-  background: #18102d;
 }
-.landing-v3-memory-art,
-.landing-v3-memory-shade {
-  position: absolute;
-  inset: 0;
-  z-index: -4;
-}
-/*
-  Out of focus, on purpose.
 
-  This is the same painting the card in front of it now shows for real, and two copies of one
-  picture at different scales read as a printing error. Blurred it goes back to being what it was
-  always doing here — the night the section happens in. The inset is negative so the blur has
-  material to smear at the edges instead of fading into the flat colour behind it.
-*/
-.landing-v3-memory-art {
-  inset: -40px;
-  background: url("/adventrya/adventrya-world-map-portals-wide.jpg") 54% 48% / cover no-repeat;
-  filter: saturate(0.7) brightness(0.52) blur(20px);
-}
-.landing-v3-memory-shade {
-  z-index: -3;
-  background:
-    linear-gradient(90deg, #160d2cfa, #180f2fe8 35%, #180f2f57 67%, #0f091e75),
-    linear-gradient(180deg, rgba(16, 9, 33, 0.46), transparent 35%, rgba(12, 7, 26, 0.62));
-}
-.landing-v3-memory-copy {
-  position: relative;
-  z-index: 3;
-  max-width: 620px;
-}
-.landing-v3-memory-copy > p {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin: 0 0 18px;
-  color: var(--lv3-gold);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-.landing-v3-memory-copy > p svg {
-  width: 16px;
-  fill: currentColor;
-}
-.landing-v3-memory h2 em {
-  color: var(--lv3-gold);
-}
-.landing-v3-memory-copy > span {
+.experience-shell-embedded {
   display: block;
-  max-width: 540px;
-  margin-top: 22px;
-  color: #f5efe5ad;
-  font-size: 13px;
-  line-height: 1.78;
 }
-.landing-v3-memory-chain {
-  display: grid;
-  grid-template-columns: 1fr 37px 1fr;
-  align-items: center;
-  gap: 9px;
-  margin-top: 32px;
-}
-.landing-v3-memory-chain > div {
-  min-height: 112px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 17px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 15px;
-  background: #1d133a94;
-  -webkit-backdrop-filter: blur(13px);
-  backdrop-filter: blur(13px);
-}
-.landing-v3-memory-chain small {
-  color: var(--lv3-gold);
-  font-size: 11px;
-}
-.landing-v3-memory-chain strong {
-  margin-top: 5px;
-  font-family: "Adventrya Serif", serif;
-  font-size: 14px;
-}
-.landing-v3-memory-chain span {
-  margin-top: 6px;
-  color: #f5efe585;
-  font-size: 11px;
-  line-height: 1.5;
-}
-.landing-v3-memory-chain > i {
-  width: 31px;
-  height: 31px;
-  display: grid;
-  place-items: center;
-  color: var(--lv3-gold);
-  border: 1px solid rgba(237, 190, 103, 0.32);
-  border-radius: 50%;
-  background: #edbe6714;
-}
-.landing-v3-memory-chain > i svg {
-  width: 14px;
-}
-.landing-v3-memory-copy > a {
-  width: max-content;
-  min-height: 49px;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  margin-top: 28px;
-  padding: 0 18px;
-  color: #25173b;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #f4d58f, #eeb15b);
-  font-size: 12px;
-  font-weight: 700;
-}
-.landing-v3-memory-copy > a svg {
-  width: 14px;
-}
+
 /*
   The real map, framed as a card in the second column.
 
@@ -1138,15 +1032,6 @@
   a card that is not the shape of the art crops it and leaves every pin off its island. It
   therefore switches between 16/9 and 9/16 at exactly the widths the <picture> switches art.
 */
-.landing-v3-memory-map {
-  z-index: 3;
-  width: min(100%, 720px);
-  aspect-ratio: 16 / 9;
-  justify-self: end;
-  border: 1px solid rgba(255, 248, 235, 0.1);
-  border-radius: clamp(18px, 2.2vw, 28px);
-  box-shadow: 0 28px 76px rgba(3, 1, 14, 0.5);
-}
 .landing-v3-world-card {
   position: relative;
   min-height: 190px;
@@ -1209,7 +1094,7 @@
   grid-column: 2;
   grid-row: 3;
   margin-top: 3px;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 15px;
 }
 .landing-v3-world-card > i {
@@ -1352,7 +1237,7 @@
   gap: 5px;
 }
 .landing-v3-price-card-head > span {
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 18px;
 }
 .landing-v3-price-card-head small {
@@ -1365,7 +1250,7 @@
 .landing-v3-price {
   display: block;
   margin-top: 27px;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 41px;
   font-weight: 400;
 }
@@ -1463,7 +1348,7 @@
 }
 .landing-v3-quote-grid p {
   margin: 26px 0 24px;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 15px;
   line-height: 1.72;
 }
@@ -1522,7 +1407,7 @@
   color: var(--lv3-ink);
   cursor: pointer;
   list-style: none;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 14px;
 }
 .landing-v3-faq-list summary::-webkit-details-marker {
@@ -1530,9 +1415,7 @@
 }
 .landing-v3-faq-list summary > span {
   color: #ad7955;
-  font-family:
-    Adventrya Sans,
-    sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
 }
 .landing-v3-faq-list summary > i {
@@ -1542,9 +1425,7 @@
   place-items: center;
   border: 1px solid rgba(55, 34, 95, 0.16);
   border-radius: 50%;
-  font-family:
-    Adventrya Sans,
-    sans-serif;
+  font-family: var(--font-body);
   font-size: 15px;
   font-style: normal;
   font-weight: 400;
@@ -1675,11 +1556,41 @@
 .landing-v3-footer > nav strong {
   margin-bottom: 5px;
   color: #fff9ed;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 13px;
 }
 .landing-v3-footer > nav a {
   transition: color 0.18s ease;
+}
+
+/*
+  Something a thumb can hit.
+
+  Footer links are twelve-pixel text on one line, which is an eighteen-pixel target — fine for a
+  cursor and far too small for a finger. Where the screen can be touched they get a line's worth
+  of height either side and the column's spacing tightens to compensate, so the list takes the
+  same room and every entry is a comfortable tap.
+
+  any-pointer, not pointer: a touchscreen laptop reports a trackpad as its primary pointer and a
+  finger as a secondary one, so asking about the primary pointer alone answers "mouse" on a
+  device the reader is touching. A larger target costs a mouse user nothing.
+*/
+@media (any-pointer: coarse) {
+  .landing-v3-footer > nav > div {
+    gap: 2px;
+  }
+
+  .landing-v3-footer > nav a {
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+  }
+
+  .landing-v3-footer-bottom a {
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+  }
 }
 .landing-v3-footer > nav a:hover {
   color: var(--lv3-gold);
@@ -1716,9 +1627,6 @@
   .landing-v3-preview {
     grid-template-columns: minmax(330px, 0.72fr) minmax(500px, 1.28fr);
     gap: 45px;
-  }
-  .landing-v3-memory {
-    grid-template-columns: minmax(390px, 0.8fr) minmax(500px, 1.2fr);
   }
 }
 @media (max-width: 900px) {
@@ -1835,21 +1743,6 @@
   .landing-v3-step-visual {
     max-width: 430px;
   }
-  .landing-v3-memory {
-    min-height: 1100px;
-    grid-template-columns: 1fr;
-    align-content: center;
-    gap: 25px;
-  }
-  .landing-v3-memory-shade {
-    background: linear-gradient(180deg, #160d2cf7, #180f2fe0 45%, #180f2f52 72%, #0f091ea3);
-  }
-  .landing-v3-memory-copy {
-    max-width: 700px;
-  }
-  .landing-v3-memory-map {
-    justify-self: center;
-  }
   .landing-v3-price-cards {
     justify-self: center;
   }
@@ -1920,13 +1813,6 @@
     width: 100%;
     padding-inline: 15px;
     font-size: 12px;
-  }
-  .landing-v3-hero-proof {
-    gap: 15px;
-    margin-top: 23px;
-  }
-  .landing-v3-hero-proof strong {
-    font-size: 16px;
   }
   .landing-v3-hero-product {
     height: auto;
@@ -2027,20 +1913,6 @@
   .landing-v3-steps article {
     min-height: 0;
     padding: 28px 0 34px;
-  }
-  .landing-v3-memory {
-    min-height: 970px;
-    padding: 76px 20px 30px;
-  }
-  .landing-v3-memory-copy > span {
-    font-size: 12px;
-  }
-  .landing-v3-memory-chain {
-    grid-template-columns: 1fr;
-  }
-  .landing-v3-memory-chain > i {
-    margin: -4px auto;
-    transform: rotate(90deg);
   }
   .landing-v3-world-card {
     min-height: 142px;
@@ -2186,7 +2058,7 @@
     font-size: 11px;
   }
   .landing-v3-mobile-cta strong {
-    font-family: "Adventrya Serif", serif;
+    font-family: var(--font-display);
     font-size: 14px;
   }
   .landing-v3-mobile-cta > a {
@@ -2220,12 +2092,8 @@
    forcing a landscape illustration through a narrow hero crop. */
 @media (max-width: 900px) and (orientation: portrait) {
   .landing-v3-hero-art {
-    background-image: url("/adventrya/adventrya-world-map-portals-tall.jpg");
+    background-image: url("/adventrya/world-selector/world-map-mobile-master.webp");
     background-position: center 58%;
-  }
-  .landing-v3-memory-art {
-    background-image: url("/adventrya/adventrya-world-map-portals-tall.jpg");
-    background-position: center 60%;
   }
 }
 
@@ -2239,10 +2107,6 @@
 */
 @media (max-width: 999px) and (orientation: portrait),
   (min-width: 1000px) and (max-aspect-ratio: 4 / 3) {
-  .landing-v3-memory-map {
-    width: min(100%, 400px);
-    aspect-ratio: 9 / 16;
-  }
 }
 
 /* ===========================================================================
@@ -2281,35 +2145,10 @@
 }
 
 /*
-  What is left of the book card's footer: one action, full width, where the row of age and
-  price used to be.
+  The card has no footer any more: the cover is the action. What stood here was a gold bar
+  reading "create something like this", which said in words what a book cover on a shop page
+  already says by being one.
 */
-.landing-v3-example-action {
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 12px;
-  color: #2c1d48;
-  border-radius: 14px;
-  background: var(--lv3-gold, #e8c98a);
-  font-size: 13px;
-  font-weight: 700;
-  text-decoration: none;
-  transition:
-    transform 0.18s ease,
-    filter 0.18s ease;
-}
-.landing-v3-example-action svg {
-  width: 15px;
-}
-.landing-v3-example-book:hover .landing-v3-example-action {
-  filter: brightness(1.06);
-}
-.landing-v3-example-action:hover {
-  transform: translateX(2px);
-}
 
 /*
   The phone's menu.
@@ -2383,7 +2222,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .landing-v3-price-cards article,
-  .landing-v3-example-action,
+  .landing-v3-example-art,
   .landing-v3-menu-toggle i {
     transition-duration: 0.01ms !important;
   }

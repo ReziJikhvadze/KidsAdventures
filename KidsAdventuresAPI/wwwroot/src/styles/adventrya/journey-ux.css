@@ -18,7 +18,7 @@
 .ux-generated-header h1 {
   margin: 0;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: clamp(38px, 3.2vw, 50px);
   font-weight: 400;
   line-height: 1.12;
@@ -83,7 +83,7 @@
   border-radius: 14px;
   color: #30204f;
   background: linear-gradient(145deg, #f1d899, #dca85a);
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 14px;
 }
 .ux-form-intro > div {
@@ -98,7 +98,7 @@
 .ux-form-intro h2 {
   margin: 3px 0 0;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 19px;
 }
 .ux-character-fields {
@@ -150,7 +150,7 @@
 .ux-photo-upload strong {
   margin-top: 4px;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 14px;
 }
 .ux-photo-upload p {
@@ -345,7 +345,7 @@
   border-radius: 17px;
   color: #2d1d4a;
   background: linear-gradient(145deg, #f1d99b, #d9a659);
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 18px;
 }
 .ux-character-summary > div:not(.ux-summary-actions) {
@@ -358,7 +358,7 @@
 .ux-character-summary h2 {
   margin: 3px 0 0;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 16px;
 }
 .ux-character-summary p {
@@ -770,7 +770,7 @@
 .ux-book-cover h2 {
   margin: 7px 0 0;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: clamp(18px, 1.5vw, 24px);
   line-height: 1.2;
   text-shadow: 0 4px 18px rgba(8, 3, 22, 0.7);
@@ -806,7 +806,7 @@
 }
 .ux-story-text p {
   margin: 8px 0 0;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 12px;
   line-height: 1.65;
 }
@@ -842,17 +842,22 @@
   filter: blur(0.35px);
 }
 .ux-locked-pages span {
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 13px;
 }
 .ux-locked-pages small {
   margin-top: 4px;
   font-size: 11px;
 }
+/*
+  Ten pixels between the two package cards was less than the height of the ribbon that hangs
+  seven pixels above the printed one, so "the most emotional choice" sat across the other card's
+  price. The gap is now wide enough for the ribbon to have somewhere to be.
+*/
 .ux-package-panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 18px;
   padding: 21px;
   border: 1px solid rgba(240, 226, 197, 0.2);
   border-radius: 24px 24px 40px;
@@ -870,7 +875,7 @@
 .ux-package-heading h2 {
   margin: 4px 0 5px;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 19px;
 }
 .ux-package-option {
@@ -921,7 +926,7 @@
 }
 .ux-package-title b {
   color: var(--story-gold);
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 16px;
 }
 .ux-package-list {
@@ -973,7 +978,7 @@
   grid-column: 2;
   align-self: center;
   color: var(--story-gold);
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 22px;
 }
 .ux-preview-continue {
@@ -1113,14 +1118,14 @@
 .ux-compact-product strong {
   margin-top: 6px;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 15px;
   line-height: 1.35;
 }
 .ux-compact-product span {
   margin-top: 9px;
   color: var(--story-gold);
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 19px;
 }
 .ux-generating .generation-book {
@@ -1193,7 +1198,7 @@
 }
 .ux-reader-page p {
   margin: 10px 0 0;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 13px;
   line-height: 1.7;
 }
@@ -1790,4 +1795,197 @@
   .ux-preview-book-note {
     margin-top: 10px;
   }
+}
+
+/*
+  The consent tick, above the button it guards.
+
+  Not a line of small print beside the button but a control the parent has to touch: a book is
+  written, illustrated and charged for on the far side of this press, and "by continuing you
+  agree" is not a thing anyone agreed to.
+*/
+.ux-terms-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 2px 0 4px;
+  color: #f8f2e5c4;
+  font-size: 12px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.ux-terms-consent input {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  margin-top: 1px;
+  accent-color: #e8c98a;
+  cursor: pointer;
+}
+
+.ux-terms-consent a {
+  color: #f3d79a;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/*
+  The one control on this form that a finger has to hit precisely.
+
+  Seventeen pixels of checkbox and a fourteen-pixel-tall link are a mouse's measurements. Where
+  the screen can be touched the box grows and the link takes vertical padding — padding rather
+  than a taller box, so the sentence it sits inside keeps its own line spacing while the tappable
+  area grows past it.
+
+  any-pointer, so a touchscreen laptop counts: asking only about the primary pointer answers
+  "trackpad" on a machine whose screen is being tapped.
+*/
+@media (any-pointer: coarse) {
+  .ux-terms-consent {
+    gap: 12px;
+    align-items: center;
+  }
+
+  .ux-terms-consent input {
+    width: 24px;
+    height: 24px;
+    margin-top: 0;
+  }
+
+  .ux-terms-consent a {
+    padding-block: 10px;
+  }
+}
+
+/*
+  The chosen island, carried into the create journey.
+
+  Everything here is the world picker's own vocabulary — the master painting, the amber bloom, the
+  cool dimmer, the vignette — so a parent who picks a world on the map meets the same place while
+  they fill in their child's name, rather than a form beside empty space.
+*/
+.world-art-panel {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid rgba(240, 226, 197, 0.16);
+  border-radius: 26px;
+  background: #0d0724;
+  box-shadow:
+    0 30px 70px #07031440,
+    inset 0 1px #ffffff0f;
+}
+
+/*
+  Grown until it covers the panel in both directions, then framed on the island. The two
+  translates are read right to left: the island moves to the plate's centre, the plate scales
+  about that centre, and the last one pulls the plate back by half its own size from the point it
+  is pinned at.
+*/
+.world-art-plate {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  aspect-ratio: 1672 / 941;
+  background: var(--world-art) center / 100% 100% no-repeat;
+  transform: translate(-50%, -50%) scale(var(--world-zoom))
+    translate(var(--world-dx), var(--world-dy));
+  transform-origin: center;
+}
+
+.world-art-bloom,
+.world-art-dimmer,
+.world-art-vignette,
+.world-art-caption {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* The island is dead centre by construction, so the bloom is too. */
+.world-art-bloom {
+  background: radial-gradient(circle at 50% 50%, rgba(255, 206, 92, 0.22), transparent 58%);
+  mix-blend-mode: screen;
+}
+
+.world-art-dimmer {
+  background: linear-gradient(180deg, rgba(9, 5, 26, 0.12), rgba(9, 5, 26, 0.62));
+}
+
+.world-art-vignette {
+  box-shadow: inset 0 0 90px 26px rgba(8, 4, 24, 0.72);
+}
+
+.world-art-caption {
+  top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 18px 20px 20px;
+  color: #fff8eb;
+}
+
+.world-art-caption small {
+  color: #f3d79ac2;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.world-art-caption strong {
+  font-family: var(--font-display);
+  font-size: clamp(17px, 1.5vw, 22px);
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+/*
+  On the create form the panel is the left column's floor: the heading sits above it and it takes
+  whatever height is left, so the column reaches the bottom of the form beside it instead of
+  stopping a third of the way down.
+*/
+.ux-profile-aside {
+  position: sticky;
+  top: 92px;
+  /*
+    As tall as the form beside it, then capped at the screen.
+
+    The grid starts its items rather than stretching them, so the column was only as tall as the
+    heading and the painting stopped a third of the way down the page. Stretching gives the
+    painting the room the form takes; the cap keeps a sticky column from growing past the screen
+    it is stuck to.
+  */
+  align-self: stretch;
+  height: 100%;
+  max-height: calc(100svh - 116px);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.ux-profile-aside .world-art-panel {
+  flex: 1 1 auto;
+  min-height: clamp(280px, 38vh, 520px);
+}
+
+@media (max-width: 1080px) {
+  .ux-profile-aside {
+    position: static;
+  }
+
+  .ux-profile-aside .world-art-panel {
+    min-height: 220px;
+  }
+}
+
+/* Beside the sample book: the world the story happens in, since the cover is the only picture
+   the preview has of its own. */
+.ux-preview-world-glimpse {
+  margin-top: 18px;
+  min-height: clamp(150px, 22vh, 220px);
 }

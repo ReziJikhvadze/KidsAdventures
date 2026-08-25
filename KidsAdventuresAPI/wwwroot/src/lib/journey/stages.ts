@@ -50,7 +50,17 @@ export function useJourneyStage(): [JourneyStage, (next: JourneyStage) => void] 
       }
 
       setStage(next);
-      void router.navigate({ to: "/create", hash: next });
+
+      /*
+        Replaced, not pushed.
+
+        Seven stages that each pushed an entry turned one page into a seven-deep stack, so a
+        parent who finished a book and opened the dashboard had to press the browser's back
+        button six times to reach the home page — through checkout and the sign-in on the way.
+        The journey is one route with one address bar entry; moving between its steps is not
+        moving between pages, and the header's own back control is what walks the flow.
+      */
+      void router.navigate({ to: "/create", hash: next, replace: true });
       window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     },
     [router],

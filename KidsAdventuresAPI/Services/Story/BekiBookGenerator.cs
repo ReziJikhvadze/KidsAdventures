@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
@@ -135,11 +135,19 @@ public sealed class BekiBookGenerator(
     public const string SpreadImageSize = "1536x1024";
 
     /// <summary>
-    /// The handoff allows the original plus two retries. One, for now: the first measured run
-    /// showed a correction adding a second copy of a character that the reviewer then failed to
-    /// notice, so a second automatic retry buys another chance to make it worse.
+    /// The handoff allows the original plus two retries. How many are actually drawn is
+    /// <see cref="BekiOptions.SpreadRegenerationAttempts"/> — a setting rather than a constant,
+    /// because the first measured book showed a retry doubling the render bill and the wall
+    /// clock without turning a single refusal into an acceptance. Read through a property so a
+    /// negative value can never turn into a negative loop bound.
     /// </summary>
-    public const int MaxRegenerations = 1;
+    private int MaxRegenerations => Math.Max(0, _bekiOptions.SpreadRegenerationAttempts);
+
+    /// <summary>
+    /// The width the reviewer's copy is reduced to. A vision model judges composition, not
+    /// pixels, and the full 1536-wide render costs tokens and encode time to say the same thing.
+    /// </summary>
+    private const int ReviewImageWidth = 1024;
 
     /// <summary>
     /// flow-misho: illustrations are single-shot — no QA review, no retry. The whole review
@@ -780,7 +788,7 @@ public sealed class BekiBookGenerator(
             };
         }
 
-        var reviewCopy = DownscaleForReview(SpreadArtCrop.CropToRatio(image, reviewRatio));
+        var reviewCopy = SpreadArtCrop.CropAndReduce(image, reviewRatio, ReviewImageWidth);
         var revSw = System.Diagnostics.Stopwatch.StartNew();
         var verdict = await ReviewAsync(
             reviewCopy,
@@ -805,7 +813,7 @@ public sealed class BekiBookGenerator(
                 corrected, reference, cancellationToken, SpreadImageSize);
             genSw.Stop();
 
-            reviewCopy = DownscaleForReview(SpreadArtCrop.CropToRatio(image, reviewRatio));
+            reviewCopy = SpreadArtCrop.CropAndReduce(image, reviewRatio, ReviewImageWidth);
             revSw.Restart();
             verdict = await ReviewAsync(
                 reviewCopy,
@@ -832,19 +840,6 @@ public sealed class BekiBookGenerator(
             Prompt = prompt,
             AnchoredCharacters = anchored,
         };
-    }
-
-    private static byte[] DownscaleForReview(byte[] imageBytes)
-    {
-        using var image = Image.Load<Rgba32>(imageBytes);
-        if (image.Width <= 1024) return imageBytes;
-
-        var height = (int)Math.Round(image.Height * (1024.0 / image.Width));
-        image.Mutate(x => x.Resize(1024, height, KnownResamplers.Lanczos3));
-
-        using var ms = new MemoryStream();
-        image.SaveAsPng(ms);
-        return ms.ToArray();
     }
 
     private Task<string> ReviewAsync(

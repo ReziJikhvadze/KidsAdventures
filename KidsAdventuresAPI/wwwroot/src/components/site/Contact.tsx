@@ -44,18 +44,30 @@ export function Contact() {
   };
 
   return (
-    <section className="py-16 md:py-24">
+    /*
+      One screen, send included.
+
+      The page was built on a long-form rhythm — a tall header block, a card with generous
+      padding, and section padding on top of both — which pushed the send button below the fold
+      on a laptop. Everything here is one short form; a visitor should be able to see the button
+      they are being asked to press.
+    */
+    <section className="py-6 md:py-8">
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
         <div className="text-center max-w-xl mx-auto">
           <p className="text-sm font-semibold text-primary tracking-wide uppercase">{c.eyebrow}</p>
-          <h1 className="mt-3 font-display text-4xl md:text-5xl font-bold text-balance">
+          <h1 className="mt-2 font-display text-2xl md:text-3xl font-bold text-balance">
             {c.title}
           </h1>
-          <p className="mt-4 text-muted-foreground">{c.lead}</p>
-          <SocialLinks className="mt-6 justify-center" />
+          {/*
+            The lead sentence went. It asked whether the visitor had a question about stories,
+            printing or delivery — on a page that is a contact form, where the only reason to be
+            is a question, and the form's own fields say the rest.
+          */}
+          <SocialLinks className="mt-4 justify-center" />
         </div>
 
-        <div className="mt-10 rounded-3xl border border-border bg-card shadow-card p-6 md:p-10">
+        <div className="mt-5 rounded-3xl border border-border bg-card shadow-card p-5 md:p-6">
           {sent ? (
             <div className="text-center py-8">
               <div className="mx-auto h-14 w-14 rounded-2xl bg-primary/10 grid place-items-center">
@@ -74,7 +86,7 @@ export function Contact() {
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="contact-name" className="text-sm font-semibold">

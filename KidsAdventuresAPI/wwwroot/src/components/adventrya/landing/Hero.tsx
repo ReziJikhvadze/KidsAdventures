@@ -1,8 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
-import { useT, formatGel } from "@/lib/i18n";
-import { PRICES } from "@/lib/pricing";
+import { useT } from "@/lib/i18n";
 import { heroDemoPages } from "@/lib/story/heroDemoPages";
 
 import { BookIcon, SparkleIcon, ArrowIcon } from "./icons";
@@ -42,17 +41,11 @@ export function Hero() {
             </div>
           </div>
 
-          <div className="landing-v3-hero-proof">
-            <div>
-              <strong>{formatGel(PRICES.digital)}</strong>
-              <span>{t.landing.hero.proofDigital}</span>
-            </div>
-            <i />
-            <div>
-              <strong>{formatGel(PRICES.print)}</strong>
-              <span>{t.landing.hero.proofPrint}</span>
-            </div>
-          </div>
+          {/*
+            The two-price strip that stood here is gone. The pricing section says the same two
+            numbers properly, with what each one buys; repeating them under the first sentence
+            asked a visitor to compare packages before they knew what the product was.
+          */}
         </div>
 
         <div className="landing-v3-hero-product" aria-label={t.landing.hero.bookExample}>

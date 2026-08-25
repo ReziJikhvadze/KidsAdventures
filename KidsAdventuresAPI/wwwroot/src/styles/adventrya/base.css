@@ -12,6 +12,24 @@
   --sky-mist: #cfe3ec;
   --forest: #3c7864;
   --ink: #29233a;
+
+  /*
+   * One face for everything: headings, paragraphs, labels, buttons, the lot. --font-display —
+   * the same stack — is defined in styles.css, because Tailwind's @theme emits that name onto
+   * :root too and two definitions of one variable is a coin toss.
+   *
+   * Ottia carries the thirty-three Georgian letters, the Latin alphabet and the digits, and not
+   * much else: no dash, colon, semicolon, ellipsis, apostrophe, lari sign, percent, plus or
+   * slash. Each of those comes from the Noto family standing behind it, because a browser
+   * resolves a font stack one character at a time — so a price reads "65 ₾" with Ottia's digits
+   * and Noto's lari, and never a box.
+   *
+   * Two consequences of a single-weight display face, chosen rather than stumbled into: bold
+   * text is Ottia at the weight the browser would otherwise have thickened itself, and small
+   * print is set in a face drawn for large sizes. Both were already true of every heading; they
+   * are now true of the paragraphs too.
+   */
+  --font-body: "Adventrya Display", "Adventrya Sans", "Noto Sans Georgian", system-ui, sans-serif;
 }
 * {
   box-sizing: border-box;
@@ -24,7 +42,7 @@ body {
 }
 body {
   color: var(--cream);
-  font-family: "Adventrya Sans", "Noto Sans Georgian", system-ui, sans-serif;
+  font-family: var(--font-body);
   overflow-x: hidden;
 }
 button,
@@ -62,7 +80,7 @@ svg {
   position: absolute;
   inset: 0;
   z-index: -5;
-  background-image: url("/adventrya/adventrya-world-map.png");
+  background-image: url("/adventrya/world-selector/world-map-desktop-master.webp");
   background-repeat: no-repeat;
   background-size: cover;
 }
@@ -160,7 +178,7 @@ svg {
 }
 .hero-copy h1 {
   margin: 0;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-weight: 700;
   letter-spacing: -0.035em;
 }
@@ -179,7 +197,7 @@ svg {
 .hero-promise {
   margin: 20px 0 0;
   color: #f8f2e5eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 16px;
 }
 .hero-description {
@@ -283,7 +301,7 @@ svg {
   align-items: center;
   gap: 11px;
   color: #f8f2e5ad;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 13px;
 }
 .world-caption span {
@@ -341,12 +359,18 @@ svg {
   carries its own label, because on these screens it is the only way back and a bare
   arrow beside a wordmark reads as decoration.
 */
+/*
+  An arrow in a round button. It used to be an arrow and the word "back" in a pill; the word is
+  now only on aria-label, so the control keeps its meaning for a screen reader and stops eating
+  the width of a header on a phone.
+*/
 .back-button {
+  width: 42px;
   height: 42px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 15px 0 12px;
+  justify-content: center;
+  padding: 0;
   border: 1px solid rgba(229, 216, 244, 0.22);
   border-radius: 14px;
   color: #fff8ebdd;
@@ -464,7 +488,7 @@ svg {
   display: grid;
   place-items: center;
   color: #2a1d4c;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-weight: 700;
   background:
     radial-gradient(circle at 38% 32%, #fff4c7 0 16%, transparent 17%),
@@ -537,7 +561,7 @@ svg {
 .world-profile h1 {
   margin: 5px 0 0;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 30px;
 }
 .memory-note {
@@ -571,7 +595,7 @@ svg {
   place-items: center;
   border-radius: 50%;
   color: #eff5d8;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-weight: 700;
   background: radial-gradient(circle at 35% 30%, #84a984, #315b4c 72%);
   box-shadow: inset 0 0 0 3px #ffffff21;
@@ -584,7 +608,7 @@ svg {
   max-width: 260px;
   margin: 5px 0 0;
   color: #fbf3e4;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 14px;
   line-height: 1.45;
 }
@@ -655,7 +679,7 @@ svg {
 }
 .map-heading span {
   color: #fff8ebd1;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 14px;
 }
 .map-heading small {
@@ -671,14 +695,12 @@ svg {
 }
 .map-count strong {
   color: var(--story-gold);
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 23px;
   line-height: 1;
 }
 .map-count span {
-  font-family:
-    Adventrya Sans,
-    sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
   line-height: 1.35;
 }
@@ -757,7 +779,7 @@ svg {
 .map-label strong {
   margin-top: 2px;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 12px;
 }
 .state-future {
@@ -857,7 +879,7 @@ svg {
 .story-echo strong {
   margin-top: 2px;
   color: #fff8eb;
-  font-family: "Adventrya Serif", serif;
+  font-family: var(--font-display);
   font-size: 13px;
 }
 .story-echo p {

@@ -9,10 +9,9 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { AppHeader } from "@/components/adventrya/AppHeader";
-import { DashboardDemo } from "@/components/adventrya/dashboard/DashboardDemo";
 import { StoryPathMap } from "@/components/adventrya/world/StoryPathMap";
 import { PasswordlessAuthDialog } from "@/components/auth/PasswordlessAuthDialog";
 import { ApiError } from "@/lib/api/client";
@@ -75,6 +74,13 @@ export function DashboardScreen() {
   const [printBusy, setPrintBusy] = useState(false);
   const [printError, setPrintError] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
+  const navigate = useNavigate();
+  /*
+    Signing in closes the dialog too, and a close is otherwise read as "no thanks, take me back".
+    Without this flag a parent who signed in with Google was returned to the home page by the
+    same handler that exists to catch the ones who changed their mind.
+  */
+  const signedInHere = useRef(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -327,16 +333,13 @@ export function DashboardScreen() {
   };
 
   /*
-    Signed out, the dashboard shows itself rather than a door.
+    Signed out, the door and nothing else.
 
-    This was a bare panel — a heading, one line of Georgian and a sign-in button — with an
-    effect that threw the auth dialog open the moment the screen mounted. A parent who had
-    just signed out landed on a modal over an empty page, with nothing behind it to say what
-    they had left or what signing back in would give them. The real layout is rendered here
-    instead, filled with a sample family, blurred and genuinely out of reach; the gate on top
-    says what it is. The dialog opens on the gate's button or on a click anywhere across the
-    preview, so a parent who reaches for a control they cannot use is answered rather than
-    ignored.
+    What stood here was the dashboard filled with an invented family, blurred out of reach, under
+    a panel explaining that this was somebody else's household and that signing in would replace
+    it. Three things a parent had to read and one more button to press before they could do the
+    only thing this screen offers them while signed out. The sign-in opens on arrival now; behind
+    it is the shell, not a stranger's children.
   */
   if (!authLoading && !isAuthenticated) {
     return (
@@ -345,37 +348,16 @@ export function DashboardScreen() {
         <div className="grain" aria-hidden="true" />
         <AppHeader backHref="/" worldMode />
 
-        {/* `inert` is the part that matters: it takes the whole subtree out of hit-testing, the
-            tab order and the accessibility tree at once. A blur is only paint — without this
-            every control under it stays tabbable and every heading stays readable aloud. */}
-        <div className="dashboard-preview-layer" inert aria-hidden="true">
-          <DashboardDemo />
-        </div>
-
-        {/* The catcher sits below the header's z-index, so the way back out of the screen and
-            the language switcher stay live while everything under them asks for a sign-in. */}
-        <div
-          className="dashboard-preview-catch"
-          aria-hidden="true"
-          onClick={() => setAuthOpen(true)}
-        />
-
-        <div className="dashboard-preview-gate">
-          <p className="eyebrow">
-            <Sparkles aria-hidden="true" /> {t.dashboard.preview.label}
-          </p>
-          <h1>{t.dashboard.preview.title}</h1>
-          <p>{t.dashboard.preview.body}</p>
-          <button className="button button-primary" type="button" onClick={() => setAuthOpen(true)}>
-            {t.dashboard.preview.cta}
-            <ArrowRight aria-hidden="true" />
-          </button>
-        </div>
-
         <PasswordlessAuthDialog
-          open={authOpen}
-          onOpenChange={setAuthOpen}
-          onSuccess={() => setAuthOpen(false)}
+          open
+          onOpenChange={(open) => {
+            /* Dismissed, not completed: leave the screen rather than reveal an empty one. */
+            if (!open && !signedInHere.current) void navigate({ to: "/" });
+          }}
+          onSuccess={() => {
+            signedInHere.current = true;
+            setAuthOpen(false);
+          }}
         />
       </div>
     );
@@ -596,8 +578,8 @@ export function DashboardScreen() {
             // Silence here read as a bug: books existed, just under another child's name.
             // Say whose shelf this is and where the books actually are.
             <p className="map-library-empty">
-              {heroName}-ს ჯერ წიგნი არ აქვს. სხვა ბავშვის წიგნები მარცხენა სიაში მისი
-              პროფილის არჩევით გამოჩნდება.
+              {heroName}-ს ჯერ წიგნი არ აქვს. სხვა ბავშვის წიგნები მარცხენა სიაში მისი პროფილის
+              არჩევით გამოჩნდება.
             </p>
           ) : null}
 

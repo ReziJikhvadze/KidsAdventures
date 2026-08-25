@@ -4,7 +4,26 @@
  * The partner demo aliased these names to DejaVu as a Georgian-capable stand-in.
  * We keep the family names so no component or ported rule has to change, and back
  * them with self-hosted Noto Georgian variable subsets.
+ *
+ * Three families now, not two: "Adventrya Display" is the book's own face, and the site
+ * wears it wherever the book does. It is never used alone — every stack names the Noto
+ * family behind it, because the display face carries the Georgian alphabet but not the
+ * dash, colon, ellipsis or apostrophe, and CSS resolves a font stack one character at a
+ * time. The token that assembles that stack is --font-display in base.css; changing the
+ * face everywhere is that one line.
  */
+
+@font-face {
+  font-family: "Adventrya Display";
+  src: url("/fonts/adventrya-display.woff2") format("woff2");
+  /* One weight exists. Claiming the full range would invite the browser to synthesize a
+     bold that the designer never drew — better that a bold heading simply stays regular. */
+  font-weight: 400;
+  font-style: normal;
+  /* No unicode-range: the file is 20 KB whole, and subsetting a face this small buys
+     nothing while making its coverage harder to reason about. */
+  font-display: swap;
+}
 
 @font-face {
   font-family: "Adventrya Sans";

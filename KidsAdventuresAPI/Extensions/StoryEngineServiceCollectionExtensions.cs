@@ -1,4 +1,7 @@
+﻿using AdventurePacks.Api.Configuration.Options;
+using AdventurePacks.Api.Services.Ai;
 using AdventurePacks.Api.Services.Story;
+using Microsoft.Extensions.Options;
 
 namespace AdventurePacks.Api.Extensions;
 
@@ -16,13 +19,19 @@ namespace AdventurePacks.Api.Extensions;
 public static class StoryEngineServiceCollectionExtensions
 {
     /// <summary>
-    /// Takes no configuration: everything either service needs comes from OpenAiOptions, which
-    /// the application already binds.
+    /// Takes no configuration: everything either service needs comes from the options the
+    /// application already binds — OpenAiOptions, and now the two that decide which vendor
+    /// answers.
     /// </summary>
     public static IServiceCollection AddStoryEngine(this IServiceCollection services)
     {
-        // The only door to a model, and the one call that writes a book.
-        services.AddScoped<IStoryModelClient, StoryModelClient>();
+        // The only door to a model, and the one call that writes a book. Which vendor stands
+        // behind that door is read at resolution rather than fixed here, so a slice test that
+        // binds nothing still gets the OpenAI client the options default to.
+        services.AddScoped<IStoryModelClient>(sp =>
+            sp.GetRequiredService<IOptions<AiProviderOptions>>().Value.UsesGeminiForStory
+                ? ActivatorUtilities.CreateInstance<GeminiStoryModelClient>(sp)
+                : ActivatorUtilities.CreateInstance<StoryModelClient>(sp));
         services.AddScoped<IMasterStoryService, MasterStoryService>();
 
         // IMasterBookService is registered with the application services instead. It reaches

@@ -10,7 +10,7 @@
   through, so it is not shipped either.
 
   So the two rules that asked for them now ask for the faces this product already serves:
-  Adventrya Serif for the display line, Adventrya Sans for everything else. Both carry Georgian,
+  --font-display for the display line, Adventrya Sans for everything else. Both carry Georgian,
   both are preloaded on every page, and neither is a licence to sort out later. The delivered
   files are not committed — four hundred kilobytes of a face that cannot spell "Beki" is not
   worth serving — so restoring the designed typography means working files first, then an
@@ -43,7 +43,7 @@
   min-height: 100svh;
   background: #08071f;
   color: var(--cream);
-  font-family: "Adventrya Sans", "Noto Sans Georgian", "Sylfaen", sans-serif;
+  font-family: var(--font-body);
 }
 
 .experience-shell *,
@@ -76,10 +76,19 @@
   border: 0 !important;
 }
 
+/*
+  Exactly one screen, never a scrollbar.
+
+  min-height let the stage grow past the viewport as soon as anything inside it did — the frame
+  covers now, and a covered frame is by definition taller or wider than the screen — so the map
+  could be scrolled, which on a painting that is meant to be looked at whole reads as a mistake.
+  It is the height of the screen and it clips.
+*/
 .art-stage {
   position: relative;
   display: grid;
-  min-height: 100svh;
+  height: 100svh;
+  max-height: 100svh;
   place-items: center;
   overflow: hidden;
   isolation: isolate;
@@ -109,6 +118,25 @@
 }
 
 .master-frame {
+  /*
+    How much of the painting is off-screen, above and below. Zero here and worked out by each
+    frame below, because the two masters are different shapes and are cropped by different
+    amounts on the same window.
+
+    The frame covers, so on any window that is not the painting's shape it is taller than the
+    window and centred in it, hiding an equal band at each end. Anything placed against the
+    frame's top or bottom edge is placed inside that band, so the few things that live there add
+    this to their own offset.
+
+    Written in viewport units rather than as a percentage of the frame, and that is the whole
+    point: a percentage resolves against whatever box the element using it sits in. The wordmark
+    is a child of the frame and read it correctly; the island cards are children of an island,
+    where 100% is a quarter of the painting, so the same expression quietly evaluated to zero
+    exactly where it was needed. The frame's height is its width over its ratio, and its width is
+    the window or the height times that ratio — which is all this says, in units that mean the
+    same thing everywhere.
+  */
+  --crop-band: 0px;
   position: relative;
   flex: none;
   overflow: hidden;
@@ -116,14 +144,68 @@
   box-shadow: 0 0 80px rgba(1, 1, 18, 0.62);
 }
 
+/*
+  The painting fills the screen rather than fitting inside it.
+
+  min() sized the frame to whichever edge ran out first, which on almost every real screen meant
+  bars of flat ambient colour down two sides and a map that never used the display it was drawn
+  for. max() covers instead: the frame grows until both edges are met and the stage's overflow
+  takes the excess, so the map is edge to edge.
+
+  The islands sit far enough inside the frame — none closer than four percent to an edge — that
+  the crop takes clouds, not worlds, on every aspect ratio between 4:3 and 21:9.
+*/
+/*
+  Edge to edge, until covering would start throwing worlds away.
+
+  Cover is the rule: the painting fills the window on every ordinary screen, and the earlier cap
+  of a percent and a half was protecting a button that has since moved into the island's card.
+  But cover is unbounded, and a window shaped nothing like the painting crops without limit — a
+  near-square portrait window covered by the tall master ends up nearly twice the window's
+  height, which puts the top row of islands, and the wordmark above them, off the screen
+  entirely.
+
+  So the frame may be up to one and a half times the window's height and no more. The number is
+  where the topmost island's card stops clearing the hidden band: the portrait art carries that
+  card at about nineteen percent of its height, a centred crop hides (F − V) / 2 at each end, and
+  those two meet at 1.59 — this sits under it. Every ordinary screen is well inside the limit,
+  including the 2.46:1 window that prompted the cap's removal; only genuinely extreme shapes see
+  a margin, filled by the blurred copy of the painting behind the frame.
+
+  What the crop does take is handled where it lands: the wordmark, the headline and the back
+  arrow add the hidden band to their own offset, and so does the bottom row of cards.
+*/
 .desktop-frame {
-  width: min(100vw, calc(100svh * 1.776833));
+  width: min(max(100vw, calc(100svh * 1.776833)), calc(100svh * 1.45 * 1.776833));
   aspect-ratio: 1672 / 941;
+  /* The same expression as the width, read as a height and measured against the window: the
+     landscape master's own ratio, its own cap, its own hidden band. */
+  --crop-band: max(0px, calc((min(max(100vw / 1.776833, 100svh), 100svh * 1.45) - 100svh) / 2));
 }
 
 .mobile-frame {
-  width: min(100vw, calc(100svh * 0.462581));
+  width: min(max(100vw, calc(100svh * 0.462581)), calc(100svh * 1.45 * 0.462581));
   aspect-ratio: 853 / 1844;
+  /* The portrait master is more than twice as tall as it is wide, so on anything approaching a
+     square window its hidden band is the larger of the two by far — and it is nothing like the
+     landscape master's, which is why each frame works out its own. */
+  --crop-band: max(0px, calc((min(max(100vw / 0.462581, 100svh), 100svh * 1.45) - 100svh) / 2));
+}
+
+/*
+  Embedded, the map measures the section rather than the window.
+
+  100vw includes the scrollbar; the section it sits in does not. On the home page — which
+  scrolls, so the scrollbar is there — that was fifteen pixels of painting hanging outside the
+  section and being clipped by it, eight on each side. Reading 100% instead means the frame ends
+  exactly where the section does, which is what filling a page to its edge actually requires.
+*/
+.experience-shell-embedded .desktop-frame {
+  width: min(max(100%, calc(100svh * 1.776833)), calc(100svh * 1.45 * 1.776833));
+}
+
+.experience-shell-embedded .mobile-frame {
+  width: min(max(100%, calc(100svh * 0.462581)), calc(100svh * 1.45 * 0.462581));
 }
 
 .master-art {
@@ -288,9 +370,16 @@
   animation: heart-awakens 650ms ease-out forwards;
 }
 
-.heart-flare circle:first-child,
 .arrival-glow {
   fill: rgba(255, 213, 95, 0.7);
+}
+
+/*
+  The star at Beki's chest carries its own glow now that the disc behind it is gone — without
+  one it read as a flat paper cut-out over the painted medallion it is covering.
+*/
+.heart-flare path {
+  filter: drop-shadow(0 0 0.6px rgba(255, 224, 150, 0.95));
 }
 
 .heart-flare path,
@@ -299,7 +388,6 @@
   fill: #fff3bd;
 }
 
-.heart-ring,
 .arrival-ring {
   fill: none;
   stroke: rgba(255, 231, 160, 0.9);
@@ -411,15 +499,56 @@
   pointer-events: none;
 }
 
+/*
+  The way back, top-left, where a full-screen painting with no app header above it had none.
+  An arrow and nothing else: the label is for screen readers, and a word here would compete with
+  the one sentence this page is trying to say.
+*/
+.map-back {
+  position: absolute;
+  top: calc(var(--crop-band) + clamp(14px, 1.6vw, 26px));
+  left: clamp(14px, 1.6vw, 26px);
+  z-index: 6;
+  width: clamp(38px, 3vw, 46px);
+  height: clamp(38px, 3vw, 46px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff3d6;
+  border: 1px solid rgba(255, 235, 180, 0.32);
+  border-radius: 50%;
+  background: rgba(20, 11, 44, 0.55);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transition:
+    background 200ms ease,
+    border-color 200ms ease;
+}
+
+.map-back:hover,
+.map-back:focus-visible {
+  border-color: rgba(255, 235, 180, 0.7);
+  background: rgba(28, 16, 60, 0.78);
+}
+
+.map-back svg {
+  width: 55%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .brand {
   position: absolute;
-  top: 2.6%;
+  top: calc(var(--crop-band) + 2.6%);
   left: 3.1%;
   display: inline-grid;
   justify-items: center;
   pointer-events: auto;
   color: var(--gold-light);
-  font-family: "Adventrya Serif", Georgia, serif;
+  font-family: var(--font-display);
   font-size: clamp(17px, 1.65vw, 28px);
   letter-spacing: 0.2em;
   line-height: 1;
@@ -438,7 +567,7 @@
 
 .headline {
   position: absolute;
-  top: 1.7%;
+  top: calc(var(--crop-band) + 1.7%);
   left: 50%;
   width: 37%;
   max-width: 580px;
@@ -476,7 +605,7 @@
 .headline h1 {
   margin-top: 0.18em;
   color: #fff7dc;
-  font-family: Georgia, "Noto Serif Georgian", serif;
+  font-family: var(--font-display);
   font-size: clamp(15px, 1.63vw, 28px);
   font-weight: 600;
   line-height: 1.05;
@@ -488,81 +617,6 @@
   color: rgba(255, 248, 223, 0.78);
   font-size: clamp(7px, 0.66vw, 11px);
 }
-
-.progress-rail {
-  position: absolute;
-  top: 2.5%;
-  right: 2.5%;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(32px, 4.1vw));
-  gap: clamp(2px, 0.5vw, 8px);
-  width: max-content;
-  margin: 0;
-  padding: clamp(4px, 0.55vw, 9px) clamp(6px, 0.8vw, 13px);
-  list-style: none;
-  border: 1px solid rgba(255, 228, 166, 0.18);
-  border-radius: 999px;
-  background: rgba(9, 6, 35, 0.34);
-  box-shadow: 0 8px 28px rgba(2, 1, 18, 0.25);
-  backdrop-filter: blur(8px);
-}
-
-.progress-rail::before {
-  position: absolute;
-  top: 36%;
-  right: 21%;
-  left: 21%;
-  z-index: -1;
-  height: 1px;
-  background: rgba(247, 201, 95, 0.5);
-  content: "";
-}
-
-.progress-rail li {
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-}
-
-.progress-rail span {
-  display: grid;
-  width: clamp(17px, 1.45vw, 25px);
-  height: clamp(17px, 1.45vw, 25px);
-  place-items: center;
-  border: 1px solid rgba(247, 201, 95, 0.55);
-  border-radius: 50%;
-  background: rgba(12, 8, 42, 0.8);
-  box-shadow: 0 0 12px rgba(247, 201, 95, 0.12);
-}
-
-.progress-rail svg {
-  width: 58%;
-  fill: none;
-  stroke: rgba(255, 238, 191, 0.88);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.5;
-}
-
-.progress-rail .is-complete svg {
-  fill: rgba(247, 201, 95, 0.5);
-}
-
-.progress-rail .is-current span {
-  border-color: var(--gold-light);
-  box-shadow: 0 0 16px rgba(247, 201, 95, 0.45);
-}
-
-.progress-rail b {
-  color: rgba(255, 243, 207, 0.7);
-  font-size: clamp(5px, 0.48vw, 8px);
-  font-weight: 400;
-}
-
-.progress-rail .is-current b {
-  color: var(--gold-light);
-}
-
 .world-map {
   z-index: 6;
 }
@@ -602,93 +656,20 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.desktop-frame .hotspot-clouds {
-  top: 3%;
-  left: 5%;
-  width: 42%;
-  height: 35%;
-}
+/*
+  Dead centre of the box, and the box is the island.
 
-.desktop-frame .hotspot-space {
-  top: 3%;
-  left: 56%;
-  width: 39%;
-  height: 35%;
-}
-
-.desktop-frame .hotspot-animals {
-  top: 23%;
-  left: 0;
-  width: 35%;
-  height: 47%;
-}
-
-.desktop-frame .hotspot-ocean {
-  top: 23%;
-  left: 66%;
-  width: 34%;
-  height: 47%;
-}
-
-.desktop-frame .hotspot-kingdom {
-  top: 54%;
-  left: 7%;
-  width: 41%;
-  height: 43%;
-}
-
-.desktop-frame .hotspot-dinosaurs {
-  top: 51%;
-  left: 53%;
-  width: 42%;
-  height: 46%;
-}
-
-.mobile-frame .hotspot-clouds {
-  top: 3%;
-  left: 0;
-  width: 52%;
-  height: 27%;
-}
-
-.mobile-frame .hotspot-space {
-  top: 3%;
-  left: 48%;
-  width: 52%;
-  height: 27%;
-}
-
-.mobile-frame .hotspot-animals {
-  top: 25%;
-  left: 0;
-  width: 50%;
-  height: 26%;
-}
-
-.mobile-frame .hotspot-ocean {
-  top: 25%;
-  left: 50%;
-  width: 50%;
-  height: 26%;
-}
-
-.mobile-frame .hotspot-kingdom {
-  top: 54%;
-  left: 0;
-  width: 52%;
-  height: 27%;
-}
-
-.mobile-frame .hotspot-dinosaurs {
-  top: 54%;
-  left: 48%;
-  width: 52%;
-  height: 27%;
-}
-
+  It used to sit at 53%, three percent low, from the days when the box was a loose rectangle
+  drawn around a whole quadrant of the painting rather than around one island.
+*/
+/*
+  Every island's box is set inline from ISLAND_SPOTS now. The twelve blocks that used to stand
+  here placed them a second time, in percentages measured against the same painting on a
+  different day — which is how a tap near one island came to select its neighbour.
+*/
 .hotspot-marker {
   position: absolute;
-  top: 53%;
+  top: 50%;
   left: 50%;
   width: clamp(18px, 1.8vw, 31px);
   aspect-ratio: 1;
@@ -721,10 +702,27 @@
   box-shadow: 0 0 13px #ffc64f;
 }
 
-.world-label {
+/*
+  The island's card: its name, and the one thing to do about it.
+
+  The placement that used to be on the label is here, because the label is no longer alone —
+  the button grows out of the bottom of it and the two move as one object. Transparent to the
+  pointer so the island underneath stays one large target; the button inside takes its own
+  clicks back.
+*/
+.world-card {
   position: absolute;
   bottom: 3%;
   left: 50%;
+  z-index: 4;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.world-label {
   display: grid;
   min-width: max-content;
   justify-items: center;
@@ -737,7 +735,6 @@
     inset 0 0 18px rgba(255, 211, 107, 0.04);
   text-align: center;
   text-shadow: 0 2px 7px rgba(2, 1, 17, 0.95);
-  transform: translateX(-50%);
   backdrop-filter: blur(7px);
   transition:
     border-color 180ms ease,
@@ -746,19 +743,27 @@
     transform 180ms ease;
 }
 
-.desktop-frame .hotspot-clouds .world-label,
-.desktop-frame .hotspot-space .world-label {
+.desktop-frame .hotspot-clouds .world-card,
+.desktop-frame .hotspot-space .world-card {
   bottom: 8%;
 }
 
-.desktop-frame .hotspot-animals .world-label,
-.desktop-frame .hotspot-ocean .world-label {
+.desktop-frame .hotspot-animals .world-card,
+.desktop-frame .hotspot-ocean .world-card {
   bottom: 17%;
 }
 
-.desktop-frame .hotspot-kingdom .world-label,
-.desktop-frame .hotspot-dinosaurs .world-label {
+/*
+  The bottom row, lifted by whatever the cover hides below the frame.
+
+  Only this row: their cards are the only ones near the foot of the painting, and lifting the
+  others by the same amount would push the top row into the band hidden at the other end. Zero
+  when nothing is hidden, which is every screen of the painting's own shape.
+*/
+.desktop-frame .hotspot-kingdom .world-card,
+.desktop-frame .hotspot-dinosaurs .world-card {
   bottom: 14%;
+  margin-bottom: var(--crop-band);
 }
 
 .world-label small {
@@ -770,7 +775,7 @@
 
 .world-label strong {
   color: #fff6db;
-  font-family: Georgia, "Noto Serif Georgian", serif;
+  font-family: var(--font-display);
   font-size: clamp(8px, 0.77vw, 13px);
   font-weight: 600;
   line-height: 1.25;
@@ -782,14 +787,14 @@
 
 .world-node.is-previewed .world-label,
 .world-node.is-selected .world-label,
-.world-hotspot:hover .world-label,
-.world-hotspot:focus-visible .world-label {
+.world-node:hover .world-label,
+.world-node:focus-within .world-label {
   border-color: rgba(255, 235, 180, 0.78);
   background: rgba(28, 15, 66, 0.77);
   box-shadow:
     0 0 25px rgba(255, 196, 65, 0.23),
     inset 0 0 20px rgba(255, 221, 136, 0.08);
-  transform: translateX(-50%) translateY(-2px);
+  transform: translateY(-2px);
 }
 
 .world-node.is-previewed .hotspot-marker,
@@ -816,43 +821,52 @@
   font-weight: 700;
 }
 
+/*
+  Below the island, clear of its label — the same on all six.
+
+  The two lowest islands were lifted to open upwards for a while, because their button reached
+  the foot of the painting. Above the island is worse: it covers the sky the island floats in and
+  reads as a label for whatever is overhead. Six worlds behaving alike is worth more than two
+  worlds avoiding a tight fit, and the fit is handled by the frame instead.
+
+  The button used to be pinned to the bottom of the old oversized box, which put it against the
+  title on three of the six worlds and floating in cloud on the others. It now hangs a fixed
+  distance under the island itself, so it reads the same wherever it appears.
+*/
+/*
+  The button, growing out of the bottom of the name.
+
+  It used to be pinned to the island's box and float in on its own; as a row of the card it
+  arrives where the eye already is, and it cannot land on the edge of the painting because the
+  card is placed by the same rules the name always was.
+*/
 .world-action {
-  position: absolute;
-  left: 50%;
-  z-index: 4;
-  width: max-content;
+  width: 100%;
+  display: grid;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, 7px) scale(0.96);
+  transform: translateY(-6px) scale(0.96);
+  transform-origin: top center;
   transition:
     opacity 220ms ease,
     transform 260ms ease;
 }
 
-.desktop-frame .hotspot-clouds .world-action,
-.desktop-frame .hotspot-space .world-action {
-  bottom: -4%;
-}
-
-.desktop-frame .hotspot-animals .world-action,
-.desktop-frame .hotspot-ocean .world-action {
-  bottom: 5%;
-}
-
-.desktop-frame .hotspot-kingdom .world-action,
-.desktop-frame .hotspot-dinosaurs .world-action {
-  bottom: 2%;
-}
-
 .world-action.is-ready {
   opacity: 1;
   pointer-events: auto;
-  transform: translate(-50%, 0) scale(1);
+  transform: translateY(0) scale(1);
 }
 
 .continue-button {
+  /*
+    As wide as the name above it, so the two read as one card rather than as a pill with a
+    smaller pill loose beneath it.
+  */
+  width: 100%;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: clamp(7px, 0.62vw, 10px) clamp(11px, 1vw, 17px);
   cursor: pointer;
@@ -892,48 +906,21 @@
   stroke-linejoin: round;
   stroke-width: 2;
 }
-
-.interaction-hint {
-  position: absolute;
-  right: 2.7%;
-  bottom: 2.3%;
-  z-index: 8;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 0;
-  color: rgba(255, 244, 216, 0.6);
-  font-size: clamp(6px, 0.52vw, 9px);
-  text-shadow: 0 2px 8px #090621;
-}
-
-.interaction-hint span {
-  width: 12px;
-  height: 17px;
-  border: 1px solid rgba(255, 238, 195, 0.65);
-  border-radius: 7px;
-}
-
-.interaction-hint span::before {
-  display: block;
-  width: 2px;
-  height: 4px;
-  margin: 3px auto 0;
-  border-radius: 2px;
-  background: var(--gold);
-  content: "";
-}
-
 /* Mobile artboard rules stay scoped to the mobile master at every viewport.
    The media query below only decides which complete artboard is visible. */
+/*
+  The portrait frame sets its own top offsets, which means it also has to carry the hidden band —
+  overriding `top` throws away the version that included it, and on a near-square window that
+  band is a couple of hundred pixels.
+*/
 .mobile-frame .brand {
-  top: max(1.25%, env(safe-area-inset-top, 0px));
+  top: calc(var(--crop-band) + max(1.25%, env(safe-area-inset-top, 0px)));
   left: 4%;
   font-size: clamp(15px, 4.2vw, 22px);
 }
 
 .mobile-frame .headline {
-  top: max(1.05%, env(safe-area-inset-top, 0px));
+  top: calc(var(--crop-band) + max(1.05%, env(safe-area-inset-top, 0px)));
   width: 56%;
   padding: 1% 2%;
 }
@@ -952,25 +939,6 @@
 .mobile-frame .headline span {
   display: none;
 }
-
-.mobile-frame .progress-rail {
-  top: max(1.05%, env(safe-area-inset-top, 0px));
-  right: 3%;
-  grid-template-columns: repeat(3, 20px);
-  gap: 1px;
-  padding: 4px 6px;
-}
-
-.mobile-frame .progress-rail::before,
-.mobile-frame .progress-rail b {
-  display: none;
-}
-
-.mobile-frame .progress-rail span {
-  width: clamp(16px, 4vw, 19px);
-  height: clamp(16px, 4vw, 19px);
-}
-
 .mobile-frame .world-label {
   bottom: 3%;
   width: max-content;
@@ -1012,11 +980,6 @@
 .mobile-frame .continue-button svg {
   width: clamp(10px, 2.6vw, 14px);
 }
-
-.mobile-frame .interaction-hint {
-  display: none;
-}
-
 @media (max-width: 899px) and (orientation: portrait), (max-aspect-ratio: 9 / 10) {
   .desktop-stage {
     display: none;
@@ -1045,6 +1008,29 @@
 
   .mobile-frame {
     width: 100%;
+    /*
+      Nothing is hidden above the frame here: this mode pins it to the top and lets the page
+      scroll instead of covering. Anything that offsets itself by the hidden band would be
+      pushing away from an edge that is already visible — on a 360x640 screen that put the back
+      arrow eighty pixels down for no reason.
+    */
+    --crop-band: 0px;
+  }
+}
+
+/*
+  Very short landscape — a phone turned sideways, a window dragged down to a strip.
+
+  The two lowest islands keep their button in the last few percent of the painting, and a few
+  percent of a 380-pixel-tall frame is smaller than the button. Everywhere else the six worlds
+  behave alike, which is worth more than avoiding a tight fit; here the fit is not tight, it is
+  impossible, so these two open upward rather than have no button at all.
+*/
+@media (max-height: 430px) and (orientation: landscape) {
+  .hotspot-kingdom .world-action,
+  .hotspot-dinosaurs .world-action {
+    top: auto;
+    bottom: calc(100% + 10px);
   }
 }
 
