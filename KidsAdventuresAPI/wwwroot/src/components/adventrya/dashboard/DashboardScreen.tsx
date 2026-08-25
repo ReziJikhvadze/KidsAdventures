@@ -29,7 +29,6 @@ import type {
   ShippingAddressRequest,
 } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { readBookIds } from "@/lib/books-read";
 import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { newBookHref } from "@/lib/continue";
 import { formatGel, normalizeGeorgianPhone, useT } from "@/lib/i18n";
@@ -74,10 +73,6 @@ export function DashboardScreen() {
     same handler that exists to catch the ones who changed their mind.
   */
   const signedInHere = useRef(false);
-
-  // Read once: the set only changes when the parent leaves for the reader and comes back, which
-  // remounts this screen anyway.
-  const [readBooks] = useState(() => readBookIds());
 
   useEffect(() => {
     if (authLoading) return;
@@ -458,7 +453,7 @@ export function DashboardScreen() {
                 key={pack.id}
                 pack={pack}
                 heroName={heroName}
-                isRead={readBooks.has(pack.id)}
+                isRead={!!pack.lastReadAt}
                 printOrder={printByBook[pack.id]}
                 onOrderPrint={() => {
                   setEditPrintOrderId(null);

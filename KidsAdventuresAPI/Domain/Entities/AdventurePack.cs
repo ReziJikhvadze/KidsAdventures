@@ -65,5 +65,8 @@ public sealed class AdventurePack
     /// <summary>A printed copy has been paid for, independent of any print order's status.</summary>
     public bool HasPrintEntitlement { get; set; }
 
+    /// <summary>When this book was last opened in the reader, on any device. Null until read.</summary>
+    public DateTime? LastReadAt { get; set; }
+
     public bool IsFullyUnlocked => AccessLevel == BookAccessLevel.Full;
 }

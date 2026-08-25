@@ -10,7 +10,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         PreviewIllustrationUrl, PreviewIllustrationStatus, PreviewIllustrationUpdatedAt,
         StoryPageCount, IsWelcomeGiftStory, CreatedAt,
         SeriesId, SequenceNumber, ContinuesFromBookId, AccessLevel, WorldId,
-        PrimaryCharacterId, Title, CoverImageUrl, HasPrintEntitlement
+        PrimaryCharacterId, Title, CoverImageUrl, HasPrintEntitlement, LastReadAt
         """;
 
     /// <summary>
@@ -29,7 +29,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         PreviewIllustrationUrl, PreviewIllustrationStatus, PreviewIllustrationUpdatedAt,
         StoryPageCount, IsWelcomeGiftStory, CreatedAt,
         SeriesId, SequenceNumber, ContinuesFromBookId, AccessLevel, WorldId,
-        PrimaryCharacterId, Title, CoverImageUrl, HasPrintEntitlement
+        PrimaryCharacterId, Title, CoverImageUrl, HasPrintEntitlement, LastReadAt
         """;
 
     public async Task<Guid> CreatePendingAsync(AdventurePack pack, CancellationToken cancellationToken)
@@ -133,6 +133,23 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
             sql,
             new { Id = id, AccessLevel = accessLevel.ToString() },
             cancellationToken: cancellationToken));
+        return affected > 0;
+    }
+
+    /// <summary>
+    /// Stamps the book as read. Idempotent by intention rather than by guard: re-reading a book
+    /// moves the stamp forward, which is what "last read" means.
+    /// </summary>
+    public async Task<bool> MarkReadAsync(Guid id, Guid userId, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE AdventurePacks
+                           SET LastReadAt = SYSUTCDATETIME()
+                           WHERE Id = @Id AND UserId = @UserId;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        var affected = await connection.ExecuteAsync(new CommandDefinition(
+            sql, new { Id = id, UserId = userId }, cancellationToken: cancellationToken));
         return affected > 0;
     }
 
@@ -428,7 +445,8 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         PrimaryCharacterId = row.PrimaryCharacterId,
         Title = row.Title,
         CoverImageUrl = row.CoverImageUrl,
-        HasPrintEntitlement = row.HasPrintEntitlement
+        HasPrintEntitlement = row.HasPrintEntitlement,
+        LastReadAt = row.LastReadAt
     };
 
     private sealed class AdventurePackRow
@@ -462,5 +480,6 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         public string? Title { get; set; }
         public string? CoverImageUrl { get; set; }
         public bool HasPrintEntitlement { get; set; }
+        public DateTime? LastReadAt { get; set; }
     }
 }

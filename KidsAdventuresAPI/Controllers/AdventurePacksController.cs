@@ -439,6 +439,18 @@ public sealed class AdventurePacksController(
         });
     }
 
+    /// <summary>
+    /// The parent opened this book in the reader. Recorded on the book rather than in the
+    /// browser so a book read on a laptop is not offered as unread on a phone.
+    /// </summary>
+    [HttpPost("{id:guid}/read")]
+    public async Task<IActionResult> MarkRead(Guid id, CancellationToken cancellationToken)
+    {
+        var marked = await adventurePackRepository.MarkReadAsync(
+            id, userContext.GetUserId(), cancellationToken);
+        return marked ? NoContent() : NotFound();
+    }
+
     [HttpPost("{id:guid}/generate-pdf")]
     public async Task<ActionResult<object>> GeneratePdf(Guid id, CancellationToken cancellationToken)
     {
@@ -620,6 +632,7 @@ public sealed class AdventurePacksController(
         target.AccessLevel = x.AccessLevel;
         target.IsUnlocked = x.IsFullyUnlocked;
         target.HasPrintEntitlement = x.HasPrintEntitlement;
+        target.LastReadAt = x.LastReadAt;
         // Served, not linked. CoverImageUrl holds a storage path, and the container is private,
         // so handing it to a browser produces a 404 — Azure hides existence rather than refusing
         // — and the cover silently fails to appear. Exactly the fault already fixed on the teaser

@@ -15,6 +15,9 @@ public interface IAdventurePackRepository
     /// <summary>Opens the whole book. Called on order fulfilment, never from a client request.</summary>
     Task<bool> SetAccessLevelAsync(Guid id, BookAccessLevel accessLevel, CancellationToken cancellationToken);
 
+    /// <summary>Stamps the book as opened in the reader, scoped to its owner.</summary>
+    Task<bool> MarkReadAsync(Guid id, Guid userId, CancellationToken cancellationToken);
+
     Task<bool> SetPrintEntitlementAsync(Guid id, CancellationToken cancellationToken);
 
     Task UpdateBookPresentationAsync(Guid id, string? title, string? coverImageUrl, CancellationToken cancellationToken);
