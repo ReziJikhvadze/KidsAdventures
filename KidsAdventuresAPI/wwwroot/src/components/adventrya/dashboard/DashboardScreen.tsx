@@ -9,7 +9,7 @@ import {
   Sparkles,
   Users,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { AppHeader } from "@/components/adventrya/AppHeader";
 import { StoryPathMap } from "@/components/adventrya/world/StoryPathMap";
@@ -75,6 +75,12 @@ export function DashboardScreen() {
   const [printError, setPrintError] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const navigate = useNavigate();
+  /*
+    Signing in closes the dialog too, and a close is otherwise read as "no thanks, take me back".
+    Without this flag a parent who signed in with Google was returned to the home page by the
+    same handler that exists to catch the ones who changed their mind.
+  */
+  const signedInHere = useRef(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -345,10 +351,13 @@ export function DashboardScreen() {
         <PasswordlessAuthDialog
           open
           onOpenChange={(open) => {
-            /* Closing it leaves the screen rather than revealing an empty one behind it. */
-            if (!open) void navigate({ to: "/" });
+            /* Dismissed, not completed: leave the screen rather than reveal an empty one. */
+            if (!open && !signedInHere.current) void navigate({ to: "/" });
           }}
-          onSuccess={() => setAuthOpen(false)}
+          onSuccess={() => {
+            signedInHere.current = true;
+            setAuthOpen(false);
+          }}
         />
       </div>
     );
