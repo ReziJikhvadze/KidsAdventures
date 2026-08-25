@@ -414,15 +414,6 @@
   color: #8d5733;
   background: #fdf2e2;
 }
-/*
-  A book that has already been read.
-
-  The two free actions are spent; the printed copy is the only thing this card can still
-  offer, so it takes the filled button and the first place in the row. Nothing else moves.
-*/
-.library-print.is-promoted {
-  order: -1;
-}
 .library-error {
   display: block;
   margin-top: 8px;

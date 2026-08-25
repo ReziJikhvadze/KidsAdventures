@@ -618,6 +618,40 @@ function LibraryBookCard({
     }
   };
 
+  const readButton = (
+    <Link
+      className={`library-action ${promotePrint ? "" : "is-primary"}`}
+      to="/reader/$bookId"
+      params={{ bookId: pack.id }}
+    >
+      <BookOpen aria-hidden="true" />
+      {isRead ? t.dashboard.library.readAgain : t.dashboard.library.read}
+    </Link>
+  );
+
+  const pdfButton = (
+    <button
+      className="library-action"
+      type="button"
+      onClick={() => void handlePdf()}
+      disabled={pdfBusy}
+    >
+      <Download aria-hidden="true" />
+      {pdfBusy ? t.dashboard.library.pdfBusy : "PDF"}
+    </button>
+  );
+
+  const printButton = hasPrint ? null : (
+    <button
+      className={`library-action library-print ${promotePrint ? "is-primary" : ""}`}
+      type="button"
+      onClick={onOrderPrint}
+    >
+      <Printer aria-hidden="true" />
+      {t.dashboard.library.orderPrint(formatGel(PRICES.printUpgrade))}
+    </button>
+  );
+
   return (
     <article className="library-book">
       {/* The cover carries the title. Printing it again beside the cover was the one thing
@@ -637,36 +671,16 @@ function LibraryBookCard({
           {isRead ? ` · ${t.dashboard.library.readMark}` : ""}
         </small>
 
+        {/*
+          The promotion moves the button in the markup, not with `order`. Reordering a flex row
+          in CSS leaves the tab sequence in the old order, so a parent using a keyboard would
+          reach these three in an order nobody can see.
+        */}
         <div className="library-actions">
-          <Link
-            className={`library-action ${promotePrint ? "" : "is-primary"}`}
-            to="/reader/$bookId"
-            params={{ bookId: pack.id }}
-          >
-            <BookOpen aria-hidden="true" />
-            {isRead ? t.dashboard.library.readAgain : t.dashboard.library.read}
-          </Link>
-
-          <button
-            className="library-action"
-            type="button"
-            onClick={() => void handlePdf()}
-            disabled={pdfBusy}
-          >
-            <Download aria-hidden="true" />
-            {pdfBusy ? t.dashboard.library.pdfBusy : "PDF"}
-          </button>
-
-          {!hasPrint ? (
-            <button
-              className={`library-action library-print ${promotePrint ? "is-primary is-promoted" : ""}`}
-              type="button"
-              onClick={onOrderPrint}
-            >
-              <Printer aria-hidden="true" />
-              {t.dashboard.library.orderPrint(formatGel(PRICES.printUpgrade))}
-            </button>
-          ) : null}
+          {promotePrint ? printButton : null}
+          {readButton}
+          {pdfButton}
+          {promotePrint ? null : printButton}
         </div>
 
         {pdfError ? (
