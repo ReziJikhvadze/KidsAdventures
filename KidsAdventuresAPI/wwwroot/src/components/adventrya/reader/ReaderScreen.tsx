@@ -9,10 +9,12 @@ import {
   downloadAdventurePack,
   generatePackPdf,
   getAdventurePack,
+  markPackRead,
   pollAdventurePack,
 } from "@/lib/api/adventure-packs";
 import type { AdventurePackDetailResponse } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { rememberReadLocally } from "@/lib/books-read";
 import { useT } from "@/lib/i18n";
 import { useWorldById, isWorldId } from "@/lib/worlds";
 
@@ -43,7 +45,13 @@ export function ReaderScreen() {
 
     void getAdventurePack(bookId)
       .then((detail) => {
-        if (!cancelled) setPack(detail);
+        if (cancelled) return;
+        setPack(detail);
+        // The shelf ranks a read book's actions differently: once the story has been read, the
+        // printed copy is the only thing its card still has to offer. A failed stamp is not
+        // worth interrupting the story for — the next open tries again.
+        rememberReadLocally(bookId);
+        void markPackRead(bookId).catch(() => {});
       })
       .catch((err) => {
         if (cancelled) return;

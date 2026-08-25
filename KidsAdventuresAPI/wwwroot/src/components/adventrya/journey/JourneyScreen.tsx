@@ -135,6 +135,9 @@ export function JourneyScreen() {
   const header = (
     <AppHeader
       backHref={backHref}
+      // The journey's stages share one history entry, so its own step-by-step back target is
+      // the only one that can walk the parent back through the questions they answered.
+      explicitBack
       progressLabel={progressLabelForStage(stage)}
       progressValue={STAGE_PROGRESS[stage]}
     />

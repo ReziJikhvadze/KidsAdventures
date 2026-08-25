@@ -4,6 +4,7 @@ export const common = {
   currencySymbol: "₾",
 
   states: {
+    dashboardFailed: "The dashboard could not be loaded.",
     loading: "Loading…",
     bookFailed: "The book could not be loaded.",
   },
@@ -54,7 +55,8 @@ export const common = {
     createBook: "Create a book ",
     changeLanguage: "Change language",
     georgian: "English",
-    openDashboard: "Open Parent Dashboard",
+    parentSpace: "Parent space",
+    openDashboard: "Open the parent space",
     myFamily: "My family",
   },
 

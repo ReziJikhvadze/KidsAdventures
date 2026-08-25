@@ -34,6 +34,13 @@ public class AdventurePackResponse
     public bool IsUnlocked { get; set; }
 
     public bool HasPrintEntitlement { get; set; }
+
+    /// <summary>
+    /// When this book was last opened in the reader, on any device. Null until it has been read.
+    /// The shelf uses it to decide which of a card's three actions leads.
+    /// </summary>
+    public DateTime? LastReadAt { get; set; }
+
     public string? CoverImageUrl { get; set; }
 
     /// <summary>

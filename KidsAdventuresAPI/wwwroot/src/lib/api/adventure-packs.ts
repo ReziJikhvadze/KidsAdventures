@@ -209,6 +209,14 @@ export async function generatePackPdf(
   });
 }
 
+/**
+ * The parent opened this book. Recorded on the book rather than in this browser, so a book read
+ * on a laptop is not offered as unread on a phone.
+ */
+export async function markPackRead(packId: string): Promise<void> {
+  await apiRequest<void>(`/api/adventure-packs/${packId}/read`, { method: "POST" });
+}
+
 export async function listAdventurePacks(): Promise<AdventurePackResponse[]> {
   return apiRequest<AdventurePackResponse[]>("/api/adventure-packs");
 }

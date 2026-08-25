@@ -164,6 +164,8 @@ export type AdventurePackResponse = {
   title?: string | null;
   coverImageUrl?: string | null;
   hasPrintEntitlement?: boolean;
+  /** When the book was last opened in the reader, on any device. Null until it has been read. */
+  lastReadAt?: string | null;
 };
 
 export type AdventurePackDetailResponse = AdventurePackResponse & {

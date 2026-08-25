@@ -4,6 +4,7 @@ export const common = {
   currencySymbol: "₾",
 
   states: {
+    dashboardFailed: "Dashboard ვერ ჩაიტვირთა.",
     loading: "იტვირთება…",
     bookFailed: "წიგნი ვერ ჩაიტვირთა.",
   },
@@ -54,7 +55,8 @@ export const common = {
     createBook: "შექმენი წიგნი ",
     changeLanguage: "ენის შეცვლა",
     georgian: "ქართული",
-    openDashboard: "Parent Dashboard-ის გახსნა",
+    parentSpace: "მშობლის სივრცე",
+    openDashboard: "მშობლის სივრცის გახსნა",
     myFamily: "ჩემი ოჯახი",
   },
 

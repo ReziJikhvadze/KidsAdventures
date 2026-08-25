@@ -9,13 +9,31 @@ export const dashboard = {
   },
 
   library: {
-    heading: (name: string) => `${name}ს უკვე გახსნილი ისტორიები`,
+    /* The shelf is the page now, so its heading is the page's title: whose books these are,
+       and how many. What stood here described the shelf ("stories opened so far") above a
+       paragraph that described it again. */
+    heading: (name: string) => `${name}ს წიგნები`,
+    bookCount: (count: number) => (count === 1 ? "1 წიგნი" : `${count} წიგნი`),
     openBook: (title: string) => `გახსენი "${title}"`,
-    bookIndex: (index: number) => `წიგნი ${index}`,
-    printOrdered: " ბეჭდური ვერსია შეკვეთილია",
-    orderPrint: "შეუკვეთე ბეჭდური ვერსია · 65 ₾ ",
-    formatDigital: "Digital",
-    formatBoth: "Digital + Printed",
+    otherChild: (name: string) =>
+      `${name}ს ჯერ წიგნი არ აქვს. სხვა ბავშვის წიგნები მარცხენა სიაში მისი პროფილის არჩევით გამოჩნდება.`,
+
+    /* The three things a parent can do with a finished book, in the order the card offers
+       them. "ხელახლა" is short on purpose: at any longer wording the row wraps onto a second
+       line and the card grows taller than its neighbours on the shelf. */
+    read: "წაიკითხე",
+    readAgain: "ხელახლა",
+    readMark: "წაკითხულია",
+    pdfBusy: "მზადდება…",
+    drawing: "წიგნი იხატება…",
+
+    orderPrint: (price: string) => `ბეჭდვა · ${price}`,
+    printEdition: "ბეჭდური ვერსია",
+    /* Said once, in the order panel, instead of on every card down the shelf. */
+    printDetail: (tbilisi: string, regions: string) =>
+      `მაგარყდიანი წიგნი. თბილისში ${tbilisi} დღეში, სხვა რეგიონებში ${regions} დღეში.`,
+    printOrdered: "ბეჭდური გზაშია",
+
     pagingLabel: "წიგნების გვერდები",
     pageOf: (page: number, total: number) => `გვერდი ${page} / ${total}`,
   },
@@ -23,12 +41,10 @@ export const dashboard = {
   empty: {
     title: (name: string) => ` ${name}ს სამყარო ჯერ ცარიელია`,
     lead: "პირველი თავგადასავალი აქედან იწყება",
-    body: (name: string) =>
-      `შექმენი ${name}ს პერსონალიზებული ისტორია. პირველი წიგნი მის სამყაროში პირველ ადგილს, მეგობარსა და მოგონებას გააჩენს.`,
     cta: "შექმენი პირველი თავგადასავალი",
     trust: [
-      " Preview-ს გადახდამდე ნახავ",
-      " მონაცემები 7 დღეში ავტომატურად წაიშლება, თუ შეკვეთას არ დაასრულებ",
+      "გადახდამდე ნახავ, როგორი გამოვა",
+      "მონაცემები 7 დღეში ავტომატურად წაიშლება, თუ შეკვეთას არ დაასრულებ",
     ],
   },
 };

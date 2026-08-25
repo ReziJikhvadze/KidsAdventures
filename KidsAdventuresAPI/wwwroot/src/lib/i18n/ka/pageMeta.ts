@@ -12,7 +12,7 @@ export const pageMeta: Record<string, string> = {
   "/world": "ბავშვის სამყარო",
   "/themes": "აირჩიე სამყარო",
   "/contact": "კონტაქტი",
-  "/dashboard": "Parent Dashboard",
+  "/dashboard": "მშობლის სივრცე",
   "/privacy": "კონფიდენციალურობა",
   "/terms": "წესები და პირობები",
   "/reader": "Online Reader",
