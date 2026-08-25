@@ -15,6 +15,14 @@ export interface AppHeaderProps {
   /** When set, the centre slot shows a step progress bar instead of the nav links. */
   progressLabel?: string;
   progressValue?: number;
+  /**
+   * The back target is a step inside this screen, not a page the parent came from — so it wins
+   * over the browser's history. The creation journey needs this: it replaces its history entry
+   * on every stage, so going back through the browser would leave the whole flow instead of
+   * stepping back one question.
+   */
+  explicitBack?: boolean;
+
   /** Switches the header to its dark, child-facing variant. */
   worldMode?: boolean;
   /** Strip account and brand controls from a child-facing, immersive step. */
@@ -34,6 +42,7 @@ export function AppHeader({
   backHref = "/",
   progressLabel,
   progressValue = 0,
+  explicitBack = false,
   worldMode = false,
   minimal = false,
 }: AppHeaderProps) {
@@ -57,6 +66,7 @@ export function AppHeader({
     // sensible destination, and they are how someone copies the link.
     if (
       !canGoBack ||
+      explicitBack ||
       event.defaultPrevented ||
       event.button !== 0 ||
       event.metaKey ||
