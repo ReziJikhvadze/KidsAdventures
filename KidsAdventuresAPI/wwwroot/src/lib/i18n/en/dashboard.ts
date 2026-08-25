@@ -9,13 +9,24 @@ export const dashboard = {
   },
 
   library: {
-    heading: (name: string) => `${name}'s stories opened so far`,
+    heading: (name: string) => `${name}'s books`,
+    bookCount: (count: number) => (count === 1 ? "1 book" : `${count} books`),
     openBook: (title: string) => `Open "${title}"`,
-    bookIndex: (index: number) => `Book ${index}`,
-    printOrdered: " Printed edition ordered",
-    orderPrint: "Order the printed edition · 65 ₾ ",
-    formatDigital: "Digital",
-    formatBoth: "Digital + Printed",
+    otherChild: (name: string) =>
+      `${name} has no books yet. Another child's books appear when you pick their profile on the left.`,
+
+    read: "Read",
+    readAgain: "Read again",
+    readMark: "read",
+    pdfBusy: "Preparing…",
+    drawing: "The book is being drawn…",
+
+    orderPrint: (price: string) => `Print · ${price}`,
+    printEdition: "Printed edition",
+    printDetail: (tbilisi: string, regions: string) =>
+      `Hardcover. ${tbilisi} days in Tbilisi, ${regions} days elsewhere.`,
+    printOrdered: "Printed copy on its way",
+
     pagingLabel: "Library pages",
     pageOf: (page: number, total: number) => `Page ${page} of ${total}`,
   },
@@ -23,12 +34,10 @@ export const dashboard = {
   empty: {
     title: (name: string) => ` ${name}'s world is still empty`,
     lead: "The first adventure starts here",
-    body: (name: string) =>
-      `Create ${name}'s personalised story. The first book brings a first place, a friend, and a memory into their world.`,
     cta: "Create the first adventure",
     trust: [
-      " You see the preview before paying",
-      " Details are deleted automatically after 7 days if you do not complete the order",
+      "You see the preview before paying",
+      "Details are deleted automatically after 7 days if you do not complete the order",
     ],
   },
 };

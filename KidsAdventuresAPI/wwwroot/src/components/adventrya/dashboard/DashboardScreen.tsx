@@ -3,16 +3,14 @@ import {
   BookOpen,
   Check,
   Download,
-  Home,
   Package,
   Plus,
+  Printer,
   Sparkles,
-  Users,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { AppHeader } from "@/components/adventrya/AppHeader";
-import { StoryPathMap } from "@/components/adventrya/world/StoryPathMap";
 import { PasswordlessAuthDialog } from "@/components/auth/PasswordlessAuthDialog";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -25,19 +23,18 @@ import { listCharacters } from "@/lib/api/characters";
 import { createPrintUpgradeOrder } from "@/lib/api/orders";
 import { listPrintOrders, updatePrintOrderAddress } from "@/lib/api/print-orders";
 import type {
-  AdventureMapResponse,
   AdventurePackResponse,
   CharacterResponse,
   PrintOrderResponse,
   ShippingAddressRequest,
 } from "@/lib/api/types";
-import { getAdventureMap } from "@/lib/api/worlds";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { readBookIds } from "@/lib/books-read";
 import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
-import { continueHrefFromMap, newBookHref } from "@/lib/continue";
+import { newBookHref } from "@/lib/continue";
 import { formatGel, normalizeGeorgianPhone, useT } from "@/lib/i18n";
-import { PRICES } from "@/lib/pricing";
-import { useWorldById, WORLD_COVER_ART, isWorldId, type WorldId } from "@/lib/worlds";
+import { DELIVERY_DAYS, PRICES } from "@/lib/pricing";
+import { useWorldById, WORLD_COVER_ART, isWorldId } from "@/lib/worlds";
 
 /** Books per shelf page. Six fills the grid without a wall of illustrations to load. */
 const LIBRARY_PAGE_SIZE = 6;
@@ -57,15 +54,12 @@ const emptyShipping = (): ShippingAddressRequest => ({
 });
 
 export function DashboardScreen() {
-  const WORLD_BY_ID = useWorldById();
   const t = useT();
-  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [characters, setCharacters] = useState<CharacterResponse[]>([]);
   const [characterId, setCharacterId] = useState<string | null>(null);
-  const [map, setMap] = useState<AdventureMapResponse | null>(null);
   const [packs, setPacks] = useState<AdventurePackResponse[]>([]);
   const [printOrders, setPrintOrders] = useState<PrintOrderResponse[]>([]);
-  const [activeWorldId, setActiveWorldId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [printBookId, setPrintBookId] = useState<string | null>(null);
@@ -73,7 +67,6 @@ export function DashboardScreen() {
   const [shipping, setShipping] = useState<ShippingAddressRequest>(emptyShipping);
   const [printBusy, setPrintBusy] = useState(false);
   const [printError, setPrintError] = useState<string | null>(null);
-  const [authOpen, setAuthOpen] = useState(false);
   const navigate = useNavigate();
   /*
     Signing in closes the dialog too, and a close is otherwise read as "no thanks, take me back".
@@ -82,11 +75,13 @@ export function DashboardScreen() {
   */
   const signedInHere = useRef(false);
 
+  // Read once: the set only changes when the parent leaves for the reader and comes back, which
+  // remounts this screen anyway.
+  const [readBooks] = useState(() => readBookIds());
+
   useEffect(() => {
     if (authLoading) return;
-    // Signed out there is nothing to load and nothing to open: the preview below renders from
-    // constants, and the auth dialog is now something a parent asks for rather than something
-    // that lands on them.
+    // Signed out there is nothing to load and nothing to open: the sign-in dialog is the screen.
     if (!isAuthenticated) {
       setLoading(false);
       return;
@@ -117,7 +112,7 @@ export function DashboardScreen() {
         setCharacterId(primary?.id ?? null);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Dashboard ვერ ჩაიტვირთა.");
+          setError(err instanceof ApiError ? err.message : t.common.states.dashboardFailed);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -127,11 +122,11 @@ export function DashboardScreen() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, isAuthenticated]);
+  }, [authLoading, isAuthenticated, t]);
 
   // A book still being drawn becomes ready without the parent refreshing: while any pack is
-  // mid-generation the shelf re-asks for the list, and that card's loader turns into the
-  // Reader and PDF buttons the moment the pipeline completes.
+  // mid-generation the shelf re-asks for the list, and the card at the top of the page turns
+  // into a book on the shelf the moment the pipeline completes.
   useEffect(() => {
     if (!isAuthenticated) return;
     if (!packs.some((p) => isPackGenerating(p.status))) return;
@@ -145,34 +140,8 @@ export function DashboardScreen() {
     return () => window.clearInterval(timer);
   }, [packs, isAuthenticated]);
 
-  useEffect(() => {
-    if (!characterId || !isAuthenticated) {
-      setMap(null);
-      return;
-    }
-    let cancelled = false;
-    void getAdventureMap(characterId)
-      .then((response) => {
-        if (cancelled) return;
-        setMap(response);
-        const next =
-          response.nextWorldId ||
-          response.worlds.find((w) => w.state === "Next")?.worldId ||
-          response.worlds.find((w) => w.state === "Completed")?.worldId ||
-          response.worlds[0]?.worldId ||
-          null;
-        setActiveWorldId(next);
-      })
-      .catch(() => {
-        if (!cancelled) setMap(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [characterId, isAuthenticated]);
-
   const character = characters.find((c) => c.id === characterId) ?? null;
-  const heroName = map?.characterName || character?.name || t.common.fallbackHeroName;
+  const heroName = character?.name || t.common.fallbackHeroName;
   const childPacks = useMemo(
     () =>
       packs
@@ -184,21 +153,34 @@ export function DashboardScreen() {
         ),
     [packs, characterId],
   );
-  const hasStories = childPacks.length > 0 || (map?.completedCount ?? 0) > 0;
+
+  /*
+    A book being drawn is not on the shelf yet.
+
+    It has no cover to open, no PDF to download and nothing to print, so it appears once — as
+    the card at the top of the page, which is the only thing here that changes while a parent
+    watches it — and joins the shelf as an ordinary book when the pipeline finishes.
+  */
+  const drawing = useMemo(() => childPacks.filter((p) => isPackGenerating(p.status)), [childPacks]);
+  const shelfPacks = useMemo(
+    () => childPacks.filter((p) => !isPackGenerating(p.status)),
+    [childPacks],
+  );
+  const hasStories = childPacks.length > 0;
 
   // The shelf is paged rather than infinite: a family buying a book a month has a wall
   // of covers by the second year, and every one of them loads an illustration.
   const [libraryPage, setLibraryPage] = useState(1);
-  const pageCount = Math.max(1, Math.ceil(childPacks.length / LIBRARY_PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(shelfPacks.length / LIBRARY_PAGE_SIZE));
   const visiblePacks = useMemo(
-    () => childPacks.slice((libraryPage - 1) * LIBRARY_PAGE_SIZE, libraryPage * LIBRARY_PAGE_SIZE),
-    [childPacks, libraryPage],
+    () => shelfPacks.slice((libraryPage - 1) * LIBRARY_PAGE_SIZE, libraryPage * LIBRARY_PAGE_SIZE),
+    [shelfPacks, libraryPage],
   );
 
   // Switching child leaves the old page number behind, which can land past the end.
   useEffect(() => {
     setLibraryPage(1);
-  }, [childPacks.length]);
+  }, [shelfPacks.length]);
 
   const [childPage, setChildPage] = useState(1);
   const childPageCount = Math.max(1, Math.ceil(characters.length / SIDEBAR_PAGE_SIZE));
@@ -206,30 +188,15 @@ export function DashboardScreen() {
     () => characters.slice((childPage - 1) * SIDEBAR_PAGE_SIZE, childPage * SIDEBAR_PAGE_SIZE),
     [characters, childPage],
   );
-  const activeNode = map?.worlds.find((w) => w.worldId === activeWorldId);
-  const worldId = (
-    activeWorldId && isWorldId(activeWorldId) ? activeWorldId : "dinosaurs"
-  ) as WorldId;
-  const world = WORLD_BY_ID[worldId];
 
   /*
-    Two actions, not one.
+    One creation action, and it starts something new.
 
     A single href used to serve "create a new book", the empty state and the map's call to
     action, and it resolved to a continuation for any family that already had books — which
-    lands on the preview stage and starts a billed generation on sight. Starting a book and
-    carrying one on are different things and now say so: `newHref` opens the world picker,
-    `continueHref` picks up where the last book left off.
+    lands on the preview stage and starts a billed generation on sight.
   */
   const newHref = useMemo(() => newBookHref(characterId), [characterId]);
-
-  const continueHref = useMemo(
-    () => (characterId ? continueHrefFromMap(map?.continuation, characterId, worldId) : null),
-    [characterId, map, worldId],
-  );
-
-  // A continuation only exists once there is a finished book to continue from.
-  const canContinue = Boolean(continueHref && hasStories && !map?.isFirstJourney);
 
   const hrefParts = useCallback((href: string) => {
     const [pathAndQuery, hash] = href.split("#");
@@ -244,10 +211,6 @@ export function DashboardScreen() {
   }, []);
 
   const newParts = useMemo(() => hrefParts(newHref), [hrefParts, newHref]);
-  const continueParts = useMemo(
-    () => (continueHref ? hrefParts(continueHref) : null),
-    [hrefParts, continueHref],
-  );
 
   const printByBook = useMemo(() => {
     const dict: Record<string, PrintOrderResponse> = {};
@@ -356,7 +319,6 @@ export function DashboardScreen() {
           }}
           onSuccess={() => {
             signedInHere.current = true;
-            setAuthOpen(false);
           }}
         />
       </div>
@@ -364,21 +326,18 @@ export function DashboardScreen() {
   }
 
   return (
-    <div className={`screen dashboard-shell ${hasStories ? "dashboard-shell-story-map" : ""}`}>
+    <div className="screen dashboard-shell">
       <div className="dashboard-sky" aria-hidden="true" />
       <div className="grain" aria-hidden="true" />
 
-      <AppHeader backHref="/" worldMode={hasStories} />
+      <AppHeader backHref="/" />
 
+      {/*
+        The sidebar answers one question — whose shelf am I looking at — and holds the two ways
+        to make something new, pinned to its foot so the column reads as two groups rather than
+        stopping halfway down the screen.
+      */}
       <aside className="dashboard-sidebar">
-        <div className="parent-label">
-          <Users aria-hidden="true" />
-          <span>
-            <small>Parent Dashboard</small>
-            {user?.displayName?.trim() || t.common.nav.myFamily}
-          </span>
-        </div>
-
         <p className="sidebar-title">{t.dashboard.sidebar.parentLabel}</p>
 
         {visibleChildren.map((c) => (
@@ -423,50 +382,41 @@ export function DashboardScreen() {
           </nav>
         ) : null}
 
-        {/* A new book for the child already selected — the common case, and previously
-            only reachable from the main panel. */}
-        {characterId ? (
+        <div className="sidebar-foot">
+          {/* A new book for the child already selected — the common case. */}
+          {characterId ? (
+            <Link
+              className="sidebar-new-book"
+              to={newParts.to}
+              search={newParts.search}
+              hash={newParts.hash}
+            >
+              <Sparkles aria-hidden="true" />
+              {t.dashboard.sidebar.newBook}
+            </Link>
+          ) : null}
+
+          {/* Adding a child is a different intention, and must begin genuinely blank. */}
           <Link
-            className="sidebar-new-book"
-            to={newParts.to}
-            search={newParts.search}
-            hash={newParts.hash}
+            className="add-child"
+            to="/create"
+            search={{ new: "1" }}
+            hash="profile"
+            aria-label={t.dashboard.sidebar.addChild}
           >
-            <Sparkles aria-hidden="true" />
-            {t.dashboard.sidebar.newBook}
+            <Plus aria-hidden="true" />
+            <span>{t.dashboard.sidebar.addChild}</span>
           </Link>
-        ) : null}
-
-        {/* Adding a child is a different intention, and must begin genuinely blank. */}
-        <Link className="add-child" to="/create" search={{ new: "1" }} hash="profile">
-          <Plus aria-hidden="true" />
-          {t.dashboard.sidebar.addChild}
-        </Link>
-
-        {/*
-          The sidebar's nav and its privacy footnote are gone.
-
-          One of the three links was a button that did not navigate and was permanently "active",
-          one repeated the header's home link, and the third repeated the child's world. The
-          privacy line was pinned to the bottom of a column that does not scroll, so a family
-          with several children pushed it under their own names.
-        */}
+        </div>
       </aside>
 
       {!hasStories ? (
         <section className="dashboard-main empty-dashboard">
-          <div className="empty-world-book">
-            <div className="empty-book-art" />
-            <span className="empty-path" />
-            <span className="empty-star star-one" />
-            <span className="empty-star star-two" />
-          </div>
           <div className="empty-copy">
             <p className="eyebrow">
               <Sparkles aria-hidden="true" /> {t.dashboard.empty.title(heroName)}
             </p>
             <h1>{t.dashboard.empty.lead}</h1>
-            <p>{t.dashboard.empty.body(heroName)}</p>
             <Link
               className="button button-primary"
               to={newParts.to}
@@ -476,121 +426,39 @@ export function DashboardScreen() {
               {t.dashboard.empty.cta}
               <ArrowRight aria-hidden="true" />
             </Link>
-            <div className="empty-trust">
-              {t.dashboard.empty.trust.map((line) => (
-                <span key={line}>
-                  <Check aria-hidden="true" /> {line}
-                </span>
-              ))}
-            </div>
+            {/* One line, not a paragraph and two footnotes: the first book says the rest. */}
+            <p className="empty-note">
+              <Check aria-hidden="true" /> {t.dashboard.empty.trust[0]}
+            </p>
+          </div>
+
+          <div className="empty-book-preview" aria-hidden="true">
+            <span style={{ backgroundImage: `url("${WORLD_COVER_ART.magic}")` }} />
           </div>
         </section>
       ) : (
-        <section className="dashboard-main map-first-dashboard">
-          <div className="map-dashboard-heading">
-            <div>
-              <p className="eyebrow">
-                <Sparkles aria-hidden="true" /> {t.story.world.welcomeBack.trim()}
-              </p>
-              <h1>
-                {heroName}
-                {t.story.world.titleSuffix}
-              </h1>
-              <p>{t.story.map.lead}</p>
-            </div>
-            <div className="map-dashboard-summary">
-              {/* A button, because the number answered "how many" while the question a parent
-                  actually arrives with is "where" — the shelf sits below the map, and nothing
-                  above the fold said so. */}
-              <button
-                type="button"
-                className="map-summary-books"
-                onClick={() =>
-                  document
-                    .getElementById("dashboard-library")
-                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
-                }
-              >
-                <strong>{map?.completedCount ?? childPacks.length}</strong>
-                {t.story.world.statBook}
-              </button>
-              <span>
-                <strong>{map?.completedCount ?? 0}</strong>
-                {t.story.world.statMemory}
-              </span>
-              <span>
-                <strong>{map?.totalWorlds ?? 6}</strong>
-                {t.story.world.statWorld}
-              </span>
-            </div>
+        <section className="dashboard-main dashboard-shelf">
+          {drawing.map((pack) => (
+            <DrawingBookCard key={pack.id} pack={pack} heroName={heroName} />
+          ))}
+
+          <div className="dashboard-section-heading" id="dashboard-library">
+            <h2>{t.dashboard.library.heading(heroName)}</h2>
+            <span>{t.dashboard.library.bookCount(shelfPacks.length)}</span>
           </div>
 
-          <div className="dashboard-map-frame">
-            {map ? (
-              <StoryPathMap
-                map={map}
-                activeWorldId={activeWorldId}
-                onSelect={setActiveWorldId}
-                compact
-              />
-            ) : null}
-
-            <div className="dashboard-map-action">
-              <div>
-                <small>{world.chapter}</small>
-                <strong>{activeNode?.bookTitle || world.mapTitle}</strong>
-                <p>
-                  {activeNode?.state === "Completed"
-                    ? t.story.world.explanation
-                    : activeNode?.state === "Next" || activeNode?.state === "Unlocked"
-                      ? t.story.world.readyNote
-                      : t.story.world.lockedNote}
-                </p>
-              </div>
-              {/*
-                The map's own action is a continuation — the next chapter of the adventure this
-                map is showing. It falls back to the world picker only when there is nothing yet
-                to continue from, which is also the only case where the label reads as a start.
-              */}
-              <Link
-                className="button button-primary"
-                to={canContinue && continueParts ? continueParts.to : newParts.to}
-                search={canContinue && continueParts ? continueParts.search : newParts.search}
-                hash={canContinue && continueParts ? continueParts.hash : newParts.hash}
-              >
-                {activeNode?.state === "Completed"
-                  ? t.story.world.continueFromMemory
-                  : t.story.world.unlockNext}
-                <ArrowRight aria-hidden="true" />
-              </Link>
-            </div>
-          </div>
-
-          <div className="dashboard-section-heading map-library-heading" id="dashboard-library">
-            <div>
-              <h2>{t.dashboard.library.heading(heroName)}</h2>
-              <p>{t.story.world.archiveNote}</p>
-            </div>
-            <Link to="/world">{t.common.actions.seeAll}</Link>
-          </div>
-
-          {visiblePacks.length === 0 ? (
+          {visiblePacks.length === 0 && drawing.length === 0 ? (
             // Silence here read as a bug: books existed, just under another child's name.
-            // Say whose shelf this is and where the books actually are.
-            <p className="map-library-empty">
-              {heroName}-ს ჯერ წიგნი არ აქვს. სხვა ბავშვის წიგნები მარცხენა სიაში მისი პროფილის
-              არჩევით გამოჩნდება.
-            </p>
+            <p className="shelf-other-child">{t.dashboard.library.otherChild(heroName)}</p>
           ) : null}
 
           <div className="book-library">
-            {visiblePacks.map((pack, index) => (
+            {visiblePacks.map((pack) => (
               <LibraryBookCard
                 key={pack.id}
                 pack={pack}
-                // Continuous across pages: book 7 stays book 7 on page two.
-                index={(libraryPage - 1) * LIBRARY_PAGE_SIZE + index + 1}
                 heroName={heroName}
+                isRead={readBooks.has(pack.id)}
                 printOrder={printByBook[pack.id]}
                 onOrderPrint={() => {
                   setEditPrintOrderId(null);
@@ -639,16 +507,8 @@ export function DashboardScreen() {
             />
           ) : null}
 
-          {error ? (
-            <p className="eyebrow" style={{ marginTop: 16, color: "#f1c970" }}>
-              {error}
-            </p>
-          ) : null}
-          {loading ? (
-            <p className="eyebrow" style={{ marginTop: 16, color: "#f8f2e5a8" }}>
-              იტვირთება…
-            </p>
-          ) : null}
+          {error ? <p className="dashboard-note is-error">{error}</p> : null}
+          {loading ? <p className="dashboard-note">{t.common.states.loading}</p> : null}
         </section>
       )}
     </div>
@@ -664,18 +524,53 @@ function isPackGenerating(status: AdventurePackResponse["status"]): boolean {
   return status === "Pending" || status === "Generating" || status === "GeneratingStory";
 }
 
+/**
+ * The book being drawn right now — the one thing on this page that changes while the parent
+ * is looking at it, so it sits above everything that does not.
+ */
+function DrawingBookCard({ pack, heroName }: { pack: AdventurePackResponse; heroName: string }) {
+  const WORLD_BY_ID = useWorldById();
+  const t = useT();
+  const worldId = pack.worldId && isWorldId(pack.worldId) ? pack.worldId : "dinosaurs";
+  const world = WORLD_BY_ID[worldId];
+  const cover = useIllustrationUrl(pack.coverImageUrl) ?? WORLD_COVER_ART[worldId];
+  const title = pack.title?.trim() || world.bookTitle(heroName);
+  const percent = typeof pack.progressPercent === "number" ? pack.progressPercent : null;
+
+  return (
+    <article className="dashboard-drawing" role="status" aria-live="polite">
+      <span
+        className="dashboard-drawing-cover"
+        style={{ backgroundImage: `url("${cover}")` }}
+        aria-hidden="true"
+      />
+      <div>
+        <p>
+          <i aria-hidden="true" />
+          {title}
+        </p>
+        <small>{pack.progressMessage || t.dashboard.library.drawing}</small>
+        <div className="dashboard-drawing-bar">
+          <span style={{ width: `${percent ?? 0}%` }} />
+        </div>
+      </div>
+      {percent !== null ? <strong>{percent}%</strong> : null}
+    </article>
+  );
+}
+
 function LibraryBookCard({
   pack,
-  index,
   heroName,
+  isRead,
   printOrder,
   onOrderPrint,
   onEditPrintAddress,
 }: {
   pack: AdventurePackResponse;
-  index: number;
   /** The child this shelf belongs to, so an untitled book still carries their name. */
   heroName: string;
+  isRead: boolean;
   printOrder?: PrintOrderResponse;
   onOrderPrint: () => void;
   onEditPrintAddress: (order: PrintOrderResponse) => void;
@@ -691,7 +586,13 @@ function LibraryBookCard({
   // filtered to one child, so it can name them instead of describing them.
   const title = pack.title?.trim() || world.bookTitle(heroName);
   const hasPrint = pack.hasPrintEntitlement || !!printOrder;
-  const format = hasPrint ? t.dashboard.library.formatBoth : t.dashboard.library.formatDigital;
+
+  /*
+    Read, download, print: the same three actions in the same order on every card. Once the
+    story has been read the two free ones are spent and the printed copy is the only thing the
+    card can still offer, so it takes the filled button and the first place in the row.
+  */
+  const promotePrint = isRead && !hasPrint;
 
   // This button could only download a PDF, never ask for one, so a finished book whose PDF was
   // never built showed a permanently disabled button and no reason why. Build it on demand.
@@ -719,6 +620,8 @@ function LibraryBookCard({
 
   return (
     <article className="library-book">
+      {/* The cover carries the title. Printing it again beside the cover was the one thing
+          every card on this shelf said twice. */}
       <Link
         to="/reader/$bookId"
         params={{ bookId: pack.id }}
@@ -726,59 +629,66 @@ function LibraryBookCard({
         style={{ backgroundImage: `url("${cover}")`, backgroundSize: "cover" }}
         aria-label={t.dashboard.library.openBook(title)}
       >
-        <span>{t.dashboard.library.bookIndex(index)}</span>
         <strong>{title}</strong>
       </Link>
       <div>
         <small>
-          {world.theme} · {format}
+          {world.theme}
+          {isRead ? ` · ${t.dashboard.library.readMark}` : ""}
         </small>
-        <h3>{title}</h3>
-        {isPackGenerating(pack.status) ? (
-          // No Reader link and no PDF button for a book that does not exist yet — a download
-          // control on a half-drawn book reads as broken. The loader narrates the pipeline's
-          // own progress message and the card flips to the real buttons when it completes.
-          <div className="library-generating" role="status">
-            <i aria-hidden="true" />
-            <span>
-              {pack.progressMessage || "წიგნი იხატება…"}
-              {typeof pack.progressPercent === "number" ? ` · ${pack.progressPercent}%` : ""}
-            </span>
-          </div>
-        ) : (
-          <>
-            <div>
-              <Link to="/reader/$bookId" params={{ bookId: pack.id }}>
-                Online Reader
-              </Link>
-              <button type="button" onClick={() => void handlePdf()} disabled={pdfBusy}>
-                <Download aria-hidden="true" /> {pdfBusy ? "მზადდება…" : "PDF"}
-              </button>
-            </div>
-            {pdfError ? <small role="alert">{pdfError}</small> : null}
-          </>
-        )}
-        {hasPrint ? (
-          <div className="library-print-status">
-            <Package aria-hidden="true" />
-            {printOrder?.statusLabel || t.dashboard.library.printOrdered}
-            {printOrder?.canEditAddress ? (
-              <button
-                type="button"
-                className="button button-quiet"
-                style={{ marginLeft: 8 }}
-                onClick={() => onEditPrintAddress(printOrder)}
-              >
-                მისამართის შეცვლა
-              </button>
-            ) : null}
-          </div>
-        ) : (
-          <button className="library-print-upgrade" type="button" onClick={onOrderPrint}>
-            {t.dashboard.library.orderPrint}
-            <ArrowRight aria-hidden="true" />
+
+        <div className="library-actions">
+          <Link
+            className={`library-action ${promotePrint ? "" : "is-primary"}`}
+            to="/reader/$bookId"
+            params={{ bookId: pack.id }}
+          >
+            <BookOpen aria-hidden="true" />
+            {isRead ? t.dashboard.library.readAgain : t.dashboard.library.read}
+          </Link>
+
+          <button
+            className="library-action"
+            type="button"
+            onClick={() => void handlePdf()}
+            disabled={pdfBusy}
+          >
+            <Download aria-hidden="true" />
+            {pdfBusy ? t.dashboard.library.pdfBusy : "PDF"}
           </button>
-        )}
+
+          {!hasPrint ? (
+            <button
+              className={`library-action library-print ${promotePrint ? "is-primary is-promoted" : ""}`}
+              type="button"
+              onClick={onOrderPrint}
+            >
+              <Printer aria-hidden="true" />
+              {t.dashboard.library.orderPrint(formatGel(PRICES.printUpgrade))}
+            </button>
+          ) : null}
+        </div>
+
+        {pdfError ? (
+          <small className="library-error" role="alert">
+            {pdfError}
+          </small>
+        ) : null}
+
+        {hasPrint ? (
+          <p className="library-print-status">
+            <Package aria-hidden="true" />
+            <strong>{printOrder?.statusLabel || t.dashboard.library.printOrdered}</strong>
+            {printOrder?.canEditAddress ? (
+              <>
+                {" · "}
+                <button type="button" onClick={() => onEditPrintAddress(printOrder)}>
+                  {t.common.actions.change}
+                </button>
+              </>
+            ) : null}
+          </p>
+        ) : null}
       </div>
     </article>
   );
@@ -805,7 +715,7 @@ function PrintUpgradePanel({
   const heading =
     mode === "edit"
       ? "მიწოდების მისამართის განახლება"
-      : `${t.dashboard.library.orderPrint} · ${formatGel(PRICES.printUpgrade)}`;
+      : `${t.dashboard.library.printEdition} · ${formatGel(PRICES.printUpgrade)}`;
   const submitLabel =
     mode === "edit"
       ? busy
@@ -823,6 +733,10 @@ function PrintUpgradePanel({
     >
       <p className="eyebrow">
         <Package aria-hidden="true" /> {heading}
+      </p>
+      {/* What arrives and when, said once — instead of on every card down the shelf. */}
+      <p className="print-panel-note">
+        {t.dashboard.library.printDetail(DELIVERY_DAYS.tbilisi, DELIVERY_DAYS.regions)}
       </p>
       <fieldset className="choice-fieldset">
         <legend>{t.journey.checkout.shippingAddress}</legend>

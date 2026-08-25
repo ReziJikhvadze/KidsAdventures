@@ -5,7 +5,7 @@ export const pageMeta: Record<string, string> = {
   "/world": "Your child's world",
   "/themes": "Choose a world",
   "/contact": "Contact",
-  "/dashboard": "Parent Dashboard",
+  "/dashboard": "Parent space",
   "/privacy": "Privacy",
   "/terms": "Terms and conditions",
   "/reader": "Online Reader",

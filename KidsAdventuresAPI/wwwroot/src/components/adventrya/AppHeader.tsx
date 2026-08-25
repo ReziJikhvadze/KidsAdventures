@@ -38,7 +38,7 @@ export function AppHeader({
   const back = splitHref(backHref);
 
   /*
-    This pill says "Parent Dashboard" and opens the parent's account, so it wears the parent's
+    This pill opens the parent's account, so it wears the parent's
     initial. It wore the child's — and on the world picker, where no child has been entered
     yet, that was the first letter of the placeholder name "პატარა გმირი": a "პ" that belonged
     to nobody. Falls back to the brand letter while signed out, when there is no one to name.
@@ -106,7 +106,7 @@ export function AppHeader({
               {parentInitial}
             </span>
             <span>
-              <small>Parent Dashboard</small>
+              <small>{t.common.nav.parentSpace}</small>
               {t.common.nav.myFamily}
             </span>
             <ChevronRight />

@@ -23,42 +23,23 @@
   bottom: 0;
   left: 0;
   width: 22.5%;
-  padding: 30px 24px 24px clamp(36px, 4vw, 62px);
+  display: flex;
+  flex-direction: column;
+  padding: 30px 24px 30px clamp(36px, 4vw, 62px);
   color: #fff8eb;
   background:
     radial-gradient(circle at 30% 10%, rgba(117, 100, 181, 0.2), transparent 30%), var(--twilight);
 }
-.parent-label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.parent-label > svg {
-  width: 18px;
-  color: var(--story-gold);
-}
-.parent-label > span {
-  display: flex;
-  flex-direction: column;
-  font-family: var(--font-display);
-  font-size: 14px;
-}
-.parent-label small {
-  margin-bottom: 2px;
-  color: #f8f2e570;
-  font-family: var(--font-body);
-  font-size: 11px;
-}
 .sidebar-title {
-  margin: 31px 0 10px;
+  margin: 0 0 10px;
   color: #f8f2e57a;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
 }
 .child-switch-card {
   width: 100%;
   display: grid;
-  grid-template-columns: 35px 1fr 15px;
+  grid-template-columns: 38px 1fr 15px;
   align-items: center;
   gap: 10px;
   margin-top: 8px;
@@ -79,12 +60,12 @@
   flex-direction: column;
 }
 .child-switch-card strong {
-  font-size: 12px;
+  font-size: 13px;
 }
 .child-switch-card small {
   margin-top: 2px;
   color: #f8f2e56b;
-  font-size: 11px;
+  font-size: 12px;
 }
 .child-switch-card > svg {
   width: 13px;
@@ -94,15 +75,6 @@
   background:
     radial-gradient(circle at 38% 32%, #fbe6d6 0 16%, transparent 17%),
     linear-gradient(145deg, #cda2bd, #8e668d);
-}
-.add-child {
-  margin-top: 12px;
-  padding: 0;
-  border: 0;
-  cursor: pointer;
-  color: #f8f2e580;
-  background: transparent;
-  font-size: 11px;
 }
 /*
   The dashboard does not scroll inside itself.
@@ -120,7 +92,13 @@
 */
 .dashboard-main {
   position: relative;
-  margin: 96px 0 0 22.5%;
+  /*
+    No top margin. The 96px here dated from when this pane was absolutely positioned against
+    the shell and had to clear the header itself; in flow, under a header that is already 96px
+    of the page, it clears it twice and opened a band of empty cream above the shelf as wide as
+    the header. The left margin still stands the pane beside the sidebar column.
+  */
+  margin: 0 0 0 22.5%;
   padding: 29px clamp(38px, 4vw, 62px);
   overflow: visible;
 }
@@ -165,15 +143,12 @@
   border-radius: 24px 24px 45px;
   box-shadow: 0 22px 55px #271d442e;
 }
-.world-window-art,
-.empty-book-art {
+.world-window-art {
   position: absolute;
   inset: 0;
   background-image: url("/adventrya/world-selector/world-map-desktop-master.webp");
-  background-size: cover;
-}
-.world-window-art {
   background-position: 52% 54%;
+  background-size: cover;
   transform: scale(1.02);
 }
 .world-window-shade {
@@ -235,29 +210,111 @@
   color: var(--story-gold);
   font-size: 14px;
 }
+/* The shelf is the page, so its heading is the page's title: whose books, and how many. */
 .dashboard-section-heading {
   display: flex;
-  align-items: flex-end;
+  align-items: baseline;
   justify-content: space-between;
-  margin-top: 24px;
+  gap: 16px;
+  margin-top: 4px;
 }
 .dashboard-section-heading h2 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 16px;
+  font-size: clamp(20px, 1.7vw, 24px);
+  font-weight: 600;
 }
-.dashboard-section-heading p {
-  margin: 3px 0 0;
+.dashboard-section-heading > span {
   color: #29233a6b;
-  font-size: 11px;
+  font-size: 12px;
+  white-space: nowrap;
 }
-.dashboard-section-heading button {
-  border: 0;
-  cursor: pointer;
-  color: var(--deep-violet);
-  background: transparent;
-  font-size: 11px;
-  font-weight: 700;
+.shelf-other-child {
+  margin: 8px 0 0;
+  color: #29233a91;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/*
+  The book being drawn right now.
+
+  It is the only thing on this page that changes while a parent watches it, so it sits above
+  everything that does not — and it appears here instead of on the shelf, because a book with
+  no pages yet has nothing to open, download or print.
+*/
+.dashboard-drawing {
+  display: grid;
+  grid-template-columns: 92px 1fr auto;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 24px;
+  padding: 16px 18px;
+  border: 1px solid #e8c98a66;
+  border-radius: 20px;
+  background: linear-gradient(120deg, #fffaf0, #fdf3e2);
+  box-shadow: 0 16px 36px #2c21481a;
+}
+.dashboard-drawing-cover {
+  height: 116px;
+  border-radius: 9px 13px 13px 9px;
+  background-position: center;
+  background-size: cover;
+  box-shadow: -4px 6px #6c4b4a;
+}
+.dashboard-drawing > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.dashboard-drawing p {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+}
+.dashboard-drawing p i {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #e2a65340;
+  border-top-color: #d99a3f;
+  border-radius: 50%;
+  animation: library-generating-spin 0.9s linear infinite;
+}
+.dashboard-drawing small {
+  color: #29233a9c;
+  font-size: 13px;
+}
+.dashboard-drawing-bar {
+  height: 6px;
+  border-radius: 99px;
+  background: #3b2a6717;
+}
+.dashboard-drawing-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #efb65f, #e8c98a);
+  transition: width 0.4s ease;
+}
+.dashboard-drawing > strong {
+  color: #b8862f;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+}
+.dashboard-note {
+  margin-top: 16px;
+  color: #29233a8f;
+  font-size: 13px;
+}
+.dashboard-note.is-error {
+  color: #a5462f;
 }
 .book-library {
   display: grid;
@@ -267,7 +324,7 @@
 }
 .library-book {
   display: grid;
-  grid-template-columns: 104px 1fr;
+  grid-template-columns: 112px 1fr;
   gap: 14px;
   padding: 12px;
   border: 1px solid rgba(59, 42, 103, 0.1);
@@ -276,7 +333,7 @@
   box-shadow: 0 12px 28px #2c21480f;
 }
 .library-cover {
-  min-height: 132px;
+  min-height: 142px;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -292,14 +349,9 @@
 .cover-space {
   background-position: 51% 15%;
 }
-.library-cover span {
-  color: var(--story-gold);
-  font-size: 11px;
-}
 .library-cover strong {
-  margin-top: 4px;
   font-family: var(--font-display);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.3;
   text-shadow: 0 2px 7px #000;
 }
@@ -310,36 +362,97 @@
 }
 .library-book small {
   color: #29233a6b;
-  font-size: 11px;
+  font-size: 12px;
 }
-.library-book h3 {
-  margin: 6px 0 15px;
-  font-family: var(--font-display);
-  font-size: 13px;
-  line-height: 1.3;
-}
-.library-book > div:last-child > div {
+
+/*
+  Read, download, print — one row, one order, on every card.
+
+  What stood here was a bare text link reading "Online Reader", a button, and, below a rule, a
+  two-line offer repeating the price and the delivery time on every book down the shelf. The
+  offer's details moved into the order panel, where a parent reads them once, at the moment
+  they are buying.
+*/
+.library-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 7px;
+  margin-top: 12px;
 }
-/* A book the pipeline is still drawing: the card narrates progress instead of offering a
-   Reader link and a PDF button for pages that do not exist yet. */
-.library-generating {
+.library-action {
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 13px;
+  border: 1px solid rgba(59, 42, 103, 0.13);
+  border-radius: 10px;
+  cursor: pointer;
+  color: var(--deep-violet);
+  background: #ffffff85;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.library-action svg {
+  width: 12px;
+}
+.library-action:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.library-action.is-primary {
+  border-color: transparent;
+  color: #25183f;
+  background: linear-gradient(135deg, #f2d38e, #efb65f);
+  box-shadow: 0 8px 18px #e2a65333;
+}
+.library-print {
+  border-color: #b5755259;
+  color: #8d5733;
+  background: #fdf2e2;
+}
+/*
+  A book that has already been read.
+
+  The two free actions are spent; the printed copy is the only thing this card can still
+  offer, so it takes the filled button and the first place in the row. Nothing else moves.
+*/
+.library-print.is-promoted {
+  order: -1;
+}
+.library-error {
+  display: block;
+  margin-top: 8px;
+  color: #a5462f;
+}
+.library-print-status {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  margin: 10px 0 0;
+  color: #29233a99;
   font-size: 11px;
-  color: var(--deep-violet);
-  opacity: 0.85;
 }
-.library-generating i {
-  flex: 0 0 auto;
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(59, 42, 103, 0.2);
-  border-top-color: var(--deep-violet);
-  border-radius: 50%;
-  animation: library-generating-spin 0.9s linear infinite;
+.library-print-status svg {
+  width: 13px;
+  color: var(--forest);
+}
+.library-print-status strong {
+  color: var(--forest);
+  font-size: 11px;
+  font-weight: 700;
+}
+.library-print-status button {
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-decoration: underline;
 }
 @keyframes library-generating-spin {
   to {
@@ -347,73 +460,35 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .library-generating i {
+  .dashboard-drawing p i {
     animation: none;
   }
 }
-.library-book a,
-.library-book button {
-  height: 31px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 0 9px;
-  border: 1px solid rgba(59, 42, 103, 0.13);
-  border-radius: 10px;
-  cursor: pointer;
-  color: var(--deep-violet);
-  background: #ffffff85;
-  font-size: 11px;
-  font-weight: 700;
-}
-.library-book svg {
-  width: 11px;
-}
+/*
+  An empty shelf that sells rather than explains: the cover a parent could have, one line and
+  one button. The paragraph and the two trust notes that stood here said nothing the first
+  book would not say better.
+*/
 .empty-dashboard {
   display: grid;
-  grid-template-columns: 1.12fr 0.88fr;
+  grid-template-columns: 1.05fr 0.95fr;
   align-items: center;
-  gap: 5vw;
+  gap: 4vw;
   padding-top: 10px;
 }
-.empty-world-book {
-  position: relative;
-  height: 660px;
+.empty-book-preview {
+  display: flex;
+  justify-content: center;
 }
-.empty-book-art {
-  background-position: 50% 56%;
-  border-radius: 50%;
-  -webkit-mask-image: radial-gradient(circle, #000 0 56%, transparent 74%);
-  mask-image: radial-gradient(circle, #000 0 56%, transparent 74%);
-  filter: grayscale(0.2) brightness(0.93);
-}
-.empty-path {
-  position: absolute;
-  left: 26%;
-  right: 17%;
-  bottom: 18%;
-  height: 2px;
-  transform: rotate(-18deg);
-  background: linear-gradient(90deg, var(--story-gold), rgba(232, 201, 138, 0.06));
-  box-shadow: 0 0 15px #e8c98a99;
-}
-.empty-star {
-  position: absolute;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--story-gold);
-  box-shadow: 0 0 16px #e8c98ae6;
-}
-.star-one {
-  left: 40%;
-  bottom: 29%;
-}
-.star-two {
-  right: 25%;
-  top: 26%;
-  opacity: 0.6;
+.empty-book-preview span {
+  width: min(300px, 100%);
+  aspect-ratio: 0.79;
+  border-radius: 12px 20px 20px 12px;
+  background-position: center;
+  background-size: cover;
+  box-shadow:
+    -10px 14px #6c4b4a,
+    0 34px 60px #2c214826;
 }
 .empty-copy {
   max-width: 510px;
@@ -422,28 +497,24 @@
   color: var(--deep-violet);
 }
 .empty-copy h1 {
+  margin: 0;
   color: var(--ink);
-  font-size: 40px;
+  font-size: clamp(30px, 3vw, 42px);
   line-height: 1.16;
 }
-.empty-copy > p:not(.eyebrow) {
-  margin: 15px 0 22px;
-  color: #29233a91;
-  font-size: 12px;
-  line-height: 1.7;
+.empty-copy .button {
+  margin-top: 26px;
 }
-.empty-trust {
+.empty-note {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 20px;
-  color: #29233a75;
-  font-size: 11px;
+  align-items: center;
+  gap: 7px;
+  margin: 14px 0 0;
+  color: #29233a80;
+  font-size: 12px;
 }
-.empty-trust svg {
-  display: inline;
-  width: 12px;
-  margin-right: 5px;
+.empty-note svg {
+  width: 13px;
   color: var(--forest);
 }
 
@@ -527,13 +598,23 @@
   parent wants most, and it was only reachable from the main panel — so it leads, and
   "add a child" sits below it as the quieter, less frequent intention.
 */
+/*
+  Children at the top, the two ways to make something new at the foot. Left in flow the column
+  simply stopped halfway down a tall screen, with several hundred pixels of empty twilight
+  below it.
+*/
+.sidebar-foot {
+  margin-top: auto;
+  padding-top: 22px;
+  border-top: 1px solid #f8f2e51f;
+}
 .sidebar-new-book {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 9px;
-  min-height: 46px;
-  margin-top: 12px;
+  min-height: 50px;
+  margin-top: 0;
   padding: 0 16px;
   border-radius: 14px;
   color: #25183f;
@@ -541,7 +622,7 @@
   box-shadow:
     0 12px 30px #e2a65330,
     inset 0 1px #ffffffa6;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   transition:
     transform 0.16s ease,
@@ -562,6 +643,13 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
+  margin-top: 12px;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  color: #f8f2e580;
+  background: transparent;
+  font-size: 12px;
 }
 .add-child svg {
   width: 16px;
@@ -670,4 +758,123 @@
   max-height: none;
   min-height: 100svh;
   overflow: visible;
+}
+
+/*
+  On a phone the sidebar cannot survive as a column, so its two jobs split: "whose shelf am I
+  looking at" becomes a row of chips above the shelf, and "start something new" becomes the bar
+  that never leaves the bottom of the screen. These selectors carry the shell or the sidebar in
+  front of them on purpose — reader.css states the older phone layout after this file, and this
+  has to win.
+*/
+@media (max-width: 780px) {
+  .dashboard-shell .dashboard-sidebar {
+    position: relative;
+    top: auto;
+    bottom: auto;
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 16px 0;
+    background: transparent;
+  }
+  .dashboard-shell .sidebar-title {
+    display: none;
+  }
+  .dashboard-sidebar .child-switch-card {
+    width: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 0;
+    padding: 4px 12px 4px 5px;
+    border-radius: 12px;
+    color: #29233a8f;
+    background: transparent;
+  }
+  .dashboard-sidebar .child-switch-card.selected {
+    border-color: #3b2a6714;
+    color: var(--deep-violet);
+    background: #ffffffb8;
+  }
+  .dashboard-sidebar .child-switch-card small,
+  .dashboard-sidebar .child-switch-card > svg {
+    display: none;
+  }
+  .dashboard-sidebar .child-avatar {
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
+  }
+  .dashboard-sidebar .sidebar-paging {
+    width: 100%;
+  }
+
+  /* The creation actions, anchored to the window: the gold button and, beside it, the quieter
+     intention reduced to its plus. */
+  .dashboard-sidebar .sidebar-foot {
+    position: fixed;
+    z-index: 12;
+    inset: auto 0 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 22px 16px 16px;
+    border-top: 0;
+    background: linear-gradient(180deg, rgba(248, 242, 229, 0) 0%, #f8f2e5 38%);
+  }
+  .dashboard-sidebar .sidebar-new-book {
+    flex: 1;
+  }
+  .dashboard-sidebar .add-child {
+    flex: 0 0 auto;
+    width: 50px;
+    height: 50px;
+    margin-top: 0;
+    border: 1px dashed #3b2a6740;
+    border-radius: 16px;
+    color: #29233a80;
+  }
+  .dashboard-sidebar .add-child span {
+    display: none;
+  }
+  .dashboard-sidebar .add-child svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Room for that bar under the last book. */
+  .dashboard-shell .dashboard-main {
+    margin: 0;
+    padding: 18px 16px 110px;
+  }
+  .dashboard-drawing {
+    grid-template-columns: 58px 1fr auto;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 12px;
+    border-radius: 18px;
+  }
+  .dashboard-drawing-cover {
+    height: 76px;
+  }
+  .dashboard-drawing p {
+    font-size: 13px;
+  }
+  .dashboard-drawing small {
+    font-size: 12px;
+  }
+  .dashboard-drawing > strong {
+    font-size: 17px;
+  }
+  .empty-dashboard {
+    grid-template-columns: 1fr;
+    gap: 26px;
+  }
+  .empty-book-preview span {
+    width: min(230px, 70%);
+  }
 }
