@@ -500,15 +500,28 @@
 }
 
 /*
-  The way back, top-left, where a full-screen painting with no app header above it had none.
-  An arrow and nothing else: the label is for screen readers, and a word here would compete with
-  the one sentence this page is trying to say.
+  The way back and the name, top-left, where a full-screen painting with no app header above it
+  has neither.
+
+  One row rather than two absolutely positioned elements. Each used to place itself: the arrow at
+  a pixel inset, the name at a percentage of the viewport. Those two move apart at different
+  rates, and somewhere around an ordinary desktop width they crossed — the arrow's blurred disc
+  landed on top of the word it sits beside. A row cannot do that, and it is what
+  `.app-header-start` has always done with the same two things.
 */
-.map-back {
+.map-header-start {
   position: absolute;
   top: calc(var(--crop-band) + clamp(14px, 1.6vw, 26px));
   left: clamp(14px, 1.6vw, 26px);
   z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 15px;
+  pointer-events: auto;
+}
+
+.map-back {
+  flex-shrink: 0;
   width: clamp(38px, 3vw, 46px);
   height: clamp(38px, 3vw, 46px);
   display: inline-flex;
@@ -531,38 +544,37 @@
   background: rgba(28, 16, 60, 0.78);
 }
 
+/*
+  Sized like the arrow in `.back-button`, and drawn by the same icon. This used to be a
+  hand-written path with a shorter shaft and a heavier stroke, so the one control that appears on
+  every screen was a different arrow on this one.
+*/
 .map-back svg {
-  width: 55%;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
-.brand {
-  position: absolute;
-  top: calc(var(--crop-band) + 2.6%);
-  left: 3.1%;
-  display: inline-grid;
-  justify-items: center;
-  pointer-events: auto;
-  color: var(--gold-light);
-  font-family: var(--font-display);
-  font-size: clamp(17px, 1.65vw, 28px);
-  letter-spacing: 0.2em;
+/*
+  The wordmark, matched to `.wordmark` in base.css — same weight, spacing and gold. It was set in
+  the display serif at a lighter weight with a gradient rule under it, which made the name look
+  like a different brand on the one page a parent meets it first.
+
+  The shadow is this page's own and stays: the name sits on a painting here rather than on a bar,
+  and without it the gold disappears into a bright sky.
+*/
+.experience-header .brand {
+  display: inline-flex;
+  align-items: center;
+  color: #f2d48f;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
   line-height: 1;
   text-decoration: none;
   text-shadow:
     0 2px 20px rgba(3, 2, 23, 0.9),
     0 0 18px rgba(255, 210, 112, 0.38);
-}
-
-.brand i {
-  width: 58%;
-  height: 1px;
-  margin-top: 6px;
-  background: linear-gradient(90deg, transparent, var(--gold), transparent);
 }
 
 .headline {
@@ -913,9 +925,13 @@
   overriding `top` throws away the version that included it, and on a near-square window that
   band is a couple of hundred pixels.
 */
-.mobile-frame .brand {
+.mobile-frame .map-header-start {
   top: calc(var(--crop-band) + max(1.25%, env(safe-area-inset-top, 0px)));
   left: 4%;
+  gap: 10px;
+}
+
+.mobile-frame .experience-header .brand {
   font-size: clamp(15px, 4.2vw, 22px);
 }
 

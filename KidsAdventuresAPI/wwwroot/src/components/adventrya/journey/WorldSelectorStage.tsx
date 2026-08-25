@@ -1,6 +1,8 @@
 import { useRouter } from "@tanstack/react-router";
+import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { BRAND_HEADER_NAME } from "@/lib/brand";
 import { useT } from "@/lib/i18n";
 import type { JourneyDraft } from "@/lib/journey/draft";
 import {
@@ -280,18 +282,22 @@ function WorldStageArt({
             wordmark belongs to a copy of the map sitting inside another page.
           */}
           {!embedded ? (
-            <>
+            /*
+              Arrow and wordmark in one row, the way every other screen's header holds them.
+              They used to be two independently positioned things — the arrow at a fixed inset,
+              the wordmark at a percentage — which meant the two moved apart at different rates
+              as the viewport changed and, at ordinary desktop widths, the arrow's blurred disc
+              sat directly on top of the name.
+            */
+            <div className="map-header-start">
               <a className="map-back" href="/" aria-label={copy.backLabel}>
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M19 12H6m5 5-5-5 5-5" />
-                </svg>
+                <ArrowLeft aria-hidden="true" />
               </a>
 
               <a className="brand" href="/" aria-label={copy.brandLabel}>
-                <span>Beki</span>
-                <i />
+                {BRAND_HEADER_NAME}
               </a>
-            </>
+            </div>
           ) : null}
 
           <div className="headline">
