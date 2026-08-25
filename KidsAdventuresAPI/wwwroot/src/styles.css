@@ -19,7 +19,11 @@
    * those few marks come from Noto while the letters stay Ottia.
    */
   --font-display: "Adventrya Display", "Adventrya Serif", ui-serif, Georgia, serif;
-  --font-sans: "Adventrya Sans", "Noto Sans Georgian", ui-sans-serif, system-ui, sans-serif;
+  /* Everything Tailwind and the shadcn components set in "sans" reads this, so the same face
+     reaches the parts of the product that were never written in the Adventrya stylesheets. */
+  --font-sans:
+    "Adventrya Display", "Adventrya Sans", "Noto Sans Georgian", ui-sans-serif, system-ui,
+    sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

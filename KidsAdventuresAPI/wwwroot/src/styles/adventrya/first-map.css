@@ -1688,7 +1688,7 @@
   display: block;
   margin: 0 0 4px;
   color: rgba(255, 224, 145, 0.88);
-  font-family: "Adventrya Sans", sans-serif;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -1714,7 +1714,7 @@
   line-height: 1.35;
 }
 .world-pick-beki-line {
-  font-family: "Adventrya Sans", sans-serif;
+  font-family: var(--font-body);
   font-style: normal;
 }
 
@@ -1736,7 +1736,7 @@
 .world-pick-pin.is-selected .world-pick-pin-name {
   color: #fff8eb;
   background: rgba(14, 8, 32, 0.78);
-  font-family: "Adventrya Sans", sans-serif;
+  font-family: var(--font-body);
   font-weight: 700;
   text-shadow: 0 1px 8px rgba(4, 7, 24, 0.8);
 }
@@ -1963,7 +1963,7 @@
   .world-pick-panel.is-selected .world-pick-panel-copy strong {
     margin: 0;
     color: #fff8eb;
-    font-family: "Adventrya Sans", sans-serif;
+    font-family: var(--font-body);
     font-size: 15px;
     font-weight: 750;
     line-height: 1.25;

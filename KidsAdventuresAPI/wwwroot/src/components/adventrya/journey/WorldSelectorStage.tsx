@@ -17,6 +17,14 @@ type Variant = "desktop" | "mobile";
 type Props = {
   draft: JourneyDraft;
   onChange: (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => void;
+  /**
+   * Standing inside another page rather than being one.
+   *
+   * The selector carries a page's worth of chrome — the wordmark, and an arrow back to the home
+   * page — which is right at /themes and wrong halfway down the home page itself, where the
+   * header is already on screen and "back" would point at the ground the reader is standing on.
+   */
+  embedded?: boolean;
 };
 
 /**
@@ -35,7 +43,7 @@ type Props = {
  * which is where everything the parent has typed lives. So the behaviour is a component and the
  * CTA is a router navigation.
  */
-export function WorldSelectorStage({ draft, onChange }: Props) {
+export function WorldSelectorStage({ draft, onChange, embedded = false }: Props) {
   const t = useT();
   const router = useRouter();
   const worldById = useWorldById();
@@ -163,8 +171,18 @@ export function WorldSelectorStage({ draft, onChange }: Props) {
       ? copy.statusReady(worldById[selectedWorld.worldId].mapTitle)
       : copy.statusFlying(worldById[selectedWorld.worldId].mapTitle);
 
+  /*
+    A <main> at /themes, a plain element inside another page — a document has one main, and the
+    landing page's own is already open around this.
+  */
+  const Shell = embedded ? "div" : "main";
+
   return (
-    <main className="experience-shell" id="beki-world-selector" data-beki-world-selector>
+    <Shell
+      className={`experience-shell${embedded ? " experience-shell-embedded" : ""}`}
+      id="beki-world-selector"
+      data-beki-world-selector
+    >
       {/*
         Both stages are rendered, and the stylesheet's media queries decide which one is on
         screen. Choosing in JavaScript instead would mean the server and the browser disagreeing
@@ -179,12 +197,13 @@ export function WorldSelectorStage({ draft, onChange }: Props) {
           ctaReady={ctaReady}
           flightRun={flightRun}
           status={status}
+          embedded={embedded}
           onPreview={setPreviewed}
           onChoose={chooseWorld}
           onStart={start}
         />
       ))}
-    </main>
+    </Shell>
   );
 }
 
@@ -203,6 +222,7 @@ function WorldStageArt({
   ctaReady,
   flightRun,
   status,
+  embedded,
   onPreview,
   onChoose,
   onStart,
@@ -213,6 +233,7 @@ function WorldStageArt({
   ctaReady: boolean;
   flightRun: number;
   status: string;
+  embedded: boolean;
   onPreview: (id: SelectorWorldId | null) => void;
   onChoose: (id: SelectorWorldId) => void;
   onStart: () => void;
@@ -255,18 +276,23 @@ function WorldStageArt({
           {/*
             The only way off this page used to be the browser's own back button: the map is a
             full-viewport painting with no app header above it, which is deliberate, but it left
-            a parent who opened it from a book cover with nowhere to go.
+            a parent who opened it from a book cover with nowhere to go. Neither this nor the
+            wordmark belongs to a copy of the map sitting inside another page.
           */}
-          <a className="map-back" href="/" aria-label={copy.backLabel}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M19 12H6m5 5-5-5 5-5" />
-            </svg>
-          </a>
+          {!embedded ? (
+            <>
+              <a className="map-back" href="/" aria-label={copy.backLabel}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M19 12H6m5 5-5-5 5-5" />
+                </svg>
+              </a>
 
-          <a className="brand" href="/" aria-label={copy.brandLabel}>
-            <span>Beki</span>
-            <i />
-          </a>
+              <a className="brand" href="/" aria-label={copy.brandLabel}>
+                <span>Beki</span>
+                <i />
+              </a>
+            </>
+          ) : null}
 
           <div className="headline">
             <p>{copy.eyebrow}</p>

@@ -43,7 +43,7 @@
   min-height: 100svh;
   background: #08071f;
   color: var(--cream);
-  font-family: "Adventrya Sans", "Noto Sans Georgian", "Sylfaen", sans-serif;
+  font-family: var(--font-body);
 }
 
 .experience-shell *,
@@ -568,7 +568,7 @@
 .headline h1 {
   margin-top: 0.18em;
   color: #fff7dc;
-  font-family: Georgia, "Noto Serif Georgian", serif;
+  font-family: var(--font-display);
   font-size: clamp(15px, 1.63vw, 28px);
   font-weight: 600;
   line-height: 1.05;
@@ -714,7 +714,7 @@
 
 .world-label strong {
   color: #fff6db;
-  font-family: Georgia, "Noto Serif Georgian", serif;
+  font-family: var(--font-display);
   font-size: clamp(8px, 0.77vw, 13px);
   font-weight: 600;
   line-height: 1.25;

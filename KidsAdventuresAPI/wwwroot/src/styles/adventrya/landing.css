@@ -1006,142 +1006,23 @@
 .landing-v3-text-link svg {
   width: 15px;
 }
+/*
+  The world picker, standing on the home page.
+
+  This was a two-column argument for the map — copy on one side, a picture of it on the other.
+  It is the map now, so the section has nothing left to lay out: no columns, no padding, no
+  background of its own. The picker brings all three and is built to be exactly one screen tall,
+  which is what it is here too.
+*/
 .landing-v3-memory {
   position: relative;
-  min-height: 860px;
-  display: grid;
-  /* A little more of the row for the painting, and the same floors under both columns so a
-     narrow screen still gets the layout it had. */
-  grid-template-columns: minmax(430px, 0.76fr) minmax(620px, 1.24fr);
-  align-items: center;
-  gap: 50px;
-  padding: clamp(90px, 8vw, 132px) clamp(34px, 5vw, 78px);
-  overflow: hidden;
   isolation: isolate;
-  color: #fff9ed;
-  background: #18102d;
 }
-.landing-v3-memory-art,
-.landing-v3-memory-shade {
-  position: absolute;
-  inset: 0;
-  z-index: -4;
-}
-/*
-  Out of focus, on purpose.
 
-  This is the same painting the card in front of it now shows for real, and two copies of one
-  picture at different scales read as a printing error. Blurred it goes back to being what it was
-  always doing here — the night the section happens in. The inset is negative so the blur has
-  material to smear at the edges instead of fading into the flat colour behind it.
-*/
-.landing-v3-memory-art {
-  inset: -40px;
-  background: url("/adventrya/world-selector/world-map-desktop-master.webp") 54% 48% / cover
-    no-repeat;
-  filter: saturate(0.7) brightness(0.52) blur(20px);
-}
-.landing-v3-memory-shade {
-  z-index: -3;
-  background:
-    linear-gradient(90deg, #160d2cfa, #180f2fe8 35%, #180f2f57 67%, #0f091e75),
-    linear-gradient(180deg, rgba(16, 9, 33, 0.46), transparent 35%, rgba(12, 7, 26, 0.62));
-}
-.landing-v3-memory-copy {
-  position: relative;
-  z-index: 3;
-  max-width: 620px;
-}
-.landing-v3-memory-copy > p {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin: 0 0 18px;
-  color: var(--lv3-gold);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-.landing-v3-memory-copy > p svg {
-  width: 16px;
-  fill: currentColor;
-}
-.landing-v3-memory h2 em {
-  color: var(--lv3-gold);
-}
-.landing-v3-memory-copy > span {
+.experience-shell-embedded {
   display: block;
-  max-width: 540px;
-  margin-top: 22px;
-  color: #f5efe5ad;
-  font-size: 13px;
-  line-height: 1.78;
 }
-.landing-v3-memory-chain {
-  display: grid;
-  grid-template-columns: 1fr 37px 1fr;
-  align-items: center;
-  gap: 9px;
-  margin-top: 32px;
-}
-.landing-v3-memory-chain > div {
-  min-height: 112px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 17px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 15px;
-  background: #1d133a94;
-  -webkit-backdrop-filter: blur(13px);
-  backdrop-filter: blur(13px);
-}
-.landing-v3-memory-chain small {
-  color: var(--lv3-gold);
-  font-size: 11px;
-}
-.landing-v3-memory-chain strong {
-  margin-top: 5px;
-  font-family: var(--font-display);
-  font-size: 14px;
-}
-.landing-v3-memory-chain span {
-  margin-top: 6px;
-  color: #f5efe585;
-  font-size: 11px;
-  line-height: 1.5;
-}
-.landing-v3-memory-chain > i {
-  width: 31px;
-  height: 31px;
-  display: grid;
-  place-items: center;
-  color: var(--lv3-gold);
-  border: 1px solid rgba(237, 190, 103, 0.32);
-  border-radius: 50%;
-  background: #edbe6714;
-}
-.landing-v3-memory-chain > i svg {
-  width: 14px;
-}
-.landing-v3-memory-copy > a {
-  width: max-content;
-  min-height: 49px;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  margin-top: 28px;
-  padding: 0 18px;
-  color: #25173b;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #f4d58f, #eeb15b);
-  font-size: 12px;
-  font-weight: 700;
-}
-.landing-v3-memory-copy > a svg {
-  width: 14px;
-}
+
 /*
   The real map, framed as a card in the second column.
 
@@ -1151,43 +1032,6 @@
   a card that is not the shape of the art crops it and leaves every pin off its island. It
   therefore switches between 16/9 and 9/16 at exactly the widths the <picture> switches art.
 */
-/*
-  The map on the memory section, a little larger than it was.
-
-  It carries the picker's own master now, whose islands sit further into their corners than the
-  old portals art did, so at the previous size the six of them read as small marks in a wide
-  sky. Fifteen percent more painting is enough for a visitor to recognise the place they are
-  about to be asked to choose from. The frame grows with it, so the pins — which are positioned
-  as percentages of the frame — stay on their islands.
-*/
-.landing-v3-memory-map {
-  z-index: 3;
-  /*
-    Its column, plus the padding on its outer side, and never a pixel more.
-
-    A percentage over 100 was the wrong tool: it grew the painting towards the paragraph, and at
-    1440 it crossed it. This is the column it was given plus the margin the section keeps to its
-    right — room that was doing nothing — so the growth can only ever go outward, and overlapping
-    the text is not a thing this rule can express. The cap stops it becoming a mural on a very
-    wide screen.
-
-    The second term takes most of the fifty-pixel gutter as well, which is the only room left on
-    the inner side; sixteen pixels of it stay, so the painting and the paragraph never touch.
-
-    Taller as a result, which is what reaches it up towards the heading and down towards the link
-    under the copy: the two columns are centred on each other, so height added is added at both
-    ends. It cannot reach them exactly — the painting's height is its width times its own shape,
-    and its width stops where the text begins — so it closes the distance rather than matching
-    the two lines.
-  */
-  width: min(calc(100% + clamp(34px, 5vw, 78px) + clamp(16px, 2.6vw, 42px)), 1000px);
-  margin-right: calc(-1 * clamp(34px, 5vw, 78px));
-  aspect-ratio: 1672 / 941;
-  justify-self: end;
-  border: 1px solid rgba(255, 248, 235, 0.1);
-  border-radius: clamp(18px, 2.2vw, 28px);
-  box-shadow: 0 28px 76px rgba(3, 1, 14, 0.5);
-}
 .landing-v3-world-card {
   position: relative;
   min-height: 190px;
@@ -1571,9 +1415,7 @@
 }
 .landing-v3-faq-list summary > span {
   color: #ad7955;
-  font-family:
-    Adventrya Sans,
-    sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
 }
 .landing-v3-faq-list summary > i {
@@ -1583,9 +1425,7 @@
   place-items: center;
   border: 1px solid rgba(55, 34, 95, 0.16);
   border-radius: 50%;
-  font-family:
-    Adventrya Sans,
-    sans-serif;
+  font-family: var(--font-body);
   font-size: 15px;
   font-style: normal;
   font-weight: 400;
@@ -1758,9 +1598,6 @@
     grid-template-columns: minmax(330px, 0.72fr) minmax(500px, 1.28fr);
     gap: 45px;
   }
-  .landing-v3-memory {
-    grid-template-columns: minmax(390px, 0.8fr) minmax(500px, 1.2fr);
-  }
 }
 @media (max-width: 900px) {
   .landing-v3-header {
@@ -1875,31 +1712,6 @@
   }
   .landing-v3-step-visual {
     max-width: 430px;
-  }
-  .landing-v3-memory {
-    min-height: 1100px;
-    grid-template-columns: 1fr;
-    align-content: center;
-    gap: 25px;
-  }
-  .landing-v3-memory-shade {
-    background: linear-gradient(180deg, #160d2cf7, #180f2fe0 45%, #180f2f52 72%, #0f091ea3);
-  }
-  .landing-v3-memory-copy {
-    max-width: 700px;
-  }
-  /*
-    One column, so the painting stops reaching outward.
-
-    The width above is written as "my column plus the margin beside it plus most of the gutter" —
-    all of which describe a two-column row. In a single centred column there is no gutter to take
-    and no outer margin to bleed into, so the same arithmetic pushed the card past the section's
-    edge, where overflow: hidden cut it.
-  */
-  .landing-v3-memory-map {
-    width: 100%;
-    margin-right: 0;
-    justify-self: center;
   }
   .landing-v3-price-cards {
     justify-self: center;
@@ -2071,20 +1883,6 @@
   .landing-v3-steps article {
     min-height: 0;
     padding: 28px 0 34px;
-  }
-  .landing-v3-memory {
-    min-height: 970px;
-    padding: 76px 20px 30px;
-  }
-  .landing-v3-memory-copy > span {
-    font-size: 12px;
-  }
-  .landing-v3-memory-chain {
-    grid-template-columns: 1fr;
-  }
-  .landing-v3-memory-chain > i {
-    margin: -4px auto;
-    transform: rotate(90deg);
   }
   .landing-v3-world-card {
     min-height: 142px;
@@ -2267,10 +2065,6 @@
     background-image: url("/adventrya/world-selector/world-map-mobile-master.webp");
     background-position: center 58%;
   }
-  .landing-v3-memory-art {
-    background-image: url("/adventrya/world-selector/world-map-mobile-master.webp");
-    background-position: center 60%;
-  }
 }
 
 /*
@@ -2283,10 +2077,6 @@
 */
 @media (max-width: 999px) and (orientation: portrait),
   (min-width: 1000px) and (max-aspect-ratio: 4 / 3) {
-  .landing-v3-memory-map {
-    width: min(100%, 400px);
-    aspect-ratio: 9 / 16;
-  }
 }
 
 /* ===========================================================================

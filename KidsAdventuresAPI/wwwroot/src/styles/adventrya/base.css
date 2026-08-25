@@ -14,16 +14,22 @@
   --ink: #29233a;
 
   /*
-   * The type that is read, as opposed to looked at. --font-display — the book's own face,
-   * worn by every heading — is defined once in styles.css, because Tailwind's @theme emits
-   * that name onto :root too and two definitions of one variable is a coin toss.
+   * One face for everything: headings, paragraphs, labels, buttons, the lot. --font-display —
+   * the same stack — is defined in styles.css, because Tailwind's @theme emits that name onto
+   * :root too and two definitions of one variable is a coin toss.
    *
-   * Body text stays on Noto deliberately: the display face ships a single weight, so every
-   * bold on the site would become a browser's synthetic smear, and a display face at 15px
-   * tires a reader long before a parent finishes a checkout. To try it anyway, put
-   * "Adventrya Display" at the front of this line — nothing else needs to change.
+   * Ottia carries the thirty-three Georgian letters, the Latin alphabet and the digits, and not
+   * much else: no dash, colon, semicolon, ellipsis, apostrophe, lari sign, percent, plus or
+   * slash. Each of those comes from the Noto family standing behind it, because a browser
+   * resolves a font stack one character at a time — so a price reads "65 ₾" with Ottia's digits
+   * and Noto's lari, and never a box.
+   *
+   * Two consequences of a single-weight display face, chosen rather than stumbled into: bold
+   * text is Ottia at the weight the browser would otherwise have thickened itself, and small
+   * print is set in a face drawn for large sizes. Both were already true of every heading; they
+   * are now true of the paragraphs too.
    */
-  --font-body: "Adventrya Sans", "Noto Sans Georgian", system-ui, sans-serif;
+  --font-body: "Adventrya Display", "Adventrya Sans", "Noto Sans Georgian", system-ui, sans-serif;
 }
 * {
   box-sizing: border-box;
@@ -694,9 +700,7 @@ svg {
   line-height: 1;
 }
 .map-count span {
-  font-family:
-    Adventrya Sans,
-    sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
   line-height: 1.35;
 }

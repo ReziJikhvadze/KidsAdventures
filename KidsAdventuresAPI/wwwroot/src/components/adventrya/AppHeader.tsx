@@ -97,17 +97,11 @@ export function AppHeader({
         />
         {!minimal ? (
           /*
-            Signed out, this pill led to a dashboard that immediately bounced the visitor to a
-            sign-in they had not asked for and then, afterwards, to a shelf with nothing on it.
-            It goes straight to the sign-in step now, which is the thing standing between them
-            and their space either way.
+            Straight to their space, signed in or not: the dashboard opens the sign-in itself now
+            rather than showing a sample household first, so there is no longer a detour to route
+            around.
           */
-          <Link
-            className="child-pill"
-            to={isAuthenticated ? "/dashboard" : "/create"}
-            hash={isAuthenticated ? undefined : "auth"}
-            aria-label={t.common.nav.openDashboard}
-          >
+          <Link className="child-pill" to="/dashboard" aria-label={t.common.nav.openDashboard}>
             <span className="child-avatar" aria-hidden="true">
               {parentInitial}
             </span>

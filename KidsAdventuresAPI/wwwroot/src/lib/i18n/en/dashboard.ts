@@ -20,13 +20,6 @@ export const dashboard = {
     pageOf: (page: number, total: number) => `Page ${page} of ${total}`,
   },
 
-  preview: {
-    label: "Preview",
-    title: "This is what your Parent Dashboard looks like",
-    body: "A sample family, not yours. Sign in and this fills with your children, their map and the books you have already made.",
-    cta: "Sign in",
-  },
-
   empty: {
     title: (name: string) => ` ${name}'s world is still empty`,
     lead: "The first adventure starts here",

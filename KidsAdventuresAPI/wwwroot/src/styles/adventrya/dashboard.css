@@ -46,9 +46,7 @@
 .parent-label small {
   margin-bottom: 2px;
   color: #f8f2e570;
-  font-family:
-    Adventrya Sans,
-    sans-serif;
+  font-family: var(--font-body);
   font-size: 11px;
 }
 .sidebar-title {

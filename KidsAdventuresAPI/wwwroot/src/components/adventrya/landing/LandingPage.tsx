@@ -1,14 +1,14 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
-import { WorldMapCanvas, WorldMapPin } from "@/components/adventrya/journey/WorldMapCanvas";
+import { WorldSelectorStage } from "@/components/adventrya/journey/WorldSelectorStage";
 import { Books } from "@/components/adventrya/landing/Books";
 import { Header, useLogoToTop } from "@/components/adventrya/landing/Header";
 import { Hero } from "@/components/adventrya/landing/Hero";
 import { ArrowIcon, CheckIcon, SparkleIcon } from "@/components/adventrya/landing/icons";
 import { formatGel, useT } from "@/lib/i18n";
 import { PRICES } from "@/lib/pricing";
-import { useWorlds, type WorldId } from "@/lib/worlds";
+import { useJourneyDraft } from "@/lib/journey/draft";
 
 /* Every generic call to action starts at the world, which is now the first step. */
 const START_JOURNEY = "/themes";
@@ -27,59 +27,20 @@ const START_JOURNEY = "/themes";
  * at and leads into the journey with that world already picked.
  */
 function Memory() {
-  const t = useT();
-  const L = t.landing.memory;
-  const worlds = useWorlds();
-  // The one piece of state: which island the light is on. Not a selection — it is forgotten the
-  // moment the pointer leaves, and nothing on the page reads it but the glow.
-  const [lit, setLit] = useState<WorldId | null>(null);
+  const [draft, setDraft] = useJourneyDraft();
+
+  /*
+    The world picker itself, standing on the home page.
+
+    This section used to argue for the map in words — an eyebrow, a heading, a two-step chain and
+    a link to go and look at it — beside a small picture of the thing being described. The map is
+    the argument. It is the same component /themes renders, in embedded mode so it brings no
+    second wordmark and no arrow back to the page it is already on, and choosing an island here
+    starts the book exactly as choosing one there does.
+  */
   return (
     <section className="landing-v3-memory">
-      <div className="landing-v3-memory-art" aria-hidden="true" />
-      <div className="landing-v3-memory-shade" aria-hidden="true" />
-
-      <div className="landing-v3-memory-copy">
-        <p>
-          <SparkleIcon />
-          {L.eyebrow}
-        </p>
-        <h2>
-          {L.titleLine1}
-          <em>{L.titleEm}</em>
-        </h2>
-        <span>{L.lead}</span>
-        <div className="landing-v3-memory-chain">
-          <div>
-            <small>{L.chain[0].label}</small>
-            <strong>{L.chain[0].title}</strong>
-            <span>{L.chain[0].note}</span>
-          </div>
-          <i aria-hidden="true">
-            <ArrowIcon />
-          </i>
-          <div>
-            <small>{L.chain[1].label}</small>
-            <strong>{L.chain[1].title}</strong>
-            <span>{L.chain[1].note}</span>
-          </div>
-        </div>
-        <Link to="/world">{L.cta}</Link>
-      </div>
-
-      <WorldMapCanvas focusId={lit} className="landing-v3-memory-map">
-        {worlds.map((world) => (
-          <WorldMapPin
-            key={world.id}
-            world={world}
-            as="entrance"
-            label={L.mapPin(world.mapTitle)}
-            onMouseEnter={() => setLit(world.id)}
-            onMouseLeave={() => setLit(null)}
-            onFocus={() => setLit(world.id)}
-            onBlur={() => setLit(null)}
-          />
-        ))}
-      </WorldMapCanvas>
+      <WorldSelectorStage draft={draft} onChange={setDraft} embedded />
     </section>
   );
 }
