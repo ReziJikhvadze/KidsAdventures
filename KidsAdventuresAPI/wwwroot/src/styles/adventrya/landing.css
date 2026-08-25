@@ -1010,7 +1010,9 @@
   position: relative;
   min-height: 860px;
   display: grid;
-  grid-template-columns: minmax(430px, 0.82fr) minmax(620px, 1.18fr);
+  /* A little more of the row for the painting, and the same floors under both columns so a
+     narrow screen still gets the layout it had. */
+  grid-template-columns: minmax(430px, 0.76fr) minmax(620px, 1.24fr);
   align-items: center;
   gap: 50px;
   padding: clamp(90px, 8vw, 132px) clamp(34px, 5vw, 78px);
@@ -1160,17 +1162,26 @@
 */
 .landing-v3-memory-map {
   z-index: 3;
-  width: min(115%, 828px);
   /*
-    The extra width goes rightwards, into the section's own padding, rather than leftwards into
-    the paragraph beside it.
+    Its column, plus the padding on its outer side, and never a pixel more.
 
-    The map is aligned to the end of its column, so growing it by fifteen percent grew it towards
-    the text: at 1440 wide it reached fifty-two pixels across the last lines of the copy. There
-    are seventy-two pixels of padding on its other side doing nothing, and the map is a painting
-    that runs to the edge of the screen everywhere else on this site.
+    A percentage over 100 was the wrong tool: it grew the painting towards the paragraph, and at
+    1440 it crossed it. This is the column it was given plus the margin the section keeps to its
+    right — room that was doing nothing — so the growth can only ever go outward, and overlapping
+    the text is not a thing this rule can express. The cap stops it becoming a mural on a very
+    wide screen.
+
+    The second term takes most of the fifty-pixel gutter as well, which is the only room left on
+    the inner side; sixteen pixels of it stay, so the painting and the paragraph never touch.
+
+    Taller as a result, which is what reaches it up towards the heading and down towards the link
+    under the copy: the two columns are centred on each other, so height added is added at both
+    ends. It cannot reach them exactly — the painting's height is its width times its own shape,
+    and its width stops where the text begins — so it closes the distance rather than matching
+    the two lines.
   */
-  margin-right: clamp(-72px, -4.5vw, 0px);
+  width: min(calc(100% + clamp(34px, 5vw, 78px) + clamp(16px, 2.6vw, 42px)), 1000px);
+  margin-right: calc(-1 * clamp(34px, 5vw, 78px));
   aspect-ratio: 1672 / 941;
   justify-self: end;
   border: 1px solid rgba(255, 248, 235, 0.1);
