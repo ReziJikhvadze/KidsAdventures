@@ -215,7 +215,8 @@
 .story-map-painting {
   z-index: -4;
   inset: 0;
-  background: url("/adventrya/adventrya-world-map-v11.png") center / 100% 100% no-repeat;
+  background: url("/adventrya/world-selector/world-map-desktop-master.webp") center / 100% 100%
+    no-repeat;
   filter: saturate(1.06) contrast(1.02);
   animation: story-map-breathe 16s ease-in-out infinite alternate;
   will-change: transform;

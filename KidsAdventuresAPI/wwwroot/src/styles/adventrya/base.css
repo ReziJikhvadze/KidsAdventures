@@ -74,7 +74,7 @@ svg {
   position: absolute;
   inset: 0;
   z-index: -5;
-  background-image: url("/adventrya/adventrya-world-map.png");
+  background-image: url("/adventrya/world-selector/world-map-desktop-master.webp");
   background-repeat: no-repeat;
   background-size: cover;
 }

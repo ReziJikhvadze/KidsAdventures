@@ -175,7 +175,8 @@
   pointer-events: none;
 }
 .landing-v3-hero-art {
-  background: url("/adventrya/adventrya-world-map-portals-wide.jpg") 58% 49% / cover no-repeat;
+  background: url("/adventrya/world-selector/world-map-desktop-master.webp") 58% 49% / cover
+    no-repeat;
   filter: saturate(0.84) contrast(1.03);
   transform: scale(1.01);
 }
@@ -1034,7 +1035,8 @@
 */
 .landing-v3-memory-art {
   inset: -40px;
-  background: url("/adventrya/adventrya-world-map-portals-wide.jpg") 54% 48% / cover no-repeat;
+  background: url("/adventrya/world-selector/world-map-desktop-master.webp") 54% 48% / cover
+    no-repeat;
   filter: saturate(0.7) brightness(0.52) blur(20px);
 }
 .landing-v3-memory-shade {
@@ -2231,11 +2233,11 @@
    forcing a landscape illustration through a narrow hero crop. */
 @media (max-width: 900px) and (orientation: portrait) {
   .landing-v3-hero-art {
-    background-image: url("/adventrya/adventrya-world-map-portals-tall.jpg");
+    background-image: url("/adventrya/world-selector/world-map-mobile-master.webp");
     background-position: center 58%;
   }
   .landing-v3-memory-art {
-    background-image: url("/adventrya/adventrya-world-map-portals-tall.jpg");
+    background-image: url("/adventrya/world-selector/world-map-mobile-master.webp");
     background-position: center 60%;
   }
 }

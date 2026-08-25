@@ -1782,7 +1782,7 @@
     content: "";
     background:
       linear-gradient(rgba(9, 5, 26, 0.34), rgba(9, 5, 26, 0.58)),
-      url("/adventrya/adventrya-world-map-portals-tall.jpg") center / cover no-repeat;
+      url("/adventrya/world-selector/world-map-mobile-master.webp") center / cover no-repeat;
     filter: blur(22px) brightness(0.52) saturate(0.82);
     transform: scale(1.06);
   }

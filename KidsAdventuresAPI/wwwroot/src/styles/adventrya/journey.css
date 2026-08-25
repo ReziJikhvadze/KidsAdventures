@@ -512,7 +512,7 @@
 .library-cover,
 .reader-illustration,
 .page-illustration {
-  background-image: url("/adventrya/adventrya-world-map.png");
+  background-image: url("/adventrya/world-selector/world-map-desktop-master.webp");
   background-size: cover;
 }
 .cover-art {
@@ -803,7 +803,7 @@
       rgba(31, 20, 68, 0.18) 48%,
       rgba(24, 15, 55, 0.68) 76%
     ),
-    url("/adventrya/adventrya-world-map.png");
+    url("/adventrya/world-selector/world-map-desktop-master.webp");
   background-size: cover;
   background-position: 50% 55%;
   -webkit-mask-image: linear-gradient(180deg, #000 0 82%, transparent 100%);
@@ -1519,7 +1519,7 @@
 .page-thumb {
   position: absolute;
   inset: 0;
-  background-image: url("/adventrya/adventrya-world-map.png");
+  background-image: url("/adventrya/world-selector/world-map-desktop-master.webp");
   background-size: 180px auto;
 }
 .thumb-1 {
