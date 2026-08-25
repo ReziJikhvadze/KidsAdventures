@@ -57,52 +57,70 @@ export interface MapArt {
 }
 
 export const WORLD_MAP: MapArt = {
+  /*
+    The same two masters the world picker is painted from.
+
+    There were two maps of one world: the portals art here, and the approved master at /themes.
+    A visitor met one on the landing page, chose a world on the other, and the islands were not
+    even in the same places. There is one painting now, and these are its files — the numbers
+    below are measured off it, and they are the numbers the picker's hotspots and its flying star
+    already use.
+  */
   src: {
-    wide: "/adventrya/adventrya-world-map-portals-wide.png",
-    tall: "/adventrya/adventrya-world-map-portals-tall.png",
+    wide: "/adventrya/world-selector/world-map-desktop-master.webp",
+    tall: "/adventrya/world-selector/world-map-mobile-master.webp",
   },
   optimizedSrc: {
-    wide: "/adventrya/adventrya-world-map-portals-wide.jpg",
-    tall: "/adventrya/adventrya-world-map-portals-tall.jpg",
+    wide: "/adventrya/world-selector/world-map-desktop-master.webp",
+    tall: "/adventrya/world-selector/world-map-mobile-master.webp",
   },
+  /*
+    Measured off the master, and the same six numbers the picker reads: the centre of each
+    island and the size of its own footprint. Islands left of the middle open their labels
+    rightwards, into the empty sky around Beki, and the ones on the right open left — a label
+    that opened outward would leave the painting.
+  */
   anchors: {
     wide: {
-      dinosaurs: { x: 17.5, y: 31, hitWidth: 24, hitHeight: 34, side: "left" },
-      space: { x: 40.2, y: 30.8, hitWidth: 20, hitHeight: 34, side: "left" },
-      airplanes: { x: 59.4, y: 30, hitWidth: 19, hitHeight: 34, side: "right" },
-      pirates: { x: 81.6, y: 31, hitWidth: 24, hitHeight: 35, side: "right" },
-      animals: { x: 16.2, y: 69.5, hitWidth: 27, hitHeight: 29, side: "left" },
-      magic: { x: 82.1, y: 69.8, hitWidth: 27, hitHeight: 30, side: "right" },
+      airplanes: { x: 30.5, y: 21, hitWidth: 23, hitHeight: 23, side: "left" },
+      space: { x: 71.5, y: 23, hitWidth: 23, hitHeight: 19, side: "right" },
+      animals: { x: 16.5, y: 48.5, hitWidth: 24, hitHeight: 25, side: "left" },
+      pirates: { x: 84, y: 50, hitWidth: 24, hitHeight: 23, side: "right" },
+      magic: { x: 25, y: 75, hitWidth: 26, hitHeight: 27, side: "left" },
+      dinosaurs: { x: 71.5, y: 78, hitWidth: 26, hitHeight: 25, side: "right" },
     },
     tall: {
-      space: { x: 29.6, y: 20.3, hitWidth: 39, hitHeight: 25, side: "left" },
-      airplanes: { x: 69.7, y: 19.7, hitWidth: 38, hitHeight: 25, side: "right" },
-      dinosaurs: { x: 28, y: 45, hitWidth: 40, hitHeight: 22, side: "left" },
-      pirates: { x: 77.3, y: 45.7, hitWidth: 39, hitHeight: 22, side: "right" },
-      animals: { x: 27, y: 69, hitWidth: 42, hitHeight: 21, side: "left" },
-      magic: { x: 76.6, y: 69, hitWidth: 41, hitHeight: 21, side: "right" },
+      airplanes: { x: 24, y: 17, hitWidth: 39, hitHeight: 18, side: "left" },
+      space: { x: 75, y: 20, hitWidth: 44, hitHeight: 16, side: "right" },
+      animals: { x: 23, y: 39, hitWidth: 36, hitHeight: 20, side: "left" },
+      pirates: { x: 77, y: 41, hitWidth: 40, hitHeight: 19, side: "right" },
+      magic: { x: 22, y: 66, hitWidth: 40, hitHeight: 21, side: "left" },
+      dinosaurs: { x: 78, y: 69, hitWidth: 40, hitHeight: 19, side: "right" },
     },
   },
+  /* Beki's chest, where every trail starts on this painting. */
   origin: {
-    wide: { x: 46.3, y: 71.5 },
-    tall: { x: 54, y: 82.5 },
+    wide: { x: 49.5, y: 54.7 },
+    tall: { x: 50.6, y: 59.6 },
   },
+  /* The picker's own flights, which arc away from Beki before turning rather than running
+     straight at an island. */
   routes: {
     wide: {
-      dinosaurs: "M46.3 71.5 C42 59 29 45 17.5 31",
-      space: "M46.3 71.5 C46 56 44 42 40.2 30.8",
-      airplanes: "M46.3 71.5 C51 56 57 42 59.4 30",
-      pirates: "M46.3 71.5 C58 60 74 48 81.6 31",
-      animals: "M46.3 71.5 C38 65 27 67 16.2 69.5",
-      magic: "M46.3 71.5 C57 64 71 65 82.1 69.8",
+      airplanes: "M49.5 54.7 C46 48 43 42 43 36 C43.53 28.65 36.05 24.7 30.5 21",
+      space: "M49.5 54.7 C54 48 58 42 58 36 C58 29.35 63.72 25.55 71.5 23",
+      animals: "M49.5 54.7 C43 56 37 53 32 49 C26.83 46.83 21.75 48.5 16.5 48.5",
+      pirates: "M49.5 54.7 C58 56 64 52 69 48 C74 49.1 79 50 84 50",
+      magic: "M49.5 54.7 C46 59 42 64 39 68 C34.3 73 30.3 74.15 25 75",
+      dinosaurs: "M49.5 54.7 C55 59 59 64 63 67 C65.63 72.1 69.13 73.7 71.5 78",
     },
     tall: {
-      dinosaurs: "M54 82.5 C46 70 35 58 28 45",
-      space: "M54 82.5 C48 61 39 37 29.6 20.3",
-      airplanes: "M54 82.5 C59 60 65 36 69.7 19.7",
-      pirates: "M54 82.5 C61 70 71 57 77.3 45.7",
-      animals: "M54 82.5 C47 76 36 71 27 69",
-      magic: "M54 82.5 C61 76 70 71 76.6 69",
+      airplanes: "M50.6 59.6 C46 50 41 39 34 30 C30.85 21.5 27 18 24 17",
+      space: "M50.6 59.6 C55 50 60 39 67 30 C70.15 21.5 74 18 75 20",
+      animals: "M50.6 59.6 C45 55 39 48 33 44 C29.05 40.9 25.5 39 23 39",
+      pirates: "M50.6 59.6 C56 55 62 48 68 44 C71.95 42.9 75.5 41 77 41",
+      magic: "M50.6 59.6 C46 62 40 65 34 67 C29 68 25 68.5 22 66",
+      dinosaurs: "M50.6 59.6 C55 62 61 65 67 67 C72 68 76 68.5 78 69",
     },
   },
 };

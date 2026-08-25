@@ -43,9 +43,9 @@ export function WorldMapCanvas({ focusId, className, children, priority = false 
         <source
           media="(max-width: 999px) and (orientation: portrait), (min-width: 1000px) and (max-aspect-ratio: 4 / 3)"
           srcSet={WORLD_MAP.optimizedSrc.tall}
-          type="image/jpeg"
+          type="image/webp"
         />
-        <source srcSet={WORLD_MAP.optimizedSrc.wide} type="image/jpeg" />
+        <source srcSet={WORLD_MAP.optimizedSrc.wide} type="image/webp" />
         <img
           className="first-map-painting"
           src={WORLD_MAP.src.wide}

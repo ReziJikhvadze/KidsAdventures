@@ -400,10 +400,14 @@ function MagicFlight({ variant, worldId }: { variant: Variant; worldId: Selector
         renders reads as a ringed planet sitting on Beki's chest — in a painting that already has
         three real planets in its sky. The disc and the ring are gone and the star is drawn large
         enough to cover the round medallion painted underneath it.
+
+        Five points, not four. A four-pointed sparkle is a glint of light; a star is the thing a
+        child draws when asked for one, and this one has to be recognised at a couple of
+        millimetres by somebody who is three. The same shape flies and lands.
       */}
       <g transform={`translate(${startX} ${startY})`}>
         <g className="heart-flare">
-          <path d="M0-1.7.46-.46 1.7 0 .46.46 0 1.7-.46.46-1.7 0-.46-.46Z" />
+          <path d="M0.0 -1.7 L0.38 -0.53 L1.62 -0.53 L0.62 0.2 L1.0 1.38 L0.0 0.65 L-1.0 1.38 L-0.62 0.2 L-1.62 -0.53 L-0.38 -0.53Z" />
         </g>
       </g>
 
@@ -411,7 +415,7 @@ function MagicFlight({ variant, worldId }: { variant: Variant; worldId: Selector
       <path className="magic-route magic-route-core" d={route.path} pathLength="1" />
 
       <g className="flight-star" filter={`url(#${glowId})`}>
-        <path d="M0-1.15.31-.31 1.15 0 .31.31 0 1.15-.31.31-1.15 0-.31-.31Z" />
+        <path d="M0.0 -1.15 L0.26 -0.36 L1.09 -0.36 L0.42 0.14 L0.68 0.93 L0.0 0.44 L-0.68 0.93 L-0.42 0.14 L-1.09 -0.36 L-0.26 -0.36Z" />
         <circle r="0.22" />
         <animateMotion
           path={route.path}
@@ -428,7 +432,7 @@ function MagicFlight({ variant, worldId }: { variant: Variant; worldId: Selector
         <g className="arrival-flare">
           <circle className="arrival-glow" r="0.8" />
           <circle className="arrival-ring" r="1.15" />
-          <path d="M0-1.35.36-.36 1.35 0 .36.36 0 1.35-.36.36-1.35 0-.36-.36Z" />
+          <path d="M0.0 -1.35 L0.3 -0.42 L1.28 -0.42 L0.49 0.16 L0.79 1.09 L0.0 0.52 L-0.79 1.09 L-0.49 0.16 L-1.28 -0.42 L-0.3 -0.42Z" />
         </g>
       </g>
     </svg>

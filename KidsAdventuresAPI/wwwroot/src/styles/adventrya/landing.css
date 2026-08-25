@@ -421,13 +421,25 @@
   scroll-margin-top: var(--lv3-header-h);
 }
 /*
-  The shelf sits closer to what is above it than the other sections do: it is the answer to the
-  sentence before it, and a screen of empty cream between question and answer read as the end of
-  the page. Less room above also means the whole card clears the fold when the header link jumps
-  here.
+  The shelf has to fit the screen it is jumped to, whole.
+
+  Scroll-margin stopped the header covering its top, which was only half the problem: at 755px
+  against a 720px viewport the last row of the covers still fell off the bottom, so a visitor who
+  pressed "books" saw books they could not see all of. The three numbers that decide that height
+  — the room above, the gap under the heading, and the room below — are measured against the
+  viewport now rather than the page width, so the section keeps fitting as the screen shrinks
+  instead of fitting only the screen it was tuned on.
+
+  vw sizing was the original mistake: it made a short, wide laptop screen — the shape this is
+  most often opened on — pay the padding of a tall one.
 */
 .landing-v3-books {
-  padding-top: clamp(52px, 5vw, 78px);
+  padding-top: clamp(24px, 3.4vh, 44px);
+  padding-bottom: clamp(48px, 7vh, 104px);
+}
+
+.landing-v3-books .landing-v3-section-heading {
+  margin-bottom: clamp(22px, 3.6vh, 46px);
 }
 .landing-v3-section-heading {
   max-width: 760px;
@@ -1135,10 +1147,19 @@
   a card that is not the shape of the art crops it and leaves every pin off its island. It
   therefore switches between 16/9 and 9/16 at exactly the widths the <picture> switches art.
 */
+/*
+  The map on the memory section, a little larger than it was.
+
+  It carries the picker's own master now, whose islands sit further into their corners than the
+  old portals art did, so at the previous size the six of them read as small marks in a wide
+  sky. Fifteen percent more painting is enough for a visitor to recognise the place they are
+  about to be asked to choose from. The frame grows with it, so the pins — which are positioned
+  as percentages of the frame — stay on their islands.
+*/
 .landing-v3-memory-map {
   z-index: 3;
-  width: min(100%, 720px);
-  aspect-ratio: 16 / 9;
+  width: min(115%, 828px);
+  aspect-ratio: 1672 / 941;
   justify-self: end;
   border: 1px solid rgba(255, 248, 235, 0.1);
   border-radius: clamp(18px, 2.2vw, 28px);

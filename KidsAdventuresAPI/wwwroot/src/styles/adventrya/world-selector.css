@@ -76,10 +76,19 @@
   border: 0 !important;
 }
 
+/*
+  Exactly one screen, never a scrollbar.
+
+  min-height let the stage grow past the viewport as soon as anything inside it did — the frame
+  covers now, and a covered frame is by definition taller or wider than the screen — so the map
+  could be scrolled, which on a painting that is meant to be looked at whole reads as a mistake.
+  It is the height of the screen and it clips.
+*/
 .art-stage {
   position: relative;
   display: grid;
-  min-height: 100svh;
+  height: 100svh;
+  max-height: 100svh;
   place-items: center;
   overflow: hidden;
   isolation: isolate;
@@ -745,6 +754,19 @@
   transition:
     opacity 220ms ease,
     transform 260ms ease;
+}
+
+/*
+  The two islands along the bottom open their button upwards.
+
+  Below them is the edge of the painting: on the light city's gate and in the dinosaur valley the
+  button hung into the last few percent of the frame and was clipped by it. Above the island is
+  open sky on both, and the button is the same distance from its island either way.
+*/
+.hotspot-kingdom .world-action,
+.hotspot-dinosaurs .world-action {
+  top: auto;
+  bottom: calc(100% + 14px);
 }
 
 .world-action.is-ready {

@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+
 import { useT } from "@/lib/i18n";
 import { ISLAND_SPOTS, SELECTOR_ART, SELECTOR_WORLDS } from "@/lib/journey/worldSelector";
 import { useWorldById, type WorldId } from "@/lib/worlds";
@@ -5,10 +7,11 @@ import { useWorldById, type WorldId } from "@/lib/worlds";
 type Props = {
   worldId: WorldId;
   /**
-   * How much of the painting's width the panel shows. Smaller is closer: 0.34 frames one island
-   * with its clouds, which is the crop the map itself uses when it lights a world.
+   * How much room to leave around the island, as a multiple of its own size. 1 would crop to its
+   * exact edges; 1.35 leaves the sky and cloud it stands in without letting the island shrink
+   * into the middle of the frame.
    */
-  window?: number;
+  margin?: number;
   className?: string;
 };
 
@@ -25,7 +28,7 @@ type Props = {
  * with the map, and a repainted master arrives here on the same deploy. The island's own
  * coordinates come from ISLAND_SPOTS — the same numbers the hotspots and the star's flight use.
  */
-export function WorldArtPanel({ worldId, window: windowShare = 0.34, className }: Props) {
+export function WorldArtPanel({ worldId, margin = 1.35, className }: Props) {
   const t = useT();
   const worldById = useWorldById();
   const place = worldById[worldId];
@@ -36,20 +39,57 @@ export function WorldArtPanel({ worldId, window: windowShare = 0.34, className }
     the map — draws nothing rather than a crop of somebody else's island.
   */
   const selectorId = SELECTOR_WORLDS.find((world) => world.worldId === worldId)?.id;
-  if (!selectorId) return null;
-
-  const spot = ISLAND_SPOTS.desktop[selectorId];
 
   /*
-    Framing, exactly.
+    The island, or a stand-in for one.
 
-    The plate carries the painting at its own aspect ratio and is grown until it covers the panel
-    in both directions. Then two transforms, read right to left: the island's centre is moved to
-    the plate's centre, the plate is scaled about that same centre — so the island stays on it —
-    and the plate is finally pulled back by half its size, having been pinned at the panel's
-    middle. The island lands in the middle of the panel whatever shape the panel is.
+    The bail-out for a world with no island used to sit here, above the hooks — which made every
+    hook below it conditional, and a component whose hook order changes with its props is a
+    component React will eventually render with somebody else's state. The measurement runs for
+    every world; the decision not to draw is taken at the end, where returning early costs
+    nothing.
   */
-  const zoom = 1 / windowShare;
+  const spot = selectorId ? ISLAND_SPOTS.desktop[selectorId] : ISLAND_SPOTS.desktop.animals;
+
+  /*
+    Framing, measured.
+
+    The island has to fit the panel with room around it, and how much of the painting a panel can
+    show depends on the panel's shape — which is decided by the page, not by this file. A single
+    hand-picked zoom is therefore always wrong somewhere: the one that suited the forest cut the
+    long-necked one in the dinosaur valley off at the neck, because that island is tall and the
+    panel beside a form is narrow.
+
+    So the zoom is worked out from the panel as it actually is. The plate covers the panel; from
+    that, the scale at which the island's own footprint — plus its margin — still fits inside both
+    edges is arithmetic. Never below 1, or the plate would stop covering and show its corners.
+  */
+  const panelRef = useRef<HTMLElement | null>(null);
+  const [zoom, setZoom] = useState(1.8);
+
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    const fit = () => {
+      const { width, height } = panel.getBoundingClientRect();
+      if (!width || !height) return;
+
+      const artRatio = 1672 / 941;
+      const plateWidth = Math.max(width, height * artRatio);
+      const plateHeight = plateWidth / artRatio;
+
+      const byWidth = (width * 100) / (spot.w * margin * plateWidth);
+      const byHeight = (height * 100) / (spot.h * margin * plateHeight);
+      setZoom(Math.max(1, Math.min(byWidth, byHeight)));
+    };
+
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [spot.w, spot.h, margin]);
+
   const style = {
     "--world-art": `url("${SELECTOR_ART.desktop}")`,
     "--world-zoom": zoom,
@@ -57,8 +97,14 @@ export function WorldArtPanel({ worldId, window: windowShare = 0.34, className }
     "--world-dy": `${50 - spot.cy}%`,
   } as React.CSSProperties;
 
+  if (!selectorId) return null;
+
   return (
-    <figure className={`world-art-panel${className ? ` ${className}` : ""}`} style={style}>
+    <figure
+      ref={panelRef}
+      className={`world-art-panel${className ? ` ${className}` : ""}`}
+      style={style}
+    >
       <div className="world-art-plate" role="img" aria-label={place.mapTitle} />
 
       {/* The map's own light: a warm bloom on the island, a cool wash over the rest, and the

@@ -478,7 +478,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
             their story is set in, from the same painting they chose it on: no second generation,
             nothing invented, and the sample stops looking like a single image.
           */}
-          <WorldArtPanel worldId={worldId} className="ux-preview-world-glimpse" window={0.4} />
+          <WorldArtPanel worldId={worldId} className="ux-preview-world-glimpse" margin={1.5} />
 
           <p className="ux-preview-book-note">
             <Lock aria-hidden="true" /> {t.journey.preview.bookNote}
