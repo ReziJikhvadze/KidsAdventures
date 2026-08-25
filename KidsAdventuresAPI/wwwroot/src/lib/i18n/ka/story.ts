@@ -1,6 +1,6 @@
 export const story = {
   storybook: {
-    brand: "ADVENTRYA",
+    brand: "BEKI",
     /*
       One string, not a prefix and a suffix with the name wedged between them. Georgian declines
       a name — the suffix was a literal "-ს", so the cover read "ზუკა-ს ეკუთვნის", which is a
@@ -42,7 +42,7 @@ export const story = {
     memorySuffix: "ს შემდეგ ამბავშიც დაბრუნდება.",
     worldPassport: "ნახე გახსნილი სამყარო",
     illustrating: {
-      atelier: "ADVENTRYA BOOK ATELIER",
+      atelier: "BEKI BOOK ATELIER",
       title: "ვხატავთ წიგნის სურათებს",
       leadWaiting:
         "წიგნს მაშინ გაჩვენებთ, როცა ყველა სურათი მზად იქნება — რომ ერთიანად, დასრულებული ნახო.",
@@ -53,7 +53,7 @@ export const story = {
     },
     pdf: {
       building: "მზადდება…",
-      atelier: "ADVENTRYA PRINT ATELIER",
+      atelier: "BEKI PRINT ATELIER",
       title: "საბეჭდ PDF-ს ვამზადებთ",
       lead: "წიგნს საბეჭდად ვაწყობთ — ჩამოტვირთვა ავტომატურად დაიწყება.",
       email: "შეგიძლია დახურო ეს გვერდი. როცა PDF მზად იქნება, მეილს მოგწერთ.",

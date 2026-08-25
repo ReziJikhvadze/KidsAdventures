@@ -2,6 +2,7 @@ import { Link, useCanGoBack, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, ChevronDown, ChevronRight, Globe, LogOut } from "lucide-react";
 
 import { LanguageSwitcher } from "@/components/adventrya/LanguageSwitcher";
+import { BRAND_HEADER_NAME } from "@/lib/brand";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useT } from "@/lib/i18n";
 
@@ -108,7 +109,7 @@ export function AppHeader({
         </Link>
         {!minimal ? (
           <Link className="wordmark wordmark-small" to="/">
-            ADVENTRYA
+            {BRAND_HEADER_NAME}
           </Link>
         ) : null}
       </div>

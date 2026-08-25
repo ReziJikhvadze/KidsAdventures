@@ -6,6 +6,7 @@ import { Books } from "@/components/adventrya/landing/Books";
 import { Header, useLogoToTop } from "@/components/adventrya/landing/Header";
 import { Hero } from "@/components/adventrya/landing/Hero";
 import { ArrowIcon, CheckIcon, SparkleIcon } from "@/components/adventrya/landing/icons";
+import { BRAND_HEADER_NAME } from "@/lib/brand";
 import { formatGel, useT } from "@/lib/i18n";
 import { PRICES } from "@/lib/pricing";
 import { useJourneyDraft } from "@/lib/journey/draft";
@@ -224,7 +225,7 @@ function Footer() {
     <footer className="landing-v3-footer">
       <div>
         <Link to="/" className="landing-v3-logo" onClick={toTop}>
-          ADVENTRYA
+          {BRAND_HEADER_NAME}
           <small>{t.common.brandTagline}</small>
         </Link>
         <p>{F.blurb}</p>

@@ -1,6 +1,6 @@
 export const story = {
   storybook: {
-    brand: "ADVENTRYA",
+    brand: "BEKI",
     belongsTo: (hero: string) => `This story is ${hero.trim()}'s`,
     nextChapter: (hero: string) => "The next adventure",
     adventureOf: (hero: string) => `${hero}'s story`,
@@ -37,7 +37,7 @@ export const story = {
     memorySuffix: " in the next story.",
     worldPassport: "See the world you opened",
     illustrating: {
-      atelier: "ADVENTRYA BOOK ATELIER",
+      atelier: "BEKI BOOK ATELIER",
       title: "Painting the pictures",
       leadWaiting:
         "We'll show the book once every picture is done, so you meet it finished rather than half-drawn.",
@@ -48,7 +48,7 @@ export const story = {
     },
     pdf: {
       building: "Preparing…",
-      atelier: "ADVENTRYA PRINT ATELIER",
+      atelier: "BEKI PRINT ATELIER",
       title: "Preparing your printable PDF",
       lead: "We're setting the book for print — the download starts on its own.",
       email: "You can close this page. We'll email you when the PDF is ready.",

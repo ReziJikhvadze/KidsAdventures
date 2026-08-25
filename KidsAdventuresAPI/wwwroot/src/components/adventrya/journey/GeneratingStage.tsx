@@ -154,7 +154,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
         <div className="generation-atelier">
           <div className="generation-atelier-topline">
             <span>
-              <Sparkles aria-hidden="true" /> ADVENTRYA BOOK ATELIER
+              <Sparkles aria-hidden="true" /> BEKI BOOK ATELIER
             </span>
             <strong>
               {t.journey.generating.stageLabel}
@@ -173,7 +173,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
               aria-hidden="true"
             />
             <div className="ux-cover-shade" aria-hidden="true" />
-            <span className="ux-cover-brand">ADVENTRYA</span>
+            <span className="ux-cover-brand">BEKI</span>
             <small>{world.theme}</small>
             <h2>{bookTitle}</h2>
           </article>

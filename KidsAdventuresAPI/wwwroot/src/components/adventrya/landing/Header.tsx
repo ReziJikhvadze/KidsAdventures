@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 
 import { LanguageSwitcher } from "@/components/adventrya/LanguageSwitcher";
+import { BRAND_HEADER_NAME } from "@/lib/brand";
 import { useT } from "@/lib/i18n";
 
 import { ChevronDownIcon, DashboardIcon, GlobeIcon } from "./icons";
@@ -55,7 +56,7 @@ export function Header() {
   return (
     <header className="landing-v3-header">
       <Link className="landing-v3-logo" to="/" aria-label={t.common.nav.homeAria} onClick={toTop}>
-        ADVENTRYA
+        {BRAND_HEADER_NAME}
         <small>{t.common.brandTagline}</small>
       </Link>
 
