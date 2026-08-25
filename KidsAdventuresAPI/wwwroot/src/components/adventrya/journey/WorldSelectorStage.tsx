@@ -345,34 +345,49 @@ function WorldStageArt({
                   <span className="hotspot-marker" aria-hidden="true">
                     <i />
                   </span>
+                </button>
+
+                {/*
+                  The title and the button are one object.
+
+                  They used to be two: a name pinned near the island and, on the far side of the
+                  island, a button that appeared from nowhere when it was chosen. A parent had to
+                  find the second thing after reading the first, and on the lowest islands the
+                  button had nowhere to be. Together they read as a card belonging to that
+                  island — the name, then the one thing to do about it, growing downwards out of
+                  the name it belongs to.
+
+                  The card cannot be inside the hotspot: a button does not go inside a button.
+                  It sits over it, transparent to the pointer except for the button itself, so
+                  the whole island stays one big click target until there is something to press.
+                */}
+                <div className="world-card">
                   {/* The stylesheet shows the full title where there is room and the short one
                       where there is not, so both are set and neither is chosen in script. */}
                   <span className="world-label">
-                    {/* The "Chapter I ·" line went: it numbered six worlds that are not read in
-                        order, and it was the longest thing in the smallest box. */}
                     <strong className="full-title">{place.mapTitle}</strong>
                     <strong className="short-title">{place.mapLabel}</strong>
                   </span>
-                </button>
 
-                <div
-                  className={`world-action${showAction ? " is-ready" : ""}`}
-                  aria-hidden={!showAction}
-                >
-                  <button
-                    type="button"
-                    className="continue-button"
-                    data-world-id={world.id}
-                    aria-label={copy.continueTo(place.mapTitle)}
-                    disabled={!showAction}
-                    tabIndex={showAction ? 0 : -1}
-                    onClick={onStart}
+                  <div
+                    className={`world-action${showAction ? " is-ready" : ""}`}
+                    aria-hidden={!showAction}
                   >
-                    {copy.create}
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M5 12h13m-5-5 5 5-5 5" />
-                    </svg>
-                  </button>
+                    <button
+                      type="button"
+                      className="continue-button"
+                      data-world-id={world.id}
+                      aria-label={copy.continueTo(place.mapTitle)}
+                      disabled={!showAction}
+                      tabIndex={showAction ? 0 : -1}
+                      onClick={onStart}
+                    >
+                      {copy.create}
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M5 12h13m-5-5 5 5-5 5" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             );

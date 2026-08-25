@@ -171,6 +171,22 @@
   aspect-ratio: 853 / 1844;
 }
 
+/*
+  Embedded, the map measures the section rather than the window.
+
+  100vw includes the scrollbar; the section it sits in does not. On the home page — which
+  scrolls, so the scrollbar is there — that was fifteen pixels of painting hanging outside the
+  section and being clipped by it, eight on each side. Reading 100% instead means the frame ends
+  exactly where the section does, which is what filling a page to its edge actually requires.
+*/
+.experience-shell-embedded .desktop-frame {
+  width: min(max(100%, calc(100svh * 1.776833)), calc(100svh * 1.015 * 1.776833));
+}
+
+.experience-shell-embedded .mobile-frame {
+  width: min(max(100%, calc(100svh * 0.462581)), calc(100svh * 1.015 * 0.462581));
+}
+
 .master-art {
   position: absolute;
   inset: 0;
@@ -665,10 +681,27 @@
   box-shadow: 0 0 13px #ffc64f;
 }
 
-.world-label {
+/*
+  The island's card: its name, and the one thing to do about it.
+
+  The placement that used to be on the label is here, because the label is no longer alone —
+  the button grows out of the bottom of it and the two move as one object. Transparent to the
+  pointer so the island underneath stays one large target; the button inside takes its own
+  clicks back.
+*/
+.world-card {
   position: absolute;
   bottom: 3%;
   left: 50%;
+  z-index: 4;
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.world-label {
   display: grid;
   min-width: max-content;
   justify-items: center;
@@ -681,7 +714,6 @@
     inset 0 0 18px rgba(255, 211, 107, 0.04);
   text-align: center;
   text-shadow: 0 2px 7px rgba(2, 1, 17, 0.95);
-  transform: translateX(-50%);
   backdrop-filter: blur(7px);
   transition:
     border-color 180ms ease,
@@ -690,18 +722,18 @@
     transform 180ms ease;
 }
 
-.desktop-frame .hotspot-clouds .world-label,
-.desktop-frame .hotspot-space .world-label {
+.desktop-frame .hotspot-clouds .world-card,
+.desktop-frame .hotspot-space .world-card {
   bottom: 8%;
 }
 
-.desktop-frame .hotspot-animals .world-label,
-.desktop-frame .hotspot-ocean .world-label {
+.desktop-frame .hotspot-animals .world-card,
+.desktop-frame .hotspot-ocean .world-card {
   bottom: 17%;
 }
 
-.desktop-frame .hotspot-kingdom .world-label,
-.desktop-frame .hotspot-dinosaurs .world-label {
+.desktop-frame .hotspot-kingdom .world-card,
+.desktop-frame .hotspot-dinosaurs .world-card {
   bottom: 14%;
 }
 
@@ -726,14 +758,14 @@
 
 .world-node.is-previewed .world-label,
 .world-node.is-selected .world-label,
-.world-hotspot:hover .world-label,
-.world-hotspot:focus-visible .world-label {
+.world-node:hover .world-label,
+.world-node:focus-within .world-label {
   border-color: rgba(255, 235, 180, 0.78);
   background: rgba(28, 15, 66, 0.77);
   box-shadow:
     0 0 25px rgba(255, 196, 65, 0.23),
     inset 0 0 20px rgba(255, 221, 136, 0.08);
-  transform: translateX(-50%) translateY(-2px);
+  transform: translateY(-2px);
 }
 
 .world-node.is-previewed .hotspot-marker,
@@ -772,15 +804,20 @@
   title on three of the six worlds and floating in cloud on the others. It now hangs a fixed
   distance under the island itself, so it reads the same wherever it appears.
 */
+/*
+  The button, growing out of the bottom of the name.
+
+  It used to be pinned to the island's box and float in on its own; as a row of the card it
+  arrives where the eye already is, and it cannot land on the edge of the painting because the
+  card is placed by the same rules the name always was.
+*/
 .world-action {
-  position: absolute;
-  top: calc(100% + 14px);
-  left: 50%;
-  z-index: 4;
-  width: max-content;
+  width: 100%;
+  display: grid;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, 7px) scale(0.96);
+  transform: translateY(-6px) scale(0.96);
+  transform-origin: top center;
   transition:
     opacity 220ms ease,
     transform 260ms ease;
@@ -789,12 +826,18 @@
 .world-action.is-ready {
   opacity: 1;
   pointer-events: auto;
-  transform: translate(-50%, 0) scale(1);
+  transform: translateY(0) scale(1);
 }
 
 .continue-button {
+  /*
+    As wide as the name above it, so the two read as one card rather than as a pill with a
+    smaller pill loose beneath it.
+  */
+  width: 100%;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: clamp(7px, 0.62vw, 10px) clamp(11px, 1vw, 17px);
   cursor: pointer;
