@@ -1,40 +1,40 @@
 export const story = {
   storybook: {
     brand: "ADVENTRYA",
-    belongsTo: (hero: string) => `A story that belongs to ${hero.trim()}`,
-    nextChapter: (hero: string) => `${hero}'s next chapter`,
-    adventureOf: (hero: string) => `${hero}'s adventure`,
+    belongsTo: (hero: string) => `This story is ${hero.trim()}'s`,
+    nextChapter: (hero: string) => "The next adventure",
+    adventureOf: (hero: string) => `${hero}'s story`,
     coverLabel: (total: number) => `Cover · ${total} pages`,
-    spreadLabel: (from: number, to: number, total: number) => `Pages ${from}–${to} / ${total}`,
-    pageLabel: (page: number, total: number) => `Page ${page} / ${total}`,
+    spreadLabel: (from: number, to: number, total: number) => `${from}–${to} / ${total}`,
+    pageLabel: (page: number, total: number) => `${page} / ${total}`,
     pages: "Book pages",
     previous: "Previous",
     next: "Next",
     previousPage: "Previous page",
     nextPage: "Next page",
     gestureHint: "Swipe, use the arrows, or your keyboard",
-    flipAria: (hero: string) => `${hero} — a book you can leaf through`,
+    flipAria: (hero: string) => `Leaf through ${hero}'s story`,
 
-    qrTitle: "The adventure does not end here",
+    qrTitle: "This is only the beginning",
     /* Print gets a QR; a screen gets a button, so the two ask for different verbs. */
-    backScan: (hero: string) => `Scan and continue ${hero}'s journey in another world.`,
+    backScan: (hero: string) => `Scan. Continue. ${hero}'s journey in another world.`,
     backTap: (hero: string) => `Continue ${hero}'s journey in another world.`,
     backCta: "A new adventure",
 
-    lockedNote: "The full book is created after payment",
+    lockedNote: "Continue with the full book",
     lockedPagePrefix: "Page ",
-    lockedPageSuffix: " is already being prepared for you",
+    lockedPageSuffix: " · the magic is already starting…",
   },
 
   reader: {
-    digitalBook: "'s Digital book",
+    digitalBook: "'s digital book",
     library: " library",
-    flipPrefix: "Leaf through ",
+    flipPrefix: "Start reading ",
     flipSuffix: "'s story",
     lead: "On a large screen the book opens as a spread; on a phone it reads one page at a time.",
-    ariaLabel: (hero: string) => `${hero}'s full Online Reader`,
-    memoryPrefix: "This memory stays with ",
-    memorySuffix: " in future stories.",
+    ariaLabel: (hero: string) => `Read ${hero}'s full book`,
+    memoryPrefix: "This moment comes back with ",
+    memorySuffix: " in the next story.",
     worldPassport: "See the world you opened",
     illustrating: {
       atelier: "ADVENTRYA BOOK ATELIER",
@@ -56,29 +56,26 @@ export const story = {
   },
 
   map: {
-    ariaLabel: (hero: string) => `A living map of ${hero}'s adventures`,
+    ariaLabel: (hero: string) => `${hero}'s map of adventures`,
     titleSuffix: "'s map of adventures",
     lead: "Every new book opens another part of the world",
-    progress: (unlocked: number, total: number) =>
-      unlocked === 2 && total === 6
-        ? "Two worlds opened out of six"
-        : `${unlocked} of ${total} worlds opened`,
+    progress: (unlocked: number, total: number) => `${unlocked} of ${total} worlds discovered`,
     ofTotal: (total: number) => `of ${total} worlds`,
     memorySaved: "Memory saved",
     nextReady: "The next path is ready",
     unlockWithNewBook: "Open it with a new book",
-    panCue: " Drag the map ",
+    panCue: " Explore the map ",
     legendUnlocked: " Opened world",
     legendNext: " Next path",
     legendFuture: " World to open",
-    statusCompleted: (index: number) => `Book ${index} · completed`,
-    statusNext: "Next chapter · ready",
-    statusFuture: "Not yet explored",
+    statusCompleted: (index: number) => "Completed ✓",
+    statusNext: "Ready for a new adventure",
+    statusFuture: "Still to discover",
   },
 
   world: {
     welcomeBack: " Welcome back",
-    titleSuffix: "'s world comes alive again",
+    titleSuffix: "'s world is waiting again",
     lead: "Rex remembers every moment. Choose where their path continues.",
     statBook: " book",
     statMemory: " memory",
@@ -94,7 +91,7 @@ export const story = {
     lastMemoryNote: "Rex remembers your last adventure.",
     profileLine: (age: number, stories: number) =>
       `Age ${age} · ${stories} completed ${stories === 1 ? "story" : "stories"}`,
-    openedStoriesSuffix: "'s stories opened so far",
+    openedStoriesSuffix: "'s stories discovered so far",
     archiveNote:
       "Older books stay exactly as they were; new information applies only to future stories.",
   },

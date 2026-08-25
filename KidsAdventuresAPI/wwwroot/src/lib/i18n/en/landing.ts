@@ -27,7 +27,7 @@ export const landing = {
     lead: "Every book has a personalised cover, 7 illustrated story pages, and a QR code to continue the adventure.",
     priceFrom: "from 14 ₾",
     createSimilar: "Create something like this ",
-    exampleAlt: (title: string) => `${title} — an example personalised book`,
+    exampleAlt: (title: string) => `See the book for ${title}`,
     examples: [
       {
         theme: "dinosaurs",
@@ -72,7 +72,7 @@ export const landing = {
   },
 
   memory: {
-    eyebrow: " What makes Beki different",
+    eyebrow: " What makes BEKI special?",
     titleLine1: "The book ends.",
     titleEm: "Their world does not.",
     lead: "Friends made in the first book, the moments that mattered, and your child's goals come back naturally in later stories.",
@@ -192,7 +192,7 @@ export const landing = {
     eyebrow: "Frequently asked questions",
     titleLine1: "Everything to know before",
     titleEm: "the first adventure",
-    contactLink: "Another question? Write to us",
+    contactLink: "Got a question? We're here.",
     items: [
       {
         question: "What do I see before paying?",
@@ -201,23 +201,19 @@ export const landing = {
       },
       {
         question: "How is my child's photo used?",
-        answer:
-          "The photo is needed so the hero in the illustrations resembles your child. Use a clear, well-lit portrait with the whole face visible.",
+        answer: "One good photo is enough. The face just needs to be clearly visible.",
       },
       {
         question: "How long until I receive the printed book?",
-        answer:
-          "About 4–5 days in Tbilisi, and 5–8 days elsewhere in Georgia. Delivery is already included in the 79 ₾.",
+        answer: "Free delivery across Georgia.",
       },
       {
         question: "When is the full book created?",
-        answer:
-          "The full 7-page book begins generating as soon as payment succeeds. You watch the process on screen, and the Digital edition opens there when it is done.",
+        answer: "Pay, and your full book starts being created right away.",
       },
       {
         question: "Can I print a Digital book later?",
-        answer:
-          "Yes. Pay only the 65 ₾ difference and your Digital book becomes a Printed edition.",
+        answer: "Already have the digital one? Add print for just 65 ₾.",
       },
     ],
   },

@@ -23,7 +23,7 @@ export const common = {
     added: "Added",
     apply: "Apply",
     seeAll: "See all",
-    checking: "Checking…",
+    checking: "We're checking…",
     signOut: "Sign out",
     previous: "Previous",
     next: "Next",
@@ -39,7 +39,7 @@ export const common = {
     phone: "Phone number",
     or: "or",
     and: "and",
-    andSpaced: " and ",
+    andSpaced: " & ",
   },
 
   nav: {
@@ -120,7 +120,7 @@ export const common = {
     grey: "Grey",
   },
 
-  fallbackHeroName: "little hero",
+  fallbackHeroName: "your hero",
 
   contactForm: {
     eyebrow: "Contact",

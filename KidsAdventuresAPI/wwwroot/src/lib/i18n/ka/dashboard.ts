@@ -4,8 +4,9 @@ export const dashboard = {
     newBook: "ახალი წიგნის შექმნა",
     parentLabel: "ბავშვის პროფილები",
     addChild: "＋ დაამატე ბავშვის პროფილი",
-    noStoriesYet: "ჯერ არ აქვს ისტორია",
-    storyCount: (count: number) => (count === 1 ? "1 თავგადასავალი" : `${count} თავგადასავალი`),
+    noStoriesYet: "პირველი თავგადასავალი ჯერ არ დაწყებულა",
+    storyCount: (count: number) =>
+      count === 1 ? "1 დასრულებული თავგადასავალი" : `${count} დასრულებული თავგადასავალი`,
   },
 
   library: {
@@ -32,7 +33,7 @@ export const dashboard = {
     /* Said once, in the order panel, instead of on every card down the shelf. */
     printDetail: (tbilisi: string, regions: string) =>
       `მაგარყდიანი წიგნი. თბილისში ${tbilisi} დღეში, სხვა რეგიონებში ${regions} დღეში.`,
-    printOrdered: "ბეჭდური გზაშია",
+    printOrdered: "ბეჭდური წიგნი გზაშია ✓",
 
     pagingLabel: "წიგნების გვერდები",
     pageOf: (page: number, total: number) => `გვერდი ${page} / ${total}`,

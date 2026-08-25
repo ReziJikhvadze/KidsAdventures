@@ -277,7 +277,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                   aria-label={t.journey.checkout.cardNumber}
                   autoComplete="cc-number"
                 />
-                <small>VISA · MC</small>
+                <small>Visa / Mastercard</small>
               </div>
             </label>
 
@@ -376,7 +376,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
 
         <div className="ux-promo-panel">
           <label className="field" htmlFor="checkout-promo">
-            <span>Promocode</span>
+            <span>{t.journey.checkout.promoLabel}</span>
             <div>
               <input
                 id="checkout-promo"
@@ -406,7 +406,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                   disabled={busy || promoState === "applying" || !promoInput.trim()}
                   onClick={() => void applyPromo()}
                 >
-                  {promoState === "applying" ? "მოწმდება…" : t.common.actions.apply}
+                  {promoState === "applying" ? t.common.actions.checking : t.common.actions.apply}
                 </button>
               )}
             </div>

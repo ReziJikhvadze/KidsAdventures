@@ -7,7 +7,7 @@ import { heroDemoPages } from "@/lib/story/heroDemoPages";
 import { BookIcon, SparkleIcon, ArrowIcon } from "./icons";
 
 const HERO_NAME = "ზუკა";
-const HERO_TITLE = "ზუკა და დაკარგული ხეობის საიდუმლო";
+const HERO_TITLE = "ზუკა დაკარგულ ხეობაში";
 
 export function Hero() {
   const t = useT();

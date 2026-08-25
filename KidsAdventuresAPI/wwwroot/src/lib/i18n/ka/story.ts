@@ -6,40 +6,40 @@ export const story = {
       a name — the suffix was a literal "-ს", so the cover read "ზუკა-ს ეკუთვნის", which is a
       template seam rather than a sentence. A name is in the dative here and takes ს either way.
     */
-    belongsTo: (hero: string) => `ამბავი, რომელიც ${hero.trim()}ს ეკუთვნის`,
-    nextChapter: (hero: string) => `${hero}ს შემდეგი თავი`,
-    adventureOf: (hero: string) => `${hero}ს თავგადასავალი`,
+    belongsTo: (hero: string) => `ეს ამბავი ${hero.trim()}სია`,
+    nextChapter: (hero: string) => "შემდეგი თავგადასავალი",
+    adventureOf: (hero: string) => `${hero}ს ამბავი`,
     coverLabel: (total: number) => `ყდა · ${total} გვერდი`,
-    spreadLabel: (from: number, to: number, total: number) => `გვერდები ${from}–${to} / ${total}`,
-    pageLabel: (page: number, total: number) => `გვერდი ${page} / ${total}`,
+    spreadLabel: (from: number, to: number, total: number) => `${from}–${to} / ${total}`,
+    pageLabel: (page: number, total: number) => `${page} / ${total}`,
     pages: "წიგნის გვერდები",
     previous: "წინა",
     next: "შემდეგი",
     previousPage: "წინა გვერდი",
     nextPage: "შემდეგი გვერდი",
     gestureHint: "გადაფურცლე, გამოიყენე ისრები ან კლავიატურა",
-    flipAria: (hero: string) => `${hero} — გადასაფურცლი წიგნი`,
+    flipAria: (hero: string) => `გადაფურცლე ${hero}ს ამბავი`,
 
-    qrTitle: "თავგადასავალი აქ არ სრულდება",
+    qrTitle: "ეს მხოლოდ დასაწყისია",
     /* Print gets a QR; a screen gets a button, so the two ask for different verbs. */
-    backScan: (hero: string) => `დაასკანერე და გააგრძელე ${hero}ს მოგზაურობა სხვა სამყაროში.`,
+    backScan: (hero: string) => `დაასკანერე. გააგრძელე. ${hero}ს მოგზაურობა სხვა სამყაროში.`,
     backTap: (hero: string) => `გააგრძელე ${hero}ს მოგზაურობა სხვა სამყაროში.`,
     backCta: "ახალი თავგადასავალი",
 
-    lockedNote: "სრული წიგნი შეიქმნება გადახდის შემდეგ",
+    lockedNote: "გააგრძელე სრული წიგნით",
     lockedPagePrefix: "გვერდი ",
-    lockedPageSuffix: " შენთვის უკვე მზადდება",
+    lockedPageSuffix: " · მაგია უკვე იწყება...",
   },
 
   reader: {
-    digitalBook: "ს Digital წიგნი",
+    digitalBook: "ს ციფრული წიგნი",
     library: " ბიბლიოთეკა",
-    flipPrefix: "გადაფურცლე ",
+    flipPrefix: "დაიწყე კითხვა ",
     flipSuffix: "ს ამბავი",
     lead: "დიდ ეკრანზე წიგნი იშლება, მობილურზე კი თითო გვერდად იკითხება.",
-    ariaLabel: (hero: string) => `${hero}ს სრული Online Reader`,
-    memoryPrefix: "ეს მოგონება ",
-    memorySuffix: "ს მომავალ ისტორიებში შენახული დარჩება.",
+    ariaLabel: (hero: string) => `წაიკითხე ${hero}ს სრული წიგნი`,
+    memoryPrefix: "ეს მომენტი ",
+    memorySuffix: "ს შემდეგ ამბავშიც დაბრუნდება.",
     worldPassport: "ნახე გახსნილი სამყარო",
     illustrating: {
       atelier: "ADVENTRYA BOOK ATELIER",
@@ -61,29 +61,26 @@ export const story = {
   },
 
   map: {
-    ariaLabel: (hero: string) => `${hero}ს თავგადასავლების ცოცხალი რუკა`,
+    ariaLabel: (hero: string) => `${hero}ს თავგადასავლების რუკა`,
     titleSuffix: "ს თავგადასავლების რუკა",
     lead: "ყოველი ახალი წიგნი სამყაროს კიდევ ერთ ნაწილს ხსნის",
-    progress: (unlocked: number, total: number) =>
-      unlocked === 2 && total === 6
-        ? "ორი გახსნილი სამყარო ექვსიდან"
-        : `${unlocked} გახსნილი სამყარო ${total}-დან`,
+    progress: (unlocked: number, total: number) => `აღმოჩენილია ${unlocked} სამყარო ${total}-დან`,
     ofTotal: (total: number) => `${total} სამყაროდან`,
     memorySaved: "მოგონება შენახულია",
     nextReady: "შემდეგი გზა მზადაა",
     unlockWithNewBook: "გახსენი ახალი წიგნით",
-    panCue: " გადაადგილე რუკა ",
+    panCue: " აღმოაჩინე რუკა ",
     legendUnlocked: " გახსნილი სამყარო",
     legendNext: " შემდეგი გზა",
     legendFuture: " გასახსნელი სამყარო",
-    statusCompleted: (index: number) => `წიგნი ${index} · დასრულებული`,
-    statusNext: "შემდეგი თავი · მზადაა",
-    statusFuture: "ჯერ გამოუკვლეველია",
+    statusCompleted: (index: number) => "დასრულებული ✓",
+    statusNext: "მზადაა ახალი თავგადასავლისთვის",
+    statusFuture: "ჯერ აღმოსაჩენია",
   },
 
   world: {
     welcomeBack: " კეთილი იყოს შენი დაბრუნება",
-    titleSuffix: "ს სამყარო ისევ ცოცხლდება",
+    titleSuffix: "ს სამყარო ისევ გელოდება",
     lead: "რექსს ყველა მოგონება ახსოვს. აირჩიე, სად გაგრძელდება მათი გზა.",
     statBook: " წიგნი",
     statMemory: " მოგონება",
@@ -98,7 +95,7 @@ export const story = {
     lastMemory: "ბოლო მოგონება",
     lastMemoryNote: "რექსს თქვენი ბოლო თავგადასავალი ახსოვს.",
     profileLine: (age: number, stories: number) => `${age} წლის · ${stories} დასრულებული ამბავი`,
-    openedStoriesSuffix: "ს უკვე გახსნილი ისტორიები",
+    openedStoriesSuffix: "ს უკვე აღმოჩენილი ამბები",
     archiveNote:
       "ძველი წიგნები უცვლელად ინახება; ახალი ინფორმაცია მხოლოდ მომავალ ისტორიებზე ვრცელდება.",
   },

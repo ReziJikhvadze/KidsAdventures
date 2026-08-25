@@ -23,7 +23,7 @@ export const common = {
     added: "დამატებულია",
     apply: "გამოყენება",
     seeAll: "ყველას ნახვა",
-    checking: "მოწმდება…",
+    checking: "ვამოწმებთ…",
     signOut: "გასვლა",
     previous: "წინა",
     next: "შემდეგი",
@@ -39,7 +39,7 @@ export const common = {
     phone: "ტელეფონის ნომერი",
     or: "ან",
     and: "და",
-    andSpaced: " და ",
+    andSpaced: " & ",
   },
 
   nav: {
@@ -121,7 +121,7 @@ export const common = {
     grey: "ნაცრისფერი",
   },
 
-  fallbackHeroName: "პატარა გმირი",
+  fallbackHeroName: "შენი გმირი",
 
   /*
     The contact page was written half in each language: a Georgian heading over an English form.
