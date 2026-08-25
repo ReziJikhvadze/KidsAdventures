@@ -21,4 +21,15 @@ public sealed class EmailOptions
 
     /// <summary>Inbox for contact form submissions. Defaults to <see cref="FromAddress"/> when empty.</summary>
     public string ContactToAddress { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Where operational alerts go — a new paid order, a book that failed to generate, a parcel
+    /// to print. Separate from <see cref="ContactToAddress"/> because these are for whoever is
+    /// on duty, and customer mail is for whoever answers customers; the same person today is not
+    /// a reason to make it the same setting.
+    ///
+    /// Falls back to <see cref="ContactToAddress"/> and then <see cref="FromAddress"/>, so an
+    /// installation that sets nothing still gets its alerts rather than dropping them.
+    /// </summary>
+    public string AdminNotificationAddress { get; set; } = string.Empty;
 }

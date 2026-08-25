@@ -23,6 +23,7 @@ public sealed class PrintOrderService(
     IOrderRepository orderRepository,
     IUserRepository userRepository,
     IEmailService emailService,
+    IAdminNotifier adminNotifier,
     ILogger<PrintOrderService> logger) : IPrintOrderService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -265,13 +266,18 @@ public sealed class PrintOrderService(
         PrintOrder printOrder,
         CancellationToken cancellationToken)
     {
+        var book = await packRepository.GetByIdAsync(printOrder.BookId, userId, cancellationToken);
+
+        // Ahead of the customer mail, and not behind the same guard: a phone-only parent has no
+        // address to write to, but their parcel still has to be printed and someone still has to
+        // be told about it.
+        await adminNotifier.PrintOrderPlacedAsync(printOrder, book?.Title, cancellationToken);
+
         var email = await ResolveEmailAsync(userId, cancellationToken);
         if (email is null)
         {
             return;
         }
-
-        var book = await packRepository.GetByIdAsync(printOrder.BookId, userId, cancellationToken);
 
         await TrySendAsync(
             () => emailService.SendPrintOrderPlacedAsync(

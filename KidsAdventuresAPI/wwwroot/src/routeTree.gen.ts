@@ -32,6 +32,7 @@ import { Route as BillingSuccessRouteImport } from './routes/billing/success'
 import { Route as BillingCancelRouteImport } from './routes/billing/cancel'
 import { Route as AuthMagicRouteImport } from './routes/auth.magic'
 import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
+import { Route as AdminAdminsRouteImport } from './routes/admin/admins'
 import { Route as BlogAuthorIdRouteImport } from './routes/blog/author/$id'
 
 const WorldRoute = WorldRouteImport.update({
@@ -150,6 +151,11 @@ const AdminOrdersRoute = AdminOrdersRouteImport.update({
   path: '/admin/orders',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAdminsRoute = AdminAdminsRouteImport.update({
+  id: '/admin/admins',
+  path: '/admin/admins',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BlogAuthorIdRoute = BlogAuthorIdRouteImport.update({
   id: '/blog/author/$id',
   path: '/blog/author/$id',
@@ -169,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/world': typeof WorldRoute
+  '/admin/admins': typeof AdminAdminsRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/auth/magic': typeof AuthMagicRoute
   '/billing/cancel': typeof BillingCancelRoute
@@ -195,6 +202,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/world': typeof WorldRoute
+  '/admin/admins': typeof AdminAdminsRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/auth/magic': typeof AuthMagicRoute
   '/billing/cancel': typeof BillingCancelRoute
@@ -222,6 +230,7 @@ export interface FileRoutesById {
   '/privacy': typeof PrivacyRoute
   '/terms': typeof TermsRoute
   '/world': typeof WorldRoute
+  '/admin/admins': typeof AdminAdminsRoute
   '/admin/orders': typeof AdminOrdersRoute
   '/auth/magic': typeof AuthMagicRoute
   '/billing/cancel': typeof BillingCancelRoute
@@ -250,6 +259,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/world'
+    | '/admin/admins'
     | '/admin/orders'
     | '/auth/magic'
     | '/billing/cancel'
@@ -276,6 +286,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/world'
+    | '/admin/admins'
     | '/admin/orders'
     | '/auth/magic'
     | '/billing/cancel'
@@ -302,6 +313,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/world'
+    | '/admin/admins'
     | '/admin/orders'
     | '/auth/magic'
     | '/billing/cancel'
@@ -329,6 +341,7 @@ export interface RootRouteChildren {
   PrivacyRoute: typeof PrivacyRoute
   TermsRoute: typeof TermsRoute
   WorldRoute: typeof WorldRoute
+  AdminAdminsRoute: typeof AdminAdminsRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
   AuthMagicRoute: typeof AuthMagicRoute
   BillingCancelRoute: typeof BillingCancelRoute
@@ -506,6 +519,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminOrdersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/admins': {
+      id: '/admin/admins'
+      path: '/admin/admins'
+      fullPath: '/admin/admins'
+      preLoaderRoute: typeof AdminAdminsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/blog/author/$id': {
       id: '/blog/author/$id'
       path: '/blog/author/$id'
@@ -529,6 +549,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrivacyRoute: PrivacyRoute,
   TermsRoute: TermsRoute,
   WorldRoute: WorldRoute,
+  AdminAdminsRoute: AdminAdminsRoute,
   AdminOrdersRoute: AdminOrdersRoute,
   AuthMagicRoute: AuthMagicRoute,
   BillingCancelRoute: BillingCancelRoute,

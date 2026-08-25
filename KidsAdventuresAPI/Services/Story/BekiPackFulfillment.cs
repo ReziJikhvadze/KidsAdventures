@@ -71,6 +71,7 @@ public sealed class BekiPackFulfillment(
     IBlobStorageService blobStorage,
     IBekiBookGenerator generator,
     IBekiPdfComposer composer,
+    IAdminNotifier adminNotifier,
     ILogger<BekiPackFulfillment> logger) : IBekiPackFulfillment
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -401,6 +402,11 @@ public sealed class BekiPackFulfillment(
             await packRepository.UpdateStatusAsync(
                 packId, AdventurePackStatus.Failed, pack.GeneratedJson, null, ex.Message,
                 CancellationToken.None);
+
+            // This book was paid for before this job ever started, so a failure here is money
+            // taken with nothing delivered. It is the one generation failure that always needs
+            // a person.
+            await adminNotifier.BookFailedAsync(packId, ex.Message, CancellationToken.None);
         }
     }
 

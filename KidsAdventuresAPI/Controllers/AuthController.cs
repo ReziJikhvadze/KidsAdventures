@@ -142,7 +142,11 @@ public sealed class AuthController(
             PhoneNumber = user?.PhoneNumber,
             DisplayName = user?.DisplayName,
             PreferredLanguage = user?.PreferredLanguage ?? "ka",
-            IsAdmin = user?.IsAdmin ?? false,
+            // Read off the token rather than the row: the role is stamped at issue time, and
+            // a configured super-admin holds it without the column saying so. Answering from
+            // the row would tell a session it is not an admin while every admin route lets it
+            // straight through.
+            IsAdmin = User.IsInRole(UserRoles.Admin),
             WelcomeStoryRemaining = user?.WelcomeStoryRemaining ?? 0
         });
     }

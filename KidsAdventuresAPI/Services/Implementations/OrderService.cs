@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using Hangfire;
 using Stripe;
 using Stripe.Checkout;
 
@@ -36,6 +37,8 @@ public sealed class OrderService(
     IWorldProgressService worldProgressService,
     IPromoCodeRepository promoCodeRepository,
     IUserRepository userRepository,
+    IAdminNotifier adminNotifier,
+    IBackgroundJobClient backgroundJobClient,
     IOptions<StripeOptions> stripeOptions,
     ILogger<OrderService> logger) : IOrderService
 {
@@ -252,23 +255,57 @@ public sealed class OrderService(
         var stalled = await orderRepository.GetStalledPaidAsync(
             DateTime.UtcNow - StalledAfter, limit: 25, CancellationToken.None);
 
+        // Enqueued rather than run here, so the sweep and the console's retry button contend
+        // for the same per-order lock instead of racing each other into two books.
         foreach (var order in stalled)
         {
-            try
-            {
-                var bookId = await bookFulfillmentService.FulfillAsync(order, CancellationToken.None);
-                await orderRepository.TryMarkFulfilledAsync(order.Id, CancellationToken.None);
-                logger.LogInformation(
-                    "Retried fulfilment for stalled order {OrderId}; book {BookId}.", order.Id, bookId);
-            }
-            catch (Exception ex)
-            {
-                // Left as Paid on purpose so the next sweep tries again; a paid order is
-                // never marked Failed, because the money is real.
-                logger.LogError(ex, "Retrying fulfilment for order {OrderId} failed.", order.Id);
-                await orderRepository.MarkFailedAsync(order.Id, ex.Message, CancellationToken.None);
-            }
+            backgroundJobClient.Enqueue<IOrderService>(service => service.FulfilOrderAsync(order.Id));
         }
+    }
+
+    public async Task FulfilOrderAsync(Guid orderId)
+    {
+        // Re-read under the lock. Whatever the caller believed about this order when it queued
+        // the job, this is the row as it stands now — including the BookId a job that ran a
+        // moment ago may just have written, which is the whole idempotency story.
+        var order = await orderRepository.GetByIdAsync(orderId, CancellationToken.None);
+        if (order is null || !order.IsPaid || order.FulfilledAt is not null)
+        {
+            logger.LogDebug("Order {OrderId} needs no fulfilment; skipping.", orderId);
+            return;
+        }
+
+        try
+        {
+            var bookId = await bookFulfillmentService.FulfillAsync(order, CancellationToken.None);
+            await orderRepository.TryMarkFulfilledAsync(order.Id, CancellationToken.None);
+            logger.LogInformation("Fulfilled order {OrderId}; book {BookId}.", order.Id, bookId);
+        }
+        catch (Exception ex)
+        {
+            // Left as Paid on purpose so the next sweep tries again; a paid order is
+            // never marked Failed, because the money is real.
+            logger.LogError(ex, "Fulfilling order {OrderId} failed.", order.Id);
+            await orderRepository.MarkFailedAsync(order.Id, ex.Message, CancellationToken.None);
+        }
+    }
+
+    public async Task<bool> RequeueFulfilmentAsync(Guid orderId, CancellationToken cancellationToken)
+    {
+        var order = await orderRepository.GetByIdAsync(orderId, cancellationToken);
+
+        // Only a paid order can be re-driven. An unpaid one has nothing to deliver, and a
+        // fulfilled one already delivered it. The job re-checks both under its lock; this check
+        // is here so the operator gets told, instead of watching a queued job do nothing.
+        if (order is null || !order.IsPaid || order.FulfilledAt is not null)
+        {
+            return false;
+        }
+
+        backgroundJobClient.Enqueue<IOrderService>(service => service.FulfilOrderAsync(orderId));
+        logger.LogInformation("Admin re-queued fulfilment for order {OrderId}.", orderId);
+
+        return true;
     }
 
     // -- checkout -----------------------------------------------------------
@@ -506,6 +543,12 @@ public sealed class OrderService(
         }
 
         var refreshed = await orderRepository.GetByIdAsync(order.Id, cancellationToken) ?? order;
+
+        // Behind the exactly-once guard, so the alert cannot double-send however many callers
+        // race to record the same payment. Before fulfilment rather than after: the point of
+        // the mail is that money arrived, which is true whether or not the book then builds.
+        await adminNotifier.OrderPaidAsync(refreshed, cancellationToken);
+
         await FulfillPaidOrderAsync(refreshed, cancellationToken);
     }
 

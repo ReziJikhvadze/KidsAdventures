@@ -2,12 +2,11 @@ import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import { AdminShell, type AdminNavKey } from "@/components/admin/AdminShell";
 import { PasswordlessAuthDialog } from "@/components/auth/PasswordlessAuthDialog";
-import * as admin from "@/lib/api/admin";
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/AuthContext";
 
 /**
- * Everything every admin screen shares: the auth gate, the shell, and the badge counts.
+ * Everything every admin screen shares: the auth gate and the shell.
  *
  * The gate matters more than it looks. "Signed in but not an admin" is by far the most
  * common way this page fails, and a blank screen is a terrible way to say so — the 403
@@ -29,29 +28,6 @@ export function AdminScreen({
 }) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [authOpen, setAuthOpen] = useState(false);
-  const [counts, setCounts] = useState<Partial<Record<AdminNavKey, number>>>({});
-
-  // The sidebar badges are the same two numbers the overview tiles show, so they are
-  // fetched once here rather than by each screen.
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    let cancelled = false;
-    void admin
-      .getOverview(30)
-      .then((o) => {
-        if (cancelled) return;
-        setCounts({
-          production: o.booksFailed + o.booksInFlight,
-          fulfillment: o.printOrdersAwaiting,
-        });
-      })
-      .catch(() => {
-        /* badges are decoration; a failure here must not blank the screen */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -90,7 +66,7 @@ export function AdminScreen({
         <PasswordlessAuthDialog
           open={authOpen}
           onOpenChange={setAuthOpen}
-          returnPath="/admin"
+          returnPath="/admin/orders"
           onSuccess={() => setAuthOpen(false)}
         />
       </div>
@@ -103,7 +79,6 @@ export function AdminScreen({
       title={title}
       subtitle={subtitle}
       actions={actions}
-      counts={counts}
       operatorName={user?.email ?? user?.phoneNumber ?? undefined}
     >
       {children}

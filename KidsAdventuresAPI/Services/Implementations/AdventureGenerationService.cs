@@ -21,6 +21,7 @@ public sealed class AdventureGenerationService(
     IAdventurePdfService adventurePdfService,
     IBlobStorageService blobStorageService,
     IEmailService emailService,
+    IAdminNotifier adminNotifier,
     ISeriesMemoryService seriesMemoryService,
     IStoryRuleRepository storyRuleRepository,
     IOptions<EmailOptions> emailOptions,
@@ -995,6 +996,11 @@ public sealed class AdventureGenerationService(
             "რაღაც შეფერხდა. სცადე ხელახლა ან აირჩიე სხვა თემა.",
             null,
             cancellationToken);
+
+        // Last, and with its own cancellation token: the parent's book is already marked failed
+        // and their screen already says so. Whether anyone hears about it must not depend on
+        // the job still being alive.
+        await adminNotifier.BookFailedAsync(packId, message, CancellationToken.None);
     }
 
     private async Task SetProgressAsync(Guid packId, string message, CancellationToken cancellationToken)

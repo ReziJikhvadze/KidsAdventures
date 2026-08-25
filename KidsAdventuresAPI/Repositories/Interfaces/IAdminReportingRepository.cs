@@ -9,14 +9,12 @@ namespace AdventurePacks.Api.Repositories.Interfaces;
 /// </summary>
 public interface IAdminReportingRepository
 {
-    Task<AdminOverviewResponse> GetOverviewAsync(DateTime sinceUtc, CancellationToken cancellationToken);
-
     Task<AdminOrderListResponse> GetOrdersAsync(
-        string? status, string? search, int page, int pageSize, CancellationToken cancellationToken);
+        string? status, string? search, string? flag, int page, int pageSize, CancellationToken cancellationToken);
+
+    /// <summary>One order with its customer, its book and its parcel. Null when the id is unknown.</summary>
+    Task<AdminOrderDetailResponse?> GetOrderDetailAsync(Guid orderId, CancellationToken cancellationToken);
 
     Task<AdminCustomerListResponse> GetCustomersAsync(
         string? search, int page, int pageSize, CancellationToken cancellationToken);
-
-    Task<AdminProductionListResponse> GetProductionAsync(
-        bool includeCompleted, int page, int pageSize, CancellationToken cancellationToken);
 }

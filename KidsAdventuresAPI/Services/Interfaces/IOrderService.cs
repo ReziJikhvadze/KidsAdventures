@@ -1,3 +1,5 @@
+using Hangfire;
+
 using AdventurePacks.Api.DTOs.Orders;
 
 namespace AdventurePacks.Api.Services.Interfaces;
@@ -41,4 +43,29 @@ public interface IOrderService
     /// between the two does not leave a parent charged and empty-handed. Run on a schedule.
     /// </summary>
     Task RetryStalledFulfilmentAsync();
+
+    /// <summary>
+    /// Fulfils one paid order, as a background job — the single door every retry goes through.
+    ///
+    /// It exists to hold the lock. <c>Order.BookId</c> is fulfilment's idempotency marker, but it
+    /// is read off an <see cref="Order"/> loaded before the work starts: two callers that each
+    /// loaded the row while it was still null both see "no book yet" and both make one. That was
+    /// survivable while the five-minute sweep was the only caller; an operator with a retry button
+    /// can race it deliberately.
+    ///
+    /// So the sweep and the console both enqueue this, and Hangfire's per-order lock lets exactly
+    /// one of them run. The order is re-read inside, after the lock, which is what makes the
+    /// marker mean anything.
+    /// </summary>
+    [DisableConcurrentExecution("order-fulfil:{0}", 1800)]
+    Task FulfilOrderAsync(Guid orderId);
+
+    /// <summary>
+    /// Queues a retry for one paid order, on demand from the operations console.
+    ///
+    /// Returns false when the order is not in a state that can be retried — unpaid, or already
+    /// fulfilled — so the console can say which, rather than reporting a queued job that will
+    /// quietly decide to do nothing.
+    /// </summary>
+    Task<bool> RequeueFulfilmentAsync(Guid orderId, CancellationToken cancellationToken);
 }

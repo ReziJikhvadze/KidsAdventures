@@ -79,6 +79,7 @@ public static class ServiceCollectionExtensions
         services.Configure<RecaptchaOptions>(configuration.GetSection(RecaptchaOptions.SectionName));
         services.Configure<PasswordlessAuthOptions>(configuration.GetSection(PasswordlessAuthOptions.SectionName));
         services.Configure<ClientIpOptions>(configuration.GetSection(ClientIpOptions.SectionName));
+        services.Configure<AdminOptions>(configuration.GetSection(AdminOptions.SectionName));
         return services;
     }
 
@@ -308,6 +309,7 @@ public static class ServiceCollectionExtensions
                 : ActivatorUtilities.CreateInstance<AzureBlobStorageService>(sp));
         services.AddScoped<IAdventureGenerationService, AdventureGenerationService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
+        services.AddScoped<IAdminNotifier, AdminNotifier>();
         services.AddSingleton<IGuestRateLimiter, GuestRateLimiter>();
 
         // Beki pipelines. Registered unconditionally so the services can be resolved and

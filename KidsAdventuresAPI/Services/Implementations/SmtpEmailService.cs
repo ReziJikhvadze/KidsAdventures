@@ -219,6 +219,43 @@ public sealed class SmtpEmailService(
                </p>
                """;
 
+    public Task SendAdminAlertAsync(
+        string subject,
+        string headline,
+        IReadOnlyList<(string Label, string Value)> lines,
+        string? linkUrl,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = string.Join("\n", lines.Select(line => $"""
+              <tr>
+                <td style="padding:4px 16px 4px 0;color:#6b6480;white-space:nowrap">{WebUtility.HtmlEncode(line.Label)}</td>
+                <td style="padding:4px 0"><strong>{WebUtility.HtmlEncode(line.Value)}</strong></td>
+              </tr>
+            """));
+
+        var link = string.IsNullOrWhiteSpace(linkUrl)
+            ? string.Empty
+            : $"""<p><a href="{WebUtility.HtmlEncode(linkUrl)}">გახსენი ადმინში</a></p>""";
+
+        var html = GeorgianShell($"""
+              <p>{WebUtility.HtmlEncode(headline)}</p>
+              <table style="border-collapse:collapse;font-size:15px">{rows}</table>
+              {link}
+            """);
+
+        return SendEmailCoreAsync(AdminInbox, subject, html, cancellationToken);
+    }
+
+    /// <summary>
+    /// Where an operational alert goes. Three settings deep so that an installation which has
+    /// only ever configured a From address still receives its alerts rather than losing them
+    /// to an empty string.
+    /// </summary>
+    private string AdminInbox =>
+        !string.IsNullOrWhiteSpace(_options.AdminNotificationAddress) ? _options.AdminNotificationAddress.Trim()
+        : !string.IsNullOrWhiteSpace(_options.ContactToAddress) ? _options.ContactToAddress.Trim()
+        : _options.FromAddress;
+
     /// <summary>
     /// Wraps Georgian body copy in the font stack that renders it. Without an explicit
     /// Georgian face, several mail clients fall back to a font with no Georgian glyphs

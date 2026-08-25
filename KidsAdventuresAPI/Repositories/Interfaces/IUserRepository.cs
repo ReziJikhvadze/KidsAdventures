@@ -13,6 +13,15 @@ public interface IUserRepository
     Task<bool> UpdateSubscriptionTypeAsync(Guid userId, SubscriptionType subscriptionType, CancellationToken cancellationToken);
     Task<bool> ConfirmEmailAsync(Guid userId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Grants or removes the operations role. The change reaches a session only at its next token.
+    ///
+    /// A removal refuses to take the last admin away, and says so by returning false rather than
+    /// by trusting the caller to have counted first — the count and the write have to be one
+    /// statement or two simultaneous demotions can empty the role between them.
+    /// </summary>
+    Task<bool> SetAdminAsync(Guid userId, bool isAdmin, CancellationToken cancellationToken);
+
     /// <summary>Links a freshly verified mobile number to an account that does not have one yet.</summary>
     Task<bool> AttachPhoneNumberAsync(Guid userId, string phoneNumber, CancellationToken cancellationToken);
 

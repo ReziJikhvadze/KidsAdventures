@@ -115,6 +115,36 @@ public sealed class UserRepository(ISqlConnectionFactory connectionFactory) : IU
         return affected > 0;
     }
 
+    public async Task<bool> SetAdminAsync(Guid userId, bool isAdmin, CancellationToken cancellationToken)
+    {
+        // The demotion carries its own guard rather than trusting a count the caller read a
+        // moment ago: two operators demoting two different admins at the same time both see
+        // "there are two of us" and both succeed, and the console locks itself shut. The
+        // EXISTS runs inside the UPDATE's own transaction against the rows it is locking, so
+        // the second one finds nobody else left and changes nothing.
+        //
+        // Granting needs no such guard — it cannot take the last admin away.
+        const string grant = """
+                             UPDATE Users
+                             SET IsAdmin = 1
+                             WHERE Id = @UserId;
+                             """;
+
+        const string revoke = """
+                              UPDATE Users
+                              SET IsAdmin = 0
+                              WHERE Id = @UserId
+                                AND IsAdmin = 1
+                                AND EXISTS (SELECT 1 FROM Users other
+                                            WHERE other.IsAdmin = 1 AND other.Id <> @UserId);
+                              """;
+
+        using var connection = connectionFactory.CreateConnection();
+        var affected = await connection.ExecuteAsync(new CommandDefinition(
+            isAdmin ? grant : revoke, new { UserId = userId }, cancellationToken: cancellationToken));
+        return affected > 0;
+    }
+
     public async Task<bool> ConfirmEmailAsync(Guid userId, CancellationToken cancellationToken)
     {
         const string sql = """

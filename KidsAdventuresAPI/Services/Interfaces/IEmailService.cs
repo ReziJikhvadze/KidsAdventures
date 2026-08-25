@@ -40,6 +40,20 @@ public interface IEmailService
         string message,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// An operational alert to whoever is on duty — not to a customer.
+    ///
+    /// <paramref name="lines"/> are label/value pairs rendered as a small table, because every
+    /// one of these alerts is the same shape: something happened, here are the four facts you
+    /// need to decide whether to do anything about it.
+    /// </summary>
+    Task SendAdminAlertAsync(
+        string subject,
+        string headline,
+        IReadOnlyList<(string Label, string Value)> lines,
+        string? linkUrl,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Confirms a print order and quotes the delivery window for the given city.</summary>
     Task SendPrintOrderPlacedAsync(
         string toAddress,
