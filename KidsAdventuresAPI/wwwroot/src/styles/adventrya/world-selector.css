@@ -119,14 +119,22 @@
 
 .master-frame {
   /*
-    How much of the painting's own top is off-screen.
+    How much of the painting is off-screen, above and below.
 
     The frame covers, so on any window that is not the painting's shape it is taller than the
-    window and centred in it — which hides an equal band top and bottom. Anything pinned to the
-    frame's top edge is pinned into that band. The name is set here so the few things that live
-    up there can add it to their own offset and stay on screen.
+    window and centred in it, hiding an equal band at each end. Anything placed against the
+    frame's top or bottom edge is placed inside that band, so the few things that live there add
+    this to their own offset.
+
+    Written in viewport units rather than as a percentage of the frame, and that is the whole
+    point: a percentage resolves against whatever box the element using it sits in. The wordmark
+    is a child of the frame and read it correctly; the island cards are children of an island,
+    where 100% is a quarter of the painting, so the same expression quietly evaluated to zero
+    exactly where it was needed. The frame's height is its width over its ratio, and its width is
+    the window or the height times that ratio — which is all this says, in units that mean the
+    same thing everywhere.
   */
-  --crop-band: max(0px, calc((100% - 100svh) / 2));
+  --crop-band: max(0px, calc((100vw / 1.776833 - 100svh) / 2));
   position: relative;
   flex: none;
   overflow: hidden;
@@ -146,28 +154,24 @@
   the crop takes clouds, not worlds, on every aspect ratio between 4:3 and 21:9.
 */
 /*
-  Covers the screen, but never crops more of its own height than it can spare.
+  Edge to edge, on every shape of screen.
 
-  Plain cover works on every ordinary screen and fails on a very wide one: at 2.46:1 the frame
-  grew to 1081 tall inside a 780-tall window, which throws away 150 pixels top and bottom — and
-  the two lowest islands keep their button in the last few percent of the painting, so it was
-  cut off with nothing to press. Scrolling to it is not an option; this page is one screen.
+  This was capped for a while, because the two lowest islands kept their button in the last few
+  percent of the painting and a full cover threw those percent away. The button lives in the
+  island's own card now, at the height its name has always sat at, so there is nothing near the
+  bottom edge left to lose — and a map that is meant to be walked into should not be sitting
+  inside a frame with margins around it.
 
-  So the height is allowed to exceed the window by one and a half percent and no more. The number
-  is not a taste: the lowest button on the painting sits at about 98 percent of its height, and
-  the arithmetic of a centred crop puts the point where it still lands on screen at 1.03 — this
-  is a little under that, so it clears rather than grazes. Everything up to about 1.8:1 — which is
-  every laptop and every 16:9 monitor — is still edge to edge. Wider than that, a slim margin appears at the sides, and the blurred ambient copy of the
-  same painting behind the frame is what fills it, so the map reads as bleeding into itself
-  rather than as a letterbox.
+  What the crop still takes from the top is handled where it matters: the wordmark, the headline
+  and the back arrow each add the hidden band to their own offset.
 */
 .desktop-frame {
-  width: min(max(100vw, calc(100svh * 1.776833)), calc(100svh * 1.015 * 1.776833));
+  width: max(100vw, calc(100svh * 1.776833));
   aspect-ratio: 1672 / 941;
 }
 
 .mobile-frame {
-  width: min(max(100vw, calc(100svh * 0.462581)), calc(100svh * 1.015 * 0.462581));
+  width: max(100vw, calc(100svh * 0.462581));
   aspect-ratio: 853 / 1844;
 }
 
@@ -180,11 +184,11 @@
   exactly where the section does, which is what filling a page to its edge actually requires.
 */
 .experience-shell-embedded .desktop-frame {
-  width: min(max(100%, calc(100svh * 1.776833)), calc(100svh * 1.015 * 1.776833));
+  width: max(100%, calc(100svh * 1.776833));
 }
 
 .experience-shell-embedded .mobile-frame {
-  width: min(max(100%, calc(100svh * 0.462581)), calc(100svh * 1.015 * 0.462581));
+  width: max(100%, calc(100svh * 0.462581));
 }
 
 .master-art {
@@ -732,9 +736,17 @@
   bottom: 17%;
 }
 
+/*
+  The bottom row, lifted by whatever the cover hides below the frame.
+
+  Only this row: their cards are the only ones near the foot of the painting, and lifting the
+  others by the same amount would push the top row into the band hidden at the other end. Zero
+  when nothing is hidden, which is every screen of the painting's own shape.
+*/
 .desktop-frame .hotspot-kingdom .world-card,
 .desktop-frame .hotspot-dinosaurs .world-card {
   bottom: 14%;
+  margin-bottom: var(--crop-band);
 }
 
 .world-label small {
