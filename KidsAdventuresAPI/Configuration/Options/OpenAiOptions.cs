@@ -18,6 +18,19 @@ public sealed class OpenAiOptions
     public string MasterStoryModel { get; set; } = "gpt-5.6-sol";
 
     /// <summary>
+    /// Reasoning effort for the story calls: <c>minimal</c>, <c>low</c>, <c>medium</c>,
+    /// <c>high</c> — or empty to send nothing and let the model use its own default.
+    ///
+    /// Empty by default because the parameter is only understood by the reasoning models, and a
+    /// deployment still on a plain chat model would have every story call rejected for a field
+    /// it never asked for. Set it and it applies to whichever text calls OpenAI is answering:
+    /// with Providers:Story on another vendor, that is the polish pass alone, which is the case
+    /// it was added for — an editor is allowed to be slow and careful in a way a writer being
+    /// waited on is not.
+    /// </summary>
+    public string MasterStoryReasoningEffort { get; set; } = string.Empty;
+
+    /// <summary>
     /// Which prompt variant writes books: "v1", "v2", "v3" or "v4".
     ///
     /// v4 is wired but not written yet — selecting it fails the run rather than sending an empty

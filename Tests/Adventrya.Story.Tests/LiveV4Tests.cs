@@ -103,6 +103,14 @@ public class LiveV4Tests(ITestOutputHelper output)
             new SingleClientFactory(),
             Options.Create(new OpenAiOptions { ApiKey = ApiKey!, BaseUrl = "https://api.openai.com/v1" }),
             NullLogger<StoryModelClient>.Instance),
+        // Same vendor and same model on both halves — this is the single-provider v4 path, and
+        // the split exists to be opted into, not to change what this test measures.
+        new StoryPolishClient(
+            new StoryModelClient(
+                new SingleClientFactory(),
+                Options.Create(new OpenAiOptions { ApiKey = ApiKey!, BaseUrl = "https://api.openai.com/v1" }),
+                NullLogger<StoryModelClient>.Instance),
+            "gpt-5.6-luna"),
         Options.Create(new OpenAiOptions
         {
             ApiKey = ApiKey!,

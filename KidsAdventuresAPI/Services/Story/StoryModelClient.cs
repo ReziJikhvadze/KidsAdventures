@@ -45,12 +45,15 @@ public sealed class StoryModelClient(
         JsonElement schema,
         CancellationToken cancellationToken)
     {
-        var payload = new
+        // A dictionary rather than an anonymous object because one field is conditional, and the
+        // alternative is two near-identical payload literals that drift apart the first time one
+        // of them is edited.
+        var payload = new Dictionary<string, object>
         {
-            model,
-            instructions = systemPrompt,
-            input = userPrompt,
-            text = new
+            ["model"] = model,
+            ["instructions"] = systemPrompt,
+            ["input"] = userPrompt,
+            ["text"] = new
             {
                 format = new
                 {
@@ -62,15 +65,25 @@ public sealed class StoryModelClient(
             }
         };
 
+        // Omitted entirely when unset: a plain chat model rejects the whole request for a field
+        // it does not know, so an empty setting has to mean "do not send this", not "send blank".
+        var effort = _options.MasterStoryReasoningEffort?.Trim();
+        if (!string.IsNullOrWhiteSpace(effort))
+        {
+            payload["reasoning"] = new { effort = effort.ToLowerInvariant() };
+        }
+
         if (_options.LogPrompts)
         {
             // Everything that decides what comes back, in one entry. Split across several and the
             // one that matters is always the one that scrolled away.
             logger.LogInformation(
-                "OpenAI story request → model={Model} schema={Schema} strict=true format=json_schema\n" +
-                "--- instructions ---\n{System}\n--- input ---\n{User}",
+                "OpenAI story request → model={Model} schema={Schema} strict=true format=json_schema "
+                + "reasoning={Effort}\n"
+                + "--- instructions ---\n{System}\n--- input ---\n{User}",
                 model,
                 schemaName,
+                string.IsNullOrWhiteSpace(effort) ? "(model default)" : effort,
                 systemPrompt,
                 userPrompt);
         }

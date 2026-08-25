@@ -69,6 +69,7 @@ public interface IMasterStoryService
 /// </summary>
 public sealed class MasterStoryService(
     IStoryModelClient modelClient,
+    StoryPolishClient polishClient,
     IOptions<OpenAiOptions> options,
     IOptions<BekiOptions> bekiOptions,
     ILogger<MasterStoryService> logger) : IMasterStoryService
@@ -432,8 +433,9 @@ public sealed class MasterStoryService(
         var model = ModelName;
 
         logger.LogInformation(
-            "Planning a {Spreads}-spread Beki book for {Child}, age {Age}, theme {Theme}, using {Model} (v6).",
-            input.SpreadCount, input.ChildName, input.Age, input.Theme, model);
+            "Planning a {Spreads}-spread Beki book for {Child}, age {Age}, theme {Theme}, "
+            + "written by {Model}, edited by {Editor} (v6).",
+            input.SpreadCount, input.ChildName, input.Age, input.Theme, model, polishClient.ModelName);
 
         var written = await modelClient.CompleteAsync<MasterStory>(
             model,
@@ -452,7 +454,15 @@ public sealed class MasterStoryService(
         // After it, and last: whatever either model spelled, the companion's name prints „ბეკი“.
         polished.Story = BekiIdentityRules.EnforceBrandSpelling(polished.Story, input.ChildName);
 
-        return FinishPolished(input, model, systemPrompt, userPrompt, written, polished);
+        // Two vendors, one column. When the writer and the editor are the same model the stored
+        // name is unchanged; when they are not, storing only the writer would attribute the
+        // book's grammar to a model that never saw it — and telling the two runs apart afterwards
+        // is the entire point of being able to split them.
+        var recordedModel = string.Equals(model, polishClient.ModelName, StringComparison.OrdinalIgnoreCase)
+            ? model
+            : $"{model} + {polishClient.ModelName}";
+
+        return FinishPolished(input, recordedModel, systemPrompt, userPrompt, written, polished);
     }
 
     /// <summary>
@@ -483,8 +493,8 @@ public sealed class MasterStoryService(
             polishUser = StoryPolishPrompt.User(
                 input, JsonSerializer.Serialize(generated, PolishJsonOptions));
 
-            polished = await modelClient.CompleteAsync<MasterStory>(
-                ModelName,
+            polished = await polishClient.Client.CompleteAsync<MasterStory>(
+                polishClient.ModelName,
                 polishSystem,
                 polishUser,
                 BekiBookPlanSchema.Name,
