@@ -369,6 +369,7 @@ FodyWeavers.xsd
 # for any doc that is meant to be shared through the repo.
 /docs/
 !/docs/DEPLOYMENT.md
+!/docs/notes/gemini-flow-setup.md
 
 # Local blob storage: images written by LocalFileBlobStorageService during
 # development. Regenerating them costs money, so they are kept out of the repo
