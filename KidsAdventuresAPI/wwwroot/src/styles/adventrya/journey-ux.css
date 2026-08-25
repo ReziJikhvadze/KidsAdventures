@@ -1831,6 +1831,30 @@
 }
 
 /*
+  The one control on this form that a finger has to hit precisely.
+
+  Seventeen pixels of checkbox and a fourteen-pixel-tall link are a mouse's measurements. On
+  touch the box grows and the link takes vertical padding — padding rather than a taller box, so
+  the sentence it sits inside keeps its own line spacing while the tappable area grows past it.
+*/
+@media (hover: none) and (pointer: coarse) {
+  .ux-terms-consent {
+    gap: 12px;
+    align-items: center;
+  }
+
+  .ux-terms-consent input {
+    width: 24px;
+    height: 24px;
+    margin-top: 0;
+  }
+
+  .ux-terms-consent a {
+    padding-block: 10px;
+  }
+}
+
+/*
   The chosen island, carried into the create journey.
 
   Everything here is the world picker's own vocabulary — the master painting, the amber bloom, the
