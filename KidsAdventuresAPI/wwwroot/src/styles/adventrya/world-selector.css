@@ -119,7 +119,9 @@
 
 .master-frame {
   /*
-    How much of the painting is off-screen, above and below.
+    How much of the painting is off-screen, above and below. Zero here and worked out by each
+    frame below, because the two masters are different shapes and are cropped by different
+    amounts on the same window.
 
     The frame covers, so on any window that is not the painting's shape it is taller than the
     window and centred in it, hiding an equal band at each end. Anything placed against the
@@ -134,7 +136,7 @@
     the window or the height times that ratio — which is all this says, in units that mean the
     same thing everywhere.
   */
-  --crop-band: max(0px, calc((100vw / 1.776833 - 100svh) / 2));
+  --crop-band: 0px;
   position: relative;
   flex: none;
   overflow: hidden;
@@ -154,25 +156,40 @@
   the crop takes clouds, not worlds, on every aspect ratio between 4:3 and 21:9.
 */
 /*
-  Edge to edge, on every shape of screen.
+  Edge to edge, until covering would start throwing worlds away.
 
-  This was capped for a while, because the two lowest islands kept their button in the last few
-  percent of the painting and a full cover threw those percent away. The button lives in the
-  island's own card now, at the height its name has always sat at, so there is nothing near the
-  bottom edge left to lose — and a map that is meant to be walked into should not be sitting
-  inside a frame with margins around it.
+  Cover is the rule: the painting fills the window on every ordinary screen, and the earlier cap
+  of a percent and a half was protecting a button that has since moved into the island's card.
+  But cover is unbounded, and a window shaped nothing like the painting crops without limit — a
+  near-square portrait window covered by the tall master ends up nearly twice the window's
+  height, which puts the top row of islands, and the wordmark above them, off the screen
+  entirely.
 
-  What the crop still takes from the top is handled where it matters: the wordmark, the headline
-  and the back arrow each add the hidden band to their own offset.
+  So the frame may be up to one and a half times the window's height and no more. The number is
+  where the topmost island's card stops clearing the hidden band: the portrait art carries that
+  card at about nineteen percent of its height, a centred crop hides (F − V) / 2 at each end, and
+  those two meet at 1.59 — this sits under it. Every ordinary screen is well inside the limit,
+  including the 2.46:1 window that prompted the cap's removal; only genuinely extreme shapes see
+  a margin, filled by the blurred copy of the painting behind the frame.
+
+  What the crop does take is handled where it lands: the wordmark, the headline and the back
+  arrow add the hidden band to their own offset, and so does the bottom row of cards.
 */
 .desktop-frame {
-  width: max(100vw, calc(100svh * 1.776833));
+  width: min(max(100vw, calc(100svh * 1.776833)), calc(100svh * 1.45 * 1.776833));
   aspect-ratio: 1672 / 941;
+  /* The same expression as the width, read as a height and measured against the window: the
+     landscape master's own ratio, its own cap, its own hidden band. */
+  --crop-band: max(0px, calc((min(max(100vw / 1.776833, 100svh), 100svh * 1.45) - 100svh) / 2));
 }
 
 .mobile-frame {
-  width: max(100vw, calc(100svh * 0.462581));
+  width: min(max(100vw, calc(100svh * 0.462581)), calc(100svh * 1.45 * 0.462581));
   aspect-ratio: 853 / 1844;
+  /* The portrait master is more than twice as tall as it is wide, so on anything approaching a
+     square window its hidden band is the larger of the two by far — and it is nothing like the
+     landscape master's, which is why each frame works out its own. */
+  --crop-band: max(0px, calc((min(max(100vw / 0.462581, 100svh), 100svh * 1.45) - 100svh) / 2));
 }
 
 /*
@@ -184,11 +201,11 @@
   exactly where the section does, which is what filling a page to its edge actually requires.
 */
 .experience-shell-embedded .desktop-frame {
-  width: max(100%, calc(100svh * 1.776833));
+  width: min(max(100%, calc(100svh * 1.776833)), calc(100svh * 1.45 * 1.776833));
 }
 
 .experience-shell-embedded .mobile-frame {
-  width: max(100%, calc(100svh * 0.462581));
+  width: min(max(100%, calc(100svh * 0.462581)), calc(100svh * 1.45 * 0.462581));
 }
 
 .master-art {
@@ -891,14 +908,19 @@
 }
 /* Mobile artboard rules stay scoped to the mobile master at every viewport.
    The media query below only decides which complete artboard is visible. */
+/*
+  The portrait frame sets its own top offsets, which means it also has to carry the hidden band —
+  overriding `top` throws away the version that included it, and on a near-square window that
+  band is a couple of hundred pixels.
+*/
 .mobile-frame .brand {
-  top: max(1.25%, env(safe-area-inset-top, 0px));
+  top: calc(var(--crop-band) + max(1.25%, env(safe-area-inset-top, 0px)));
   left: 4%;
   font-size: clamp(15px, 4.2vw, 22px);
 }
 
 .mobile-frame .headline {
-  top: max(1.05%, env(safe-area-inset-top, 0px));
+  top: calc(var(--crop-band) + max(1.05%, env(safe-area-inset-top, 0px)));
   width: 56%;
   padding: 1% 2%;
 }
