@@ -128,6 +128,16 @@ public sealed class PortraitGate(
             return PortraitVerdict.Fail(PortraitGateReasons.Unreadable);
         }
 
+        // Switched off: every readable image passes. Answered here rather than by the browser
+        // skipping the call, so the form keeps the one path it has always had — ask, then act on
+        // the verdict — and turning the gate back on needs no change on the other side.
+        if (!_beki.PortraitGateEnabled)
+        {
+            logger.LogInformation(
+                "Portrait gate is disabled (Beki:PortraitGateEnabled); accepting the photo unchecked.");
+            return PortraitVerdict.Pass();
+        }
+
         if (photoBytes.Length > MaxPhotoBytes)
         {
             return PortraitVerdict.Fail(PortraitGateReasons.TooLarge);

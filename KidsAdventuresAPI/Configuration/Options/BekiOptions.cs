@@ -51,6 +51,23 @@ public sealed class BekiOptions
     public string IdentityAnalyzerModel { get; set; } = "gpt-5.6-luna";
 
     /// <summary>
+    /// Whether the intake gate runs at all.
+    ///
+    /// Off. The gate fails closed by design — a photo it cannot check is a photo it refuses — and
+    /// that turned into uploads being refused across the board, which is a product with no way to
+    /// make a book. Until those refusals are understood, the check is skipped and every readable
+    /// image is accepted.
+    ///
+    /// What that gives up is worth stating, because it is the reason the gate exists: nothing else
+    /// in the pipeline ever asks whether the photo shows a child. The identity analyzer is told to
+    /// extract a face, so shown a bottle it describes a bottle, and the book is written,
+    /// illustrated and paid for around it. With this off, that book ships.
+    ///
+    /// Set it to true to restore the check. It is a setting, so that needs no deployment.
+    /// </summary>
+    public bool PortraitGateEnabled { get; set; }
+
+    /// <summary>
     /// Decides whether a chosen photo shows a child at all, before anything is generated.
     ///
     /// Empty by default, and empty means <see cref="OpenAiOptions.Model"/> — the vision model the
