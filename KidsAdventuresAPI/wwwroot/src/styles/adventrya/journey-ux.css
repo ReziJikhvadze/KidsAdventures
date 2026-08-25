@@ -54,7 +54,14 @@
   desktop, so they give the space back first; the form's own rhythm is tightened after that, and
   the left column widens into the room the narrower gap frees.
 */
+/*
+  Wider than the preview and generated stages it shares a width with. Those scroll if they must;
+  this one is clipped to the viewport, so every pixel taken by a side margin is a pixel the form
+  has to find somewhere else — and it was finding it by squeezing the eye-colour swatches until
+  their labels no longer fitted.
+*/
 .ux-profile-stage {
+  width: min(1320px, calc(100% - 50px));
   display: grid;
   grid-template-columns: minmax(320px, 0.82fr) minmax(560px, 1.18fr);
   align-items: start;
@@ -133,7 +140,13 @@
 */
 .ux-character-inputs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /*
+    Not an even split. Gender is two short chips; eye colour is four swatches that each carry a
+    Georgian word, laid out two across. Given half each, the colours came out at 88px a piece and
+    the words were cut off — which is the one thing a colour picker cannot afford, since the
+    swatch alone does not say which grey is which.
+  */
+  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
   align-content: start;
   gap: 12px 14px;
 }
