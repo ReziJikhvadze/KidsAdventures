@@ -931,6 +931,29 @@
 
   .mobile-frame {
     width: 100%;
+    /*
+      Nothing is hidden above the frame here: this mode pins it to the top and lets the page
+      scroll instead of covering. Anything that offsets itself by the hidden band would be
+      pushing away from an edge that is already visible — on a 360x640 screen that put the back
+      arrow eighty pixels down for no reason.
+    */
+    --crop-band: 0px;
+  }
+}
+
+/*
+  Very short landscape — a phone turned sideways, a window dragged down to a strip.
+
+  The two lowest islands keep their button in the last few percent of the painting, and a few
+  percent of a 380-pixel-tall frame is smaller than the button. Everywhere else the six worlds
+  behave alike, which is worth more than avoiding a tight fit; here the fit is not tight, it is
+  impossible, so these two open upward rather than have no button at all.
+*/
+@media (max-height: 430px) and (orientation: landscape) {
+  .hotspot-kingdom .world-action,
+  .hotspot-dinosaurs .world-action {
+    top: auto;
+    bottom: calc(100% + 10px);
   }
 }
 

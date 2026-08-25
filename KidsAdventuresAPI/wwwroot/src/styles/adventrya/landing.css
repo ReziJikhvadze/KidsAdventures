@@ -1888,7 +1888,17 @@
   .landing-v3-memory-copy {
     max-width: 700px;
   }
+  /*
+    One column, so the painting stops reaching outward.
+
+    The width above is written as "my column plus the margin beside it plus most of the gutter" —
+    all of which describe a two-column row. In a single centred column there is no gutter to take
+    and no outer margin to bleed into, so the same arithmetic pushed the card past the section's
+    edge, where overflow: hidden cut it.
+  */
   .landing-v3-memory-map {
+    width: 100%;
+    margin-right: 0;
     justify-self: center;
   }
   .landing-v3-price-cards {
