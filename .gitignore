@@ -375,3 +375,7 @@ FodyWeavers.xsd
 # development. Regenerating them costs money, so they are kept out of the repo
 # rather than deleted by it.
 .localblob/
+
+# Local .NET CLI home (created when DOTNET_CLI_HOME points into the repo). Generated cache, never committed.
+.dotnet_home/
+.DS_Store

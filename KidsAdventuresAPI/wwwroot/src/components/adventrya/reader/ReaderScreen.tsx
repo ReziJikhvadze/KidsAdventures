@@ -307,6 +307,12 @@ export function ReaderScreen() {
             {error}
           </p>
         ) : pack && !isIllustrating ? (
+          /*
+            A real book's illustration is one painting across the open spread, so the reader shows
+            it whole. Here and on the shared-book screen only: the landing hero passes
+            isSpreadBook as well, but its demo art is drawn one portrait per page, and halving
+            those would give a visitor their first look at a book of cropped fragments.
+          */
           <StorybookVolume
             className="storybook storybook-full"
             heroName={heroName}
@@ -317,6 +323,7 @@ export function ReaderScreen() {
             lockedPageCount={lockedPageCount}
             isUnlocked={isUnlocked}
             isSpreadBook={pack.isSpreadBook}
+            fullBleedSpreads={pack.isSpreadBook}
             interactive
           />
         ) : null}

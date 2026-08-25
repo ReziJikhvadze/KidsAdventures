@@ -637,6 +637,24 @@
     inset -1px 0 #ffffff57;
 }
 /*
+  The shadow a turning page falls into, drawn on the page rather than over the sheet.
+
+  It sits above everything a face can contain — the page's own paper grain (z-index 3), a lock
+  panel (7), the back cover's link (10) — because it is the light in the room and not part of the
+  page. Both faces carry one; only the face pointing at the reader is ever visible, so the sheet
+  darkens once. It is inert until a turn class hands it an animation, which is why the opacity
+  starts at zero.
+*/
+.storybook-turn-face:after {
+  content: "";
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: #000;
+}
+/*
   0.9s, not 0.78s, because goTo waits 900ms before swapping the real page in. The sheet used to
   finish 120ms early and hold its last frame — a hitch at the end of every turn, and most
   visible coming back, where that frame is the page you are turning to.
@@ -649,6 +667,18 @@
 .storybook-turn-sheet.turn-previous {
   transform-origin: 1.6% 50%;
   animation: storybook-leaf-previous 0.9s cubic-bezier(0.8, 0, 0.64, 0.98) both;
+}
+/*
+  The scrim runs on the sheet's own clock — same duration, same easing — so the darkest moment is
+  still the moment the paper is edge-on to the reader. Each variant repeats its easing here rather
+  than sharing one, because the two directions are eased differently and a shading dip that drifts
+  off the arc reads as a flicker.
+*/
+.storybook-turn-sheet.turn-next .storybook-turn-face:after {
+  animation: storybook-turn-shade 0.9s cubic-bezier(0.36, 0.02, 0.2, 1) both;
+}
+.storybook-turn-sheet.turn-previous .storybook-turn-face:after {
+  animation: storybook-turn-shade-reverse 0.9s cubic-bezier(0.8, 0, 0.64, 0.98) both;
 }
 .storybook-page-curl {
   position: absolute;
@@ -675,49 +705,99 @@
   left: -1px;
   transform: translateZ(2px) scaleX(-1);
 }
+/*
+  Transform and nothing else.
+
+  These used to animate `filter: brightness()` alongside the rotation, which is what stopped the
+  turn from ever showing its own back. A filter of any value other than `none` — `brightness(1)`
+  included — makes the element a grouping element, and the used value of `transform-style` on a
+  grouping element is `flat`. The sheet therefore stopped being a 3D context for its two faces:
+  they were composited into a single flat picture and then rotated as one, so the face that lifted
+  off the page carried the departing page's own artwork all the way round, and the page being
+  turned to appeared only when the 900ms timeout swapped the paper underneath. Every symptom of
+  that bug was one property.
+
+  The shading is still here — see `storybook-turn-shade` below, which dips at the same moments and
+  by the same amounts, on an overlay inside each face where opacity flattens nothing that matters.
+*/
 @keyframes storybook-leaf-next {
   0% {
     transform: rotateY(0) skewY(0) scaleX(1);
-    filter: brightness(1);
   }
   28% {
     transform: rotateY(-48deg) skewY(0.7deg) scaleX(0.985);
-    filter: brightness(0.94);
   }
   53% {
     transform: rotateY(-102deg) skewY(-0.6deg) scaleX(0.965);
-    filter: brightness(0.74);
   }
   76% {
     transform: rotateY(-151deg) skewY(0.35deg) scaleX(0.986);
-    filter: brightness(0.9);
   }
   to {
     transform: rotateY(-180deg) skewY(0) scaleX(1);
-    filter: brightness(1);
   }
 }
 /* storybook-leaf-next reversed in time: same stops subtracted from 100, same shading dip. */
 @keyframes storybook-leaf-previous {
   0% {
     transform: rotateY(-180deg) skewY(0) scaleX(1);
-    filter: brightness(1);
   }
   24% {
     transform: rotateY(-151deg) skewY(-0.35deg) scaleX(0.986);
-    filter: brightness(0.9);
   }
   47% {
     transform: rotateY(-102deg) skewY(0.6deg) scaleX(0.965);
-    filter: brightness(0.74);
   }
   72% {
     transform: rotateY(-48deg) skewY(-0.7deg) scaleX(0.985);
-    filter: brightness(0.94);
   }
   to {
     transform: rotateY(0) skewY(0) scaleX(1);
-    filter: brightness(1);
+  }
+}
+/*
+  Paper turning away from the light.
+
+  The same dip the brightness filter used to draw — 1, 0.94, 0.74, 0.9, 1 — as the opacity of a
+  black scrim, since darkening a page by a factor of b and laying black over it at 1 − b are the
+  same arithmetic. What differs is where it happens: on an overlay *inside* a face, not on the
+  sheet. Opacity is a grouping property too, so animating it on the sheet, on a face, or on
+  anything between the surface and the faces would flatten the 3D context exactly the way the
+  filter did. The scrim has no 3D children of its own, so flattening it costs nothing.
+*/
+@keyframes storybook-turn-shade {
+  0% {
+    opacity: 0;
+  }
+  28% {
+    opacity: 0.06;
+  }
+  53% {
+    opacity: 0.26;
+  }
+  76% {
+    opacity: 0.1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+/* storybook-turn-shade at the stops storybook-leaf-previous uses, so the dip still tracks the arc. */
+@keyframes storybook-turn-shade-reverse {
+  0% {
+    opacity: 0;
+  }
+  24% {
+    opacity: 0.1;
+  }
+  47% {
+    opacity: 0.26;
+  }
+  72% {
+    opacity: 0.06;
+  }
+  to {
+    opacity: 0;
   }
 }
 @keyframes storybook-curl-shadow {

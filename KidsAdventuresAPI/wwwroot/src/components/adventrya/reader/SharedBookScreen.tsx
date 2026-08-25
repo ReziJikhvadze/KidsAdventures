@@ -139,6 +139,14 @@ export function SharedBookScreen() {
             იტვირთება…
           </p>
         ) : pack ? (
+          /*
+            The spread flags belong here too.
+
+            This screen used to pass neither, so a v6 book opened from its own printed QR code was
+            the one place it still rendered as caption-over-art — the same book, shown worse, on
+            the page that exists to show it off. It reads the same endpoint the reader does, so
+            the flag was always there to pass.
+          */
           <StorybookVolume
             className="storybook storybook-full"
             heroName={heroName}
@@ -148,6 +156,8 @@ export function SharedBookScreen() {
             pages={pages}
             lockedPageCount={lockedPageCount}
             isUnlocked={isUnlocked}
+            isSpreadBook={pack.isSpreadBook}
+            fullBleedSpreads={pack.isSpreadBook}
             interactive
             initialIndex={isUnlocked && pages.length > 0 ? Math.max(2, pages.length) : 0}
           />
