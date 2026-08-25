@@ -1829,3 +1829,135 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/*
+  The chosen island, carried into the create journey.
+
+  Everything here is the world picker's own vocabulary — the master painting, the amber bloom, the
+  cool dimmer, the vignette — so a parent who picks a world on the map meets the same place while
+  they fill in their child's name, rather than a form beside empty space.
+*/
+.world-art-panel {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid rgba(240, 226, 197, 0.16);
+  border-radius: 26px;
+  background: #0d0724;
+  box-shadow:
+    0 30px 70px #07031440,
+    inset 0 1px #ffffff0f;
+}
+
+/*
+  Grown until it covers the panel in both directions, then framed on the island. The two
+  translates are read right to left: the island moves to the plate's centre, the plate scales
+  about that centre, and the last one pulls the plate back by half its own size from the point it
+  is pinned at.
+*/
+.world-art-plate {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  aspect-ratio: 1672 / 941;
+  background: var(--world-art) center / 100% 100% no-repeat;
+  transform: translate(-50%, -50%) scale(var(--world-zoom))
+    translate(var(--world-dx), var(--world-dy));
+  transform-origin: center;
+}
+
+.world-art-bloom,
+.world-art-dimmer,
+.world-art-vignette,
+.world-art-caption {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* The island is dead centre by construction, so the bloom is too. */
+.world-art-bloom {
+  background: radial-gradient(circle at 50% 50%, rgba(255, 206, 92, 0.22), transparent 58%);
+  mix-blend-mode: screen;
+}
+
+.world-art-dimmer {
+  background: linear-gradient(180deg, rgba(9, 5, 26, 0.12), rgba(9, 5, 26, 0.62));
+}
+
+.world-art-vignette {
+  box-shadow: inset 0 0 90px 26px rgba(8, 4, 24, 0.72);
+}
+
+.world-art-caption {
+  top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 18px 20px 20px;
+  color: #fff8eb;
+}
+
+.world-art-caption small {
+  color: #f3d79ac2;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.world-art-caption strong {
+  font-family: var(--font-display);
+  font-size: clamp(17px, 1.5vw, 22px);
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+/*
+  On the create form the panel is the left column's floor: the heading sits above it and it takes
+  whatever height is left, so the column reaches the bottom of the form beside it instead of
+  stopping a third of the way down.
+*/
+.ux-profile-aside {
+  position: sticky;
+  top: 92px;
+  /*
+    As tall as the form beside it, then capped at the screen.
+
+    The grid starts its items rather than stretching them, so the column was only as tall as the
+    heading and the painting stopped a third of the way down the page. Stretching gives the
+    painting the room the form takes; the cap keeps a sticky column from growing past the screen
+    it is stuck to.
+  */
+  align-self: stretch;
+  height: 100%;
+  max-height: calc(100svh - 116px);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.ux-profile-aside .world-art-panel {
+  flex: 1 1 auto;
+  min-height: clamp(280px, 38vh, 520px);
+}
+
+@media (max-width: 1080px) {
+  .ux-profile-aside {
+    position: static;
+  }
+
+  .ux-profile-aside .world-art-panel {
+    min-height: 220px;
+  }
+}
+
+/* Beside the sample book: the world the story happens in, since the cover is the only picture
+   the preview has of its own. */
+.ux-preview-world-glimpse {
+  margin-top: 18px;
+  min-height: clamp(150px, 22vh, 220px);
+}

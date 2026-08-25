@@ -2,6 +2,7 @@ import { Camera, Check, Loader2, Lock, Pencil, Plus, Trash2, TriangleAlert, X } 
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BirthDateField } from "@/components/adventrya/journey/BirthDateField";
+import { WorldArtPanel } from "@/components/adventrya/journey/WorldArtPanel";
 import { SparkleIcon } from "@/components/adventrya/landing/icons";
 import { checkPortrait, type PortraitRejection } from "@/lib/api/portraits";
 import { BOOK_LANGUAGES, type BookLanguage, useT } from "@/lib/i18n";
@@ -171,14 +172,25 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
 
   return (
     <section className="ux-profile-stage">
-      <header className="ux-stage-heading">
-        <p className="eyebrow">
-          <SparkleIcon />
-          {copy.profile.eyebrow}
-        </p>
-        <h1>{copy.profile.title}</h1>
-        <p>{copy.profile.lead}</p>
-      </header>
+      {/*
+        The left column is the world the parent just chose, under the heading.
+
+        It held a heading and then nothing — a third of the page of empty space beside the form,
+        and no sign of the island that had been picked one screen earlier. The painting is the
+        same one the map is made of, framed on that island.
+      */}
+      <div className="ux-profile-aside">
+        <header className="ux-stage-heading">
+          <p className="eyebrow">
+            <SparkleIcon />
+            {copy.profile.eyebrow}
+          </p>
+          <h1>{copy.profile.title}</h1>
+          <p>{copy.profile.lead}</p>
+        </header>
+
+        {draft.worldId ? <WorldArtPanel worldId={draft.worldId} /> : null}
+      </div>
 
       <div className="ux-character-stack">
         {/*
