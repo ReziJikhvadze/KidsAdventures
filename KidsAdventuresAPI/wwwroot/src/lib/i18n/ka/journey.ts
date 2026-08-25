@@ -26,6 +26,8 @@ export const journey = {
     ready: "პერსონაჟი მზადაა",
     saveCharacter: " პერსონაჟის შენახვა",
     saveChanges: " ცვლილებების შენახვა",
+    /* The heading of the dialog that says what the form is still waiting for. */
+    missingTitle: "ერთი წუთით",
   },
 
   characterForm: {
@@ -160,7 +162,7 @@ export const journey = {
     heading: " პერსონალიზებული Preview იქმნება",
     subheading: "ს პირველი გვერდი უკვე მზადდება ✨",
     reassurance: "დარჩი ამ ჯადოსნურ მომენტში — დაახლოებით 30 წამი.",
-    atelier: "ADVENTRYA BOOK ATELIER · დაახლოებით 30 წამი",
+    atelier: "BEKI BOOK ATELIER · დაახლოებით 30 წამი",
     ariaLabel: (hero: string) => `ნახე ${hero}ს ამბავი უფასოდ`,
     stages: [
       "გმირებისა და მათი დეტალების მომზადება",

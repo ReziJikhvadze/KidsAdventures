@@ -32,6 +32,8 @@ export const journey = {
     ready: "Character ready",
     saveCharacter: " Save character",
     saveChanges: " Save changes",
+    /* The heading of the dialog that says what the form is still waiting for. */
+    missingTitle: "One moment",
   },
 
   characterForm: {
@@ -148,7 +150,7 @@ export const journey = {
     heading: " Your personalised preview is being made",
     subheading: "'s first page is already being made ✨",
     reassurance: "Stay for this bit of magic — it takes about 30 seconds.",
-    atelier: "ADVENTRYA BOOK ATELIER · about 30 seconds",
+    atelier: "BEKI BOOK ATELIER · about 30 seconds",
     ariaLabel: (hero: string) => `See ${hero}'s story for free`,
     stages: [
       "Preparing the characters and their details",

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BirthDateField } from "@/components/adventrya/journey/BirthDateField";
 import { WorldArtPanel } from "@/components/adventrya/journey/WorldArtPanel";
 import { SparkleIcon } from "@/components/adventrya/landing/icons";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { checkPortrait, type PortraitRejection } from "@/lib/api/portraits";
 import { BOOK_LANGUAGES, type BookLanguage, useT } from "@/lib/i18n";
 import { preparePortrait } from "@/lib/images/preparePortrait";
@@ -258,7 +259,24 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
           <small>{t.journey.firstMap.wishHint}</small>
         </label>
 
-        {error ? <p className="ux-form-error">{error}</p> : null}
+        {/*
+          What is missing is said in the middle of the screen, not in a red line under the form.
+
+          The line lived between the last field and the closing row, which is the one part of this
+          page most likely to be below the fold — so pressing "create the book" and having nothing
+          happen was the entire feedback a parent got. A dialog interrupts, which is the correct
+          amount of interruption for "this cannot go on without an answer", and it can say which
+          answer without competing for space the form needs.
+        */}
+        <Dialog open={error !== null} onOpenChange={(open) => (open ? null : setError(null))}>
+          <DialogContent className="ux-form-error-dialog">
+            <DialogTitle>{copy.profile.missingTitle}</DialogTitle>
+            <p>{error}</p>
+            <button className="button journey-primary" type="button" onClick={() => setError(null)}>
+              {t.common.actions.close}
+            </button>
+          </DialogContent>
+        </Dialog>
 
         <div className="ux-profile-footer">
           <p className="privacy-inline">

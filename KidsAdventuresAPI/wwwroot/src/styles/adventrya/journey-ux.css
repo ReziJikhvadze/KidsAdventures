@@ -42,16 +42,29 @@
   margin: 0 auto;
   padding: clamp(35px, 5vh, 64px) 0 56px;
 }
+/*
+  The details step is the one screen that has to hold still.
+
+  It is a form, and a form whose submit button sits below the fold reads as unfinished — the
+  parent scrolls looking for what they missed. At a 720-tall laptop this page ran 160px past the
+  bottom, which put the consent checkbox and "create the book" out of sight together: the two
+  things the screen exists to collect.
+
+  Nothing is removed to fix it. The column gap and the outer padding were sized for a tall
+  desktop, so they give the space back first; the form's own rhythm is tightened after that, and
+  the left column widens into the room the narrower gap frees.
+*/
 .ux-profile-stage {
   display: grid;
-  grid-template-columns: minmax(300px, 0.68fr) minmax(600px, 1.32fr);
+  grid-template-columns: minmax(320px, 0.82fr) minmax(560px, 1.18fr);
   align-items: start;
-  gap: clamp(46px, 6vw, 90px);
+  gap: clamp(26px, 3vw, 44px);
+  padding: clamp(16px, 2.2vh, 30px) 0 clamp(20px, 3vh, 34px);
 }
 .ux-character-stack {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 11px;
 }
 .ux-character-form,
 .ux-character-summary,
@@ -65,18 +78,18 @@
   backdrop-filter: blur(20px);
 }
 .ux-character-form {
-  padding: 23px;
+  padding: 17px 18px;
   border-radius: 22px 22px 38px;
 }
 .ux-form-intro {
   display: flex;
   align-items: center;
-  gap: 13px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 13px;
 }
 .ux-step-token {
-  width: 42px;
-  height: 42px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -103,11 +116,33 @@
 }
 .ux-character-fields {
   display: grid;
-  grid-template-columns: minmax(0, 1.22fr) minmax(190px, 0.78fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 1.22fr) minmax(180px, 0.78fr);
+  gap: 14px;
+}
+/*
+  Gender and eye colour side by side.
+
+  They were stacked, one short row of choices above another, and between them they were most of
+  the reason this column ran past the bottom of the screen — 190px of height for eight controls
+  that occupy a third of the width available to them. Paired, the row is as tall as the taller of
+  the two and the form gains about seventy pixels, which is what the closing line needed.
+
+  The name and date of birth keep the full width above them, and so does the relationship
+  question on a supporting character — it carries a row of chips and sometimes a text field, and
+  half a column is not enough for either.
+*/
+.ux-character-inputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 12px 14px;
+}
+.ux-character-inputs > .form-grid,
+.ux-character-inputs > fieldset:nth-of-type(3) {
+  grid-column: 1 / -1;
 }
 .ux-character-inputs .form-grid {
-  margin-bottom: 18px;
+  margin-bottom: 0;
 }
 .ux-character-form .field > span,
 .ux-character-form .choice-fieldset legend,
@@ -119,7 +154,7 @@
   font-size: 13px;
 }
 .ux-photo-upload {
-  min-height: 205px;
+  min-height: 178px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -594,9 +629,9 @@
 .ux-profile-footer {
   display: flex;
   align-items: center;
-  gap: clamp(14px, 2vw, 26px);
-  margin-top: 2px;
-  padding-top: 12px;
+  gap: clamp(12px, 1.6vw, 20px);
+  margin-top: 0;
+  padding-top: 10px;
   border-top: 1px solid rgba(239, 224, 193, 0.12);
 }
 .ux-profile-footer .privacy-inline {
@@ -622,8 +657,8 @@
 .ux-wish-field {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  margin-top: 4px;
+  gap: 5px;
+  margin-top: 0;
 }
 .ux-wish-field > span {
   color: rgba(248, 242, 229, 0.68);
@@ -632,7 +667,7 @@
 }
 .ux-wish-field input {
   width: 100%;
-  min-height: 46px;
+  min-height: 42px;
   padding: 0 12px;
   color: #fff6e6;
   border: 1px solid rgba(240, 229, 207, 0.22);
@@ -1988,4 +2023,60 @@
 .ux-preview-world-glimpse {
   margin-top: 18px;
   min-height: clamp(150px, 22vh, 220px);
+}
+
+/*
+  The dialog that says what the form is still waiting for.
+
+  `.ux-form-error` stays for the screens that still use it — checkout, the preview, the auth
+  panel — where the message sits inside a short panel the parent is already looking at. On the
+  details form it did not work: the line lived between the last field and the closing row, which
+  is the part of that page most likely to be under the fold, so pressing the button and being
+  told nothing was the whole experience.
+
+  Dark like the journey it interrupts, because the dialog primitive is styled for the light
+  surfaces of the rest of the app and a white card here reads as a browser error.
+*/
+.ux-form-error-dialog {
+  max-width: min(420px, calc(100vw - 40px));
+  padding: 26px 26px 22px;
+  gap: 12px;
+  border: 1px solid rgba(239, 224, 193, 0.22);
+  border-radius: 22px;
+  color: #fff8eb;
+  background: linear-gradient(150deg, #35245e, #221546);
+  box-shadow: 0 30px 80px rgba(6, 3, 20, 0.55);
+  text-align: center;
+}
+
+.ux-form-error-dialog h2 {
+  margin: 0;
+  color: #fff8eb;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 400;
+}
+
+.ux-form-error-dialog p {
+  margin: 0;
+  color: rgba(240, 233, 246, 0.82);
+  font-size: 14px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+/*
+  Sized to the word rather than to the dialog. `.journey-primary` fills its column everywhere
+  else, because everywhere else it is the thing the screen is for; here it only dismisses a
+  sentence, and a full-width button says otherwise.
+*/
+.ux-form-error-dialog .journey-primary {
+  /* The dialog primitive lays its children out in a grid, so the inline axis is justify-self.
+     align-self alone left the button stretched across the full width. */
+  align-self: center;
+  justify-self: center;
+  width: auto;
+  min-width: 150px;
+  min-height: 46px;
+  margin-top: 6px;
 }
