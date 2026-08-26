@@ -755,14 +755,36 @@
     transform 180ms ease;
 }
 
-.desktop-frame .hotspot-clouds .world-card,
-.desktop-frame .hotspot-space .world-card {
-  bottom: 8%;
+/*
+  Each name on its own island's rock, not on its island's picture.
+
+  All six sat across the middle of the thing they were naming — the palace, the deer and the
+  bear, the castle, the dinosaur — because `bottom` is measured to the foot of the whole card
+  and the card's foot is the button, which reserves its height whether or not it is showing.
+  Forty-seven pixels of invisible button was holding every name up off the island.
+
+  So these are measured, one island at a time, against the painting itself: each value drops the
+  name onto the dark rock band under that island, read off the master's own luminance profile.
+  They are negative because the foot of the card — the button — now hangs below the island in
+  the cloud, which is where it was always drawn on the four upper worlds anyway.
+
+  Per island rather than per pair: the boxes in ISLAND_SPOTS are tap targets sized to catch a
+  finger, not outlines traced round the art, so two islands sharing a row do not share an offset.
+*/
+.desktop-frame .hotspot-clouds .world-card {
+  bottom: -23.4%;
 }
 
-.desktop-frame .hotspot-animals .world-card,
+.desktop-frame .hotspot-space .world-card {
+  bottom: -14.7%;
+}
+
+.desktop-frame .hotspot-animals .world-card {
+  bottom: -20.4%;
+}
+
 .desktop-frame .hotspot-ocean .world-card {
-  bottom: 17%;
+  bottom: -7.8%;
 }
 
 /*
@@ -772,9 +794,13 @@
   others by the same amount would push the top row into the band hidden at the other end. Zero
   when nothing is hidden, which is every screen of the painting's own shape.
 */
-.desktop-frame .hotspot-kingdom .world-card,
+.desktop-frame .hotspot-kingdom .world-card {
+  bottom: -25.1%;
+  margin-bottom: var(--crop-band);
+}
+
 .desktop-frame .hotspot-dinosaurs .world-card {
-  bottom: 14%;
+  bottom: -17.6%;
   margin-bottom: var(--crop-band);
 }
 
@@ -870,7 +896,15 @@
   transform: translateY(0) scale(1);
 }
 
-.continue-button {
+/*
+  `.experience-shell button` — one class and one element — outranks a lone `.continue-button`,
+  and what it says is `color: inherit; font: inherit`. So this rule's colour, size and weight
+  never applied: the one thing to press on the page was drawn in the shell's cream, at the
+  shell's inherited 16px, at normal weight — pale text on pale gold. The mobile override next to
+  it carries two classes and did apply, which is why the button only looked wrong on desktop.
+  Two classes here as well, so the rule says what it is read as saying.
+*/
+.experience-shell .continue-button {
   /*
     As wide as the name above it, so the two read as one card rather than as a pill with a
     smaller pill loose beneath it.
@@ -880,17 +914,28 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: clamp(7px, 0.62vw, 10px) clamp(11px, 1vw, 17px);
+  padding: clamp(8px, 0.72vw, 12px) clamp(13px, 1.15vw, 20px);
   cursor: pointer;
-  border: 1px solid rgba(255, 245, 211, 0.88);
+  border: 1px solid rgba(255, 236, 186, 0.72);
   border-radius: 999px;
-  background: linear-gradient(135deg, #ffe3a0, #efb94e 54%, #c77d22);
+  /*
+    Deeper gold, darker ink, and a shadow that is dark rather than gold.
+
+    The one thing to press on this page was set at 9px — smaller than the island name above it —
+    in pale gold with a gold glow, over a painting that is itself gold-lit cloud. It had nothing
+    to be brighter than, so it read as another piece of the artwork. The gradient is taken off
+    the pale end of the range, the label is the size of the name it belongs to, and the shadow
+    underneath is the painting's own near-black, which is what actually lifts it off the cloud.
+  */
+  background: linear-gradient(135deg, #f9d68a, #e8a832 52%, #b56d15);
   box-shadow:
-    0 7px 20px rgba(244, 179, 55, 0.28),
-    0 0 20px rgba(255, 205, 88, 0.18);
-  color: #251238;
-  font-size: clamp(7px, 0.62vw, 10px);
-  font-weight: 600;
+    0 9px 24px rgba(6, 3, 20, 0.48),
+    0 2px 6px rgba(6, 3, 20, 0.34),
+    inset 0 1px rgba(255, 250, 235, 0.62);
+  color: #1b0d2c;
+  font-size: clamp(9px, 0.78vw, 13px);
+  font-weight: 700;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   transition:
     filter 180ms ease,
@@ -899,10 +944,10 @@
 }
 
 .continue-button:hover {
-  filter: brightness(1.08);
+  filter: brightness(1.07);
   box-shadow:
-    0 9px 24px rgba(244, 179, 55, 0.36),
-    0 0 26px rgba(255, 205, 88, 0.27);
+    0 12px 28px rgba(6, 3, 20, 0.52),
+    0 0 26px rgba(255, 205, 88, 0.3);
   transform: translateY(-1px);
 }
 
