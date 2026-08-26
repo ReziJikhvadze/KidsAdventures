@@ -1,4 +1,4 @@
-import { useRouter } from "@tanstack/react-router";
+import { useLocation, useRouter } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -50,6 +50,20 @@ export function WorldSelectorStage({ draft, onChange, embedded = false }: Props)
   const router = useRouter();
   const worldById = useWorldById();
   const copy = t.journey.worldSelector;
+
+  /*
+    Back to where the reader actually came from.
+
+    The arrow always pointed at `/`, so a parent who had scrolled down the home page to the
+    shelf, picked a book off it and landed here was returned to the top of the page — with the
+    shelf they were reading somewhere below the fold and no sign of the book they had just
+    chosen. A book card is the only thing that arrives carrying `?world=`, which is exactly the
+    case that should go back to the shelf; the hero's own button carries nothing and still comes
+    from the top of the page, where it belongs.
+  */
+  const search = useLocation().searchStr ?? "";
+  const cameFromShelf = new URLSearchParams(search).has("world");
+  const backHref = cameFromShelf ? "/#books" : "/";
 
   /*
     Two ids for one place, and the seam is here on purpose.
@@ -200,6 +214,7 @@ export function WorldSelectorStage({ draft, onChange, embedded = false }: Props)
           flightRun={flightRun}
           status={status}
           embedded={embedded}
+          backHref={backHref}
           onPreview={setPreviewed}
           onChoose={chooseWorld}
           onStart={start}
@@ -225,6 +240,7 @@ function WorldStageArt({
   flightRun,
   status,
   embedded,
+  backHref,
   onPreview,
   onChoose,
   onStart,
@@ -236,6 +252,8 @@ function WorldStageArt({
   flightRun: number;
   status: string;
   embedded: boolean;
+  /** Where the arrow in the corner goes; see WorldSelectorStage. */
+  backHref: string;
   onPreview: (id: SelectorWorldId | null) => void;
   onChoose: (id: SelectorWorldId) => void;
   onStart: () => void;
@@ -290,7 +308,7 @@ function WorldStageArt({
               sat directly on top of the name.
             */
             <div className="map-header-start">
-              <a className="map-back" href="/" aria-label={copy.backLabel}>
+              <a className="map-back" href={backHref} aria-label={copy.backLabel}>
                 <ArrowLeft aria-hidden="true" />
               </a>
 
