@@ -72,10 +72,11 @@ export function Hero() {
           />
         </div>
 
-        <a className="landing-v3-scroll" href="#books">
-          <span />
-          {t.landing.hero.scroll}
-        </a>
+        {/*
+          The "scroll down" mouse used to sit here. The hero now ends exactly where the viewport
+          does, so the shelf below it is already the next thing a wheel reaches — a marker that
+          points at the obvious was only spending the last strip of the first screen.
+        */}
       </section>
     </>
   );

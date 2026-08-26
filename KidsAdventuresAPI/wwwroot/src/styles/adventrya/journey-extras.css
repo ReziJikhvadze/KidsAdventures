@@ -910,9 +910,20 @@
     animation: none !important;
   }
 }
+/*
+  Sized to the line it refuses to break.
+
+  `> span` below is `white-space: nowrap`, so this box is not a limit the first line obeys — it
+  is a limit the first line ignores, and at 4.2vw that line ran 77px past the edge of its own
+  column. Nothing caught it while the book beside it was drawn at 0.79 and sat well clear; now
+  that the book fills its column, the same overflow lands on the cover. The line measures about
+  12.2x its font size in this face, and the column is about 0.47 of the viewport, so 3.75vw is
+  the size at which it fits on its own — which is also a headline that no longer reads as
+  zoomed-in at 100%.
+*/
 .landing-v3-hero h1 {
-  max-width: 630px;
-  font-size: clamp(52px, 4.2vw, 64px);
+  max-width: 700px;
+  font-size: clamp(40px, 3.75vw, 56px);
   line-height: 1.06;
 }
 .landing-v3-hero h1 > span {
@@ -925,8 +936,19 @@
   line-height: 1.08;
 }
 @media (min-width: 1181px) {
+  /*
+    A little more of the row to the words and a little less to the book — which still ends up
+    bigger, because what was making it small was the 0.79 scale it used to be drawn at, not the
+    column it stood in. The headline needs the width: its first line is set `nowrap`, so a
+    column that cannot hold it does not wrap the line, it overflows it.
+  */
   .landing-v3-hero {
-    grid-template-columns: minmax(590px, 1.05fr) minmax(430px, 0.95fr);
+    /*
+      The floors are floors, not the widths this is aiming for. 590px + 430px already added up
+      to more than a 1181px-wide window has to give, so the two tracks overflowed the section
+      at the very width the breakpoint exists to serve.
+    */
+    grid-template-columns: minmax(520px, 1.1fr) minmax(400px, 0.9fr);
     gap: clamp(25px, 3vw, 46px);
   }
 }
@@ -937,7 +959,7 @@
   gap: 9px;
 }
 .landing-v3-primary-wrap > small {
-  max-width: 300px;
+  max-width: 330px;
   color: #f5efe58a;
   font-size: 11px;
   line-height: 1.45;

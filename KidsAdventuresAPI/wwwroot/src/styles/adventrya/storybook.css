@@ -950,20 +950,89 @@
     transform: translate(18px);
   }
 }
+/*
+  No scale factor.
+
+  The hero book was laid out at full size and then drawn at 0.79, which is a fifth of it thrown
+  away after the layout had already paid for the space — and, being a transform, it shrank the
+  page-turn controls and the page counter along with it, to the point where the counter was 9px
+  of text nobody was going to read. It is sized honestly now: `--book-width` below decides how
+  big it is, and the height it is allowed comes from the viewport rather than from a constant.
+*/
+/*
+  Taken out of the flow only where something else is holding the height open.
+
+  Between 781px and 900px it was absolute inside a column the hero had just told to be
+  `height: auto` — an absolute child measures as nothing, so the box collapsed to zero and the
+  book, centred on a line rather than in a space, hung half over the headline above it and half
+  over the shelf below. The single-column layout keeps it in the flow, where its own height is
+  the column's height.
+*/
 .landing-v3-hero-product > .storybook {
-  position: absolute;
-  z-index: 4;
-  top: 50%;
-  left: 50%;
-  margin: 0;
-  transform: translate(-50%, -50%) scale(0.79);
-  transform-origin: center;
+  margin: 0 auto;
+}
+@media (min-width: 901px) {
+  .landing-v3-hero-product > .storybook {
+    position: absolute;
+    z-index: 4;
+    top: 50%;
+    left: 50%;
+    margin: 0;
+    transform: translate(-50%, -50%);
+    transform-origin: center;
+  }
 }
 .landing-v3-hero-product .storybook-controls {
   margin-top: 13px;
 }
 .landing-v3-hero-product .storybook-gesture-hint {
   color: #fff8eb7a;
+}
+/*
+  Both faces of the open spread are `--book-width` wide and the closed cover is one of them, so
+  either state stands 1.379 x --book-width tall. Deriving the width from the height the hero can
+  spare keeps the book as large as the screen allows and stops it from growing down into the
+  section beneath on a short one — the book is centred by an absolute position, so anything it
+  cannot fit it spills, half of it onto the shelf below. The 470px ceiling is where the column
+  runs out. Below 900px the hero is one column and sizes the book from the width instead.
+*/
+@media (min-width: 901px) {
+  .landing-v3-hero-product .storybook-hero {
+    /* Subtracting the header, the hero's own padding and the controls under the book. */
+    --book-width: min(470px, calc((100svh - 245px) / 1.38));
+  }
+}
+@media (min-width: 1181px) {
+  /* The controls are taller here, so the book is allowed correspondingly less. */
+  .landing-v3-hero-product .storybook-hero {
+    --book-width: min(470px, calc((100svh - 275px) / 1.38));
+  }
+  /*
+    The way to turn a page, at a size that says so. These were 11px labels and a 13px chevron
+    drawn at 0.79 — about 9px on screen — under a book that is the whole point of the section.
+  */
+  .landing-v3-hero-product .storybook-controls {
+    gap: 12px;
+    margin-top: 18px;
+  }
+  .landing-v3-hero-product .storybook-controls button {
+    min-height: 50px;
+    padding: 0 18px;
+    border-radius: 15px;
+    font-size: 13px;
+  }
+  .landing-v3-hero-product .storybook-controls svg {
+    width: 16px;
+    height: 16px;
+  }
+  .landing-v3-hero-product .storybook-progress {
+    min-width: 132px;
+    font-size: 13px;
+  }
+  .landing-v3-hero-product .storybook-gesture-hint {
+    margin-top: 10px;
+    font-size: 12px;
+  }
 }
 .ux-preview-product {
   min-width: 0;

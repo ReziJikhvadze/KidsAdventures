@@ -154,15 +154,26 @@
 .landing-v3-dashboard-link svg {
   width: 14px;
 }
+/*
+  The first screen is exactly one screen.
+
+  It used to ask for min(940px, 100svh - 38px) and then blow past it anyway, because the book
+  column was a flat 660px tall on top of a flat 142px of padding: 880px of hero on an 860px
+  viewport. The result was a landing page whose very first section could not be seen without
+  scrolling, and every section after it inherited the offset. Height now comes from the viewport
+  and the padding is measured from the header rather than guessed at, so the hero ends where the
+  screen ends and the shelf below starts at the top of the next one.
+*/
 .landing-v3-hero {
   position: relative;
-  min-height: min(940px, calc(100svh - 38px));
+  min-height: 100svh;
   isolation: isolate;
   display: grid;
   grid-template-columns: minmax(440px, 0.88fr) minmax(510px, 1.12fr);
   align-items: center;
   gap: clamp(30px, 5vw, 88px);
-  padding: 142px clamp(34px, 5vw, 78px) 78px;
+  padding: calc(var(--lv3-header-h) + clamp(16px, 2.2vh, 34px)) clamp(34px, 5vw, 78px)
+    clamp(26px, 3.4vh, 54px);
   color: #fff9ed;
   background: #1c1234;
 }
@@ -204,7 +215,21 @@
   position: relative;
   z-index: 5;
   align-self: center;
-  max-width: 650px;
+  max-width: 715px;
+}
+/*
+  Centred in a row as tall as the viewport, the headline sat 141px below the header with nothing
+  in between — the gap read as a mistake rather than as air. It hangs from the top of the row now,
+  by a margin that grows with the screen instead of a constant that only suits one of them.
+
+  Only where there is a row to hang from. On one column the copy is already the first thing in
+  the hero, and the same margin would just be 68px of nothing under the header.
+*/
+@media (min-width: 901px) {
+  .landing-v3-hero-copy {
+    align-self: start;
+    margin-top: clamp(12px, 8.4vh, 120px);
+  }
 }
 .landing-v3-kicker,
 .landing-v3-books .landing-v3-section-heading > p,
@@ -233,7 +258,7 @@
 }
 .landing-v3-hero h1 {
   margin: 0;
-  max-width: 680px;
+  max-width: 748px;
   font-family: var(--font-display);
   font-size: clamp(47px, 4.65vw, 72px);
   font-weight: 400;
@@ -251,7 +276,7 @@
   font-style: normal;
 }
 .landing-v3-hero-lead {
-  max-width: 560px;
+  max-width: 616px;
   margin: 25px 0 0;
   color: #f5efe5b3;
   font-size: 14px;
@@ -299,8 +324,17 @@
 .landing-v3-hero-product {
   position: relative;
   z-index: 3;
-  width: min(100%, 650px);
-  height: 660px;
+  /*
+    650px was the width of the old cover stack. The open spread is a two-page book and wants the
+    column it was given, so the ceiling is only here to stop it stretching on a very wide screen.
+  */
+  width: min(100%, 780px);
+  /*
+    660px flat was the other half of the hero not fitting: on an 860px viewport it left the
+    padding no room to be honoured. It keeps its full size where there is height for it and
+    gives way where there is not, which is what lets the book below grow rather than shrink.
+  */
+  height: min(780px, calc(100svh - 150px));
   justify-self: end;
   display: grid;
   place-items: center;
@@ -373,48 +407,6 @@
   margin-top: 14px;
   color: #fffaeea3;
   font-size: 12px;
-}
-.landing-v3-scroll {
-  position: absolute;
-  left: clamp(34px, 5vw, 78px);
-  bottom: 30px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: #fffaee6b;
-  font-size: 11px;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-.landing-v3-scroll > span {
-  position: relative;
-  width: 23px;
-  height: 36px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 20px;
-}
-.landing-v3-scroll > span:after {
-  content: "";
-  position: absolute;
-  top: 7px;
-  left: 50%;
-  width: 3px;
-  height: 6px;
-  border-radius: 4px;
-  background: var(--lv3-gold);
-  transform: translate(-50%);
-  animation: landing-v3-scroll 1.8s ease infinite;
-}
-@keyframes landing-v3-scroll {
-  0%,
-  to {
-    transform: translate(-50%);
-    opacity: 0.35;
-  }
-  50% {
-    transform: translate(-50%, 11px);
-    opacity: 1;
-  }
 }
 .landing-v3-section {
   position: relative;
@@ -1617,8 +1609,13 @@
   .landing-v3-nav {
     display: none;
   }
+  /*
+    Nearly even, and no floors. The words had 0.85 of the row against the book's 1.15, which on a
+    1100px window left the headline a 391px column for a first line that is 505px long and
+    `nowrap` — so the line finished on top of the cover. The two halves share the row here.
+  */
   .landing-v3-hero {
-    grid-template-columns: minmax(390px, 0.85fr) minmax(450px, 1.15fr);
+    grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
   }
   .landing-v3-hero-product {
     transform: scale(0.9);
@@ -1690,13 +1687,6 @@
     height: auto;
     justify-self: center;
     transform: none;
-  }
-  /*
-    The floating notes are decoration for a wide screen. Stacked on a phone they land on top of
-    the book they are meant to point at, so they stay behind on the layout that has room.
-  */
-  .landing-v3-scroll {
-    display: none;
   }
   .landing-v3-book-gallery {
     gap: 24px;
