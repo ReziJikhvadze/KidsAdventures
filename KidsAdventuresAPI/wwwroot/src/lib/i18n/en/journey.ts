@@ -91,7 +91,6 @@ export const journey = {
     relationshipTextRequired: "Who are they?",
     photoRequired: "Add a clear portrait.",
     termsRequired: "Please accept the terms and conditions to create the book.",
-    finishEditing: "Finish the change you started first.",
     phoneInvalid: "Enter a valid 9-digit Georgian number.",
     otpInvalid: "That code is not correct.",
   },

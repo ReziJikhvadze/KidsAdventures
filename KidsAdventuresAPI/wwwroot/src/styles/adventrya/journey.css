@@ -138,6 +138,27 @@
   padding: 0;
   border: 0;
 }
+/*
+  Four colours on one line.
+
+  They were a two-by-two grid because the fieldset only had half the form's width to work in.
+  It has the whole width now, and a row reads as one question with four answers where a square
+  of four reads as a small table. Flex rather than four equal columns: an equal split gives every
+  swatch the width the longest Georgian word needs, so three of them carry a pocket of empty
+  space and the fourth is still the one that decides. Sized to their own words instead, then
+  grown to share out what is left over.
+
+  It still wraps. On a narrow column four of these do not fit on a line, and two rows of two is
+  the right thing to become — which is what it was, and what `min-width: max-content` guarantees
+  it falls back to rather than clipping a word.
+*/
+/*
+  Two and two: brown and blue above, green and grey below.
+
+  A single line of four was tried and is not what this wants to be — four narrow slots reading as
+  a strip, when the question has exactly four answers and a square of two by two shows all of
+  them at a glance in the width the words actually need.
+*/
 .eye-options {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

@@ -94,7 +94,6 @@ export const journey = {
       message named something that was not on the screen. It is about whichever character is
       open, which is the only one it can be.
     */
-    finishEditing: "ჯერ დაასრულე მიმდინარე ცვლილება.",
     phoneInvalid: "შეიყვანე სწორი 9-ნიშნა ქართული ნომერი.",
     otpInvalid: "კოდი არასწორია.",
   },

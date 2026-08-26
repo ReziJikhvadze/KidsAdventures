@@ -69,6 +69,7 @@
   padding: clamp(16px, 2.2vh, 30px) 0 clamp(20px, 3vh, 34px);
 }
 .ux-character-stack {
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   gap: 11px;
@@ -85,6 +86,8 @@
   backdrop-filter: blur(20px);
 }
 .ux-character-form {
+  display: flex;
+  flex-direction: column;
   padding: 17px 18px;
   border-radius: 22px 22px 38px;
 }
@@ -121,40 +124,56 @@
   font-family: var(--font-display);
   font-size: 19px;
 }
+/*
+  The form fills the column, and the photo panel fills the form.
+
+  The left column is a heading over a painting that takes whatever height is left, so it reaches
+  the bottom of the screen; the right column stopped at the foot of its own content and left the
+  rest of the page empty under it. The stack stretches, the card takes the slack, and this row —
+  the questions and the portrait box side by side — is what grows into it. The portrait box is a
+  grid item, so it reaches the bottom of the card without being told to.
+*/
 .ux-character-fields {
+  flex: 1 1 auto;
   display: grid;
   grid-template-columns: minmax(0, 1.22fr) minmax(180px, 0.78fr);
+  align-items: stretch;
   gap: 14px;
 }
 /*
-  Gender and eye colour side by side.
+  One question to a row, and the rows spread down the card.
 
-  They were stacked, one short row of choices above another, and between them they were most of
-  the reason this column ran past the bottom of the screen — 190px of height for eight controls
-  that occupy a third of the width available to them. Paired, the row is as tall as the taller of
-  the two and the form gains about seventy pixels, which is what the closing line needed.
+  Gender and eye colour used to share a row, split 0.78 to 1.22, on the reasoning that neither
+  was tall enough to justify one of its own. Neither fitted: the gender label wrapped in its
+  163px and the four colours were squeezed into a quarter of the form. Each has the full width
+  now — and the height that costs is height this column had spare, since the painting in the
+  column beside it is the taller of the two and was leaving a hole under the form.
 
-  The name and date of birth keep the full width above them, and so does the relationship
-  question on a supporting character — it carries a row of chips and sometimes a text field, and
-  half a column is not enough for either.
+  `space-between`, not `start`: whatever the card is given over its content, the questions share
+  out between them rather than piling up at the top. It only ever distributes a surplus, so on a
+  short window this is exactly `start` and the clamps elsewhere do the compressing.
 */
 .ux-character-inputs {
   display: grid;
-  /*
-    Not an even split. Gender is two short chips; eye colour is four swatches that each carry a
-    Georgian word, laid out two across. Given half each, the colours came out at 88px a piece and
-    the words were cut off — which is the one thing a colour picker cannot afford, since the
-    swatch alone does not say which grey is which.
-  */
-  grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.22fr);
-  align-content: start;
-  gap: 12px 14px;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: space-between;
+  gap: 12px;
 }
-.ux-character-inputs > .form-grid,
-.ux-character-inputs > fieldset:nth-of-type(3) {
-  grid-column: 1 / -1;
-}
+/*
+  The name has the row to itself as well. Sharing it with the date of birth left three date
+  controls fighting over 200px; sharing it with nothing left half a row of hole beside it.
+*/
 .ux-character-inputs .form-grid {
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 0;
+}
+/*
+  The fieldsets are spaced by the grid, not by themselves. `.choice-fieldset` carries an 18px
+  top margin from the days when it stood in normal flow; inside a grid that lands on top of the
+  gap and spaces one question from the next by thirty.
+*/
+.ux-character-inputs > .choice-fieldset {
+  margin-top: 0;
   margin-bottom: 0;
 }
 .ux-character-form .field > span,
@@ -166,6 +185,7 @@
 .ux-character-form .field input {
   font-size: 13px;
 }
+
 .ux-photo-upload {
   min-height: 178px;
   display: flex;
@@ -1766,20 +1786,84 @@
   .ux-profile-stage,
   .ux-preview-stage,
   .ux-generated-stage {
-    padding-top: clamp(22px, 3vh, 40px);
-    padding-bottom: clamp(24px, 3vh, 40px);
+    padding-top: clamp(16px, 3vh, 40px);
+    padding-bottom: clamp(16px, 3vh, 40px);
   }
 
+  /*
+    The closing lines, tightened by width rather than by height.
+
+    Every one of these already reads this way on a desktop tall enough for the "one screen" block
+    in journey-extras — but that block asks for a 768px-tall window, and the windows that need
+    the trim most are the ones shorter than that. Same values, restated where height is not a
+    condition, so nothing changes on the screens that were already getting them.
+  */
+  .ux-wish-field {
+    gap: clamp(3px, 0.6vh, 7px);
+  }
+
+  .ux-wish-field input {
+    min-height: 38px;
+  }
+
+  .ux-wish-field small {
+    font-size: 10.5px;
+    line-height: 1.4;
+  }
+
+  .ux-profile-footer .privacy-inline {
+    font-size: 11.5px;
+    line-height: 1.4;
+  }
+
+  .ux-profile-footer .journey-primary {
+    min-height: 46px;
+  }
+
+  /*
+    And the left column, for the same reason.
+
+    Once the form was short enough, the painting beside it became the taller half — and the page
+    is as tall as its taller half. These are again the "one screen" block's own values, freed
+    from its height condition.
+  */
+  .ux-profile-aside {
+    gap: 14px;
+  }
+
+  .ux-profile-aside .ux-stage-heading h1 {
+    font-size: clamp(29px, 2.4vw, 38px);
+  }
+
+  .ux-profile-aside .ux-stage-heading > p:not(.eyebrow) {
+    margin-top: 9px;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+
+  .ux-profile-aside .world-art-panel {
+    min-height: clamp(200px, 26vh, 360px);
+  }
+
+  /*
+    Measured in viewport height, like the padding above it.
+
+    These four were flat pixels, and being the last word on desktop they overrode the very block
+    that was written to make this step fit — which only starts at a 768px-tall window. A laptop
+    with a browser's chrome on it is routinely shorter than that, so the one window with the
+    least room to give was the one being handed tall-desktop spacing and then a scrollbar. The
+    values below are the same ones that block uses, so nothing moves where it already applied.
+  */
   .ux-character-stack {
-    gap: 10px;
+    gap: clamp(6px, 1.1vh, 15px);
   }
 
   .ux-character-form {
-    padding: 16px;
+    padding: clamp(11px, 1.7vh, 20px);
   }
 
   .ux-character-fields {
-    gap: 12px;
+    gap: clamp(7px, 1.2vh, 14px);
   }
 
   .ux-book-preferences {
@@ -1795,11 +1879,11 @@
   }
 
   .ux-form-intro {
-    margin-bottom: 13px;
+    margin-bottom: clamp(8px, 1.4vh, 18px);
   }
 
   .ux-form-actions {
-    margin-top: 12px;
+    margin-top: clamp(6px, 1vh, 12px);
   }
 
   /* Checkout sets its own padding rather than sharing the block above. */
@@ -1842,6 +1926,154 @@
 
   .ux-preview-book-note {
     margin-top: 10px;
+  }
+}
+
+/*
+  The fields take the spare height, rather than the layout being rearranged around it.
+
+  The order is fixed and does not move: name, date of birth, girl-or-boy, eye colour — one
+  question to a row, the toggle high and the four colours low. What varies is how big each
+  control is drawn, and it varies with the height of the window: on a tall one the inputs, the
+  selects, the toggle and the swatches all grow into the room the painting beside them occupies,
+  which is what closes the empty band under the form. On a short one they come back down to the
+  sizes that fit, and the arrangement is still the same arrangement.
+
+  This is why none of it is a second layout. A form that rearranges itself between two screens
+  is a form the same person has to learn twice.
+*/
+@media (min-width: 900px) {
+  .ux-character-form .field input {
+    height: clamp(40px, 6.2vh, 60px);
+  }
+
+  .ux-character-form .ux-birthdate-row select {
+    min-height: clamp(38px, 5.8vh, 56px);
+  }
+
+  .ux-character-form .ux-segmented-control button {
+    min-height: clamp(32px, 4.8vh, 46px);
+  }
+
+  .ux-character-form .eye-options button {
+    height: clamp(36px, 5.3vh, 52px);
+  }
+
+  .ux-wish-field input {
+    min-height: clamp(34px, 5vh, 50px);
+  }
+
+  .ux-profile-footer .journey-primary {
+    min-height: clamp(42px, 6.2vh, 58px);
+  }
+
+  .ux-character-inputs {
+    gap: clamp(8px, 1.4vh, 18px);
+  }
+
+  .ux-character-inputs .form-grid {
+    gap: clamp(8px, 1.3vh, 15px);
+  }
+}
+
+/*
+  Below about 700px the controls are already at their smallest and the page is still a little
+  taller than the window, so the last of it comes from the labels and the margins around them —
+  the parts that can lose a pixel or two without anyone reaching for a control they cannot hit.
+*/
+@media (min-width: 900px) and (max-height: 700px) {
+  .ux-profile-stage {
+    padding-top: clamp(10px, 2vh, 40px);
+    padding-bottom: clamp(10px, 2vh, 40px);
+  }
+
+  .ux-character-form .field > span,
+  .ux-character-form .choice-fieldset legend,
+  .ux-birthdate > legend {
+    font-size: 11px;
+  }
+
+  .ux-form-intro {
+    margin-bottom: clamp(5px, 1vh, 18px);
+  }
+
+  .ux-step-token {
+    width: 30px;
+    height: 30px;
+  }
+
+  .ux-form-intro h2 {
+    font-size: 17px;
+  }
+
+  .ux-photo-upload {
+    min-height: 0;
+  }
+
+  /* The spaces between the cards, and the rule the footer sits under. */
+  .ux-character-stack {
+    gap: clamp(5px, 0.9vh, 15px);
+  }
+
+  .ux-profile-footer {
+    padding-top: 6px;
+  }
+
+  .ux-wish-field small {
+    line-height: 1.3;
+  }
+
+  /*
+    And the controls grow more slowly down here. The clamps above are still what draws them —
+    this only makes the slope shallower once there is no height left to grow into, which is the
+    difference between the button being on the screen and being under it.
+  */
+  .ux-character-form .field input {
+    height: clamp(36px, 5.6vh, 60px);
+  }
+
+  .ux-character-form .ux-birthdate-row select {
+    min-height: clamp(34px, 5.2vh, 56px);
+  }
+
+  .ux-character-form .eye-options button {
+    height: clamp(33px, 4.8vh, 52px);
+  }
+
+  .ux-character-form .ux-segmented-control button {
+    min-height: clamp(30px, 4.3vh, 46px);
+  }
+
+  .ux-profile-footer .journey-primary {
+    min-height: clamp(40px, 5.6vh, 58px);
+  }
+}
+
+/*
+  Under about 660px the two shortest questions pair up, and only there.
+
+  One question to a row needs roughly 660px of window to reach the button, and below that the
+  controls would have to shrink past the size a person can comfortably hit to buy the difference.
+  Pairing girl-or-boy with the eye colours buys it instead, in the one place where the choice is
+  between a rearranged form and a form whose submit button is under the fold. The colours stay
+  two and two; nothing else about the order changes.
+*/
+@media (min-width: 900px) and (max-height: 660px) {
+  .ux-character-inputs {
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+    column-gap: 14px;
+  }
+
+  .ux-character-inputs > * {
+    grid-column: 1 / -1;
+  }
+
+  .ux-character-inputs > .gender-fieldset {
+    grid-column: 1 / 2;
+  }
+
+  .ux-character-inputs > .eye-fieldset {
+    grid-column: 2 / 3;
   }
 }
 

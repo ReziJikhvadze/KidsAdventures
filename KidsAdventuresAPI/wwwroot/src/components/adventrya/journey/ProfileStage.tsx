@@ -11,7 +11,6 @@ import { preparePortrait } from "@/lib/images/preparePortrait";
 import type { CharacterGender, EyeColor } from "@/lib/api/types";
 import { emptyCharacter, type DraftCharacter, type JourneyDraft } from "@/lib/journey/draft";
 
-const MAX_CHARACTERS = 3;
 // The keys are the stored values, not display copy, so they stay literal rather than
 // being derived from a catalogue that now changes with the interface language.
 const EYE_COLORS: EyeColor[] = ["brown", "blue", "green", "grey"];
@@ -59,7 +58,6 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
   const copy = t.journey;
 
   const editing = draft.characters.find((c) => c.localId === editingId) ?? null;
-  const remainingSlots = MAX_CHARACTERS - draft.characters.length;
 
   const updateCharacter = (localId: string, patch: Partial<DraftCharacter>) => {
     onChange((prev) => ({
@@ -81,17 +79,6 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
     }
     if (!character.photoReady) return copy.validation.photoRequired;
     return null;
-  };
-
-  const saveEditing = () => {
-    if (!editing) return;
-    const message = validateCharacter(editing);
-    if (message) {
-      setError(message);
-      return;
-    }
-    setError(null);
-    setEditingId(null);
   };
 
   const removeCharacter = (localId: string) => {
@@ -128,22 +115,13 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
     setError(null);
   };
 
-  const addSupporting = () => {
-    if (remainingSlots <= 0 || editing) {
-      if (editing) setError(copy.validation.finishEditing);
-      return;
-    }
-    const next = emptyCharacter(false);
-    onChange((prev) => ({ ...prev, characters: [...prev.characters, next] }));
-    setEditingId(next.localId);
-    setError(null);
-  };
-
   const handleContinue = () => {
-    if (editing) {
-      setError(copy.validation.finishEditing);
-      return;
-    }
+    /*
+      An open form used to stop this with "finish editing first", which was the only thing the
+      removed "remember" button did — so with it gone that check would have been a dead end.
+      It was never needed: the editor writes straight into the draft, so what is on screen is
+      what is validated below, open or closed.
+    */
     const primary = draft.characters.find((c) => c.isPrimary);
     if (!primary) {
       setError(copy.validation.nameRequired);
@@ -208,7 +186,6 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
                 character={character}
                 index={index}
                 onChange={(patch) => updateCharacter(character.localId, patch)}
-                onSave={saveEditing}
                 onCancel={() => {
                   if (!character.name.trim() && !character.isPrimary) {
                     removeCharacter(character.localId);
@@ -226,12 +203,19 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
               key={character.localId}
               character={character}
               index={index}
+              /*
+                Switch, rather than refuse.
+
+                This used to answer "finish editing first", which was fair while an open form had
+                a Save button to finish it with. The hero's form has no buttons of its own any
+                more, so on a draft that carries a supporting character the refusal became a dead
+                end: the hero opens, nothing closes it, and every other card declines to open.
+                Nothing needs finishing — the editor writes into the draft as it is typed — so
+                opening one card simply closes the other.
+              */
               onEdit={() => {
-                if (editing) {
-                  setError(copy.validation.finishEditing);
-                  return;
-                }
                 setEditingId(character.localId);
+                setError(null);
               }}
               onRemove={removeAction(character)}
             />
@@ -314,13 +298,11 @@ function CharacterEditor({
   character,
   index,
   onChange,
-  onSave,
   onCancel,
 }: {
   character: DraftCharacter;
   index: number;
   onChange: (patch: Partial<DraftCharacter>) => void;
-  onSave: () => void;
   onCancel: () => void;
 }) {
   const t = useT();
@@ -416,6 +398,7 @@ function CharacterEditor({
                 autoComplete="off"
               />
             </label>
+
             <BirthDateField
               label={copy.characterForm.birthDateLabel}
               value={character.birthDate}
@@ -423,6 +406,14 @@ function CharacterEditor({
             />
           </div>
 
+          {/*
+            One question to a row, each with the column's full width.
+
+            Gender and eye colour used to share a row, which gave the question "girl or boy?" a
+            163px column its own label could not fit on — it wrapped to two lines and left the
+            toggle sitting half a line below the swatches beside it. On a row of its own the
+            label is one line and the four colours have room to be two clear pairs.
+          */}
           {needsGender ? (
             <fieldset className="choice-fieldset gender-fieldset">
               <legend>{copy.characterForm.genderLegend}</legend>
@@ -450,7 +441,7 @@ function CharacterEditor({
             </fieldset>
           ) : null}
 
-          <fieldset className="choice-fieldset">
+          <fieldset className="choice-fieldset eye-fieldset">
             <legend>{copy.characterForm.eyeColorLegend}</legend>
             <div className="eye-options">
               {EYE_COLORS.map((color, i) => (
@@ -572,23 +563,25 @@ function CharacterEditor({
         to go back to.
       */}
       {/*
-        No "save changes" here any more.
+        The hero's form has no buttons of its own at all.
 
-        It closed the editor and nothing else — the draft lives in memory until checkout — so it
-        promised a save that never happened and put a second primary-looking button on a form
-        whose only real action is at the bottom. Done is the one button that makes the book.
+        "Remember" was the last of them, and it closed the editor without saving anything — the
+        draft has lived in memory since the first keystroke — so it was a button that appeared to
+        do the thing the button below it actually does, sitting where the eye looks for the end of
+        the form. What ends the form is "create the book", and there is now nothing between the
+        last question and it.
+
+        A supporting character keeps a way back, because there is a card behind them to go back
+        to; the hero has nothing behind them, which is why they never had one.
       */}
-      <div className="ux-form-actions">
-        <button className="button ux-inline-link" type="button" onClick={onSave}>
-          {t.common.actions.remember}
-        </button>
-        {character.name.trim() || !character.isPrimary ? (
+      {!character.isPrimary ? (
+        <div className="ux-form-actions">
           <button className="ux-inline-link" type="button" onClick={onCancel}>
             <X aria-hidden="true" />
             {t.common.actions.cancel}
           </button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </div>
   );
 }
