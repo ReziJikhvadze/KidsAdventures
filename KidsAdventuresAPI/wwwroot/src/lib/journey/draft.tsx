@@ -108,7 +108,7 @@ export function emptyDraft(): JourneyDraft {
     worldId: null,
     storyNotes: "",
     /* The printed book, which is what the product is; the digital copy is chosen instead. */
-    bookPackage: "digital",
+    bookPackage: "print",
     preview: null,
     orderId: null,
     bookId: null,
