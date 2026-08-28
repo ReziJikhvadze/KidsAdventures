@@ -604,8 +604,14 @@ function CharacterEditor({
  * better at than a sentence: "the face fills the frame" is abstract until it is shown next to a
  * child standing across a dark room.
  *
- * The files live in `public/adventrya/photo-guide/`. Until both are in place the block removes
- * itself rather than showing a parent two broken frames on the form that asks for their photo.
+ * The files live in `public/adventrya/photo-guide/`, and until both are there this renders
+ * nothing at all.
+ *
+ * It used to render the pair and drop it when an image reported an error, which is not the same
+ * thing. An <img> whose source is missing still takes its full square — `aspect-ratio: 1` is
+ * honoured whether or not anything decodes — so between paint and the failed request the form
+ * carried two broken frames, sitting over the upload box on the screen that is asking a parent
+ * for a picture of their child. Both are probed first, and nothing is drawn until both answered.
  */
 const PHOTO_GUIDE_SHOTS = {
   good: "/adventrya/photo-guide/good.jpg",
@@ -614,9 +620,35 @@ const PHOTO_GUIDE_SHOTS = {
 
 function PhotoGuide() {
   const guide = useT().journey.characterForm.photoGuide;
-  const [missing, setMissing] = useState(false);
+  const [ready, setReady] = useState(false);
 
-  if (missing) return null;
+  useEffect(() => {
+    let cancelled = false;
+
+    // Both, not either: half a comparison teaches nothing, and one broken frame beside one good
+    // one reads as a fault in the form rather than a missing asset.
+    void Promise.all(
+      Object.values(PHOTO_GUIDE_SHOTS).map(
+        (src) =>
+          new Promise<boolean>((resolve) => {
+            const probe = new Image();
+            probe.onload = () => resolve(true);
+            probe.onerror = () => resolve(false);
+            probe.src = src;
+          }),
+      ),
+    ).then((loaded) => {
+      if (!cancelled) setReady(loaded.every(Boolean));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // The probe warms the browser cache, so the images below are already decoded by the time
+  // they are asked for and the block appears in one piece rather than filling in.
+  if (!ready) return null;
 
   return (
     <figure className="ux-photo-guide">
@@ -624,7 +656,7 @@ function PhotoGuide() {
       <div className="ux-photo-guide-pair">
         <div className="ux-photo-guide-shot good">
           {/* The label and the reason beside it carry the meaning, so the image is decorative. */}
-          <img src={PHOTO_GUIDE_SHOTS.good} alt="" onError={() => setMissing(true)} />
+          <img src={PHOTO_GUIDE_SHOTS.good} alt="" />
           <span>
             <Check aria-hidden="true" />
             {guide.goodLabel}
@@ -632,7 +664,7 @@ function PhotoGuide() {
           <small>{guide.goodReason}</small>
         </div>
         <div className="ux-photo-guide-shot bad">
-          <img src={PHOTO_GUIDE_SHOTS.bad} alt="" onError={() => setMissing(true)} />
+          <img src={PHOTO_GUIDE_SHOTS.bad} alt="" />
           <span>
             <X aria-hidden="true" />
             {guide.badLabel}
