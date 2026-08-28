@@ -23,7 +23,20 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
-        services.Configure<BekiOptions>(configuration.GetSection(BekiOptions.SectionName));
+        // ValidateOnStart, for the binding rather than for a rule.
+        //
+        // These sections come from App Service settings, where every value is a string somebody
+        // typed into a box. A bool that says anything other than true or false — a stray "1", a
+        // pasted character, an empty field where the second Save never landed — makes the binder
+        // throw. Options bind on first resolution, so that throw does not land on the deployment
+        // that caused it: it lands weeks later, as a 500, on the parent who happened to upload a
+        // photo. The site is up, the deploy was green, and nothing says which setting is wrong.
+        //
+        // Binding at startup instead costs nothing and moves the failure to the one moment
+        // somebody is watching. The message .NET gives names the exact key.
+        services.AddOptions<BekiOptions>()
+            .Bind(configuration.GetSection(BekiOptions.SectionName))
+            .ValidateOnStart();
         // Validated at boot rather than trusted. A misspelled provider name would otherwise fall
         // through to the default and keep billing the vendor everyone believed had just been
         // switched away from; a Gemini setting with no key would take the failure all the way to
@@ -71,8 +84,15 @@ public static class ServiceCollectionExtensions
             }
         });
         services.Configure<LocalBlobOptions>(configuration.GetSection(LocalBlobOptions.SectionName));
-        services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.SectionName));
-        services.Configure<BogOptions>(configuration.GetSection(BogOptions.SectionName));
+        // The same treatment, for the same reason, on the two sections that decide whether money
+        // can be taken. A malformed Bog:Enabled would otherwise 500 every checkout at the moment
+        // a parent presses pay, which is the worst possible place to discover a typo.
+        services.AddOptions<StripeOptions>()
+            .Bind(configuration.GetSection(StripeOptions.SectionName))
+            .ValidateOnStart();
+        services.AddOptions<BogOptions>()
+            .Bind(configuration.GetSection(BogOptions.SectionName))
+            .ValidateOnStart();
         services.Configure<CorsOptions>(configuration.GetSection(CorsOptions.SectionName));
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
