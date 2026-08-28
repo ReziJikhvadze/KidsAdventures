@@ -106,7 +106,7 @@
   border-radius: 14px;
   color: #30204f;
   background: linear-gradient(145deg, #f1d899, #dca85a);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 14px;
 }
 .ux-form-intro > div {
@@ -413,7 +413,7 @@
   border-radius: 17px;
   color: #2d1d4a;
   background: linear-gradient(145deg, #f1d99b, #d9a659);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 18px;
 }
 .ux-character-summary > div:not(.ux-summary-actions) {
@@ -843,7 +843,7 @@
 }
 .ux-story-text p {
   margin: 8px 0 0;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 12px;
   line-height: 1.65;
 }
@@ -1258,7 +1258,7 @@
 }
 .ux-reader-page p {
   margin: 10px 0 0;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 13px;
   line-height: 1.7;
 }

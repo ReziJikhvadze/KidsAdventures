@@ -916,7 +916,7 @@
   color: #fff8eb;
   border-radius: 999px;
   background: rgba(14, 8, 32, 0.86);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 13px;
   line-height: 1.25;
   white-space: nowrap;

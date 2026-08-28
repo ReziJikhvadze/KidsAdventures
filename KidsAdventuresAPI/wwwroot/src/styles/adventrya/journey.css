@@ -323,7 +323,7 @@
   place-items: center;
   border-radius: 14px;
   color: #2c1d49;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   background: var(--story-gold);
 }
 .photo-example div {
@@ -620,7 +620,7 @@
 .synopsis p {
   margin: 8px 0 0;
   color: #f8f2e5b8;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 13px;
   line-height: 1.7;
 }
@@ -1495,7 +1495,7 @@
 }
 .book-page > p {
   margin: 17px 28px 0;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 12px;
   line-height: 1.55;
 }

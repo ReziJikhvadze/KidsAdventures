@@ -94,7 +94,7 @@
   border: 1px solid rgba(147, 101, 62, 0.28);
   border-radius: 50%;
   color: #8f6248;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 23px;
   box-shadow: 0 8px 26px #5d3b381a;
 }
@@ -112,7 +112,7 @@
 .storybook-inside-cover p {
   max-width: 23em;
   margin: 18px 0 0;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: clamp(9px, 0.85vw, 12px);
   line-height: 1.6;
 }
@@ -417,7 +417,7 @@
 }
 .storybook-text-page > p {
   margin: 0;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   /* Read aloud to a child, so it is set nearer a printed picture book than a UI label. */
   /*
     Half what it was, which is where the inside cover already sits. Centred prose wants a

@@ -490,7 +490,7 @@ svg {
   display: grid;
   place-items: center;
   color: #2a1d4c;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 700;
   background:
     radial-gradient(circle at 38% 32%, #fff4c7 0 16%, transparent 17%),
@@ -597,7 +597,7 @@ svg {
   place-items: center;
   border-radius: 50%;
   color: #eff5d8;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 700;
   background: radial-gradient(circle at 35% 30%, #84a984, #315b4c 72%);
   box-shadow: inset 0 0 0 3px #ffffff21;

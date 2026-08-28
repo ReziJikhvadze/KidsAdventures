@@ -816,7 +816,7 @@
 .landing-v3-preview-memory p {
   margin: 15px 0 0;
   color: #fffaeead;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 13px;
   line-height: 1.75;
 }
@@ -903,7 +903,7 @@
   border-radius: 50%;
   background: linear-gradient(145deg, #f0c77d, #e99468);
   box-shadow: 0 13px 30px #67455033;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 23px;
   font-style: normal;
 }
@@ -1242,7 +1242,7 @@
 .landing-v3-price {
   display: block;
   margin-top: 27px;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 41px;
   font-weight: 400;
 }

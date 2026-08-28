@@ -813,7 +813,7 @@
 
 .world-label strong {
   color: #fff6db;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: clamp(8px, 0.77vw, 13px);
   font-weight: 600;
   line-height: 1.25;

@@ -184,7 +184,7 @@
 .reader-page-copy > p:not(.eyebrow) {
   margin: 23px 0 0;
   color: #29233ab8;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.9;
 }
