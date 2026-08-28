@@ -22,13 +22,49 @@ var app = builder.Build();
 
 LogConfiguredFlags(app);
 
-using (var scope = app.Services.CreateScope())
-{
-    var migrator = scope.ServiceProvider.GetRequiredService<ISqlDatabaseMigrator>();
-    await migrator.MigrateAsync();
+/*
+  The database is reached before the host starts, so a blip here is not a failed request — it is
+  a process that never comes up.
 
-    var seeder = scope.ServiceProvider.GetRequiredService<IDatabaseSeeder>();
-    await seeder.SeedAsync();
+  That is what happened on 2026-08-28. Azure SQL accepted the connection and then reset it
+  during the TDS login ("Connection reset by peer" inside SslStream.Write), the migration threw,
+  and the process aborted with a core dump. App Service restarted the container two minutes
+  later and the identical migration succeeded on its first attempt: "0 script(s) applied, 33
+  already present". Nothing was wrong with the schema, the credentials or the code — the socket
+  was cut mid-handshake, which Azure SQL does when a serverless database is resuming, a failover
+  moves it, or it throttles for a moment.
+
+  So the API was down for two minutes over something that clears in seconds. Both steps are
+  idempotent — a completed migration applies nothing, and the seeder skips users that exist — so
+  trying again costs nothing and is what the restart was doing anyway, slowly.
+
+  Five attempts over about half a minute. If the database is genuinely unreachable the last
+  failure still stops the process, which is correct: an API that cannot read its own data should
+  not start and serve errors.
+*/
+const int databaseAttempts = 5;
+for (var attempt = 1; ; attempt++)
+{
+    try
+    {
+        using var scope = app.Services.CreateScope();
+
+        var migrator = scope.ServiceProvider.GetRequiredService<ISqlDatabaseMigrator>();
+        await migrator.MigrateAsync();
+
+        var seeder = scope.ServiceProvider.GetRequiredService<IDatabaseSeeder>();
+        await seeder.SeedAsync();
+        break;
+    }
+    catch (Exception ex) when (attempt < databaseAttempts)
+    {
+        var wait = TimeSpan.FromSeconds(attempt * 3);
+        app.Logger.LogWarning(
+            ex,
+            "Database was not reachable on attempt {Attempt} of {Attempts}; retrying in {Seconds}s.",
+            attempt, databaseAttempts, wait.TotalSeconds);
+        await Task.Delay(wait);
+    }
 }
 
 app.UseGlobalExceptionHandling();
