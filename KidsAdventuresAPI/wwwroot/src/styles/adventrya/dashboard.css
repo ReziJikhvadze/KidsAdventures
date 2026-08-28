@@ -90,15 +90,19 @@
   overflow: hidden;
 }
 /*
-  The anchor is a tall portrait, so it is cropped to the square rather than letterboxed into it
-  — a face fitted whole into a 48px box is mostly background. `top` keeps the head in frame,
-  which `center` does not on a full-body render.
+  Cropped to the square rather than letterboxed into it — a tall picture fitted whole into a
+  48px box is mostly background.
+
+  Centred, because the source is one of two shapes. An anchor is a figure on empty ground; a
+  book cover is a scene with the child in the middle of it and the title across the top. `top`
+  suited the first and cropped the second to its lettering, so the middle is the crop that
+  holds a child in both.
 */
 .dashboard-sidebar .child-avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: top center;
+  object-position: center;
   display: block;
 }
 /*

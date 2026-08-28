@@ -38,48 +38,66 @@ public sealed class CharacterRepository(ISqlConnectionFactory connectionFactory)
         }
 
         /*
-          The hero anchor is the illustrated version of the child — the reference render every
-          page in the book is matched against — so it is already the closest thing to a portrait
-          of this child in the product's own style. Nothing had ever read it back out.
+          Two places a picture of this child can come from, in order of preference.
 
-          Anchors belong to a story, and a child accumulates stories, so the newest approved one
-          wins: the avatar keeps up as the child grows through the series rather than freezing on
-          book one. Row-numbered rather than grouped because MAX(BlobUrl) would pick a string,
-          not the latest row.
+          First the hero anchor: the reference render every page of a Beki book is matched
+          against, which makes it the closest thing to a portrait in the product's own style.
+          Only books drawn through that pipeline have one, so on its own it left most shelves
+          showing initials — which is what this was supposed to replace.
 
-          Entered through dbo.Characters so the owner filter is on the table that defines
-          ownership. Every other read here is scoped by UserId, and a lookup that took bare ids
-          would hand a caller another family's portrait the first time somebody passed an id
-          straight from a request.
+          So, failing that, the cover of a book the child stars in. Every generated book has one,
+          which is what makes the avatar actually appear, and it is the picture the parent
+          already thinks of as their child's.
+
+          Newest first within each kind: the avatar keeps up as the child grows through the
+          series rather than freezing on book one. Row-numbered rather than grouped because
+          MAX() would pick a string, not the latest row.
+
+          Both halves enter through dbo.Characters so the owner filter sits on the table that
+          defines ownership. Every other read here is scoped by UserId, and a lookup that took
+          bare ids would hand a caller another family's portrait the first time somebody passed
+          an id straight from a request.
         */
         const string sql = """
-                           SELECT CharacterId, BlobUrl
+                           SELECT CharacterId, Url
                            FROM (
-                               SELECT c.Id AS CharacterId,
-                                      a.BlobUrl,
+                               SELECT CharacterId,
+                                      Url,
                                       ROW_NUMBER() OVER (
-                                          PARTITION BY c.Id
-                                          ORDER BY a.CreatedAt DESC) AS Rn
-                               FROM dbo.Characters c
-                               INNER JOIN dbo.BekiStories s ON s.CharacterId = c.Id
-                               INNER JOIN dbo.BekiVisualAssets a ON a.StoryId = s.Id
-                               WHERE c.UserId = @UserId
-                                 AND c.Id IN @CharacterIds
-                                 AND a.AssetType = 'hero_anchor'
-                                 AND a.Status = 'approved'
-                                 AND a.BlobUrl IS NOT NULL
-                           ) newest
+                                          PARTITION BY CharacterId
+                                          ORDER BY Preference, CreatedAt DESC) AS Rn
+                               FROM (
+                                   SELECT c.Id AS CharacterId, a.BlobUrl AS Url, 1 AS Preference, a.CreatedAt
+                                   FROM dbo.Characters c
+                                   INNER JOIN dbo.BekiStories s ON s.CharacterId = c.Id
+                                   INNER JOIN dbo.BekiVisualAssets a ON a.StoryId = s.Id
+                                   WHERE c.UserId = @UserId
+                                     AND c.Id IN @CharacterIds
+                                     AND a.AssetType = 'hero_anchor'
+                                     AND a.Status = 'approved'
+                                     AND a.BlobUrl IS NOT NULL
+
+                                   UNION ALL
+
+                                   SELECT c.Id, p.CoverImageUrl, 2, p.CreatedAt
+                                   FROM dbo.Characters c
+                                   INNER JOIN dbo.AdventurePacks p ON p.PrimaryCharacterId = c.Id
+                                   WHERE c.UserId = @UserId
+                                     AND c.Id IN @CharacterIds
+                                     AND p.CoverImageUrl IS NOT NULL
+                               ) candidates
+                           ) ranked
                            WHERE Rn = 1;
                            """;
 
         using var connection = connectionFactory.CreateConnection();
-        var rows = await connection.QueryAsync<(Guid CharacterId, string BlobUrl)>(
+        var rows = await connection.QueryAsync<(Guid CharacterId, string Url)>(
             new CommandDefinition(
                 sql,
                 new { UserId = userId, CharacterIds = characterIds },
                 cancellationToken: cancellationToken));
 
-        return rows.ToDictionary(row => row.CharacterId, row => row.BlobUrl);
+        return rows.ToDictionary(row => row.CharacterId, row => row.Url);
     }
 
     public async Task<IReadOnlyList<Character>> GetHeroesAsync(Guid userId, CancellationToken cancellationToken)

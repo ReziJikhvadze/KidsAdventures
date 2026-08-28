@@ -52,9 +52,9 @@ public sealed class CharacterResponse
     public string? PhotoUrl { get; set; }
 
     /// <summary>
-    /// The child as the books draw them — the hero anchor from their most recent illustrated
-    /// book. Null until a first book has been drawn, which is what an interface showing this
-    /// has to fall back from.
+    /// The child as the books draw them: the hero anchor from their most recent illustrated
+    /// book, or that book's cover when the anchor pipeline never ran for it. Null until a first
+    /// book has been drawn, which is what an interface showing this has to fall back from.
     ///
     /// Deliberately not <see cref="PhotoUrl"/>: that is the parent's own photograph of their
     /// child, and a shelf is a screen that gets left open in a living room.
