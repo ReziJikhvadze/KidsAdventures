@@ -65,6 +65,7 @@ public sealed class AdminReportingRepository(ISqlConnectionFactory connectionFac
             SELECT o.Id, o.UserId, u.Email AS CustomerEmail, u.PhoneNumber AS CustomerPhone,
                    o.BookId, b.Title AS BookTitle, o.Type, o.Package, o.Status, o.Currency,
                    o.SubtotalMinor, o.DiscountMinor, o.TotalMinor, o.FailureReason,
+                   o.Provider, o.ProviderPaymentIntentId,
                    o.CreatedAt, o.PaidAt, o.FulfilledAt,
                    b.Status AS BookStatus, b.LastReadAt,
                    CAST(CASE WHEN b.PdfUrl IS NOT NULL OR b.PrintPdfUrl IS NOT NULL
@@ -107,6 +108,7 @@ public sealed class AdminReportingRepository(ISqlConnectionFactory connectionFac
             SELECT o.Id, o.UserId, u.Email AS CustomerEmail, u.PhoneNumber AS CustomerPhone,
                    o.BookId, b.Title AS BookTitle, o.Type, o.Package, o.Status, o.Currency,
                    o.SubtotalMinor, o.DiscountMinor, o.TotalMinor, o.FailureReason,
+                   o.Provider, o.ProviderPaymentIntentId,
                    o.CreatedAt, o.PaidAt, o.FulfilledAt,
                    b.Status AS BookStatus, b.LastReadAt,
                    CAST(CASE WHEN b.PdfUrl IS NOT NULL OR b.PrintPdfUrl IS NOT NULL

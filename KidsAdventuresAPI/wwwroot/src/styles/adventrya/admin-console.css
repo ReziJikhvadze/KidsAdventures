@@ -558,6 +558,30 @@
   }
 }
 
+/*
+  The tables are 980 to 1320px wide by design — a dozen columns an operator reads across — and
+  they sat directly inside `.panel`, which is `overflow: hidden`. On a desktop that is invisible.
+  On a phone it meant the table was cut off at the panel's edge with no way to reach the rest of
+  it: the columns were not narrow, they were gone.
+
+  A scroller of its own, so the table moves sideways inside the panel and the page does not.
+*/
+.admin-app .table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/*
+  Last word on the heading, because an earlier narrow-screen block asked for flex-start and a
+  later unconditional rule took it back — so the title and its buttons stayed centred against
+  each other on a phone, where they are stacked and should align to the left edge.
+*/
+@media (max-width: 780px) {
+  .admin-app .page-heading {
+    align-items: flex-start;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .admin-app *,
   .admin-app *::before,

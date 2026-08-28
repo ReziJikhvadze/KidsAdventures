@@ -32,6 +32,17 @@ public sealed class AdminOrderRow
     public int DiscountMinor { get; set; }
     public int TotalMinor { get; set; }
     public string? FailureReason { get; set; }
+
+    /// <summary>Which gateway took the money: "Bog", "Stripe", or "Promo" for a free order.</summary>
+    public string Provider { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The gateway's own reference for the payment — BOG's <c>transaction_id</c>, Stripe's
+    /// payment intent. It is the number to quote when asking a bank what happened to a
+    /// customer's money, and until now the only place it existed was a database column.
+    /// </summary>
+    public string? ProviderPaymentIntentId { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime? PaidAt { get; set; }
     public DateTime? FulfilledAt { get; set; }

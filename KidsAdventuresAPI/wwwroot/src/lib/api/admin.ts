@@ -18,6 +18,10 @@ export type AdminOrderRow = {
   createdAt: string;
   paidAt: string | null;
   fulfilledAt: string | null;
+  /** Which gateway took the money: "Bog", "Stripe", or "Promo" for a free order. */
+  provider: string;
+  /** The gateway's own reference — BOG's transaction_id, Stripe's payment intent. */
+  providerPaymentIntentId: string | null;
   bookStatus: string | null;
   lastReadAt: string | null;
   hasPdf: boolean;

@@ -81,54 +81,56 @@ function AdminsPage() {
         <AdminPanel error={error} busy={busy} empty={data?.items.length === 0}>
           {data && data.items.length > 0 ? (
             <>
-              <table className="data-table orders-table">
-                <thead>
-                  <tr>
-                    <th>მომხმარებელი</th>
-                    <th>ტელეფონი</th>
-                    <th>წიგნები</th>
-                    <th>ჯამური შენაძენი</th>
-                    <th>როლი</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((row) => (
-                    <tr key={row.id}>
-                      <td>
-                        {row.displayName || row.email || "—"}
-                        {row.displayName && row.email ? (
-                          <span className="cell-subtitle">{row.email}</span>
-                        ) : null}
-                      </td>
-                      <td>{row.phoneNumber || "—"}</td>
-                      <td>
-                        {row.bookCount}
-                        <span className="cell-subtitle">{row.orderCount} შეკვეთა</span>
-                      </td>
-                      <td>{admin.gel(row.spendMinor)}</td>
-                      <td>
-                        <span className={row.isAdmin ? "dot dot-success" : "dot dot-warning"} />{" "}
-                        {row.isAdmin ? "ადმინისტრატორი" : "მომხმარებელი"}
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className={`button ${row.isAdmin ? "button-secondary" : ""}`}
-                          disabled={busyId !== null}
-                          onClick={() => void toggle(row)}
-                        >
-                          {busyId === row.id
-                            ? "…"
-                            : row.isAdmin
-                              ? "უფლების მოხსნა"
-                              : "ადმინად დანიშვნა"}
-                        </button>
-                      </td>
+              <div className="table-scroll">
+                <table className="data-table orders-table">
+                  <thead>
+                    <tr>
+                      <th>მომხმარებელი</th>
+                      <th>ტელეფონი</th>
+                      <th>წიგნები</th>
+                      <th>ჯამური შენაძენი</th>
+                      <th>როლი</th>
+                      <th />
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {data.items.map((row) => (
+                      <tr key={row.id}>
+                        <td>
+                          {row.displayName || row.email || "—"}
+                          {row.displayName && row.email ? (
+                            <span className="cell-subtitle">{row.email}</span>
+                          ) : null}
+                        </td>
+                        <td>{row.phoneNumber || "—"}</td>
+                        <td>
+                          {row.bookCount}
+                          <span className="cell-subtitle">{row.orderCount} შეკვეთა</span>
+                        </td>
+                        <td>{admin.gel(row.spendMinor)}</td>
+                        <td>
+                          <span className={row.isAdmin ? "dot dot-success" : "dot dot-warning"} />{" "}
+                          {row.isAdmin ? "ადმინისტრატორი" : "მომხმარებელი"}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className={`button ${row.isAdmin ? "button-secondary" : ""}`}
+                            disabled={busyId !== null}
+                            onClick={() => void toggle(row)}
+                          >
+                            {busyId === row.id
+                              ? "…"
+                              : row.isAdmin
+                                ? "უფლების მოხსნა"
+                                : "ადმინად დანიშვნა"}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
               <div className="filter-context">
                 <button

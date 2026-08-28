@@ -99,29 +99,31 @@ function OrdersPage() {
         <AdminPanel error={error} busy={busy} empty={data?.items.length === 0}>
           {data && data.items.length > 0 ? (
             <>
-              <table className="data-table orders-table">
-                <thead>
-                  <tr>
-                    <th>თარიღი</th>
-                    <th>მომხმარებელი</th>
-                    <th>წიგნი</th>
-                    <th>პაკეტი</th>
-                    <th>სტატუსი</th>
-                    <th>ჯამი</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((o) => (
-                    <OrderRows
-                      key={o.id}
-                      order={o}
-                      open={openId === o.id}
-                      onToggle={() => setOpenId(openId === o.id ? null : o.id)}
-                      onChanged={reload}
-                    />
-                  ))}
-                </tbody>
-              </table>
+              <div className="table-scroll">
+                <table className="data-table orders-table">
+                  <thead>
+                    <tr>
+                      <th>თარიღი</th>
+                      <th>მომხმარებელი</th>
+                      <th>წიგნი</th>
+                      <th>პაკეტი</th>
+                      <th>სტატუსი</th>
+                      <th>ჯამი</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.items.map((o) => (
+                      <OrderRows
+                        key={o.id}
+                        order={o}
+                        open={openId === o.id}
+                        onToggle={() => setOpenId(openId === o.id ? null : o.id)}
+                        onChanged={reload}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
               <div className="filter-context">
                 <button
@@ -301,6 +303,15 @@ function OrderDetail({ orderId, onChanged }: { orderId: string; onChanged: () =>
               order.discountMinor > 0 ? ` (−${admin.gel(order.discountMinor)})` : ""
             }`}
           />
+          {/*
+            The number to quote when asking a bank what happened to somebody's money. It has
+            existed on the row since the first BOG payment and lived only in a database column;
+            an operator handling a refund had no way to reach it.
+          */}
+          <Field label="გადახდის სისტემა" value={order.provider} />
+          {order.providerPaymentIntentId ? (
+            <Field label="ტრანზაქციის ID" value={order.providerPaymentIntentId} />
+          ) : null}
           {order.failureReason ? <Field label="შეცდომა" value={order.failureReason} /> : null}
         </section>
 
