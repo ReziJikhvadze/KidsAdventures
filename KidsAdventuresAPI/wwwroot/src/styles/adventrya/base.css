@@ -14,22 +14,24 @@
   --ink: #29233a;
 
   /*
-   * One face for everything: headings, paragraphs, labels, buttons, the lot. --font-display —
-   * the same stack — is defined in styles.css, because Tailwind's @theme emits that name onto
-   * :root too and two definitions of one variable is a coin toss.
+   * Two faces, split by job. Headings keep the book's own face through --font-display, which
+   * lives in styles.css because Tailwind's @theme emits that name onto :root too and two
+   * definitions of one variable is a coin toss. Everything else — paragraphs, labels, fields,
+   * buttons, small print — is set here.
    *
-   * Ottia carries the thirty-three Georgian letters, the Latin alphabet and the digits, and not
-   * much else: no dash, colon, semicolon, ellipsis, apostrophe, lari sign, percent, plus or
-   * slash. Each of those comes from the Noto family standing behind it, because a browser
-   * resolves a font stack one character at a time — so a price reads "65 ₾" with Ottia's digits
-   * and Noto's lari, and never a box.
+   * It used to be one face for both. Ottia is drawn for a title and shows it at 11px: it has a
+   * single weight, so a bold label was the browser thickening a face nobody had drawn bold, and
+   * it carries the thirty-three Georgian letters, the Latin alphabet and the digits and very
+   * little else — no dash, colon, semicolon, ellipsis, apostrophe, lari sign, percent, plus or
+   * slash. Every one of those was already being borrowed from the family behind it, one
+   * character at a time, so a price read "65 ₾" in two faces at once.
    *
-   * Two consequences of a single-weight display face, chosen rather than stumbled into: bold
-   * text is Ottia at the weight the browser would otherwise have thickened itself, and small
-   * print is set in a face drawn for large sizes. Both were already true of every heading; they
-   * are now true of the paragraphs too.
+   * Noto Sans Georgian now leads. It is drawn for reading at small sizes, ships four real
+   * weights, and carries the punctuation itself, so a line of small print is one face rather
+   * than a stack resolving glyph by glyph. Ottia is still what a heading is set in, which is
+   * where it was always the right answer.
    */
-  --font-body: "Adventrya Display", "Adventrya Sans", "Noto Sans Georgian", system-ui, sans-serif;
+  --font-body: "Noto Sans Georgian", "Adventrya Sans", system-ui, sans-serif;
 }
 * {
   box-sizing: border-box;

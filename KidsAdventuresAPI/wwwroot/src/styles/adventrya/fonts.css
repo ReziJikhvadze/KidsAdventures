@@ -88,3 +88,56 @@
     U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
     U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
+
+/*
+ * Noto Sans Georgian, self-hosted, for everything that is not a heading.
+ *
+ * It was already named in --font-body, third in the stack and behind the display face — which
+ * meant two things: it never won, and on the rare character the display face lacked it resolved
+ * only if the reader happened to have Noto installed. Declaring it here makes it a face the site
+ * actually ships rather than one it hopes for.
+ *
+ * Four weights of the nine supplied. The extremes — Thin, ExtraLight, Light, ExtraBold, Black —
+ * are not asked for by any rule in this project, and a weight nothing requests is a file a
+ * browser would never fetch but a deploy would still carry.
+ *
+ * TTF rather than woff2, because that is the format the files arrived in. Each is about 63KB
+ * against roughly 40KB for the equivalent subset, which is the price of not converting them
+ * with a tool this project does not otherwise depend on. Worth revisiting if the four ever
+ * matter to a first paint; `swap` means they never block one.
+ *
+ * No unicode-range. The Adventrya families are split into Georgian, Latin and Latin-Extended
+ * subsets so a browser fetches only the ones a page needs; these are single files that carry
+ * both alphabets, so slicing them by range would download the same bytes and claim less.
+ */
+@font-face {
+  font-family: "Noto Sans Georgian";
+  src: url("/fonts/NotoSansGeorgian-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans Georgian";
+  src: url("/fonts/NotoSansGeorgian-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans Georgian";
+  src: url("/fonts/NotoSansGeorgian-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans Georgian";
+  src: url("/fonts/NotoSansGeorgian-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
