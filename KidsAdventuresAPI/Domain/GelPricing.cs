@@ -12,8 +12,19 @@ public static class GelPricing
 {
     public const string Currency = "GEL";
 
-    /// <summary>Digital book: 14 GEL.</summary>
-    public const int DigitalMinor = 1400;
+    /*
+      TEMPORARY — 1 GEL, to put a real card through the live gateway.
+
+      BOG's test cards only work in their sandbox, which is a separate environment with its own
+      credentials. The credentials this site has are live ones capped at 100 GEL, so the only way
+      to see a payment reach the callback and a book come out the other side is to actually pay —
+      and this is the smallest amount that proves it.
+
+      Put it back to 1400 the moment that test passes. It is the live price of the digital book,
+      and `wwwroot/src/lib/pricing.ts` carries the same number for display: change one and the
+      site quotes a figure the server does not charge.
+    */
+    public const int DigitalMinor = 100;
 
     /// <summary>Printed hardback plus digital: 79 GEL.</summary>
     public const int PrintMinor = 7900;

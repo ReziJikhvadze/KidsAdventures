@@ -4,7 +4,13 @@
  * the optimistic total shown before the order is created.
  */
 export const PRICES = {
-  digital: 1400,
+  /*
+    TEMPORARY — 1 GEL, matching GelPricing.DigitalMinor on the server while a real card is put
+    through the live gateway. Both have to move together: this one is what the site quotes, that
+    one is what is charged, and a parent must never be shown a different figure from the one
+    that leaves their account. Back to 1400 when the test passes.
+  */
+  digital: 100,
   print: 7900,
   /** Difference charged when a customer upgrades an existing digital book. */
   printUpgrade: 6500,
