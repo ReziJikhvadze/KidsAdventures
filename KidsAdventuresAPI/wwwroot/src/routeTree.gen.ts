@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WorldRouteImport } from './routes/world'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as RefundsRouteImport } from './routes/refunds'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PersonalizedChildrensBooksRouteImport } from './routes/personalized-childrens-books'
 import { Route as MyPacksRouteImport } from './routes/my-packs'
@@ -20,6 +21,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CreateRouteImport } from './routes/create'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ConfirmEmailRouteImport } from './routes/confirm-email'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ThemesIndexRouteImport } from './routes/themes/index'
 import { Route as BlogIndexRouteImport } from './routes/blog/index'
@@ -43,6 +45,11 @@ const WorldRoute = WorldRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RefundsRoute = RefundsRouteImport.update({
+  id: '/refunds',
+  path: '/refunds',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -89,6 +96,11 @@ const ContactRoute = ContactRouteImport.update({
 const ConfirmEmailRoute = ConfirmEmailRouteImport.update({
   id: '/confirm-email',
   path: '/confirm-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -164,6 +176,7 @@ const BlogAuthorIdRoute = BlogAuthorIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/confirm-email': typeof ConfirmEmailRoute
   '/contact': typeof ContactRoute
   '/create': typeof CreateRoute
@@ -173,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/my-packs': typeof MyPacksRoute
   '/personalized-childrens-books': typeof PersonalizedChildrensBooksRoute
   '/privacy': typeof PrivacyRoute
+  '/refunds': typeof RefundsRoute
   '/terms': typeof TermsRoute
   '/world': typeof WorldRoute
   '/admin/admins': typeof AdminAdminsRoute
@@ -191,6 +205,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/confirm-email': typeof ConfirmEmailRoute
   '/contact': typeof ContactRoute
   '/create': typeof CreateRoute
@@ -200,6 +215,7 @@ export interface FileRoutesByTo {
   '/my-packs': typeof MyPacksRoute
   '/personalized-childrens-books': typeof PersonalizedChildrensBooksRoute
   '/privacy': typeof PrivacyRoute
+  '/refunds': typeof RefundsRoute
   '/terms': typeof TermsRoute
   '/world': typeof WorldRoute
   '/admin/admins': typeof AdminAdminsRoute
@@ -219,6 +235,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
   '/confirm-email': typeof ConfirmEmailRoute
   '/contact': typeof ContactRoute
   '/create': typeof CreateRoute
@@ -228,6 +245,7 @@ export interface FileRoutesById {
   '/my-packs': typeof MyPacksRoute
   '/personalized-childrens-books': typeof PersonalizedChildrensBooksRoute
   '/privacy': typeof PrivacyRoute
+  '/refunds': typeof RefundsRoute
   '/terms': typeof TermsRoute
   '/world': typeof WorldRoute
   '/admin/admins': typeof AdminAdminsRoute
@@ -248,6 +266,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/about'
     | '/confirm-email'
     | '/contact'
     | '/create'
@@ -257,6 +276,7 @@ export interface FileRouteTypes {
     | '/my-packs'
     | '/personalized-childrens-books'
     | '/privacy'
+    | '/refunds'
     | '/terms'
     | '/world'
     | '/admin/admins'
@@ -275,6 +295,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/about'
     | '/confirm-email'
     | '/contact'
     | '/create'
@@ -284,6 +305,7 @@ export interface FileRouteTypes {
     | '/my-packs'
     | '/personalized-childrens-books'
     | '/privacy'
+    | '/refunds'
     | '/terms'
     | '/world'
     | '/admin/admins'
@@ -302,6 +324,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/about'
     | '/confirm-email'
     | '/contact'
     | '/create'
@@ -311,6 +334,7 @@ export interface FileRouteTypes {
     | '/my-packs'
     | '/personalized-childrens-books'
     | '/privacy'
+    | '/refunds'
     | '/terms'
     | '/world'
     | '/admin/admins'
@@ -330,6 +354,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
   ConfirmEmailRoute: typeof ConfirmEmailRoute
   ContactRoute: typeof ContactRoute
   CreateRoute: typeof CreateRoute
@@ -339,6 +364,7 @@ export interface RootRouteChildren {
   MyPacksRoute: typeof MyPacksRoute
   PersonalizedChildrensBooksRoute: typeof PersonalizedChildrensBooksRoute
   PrivacyRoute: typeof PrivacyRoute
+  RefundsRoute: typeof RefundsRoute
   TermsRoute: typeof TermsRoute
   WorldRoute: typeof WorldRoute
   AdminAdminsRoute: typeof AdminAdminsRoute
@@ -370,6 +396,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/refunds': {
+      id: '/refunds'
+      path: '/refunds'
+      fullPath: '/refunds'
+      preLoaderRoute: typeof RefundsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -433,6 +466,13 @@ declare module '@tanstack/react-router' {
       path: '/confirm-email'
       fullPath: '/confirm-email'
       preLoaderRoute: typeof ConfirmEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -538,6 +578,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
   ConfirmEmailRoute: ConfirmEmailRoute,
   ContactRoute: ContactRoute,
   CreateRoute: CreateRoute,
@@ -547,6 +588,7 @@ const rootRouteChildren: RootRouteChildren = {
   MyPacksRoute: MyPacksRoute,
   PersonalizedChildrensBooksRoute: PersonalizedChildrensBooksRoute,
   PrivacyRoute: PrivacyRoute,
+  RefundsRoute: RefundsRoute,
   TermsRoute: TermsRoute,
   WorldRoute: WorldRoute,
   AdminAdminsRoute: AdminAdminsRoute,

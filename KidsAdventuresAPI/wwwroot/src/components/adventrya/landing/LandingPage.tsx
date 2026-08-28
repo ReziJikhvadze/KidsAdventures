@@ -239,11 +239,18 @@ function Footer() {
         </div>
         <div>
           <strong>{F.help}</strong>
+          <Link to="/about">ჩვენ შესახებ</Link>
           <Link to="/contact">{F.contact}</Link>
           <a href="#faq">{t.common.nav.faq}</a>
         </div>
+        {/*
+          Delivery and refunds sits with the legal links rather than under help: it is the
+          document a card scheme expects to find from every page, and the footer is the only
+          thing on every page.
+        */}
         <div>
           <strong>{F.legal}</strong>
+          <Link to="/refunds">მიწოდება და დაბრუნება</Link>
           <Link to="/privacy">კონფიდენციალურობა</Link>
           <Link to="/terms">წესები და პირობები</Link>
         </div>

@@ -11,6 +11,8 @@ export const pageMeta: Record<string, string> = {
   "/create": "შექმენი წიგნი",
   "/world": "ბავშვის სამყარო",
   "/themes": "აირჩიე სამყარო",
+  "/about": "ჩვენ შესახებ",
+  "/refunds": "მიწოდება და დაბრუნება",
   "/contact": "კონტაქტი",
   "/dashboard": "მშობლის სივრცე",
   "/privacy": "კონფიდენციალურობა",
