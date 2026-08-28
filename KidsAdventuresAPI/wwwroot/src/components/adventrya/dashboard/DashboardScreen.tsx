@@ -354,9 +354,16 @@ export function DashboardScreen() {
             className={`child-switch-card ${c.id === characterId ? "selected" : ""}`}
             onClick={() => setCharacterId(c.id)}
           >
-            <span className="child-avatar nia-avatar" aria-hidden="true">
-              {c.name.slice(0, 1)}
-            </span>
+            {/*
+              Once a child's first book has been drawn, the shelf shows them as the book draws
+              them rather than as the first letter of their name. Every other row on this list
+              is a name and a count; the face is the only thing that makes one child findable
+              at a glance in a family with several.
+
+              The initial stays as the fallback, not as a placeholder to be replaced later: a
+              new child has no illustrated book yet, and there is nothing to wait for.
+            */}
+            <ChildAvatar name={c.name} portraitUrl={c.heroPortraitUrl} />
             <span>
               <strong>{c.name}</strong>
               <small>
@@ -529,6 +536,29 @@ export function DashboardScreen() {
  * belongs to a finished book whose print file is being built on demand, and the card's own
  * PDF button already narrates it.
  */
+/**
+ * The child as their books draw them, falling back to the initial of their name.
+ *
+ * The fallback has to survive the image failing, not just the URL being absent. A stored
+ * portrait whose blob has gone — a retention sweep, a storage blip — still arrives as a
+ * non-null URL, and rendering that alone leaves an empty tile: worse than the letter it
+ * replaced, on the one list whose job is telling several children apart at a glance.
+ */
+function ChildAvatar({ name, portraitUrl }: { name: string; portraitUrl?: string | null }) {
+  const [broken, setBroken] = useState(false);
+  const showPortrait = Boolean(portraitUrl) && !broken;
+
+  return (
+    <span className="child-avatar nia-avatar" aria-hidden="true">
+      {showPortrait ? (
+        <img src={portraitUrl ?? ""} alt="" loading="lazy" onError={() => setBroken(true)} />
+      ) : (
+        name.slice(0, 1)
+      )}
+    </span>
+  );
+}
+
 function isPackGenerating(status: AdventurePackResponse["status"]): boolean {
   return status === "Pending" || status === "Generating" || status === "GeneratingStory";
 }

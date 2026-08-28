@@ -26,7 +26,18 @@ public sealed class CharacterService(
     {
         var characters = await characterRepository.GetByUserIdAsync(userId, cancellationToken);
         var cast = await characterRepository.GetCastCharacterIdsAsync(userId, cancellationToken);
-        return characters.Select(character => Map(character, canDelete: !cast.Contains(character.Id))).ToList();
+
+        // One query for the whole list rather than one per child: this is what the shelf reads
+        // to draw its avatars, and a family with six characters would otherwise pay six.
+        var portraits = await characterRepository.GetHeroPortraitUrlsAsync(
+            userId, characters.Select(character => character.Id).ToList(), cancellationToken);
+
+        return characters
+            .Select(character => Map(
+                character,
+                canDelete: !cast.Contains(character.Id),
+                heroPortraitUrl: portraits.GetValueOrDefault(character.Id)))
+            .ToList();
     }
 
     public async Task<CharacterResponse?> GetAsync(Guid userId, Guid characterId, CancellationToken cancellationToken)
@@ -283,7 +294,15 @@ public sealed class CharacterService(
             cancellationToken);
     }
 
-    private static CharacterResponse Map(Character character, bool canDelete) => new()
+    /// <summary>
+    /// <paramref name="heroPortraitUrl"/> is supplied only by the list path, which is what the
+    /// shelf draws from. The single-character paths leave it null rather than each paying for
+    /// its own lookup for a field their callers do not render.
+    /// </summary>
+    private static CharacterResponse Map(
+        Character character,
+        bool canDelete,
+        string? heroPortraitUrl = null) => new()
     {
         Id = character.Id,
         Name = character.Name,
@@ -295,6 +314,7 @@ public sealed class CharacterService(
         Relationship = character.Relationship,
         IsPrimary = character.IsPrimary,
         PhotoUrl = character.PhotoUrl,
+        HeroPortraitUrl = heroPortraitUrl,
         HasAppearanceProfile = !string.IsNullOrWhiteSpace(character.AppearanceDescription),
         CanDelete = canDelete,
         CreatedAt = character.CreatedAt,

@@ -7,6 +7,16 @@ public interface ICharacterRepository
     /// <summary>Heroes only: the children who each own an adventure map.</summary>
     Task<IReadOnlyList<Character>> GetHeroesAsync(Guid userId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The newest approved hero-anchor illustration for each of these characters, keyed by
+    /// character id. Characters whose first book has not been drawn yet are simply absent, as
+    /// are any ids that do not belong to <paramref name="userId"/>.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, string>> GetHeroPortraitUrlsAsync(
+        Guid userId,
+        IReadOnlyCollection<Guid> characterIds,
+        CancellationToken cancellationToken);
+
     Task<Character?> GetByIdAsync(Guid id, Guid userId, CancellationToken cancellationToken);
 
     /// <summary>Resolves several ids at once, filtered to the owner. Used when casting a book.</summary>

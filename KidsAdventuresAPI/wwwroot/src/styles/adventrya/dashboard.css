@@ -36,10 +36,16 @@
   font-size: 12px;
   font-weight: 700;
 }
+/*
+  The avatar column is wider than the shared 34px avatar because this list is the one place the
+  child is a face rather than a letter, and at 34px an illustrated portrait is a smudge. The
+  grid column and the avatar are the same number on purpose: leaving the column at 38px while
+  the avatar grew pushed the portrait under the name beside it.
+*/
 .child-switch-card {
   width: 100%;
   display: grid;
-  grid-template-columns: 38px 1fr 15px;
+  grid-template-columns: 48px 1fr 15px;
   align-items: center;
   gap: 10px;
   margin-top: 8px;
@@ -75,6 +81,25 @@
   background:
     radial-gradient(circle at 38% 32%, #fbe6d6 0 16%, transparent 17%),
     linear-gradient(145deg, #cda2bd, #8e668d);
+}
+.dashboard-sidebar .child-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  font-size: 19px;
+  overflow: hidden;
+}
+/*
+  The anchor is a tall portrait, so it is cropped to the square rather than letterboxed into it
+  — a face fitted whole into a 48px box is mostly background. `top` keeps the head in frame,
+  which `center` does not on a full-body render.
+*/
+.dashboard-sidebar .child-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
 }
 /*
   The dashboard does not scroll inside itself.
@@ -794,10 +819,16 @@
   .dashboard-sidebar .child-switch-card > svg {
     display: none;
   }
+  /*
+    The cards are pills in a horizontal row here, so this cannot take the full 48px without
+    pushing the third child off the edge. 32px is the smallest size at which an illustrated
+    face still reads as a particular child rather than a coloured dot.
+  */
   .dashboard-sidebar .child-avatar {
-    width: 26px;
-    height: 26px;
-    font-size: 12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 11px;
+    font-size: 13px;
   }
   .dashboard-sidebar .sidebar-paging {
     width: 100%;

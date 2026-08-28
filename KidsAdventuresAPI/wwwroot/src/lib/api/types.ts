@@ -215,6 +215,8 @@ export type CharacterResponse = {
   relationship?: string | null;
   isPrimary: boolean;
   photoUrl?: string | null;
+  /** The child as their books draw them. Null until a first book has been illustrated. */
+  heroPortraitUrl?: string | null;
   hasAppearanceProfile: boolean;
   canDelete: boolean;
   createdAt: string;

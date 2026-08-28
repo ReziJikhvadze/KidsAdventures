@@ -27,6 +27,61 @@ public sealed class CharacterRepository(ISqlConnectionFactory connectionFactory)
         return rows.ToList();
     }
 
+    public async Task<IReadOnlyDictionary<Guid, string>> GetHeroPortraitUrlsAsync(
+        Guid userId,
+        IReadOnlyCollection<Guid> characterIds,
+        CancellationToken cancellationToken)
+    {
+        if (characterIds.Count == 0)
+        {
+            return new Dictionary<Guid, string>();
+        }
+
+        /*
+          The hero anchor is the illustrated version of the child — the reference render every
+          page in the book is matched against — so it is already the closest thing to a portrait
+          of this child in the product's own style. Nothing had ever read it back out.
+
+          Anchors belong to a story, and a child accumulates stories, so the newest approved one
+          wins: the avatar keeps up as the child grows through the series rather than freezing on
+          book one. Row-numbered rather than grouped because MAX(BlobUrl) would pick a string,
+          not the latest row.
+
+          Entered through dbo.Characters so the owner filter is on the table that defines
+          ownership. Every other read here is scoped by UserId, and a lookup that took bare ids
+          would hand a caller another family's portrait the first time somebody passed an id
+          straight from a request.
+        */
+        const string sql = """
+                           SELECT CharacterId, BlobUrl
+                           FROM (
+                               SELECT c.Id AS CharacterId,
+                                      a.BlobUrl,
+                                      ROW_NUMBER() OVER (
+                                          PARTITION BY c.Id
+                                          ORDER BY a.CreatedAt DESC) AS Rn
+                               FROM dbo.Characters c
+                               INNER JOIN dbo.BekiStories s ON s.CharacterId = c.Id
+                               INNER JOIN dbo.BekiVisualAssets a ON a.StoryId = s.Id
+                               WHERE c.UserId = @UserId
+                                 AND c.Id IN @CharacterIds
+                                 AND a.AssetType = 'hero_anchor'
+                                 AND a.Status = 'approved'
+                                 AND a.BlobUrl IS NOT NULL
+                           ) newest
+                           WHERE Rn = 1;
+                           """;
+
+        using var connection = connectionFactory.CreateConnection();
+        var rows = await connection.QueryAsync<(Guid CharacterId, string BlobUrl)>(
+            new CommandDefinition(
+                sql,
+                new { UserId = userId, CharacterIds = characterIds },
+                cancellationToken: cancellationToken));
+
+        return rows.ToDictionary(row => row.CharacterId, row => row.BlobUrl);
+    }
+
     public async Task<IReadOnlyList<Character>> GetHeroesAsync(Guid userId, CancellationToken cancellationToken)
     {
         var sql = $"""
