@@ -243,6 +243,7 @@ export const journey = {
     secure: "Secure payment",
     zeroTotal: "The amount due is zero",
     zeroTotalNote: "Card details are no longer needed.",
+    handingOver: "Taking you to Bank of Georgia's secure page…",
     recipient: "Recipient",
     addressPlaceholder: "City, street, building and flat",
     shippingAddress: "Recipient's address",

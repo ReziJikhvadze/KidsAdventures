@@ -252,6 +252,7 @@ export const journey = {
     secure: "უსაფრთხო გადახდა",
     zeroTotal: "გადასახდელი თანხა განულებულია",
     zeroTotalNote: "ბარათის მონაცემები აღარ არის საჭირო.",
+    handingOver: "გადამისამართება საქართველოს ბანკის დაცულ გვერდზე…",
     recipient: "მიმღები",
     addressPlaceholder: "ქალაქი, ქუჩა, შენობა და ბინა",
     shippingAddress: "მიმღების მისამართი",

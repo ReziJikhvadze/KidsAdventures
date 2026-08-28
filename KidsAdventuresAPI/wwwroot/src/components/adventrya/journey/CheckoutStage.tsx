@@ -197,7 +197,44 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     }
   };
 
+  /*
+    A digital order goes straight to the bank.
+
+    There is nothing on this screen for it to collect. The print order asks who the parcel is
+    for, where it goes and on what number to ring the door; the digital one asks nothing at all,
+    so what was left was a heading, a price the parent has just read on the package panel, and a
+    button whose only job was to be pressed. A screen that exists to be clicked through is a step.
+
+    A print order still gets the screen, because it still has questions.
+
+    The ref, not `busy`: React can mount an effect twice before any state it sets is visible, and
+    two runs here are two orders and two payment pages. On failure the form is revealed instead —
+    a parent who cannot be sent to the bank needs somewhere to read why and press again.
+  */
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (isPrint || autoStarted.current) return;
+    autoStarted.current = true;
+    void placeOrder();
+    // placeOrder closes over this render's draft, which is what it must send.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPrint]);
+
+  const handingOver = !isPrint && !error;
+
   const thumbPages = heroDemoPages(heroName, worldId).slice(0, 1);
+
+  if (handingOver) {
+    return (
+      <section className="journey-stage checkout-stage ux-checkout-handover">
+        <div role="status" aria-live="polite">
+          <Loader2 className="checkout-spinner" aria-hidden="true" size={26} />
+          <h1>{t.journey.checkout.title}</h1>
+          <p>{t.journey.checkout.handingOver}</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="journey-stage checkout-stage ux-checkout-stage">
