@@ -904,3 +904,48 @@
     width: min(230px, 70%);
   }
 }
+
+/*
+  The dashboard while it is fetching.
+
+  It replaces the shelf rather than sitting under it: rendering the real layout with nothing in
+  it showed a parent an empty sidebar and a library with no books, which reads as "they are
+  gone" for however long the request takes. The header and the background stay put, so nothing
+  moves when the content arrives.
+*/
+.dashboard-loading {
+  position: absolute;
+  top: 96px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: var(--deep-violet);
+}
+.dashboard-loading p {
+  margin: 0;
+  color: #29233a91;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+.dashboard-spinner {
+  width: 26px;
+  height: 26px;
+  color: var(--lavender);
+  animation: dashboard-spin 0.9s linear infinite;
+}
+@keyframes dashboard-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* Still turning, just not fast enough to be the thing somebody notices. */
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-spinner {
+    animation-duration: 2.4s;
+  }
+}

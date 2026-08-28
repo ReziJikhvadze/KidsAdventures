@@ -3,6 +3,7 @@ import {
   BookOpen,
   Check,
   Download,
+  Loader2,
   Package,
   Plus,
   Printer,
@@ -335,6 +336,32 @@ export function DashboardScreen() {
     );
   }
 
+  /*
+    Waiting, said once and in the middle of the screen.
+
+    The shelf used to render while it loaded: an empty sidebar, a greeting with no name and a
+    library with no books, and the only sign that anything was coming was the word
+    "იტვირთება…" at the foot of the page — under the fold, after the emptiness a parent had
+    already read as "my books are gone".
+
+    The shell around it stays, so the header and the background do not flash in a moment later.
+  */
+  if (authLoading || loading) {
+    return (
+      <div className="screen dashboard-shell">
+        <div className="dashboard-sky" aria-hidden="true" />
+        <div className="grain" aria-hidden="true" />
+
+        <AppHeader backHref="/" />
+
+        <div className="dashboard-loading" role="status" aria-live="polite">
+          <Loader2 className="dashboard-spinner" aria-hidden="true" />
+          <p>{t.common.states.loading}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="screen dashboard-shell">
       <div className="dashboard-sky" aria-hidden="true" />
@@ -527,7 +554,6 @@ export function DashboardScreen() {
           ) : null}
 
           {error ? <p className="dashboard-note is-error">{error}</p> : null}
-          {loading ? <p className="dashboard-note">{t.common.states.loading}</p> : null}
         </section>
       )}
     </div>
