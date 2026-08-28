@@ -57,11 +57,13 @@ export const journey = {
       goodLabel: "Better",
       goodReason: "The face fills the frame, lit from the front, looking at the camera.",
       badLabel: "Still fine",
-      badReason: "Far away, dark, face turned — the book still works, it just looks less like them.",
+      badReason:
+        "Far away, dark, face turned — the book still works, it just looks less like them.",
     },
     photoChecking: "Preparing the photo…",
     photoRejected: {
-      not_a_person: "We couldn't find a person in that image — upload a photo with the child in it.",
+      not_a_person:
+        "We couldn't find a person in that image — upload a photo with the child in it.",
       unsuitable: "This photo won't work — upload one with the child in it.",
       unreadable: "We couldn't read that file — upload a JPG, PNG or WEBP photo.",
       too_large: "That photo is too large — please choose a smaller one.",
