@@ -545,13 +545,24 @@ export function DashboardScreen() {
  * replaced, on the one list whose job is telling several children apart at a glance.
  */
 function ChildAvatar({ name, portraitUrl }: { name: string; portraitUrl?: string | null }) {
+  /*
+    Through the same hook every other picture on this page uses, and for the reason that hook
+    exists: a book's cover is stored as an `/api/...` path, not a public URL, and that endpoint
+    wants the session token. Handed straight to an <img> it answered 401, the error handler
+    below did its job, and every child fell back to their initial — the change looked like it
+    had never deployed.
+
+    A hero anchor is an absolute blob URL and passes through untouched, so both sources arrive
+    here the same way.
+  */
+  const resolved = useIllustrationUrl(portraitUrl);
   const [broken, setBroken] = useState(false);
-  const showPortrait = Boolean(portraitUrl) && !broken;
+  const showPortrait = Boolean(resolved) && !broken;
 
   return (
     <span className="child-avatar nia-avatar" aria-hidden="true">
       {showPortrait ? (
-        <img src={portraitUrl ?? ""} alt="" loading="lazy" onError={() => setBroken(true)} />
+        <img src={resolved ?? ""} alt="" loading="lazy" onError={() => setBroken(true)} />
       ) : (
         name.slice(0, 1)
       )}
