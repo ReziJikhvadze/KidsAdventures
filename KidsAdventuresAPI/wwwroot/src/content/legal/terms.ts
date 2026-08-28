@@ -2,7 +2,7 @@ import type { LegalSection } from "@/components/legal/LegalDocument";
 import { BRAND_NAME } from "@/lib/brand";
 import { LEGAL_CONTACT_EMAIL, LEGAL_WEBSITE } from "@/lib/legal";
 
-export const termsIntro = `These Terms & Conditions govern your use of ${BRAND_NAME} at ${LEGAL_WEBSITE}. By creating an account, purchasing book credits, or using the service, you agree to these terms.`;
+export const termsIntro = `These Terms & Conditions govern your use of ${BRAND_NAME} at ${LEGAL_WEBSITE}. By creating an account, purchasing a book, or using the service, you agree to these terms.`;
 
 export const termsSections: LegalSection[] = [
   {
@@ -23,7 +23,7 @@ export const termsSections: LegalSection[] = [
       "Generating fictional story text based on information you provide (such as a child's first name, age, theme, and optional wishes).",
       "Optional upload of a hero photo to create illustrated, cartoon-style story pages.",
       "Reading stories in the browser and exporting printable PDF storybooks when available.",
-      "Purchasing book credits through our payment partner.",
+      "Purchasing a book through our payment provider.",
     ],
     afterBullets: [
       "We do not provide medical, legal, or professional advice. Generated content is not a substitute for professional guidance.",
@@ -71,10 +71,14 @@ export const termsSections: LegalSection[] = [
   },
   {
     id: "payments",
-    title: "7. Payments and credits",
+    title: "7. Payments",
+    // Rewritten when Bank of Georgia replaced Stripe. The credit wallet it described had already
+    // been replaced by per-book orders, so naming the new provider inside the old sentence would
+    // have produced a paragraph that was accurate about nobody.
     paragraphs: [
-      "Book credits and other paid features are processed by our payment provider (Stripe). Prices, credit packs, and availability may change.",
-      "Except where required by applicable law, purchases of digital credits are generally non-refundable once credits are delivered or used. Contact us if you believe a charge was made in error.",
+      "Payments are processed by Bank of Georgia's online payment system. You enter your card details on the bank's own page; we receive the transaction result, never your full card number. Prices and availability may change.",
+      "You buy a specific book rather than a balance of credits. Delivery times, cancellation and refunds are set out in our [Delivery and Refund Policy](/refunds).",
+      "Except where required by applicable law, a personalized digital book is generally non-refundable once it has been generated, because it is made to your order and delivered immediately. Contact us if you believe a charge was made in error.",
     ],
   },
   {
@@ -89,7 +93,7 @@ export const termsSections: LegalSection[] = [
     title: "9. Limitation of liability",
     paragraphs: [
       `To the fullest extent permitted by law, ${BRAND_NAME} and its operator are not liable for indirect, incidental, special, or consequential damages arising from your use of the service or reliance on AI-generated content.`,
-      "Our total liability for any claim relating to the service is limited to the amount you paid us for the relevant book credits in the twelve (12) months before the claim, or zero if you paid nothing.",
+      "Our total liability for any claim relating to the service is limited to the amount you paid us for the relevant book in the twelve (12) months before the claim, or zero if you paid nothing.",
       "Nothing in these terms limits liability that cannot be excluded under applicable law (including certain consumer rights in the EU/EEA).",
     ],
   },

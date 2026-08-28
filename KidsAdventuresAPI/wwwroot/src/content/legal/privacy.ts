@@ -18,11 +18,11 @@ export const privacySections: LegalSection[] = [
     title: "2. What data we collect",
     paragraphs: ["We may collect the following categories of data:"],
     bullets: [
-      "Account data: email address, password (stored as a secure hash), account creation date, subscription/credit balance.",
+      "Account data: email address, password (stored as a secure hash), account creation date, and your order history.",
       "Story inputs: child's first name, age, chosen theme, optional story wishes/notes, and story language.",
       "Optional photos: hero photos you upload (and family member photos if that feature is enabled). Photos may be processed to create cartoon-style illustrations.",
       "Generated content: story text, illustration files, PDF exports, and related metadata stored with your account.",
-      "Payment data: purchases are handled by Stripe; we receive transaction references and credit fulfillment status, not your full card details.",
+      "Payment data: purchases are handled by Bank of Georgia's online payment system; we receive the transaction reference and whether it succeeded, not your full card details.",
       "Technical data: IP address, browser/device type, server logs, and security/abuse-prevention records.",
       "Communications: messages you send through our contact form.",
     ],
@@ -43,7 +43,7 @@ export const privacySections: LegalSection[] = [
     paragraphs: ["We use personal data to:"],
     bullets: [
       "Create and deliver personalized AI storybooks and PDFs you request.",
-      "Authenticate your account and manage book credits.",
+      "Authenticate your account and manage your orders.",
       "Send service emails (such as email confirmation, story-ready notifications, and support replies).",
       "Process payments and prevent fraud or abuse.",
       "Maintain, secure, and improve the platform (including troubleshooting and analytics from server logs).",
@@ -71,7 +71,7 @@ export const privacySections: LegalSection[] = [
     bullets: [
       "OpenAI — AI story and image generation (prompts and optional reference photos).",
       "Microsoft Azure — cloud hosting, database (Azure SQL), and file storage (Blob Storage).",
-      "Stripe — payment processing for book credit purchases.",
+      "Bank of Georgia — payment processing for book purchases.",
       "Email provider (SMTP) — transactional emails such as account confirmation and notifications.",
     ],
     afterBullets: [

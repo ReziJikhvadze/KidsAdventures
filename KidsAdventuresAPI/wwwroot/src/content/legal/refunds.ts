@@ -28,10 +28,10 @@ export const refundsSections: LegalSection[] = [
       "ბეჭდურის დამატება — 65 ₾. თუ ციფრული წიგნი უკვე გაქვთ და მისი ნაბეჭდი ეგზემპლარიც გსურთ.",
     ],
     afterBullets: [
-      // No VAT claim here on purpose: the price is what GelPricing charges, which is a fact this
-      // repository can vouch for. Whether that figure includes VAT depends on the company's
-      // registration, and a tax statement nobody verified does not belong on a payment page.
-      "ყველა ფასი მითითებულია ქართულ ლარში (₾). გადახდის მომენტში ხედავთ საბოლოო თანხას — დამატებითი ან ფარული საკომისიო არ არსებობს.",
+      // The VAT clause stands on the company being registered for it, confirmed 2026-08-28. If
+      // that ever stops being true this sentence has to go with it — a tax statement is not
+      // decoration, and this is the page an acquirer reads.
+      "ყველა ფასი მითითებულია ქართულ ლარში (₾) და მოიცავს დღგ-ს. გადახდის მომენტში ხედავთ საბოლოო თანხას — დამატებითი ან ფარული საკომისიო არ არსებობს.",
     ],
   },
   {
