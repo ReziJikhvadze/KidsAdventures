@@ -2263,13 +2263,6 @@
   }
 }
 
-/* Beside the sample book: the world the story happens in, since the cover is the only picture
-   the preview has of its own. */
-.ux-preview-world-glimpse {
-  margin-top: 18px;
-  min-height: clamp(150px, 22vh, 220px);
-}
-
 /*
   The dialog that says what the form is still waiting for.
 

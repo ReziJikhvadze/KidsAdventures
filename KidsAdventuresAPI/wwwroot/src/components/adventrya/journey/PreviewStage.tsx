@@ -2,7 +2,6 @@ import { Check, Lock, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
-import { WorldArtPanel } from "@/components/adventrya/journey/WorldArtPanel";
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
 import { storeGuestPreviewIds } from "@/lib/api/auth";
 import { ApiError, resolveApiUrl } from "@/lib/api/client";
@@ -471,14 +470,11 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
           />
 
           {/*
-            A second picture, because a cover is not a book.
-
-            The sample has exactly one generated illustration — that is what a free preview buys —
-            so the parent was deciding on a closed cover and a page of words. This is the world
-            their story is set in, from the same painting they chose it on: no second generation,
-            nothing invented, and the sample stops looking like a single image.
+            The world painting used to sit here, on the reasoning that a cover alone is not a
+            book. It is gone: the parent chose that painting one screen earlier and has just
+            been shown the cover their own child is on, so a stock illustration between the two
+            adds length rather than anything to decide on.
           */}
-          <WorldArtPanel worldId={worldId} className="ux-preview-world-glimpse" margin={1.5} />
 
           <p className="ux-preview-book-note">
             <Lock aria-hidden="true" /> {t.journey.preview.bookNote}
