@@ -32,7 +32,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { wasReadThisSession } from "@/lib/books-read";
 import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { newBookHref } from "@/lib/continue";
-import { formatGel, normalizeGeorgianPhone, useT } from "@/lib/i18n";
+import { formatGel, formatGelAmount, normalizeGeorgianPhone, useT } from "@/lib/i18n";
 import { DELIVERY_DAYS, PRICES } from "@/lib/pricing";
 import { useWorldById, WORLD_COVER_ART, isWorldId } from "@/lib/worlds";
 
@@ -252,7 +252,7 @@ export function DashboardScreen() {
   };
 
   const submitPrintForm = async () => {
-    if (!shipping.recipientName.trim() || !shipping.city.trim() || !shipping.addressLine1.trim()) {
+    if (!shipping.recipientName.trim() || !shipping.addressLine1.trim()) {
       setPrintError("მიუთითე მიწოდების მისამართი.");
       return;
     }
@@ -269,6 +269,7 @@ export function DashboardScreen() {
         await updatePrintOrderAddress(editPrintOrderId, {
           ...shipping,
           recipientPhone: phone,
+          city: shipping.addressLine1.trim(),
         });
         setEditPrintOrderId(null);
         setShipping(emptyShipping());
@@ -279,7 +280,9 @@ export function DashboardScreen() {
       if (!printBookId) return;
       const checkout = await createPrintUpgradeOrder({
         bookId: printBookId,
-        shippingAddress: { ...shipping, recipientPhone: phone },
+        // City mirrors the one address line, as on the checkout: the server requires it and
+        // reads it for the Tbilisi delivery window, which is a substring match either way.
+        shippingAddress: { ...shipping, recipientPhone: phone, city: shipping.addressLine1.trim() },
         returnPath: "/dashboard",
       });
       if (checkout.isFree || !checkout.checkoutUrl) {
@@ -787,7 +790,7 @@ function PrintUpgradePanel({
         : "მისამართის შენახვა"
       : busy
         ? "…"
-        : `${t.journey.generated.orderPrint.trim()} · ${formatGel(PRICES.printUpgrade)}`;
+        : t.journey.checkout.pay(formatGelAmount(PRICES.printUpgrade));
 
   return (
     <section
@@ -802,56 +805,48 @@ function PrintUpgradePanel({
       <p className="print-panel-note">
         {t.dashboard.library.printDetail(DELIVERY_DAYS.tbilisi, DELIVERY_DAYS.regions)}
       </p>
-      <fieldset className="choice-fieldset">
-        <legend>{t.journey.checkout.shippingAddress}</legend>
-        <div className="form-grid">
-          <label className="field" htmlFor="dashboard-ship-recipient">
-            <span>მიმღები</span>
-            <input
-              id="dashboard-ship-recipient"
-              name="recipientName"
-              autoComplete="name"
-              value={shipping.recipientName}
-              onChange={(e) => onChange({ recipientName: e.target.value })}
-            />
-          </label>
-          <label className="field" htmlFor="dashboard-ship-phone">
-            <span>{t.common.labels.phone}</span>
-            <input
-              id="dashboard-ship-phone"
-              name="recipientPhone"
-              type="tel"
-              autoComplete="tel"
-              value={shipping.recipientPhone}
-              onChange={(e) => onChange({ recipientPhone: e.target.value })}
-            />
-          </label>
-          <label className="field" htmlFor="dashboard-ship-city">
-            <span>ქალაქი</span>
-            <input
-              id="dashboard-ship-city"
-              name="city"
-              autoComplete="address-level2"
-              value={shipping.city}
-              onChange={(e) => onChange({ city: e.target.value })}
-            />
-          </label>
-          <label
-            className="field"
-            htmlFor="dashboard-ship-address"
-            style={{ gridColumn: "1 / -1" }}
-          >
-            <span>მისამართი</span>
-            <input
-              id="dashboard-ship-address"
-              name="addressLine1"
-              autoComplete="street-address"
-              value={shipping.addressLine1}
-              onChange={(e) => onChange({ addressLine1: e.target.value })}
-            />
-          </label>
-        </div>
-      </fieldset>
+      {/*
+        No fieldset legend. It read "მიმღების მისამართი" directly above a field labelled
+        "მიმღები", so the panel opened with two headings for one thing — and the panel's own
+        eyebrow above them was a third.
+
+        The same three fields as the checkout, in the same words from the same strings: a parent
+        who bought a printed book once should not meet a differently-shaped form the second time.
+      */}
+      <div className="ux-ship-fields">
+        <label className="field" htmlFor="dashboard-ship-recipient">
+          <span>{t.journey.checkout.recipient}</span>
+          <input
+            id="dashboard-ship-recipient"
+            name="recipientName"
+            autoComplete="name"
+            value={shipping.recipientName}
+            onChange={(e) => onChange({ recipientName: e.target.value })}
+          />
+        </label>
+        <label className="field" htmlFor="dashboard-ship-phone">
+          <span>{t.common.labels.phone}</span>
+          <input
+            id="dashboard-ship-phone"
+            name="recipientPhone"
+            type="tel"
+            autoComplete="tel"
+            value={shipping.recipientPhone}
+            onChange={(e) => onChange({ recipientPhone: e.target.value })}
+          />
+        </label>
+        <label className="field field-wide" htmlFor="dashboard-ship-address">
+          <span>{t.journey.checkout.shippingAddress}</span>
+          <input
+            id="dashboard-ship-address"
+            name="addressLine1"
+            autoComplete="street-address"
+            placeholder={t.journey.checkout.addressPlaceholder}
+            value={shipping.addressLine1}
+            onChange={(e) => onChange({ addressLine1: e.target.value })}
+          />
+        </label>
+      </div>
       {error ? (
         <p className="eyebrow" style={{ color: "#f1c970", marginTop: 10 }}>
           {error}
@@ -861,6 +856,11 @@ function PrintUpgradePanel({
         <button className="button button-quiet" type="button" onClick={onCancel} disabled={busy}>
           {t.common.actions.cancel}
         </button>
+        {/*
+          The plus went with the second price. The label used to be "Want to hold it? +65 ₾"
+          joined to "· 65 ₾" and finished with a + icon, so one button carried the amount twice
+          and a plus sign that meant neither of them. It says what it does and what it costs.
+        */}
         <button
           className={mode === "edit" ? "button button-primary" : "button button-print-upgrade"}
           type="button"
@@ -868,7 +868,6 @@ function PrintUpgradePanel({
           disabled={busy}
         >
           {submitLabel}
-          {mode === "upgrade" ? <Plus aria-hidden="true" /> : null}
         </button>
       </div>
     </section>
