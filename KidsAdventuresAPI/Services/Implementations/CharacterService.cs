@@ -14,10 +14,20 @@ public sealed class CharacterService(
     private const long MaxPhotoBytes = 5 * 1024 * 1024;
 
     /// <summary>
-    /// Not a product rule so much as an abuse ceiling: a family has a handful of people
-    /// and pets, and an unbounded library would let one account fill blob storage.
+    /// Not a product rule so much as an abuse ceiling: an unbounded library would let one
+    /// account fill blob storage a portrait at a time.
+    ///
+    /// It was 16, on the reasoning that a family has a handful of people and pets. That
+    /// undercounted: cast a few books with grandparents, pets and invented friends, add a
+    /// character per test run, and a real account reaches it — and what it reaches is a wall
+    /// with no way past it but deleting somebody. A ceiling that a legitimate user meets is
+    /// not a ceiling, it is a bug with an error message.
+    ///
+    /// The number that matters is the one an abusive script would blow through and a family
+    /// never will. Nothing else is spent here: a character is a row and one downscaled photo,
+    /// and every book made from one is still paid for separately.
     /// </summary>
-    private const int MaxCharactersPerAccount = 16;
+    private const int MaxCharactersPerAccount = 100;
 
     private static readonly HashSet<string> AllowedMimeTypes =
         new(StringComparer.OrdinalIgnoreCase) { "image/jpeg", "image/png", "image/webp" };
