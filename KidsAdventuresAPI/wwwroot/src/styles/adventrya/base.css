@@ -199,7 +199,7 @@ svg {
 .hero-promise {
   margin: 20px 0 0;
   color: #f8f2e5eb;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 16px;
 }
 .hero-description {
@@ -303,7 +303,7 @@ svg {
   align-items: center;
   gap: 11px;
   color: #f8f2e5ad;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 13px;
 }
 .world-caption span {
@@ -610,7 +610,7 @@ svg {
   max-width: 260px;
   margin: 5px 0 0;
   color: #fbf3e4;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.45;
 }
@@ -681,7 +681,7 @@ svg {
 }
 .map-heading span {
   color: #fff8ebd1;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 14px;
 }
 .map-heading small {
@@ -697,7 +697,7 @@ svg {
 }
 .map-count strong {
   color: var(--story-gold);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 23px;
   line-height: 1;
 }
@@ -781,7 +781,7 @@ svg {
 .map-label strong {
   margin-top: 2px;
   color: #fff8eb;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 12px;
 }
 .state-future {
@@ -881,7 +881,7 @@ svg {
 .story-echo strong {
   margin-top: 2px;
   color: #fff8eb;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 13px;
 }
 .story-echo p {

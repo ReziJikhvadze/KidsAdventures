@@ -996,7 +996,7 @@
 .world-pick-panel-copy strong {
   display: block;
   margin-top: 3px;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 19px;
   line-height: 1.2;
 }

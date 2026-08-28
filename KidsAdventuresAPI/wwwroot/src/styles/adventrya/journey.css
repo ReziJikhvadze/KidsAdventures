@@ -288,7 +288,7 @@
 .photo-drop strong {
   margin-top: 6px;
   color: #fff8eb;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 18px;
 }
 .photo-drop p {
@@ -639,7 +639,7 @@
 }
 .preview-facts strong {
   color: #fff8eb;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 17px;
 }
 .preview-note {
@@ -831,7 +831,7 @@
   position: absolute;
   bottom: 29px;
   color: #f8f2e5ad;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 13px;
 }
 .auth-panel {
@@ -1084,7 +1084,7 @@
   right: 18px;
   bottom: 16px;
   color: #fff8eb;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 15px;
 }
 .summary-lines {
@@ -1301,7 +1301,7 @@
 }
 .generation-craft-label strong {
   color: #f2d28d;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 12px;
   text-align: right;
 }

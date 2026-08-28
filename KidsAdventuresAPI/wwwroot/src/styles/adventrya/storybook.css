@@ -343,7 +343,7 @@
 .storybook-back-copy strong {
   display: block;
   color: #fff8eb;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: clamp(12px, 1.15vw, 17px);
   font-weight: 700;
   line-height: 1.3;
@@ -458,7 +458,7 @@
   box-shadow: 0 0 22px #edbe6733;
 }
 .storybook-lock strong {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: clamp(11px, 1.1vw, 14px);
   line-height: 1.45;
 }

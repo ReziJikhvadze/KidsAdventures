@@ -68,7 +68,7 @@
 }
 .landing-v3-logo small {
   color: #fffaee85;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 11px;
   font-weight: 400;
   letter-spacing: 0.17em;
@@ -398,7 +398,7 @@
   letter-spacing: 0.12em;
 }
 .landing-v3-cover-copy strong {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: clamp(23px, 2.1vw, 34px);
   font-weight: 400;
   line-height: 1.14;
@@ -560,7 +560,7 @@
   text-transform: uppercase;
 }
 .landing-v3-example-title strong {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: clamp(20px, 2vw, 31px);
   font-weight: 400;
   line-height: 1.15;
@@ -852,7 +852,7 @@
 }
 .landing-v3-preview-pages button span {
   color: var(--lv3-gold);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
 }
 .landing-v3-preview-pages button.selected {
   color: #fff9ed;
@@ -878,7 +878,7 @@
 }
 .landing-v3-steps article > span {
   color: #a67651;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 13px;
 }
 .landing-v3-step-visual {
@@ -1086,7 +1086,7 @@
   grid-column: 2;
   grid-row: 3;
   margin-top: 3px;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 15px;
 }
 .landing-v3-world-card > i {
@@ -1229,7 +1229,7 @@
   gap: 5px;
 }
 .landing-v3-price-card-head > span {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 18px;
 }
 .landing-v3-price-card-head small {
@@ -1340,7 +1340,7 @@
 }
 .landing-v3-quote-grid p {
   margin: 26px 0 24px;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.72;
 }
@@ -1548,7 +1548,7 @@
 .landing-v3-footer > nav strong {
   margin-bottom: 5px;
   color: #fff9ed;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 13px;
 }
 .landing-v3-footer > nav a {
@@ -2048,7 +2048,7 @@
     font-size: 11px;
   }
   .landing-v3-mobile-cta strong {
-    font-family: var(--font-display);
+    font-family: var(--font-body);
     font-size: 14px;
   }
   .landing-v3-mobile-cta > a {

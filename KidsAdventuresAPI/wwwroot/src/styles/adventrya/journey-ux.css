@@ -218,7 +218,7 @@
 .ux-photo-upload strong {
   margin-top: 4px;
   color: #fff8eb;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 14px;
 }
 .ux-photo-upload p {
@@ -879,7 +879,7 @@
   filter: blur(0.35px);
 }
 .ux-locked-pages span {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 13px;
 }
 .ux-locked-pages small {
@@ -963,7 +963,7 @@
 }
 .ux-package-title b {
   color: var(--story-gold);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 16px;
 }
 .ux-package-list {
@@ -1015,7 +1015,7 @@
   grid-column: 2;
   align-self: center;
   color: var(--story-gold);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 22px;
 }
 .ux-preview-continue {
@@ -1178,14 +1178,14 @@
 .ux-compact-product strong {
   margin-top: 6px;
   color: #fff8eb;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.35;
 }
 .ux-compact-product span {
   margin-top: 9px;
   color: var(--story-gold);
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 19px;
 }
 .ux-generating .generation-book {
@@ -2205,7 +2205,7 @@
 }
 
 .world-art-caption strong {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: clamp(17px, 1.5vw, 22px);
   font-weight: 400;
   line-height: 1.25;

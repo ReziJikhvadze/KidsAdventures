@@ -92,7 +92,7 @@
   font-size: 11px;
 }
 .story-world-row-copy strong {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.25;
 }
@@ -162,7 +162,7 @@
 .story-map-progress strong {
   grid-row: 1 / span 2;
   color: #f3cd79;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 22px;
   line-height: 1;
 }
@@ -448,7 +448,7 @@
 }
 .story-node-copy strong {
   margin-top: 2px;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 14px;
 }
 .story-world-node:hover .story-node-marker,
@@ -609,7 +609,7 @@
   margin-top: 2px;
   overflow: hidden;
   color: #fff8eb;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 15px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -905,7 +905,7 @@
 .selected-world-inline strong {
   margin-top: 2px;
   color: #fff8eb;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 14px;
 }
 .selected-world-inline p {
@@ -981,7 +981,7 @@
 }
 .map-dashboard-summary strong {
   color: #edca7b;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 15px;
 }
 .dashboard-map-frame {
@@ -1023,7 +1023,7 @@
   margin-top: 3px;
   overflow: hidden;
   color: #fff8eb;
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
