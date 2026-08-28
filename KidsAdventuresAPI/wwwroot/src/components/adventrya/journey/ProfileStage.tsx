@@ -5,7 +5,7 @@ import { BirthDateField } from "@/components/adventrya/journey/BirthDateField";
 import { WorldArtPanel } from "@/components/adventrya/journey/WorldArtPanel";
 import { SparkleIcon } from "@/components/adventrya/landing/icons";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import type { PortraitRejection } from "@/lib/api/portraits";
+import { checkPortrait, type PortraitRejection } from "@/lib/api/portraits";
 import { BOOK_LANGUAGES, type BookLanguage, useT } from "@/lib/i18n";
 import { preparePortrait } from "@/lib/images/preparePortrait";
 import type { CharacterGender, EyeColor } from "@/lib/api/types";
@@ -342,18 +342,32 @@ function CharacterEditor({
         if (ticket !== checkRef.current) return;
 
         /*
-          The photo is taken as given.
+          Ask whether there is a person in the picture, before it becomes the face of a book.
 
-          There used to be a call here that asked a vision model whether the picture showed a
-          child, on the reasoning that nothing later in the pipeline ever asks — and it was
-          refusing photographs that were perfectly usable. A gate that turns away real customers
-          is worse than no gate, so until its refusals are understood there is no gate: the
-          server side is switched off behind `Beki:PortraitGateEnabled`, and this stops asking.
+          This call was removed once, for a good reason: the gate it asked used to judge the
+          photograph — lighting, framing, how many people were in it — and refused pictures that
+          were perfectly usable, so turning it off was better than keeping it. The gate no longer
+          does that. It asks one question, and a car, a plate or a drawing is the only thing it
+          says no to, which is the case nothing else in the pipeline catches: the identity
+          analyzer is told to extract a face, so shown a car it describes a car, and the book is
+          written, illustrated and paid for around it.
 
-          `preparePortrait` stays, and is not a check. It downscales, because a phone photo plus
-          base64 overhead exceeds the upload limit and an oversized request is refused by the host
-          before any of our code runs — which reaches the browser as an unexplained CORS error.
+          `Beki:PortraitGateEnabled` still decides on the server. With it off every photo passes
+          here too, so this stays a single path rather than two that have to agree.
+
+          `preparePortrait` is not the check. It downscales, because a phone photo plus base64
+          overhead exceeds the upload limit and an oversized request is refused by the host before
+          any of our code runs — which reaches the browser as an unexplained CORS error.
         */
+        const verdict = await checkPortrait(dataUrl);
+        if (ticket !== checkRef.current) return;
+
+        if (!verdict.accepted) {
+          // photoReady was already cleared above, so the form simply does not advance.
+          setRejection(verdict.reason);
+          return;
+        }
+
         onChange({ photoDataUrl: dataUrl, photoReady: true });
       } catch {
         // preparePortrait only throws when the file cannot be read at all — not a judgement
