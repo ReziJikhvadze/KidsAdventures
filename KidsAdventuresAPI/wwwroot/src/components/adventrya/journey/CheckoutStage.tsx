@@ -215,35 +215,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
               <p>{t.journey.checkout.zeroTotalNote}</p>
             </div>
           </div>
-        ) : (
-          /*
-            What is about to happen, in place of a card form.
-
-            There used to be one here — a card number, an expiry and a CVC — and every field was
-            readOnly, pre-filled with 4242 4242 4242 4242. It collected nothing, because the card
-            is entered on the bank's own page after this button. So a parent on a real checkout
-            was shown a stranger's card number in a box that would not accept theirs, above two
-            wallet buttons that did exactly what the pay button below them did.
-
-            None of it survives. This says where they are going and what will be accepted there,
-            which is the only thing the screen can honestly promise before the redirect.
-          */
-          <div className="ux-pay-handoff">
-            <span className="ux-pay-handoff-mark" aria-hidden="true">
-              <Lock size={15} />
-            </span>
-            <div>
-              <strong>{t.journey.checkout.handoffTitle}</strong>
-              <p>{t.journey.checkout.handoffNote}</p>
-              <ul aria-label={t.journey.checkout.handoffMethodsLabel}>
-                <li>Visa</li>
-                <li>Mastercard</li>
-                <li>Apple&nbsp;Pay</li>
-                <li>Google&nbsp;Pay</li>
-              </ul>
-            </div>
-          </div>
-        )}
+        ) : null}
 
         {/*
           Three fields, where there were five.

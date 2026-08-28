@@ -249,10 +249,6 @@ export const journey = {
     zeroTotalNote: "Card details are no longer needed.",
     recipient: "Recipient",
     addressPlaceholder: "City, street, building and flat",
-    handoffTitle: "You pay on the bank's page",
-    handoffNote:
-      "This button takes you to Bank of Georgia's secure page. Your card details are entered there and never reach us.",
-    handoffMethodsLabel: "Accepted payment methods",
     shippingAddress: "Recipient's address",
     addAnotherAddress: "Add another address",
     useSavedAddress: "Use the saved address",

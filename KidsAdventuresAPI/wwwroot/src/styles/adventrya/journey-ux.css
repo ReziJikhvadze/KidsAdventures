@@ -1101,60 +1101,6 @@
 }
 
 /*
-  Where the money is actually taken, said plainly.
-
-  Replaces the card fields. The mark, the sentence and the four names are the whole block —
-  a parent needs to know they are leaving, that it is the bank, and that their card will be
-  accepted there.
-*/
-.ux-pay-handoff {
-  display: grid;
-  grid-template-columns: 34px 1fr;
-  gap: 12px;
-  align-items: start;
-  margin-top: 14px;
-  padding: 14px 16px;
-  border: 1px solid rgba(239, 227, 207, 0.16);
-  border-radius: 16px;
-  background: rgba(248, 242, 229, 0.045);
-}
-.ux-pay-handoff-mark {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
-  color: #b9f0d0;
-  background: rgba(122, 216, 174, 0.14);
-}
-.ux-pay-handoff strong {
-  display: block;
-  font-size: 14px;
-}
-.ux-pay-handoff p {
-  margin-top: 4px;
-  color: #eae3ef9c;
-  font-size: 12.5px;
-  line-height: 1.5;
-}
-.ux-pay-handoff ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
-  padding: 0;
-  list-style: none;
-}
-.ux-pay-handoff li {
-  padding: 3px 9px;
-  border: 1px solid rgba(239, 227, 207, 0.16);
-  border-radius: 999px;
-  color: #eae3efc4;
-  font-size: 11px;
-  letter-spacing: 0.02em;
-}
-
-/*
   Recipient and phone share a row; the address takes the width, because an address is one long
   thing and splitting it across two boxes was the reason there used to be five of them.
 */
@@ -1799,11 +1745,22 @@
     counter sat underneath the language control and the avatar. As a flex item it takes the room
     that is left between the back button and those two, and never lands on top of them.
   */
+  /*
+    Basis zero, not auto.
+
+    `1 1 auto` sizes the item from its own text first, and the header wraps rather than shrinks
+    — so on a 320px screen "ნაბიჯი 3 / 3 · Preview" measured 222px, took the whole line, and
+    pushed the language control and the avatar onto a second row: a header half again as tall,
+    with the controls sitting under the counter instead of beside it.
+
+    With a zero basis the counter asks for no width of its own and takes only what is left
+    between the back button and those controls, which is what the ellipsis below is for.
+  */
   .step-progress {
     position: static;
     width: auto;
     min-width: 0;
-    flex: 1 1 auto;
+    flex: 1 1 0;
     margin: 0 10px;
     transform: none;
   }
@@ -2443,14 +2400,7 @@
   .ux-checkout-stage .summary-lines h2 {
     font-size: 13px;
   }
-  .ux-pay-handoff {
-    margin-top: 10px;
-    padding: 11px 13px;
-  }
   /* The bank's page lists the schemes it takes; this only has to say where you are going. */
-  .ux-pay-handoff ul {
-    display: none;
-  }
   .ux-ship-fields {
     margin-top: 10px;
     gap: 7px 10px;
@@ -2467,9 +2417,6 @@
 @media (max-height: 700px) {
   .ux-checkout-stage .ux-compact-product,
   .ux-checkout-stage .ux-order-summary > p,
-  .ux-pay-handoff ul {
-    display: none;
-  }
   /*
     The breakdown stays — a price and what it is for is the one thing a payment screen may not
     hide — but it stops being a titled panel and becomes four tight lines. The heading said
@@ -2484,14 +2431,6 @@
   }
   .ux-checkout-stage .ux-order-summary {
     padding: 10px 12px;
-  }
-  .ux-pay-handoff {
-    margin-top: 8px;
-    padding: 9px 12px;
-  }
-  .ux-pay-handoff p {
-    margin-top: 2px;
-    font-size: 11.5px;
   }
   .ux-checkout-stage > .checkout-form > .eyebrow {
     display: none;

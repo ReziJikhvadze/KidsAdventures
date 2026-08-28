@@ -258,10 +258,6 @@ export const journey = {
     zeroTotalNote: "ბარათის მონაცემები აღარ არის საჭირო.",
     recipient: "მიმღები",
     addressPlaceholder: "ქალაქი, ქუჩა, შენობა და ბინა",
-    handoffTitle: "გადახდა ბანკის გვერდზე",
-    handoffNote:
-      "ღილაკზე დაჭერის შემდეგ საქართველოს ბანკის დაცულ გვერდზე გადახვალ. ბარათის მონაცემები იქ შეგყავს და ჩვენამდე არ აღწევს.",
-    handoffMethodsLabel: "მიღებული გადახდის საშუალებები",
     shippingAddress: "მიმღების მისამართი",
     addAnotherAddress: "სხვა მისამართის დამატება",
     useSavedAddress: "გამოიყენე შენახული მისამართი",
