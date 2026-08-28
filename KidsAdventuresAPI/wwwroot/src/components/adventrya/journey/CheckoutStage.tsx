@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, CreditCard, Loader2, Lock, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Loader2, Lock, Sparkles } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
@@ -27,10 +27,11 @@ type Props = {
 };
 
 /**
- * Partner Demo checkout layout:
- * left = payment form (wallets / card / promo)
- * right = order summary with compact book thumb
- * Pay still creates a real order and redirects to Stripe Checkout when not free.
+ * The last screen before the bank.
+ *
+ * Left: who the parcel goes to, and what happens when the button is pressed. Right: what is
+ * being bought and for how much. Nothing here takes a card number — the order is created and
+ * the parent is handed to Bank of Georgia's page, which is where the card is entered.
  */
 export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const WORLD_BY_ID = useWorldById();
@@ -48,9 +49,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const { locale } = useLocale();
   const langLabel = bookLanguageLabel(locale);
 
-  const [promoInput, setPromoInput] = useState(draft.promoCode);
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
-  const [promoState, setPromoState] = useState<"idle" | "applying" | "applied" | "invalid">("idle");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,9 +80,6 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
         });
         if (cancelled) return;
         setQuote(result);
-        if (draft.promoCode) {
-          setPromoState(result.promo?.isValid ? "applied" : "invalid");
-        }
       } catch {
         if (!cancelled) setQuote(null);
       }
@@ -93,30 +89,6 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     };
   }, [orderPackage, draft.promoCode]);
 
-  const applyPromo = async () => {
-    const code = promoInput.trim().toUpperCase();
-    if (!code) return;
-    setPromoState("applying");
-    setError(null);
-    try {
-      const result = await ordersApi.quoteOrder({
-        type: "NewBook",
-        package: orderPackage,
-        promoCode: code,
-      });
-      setQuote(result);
-      if (result.promo?.isValid) {
-        setPromoState("applied");
-        onChange({ promoCode: code });
-      } else {
-        setPromoState("invalid");
-      }
-    } catch (err) {
-      setPromoState("invalid");
-      setError(err instanceof ApiError ? err.message : t.journey.checkout.promoInvalid);
-    }
-  };
-
   const updateShipping = (patch: Partial<ShippingAddressRequest>) => {
     onChange((prev) => ({ ...prev, shipping: { ...prev.shipping, ...patch } }));
   };
@@ -124,7 +96,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const validateShipping = (): string | null => {
     if (!isPrint) return null;
     const s = draft.shipping;
-    if (!s.recipientName.trim() || !s.city.trim() || !s.addressLine1.trim()) {
+    if (!s.recipientName.trim() || !s.addressLine1.trim()) {
       return "მიუთითე მიწოდების მისამართი.";
     }
     if (!normalizeGeorgianPhone(s.recipientPhone) && !s.recipientPhone.trim()) {
@@ -134,9 +106,9 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   };
 
   const placeOrder = async () => {
-    // A second click on a slow connection is a second order and a second Stripe session, so the
-    // guard is here rather than only on the button's disabled attribute — which is a rendering
-    // detail, and this function is also reached from the two quick-pay buttons.
+    // A second click on a slow connection is a second order and a second payment page, so the
+    // guard is here rather than only on the button's disabled attribute, which is a rendering
+    // detail rather than a promise.
     if (busy) return;
 
     const shippingError = validateShipping();
@@ -179,6 +151,16 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
           ? {
               ...draft.shipping,
               recipientPhone: normalizedPhone,
+              /*
+                The form asks for the address once, but the server still keeps a City of its
+                own: it is required, it is what the shipping email names as the destination,
+                and GeorgianDelivery reads it to decide whether to quote 4-5 days or 5-8.
+                Sending the whole line keeps all three working — the Tbilisi check is a
+                substring match, so "თბილისი, გროზნოს 11ა" still resolves to the city window,
+                and anything unrecognised falls to the regional one, which is the safe
+                direction to be wrong in.
+              */
+              city: draft.shipping.addressLine1.trim(),
             }
           : undefined,
         returnPath: "/create#generating",
@@ -234,98 +216,54 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             </div>
           </div>
         ) : (
-          <>
-            {/* These start the same order as the button below, so they wait the same way. */}
-            <div className="quick-pay">
-              <button
-                type="button"
-                disabled={busy}
-                aria-busy={busy}
-                onClick={() => void placeOrder()}
-              >
-                {busy ? (
-                  <Loader2 className="checkout-spinner" aria-hidden="true" size={15} />
-                ) : null}
-                Pay
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                aria-busy={busy}
-                onClick={() => void placeOrder()}
-              >
-                {busy ? (
-                  <Loader2 className="checkout-spinner" aria-hidden="true" size={15} />
-                ) : null}
-                G Pay
-              </button>
-            </div>
+          /*
+            What is about to happen, in place of a card form.
 
-            <div className="auth-divider">
-              <span>{t.journey.checkout.orCard}</span>
-            </div>
+            There used to be one here — a card number, an expiry and a CVC — and every field was
+            readOnly, pre-filled with 4242 4242 4242 4242. It collected nothing, because the card
+            is entered on the bank's own page after this button. So a parent on a real checkout
+            was shown a stranger's card number in a box that would not accept theirs, above two
+            wallet buttons that did exactly what the pay button below them did.
 
-            <label className="field field-wide">
-              <span>{t.journey.checkout.cardNumber}</span>
-              <div className="card-input">
-                <CreditCard aria-hidden="true" size={18} />
-                <input
-                  id="checkout-card-number"
-                  name="cardNumber"
-                  readOnly
-                  defaultValue="4242 4242 4242 4242"
-                  aria-label={t.journey.checkout.cardNumber}
-                  autoComplete="cc-number"
-                />
-                <small>Visa / Mastercard</small>
-              </div>
-            </label>
-
-            <div className="form-grid">
-              <label className="field" htmlFor="checkout-card-expiry">
-                <span>{t.journey.checkout.expiry}</span>
-                <input
-                  id="checkout-card-expiry"
-                  name="cardExpiry"
-                  readOnly
-                  defaultValue="12 / 29"
-                  autoComplete="cc-exp"
-                />
-              </label>
-              <label className="field" htmlFor="checkout-card-cvc">
-                <span>CVC</span>
-                <input
-                  id="checkout-card-cvc"
-                  name="cardCvc"
-                  readOnly
-                  defaultValue="123"
-                  autoComplete="cc-csc"
-                />
-              </label>
+            None of it survives. This says where they are going and what will be accepted there,
+            which is the only thing the screen can honestly promise before the redirect.
+          */
+          <div className="ux-pay-handoff">
+            <span className="ux-pay-handoff-mark" aria-hidden="true">
+              <Lock size={15} />
+            </span>
+            <div>
+              <strong>{t.journey.checkout.handoffTitle}</strong>
+              <p>{t.journey.checkout.handoffNote}</p>
+              <ul aria-label={t.journey.checkout.handoffMethodsLabel}>
+                <li>Visa</li>
+                <li>Mastercard</li>
+                <li>Apple&nbsp;Pay</li>
+                <li>Google&nbsp;Pay</li>
+              </ul>
             </div>
-          </>
+          </div>
         )}
 
-        {isPrint ? (
-          <label
-            className="field field-wide"
-            htmlFor="checkout-ship-recipient"
-            style={{ marginTop: 16 }}
-          >
-            <span>{t.journey.checkout.shippingAddress}</span>
-            <input
-              id="checkout-ship-recipient"
-              name="recipientName"
-              autoComplete="name"
-              value={draft.shipping.recipientName}
-              placeholder="მიმღები"
-              onChange={(e) => updateShipping({ recipientName: e.target.value })}
-            />
-          </label>
-        ) : null}
+        {/*
+          Three fields, where there were five.
 
+          City, street and a second line were separate boxes, which is how a postal form is
+          built and not how anybody says where they live. One line takes the whole address as
+          the parent would write it on a parcel; the courier reads it the same way either way.
+        */}
         {isPrint ? (
-          <div className="form-grid">
+          <div className="ux-ship-fields">
+            <label className="field" htmlFor="checkout-ship-recipient">
+              <span>{t.journey.checkout.recipient}</span>
+              <input
+                id="checkout-ship-recipient"
+                name="recipientName"
+                autoComplete="name"
+                value={draft.shipping.recipientName}
+                onChange={(e) => updateShipping({ recipientName: e.target.value })}
+              />
+            </label>
             <label className="field" htmlFor="checkout-ship-phone">
               <span>{t.common.labels.phone}</span>
               <input
@@ -337,91 +275,19 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                 onChange={(e) => updateShipping({ recipientPhone: e.target.value })}
               />
             </label>
-            <label className="field" htmlFor="checkout-ship-city">
-              <span>ქალაქი</span>
-              <input
-                id="checkout-ship-city"
-                name="city"
-                autoComplete="address-level2"
-                value={draft.shipping.city}
-                onChange={(e) => updateShipping({ city: e.target.value })}
-              />
-            </label>
-            <label
-              className="field"
-              htmlFor="checkout-ship-address"
-              style={{ gridColumn: "1 / -1" }}
-            >
-              <span>მისამართი</span>
+            <label className="field field-wide" htmlFor="checkout-ship-address">
+              <span>{t.journey.checkout.shippingAddress}</span>
               <input
                 id="checkout-ship-address"
                 name="addressLine1"
                 autoComplete="street-address"
+                placeholder={t.journey.checkout.addressPlaceholder}
                 value={draft.shipping.addressLine1}
                 onChange={(e) => updateShipping({ addressLine1: e.target.value })}
               />
             </label>
-            <label className="field" htmlFor="checkout-ship-address2">
-              <span>დამატებითი</span>
-              <input
-                id="checkout-ship-address2"
-                name="addressLine2"
-                autoComplete="address-line2"
-                value={draft.shipping.addressLine2 ?? ""}
-                onChange={(e) => updateShipping({ addressLine2: e.target.value })}
-              />
-            </label>
           </div>
         ) : null}
-
-        <div className="ux-promo-panel">
-          <label className="field" htmlFor="checkout-promo">
-            <span>{t.journey.checkout.promoLabel}</span>
-            <div>
-              <input
-                id="checkout-promo"
-                name="promoCode"
-                value={promoInput}
-                disabled={promoState === "applied"}
-                placeholder={t.journey.checkout.promoPlaceholder}
-                onChange={(e) => {
-                  setPromoInput(e.target.value);
-                  if (promoState === "invalid") setPromoState("idle");
-                }}
-              />
-              {promoState === "applied" ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPromoInput("");
-                    onChange({ promoCode: "" });
-                    setPromoState("idle");
-                  }}
-                >
-                  {t.journey.checkout.promoRemove}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={busy || promoState === "applying" || !promoInput.trim()}
-                  onClick={() => void applyPromo()}
-                >
-                  {promoState === "applying" ? t.common.actions.checking : t.common.actions.apply}
-                </button>
-              )}
-            </div>
-          </label>
-          {promoState === "applied" ? (
-            <p className="valid">
-              <Check aria-hidden="true" /> {t.journey.checkout.promoApplied}
-            </p>
-          ) : null}
-          {promoState === "invalid" ? (
-            <p className="invalid" role="alert">
-              {quote?.promo?.message || t.journey.checkout.promoInvalid}
-            </p>
-          ) : null}
-        </div>
 
         {error ? <p className="ux-form-error">{error}</p> : null}
 

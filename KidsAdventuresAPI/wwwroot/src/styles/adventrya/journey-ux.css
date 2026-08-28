@@ -1084,11 +1084,88 @@
   width: 13px;
   color: #a9dfc0;
 }
+/*
+  The checkout is meant to be read without scrolling.
+
+  It is the last screen before the bank, and a parent who has to scroll to find the button is a
+  parent deciding whether to bother. What made it long was a card form that collected nothing,
+  two wallet buttons that did what the pay button did, and a promo box — all gone. What is left
+  fits, and this keeps it fitting: the columns centre in the space they are given rather than
+  stacking up from the top.
+*/
 .ux-checkout-stage {
   display: grid;
   grid-template-columns: 1.03fr 0.97fr;
-  gap: clamp(48px, 6vw, 92px);
+  gap: clamp(32px, 4.5vw, 72px);
   align-items: center;
+}
+
+/*
+  Where the money is actually taken, said plainly.
+
+  Replaces the card fields. The mark, the sentence and the four names are the whole block —
+  a parent needs to know they are leaving, that it is the bank, and that their card will be
+  accepted there.
+*/
+.ux-pay-handoff {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 12px;
+  align-items: start;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(239, 227, 207, 0.16);
+  border-radius: 16px;
+  background: rgba(248, 242, 229, 0.045);
+}
+.ux-pay-handoff-mark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  color: #b9f0d0;
+  background: rgba(122, 216, 174, 0.14);
+}
+.ux-pay-handoff strong {
+  display: block;
+  font-size: 14px;
+}
+.ux-pay-handoff p {
+  margin-top: 4px;
+  color: #eae3ef9c;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.ux-pay-handoff ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 0;
+  list-style: none;
+}
+.ux-pay-handoff li {
+  padding: 3px 9px;
+  border: 1px solid rgba(239, 227, 207, 0.16);
+  border-radius: 999px;
+  color: #eae3efc4;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+/*
+  Recipient and phone share a row; the address takes the width, because an address is one long
+  thing and splitting it across two boxes was the reason there used to be five of them.
+*/
+.ux-ship-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+  margin-top: 16px;
+}
+.ux-ship-fields .field-wide {
+  grid-column: 1 / -1;
 }
 .ux-saved-row {
   display: grid;
@@ -2317,4 +2394,118 @@
   min-width: 150px;
   min-height: 46px;
   margin-top: 6px;
+}
+
+/*
+  Checkout on a phone, without a scrollbar.
+
+  Last in the file on purpose: these are the final word on the checkout, and the earlier
+  narrow-screen block would otherwise win on the properties it also sets.
+
+  What goes is what is said twice. The summary card repeats the book's cover, title and price
+  directly above a breakdown that lists the same title and the same price, and the payment
+  panel names four card schemes that the bank's own page shows again a second later. On a
+  1280px window that redundancy is generous; on a 375px one it is the difference between
+  seeing the button and hunting for it.
+*/
+@media (max-width: 780px) {
+  .ux-checkout-stage {
+    gap: 12px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  /* Rows, not paragraphs: the breakdown is four short facts and a total. */
+  .ux-checkout-stage .summary-lines > span {
+    padding: 4px 0;
+  }
+  .ux-checkout-stage .summary-lines h2 {
+    margin-bottom: 4px;
+  }
+  /*
+    The reassurance under the summary goes. It promises the printed copy is the book already
+    made rather than a fresh one — true, and worth saying on a desktop where there is room,
+    but the panel above already tells a parent what the button does, and here it is the two
+    lines standing between them and it.
+  */
+  .ux-checkout-stage .ux-order-summary > p {
+    display: none;
+  }
+  .ux-checkout-stage > .checkout-form > h1 {
+    font-size: clamp(20px, 5.4vw, 25px);
+  }
+  /* The cover, the title and the price again, above a summary that lists all three. */
+  .ux-checkout-stage .ux-compact-product {
+    display: none;
+  }
+  .ux-checkout-stage .ux-order-summary {
+    padding: 12px 14px;
+  }
+  .ux-checkout-stage .summary-lines h2 {
+    font-size: 13px;
+  }
+  .ux-pay-handoff {
+    margin-top: 10px;
+    padding: 11px 13px;
+  }
+  /* The bank's page lists the schemes it takes; this only has to say where you are going. */
+  .ux-pay-handoff ul {
+    display: none;
+  }
+  .ux-ship-fields {
+    margin-top: 10px;
+    gap: 7px 10px;
+  }
+  .ux-checkout-stage .text-back {
+    margin-top: 8px;
+  }
+}
+
+/*
+  Short windows, at any width: a laptop at 1280x600 has the same problem as a phone, and
+  height is what the checkout is actually short of.
+*/
+@media (max-height: 700px) {
+  .ux-checkout-stage .ux-compact-product,
+  .ux-checkout-stage .ux-order-summary > p,
+  .ux-pay-handoff ul {
+    display: none;
+  }
+  /*
+    The breakdown stays — a price and what it is for is the one thing a payment screen may not
+    hide — but it stops being a titled panel and becomes four tight lines. The heading said
+    "order summary" above a list that is self-evidently an order summary.
+  */
+  .ux-checkout-stage .summary-lines h2 {
+    display: none;
+  }
+  .ux-checkout-stage .summary-lines > span {
+    padding: 2px 0;
+    font-size: 12px;
+  }
+  .ux-checkout-stage .ux-order-summary {
+    padding: 10px 12px;
+  }
+  .ux-pay-handoff {
+    margin-top: 8px;
+    padding: 9px 12px;
+  }
+  .ux-pay-handoff p {
+    margin-top: 2px;
+    font-size: 11.5px;
+  }
+  .ux-checkout-stage > .checkout-form > .eyebrow {
+    display: none;
+  }
+  .ux-checkout-stage {
+    gap: 10px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+  .ux-ship-fields {
+    margin-top: 8px;
+    gap: 6px 10px;
+  }
+  .ux-checkout-stage .text-back {
+    margin-top: 6px;
+  }
 }
