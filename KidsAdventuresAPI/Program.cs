@@ -150,4 +150,30 @@ static void LogConfiguredFlags(WebApplication application)
             raw is null ? "<not set>" : $"\"{raw}\"",
             raw?.Length ?? 0);
     }
+
+    /*
+      Whether the gateway can be reached at all, which the flags above do not say.
+
+      Bog:Enabled was true and every checkout still answered "the payment system is temporarily
+      unavailable", because the credentials behind the switch were never set — and the flag log
+      could not show it, since a secret must not be printed. Length is enough: it separates
+      "missing" from "there", which is the whole question, and reveals nothing.
+
+      The callback URL is not a secret and is printed in full: it is the one BOG setting whose
+      exact value decides whether a payment is ever confirmed.
+    */
+    foreach (var key in new[] { "Bog:ClientId", "Bog:SecretKey" })
+    {
+        var value = application.Configuration[key];
+        application.Logger.LogInformation(
+            "Config secret {Key} is {State} ({Length} chars)",
+            key,
+            string.IsNullOrWhiteSpace(value) ? "NOT SET" : "set",
+            value?.Length ?? 0);
+    }
+
+    var callbackUrl = application.Configuration["Bog:CallbackUrl"];
+    application.Logger.LogInformation(
+        "Config Bog:CallbackUrl = {Value}",
+        string.IsNullOrWhiteSpace(callbackUrl) ? "<not set>" : callbackUrl);
 }

@@ -506,6 +506,11 @@ public sealed class OrderService(
 
         if (!_stripe.Enabled || string.IsNullOrWhiteSpace(_stripe.SecretKey))
         {
+            logger.LogError(
+                "Order {OrderId} routed to Stripe, but Stripe:Enabled is {Enabled} and Stripe:SecretKey is "
+                + "{SecretState}. Set Bog__Enabled to send orders to BOG instead.",
+                order.Id, _stripe.Enabled, string.IsNullOrWhiteSpace(_stripe.SecretKey) ? "empty" : "set");
+
             await orderRepository.MarkFailedAsync(order.Id, "Stripe is not configured.", cancellationToken);
             throw new InvalidOperationException("გადახდის სისტემა დროებით მიუწვდომელია. სცადე მოგვიანებით.");
         }
@@ -533,6 +538,19 @@ public sealed class OrderService(
     {
         if (string.IsNullOrWhiteSpace(_bog.ClientId) || string.IsNullOrWhiteSpace(_bog.SecretKey))
         {
+            /*
+              Logged, and specifically. The parent is told the payment system is unavailable —
+              which is all they can act on — and the Stripe branch says exactly the same thing,
+              so from the browser the two are indistinguishable. Without this line the only
+              evidence of which one refused is a FailureReason on a row nobody is looking at.
+            */
+            logger.LogError(
+                "Order {OrderId} routed to BOG, but Bog:ClientId is {ClientIdState} and Bog:SecretKey is "
+                + "{SecretState}. Both are required; set Bog__ClientId and Bog__SecretKey.",
+                order.Id,
+                string.IsNullOrWhiteSpace(_bog.ClientId) ? "empty" : "set",
+                string.IsNullOrWhiteSpace(_bog.SecretKey) ? "empty" : "set");
+
             await orderRepository.MarkFailedAsync(order.Id, "BOG is not configured.", cancellationToken);
             throw new InvalidOperationException("გადახდის სისტემა დროებით მიუწვდომელია. სცადე მოგვიანებით.");
         }
