@@ -2405,15 +2405,21 @@
 /*
   The digital checkout, which is a moment rather than a screen.
 
-  The order is placed on mount and the browser leaves immediately, so this stands in for the
-  second or so in between. One turning mark, centred, and nothing to read: a heading and a
-  sentence were both here once, and both asked a parent to take in a page they were already
-  leaving.
+  Fixed over the viewport rather than in the layout: the order is placed as the stage mounts and
+  the browser leaves immediately, and replacing the page for that second and a half read as the
+  site losing its place. The page stays put underneath and the mark sits in the middle of it.
+
+  Covering everything is also what stops the pay button behind being pressed a second time.
 */
 .ux-checkout-handover {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
   display: grid;
   place-items: center;
-  min-height: 46vh;
+  background: #130d29b8;
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
 }
 .ux-checkout-handover svg {
   color: var(--story-gold);

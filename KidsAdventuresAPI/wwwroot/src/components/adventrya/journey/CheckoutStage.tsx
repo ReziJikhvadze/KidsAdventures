@@ -224,28 +224,33 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
 
   const thumbPages = heroDemoPages(heroName, worldId).slice(0, 1);
 
-  if (handingOver) {
-    /*
-      A spinner and nothing else.
+  /*
+    Over the page, not instead of it.
 
-      It carried a heading and a line naming the bank. Both were wrong for the moment: this is
-      not a screen a parent reads, it is a second and a half between pressing and arriving, and
-      the page they arrive at introduces itself. Naming the bank here only invited them to
-      wonder whether they meant to go there.
+    This replaced the screen with a bare spinner, and swapping a whole page out for a second and
+    a half reads as the site losing its place — the parent watched what they were doing vanish
+    before anything took them anywhere. Laid over the top, the page they were on stays where it
+    was and the mark sits in the middle of it.
 
-      The label is for a screen reader, which cannot see that something is turning.
-    */
-    return (
-      <section className="journey-stage checkout-stage ux-checkout-handover">
-        <div role="status" aria-live="polite" aria-label={t.common.states.loading}>
-          <Loader2 className="checkout-spinner" aria-hidden="true" size={30} />
-        </div>
-      </section>
-    );
-  }
+    It covers the viewport, so the pay button behind it cannot be reached; `busy` had already
+    disabled it, and this means nobody has to rely on that being true.
+
+    The label is for a screen reader, which cannot see that something is turning.
+  */
+  const handoverOverlay = handingOver ? (
+    <div
+      className="ux-checkout-handover"
+      role="status"
+      aria-live="polite"
+      aria-label={t.common.states.loading}
+    >
+      <Loader2 className="checkout-spinner" aria-hidden="true" size={30} />
+    </div>
+  ) : null;
 
   return (
     <section className="journey-stage checkout-stage ux-checkout-stage">
+      {handoverOverlay}
       <div className="checkout-form">
         <p className="eyebrow">
           <Sparkles aria-hidden="true" /> {t.journey.checkout.secure}

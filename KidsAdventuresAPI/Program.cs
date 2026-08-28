@@ -176,4 +176,34 @@ static void LogConfiguredFlags(WebApplication application)
     application.Logger.LogInformation(
         "Config Bog:CallbackUrl = {Value}",
         string.IsNullOrWhiteSpace(callbackUrl) ? "<not set>" : callbackUrl);
+
+    /*
+      Where the bank sends a parent back to, and whether that address is allowed to talk to this
+      API. They have to agree, and nothing said either of them out loud.
+
+      Bog:SiteBaseUrl falls back to Stripe:SiteBaseUrl when it is blank — the same site, one
+      setting, on the reasoning that two copies of a URL is a trap. It was a trap anyway: the
+      Stripe value still read https://adventrya.com, so a parent who started on beki.ge paid,
+      came back to the old domain, and every call from that page was refused by CORS. The
+      payment was fine; the browser had simply been returned to a stranger.
+
+      Printed together so a mismatch is one line under the other rather than a support thread.
+    */
+    var siteBaseUrl = application.Configuration["Bog:SiteBaseUrl"];
+    var stripeBaseUrl = application.Configuration["Stripe:SiteBaseUrl"];
+    var effective = string.IsNullOrWhiteSpace(siteBaseUrl) ? stripeBaseUrl : siteBaseUrl;
+
+    application.Logger.LogInformation(
+        "Payment return address = {Effective} (Bog:SiteBaseUrl {BogState}, falling back to "
+        + "Stripe:SiteBaseUrl {StripeValue})",
+        string.IsNullOrWhiteSpace(effective) ? "<not set>" : effective,
+        string.IsNullOrWhiteSpace(siteBaseUrl) ? "<not set>" : $"\"{siteBaseUrl}\"",
+        string.IsNullOrWhiteSpace(stripeBaseUrl) ? "<not set>" : $"\"{stripeBaseUrl}\"");
+
+    var corsOrigins = application.Configuration
+        .GetSection("Cors:AllowedOrigins")
+        .Get<string[]>() ?? [];
+    application.Logger.LogInformation(
+        "Cors:AllowedOrigins = {Origins}",
+        corsOrigins.Length == 0 ? "<none>" : string.Join(", ", corsOrigins));
 }
