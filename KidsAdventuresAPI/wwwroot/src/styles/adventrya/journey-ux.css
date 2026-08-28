@@ -2405,26 +2405,16 @@
 /*
   The digital checkout, which is a moment rather than a screen.
 
-  The order is placed on mount and the browser leaves for the bank, so this is what stands in
-  for the second or two in between. Centred and alone: there is nothing to read, and a layout
-  with a summary beside it would be a page the parent is not being asked to do anything with.
+  The order is placed on mount and the browser leaves immediately, so this stands in for the
+  second or so in between. One turning mark, centred, and nothing to read: a heading and a
+  sentence were both here once, and both asked a parent to take in a page they were already
+  leaving.
 */
 .ux-checkout-handover {
   display: grid;
   place-items: center;
   min-height: 46vh;
-  text-align: center;
-}
-.ux-checkout-handover h1 {
-  margin: 16px 0 6px;
-  font-size: clamp(20px, 2.2vw, 26px);
-}
-.ux-checkout-handover p {
-  margin: 0;
-  color: #eae3ef9c;
-  font-size: 13px;
 }
 .ux-checkout-handover svg {
-  margin-inline: auto;
   color: var(--story-gold);
 }

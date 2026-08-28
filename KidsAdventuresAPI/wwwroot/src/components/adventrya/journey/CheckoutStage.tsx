@@ -225,12 +225,20 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const thumbPages = heroDemoPages(heroName, worldId).slice(0, 1);
 
   if (handingOver) {
+    /*
+      A spinner and nothing else.
+
+      It carried a heading and a line naming the bank. Both were wrong for the moment: this is
+      not a screen a parent reads, it is a second and a half between pressing and arriving, and
+      the page they arrive at introduces itself. Naming the bank here only invited them to
+      wonder whether they meant to go there.
+
+      The label is for a screen reader, which cannot see that something is turning.
+    */
     return (
       <section className="journey-stage checkout-stage ux-checkout-handover">
-        <div role="status" aria-live="polite">
-          <Loader2 className="checkout-spinner" aria-hidden="true" size={26} />
-          <h1>{t.journey.checkout.title}</h1>
-          <p>{t.journey.checkout.handingOver}</p>
+        <div role="status" aria-live="polite" aria-label={t.common.states.loading}>
+          <Loader2 className="checkout-spinner" aria-hidden="true" size={30} />
         </div>
       </section>
     );
