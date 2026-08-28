@@ -229,21 +229,6 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
         */}
 
         {/*
-          The one special wish. It used to sit on the world picker, where the only question being
-          asked was which of six places — a free-text box about the story, next to a map. It is a
-          question about the story, so it belongs with the other things we ask about the child.
-        */}
-        <label className="ux-wish-field">
-          <span>{t.journey.firstMap.wishLabel}</span>
-          <input
-            value={draft.storyNotes}
-            placeholder={t.journey.firstMap.wishPlaceholder}
-            onChange={(e) => onChange({ storyNotes: e.target.value })}
-          />
-          <small>{t.journey.firstMap.wishHint}</small>
-        </label>
-
-        {/*
           What is missing is said in the middle of the screen, not in a red line under the form.
 
           The line lived between the last field and the closing row, which is the one part of this

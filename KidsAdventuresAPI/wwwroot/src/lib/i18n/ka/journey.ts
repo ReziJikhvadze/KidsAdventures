@@ -137,10 +137,6 @@ export const journey = {
     liveCaption: "ეს სამყარო შენს შეხებაზე გაცოცხლდა",
     panCue: " აირჩიე, სად წავიდეთ შემდეგ ",
     storyStarts: "ყველაფერი აქ იწყება",
-    wishLabel: "ერთი განსაკუთრებული სურვილი · არასავალდებულო",
-    wishPlaceholder: "მაგ. საყვარელი სათამაშო, განსაკუთრებული მეგობარი...",
-    wishHint:
-      "მაგალითად: საყვარელი სათამაშო, კონკრეტული მიზანი ან დეტალი, რომელიც გინდა ისტორიაში გამოჩნდეს.",
     /* The world is chosen first now, so this leads to the child's details, not to the preview. */
     continue: "გავიცნოთ პატარა გმირი",
     /* Beki says one short line at a time. A child is listening, not reading. */

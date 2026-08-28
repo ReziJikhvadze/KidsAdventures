@@ -125,10 +125,6 @@ export const journey = {
     liveCaption: "Your touch brought this world to life",
     panCue: " Choose where to go next ",
     storyStarts: "It all begins here",
-    wishLabel: "One special wish · optional",
-    wishPlaceholder: "e.g. a favourite toy, a special friend…",
-    wishHint:
-      "For example: a favourite toy, a particular goal, or a detail you would like to see in the story.",
     /* The world is chosen first now, so this leads to the child's details, not to the preview. */
     continue: "Meet the little hero",
     continueTo: (place: string) => `Let's go to ${place}!`,

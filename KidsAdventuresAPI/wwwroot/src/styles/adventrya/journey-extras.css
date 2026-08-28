@@ -727,13 +727,6 @@
     fill whatever it is given. So the last few pixels come from here: the closing lines, which are
     the ones that were falling off the bottom.
   */
-  .ux-wish-field small {
-    font-size: 10.5px;
-    line-height: 1.4;
-  }
-  .ux-wish-field input {
-    min-height: 38px;
-  }
   .ux-form-actions {
     margin-top: clamp(6px, 1vh, 12px);
   }
@@ -749,9 +742,6 @@
   }
   .ux-form-intro {
     margin-bottom: clamp(8px, 1.4vh, 18px);
-  }
-  .ux-wish-field {
-    gap: clamp(3px, 0.6vh, 7px);
   }
   .ux-preview-heading {
     margin-bottom: clamp(12px, 2vh, 20px);
