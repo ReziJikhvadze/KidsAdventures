@@ -39,6 +39,18 @@ public interface IOrderService
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// BOG's callback. Takes the raw bytes because the signature is over exactly what was
+    /// posted, and re-serializing a parsed body would not reproduce them.
+    ///
+    /// Returns false only when the signature fails, so the endpoint can answer 400: BOG
+    /// redelivers on 5xx, and redelivering a forged payload achieves nothing.
+    /// </summary>
+    Task<bool> HandleBogWebhookAsync(
+        byte[] payload,
+        string? signature,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Retries fulfilment for orders that were paid but never produced a book, so a crash
     /// between the two does not leave a parent charged and empty-handed. Run on a schedule.
     /// </summary>

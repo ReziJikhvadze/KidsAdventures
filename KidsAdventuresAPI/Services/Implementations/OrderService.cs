@@ -20,13 +20,17 @@ namespace AdventurePacks.Api.Services.Implementations;
 ///
 /// 1. The server prices everything. The client sends a package and a promo code, never an
 ///    amount, so a tampered request cannot buy a 79 GEL book for 1 tetri.
-/// 2. Fulfilment is idempotent at the database, not in application logic. Stripe delivers
-///    <c>checkout.session.completed</c> more than once, the success page confirms in
-///    parallel, and the sweeper retries: all three funnel through
+/// 2. Fulfilment is idempotent at the database, not in application logic. A gateway
+///    delivers its "paid" callback more than once, the success page confirms in parallel,
+///    and the sweeper retries: all three funnel through
 ///    <see cref="IOrderRepository.TryMarkPaidAsync"/>, and only the first writer proceeds.
-/// 3. A zero-total order never touches Stripe. A GIFT100 code has nothing to collect, and
-///    routing 0 GEL through a payment provider fails in ways that are hard to explain to
-///    a parent.
+/// 3. A zero-total order never touches a gateway at all. A GIFT100 code has nothing to
+///    collect, and routing 0 GEL through a payment provider fails in ways that are hard to
+///    explain to a parent.
+///
+/// Two gateways are wired in — BOG for Georgia, Stripe behind it. Which one a given order
+/// used is recorded on the order rather than read from configuration, so flipping the switch
+/// does not orphan the payments the other one is still holding.
 /// </summary>
 public sealed class OrderService(
     IOrderRepository orderRepository,
@@ -39,7 +43,9 @@ public sealed class OrderService(
     IUserRepository userRepository,
     IAdminNotifier adminNotifier,
     IBackgroundJobClient backgroundJobClient,
+    IBogPaymentClient bogClient,
     IOptions<StripeOptions> stripeOptions,
+    IOptions<BogOptions> bogOptions,
     ILogger<OrderService> logger) : IOrderService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -51,6 +57,14 @@ public sealed class OrderService(
     private static readonly TimeSpan StalledAfter = TimeSpan.FromMinutes(5);
 
     private readonly StripeOptions _stripe = stripeOptions.Value;
+    private readonly BogOptions _bog = bogOptions.Value;
+
+    /// <summary>
+    /// Which gateway a new paid order goes to. BOG wins when it is switched on; Stripe is
+    /// what remains behind it, and either way the choice is written onto the order so the
+    /// webhook, the confirm poll and the sweeper all agree on who holds the money.
+    /// </summary>
+    private string PaymentProvider => _bog.Enabled ? OrderProviders.Bog : OrderProviders.Stripe;
 
     public async Task<QuoteResponse> QuoteAsync(
         Guid userId,
@@ -100,7 +114,7 @@ public sealed class OrderService(
             TotalMinor = priced.TotalMinor,
             PromoCodeId = priced.Promo?.Id,
             Status = OrderStatus.Pending,
-            Provider = priced.IsFree ? OrderProviders.Promo : OrderProviders.Stripe,
+            Provider = priced.IsFree ? OrderProviders.Promo : PaymentProvider,
             DraftJson = JsonSerializer.Serialize(draft, JsonOptions),
             ShippingJson = Serialize(shipping),
             CreatedAt = DateTime.UtcNow
@@ -145,7 +159,7 @@ public sealed class OrderService(
             TotalMinor = priced.TotalMinor,
             PromoCodeId = priced.Promo?.Id,
             Status = OrderStatus.Pending,
-            Provider = priced.IsFree ? OrderProviders.Promo : OrderProviders.Stripe,
+            Provider = priced.IsFree ? OrderProviders.Promo : PaymentProvider,
             ShippingJson = Serialize(shipping),
             CreatedAt = DateTime.UtcNow
         };
@@ -196,10 +210,29 @@ public sealed class OrderService(
 
         if (order.Status == OrderStatus.Pending && order.ProviderSessionId is { } sessionId)
         {
-            var session = await RetrieveSessionAsync(sessionId, cancellationToken);
-            if (session is not null && IsSessionPaid(session))
+            if (IsBog(order))
             {
-                await ApplyPaymentAsync(order, session.PaymentIntentId, cancellationToken);
+                var details = await bogClient.GetPaymentDetailsAsync(sessionId, cancellationToken);
+                if (details is { IsPaid: true })
+                {
+                    await ApplyPaymentAsync(order, details.TransactionId, cancellationToken);
+                }
+                else if (details is { IsFailed: true })
+                {
+                    // A declined card comes back through the fail URL, and the receipt says so
+                    // outright. Without this the order stays Pending and the generating screen
+                    // polls forever, which reads to a parent as "it is still working".
+                    await orderRepository.MarkFailedAsync(
+                        order.Id, "გადახდა არ დასრულდა ან ვადა გაუვიდა.", cancellationToken);
+                }
+            }
+            else
+            {
+                var session = await RetrieveSessionAsync(sessionId, cancellationToken);
+                if (session is not null && IsSessionPaid(session))
+                {
+                    await ApplyPaymentAsync(order, session.PaymentIntentId, cancellationToken);
+                }
             }
         }
 
@@ -248,6 +281,127 @@ public sealed class OrderService(
                 logger.LogDebug("Ignoring Stripe event {EventType}.", stripeEvent.Type);
                 break;
         }
+    }
+
+    public async Task<bool> HandleBogWebhookAsync(
+        byte[] payload,
+        string? signature,
+        CancellationToken cancellationToken)
+    {
+        // Deliberately not gated on _bog.Enabled. That switch decides where the *next* order
+        // goes; an order already at the payment page when it is flipped still gets paid, and
+        // BOG does not redeliver after a 200 — acknowledging that callback without acting on
+        // it would leave a parent charged with no book and nothing to retry it.
+        //
+        // The signature is the only thing separating this endpoint from a forged "payment
+        // succeeded", so a callback that fails it is refused before anything is parsed. The
+        // key is pinned in code, so this check needs no configuration to be sound.
+        if (_bog.VerifyCallbackSignature && !bogClient.VerifyCallbackSignature(payload, signature))
+        {
+            logger.LogWarning("Rejected a BOG callback: the signature did not verify.");
+            return false;
+        }
+
+        BogPaymentDetails? details;
+        try
+        {
+            using var document = JsonDocument.Parse(payload);
+            var root = document.RootElement;
+
+            // The payment sits under "body"; other event types are not ours to act on.
+            if (!root.TryGetProperty("body", out var body))
+            {
+                logger.LogDebug("Ignoring a BOG callback with no body.");
+                return true;
+            }
+
+            details = BogPaymentClient.ParseDetails(body);
+        }
+        catch (JsonException ex)
+        {
+            // Malformed and correctly signed should not happen; retrying it forever would
+            // achieve nothing, so it is accepted and logged rather than left to redeliver.
+            logger.LogWarning(ex, "A BOG callback carried unreadable JSON.");
+            return true;
+        }
+
+        if (details is null)
+        {
+            logger.LogWarning("A BOG callback carried no order id.");
+            return true;
+        }
+
+        var order = await ResolveBogOrderAsync(details, cancellationToken);
+        if (order is null)
+        {
+            logger.LogWarning("No order matched BOG order {BogOrderId}.", details.BogOrderId);
+            return true;
+        }
+
+        // Whose payment this is, is a property of the order, not of today's configuration.
+        if (!IsBog(order))
+        {
+            logger.LogWarning(
+                "A BOG callback named order {OrderId}, which was taken by {Provider}; ignoring.",
+                order.Id, order.Provider);
+            return true;
+        }
+
+        if (details.IsPaid)
+        {
+            await ApplyPaymentAsync(order, details.TransactionId, cancellationToken);
+        }
+        else if (details.IsFailed && !order.IsPaid)
+        {
+            await orderRepository.MarkFailedAsync(
+                order.Id, "გადახდა არ დასრულდა ან ვადა გაუვიდა.", cancellationToken);
+        }
+        else
+        {
+            logger.LogInformation(
+                "BOG order {BogOrderId} reported status {Status}; nothing to do.",
+                details.BogOrderId, details.StatusKey);
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Our own id first, the gateway's second — same order of preference as the Stripe path,
+    /// and for the same reason: <c>external_order_id</c> is the one field we control.
+    /// </summary>
+    private async Task<Order?> ResolveBogOrderAsync(
+        BogPaymentDetails details,
+        CancellationToken cancellationToken)
+    {
+        if (details.OrderId is { } orderId)
+        {
+            var order = await orderRepository.GetByIdAsync(orderId, cancellationToken);
+
+            // The callback must be about the payment this order actually started. Without
+            // this, a signed callback for a 14 GEL order could be pointed at a 79 GEL one by
+            // its external id alone.
+            //
+            // A null session id is not a mismatch: it means the callback outran the write
+            // that records it, and refusing that would lose a real payment.
+            if (order is not null &&
+                (order.ProviderSessionId is null ||
+                 string.Equals(order.ProviderSessionId, details.BogOrderId, StringComparison.Ordinal)))
+            {
+                return order;
+            }
+
+            if (order is not null)
+            {
+                logger.LogWarning(
+                    "BOG callback for order {OrderId} names payment {BogOrderId}, but the order holds "
+                    + "{HeldSessionId}; ignoring.",
+                    order.Id, details.BogOrderId, order.ProviderSessionId);
+                return null;
+            }
+        }
+
+        return await orderRepository.GetByProviderSessionIdAsync(details.BogOrderId, cancellationToken);
     }
 
     public async Task RetryStalledFulfilmentAsync()
@@ -345,6 +499,11 @@ public sealed class OrderService(
             };
         }
 
+        if (IsBog(order))
+        {
+            return await StartBogCheckoutAsync(order, returnPath, lineDescription, cancellationToken);
+        }
+
         if (!_stripe.Enabled || string.IsNullOrWhiteSpace(_stripe.SecretKey))
         {
             await orderRepository.MarkFailedAsync(order.Id, "Stripe is not configured.", cancellationToken);
@@ -366,6 +525,47 @@ public sealed class OrderService(
         };
     }
 
+    private async Task<CheckoutResponse> StartBogCheckoutAsync(
+        Order order,
+        string? returnPath,
+        string lineDescription,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(_bog.ClientId) || string.IsNullOrWhiteSpace(_bog.SecretKey))
+        {
+            await orderRepository.MarkFailedAsync(order.Id, "BOG is not configured.", cancellationToken);
+            throw new InvalidOperationException("გადახდის სისტემა დროებით მიუწვდომელია. სცადე მოგვიანებით.");
+        }
+
+        var user = await userRepository.GetByIdAsync(order.UserId, cancellationToken);
+
+        var checkout = await bogClient.CreateOrderAsync(
+            new BogOrderRequest(
+                order.Id,
+                order.TotalMinor,
+                order.Currency,
+                lineDescription,
+                // BOG returns the parent to a plain URL — there is no session placeholder to
+                // substitute, so the order id in the query is the whole of what comes back.
+                BuildReturnUrl(BogSiteBaseUrl, _bog.SuccessPath, returnPath, order.Id, includeSessionId: false),
+                BuildReturnUrl(BogSiteBaseUrl, _bog.CancelPath, returnPath, order.Id, includeSessionId: false),
+                user?.Email),
+            cancellationToken);
+
+        await orderRepository.AttachProviderSessionAsync(order.Id, checkout.BogOrderId, cancellationToken);
+
+        return new CheckoutResponse
+        {
+            OrderId = order.Id,
+            TotalMinor = order.TotalMinor,
+            Currency = order.Currency,
+            IsFree = false,
+            CheckoutUrl = checkout.RedirectUrl,
+            ProviderSessionId = checkout.BogOrderId,
+            BookId = order.BookId
+        };
+    }
+
     private async Task<Session> CreateStripeSessionAsync(
         Order order,
         string? returnPath,
@@ -379,8 +579,8 @@ public sealed class OrderService(
         var options = new SessionCreateOptions
         {
             Mode = "payment",
-            SuccessUrl = BuildReturnUrl(_stripe.SuccessPath, returnPath, order.Id, includeSessionId: true),
-            CancelUrl = BuildReturnUrl(_stripe.CancelPath, returnPath, order.Id, includeSessionId: false),
+            SuccessUrl = BuildReturnUrl(_stripe.SiteBaseUrl, _stripe.SuccessPath, returnPath, order.Id, includeSessionId: true),
+            CancelUrl = BuildReturnUrl(_stripe.SiteBaseUrl, _stripe.CancelPath, returnPath, order.Id, includeSessionId: false),
             ClientReferenceId = order.Id.ToString(),
             ExpiresAt = DateTime.UtcNow.AddMinutes(Math.Max(30, _stripe.SessionExpiryMinutes)),
             Locale = "auto",
@@ -689,13 +889,29 @@ public sealed class OrderService(
         }
     }
 
+    private static bool IsBog(Order order) =>
+        string.Equals(order.Provider, OrderProviders.Bog, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Falls back to the Stripe setting because it is the same site: two copies of one URL
+    /// is a configuration trap, and the one that goes stale is the one nobody is watching.
+    /// </summary>
+    private string BogSiteBaseUrl => string.IsNullOrWhiteSpace(_bog.SiteBaseUrl)
+        ? _stripe.SiteBaseUrl
+        : _bog.SiteBaseUrl;
+
     private static bool IsSessionPaid(Session session) =>
         string.Equals(session.PaymentStatus, "paid", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(session.PaymentStatus, "no_payment_required", StringComparison.OrdinalIgnoreCase);
 
-    private string BuildReturnUrl(string path, string? returnPath, Guid orderId, bool includeSessionId)
+    private static string BuildReturnUrl(
+        string siteBaseUrl,
+        string path,
+        string? returnPath,
+        Guid orderId,
+        bool includeSessionId)
     {
-        var baseUrl = (_stripe.SiteBaseUrl ?? string.Empty).TrimEnd('/');
+        var baseUrl = (siteBaseUrl ?? string.Empty).TrimEnd('/');
         if (baseUrl.Length == 0)
         {
             throw new InvalidOperationException("გადახდის დაბრუნების მისამართი არ არის კონფიგურირებული.");

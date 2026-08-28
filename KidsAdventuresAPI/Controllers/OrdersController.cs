@@ -106,4 +106,24 @@ public sealed class PaymentWebhooksController(
             return BadRequest();
         }
     }
+
+    /// <summary>
+    /// BOG's callback. Anonymous for the same reason as Stripe's: the Callback-Signature
+    /// header, not a session, is what authenticates it.
+    ///
+    /// The body is read as bytes rather than a string because the signature covers exactly
+    /// the bytes BOG sent.
+    /// </summary>
+    [HttpPost("bog/webhook")]
+    public async Task<IActionResult> Bog(CancellationToken cancellationToken)
+    {
+        using var buffer = new MemoryStream();
+        await Request.Body.CopyToAsync(buffer, cancellationToken);
+
+        var signature = Request.Headers["Callback-Signature"].ToString();
+        var accepted = await orderService.HandleBogWebhookAsync(
+            buffer.ToArray(), signature, cancellationToken);
+
+        return accepted ? Ok() : BadRequest();
+    }
 }

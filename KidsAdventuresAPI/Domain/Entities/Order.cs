@@ -23,7 +23,11 @@ public sealed class Order
     public Guid? PromoCodeId { get; set; }
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
 
-    /// <summary>"Stripe", or "Promo" when a full-discount code skipped the provider entirely.</summary>
+    /// <summary>
+    /// "Bog" or "Stripe", or "Promo" when a full-discount code skipped the provider
+    /// entirely. Recorded per order rather than read from configuration, so switching
+    /// gateways does not strand the orders the previous one is still holding.
+    /// </summary>
     public string Provider { get; set; } = OrderProviders.Stripe;
 
     public string? ProviderSessionId { get; set; }
@@ -55,6 +59,9 @@ public sealed class Order
 public static class OrderProviders
 {
     public const string Stripe = "Stripe";
+
+    /// <summary>Bank of Georgia's e-commerce gateway.</summary>
+    public const string Bog = "Bog";
 
     /// <summary>Used when a full-discount promo brought the total to zero.</summary>
     public const string Promo = "Promo";

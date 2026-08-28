@@ -72,6 +72,7 @@ public static class ServiceCollectionExtensions
         });
         services.Configure<LocalBlobOptions>(configuration.GetSection(LocalBlobOptions.SectionName));
         services.Configure<StripeOptions>(configuration.GetSection(StripeOptions.SectionName));
+        services.Configure<BogOptions>(configuration.GetSection(BogOptions.SectionName));
         services.Configure<CorsOptions>(configuration.GetSection(CorsOptions.SectionName));
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
@@ -193,6 +194,11 @@ public static class ServiceCollectionExtensions
             client.Timeout = TimeSpan.FromMinutes(6);
         });
 
+        // A parent is waiting on the redirect while this call is out, so the gateway gets
+        // half a minute rather than the default hundred seconds to answer.
+        services.AddHttpClient(BogPaymentClient.HttpClientName, client =>
+            client.Timeout = TimeSpan.FromSeconds(30));
+
         var permitLimit = configuration.GetValue("RateLimiting:PermitLimitPerMinute", 500);
         var disableForLocalhost = configuration.GetValue("RateLimiting:DisableForLocalhost", true);
 
@@ -277,6 +283,10 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserAddressRepository, UserAddressRepository>();
 
         services.AddScoped<IPromoCodeService, PromoCodeService>();
+
+        // Singleton so BOG's short-lived access token is fetched once every few minutes
+        // rather than once per checkout; it holds no per-request state.
+        services.AddSingleton<IBogPaymentClient, BogPaymentClient>();
         services.AddScoped<IOrderService, OrderService>();
         services.AddScoped<IBookFulfillmentService, BookFulfillmentService>();
         services.AddScoped<IPrintOrderService, PrintOrderService>();
