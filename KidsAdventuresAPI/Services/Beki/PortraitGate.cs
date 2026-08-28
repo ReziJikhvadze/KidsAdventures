@@ -14,13 +14,16 @@ public static class PortraitGateReasons
 {
     public const string Ok = "ok";
 
-    // Returned by the model, one per refusal.
+    /// <summary>
+    /// The only refusal the model can return. The gate asks one question — is a person in this
+    /// picture — so "no person" is the only answer it can give that means no.
+    ///
+    /// It used to also return no_face, multiple_people, face_obscured, face_too_small and
+    /// too_dark. Every one of those refused a photograph of a real child over how it was taken,
+    /// which is a quality bar this product does not want: a parent turned away at the form never
+    /// comes back, while a badly lit photo merely makes a slightly less accurate book.
+    /// </summary>
     public const string NotAPerson = "not_a_person";
-    public const string NoFace = "no_face";
-    public const string MultiplePeople = "multiple_people";
-    public const string FaceObscured = "face_obscured";
-    public const string FaceTooSmall = "face_too_small";
-    public const string TooDark = "too_dark";
 
     // Decided here rather than by the model.
     public const string Unsuitable = "unsuitable";
@@ -30,21 +33,15 @@ public static class PortraitGateReasons
 
     private static readonly Dictionary<string, string> Messages = new(StringComparer.OrdinalIgnoreCase)
     {
-        [NotAPerson] = "ეს ბავშვის ფოტო არ არის — ატვირთე სურათი, სადაც ბავშვის სახე ჩანს.",
-        [NoFace] = "სახე არ ჩანს — ატვირთე ფოტო, სადაც ბავშვი კამერას უყურებს.",
-        [MultiplePeople] = "ფოტოზე რამდენიმე ადამიანია — ატვირთე სურათი მხოლოდ ერთი ბავშვით.",
-        [FaceObscured] = "სახე დაფარული ან ბუნდოვანია — ატვირთე მკაფიო ფოტო სათვალის ან ნიღბის გარეშე.",
-        [FaceTooSmall] = "ბავშვი ძალიან შორსაა — ატვირთე ფოტო, სადაც სახე კადრს ავსებს.",
-        [TooDark] = "ფოტო ძალიან ბნელია — ატვირთე კარგად განათებული სურათი.",
-        [Unsuitable] = "ეს ფოტო არ გამოდგება — ატვირთე მკაფიო პორტრეტი, სადაც ბავშვის სახე კარგად ჩანს.",
+        [NotAPerson] = "ფოტოზე ადამიანი ვერ ვნახეთ — ატვირთე სურათი, სადაც ბავშვი ჩანს.",
+        [Unsuitable] = "ეს ფოტო არ გამოდგება — ატვირთე სურათი, სადაც ბავშვი ჩანს.",
         [Unreadable] = "ფაილი ვერ წავიკითხეთ — ატვირთე JPG, PNG ან WEBP ფოტო.",
         [TooLarge] = "ფოტო ძალიან დიდია — აირჩიე უფრო პატარა სურათი.",
         [Unavailable] = "ფოტოს შემოწმება ვერ მოხერხდა — სცადე ხელახლა ატვირთვა.",
     };
 
     /// <summary>True for a code the model is allowed to return as a refusal.</summary>
-    public static bool IsModelReason(string? reason) =>
-        reason is NotAPerson or NoFace or MultiplePeople or FaceObscured or FaceTooSmall or TooDark;
+    public static bool IsModelReason(string? reason) => reason is NotAPerson;
 
     public static string MessageFor(string reason) =>
         Messages.TryGetValue(reason, out var message) ? message : Messages[Unsuitable];
@@ -74,7 +71,7 @@ public interface IPortraitGate
 }
 
 /// <summary>
-/// Asks the vision model one question about a chosen photo: is this a real person's face?
+/// Asks the vision model one question about a chosen photo: is there a real person in it?
 ///
 /// It exists because nothing else in the pipeline ever asks. The identity analyzer is handed the
 /// photo and told to extract a face from it, so shown a bottle it dutifully describes a bottle,

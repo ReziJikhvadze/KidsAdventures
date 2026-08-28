@@ -50,23 +50,19 @@ export const journey = {
     photoHint: "Whole face visible · good lighting · no sunglasses",
     photoUpload: "Upload a photo",
     photoReplace: "Change the photo",
+    // Advice, not a rule: the check itself only asks whether a person is in the photo, so this
+    // must not say "won't work" about a picture the form will happily accept.
     photoGuide: {
-      title: "What makes a usable photo",
-      goodLabel: "Works",
+      title: "What makes the best likeness",
+      goodLabel: "Better",
       goodReason: "The face fills the frame, lit from the front, looking at the camera.",
-      badLabel: "Won't work",
-      badReason: "Too far away, too dark, and the face is turned away.",
+      badLabel: "Still fine",
+      badReason: "Far away, dark, face turned — the book still works, it just looks less like them.",
     },
     photoChecking: "Preparing the photo…",
     photoRejected: {
-      not_a_person: "That isn't a photo of a child — upload one showing the child's face.",
-      no_face: "No face visible — upload a photo where the child is looking at the camera.",
-      multiple_people: "There are several people in this photo — upload one with a single child.",
-      face_obscured:
-        "The face is covered or blurred — upload a clear photo without sunglasses or a mask.",
-      face_too_small: "The child is too far away — upload a photo where the face fills the frame.",
-      too_dark: "This photo is too dark — upload a well-lit one.",
-      unsuitable: "This photo won't work — upload a clear portrait showing the child's face.",
+      not_a_person: "We couldn't find a person in that image — upload a photo with the child in it.",
+      unsuitable: "This photo won't work — upload one with the child in it.",
       unreadable: "We couldn't read that file — upload a JPG, PNG or WEBP photo.",
       too_large: "That photo is too large — please choose a smaller one.",
       unavailable: "We couldn't check the photo — please try uploading it again.",

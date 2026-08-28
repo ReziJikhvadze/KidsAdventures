@@ -7,11 +7,6 @@ import { apiRequest } from "./client";
  */
 export type PortraitRejection =
   | "not_a_person"
-  | "no_face"
-  | "multiple_people"
-  | "face_obscured"
-  | "face_too_small"
-  | "too_dark"
   | "unsuitable"
   | "unreadable"
   | "too_large"
@@ -26,11 +21,6 @@ type PortraitCheckResponse = {
 
 const REJECTIONS: readonly string[] = [
   "not_a_person",
-  "no_face",
-  "multiple_people",
-  "face_obscured",
-  "face_too_small",
-  "too_dark",
   "unsuitable",
   "unreadable",
   "too_large",

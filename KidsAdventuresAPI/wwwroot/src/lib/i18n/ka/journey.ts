@@ -45,12 +45,14 @@ export const journey = {
     photoUpload: "ფოტოს ატვირთვა",
     photoReplace: "შეცვალე ფოტო",
     /* The two examples. A parent sees what is wanted before choosing, not after being refused. */
+    // Advice, not a rule: the check itself only asks whether a person is in the photo, so this
+    // must not say "won't work" about a picture the form will happily accept.
     photoGuide: {
-      title: "როგორი ფოტო გამოდგება",
-      goodLabel: "გამოდგება",
+      title: "როგორი ფოტო მოგცემს საუკეთესო შედეგს",
+      goodLabel: "ასეთი სჯობს",
       goodReason: "სახე კადრს ავსებს, წინიდან განათებულია და კამერას უყურებს.",
-      badLabel: "არ გამოდგება",
-      badReason: "შორია, ბნელია და სახე გვერდზეა მიბრუნებული.",
+      badLabel: "ასეთიც გამოდგება",
+      badReason: "შორია, ბნელია და სახე გვერდზეა — წიგნიც გამოვა, ოღონდ ნაკლებად მსგავსი.",
     },
     photoChecking: "ფოტო მზადდება…",
     /*
@@ -58,13 +60,8 @@ export const journey = {
       "This photo will not do" sends a parent back to the picker with nothing to change.
     */
     photoRejected: {
-      not_a_person: "ეს ბავშვის ფოტო არ არის — ატვირთე სურათი, სადაც ბავშვის სახე ჩანს.",
-      no_face: "სახე არ ჩანს — ატვირთე ფოტო, სადაც ბავშვი კამერას უყურებს.",
-      multiple_people: "ფოტოზე რამდენიმე ადამიანია — ატვირთე სურათი მხოლოდ ერთი ბავშვით.",
-      face_obscured: "სახე დაფარული ან ბუნდოვანია — ატვირთე მკაფიო ფოტო სათვალის ან ნიღბის გარეშე.",
-      face_too_small: "ბავშვი ძალიან შორსაა — ატვირთე ფოტო, სადაც სახე კადრს ავსებს.",
-      too_dark: "ფოტო ძალიან ბნელია — ატვირთე კარგად განათებული სურათი.",
-      unsuitable: "ეს ფოტო არ გამოდგება — ატვირთე მკაფიო პორტრეტი, სადაც ბავშვის სახე კარგად ჩანს.",
+      not_a_person: "ფოტოზე ადამიანი ვერ ვნახეთ — ატვირთე სურათი, სადაც ბავშვი ჩანს.",
+      unsuitable: "ეს ფოტო არ გამოდგება — ატვირთე სურათი, სადაც ბავშვი ჩანს.",
       unreadable: "ფაილი ვერ წავიკითხეთ — ატვირთე JPG, PNG ან WEBP ფოტო.",
       too_large: "ფოტო ძალიან დიდია — აირჩიე უფრო პატარა სურათი.",
       unavailable: "ფოტოს შემოწმება ვერ მოხერხდა — სცადე ხელახლა ატვირთვა.",

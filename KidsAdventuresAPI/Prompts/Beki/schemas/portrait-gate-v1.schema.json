@@ -8,12 +8,12 @@
   "properties": {
     "accepted": {
       "type": "boolean",
-      "description": "True unless the photo plainly contains no usable person at all."
+      "description": "True whenever a photographed person is present in the image."
     },
     "reason": {
       "type": "string",
-      "description": "One code. 'ok' when accepted; otherwise the single best reason for the refusal.",
-      "enum": ["ok", "not_a_person", "no_face", "too_dark"]
+      "description": "One code. 'ok' when accepted; 'not_a_person' when the image contains no photographed person.",
+      "enum": ["ok", "not_a_person"]
     },
     "explanation": {
       "type": "string",

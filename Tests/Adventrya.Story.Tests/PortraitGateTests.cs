@@ -24,25 +24,39 @@ public class PortraitGateTests
         Assert.Equal(PortraitGateReasons.Ok, verdict.Reason);
     }
 
-    [Theory]
-    [InlineData(PortraitGateReasons.NotAPerson)]
-    [InlineData(PortraitGateReasons.NoFace)]
-    [InlineData(PortraitGateReasons.MultiplePeople)]
-    [InlineData(PortraitGateReasons.FaceObscured)]
-    [InlineData(PortraitGateReasons.FaceTooSmall)]
-    [InlineData(PortraitGateReasons.TooDark)]
-    public void A_refusal_keeps_its_reason_and_carries_wording(string reason)
+    [Fact]
+    public void The_one_refusal_keeps_its_reason_and_carries_wording()
     {
+        var verdict = PortraitGate.Interpret(
+            new PortraitGateResponse { Accepted = false, Reason = PortraitGateReasons.NotAPerson },
+            NullLogger.Instance);
+
+        Assert.False(verdict.Accepted);
+        Assert.Equal(PortraitGateReasons.NotAPerson, verdict.Reason);
+
+        // The only code the model may return has to have copy, or a parent is refused in silence.
+        Assert.False(string.IsNullOrWhiteSpace(verdict.Message));
+        Assert.NotEqual(PortraitGateReasons.MessageFor(PortraitGateReasons.Unsuitable), verdict.Message);
+    }
+
+    [Theory]
+    [InlineData("no_face")]
+    [InlineData("multiple_people")]
+    [InlineData("face_obscured")]
+    [InlineData("face_too_small")]
+    [InlineData("too_dark")]
+    public void A_retired_quality_code_no_longer_refuses_in_its_own_words(string reason)
+    {
+        // These are the codes the gate used to return — it now asks only whether a person is in
+        // the picture. The prompt ships with the app, so the two move together; this pins what
+        // happens if they ever do not. It degrades to the generic refusal rather than passing,
+        // because an answer we no longer understand is not evidence the photo is fine.
         var verdict = PortraitGate.Interpret(
             new PortraitGateResponse { Accepted = false, Reason = reason },
             NullLogger.Instance);
 
         Assert.False(verdict.Accepted);
-        Assert.Equal(reason, verdict.Reason);
-
-        // Every code the model may return has to have copy, or a parent is refused in silence.
-        Assert.False(string.IsNullOrWhiteSpace(verdict.Message));
-        Assert.NotEqual(PortraitGateReasons.MessageFor(PortraitGateReasons.Unsuitable), verdict.Message);
+        Assert.Equal(PortraitGateReasons.Unsuitable, verdict.Reason);
     }
 
     [Fact]
