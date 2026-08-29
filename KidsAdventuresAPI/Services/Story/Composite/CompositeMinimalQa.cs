@@ -1,0 +1,461 @@
+using System.Text.Json;
+using AdventurePacks.Api.Infrastructure;
+using AdventurePacks.Api.Services.Story.Composite.Poses;
+using Json.Schema;
+using SixLabors.ImageSharp;
+
+namespace AdventurePacks.Api.Services.Story.Composite;
+
+/// <summary>
+/// The checks a machine can make about a finished page, made before a model is asked anything.
+///
+/// The order is the handoff's (§6 Step 7) and it is an economic argument as much as a correctness
+/// one: a reviewer call costs money and seconds, and every fault below is one it could only guess
+/// at from pixels. A pose file that is not the approved one, a Beki whose box leaves the canvas, an
+/// image that will not decode — all of them are already knowable, and asking a vision model to
+/// infer a SHA-256 from a picture is the sort of thing that quietly passes.
+/// </summary>
+public static class CompositeDeterministicChecks
+{
+    /// <summary>The printed spread's shape. Everything is normalized to it before layout.</summary>
+    public const double TargetAspect = 15.0 / 7.0;
+
+    /// <summary>
+    /// How much of a rendered image a centre-crop to 15:7 may throw away.
+    ///
+    /// The handoff permits "a tiny centered crop … to normalize to 15:7" and forbids stretching,
+    /// which is a rule about the crop and not about the source shape — any image can be centre
+    /// cropped to any ratio, so what has to be bounded is the amount discarded. Half, because the
+    /// widest frame today's image providers actually offer is 3:2, and normalizing 3:2 to 15:7
+    /// discards 30% of the height. A tighter bound would fail every image this pipeline can
+    /// currently generate; a looser one would let a portrait render through and print a spread
+    /// assembled from a third of a picture.
+    /// </summary>
+    public const double MaxNormalizationCropFraction = 0.5;
+
+    /// <summary>
+    /// Why a generated base image cannot be used, in the words a log needs. Empty means usable.
+    ///
+    /// A full decode, for the reason the photograph boundary is a full decode: a header is not a
+    /// file. A truncated response keeps its header and reports the right dimensions, so a check
+    /// that only read the header passed the bytes along — and the pipeline then failed several
+    /// steps later, inside the normalization crop or the compositor, as an ImageSharp exception
+    /// about a corrupt stream rather than as <see cref="CompositeFailureCodes.ImageGenerationFailed"/>
+    /// naming the page. The whole point of a deterministic check is to be the place that says so.
+    /// </summary>
+    public static IReadOnlyList<string> BaseImageProblems(byte[]? png)
+    {
+        if (png is null || png.Length == 0)
+        {
+            return ["the image call returned no bytes."];
+        }
+
+        int width;
+        int height;
+
+        try
+        {
+            // Load, not Identify: the pixels are the question. A refusal, an error page and a
+            // half-transferred picture all arrive as bytes with a plausible start.
+            using var image = Image.Load(png);
+            width = image.Width;
+            height = image.Height;
+        }
+        catch (Exception ex)
+        {
+            // The type rather than the message: a decoder message can carry a file path.
+            return [$"the generated image could not be decoded: {ex.GetType().Name}."];
+        }
+
+        if (width <= 0 || height <= 0)
+        {
+            return [$"the generated image decoded to {width}x{height}, which has no pixels."];
+        }
+
+        var crop = NormalizationCropFraction(width, height);
+        if (crop > MaxNormalizationCropFraction)
+        {
+            return
+            [
+                $"normalizing {width}x{height} to 15:7 would discard "
+                + $"{crop:P0} of one dimension, past the {MaxNormalizationCropFraction:P0} this "
+                + "pipeline allows; the render is the wrong shape for a printed spread."
+            ];
+        }
+
+        return [];
+    }
+
+    /// <summary>
+    /// How far from 15:7 a normalized spread may land.
+    ///
+    /// A centred crop works in whole pixels, so an exact ratio is not reachable: 1536 wide gives a
+    /// height of 717 and an aspect of 2.1423 against a target of 2.1429. One part in a thousand is
+    /// comfortably wider than that rounding and far tighter than any real mistake — a base that was
+    /// never cropped at all sits at 1.5.
+    /// </summary>
+    public const double SpreadAspectTolerance = 0.001;
+
+    /// <summary>
+    /// Why a normalized base is not the shape the book prints at. Empty means it is.
+    ///
+    /// Checked rather than assumed because everything downstream now depends on it: the composite
+    /// engine places Beki as a fraction of this canvas, the manifest records those pixels as the
+    /// page's geometry, and the reviewer judges this frame. If the canvas is not the printed sheet,
+    /// all three are describing something nobody will ever see.
+    /// </summary>
+    public static IReadOnlyList<string> NormalizedSpreadProblems(byte[]? png)
+    {
+        var problems = BaseImageProblems(png);
+        if (problems.Count > 0)
+        {
+            return problems;
+        }
+
+        // Decoded again rather than identified: BaseImageProblems has just proved these bytes
+        // decode, so this cannot throw, and reading the size the same way both times is one less
+        // thing that can disagree.
+        using var image = Image.Load(png!);
+        var aspect = (double)image.Width / image.Height;
+
+        return Math.Abs(aspect - TargetAspect) <= SpreadAspectTolerance
+            ? []
+            :
+            [
+                $"the normalized base is {image.Width}x{image.Height} ({aspect:F4}), and the printed "
+                + $"spread is {TargetAspect:F4}; Beki would be composited onto a canvas the book "
+                + "does not print."
+            ];
+    }
+
+    /// <summary>
+    /// The fraction of the longer-than-needed dimension a centre-crop to 15:7 removes. Zero for an
+    /// image that is already 15:7.
+    /// </summary>
+    public static double NormalizationCropFraction(int width, int height)
+    {
+        if (width <= 0 || height <= 0) return 1;
+
+        var aspect = (double)width / height;
+
+        return aspect >= TargetAspect
+            // Too wide: the sides go.
+            ? 1 - (height * TargetAspect / width)
+            // Too tall: the top and bottom go.
+            : 1 - (width / TargetAspect / height);
+    }
+
+    /// <summary>
+    /// Why a composite cannot be shipped, read off its own manifest and the registry it names.
+    ///
+    /// Every one of these is a fact the composite engine already wrote down, which is the point of
+    /// the manifest: the receipt is checkable without the pixels, so a page can be verified months
+    /// later, by someone else, from a JSON file.
+    /// </summary>
+    /// <param name="textSide">
+    /// Which third the Georgian will be printed over. Beki must be nowhere near it — she stands in
+    /// the half the text does not occupy, and a Beki inside the reserved third would be printed
+    /// over.
+    /// </param>
+    public static IReadOnlyList<string> CompositeProblems(
+        BekiCompositionManifest manifest, BekiPoseRegistry registry, BekiTextSide textSide)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+        ArgumentNullException.ThrowIfNull(registry);
+
+        var problems = new List<string>();
+        var layer = manifest.BekiLayer;
+        var canvas = manifest.Canvas;
+
+        // Exactly one approved asset hash, and it is the one the registry vouches for. The engine
+        // reads its bytes through the registry so this cannot normally disagree; it is checked
+        // anyway because "cannot normally" is not what a print contract rests on.
+        var pose = registry.Pose(layer.PoseId);
+        if (!string.Equals(layer.Sha256, pose.Sha256, StringComparison.OrdinalIgnoreCase))
+        {
+            problems.Add(
+                $"the composited Beki layer hashes to {layer.Sha256}, and the registry says "
+                + $"{pose.Sha256} for pose '{layer.PoseId}'.");
+        }
+
+        if (layer.Mirrored || layer.Rotated || layer.Warped || layer.Redrawn)
+        {
+            problems.Add("the manifest reports a mirrored, rotated, warped or redrawn Beki.");
+        }
+
+        if (layer.Opacity is not 1.0)
+        {
+            problems.Add($"Beki was composited at opacity {layer.Opacity}, not 1.0.");
+        }
+
+        if (layer.RenderedSizePx.WidthPx <= 0 || layer.RenderedSizePx.HeightPx <= 0)
+        {
+            problems.Add("the rendered Beki has no size.");
+        }
+
+        var left = layer.PlacementPx.XPx;
+        var top = layer.PlacementPx.YPx;
+        var right = left + layer.RenderedSizePx.WidthPx;
+        var bottom = top + layer.RenderedSizePx.HeightPx;
+
+        if (left < 0 || top < 0 || right > canvas.WidthPx || bottom > canvas.HeightPx)
+        {
+            problems.Add(
+                $"Beki is not fully inside the canvas: {left},{top} to {right},{bottom} on "
+                + $"{canvas.WidthPx}x{canvas.HeightPx}.");
+        }
+
+        // The reserved third, as the image prompt described it to the model and as the layout will
+        // set type into. The fold is deliberately not checked: Beki stands beside it by design —
+        // the approved spread puts her left edge 82 pixels from the centre line — so a fold rule
+        // applied to her would fail the one page everybody signed off.
+        var third = canvas.WidthPx / 3.0;
+        var intrudes = textSide == BekiTextSide.Left ? left < third : right > canvas.WidthPx - third;
+
+        if (intrudes)
+        {
+            problems.Add(
+                $"Beki enters the {textSide.ToString().ToLowerInvariant()} third reserved for story "
+                + $"text: {left} to {right} on a {canvas.WidthPx}-wide canvas.");
+        }
+
+        if (string.IsNullOrWhiteSpace(manifest.Output.Sha256))
+        {
+            problems.Add("the composite manifest records no output hash.");
+        }
+
+        return problems;
+    }
+}
+
+/// <summary>What the reviewer answered, once it has been parsed and checked against the schema.</summary>
+/// <param name="Status">PASS or FAIL, and nothing else is accepted.</param>
+/// <param name="FailedChecks">The contract's nine category names; empty on a pass.</param>
+/// <param name="RecommendedAction">pass | regenerate_base | recomposite_beki | human_review.</param>
+/// <param name="Notes">Short, concrete, and about the composite rather than the child's photograph.</param>
+public sealed record CompositeQaVerdict(
+    string Status,
+    IReadOnlyList<string> FailedChecks,
+    string RecommendedAction,
+    IReadOnlyList<string> Notes)
+{
+    public const string Pass = "PASS";
+
+    public const string ActionPass = "pass";
+    public const string ActionRegenerateBase = "regenerate_base";
+    public const string ActionRecompositeBeki = "recomposite_beki";
+    public const string ActionHumanReview = "human_review";
+
+    public bool Passed => string.Equals(Status, Pass, StringComparison.Ordinal);
+
+    /// <summary>The verdict as one line, for the log and for the spread's stored record.</summary>
+    public override string ToString() =>
+        $"{Status} ({RecommendedAction})"
+        + (FailedChecks.Count == 0 ? string.Empty : $": {string.Join(", ", FailedChecks)}");
+}
+
+/// <summary>Either a verdict, or the reasons the answer was not one.</summary>
+public sealed record CompositeQaParseResult(
+    bool IsValid, CompositeQaVerdict? Verdict, IReadOnlyList<string> Problems)
+{
+    public string Summary => string.Join("; ", Problems);
+}
+
+/// <summary>
+/// The minimal visual QA contract: what the reviewer is asked, and what counts as an answer.
+///
+/// Deliberately not <see cref="Prompts.BekiImageQaPrompt"/>. That reviewer judges an image the
+/// model drew, Beki included, against a character lock written from a photograph — most of which is
+/// meaningless here, because Beki was not drawn and her fidelity is settled by a SHA-256 rather than
+/// by an opinion. Asked the old questions about a composite, a reviewer refuses pages for Beki's
+/// anatomy, which is the approved artwork's anatomy. So this is a second, smaller contract with
+/// nine named categories and an explicit instruction not to grade beauty.
+///
+/// It also ignores the legacy <c>QaReviewEnabled</c> switch entirely. That flag turned review off
+/// for the current production pipeline because the retries it caused were paying twice for the same
+/// picture; this pipeline's review is what decides between regenerating a base and re-compositing a
+/// pose, and neither of those is a second image bill by default.
+///
+/// The system instruction is transcribed from <c>contracts/BEKI_Minimal_Visual_QA_v1.md</c>; the
+/// response is validated against <c>minimal_visual_qa_v1.schema.json</c>, which unlike the Markdown
+/// is shipped into the published output and so is read from the file rather than copied.
+/// </summary>
+public static class CompositeMinimalQa
+{
+    public const string Version = "minimal-visual-qa-v1";
+
+    public const string SchemaFileName = "minimal_visual_qa_v1.schema.json";
+
+    private static readonly Lazy<JsonSchema> Schema = new(LoadSchema);
+
+    /// <summary>
+    /// The reviewer's whole prompt: the contract's system instruction, then the six inputs it is
+    /// told to judge against.
+    ///
+    /// The inputs are appended rather than interpolated into the instruction so that the
+    /// instruction stays byte-identical to the contract — the one thing a supplier revision has to
+    /// be able to land cleanly on.
+    /// </summary>
+    public static string Prompt(
+        string childWorldScene,
+        string bekiAction,
+        string childOutfit,
+        IReadOnlyList<string> recurringElements,
+        string textSide)
+    {
+        var elements = recurringElements is { Count: > 0 }
+            ? string.Join("; ", recurringElements)
+            : "none required on this page";
+
+        return $"""
+            {SystemInstruction}
+
+            ---
+
+            THIS PAGE
+
+            Child/world scene: {childWorldScene.Trim()}
+            Beki action: {bekiAction.Trim()}
+            Required base outfit: {childOutfit.Trim()}
+            Relevant recurring elements: {elements}
+            Reserved text side: {textSide.ToUpperInvariant()} — the {textSide.ToLowerInvariant()} third of the spread carries printed story text and must stay clear of faces, hands, characters, foreground objects and key action.
+            Center-fold exclusion: a narrow vertical strip at the exact centre of the spread crosses the printed fold; continuous environment may cross it, but no face, hand, character or story-critical detail may.
+            """;
+    }
+
+    /// <summary>
+    /// Reads one reviewer answer, forgiving about the wrapper and strict about the content.
+    ///
+    /// The wrapper is forgiven because a model in prose mode fences its JSON and that is not a
+    /// failed review; the content is not, because the contract's deterministic validation list is
+    /// the difference between a verdict and a sentence containing the word PASS. A PASS carrying
+    /// failed checks, an invented category name, an extra key: all rejected, all with the reason
+    /// named, because the one permitted parse retry is only useful if it can be told what was wrong.
+    /// </summary>
+    public static CompositeQaParseResult Parse(string? answer)
+    {
+        if (string.IsNullOrWhiteSpace(answer))
+        {
+            return Invalid("the reviewer returned no text.");
+        }
+
+        var json = ModelJsonSanitizer.ExtractJsonObject(answer);
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return Invalid("the reviewer's answer contains no JSON object.");
+        }
+
+        JsonDocument document;
+        try
+        {
+            document = JsonDocument.Parse(json);
+        }
+        catch (JsonException ex)
+        {
+            return Invalid($"the reviewer's answer is not valid JSON: {ex.Message}");
+        }
+
+        using (document)
+        {
+            var results = Schema.Value.Evaluate(
+                document.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+
+            if (!results.IsValid)
+            {
+                var details = (results.Details ?? [])
+                    .Where(detail => !detail.IsValid && detail.Errors is { Count: > 0 })
+                    .SelectMany(detail => detail.Errors!.Select(error =>
+                        $"{Location(detail.InstanceLocation.ToString())} failed '{error.Key}': {error.Value}"))
+                    .ToList();
+
+                return new CompositeQaParseResult(
+                    false,
+                    null,
+                    details.Count > 0
+                        ? details
+                        : [$"the reviewer's answer does not satisfy {SchemaFileName}."]);
+            }
+
+            var root = document.RootElement;
+
+            return new CompositeQaParseResult(
+                true,
+                new CompositeQaVerdict(
+                    root.GetProperty("status").GetString()!,
+                    Strings(root, "failed_checks"),
+                    root.GetProperty("recommended_action").GetString()!,
+                    Strings(root, "notes")),
+                []);
+        }
+    }
+
+    private static string Location(string location) =>
+        location.Length == 0 ? "(root)" : location;
+
+    private static IReadOnlyList<string> Strings(JsonElement root, string property) =>
+        root.TryGetProperty(property, out var array) && array.ValueKind == JsonValueKind.Array
+            ? array.EnumerateArray().Select(item => item.GetString() ?? string.Empty).ToList()
+            : [];
+
+    private static CompositeQaParseResult Invalid(string problem) => new(false, null, [problem]);
+
+    private static JsonSchema LoadSchema()
+    {
+        var path = CompositeAssets.ContractPath(SchemaFileName);
+
+        if (!File.Exists(path))
+        {
+            throw new InvalidOperationException(
+                $"The minimal visual QA schema '{path}' is not in the published output. A reviewer "
+                + "answer is checked against the supplied file and never against a copy in code.");
+        }
+
+        return JsonSchema.FromText(File.ReadAllText(path));
+    }
+
+    /// <summary>The contract's exact system instruction, verbatim.</summary>
+    public const string SystemInstruction =
+        """
+        You are the Minimal Visual QA reviewer for BEKI personalized children's books.
+
+        Review only critical, parent-visible failures. Do not score beauty, creativity, minor stylistic variation, tiny background artifacts, or subjective preferences. Do not request a retry merely to improve an already usable image.
+
+        Use the original child photo only to judge whether the illustrated child remains recognizably the same child and approximately the correct age. Do not require photorealism.
+
+        Check exactly these categories:
+
+        1. CHILD_IDENTITY - The illustrated child is not recognizably the supplied child.
+        2. CHILD_AGE - The child appears materially older or younger than the supplied age.
+        3. OUTFIT_CONTINUITY - The required base outfit is missing or materially changed.
+        4. MAIN_SCENE_BEAT - The one required visible story event is missing, contradicted, or replaced by a different event.
+        5. CAST_ERROR - The child or a required supporting character is missing, duplicated, or replaced; or an unrequested prominent character appears.
+        6. GENERATED_TEXT - Readable text, pseudo-text, logo, label, sign, watermark, or QR appears in the illustration.
+        7. TEXT_SAFE_AREA - A face, hand, character, foreground object, or key action blocks the reserved text side.
+        8. FOLD_SAFETY - A face, hand, character, or story-critical detail crosses or touches the center-fold exclusion zone.
+        9. BEKI_INTEGRATION - Beki is duplicated, clipped, hidden, materially obstructs the main action, or is visibly pasted into an unsuitable hard-edged/foreground area.
+
+        Do not fail Beki for artistic anatomy or exact asset identity; those are enforced by the approved PNG hash. Do not fail for small differences in background detail. Do not rewrite the prompt.
+
+        Return valid JSON only. Use PASS when no critical category fails. Use FAIL when at least one critical category fails.
+
+        Choose one recommended_action:
+        - pass: no critical failure;
+        - regenerate_base: failure originates in the child/world generation;
+        - recomposite_beki: base image is usable and only deterministic Beki placement is wrong;
+        - human_review: the failure source is ambiguous or a second attempt has already failed.
+
+        Return exactly this structure and no additional keys:
+
+        {
+          "status": "PASS",
+          "failed_checks": [],
+          "recommended_action": "pass",
+          "notes": []
+        }
+
+        Each failed_checks item, when present, must be one of:
+        CHILD_IDENTITY, CHILD_AGE, OUTFIT_CONTINUITY, MAIN_SCENE_BEAT, CAST_ERROR, GENERATED_TEXT, TEXT_SAFE_AREA, FOLD_SAFETY, BEKI_INTEGRATION.
+
+        Keep notes short, concrete, and visible in the supplied composite. Do not include sensitive descriptions of the child's source photo.
+        """;
+}

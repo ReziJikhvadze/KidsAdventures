@@ -1,0 +1,44 @@
+{
+  "composition_version": "beki-exact-composite-v1",
+  "canvas": {
+    "width_px": 1836,
+    "height_px": 857
+  },
+  "base_image": {
+    "file": "spread_01_child_world_base.png",
+    "sha256": "50147e836ba47b418219e14b6736f52bd8a9360358d311623bf24a12a2d079cd"
+  },
+  "beki_layer": {
+    "pose_id": "pose_04_listen",
+    "file": "spread_01_beki_pose.png",
+    "sha256": "b90c3cd74f62e36eb701c65410ef80aad9c19fcf617c0fb14cf3d97b27d016a8",
+    "source_alpha_bbox": {
+      "x_px": 477,
+      "y_px": 168,
+      "width_px": 1093,
+      "height_px": 1712
+    },
+    "rendered_size_px": {
+      "width_px": 182,
+      "height_px": 285
+    },
+    "placement_px": {
+      "x_px": 1000,
+      "y_px": 250
+    },
+    "normalized_anchor": {
+      "visible_center_x": 0.594,
+      "visible_center_y": 0.458,
+      "visible_height": 0.333
+    },
+    "opacity": 1.0,
+    "mirrored": false,
+    "rotated": false,
+    "warped": false,
+    "redrawn": false
+  },
+  "output": {
+    "file": "spread_01_exact_beki_composite.png",
+    "sha256": "ed3178f852aac4a78d3ebeb31fffe559b5ea065ca0d711144f429e4c1836e1ed"
+  }
+}

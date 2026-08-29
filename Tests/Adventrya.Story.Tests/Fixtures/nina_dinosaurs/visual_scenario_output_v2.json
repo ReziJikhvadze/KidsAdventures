@@ -1,0 +1,57 @@
+{
+  "visual_lock": {
+    "child_outfit": "A soft mustard-yellow sleeveless romper with a coral-red waist sash and lavender soft-soled shoes.",
+    "recurring_elements": [
+      "Bafu, a tiny mint-green baby sauropod with a peach belly, large amber eyes, and three rounded golden markings along the back.",
+      "Bafu's mother, an adult mint-green sauropod with a peach underside and the same rounded golden family markings.",
+      "A small spiral-shaped golden fern leaf with a curled tip."
+    ]
+  },
+  "cover": {
+    "front_child_world_scene": "At the edge of the glowing dinosaur valley, the child gently parts a curtain of giant ferns and reacts to a mysterious call from deeper among the leaves while only a tiny mint-green tail is glimpsed ahead.",
+    "beki_action": "Beki welcomes the child toward the hidden path with an inviting gesture.",
+    "back_environment": "The warm valley continues through layered giant ferns, coral and violet flowers, a turquoise stream, and distant rounded mountains under golden light, with no characters present."
+  },
+  "spreads": [
+    {
+      "page": 1,
+      "child_world_scene": "In the warm dinosaur valley, the child pauses as tall ferns rustle with a mysterious call while the unseen caller remains hidden.",
+      "beki_action": "Beki listens attentively and turns toward the sound."
+    },
+    {
+      "page": 2,
+      "child_world_scene": "Among the giant ferns, the child discovers Bafu and points to the soft vine wrapped around his foot while Bafu looks up hopefully.",
+      "beki_action": "Beki leans closer curiously to inspect the trapped foot."
+    },
+    {
+      "page": 3,
+      "child_world_scene": "Beside Bafu, the child carefully lifts the soft vine away from his foot so he can step free.",
+      "beki_action": "Beki lights the way over the vine and safe ground."
+    },
+    {
+      "page": 4,
+      "child_world_scene": "As warm mist hides the valley and Bafu's mother from view, the child holds Bafu's small forefoot and looks for a safe route.",
+      "beki_action": "Beki stays close with concern and watches the fog."
+    },
+    {
+      "page": 5,
+      "child_world_scene": "On the misty ground, the child notices a trail of glowing golden fern leaves and chooses the correct path.",
+      "beki_action": "Beki gestures forward to support the child's choice."
+    },
+    {
+      "page": 6,
+      "child_world_scene": "At the shallow river, the child places broad flat leaves over stones to make a safe crossing for Bafu.",
+      "beki_action": "Beki reassures Bafu while the child completes the path."
+    },
+    {
+      "page": 7,
+      "child_world_scene": "On the far bank, the child watches Bafu reunite with his waiting mother and accepts the small spiral-shaped golden fern leaf that Bafu offers in thanks.",
+      "beki_action": "Beki celebrates the joyful reunion beside the child."
+    },
+    {
+      "page": 8,
+      "child_world_scene": "After Bafu returns safely to his mother, the child holds the spiral-shaped golden fern leaf as it begins to glow and notices blue footprints leading toward a distant cave.",
+      "beki_action": "Beki reacts with curious excitement as the new path appears."
+    }
+  ]
+}

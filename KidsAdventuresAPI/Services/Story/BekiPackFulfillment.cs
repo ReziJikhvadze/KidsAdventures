@@ -1,11 +1,13 @@
 using System.Diagnostics;
 using System.Text.Json;
+using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Enums;
 using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.Infrastructure;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
+using AdventurePacks.Api.Services.Story.Composite;
 using Hangfire;
 
 namespace AdventurePacks.Api.Services.Story;
@@ -50,6 +52,35 @@ public static class BekiPackBlobs
     /// one storage backend and 404s on the other.
     /// </summary>
     public static string ManifestName(Guid userId, Guid packId) => $"{userId}/{packId}/fulfilment.json";
+
+    /// <summary>
+    /// The validated Visual Scenario the composite pipeline planned this book from.
+    ///
+    /// Stored beside the book's images rather than in a separate audit store, because it is one of
+    /// the book's artifacts: it is what says why the child is dressed the way she is on all nine
+    /// pictures, and the question it answers only ever comes up while somebody is looking at those
+    /// pictures.
+    /// </summary>
+    public static string ScenarioName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}/visual-scenario.json";
+
+    /// <summary>
+    /// One page's composition receipt: which approved pose was pasted where, and what the result
+    /// hashed to. Named beside the spread it describes so the pair is obvious in a listing.
+    /// </summary>
+    public static string CompositionManifestName(Guid userId, Guid packId, int spreadNumber) =>
+        $"{userId}/{packId}/spread-{spreadNumber:00}-composition.json";
+
+    /// <summary>
+    /// The child/world image before Beki was pasted onto it.
+    ///
+    /// Kept beside the finished page, under a name that says what it is, because it has a job after
+    /// the page is drawn: it is the continuity reference a later spread reusing the same creature is
+    /// shown. A resumed run that had only the composited page would either lose continuity or send
+    /// an image model a picture with Beki in it, and the second is worse than the first.
+    /// </summary>
+    public static string SpreadBaseName(Guid userId, Guid packId, int spreadNumber) =>
+        $"{userId}/{packId}/spread-{spreadNumber:00}-base.png";
 }
 
 /// <summary>
@@ -72,6 +103,7 @@ public sealed class BekiPackFulfillment(
     IBekiBookGenerator generator,
     IBekiPdfComposer composer,
     IAdminNotifier adminNotifier,
+    IOptions<BekiOptions> bekiOptions,
     ILogger<BekiPackFulfillment> logger) : IBekiPackFulfillment
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -168,19 +200,55 @@ public sealed class BekiPackFulfillment(
             // treated as no manifest at all; the worst that costs is redrawing spreads that were
             // already fine, and the alternative is a book drawn half under each set of rules.
             var manifestName = BekiPackBlobs.ManifestName(pack.UserId, pack.Id);
-            var currentContract = BekiFulfillmentManifest.CurrentContract(BookFormat.SpreadCount);
+            var compositeEnabled = bekiOptions.Value.CompositePipelineEnabled;
+
+            /*
+              The contract now names the pipeline as well as the page rules.
+
+              Which pipeline drew a page is the term that matters most and was the one missing: the
+              previous path has an image model draw Beki, the composite path pastes an approved PNG,
+              and a flag flipped between two attempts at this pack would otherwise have adopted
+              pages of the first kind into a book of the second — one book, two different characters,
+              every page individually passing its own review. The composite versions ride with it for
+              the same reason the shot wording does: a revised pose registry is different artwork and
+              a revised pipeline config puts Beki somewhere else on the page.
+
+              Read from the installed assets only when the flag is on. A deployment running the
+              previous path may not have the composite assets at all, and loading them to describe a
+              pipeline it is not using would fail a book over a file it never needed.
+            */
+            // The theme resolved before the contract, because the contract names the approved world
+            // reference this book's pages are drawn against — a hash, per world, not a version per
+            // deployment. A theme that maps to nothing leaves the composite terms out entirely and
+            // the pipeline refuses the book properly a few lines later, with INVALID_BOOK_INPUT and
+            // the reason, rather than this line throwing over a stored value nobody can map.
+            var compositeThemeId = InputNormalization.CanonicalThemeId(pack.Theme.ToString());
+
+            var currentContract = BekiFulfillmentManifest.CurrentContract(
+                BookFormat.SpreadCount,
+                compositeEnabled && compositeThemeId is not null
+                    ? BekiCompositeContractTerms.Current(compositeThemeId)
+                    : null);
+
             var manifest = await TryReadManifestAsync(manifestName, cancellationToken);
 
             if (manifest is not null && !manifest.IllustrationContract.SequenceEqual(currentContract))
             {
                 logger.LogWarning(
-                    "Beki pack {PackId}: the manifest's illustration contract (text side, shot, Beki "
-                    + "version) no longer matches the current one; ignoring it and redrawing.",
-                    packId);
+                    "Beki pack {PackId}: the manifest's illustration contract (pipeline, text side, "
+                    + "shot, Beki version) no longer matches the current one; ignoring it and "
+                    + "redrawing.", packId);
                 manifest = null;
             }
 
             var existingSpreads = new Dictionary<int, byte[]>();
+
+            // The pre-composite base of each adopted page, so continuity survives a resume: spread
+            // three redrawn against a book whose creature was introduced on the adopted spread two
+            // needs to be shown spread two's base, and the composited page is not a substitute —
+            // it has Beki on it, and Beki is the one thing this pipeline never shows an image model.
+            var existingBases = new Dictionary<int, byte[]>();
+
             if (manifest is not null)
             {
                 foreach (var entry in manifest.Entries)
@@ -207,6 +275,37 @@ public sealed class BekiPackFulfillment(
                     }
                 }
 
+                foreach (var entry in manifest.Compositions ?? [])
+                {
+                    // Only for a page that was actually adopted: a base image belonging to a page
+                    // this attempt is redrawing anyway is a download nobody reads.
+                    if (entry.BaseImageUrl is not { Length: > 0 } baseUrl
+                        || !existingSpreads.ContainsKey(entry.SpreadNumber))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        var bytes = await blobStorage.DownloadBytesFromStoredUrlAsync(
+                            baseUrl, cancellationToken);
+
+                        if (bytes is { Length: > 0 })
+                        {
+                            existingBases[entry.SpreadNumber] = bytes;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // A missing base costs continuity on this page, not the page itself. The
+                        // pipeline says so in its warnings rather than silently drawing without one.
+                        logger.LogWarning(
+                            ex, "Beki pack {PackId}: could not read the base image for spread "
+                            + "{Spread}; later spreads lose it as a continuity reference.",
+                            packId, entry.SpreadNumber);
+                    }
+                }
+
                 if (existingSpreads.Count > 0)
                 {
                     // Adopted spreads advance the percent immediately, using the same message the
@@ -226,6 +325,101 @@ public sealed class BekiPackFulfillment(
             // number would report "2/8" and yank the bar backwards below the five images the
             // parent was already shown as done.
             var processedSpreads = existingSpreads.Count;
+
+            // Written as each page finishes rather than once at the end: a job that dies on spread
+            // seven must not lose the receipts for the six pages that were fine, because a resumed
+            // run adopts those pages and never composites them again. Seeded from the manifest for
+            // exactly that reason — the receipts an earlier attempt wrote belong to the pages this
+            // attempt is adopting, and rewriting the manifest without them would drop the evidence
+            // for the half of the book that did not need redrawing.
+            var compositions = (manifest?.Compositions ?? [])
+                .ToDictionary(entry => entry.SpreadNumber);
+
+            var scenarioUrl = manifest?.ScenarioUrl;
+
+            /*
+              The scenario an earlier attempt planned, read back before anything is drawn.
+
+              This is the correctness half of resuming, not the cheap half. The scenario fixes the
+              child's outfit and the book's recurring elements for all nine pictures; a resumed run
+              that planned a second one would redraw its missing spreads against a different outfit
+              from the spreads it is adopting, and produce a book where the child changes clothes at
+              page four out of pages that each passed their own review.
+
+              A scenario that cannot be read is simply absent — the pipeline plans a new one and
+              says so in its warnings, which is the same answer as a first attempt.
+            */
+            string? storedScenario = null;
+            if (compositeEnabled && scenarioUrl is { Length: > 0 })
+            {
+                try
+                {
+                    var bytes = await blobStorage.DownloadBytesFromStoredUrlAsync(
+                        scenarioUrl, cancellationToken);
+
+                    if (bytes is { Length: > 0 })
+                    {
+                        storedScenario = System.Text.Encoding.UTF8.GetString(bytes);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(
+                        ex, "Beki pack {PackId}: could not read the stored Visual Scenario; a new "
+                        + "one will be planned.", packId);
+                }
+            }
+
+            /*
+              The four normalized inputs, assembled only when the composite flag is on.
+
+              This job is the only place in the application that holds all of them: the run carries
+              the child's name and age, the pack carries the theme and the owner, and the run's
+              photo blob is the photograph. The illustrator receives a plan and a photograph and
+              could not reconstruct any of it, which is why the context is passed down rather than
+              derived there — and why every other caller of IllustrateAsync passes nothing and stays
+              on the path it has always taken.
+
+              Null when the flag is off, and a null here is what makes the branch inside the
+              generator unreachable rather than merely untaken.
+            */
+            var compositeContext = compositeEnabled
+                ? new CompositeBookContext
+                {
+                    JobId = pack.Id,
+                    Input = new BookGenerationInput
+                    {
+                        ChildName = run.ChildName,
+                        ChildAge = run.Age,
+                        // The journey's own spelling, whatever it was when this run was written.
+                        // InputNormalization maps it and refuses what it cannot map, which is the
+                        // correct outcome for a row nobody can write a book from.
+                        ChildGender = run.Gender,
+                        ThemeId = pack.Theme.ToString(),
+                        // The reference, never the bytes. The bytes travel as an argument; this
+                        // field exists so a failure can say which blob could not be read without
+                        // the photograph itself ending up anywhere near a log line.
+                        ChildPhotoRef = run.PhotoBlobUrl!,
+                    },
+                    Resume = new CompositeResumeState(storedScenario, existingSpreads, existingBases),
+                    OnScenario = async scenarioJson =>
+                    {
+                        // Before the first image call, because the attempt that dies on spread three
+                        // is exactly the attempt that has to leave this behind. Storing it with the
+                        // finished book would mean the only run that records the scenario is the run
+                        // that never needed it recorded.
+                        scenarioUrl = await blobStorage.UploadAsync(
+                            BekiPackBlobs.ScenarioName(pack.UserId, pack.Id),
+                            System.Text.Encoding.UTF8.GetBytes(scenarioJson),
+                            "application/json",
+                            cancellationToken);
+
+                        await WriteManifestAsync(
+                            manifestName, storedUrls, currentContract, scenarioUrl, compositions,
+                            cancellationToken);
+                    },
+                }
+                : null;
 
             var book = await generator.IllustrateAsync(
                 plan,
@@ -251,7 +445,17 @@ public sealed class BekiPackFulfillment(
                             "image/png",
                             cancellationToken);
 
-                        await WriteManifestAsync(manifestName, storedUrls, currentContract, cancellationToken);
+                        // Null on the legacy path, so this block is not merely skipped there — it
+                        // has nothing to skip.
+                        if (image.Composition is { } composition)
+                        {
+                            compositions[number] = await StoreCompositionAsync(
+                                pack, composition, cancellationToken);
+                        }
+
+                        await WriteManifestAsync(
+                            manifestName, storedUrls, currentContract, scenarioUrl, compositions,
+                            cancellationToken);
                         uploadMs += uploadStopwatch.ElapsedMilliseconds;
                     }
 
@@ -264,11 +468,49 @@ public sealed class BekiPackFulfillment(
                         cancellationToken);
                 },
                 cancellationToken,
-                existingSpreads.Count > 0 ? existingSpreads : null);
+                existingSpreads.Count > 0 ? existingSpreads : null,
+                compositeContext);
 
             foreach (var warning in book.Warnings)
             {
                 logger.LogWarning("Beki pack {PackId}: {Warning}", packId, warning);
+            }
+
+            /*
+              The catch-up pass for composite artifacts, matching the one below for images.
+
+              The scenario is already stored — the pipeline's own callback wrote it before the first
+              picture was drawn, which is the whole point of doing it there — and the per-page
+              callback stored each receipt as it landed. This only picks up a page delivered when
+              nobody was watching, which is every page when onImage is null.
+
+              Absent from every book in production: book.Composite is null on the legacy path.
+            */
+            if (book.Composite is { } compositeArtifacts)
+            {
+                var artifactStopwatch = Stopwatch.StartNew();
+
+                foreach (var artifact in compositeArtifacts.Spreads)
+                {
+                    if (compositions.ContainsKey(artifact.SpreadNumber))
+                    {
+                        continue;
+                    }
+
+                    compositions[artifact.SpreadNumber] =
+                        await StoreCompositionAsync(pack, artifact, cancellationToken);
+                }
+
+                await WriteManifestAsync(
+                    manifestName, storedUrls, currentContract, scenarioUrl, compositions,
+                    cancellationToken);
+
+                uploadMs += artifactStopwatch.ElapsedMilliseconds;
+
+                logger.LogInformation(
+                    "Beki pack {PackId}: composite artifacts stored — visual scenario at "
+                    + "{ScenarioStored} and {Receipts} composition manifest(s).",
+                    packId, scenarioUrl is null ? "(none)" : "its blob", compositions.Count);
             }
 
             await packRepository.UpdateProgressAsync(
@@ -398,16 +640,67 @@ public sealed class BekiPackFulfillment(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Beki fulfilment failed for pack {PackId}.", packId);
+            /*
+              The composite pipeline stops with one of eight agreed words, and the word is the
+              useful half of the failure — it is what decides whether a retry could possibly help,
+              and it is what an operator matches against the supplier's own vocabulary. So it is
+              put in front of the message rather than left inside an exception property nobody
+              downstream unwraps.
+
+              Inert on the legacy path: nothing there throws this type, so the message stored for
+              every book in production is the one it always was.
+            */
+            var reason = ex is CompositePipelineException composite
+                ? $"{composite.FailureCode}"
+                  + (composite.Page is { } page ? $" (spread {page})" : string.Empty)
+                  + $": {ex.Message}"
+                : ex.Message;
+
+            logger.LogError(ex, "Beki fulfilment failed for pack {PackId}: {Reason}", packId, reason);
             await packRepository.UpdateStatusAsync(
-                packId, AdventurePackStatus.Failed, pack.GeneratedJson, null, ex.Message,
+                packId, AdventurePackStatus.Failed, pack.GeneratedJson, null, reason,
                 CancellationToken.None);
 
             // This book was paid for before this job ever started, so a failure here is money
             // taken with nothing delivered. It is the one generation failure that always needs
             // a person.
-            await adminNotifier.BookFailedAsync(packId, ex.Message, CancellationToken.None);
+            await adminNotifier.BookFailedAsync(packId, reason, CancellationToken.None);
         }
+    }
+
+    /// <summary>
+    /// Stores one page's composite artifacts: the composition receipt, and the pre-composite base
+    /// image the receipt describes.
+    ///
+    /// The base is stored and not merely used because a resumed run needs it. It is the continuity
+    /// reference later spreads reusing the same creature are shown, and the composited page cannot
+    /// stand in for it: the composite has the approved Beki pasted onto it, and handing that to an
+    /// image model is handing it a picture of Beki — the one image this pipeline exists to never
+    /// send.
+    /// </summary>
+    private async Task<BekiCompositionManifestEntry> StoreCompositionAsync(
+        Domain.Entities.AdventurePack pack,
+        CompositeSpreadArtifact artifact,
+        CancellationToken cancellationToken)
+    {
+        var receiptUrl = await blobStorage.UploadAsync(
+            BekiPackBlobs.CompositionManifestName(pack.UserId, pack.Id, artifact.SpreadNumber),
+            System.Text.Encoding.UTF8.GetBytes(artifact.ManifestJson),
+            "application/json",
+            cancellationToken);
+
+        string? baseUrl = null;
+        if (artifact.BasePng is { Length: > 0 })
+        {
+            baseUrl = await blobStorage.UploadAsync(
+                BekiPackBlobs.SpreadBaseName(pack.UserId, pack.Id, artifact.SpreadNumber),
+                artifact.BasePng,
+                "image/png",
+                cancellationToken);
+        }
+
+        return new BekiCompositionManifestEntry(
+            artifact.SpreadNumber, receiptUrl, artifact.PoseId, artifact.OutputSha256, baseUrl);
     }
 
     /// <summary>
@@ -444,10 +737,18 @@ public sealed class BekiPackFulfillment(
     /// attempt included. Never after a refusal: a spread that did not pass is not something the
     /// next attempt should adopt either.
     /// </summary>
+    /// <param name="scenarioUrl">
+    /// Null for a legacy book, and the property is omitted from the JSON when it is — a manifest
+    /// written by the path this campaign leaves alone is byte-identical to the ones written before
+    /// the composite pipeline existed.
+    /// </param>
+    /// <param name="compositions">Empty for a legacy book, and likewise omitted.</param>
     private async Task WriteManifestAsync(
         string manifestName,
         IReadOnlyDictionary<int, string> storedUrls,
         IReadOnlyList<string> illustrationContract,
+        string? scenarioUrl,
+        IReadOnlyDictionary<int, BekiCompositionManifestEntry> compositions,
         CancellationToken cancellationToken)
     {
         var manifest = new BekiFulfillmentManifest
@@ -457,6 +758,10 @@ public sealed class BekiPackFulfillment(
                 .OrderBy(pair => pair.Key)
                 .Select(pair => new BekiFulfillmentManifestEntry(pair.Key, pair.Value))
                 .ToList(),
+            ScenarioUrl = scenarioUrl,
+            Compositions = compositions.Count == 0
+                ? null
+                : compositions.OrderBy(pair => pair.Key).Select(pair => pair.Value).ToList(),
         };
 
         var json = JsonSerializer.SerializeToUtf8Bytes(manifest, JsonOptions);

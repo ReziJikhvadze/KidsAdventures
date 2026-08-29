@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://beki.ge/schemas/composition-manifest-v1.json",
+  "title": "BEKI Exact Composition Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["composition_version", "canvas", "base_image", "beki_layer", "output"],
+  "properties": {
+    "composition_version": {"const": "beki-exact-composite-v1"},
+    "canvas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width_px", "height_px"],
+      "properties": {
+        "width_px": {"type": "integer", "minimum": 1},
+        "height_px": {"type": "integer", "minimum": 1}
+      }
+    },
+    "base_image": {"$ref": "#/$defs/fileHash"},
+    "beki_layer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pose_id", "file", "sha256", "source_alpha_bbox", "rendered_size_px", "placement_px", "normalized_anchor", "opacity", "mirrored", "rotated", "warped", "redrawn"],
+      "properties": {
+        "pose_id": {"type": "string", "minLength": 1},
+        "file": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "source_alpha_bbox": {"$ref": "#/$defs/rect"},
+        "rendered_size_px": {"$ref": "#/$defs/size"},
+        "placement_px": {"$ref": "#/$defs/point"},
+        "normalized_anchor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["visible_center_x", "visible_center_y", "visible_height"],
+          "properties": {
+            "visible_center_x": {"type": "number", "minimum": 0, "maximum": 1},
+            "visible_center_y": {"type": "number", "minimum": 0, "maximum": 1},
+            "visible_height": {"type": "number", "exclusiveMinimum": 0, "maximum": 1}
+          }
+        },
+        "opacity": {"const": 1.0},
+        "mirrored": {"const": false},
+        "rotated": {"const": false},
+        "warped": {"const": false},
+        "redrawn": {"const": false}
+      }
+    },
+    "output": {"$ref": "#/$defs/fileHash"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "fileHash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "sha256"],
+      "properties": {"file": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "rect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x_px", "y_px", "width_px", "height_px"],
+      "properties": {
+        "x_px": {"type": "integer", "minimum": 0},
+        "y_px": {"type": "integer", "minimum": 0},
+        "width_px": {"type": "integer", "minimum": 1},
+        "height_px": {"type": "integer", "minimum": 1}
+      }
+    },
+    "size": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["width_px", "height_px"],
+      "properties": {"width_px": {"type": "integer", "minimum": 1}, "height_px": {"type": "integer", "minimum": 1}}
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x_px", "y_px"],
+      "properties": {"x_px": {"type": "integer", "minimum": 0}, "y_px": {"type": "integer", "minimum": 0}}
+    }
+  }
+}

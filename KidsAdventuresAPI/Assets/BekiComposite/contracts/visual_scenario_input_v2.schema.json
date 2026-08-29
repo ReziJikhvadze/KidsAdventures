@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://beki.ge/schemas/visual-scenario-input-v2.json",
+  "title": "BEKI Visual Scenario Input v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["age_group", "child_gender", "theme", "story_pages"],
+  "properties": {
+    "age_group": {"enum": ["1-2", "3-5", "6+"]},
+    "child_gender": {"enum": ["girl", "boy"]},
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "official_name", "visual_direction"],
+      "properties": {
+        "id": {"enum": ["clouds", "space", "forest", "ocean", "magic", "dinosaurs"]},
+        "official_name": {"type": "string", "minLength": 1},
+        "visual_direction": {"type": "string", "minLength": 1}
+      }
+    },
+    "story_pages": {"$ref": "story_boundary_v1.schema.json#/properties/story_pages"}
+  }
+}

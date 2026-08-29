@@ -5,6 +5,7 @@ using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
+using AdventurePacks.Api.Services.Story.Composite;
 using AdventurePacks.Api.Services.Story.Prompts;
 using Hangfire;
 
@@ -192,9 +193,68 @@ public sealed class MasterBookService(
                 Language = run.StoryLanguage
             };
 
+            /*
+              Which planner writes this preview.
+
+              The composite pipeline draws the book the parent buys, and the fulfilment job adopts
+              the story written here rather than rewriting it — the parent read this story and paid
+              for it. So if the pictures are going to be composite pictures, the story has to be a
+              composite story, and this is the only moment it can be: by the time the job runs, the
+              plan is a row in the database.
+
+              Gated on the printing format as well as on the flag, because the composite pipeline
+              only ever draws a book that routes to the Beki fulfilment job, and that routing is
+              BookFormat.IsPrintPlan over the version stored below. An A5 preview is not a book this
+              pipeline will ever touch.
+
+              And gated on the photograph having actually parked, which is the subtle one.
+              CreateAsync deliberately lets a preview continue when the portrait upload fails — a
+              book with a generic hero beats no book — and such a run reaches here with no
+              PhotoBlobUrl. The composite plan is written for a pipeline that gets the child's
+              likeness from the photograph, so it carries no characterLock at all; but at purchase
+              BekiRunForAsync refuses the Beki route without a photo URL, and the run falls to the
+              legacy generator, which would then have neither a photograph NOR an appearance
+              description NOR a characterLock to draw a child from. The result is a paid book about
+              nobody in particular. So a run whose portrait did not park is written by the legacy
+              planner, whose identity chain — appearance description into characterLock into every
+              prompt — is the only one that still works without a picture.
+
+              Null when any of the four is off, and null is what keeps every book in production on
+              the planner it has always had.
+
+              And gated on the book format switch, for the same reason as everything else in this
+              condition: BekiRunForAsync requires BookFormatEnabled before it will send a purchase
+              to the Beki fulfilment job. With the composite flag on and the format switch off, a
+              composite-planned preview is bought and then drawn by the legacy A5 generator — a
+              parent reads one book and receives another.
+            */
+            var portraitParked = !string.IsNullOrWhiteSpace(run.PhotoBlobUrl);
+
+            var compositeStoryInput =
+                bekiOptions.Value.CompositePipelineEnabled
+                && bekiOptions.Value.BookFormatEnabled
+                && BookFormat.IsPrintPlan(masterStoryService.PromptVersion)
+                && portraitParked
+                    ? CompositeStoryInputFor(runId, storyInput)
+                    : null;
+
+            if (bekiOptions.Value.CompositePipelineEnabled && !portraitParked)
+            {
+                logger.LogWarning(
+                    "Run {RunId}: the composite pipeline is on, but this run has no parked "
+                    + "portrait, so the purchase cannot take the Beki route and the book will be "
+                    + "drawn by the legacy path. Writing it with the legacy planner, which is the "
+                    + "only one whose plan carries an appearance description and a character lock "
+                    + "to draw a child from without a photograph.",
+                    runId);
+            }
+
             // The prompts are stored before the call rather than after, so that a call which
             // times out still leaves behind what it was asked to do.
-            var (systemPrompt, userPrompt) = masterStoryService.BuildPrompts(storyInput);
+            var (systemPrompt, userPrompt) = compositeStoryInput is null
+                ? masterStoryService.BuildPrompts(storyInput)
+                : (MasterStoryPromptComposite.System(compositeStoryInput),
+                   MasterStoryPromptComposite.User(compositeStoryInput));
             await runRepository.SavePromptsAsync(
                 runId,
                 masterStoryService.ModelName,
@@ -208,9 +268,36 @@ public sealed class MasterBookService(
             // run.PromptVersion to decide whether this preview gets the Beki cover. Without this,
             // that check would read the stale, pre-save value — null on a run's first attempt —
             // and a printing-format preview would silently fall back to the legacy cover every time.
+            /*
+              Still the configured version, even when the composite prompt wrote the book.
+
+              It reads as a lie and is not one. This column is not a record of which prompt ran —
+              the SystemPrompt and UserPrompt columns saved above and below carry the prompt itself,
+              verbatim, which is better evidence than a version string. What this column *is* is the
+              routing key: BookFormat.IsPrintPlan reads it to decide whether a purchased pack goes to
+              the Beki fulfilment job, it recognises exactly "v5" and "v6", and a run stamped
+              "composite-v1" would be routed to the legacy A5 generator — the one path the composite
+              pipeline can never be reached from. So the version stays what it says it is, and the
+              log line below records which planner actually wrote the story.
+            */
             run.PromptVersion = masterStoryService.PromptVersion;
 
-            var result = await masterStoryService.WriteAsync(storyInput, cancellationToken);
+            var result = compositeStoryInput is null
+                ? await masterStoryService.WriteAsync(storyInput, cancellationToken)
+                : await masterStoryService.WriteCompositePlanAsync(
+                    compositeStoryInput, [], cancellationToken);
+
+            logger.LogInformation(
+                compositeStoryInput is not null
+                    ? "Run {RunId}: written by {Prompt} for the composite pipeline; stored under "
+                      + "prompt version {Version} so the pack still routes to the Beki fulfilment job."
+                    : "Run {RunId}: written by the configured planner ({Prompt} was not selected); "
+                      + "prompt version {Version}.",
+                runId,
+                compositeStoryInput is not null
+                    ? MasterStoryPromptComposite.Version
+                    : "the composite planner",
+                masterStoryService.PromptVersion);
 
             // The printing schema enforces shape but not the rules that only make sense reading
             // the whole plan together — Beki spelled the one way everything downstream expects,
@@ -222,15 +309,22 @@ public sealed class MasterBookService(
             // writes a cast list and per-spread placement is validated the same way.
             if (BookFormat.IsPrintPlan(masterStoryService.PromptVersion))
             {
-                var problems = BekiPlanValidator.Validate(result.Story, storyInput.SpreadCount, storyInput.Age);
+                var problems = PlanProblems(result.Story, storyInput, compositeStoryInput is not null);
                 if (problems.Count > 0)
                 {
                     logger.LogWarning(
                         "Run {RunId}: the Beki plan failed validation, retrying once: {Problems}",
                         runId, string.Join(" | ", problems));
 
-                    var retried = await masterStoryService.RetryPlanWithCorrectionsAsync(
-                        storyInput, problems, cancellationToken);
+                    // The correction goes back to whichever planner wrote the draft. Sending a
+                    // composite plan's problems to the v5/v6 retry would answer them with a v6
+                    // plan — English copy, Extra Wish, an eye colour, a leaf spirit — and the book
+                    // would ship written by the prompt the composite path exists to avoid.
+                    var retried = compositeStoryInput is null
+                        ? await masterStoryService.RetryPlanWithCorrectionsAsync(
+                            storyInput, problems, cancellationToken)
+                        : await masterStoryService.WriteCompositePlanAsync(
+                            compositeStoryInput, problems, cancellationToken);
 
                     // Both attempts were paid for; the run's token accounting AND its stored
                     // prompts report both, not just the attempt that happened to survive. The
@@ -245,7 +339,8 @@ public sealed class MasterBookService(
                         CompletionTokens = result.CompletionTokens + retried.CompletionTokens,
                     };
 
-                    var stillWrong = BekiPlanValidator.Validate(result.Story, storyInput.SpreadCount, storyInput.Age);
+                    var stillWrong = PlanProblems(
+                        result.Story, storyInput, compositeStoryInput is not null);
                     if (stillWrong.Count > 0)
                     {
                         throw new InvalidOperationException(
@@ -317,6 +412,70 @@ public sealed class MasterBookService(
             logger.LogError(ex, "Master story run {RunId} failed.", runId);
             await runRepository.MarkFailedAsync(runId, ex.Message, CancellationToken.None);
         }
+    }
+
+    /// <summary>
+    /// The four fields the composite planner may see, mapped from the preview's own input — or null
+    /// when this purchase cannot be mapped.
+    ///
+    /// Null rather than a throw, and the fallback is the legacy planner. An unmappable value here is
+    /// almost always an old gender or theme spelling on a stored row, and the composite pipeline's
+    /// own boundary will refuse it again at fulfilment time with INVALID_BOOK_INPUT, where the
+    /// refusal is about a book somebody paid for. Failing a free preview over it would turn a
+    /// pipeline that is off by default into an outage for a class of returning customers.
+    ///
+    /// The photograph is deliberately not consulted: <see cref="InputNormalization.NormalizeForStory"/>
+    /// maps the four fields and nothing else, because the story call is the one stage in this whole
+    /// pipeline that is not allowed to see the child's picture.
+    /// </summary>
+    /// <summary>
+    /// Everything wrong with a plan, in one list, so one corrective retry answers all of it.
+    ///
+    /// The shared checks first — Beki spelled the one way, the cast placed, the word budget, the
+    /// spread count — and then the composite path's own, which is stricter in exactly one place:
+    /// Beki on all eight spreads rather than on five, because the illustration contract cannot
+    /// describe a spread without her. Two lists rather than one validator, because the stricter
+    /// rule must not become the rule for every A5 book in production.
+    /// </summary>
+    private static IReadOnlyList<string> PlanProblems(
+        MasterStory story, MasterStoryInput input, bool composite)
+    {
+        var problems = BekiPlanValidator
+            .Validate(story, input.SpreadCount, input.Age)
+            .ToList();
+
+        if (composite)
+        {
+            problems.AddRange(CompositePlanRules.Problems(story, input.SpreadCount));
+        }
+
+        return problems;
+    }
+
+    private CompositeStoryInput? CompositeStoryInputFor(Guid runId, MasterStoryInput input)
+    {
+        var normalized = InputNormalization.NormalizeForStory(new BookGenerationInput
+        {
+            ChildName = input.ChildName,
+            ChildAge = input.Age,
+            ChildGender = input.Gender,
+            ThemeId = input.Theme.ToString(),
+            // Never read by NormalizeForStory; the type requires it and the story stage must not
+            // have it. Empty is the honest value.
+            ChildPhotoRef = string.Empty,
+        });
+
+        if (!normalized.IsValid)
+        {
+            logger.LogWarning(
+                "Run {RunId}: the composite pipeline is on but this input cannot be mapped to its "
+                + "boundary ({Problems}); writing the story with the configured planner instead.",
+                runId, string.Join(" ", normalized.Problems));
+
+            return null;
+        }
+
+        return CompositeStoryInput.From(normalized.Story!) with { SpreadCount = input.SpreadCount };
     }
 
     /// <summary>

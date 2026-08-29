@@ -8,6 +8,7 @@ using AdventurePacks.Api.Services.Ai;
 using AdventurePacks.Api.Services.Beki;
 using AdventurePacks.Api.Services.Implementations;
 using AdventurePacks.Api.Services.Story;
+using AdventurePacks.Api.Services.Story.Composite;
 using AdventurePacks.Api.Services.Interfaces;
 using Hangfire;
 using Hangfire.SqlServer;
@@ -360,6 +361,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBekiStoryService, BekiStoryService>();
         services.AddScoped<IBekiStoryRepository, BekiStoryRepository>();
         services.AddScoped<IBekiVisualRepository, BekiVisualRepository>();
+
+        // The composite pipeline, registered unconditionally and beside the generator that branches
+        // into it. Unconditional because a flag read at registration is a flag that needs a
+        // deployment to change, and because resolving this costs nothing: it holds no assets until
+        // it draws something — the pose registry, the 16 MB of approved artwork and the pipeline
+        // config all load on first use, which on a deployment with the flag off is never.
+        services.AddScoped<ICompositeBookPipeline, CompositeBookPipeline>();
 
         // The Beki-format book: spread illustrator, print layout, and the fulfilment job that
         // runs them for a purchased pack when BekiOptions.Enabled routes it this way.

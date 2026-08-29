@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://beki.ge/schemas/story_boundary_v1.schema.json",
+  "title": "BEKI Story Boundary v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title_ka", "story_pages"],
+  "properties": {
+    "title_ka": {"type": "string", "minLength": 1},
+    "story_pages": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "prefixItems": [
+        {"$ref": "#/$defs/page1"},
+        {"$ref": "#/$defs/page2"},
+        {"$ref": "#/$defs/page3"},
+        {"$ref": "#/$defs/page4"},
+        {"$ref": "#/$defs/page5"},
+        {"$ref": "#/$defs/page6"},
+        {"$ref": "#/$defs/page7"},
+        {"$ref": "#/$defs/page8"}
+      ],
+      "items": false
+    }
+  },
+  "$defs": {
+    "pageBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["page", "story_text"],
+      "properties": {
+        "page": {"type": "integer"},
+        "story_text": {"type": "string", "minLength": 1}
+      }
+    },
+    "page1": {"allOf": [{"$ref": "#/$defs/pageBase"}, {"properties": {"page": {"const": 1}}}]},
+    "page2": {"allOf": [{"$ref": "#/$defs/pageBase"}, {"properties": {"page": {"const": 2}}}]},
+    "page3": {"allOf": [{"$ref": "#/$defs/pageBase"}, {"properties": {"page": {"const": 3}}}]},
+    "page4": {"allOf": [{"$ref": "#/$defs/pageBase"}, {"properties": {"page": {"const": 4}}}]},
+    "page5": {"allOf": [{"$ref": "#/$defs/pageBase"}, {"properties": {"page": {"const": 5}}}]},
+    "page6": {"allOf": [{"$ref": "#/$defs/pageBase"}, {"properties": {"page": {"const": 6}}}]},
+    "page7": {"allOf": [{"$ref": "#/$defs/pageBase"}, {"properties": {"page": {"const": 7}}}]},
+    "page8": {"allOf": [{"$ref": "#/$defs/pageBase"}, {"properties": {"page": {"const": 8}}}]}
+  }
+}

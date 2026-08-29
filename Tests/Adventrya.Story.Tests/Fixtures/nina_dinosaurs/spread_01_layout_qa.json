@@ -1,0 +1,33 @@
+{
+  "asset": "BEKI_Spread_01_Dinosaurs_Automated_Layout_Noto_v1.pdf",
+  "stage": "automated_layout",
+  "status": "PASS_FOR_LAYOUT_APPROVAL",
+  "story_text": "ნინა და ბეკი დინოზავრების ხეობაში მივიდნენ. უცებ, დიდ გვიმრებში გაისმა: „ფუუ... ფუუ...“",
+  "checks": {
+    "approved_visual_unchanged": true,
+    "print_canvas_px": "5315x2480",
+    "image_resolution_ppi": 300,
+    "media_size_mm": "450x210",
+    "trim_size_mm": "440x200",
+    "bleed_mm_each_edge": 5,
+    "font": "Noto Sans Georgian Regular",
+    "font_source": "Project-supplied Noto Sans.zip",
+    "font_source_sha256": "a1c1e6926e292cb10bc57685c65c8c15a3f1250c9b49fa005e25f314c9076a76",
+    "font_embedded": true,
+    "text_is_vector": true,
+    "text_extracts_correctly": true,
+    "soft_zone_is_copy_sized": true,
+    "text_avoids_child": true,
+    "text_avoids_beki": true,
+    "text_avoids_center_fold": true,
+    "poppler_render": "PASS",
+    "ghostscript_render": "PASS",
+    "pypdf_reopen_and_box_assertions": "PASS"
+  },
+  "color_state": "sRGB layout proof; CMYK FOGRA39 conversion belongs to Print Prep",
+  "sha256": {
+    "approved_hybrid_source": "ed3178f852aac4a78d3ebeb31fffe559b5ea065ca0d711144f429e4c1836e1ed",
+    "normalized_300ppi_png": "35724a0cacdf51eb46efcafcfb8c20224c253df384d381f60b501af9c81f927e",
+    "layout_pdf": "9b1cd2e3c7b8d3b74c6060ff13fc1533fa4d2fb80e5e775c5909fb641e960372"
+  }
+}

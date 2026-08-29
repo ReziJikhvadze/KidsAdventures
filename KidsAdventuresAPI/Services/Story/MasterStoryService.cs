@@ -1,6 +1,8 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Story;
+using AdventurePacks.Api.Services.Story.Composite;
 using AdventurePacks.Api.Services.Story.Prompts;
 
 namespace AdventurePacks.Api.Services.Story;
@@ -52,6 +54,35 @@ public interface IMasterStoryService
     /// </summary>
     Task<MasterStoryResult> RetryPlanWithCorrectionsAsync(
         MasterStoryInput input, IReadOnlyList<string> problems, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The composite pipeline's own PLAN BOOK call: <see cref="MasterStoryPromptComposite"/>
+    /// against <see cref="CompositeStorySchema"/>, four inputs, Georgian only.
+    ///
+    /// A separate entry point rather than another case in <see cref="PromptVersion"/>, and the
+    /// reason is a routing decision made elsewhere. <see cref="BookFormat.IsPrintPlan"/> is the
+    /// gate that sends a purchased pack to the Beki fulfilment job, and it recognises exactly "v5"
+    /// and "v6"; a version property that started answering "composite-v1" would route every
+    /// composite book to the legacy A5 generator, which is the one path the composite pipeline can
+    /// never be reached from. So the selection is made by the caller that wants it — nothing else
+    /// calls this — and the preview flow's version, and the routing that reads it, are untouched.
+    ///
+    /// Refuses outright when <see cref="BekiOptions.CompositePipelineEnabled"/> is off. The flag is
+    /// what makes this prompt reachable at all, and a method that quietly worked without it would
+    /// be one accidental call away from writing a production book against an unproven prompt.
+    /// </summary>
+    /// <param name="problems">
+    /// A previous attempt's validator problems, numbered onto the end of the user prompt exactly as
+    /// <see cref="RetryPlanWithCorrectionsAsync"/> does it. Empty for a first attempt.
+    ///
+    /// It is a parameter on this method rather than a second method because the corrective retry
+    /// must go back to the *composite* prompt. Sending it to the v5/v6 retry would answer a
+    /// composite plan's problems with a v6 plan — English copy, Extra Wish, an eye colour and a
+    /// leaf spirit, every one of them locked out — and the book would ship written by the prompt
+    /// this path exists to avoid.
+    /// </param>
+    Task<MasterStoryResult> WriteCompositePlanAsync(
+        CompositeStoryInput input, IReadOnlyList<string> problems, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -690,6 +721,115 @@ public sealed class MasterStoryService(
         var numbered = string.Join("\n", problems.Select((problem, index) => $"{index + 1}. {problem}"));
         return "The previous plan was rejected for these reasons. Return a corrected plan for the "
             + $"same book, with each of them fixed:\n{numbered}";
+    }
+
+    // ---- Composite --------------------------------------------------------------------------
+
+    /// <inheritdoc cref="IMasterStoryService.WriteCompositePlanAsync" />
+    public async Task<MasterStoryResult> WriteCompositePlanAsync(
+        CompositeStoryInput input, IReadOnlyList<string> problems, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        if (!_bekiOptions.CompositePipelineEnabled)
+        {
+            throw new InvalidOperationException(
+                "The composite story prompt is only written when Beki:CompositePipelineEnabled is "
+                + "on. Every other path writes its book with the configured prompt version.");
+        }
+
+        var systemPrompt = MasterStoryPromptComposite.System(input);
+        var userPrompt = MasterStoryPromptComposite.User(input);
+
+        // The correction rides on the composite prompt, never on v6's. See the interface's note.
+        if (problems is { Count: > 0 })
+        {
+            userPrompt += "\n\n" + CorrectionNote(problems);
+        }
+
+        var model = ModelName;
+
+        logger.LogInformation(
+            "Planning a {Spreads}-spread composite book for {Child}, age band {AgeBand}, theme "
+            + "{Theme}, using {Model} ({Version}), {Problems} correction(s).",
+            input.SpreadCount, input.ChildName, input.AgeBand, input.ThemeId, model,
+            MasterStoryPromptComposite.Version, problems?.Count ?? 0);
+
+        // JsonElement rather than MasterStory: the composite schema has no characterLock, and the
+        // record does — see ReadCompositePlan. Deserializing straight to the record would fail on
+        // a perfectly correct answer.
+        var result = await modelClient.CompleteAsync<JsonElement>(
+            model,
+            systemPrompt,
+            userPrompt,
+            CompositeStorySchema.Name,
+            CompositeStorySchema.Build(input.SpreadCount),
+            cancellationToken);
+
+        var story = ReadCompositePlan(result.Value);
+
+        /*
+          A wrong spread count is reported, not thrown.
+
+          The legacy path can throw here because its schema pins the count with an array length the
+          provider enforces. The composite path's request schema cannot: strict structured-output
+          mode rejects minItems and maxItems, so "exactly eight" survives only as a sentence in a
+          description, and a model that returns seven is returning something the request permitted.
+
+          Throwing made that a failed preview. But the caller already owns a corrective retry for
+          exactly this class of fault — a plan that is well-formed and wrong — and it is a retry
+          that was being skipped by the one problem most likely to need it. So the count travels out
+          with the plan and reaches BekiPlanValidator, which reports it in the same list as every
+          other plan problem and gets the same second attempt.
+        */
+        if (story.Spreads.Count != input.SpreadCount)
+        {
+            logger.LogWarning(
+                "The composite planner returned {Actual} spreads, expected {Expected}; leaving it "
+                + "for the caller's plan validation and its corrective retry.",
+                story.Spreads.Count, input.SpreadCount);
+        }
+
+        logger.LogInformation(
+            "Composite book \"{Title}\" written: {Spreads} spreads, {Prompt} prompt tokens, "
+            + "{Completion} completion tokens.",
+            story.Concept.Title, story.Spreads.Count, result.PromptTokens, result.CompletionTokens);
+
+        return new MasterStoryResult
+        {
+            Story = story,
+            SystemPrompt = systemPrompt,
+            UserPrompt = userPrompt,
+            Model = model,
+            PromptTokens = result.PromptTokens,
+            CompletionTokens = result.CompletionTokens
+        };
+    }
+
+    /// <summary>
+    /// Reads a composite plan into the record every other stage already speaks.
+    ///
+    /// The one adjustment is <c>characterLock</c>. <see cref="MasterStory"/> declares it required
+    /// because every A5 book in storage has one and relaxing the record would break resuming those;
+    /// <see cref="CompositeStorySchema"/> deliberately does not ask for it, because it is the
+    /// paragraph describing a real child's face and the composite pipeline puts the child's
+    /// likeness entirely in the photograph's hands. System.Text.Json throws on a missing required
+    /// property, so the two facts have to meet somewhere, and this is the only place a composite
+    /// plan is read.
+    ///
+    /// An empty string rather than a placeholder sentence: nothing on this path reads the field,
+    /// and a plausible-looking description sitting in it is exactly what a later edit would pick up
+    /// and put into an image prompt.
+    /// </summary>
+    private static MasterStory ReadCompositePlan(JsonElement plan)
+    {
+        var node = JsonNode.Parse(plan.GetRawText())?.AsObject()
+                   ?? throw new InvalidOperationException("The composite planner returned no object.");
+
+        node["characterLock"] ??= string.Empty;
+
+        return JsonSerializer.Deserialize<MasterStory>(node.ToJsonString(), StoryJson.Options)
+               ?? throw new InvalidOperationException("The composite planner returned no usable plan.");
     }
 
     // ---- Shared -----------------------------------------------------------------------------

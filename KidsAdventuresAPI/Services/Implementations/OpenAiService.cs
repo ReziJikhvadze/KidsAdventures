@@ -232,7 +232,8 @@ public sealed class OpenAiService(
         string imagePrompt,
         StoryImageReference? reference,
         CancellationToken cancellationToken,
-        string? imageSize = null)
+        string? imageSize = null,
+        bool requireReferences = false)
     {
         if (!_options.EnableStoryImages)
         {
@@ -261,6 +262,18 @@ public sealed class OpenAiService(
                 imagePrompt);
         }
 
+        // A caller that needs the references cannot be handed a picture drawn without them, and
+        // "there were none to send" is the same outcome as "sending them failed". Checked before
+        // the call rather than after, because the failure is in the request and there is nothing to
+        // learn by paying for the answer.
+        if (requireReferences && referenceImages.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "This illustration must be drawn from its reference images, and none were "
+                + "supplied. Drawing it from the prompt alone would produce a picture of a "
+                + "different child in a different world.");
+        }
+
         if (referenceImages.Count > 0)
         {
             try
@@ -273,6 +286,31 @@ public sealed class OpenAiService(
             }
             catch (Exception ex)
             {
+                /*
+                  The fallback, and the one caller it is wrong for.
+
+                  Drawing from the prompt alone when the edit route dies is the right trade for the
+                  A5 flow: the prompt already carries a written appearance description, so what
+                  comes back is a slightly-off hero rather than a stranger, and a book with one
+                  weaker picture beats a failed job.
+
+                  It is the wrong trade wherever the references ARE the description. On the
+                  composite path the child's likeness exists only in the attached photograph, the
+                  world only in the approved theme reference, and a recurring creature only in the
+                  continuity image — so this fallback would return a picture of somebody else,
+                  which is then composited with the approved Beki, reviewed, stored and printed.
+                  Such a caller sets requireReferences and gets the exception instead.
+                */
+                if (requireReferences)
+                {
+                    logger.LogError(
+                        ex,
+                        "GPT Image edit failed after retries and this illustration may not be "
+                        + "drawn without its references; failing rather than generating an "
+                        + "unanchored picture.");
+                    throw;
+                }
+
                 var usedPhoto = reference?.CastPhotos.Any(static c => c.Bytes is { Length: > 0 }) == true;
                 logger.LogWarning(
                     ex,

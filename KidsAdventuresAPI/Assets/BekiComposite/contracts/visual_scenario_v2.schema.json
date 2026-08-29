@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://beki.ge/schemas/visual-scenario-v2.json",
+  "title": "BEKI Visual Scenario v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["visual_lock", "cover", "spreads"],
+  "properties": {
+    "visual_lock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["child_outfit", "recurring_elements"],
+      "properties": {
+        "child_outfit": {"type": "string", "minLength": 1},
+        "recurring_elements": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 3,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "cover": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["front_child_world_scene", "beki_action", "back_environment"],
+      "properties": {
+        "front_child_world_scene": {"type": "string", "minLength": 1},
+        "beki_action": {"type": "string", "minLength": 1},
+        "back_environment": {"type": "string", "minLength": 1}
+      }
+    },
+    "spreads": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "prefixItems": [
+        {"$ref": "#/$defs/spread1"},
+        {"$ref": "#/$defs/spread2"},
+        {"$ref": "#/$defs/spread3"},
+        {"$ref": "#/$defs/spread4"},
+        {"$ref": "#/$defs/spread5"},
+        {"$ref": "#/$defs/spread6"},
+        {"$ref": "#/$defs/spread7"},
+        {"$ref": "#/$defs/spread8"}
+      ],
+      "items": false
+    }
+  },
+  "$defs": {
+    "spreadBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["page", "child_world_scene", "beki_action"],
+      "properties": {
+        "page": {"type": "integer"},
+        "child_world_scene": {"type": "string", "minLength": 1},
+        "beki_action": {"type": "string", "minLength": 1}
+      }
+    },
+    "spread1": {"allOf": [{"$ref": "#/$defs/spreadBase"}, {"properties": {"page": {"const": 1}}}]},
+    "spread2": {"allOf": [{"$ref": "#/$defs/spreadBase"}, {"properties": {"page": {"const": 2}}}]},
+    "spread3": {"allOf": [{"$ref": "#/$defs/spreadBase"}, {"properties": {"page": {"const": 3}}}]},
+    "spread4": {"allOf": [{"$ref": "#/$defs/spreadBase"}, {"properties": {"page": {"const": 4}}}]},
+    "spread5": {"allOf": [{"$ref": "#/$defs/spreadBase"}, {"properties": {"page": {"const": 5}}}]},
+    "spread6": {"allOf": [{"$ref": "#/$defs/spreadBase"}, {"properties": {"page": {"const": 6}}}]},
+    "spread7": {"allOf": [{"$ref": "#/$defs/spreadBase"}, {"properties": {"page": {"const": 7}}}]},
+    "spread8": {"allOf": [{"$ref": "#/$defs/spreadBase"}, {"properties": {"page": {"const": 8}}}]}
+  }
+}

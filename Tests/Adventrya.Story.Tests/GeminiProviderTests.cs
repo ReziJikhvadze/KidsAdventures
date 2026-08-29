@@ -418,7 +418,8 @@ public class GeminiProviderTests
 
         public Task<byte[]> GenerateStoryImageAsync(
             string imagePrompt, StoryImageReference? reference,
-            CancellationToken cancellationToken, string? imageSize = null)
+            CancellationToken cancellationToken, string? imageSize = null,
+            bool requireReferences = false)
         {
             ImageCalls++;
             return Task.FromResult<byte[]>([1]);

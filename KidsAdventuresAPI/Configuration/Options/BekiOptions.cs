@@ -28,6 +28,36 @@ public sealed class BekiOptions
     /// </summary>
     public bool BookFormatEnabled { get; set; }
 
+    /// <summary>
+    /// Routes a Beki-format book through the composite pipeline: the composite Story prompt, the
+    /// Visual Scenario v2 call, child/world-only image generation, deterministic pose selection,
+    /// exact-PNG compositing and the minimal visual QA contract.
+    ///
+    /// False, and it has to stay false until the pipeline has drawn a real book somebody has
+    /// looked at. Every book in production today is drawn by the path this flag bypasses, and the
+    /// bypass is deliberately a single early branch at two entry points rather than a set of
+    /// conditions threaded through the illustrator — off, the legacy path is not merely
+    /// equivalent, it is the same code executing the same way it did before this flag existed.
+    ///
+    /// Its own switch rather than a second meaning for <see cref="BookFormatEnabled"/>: that flag
+    /// decides the book *format* (eight print spreads, the Beki cover, the resumable job), and the
+    /// composite pipeline is a different way of drawing that same format. The two are turned on in
+    /// that order — format first, then pipeline — and coupling them would make the second
+    /// impossible to try without the first, or the reverse.
+    /// </summary>
+    public bool CompositePipelineEnabled { get; set; }
+
+    /// <summary>
+    /// The model that plans the Visual Scenario, when it should not be the story provider's own.
+    ///
+    /// Empty by default, and empty means "whatever writes the story writes this too" — the
+    /// handoff asks only that the slot be configurable, not that it be different. A value is
+    /// honoured by the provider it names: the Gemini client takes an explicitly passed
+    /// <c>gemini-</c> id and ignores anything else, because forwarding an OpenAI product name to
+    /// Google fails every call.
+    /// </summary>
+    public string VisualScenarioModel { get; set; } = string.Empty;
+
     // ---- Story pipeline -------------------------------------------------
 
     /// <summary>Writes the 12-page draft. The most quality-sensitive call in the product.</summary>

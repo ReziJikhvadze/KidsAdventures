@@ -1,0 +1,53 @@
+{
+  "registry_version": "beki-theme-references-v1",
+  "canonical_theme_ids": ["clouds", "space", "forest", "ocean", "magic", "dinosaurs"],
+  "themes": [
+    {
+      "id": "clouds",
+      "working_title_en": "The City Hidden Beyond the Clouds",
+      "reference_filename": "BEKI_Intro_Background_01_Clouds_450x210mm_300ppi_sRGB.png",
+      "sha256": "0582b4038402b171d4d78517ac1b9471c0395801bc5e8b4c435c0d5252777bb2",
+      "visual_direction": "A luminous floating city above soft clouds, warm sunrise gold, pale violet atmosphere, rounded fantasy architecture, airy depth, and a premium stylized 3D children's-book look."
+    },
+    {
+      "id": "space",
+      "working_title_en": "The Path of the Lost Star",
+      "reference_filename": "BEKI_Intro_Background_02_Space_450x210mm_300ppi_sRGB.png",
+      "sha256": "cd3d5c4e63f23886d52584456163e83f336a26f546128351d71b1c6ddf699c48",
+      "visual_direction": "A gentle cosmic journey with luminous stars, soft nebula clouds, violet and gold light, rounded celestial forms, welcoming scale, and a premium stylized 3D children's-book look."
+    },
+    {
+      "id": "forest",
+      "working_title_en": "Friends of the Magical Forest",
+      "reference_filename": "BEKI_Intro_Background_03_Forest_450x210mm_300ppi_sRGB.png",
+      "sha256": "54a422b7d650e27b44b71e5a8bf2ca82b0b317630f3f502eec1fbdc084d346f7",
+      "visual_direction": "A warm enchanted woodland with moss, rounded trees, tiny lights, violet and golden plants, natural mist, friendly scale, and a premium stylized 3D children's-book look."
+    },
+    {
+      "id": "ocean",
+      "working_title_en": "The Secret of the Shining Island",
+      "reference_filename": "BEKI_Intro_Background_04_Ocean_450x210mm_300ppi_sRGB.png",
+      "sha256": "d7a5e5747ced36c86174825d2d1f320a2e5fc27542ae6ecaa99502cd47c8d094",
+      "visual_direction": "A sparkling tropical island world with turquoise water, coral light, pearly sand, rounded rock arches, warm sunset haze, and a premium stylized 3D children's-book look."
+    },
+    {
+      "id": "magic",
+      "working_title_en": "The Gate of the Magical City",
+      "reference_filename": "BEKI_Intro_Background_05_Magic_450x210mm_300ppi_sRGB.png",
+      "sha256": "fd62245e51f5e75c3e53cf14910ffc751c7a87ee6e678ed8cfb86b56685b0e6e",
+      "visual_direction": "A welcoming magical city with a luminous gateway, rounded towers, golden paths, soft violet shadows, dreamlike depth, and a premium stylized 3D children's-book look."
+    },
+    {
+      "id": "dinosaurs",
+      "working_title_en": "Dinosaur Valley",
+      "reference_filename": "BEKI_Intro_Background_06_Dinosaurs_450x210mm_300ppi_sRGB.png",
+      "sha256": "0ea6d55e511f63936b01ac17daead7b49985f661e974a70149a3e668cd74482a",
+      "visual_direction": "A warm golden prehistoric valley with giant ferns, soft violet and coral flowers, turquoise streams, rounded friendly dinosaurs, distant mountains, natural cinematic light, and a premium stylized 3D animated children's-book look."
+    }
+  ],
+  "endpaper": {
+    "filename": "BEKI_Endpaper_Pattern_Approved_450x210mm_300ppi_sRGB.png",
+    "sha256": "cee4dd36fdc0c0f31d3ec12b0052f11686b2ba76989ee6e7404f27546f5c0a31"
+  },
+  "integration_rule": "Map existing backend theme values to one canonical ID at the application boundary. Do not infer unknown aliases."
+}

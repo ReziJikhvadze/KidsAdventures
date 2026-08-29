@@ -6,6 +6,7 @@ using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.Infrastructure;
 using AdventurePacks.Api.Services.Interfaces;
+using AdventurePacks.Api.Services.Story.Composite;
 using AdventurePacks.Api.Services.Story.Prompts;
 
 namespace AdventurePacks.Api.Services.Story;
@@ -33,6 +34,16 @@ public sealed record BekiImageResult
 
     /// <summary>Which characters this image was drawn from an anchor for, rather than a description.</summary>
     public IReadOnlyList<string> AnchoredCharacters { get; init; } = [];
+
+    /// <summary>
+    /// This page's composition receipt, when the composite pipeline made it. Null on the legacy
+    /// path, and null for a page adopted from a previous attempt — that run wrote the receipt.
+    ///
+    /// It rides on the per-image result so the fulfilment job can store it in the same callback it
+    /// already stores the picture in. A receipt written only once the whole book is finished is a
+    /// receipt lost by every job that dies on spread seven, for the six pages that were fine.
+    /// </summary>
+    public CompositeSpreadArtifact? Composition { get; init; }
 }
 
 public sealed record BekiBookResult
@@ -43,6 +54,16 @@ public sealed record BekiBookResult
     public required BekiImageResult Cover { get; init; }
     public required IReadOnlyList<BekiImageResult> Spreads { get; init; }
     public IReadOnlyList<string> Warnings { get; init; } = [];
+
+    /// <summary>
+    /// The Visual Scenario and the per-page composition receipts, when the composite pipeline drew
+    /// this book. Null on the legacy path, which is every book in production today.
+    ///
+    /// Carried on the result rather than written by the generator because the generator stores
+    /// nothing — it has no blob dependency and is run in tests with no storage at all — and the
+    /// fulfilment job already owns every decision about where a pack's files live.
+    /// </summary>
+    public CompositeBookArtifacts? Composite { get; init; }
 }
 
 public interface IBekiBookGenerator
@@ -74,6 +95,11 @@ public interface IBekiBookGenerator
     /// default) means nothing survives from an earlier attempt, which is every caller but the
     /// resumable fulfilment job.
     /// </param>
+    /// <param name="composite">
+    /// The four normalized inputs, supplied only by a caller that has them and only when the
+    /// composite pipeline is meant to draw this book. Null — the default, and every caller but the
+    /// fulfilment job — keeps the book on the path it has always taken.
+    /// </param>
     Task<BekiBookResult> IllustrateAsync(
         MasterStory plan,
         byte[] childPhoto,
@@ -81,7 +107,8 @@ public interface IBekiBookGenerator
         byte[]? existingCover,
         Func<BekiImageResult, Task>? onImage,
         CancellationToken cancellationToken,
-        IReadOnlyDictionary<int, byte[]>? existingSpreads = null);
+        IReadOnlyDictionary<int, byte[]>? existingSpreads = null,
+        CompositeBookContext? composite = null);
 
     /// <summary>
     /// The Beki cover alone: the child and the Beki master reference, QA-reviewed exactly as
@@ -97,7 +124,11 @@ public interface IBekiBookGenerator
     /// can fall back to a cover with no companion at all should catch it and do that.
     /// </exception>
     Task<BekiImageResult> DrawCoverAsync(
-        MasterStory plan, byte[] childPhoto, string childPhotoContentType, CancellationToken cancellationToken);
+        MasterStory plan,
+        byte[] childPhoto,
+        string childPhotoContentType,
+        CancellationToken cancellationToken,
+        CompositeBookContext? composite = null);
 }
 
 /// <summary>
@@ -125,7 +156,8 @@ public sealed class BekiBookGenerator(
     IOpenAiService openAi,
     IOptions<BekiPrintLayoutOptions> printLayoutOptions,
     IOptions<BekiOptions> bekiOptions,
-    ILogger<BekiBookGenerator> logger) : IBekiBookGenerator
+    ILogger<BekiBookGenerator> logger,
+    ICompositeBookPipeline? compositePipeline = null) : IBekiBookGenerator
 {
     /// <summary>
     /// Landscape, until the 2.2:1 spread is decided. gpt-image offers three shapes and none of
@@ -285,8 +317,24 @@ public sealed class BekiBookGenerator(
         byte[]? existingCover,
         Func<BekiImageResult, Task>? onImage,
         CancellationToken cancellationToken,
-        IReadOnlyDictionary<int, byte[]>? existingSpreads = null)
+        IReadOnlyDictionary<int, byte[]>? existingSpreads = null,
+        CompositeBookContext? composite = null)
     {
+        // The composite pipeline, taken or not taken before anything below runs. One branch at the
+        // top of the method rather than conditions threaded through it: when the flag is off this
+        // is a single boolean read and the rest of the method is the code that has always drawn
+        // every book in production, unchanged.
+        if (UsesCompositePipeline(composite, "the book"))
+        {
+            // existingSpreads is deliberately not forwarded: the composite path resumes from
+            // composite.Resume, which carries the pages, their pre-composite bases and the scenario
+            // they were drawn against as one thing. Adopting pages without the other two is what
+            // lets a book change its child's outfit halfway through.
+            return await IllustrateThroughCompositeAsync(
+                plan, childPhoto, childPhotoContentType, existingCover, onImage, composite!,
+                cancellationToken);
+        }
+
         var warnings = new List<string>();
         var adopted = existingSpreads ?? new Dictionary<int, byte[]>();
 
@@ -555,8 +603,20 @@ public sealed class BekiBookGenerator(
     /// the third character the model would otherwise invent for it.
     /// </summary>
     public async Task<BekiImageResult> DrawCoverAsync(
-        MasterStory plan, byte[] childPhoto, string childPhotoContentType, CancellationToken cancellationToken)
+        MasterStory plan,
+        byte[] childPhoto,
+        string childPhotoContentType,
+        CancellationToken cancellationToken,
+        CompositeBookContext? composite = null)
     {
+        // The composite cover, taken or not taken before anything below runs — the same shape of
+        // branch IllustrateAsync opens with, and inert in the same way when the flag is off.
+        if (UsesCompositePipeline(composite, "the cover"))
+        {
+            return await DrawCoverThroughCompositeAsync(
+                plan, childPhoto, childPhotoContentType, composite!, cancellationToken);
+        }
+
         // No null branch: this cover is the child and Beki together, so it is one of the images
         // that may not be drawn without the master reference.
         var beki = RequireBekiReference("the cover");
@@ -1045,5 +1105,198 @@ public sealed class BekiBookGenerator(
         }
 
         return cached;
+    }
+
+    // ---- The composite pipeline branch --------------------------------------------------------
+    //
+    // Everything below this line is unreachable while Beki:CompositePipelineEnabled is false, which
+    // is the whole design: the flag is read once at the top of each of the two entry points, and
+    // off, this file behaves exactly as it did before any of it existed.
+
+    /// <summary>
+    /// Whether this call goes to the composite pipeline, and why it does not when it does not.
+    ///
+    /// Three things have to be true, and the third is the interesting one. The flag has to be on;
+    /// the pipeline has to be registered; and the caller has to have supplied the four normalized
+    /// inputs, which only a caller that holds the run and the pack can do. The preview cover path
+    /// holds a plan and a photograph and nothing else, so with the flag on it lands here without a
+    /// context — and takes the legacy path, loudly.
+    ///
+    /// Loudly rather than silently, and legacy rather than a failure. A thrown exception would make
+    /// the flag impossible to switch on in staging without also breaking every preview; a silent
+    /// fallback would let an operator believe the composite pipeline drew a picture it never
+    /// touched. A warning naming the caller is the only version of this that is both usable and
+    /// honest.
+    /// </summary>
+    private bool UsesCompositePipeline(CompositeBookContext? composite, string what)
+    {
+        if (!_bekiOptions.CompositePipelineEnabled)
+        {
+            return false;
+        }
+
+        if (compositePipeline is null)
+        {
+            logger.LogWarning(
+                "Beki:CompositePipelineEnabled is on but no composite pipeline is registered; "
+                + "{What} is being drawn by the previous path.", what);
+            return false;
+        }
+
+        if (composite is null)
+        {
+            logger.LogWarning(
+                "Beki:CompositePipelineEnabled is on but this caller supplied no composite context "
+                + "(the child's age band, gender and theme); {What} is being drawn by the previous "
+                + "path. Only the fulfilment job carries those inputs today.", what);
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// The composite pipeline's eight pages, returned in the shape every existing caller already
+    /// reads.
+    ///
+    /// The mapping is deliberate rather than a new result type: the fulfilment job uploads
+    /// <see cref="BekiImageResult.Image"/>, writes its manifest from it and projects it for the
+    /// reader, and none of that should have to know which pipeline drew the page. What it gets here
+    /// is the composited page — base plus the approved Beki PNG — because that is the page, and the
+    /// base alone is an intermediate nobody prints.
+    ///
+    /// The plan is handed to the pipeline rather than rewritten by it. This book was previewed and
+    /// bought; the composite Story prompt would write a different story, and the parent chose this
+    /// one. What the older prompt puts in that this pipeline must not carry is dropped by the story
+    /// boundary, not trusted.
+    /// </summary>
+    private async Task<BekiBookResult> IllustrateThroughCompositeAsync(
+        MasterStory plan,
+        byte[] childPhoto,
+        string childPhotoContentType,
+        byte[]? existingCover,
+        Func<BekiImageResult, Task>? onImage,
+        CompositeBookContext composite,
+        CancellationToken cancellationToken)
+    {
+        // The cover first, exactly as the legacy path does it — and for the same reason: a book
+        // whose cover cannot be produced is a book that should stop before it spends eight image
+        // calls. On this path "cannot be produced" is not a possibility but a certainty whenever
+        // there is no previewed cover to adopt, because the printer-approved cover geometry the
+        // composite cover contract requires is not configured anywhere yet.
+        var cover = existingCover is null
+            ? await DrawCoverThroughCompositeAsync(
+                plan, childPhoto, childPhotoContentType, composite, cancellationToken)
+            : new BekiImageResult
+            {
+                Image = existingCover,
+                Accepted = true,
+                Verdict = "Adopted from the preview the parent chose; not drawn here.",
+                Attempts = 0,
+                Prompt = string.Empty,
+            };
+
+        // The resume state and the scenario callback come from the context, because the caller that
+        // knows what an earlier attempt left in storage is the fulfilment job and not this class —
+        // the generator has no blob dependency and is not about to grow one.
+        var result = await compositePipeline!.RunAsync(
+            new CompositeBookRequest
+            {
+                Context = composite,
+                ExistingPlan = plan,
+                ChildPhoto = childPhoto,
+                ChildPhotoContentType = childPhotoContentType,
+                Resume = composite.Resume,
+                OnScenario = composite.OnScenario,
+                OnSpread = onImage is null ? null : spread => onImage(ToImageResult(spread)),
+            },
+            cancellationToken);
+
+        foreach (var warning in result.Warnings)
+        {
+            logger.LogWarning("Composite book {JobId}: {Warning}", composite.JobId, warning);
+        }
+
+        return new BekiBookResult
+        {
+            Plan = result.Plan,
+            AppearanceDescription = string.Empty,
+            Cover = cover,
+            Spreads = result.Spreads.Select(ToImageResult).ToList(),
+            Warnings = result.Warnings,
+            Composite = result.Artifacts,
+        };
+    }
+
+    private static BekiImageResult ToImageResult(CompositeSpreadResult spread) => new()
+    {
+        SpreadNumber = spread.Page,
+        Image = spread.CompositePng,
+        // A page only leaves the pipeline accepted: a failed review stops the book with
+        // IMAGE_QA_FAILED rather than shipping a marked spread, which is what the composite QA
+        // contract asks for and the opposite of what the legacy path does.
+        Accepted = true,
+        Verdict = spread.Verdict,
+        Attempts = spread.Attempts.Count > 0 ? spread.Attempts.Count : spread.BaseAttempts,
+        /*
+          The per-attempt rows, carried across rather than left empty.
+
+          They are not decoration. The fulfilment job's telemetry reads AttemptDetails.Count == 0 as
+          "this page was adopted from an earlier run and cost nothing", so a freshly drawn composite
+          page with no rows was being reported as free — every book showing zero image attempts and
+          eight adoptions, which is exactly the measurement the telemetry exists to take. An adopted
+          page genuinely has no rows, and now that is the only thing that produces none.
+        */
+        AttemptDetails = spread.Attempts
+            .Select(attempt => new BekiImageAttempt(
+                attempt.GenerationMs, attempt.ReviewMs, attempt.Verdict, attempt.Accepted))
+            .ToList(),
+        Prompt = spread.Prompt,
+        Composition = spread.Adopted
+            ? null
+            : new CompositeSpreadArtifact(
+                spread.Page,
+                spread.PoseId,
+                spread.Manifest.ToJson(),
+                spread.Manifest.Output.Sha256,
+                spread.BasePng),
+    };
+
+    /// <summary>
+    /// The composite cover, which today is a stated failure.
+    ///
+    /// It reads as an odd method until the alternative is written down. The cover base contract
+    /// needs seven regions off the printer-approved dieline and forbids substituting the interior
+    /// bleed for them; this deployment configures none of the seven. So the honest outcomes are a
+    /// book that stops with LAYOUT_FAILED, or a cover generated to interior geometry with the child
+    /// across the spine and the title over her face. The pipeline raises the first, this method
+    /// lets it through, and nothing here quietly draws the second.
+    /// </summary>
+    private async Task<BekiImageResult> DrawCoverThroughCompositeAsync(
+        MasterStory plan,
+        byte[] childPhoto,
+        string childPhotoContentType,
+        CompositeBookContext composite,
+        CancellationToken cancellationToken)
+    {
+        // The scenario the cover would be drawn from is the book's own, and it is planned inside
+        // RunAsync — so a cover asked for on its own has none. That is not worth building a second
+        // scenario call for while the geometry is missing: the call below fails on the geometry
+        // first, and this argument is what it fails in front of.
+        _ = plan;
+
+        var scenario = new VisualScenarioV2();
+
+        var image = await compositePipeline!.DrawCoverAsync(
+            composite, scenario, childPhoto, childPhotoContentType, cancellationToken);
+
+        return new BekiImageResult
+        {
+            Image = image,
+            Accepted = true,
+            Verdict = $"Composite cover ({CompositeIllustrationPrompt.CoverVersion}).",
+            Attempts = 1,
+            Prompt = string.Empty,
+        };
     }
 }

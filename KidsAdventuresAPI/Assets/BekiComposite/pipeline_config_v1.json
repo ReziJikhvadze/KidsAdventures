@@ -1,0 +1,113 @@
+{
+  "config_version": "beki-pipeline-v1",
+  "story": {
+    "language": "ka",
+    "input_fields": ["child_name", "child_age", "child_gender", "theme_id"],
+    "ignored_legacy_fields": ["extra_wish"],
+    "age_groups": [
+      {"id": "1-2", "min_age": 1, "max_age": 2},
+      {"id": "3-5", "min_age": 3, "max_age": 5},
+      {"id": "6+", "min_age": 6, "max_age": null}
+    ],
+    "spread_count": 8,
+    "model_slot": "story_model",
+    "working_model": "Gemini 3.1 Pro",
+    "model_id_must_be_configurable": true
+  },
+  "visual_scenario": {
+    "prompt_version": "visual-scenario-v2",
+    "model_slot": "visual_scenario_model",
+    "max_validation_retries": 1
+  },
+  "spread_rhythm": [
+    {"page": 1, "text_side": "LEFT", "shot_instruction": "Use a wide establishing view. The environment is dominant and the child is relatively small within it."},
+    {"page": 2, "text_side": "RIGHT", "shot_instruction": "Use a medium view for the first clear discovery. Make the child, the discovered subject, and their relationship immediately readable."},
+    {"page": 3, "text_side": "LEFT", "shot_instruction": "Use a full-figure action view. Show the child's complete physical action clearly and keep hands readable."},
+    {"page": 4, "text_side": "RIGHT", "shot_instruction": "Use a dramatic atmospheric wide view. Let the environmental change feel important while keeping the child emotionally readable."},
+    {"page": 5, "text_side": "LEFT", "shot_instruction": "Use a wide travelling view. Show the child actively choosing or following the route through the environment."},
+    {"page": 6, "text_side": "RIGHT", "shot_instruction": "Use a medium-wide major-reveal or problem-solving view. Keep the child's action and the obstacle/reveal legible in one frame."},
+    {"page": 7, "text_side": "LEFT", "shot_instruction": "Use a close emotional view. Prioritize the child's face, the emotional exchange, and the story-relevant object without crowding the fold."},
+    {"page": 8, "text_side": "RIGHT", "shot_instruction": "Use a cinematic wide continuation view. Resolve the current beat and make the new path or continuation cue clearly visible."}
+  ],
+  "image_generation": {
+    "prompt_version": "child-world-image-v1",
+    "model_slot": "image_generation_model",
+    "references": ["child_photo", "theme_reference"],
+    "optional_reference": "latest_approved_continuity_image",
+    "send_beki_reference": false,
+    "target_aspect_ratio": "15:7",
+    "max_generation_retries_after_qa_failure": 1
+  },
+  "beki_composite": {
+    "pose_registry_version": "beki-pose-registry-v1",
+    "verify_sha256": true,
+    "opacity": 1.0,
+    "allow_mirror": false,
+    "allow_rotation": false,
+    "allow_warp": false,
+    "allow_recolor": false,
+    "allow_ai_redraw": false,
+    "story_defaults": {
+      "LEFT": {"visible_center_x": 0.594, "visible_center_y": 0.458, "visible_height": 0.333},
+      "RIGHT": {"visible_center_x": 0.406, "visible_center_y": 0.458, "visible_height": 0.333}
+    },
+    "intro": {
+      "pose_id": "pose_07_curious_lean",
+      "visible_center_x": 0.77885,
+      "visible_center_y": 0.48095,
+      "visible_height": 0.78095,
+      "source_proof_position_mm": {"visible_left": 292, "visible_bottom": 19, "visible_height": 164}
+    }
+  },
+  "visual_qa": {
+    "prompt_version": "minimal-visual-qa-v1",
+    "model_slot": "multimodal_qa_model",
+    "max_qa_parse_retries": 1,
+    "max_base_regenerations": 1,
+    "max_beki_recomposites": 1
+  },
+  "interior": {
+    "spread_count": 12,
+    "media_width_mm": 450,
+    "media_height_mm": 210,
+    "trim_width_mm": 440,
+    "trim_height_mm": 200,
+    "bleed_mm_each_outer_edge": 5,
+    "working_raster_width_px": 5315,
+    "working_raster_height_px": 2480,
+    "working_raster_ppi": 300,
+    "working_color_space": "sRGB",
+    "body_font": "Noto Sans Georgian",
+    "body_font_default_pt": 18,
+    "body_leading_default_pt": 27,
+    "text_max_width_default_mm": 170,
+    "text_layer": "vector",
+    "qr_layer": "vector"
+  },
+  "cover": {
+    "base_prompt_version": "cover-child-world-v1",
+    "title_font": "Ottia",
+    "geometry_source": "printer_approved_dieline",
+    "use_interior_bleed_geometry": false,
+    "required_configured_regions": ["back_panel", "spine", "front_panel", "front_title_safe", "front_child_action", "front_beki_integration", "outer_wrap_or_bleed"],
+    "mvp_spot_varnish": false,
+    "mvp_spine_title": false
+  },
+  "print_prep": {
+    "format": "PDF/X-4",
+    "output_intent": "Coated FOGRA39",
+    "require_all_cmyk_is_printer_configurable": true,
+    "required_renderers": ["Poppler", "Ghostscript"],
+    "scan_final_qr": true
+  },
+  "failure_codes": [
+    "INVALID_BOOK_INPUT",
+    "STORY_FAILED",
+    "VISUAL_SCENARIO_FAILED",
+    "IMAGE_GENERATION_FAILED",
+    "IMAGE_QA_FAILED",
+    "TEXT_OVERFLOW",
+    "LAYOUT_FAILED",
+    "PRINT_PREFLIGHT_FAILED"
+  ]
+}

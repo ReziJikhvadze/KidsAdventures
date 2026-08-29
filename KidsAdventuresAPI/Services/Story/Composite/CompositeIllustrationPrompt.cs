@@ -1,0 +1,885 @@
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using AdventurePacks.Api.Configuration.Options;
+using AdventurePacks.Api.Domain.Story;
+using AdventurePacks.Api.Services.Story.Composite.Poses;
+
+namespace AdventurePacks.Api.Services.Story.Composite;
+
+/// <summary>
+/// The deterministic page rhythm as the supplier's config states it, not as this codebase
+/// paraphrases it (handoff §6 Step 3).
+///
+/// <see cref="Prompts.BekiSpreadRhythm"/> already holds an eight-entry table and the composite path
+/// deliberately does not read it. The two agree on the text sides — CompositePipelineTests asserts
+/// that equivalence rather than trusting it — and they disagree on the shots, because the shot
+/// wording is what reaches the image model and the supplier owns the wording it approved a book
+/// against. Reading the config is also what makes a reworded shot a data change: the config is
+/// diffable, deployed with the assets, and cannot drift from the book the partners signed off.
+/// </summary>
+public static class CompositeSpreadRhythm
+{
+    private static readonly Lazy<IReadOnlyDictionary<int, RhythmEntry>> Entries = new(Read);
+
+    /// <summary><c>LEFT</c> or <c>RIGHT</c>, in the config's own spelling.</summary>
+    public static string TextSideFor(int page) => Entry(page).TextSide;
+
+    /// <summary>The approved shot sentence, verbatim.</summary>
+    public static string ShotFor(int page) => Entry(page).ShotInstruction;
+
+    /// <summary>Every configured page, for the tests that compare the whole table at once.</summary>
+    public static IReadOnlyList<int> Pages => Entries.Value.Keys.OrderBy(page => page).ToList();
+
+    private static RhythmEntry Entry(int page) =>
+        Entries.Value.TryGetValue(page, out var entry)
+            ? entry
+            // Not clamped to the nearest page. A book asking for a spread the rhythm has no entry
+            // for is a book being drawn to a format nobody configured, and borrowing spread 8's
+            // camera for it would print that mistake rather than report it.
+            : throw new InvalidOperationException(
+                $"pipeline_config_v1.json has no spread_rhythm entry for page {page}.");
+
+    private sealed record RhythmEntry(string TextSide, string ShotInstruction);
+
+    private static IReadOnlyDictionary<int, RhythmEntry> Read()
+    {
+        using var config = CompositeAssets.Read(CompositeAssets.PipelineConfigPath);
+
+        return config.RootElement
+            .GetProperty("spread_rhythm")
+            .EnumerateArray()
+            .ToDictionary(
+                entry => entry.GetProperty("page").GetInt32(),
+                entry => new RhythmEntry(
+                    entry.GetProperty("text_side").GetString()
+                        ?? throw new InvalidOperationException("A spread_rhythm entry has no text_side."),
+                    entry.GetProperty("shot_instruction").GetString()
+                        ?? throw new InvalidOperationException("A spread_rhythm entry has no shot_instruction.")));
+    }
+}
+
+/// <summary>
+/// One approved theme reference: the picture the image model is shown, and the words that describe
+/// the world it stands for.
+/// </summary>
+/// <param name="Id">The canonical theme id — clouds | space | forest | ocean | magic | dinosaurs.</param>
+/// <param name="OfficialName">
+/// The supplier's own working title for the world. It reaches the Visual Scenario input and the
+/// image prompt, so it is read from the registry rather than translated here.
+/// </param>
+/// <param name="VisualDirection">The registry's one-sentence description of the world's look.</param>
+/// <param name="FileName">The reference PNG's filename, for the log and the prompt record.</param>
+/// <param name="Bytes">The reference PNG itself, already verified against the registry's hash.</param>
+public sealed record CompositeThemeReference(
+    string Id,
+    string OfficialName,
+    string VisualDirection,
+    string FileName,
+    byte[] Bytes);
+
+/// <summary>
+/// Resolves the one approved world reference a book is drawn against, and refuses to hand back a
+/// file the registry does not vouch for.
+///
+/// The hash check is the point of the class. The theme reference is the second of the two images
+/// every spread is generated from, so a re-encoded or replaced PNG would change the look of every
+/// picture in every book of that world — quietly, and only visibly once a proof came back wrong.
+/// The registry ships the hash beside the filename precisely so that cannot happen unnoticed.
+/// </summary>
+public static class CompositeThemeReferences
+{
+    private const string ReferenceDirectory = "theme_references";
+
+    private static readonly Lazy<IReadOnlyDictionary<string, RegistryEntry>> Registry = new(Read);
+
+    /// <summary>
+    /// The reference for one canonical theme id, read once and kept — a book asks for it nine
+    /// times and the file cannot change while the process is running.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The theme is not in the registry, its file is missing from the published output, or the
+    /// file's SHA-256 is not the one the registry names.
+    /// </exception>
+    public static CompositeThemeReference For(string themeId, string? baseDirectory = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(themeId);
+
+        if (!Registry.Value.TryGetValue(themeId, out var entry))
+        {
+            throw new InvalidOperationException(
+                $"theme_reference_registry_v1.json has no entry for theme '{themeId}'.");
+        }
+
+        var path = Path.Combine(
+            baseDirectory ?? AppContext.BaseDirectory,
+            "Assets", "BekiComposite", ReferenceDirectory, entry.FileName);
+
+        if (!File.Exists(path))
+        {
+            throw new InvalidOperationException(
+                $"The approved theme reference for '{themeId}' is missing from the published "
+                + $"output at '{path}'. No child/world image may be drawn without it.");
+        }
+
+        var bytes = File.ReadAllBytes(path);
+        var actual = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+
+        if (!string.Equals(actual, entry.Sha256, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                $"The approved theme reference for '{themeId}' ({entry.FileName}) hashes to "
+                + $"{actual}, and the registry says {entry.Sha256}. The installed file is not the "
+                + "approved one.");
+        }
+
+        return new CompositeThemeReference(
+            themeId, entry.OfficialName, entry.VisualDirection, entry.FileName, bytes);
+    }
+
+    /// <summary>
+    /// The approved hash of one theme's reference, without reading the file.
+    ///
+    /// For the resume contract, which has to name the artwork a book's pages were drawn against
+    /// and is built once per job before anything else happens. Re-arting a world is a new hash in
+    /// the registry, and a resumed run must not adopt pages drawn from the old picture while
+    /// drawing the rest from the new one — two visual worlds inside one book, every page
+    /// individually fine.
+    ///
+    /// The registry only, deliberately: <see cref="For"/> reads and verifies the PNG and is what
+    /// the image stage calls, and there is no reason to pull megabytes off disk to write one line
+    /// of a manifest.
+    /// </summary>
+    public static string RegisteredSha256(string themeId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(themeId);
+
+        return Registry.Value.TryGetValue(themeId, out var entry)
+            ? entry.Sha256
+            : throw new InvalidOperationException(
+                $"theme_reference_registry_v1.json has no entry for theme '{themeId}'.");
+    }
+
+    private sealed record RegistryEntry(
+        string FileName, string Sha256, string OfficialName, string VisualDirection);
+
+    private static IReadOnlyDictionary<string, RegistryEntry> Read()
+    {
+        using var registry = CompositeAssets.Read(CompositeAssets.ThemeRegistryPath);
+
+        return registry.RootElement
+            .GetProperty("themes")
+            .EnumerateArray()
+            .ToDictionary(
+                theme => theme.GetProperty("id").GetString()!,
+                theme => new RegistryEntry(
+                    theme.GetProperty("reference_filename").GetString()!,
+                    theme.GetProperty("sha256").GetString()!,
+                    theme.GetProperty("working_title_en").GetString()!,
+                    theme.GetProperty("visual_direction").GetString()!),
+                StringComparer.Ordinal);
+    }
+}
+
+/// <summary>
+/// Everything one spread's image prompt is resolved from. All of it is either code's decision or
+/// the Visual Scenario's; none of it is the image model's.
+/// </summary>
+public sealed record CompositeSpreadPromptInput
+{
+    /// <summary>1-based, and the only thing the text side and the shot are derived from.</summary>
+    public required int Page { get; init; }
+
+    /// <summary>The number the parent gave. The prompt says it out loud so proportions are drawn to it.</summary>
+    public required int ChildAge { get; init; }
+
+    public required CompositeThemeReference Theme { get; init; }
+
+    /// <summary>The Visual Scenario's own sentence, sent verbatim and never edited.</summary>
+    public required string ChildWorldScene { get; init; }
+
+    /// <summary>The book-level outfit lock, identical on every image of this book.</summary>
+    public required string ChildOutfit { get; init; }
+
+    /// <summary>Only the recurring elements this page needs — see <see cref="CompositeIllustrationPrompt.RelevantRecurringElements"/>.</summary>
+    public IReadOnlyList<string> RecurringElements { get; init; } = [];
+
+    /// <summary>
+    /// The recurring elements a continuity reference is attached for. Empty means no third image
+    /// is sent and the prompt never mentions one.
+    /// </summary>
+    public IReadOnlyList<string> ContinuityElementNames { get; init; } = [];
+}
+
+/// <summary>
+/// Everything the cover template needs from the printer-approved cover composer, and nothing this
+/// code is entitled to invent.
+/// </summary>
+/// <param name="PanelInstructions">
+/// The resolved natural-language panel and safe-zone block: back panel, spine and hinge, front
+/// panel, front title-safe, front child/action, front Beki integration, and the wrap or bleed.
+/// </param>
+/// <param name="FrontBekiAnchor">
+/// Where the approved Beki PNG is composited on the front panel afterwards. It comes from cover
+/// configuration, never from the interior story defaults — the front panel is half the width of a
+/// spread and Beki placed by a spread's anchor would land in the wrong panel entirely.
+/// </param>
+public sealed record CompositeCoverGeometry(string PanelInstructions, BekiCompositeAnchor FrontBekiAnchor);
+
+/// <summary>
+/// Where the cover's geometry would come from, and why there is none yet.
+///
+/// The cover base prompt is resolvable only against the active printer-approved dieline: the
+/// contract lists seven regions it must be handed, and states in as many words that if the active
+/// cover geometry is unavailable the job stops with <c>LAYOUT_FAILED</c> and never substitutes the
+/// interior 5 mm bleed. That is not a caution about precision. The interior geometry describes one
+/// 440 × 200 mm sheet; a cover is a wrap with a spine in the middle of it, and a cover generated
+/// to interior rectangles would put the child across the spine and the title over her face.
+///
+/// <see cref="BekiPrintLayoutOptions"/> is the only layout configuration this application has, and
+/// it is entirely interior: spread size, bleed, safe margin, gutter, the text column, fonts, the
+/// QR leaf. It carries no back panel, no spine, no hinge, no title-safe rectangle and no front
+/// Beki rectangle, so there is nothing here to resolve from. Hence null, every time, until the
+/// cover composer campaign lands the dieline — and a null that the pipeline turns into an explicit
+/// LAYOUT_FAILED rather than into a skipped cover.
+/// </summary>
+public static class CompositeCoverGeometryResolver
+{
+    public static CompositeCoverGeometry? TryResolve(BekiPrintLayoutOptions layout)
+    {
+        ArgumentNullException.ThrowIfNull(layout);
+        return null;
+    }
+}
+
+/// <summary>
+/// The child-and-world prompt: the picture an image model is actually asked for on this pipeline.
+///
+/// Beside <see cref="IllustrationPrompt"/> rather than inside it, and the reason is the one thing
+/// the two disagree about most. Every prompt that function builds describes Beki and attaches her
+/// canonical picture; every prompt this one builds forbids her outright, because on this pipeline
+/// she is not drawn at all — she is pasted afterwards from an approved transparent PNG, and the
+/// approved manual test only produced a usable page once the image model had stopped being asked
+/// to draw her. A flag inside the existing builder would put "draw Beki" and "never draw Beki" one
+/// boolean apart in the string every book in production is generated from.
+///
+/// The wording is the supplier's, transcribed from
+/// <c>contracts/BEKI_Image_Generation_Prompt_Template_v1.md</c>. Transcribed rather than read from
+/// the file because the API csproj ships that folder's JSON and PNGs and not its Markdown; the MD
+/// stays the source of truth and this is its copy, so a revision there is a deliberate edit here
+/// rather than a silent change in what nine paid image calls are told.
+/// </summary>
+public static class CompositeIllustrationPrompt
+{
+    /// <summary>The template's own version string, recorded against every image call.</summary>
+    public const string Version = "child-world-image-v1";
+
+    /// <summary>The cover base template's version. A different document, a different version.</summary>
+    public const string CoverVersion = "cover-child-world-v1";
+
+    /// <summary>
+    /// One spread's prompt.
+    /// </summary>
+    public static string ForSpread(CompositeSpreadPromptInput input)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        var textSide = CompositeSpreadRhythm.TextSideFor(input.Page);
+        var shot = CompositeSpreadRhythm.ShotFor(input.Page);
+
+        return $"""
+            Use case: illustration-story
+            Asset type: BEKI personalized children's book child/world base image for later exact Beki PNG compositing
+
+            INPUT IMAGES
+            {ChildReferenceLine(input.ChildAge)}
+            {ThemeReferenceLine(input.Theme)}{ContinuityLine(input.ContinuityElementNames)}
+
+            SCENE
+            {input.ChildWorldScene.Trim()}
+            Show this as one clear visible moment only.
+
+            CHILD LOCK
+            Dress the child in {input.ChildOutfit.Trim()}
+            Keep the outfit consistent with the cover and all other story spreads. Do not hide the child's face.
+
+            RECURRING ELEMENTS REQUIRED ON THIS IMAGE
+            {RecurringBlock(input.RecurringElements)}
+
+            COMPOSITION
+            Create one continuous very wide panoramic two-page spread designed for a final 15:7 crop.
+            {shot}
+            {CompositionBlockFor(textSide)}
+            Keep the center-fold zone low-information, with only continuous environment crossing it. No face, hand, child, supporting character, or story-critical detail may cross or touch the fold zone.
+            Keep all important content in the central horizontal band so modest top-and-bottom crop normalization is safe.
+
+            STYLE AND MOOD
+            Premium warm stylized 3D children's-book illustration; expressive but natural; soft tactile materials; cinematic depth; welcoming, age-appropriate emotional tone. Match the supplied approved theme reference while creating a new scene.
+
+            HARD CONSTRAINTS
+            {SpreadConstraints}
+            """;
+    }
+
+    /// <summary>
+    /// The continuous cover base, resolved against the printer's own geometry.
+    ///
+    /// Takes the geometry as a parameter rather than resolving it, so that the one caller that
+    /// cannot supply it fails with <see cref="CompositeFailureCodes.LayoutFailed"/> at the point
+    /// where the fact is known, instead of this builder inventing a rectangle to fill a hole.
+    /// </summary>
+    public static string ForCover(
+        CompositeCoverGeometry geometry,
+        int childAge,
+        CompositeThemeReference theme,
+        string frontChildWorldScene,
+        string backEnvironment,
+        string childOutfit,
+        IReadOnlyList<string> recurringElements)
+    {
+        ArgumentNullException.ThrowIfNull(geometry);
+        ArgumentNullException.ThrowIfNull(theme);
+
+        return $"""
+            Use case: illustration-cover
+            Asset type: BEKI personalized children's book continuous wraparound cover base for later vector title and exact Beki PNG compositing
+
+            INPUT IMAGES
+            {ChildReferenceLine(childAge)}
+            {ThemeReferenceLine(theme, forCover: true)}
+
+            FRONT-COVER SCENE
+            {frontChildWorldScene.Trim()}
+            Dress the child in {childOutfit.Trim()}
+            Show one inviting action only. Do not reveal the ending.
+
+            BACK-COVER ENVIRONMENT
+            {backEnvironment.Trim()}
+            Continue the same world, terrain, atmosphere, and lighting naturally across the complete wrap. The back panel contains no child, Beki, or other main character unless the approved product specification explicitly requires one.
+
+            RECURRING ELEMENTS REQUIRED ON THE FRONT
+            {RecurringBlock(recurringElements)}
+
+            PRINTER-SPECIFIC COMPOSITION
+            {geometry.PanelInstructions.Trim()}
+            Keep the spine and hinge zones low-information and continuous. No face, hand, child, supporting character, title-critical feature, or story-critical object may enter them.
+            Keep the front title-safe rectangle naturally calm and readable without using a blank panel, artificial blur, dark rectangle, or hard-edged box.
+            Keep the front Beki integration rectangle naturally lit and clear of characters, faces, hands, hard foreground edges, and story-critical details.
+            Extend the environment safely through every required wrap/bleed edge.
+
+            STYLE AND MOOD
+            Premium warm stylized 3D children's-book cover; expressive but natural; soft tactile materials; cinematic depth; clear front-cover focal hierarchy; welcoming, age-appropriate adventure. Match the approved theme reference while creating a new scene.
+
+            HARD CONSTRAINTS
+            {CoverConstraints}
+            """;
+    }
+
+    /// <summary>
+    /// The template's composition resolver, both halves of it, written out rather than derived.
+    ///
+    /// The two percentages are the same numbers <c>pipeline_config_v1.json</c> gives the composite
+    /// engine as its anchors — 0.594/0.406 across and 0.458 down — and they are stated to the image
+    /// model so the zone it leaves empty is the zone Beki is later pasted into. That correspondence
+    /// is what makes the whole two-stage approach work, and CompositePipelineTests asserts it
+    /// rather than leaving two files to agree by good intentions.
+    /// </summary>
+    public static string CompositionBlockFor(string textSide) =>
+        BekiCompositeConfig.ParseTextSide(textSide) == BekiTextSide.Left
+            ? "Reserve the full left third as naturally calm, light background for later story "
+              + "text. No character, face, hand, foreground object, or key action may enter this "
+              + "area. Place the child and the main action in the outer-right area, away from the "
+              + "center fold. Leave a naturally lit, visually quiet Beki integration zone between "
+              + "the center fold and the child, centered approximately at 59.4% of the canvas "
+              + "width and 45.8% of the canvas height. Keep that zone free of characters, faces, "
+              + "hands, hard edges, foreground objects, and story-critical details."
+            : "Reserve the full right third as naturally calm, light background for later story "
+              + "text. No character, face, hand, foreground object, or key action may enter this "
+              + "area. Place the child and the main action in the outer-left area, away from the "
+              + "center fold. Leave a naturally lit, visually quiet Beki integration zone between "
+              + "the child and the center fold, centered approximately at 40.6% of the canvas "
+              + "width and 45.8% of the canvas height. Keep that zone free of characters, faces, "
+              + "hands, hard edges, foreground objects, and story-critical details.";
+
+    /// <summary>
+    /// Which of the book's recurring elements this particular scene actually needs.
+    ///
+    /// The handoff asks for "only relevant recurring-element descriptions", and the reason is
+    /// visible in the approved fixture: on spread 1 the small dinosaur is deliberately unseen, and
+    /// a prompt carrying his description would have drawn him. The opposite fault is drift — a
+    /// creature redesigned on the page after the one that introduced him — so this errs towards
+    /// leaving an element out and lets the continuity reference carry the ones that are attached.
+    ///
+    /// The rule is the one the Visual Scenario contract makes available: a scene "reusing the same
+    /// concise descriptions" for the elements it needs. So an element is relevant when the scene
+    /// names it — its lead phrase, the text before the first comma with any article dropped — or
+    /// when the two share at least two distinctive words. One shared word is not enough: every
+    /// scene in a golden valley says "golden", and one coincidence would put a hidden character on
+    /// the page.
+    /// </summary>
+    public static IReadOnlyList<string> RelevantRecurringElements(
+        IReadOnlyList<string>? elements, string? scene)
+    {
+        if (elements is null or { Count: 0 } || string.IsNullOrWhiteSpace(scene))
+        {
+            return [];
+        }
+
+        var sceneTokens = Tokens(scene);
+
+        return elements
+            .Where(element => !string.IsNullOrWhiteSpace(element))
+            .Where(element =>
+                scene.Contains(LeadPhrase(element), StringComparison.OrdinalIgnoreCase)
+                || Tokens(element).Count(sceneTokens.Contains) >= 2)
+            .ToList();
+    }
+
+    /// <summary>
+    /// The name an element leads with: "Bafu, a tiny mint-green baby sauropod…" is about Bafu.
+    ///
+    /// Falls back to the whole description when there is no comma, which is correct rather than a
+    /// gap — an element written as one unbroken noun phrase has no shorter name, and the token
+    /// rule above is what catches it when a scene refers to it in different words.
+    /// </summary>
+    private static string LeadPhrase(string element)
+    {
+        var head = element.Split(',')[0].Trim().TrimEnd('.');
+
+        foreach (var article in (string[])["a ", "an ", "the "])
+        {
+            if (head.StartsWith(article, StringComparison.OrdinalIgnoreCase))
+            {
+                return head[article.Length..];
+            }
+        }
+
+        return head;
+    }
+
+    /// <summary>
+    /// The words worth comparing: four letters or more, lower-cased, stripped of punctuation and
+    /// of a possessive, and none of the words every scene in every book contains.
+    /// </summary>
+    private static HashSet<string> Tokens(string text)
+    {
+        var tokens = new HashSet<string>(StringComparer.Ordinal);
+        var builder = new StringBuilder();
+
+        void Flush()
+        {
+            if (builder.Length == 0) return;
+
+            var word = builder.ToString();
+            builder.Clear();
+
+            if (word.EndsWith("'s", StringComparison.Ordinal))
+            {
+                word = word[..^2];
+            }
+
+            if (word.Length >= 4 && !GenericWords.Contains(word))
+            {
+                tokens.Add(word);
+            }
+        }
+
+        foreach (var c in text.ToLowerInvariant())
+        {
+            if (char.IsLetterOrDigit(c) || c == '-' || c == '\'')
+            {
+                builder.Append(c);
+                continue;
+            }
+
+            Flush();
+        }
+
+        Flush();
+        return tokens;
+    }
+
+    /// <summary>
+    /// Words that carry no visual identity, so sharing one means nothing.
+    ///
+    /// Deliberately short and deliberately not a general English stop list: it holds the connective
+    /// tissue every sentence has, plus the four nouns every scene in this product is about — the
+    /// child, the page, the scene, the image. Colour and material words are absent on purpose;
+    /// "mint-green" and "spiral-shaped" are exactly what should make an element recognisable.
+    /// </summary>
+    private static readonly HashSet<string> GenericWords = new(StringComparer.Ordinal)
+    {
+        "about", "above", "along", "also", "another", "back", "been", "below", "between", "both",
+        "child", "children", "each", "from", "have", "here", "illustration", "image", "into",
+        "just", "keep", "kept", "like", "made", "make", "more", "most", "near", "next", "onto",
+        "only", "other", "over", "page", "same", "scene", "show", "shows", "some", "spread",
+        "still", "such", "than", "that", "their", "them", "then", "there", "these", "they",
+        "this", "those", "through", "toward", "towards", "under", "very", "when", "where",
+        "which", "while", "whose", "will", "with", "would"
+    };
+
+    private static string ChildReferenceLine(int childAge) =>
+        "Image 1 - child identity reference. Preserve the child's recognizable identity and "
+        + $"visibly age-appropriate proportions for approximately {childAge.ToString(CultureInfo.InvariantCulture)} "
+        + "years old. Render the child as a warm, polished stylized 3D animated character, not "
+        + "photorealistically. Do not copy clothing, pose, lighting, crop, or background from the photo.";
+
+    /// <summary>
+    /// The world reference, named by the registry's working title and described in the registry's
+    /// own words.
+    ///
+    /// The template's generic sentence — "use its world vocabulary, palette, atmosphere" — is kept
+    /// and the registry's <c>visual_direction</c> added after it, because the approved run's
+    /// resolved prompt names the world's actual light and materials rather than the categories.
+    /// Taking that from the registry rather than writing six of them here means a re-art-directed
+    /// world is a data change in the file that also carries its hash.
+    /// </summary>
+    private static string ThemeReferenceLine(CompositeThemeReference theme, bool forCover = false) =>
+        $"Image 2 - approved {theme.OfficialName} world/style reference. Use its world vocabulary, "
+        + "palette, atmosphere, material treatment, and premium stylized 3D rendering language: "
+        + $"{theme.VisualDirection.Trim()} "
+        + (forCover
+            ? "Create a new cover composition."
+            : "Create a new composition; do not copy the reference composition.");
+
+    /// <summary>
+    /// The optional third reference, present only when one is actually attached — the template is
+    /// explicit that the placeholder is otherwise replaced by an empty string and no third image is
+    /// mentioned. A prompt that names an image the request does not carry is a prompt the model
+    /// answers by inventing what it thinks was there.
+    /// </summary>
+    private static string ContinuityLine(IReadOnlyList<string> elementNames) =>
+        elementNames.Count == 0
+            ? string.Empty
+            : "\nImage 3 - continuity reference. Preserve only the appearance of these named "
+              + $"recurring story elements: {string.Join("; ", elementNames)}. Do not copy the "
+              + "child, Beki, pose, camera, layout, lighting, or background from this image.";
+
+    private static string RecurringBlock(IReadOnlyList<string> elements) =>
+        elements.Count == 0
+            ? "None."
+            : string.Join("\n", elements.Select(element => element.Trim()));
+
+    /// <summary>
+    /// The template's own constraint list, in its order.
+    ///
+    /// "Do not generate Beki" sits in the middle of it and is the single most important line in the
+    /// whole prompt: every promise this pipeline makes about the character — one approved PNG,
+    /// pasted, never redrawn — holds only while no image model is ever asked to draw her. The two
+    /// lines after it exist because a model told not to draw a named guide draws an unnamed one.
+    /// </summary>
+    private const string SpreadConstraints =
+        """
+        Exactly one child.
+        Do not generate Beki.
+        Do not generate any substitute guide, floating mascot, leaf spirit, lamb, sheep, or Beki-like character.
+        Do not generate characters or objects not required by the current scene.
+        No duplicate child or duplicated supporting character.
+        No text, letters, numbers, logos, captions, labels, signs, frames, QR codes, watermarks, or pseudo-text anywhere.
+        No split screen, montage, comic panel, inset frame, before-and-after view, or repeated version of the same character.
+        No dark text panel, artificial blur panel, or blank rectangle. The text-safe area must be part of the natural environment.
+        """;
+
+    private const string CoverConstraints =
+        """
+        Exactly one child, on the front panel only.
+        Do not generate Beki.
+        Do not generate any substitute guide, floating mascot, leaf spirit, lamb, sheep, or Beki-like character.
+        No duplicate child or mirrored second child.
+        No text, title, letters, numbers, logo, caption, label, sign, spine text, QR code, watermark, or pseudo-text anywhere.
+        No split screen, montage, comic panel, inset frame, or mirrored composition.
+        """;
+}
+
+/// <summary>
+/// The Visual Scenario v2 call, as a prompt and an input document.
+///
+/// Transcribed from <c>contracts/BEKI_Visual_Scenario_Prompt_v2.md</c> for the same reason the
+/// image template is: the contract folder's Markdown is not shipped into the published output, so
+/// the alternative to a transcription is reading a file that is not there. The MD remains the
+/// source of truth and this is its copy — a supplier revision is a deliberate edit here.
+/// </summary>
+public static class CompositeVisualScenarioPrompt
+{
+    public const string Version = "visual-scenario-v2";
+
+    /// <summary>The schema name recorded against the call. The file itself is the response schema.</summary>
+    public const string SchemaName = "visual_scenario_v2";
+
+    /// <summary>
+    /// The input document, in the shape <c>visual_scenario_input_v2.schema.json</c> describes and
+    /// no other: an age band, a gender, the theme, and exactly eight ordered Georgian pages.
+    ///
+    /// The child's name is not in it, and neither is the photograph, the appearance description or
+    /// the Extra Wish. The planner is writing English scene descriptions about "the child"; a name
+    /// would only give it something to write into a picture as lettering, and everything else on
+    /// that list is locked out of the MVP entirely.
+    /// </summary>
+    public static string InputJson(
+        NormalizedBookInput input, CompositeThemeReference theme, StoryBoundaryOutput boundary)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(theme);
+        ArgumentNullException.ThrowIfNull(boundary);
+
+        var document = new
+        {
+            age_group = input.AgeBand,
+            child_gender = input.ChildGender,
+            theme = new
+            {
+                id = theme.Id,
+                official_name = theme.OfficialName,
+                visual_direction = theme.VisualDirection
+            },
+            story_pages = boundary.StoryPages
+        };
+
+        return JsonSerializer.Serialize(document, CompositeJson.Readable);
+    }
+
+    /// <summary>The runtime user message, in the contract's own words.</summary>
+    public static string User(string inputJson) =>
+        $"Create the visual scenario from this input:\n\n{inputJson}";
+
+    /// <summary>
+    /// The one permitted retry's message: the original ask, whole, with the validator's short
+    /// error list appended.
+    ///
+    /// Appended rather than substituted, which is the same idiom the rest of this codebase uses for
+    /// a corrective retry. A rewritten prompt asks for a different scenario; the point of the
+    /// retry is the same scenario without the fault, and the contract is explicit that the retry
+    /// goes out "with the same original input and the validator's short error list".
+    /// </summary>
+    public static string RetryUser(string inputJson, IReadOnlyList<VisualScenarioProblem> problems)
+    {
+        var numbered = string.Join(
+            "\n", problems.Select((problem, index) => $"{index + 1}. {problem}"));
+
+        return User(inputJson)
+            + "\n\nThe previous answer was rejected for these reasons. Return a corrected visual "
+            + $"scenario for the same story, with each of them fixed:\n{numbered}";
+    }
+
+    /// <summary>
+    /// The contract's exact system instruction. Every line of it is load-bearing; the two that
+    /// decide whether the pipeline works at all are the separation of the child/world scene from
+    /// the Beki action, and the rule that a scene may never mention Beki.
+    /// </summary>
+    public const string System =
+        """
+        You are the Visual Scenario Planner for BEKI personalized children's books.
+
+        Your only task is to read one approved eight-spread Georgian story and convert it into:
+        1. one short book-level visual lock;
+        2. one continuous cover plan;
+        3. exactly eight concise story-spread plans.
+
+        Read all eight story pages before planning the visual sequence. Preserve the story exactly. Do not rewrite it, continue it, improve it, or invent new plot events.
+
+        The production system generates the child and story world first, then composites Beki later from an exact approved transparent PNG. Therefore every cover/spread plan must separate the child/world image scene from Beki's action.
+
+        GENERAL RULES
+
+        - Write every output description in clear English.
+        - Refer to the personalized protagonist as "the child". Do not invent or describe the child's face, eye color, hair, body, or other identity traits. Those are controlled later by the child photo and structured visual inputs.
+        - Refer to the guide character only as "Beki". Do not define Beki's species and do not physically describe or redesign Beki.
+        - The child is always the active protagonist. Beki may guide, help, point, react, encourage, listen, reassure, or reveal a path, but must never perform the child's main action instead of the child.
+        - Use one visually clear moment per image.
+        - Do not use montages, split screens, comic panels, inset frames, before-and-after views, or repeated versions of the same character.
+        - Do not include readable text, letters, numbers, logos, labels, signs, typography, frames, or QR codes inside a scene.
+        - Do not specify text placement, page layout, left/right positioning, margins, fold placement, dimensions, camera specifications, typography, print settings, or image-model parameters. Those are controlled by code.
+        - Keep visual complexity appropriate for the supplied age group while preserving one obvious main action.
+        - Supporting characters and objects may appear only when the corresponding story page requires them.
+
+        VISUAL LOCK
+
+        - Define one simple, age-appropriate, theme-appropriate base outfit for the child.
+        - The outfit must contain no logo or readable text and must not hide the child's face.
+        - The same base outfit is used on the cover and all eight spreads.
+        - Story-required accessories may be added without replacing the base outfit or hiding the child's face.
+        - List only recurring story elements whose appearance must remain consistent across multiple images.
+        - Include no more than three recurring elements. Use an empty array when none are necessary.
+        - Do not include Beki in recurring_elements.
+        - Do not invent a recurring object unsupported by the story.
+
+        CHILD/WORLD SCENES
+
+        - A child_world_scene is sent directly to the image model.
+        - It must explicitly mention "the child".
+        - It must never mention Beki and must not include any substitute guide, floating mascot, leaf spirit, lamb, sheep, or Beki-like character.
+        - It must state the child's concrete action and the page's one visible story beat.
+        - It may include only story characters/objects required on that page.
+        - It must be understandable as one image without reading the story text.
+        - It must not contain pose, camera, text-side, fold, typography, or print instructions.
+
+        BEKI ACTIONS
+
+        - A beki_action is not sent to the image model. It is used by code to choose one approved Beki pose.
+        - It must be one concise sentence that explicitly mentions "Beki".
+        - State only Beki's supporting action or reaction for that moment.
+        - Do not describe Beki's body, materials, colors, costume, species, size, page position, or camera relationship.
+        - Do not name a pose ID. Code selects the pose deterministically.
+
+        COVER
+
+        - front_child_world_scene must show the child in one inviting action that represents the central adventure, question, or mystery.
+        - It must not reveal the ending or copy one story spread literally.
+        - It must not mention or depict Beki; Beki is added later from the separate cover beki_action.
+        - cover.beki_action gives Beki one inviting supporting action.
+        - back_environment is a natural continuation of the same world, atmosphere, lighting, and terrain.
+        - back_environment contains neither the child nor Beki.
+
+        STORY SPREADS
+
+        - Create exactly one plan for each story page from 1 through 8.
+        - Show only the event described on that page. Do not borrow events from another page.
+        - Preserve recurring characters and objects consistently by reusing the same concise descriptions.
+        - Keep child_world_scene concise: normally one to three precise sentences.
+        - Keep beki_action to one concise sentence.
+        - Vary action and emotion naturally, but never invent activity only to create variety.
+
+        OUTPUT
+
+        Return valid JSON only, with exactly this structure and no additional keys:
+
+        {
+          "visual_lock": {
+            "child_outfit": "One concise outfit description",
+            "recurring_elements": [
+              "Zero to three concise recurring-element descriptions"
+            ]
+          },
+          "cover": {
+            "front_child_world_scene": "One concise cover scene that mentions the child and does not mention Beki",
+            "beki_action": "One concise sentence that explicitly mentions Beki",
+            "back_environment": "One concise continuation of the same environment without the child or Beki"
+          },
+          "spreads": [
+            {
+              "page": 1,
+              "child_world_scene": "One concise scene that mentions the child and does not mention Beki",
+              "beki_action": "One concise sentence that explicitly mentions Beki"
+            }
+          ]
+        }
+
+        The spreads array must contain exactly eight entries, ordered from page 1 to page 8.
+        """;
+
+    /// <summary>
+    /// The shape asked of the provider — the supplied contract's structure, in the subset of JSON
+    /// Schema a strict structured-output mode actually accepts.
+    ///
+    /// This is not a second source of truth, and the distinction is worth stating precisely.
+    /// <c>visual_scenario_v2.schema.json</c> remains the authority: every response is evaluated
+    /// against that file, verbatim, by <see cref="VisualScenarioValidator"/>, and a response that
+    /// satisfies the shape below while failing the supplied schema is a validation failure that
+    /// spends the one permitted retry. What this method produces is only the request's half of the
+    /// conversation.
+    ///
+    /// It exists because sending the supplied file was, on the default configuration, a book that
+    /// could not be written at all. The story provider defaults to OpenAI, whose Responses API in
+    /// strict mode rejects <c>prefixItems</c>, a boolean <c>items</c>, <c>minItems</c>,
+    /// <c>maxItems</c> and <c>minLength</c> — and the supplied schema uses all five to pin the
+    /// eight spreads to pages 1..8. So both attempts failed on the request rather than on the
+    /// answer, which is the worst way to fail: nothing is generated, nothing is reviewable, and the
+    /// error is about a schema keyword rather than about a book.
+    ///
+    /// What the shape loses, the descriptions carry — exactly the trade
+    /// <see cref="Prompts.BekiBookPlanSchema"/> and <see cref="CompositeStorySchema"/> already
+    /// make. "Exactly eight, numbered 1 to 8 in order" and "at most three" are stated in words to
+    /// the model and enforced in code afterwards, which is where they were always enforced: the
+    /// supplied schema's <c>maxItems</c> never stopped a model returning four, it only described
+    /// what would happen next.
+    /// </summary>
+    public static JsonElement ResponseSchema()
+    {
+        var schema = new
+        {
+            type = "object",
+            additionalProperties = false,
+            required = new[] { "visual_lock", "cover", "spreads" },
+            properties = new Dictionary<string, object>
+            {
+                ["visual_lock"] = new
+                {
+                    type = "object",
+                    additionalProperties = false,
+                    required = new[] { "child_outfit", "recurring_elements" },
+                    properties = new Dictionary<string, object>
+                    {
+                        ["child_outfit"] = Text(
+                            "One concise base outfit for the child, worn on the cover and all eight "
+                            + "spreads. No logo and no readable text, and it must not hide the face."),
+                        ["recurring_elements"] = new
+                        {
+                            type = "array",
+                            description =
+                                "AT MOST THREE entries — a fourth is rejected. Only recurring story "
+                                + "elements whose appearance must stay consistent across images. "
+                                + "Never Beki. An empty array is a valid answer.",
+                            items = new { type = "string" }
+                        }
+                    }
+                },
+                ["cover"] = new
+                {
+                    type = "object",
+                    additionalProperties = false,
+                    required = new[] { "front_child_world_scene", "beki_action", "back_environment" },
+                    properties = new Dictionary<string, object>
+                    {
+                        ["front_child_world_scene"] = Text(
+                            "One concise cover scene that mentions \"the child\" and never mentions "
+                            + "Beki. Non-empty."),
+                        ["beki_action"] = Text(
+                            "One concise sentence that explicitly mentions Beki. Non-empty."),
+                        ["back_environment"] = Text(
+                            "One concise continuation of the same environment containing neither "
+                            + "the child nor Beki. Non-empty.")
+                    }
+                },
+                ["spreads"] = new
+                {
+                    type = "array",
+                    description =
+                        $"EXACTLY {BookFormat.SpreadCount} entries, one per story page, ordered from "
+                        + $"page 1 to page {BookFormat.SpreadCount}, each page number used exactly "
+                        + "once. Any other count or order is rejected.",
+                    items = new
+                    {
+                        type = "object",
+                        additionalProperties = false,
+                        required = new[] { "page", "child_world_scene", "beki_action" },
+                        properties = new Dictionary<string, object>
+                        {
+                            ["page"] = new
+                            {
+                                type = "integer",
+                                description =
+                                    $"This spread's page number, 1 to {BookFormat.SpreadCount}, "
+                                    + "matching its position in the array."
+                            },
+                            ["child_world_scene"] = Text(
+                                "One to three precise sentences. Sent straight to the image model. "
+                                + "Must mention \"the child\" and must never mention Beki or any "
+                                + "substitute guide. Non-empty."),
+                            ["beki_action"] = Text(
+                                "One concise sentence that explicitly mentions Beki. Read only by "
+                                + "code, to choose an approved pose. Non-empty.")
+                        }
+                    }
+                }
+            }
+        };
+
+        // CompositeJson rather than StoryJson: these property names are the supplier's snake_case
+        // contract, and a naming policy that decided to touch them would produce a request whose
+        // shape no longer matches the document the answer is validated against.
+        return JsonSerializer.SerializeToElement(schema, CompositeJson.Options);
+    }
+
+    private static object Text(string description) => new { type = "string", description };
+}

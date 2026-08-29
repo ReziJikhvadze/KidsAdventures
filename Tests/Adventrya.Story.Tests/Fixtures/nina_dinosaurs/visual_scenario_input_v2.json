@@ -1,0 +1,43 @@
+{
+  "age_group": "1-2",
+  "child_gender": "girl",
+  "theme": {
+    "id": "dinosaurs",
+    "official_name": "დინოზავრების ხეობა",
+    "visual_direction": "A warm golden prehistoric valley with giant ferns, soft violet and coral flowers, turquoise streams, rounded friendly dinosaurs, distant mountains, natural cinematic light, and a premium stylized 3D animated children's-book look."
+  },
+  "story_pages": [
+    {
+      "page": 1,
+      "story_text": "ნინა და ბეკი დინოზავრების ხეობაში მივიდნენ. უცებ, დიდ გვიმრებში გაისმა: „ფუუ... ფუუ...“"
+    },
+    {
+      "page": 2,
+      "story_text": "ნინამ პატარა დინოზავრი იპოვა. „ბაფუ!“ — თქვა მან. რბილი ლიანა მის ფეხს შემოხვეოდა."
+    },
+    {
+      "page": 3,
+      "story_text": "ნინა ფრთხილად დაიხარა. მან ლიანა ასწია, ბეკიმ კი გზა გაუნათა. ბაფუ თავისუფალი იყო!"
+    },
+    {
+      "page": 4,
+      "story_text": "მაგრამ თბილი ნისლი ჩამოწვა. ბაფუ დედას ვეღარ ხედავდა. ნინამ მისი პატარა თათი დაიჭირა."
+    },
+    {
+      "page": 5,
+      "story_text": "მიწაზე ოქროსფერი გვიმრის ფოთლები ბრწყინავდა. ნინამ ისინი შენიშნა და სწორი ბილიკი აირჩია."
+    },
+    {
+      "page": 6,
+      "story_text": "მდინარესთან ხიდი აღარ იყო. ნინამ ბრტყელი ფოთლები ქვებზე დააწყო და ბაფუს გზა გაუკეთა."
+    },
+    {
+      "page": 7,
+      "story_text": "მეორე ნაპირზე ბაფუს დედა ელოდა. გახარებულმა ბაფუმ ნინას პატარა ოქროსფერი ფოთოლი აჩუქა."
+    },
+    {
+      "page": 8,
+      "story_text": "ბაფუ გადარჩა და დედასთან დაბრუნდა. უცებ ოქროს ფოთოლი აინთო — შორი მღვიმისკენ ცისფერი ნაკვალევი გაჩნდა..."
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://beki.ge/schemas/minimal-visual-qa-v1.json",
+  "title": "BEKI Minimal Visual QA v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "failed_checks", "recommended_action", "notes"],
+  "properties": {
+    "status": {"enum": ["PASS", "FAIL"]},
+    "failed_checks": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "CHILD_IDENTITY",
+          "CHILD_AGE",
+          "OUTFIT_CONTINUITY",
+          "MAIN_SCENE_BEAT",
+          "CAST_ERROR",
+          "GENERATED_TEXT",
+          "TEXT_SAFE_AREA",
+          "FOLD_SAFETY",
+          "BEKI_INTEGRATION"
+        ]
+      }
+    },
+    "recommended_action": {"enum": ["pass", "regenerate_base", "recomposite_beki", "human_review"]},
+    "notes": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "PASS"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "failed_checks": {"maxItems": 0},
+          "recommended_action": {"const": "pass"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "FAIL"}}, "required": ["status"]},
+      "then": {
+        "properties": {
+          "failed_checks": {"minItems": 1},
+          "recommended_action": {"enum": ["regenerate_base", "recomposite_beki", "human_review"]}
+        }
+      }
+    }
+  ]
+}

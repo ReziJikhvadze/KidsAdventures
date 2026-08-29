@@ -15,11 +15,30 @@ public interface IOpenAiService
     /// than the configured one — the Beki format's landscape spread — and every existing caller
     /// omits it, so the global setting stays the answer for every book in production.
     /// </summary>
+    /// <param name="requireReferences">
+    /// Whether a picture drawn without the attached references is acceptable.
+    ///
+    /// False, and false is what every existing caller gets: the OpenAI path retries the edit route
+    /// and, when it still fails, draws from the prompt alone rather than returning nothing. For the
+    /// A5 flow that is the right trade — a book with a slightly-off hero beats a failed job, and
+    /// the warning in the log says the likeness may be lost.
+    ///
+    /// True refuses that trade. It exists for the composite pipeline, where the references are not
+    /// an aid to the prompt but the substance of it: the child's likeness is *only* in the attached
+    /// photograph — the composite plan carries no appearance description at all — the world comes
+    /// only from the approved theme reference, and a recurring creature's design comes only from
+    /// the continuity image. A silent fallback there does not produce a slightly-off picture; it
+    /// produces a stranger in a generic world, which is then composited, reviewed and printed.
+    ///
+    /// With it set, a caller either gets a picture the references were actually sent for, or an
+    /// exception. It never gets one and is told the other.
+    /// </param>
     Task<byte[]> GenerateStoryImageAsync(
         string imagePrompt,
         StoryImageReference? reference,
         CancellationToken cancellationToken,
-        string? imageSize = null);
+        string? imageSize = null,
+        bool requireReferences = false);
 
     /// <summary>
     /// Looks at a finished illustration and says whether it is usable. Returns the model's raw
