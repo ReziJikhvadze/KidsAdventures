@@ -182,6 +182,89 @@ public sealed class BookFulfillmentService(
                 logger.LogWarning(ex, "Retry for book {BookId} could not read its draft; using the legacy pipeline.", bookId);
             }
 
+            /*
+              A failed book has to be revived before it can be re-queued, and revived deliberately.
+
+              Both generation jobs now refuse to claim a pack that is Failed. That refusal is the
+              point: Failed is written by the stale-generation sweep, from outside the process that
+              died, and a job that could claim its way out of it would make the verdict meaningless
+              — a book declared abandoned would be silently redrawn by the next requeue with nothing
+              anywhere recording that it had ever been lost.
+
+              This path is the exception, and it is the only one: a paid order being re-driven, by
+              the console's retry or by the stalled-order sweep. It is a decision rather than an
+              accident, so it says so in the row before it enqueues anything. Enqueuing without the
+              transition would post a job that loads the pack, refuses it, and returns — leaving a
+              paid book Failed forever while every retry looks like it did something.
+
+              StoryReady rather than Pending when the story is already there, because the legacy job
+              only short-circuits to illustrations on that exact pair. Revived to Pending it would
+              write a second story, and the parent would be handed a different book from the one
+              they read and bought — which is the fault preview adoption exists to prevent. The Beki
+              job accepts either.
+            */
+            if (book.Status == AdventurePackStatus.Failed)
+            {
+                var revivedTo = string.IsNullOrWhiteSpace(book.GeneratedJson)
+                    ? AdventurePackStatus.Pending
+                    : AdventurePackStatus.StoryReady;
+
+                // Compare-and-set, so a re-drive that races the book's own recovery cannot drag it
+                // back out of a status it had legitimately reached.
+                var revived = await packRepository.TryUpdateStatusAsync(
+                    bookId,
+                    AdventurePackStatus.Failed,
+                    revivedTo,
+                    book.GeneratedJson,
+                    book.PdfUrl,
+                    // The failure reason goes with the failure. It has already been logged and an
+                    // admin has already been paged with it; left on a row that is being redrawn it
+                    // is only an error message the parent can see on a book that is being made.
+                    null,
+                    cancellationToken);
+
+                if (!revived)
+                {
+                    logger.LogInformation(
+                        "Book {BookId} was no longer Failed when the retry tried to revive it; "
+                        + "something else has already moved it on, so nothing is queued.",
+                        bookId);
+                    return;
+                }
+
+                logger.LogWarning(
+                    "Book {BookId} was Failed and has been revived to {Status} for a deliberate "
+                    + "paid-order retry.", bookId, revivedTo);
+
+                try
+                {
+                    EnqueueGeneration(bookId, bekiRunId);
+                }
+                catch (Exception ex)
+                {
+                    /*
+                      Put it back, or the rescue is worse than the failure.
+
+                      Only Pending and Failed reach this branch at all, so a book left revived with
+                      no job behind it would be outside the set a later re-drive looks at — stuck in
+                      StoryReady with nothing running and nothing that would ever notice. Failed is
+                      the status that keeps it rescuable.
+                    */
+                    await packRepository.TryUpdateStatusAsync(
+                        bookId,
+                        revivedTo,
+                        AdventurePackStatus.Failed,
+                        book.GeneratedJson,
+                        book.PdfUrl,
+                        $"The retry could not queue generation: {ex.Message}",
+                        CancellationToken.None);
+
+                    throw;
+                }
+
+                return;
+            }
+
             EnqueueGeneration(bookId, bekiRunId);
         }
     }
