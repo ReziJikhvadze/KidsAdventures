@@ -41,7 +41,10 @@ public class CompositeIdentityTests
     private const string GoodAnswer =
         """
         {"hair_color":"dark brown","hair_style":"shoulder-length wavy with a soft fringe",
-         "eye_color":"brown","skin_tone":"light warm"}
+         "eye_color":"brown","skin_tone":"light warm",
+         "eyebrows":"soft, medium-thick, gently arched","glasses":"none",
+         "face_shape":"round with a soft chin",
+         "distinctive_features":"light freckles across the nose; a dimple on the left cheek"}
         """;
 
     // ---------------------------------------------------------------------------------------
@@ -116,7 +119,8 @@ public class CompositeIdentityTests
         var parsed = CompositeChildIdentity.Parse(
             """
             {"hair_color":"  Dark   brown. ","hair_style":"wavy\n bob","eye_color":"brown,",
-             "skin_tone":"light warm"}
+             "skin_tone":"light warm","eyebrows":"soft arched","glasses":"none",
+             "face_shape":"round","distinctive_features":"freckles"}
             """);
 
         Assert.True(parsed.IsValid, parsed.Summary);
@@ -149,6 +153,151 @@ public class CompositeIdentityTests
         var retry = CompositeChildIdentity.RetryPrompt(parsed.Problems);
         Assert.StartsWith(CompositeChildIdentity.Prompt, retry);
         Assert.Contains("The previous answer could not be used", retry);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // Glasses: the field that must be answered even when the answer is nothing
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// A spec with no glasses field is not a spec, and the eight attributes are all required.
+    ///
+    /// Glasses are the reason the rule is worth stating separately. A field a model may leave blank
+    /// is a field it decides page by page — the child is studious on spread four and not on spread
+    /// five — which is one of the drifts the owner listed by name.
+    /// </summary>
+    [Fact]
+    public void An_answer_missing_any_of_the_eight_attributes_is_rejected()
+    {
+        foreach (var missing in (string[])
+                 ["hair_color", "hair_style", "eye_color", "skin_tone",
+                  "eyebrows", "glasses", "face_shape", "distinctive_features"])
+        {
+            var node = System.Text.Json.Nodes.JsonNode.Parse(GoodAnswer)!.AsObject();
+            node.Remove(missing);
+
+            var parsed = CompositeChildIdentity.Parse(node.ToJsonString());
+
+            Assert.False(parsed.IsValid, $"an answer with no {missing} was accepted.");
+        }
+    }
+
+    /// <summary>
+    /// Every way a model says "no glasses" is stored as the one word the lock line prints.
+    ///
+    /// "not visible" is a sentence about a photograph and "none" is a fact about a child. The first
+    /// invites an illustrator to supply what the photo did not show, which on nine prompts is a
+    /// child who sometimes wears glasses.
+    /// </summary>
+    [Theory]
+    [InlineData("none")]
+    [InlineData("None")]
+    [InlineData("no")]
+    [InlineData("no glasses")]
+    [InlineData("not visible")]
+    [InlineData("n/a")]
+    public void Every_way_of_saying_no_glasses_is_stored_as_none(string answered)
+    {
+        var node = System.Text.Json.Nodes.JsonNode.Parse(GoodAnswer)!.AsObject();
+        node["glasses"] = answered;
+
+        var parsed = CompositeChildIdentity.Parse(node.ToJsonString());
+
+        Assert.True(parsed.IsValid, parsed.Summary);
+        Assert.Equal(CompositeChildIdentity.NoGlasses, parsed.Spec!.Glasses);
+
+        // And the lock says so out loud rather than omitting the line.
+        Assert.Contains("Glasses: none", CompositeChildIdentity.LockBlock(parsed.Spec, 5));
+    }
+
+    /// <summary>A child who does wear glasses keeps the description, untouched.</summary>
+    [Fact]
+    public void A_described_pair_of_glasses_is_kept_word_for_word()
+    {
+        var node = System.Text.Json.Nodes.JsonNode.Parse(GoodAnswer)!.AsObject();
+        node["glasses"] = "round thin gold frames";
+
+        var parsed = CompositeChildIdentity.Parse(node.ToJsonString());
+
+        Assert.True(parsed.IsValid, parsed.Summary);
+        Assert.Equal("round thin gold frames", parsed.Spec!.Glasses);
+        Assert.Contains(
+            "Glasses: round thin gold frames", CompositeChildIdentity.LockBlock(parsed.Spec, 5));
+    }
+
+    /// <summary>
+    /// The lock block, whole: eight lines, the age, the eye colour restated as a rule about every
+    /// page, and the sentence that keeps the photograph in charge — pointed at whichever image the
+    /// photograph actually is.
+    /// </summary>
+    [Fact]
+    public void The_lock_block_states_every_attribute_and_defers_to_the_photograph()
+    {
+        var spec = CompositeChildIdentity.Parse(GoodAnswer).Spec!;
+
+        var onSpreadOne = CompositeChildIdentity.LockBlock(spec, 5);
+        var onLaterSpread = CompositeChildIdentity.LockBlock(spec, 5, identityImage: 2);
+
+        foreach (var line in (string[])
+                 ["Face shape: round with a soft chin",
+                  "Hair colour: dark brown",
+                  "Hair style: shoulder-length wavy with a soft fringe",
+                  "Eyebrows: soft, medium-thick, gently arched",
+                  "Eye colour: brown",
+                  "Skin tone: light warm",
+                  "Glasses: none",
+                  "Distinctive features: light freckles across the nose; a dimple on the left cheek",
+                  "The child is approximately 5 years old.",
+                  "The child's eyes are brown on every page."])
+        {
+            Assert.Contains(line, onSpreadOne);
+            Assert.Contains(line, onLaterSpread);
+        }
+
+        // The deference moves with the photograph's position, because a lock that named the wrong
+        // image would tell the model to defer to a drawing.
+        Assert.Contains("Image 1 is the identity reference photograph", onSpreadOne);
+        Assert.Contains("Image 2 is the identity reference photograph", onLaterSpread);
+    }
+
+    /// <summary>
+    /// The reviewer's copy of the spec is the same eight attributes in one line, and it does not
+    /// tell the reviewer to defer to an image it is not judging.
+    /// </summary>
+    [Fact]
+    public void The_reviewers_copy_of_the_spec_names_the_attributes_without_the_deference()
+    {
+        var spec = CompositeChildIdentity.Parse(GoodAnswer).Spec!;
+        var text = CompositeChildIdentity.SpecText(spec);
+
+        Assert.Contains("Face shape: round with a soft chin", text);
+        Assert.Contains("Eyebrows: soft, medium-thick, gently arched", text);
+        Assert.Contains("Eye colour: brown", text);
+        Assert.Contains("Glasses: none", text);
+        Assert.DoesNotContain("identity reference photograph", text);
+        Assert.DoesNotContain("\n", text);
+    }
+
+    /// <summary>
+    /// The eight attributes survive a round trip through storage, which is what a resumed run
+    /// adopts. A spec that lost its eyebrows on the way to the blob would be a spec that drifts on
+    /// resume for a reason nobody could see.
+    /// </summary>
+    [Fact]
+    public void The_stored_spec_round_trips_all_eight_attributes()
+    {
+        var spec = CompositeChildIdentity.Parse(GoodAnswer).Spec!;
+
+        var restored = CompositeChildIdentity.TryReadStored(CompositeChildIdentity.ToStoredJson(spec));
+
+        Assert.Equal(spec, restored);
+
+        // And a v1.1 document — four attributes and the old version string — is not adopted at all.
+        Assert.Null(CompositeChildIdentity.TryReadStored(
+            """
+            {"derivation_version":"child-identity-spec-v1.1","hair_color":"dark brown",
+             "hair_style":"wavy","eye_color":"brown","skin_tone":"light warm"}
+            """));
     }
 
     // ---------------------------------------------------------------------------------------

@@ -2,7 +2,7 @@ Use case: illustration-story
 Asset type: BEKI personalized children's book child/world base image for later exact Beki PNG compositing
 
 INPUT IMAGES
-Image 1 - child identity reference. Preserve the child's recognizable identity and visibly age-appropriate proportions for approximately one year old. Render the child as a warm, polished stylized 3D animated character, not photorealistically. Do not copy clothing, pose, lighting, crop, or background from the photo.
+Image 1 - child identity reference photograph. Preserve the child's recognizable identity and visibly age-appropriate proportions for approximately one year old. Render the child as a warm, polished stylized 3D animated character, not photorealistically. Do not copy clothing, pose, lighting, crop, or background from the photo.
 Image 2 - approved Dinosaur Valley world/style reference. Use its warm golden light, soft violet and coral plants, turquoise water, rounded rock forms, distant mountains, welcoming prehistoric atmosphere, and premium stylized 3D rendering language. Create a new composition; do not copy the reference composition.
 
 SCENE
@@ -14,12 +14,16 @@ Dress the child in a soft mustard-yellow sleeveless romper with a coral-red wais
 Keep the outfit consistent with the cover and all other story spreads. Do not hide the child's face.
 
 CHILD IDENTITY LOCK
+Face shape: round with a soft chin
 Hair colour: dark brown
 Hair style: shoulder-length wavy with a soft fringe
+Eyebrows: soft, medium-thick, gently arched
 Eye colour: brown
 Skin tone: light warm
+Glasses: none
+Distinctive features: light freckles across the nose; a dimple on the left cheek
 The child is approximately one year old.
-These attributes are identical on the cover and on all eight spreads. Image 1 remains the identity authority; where this list and Image 1 disagree, follow Image 1.
+These attributes are identical on the cover and on all eight spreads. The child's eyes are brown on every page. Image 1 is the identity reference photograph; where this list and that photograph disagree, follow the photograph.
 
 RECURRING ELEMENTS REQUIRED ON THIS IMAGE
 None. Bafu and the mysterious caller remain hidden on this page.

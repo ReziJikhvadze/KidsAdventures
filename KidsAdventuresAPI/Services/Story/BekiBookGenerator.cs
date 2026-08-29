@@ -1217,15 +1217,314 @@ public sealed class BekiBookGenerator(
             logger.LogWarning("Composite book {JobId}: {Warning}", composite.JobId, warning);
         }
 
+        // The cover, redrawn against the book that was actually drawn. See the method.
+        var redrawn = await RedrawCompositeCoverAsync(
+            result, composite, childPhoto, childPhotoContentType, cancellationToken);
+
         return new BekiBookResult
         {
             Plan = result.Plan,
             AppearanceDescription = string.Empty,
-            Cover = cover,
+            Cover = redrawn ?? cover,
             Spreads = result.Spreads.Select(ToImageResult).ToList(),
             Warnings = result.Warnings,
             Composite = result.Artifacts,
         };
+    }
+
+    /// <summary>
+    /// The cover, drawn again once the book exists — the fix for the one picture that was never
+    /// part of any of this.
+    ///
+    /// Everything the identity campaign built applied to the eight spreads and nothing else. The
+    /// cover a parent sees is the one the preview drew, before there was an identity spec, before
+    /// there was an appearance anchor, and — on a composite plan — with a character lock the
+    /// planner deliberately leaves empty, so the prompt carried no eye colour at all even when the
+    /// parent had typed one. The owner's report was exact: the eye colour goes wrong "almost
+    /// always, especially on the cover". It could hardly do otherwise.
+    ///
+    /// So after the spreads are accepted, the cover is drawn once more, by the same legacy upright
+    /// composition it has always used, with two things it has never had: the identity lock written
+    /// into the character-lock slot, and the accepted first spread attached as the appearance
+    /// anchor ahead of the photograph. Then it is reviewed by the minimal QA with the identity
+    /// criteria and the eye colour named — the only review this cover has ever had — with one
+    /// regeneration.
+    ///
+    /// A refusal is not fatal. The previewed cover is a real cover that a parent already saw and
+    /// bought; failing the book over the picture on the front of it would trade a whole delivered
+    /// order for a better front page. So a refused redraw keeps what was there and says so loudly.
+    /// </summary>
+    /// <returns>The accepted redrawn cover, or null to keep the one the caller already has.</returns>
+    private async Task<BekiImageResult?> RedrawCompositeCoverAsync(
+        CompositeBookResult result,
+        CompositeBookContext composite,
+        byte[] childPhoto,
+        string childPhotoContentType,
+        CancellationToken cancellationToken)
+    {
+        if (result.Anchor is not { Length: > 0 } anchor)
+        {
+            // Nothing to match a cover to. The stored cover stands, as it did before this existed.
+            logger.LogInformation(
+                "Composite book {JobId}: no first-spread anchor is available, so the cover is left "
+                + "as it was.", composite.JobId);
+
+            return null;
+        }
+
+        /*
+          A run that drew nothing has nothing to bring the cover into agreement with.
+
+          The anchor alone does not say this. A resume that adopts all eight pages hands one back —
+          the stored one — so a check on the anchor would read a fully-adopted resume as a freshly
+          drawn book, redraw the cover, and upload it over the reviewed cover the earlier attempt
+          had already stored and pointed the reader at. The fulfilment job's own guard cannot catch
+          that either: it distinguishes a redraw from an adoption, and this would be a genuine
+          redraw of a cover that did not need redrawing.
+        */
+        if (result.SpreadsDrawnThisRun == 0)
+        {
+            logger.LogInformation(
+                "Composite book {JobId}: every spread was adopted, so the cover this pack already "
+                + "has stands unchanged.", composite.JobId);
+
+            return null;
+        }
+
+        // And a cover that has already been through this once is not put through it again: the
+        // improvement is bought once per book, not once per attempt.
+        if (composite.CoverAlreadyRedrawn)
+        {
+            logger.LogInformation(
+                "Composite book {JobId}: the cover was already redrawn and reviewed by an earlier "
+                + "attempt; keeping it.", composite.JobId);
+
+            return null;
+        }
+
+        byte[] beki;
+        try
+        {
+            beki = RequireBekiReference("the composite cover");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex, "Composite book {JobId}: no Beki master reference, so the cover cannot be "
+                + "redrawn; keeping the previewed cover.", composite.JobId);
+
+            return null;
+        }
+
+        var plan = result.Plan;
+
+        // Image 1 is the anchor and Image 2 the photograph, so the lock defers to Image 2 — the
+        // same rule the spreads follow, with the cover's own reference order.
+        var identityLock = CompositeChildIdentity.LockBlock(
+            result.Identity, composite.Input.ChildAge, identityImage: 2);
+
+        var prompt = IllustrationPrompt.ComposeBeki(
+            identityLock,
+            plan.Cover.Scene,
+            BekiIdentity.CoverContinuity,
+            "either",
+            "A warm hero portrait of the child with Beki beside them, inviting the reader in. "
+            + "These two are the only characters on the cover; keep the setting simple and "
+            + "iconic, one clear suggestion of the world behind them.",
+            CoverAvoid(plan.Cover.Avoid),
+            worldLock: plan.WorldLock);
+
+        var references = new List<(byte[] Bytes, string ContentType, string Label)>
+        {
+            (anchor, "image/png", "Child appearance anchor"),
+            (childPhoto, childPhotoContentType, "Child reference photograph"),
+            (beki, "image/png", BekiIdentity.ReferenceLabel),
+        };
+
+        var reviewReferences = new List<(byte[] Bytes, string ContentType, string Label)>
+        {
+            (childPhoto, childPhotoContentType, "Original child photograph"),
+            (anchor, "image/png", "Child appearance anchor (accepted spread 1)"),
+        };
+
+        var ask = CompositeMinimalQa.CoverPrompt(
+            plan.Cover.Scene, result.Scenario.VisualLock?.ChildOutfit ?? string.Empty, result.Identity);
+
+        var attempts = new List<BekiImageAttempt>();
+
+        // One draw and one regeneration: the same budget a refused spread gets, for the same
+        // reason — a second attempt is worth buying and a third has never changed an outcome.
+        for (var attempt = 0; attempt <= 1; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            byte[] image;
+            var generation = System.Diagnostics.Stopwatch.StartNew();
+
+            try
+            {
+                image = await openAi.GenerateStoryImageAsync(
+                    prompt, BekiImageReferences.ToStoryImageReference(references),
+                    cancellationToken, SpreadImageSize, requireReferences: true);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(
+                    ex, "Composite book {JobId}: the cover redraw call failed; keeping the "
+                    + "previewed cover.", composite.JobId);
+
+                return null;
+            }
+
+            generation.Stop();
+
+            // The same centre-column gate every spread goes through, for the same reason: this is
+            // the picture a parent looks at first.
+            var (gated, seamBefore, seamAfter) = CompositeSeamRepair.Gate(image);
+
+            if (seamBefore.Exceeded)
+            {
+                logger.LogWarning(
+                    "Composite book {JobId}: the redrawn cover had a centre seam at "
+                    + "{Before:F1}x baseline; interpolated {Columns} column(s), now {After:F1}x.",
+                    composite.JobId, seamBefore.Ratio, seamBefore.ColumnCount, seamAfter.Ratio);
+            }
+
+            image = gated;
+
+            /*
+              The reviewer judges what the reader will see.
+
+              The provider returns a landscape frame and the cover prints — and displays — as a
+              single upright leaf, which the composer centre-crops to at layout time. Reviewing the
+              uncropped frame would let a child or a Beki standing outside the shipped crop satisfy
+              the identity check while being absent from the cover a parent actually opens. The
+              legacy cover path has always reviewed this crop; so does this one.
+            */
+            var reviewCopy = SpreadArtCrop.CropAndReduce(image, CoverCropRatio, ReviewImageWidth);
+
+            var review = System.Diagnostics.Stopwatch.StartNew();
+            CompositeQaParseResult parsed;
+
+            /*
+              One re-ask on the SAME picture when the answer will not parse, exactly as a spread
+              gets.
+
+              An unreadable answer says nothing about the cover, so spending the single
+              regeneration on it throws away a picture nobody has judged — and two malformed
+              replies in a row could discard a redraw that was fine. The re-ask costs a reviewer
+              call; the alternative costs an image call and the redraw itself.
+            */
+            try
+            {
+                parsed = await ReviewCoverAsync(
+                    reviewCopy, ask, reviewReferences, composite.JobId, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(
+                    ex, "Composite book {JobId}: the cover review call failed; keeping the "
+                    + "previewed cover.", composite.JobId);
+
+                return null;
+            }
+
+            review.Stop();
+
+            var verdict = parsed.IsValid ? parsed.Verdict!.ToString() : parsed.Summary;
+
+            attempts.Add(new BekiImageAttempt(
+                generation.ElapsedMilliseconds, review.ElapsedMilliseconds, verdict,
+                parsed is { IsValid: true, Verdict.Passed: true }));
+
+            // Two unreadable answers about one picture is a reviewer this run cannot use, not a
+            // cover this run should replace. The previewed cover stands rather than the sole
+            // regeneration being spent on a verdict nobody could read.
+            if (!parsed.IsValid)
+            {
+                logger.LogWarning(
+                    "Composite book {JobId}: the cover review returned no readable verdict twice; "
+                    + "keeping the previewed cover rather than redrawing on no evidence — {Problems}",
+                    composite.JobId, parsed.Summary);
+
+                return null;
+            }
+
+            if (parsed.Verdict!.Passed)
+            {
+                logger.LogInformation(
+                    "Composite book {JobId}: the cover was redrawn against the accepted first "
+                    + "spread and passed review on attempt {Attempt} ({Version}).",
+                    composite.JobId, attempt + 1, CompositeIllustrationPrompt.CoverRedrawVersion);
+
+                return new BekiImageResult
+                {
+                    Image = image,
+                    Accepted = true,
+                    Verdict = verdict,
+                    Attempts = attempt + 1,
+                    AttemptDetails = attempts,
+                    Prompt = prompt,
+                };
+            }
+
+            logger.LogWarning(
+                "Composite book {JobId}: the redrawn cover was refused on attempt {Attempt} — "
+                + "{Verdict}", composite.JobId, attempt + 1, verdict);
+        }
+
+        logger.LogWarning(
+            "Composite book {JobId}: the cover redraw was refused twice; the previewed cover the "
+            + "parent already saw is kept, and the book ships. A book must not die for its cover.",
+            composite.JobId);
+
+        return null;
+    }
+
+    /// <summary>
+    /// The cover's review, with the contract's one parse retry — the same rule the spreads follow.
+    ///
+    /// The retry re-asks about the same picture rather than buying another one. An answer that will
+    /// not parse is a fact about the reviewer, and paying for a second cover to get a readable
+    /// sentence is the wrong bill: it would spend the redraw's single regeneration on a picture no
+    /// one had judged, and two unreadable answers in a row would discard a cover that may well have
+    /// been the good one.
+    /// </summary>
+    private async Task<CompositeQaParseResult> ReviewCoverAsync(
+        byte[] reviewCopy,
+        string ask,
+        IReadOnlyList<(byte[] Bytes, string ContentType, string Label)> references,
+        Guid jobId,
+        CancellationToken cancellationToken)
+    {
+        CompositeQaParseResult? previous = null;
+
+        for (var attempt = 0; attempt <= 1; attempt++)
+        {
+            var question = attempt == 0
+                ? ask
+                : ask
+                  + "\n\nThe previous answer could not be read: "
+                  + previous!.Summary
+                  + " Return only the JSON object described above.";
+
+            var parsed = CompositeMinimalQa.Parse(
+                await openAi.ReviewIllustrationAsync(
+                    reviewCopy, question, references, cancellationToken));
+
+            if (parsed.IsValid)
+            {
+                return parsed;
+            }
+
+            previous = parsed;
+
+            logger.LogWarning(
+                "Composite book {JobId}: the cover QA answer did not parse — {Problems}",
+                jobId, parsed.Summary);
+        }
+
+        return previous!;
     }
 
     private static BekiImageResult ToImageResult(CompositeSpreadResult spread) => new()

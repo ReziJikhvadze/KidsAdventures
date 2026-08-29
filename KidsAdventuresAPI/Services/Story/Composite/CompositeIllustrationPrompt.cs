@@ -301,10 +301,23 @@ public static class CompositeIllustrationPrompt
     /// than by nine independent readings of one photograph. Both are recorded in the contract's
     /// own v1.1 changelog, against the defects that produced them.
     /// </summary>
-    public const string Version = "child-world-image-v1.1";
+    public const string Version = "child-world-image-v1.2";
 
     /// <summary>The cover base template's version. A different document, a different version.</summary>
     public const string CoverVersion = "cover-child-world-v1";
+
+    /// <summary>
+    /// The version of the cover this pipeline actually ships: the legacy upright-cover composition,
+    /// redrawn after spread one with the identity lock written into it and the accepted first
+    /// spread attached as the appearance anchor.
+    ///
+    /// Not <see cref="CoverVersion"/>, which names the composite cover template that stops at
+    /// LAYOUT_FAILED for want of a printer dieline and draws nothing. This one is what a parent
+    /// sees, so it gets a version of its own on the fulfilment manifest — a cover drawn before this
+    /// campaign and a cover drawn after it are different pictures made different ways, and the
+    /// manifest is where that is recorded.
+    /// </summary>
+    public const string CoverRedrawVersion = "cover-identity-redraw-v1.2";
 
     /// <summary>
     /// One spread's prompt.
@@ -321,18 +334,18 @@ public static class CompositeIllustrationPrompt
             Asset type: BEKI personalized children's book child/world base image for later exact Beki PNG compositing
 
             INPUT IMAGES
-            {ChildReferenceLine(input.ChildAge)}
-            {ThemeReferenceLine(input.Theme)}{AnchorLine(input.AnchorAttached)}{ContinuityLine(input.ContinuityElementNames, input.AnchorAttached)}
+            {InputImageBlock(input)}
 
             SCENE
             {input.ChildWorldScene.Trim()}
             Show this as one clear visible moment only.
 
             CHILD LOCK
-            Dress the child in {input.ChildOutfit.Trim()}
+            Dress the child in {input.ChildOutfit.Trim()}{OutfitAnchorClause(input.AnchorAttached)}
             Keep the outfit consistent with the cover and all other story spreads. Do not hide the child's face.
 
-            {CompositeChildIdentity.LockBlock(input.IdentitySpec, input.ChildAge)}
+            {CompositeChildIdentity.LockBlock(
+                input.IdentitySpec, input.ChildAge, input.AnchorAttached ? 2 : 1)}
 
             RECURRING ELEMENTS REQUIRED ON THIS IMAGE
             {RecurringBlock(input.RecurringElements)}
@@ -569,10 +582,28 @@ public static class CompositeIllustrationPrompt
     };
 
     private static string ChildReferenceLine(int childAge) =>
-        "Image 1 - child identity reference. Preserve the child's recognizable identity and "
+        "Image 1 - " + ChildReferenceBody(childAge, anchored: false);
+
+    /// <summary>
+    /// The photograph, which is attached on every page whichever position it holds.
+    ///
+    /// Its job changes with its position and the wording says so. Alone, it is what the child looks
+    /// like and what the picture is built from. Behind the anchor, it is the ground truth the
+    /// anchor is answerable to — because the anchor is one stylization, and a stylization that came
+    /// out slightly wrong must not become the book's definition of the child. It is never dropped:
+    /// the handoff requires it on every call, and a book anchored only to its own first page is a
+    /// book that can drift away from the child it is for without any one page being wrong.
+    /// </summary>
+    private static string ChildReferenceBody(int childAge, bool anchored) =>
+        "child identity reference photograph. Preserve the child's recognizable identity and "
         + $"visibly age-appropriate proportions for approximately {childAge.ToString(CultureInfo.InvariantCulture)} "
         + "years old. Render the child as a warm, polished stylized 3D animated character, not "
-        + "photorealistically. Do not copy clothing, pose, lighting, crop, or background from the photo.";
+        + "photorealistically. Do not copy clothing, pose, lighting, crop, or background from the photo."
+        + (anchored
+            ? " This photograph is the identity ground truth: Image 1 shows how this child has "
+              + "already been drawn, and where the two disagree about who the child is, the "
+              + "photograph is right."
+            : string.Empty);
 
     /// <summary>
     /// The world reference, named by the registry's working title and described in the registry's
@@ -585,7 +616,10 @@ public static class CompositeIllustrationPrompt
     /// world is a data change in the file that also carries its hash.
     /// </summary>
     private static string ThemeReferenceLine(CompositeThemeReference theme, bool forCover = false) =>
-        $"Image 2 - approved {theme.OfficialName} world/style reference. Use its world vocabulary, "
+        "Image 2 - " + ThemeReferenceBody(theme, forCover);
+
+    private static string ThemeReferenceBody(CompositeThemeReference theme, bool forCover = false) =>
+        $"approved {theme.OfficialName} world/style reference. Use its world vocabulary, "
         + "palette, atmosphere, material treatment, and premium stylized 3D rendering language: "
         + $"{theme.VisualDirection.Trim()} "
         + (forCover
@@ -593,47 +627,83 @@ public static class CompositeIllustrationPrompt
             : "Create a new composition; do not copy the reference composition.");
 
     /// <summary>
-    /// The child appearance anchor: the accepted spread-1 base, attached to every later spread.
+    /// The child appearance anchor: the accepted spread-1 base, and from v1.2 the FIRST image on
+    /// every spread after it.
     ///
-    /// The sentence does two opposite jobs at once and both are deliberate. It asks for the child
-    /// to be matched exactly — face, hair, eyes, skin, outfit — because that is the drift this
-    /// campaign is fixing. And it refuses the anchor everything else: pose, camera, layout and
-    /// background all come from this page's own scene and shot, and a model shown one picture and
-    /// told to match it will otherwise redraw it.
+    /// Promoted deliberately. In v1.1 the anchor was attached third, behind the photograph and the
+    /// world reference, and the book that came back was internally consistent but only because
+    /// spreads 2-8 happened to agree — the owner's verdict on what still drifted was "not the cloth
+    /// not the face not the hair not the eyebrows not the glasses". An image model weights the
+    /// first reference hardest, and the first reference was a photograph of a real child, which
+    /// every spread then re-stylized from scratch. The picture that already IS the answer now goes
+    /// first, and the instruction asks for reproduction rather than resemblance.
     ///
-    /// The last clause is the one that keeps the whole arrangement honest. The anchor is itself a
-    /// stylization, so making it the authority would let one good-but-slightly-off spread 1 define
-    /// a child who is not quite the child on all eight pages. The photograph stays the authority;
-    /// the anchor only fixes how it was drawn.
+    /// It still refuses the anchor everything that is not the child: pose, camera, layout and
+    /// background come from this page's own scene and shot, and a model shown one picture and told
+    /// to match it will otherwise redraw it whole.
     /// </summary>
     public const string AnchorInstruction =
-        "Image 3 - child appearance anchor. Match this exact stylized child - same face, hair "
-        + "style and colour, eye colour, skin tone, outfit. Do not copy pose, camera, layout, or "
-        + "background from this image. The child photo (Image 1) remains the identity authority; "
-        + "the anchor fixes the stylization.";
-
-    private static string AnchorLine(bool anchorAttached) =>
-        anchorAttached ? "\n" + AnchorInstruction : string.Empty;
+        "child appearance anchor - the accepted first spread of this same book. Reproduce this "
+        + "exact rendered child: same face and face shape, same hair colour and style, same "
+        + "eyebrows, same glasses or absence of glasses, same eye colour, same skin tone, same "
+        + "outfit down to its colours. Give the child a new pose, camera angle and background as "
+        + "this page's scene requires. Do not copy the pose, camera, layout, lighting or "
+        + "background from this image.";
 
     /// <summary>
-    /// The optional continuity reference, present only when one is actually attached — the template
-    /// is explicit that the placeholder is otherwise replaced by an empty string and no such image
-    /// is mentioned. A prompt that names an image the request does not carry is a prompt the model
-    /// answers by inventing what it thinks was there.
+    /// The outfit clause the anchored spreads add.
     ///
-    /// Its number moves with the anchor, because the numbers are positions in the attached list and
-    /// nothing else. On spread 1 there is no anchor and this is Image 3; on every later spread the
-    /// anchor is Image 3 and this is Image 4. Getting that wrong would tell the model to take a
-    /// recurring creature's appearance from the picture of the child, and the child's stylization
-    /// from the picture of the creature.
+    /// The Visual Scenario's outfit sentence describes the clothes in words; the anchor shows them
+    /// rendered. Words alone let the same description come out as a different mustard, a different
+    /// collar, a different sash — which is what "not the cloth" meant.
     /// </summary>
-    private static string ContinuityLine(IReadOnlyList<string> elementNames, bool anchorAttached) =>
-        elementNames.Count == 0
-            ? string.Empty
-            : $"\nImage {(anchorAttached ? 4 : 3)} - continuity reference. Preserve only the "
-              + $"appearance of these named recurring story elements: {string.Join("; ", elementNames)}. "
-              + "Do not copy the child, Beki, pose, camera, layout, lighting, or background from "
-              + "this image.";
+    private static string OutfitAnchorClause(bool anchorAttached) =>
+        anchorAttached ? " Draw the outfit exactly as rendered in Image 1." : string.Empty;
+
+    /// <summary>
+    /// The attached images, numbered by the order they are actually attached in.
+    ///
+    /// Numbering is computed here and nowhere else, because the numbers are positions in the
+    /// request and a prompt that disagrees with the request tells the model to take the child's
+    /// face from a picture of a dinosaur. Two shapes exist and the template documents both: the
+    /// first spread leads with the photograph because there is no anchor yet, and every later
+    /// spread leads with the anchor and demotes the photograph to second.
+    ///
+    /// The photograph is attached on every page either way — the handoff requires it, and it is
+    /// what keeps the anchor honest: the anchor is one stylization of a child, and a stylization
+    /// that drifted would otherwise become the book's definition of who the child is.
+    /// </summary>
+    private static string InputImageBlock(CompositeSpreadPromptInput input)
+    {
+        var lines = new List<string>();
+        var number = 1;
+
+        if (input.AnchorAttached)
+        {
+            lines.Add($"Image {number++} - {AnchorInstruction}");
+        }
+
+        lines.Add($"Image {number++} - {ChildReferenceBody(input.ChildAge, input.AnchorAttached)}");
+        lines.Add($"Image {number++} - {ThemeReferenceBody(input.Theme)}");
+
+        if (input.ContinuityElementNames.Count > 0)
+        {
+            lines.Add($"Image {number} - {ContinuityBody(input.ContinuityElementNames)}");
+        }
+
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>
+    /// The continuity reference, present only when one is actually attached — the template is
+    /// explicit that the placeholder is otherwise replaced by an empty string and no such image is
+    /// mentioned. A prompt that names an image the request does not carry is a prompt the model
+    /// answers by inventing what it thinks was there.
+    /// </summary>
+    private static string ContinuityBody(IReadOnlyList<string> elementNames) =>
+        "continuity reference. Preserve only the appearance of these named recurring story "
+        + $"elements: {string.Join("; ", elementNames)}. Do not copy the child, Beki, pose, camera, "
+        + "layout, lighting, or background from this image.";
 
     private static string RecurringBlock(IReadOnlyList<string> elements) =>
         elements.Count == 0

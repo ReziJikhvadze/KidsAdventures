@@ -50,6 +50,12 @@ public static class BekiPackBlobs
     public static string SpreadName(Guid userId, Guid packId, int spreadNumber) =>
         $"{userId}/{packId}/spread-{spreadNumber:00}.png";
 
+    public static string FailedSpreadName(Guid userId, Guid packId, int spreadNumber) =>
+        $"{userId}/{packId}/spread-{spreadNumber:00}-failed.png";
+
+    public static string SpreadQaName(Guid userId, Guid packId, int spreadNumber) =>
+        $"{userId}/{packId}/spread-{spreadNumber:00}-qa.json";
+
     /// <summary>
     /// Where a resumable job's progress lives between attempts. Read and written by its bare
     /// name, the way <see cref="IBlobStorageService.ExistsAsync"/> and
@@ -81,6 +87,17 @@ public static class BekiPackBlobs
     /// </summary>
     public static string IdentitySpecName(Guid userId, Guid packId) =>
         $"{userId}/{packId}/child-identity.json";
+
+    /// <summary>
+    /// The cover this pack shipped, stored beside its spreads.
+    ///
+    /// Under the pack's own prefix rather than the preview run's, because from v1.2 they are not
+    /// always the same picture: the cover is redrawn against the book's accepted first spread, and
+    /// the run's copy is what the parent previewed. Storing it here is also what makes a finished
+    /// pack directory a complete book — cover, eight spreads and their receipts — rather than eight
+    /// spreads and a pointer to somebody else's blob.
+    /// </summary>
+    public static string CoverName(Guid userId, Guid packId) => $"{userId}/{packId}/cover.png";
 
     /// <summary>
     /// One page's composition receipt: which approved pose was pasted where, and what the result
@@ -188,6 +205,10 @@ public sealed class BekiPackFulfillment(
         // with nothing to compare against, and it goes and looks rather than guessing.
         var packWasRead = false;
 
+        // Hoisted for the failure handler: the evidence blobs are keyed by owner, and the pack
+        // variable itself lives inside the guarded region.
+        Guid? packUserId = null;
+
         /*
           The load is inside the guarded region, which is not where it started.
 
@@ -207,6 +228,7 @@ public sealed class BekiPackFulfillment(
             }
 
             packWasRead = true;
+            packUserId = pack.UserId;
 
             // A completed pack is not reprocessed. The lease above stops two workers overlapping on
             // the same run; this stops a job that reaches this point a second time after the pack had
@@ -496,6 +518,10 @@ public sealed class BekiPackFulfillment(
             var scenarioUrl = manifest?.ScenarioUrl;
             var identitySpecUrl = manifest?.IdentitySpecUrl;
 
+            // Written once, after the book is drawn — until then the manifest carries whatever an
+            // earlier attempt recorded, which is the cover that attempt shipped.
+            var coverRecord = manifest?.Cover;
+
             /*
               The scenario an earlier attempt planned, read back before anything is drawn.
 
@@ -564,6 +590,11 @@ public sealed class BekiPackFulfillment(
                         // else: the normalized story input has nowhere to put it.
                         LegacyEyeColor = run.EyeColor,
                     },
+                    // Whether this pack's cover has already been through the redraw. The
+                    // illustrator cannot know it — the manifest is this job's — and a resumed
+                    // attempt that redrew it again would replace a reviewed cover with one that
+                    // has to be reviewed from scratch, for no gain.
+                    CoverAlreadyRedrawn = coverRecord?.IsRedraw == true,
                     Resume = new CompositeResumeState(storedScenario, existingSpreads, existingBases)
                     {
                         IdentitySpecJson = storedIdentitySpec,
@@ -587,7 +618,7 @@ public sealed class BekiPackFulfillment(
 
                         await WriteManifestAsync(
                             manifestName, storedUrls, currentContract, scenarioUrl, identitySpecUrl,
-                            compositions, jobToken);
+                            coverRecord, compositions, jobToken);
                     },
                     OnScenario = async scenarioJson =>
                     {
@@ -603,7 +634,7 @@ public sealed class BekiPackFulfillment(
 
                         await WriteManifestAsync(
                             manifestName, storedUrls, currentContract, scenarioUrl, identitySpecUrl,
-                            compositions, jobToken);
+                            coverRecord, compositions, jobToken);
                     },
                 }
                 : null;
@@ -644,7 +675,7 @@ public sealed class BekiPackFulfillment(
 
                         await WriteManifestAsync(
                             manifestName, storedUrls, currentContract, scenarioUrl, identitySpecUrl,
-                            compositions, jobToken);
+                            coverRecord, compositions, jobToken);
                         uploadMs += uploadStopwatch.ElapsedMilliseconds;
                     }
 
@@ -664,6 +695,11 @@ public sealed class BekiPackFulfillment(
             {
                 logger.LogWarning("Beki pack {PackId}: {Warning}", packId, warning);
             }
+
+            // The picture the PDF is laid out from. Normally the cover this run produced; on a
+            // resume that adopted everything, the redrawn cover an earlier run stored — so the
+            // printed book and the on-screen book stay the same book.
+            var coverImage = book.Cover.Image;
 
             /*
               The catch-up pass for composite artifacts, matching the one below for images.
@@ -690,9 +726,104 @@ public sealed class BekiPackFulfillment(
                         await StoreCompositionAsync(pack, artifact, jobToken);
                 }
 
+                /*
+                  The cover, stored with the book rather than borrowed from the preview run.
+
+                  It is a different picture now: drawn again after the first spread was accepted,
+                  with the child's identity lock in the prompt and that accepted spread attached as
+                  the appearance anchor, then reviewed against the spec — which is the one image in
+                  a Beki book that had never been reviewed for identity at all, and the one the
+                  owner watched lose the eye colour on almost every book.
+
+                  A redraw that was refused twice leaves the previewed cover in place and says so on
+                  the record, because a book must not die for its cover. The two cases are told
+                  apart by whether anything was actually attempted: an adopted cover has no attempt
+                  rows, and its verdict is null rather than blank — nobody reviewed it, and an empty
+                  string in that field would read as a pass.
+                */
+                var redrawn = book.Cover.AttemptDetails.Count > 0;
+
+                /*
+                  A resumed run must not undo an earlier run's redrawn cover.
+
+                  The redraw happens only on a run that draws the first spread, so a resume that
+                  adopted all eight pages produces no redraw and hands back the previewed cover.
+                  Uploading that over the stored one would replace a reviewed cover with an
+                  unreviewed one, and rewriting the record would tell an operator the opposite of
+                  what happened — on a pack whose reader is already pointing at the good picture.
+                  So a stored redraw stands, and the run reads it back for the PDF instead, which
+                  is what keeps the printed book and the on-screen book the same book.
+                */
+                if (!redrawn && coverRecord is { IsRedraw: true } storedCover)
+                {
+                    try
+                    {
+                        var keptCover = await blobStorage.DownloadBytesFromStoredUrlAsync(
+                            storedCover.StoredUrl, jobToken);
+
+                        if (keptCover is { Length: > 0 })
+                        {
+                            coverImage = keptCover;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // The PDF falls back to the previewed cover for this attempt; the reader
+                        // and the record still point at the redrawn one, which is the better half
+                        // to keep when only one can be had.
+                        logger.LogWarning(
+                            ex, "Beki pack {PackId}: the stored redrawn cover could not be read; "
+                            + "this attempt lays out the previewed cover instead.", packId);
+                    }
+
+                    logger.LogInformation(
+                        "Beki pack {PackId}: keeping the cover an earlier attempt redrew and "
+                        + "reviewed.", packId);
+                }
+                else
+                {
+                    var coverUrl = await blobStorage.UploadAsync(
+                        BekiPackBlobs.CoverName(pack.UserId, pack.Id),
+                        book.Cover.Image,
+                        "image/png",
+                        jobToken);
+
+                    coverRecord = new BekiCoverRecord(
+                        coverUrl,
+                        redrawn
+                            ? CompositeIllustrationPrompt.CoverRedrawVersion
+                            : BekiCoverRecord.AdoptedPreviewCover,
+                        redrawn ? book.Cover.Verdict : null);
+                }
+
+                /*
+                  And the reader is pointed at it, which is the half that was missing.
+
+                  The pack's own cover column is what the library card and the reader serve, and it
+                  has held the preview run's cover since purchase — so the PDF shipped the redrawn
+                  cover while the screen kept showing the one drawn before the child had a spec.
+                  The owner's first check is the on-screen book, so the two have to agree.
+
+                  Only for a redraw. An adopted cover IS the preview run's cover, and re-pointing
+                  the column at a copy of it would change nothing except which blob a reader that
+                  has cached the first one has to fetch.
+                */
+                if (coverRecord is { IsRedraw: true } shipped)
+                {
+                    await packRepository.UpdateBookPresentationAsync(
+                        packId, title: null, coverImageUrl: shipped.StoredUrl, jobToken);
+                }
+
+                logger.LogInformation(
+                    "Beki pack {PackId}: cover stored — {Provenance}.",
+                    packId,
+                    redrawn
+                        ? $"redrawn against the accepted first spread and reviewed ({book.Cover.Verdict})"
+                        : "the previewed cover, adopted unchanged");
+
                 await WriteManifestAsync(
                     manifestName, storedUrls, currentContract, scenarioUrl, identitySpecUrl,
-                    compositions, jobToken);
+                    coverRecord, compositions, jobToken);
 
                 uploadMs += artifactStopwatch.ElapsedMilliseconds;
 
@@ -738,7 +869,7 @@ public sealed class BekiPackFulfillment(
                 StoryWorlds.For(pack.Theme).Place);
 
             var pdfStopwatch = Stopwatch.StartNew();
-            var pdf = composer.Compose(plan, book.Cover.Image, stored, personalization);
+            var pdf = composer.Compose(plan, coverImage, stored, personalization);
             pdfStopwatch.Stop();
 
             var pdfUploadStopwatch = Stopwatch.StartNew();
@@ -908,6 +1039,30 @@ public sealed class BekiPackFulfillment(
             logger.LogError(
                 ex, "Beki fulfilment failed for pack {PackId} while {Stage}: {Reason}",
                 packId, stage, reason);
+
+            // The refused page and its verdicts, stored beside the book so "marked for human
+            // review" leaves something a human can actually review. A fresh token on purpose:
+            // the budget's may be the very cancellation that caused this failure.
+            if (ex is CompositePipelineException { Evidence: { } evidence } && packUserId is { } owner)
+            {
+                try
+                {
+                    await blobStorage.UploadAsync(
+                        BekiPackBlobs.FailedSpreadName(owner, packId, evidence.Page),
+                        evidence.CompositePng, "image/png", CancellationToken.None);
+
+                    await blobStorage.UploadAsync(
+                        BekiPackBlobs.SpreadQaName(owner, packId, evidence.Page),
+                        System.Text.Encoding.UTF8.GetBytes(evidence.QaJson), "application/json",
+                        CancellationToken.None);
+                }
+                catch (Exception evidenceEx)
+                {
+                    logger.LogWarning(
+                        evidenceEx, "Beki pack {PackId}: could not store the refused spread {Spread}.",
+                        packId, evidence.Page);
+                }
+            }
 
             /*
               A failure before the row was ever read leaves nothing to compare against.
@@ -1119,6 +1274,7 @@ public sealed class BekiPackFulfillment(
         IReadOnlyList<string> illustrationContract,
         string? scenarioUrl,
         string? identitySpecUrl,
+        BekiCoverRecord? cover,
         IReadOnlyDictionary<int, BekiCompositionManifestEntry> compositions,
         CancellationToken cancellationToken)
     {
@@ -1131,6 +1287,7 @@ public sealed class BekiPackFulfillment(
                 .ToList(),
             ScenarioUrl = scenarioUrl,
             IdentitySpecUrl = identitySpecUrl,
+            Cover = cover,
             Compositions = compositions.Count == 0
                 ? null
                 : compositions.OrderBy(pair => pair.Key).Select(pair => pair.Value).ToList(),

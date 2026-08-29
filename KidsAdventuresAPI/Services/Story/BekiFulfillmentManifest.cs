@@ -7,6 +7,35 @@ namespace AdventurePacks.Api.Services.Story;
 public sealed record BekiFulfillmentManifestEntry(int SpreadNumber, string StoredUrl);
 
 /// <summary>
+/// The cover as it was shipped: where it is stored, which prompt drew it, and the review verdict.
+/// </summary>
+/// <param name="PromptVersion">
+/// <see cref="Composite.CompositeIllustrationPrompt.CoverRedrawVersion"/> for a cover this job drew
+/// against the book's own first spread, and <see cref="AdoptedPreviewCover"/> for the previewed one
+/// kept because the redraw was refused or could not run.
+/// </param>
+/// <param name="Verdict">
+/// The minimal QA's one-line verdict for a redrawn cover. Null for an adopted one, which is
+/// honest rather than tidy: nobody reviewed it, and an empty verdict must not read as a pass.
+/// </param>
+public sealed record BekiCoverRecord(string StoredUrl, string PromptVersion, string? Verdict)
+{
+    /// <summary>What the prompt version says when the cover is the one the parent previewed.</summary>
+    public const string AdoptedPreviewCover = "adopted-preview-cover";
+
+    /// <summary>
+    /// Whether this cover was drawn against the book's own first spread and reviewed.
+    ///
+    /// Two things turn on it and both are about agreement. The reader's cover is re-pointed at the
+    /// pack's stored blob only for a redraw — an adopted cover already IS the preview run's cover,
+    /// so pointing at a copy would change nothing. And a resumed run that drew no cover of its own
+    /// keeps a stored redraw rather than overwriting it with the previewed picture.
+    /// </summary>
+    public bool IsRedraw => string.Equals(
+        PromptVersion, Composite.CompositeIllustrationPrompt.CoverRedrawVersion, StringComparison.Ordinal);
+}
+
+/// <summary>
 /// One page's composition receipt, as a resumed job needs to find it again.
 ///
 /// The pose and the output hash are duplicated out of the stored manifest on purpose. A resumed
@@ -114,6 +143,19 @@ public sealed record BekiFulfillmentManifest
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? IdentitySpecUrl { get; init; }
+
+    /// <summary>
+    /// The cover this pack actually shipped: where it is, what drew it, and what review made of it.
+    ///
+    /// On the record because the cover stopped being an inherited artifact. It used to be whatever
+    /// the preview drew, adopted without being looked at again; it is now redrawn against the
+    /// book's own first spread and reviewed against the child's identity spec — or, when that
+    /// redraw is refused, deliberately still the previewed one. Those are three different
+    /// provenances for the same file, and an operator holding a cover a parent is unhappy with
+    /// needs to know which of them they are looking at.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BekiCoverRecord? Cover { get; init; }
 
     /// <summary>
     /// The terms this pack's spreads would be drawn under, right now.

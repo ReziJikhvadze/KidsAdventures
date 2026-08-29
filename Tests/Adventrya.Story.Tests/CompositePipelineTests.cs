@@ -45,7 +45,15 @@ public class CompositePipelineTests
     /// this campaign amended it to <c>child-world-image-v1.1</c>.
     /// </summary>
     private static string ResolvedPromptFixture() =>
-        File.ReadAllText(FixturePath("spread_01_resolved_image_prompt_v1_1.txt"));
+        File.ReadAllText(FixturePath("spread_01_resolved_image_prompt_v1_2.txt"));
+
+    /// <summary>
+    /// The same document for spread two: the anchored shape, where the accepted first spread leads
+    /// and the photograph sits behind it. Both numbering cases exist in every book, so both are
+    /// pinned to a resolved document rather than only to assertions.
+    /// </summary>
+    private static string AnchoredPromptFixture() =>
+        File.ReadAllText(FixturePath("spread_02_resolved_image_prompt_v1_2.txt"));
 
     /// <summary>
     /// The supplier's original v1 resolved prompt, kept byte-for-byte as the audit record of what a
@@ -237,9 +245,12 @@ public class CompositePipelineTests
         // spaces — would satisfy every Contains below while sending the model a prompt whose
         // sections no longer line up with the template's.
         Assert.Contains(
-            "\nCHILD IDENTITY LOCK\nHair colour: dark brown\nHair style: shoulder-length wavy "
-            + "with a soft fringe\nEye colour: brown\nSkin tone: light warm\nThe child is "
-            + "approximately 1 years old.\n", prompt);
+            "\nCHILD IDENTITY LOCK\nFace shape: round with a soft chin\nHair colour: dark brown\n"
+            + "Hair style: shoulder-length wavy with a soft fringe\n"
+            + "Eyebrows: soft, medium-thick, gently arched\nEye colour: brown\n"
+            + "Skin tone: light warm\nGlasses: none\n"
+            + "Distinctive features: light freckles across the nose; a dimple on the left cheek\n"
+            + "The child is approximately 1 years old.\n", prompt);
 
         Assert.Contains("CHILD IDENTITY LOCK", approved);
         Assert.Contains("Hair colour: dark brown", prompt);
@@ -247,11 +258,11 @@ public class CompositePipelineTests
         Assert.Contains("Eye colour: brown", prompt);
         Assert.Contains("Skin tone: light warm", prompt);
         Assert.Contains(
-            "Image 1 remains the identity authority; where this list and Image 1 disagree, follow "
-            + "Image 1.", prompt);
+            "Image 1 is the identity reference photograph; where this list and that photograph "
+            + "disagree, follow the photograph.", prompt);
         Assert.Contains(
-            "Image 1 remains the identity authority; where this list and Image 1 disagree, follow "
-            + "Image 1.", approved);
+            "Image 1 is the identity reference photograph; where this list and that photograph "
+            + "disagree, follow the photograph.", approved);
 
         // Deterministic, and from the config rather than from the model.
         Assert.Contains(CompositeSpreadRhythm.ShotFor(1), prompt);
@@ -300,55 +311,153 @@ public class CompositePipelineTests
     // ---------------------------------------------------------------------------------------
 
     /// <summary>
-    /// The anchor is attached to every spread but the first, and the continuity reference moves to
-    /// Image 4 when it is.
+    /// The anchor leads on every spread but the first, and everything behind it is renumbered.
     ///
     /// The numbering is not presentation. The prompt names its inputs by position in the attached
-    /// list, so an anchor written as Image 3 while the continuity picture is attached third tells
-    /// the model to take the child's face from a picture of a creature — and to take the creature's
-    /// appearance from the child. Both numbering cases exist in one book, which is why both are
-    /// pinned here.
+    /// list, so an anchor written as Image 1 while the photograph is attached first tells the model
+    /// to reproduce a photograph as though it were already a drawing — and to treat the drawing as
+    /// the ground truth. Both shapes exist in every book, so both are pinned.
+    ///
+    /// v1.1 had the anchor third, behind the photograph and the world reference, and the books it
+    /// produced still drifted on everything the owner listed. An image model weights the first
+    /// reference hardest; the picture that already is the answer now holds that place.
     /// </summary>
     [Fact]
-    public void The_anchor_is_image_three_and_pushes_continuity_to_image_four()
+    public void The_anchor_leads_and_the_photograph_follows_it()
     {
         var scenario = VisualScenarioValidator.Validate(ScenarioFixture()).Scenario!;
 
-        // Spread 1: no anchor (it makes it), no continuity (nothing recurring has been drawn).
+        // Spread 1: no anchor (it makes it), so the photograph leads exactly as it always did.
         var first = SpreadPrompt(scenario, page: 1);
         Assert.DoesNotContain("child appearance anchor", first);
+        Assert.StartsWith("Image 1 - child identity reference photograph.", InputImages(first));
+        Assert.Contains("Image 2 - approved", first);
         Assert.DoesNotContain("Image 3", first);
 
         // A later spread with the anchor and no continuity reference.
         var anchorOnly = SpreadPrompt(scenario, page: 2, anchorAttached: true);
-        Assert.Contains("Image 3 - child appearance anchor", anchorOnly);
+        Assert.StartsWith("Image 1 - child appearance anchor", InputImages(anchorOnly));
+        Assert.Contains("Image 2 - child identity reference photograph.", anchorOnly);
+        Assert.Contains("Image 3 - approved", anchorOnly);
         Assert.DoesNotContain("Image 4", anchorOnly);
 
-        // A later spread with both: the anchor keeps Image 3 and continuity is renumbered.
+        // A later spread with both: the world reference and continuity each move back one.
         var both = SpreadPrompt(
             scenario, page: 3, anchorAttached: true, continuityElements: ["Bafu"]);
-        Assert.Contains("Image 3 - child appearance anchor", both);
+        Assert.StartsWith("Image 1 - child appearance anchor", InputImages(both));
+        Assert.Contains("Image 2 - child identity reference photograph.", both);
+        Assert.Contains("Image 3 - approved", both);
         Assert.Contains("Image 4 - continuity reference", both);
-        Assert.DoesNotContain("Image 3 - continuity reference", both);
 
         // Continuity keeps its v1 clause under either number: it is not a picture of the child.
         Assert.Contains("Do not copy the child, Beki, pose, camera, layout, lighting, or "
                         + "background from this image.", both);
 
-        // The one case the anchor is absent but continuity is not, which is spread 1 of a resumed
-        // book: continuity is Image 3, exactly as it was in v1.
+        // Spread 1 of a resumed book: no anchor, but a continuity reference — which is Image 3,
+        // exactly as it was in v1.
         var continuityOnly = SpreadPrompt(scenario, page: 1, continuityElements: ["Bafu"]);
         Assert.Contains("Image 3 - continuity reference", continuityOnly);
         Assert.DoesNotContain("Image 4", continuityOnly);
 
-        // And the anchor says what it is for and what it is not for.
+        // The anchor asks for reproduction rather than resemblance, and names every attribute the
+        // owner watched drift.
+        Assert.Contains("Reproduce this exact rendered child", anchorOnly);
+        foreach (var attribute in (string[])
+                 ["same face and face shape", "same hair colour and style", "same eyebrows",
+                  "same glasses or absence of glasses", "same eye colour", "same skin tone",
+                  "same outfit down to its colours"])
+        {
+            Assert.Contains(attribute, anchorOnly);
+        }
+
         Assert.Contains(
-            "Match this exact stylized child - same face, hair style and colour, eye colour, skin "
-            + "tone, outfit.", anchorOnly);
-        Assert.Contains("Do not copy pose, camera, layout, or background from this image.", anchorOnly);
-        Assert.Contains(
-            "The child photo (Image 1) remains the identity authority; the anchor fixes the "
-            + "stylization.", anchorOnly);
+            "Give the child a new pose, camera angle and background as this page's scene requires.",
+            anchorOnly);
+
+        // And the photograph is still attached, still described as the ground truth.
+        Assert.Contains("This photograph is the identity ground truth", anchorOnly);
+    }
+
+    /// <summary>
+    /// The anchored shape, against the hand-resolved document for spread two — the same kind of
+    /// evidence the first spread has, for the numbering case the first spread cannot show.
+    /// </summary>
+    [Fact]
+    public void The_anchored_prompt_matches_the_approved_anchored_document()
+    {
+        var scenario = VisualScenarioValidator.Validate(ScenarioFixture()).Scenario!;
+
+        var prompt = SpreadPrompt(
+            scenario,
+            page: 2,
+            anchorAttached: true,
+            continuityElements: []);
+
+        var approved = AnchoredPromptFixture();
+
+        foreach (var line in (string[])
+                 ["Image 1 - child appearance anchor",
+                  "Image 2 - child identity reference photograph.",
+                  "Image 3 - approved",
+                  "Draw the outfit exactly as rendered in Image 1.",
+                  "Image 2 is the identity reference photograph; where this list and that "
+                  + "photograph disagree, follow the photograph.",
+                  "Glasses: none"])
+        {
+            Assert.Contains(line, prompt);
+            Assert.Contains(line, approved);
+        }
+
+        // The outfit clause is the anchored spreads' alone: spread 1 has no Image 1 to point at.
+        Assert.DoesNotContain(
+            "Draw the outfit exactly as rendered in Image 1.", SpreadPrompt(scenario, page: 1));
+    }
+
+    /// <summary>
+    /// The whole identity lock, on a page and in the approved document: eight attributes, and the
+    /// glasses line present even when the answer is that there are none.
+    ///
+    /// "Glasses: none" is the line the owner's report is about at one end — a child who wears them
+    /// losing them, or a child who does not gaining them, because nothing in the prompt ever
+    /// mentioned glasses at all.
+    /// </summary>
+    [Fact]
+    public void The_identity_lock_names_all_eight_attributes_including_absent_glasses()
+    {
+        var scenario = VisualScenarioValidator.Validate(ScenarioFixture()).Scenario!;
+        var prompt = SpreadPrompt(scenario, page: 1);
+        var approved = ResolvedPromptFixture();
+
+        foreach (var line in (string[])
+                 ["Face shape: round with a soft chin",
+                  "Hair colour: dark brown",
+                  "Hair style: shoulder-length wavy with a soft fringe",
+                  "Eyebrows: soft, medium-thick, gently arched",
+                  "Eye colour: brown",
+                  "Skin tone: light warm",
+                  "Glasses: none",
+                  "Distinctive features: light freckles across the nose; a dimple on the left cheek"])
+        {
+            Assert.Contains(line, prompt);
+            Assert.Contains(line, approved);
+        }
+
+        // The eye colour is stated twice on purpose: once as an attribute and once as a rule about
+        // every page, because it is the attribute that went wrong most often.
+        Assert.Contains("The child's eyes are brown on every page.", prompt);
+
+        // A child who does wear glasses gets them named the same way.
+        var bespectacled = CompositeIllustrationPrompt.ForSpread(new CompositeSpreadPromptInput
+        {
+            Page = 1,
+            ChildAge = 1,
+            Theme = CompositeThemeReferences.For("dinosaurs"),
+            ChildWorldScene = scenario.Spreads![0].ChildWorldScene!,
+            ChildOutfit = scenario.VisualLock!.ChildOutfit!,
+            IdentitySpec = IdentityFixture with { Glasses = "round thin gold frames" },
+        });
+
+        Assert.Contains("Glasses: round thin gold frames", bespectacled);
     }
 
     /// <summary>
@@ -445,8 +554,24 @@ public class CompositePipelineTests
 
         // And the criterion the reviewer is judging against names the four attributes.
         Assert.Contains(
-            "or has materially different hair colour/style, eye colour, or skin tone from the "
-            + "child appearance anchor.", images.ReviewPrompts[1]);
+            "or the child has materially different hair colour/style, eyebrows, face shape, skin "
+            + "tone, or outfit details from the child appearance anchor", images.ReviewPrompts[1]);
+
+        // The eye colour, named, on every page — the check the drifting books never had.
+        Assert.All(
+            images.ReviewPrompts,
+            ask => Assert.Contains("The child's eyes must read as brown", ask));
+
+        // And the glasses rule, stated in the direction this child needs it.
+        Assert.All(
+            images.ReviewPrompts,
+            ask => Assert.Contains("This child wears no glasses", ask));
+
+        // The spec itself reaches the reviewer, so "materially different eyebrows" is a comparison
+        // it can actually make.
+        Assert.All(
+            images.ReviewPrompts,
+            ask => Assert.Contains("Child identity spec for this book:", ask));
     }
 
     /// <summary>
@@ -600,7 +725,8 @@ public class CompositePipelineTests
         Assert.Equal(3, images.ReferenceCounts[1]);
         Assert.Equal(4, images.ReferenceCounts[2]);
         Assert.DoesNotContain("Image 4", images.Prompts[1]);
-        Assert.Contains("Image 3 - child appearance anchor", images.Prompts[1]);
+        Assert.StartsWith("Image 1 - child appearance anchor", InputImages(images.Prompts[1]));
+        Assert.Contains("Image 2 - child identity reference photograph.", images.Prompts[1]);
         Assert.Contains("Image 4 - continuity reference", images.Prompts[2]);
         Assert.All(images.ReferenceCounts, count => Assert.True(count <= 4, $"{count} references."));
     }
@@ -665,6 +791,470 @@ public class CompositePipelineTests
 
         Assert.DoesNotContain("scenarioUrl", legacy);
         Assert.DoesNotContain("compositions", legacy);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // The cover, redrawn against the book that was actually drawn
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// After the spreads are accepted the cover is drawn again — with the identity lock in its
+    /// prompt and the accepted first spread attached ahead of the photograph — and reviewed.
+    ///
+    /// It is the one picture none of the identity work reached. The cover a parent sees was drawn
+    /// at preview time, before there was a spec or an anchor, and on a composite plan from a
+    /// character lock the planner leaves empty by design — so it carried no eye colour at all. The
+    /// owner's report was that the eye colour goes wrong "almost always, especially on the cover".
+    /// </summary>
+    [Fact]
+    public async Task The_cover_is_redrawn_against_the_accepted_first_spread_and_reviewed()
+    {
+        var images = new StubImageService();
+        var previewed = Png(1024, 1536, red: 42);
+
+        var generator = Generator(
+            images, Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images),
+            compositeEnabled: true);
+
+        var book = await generator.IllustrateAsync(
+            Plan(), Photo(), "image/png", existingCover: previewed, onImage: null,
+            cancellationToken: CancellationToken.None, existingSpreads: null, composite: Context());
+
+        // The previewed cover was replaced, not adopted.
+        Assert.NotEqual(previewed, book.Cover.Image);
+        Assert.True(book.Cover.Accepted);
+        Assert.NotEmpty(book.Cover.AttemptDetails);
+
+        // Nine image calls: eight spreads and the cover.
+        Assert.Equal(BookFormat.SpreadCount + 1, images.ImageCalls);
+
+        var coverPrompt = images.Prompts[^1];
+
+        // The identity lock is in it, including the two attributes nothing about a cover ever
+        // stated before, and the eye colour as a rule about every page.
+        Assert.Contains("CHILD IDENTITY LOCK", coverPrompt);
+        Assert.Contains("Eyebrows: soft, medium-thick, gently arched", coverPrompt);
+        Assert.Contains("Glasses: none", coverPrompt);
+        Assert.Contains("The child's eyes are brown on every page.", coverPrompt);
+
+        // It is the upright cover composition, not a spread: the legacy builder's own cover branch.
+        Assert.Contains("Create one single upright children's book cover illustration.", coverPrompt);
+        Assert.DoesNotContain("two-page spread", coverPrompt);
+
+        // The anchor leads the references and the photograph is behind it, so the lock defers to
+        // Image 2 — the same rule the spreads follow, with the cover's own order.
+        Assert.Contains("Image 2 is the identity reference photograph", coverPrompt);
+
+        // And the review actually happened, against the spec and the anchor.
+        Assert.Single(images.CoverReviewPrompts);
+        Assert.Contains("This is the book's COVER", images.CoverReviewPrompts[0]);
+        Assert.Contains("The child's eyes must read as brown", images.CoverReviewPrompts[0]);
+        Assert.Equal(2, images.CoverReviewReferences[0].Count);
+        Assert.Contains(
+            images.CoverReviewReferences[0],
+            reference => reference.Label.Contains("anchor", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// A cover refused twice keeps the one the parent previewed, and the book still ships.
+    ///
+    /// The previewed cover is a real cover somebody already saw and bought. Failing a paid,
+    /// completed, eight-spread book over the picture on the front of it would trade the whole
+    /// delivery for a better front page — so the redraw is an improvement that is allowed to fail.
+    /// </summary>
+    [Fact]
+    public async Task A_cover_refused_twice_keeps_the_previewed_one_and_the_book_still_ships()
+    {
+        var images = new StubImageService();
+        images.CoverVerdicts.Enqueue(Fail("CHILD_IDENTITY", CompositeQaVerdict.ActionRegenerateBase));
+        images.CoverVerdicts.Enqueue(Fail("CHILD_IDENTITY", CompositeQaVerdict.ActionHumanReview));
+
+        var previewed = Png(1024, 1536, red: 42);
+
+        var generator = Generator(
+            images, Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images),
+            compositeEnabled: true);
+
+        var book = await generator.IllustrateAsync(
+            Plan(), Photo(), "image/png", existingCover: previewed, onImage: null,
+            cancellationToken: CancellationToken.None, existingSpreads: null, composite: Context());
+
+        // The previewed cover stands, and the eight spreads are all there.
+        Assert.Equal(previewed, book.Cover.Image);
+        Assert.Empty(book.Cover.AttemptDetails);
+        Assert.Equal(BookFormat.SpreadCount, book.Spreads.Count);
+
+        // One draw and one regeneration for the cover, and no third.
+        Assert.Equal(2, images.CoverReviewPrompts.Count);
+        Assert.Equal(BookFormat.SpreadCount + 2, images.ImageCalls);
+    }
+
+    /// <summary>
+    /// The reviewer judges the cover the reader will open, not the frame the provider returned.
+    ///
+    /// The cover prints and displays as a single upright leaf, which the composer centre-crops the
+    /// landscape render down to at layout time. Reviewing the uncropped frame would let a child —
+    /// or Beki — standing outside the shipped crop satisfy the identity check while being absent
+    /// from the cover a parent actually sees: a pass on pixels nobody receives.
+    /// </summary>
+    [Fact]
+    public async Task The_cover_review_judges_the_crop_that_ships_not_the_provider_frame()
+    {
+        var images = new StubImageService();
+        var layout = new BekiPrintLayoutOptions();
+
+        var generator = Generator(
+            images, Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images),
+            compositeEnabled: true);
+
+        await generator.IllustrateAsync(
+            Plan(), Photo(), "image/png", existingCover: Png(1024, 1536, red: 42), onImage: null,
+            cancellationToken: CancellationToken.None, existingSpreads: null, composite: Context());
+
+        var generated = images.Returned[^1];
+        var judged = images.CoverReviewImages[0];
+
+        // The same crop the layout stage will take: one leaf wide, the spread's height, bleed on
+        // both — computed from the layout options rather than restated, so the two cannot drift.
+        var coverRatio =
+            (layout.PageWidthMm + (layout.BleedMm * 2)) / (layout.SpreadHeightMm + (layout.BleedMm * 2));
+
+        Assert.Equal(SpreadArtCrop.CropAndReduce(generated, coverRatio, 1024), judged);
+
+        // Which is emphatically not what came back from the provider. A cover leaf is 220 by 200
+        // millimetres — nearly square — and the provider hands back a 3:2 landscape frame, so the
+        // print discards roughly a quarter of its width. Those are the pixels a child could have
+        // been standing in.
+        var frame = Image.Identify(generated);
+        var reviewed = Image.Identify(judged);
+
+        var frameAspect = (double)frame.Width / frame.Height;
+        var reviewedAspect = (double)reviewed.Width / reviewed.Height;
+
+        Assert.Equal(coverRatio, reviewedAspect, 2);
+        Assert.True(
+            reviewedAspect < frameAspect - 0.3,
+            $"the reviewed cover is {reviewedAspect:F2}:1 against the frame's {frameAspect:F2}:1 — "
+            + "the layout crop was not applied.");
+        Assert.NotEqual(generated, judged);
+    }
+
+    /// <summary>
+    /// A resume that adopted every page redraws no cover.
+    ///
+    /// The anchor cannot answer this on its own — a fully-adopted resume hands back the stored one,
+    /// and a caller reading only that would take it for a freshly drawn book. It would then draw a
+    /// second cover and upload it over the reviewed one an earlier attempt had already stored and
+    /// pointed the reader at, and the fulfilment job's own guard could not tell the difference:
+    /// what it would see is a genuine redraw of a cover that needed none.
+    /// </summary>
+    [Fact]
+    public async Task A_fully_adopted_resume_draws_no_cover_at_all()
+    {
+        var images = new StubImageService();
+        var previewed = Png(1024, 1536, red: 42);
+
+        var everySpread = Enumerable.Range(1, BookFormat.SpreadCount)
+            .ToDictionary(page => page, _ => BasePng());
+
+        var generator = Generator(
+            images, Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images),
+            compositeEnabled: true);
+
+        var book = await generator.IllustrateAsync(
+            Plan(), Photo(), "image/png", existingCover: previewed, onImage: null,
+            cancellationToken: CancellationToken.None, existingSpreads: null,
+            composite: Context() with
+            {
+                Resume = new CompositeResumeState(ScenarioFixture(), everySpread, everySpread)
+                {
+                    IdentitySpecJson = CompositeChildIdentity.ToStoredJson(IdentityFixture),
+                    AnchorBasePng = BasePng(),
+                },
+            });
+
+        // Nothing was drawn: not a spread, and not a cover.
+        Assert.Equal(0, images.ImageCalls);
+        Assert.Empty(images.CoverReviewPrompts);
+
+        // The cover the caller came in with is the cover it leaves with, and it carries no attempt
+        // rows — which is what the fulfilment job reads to leave the stored cover alone.
+        Assert.Equal(previewed, book.Cover.Image);
+        Assert.Empty(book.Cover.AttemptDetails);
+    }
+
+    /// <summary>
+    /// And a book whose cover an earlier attempt already redrew does not buy a second one, even on
+    /// a resume that did draw some spreads. The improvement is bought once per book.
+    /// </summary>
+    [Fact]
+    public async Task A_cover_an_earlier_attempt_redrew_is_not_redrawn_again()
+    {
+        var images = new StubImageService();
+        var previewed = Png(1024, 1536, red: 42);
+
+        var generator = Generator(
+            images, Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images),
+            compositeEnabled: true);
+
+        var book = await generator.IllustrateAsync(
+            Plan(), Photo(), "image/png", existingCover: previewed, onImage: null,
+            cancellationToken: CancellationToken.None, existingSpreads: null,
+            composite: Context() with { CoverAlreadyRedrawn = true });
+
+        // The eight spreads were drawn; the cover was not.
+        Assert.Equal(BookFormat.SpreadCount, images.ImageCalls);
+        Assert.Empty(images.CoverReviewPrompts);
+        Assert.Equal(previewed, book.Cover.Image);
+    }
+
+    /// <summary>
+    /// An unreadable verdict is re-asked about the same picture, and never paid for with a new one.
+    ///
+    /// A malformed answer is a fact about the reviewer, not about the cover. Treating it as a
+    /// refusal spends the redraw's single regeneration on a picture nobody has judged — and two
+    /// malformed replies in a row would discard a cover that may have been perfectly good.
+    /// </summary>
+    [Fact]
+    public async Task An_unreadable_cover_verdict_is_re_asked_rather_than_redrawn()
+    {
+        var images = new StubImageService();
+        images.CoverVerdicts.Enqueue("The cover looks lovely to me!");
+
+        var generator = Generator(
+            images, Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images),
+            compositeEnabled: true);
+
+        var book = await generator.IllustrateAsync(
+            Plan(), Photo(), "image/png", existingCover: Png(1024, 1536, red: 42), onImage: null,
+            cancellationToken: CancellationToken.None, existingSpreads: null, composite: Context());
+
+        // Two reviews, one picture: eight spreads and a single cover generation.
+        Assert.Equal(2, images.CoverReviewPrompts.Count);
+        Assert.Equal(BookFormat.SpreadCount + 1, images.ImageCalls);
+        Assert.Equal(images.CoverReviewImages[0], images.CoverReviewImages[1]);
+
+        // The re-ask says what was wrong with the last answer and asks for the same thing again.
+        Assert.StartsWith(images.CoverReviewPrompts[0], images.CoverReviewPrompts[1]);
+        Assert.Contains("The previous answer could not be read", images.CoverReviewPrompts[1]);
+
+        // And the second, readable PASS is the verdict the cover ships under.
+        Assert.True(book.Cover.Accepted);
+        Assert.Single(book.Cover.AttemptDetails);
+    }
+
+    /// <summary>
+    /// Two unreadable answers keep the previewed cover rather than spending the regeneration on a
+    /// verdict nobody could read.
+    /// </summary>
+    [Fact]
+    public async Task Two_unreadable_cover_verdicts_keep_the_previewed_cover()
+    {
+        var images = new StubImageService();
+        images.CoverVerdicts.Enqueue("Looks lovely!");
+        images.CoverVerdicts.Enqueue("Still lovely!");
+
+        var previewed = Png(1024, 1536, red: 42);
+
+        var generator = Generator(
+            images, Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images),
+            compositeEnabled: true);
+
+        var book = await generator.IllustrateAsync(
+            Plan(), Photo(), "image/png", existingCover: previewed, onImage: null,
+            cancellationToken: CancellationToken.None, existingSpreads: null, composite: Context());
+
+        // One cover drawn, two reviews of it, and no second cover bought on no evidence.
+        Assert.Equal(BookFormat.SpreadCount + 1, images.ImageCalls);
+        Assert.Equal(2, images.CoverReviewPrompts.Count);
+
+        Assert.Equal(previewed, book.Cover.Image);
+        Assert.Empty(book.Cover.AttemptDetails);
+    }
+
+    /// <summary>
+    /// The cover ask is the spread reviewer with a cover's page description: the same nine
+    /// categories and the same schema, minus the two criteria a cover cannot fail, plus the
+    /// identity checks that are the whole reason it is reviewed at all.
+    /// </summary>
+    [Fact]
+    public void The_cover_review_asks_about_a_cover_and_names_the_eye_colour()
+    {
+        var ask = CompositeMinimalQa.CoverPrompt(
+            "The child stands at the valley's edge with Beki beside them.",
+            "a soft mustard-yellow romper",
+            IdentityFixture);
+
+        // The contract's own instruction, unchanged.
+        Assert.Contains(CompositeMinimalQa.SystemInstruction, ask);
+
+        Assert.Contains("This is the book's COVER, not a story spread.", ask);
+        Assert.Contains("Do not fail it for TEXT_SAFE_AREA or FOLD_SAFETY.", ask);
+        Assert.DoesNotContain("Reserved text side:", ask);
+        Assert.DoesNotContain("Central exclusion zone:", ask);
+
+        Assert.Contains("The child's eyes must read as brown on this cover.", ask);
+        Assert.Contains("Child identity spec for this book:", ask);
+        Assert.Contains("Eyebrows: soft, medium-thick, gently arched", ask);
+        Assert.Contains("This child wears no glasses", ask);
+
+        // And a child who does wear them gets the rule the other way round.
+        var bespectacled = CompositeMinimalQa.CoverPrompt(
+            "scene", "outfit", IdentityFixture with { Glasses = "round thin gold frames" });
+
+        Assert.Contains("This child wears glasses (round thin gold frames)", bespectacled);
+        Assert.Contains("glasses missing here are a CHILD_IDENTITY failure", bespectacled);
+    }
+
+    /// <summary>
+    /// The preview cover carries the parent's eye colour, on a composite run whose character lock
+    /// is empty by design.
+    ///
+    /// This is the other end of the same defect. The composite planner may not invent an
+    /// appearance, so the plan's character lock is stored as an empty string; the preview cover is
+    /// composed from that lock; and the eye colour the parent typed into the form reached nothing
+    /// at all. The run row had it the whole time.
+    /// </summary>
+    [Fact]
+    public async Task A_preview_cover_states_the_eye_colour_the_parent_chose()
+    {
+        var story = new RecordingMasterStoryService();
+        var runs = new RecordingRunRepository();
+        var images = new StubImageService();
+
+        runs.Run.EyeColor = "green";
+
+        await PreviewService(story, runs, compositeEnabled: true, images: images)
+            .WriteBookAsync(runs.Run.Id, CancellationToken.None);
+
+        // The cover prompt the preview actually sent.
+        Assert.NotEmpty(images.Prompts);
+        var coverPrompt = images.Prompts[^1];
+
+        Assert.Contains("The child's eyes are green.", coverPrompt);
+        Assert.Contains("This is the parent's explicit choice", coverPrompt);
+
+        // And the plan was never touched: the sentence is written into the string handed to the
+        // cover prompt and nowhere else, so nothing about the child's appearance reaches the
+        // planner or the stored story — which is what the composite boundary exists to prevent.
+        Assert.DoesNotContain("green", story.LastStory!.CharacterLock, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("eyes", story.LastStory.CharacterLock, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>A run with no stated eye colour is composed exactly as it was before.</summary>
+    [Fact]
+    public void An_absent_eye_colour_leaves_the_character_lock_untouched()
+    {
+        Assert.Equal("A child.", IllustrationPrompt.WithParentEyeColour("A child.", null));
+        Assert.Equal("A child.", IllustrationPrompt.WithParentEyeColour("A child.", "   "));
+        Assert.Equal(string.Empty, IllustrationPrompt.WithParentEyeColour(null, null));
+
+        // And a composite plan's empty lock becomes the sentence alone rather than a stray space.
+        Assert.StartsWith(
+            "The child's eyes are green.", IllustrationPrompt.WithParentEyeColour(string.Empty, "green"));
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // The centre-column seam gate
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// A picture with a painted centre line is measured, repaired and measured again; a picture
+    /// without one is left exactly as it was.
+    ///
+    /// The second half is the important half. The de-folding removed the cause and this catches the
+    /// residue, so it runs on every base of every book — and a gate that smeared four columns of a
+    /// picture whose centre happens to hold a tree would be a defect this code introduced.
+    /// </summary>
+    [Fact]
+    public void A_painted_centre_seam_is_measured_and_interpolated_away()
+    {
+        var clean = Gradient(1536, 717);
+        var seamed = WithSeam(clean, columns: 2, darken: 90);
+
+        var before = CompositeSeamRepair.Measure(seamed);
+        Assert.True(before.Exceeded, $"the synthetic seam measured only {before.Ratio:F1}x.");
+        Assert.InRange(before.ColumnCount, 1, CompositeSeamRepair.MaxRepairColumns);
+
+        var (repaired, measuredBefore, after) = CompositeSeamRepair.Gate(seamed);
+
+        Assert.True(measuredBefore.Exceeded);
+        Assert.False(after.Exceeded, $"the seam still measures {after.Ratio:F1}x after the repair.");
+        Assert.True(after.Ratio < before.Ratio / 2);
+        Assert.NotEqual(seamed, repaired);
+
+        // The repair is local: everything outside the repaired columns is untouched.
+        using var original = Image.Load<Rgba32>(seamed);
+        using var fixedUp = Image.Load<Rgba32>(repaired);
+
+        Assert.Equal(original.Width, fixedUp.Width);
+        Assert.Equal(original.Height, fixedUp.Height);
+
+        var changed = 0;
+        for (var x = 0; x < original.Width; x++)
+        {
+            if (original[x, 10] != fixedUp[x, 10])
+            {
+                changed++;
+                Assert.InRange(x, measuredBefore.FirstColumn, measuredBefore.LastColumn);
+            }
+        }
+
+        Assert.InRange(changed, 1, CompositeSeamRepair.MaxRepairColumns);
+    }
+
+    [Fact]
+    public void A_picture_with_no_seam_is_returned_untouched()
+    {
+        var clean = Gradient(1536, 717);
+
+        var (unchanged, before, after) = CompositeSeamRepair.Gate(clean);
+
+        Assert.False(before.Exceeded);
+        Assert.Same(clean, unchanged);
+        Assert.Equal(before, after);
+    }
+
+    /// <summary>
+    /// A strong vertical feature that is not at the centre does not trigger the gate, and neither
+    /// does one wider than a seam. Both are pictures, and the gate's whole risk is treating a
+    /// picture as a defect.
+    /// </summary>
+    [Fact]
+    public void The_gate_leaves_real_vertical_features_alone()
+    {
+        var offCentre = WithSeam(Gradient(1536, 717), columns: 2, darken: 90, atColumn: 300);
+        Assert.False(CompositeSeamRepair.Measure(offCentre).Exceeded);
+
+        var wideBand = WithSeam(Gradient(1536, 717), columns: 40, darken: 90);
+        var measured = CompositeSeamRepair.Measure(wideBand);
+        Assert.True(
+            !measured.Exceeded || measured.ColumnCount <= CompositeSeamRepair.MaxRepairColumns,
+            "a wide band was treated as a repairable seam.");
+    }
+
+    /// <summary>
+    /// And the gate runs inside the pipeline, on the base the reviewer judges and the compositor
+    /// pastes onto — not afterwards, when the picture that was approved would no longer be the
+    /// picture that ships.
+    /// </summary>
+    [Fact]
+    public async Task The_pipeline_repairs_a_seam_before_the_reviewer_sees_the_page()
+    {
+        var images = new StubImageService
+        {
+            NextImage = WithSeam(Gradient(ProviderWidth, ProviderHeight), columns: 2, darken: 90),
+        };
+
+        var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+            .RunAsync(Request(), CancellationToken.None);
+
+        // What the provider returned had a seam; what the book kept does not.
+        Assert.True(CompositeSeamRepair.Measure(images.Returned[0]).Exceeded);
+        Assert.False(CompositeSeamRepair.Measure(result.Spreads[0].BasePng).Exceeded);
+
+        // And the reviewer judged the repaired page, not the one that came back from the provider.
+        Assert.False(CompositeSeamRepair.Measure(images.ReviewImages[0]).Exceeded);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -1021,12 +1611,12 @@ public class CompositePipelineTests
     {
         var current = BekiCompositeContractTerms.Current("dinosaurs");
 
-        Assert.Equal("child-world-image-v1.1", CompositeIllustrationPrompt.Version);
-        Assert.Equal("minimal-visual-qa-v1.1", CompositeMinimalQa.Version);
-        Assert.Equal("child-identity-spec-v1.1", CompositeChildIdentity.Version);
+        Assert.Equal("child-world-image-v1.2", CompositeIllustrationPrompt.Version);
+        Assert.Equal("minimal-visual-qa-v1.2", CompositeMinimalQa.Version);
+        Assert.Equal("child-identity-spec-v1.2", CompositeChildIdentity.Version);
 
         // The two v1 shapes an in-flight book could have been written under.
-        var underV1Image = current with { ImagePromptVersion = "child-world-image-v1" };
+        var underV1Image = current with { ImagePromptVersion = "child-world-image-v1.1" };
         var underNoIdentity = current with { IdentityPromptVersion = string.Empty };
 
         Assert.NotEqual(current.ToString(), underV1Image.ToString());
@@ -1134,7 +1724,7 @@ public class CompositePipelineTests
         var current = CompositeChildIdentity.ToStoredJson(IdentityFixture);
         Assert.NotNull(CompositeChildIdentity.TryReadStored(current));
 
-        var older = current.Replace(CompositeChildIdentity.Version, "child-identity-spec-v0.9");
+        var older = current.Replace(CompositeChildIdentity.Version, "child-identity-spec-v1.1");
         Assert.Null(CompositeChildIdentity.TryReadStored(older));
 
         Assert.Null(CompositeChildIdentity.TryReadStored(null));
@@ -1167,7 +1757,9 @@ public class CompositePipelineTests
         // stored base rather than to a fresh spread one.
         Assert.Equal(BookFormat.SpreadCount - 1, images.ImageCalls);
         Assert.All(images.AnchorImages, anchor => Assert.Equal(storedAnchor, anchor));
-        Assert.All(images.Prompts, prompt => Assert.Contains("Image 3 - child appearance anchor", prompt));
+        Assert.All(
+            images.Prompts,
+            prompt => Assert.StartsWith("Image 1 - child appearance anchor", InputImages(prompt)));
     }
 
     /// <summary>
@@ -1298,7 +1890,7 @@ public class CompositePipelineTests
         var images = new StubImageService();
 
         var older = CompositeChildIdentity.ToStoredJson(IdentityFixture)
-            .Replace(CompositeChildIdentity.Version, "child-identity-spec-v0.9");
+            .Replace(CompositeChildIdentity.Version, "child-identity-spec-v1.1");
 
         var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images).RunAsync(
             Request(resume: new CompositeResumeState(
@@ -1443,6 +2035,389 @@ public class CompositePipelineTests
 
         // The review ran twice for spread one and once for each of the others.
         Assert.Equal(BookFormat.SpreadCount + 1, images.ReviewCalls);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // The placement retry that used to do nothing
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The regression, stated as the thing that was actually wrong: the re-composite retry must
+    /// hand the reviewer a different picture.
+    ///
+    /// A real book died on this. Spread seven was refused for FOLD_SAFETY with
+    /// recommended_action=recomposite_beki; the retry re-composited the same base, with the same
+    /// pose, at the same configured anchor, through arithmetic that is deterministic by design; so
+    /// the second image was byte-for-byte the first, and the reviewer refused it again in the same
+    /// words. The pack stopped at spread seven having paid for two reviews of one picture.
+    ///
+    /// Bytes rather than counts, because counts cannot tell the two apart.
+    /// </summary>
+    [Fact]
+    public async Task A_placement_retry_moves_Beki_rather_than_re_reviewing_the_same_picture()
+    {
+        var images = new StubImageService();
+        images.Verdicts.Enqueue(Fail("FOLD_SAFETY", CompositeQaVerdict.ActionRecompositeBeki));
+
+        var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+            .RunAsync(Request(), CancellationToken.None);
+
+        // No second picture was bought: the whole point of this rung is that it is arithmetic.
+        Assert.Equal(BookFormat.SpreadCount, images.ImageCalls);
+        Assert.Equal(1, result.Spreads[0].BaseAttempts);
+
+        // The reviewer saw two different pages.
+        Assert.NotEqual(images.ReviewImages[0], images.ReviewImages[1]);
+
+        // And they differ because Beki moved, not because anything was redrawn: further from the
+        // centre of the sheet, and drawn a little smaller.
+        var attempts = result.Spreads[0].Attempts;
+        Assert.Equal(2, attempts.Count);
+
+        var before = attempts[0].Anchor!;
+        var after = attempts[1].Anchor!;
+
+        Assert.Equal(0.594, before.VisibleCenterX, 3);
+        Assert.Equal(0.654, after.VisibleCenterX, 3);
+        Assert.True(
+            Math.Abs(after.VisibleCenterX - 0.5) > Math.Abs(before.VisibleCenterX - 0.5),
+            "Beki did not move away from the centre.");
+        Assert.Equal(before.VisibleHeight * 0.9, after.VisibleHeight, 4);
+
+        // The manifest that ships is the accepted attempt's, with the adjusted anchor in its
+        // ordinary fields — a receipt for where she actually is on the page.
+        var shipped = result.Spreads[0].Manifest.BekiLayer;
+        Assert.Equal(0.654, shipped.NormalizedAnchor.VisibleCenterX, 3);
+        Assert.Equal(after.VisibleHeight, shipped.NormalizedAnchor.VisibleHeight, 4);
+
+        // And nothing was done to the artwork itself, which is the rule the whole pipeline rests on.
+        Assert.False(shipped.Mirrored || shipped.Rotated || shipped.Warped || shipped.Redrawn);
+        Assert.Equal(1.0, shipped.Opacity);
+    }
+
+    /// <summary>
+    /// The nudge, at both text sides and against the bounds it has to respect.
+    ///
+    /// The direction is not symmetric decoration: Beki stands in the half of the spread the
+    /// Georgian does not occupy, so "away from the centre" is rightward on a left-text page and
+    /// leftward on a right-text one. And the clamp is the deterministic checks' own rule read
+    /// forwards — fully on the canvas, never one pixel inside the reserved third — because an
+    /// adjustment that violated either would fail the composite instead of the review.
+    /// </summary>
+    [Fact]
+    public void The_placement_nudge_moves_outward_and_stops_at_the_bounds()
+    {
+        var config = BekiCompositeConfig.Load();
+
+        var left = config.StoryDefaultFor(BekiTextSide.Left);
+        var right = config.StoryDefaultFor(BekiTextSide.Right);
+
+        // A rendered width of a tenth of the canvas, which is roughly what the approved pose comes
+        // out at on a spread.
+        const int canvas = 1536;
+        const int rendered = 150;
+
+        var nudgedLeft = left.NudgedAwayFromCentre(BekiTextSide.Left, canvas, rendered)!;
+        var nudgedRight = right.NudgedAwayFromCentre(BekiTextSide.Right, canvas, rendered)!;
+
+        Assert.Equal(left.VisibleCenterX + 0.06, nudgedLeft.VisibleCenterX, 4);
+        Assert.Equal(right.VisibleCenterX - 0.06, nudgedRight.VisibleCenterX, 4);
+
+        // The vertical centre never moves: the exclusion this repairs is a vertical strip, and
+        // raising or lowering her would only change which part of it she crosses.
+        Assert.Equal(left.VisibleCenterY, nudgedLeft.VisibleCenterY);
+        Assert.Equal(right.VisibleCenterY, nudgedRight.VisibleCenterY);
+
+        // Both stay on the canvas and out of the third the text is printed over.
+        AssertWithinBounds(nudgedLeft, BekiTextSide.Left, canvas, rendered);
+        AssertWithinBounds(nudgedRight, BekiTextSide.Right, canvas, rendered);
+
+        // Already at the outer edge: the step is clamped rather than pushing her off the canvas.
+        var atTheEdge = left with { VisibleCenterX = 0.95 };
+        var clamped = atTheEdge.NudgedAwayFromCentre(BekiTextSide.Left, canvas, rendered)!;
+
+        Assert.True(clamped.VisibleCenterX <= 1 - (rendered / 2.0 / canvas));
+        AssertWithinBounds(clamped, BekiTextSide.Left, canvas, rendered);
+
+        // The mirror image on the other side.
+        var atTheOtherEdge = right with { VisibleCenterX = 0.05 };
+        var clampedRight = atTheOtherEdge.NudgedAwayFromCentre(BekiTextSide.Right, canvas, rendered)!;
+
+        Assert.True(clampedRight.VisibleCenterX >= rendered / 2.0 / canvas);
+        AssertWithinBounds(clampedRight, BekiTextSide.Right, canvas, rendered);
+
+        // A sprite with no window to move in is null rather than a nudge of zero: the caller asked
+        // for a different picture and has to know it cannot have one.
+        Assert.Null(left.NudgedAwayFromCentre(BekiTextSide.Left, canvas, canvas));
+        Assert.Null(left.NudgedAwayFromCentre(BekiTextSide.Left, canvas, canvas * 2 / 3));
+        Assert.Null(left.NudgedAwayFromCentre(BekiTextSide.Left, 0, rendered));
+
+        static void AssertWithinBounds(
+            BekiCompositeAnchor anchor, BekiTextSide side, int canvasWidth, int renderedWidth)
+        {
+            var half = renderedWidth / 2.0 / canvasWidth;
+            var third = 1.0 / 3.0;
+
+            Assert.True(anchor.VisibleCenterX - half >= 0, "Beki left the canvas on the left.");
+            Assert.True(anchor.VisibleCenterX + half <= 1, "Beki left the canvas on the right.");
+
+            if (side == BekiTextSide.Left)
+            {
+                Assert.True(anchor.VisibleCenterX - half >= third, "Beki entered the text third.");
+            }
+            else
+            {
+                Assert.True(anchor.VisibleCenterX + half <= 1 - third, "Beki entered the text third.");
+            }
+
+            anchor.Validate();
+        }
+    }
+
+    /// <summary>
+    /// The adjusted anchor survives the deterministic checks — which is the assertion that matters,
+    /// because those checks are what would otherwise turn a repaired placement into
+    /// IMAGE_GENERATION_FAILED. Composited for real, on both sides.
+    /// </summary>
+    [Theory]
+    [InlineData("LEFT")]
+    [InlineData("RIGHT")]
+    public void A_nudged_composite_still_passes_the_deterministic_checks(string textSide)
+    {
+        var engine = BekiCompositeEngine.Create();
+        var side = BekiCompositeConfig.ParseTextSide(textSide);
+
+        var first = engine.CompositeStorySpread(
+            SpreadShapedPng(), "base.png", "pose_04_listen", side, "out.png");
+
+        Assert.Empty(CompositeDeterministicChecks.CompositeProblems(
+            first.Manifest, engine.Registry, side));
+
+        var nudged = new BekiCompositeAnchor(
+                first.Manifest.BekiLayer.NormalizedAnchor.VisibleCenterX,
+                first.Manifest.BekiLayer.NormalizedAnchor.VisibleCenterY,
+                first.Manifest.BekiLayer.NormalizedAnchor.VisibleHeight)
+            .NudgedAwayFromCentre(
+                side,
+                first.Manifest.Canvas.WidthPx,
+                first.Manifest.BekiLayer.RenderedSizePx.WidthPx);
+
+        Assert.NotNull(nudged);
+
+        var second = engine.CompositeStorySpread(
+            SpreadShapedPng(), "base.png", "pose_04_listen", side, "out.png", nudged);
+
+        Assert.Empty(CompositeDeterministicChecks.CompositeProblems(
+            second.Manifest, engine.Registry, side));
+
+        // A different page, and the receipt says where she went.
+        Assert.NotEqual(first.Png, second.Png);
+        Assert.NotEqual(
+            first.Manifest.BekiLayer.PlacementPx.XPx, second.Manifest.BekiLayer.PlacementPx.XPx);
+        Assert.Equal(
+            nudged!.VisibleCenterX, second.Manifest.BekiLayer.NormalizedAnchor.VisibleCenterX, 6);
+
+        // The adjusted anchor goes into the ordinary fields and the receipt still satisfies the
+        // supplied schema — which is what "schema-compatible" has to mean: new values, no new
+        // fields, and the locked constants untouched.
+        using var receipt = JsonDocument.Parse(second.Manifest.ToJson());
+        var evaluation = CompositionManifestSchema.Value.Evaluate(
+            receipt.RootElement,
+            new Json.Schema.EvaluationOptions { OutputFormat = Json.Schema.OutputFormat.List });
+
+        Assert.True(evaluation.IsValid, "the nudged composite's manifest does not satisfy the supplied schema.");
+    }
+
+    /// <summary>
+    /// The ladder, in order and with its budget: a placement refused twice spends the base image it
+    /// has not yet bought, at the approved anchor, and then stops.
+    ///
+    /// The third rung exists because a placement the reviewer refuses at two different anchors is
+    /// evidence about the picture rather than about the placement — there was nowhere on that base
+    /// to put her. What it is not is an open-ended search: two generated images and three reviews
+    /// is the whole budget, and the run stops with the agreed code.
+    /// </summary>
+    [Fact]
+    public async Task A_placement_refused_twice_spends_the_unused_base_image_and_then_stops()
+    {
+        var images = new StubImageService();
+        images.Verdicts.Enqueue(Fail("FOLD_SAFETY", CompositeQaVerdict.ActionRecompositeBeki));
+        images.Verdicts.Enqueue(Fail("FOLD_SAFETY", CompositeQaVerdict.ActionRecompositeBeki));
+
+        var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+            .RunAsync(Request(), CancellationToken.None);
+
+        // Nine images for eight spreads: spread one was drawn twice, and no more than twice.
+        Assert.Equal(BookFormat.SpreadCount + 1, images.ImageCalls);
+        Assert.Equal(2, result.Spreads[0].BaseAttempts);
+
+        // Three reviews for spread one, and one each for the rest.
+        Assert.Equal(BookFormat.SpreadCount + 2, images.ReviewCalls);
+
+        var attempts = result.Spreads[0].Attempts;
+        Assert.Equal(3, attempts.Count);
+
+        // The order the rungs were climbed, read off the rows: the configured anchor, the adjusted
+        // one, then the configured one again on the new picture — the nudge belonged to the base
+        // that was thrown away.
+        Assert.Equal(0.594, attempts[0].Anchor!.VisibleCenterX, 3);
+        Assert.Equal(0.654, attempts[1].Anchor!.VisibleCenterX, 3);
+        Assert.Equal(0.594, attempts[2].Anchor!.VisibleCenterX, 3);
+        Assert.Equal(attempts[0].Anchor!.VisibleHeight, attempts[2].Anchor!.VisibleHeight, 6);
+
+        // And the costs are where the rules say: the free retry generated nothing, the escalation
+        // generated a picture.
+        Assert.True(attempts[0].GenerationMs >= 0);
+        Assert.Equal(0, attempts[1].GenerationMs);
+        Assert.True(attempts[2].GenerationMs >= 0);
+        Assert.True(attempts[2].Accepted);
+    }
+
+    /// <summary>
+    /// And when the escalation does not save it either, the book stops — inside the same budget.
+    /// </summary>
+    [Fact]
+    public async Task A_page_that_fails_every_rung_stops_after_two_images_and_three_reviews()
+    {
+        var images = new StubImageService();
+        images.Verdicts.Enqueue(Fail("FOLD_SAFETY", CompositeQaVerdict.ActionRecompositeBeki));
+        images.Verdicts.Enqueue(Fail("FOLD_SAFETY", CompositeQaVerdict.ActionRecompositeBeki));
+        images.Verdicts.Enqueue(Fail("FOLD_SAFETY", CompositeQaVerdict.ActionHumanReview));
+
+        var failure = await Assert.ThrowsAsync<CompositePipelineException>(() =>
+            Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+                .RunAsync(Request(), CancellationToken.None));
+
+        Assert.Equal(CompositeFailureCodes.ImageQaFailed, failure.FailureCode);
+        Assert.Equal(1, failure.Page);
+
+        // Two generations and three reviews for the page, and nothing at all for the seven spreads
+        // that never started — the book failed as a book.
+        Assert.Equal(2, images.ImageCalls);
+        Assert.Equal(3, images.ReviewCalls);
+
+        // Every review saw a different picture. The no-op retry is what this book died of.
+        Assert.NotEqual(images.ReviewImages[0], images.ReviewImages[1]);
+        Assert.NotEqual(images.ReviewImages[1], images.ReviewImages[2]);
+        Assert.NotEqual(images.ReviewImages[0], images.ReviewImages[2]);
+    }
+
+    /// <summary>
+    /// A first verdict of human_review still stops the book on the spot: "the failure source is
+    /// ambiguous" is not a question another picture answers, and the escalation is deliberately
+    /// reachable only after a placement has actually been tried and refused.
+    /// </summary>
+    [Fact]
+    public async Task An_ambiguous_first_verdict_still_stops_the_book_without_buying_anything()
+    {
+        var images = new StubImageService();
+        images.Verdicts.Enqueue(Fail("CAST_ERROR", CompositeQaVerdict.ActionHumanReview));
+
+        var failure = await Assert.ThrowsAsync<CompositePipelineException>(() =>
+            Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+                .RunAsync(Request(), CancellationToken.None));
+
+        Assert.Equal(CompositeFailureCodes.ImageQaFailed, failure.FailureCode);
+        Assert.Equal(1, images.ImageCalls);
+        Assert.Equal(1, images.ReviewCalls);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // What a page marked for human review leaves behind
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// A terminal QA failure carries the refused picture and the attempt record out of the pipeline.
+    ///
+    /// The pack that failed at spread seven left a directory holding spreads one to six and nothing
+    /// else: the composite that was generated, paid for and judged went into an exception message
+    /// and out of existence. "Marked for human review" has to leave a human something to review.
+    /// </summary>
+    [Fact]
+    public async Task A_terminal_QA_failure_carries_the_refused_page_and_its_verdicts_out()
+    {
+        var images = new StubImageService();
+        images.Verdicts.Enqueue(Fail("FOLD_SAFETY", CompositeQaVerdict.ActionRecompositeBeki));
+        images.Verdicts.Enqueue(Fail("FOLD_SAFETY", CompositeQaVerdict.ActionRecompositeBeki));
+        images.Verdicts.Enqueue(Fail("FOLD_SAFETY", CompositeQaVerdict.ActionHumanReview));
+
+        var failure = await Assert.ThrowsAsync<CompositePipelineException>(() =>
+            Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+                .RunAsync(Request(), CancellationToken.None));
+
+        var evidence = failure.Evidence;
+        Assert.NotNull(evidence);
+        Assert.Equal(1, evidence!.Page);
+
+        // The picture the reviewer actually refused, at the size the book prints — the composite,
+        // Beki included, not the base underneath it.
+        Assert.Equal(images.ReviewImages[^1], evidence.CompositePng);
+
+        var refused = Image.Identify(evidence.CompositePng);
+        Assert.Equal(SpreadWidth, refused.Width);
+        Assert.Equal(SpreadHeight, refused.Height);
+
+        // And the paperwork: every cycle, in order, with what was said and where Beki stood.
+        using var qa = JsonDocument.Parse(evidence.QaJson);
+        var root = qa.RootElement;
+
+        Assert.Equal(1, root.GetProperty("page").GetInt32());
+        Assert.Equal("IMAGE_QA_FAILED", root.GetProperty("failure_code").GetString());
+        Assert.Equal(CompositeMinimalQa.Version, root.GetProperty("qa_prompt_version").GetString());
+        Assert.Equal(CompositeIllustrationPrompt.Version, root.GetProperty("image_prompt_version").GetString());
+        Assert.Equal("pose_04_listen", root.GetProperty("pose_id").GetString());
+        Assert.Equal(2, root.GetProperty("base_attempts").GetInt32());
+
+        var rows = root.GetProperty("attempts").EnumerateArray().ToList();
+        Assert.Equal(3, rows.Count);
+        Assert.All(rows, row => Assert.Contains("FOLD_SAFETY", row.GetProperty("verdict").GetString()));
+
+        // The rows are what make the retry auditable: two different placements, so a reader can see
+        // the pipeline moved her rather than reviewing the same page twice.
+        var placements = rows
+            .Select(row => row.GetProperty("beki_anchor").GetProperty("visible_center_x").GetDouble())
+            .ToList();
+
+        Assert.Equal(0.594, placements[0], 3);
+        Assert.Equal(0.654, placements[1], 3);
+        Assert.NotEqual(placements[0], placements[1]);
+
+        // Nothing about the child is in it. It is a record of a placement decision, and the picture
+        // beside it is the thing to look at.
+        Assert.DoesNotContain("Hair", evidence.QaJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(result_outfit, evidence.QaJson);
+    }
+
+    /// <summary>
+    /// The supplied composition-manifest schema, loaded once.
+    ///
+    /// Once because JsonSchema.Net registers a document by its <c>$id</c> and refuses to see the
+    /// same one twice — which a theory with two cases would otherwise do.
+    /// </summary>
+    private static readonly Lazy<Json.Schema.JsonSchema> CompositionManifestSchema = new(() =>
+        Json.Schema.JsonSchema.FromText(File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory, "Assets", "BekiComposite", "contracts",
+            "composition_manifest_v1.schema.json"))));
+
+    /// <summary>The outfit lock, which must not appear in a document stored for review.</summary>
+    private static readonly string result_outfit =
+        VisualScenarioValidator.Validate(ScenarioFixture()).Scenario!.VisualLock!.ChildOutfit!;
+
+    /// <summary>
+    /// A failure with no page to show carries no evidence — an input the boundary refused has no
+    /// picture, and an empty file in a pack directory is worse than no file.
+    /// </summary>
+    [Fact]
+    public async Task A_failure_with_nothing_to_look_at_carries_no_evidence()
+    {
+        var failure = await Assert.ThrowsAsync<CompositePipelineException>(() =>
+            Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), new StubImageService())
+                .RunAsync(
+                    Request() with { ChildPhoto = TruncatedJpeg(640, 480) },
+                    CancellationToken.None));
+
+        Assert.Equal(CompositeFailureCodes.InvalidBookInput, failure.FailureCode);
+        Assert.Null(failure.Evidence);
     }
 
     [Fact]
@@ -2426,7 +3401,15 @@ public class CompositePipelineTests
         HairStyle = "shoulder-length wavy with a soft fringe",
         EyeColor = "brown",
         SkinTone = "light warm",
+        Eyebrows = "soft, medium-thick, gently arched",
+        Glasses = "none",
+        FaceShape = "round with a soft chin",
+        DistinctiveFeatures = "light freckles across the nose; a dimple on the left cheek",
     };
+
+    /// <summary>The INPUT IMAGES block on its own, so a test can say which image comes first.</summary>
+    private static string InputImages(string prompt) =>
+        Section(prompt, "INPUT IMAGES\n", "\n\nSCENE").Trim();
 
     /// <summary>One spread's prompt, built from the fixture scenario the way the pipeline builds it.</summary>
     private static string SpreadPrompt(
@@ -2502,6 +3485,68 @@ public class CompositePipelineTests
 
     /// <summary>A picture already at the printed spread's ratio: normalization must not touch it.</summary>
     private static byte[] SpreadShapedPng() => Png(SpreadWidth, SpreadHeight);
+
+    /// <summary>
+    /// A picture with ordinary variation everywhere: a horizontal gradient plus a little noise, so
+    /// that "the centre changes far more abruptly than anywhere else" is a statement about a real
+    /// baseline rather than about a flat field.
+    /// </summary>
+    private static byte[] Gradient(int width, int height)
+    {
+        using var image = new Image<Rgba32>(width, height);
+        var random = new Random(11);
+
+        image.ProcessPixelRows(accessor =>
+        {
+            for (var y = 0; y < accessor.Height; y++)
+            {
+                var row = accessor.GetRowSpan(y);
+                for (var x = 0; x < row.Length; x++)
+                {
+                    var shade = (byte)(40 + (x * 150 / Math.Max(1, width)) + random.Next(6));
+                    row[x] = new Rgba32(shade, (byte)(shade / 2), (byte)(255 - shade), 255);
+                }
+            }
+        });
+
+        using var buffer = new MemoryStream();
+        image.SaveAsPng(buffer);
+        return buffer.ToArray();
+    }
+
+    /// <summary>
+    /// The defect, painted deliberately: a run of darkened columns, at the exact centre unless a
+    /// test asks for somewhere else.
+    /// </summary>
+    private static byte[] WithSeam(byte[] png, int columns, int darken, int? atColumn = null)
+    {
+        using var image = Image.Load<Rgba32>(png);
+
+        var start = (atColumn ?? (image.Width / 2)) - (columns / 2);
+
+        image.ProcessPixelRows(accessor =>
+        {
+            for (var y = 0; y < accessor.Height; y++)
+            {
+                var row = accessor.GetRowSpan(y);
+                for (var x = start; x < start + columns && x < row.Length; x++)
+                {
+                    if (x < 0) continue;
+
+                    var pixel = row[x];
+                    row[x] = new Rgba32(
+                        (byte)Math.Max(0, pixel.R - darken),
+                        (byte)Math.Max(0, pixel.G - darken),
+                        (byte)Math.Max(0, pixel.B - darken),
+                        pixel.A);
+                }
+            }
+        });
+
+        using var buffer = new MemoryStream();
+        image.SaveAsPng(buffer);
+        return buffer.ToArray();
+    }
 
     /// <param name="red">
     /// Paints the picture a distinguishable colour. Two blank images of the same size are the same
@@ -2688,8 +3733,20 @@ public class CompositePipelineTests
         /// <summary>The child appearance anchor of each call, or null on the page that makes it.</summary>
         public List<byte[]?> AnchorImages { get; } = [];
 
+        /// <summary>The child's photograph of each call, which is attached on every one of them.</summary>
+        public List<byte[]?> PhotoImages { get; } = [];
+
         /// <summary>What each QA call was asked, and what it was shown.</summary>
         public List<string> ReviewPrompts { get; } = [];
+
+        /// <summary>
+        /// The picture each QA call actually judged.
+        ///
+        /// Recorded because of what it makes checkable: the re-composite retry used to hand the
+        /// reviewer the identical image a second time, and no assertion about counts or verdicts
+        /// can tell that apart from a retry that changed something. Comparing the bytes can.
+        /// </summary>
+        public List<byte[]> ReviewImages { get; } = [];
 
         public List<IReadOnlyList<(byte[] Bytes, string ContentType, string Label)>> ReviewReferences
         { get; } = [];
@@ -2714,13 +3771,28 @@ public class CompositePipelineTests
             {"hair_color":"{{IdentityFixture.HairColor}}",
              "hair_style":"{{IdentityFixture.HairStyle}}",
              "eye_color":"{{IdentityFixture.EyeColor}}",
-             "skin_tone":"{{IdentityFixture.SkinTone}}"}
+             "skin_tone":"{{IdentityFixture.SkinTone}}",
+             "eyebrows":"{{IdentityFixture.Eyebrows}}",
+             "glasses":"{{IdentityFixture.Glasses}}",
+             "face_shape":"{{IdentityFixture.FaceShape}}",
+             "distinctive_features":"{{IdentityFixture.DistinctiveFeatures}}"}
             """;
 
         /// <summary>Each call's answer, so a test can say which picture continuity kept.</summary>
         public List<byte[]> Returned { get; } = [];
 
         public Queue<string> Verdicts { get; } = new();
+
+        /// <summary>What the cover review answers, and what it was asked.</summary>
+        public Queue<string> CoverVerdicts { get; } = new();
+
+        public List<string> CoverReviewPrompts { get; } = [];
+
+        public List<IReadOnlyList<(byte[] Bytes, string ContentType, string Label)>>
+            CoverReviewReferences { get; } = [];
+
+        /// <summary>The picture the cover review actually judged — the crop, not the frame.</summary>
+        public List<byte[]> CoverReviewImages { get; } = [];
 
         private const string PassVerdict =
             """{"status":"PASS","failed_checks":[],"recommended_action":"pass","notes":[]}""";
@@ -2757,13 +3829,27 @@ public class CompositePipelineTests
             var cast = reference?.CastPhotos ?? [];
             ReferenceCounts.Add(reference is null ? 0 : 1 + cast.Count);
 
-            // By label, not by position: the child photo is the anchor slot and the rest are the
-            // cast, so "the third image" moved when v1.1 added the child appearance anchor. The
-            // labels are what the prompt's own numbering is built from.
+            /*
+              Which attached image is which, read the way the model would read it.
+
+              StoryImageReference has one unlabelled lead slot and a labelled tail, and from v1.2
+              the lead is the appearance anchor on spreads 2-8 and the photograph on spread 1. The
+              stub decides between them from the prompt's own first line — which makes every
+              assertion below a statement about the request and the prompt agreeing, rather than
+              about the stub's guess. A prompt that said Image 1 was the anchor while the anchor was
+              attached third would fail here, which is the failure worth catching.
+            */
+            var leadsWithAnchor = imagePrompt.Contains(
+                "Image 1 - child appearance anchor", StringComparison.Ordinal);
+
             ContinuityImages.Add(
                 cast.FirstOrDefault(photo => photo.Name == "Continuity reference")?.Bytes);
-            AnchorImages.Add(
-                cast.FirstOrDefault(photo => photo.Name == "Child appearance anchor")?.Bytes);
+
+            AnchorImages.Add(leadsWithAnchor ? reference?.CharacterAnchorBytes : null);
+
+            PhotoImages.Add(leadsWithAnchor
+                ? cast.FirstOrDefault(photo => photo.Name == "Child identity reference")?.Bytes
+                : reference?.CharacterAnchorBytes);
 
             // The shape the providers actually return — 3:2, not the printed 15:7. Returning a
             // spread-shaped frame here would make the normalization step a no-op and every
@@ -2790,8 +3876,22 @@ public class CompositePipelineTests
                     IdentityAnswers.Count > 0 ? IdentityAnswers.Dequeue() : DefaultIdentity);
             }
 
+            // The cover ask is the same reviewer with a different page description, and it arrives
+            // after the eight spreads. Kept on its own queue so a test can refuse a cover without
+            // counting past eight spread verdicts to reach it.
+            if (reviewPrompt.Contains("This is the book's COVER", StringComparison.Ordinal))
+            {
+                CoverReviewPrompts.Add(reviewPrompt);
+                CoverReviewReferences.Add(references);
+                CoverReviewImages.Add(imageBytes);
+
+                return Task.FromResult(
+                    CoverVerdicts.Count > 0 ? CoverVerdicts.Dequeue() : PassVerdict);
+            }
+
             ReviewCalls++;
             ReviewPrompts.Add(reviewPrompt);
+            ReviewImages.Add(imageBytes);
             ReviewReferences.Add(references);
             ReviewLabels.Add(string.Join(", ", references.Select(reference => reference.Label)));
 
@@ -2942,10 +4042,11 @@ public class CompositePipelineTests
         RecordingMasterStoryService story,
         RecordingRunRepository runs,
         bool compositeEnabled,
-        bool bookFormatEnabled = true) =>
+        bool bookFormatEnabled = true,
+        StubImageService? images = null) =>
         new(runs,
             story,
-            new StubImageService(),
+            images ?? new StubImageService(),
             new StubBlobStorage(),
             new PassThroughNormalizer(),
             new StubBackgroundJobClient(),

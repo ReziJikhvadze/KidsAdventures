@@ -291,7 +291,17 @@ public static class CompositeMinimalQa
     /// precisely what a drifting book does too — so eight independent readings of one child all came
     /// back PASS while the child changed. A comparison needs two pictures of the same thing.
     /// </summary>
-    public const string Version = "minimal-visual-qa-v1.1";
+    /// <summary>
+    /// v1.2 hands the reviewer the book's identity spec and asks it to check the attributes by
+    /// name — including the eye colour, which is the one the owner watched go wrong "almost
+    /// always, especially on the cover".
+    ///
+    /// A reviewer comparing two pictures can only report what it thinks it sees; a reviewer told
+    /// "the eyes must read as green" is answering a question with a right answer. The rest of the
+    /// spec is there for the same reason: eyebrows, glasses and face shape were drifting precisely
+    /// because nothing named them.
+    /// </summary>
+    public const string Version = "minimal-visual-qa-v1.2";
 
     /// <summary>
     /// The response schema is v1's and stays v1's: the nine category names, the shape and the
@@ -316,13 +326,19 @@ public static class CompositeMinimalQa
     /// same reason the image prompt never names a reference it does not carry: a reviewer told to
     /// compare against a picture it cannot see answers about the one it can.
     /// </param>
+    /// <param name="identity">
+    /// The book's identity spec, written into the ask so the reviewer checks named attributes
+    /// rather than an impression. Null only for a caller that has none, which the composite path
+    /// no longer has.
+    /// </param>
     public static string Prompt(
         string childWorldScene,
         string bekiAction,
         string childOutfit,
         IReadOnlyList<string> recurringElements,
         string textSide,
-        bool anchorAttached = false)
+        bool anchorAttached = false,
+        ChildIdentitySpec? identity = null)
     {
         var elements = recurringElements is { Count: > 0 }
             ? string.Join("; ", recurringElements)
@@ -330,9 +346,21 @@ public static class CompositeMinimalQa
 
         var anchor = anchorAttached
             ? "\nChild appearance anchor: the accepted first spread of this same book is attached. "
-              + "This page's child must be the same stylized child — same hair colour and style, "
-              + "eye colour and skin tone. It is not a pose, composition, or background reference."
+              + "This page's child must be the same stylized child — same face shape, hair, "
+              + "eyebrows, eye colour, skin tone, glasses and outfit. It is not a pose, "
+              + "composition, or background reference."
             : string.Empty;
+
+        // The spec, and then the one attribute stated as a question with a right answer. The eye
+        // colour is checked by name because that is the one the owner watched go wrong on almost
+        // every book, and "does this look like the same child" is not a test a reviewer can fail
+        // an eye colour on.
+        var spec = identity is null
+            ? string.Empty
+            : $"\nChild identity spec for this book: {CompositeChildIdentity.SpecText(identity)}"
+              + $"\nThe child's eyes must read as {identity.EyeColor} in this illustration. If they "
+              + "do not, that alone is a CHILD_IDENTITY failure."
+              + GlassesRule(identity);
 
         return $"""
             {SystemInstruction}
@@ -346,9 +374,57 @@ public static class CompositeMinimalQa
             Required base outfit: {childOutfit.Trim()}
             Relevant recurring elements: {elements}
             Reserved text side: {textSide.ToUpperInvariant()} — the {textSide.ToLowerInvariant()} third of the spread carries printed story text and must stay clear of faces, hands, characters, foreground objects and key action.
-            Central exclusion zone: a narrow vertical strip at the exact centre of the spread; continuous environment may cross it, but no face, hand, character or story-critical detail may.{anchor}
+            Central exclusion zone: a narrow vertical strip at the exact centre of the spread; continuous environment may cross it, but no face, hand, character or story-critical detail may.{spec}{anchor}
             """;
     }
+
+    /// <summary>
+    /// The same reviewer, asked about a cover.
+    ///
+    /// The system instruction and the schema are the spread's, unchanged — the nine categories are
+    /// the nine categories, and a second contract for one picture would be a second thing to keep
+    /// in step. What differs is the page description: a cover carries no printed story text and has
+    /// no centre to keep clear, so the two criteria that describe those are not stated for it, and
+    /// the reviewer is told plainly that this is the cover.
+    ///
+    /// What is stated, and is the reason this exists at all, is the identity check. The cover is the
+    /// picture the owner watched lose the eye colour on almost every book, and it is the one page
+    /// that until now was never reviewed against the child's own spec or against the rest of the
+    /// book.
+    /// </summary>
+    public static string CoverPrompt(
+        string coverScene, string childOutfit, ChildIdentitySpec identity, bool anchorAttached = true)
+    {
+        ArgumentNullException.ThrowIfNull(identity);
+
+        var anchor = anchorAttached
+            ? "\nChild appearance anchor: the accepted first spread of this same book is attached. "
+              + "The child on this cover must be the same stylized child — same face shape, hair, "
+              + "eyebrows, eye colour, skin tone, glasses and outfit. It is not a pose, "
+              + "composition, or background reference."
+            : string.Empty;
+
+        return $"""
+            {SystemInstruction}
+
+            ---
+
+            THIS PAGE
+
+            This is the book's COVER, not a story spread. It carries no printed story text, so no side of it is reserved and there is no central exclusion zone to keep clear. Do not fail it for TEXT_SAFE_AREA or FOLD_SAFETY.
+
+            Cover scene: {coverScene.Trim()}
+            Required base outfit: {childOutfit.Trim()}
+            Child identity spec for this book: {CompositeChildIdentity.SpecText(identity)}
+            The child's eyes must read as {identity.EyeColor} on this cover. If they do not, that alone is a CHILD_IDENTITY failure.{GlassesRule(identity)}{anchor}
+            """;
+    }
+
+    private static string GlassesRule(ChildIdentitySpec identity) =>
+        string.Equals(identity.Glasses, CompositeChildIdentity.NoGlasses, StringComparison.OrdinalIgnoreCase)
+            ? " This child wears no glasses; glasses appearing here are a CHILD_IDENTITY failure."
+            : $" This child wears glasses ({identity.Glasses}); glasses missing here are a "
+              + "CHILD_IDENTITY failure.";
 
     /// <summary>
     /// Reads one reviewer answer, forgiving about the wrapper and strict about the content.
@@ -453,7 +529,7 @@ public static class CompositeMinimalQa
 
         Check exactly these categories:
 
-        1. CHILD_IDENTITY - The illustrated child is not recognizably the supplied child, or has materially different hair colour/style, eye colour, or skin tone from the child appearance anchor.
+        1. CHILD_IDENTITY - The illustrated child is not recognizably the supplied child; or the child's eyes do not read as the stated eye colour; or the child has materially different hair colour/style, eyebrows, face shape, skin tone, or outfit details from the child appearance anchor; or glasses are present when the spec says none, absent when the spec describes them, or a materially different style of frames.
         2. CHILD_AGE - The child appears materially older or younger than the supplied age.
         3. OUTFIT_CONTINUITY - The required base outfit is missing or materially changed.
         4. MAIN_SCENE_BEAT - The one required visible story event is missing, contradicted, or replaced by a different event.

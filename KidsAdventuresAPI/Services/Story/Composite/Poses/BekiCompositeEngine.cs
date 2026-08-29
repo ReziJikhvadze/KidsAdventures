@@ -371,6 +371,86 @@ public sealed record BekiCompositeAnchor(
             }
         }
     }
+
+    /// <summary>How far the one permitted placement retry moves Beki, as a fraction of the width.</summary>
+    public const double RecompositeStep = 0.06;
+
+    /// <summary>And how much smaller it draws her, which moves her inner edge by half as much again.</summary>
+    public const double RecompositeHeightScale = 0.9;
+
+    /// <summary>
+    /// The same Beki, further from the middle of the page: the one adjustment a refused placement
+    /// is allowed to make.
+    ///
+    /// It exists because the retry that was there before did nothing. A spread refused for
+    /// FOLD_SAFETY was re-composited from the same bytes, at the same configured anchor, by the
+    /// same deterministic arithmetic — so the second image was the first image, and the reviewer
+    /// refused it again for the same reason. One book failed at spread seven that way, having paid
+    /// for two reviews of one picture. §14 says what to do instead in as many words: "a failed
+    /// placement should first adjust deterministic anchors, not redraw Beki."
+    ///
+    /// Two changes, both in the same direction. The centre moves <see cref="RecompositeStep"/> of
+    /// the canvas width away from the middle, towards the half of the spread Beki already occupies;
+    /// and she is drawn <see cref="RecompositeHeightScale"/> of the height, which pulls her inner
+    /// edge in again by half the width she loses. Both are what FOLD_SAFETY is asking for — the
+    /// character is too close to the centre of the sheet — and neither is a new pose, a mirrored
+    /// one, a rotated one or a recoloured one. Those remain impossible: this returns an anchor, and
+    /// an anchor is three numbers.
+    ///
+    /// The result is clamped to the rectangle the deterministic checks already enforce — fully
+    /// inside the canvas, and clear of the third the Georgian text is printed over — with a
+    /// one-pixel margin for the engine's own half-to-even rounding. A clamp that has nowhere to put
+    /// her is null rather than a nudge of zero: the caller's whole reason for asking is to get a
+    /// different picture, and it needs to know when it cannot have one.
+    /// </summary>
+    /// <param name="textSide">
+    /// Which third carries the text, and therefore which way "away from the centre" points: Beki
+    /// stands in the half the text does not occupy, so a left-text spread moves her further right.
+    /// </param>
+    /// <param name="canvasWidthPx">The canvas she was composited onto, from its own manifest.</param>
+    /// <param name="renderedWidthPx">
+    /// How wide she came out at the previous attempt, also from that manifest — the honest number,
+    /// rather than this record recomputing the engine's resize arithmetic and risking disagreeing
+    /// with it. It is measured before the height scale, so using it here bounds her slightly more
+    /// tightly than the smaller sprite needs, which errs the safe way.
+    /// </param>
+    public BekiCompositeAnchor? NudgedAwayFromCentre(
+        BekiTextSide textSide, int canvasWidthPx, int renderedWidthPx)
+    {
+        if (canvasWidthPx <= 0 || renderedWidthPx <= 0 || renderedWidthPx >= canvasWidthPx)
+        {
+            return null;
+        }
+
+        var halfWidth = renderedWidthPx / 2.0 / canvasWidthPx;
+        var margin = 1.0 / canvasWidthPx;
+        var third = 1.0 / 3.0;
+
+        // The window her centre may sit in, which is the deterministic checks' own rule read
+        // forwards: fully on the canvas, and not one pixel inside the reserved third.
+        var (lowest, highest) = textSide == BekiTextSide.Left
+            ? (third + halfWidth + margin, 1 - halfWidth - margin)
+            : (halfWidth + margin, (1 - third) - halfWidth - margin);
+
+        if (lowest >= highest)
+        {
+            return null;
+        }
+
+        var direction = textSide == BekiTextSide.Left ? 1 : -1;
+        var moved = Math.Clamp(VisibleCenterX + (direction * RecompositeStep), lowest, highest);
+
+        var nudged = this with
+        {
+            VisibleCenterX = moved,
+            VisibleHeight = VisibleHeight * RecompositeHeightScale,
+        };
+
+        // Degenerate only if the height scale did nothing either, which it cannot while the scale
+        // is below one — stated anyway, because a future scale of 1.0 with a fully clamped centre
+        // would silently reintroduce the no-op this method exists to remove.
+        return nudged == this ? null : nudged;
+    }
 }
 
 /// <summary>The composited page and its receipt.</summary>

@@ -27,7 +27,37 @@ public sealed class CompositePipelineException(string failureCode, string messag
 
     /// <summary>Null for a book-level failure; the page for a per-spread one.</summary>
     public int? Page { get; init; }
+
+    /// <summary>
+    /// The picture the reviewer refused and the record of why, for the failures where "marked for
+    /// human review" is the outcome.
+    ///
+    /// It rides on the exception because the exception is what reaches the fulfilment job, and the
+    /// fulfilment job is the only part of this system that can write a blob. Until it does, a book
+    /// that stopped at spread seven left a pack directory containing spreads one to six and nothing
+    /// else: no picture to look at, no verdict to read, and a support answer that can only repeat
+    /// the failure code back. The reviewable thing was generated, paid for, judged and discarded.
+    ///
+    /// Null on every failure that has no page to show — a refused input, a scenario that would not
+    /// validate, an identity spec that could not be read.
+    /// </summary>
+    public CompositeFailureEvidence? Evidence { get; init; }
 }
+
+/// <summary>
+/// What a page that stopped for human review leaves behind: the composite as the reviewer saw it,
+/// and a short document saying what each attempt was and what was said about it.
+/// </summary>
+/// <param name="Page">The spread number, for the blob names the fulfilment job builds.</param>
+/// <param name="CompositePng">
+/// The last composite the reviewer refused — the whole page, Beki included, exactly as judged.
+/// </param>
+/// <param name="QaJson">
+/// The attempt record: every verdict in order, what was generated or moved between them, and the
+/// prompt versions in force. It is written for a person opening two files in a blob browser, so it
+/// is indented and it names things the way the logs do.
+/// </param>
+public sealed record CompositeFailureEvidence(int Page, byte[] CompositePng, string QaJson);
 
 /// <summary>
 /// The four normalized inputs plus the job they belong to, handed to the illustrator by a caller
@@ -69,6 +99,16 @@ public sealed record CompositeBookContext
     public Func<string, Task>? OnScenario { get; init; }
 
     /// <summary>
+    /// Whether an earlier attempt at this pack already redrew and reviewed the cover.
+    ///
+    /// The fulfilment job knows this from its own manifest and the illustrator cannot: the cover
+    /// redraw is an improvement a book gets once, and a resumed attempt that drew some of the
+    /// spreads must not buy it a second time — nor overwrite the reviewed picture with a fresh one
+    /// that would have to be reviewed again from scratch.
+    /// </summary>
+    public bool CoverAlreadyRedrawn { get; init; }
+
+    /// <summary>
     /// Where to persist the derived child identity spec, called before the first image call and
     /// for the same reason the scenario's callback is.
     ///
@@ -90,7 +130,18 @@ public sealed record CompositeBookContext
 /// <param name="ReviewMs">How long the minimal visual QA call took, including its parse retry.</param>
 /// <param name="Verdict">The reviewer's verdict as one line — the thing telemetry is read for.</param>
 /// <param name="Accepted">Whether this cycle's page is the one that shipped.</param>
-public sealed record CompositeAttempt(long GenerationMs, long ReviewMs, string Verdict, bool Accepted);
+public sealed record CompositeAttempt(long GenerationMs, long ReviewMs, string Verdict, bool Accepted)
+{
+    /// <summary>
+    /// Where Beki stood for this cycle.
+    ///
+    /// Carried because the retry that moves her is only auditable if the rows say where she was
+    /// each time. A page refused twice for FOLD_SAFETY reads as a pipeline that tried nothing
+    /// unless the two rows show two different anchors — which is exactly the failure this record
+    /// gained the field for.
+    /// </summary>
+    public BekiCompositeAnchor? Anchor { get; init; }
+}
 
 /// <summary>What one spread came out as, and every receipt it produced on the way.</summary>
 public sealed record CompositeSpreadResult
@@ -292,6 +343,39 @@ public sealed record CompositeBookResult
 
     public required CompositeBookArtifacts Artifacts { get; init; }
 
+    /// <summary>
+    /// The eight attributes this book's child was drawn to, for the one picture this pipeline does
+    /// not draw.
+    ///
+    /// The cover is the picture a parent judges the book by and the one the owner watched lose the
+    /// eye colour "almost always". It is composed by the legacy upright-cover builder, which knows
+    /// nothing about any of this — so the spec comes out here rather than staying private, and the
+    /// caller that owns cover composition writes it into the lock.
+    /// </summary>
+    public required ChildIdentitySpec Identity { get; init; }
+
+    /// <summary>
+    /// The accepted first spread's base: the same picture spreads 2-8 were matched against, handed
+    /// out so the cover can be matched against it too.
+    ///
+    /// Present on a fully-adopted resume as well, restored from what the earlier attempt stored —
+    /// which is why it is not on its own a licence to redraw anything. See
+    /// <see cref="SpreadsDrawnThisRun"/>.
+    /// </summary>
+    public byte[]? Anchor { get; init; }
+
+    /// <summary>
+    /// How many spreads this particular run actually drew, as opposed to adopted.
+    ///
+    /// It exists because <see cref="Anchor"/> could not answer the question the cover needs asked.
+    /// A resume that adopts all eight pages still hands back an anchor — the stored one — and a
+    /// caller reading only that would conclude a fresh book had just been drawn, redraw the cover
+    /// against it, and upload a second cover over the reviewed one an earlier attempt had already
+    /// stored. Zero here means this run changed no artwork, so there is nothing for a cover to be
+    /// brought back into agreement with.
+    /// </summary>
+    public int SpreadsDrawnThisRun { get; init; }
+
     public IReadOnlyList<string> Warnings { get; init; } = [];
 }
 
@@ -337,11 +421,16 @@ public interface ICompositeBookPipeline
 /// assembles a reference list is a place that rule could be broken by adding one entry, so the
 /// reference lists are short and built in one method.
 ///
-/// Nothing is retried more than the contract allows. One Visual Scenario retry, one base
-/// regeneration, one re-composite, one QA parse retry, and then the book stops with a code. The
-/// legacy pipeline learned this the expensive way — a refused spread redrawn twice changed no
-/// outcome and doubled the bill — and the counts here are the supplier's own numbers from
-/// <c>pipeline_config_v1.json</c>.
+/// Nothing is retried more than the contract allows. One Visual Scenario retry, one identity
+/// derivation retry, one base regeneration, one re-composite, one QA parse retry, and then the book
+/// stops with a code. The legacy pipeline learned this the expensive way — a refused spread redrawn
+/// twice changed no outcome and doubled the bill — and the counts here are the supplier's own
+/// numbers from <c>pipeline_config_v1.json</c>.
+///
+/// A retry that cannot change anything is not one of them. The re-composite used to hand the
+/// reviewer the identical picture, which cost a book its seventh spread and taught the rule the
+/// ladder in <see cref="DrawSpreadAsync"/> now follows: every rung must produce a different page,
+/// and a rung with nothing left to change is skipped rather than spent.
 /// </summary>
 public sealed class CompositeBookPipeline(
     IStoryModelClient storyClient,
@@ -671,7 +760,7 @@ public sealed class CompositeBookPipeline(
             }
         }
 
-        var drawn = await DrawSpreadsAsync(
+        var (drawn, bookAnchor) = await DrawSpreadsAsync(
             context, input, theme, scenario, toDraw, anchorPage, anchor, identity, continuity,
             childPhoto, childPhotoContentType, request.OnSpread, cancellationToken);
 
@@ -696,6 +785,9 @@ public sealed class CompositeBookPipeline(
             Boundary = boundary,
             Scenario = scenario,
             Spreads = spreads,
+            Identity = identity,
+            Anchor = bookAnchor,
+            SpreadsDrawnThisRun = drawn.Count,
             Warnings = warnings,
             Artifacts = new CompositeBookArtifacts
             {
@@ -1118,7 +1210,8 @@ public sealed class CompositeBookPipeline(
     /// against the page that introduced it rather than against the page immediately before, and QA
     /// still checks it.
     /// </summary>
-    private async Task<IReadOnlyDictionary<int, CompositeSpreadResult>> DrawSpreadsAsync(
+    private async Task<(IReadOnlyDictionary<int, CompositeSpreadResult> Drawn, byte[]? Anchor)>
+        DrawSpreadsAsync(
         CompositeBookContext context,
         NormalizedBookInput input,
         CompositeThemeReference theme,
@@ -1137,7 +1230,7 @@ public sealed class CompositeBookPipeline(
 
         if (toDraw.Count == 0)
         {
-            return drawn;
+            return (drawn, anchor);
         }
 
         var delivery = new OrderedSpreadDelivery(
@@ -1184,7 +1277,7 @@ public sealed class CompositeBookPipeline(
 
         if (remaining.Count == 0)
         {
-            return drawn;
+            return (drawn, anchor);
         }
 
         var concurrency = Math.Max(1, _options.SpreadConcurrency);
@@ -1226,7 +1319,7 @@ public sealed class CompositeBookPipeline(
             throw;
         }
 
-        return drawn;
+        return (drawn, anchor);
 
         async Task DrawOneAsync(VisualScenarioSpread page)
         {
@@ -1343,6 +1436,12 @@ public sealed class CompositeBookPipeline(
         var recomposited = false;
         var regenerated = false;
 
+        // Where Beki stands. Null means the deterministic default for this text side, which is what
+        // every page starts from and what a regenerated base goes back to: the anchors are the
+        // numbers the partners approved against a printed proof, and the adjusted one below is a
+        // repair for a particular picture rather than a new default.
+        BekiCompositeAnchor? placement = null;
+
         // One row per generate-and-review cycle, kept whether it passed or not. A page that shipped
         // on its second attempt is a page whose first verdict is the only record of what was wrong,
         // and that verdict is what the fulfilment job's telemetry is read for.
@@ -1352,14 +1451,20 @@ public sealed class CompositeBookPipeline(
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var composite = Composite(context, page, basePng, selection.PoseId, textSide);
+            var composite = Composite(context, page, basePng, selection.PoseId, textSide, placement);
 
             var (verdict, reviewMs) = await ReviewAsync(
                 context, page, scenario, composite, textSide, childPhoto, childPhotoContentType,
-                theme, elements, anchor, cancellationToken);
+                theme, elements, anchor, identity, cancellationToken);
 
             attempts.Add(new CompositeAttempt(
-                generationMs, reviewMs, verdict.ToString(), verdict.Passed));
+                generationMs, reviewMs, verdict.ToString(), verdict.Passed)
+            {
+                Anchor = composite.Manifest.BekiLayer.NormalizedAnchor is { } placed
+                    ? new BekiCompositeAnchor(
+                        placed.VisibleCenterX, placed.VisibleCenterY, placed.VisibleHeight)
+                    : null,
+            });
 
             if (verdict.Passed)
             {
@@ -1383,67 +1488,216 @@ public sealed class CompositeBookPipeline(
                 };
             }
 
-            // The contract's two second chances, each usable once. Which one applies is the
-            // reviewer's own recommended_action, because it is the only reader that can tell a
-            // badly generated world from a well-generated one with Beki in the wrong part of it —
-            // and the two cost very differently: one is another paid image call, the other is
-            // arithmetic.
+            /*
+              The ladder a refused page climbs, and it stops at three rungs.
+
+              Which rung applies is the reviewer's own recommended_action, because it is the only
+              reader that can tell a badly generated world from a well-generated one with Beki in
+              the wrong part of it — and the two cost very differently: one is another paid image
+              call, the other is arithmetic.
+            */
+
+            // Rung one: the world is wrong, and there is a second picture in the budget.
             if (verdict.RecommendedAction == CompositeQaVerdict.ActionRegenerateBase && !regenerated)
             {
+                (basePng, generationMs, placement) = await RegenerateBaseAsync(
+                    context, page, prompt, verdict, childPhoto, childPhotoContentType, theme,
+                    anchor, reference?.Image, cancellationToken);
+
                 regenerated = true;
                 baseAttempts++;
-
-                logger.LogWarning(
-                    "Composite pipeline {JobId} spread {Page}: QA asked for a new base image — {Verdict}",
-                    context.JobId, page.Page, verdict);
-
-                (rawPng, generationMs) = await GenerateBaseImageAsync(
-                    context, page.Page, prompt,
-                    References(childPhoto, childPhotoContentType, theme, anchor, reference?.Image),
-                    cancellationToken);
-
-                basePng = NormalizeToSpread(context, page.Page, rawPng);
 
                 continue;
             }
 
+            /*
+              Rung two: the world is usable and Beki landed badly, so Beki moves.
+
+              This rung used to do nothing at all, and a real book died on it. A spread refused for
+              FOLD_SAFETY was re-composited from the same bytes, with the same pose, at the same
+              configured anchor, by arithmetic that is deterministic by design — so the "second
+              attempt" produced the first attempt's exact image, and the reviewer refused it again
+              in the same words. The pack stopped at spread seven having bought two reviews of one
+              picture, and the retry rule had been, in effect, a way of paying to fail twice.
+
+              What it does now is what §14 asked for: adjust the deterministic anchor. Beki steps
+              away from the middle of the sheet and is drawn slightly smaller, which is what
+              FOLD_SAFETY and BEKI_INTEGRATION are complaining about; the step is bounded and
+              clamped to the rectangle the deterministic checks already enforce. She is not
+              redrawn, mirrored, rotated, warped or recoloured — none of those exist as code, and
+              an anchor is three numbers.
+            */
             if (verdict.RecommendedAction == CompositeQaVerdict.ActionRecompositeBeki && !recomposited)
             {
                 recomposited = true;
 
-                // Nothing was generated for this cycle, and the row says so: a zero here is the
-                // difference between "the second attempt was free" and "the second attempt was
-                // another image bill", which is the question the retry rules exist to answer.
-                generationMs = 0;
+                var layer = composite.Manifest.BekiLayer;
 
-                // A second deterministic pass over the same bytes, and deliberately not a second
-                // image call — the contract is explicit that a placement fault must not buy a new
-                // picture. It is also, deliberately, not a nudged anchor: the anchors are data the
-                // partners approved, the only correct fix for a badly placed Beki is a different
-                // configured anchor, and inventing one here to satisfy a retry would put the
-                // character somewhere nobody signed off. So this attempt exists to survive a
-                // composite that failed for a transient reason, and a second identical verdict
-                // stops the book rather than guessing.
+                var adjusted = new BekiCompositeAnchor(
+                        layer.NormalizedAnchor.VisibleCenterX,
+                        layer.NormalizedAnchor.VisibleCenterY,
+                        layer.NormalizedAnchor.VisibleHeight)
+                    .NudgedAwayFromCentre(
+                        BekiCompositeConfig.ParseTextSide(textSide),
+                        composite.Manifest.Canvas.WidthPx,
+                        layer.RenderedSizePx.WidthPx);
+
+                if (adjusted is not null)
+                {
+                    logger.LogWarning(
+                        "Composite pipeline {JobId} spread {Page}: QA asked for a re-composite; "
+                        + "moving Beki from {FromX},{FromY},{FromH} to {ToX},{ToY},{ToH} — {Verdict}",
+                        context.JobId, page.Page,
+                        layer.NormalizedAnchor.VisibleCenterX, layer.NormalizedAnchor.VisibleCenterY,
+                        layer.NormalizedAnchor.VisibleHeight,
+                        adjusted.VisibleCenterX, adjusted.VisibleCenterY, adjusted.VisibleHeight,
+                        verdict);
+
+                    placement = adjusted;
+
+                    // Nothing was generated for this cycle, and the row says so: a zero here is the
+                    // difference between "the second attempt was free" and "the second attempt was
+                    // another image bill", which is the question the retry rules exist to answer.
+                    generationMs = 0;
+
+                    continue;
+                }
+
+                // Nowhere to move her to — she is wide enough that the canvas and the reserved
+                // third leave no window. Falling through rather than re-compositing is the whole
+                // lesson of the defect: an identical picture reviewed a second time is a paid call
+                // whose answer is already known.
                 logger.LogWarning(
-                    "Composite pipeline {JobId} spread {Page}: QA asked for a re-composite — {Verdict}",
-                    context.JobId, page.Page, verdict);
+                    "Composite pipeline {JobId} spread {Page}: QA asked for a re-composite, but "
+                    + "Beki cannot be moved within the canvas and the reserved text third; not "
+                    + "re-reviewing an identical picture.", context.JobId, page.Page);
+            }
+
+            /*
+              Rung three: moving her did not fix it, and the base budget is still untouched.
+
+              Reached only after a re-composite has been tried, which is what keeps the ladder
+              bounded and keeps it honest — a first verdict of human_review still stops the book,
+              because "the failure source is ambiguous" is not a thing another picture answers. But
+              a placement the reviewer refused twice is evidence about the picture rather than about
+              the placement: there was nowhere on that base to put Beki. The base is what changes.
+
+              She goes back to the approved anchor for the new picture. The nudge was a repair for
+              the old one, and carrying it forward would draw every later attempt further out for a
+              reason that no longer exists.
+            */
+            if (recomposited && !regenerated)
+            {
+                (basePng, generationMs, placement) = await RegenerateBaseAsync(
+                    context, page, prompt, verdict, childPhoto, childPhotoContentType, theme,
+                    anchor, reference?.Image, cancellationToken);
+
+                regenerated = true;
+                baseAttempts++;
 
                 continue;
             }
 
             logger.LogError(
                 "Composite pipeline {JobId} spread {Page}: stopping for human review after "
-                + "{BaseAttempts} base image(s) — {Verdict}",
-                context.JobId, page.Page, baseAttempts, verdict);
+                + "{BaseAttempts} base image(s) and {Reviews} review(s) — {Verdict}",
+                context.JobId, page.Page, baseAttempts, attempts.Count, verdict);
 
             throw new CompositePipelineException(
                 CompositeFailureCodes.ImageQaFailed,
                 $"Spread {page.Page} failed the minimal visual QA and is marked for human review: {verdict}")
             {
-                Page = page.Page
+                Page = page.Page,
+                // The picture and the paperwork, so that "marked for human review" leaves a human
+                // something to review.
+                Evidence = new CompositeFailureEvidence(
+                    page.Page,
+                    composite.Png,
+                    FailureEvidenceJson(page.Page, selection.PoseId, textSide, baseAttempts, attempts)),
             };
         }
     }
+
+    /// <summary>
+    /// The second picture, and the reset that goes with it.
+    ///
+    /// Extracted because two rungs of the ladder spend the same budget for different reasons — the
+    /// reviewer asked for a new world, or moving Beki on the old one did not work — and the one
+    /// thing that must be identical either way is what happens to the placement: it goes back to
+    /// the approved anchor, because the nudge belonged to the picture being thrown away.
+    /// </summary>
+    private async Task<(byte[] BasePng, long GenerationMs, BekiCompositeAnchor? Placement)>
+        RegenerateBaseAsync(
+            CompositeBookContext context,
+            VisualScenarioSpread page,
+            string prompt,
+            CompositeQaVerdict verdict,
+            byte[] childPhoto,
+            string childPhotoContentType,
+            CompositeThemeReference theme,
+            byte[]? anchor,
+            byte[]? continuityImage,
+            CancellationToken cancellationToken)
+    {
+        logger.LogWarning(
+            "Composite pipeline {JobId} spread {Page}: buying a new base image — {Verdict}",
+            context.JobId, page.Page, verdict);
+
+        var (rawPng, generationMs) = await GenerateBaseImageAsync(
+            context, page.Page, prompt,
+            References(childPhoto, childPhotoContentType, theme, anchor, continuityImage),
+            cancellationToken);
+
+        return (NormalizeToSpread(context, page.Page, rawPng), generationMs, null);
+    }
+
+    /// <summary>
+    /// The document that goes into the pack beside the refused picture.
+    ///
+    /// Written for the person who opens two files in a blob browser and has to decide what happened:
+    /// every cycle in order, what each one cost, where Beki stood for it, and what the reviewer
+    /// said. The anchors are the point of including the rows at all — a page refused twice for the
+    /// same category reads as a pipeline that tried nothing until the two rows show two different
+    /// placements.
+    ///
+    /// Nothing about the child is in it. The scene, the outfit and the identity attributes stay out:
+    /// this is a record of a placement decision, and the picture beside it is the thing to look at.
+    /// </summary>
+    private static string FailureEvidenceJson(
+        int page,
+        string poseId,
+        string textSide,
+        int baseAttempts,
+        IReadOnlyList<CompositeAttempt> attempts) =>
+        JsonSerializer.Serialize(
+            new
+            {
+                page,
+                failure_code = CompositeFailureCodes.ImageQaFailed,
+                image_prompt_version = CompositeIllustrationPrompt.Version,
+                qa_prompt_version = CompositeMinimalQa.Version,
+                pose_id = poseId,
+                text_side = textSide,
+                base_attempts = baseAttempts,
+                review_attempts = attempts.Count,
+                attempts = attempts.Select((attempt, index) => new
+                {
+                    attempt = index + 1,
+                    generation_ms = attempt.GenerationMs,
+                    review_ms = attempt.ReviewMs,
+                    accepted = attempt.Accepted,
+                    verdict = attempt.Verdict,
+                    beki_anchor = attempt.Anchor is null
+                        ? null
+                        : new
+                        {
+                            visible_center_x = attempt.Anchor.VisibleCenterX,
+                            visible_center_y = attempt.Anchor.VisibleCenterY,
+                            visible_height = attempt.Anchor.VisibleHeight,
+                        },
+                }).ToList(),
+            },
+            CompositeJson.Readable);
 
     /// <summary>
     /// One paid image call, checked deterministically before anything else happens to it.
@@ -1558,6 +1812,8 @@ public sealed class CompositeBookPipeline(
             + "{AfterW}x{AfterH} for the 15:7 spread before compositing.",
             context.JobId, page, before.Width, before.Height, after.Width, after.Height);
 
+        normalized = RepairSeam(context, page, normalized);
+
         var problems = CompositeDeterministicChecks.NormalizedSpreadProblems(normalized);
         if (problems.Count > 0)
         {
@@ -1577,18 +1833,58 @@ public sealed class CompositeBookPipeline(
     }
 
     /// <summary>
+    /// The centre-column gate: measure every picture before anything else sees it, and paint out a
+    /// seam when one is there.
+    ///
+    /// Here rather than at the end because everything downstream inherits the bytes — the reviewer
+    /// judges them, Beki is composited onto them, the anchor is one of them, and the printer gets
+    /// one of them. A repair applied after any of that would be a different picture from the one
+    /// that was approved.
+    ///
+    /// Deliberately silent when there is nothing to do, which is the common case: the v1.1 prompt
+    /// amendment removed the cause, and this catches the faint residue that survived it.
+    /// </summary>
+    /// <param name="page">Null for the cover, which is measured by the same gate.</param>
+    private byte[] RepairSeam(CompositeBookContext context, int? page, byte[] png)
+    {
+        var (repaired, before, after) = CompositeSeamRepair.Gate(png);
+
+        if (!before.Exceeded)
+        {
+            return png;
+        }
+
+        logger.LogWarning(
+            "Composite pipeline {JobId} {Page}: a centre seam measured {BeforeRatio:F1}x the "
+            + "picture's baseline column change ({BeforeCentre:F2} against {Baseline:F2}); "
+            + "interpolated {Columns} column(s) from {First} to {Last}, now {AfterRatio:F1}x.",
+            context.JobId, page is null ? "cover" : $"spread {page}",
+            before.Ratio, before.Centre, before.Baseline,
+            before.ColumnCount, before.FirstColumn, before.LastColumn, after.Ratio);
+
+        return repaired;
+    }
+
+    /// <summary>
     /// Paste the approved pose, then check the receipt it wrote.
     ///
     /// The deterministic post-checks read the manifest rather than the pixels, which is the whole
     /// design: the engine records where Beki went and what she hashed to, so "is Beki fully inside
     /// the canvas" is arithmetic somebody can repeat months later without the pipeline.
     /// </summary>
+    /// <param name="placement">
+    /// Null for the deterministic anchor this text side's config gives, which is what every first
+    /// attempt uses; an adjusted anchor only on the one permitted placement retry. The engine has
+    /// taken an override since it was written — §14 anticipated exactly this — so nothing about the
+    /// composite itself changes here except the three numbers it is told to place her at.
+    /// </param>
     private BekiCompositeResult Composite(
         CompositeBookContext context,
         VisualScenarioSpread page,
         byte[] basePng,
         string poseId,
-        string textSide)
+        string textSide,
+        BekiCompositeAnchor? placement = null)
     {
         var side = BekiCompositeConfig.ParseTextSide(textSide);
 
@@ -1600,7 +1896,8 @@ public sealed class CompositeBookPipeline(
                 $"spread-{page.Page:00}-base.png",
                 poseId,
                 side,
-                $"spread-{page.Page:00}.png");
+                $"spread-{page.Page:00}.png",
+                placement);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -1670,6 +1967,7 @@ public sealed class CompositeBookPipeline(
         CompositeThemeReference theme,
         IReadOnlyList<string> elements,
         byte[]? anchor,
+        ChildIdentitySpec identity,
         CancellationToken cancellationToken)
     {
         var anchored = anchor is { Length: > 0 };
@@ -1680,7 +1978,8 @@ public sealed class CompositeBookPipeline(
             scenario.VisualLock!.ChildOutfit!,
             elements,
             textSide,
-            anchored);
+            anchored,
+            identity);
 
         /*
           The child's photograph, and — after spread one — the child appearance anchor. Nothing else.
@@ -1800,16 +2099,21 @@ public sealed class CompositeBookPipeline(
         byte[]? childAnchor,
         byte[]? continuityImage)
     {
-        var references = new List<(byte[] Bytes, string ContentType, string Label)>
-        {
-            (childPhoto, childPhotoContentType, "Child identity reference"),
-            (theme.Bytes, "image/png", $"Approved {theme.OfficialName} world reference"),
-        };
+        var references = new List<(byte[] Bytes, string ContentType, string Label)>();
 
+        // The anchor first, from v1.2, on every page that has one. The first reference is the one
+        // the image model leans on hardest, and until now that was a photograph of a real child —
+        // so every spread re-stylized it from scratch and the book's own answer, sitting third in
+        // the list, was a hint. The picture that already shows the drawn child now leads.
         if (childAnchor is { Length: > 0 })
         {
             references.Add((childAnchor, "image/png", "Child appearance anchor"));
         }
+
+        // And the photograph directly behind it, never dropped: the anchor is one stylization, and
+        // a stylization is answerable to the child it was made from.
+        references.Add((childPhoto, childPhotoContentType, "Child identity reference"));
+        references.Add((theme.Bytes, "image/png", $"Approved {theme.OfficialName} world reference"));
 
         if (continuityImage is { Length: > 0 })
         {

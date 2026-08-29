@@ -7,13 +7,24 @@ using Json.Schema;
 namespace AdventurePacks.Api.Services.Story.Composite;
 
 /// <summary>
-/// The four attributes that make the child on page seven the child on page one.
+/// The attributes that make the child on page seven the child on page one.
 ///
-/// Four and no more, and each of them short. The point of the spec is to be repeated verbatim in
-/// nine image prompts, so anything longer than a phrase is a paragraph the model will paraphrase
-/// differently each time — which is the drift this exists to stop, arriving by another route. And
-/// anything outside these four is either the outfit (the Visual Scenario's job), the pose (the
-/// scene's), or something nobody should be deriving from a child's photograph at all.
+/// Eight of them as of v1.2, and each still short. The point of the spec is to be repeated verbatim
+/// in nine image prompts, so anything longer than a phrase is a paragraph the model will paraphrase
+/// differently each time — which is the drift this exists to stop, arriving by another route.
+///
+/// The first four were v1.1's, and they were not enough. The owner's own words on the book that
+/// came back: "not the cloth not the face not the hair not the eyebrows not the glasses". Four
+/// fields told the model about hair and eyes and skin and said nothing about the shape of the face,
+/// the eyebrows above the eyes, or whether the child wears glasses — so each spread decided those
+/// afresh, and a child who wears glasses got them on some pages and not others.
+///
+/// The four that were added are the supplier's own, from <c>character-identity-analyzer-v1</c>:
+/// face shape, eyebrows, glasses, and the three-to-five distinctive details that make a particular
+/// child recognisable. What is deliberately still absent is everything that analyzer collects and
+/// this pipeline has no use for — apparent age range (the parent gave the age), nose, mouth,
+/// jawline, ears — because a lock is only as strong as a model's attention, and eight phrases it
+/// reads beat fifteen it skims.
 /// </summary>
 public sealed record ChildIdentitySpec
 {
@@ -24,6 +35,29 @@ public sealed record ChildIdentitySpec
     public required string EyeColor { get; init; }
 
     public required string SkinTone { get; init; }
+
+    /// <summary>Shape and thickness, in an illustrator's terms: "soft, medium-thick, gently arched".</summary>
+    public required string Eyebrows { get; init; }
+
+    /// <summary>
+    /// The one field that must be filled even when the answer is nothing.
+    ///
+    /// "none" is a value here, not an absence, and the difference is a real book. A field a model
+    /// may leave blank is a field it decides about page by page: glasses appear on spread four
+    /// because the scene felt studious, and vanish on spread five. Stating "none" on every prompt
+    /// is what makes their absence deliberate — and stating the description on every prompt is what
+    /// stops a child who wears glasses losing them halfway through their own book.
+    /// </summary>
+    public required string Glasses { get; init; }
+
+    /// <summary>Round, oval, heart-shaped — the outline a stylization most easily drifts on.</summary>
+    public required string FaceShape { get; init; }
+
+    /// <summary>
+    /// The three to five details that make this child recognisably this child: freckles, a dimple,
+    /// a gap in the front teeth, a birthmark. The analyzer's own list, as one short phrase.
+    /// </summary>
+    public required string DistinctiveFeatures { get; init; }
 }
 
 /// <summary>Either a spec, or the reasons an answer was not one. Never a half-read spec.</summary>
@@ -71,10 +105,20 @@ public sealed record ChildIdentityParseResult(
 public static class CompositeChildIdentity
 {
     /// <summary>The derivation prompt's version, recorded against the call and the stored spec.</summary>
-    public const string Version = "child-identity-spec-v1.1";
+    public const string Version = "child-identity-spec-v1.2";
 
     /// <summary>The longest a single attribute may be. A sentence is not an attribute.</summary>
     public const int MaxAttributeLength = 60;
+
+    /// <summary>
+    /// Except the distinctive details, which are a list of three to five of them and need the room.
+    /// Still bounded: a paragraph in a prompt repeated nine times is a paragraph the model
+    /// paraphrases nine ways.
+    /// </summary>
+    public const int MaxDistinctiveFeaturesLength = 140;
+
+    /// <summary>The value the glasses field carries when the child does not wear any.</summary>
+    public const string NoGlasses = "none";
 
     private static readonly Lazy<JsonSchema> Schema = new(BuildSchema);
 
@@ -97,7 +141,7 @@ public static class CompositeChildIdentity
         """
         You are the identity reader for BEKI personalized children's books.
 
-        The attached image is one consented photograph of the child this book is being made for. Read only the four physical attributes listed below, so that the illustrator can draw the same child on every page of the book.
+        The attached image is one consented photograph of the child this book is being made for. Read only the eight physical attributes listed below, so that the illustrator can draw the same child on every page of the book.
 
         Return valid JSON only, with exactly this structure and no additional keys:
 
@@ -105,17 +149,25 @@ public static class CompositeChildIdentity
           "hair_color": "short plain phrase",
           "hair_style": "short plain phrase",
           "eye_color": "one or two plain words",
-          "skin_tone": "short plain phrase"
+          "skin_tone": "short plain phrase",
+          "eyebrows": "short plain phrase",
+          "glasses": "none, or a short description",
+          "face_shape": "short plain phrase",
+          "distinctive_features": "three to five short details, separated by semicolons"
         }
 
         Rules:
 
-        - Every value is a short, plain, neutral description of what is visible: at most six words, not a sentence, with no trailing punctuation.
+        - Every value is a short, plain, neutral description of what is visible: at most six words each, not a sentence, with no trailing punctuation.
         - Describe hair colour and hair style the way an illustrator would need them, for example "dark brown" and "shoulder-length wavy with a fringe".
         - Give the eye colour as one or two plain words.
         - Describe skin tone in plain, neutral illustration terms, for example "light warm", "medium olive", or "deep brown".
+        - Describe the eyebrows by shape and thickness, for example "soft, medium-thick, gently arched".
+        - Describe the face shape, for example "round with a soft chin" or "oval".
+        - "glasses" is required and must never be left empty. Write exactly "none" when the child is not wearing glasses. When they are, describe the frames in a few words, for example "round thin gold frames".
+        - For "distinctive_features", give three to five short visual details that make this particular child recognisable — freckles, a dimple, a gap in the front teeth, a small birthmark — separated by semicolons. Write "none obvious" only if there genuinely are none.
         - Do not state or guess the child's name, ethnicity, nationality, religion, health, or mood.
-        - Do not describe clothing, accessories, background, expression, or anything that is not one of the four attributes.
+        - Do not describe clothing, background, or expression, or anything that is not one of the eight attributes.
         - Do not add commentary, caveats, or explanation. Return the JSON object and nothing else.
         """;
 
@@ -185,7 +237,7 @@ public static class CompositeChildIdentity
                     null,
                     details.Count > 0
                         ? details
-                        : ["the identity answer does not have the four required attributes."]);
+                        : ["the identity answer does not have the eight required attributes."]);
             }
 
             var root = document.RootElement;
@@ -196,17 +248,17 @@ public static class CompositeChildIdentity
                 HairStyle = Tidy(root.GetProperty("hair_style").GetString()!),
                 EyeColor = Tidy(root.GetProperty("eye_color").GetString()!),
                 SkinTone = Tidy(root.GetProperty("skin_tone").GetString()!),
+                Eyebrows = Tidy(root.GetProperty("eyebrows").GetString()!),
+                Glasses = NormalizeGlasses(Tidy(root.GetProperty("glasses").GetString()!)),
+                FaceShape = Tidy(root.GetProperty("face_shape").GetString()!),
+                DistinctiveFeatures = Tidy(root.GetProperty("distinctive_features").GetString()!),
             };
 
             // Tidying can empty a value the schema accepted — a string of spaces and a full stop
             // satisfies minLength and is not an attribute.
-            var emptied = new[]
-                {
-                    ("hair_color", spec.HairColor), ("hair_style", spec.HairStyle),
-                    ("eye_color", spec.EyeColor), ("skin_tone", spec.SkinTone)
-                }
-                .Where(pair => pair.Item2.Length == 0)
-                .Select(pair => $"{pair.Item1} is empty once punctuation and spacing are removed.")
+            var emptied = Fields(spec)
+                .Where(field => field.Value.Length == 0)
+                .Select(field => $"{field.Name} is empty once punctuation and spacing are removed.")
                 .ToList();
 
             return emptied.Count > 0
@@ -242,27 +294,60 @@ public static class CompositeChildIdentity
     // -----------------------------------------------------------------------------------------
 
     /// <summary>
-    /// The CHILD IDENTITY LOCK block, as the v1.1 template writes it.
+    /// The CHILD IDENTITY LOCK block, as the v1.2 template writes it.
+    ///
+    /// Every attribute on its own line, including the glasses line when the answer is "none" —
+    /// which is the point of that field existing. A prompt that simply omitted glasses would leave
+    /// the model to decide, and a model deciding page by page is how a child ends up bespectacled
+    /// on spread four and not on spread five.
     ///
     /// The last line is load-bearing and is the reason this block is safe to add at all: the
-    /// photograph stays the authority. Four phrases cannot describe a face, and a prompt that
+    /// photograph stays the authority. Eight phrases cannot describe a face, and a prompt that
     /// presented them as the specification rather than as the consistency rule would trade one
     /// failure — a child who changes between pages — for a worse one, a child who is nobody in
     /// particular on all eight.
     /// </summary>
-    public static string LockBlock(ChildIdentitySpec spec, int childAge)
+    /// <param name="identityImage">
+    /// Which attached image the prompt should defer to when this list and the picture disagree.
+    /// It moves with the reference order: the photograph is Image 1 on the first spread and on the
+    /// cover, and Image 2 on the spreads that lead with the appearance anchor.
+    /// </param>
+    public static string LockBlock(ChildIdentitySpec spec, int childAge, int identityImage = 1)
     {
         ArgumentNullException.ThrowIfNull(spec);
 
         return $"""
             CHILD IDENTITY LOCK
+            Face shape: {spec.FaceShape}
             Hair colour: {spec.HairColor}
             Hair style: {spec.HairStyle}
+            Eyebrows: {spec.Eyebrows}
             Eye colour: {spec.EyeColor}
             Skin tone: {spec.SkinTone}
+            Glasses: {spec.Glasses}
+            Distinctive features: {spec.DistinctiveFeatures}
             The child is approximately {childAge.ToString(CultureInfo.InvariantCulture)} years old.
-            These attributes are identical on the cover and on all eight spreads. Image 1 remains the identity authority; where this list and Image 1 disagree, follow Image 1.
+            These attributes are identical on the cover and on all eight spreads. The child's eyes are {spec.EyeColor} on every page. Image {identityImage.ToString(CultureInfo.InvariantCulture)} is the identity reference photograph; where this list and that photograph disagree, follow the photograph.
             """;
+    }
+
+    /// <summary>
+    /// The same eight attributes as one compact block for the reviewer, which judges against them
+    /// rather than drawing from them.
+    ///
+    /// Separate from <see cref="LockBlock"/> because the two are read by different models for
+    /// different purposes: the illustrator is told what to draw and which image outranks the list,
+    /// and the reviewer is told what to compare. Sharing one string would mean the reviewer being
+    /// instructed to defer to an image it is not judging.
+    /// </summary>
+    public static string SpecText(ChildIdentitySpec spec)
+    {
+        ArgumentNullException.ThrowIfNull(spec);
+
+        return $"Face shape: {spec.FaceShape}. Hair: {spec.HairColor}, {spec.HairStyle}. "
+               + $"Eyebrows: {spec.Eyebrows}. Eye colour: {spec.EyeColor}. "
+               + $"Skin tone: {spec.SkinTone}. Glasses: {spec.Glasses}. "
+               + $"Distinctive features: {spec.DistinctiveFeatures}.";
     }
 
     /*
@@ -311,6 +396,10 @@ public static class CompositeChildIdentity
                 hair_style = spec.HairStyle,
                 eye_color = spec.EyeColor,
                 skin_tone = spec.SkinTone,
+                eyebrows = spec.Eyebrows,
+                glasses = spec.Glasses,
+                face_shape = spec.FaceShape,
+                distinctive_features = spec.DistinctiveFeatures,
             },
             StoredJson);
     }
@@ -341,12 +430,12 @@ public static class CompositeChildIdentity
                 return null;
             }
 
-            // The four attributes on their own, because the stored document deliberately carries a
-            // fifth field and the schema deliberately rejects a fifth field. Re-reading the whole
+            // The attributes on their own, because the stored document deliberately carries a
+            // version field and the schema deliberately rejects an extra field. Re-reading the whole
             // document through Parse would reject every spec this class has ever written.
             var attributes = new Dictionary<string, string>(StringComparer.Ordinal);
 
-            foreach (var name in (string[])["hair_color", "hair_style", "eye_color", "skin_tone"])
+            foreach (var name in AttributeNames)
             {
                 if (!root.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.String)
                 {
@@ -371,6 +460,40 @@ public static class CompositeChildIdentity
 
     private static string Location(string location) =>
         location.Length == 0 ? "(root)" : location.TrimStart('/');
+
+    /// <summary>The stored document's attribute keys, in the order the prompt asks for them.</summary>
+    private static readonly string[] AttributeNames =
+    [
+        "hair_color", "hair_style", "eye_color", "skin_tone",
+        "eyebrows", "glasses", "face_shape", "distinctive_features",
+    ];
+
+    /// <summary>The eight values beside their contract names, so a check can name what was wrong.</summary>
+    private static IEnumerable<(string Name, string Value)> Fields(ChildIdentitySpec spec) =>
+    [
+        ("hair_color", spec.HairColor),
+        ("hair_style", spec.HairStyle),
+        ("eye_color", spec.EyeColor),
+        ("skin_tone", spec.SkinTone),
+        ("eyebrows", spec.Eyebrows),
+        ("glasses", spec.Glasses),
+        ("face_shape", spec.FaceShape),
+        ("distinctive_features", spec.DistinctiveFeatures),
+    ];
+
+    /// <summary>
+    /// Every way a model says "no glasses", written down once as <see cref="NoGlasses"/>.
+    ///
+    /// Not cosmetic. The lock line is read by an image model on nine prompts and by a reviewer on
+    /// eight, and "not visible" is a sentence about a photograph while "none" is a fact about a
+    /// child — the first invites a model to supply what the photo did not show. Anything that is
+    /// actually a description of frames is passed through untouched.
+    /// </summary>
+    private static string NormalizeGlasses(string value) =>
+        value.Trim().ToLowerInvariant() is "none" or "no" or "no glasses" or "none visible"
+            or "not visible" or "n/a" or "na" or "without glasses" or "no eyeglasses"
+            ? NoGlasses
+            : value;
 
     /// <summary>
     /// One line, no double spaces, no trailing punctuation — the shape the prompt asks for, applied
@@ -417,12 +540,16 @@ public static class CompositeChildIdentity
               "$schema": "https://json-schema.org/draft/2020-12/schema",
               "type": "object",
               "additionalProperties": false,
-              "required": ["hair_color", "hair_style", "eye_color", "skin_tone"],
+              "required": ["hair_color", "hair_style", "eye_color", "skin_tone", "eyebrows", "glasses", "face_shape", "distinctive_features"],
               "properties": {
                 "hair_color": {"type": "string", "minLength": 1, "maxLength": {{MaxAttributeLength}}},
                 "hair_style": {"type": "string", "minLength": 1, "maxLength": {{MaxAttributeLength}}},
                 "eye_color": {"type": "string", "minLength": 1, "maxLength": {{MaxAttributeLength}}},
-                "skin_tone": {"type": "string", "minLength": 1, "maxLength": {{MaxAttributeLength}}}
+                "skin_tone": {"type": "string", "minLength": 1, "maxLength": {{MaxAttributeLength}}},
+                "eyebrows": {"type": "string", "minLength": 1, "maxLength": {{MaxAttributeLength}}},
+                "glasses": {"type": "string", "minLength": 1, "maxLength": {{MaxAttributeLength}}},
+                "face_shape": {"type": "string", "minLength": 1, "maxLength": {{MaxAttributeLength}}},
+                "distinctive_features": {"type": "string", "minLength": 1, "maxLength": {{MaxDistinctiveFeaturesLength}}}
               }
             }
             """);

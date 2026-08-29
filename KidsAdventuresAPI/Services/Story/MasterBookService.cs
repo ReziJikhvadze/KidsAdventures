@@ -700,10 +700,16 @@ public sealed class MasterBookService(
             // being drawn again, so it has to be drawn in the book's world. The scene, the lock
             // and the plan's own avoid list are untouched, and an A5 run, whose plan carries no
             // world lock, reaches this line exactly as it always has.
+            // The parent's own eye colour, written into the lock for this one picture. A composite
+            // plan's character lock is deliberately empty — the planner may not invent an
+            // appearance — so without this the cover a parent judges the book by carried no eye
+            // colour at all, however clearly they had typed one into the form.
+            var coverLock = IllustrationPrompt.WithParentEyeColour(story.CharacterLock, run.EyeColor);
+
             var coverPrompt = bekiFailure is null
-                ? IllustrationPrompt.Compose(story.CharacterLock, story.Cover.Scene, story.Cover.Avoid)
+                ? IllustrationPrompt.Compose(coverLock, story.Cover.Scene, story.Cover.Avoid)
                 : IllustrationPrompt.ComposeChildOnlyCover(
-                    story.CharacterLock, story.Cover.Scene, story.Cover.Avoid, story.WorldLock);
+                    coverLock, story.Cover.Scene, story.Cover.Avoid, story.WorldLock);
 
             var imageBytes = await openAiService.GenerateStoryImageAsync(
                 coverPrompt,
@@ -761,7 +767,15 @@ public sealed class MasterBookService(
             // Beki fulfilment job: the generator's edit call reads the bytes rather than trusting
             // the label, and DownloadBytesFromStoredUrlAsync does not hand back the original
             // content type to relabel it with.
-            var cover = await bekiBookGenerator.DrawCoverAsync(story, photo, "image/png", cancellationToken);
+            // Same injection as the fallback path below, and for the same reason: the cover prompt
+            // quotes the character lock verbatim, and a composite plan's is empty by design.
+            var withEyeColour = story with
+            {
+                CharacterLock = IllustrationPrompt.WithParentEyeColour(story.CharacterLock, run.EyeColor),
+            };
+
+            var cover = await bekiBookGenerator.DrawCoverAsync(
+                withEyeColour, photo, "image/png", cancellationToken);
 
             // The generator returns its last attempt even when review refused it. For a paid
             // spread that policy is right — a flawed picture beats a hole — but this is the one

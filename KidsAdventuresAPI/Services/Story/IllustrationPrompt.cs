@@ -79,6 +79,42 @@ public static class IllustrationPrompt
     /// absent for every plan written before it existed — an empty one leaves the prompt exactly as
     /// it was, so a half-drawn book is finished under the prompts it was started under.
     /// </param>
+    /// <summary>
+    /// The parent's own eye colour, written into the character lock for one picture.
+    ///
+    /// It exists because of a hole with two ends. The composite planner is forbidden to invent the
+    /// child's appearance — correctly, since the pipeline reads it from the photograph — so a
+    /// composite plan's <c>characterLock</c> is deliberately stored as an empty string. The preview
+    /// cover is then composed from that empty lock, which means the one picture a parent sees before
+    /// paying carried no eye colour at all, even for a run where the parent had typed one into the
+    /// form. The owner's report was that the eye colour goes wrong "almost always, especially on the
+    /// cover"; for a composite preview it could not have gone right.
+    ///
+    /// Applied to the string handed to the prompt and to nothing else. The stored plan keeps its
+    /// empty lock, and the planner is never shown this — an appearance in the plan is exactly what
+    /// the boundary exists to prevent, and this is a fact the parent supplied rather than one a
+    /// model invented.
+    ///
+    /// Appended unconditionally when a colour is present, the way the character-lock rule already
+    /// does it: a lock that happens to mention "green jumper" is not a lock that states the eyes.
+    /// </summary>
+    public static string WithParentEyeColour(string? characterLock, string? eyeColour)
+    {
+        var lockText = (characterLock ?? string.Empty).TrimEnd();
+        var colour = (eyeColour ?? string.Empty).Trim();
+
+        if (colour.Length == 0)
+        {
+            return lockText;
+        }
+
+        var sentence =
+            $"The child's eyes are {colour}. This is the parent's explicit choice and overrides "
+            + "anything the photograph or the description above suggests.";
+
+        return lockText.Length == 0 ? sentence : lockText + " " + sentence;
+    }
+
     public static string ComposeBeki(
         string characterLock,
         string scene,

@@ -324,6 +324,10 @@ public class CompositeConcurrencyTests
         HairStyle = "shoulder-length wavy with a soft fringe",
         EyeColor = "brown",
         SkinTone = "light warm",
+        Eyebrows = "soft, medium-thick, gently arched",
+        Glasses = "none",
+        FaceShape = "round with a soft chin",
+        DistinctiveFeatures = "light freckles across the nose; a dimple on the left cheek",
     };
 
     private static CompositeBookPipeline Pipeline(IOpenAiService images, int spreadConcurrency) =>
@@ -505,8 +509,14 @@ public class CompositeConcurrencyTests
             var page = PageOf(imagePrompt);
 
             ImagePages.Enqueue(page);
-            Anchors[page] = (reference?.CastPhotos ?? [])
-                .FirstOrDefault(photo => photo.Name == "Child appearance anchor")?.Bytes;
+
+            // From v1.2 the appearance anchor is the FIRST attached reference on every spread but
+            // the first, so it arrives in the lead slot rather than among the labelled cast. The
+            // prompt's own first line is what says which shape this call has.
+            Anchors[page] = imagePrompt.Contains(
+                "Image 1 - child appearance anchor", StringComparison.Ordinal)
+                ? reference?.CharacterAnchorBytes
+                : null;
 
             var inFlight = Interlocked.Increment(ref _inFlight);
             InFlightDuring[page] = inFlight;
@@ -552,7 +562,11 @@ public class CompositeConcurrencyTests
                     {"hair_color":"{{IdentitySpec.HairColor}}",
                      "hair_style":"{{IdentitySpec.HairStyle}}",
                      "eye_color":"{{IdentitySpec.EyeColor}}",
-                     "skin_tone":"{{IdentitySpec.SkinTone}}"}
+                     "skin_tone":"{{IdentitySpec.SkinTone}}",
+                     "eyebrows":"{{IdentitySpec.Eyebrows}}",
+                     "glasses":"{{IdentitySpec.Glasses}}",
+                     "face_shape":"{{IdentitySpec.FaceShape}}",
+                     "distinctive_features":"{{IdentitySpec.DistinctiveFeatures}}"}
                     """);
             }
 
