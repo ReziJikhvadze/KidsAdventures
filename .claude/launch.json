@@ -8,7 +8,7 @@
         "scripts/run-frontend.sh"
       ],
       "cwd": ".",
-      "port": 8080
+      "port": 5173
     },
     {
       "name": "adventrya-web-win",

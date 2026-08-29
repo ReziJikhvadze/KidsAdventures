@@ -21,4 +21,6 @@ cd KidsAdventuresAPI/wwwroot
 [ -d node_modules ] || npm install
 
 echo "node $(node --version)"
-exec npm run dev
+# Port is overridable: 8080 is CORS-allowed but currently held by another project's
+# process-compose on this machine; 5173 is the other CORS-allowed dev port.
+exec npm run dev -- --port "${PORT:-5173}"
