@@ -577,6 +577,7 @@ public static class CompositeIllustrationPrompt
         Do not generate characters or objects not required by the current scene.
         No duplicate child or duplicated supporting character.
         No text, letters, numbers, logos, captions, labels, signs, frames, QR codes, watermarks, or pseudo-text anywhere.
+        The picture is one continuous unbroken painting: no visible fold line, crease, seam, gutter shadow, vertical dividing line, page edge or split down the middle. The fold is where the printed book will be bound, never something to draw.
         No split screen, montage, comic panel, inset frame, before-and-after view, or repeated version of the same character.
         No dark text panel, artificial blur panel, or blank rectangle. The text-safe area must be part of the natural environment.
         """;
@@ -588,6 +589,7 @@ public static class CompositeIllustrationPrompt
         Do not generate any substitute guide, floating mascot, leaf spirit, lamb, sheep, or Beki-like character.
         No duplicate child or mirrored second child.
         No text, title, letters, numbers, logo, caption, label, sign, spine text, QR code, watermark, or pseudo-text anywhere.
+        The picture is one continuous unbroken painting: no visible fold line, crease, seam, gutter shadow, vertical dividing line, page edge or split down the middle. The fold is where the printed book will be bound, never something to draw.
         No split screen, montage, comic panel, inset frame, or mirrored composition.
         """;
 }

@@ -122,6 +122,8 @@ public static class IllustrationPrompt
 
             No text, letters, logos, captions, frames or QR codes anywhere in the image.
 
+            The picture is one continuous unbroken painting: no visible fold line, crease, seam, gutter shadow, vertical dividing line, page edge or split down the middle. The fold is where the printed book will be bound, never something to draw.
+
             Do not include: {exclusions}
             """;
     }
