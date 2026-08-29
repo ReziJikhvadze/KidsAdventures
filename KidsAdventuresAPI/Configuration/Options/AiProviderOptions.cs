@@ -35,9 +35,44 @@ public sealed class AiProviderOptions
     /// </summary>
     public string Images { get; set; } = AiProvider.OpenAi;
 
+    /// <summary>
+    /// Edits the plan after it is written: <c>OpenAI</c>, <c>Gemini</c>, or empty to follow
+    /// <see cref="Story"/>.
+    ///
+    /// Split out from <see cref="Story"/> because writing and editing are not the same job. The
+    /// generator is asked to invent a book; the polish pass is asked to leave one alone except
+    /// for grammar, spelling and what is unsafe for a small child — and a model that is better
+    /// at inventing is not automatically the one you want holding the red pen. Keeping the two
+    /// on one setting made the cheaper, faster writer also the proofreader, which is the wrong
+    /// way round: the writing is the part worth spending latency on being cheap about, and the
+    /// correction is the part a reader actually notices when it is wrong.
+    ///
+    /// Empty by default, and empty means "whatever Story says", so an installation that never
+    /// sets it keeps a single-vendor pipeline exactly as before.
+    /// </summary>
+    public string StoryPolish { get; set; } = string.Empty;
+
+    /// <summary>
+    /// What <see cref="StoryPolish"/> actually resolves to once the fallback is applied. Read
+    /// this rather than the raw property: the empty string is a valid configured value meaning
+    /// "follow the writer", and every caller that forgot would otherwise treat it as OpenAI.
+    /// </summary>
+    public string ResolvedStoryPolish =>
+        string.IsNullOrWhiteSpace(StoryPolish) ? Story : StoryPolish;
+
     public bool UsesGeminiForStory => AiProvider.IsGemini(Story);
 
     public bool UsesGeminiForImages => AiProvider.IsGemini(Images);
+
+    public bool UsesGeminiForStoryPolish => AiProvider.IsGemini(ResolvedStoryPolish);
+
+    /// <summary>
+    /// Whether any half of the pipeline is pointed at Gemini — which is the question the startup
+    /// key check is actually asking. Three switches now, and a check that forgot one would let a
+    /// deployment boot with the vendor selected and no key to reach it.
+    /// </summary>
+    public bool UsesGeminiAnywhere =>
+        UsesGeminiForStory || UsesGeminiForImages || UsesGeminiForStoryPolish;
 }
 
 /// <summary>The provider names, so a typo is a compile error in code and a startup error in config.</summary>
@@ -59,6 +94,15 @@ public static class AiProvider
     /// billing the old one while everyone believed the switch had happened.
     /// </summary>
     public static bool IsKnown(string? value) => IsOpenAi(value) || IsGemini(value);
+
+    /// <summary>
+    /// Same check for a setting whose empty value means "inherit" rather than "OpenAI". Only
+    /// <see cref="AiProviderOptions.StoryPolish"/> is like this, and it needs its own predicate
+    /// because <see cref="IsOpenAi"/> deliberately treats blank as OpenAI — correct for a
+    /// setting that defaults to a vendor, wrong for one that defaults to another setting.
+    /// </summary>
+    public static bool IsKnownOrInherited(string? value) =>
+        string.IsNullOrWhiteSpace(value) || IsKnown(value);
 }
 
 /// <summary>

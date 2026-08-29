@@ -13,6 +13,16 @@ public static class BookFormat
 
     /// <summary>Illustrations to generate: the cover plus one per spread.</summary>
     public const int ImageCount = SpreadCount + 1;
+
+    /// <summary>
+    /// Whether a plan was written for the printing book format — cast list, per-spread character
+    /// placement, print geometry. This is the gate fulfilment and the cover path key on; it is
+    /// about the format (sizes matter), not any particular prompt version, and every new version
+    /// of the printing flow joins this list.
+    /// </summary>
+    public static bool IsPrintPlan(string? promptVersion) =>
+        string.Equals(promptVersion, "v5", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(promptVersion, "v6", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>
@@ -56,6 +66,17 @@ public sealed record MasterStory
 
     /// <summary>The English title. Null for A5 books, which are written in one language.</summary>
     public string? TitleEn { get; init; }
+
+    /// <summary>
+    /// The world's unchanging look, in English, repeated verbatim into every illustration prompt
+    /// the way <see cref="CharacterLock"/> is. Characters had anchors and the place had nothing,
+    /// so a book's palette, light and landscape drifted from spread to spread.
+    ///
+    /// Null for A5 books and for every plan written before this existed. Absent means the prompts
+    /// are assembled exactly as they were then, which is what lets a book that was half drawn
+    /// under the old prompts be finished under the same ones.
+    /// </summary>
+    public string? WorldLock { get; init; }
 
     /// <summary>
     /// The recurring characters this particular book invented, each with one short visual

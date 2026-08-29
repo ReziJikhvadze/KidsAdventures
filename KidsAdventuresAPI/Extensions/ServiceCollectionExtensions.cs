@@ -53,6 +53,10 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => AiProvider.IsKnown(options.Images),
                 $"Providers:Images must be \"{AiProvider.OpenAi}\" or \"{AiProvider.Gemini}\".")
+            .Validate(
+                options => AiProvider.IsKnownOrInherited(options.StoryPolish),
+                $"Providers:StoryPolish must be \"{AiProvider.OpenAi}\", \"{AiProvider.Gemini}\", "
+                + "or empty to follow Providers:Story.")
             .ValidateOnStart();
 
         services.AddOptions<GeminiOptions>()
@@ -62,7 +66,7 @@ public static class ServiceCollectionExtensions
                 {
                     var providers = new AiProviderOptions();
                     configuration.GetSection(AiProviderOptions.SectionName).Bind(providers);
-                    return (!providers.UsesGeminiForStory && !providers.UsesGeminiForImages)
+                    return !providers.UsesGeminiAnywhere
                            || !string.IsNullOrWhiteSpace(options.ApiKey);
                 },
                 "Gemini is selected in Providers but Gemini:ApiKey is empty.")

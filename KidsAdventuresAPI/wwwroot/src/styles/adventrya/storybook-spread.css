@@ -185,6 +185,42 @@
   background: linear-gradient(90deg, #3a273d, #583a46 49.5%, #2f2138 50.5%, #4d3342);
   box-shadow: 0 24px 43px #0603126b;
 }
+/*
+  The inside of the case, for the half of a turn where there is no page.
+
+  The back of a cover is not a sheet of paper, and drawing one there — even a beautifully ruled
+  empty one — reads as a page whose words did not arrive. This is board: the same colours the
+  volume is bound in, taken from .storybook-back-cover above and from the open backing directly
+  above this rule, so nothing new is invented. What a reader sees is the book's own casing from
+  the inside, which is what is actually behind the cover they just opened.
+
+  The two sided variants are literally the two halves of the open backing's gradient, so a board
+  filling one half of the volume is the same surface, in the same place, as the backing behind it.
+*/
+.storybook-board {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: linear-gradient(110deg, #4f3649, #2f213d 62%, #1e152b);
+  box-shadow:
+    inset 0 0 0 1px #ffffff12,
+    inset 0 0 70px #06031252;
+}
+.storybook-board.board-left {
+  background: linear-gradient(90deg, #3a273d, #583a46);
+  /* Bound at its right edge, so the light falls away into the fold — the same shading the open
+     left page carries. */
+  box-shadow:
+    inset 0 0 0 1px #ffffff12,
+    inset -18px 0 30px #0603125c;
+}
+.storybook-board.board-right {
+  background: linear-gradient(90deg, #2f2138, #4d3342);
+  box-shadow:
+    inset 0 0 0 1px #ffffff12,
+    inset 18px 0 30px #0603125c;
+}
 .storybook.uses-desktop-spread.is-open {
   width: min(100%, calc(var(--book-width) * 2 + 110px));
 }
@@ -291,42 +327,70 @@
 .storybook-cover-turn .storybook-turn-face {
   border-radius: 14px;
 }
+/*
+  A back face is turned away, not mirrored.
+
+  These four rules used to add `scaleX(-1)` to the half-turn, and the reflection was a patch over
+  the flattening `filter` in the keyframes: with the sheet flattened, the reader never saw the
+  back face at all — they saw the front face rotated past edge-on, which is a mirror image, and
+  the reflection cancelled it out on screen. With the filter gone the faces are culled properly
+  and the back is genuinely the far side of the paper, so mirroring it would now reverse real
+  content: pictures facing the wrong way, Georgian text written backwards.
+*/
 .storybook-spread-turn.turn-next .storybook-turn-back,
 .storybook-cover-turn.turn-next .storybook-turn-back,
 .storybook-spread-turn.turn-previous .storybook-turn-back,
 .storybook-cover-turn.turn-previous .storybook-turn-back {
-  transform: rotateY(180deg) scaleX(-1);
+  transform: rotateY(180deg);
 }
 /*
   The same leaf, going the other way.
 
   storybook-leaf-next mirrored in sign, not reversed in time: the stops sit at the same moments
   and the rotation runs 0 to +180 instead of 0 to -180, so the sheet leaves the left page and
-  arrives on the right. The skews keep their magnitude and flip direction, and the shading dips
-  at the same point in the arc, so the two turns are the same piece of paper seen from either
-  side rather than two different animations that happen to share endpoints.
+  arrives on the right. The skews keep their magnitude and flip direction, so the two turns are
+  the same piece of paper seen from either side rather than two different animations that happen
+  to share endpoints.
+
+  Transform only, for the reason given at storybook-leaf-next: a `filter` here forces the sheet
+  to flatten and its two faces stop being two faces. The dip that used to live in this keyframe
+  set is `storybook-turn-shade`, applied to the scrim inside each face below.
 */
 @keyframes storybook-spread-leaf-previous {
   0% {
     transform: rotateY(0) skewY(0) scaleX(1);
-    filter: brightness(1);
   }
   28% {
     transform: rotateY(48deg) skewY(-0.7deg) scaleX(0.985);
-    filter: brightness(0.94);
   }
   53% {
     transform: rotateY(102deg) skewY(0.6deg) scaleX(0.965);
-    filter: brightness(0.74);
   }
   76% {
     transform: rotateY(151deg) skewY(-0.35deg) scaleX(0.986);
-    filter: brightness(0.9);
   }
   to {
     transform: rotateY(180deg) skewY(0) scaleX(1);
-    filter: brightness(1);
   }
+}
+/*
+  The shading, matched to each sheet's own easing.
+
+  storybook-spread-leaf-previous keeps the forward stops (28/53/76), so both spread turns take the
+  forward dip; only the single-page cover turn, which really does run storybook-leaf-previous, gets
+  the reversed one. The desktop rule wins on specificity rather than on order, the same way the
+  desktop cover turn takes over its own animation a few rules above.
+*/
+.storybook-spread-turn.turn-next .storybook-turn-face:after,
+.storybook-spread-turn.turn-previous .storybook-turn-face:after,
+.storybook-cover-turn.turn-next .storybook-turn-face:after {
+  animation: storybook-turn-shade 0.9s cubic-bezier(0.33, 0.01, 0.16, 1) both;
+}
+.storybook-cover-turn.turn-previous .storybook-turn-face:after {
+  animation: storybook-turn-shade-reverse 0.9s cubic-bezier(0.84, 0, 0.67, 0.99) both;
+}
+.storybook.uses-desktop-spread .storybook-cover-turn.turn-previous .storybook-turn-face:after {
+  animation: storybook-turn-shade 0.9s cubic-bezier(0.33, 0.01, 0.16, 1) both;
 }
 
 /*
@@ -407,7 +471,8 @@
   height: 14%;
   opacity: 0.3;
 }
-.storybook-text-page > small {
+.storybook-text-page > small,
+.storybook-spread-prose > small {
   margin-bottom: 14px;
   color: #9b6c4e;
   font-size: clamp(10px, 0.8vw, 12px);
@@ -415,7 +480,8 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
-.storybook-text-page > p {
+.storybook-text-page > p,
+.storybook-spread-prose > p {
   margin: 0;
   font-family: var(--font-body);
   /* Read aloud to a child, so it is set nearer a printed picture book than a UI label. */
@@ -428,6 +494,12 @@
   font-size: clamp(10px, 0.85vw, 13px);
   line-height: 1.8;
   text-wrap: pretty;
+  /*
+    The story is written as lines now — narration on its own, and one line per speaker — and HTML
+    collapses every newline into a space, so the whole page arrived as one paragraph of dialogue.
+    pre-line keeps the breaks the writer put in and still wraps and collapses runs of spaces.
+  */
+  white-space: pre-line;
 }
 .storybook-text-page > i {
   position: absolute;
@@ -448,6 +520,89 @@
   .storybook-text-page > p {
     font-size: clamp(11px, 2.3vw, 14px);
   }
+}
+
+/*
+  A spread shown as one picture, the way it was painted and the way it is printed.
+
+  A v6 book's illustration is a single painting as wide as the open book — 2528×1696 for a 1.45
+  volume — and the reader used to crop it to one page and set the words on a sheet of paper
+  beside it, so half of every picture in the book was never seen. The PDF has always laid the
+  text over the whole image; this is the screen catching up with the printed page.
+
+  The two halves are one painting split down the middle, so nothing here may be scaled, inset or
+  nudged the way `.storybook-page-art` is: a transform about each half's own centre pulls the two
+  ends apart at the fold, which is the one seam a reader's eye is already on. No border either —
+  a page edge drawn across the middle of a picture is a page edge drawn across the middle of a
+  picture. The gutter overlay above still draws the fold.
+*/
+.storybook-spread-full {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  /* The same deep violet the art pages use, so a picture still arriving matches the one beside it. */
+  background: #281b3f;
+}
+.storybook-spread-full-art {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  /*
+    Two page-widths wide and one page tall: each half stretches the painting across the whole open
+    book and then shows its own end of it, so the halves meet exactly on the gutter however wide
+    the book is drawn — and a turning sheet, which is also half a book wide, shows the same half
+    as the page it lifted off.
+  */
+  background-size: 200% 100%;
+}
+.storybook-spread-full.page-left .storybook-spread-full-art {
+  background-position: left center;
+}
+.storybook-spread-full.page-right .storybook-spread-full-art {
+  background-position: right center;
+}
+/*
+  The words, on the half the picture was composed to leave calm.
+
+  A wash rather than a panel: the painting is meant to carry on behind the text and out to the
+  edges of the page, so the scrim is at its most opaque under the block of prose and gone by the
+  margins. Light, because the artwork is — a dark caption bar is what the old overlay did, and it
+  read as a label stuck on a picture instead of a page of a book.
+
+  No `backdrop-filter`. It would frost the artwork prettily and it is a grouping property, so on a
+  turning sheet it would flatten the 3D context and take the page turn down with it — the same
+  trap the brightness filter set in storybook.css. The type is lifted with a light halo instead,
+  which costs nothing and composites anywhere.
+*/
+.storybook-spread-prose {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 12% 10%;
+  color: #402c3d;
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(255, 250, 240, 0.85);
+  background: radial-gradient(
+    ellipse 74% 60% at 50% 50%,
+    rgba(255, 251, 242, 0.93) 0%,
+    rgba(255, 250, 240, 0.85) 44%,
+    rgba(255, 249, 238, 0.52) 68%,
+    rgba(255, 248, 236, 0) 84%
+  );
+}
+/* In the flow of the prose rather than pinned to the page, so the page number stays inside the
+   wash instead of sitting alone on the artwork. */
+.storybook-spread-prose > i {
+  margin-top: 18px;
+  color: #6948427a;
+  font-size: 11px;
+  font-style: normal;
+  letter-spacing: 0.12em;
 }
 
 /*

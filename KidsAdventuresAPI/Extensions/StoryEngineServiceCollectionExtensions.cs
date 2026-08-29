@@ -32,6 +32,28 @@ public static class StoryEngineServiceCollectionExtensions
             sp.GetRequiredService<IOptions<AiProviderOptions>>().Value.UsesGeminiForStory
                 ? ActivatorUtilities.CreateInstance<GeminiStoryModelClient>(sp)
                 : ActivatorUtilities.CreateInstance<StoryModelClient>(sp));
+
+        // The editor, resolved separately from the writer. Same two implementations, a different
+        // switch — and a model name chosen here rather than inside the service, because which
+        // setting names the model is a fact about the vendor, and the vendor is decided here.
+        services.AddScoped(sp =>
+        {
+            var providers = sp.GetRequiredService<IOptions<AiProviderOptions>>().Value;
+
+            if (providers.UsesGeminiForStoryPolish)
+            {
+                var gemini = sp.GetRequiredService<IOptions<GeminiOptions>>().Value;
+                return new StoryPolishClient(
+                    ActivatorUtilities.CreateInstance<GeminiStoryModelClient>(sp),
+                    gemini.StoryModel);
+            }
+
+            var openAi = sp.GetRequiredService<IOptions<OpenAiOptions>>().Value;
+            return new StoryPolishClient(
+                ActivatorUtilities.CreateInstance<StoryModelClient>(sp),
+                string.IsNullOrWhiteSpace(openAi.MasterStoryModel) ? openAi.Model : openAi.MasterStoryModel);
+        });
+
         services.AddScoped<IMasterStoryService, MasterStoryService>();
 
         // IMasterBookService is registered with the application services instead. It reaches

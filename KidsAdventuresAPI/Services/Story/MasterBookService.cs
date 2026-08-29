@@ -57,6 +57,9 @@ public sealed class MasterBookService(
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
+    /// <summary>Marks the first attempt apart from its corrective retry in the stored prompts.</summary>
+    private const string RetrySeparator = "\n\n===== CORRECTIVE RETRY =====\n\n";
+
     public async Task<Guid> StartAsync(GuestPreviewInput input, CancellationToken cancellationToken)
     {
         var language = string.IsNullOrWhiteSpace(input.StoryLanguage) ? "ka" : input.StoryLanguage.Trim();
@@ -204,17 +207,20 @@ public sealed class MasterBookService(
             // this call wrote its version to the database, and DrawCoverAsync below reads
             // run.PromptVersion to decide whether this preview gets the Beki cover. Without this,
             // that check would read the stale, pre-save value — null on a run's first attempt —
-            // and a v5 preview would silently fall back to the legacy cover every time.
+            // and a printing-format preview would silently fall back to the legacy cover every time.
             run.PromptVersion = masterStoryService.PromptVersion;
 
             var result = await masterStoryService.WriteAsync(storyInput, cancellationToken);
 
-            // The v5 schema enforces shape but not the rules that only make sense reading the
-            // whole plan together — Beki spelled the one way everything downstream expects, Beki
-            // not quietly missing from the spreads the format promises. A plan that fails this is
-            // worth one retry with the problems spelled out: a plan the parent never sees costs
-            // far less than a book that ships without it.
-            if (masterStoryService.PromptVersion == "v5")
+            // The printing schema enforces shape but not the rules that only make sense reading
+            // the whole plan together — Beki spelled the one way everything downstream expects,
+            // Beki not quietly missing from the spreads the format promises. A plan that fails
+            // this is worth one retry with the problems spelled out: a plan the parent never sees
+            // costs far less than a book that ships without it.
+            //
+            // The gate is the printing book format, not a version equality: every version that
+            // writes a cast list and per-spread placement is validated the same way.
+            if (BookFormat.IsPrintPlan(masterStoryService.PromptVersion))
             {
                 var problems = BekiPlanValidator.Validate(result.Story, storyInput.SpreadCount, storyInput.Age);
                 if (problems.Count > 0)
@@ -223,13 +229,18 @@ public sealed class MasterBookService(
                         "Run {RunId}: the Beki plan failed validation, retrying once: {Problems}",
                         runId, string.Join(" | ", problems));
 
-                    var retried = await masterStoryService.RetryV5WithCorrectionsAsync(
+                    var retried = await masterStoryService.RetryPlanWithCorrectionsAsync(
                         storyInput, problems, cancellationToken);
 
-                    // Both calls were paid for; the run's token accounting reports both, not just
-                    // the attempt that happened to survive.
+                    // Both attempts were paid for; the run's token accounting AND its stored
+                    // prompts report both, not just the attempt that happened to survive. The
+                    // first attempt's prompts embed the draft the retry was correcting, and
+                    // nothing else retains that draft — dropping them would leave a paid call
+                    // with no record of what it was asked.
                     result = retried with
                     {
+                        SystemPrompt = result.SystemPrompt + RetrySeparator + retried.SystemPrompt,
+                        UserPrompt = result.UserPrompt + RetrySeparator + retried.UserPrompt,
                         PromptTokens = result.PromptTokens + retried.PromptTokens,
                         CompletionTokens = result.CompletionTokens + retried.CompletionTokens,
                     };
@@ -243,6 +254,20 @@ public sealed class MasterBookService(
                     }
                 }
             }
+
+            // Saved again now that `result` is final, because the prompts stored before the call
+            // are only the first half of what was actually asked. A version that writes in two
+            // calls — the plan and then the editing pass — and a run that needed a corrective
+            // retry both end up asking for things that could not be known in advance, and the
+            // pre-call row would silently claim they never happened. The earlier save stays where
+            // it is: a call that times out must still leave behind what it was asked.
+            await runRepository.SavePromptsAsync(
+                runId,
+                result.Model,
+                masterStoryService.PromptVersion,
+                result.SystemPrompt,
+                result.UserPrompt,
+                cancellationToken);
 
             var content = MasterStoryProjection.ToContent(result.Story, run.ChildName, run.Theme);
 
@@ -339,18 +364,18 @@ public sealed class MasterBookService(
     /// Draws the cover only. The other eight illustrations belong to a bought book and are drawn
     /// by the existing fulfilment job, which already paces them against rate limits.
     ///
-    /// A run planned by v5 gets the Beki cover — child and Beki together, QA-reviewed exactly as
-    /// the fulfilment job draws it — so the cover a parent previews is the cover they get if they
-    /// buy the book, rather than the legacy single-reference art the A5 flow has always used. Any
-    /// failure of that path falls back to the legacy cover below: a preview never dies over its
-    /// cover, Beki or not.
+    /// A run planned for the printing format gets the Beki cover — child and Beki together, drawn
+    /// exactly as the fulfilment job draws it — so the cover a parent previews is the cover they
+    /// get if they buy the book, rather than the legacy single-reference art the A5 flow has
+    /// always used. Any failure of that path falls back to the legacy cover below: a preview never
+    /// dies over its cover, Beki or not.
     ///
-    /// What that fallback draws, though, is not the legacy cover unchanged. A v5 cover scene is
-    /// written for a book whose companion is Beki, and the legacy prompt carries no Beki
+    /// What that fallback draws, though, is not the legacy cover unchanged. A printing cover scene
+    /// is written for a book whose companion is Beki, and the legacy prompt carries no Beki
     /// reference and no rule about companions — so it read the scene, found a story about a child
     /// and a friend, and invented the friend. One shipped cover's companion was a white-and-blue
     /// robot. A cover with no companion is honest; a cover with the wrong one tells the parent
-    /// this is not their book. So a v5 run that loses the Beki cover falls back to an explicitly
+    /// this is not their book. So a run that loses the Beki cover falls back to an explicitly
     /// child-only prompt, and says loudly in the log why it had to.
     /// </summary>
     private async Task<string?> DrawCoverAsync(
@@ -362,8 +387,10 @@ public sealed class MasterBookService(
         // log line and as the switch onto the child-only prompt below.
         string? bekiFailure = null;
 
-        if (bekiOptions.Value.BookFormatEnabled
-            && string.Equals(run.PromptVersion, "v5", StringComparison.OrdinalIgnoreCase))
+        // The gate is the printing book format, not a version equality: a plan gets the Beki cover
+        // because it carries the cast list and the placement that cover needs, whichever version
+        // of the printing flow wrote it.
+        if (bekiOptions.Value.BookFormatEnabled && BookFormat.IsPrintPlan(run.PromptVersion))
         {
             var (bekiCover, failure) = await TryDrawBekiCoverAsync(run, story, cancellationToken);
             if (bekiCover is not null)
@@ -401,12 +428,14 @@ public sealed class MasterBookService(
             // The prompt is used exactly as the story call wrote it: the character lock is already
             // inside it, and rewriting it here is how the hero used to drift between pages. The
             // only difference a lost Beki cover makes is the clause forbidding a stand-in
-            // companion; the scene, the lock and the plan's own avoid list are untouched, and an
-            // A5 run reaches this line exactly as it always has.
+            // companion, and the plan's world lock — this cover is adopted into the book without
+            // being drawn again, so it has to be drawn in the book's world. The scene, the lock
+            // and the plan's own avoid list are untouched, and an A5 run, whose plan carries no
+            // world lock, reaches this line exactly as it always has.
             var coverPrompt = bekiFailure is null
                 ? IllustrationPrompt.Compose(story.CharacterLock, story.Cover.Scene, story.Cover.Avoid)
                 : IllustrationPrompt.ComposeChildOnlyCover(
-                    story.CharacterLock, story.Cover.Scene, story.Cover.Avoid);
+                    story.CharacterLock, story.Cover.Scene, story.Cover.Avoid, story.WorldLock);
 
             var imageBytes = await openAiService.GenerateStoryImageAsync(
                 coverPrompt,

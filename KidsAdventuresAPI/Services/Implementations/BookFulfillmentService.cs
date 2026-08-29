@@ -4,6 +4,7 @@ using Hangfire;
 
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain;
+using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.DTOs.Orders;
 using AdventurePacks.Api.Repositories.Interfaces;
@@ -187,7 +188,7 @@ public sealed class BookFulfillmentService(
 
     /// <summary>
     /// Which pipeline draws this book. Beki when the switch is on and the preview run still
-    /// holds what that format needs — a v5 plan and the portrait; the legacy per-page flow
+    /// holds what that format needs — a printing-format plan and the portrait; the legacy per-page flow
     /// otherwise. Deciding here rather than failing later means a run that expired between
     /// preview and purchase costs the parent nothing but the old format.
     ///
@@ -206,10 +207,14 @@ public sealed class BookFulfillmentService(
         }
 
         var run = await masterStoryRunRepository.GetByIdAsync(runId, cancellationToken);
+
+        // The gate is the printing book format, not a version equality: what the Beki pipeline
+        // needs is a plan written with a cast list and per-spread placement, whichever version of
+        // the printing flow wrote it.
         return run is not null
                && !string.IsNullOrWhiteSpace(run.StoryJson)
                && !string.IsNullOrWhiteSpace(run.PhotoBlobUrl)
-               && string.Equals(run.PromptVersion, "v5", StringComparison.OrdinalIgnoreCase)
+               && BookFormat.IsPrintPlan(run.PromptVersion)
             ? runId
             : null;
     }

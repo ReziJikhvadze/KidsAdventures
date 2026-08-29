@@ -78,6 +78,9 @@ public class PromptVersionTests
 
     private static MasterStoryService Build(string configured) => new(
         new UnusedClient(),
+        // The editor is the same do-nothing client: this test builds prompts and never writes a
+        // book, so neither the writer nor the editor is ever asked for anything.
+        new StoryPolishClient(new UnusedClient(), "unused"),
         Options.Create(new OpenAiOptions { StoryPromptVersion = configured }),
         Options.Create(new BekiOptions()),
         NullLogger<MasterStoryService>.Instance);

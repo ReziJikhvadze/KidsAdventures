@@ -149,6 +149,20 @@ public sealed class BekiBookGenerator(
     /// </summary>
     private const int ReviewImageWidth = 1024;
 
+    /// <summary>
+    /// flow-misho: illustrations are single-shot — no QA review, no retry. The whole review
+    /// machinery below stays intact; flip this to true to restore the reviewed loop.
+    /// </summary>
+    /// <remarks>
+    /// A property rather than a const so the review path stays live code to the compiler while it
+    /// is off: a const would make every line after the early return unreachable, and unreachable
+    /// code is code that stops being compiled against the rest of the file.
+    /// </remarks>
+    private static bool QaReviewEnabled => false;
+
+    /// <summary>What a single-shot illustration records where a reviewer's verdict would be.</summary>
+    private const string QaReviewDisabledVerdict = "QA review disabled (flow-misho)";
+
     private const string BekiReferencePath = BekiIdentity.ReferenceAssetPath;
 
     private readonly BekiPrintLayoutOptions _layout = printLayoutOptions.Value;
@@ -557,7 +571,8 @@ public sealed class BekiBookGenerator(
             "A warm hero portrait of the child with Beki beside them, inviting the reader in. "
             + "These two are the only characters on the cover; keep the setting simple and "
             + "iconic, one clear suggestion of the world behind them.",
-            CoverAvoid(plan.Cover.Avoid));
+            CoverAvoid(plan.Cover.Avoid),
+            worldLock: plan.WorldLock);
 
         var references = new List<(byte[] Bytes, string ContentType, string Label)>
         {
@@ -672,7 +687,8 @@ public sealed class BekiBookGenerator(
             textSide,
             shot,
             spread.Illustration.Avoid,
-            ctaSafe);
+            ctaSafe,
+            plan.WorldLock);
 
         return await DrawReviewedAsync(
             spread.Number,
@@ -722,6 +738,9 @@ public sealed class BekiBookGenerator(
     /// a rewritten prompt is a different picture, and the point of a retry is the same picture
     /// without the fault. An image that never passes is returned anyway, marked — a book with a
     /// flawed spread can be looked at and judged; a book with a hole cannot.
+    ///
+    /// All of which is currently switched off by <see cref="QaReviewEnabled"/>: the first
+    /// generation is the picture, and everything after it is skipped.
     /// </summary>
     /// <param name="characterLock">
     /// The child's fixed appearance, passed on to the reviewer as well as the illustrator. A
@@ -750,6 +769,24 @@ public sealed class BekiBookGenerator(
         var image = await openAi.GenerateStoryImageAsync(
             prompt, reference, cancellationToken, SpreadImageSize);
         genSw.Stop();
+
+        // Single-shot: what was drawn is what the book gets, and nothing below runs — no crop, no
+        // reviewer, no redraw. Accepted rather than merely unreviewed, because every reader of
+        // this result treats a refusal as a reason to fall back, and there is no refusal to have.
+        if (!QaReviewEnabled)
+        {
+            return new BekiImageResult
+            {
+                SpreadNumber = spreadNumber,
+                Image = image,
+                Accepted = true,
+                Verdict = QaReviewDisabledVerdict,
+                Attempts = 1,
+                AttemptDetails = [new BekiImageAttempt(genSw.ElapsedMilliseconds, 0, QaReviewDisabledVerdict, true)],
+                Prompt = prompt,
+                AnchoredCharacters = anchored,
+            };
+        }
 
         var reviewCopy = SpreadArtCrop.CropAndReduce(image, reviewRatio, ReviewImageWidth);
         var revSw = System.Diagnostics.Stopwatch.StartNew();

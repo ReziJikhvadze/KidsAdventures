@@ -44,8 +44,27 @@ public static class BekiPlanValidator
         ValidateBekiPresence(plan, expectedSpreadCount, problems);
         ValidateScenesThatNameBeki(plan, problems);
         ValidateText(plan, problems, age);
+        ValidateWorldLock(plan, problems);
 
         return problems;
+    }
+
+    /// <summary>
+    /// A plan that carries a worldLock must carry a real one. Null means an older plan written
+    /// before the field existed, and null must keep passing forever — but a present-and-blank
+    /// value is today's model skipping the one paragraph that keeps every illustration in the
+    /// same universe, and the schema alone cannot refuse an empty string. Reporting it here puts
+    /// it on the corrective retry, with the problem spelled out.
+    /// </summary>
+    private static void ValidateWorldLock(MasterStory plan, List<string> problems)
+    {
+        if (plan.WorldLock is not null && string.IsNullOrWhiteSpace(plan.WorldLock))
+        {
+            problems.Add(
+                "worldLock is blank. Write 2–3 concrete English sentences fixing the world's "
+                + "constant look — palette, light, terrain, one recurring landmark — with no "
+                + "characters, story events or camera instructions.");
+        }
     }
 
     private static HashSet<string> ValidateObjects(MasterStory plan, HashSet<string> castIds, List<string> problems)

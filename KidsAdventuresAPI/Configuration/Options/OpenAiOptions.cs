@@ -10,8 +10,25 @@ public sealed class OpenAiOptions
     /// The model that writes whole books. Left empty it falls back to <see cref="Model"/>, but a
     /// book is one long reasoning pass and the cheap model that is fine for short utility calls
     /// writes noticeably flatter stories, so this is worth setting separately.
+    ///
+    /// Both text calls of a v6 book read this one setting: the call that writes the book and the
+    /// editing pass over what it wrote. They are the same job at different scales, and an editor
+    /// weaker than the writer is an editor that flattens what it was asked to correct.
     /// </summary>
-    public string MasterStoryModel { get; set; } = "gpt-5.6-luna";
+    public string MasterStoryModel { get; set; } = "gpt-5.6-sol";
+
+    /// <summary>
+    /// Reasoning effort for the story calls: <c>minimal</c>, <c>low</c>, <c>medium</c>,
+    /// <c>high</c> — or empty to send nothing and let the model use its own default.
+    ///
+    /// Empty by default because the parameter is only understood by the reasoning models, and a
+    /// deployment still on a plain chat model would have every story call rejected for a field
+    /// it never asked for. Set it and it applies to whichever text calls OpenAI is answering:
+    /// with Providers:Story on another vendor, that is the polish pass alone, which is the case
+    /// it was added for — an editor is allowed to be slow and careful in a way a writer being
+    /// waited on is not.
+    /// </summary>
+    public string MasterStoryReasoningEffort { get; set; } = string.Empty;
 
     /// <summary>
     /// Which prompt variant writes books: "v1", "v2", "v3" or "v4".

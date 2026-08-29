@@ -70,6 +70,11 @@ public static class IllustrationPrompt
     /// <param name="textSide">left | right — which half stays calm enough to set text on.</param>
     /// <param name="shotInstruction">One short sentence. The rhythm is code's decision, not the story's.</param>
     /// <param name="extraExclusions">What would go wrong in this picture specifically.</param>
+    /// <param name="worldLock">
+    /// The world's unchanging look, quoted verbatim the way the character lock is. Optional, and
+    /// absent for every plan written before it existed — an empty one leaves the prompt exactly as
+    /// it was, so a half-drawn book is finished under the prompts it was started under.
+    /// </param>
     public static string ComposeBeki(
         string characterLock,
         string scene,
@@ -77,7 +82,8 @@ public static class IllustrationPrompt
         string textSide,
         string shotInstruction,
         string? extraExclusions,
-        bool ctaSafe = false)
+        bool ctaSafe = false,
+        string? worldLock = null)
     {
         var exclusions = string.IsNullOrWhiteSpace(extraExclusions)
             ? Prompts.MasterStorySchema.DefaultNegativePrompt
@@ -86,6 +92,12 @@ public static class IllustrationPrompt
         var continuityBlock = string.IsNullOrWhiteSpace(continuity)
             ? string.Empty
             : continuity.Trim() + "\n\n";
+
+        // Its own paragraph, immediately after the child's, because the two are the same kind of
+        // thing: a description quoted into every prompt rather than remembered between them.
+        var worldBlock = string.IsNullOrWhiteSpace(worldLock)
+            ? string.Empty
+            : WorldParagraph(worldLock) + "\n\n";
 
         return $"""
             Create one continuous children's book illustration for a two-page spread.
@@ -98,7 +110,7 @@ public static class IllustrationPrompt
 
             {characterLock.Trim()}
 
-            {WardrobeRule}
+            {worldBlock}{WardrobeRule}
 
             {continuityBlock}{shotInstruction.Trim()} {ShotDistanceRule}
 
@@ -240,9 +252,27 @@ public static class IllustrationPrompt
     ///
     /// It wraps <see cref="Compose"/> rather than branching inside it — that function draws every
     /// A5 book in production and is not worth a conditional for a case only v5 can reach.
+    ///
+    /// It takes the world lock too. This cover is stored and later adopted into the book without
+    /// being drawn again, so a cover drawn in a different world from the spreads is a difference
+    /// nothing downstream can correct.
     /// </summary>
-    public static string ComposeChildOnlyCover(string characterLock, string scene, string? extraExclusions) =>
-        Compose(characterLock, $"{scene.Trim()}\n\n{ChildOnlyCoverDirective}", extraExclusions);
+    public static string ComposeChildOnlyCover(
+        string characterLock, string scene, string? extraExclusions, string? worldLock = null)
+    {
+        // Compose puts the scene straight after the character lock, so prepending the world here
+        // lands it in the same place ComposeBeki puts it — and leaves the prompt untouched, to the
+        // byte, for a plan that carries no world lock.
+        var body = string.IsNullOrWhiteSpace(worldLock)
+            ? $"{scene.Trim()}\n\n{ChildOnlyCoverDirective}"
+            : $"{WorldParagraph(worldLock)}\n\n{scene.Trim()}\n\n{ChildOnlyCoverDirective}";
+
+        return Compose(characterLock, body, extraExclusions);
+    }
+
+    /// <summary>The world lock as the image model reads it, in both prompts that carry one.</summary>
+    private static string WorldParagraph(string worldLock) =>
+        $"The world, identical in every illustration of this book: {worldLock.Trim()}";
 
     /// <summary>The clause that makes <see cref="ComposeChildOnlyCover"/> child-only.</summary>
     public const string ChildOnlyCoverDirective =
