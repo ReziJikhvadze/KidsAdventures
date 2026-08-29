@@ -282,8 +282,22 @@ public sealed record CompositeQaParseResult(
 /// </summary>
 public static class CompositeMinimalQa
 {
-    public const string Version = "minimal-visual-qa-v1";
+    /// <summary>
+    /// v1.1: the reviewer is shown the child appearance anchor on every spread after the first, and
+    /// CHILD_IDENTITY names the four attributes to compare against it.
+    ///
+    /// The amendment exists because the drifting book passed. Shown only the composite and the
+    /// photograph, this reviewer judged each page against the photograph on its own — which is
+    /// precisely what a drifting book does too — so eight independent readings of one child all came
+    /// back PASS while the child changed. A comparison needs two pictures of the same thing.
+    /// </summary>
+    public const string Version = "minimal-visual-qa-v1.1";
 
+    /// <summary>
+    /// The response schema is v1's and stays v1's: the nine category names, the shape and the
+    /// validation rules did not move, so the supplied file is still the authority. v1.1 changed
+    /// what the reviewer is shown and what CHILD_IDENTITY means, neither of which is in the schema.
+    /// </summary>
     public const string SchemaFileName = "minimal_visual_qa_v1.schema.json";
 
     private static readonly Lazy<JsonSchema> Schema = new(LoadSchema);
@@ -296,16 +310,29 @@ public static class CompositeMinimalQa
     /// instruction stays byte-identical to the contract — the one thing a supplier revision has to
     /// be able to land cleanly on.
     /// </summary>
+    /// <param name="anchorAttached">
+    /// True on every spread after the first, where the accepted spread-1 base is attached as the
+    /// child appearance anchor. The line is written only when the picture is actually sent, for the
+    /// same reason the image prompt never names a reference it does not carry: a reviewer told to
+    /// compare against a picture it cannot see answers about the one it can.
+    /// </param>
     public static string Prompt(
         string childWorldScene,
         string bekiAction,
         string childOutfit,
         IReadOnlyList<string> recurringElements,
-        string textSide)
+        string textSide,
+        bool anchorAttached = false)
     {
         var elements = recurringElements is { Count: > 0 }
             ? string.Join("; ", recurringElements)
             : "none required on this page";
+
+        var anchor = anchorAttached
+            ? "\nChild appearance anchor: the accepted first spread of this same book is attached. "
+              + "This page's child must be the same stylized child — same hair colour and style, "
+              + "eye colour and skin tone. It is not a pose, composition, or background reference."
+            : string.Empty;
 
         return $"""
             {SystemInstruction}
@@ -319,7 +346,7 @@ public static class CompositeMinimalQa
             Required base outfit: {childOutfit.Trim()}
             Relevant recurring elements: {elements}
             Reserved text side: {textSide.ToUpperInvariant()} — the {textSide.ToLowerInvariant()} third of the spread carries printed story text and must stay clear of faces, hands, characters, foreground objects and key action.
-            Center-fold exclusion: a narrow vertical strip at the exact centre of the spread crosses the printed fold; continuous environment may cross it, but no face, hand, character or story-critical detail may.
+            Central exclusion zone: a narrow vertical strip at the exact centre of the spread; continuous environment may cross it, but no face, hand, character or story-critical detail may.{anchor}
             """;
     }
 
@@ -422,16 +449,18 @@ public static class CompositeMinimalQa
 
         Use the original child photo only to judge whether the illustrated child remains recognizably the same child and approximately the correct age. Do not require photorealism.
 
+        When a child appearance anchor is supplied, use it only to judge whether this page's child is the same stylized child as the rest of the book. It is not a composition, pose, or background reference.
+
         Check exactly these categories:
 
-        1. CHILD_IDENTITY - The illustrated child is not recognizably the supplied child.
+        1. CHILD_IDENTITY - The illustrated child is not recognizably the supplied child, or has materially different hair colour/style, eye colour, or skin tone from the child appearance anchor.
         2. CHILD_AGE - The child appears materially older or younger than the supplied age.
         3. OUTFIT_CONTINUITY - The required base outfit is missing or materially changed.
         4. MAIN_SCENE_BEAT - The one required visible story event is missing, contradicted, or replaced by a different event.
         5. CAST_ERROR - The child or a required supporting character is missing, duplicated, or replaced; or an unrequested prominent character appears.
         6. GENERATED_TEXT - Readable text, pseudo-text, logo, label, sign, watermark, or QR appears in the illustration.
         7. TEXT_SAFE_AREA - A face, hand, character, foreground object, or key action blocks the reserved text side.
-        8. FOLD_SAFETY - A face, hand, character, or story-critical detail crosses or touches the center-fold exclusion zone.
+        8. FOLD_SAFETY - A face, hand, character, or story-critical detail crosses or touches the central exclusion zone.
         9. BEKI_INTEGRATION - Beki is duplicated, clipped, hidden, materially obstructs the main action, or is visibly pasted into an unsuitable hard-edged/foreground area.
 
         Do not fail Beki for artistic anatomy or exact asset identity; those are enforced by the approved PNG hash. Do not fail for small differences in background detail. Do not rewrite the prompt.

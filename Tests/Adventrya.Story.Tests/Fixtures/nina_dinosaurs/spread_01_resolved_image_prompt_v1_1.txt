@@ -1,0 +1,47 @@
+Use case: illustration-story
+Asset type: BEKI personalized children's book child/world base image for later exact Beki PNG compositing
+
+INPUT IMAGES
+Image 1 - child identity reference. Preserve the child's recognizable identity and visibly age-appropriate proportions for approximately one year old. Render the child as a warm, polished stylized 3D animated character, not photorealistically. Do not copy clothing, pose, lighting, crop, or background from the photo.
+Image 2 - approved Dinosaur Valley world/style reference. Use its warm golden light, soft violet and coral plants, turquoise water, rounded rock forms, distant mountains, welcoming prehistoric atmosphere, and premium stylized 3D rendering language. Create a new composition; do not copy the reference composition.
+
+SCENE
+In the warm dinosaur valley, the child pauses as tall ferns rustle with a mysterious call while the unseen caller remains hidden.
+Show this as one clear visible moment only.
+
+CHILD LOCK
+Dress the child in a soft mustard-yellow sleeveless romper with a coral-red waist sash and lavender soft-soled shoes.
+Keep the outfit consistent with the cover and all other story spreads. Do not hide the child's face.
+
+CHILD IDENTITY LOCK
+Hair colour: dark brown
+Hair style: shoulder-length wavy with a soft fringe
+Eye colour: brown
+Skin tone: light warm
+The child is approximately one year old.
+These attributes are identical on the cover and on all eight spreads. Image 1 remains the identity authority; where this list and Image 1 disagree, follow Image 1.
+
+RECURRING ELEMENTS REQUIRED ON THIS IMAGE
+None. Bafu and the mysterious caller remain hidden on this page.
+
+COMPOSITION
+Create one continuous very wide panoramic two-page spread designed for a final 15:7 crop.
+Use a wide establishing view. The environment is dominant and the child is relatively small within it.
+Reserve the full left third as naturally calm, light background for later story text. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-right area, away from the central low-information zone. Leave a naturally lit, visually quiet Beki integration zone between the central low-information zone and the child, centered approximately at 59.4% of the canvas width and 45.8% of the canvas height. Keep that zone free of characters, faces, hands, hard edges, foreground objects, and story-critical details.
+Keep the narrow vertical strip at the exact centre of the canvas as a central low-information zone, with only continuous environment passing through it. No face, hand, child, supporting character, or story-critical detail may cross or touch that central zone.
+Keep all important content in the central horizontal band so modest top-and-bottom crop normalization is safe.
+
+STYLE AND MOOD
+Premium warm stylized 3D children's-book illustration; expressive but natural; soft tactile materials; cinematic depth; luminous golden morning light; welcoming wonder rather than danger. Match the approved Dinosaur Valley reference while creating a new scene.
+
+HARD CONSTRAINTS
+Exactly one child.
+Do not generate Beki.
+Do not generate any substitute guide, floating mascot, leaf spirit, lamb, sheep, or Beki-like character.
+Do not generate characters or objects not required by the current scene.
+No duplicate child or duplicated supporting character.
+No visible Bafu or revealed caller.
+No text, letters, numbers, logos, captions, labels, signs, frames, QR codes, watermarks, or pseudo-text anywhere.
+The picture is one continuous unbroken painting: no visible vertical dividing line, crease, shadow band, dark strip, page edge, border, or split down the middle. Paint the environment straight through the centre of the canvas as if it were any other part of the scene.
+No split screen, montage, comic panel, inset frame, before-and-after view, or repeated version of the same character.
+No dark text panel, artificial blur panel, or blank rectangle. The text-safe area must be part of the natural environment.

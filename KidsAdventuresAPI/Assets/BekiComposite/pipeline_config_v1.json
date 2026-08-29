@@ -30,7 +30,7 @@
     {"page": 8, "text_side": "RIGHT", "shot_instruction": "Use a cinematic wide continuation view. Resolve the current beat and make the new path or continuation cue clearly visible."}
   ],
   "image_generation": {
-    "prompt_version": "child-world-image-v1",
+    "prompt_version": "child-world-image-v1.1",
     "model_slot": "image_generation_model",
     "references": ["child_photo", "theme_reference"],
     "optional_reference": "latest_approved_continuity_image",
@@ -60,7 +60,7 @@
     }
   },
   "visual_qa": {
-    "prompt_version": "minimal-visual-qa-v1",
+    "prompt_version": "minimal-visual-qa-v1.1",
     "model_slot": "multimodal_qa_model",
     "max_qa_parse_retries": 1,
     "max_base_regenerations": 1,
@@ -104,6 +104,7 @@
     "INVALID_BOOK_INPUT",
     "STORY_FAILED",
     "VISUAL_SCENARIO_FAILED",
+    "IDENTITY_SPEC_FAILED",
     "IMAGE_GENERATION_FAILED",
     "IMAGE_QA_FAILED",
     "TEXT_OVERFLOW",

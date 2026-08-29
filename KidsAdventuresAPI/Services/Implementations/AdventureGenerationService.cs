@@ -219,6 +219,30 @@ public sealed class AdventureGenerationService(
             return;
         }
 
+        // A requeued attempt may arrive after the stale-generation sweep already declared this
+        // pack Failed, or after it completed. The sweep's verdict is terminal: claiming the pack
+        // back into GeneratingStory here would revive it, which is the one thing the sweep's
+        // compare-and-set writes exist to prevent.
+        if (pack.Status is not (AdventurePackStatus.Pending
+            or AdventurePackStatus.Generating
+            or AdventurePackStatus.GeneratingStory
+            or AdventurePackStatus.StoryReady))
+        {
+            logger.LogWarning(
+                "Book {PackId} arrived at the story job in status {Status}; leaving it as it is.",
+                packId,
+                pack.Status);
+            return;
+        }
+
+        // What this job believes the row says, so its own terminal write can be conditional on it.
+        //
+        // The stale-generation sweep fails a pack whose job has been silent past the whole
+        // generation budget, and this job shares the statuses it watches. A slow job that came back
+        // to life would otherwise write Failed — or, further down, Completed — straight over that
+        // verdict, which would make the sweep's Failed a status a book can bounce out of.
+        var expectedStatus = pack.Status;
+
         try
         {
             // The book already carries the story the parent read in the preview, adopted at
@@ -248,6 +272,8 @@ public sealed class AdventureGenerationService(
                 null,
                 cancellationToken);
 
+            expectedStatus = AdventurePackStatus.GeneratingStory;
+
             await SetProgressAsync(
                 packId,
                 "ვიწყებთ… შეგიძლია დატოვო ეს გვერდი — წიგნს შენს ბიბლიოთეკაში შევინახავთ.",
@@ -272,6 +298,8 @@ public sealed class AdventureGenerationService(
                 null,
                 null,
                 cancellationToken);
+
+            expectedStatus = AdventurePackStatus.StoryReady;
 
             if (pack.IsWelcomeGiftStory)
             {
@@ -309,7 +337,7 @@ public sealed class AdventureGenerationService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Story generation failed for pack {PackId}", packId);
-            await FailPackAsync(packId, ex.Message, cancellationToken);
+            await FailPackAsync(packId, expectedStatus, ex.Message, cancellationToken);
         }
     }
 
@@ -585,6 +613,10 @@ public sealed class AdventureGenerationService(
             return;
         }
 
+        // Normally GeneratingPdf: QueuePdfGenerationAsync claims the pack before enqueuing this
+        // job. Whatever it actually is, it is what both terminal writes below compare against.
+        var expectedStatus = pack.Status;
+
         try
         {
             if (string.IsNullOrWhiteSpace(pack.GeneratedJson))
@@ -653,13 +685,33 @@ public sealed class AdventureGenerationService(
             await adventurePackRepository.UpdatePrintPdfUrlAsync(packId, printPdfUrl, cancellationToken);
 
             var generatedJson = JsonSerializer.Serialize(content, JsonOptions);
-            await adventurePackRepository.UpdateStatusAsync(
+
+            // Conditional on the pack still being where this job left it — GeneratingPdf, set by
+            // QueuePdfGenerationAsync before the job was enqueued.
+            //
+            // The stale-generation sweep watches that status, and a PDF pass slow enough to be
+            // declared abandoned would otherwise write Completed straight over the verdict, leaving
+            // no record anywhere that the book took longer than its whole budget. The file is
+            // uploaded either way, so the losing side of this race costs a status, not a book.
+            var completed = await adventurePackRepository.TryUpdateStatusAsync(
                 packId,
+                expectedStatus,
                 AdventurePackStatus.Completed,
                 generatedJson,
                 pdfUrl,
                 null,
                 cancellationToken);
+
+            if (!completed)
+            {
+                // No "it is ready" message and no email: the library will not show this book as
+                // finished, and telling a parent otherwise contradicts what they can see.
+                logger.LogWarning(
+                    "Pack {PackId}: the PDF was built and uploaded, but the pack is no longer "
+                    + "{Expected} — another writer moved it first. Leaving the stored status alone.",
+                    packId, expectedStatus);
+                return;
+            }
 
             await SetProgressAsync(
                 packId,
@@ -679,18 +731,27 @@ public sealed class AdventureGenerationService(
         catch (Exception ex)
         {
             logger.LogError(ex, "PDF generation failed for pack {PackId}", packId);
-            var current = await adventurePackRepository.GetByIdNoOwnershipAsync(packId, cancellationToken);
-            if (current?.Status != AdventurePackStatus.Completed)
+
+            // PDF export is free and PdfCreditCharged tracks the illustration credit, so nothing is
+            // refunded here. The compare-and-set replaces a read-then-write check for Completed: it
+            // answers that case and the sweep's Failed in one statement, and without the gap
+            // between the two calls where either could land.
+            var rolledBack = await adventurePackRepository.TryUpdateStatusAsync(
+                packId,
+                expectedStatus,
+                AdventurePackStatus.StoryReady,
+                pack.GeneratedJson,
+                pack.PdfUrl,
+                ex.Message,
+                cancellationToken);
+
+            if (!rolledBack)
             {
-                // PDF export is free and PdfCreditCharged tracks the illustration credit, so nothing is refunded here.
-                await adventurePackRepository.UpdateStatusAsync(
-                    packId,
-                    AdventurePackStatus.StoryReady,
-                    pack.GeneratedJson,
-                    pack.PdfUrl,
-                    ex.Message,
-                    cancellationToken);
+                logger.LogWarning(
+                    "Pack {PackId}: the PDF failed, but the pack is no longer {Expected}; deferring "
+                    + "to the stored status.", packId, expectedStatus);
             }
+
             await SetProgressAsync(
                 packId,
                 "PDF ვერ შეიქმნა. ისტორია შენახულია — სცადე ხელახლა.",
@@ -974,7 +1035,21 @@ public sealed class AdventureGenerationService(
         }
     }
 
-    private async Task FailPackAsync(Guid packId, string message, CancellationToken cancellationToken)
+    /// <summary>
+    /// Records this job's verdict on a book it could not make.
+    /// </summary>
+    /// <param name="expectedStatus">
+    /// The status the caller last left the pack in. The write is conditional on it, because the
+    /// stale-generation sweep watches the same statuses this job works in: a job slow enough to be
+    /// declared abandoned and then failing on its own would otherwise replace the sweep's recorded
+    /// reason with its own, and — far worse in the sibling case below — a revived job could write
+    /// over a verdict with a Completed. A losing writer says so and leaves the row alone.
+    /// </param>
+    private async Task FailPackAsync(
+        Guid packId,
+        AdventurePackStatus expectedStatus,
+        string message,
+        CancellationToken cancellationToken)
     {
         // Story TEXT generation is free, so a text failure costs the user nothing to refund — except the one-time
         // welcome perk: if this book had claimed the free 2-page sample, give that allowance back on failure.
@@ -984,13 +1059,24 @@ public sealed class AdventureGenerationService(
             await userRepository.RefundWelcomeStoryAsync(pack.UserId, cancellationToken);
         }
 
-        await adventurePackRepository.UpdateStatusAsync(
+        var failed = await adventurePackRepository.TryUpdateStatusAsync(
             packId,
+            expectedStatus,
             AdventurePackStatus.Failed,
             null,
             null,
             message,
             cancellationToken);
+
+        if (!failed)
+        {
+            logger.LogWarning(
+                "Pack {PackId} could not be marked Failed: it is no longer {Expected}. Another "
+                + "writer — most likely the stale-generation sweep — got there first, so its "
+                + "verdict stands and this one is only logged.",
+                packId, expectedStatus);
+        }
+
         await SetProgressAsync(
             packId,
             "რაღაც შეფერხდა. სცადე ხელახლა ან აირჩიე სხვა თემა.",
@@ -1000,6 +1086,9 @@ public sealed class AdventureGenerationService(
         // Last, and with its own cancellation token: the parent's book is already marked failed
         // and their screen already says so. Whether anyone hears about it must not depend on
         // the job still being alive.
+        //
+        // Sent whether or not this writer won: the only thing that beats it to a terminal status is
+        // the sweep, whose whole shape is that it tells nobody.
         await adminNotifier.BookFailedAsync(packId, message, CancellationToken.None);
     }
 

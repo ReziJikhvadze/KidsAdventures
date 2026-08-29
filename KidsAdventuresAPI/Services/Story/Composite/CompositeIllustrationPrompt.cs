@@ -206,10 +206,30 @@ public sealed record CompositeSpreadPromptInput
     public IReadOnlyList<string> RecurringElements { get; init; } = [];
 
     /// <summary>
-    /// The recurring elements a continuity reference is attached for. Empty means no third image
-    /// is sent and the prompt never mentions one.
+    /// The recurring elements a continuity reference is attached for. Empty means that image is
+    /// not sent and the prompt never mentions it.
     /// </summary>
     public IReadOnlyList<string> ContinuityElementNames { get; init; } = [];
+
+    /// <summary>
+    /// The book's four identity attributes, rendered into the CHILD IDENTITY LOCK block.
+    ///
+    /// Required, and required on purpose: a book without a spec does not reach the image stage at
+    /// all (it stops with <see cref="CompositeFailureCodes.IdentitySpecFailed"/>), so an optional
+    /// field here would only describe a state the pipeline no longer has.
+    /// </summary>
+    public required ChildIdentitySpec IdentitySpec { get; init; }
+
+    /// <summary>
+    /// Whether the child appearance anchor is attached to this call — true on every spread after
+    /// the first, false on the one that produces it.
+    ///
+    /// It decides two things at once, which is why it is one flag rather than two: whether the
+    /// anchor's own instruction is written, and what number the continuity reference is given.
+    /// The numbering has to match the order the references are actually attached in, or the model
+    /// is told to take the child's stylization from a picture of a dinosaur.
+    /// </summary>
+    public bool AnchorAttached { get; init; }
 }
 
 /// <summary>
@@ -272,8 +292,16 @@ public static class CompositeCoverGeometryResolver
 /// </summary>
 public static class CompositeIllustrationPrompt
 {
-    /// <summary>The template's own version string, recorded against every image call.</summary>
-    public const string Version = "child-world-image-v1";
+    /// <summary>
+    /// The template's own version string, recorded against every image call.
+    ///
+    /// v1.1 is the amendment this campaign made to the supplier's v1: the centre of the canvas is
+    /// no longer named as a fold anywhere (the models were painting the fold they were told about),
+    /// and the child's identity is carried by an attribute lock plus an appearance anchor rather
+    /// than by nine independent readings of one photograph. Both are recorded in the contract's
+    /// own v1.1 changelog, against the defects that produced them.
+    /// </summary>
+    public const string Version = "child-world-image-v1.1";
 
     /// <summary>The cover base template's version. A different document, a different version.</summary>
     public const string CoverVersion = "cover-child-world-v1";
@@ -294,7 +322,7 @@ public static class CompositeIllustrationPrompt
 
             INPUT IMAGES
             {ChildReferenceLine(input.ChildAge)}
-            {ThemeReferenceLine(input.Theme)}{ContinuityLine(input.ContinuityElementNames)}
+            {ThemeReferenceLine(input.Theme)}{AnchorLine(input.AnchorAttached)}{ContinuityLine(input.ContinuityElementNames, input.AnchorAttached)}
 
             SCENE
             {input.ChildWorldScene.Trim()}
@@ -304,6 +332,8 @@ public static class CompositeIllustrationPrompt
             Dress the child in {input.ChildOutfit.Trim()}
             Keep the outfit consistent with the cover and all other story spreads. Do not hide the child's face.
 
+            {CompositeChildIdentity.LockBlock(input.IdentitySpec, input.ChildAge)}
+
             RECURRING ELEMENTS REQUIRED ON THIS IMAGE
             {RecurringBlock(input.RecurringElements)}
 
@@ -311,7 +341,7 @@ public static class CompositeIllustrationPrompt
             Create one continuous very wide panoramic two-page spread designed for a final 15:7 crop.
             {shot}
             {CompositionBlockFor(textSide)}
-            Keep the center-fold zone low-information, with only continuous environment crossing it. No face, hand, child, supporting character, or story-critical detail may cross or touch the fold zone.
+            {CentralZoneRule}
             Keep all important content in the central horizontal band so modest top-and-bottom crop normalization is safe.
 
             STYLE AND MOOD
@@ -390,17 +420,36 @@ public static class CompositeIllustrationPrompt
             ? "Reserve the full left third as naturally calm, light background for later story "
               + "text. No character, face, hand, foreground object, or key action may enter this "
               + "area. Place the child and the main action in the outer-right area, away from the "
-              + "center fold. Leave a naturally lit, visually quiet Beki integration zone between "
-              + "the center fold and the child, centered approximately at 59.4% of the canvas "
-              + "width and 45.8% of the canvas height. Keep that zone free of characters, faces, "
-              + "hands, hard edges, foreground objects, and story-critical details."
+              + "central low-information zone. Leave a naturally lit, visually quiet Beki "
+              + "integration zone between the central low-information zone and the child, centered "
+              + "approximately at 59.4% of the canvas width and 45.8% of the canvas height. Keep "
+              + "that zone free of characters, faces, hands, hard edges, foreground objects, and "
+              + "story-critical details."
             : "Reserve the full right third as naturally calm, light background for later story "
               + "text. No character, face, hand, foreground object, or key action may enter this "
               + "area. Place the child and the main action in the outer-left area, away from the "
-              + "center fold. Leave a naturally lit, visually quiet Beki integration zone between "
-              + "the child and the center fold, centered approximately at 40.6% of the canvas "
-              + "width and 45.8% of the canvas height. Keep that zone free of characters, faces, "
-              + "hands, hard edges, foreground objects, and story-critical details.";
+              + "central low-information zone. Leave a naturally lit, visually quiet Beki "
+              + "integration zone between the child and the central low-information zone, centered "
+              + "approximately at 40.6% of the canvas width and 45.8% of the canvas height. Keep "
+              + "that zone free of characters, faces, hands, hard edges, foreground objects, and "
+              + "story-critical details.";
+
+    /// <summary>
+    /// The centre of the canvas, described as a place to keep quiet rather than as a fold.
+    ///
+    /// The geometry is v1's exactly — a narrow vertical strip at the exact centre, environment may
+    /// pass through it, nothing else may touch it — and every word that named it a fold is gone.
+    /// That is the whole of the fix: the first real books came back with a full-height dark band
+    /// painted down the middle at 35× the baseline column-brightness step, in raw model output,
+    /// because this line and the composition block told a model three times that a fold was there
+    /// before one trailing negative asked it not to draw one. A model that is told there is a fold
+    /// draws a fold, and it is right to.
+    /// </summary>
+    public const string CentralZoneRule =
+        "Keep the narrow vertical strip at the exact centre of the canvas as a central "
+        + "low-information zone, with only continuous environment passing through it. No face, "
+        + "hand, child, supporting character, or story-critical detail may cross or touch that "
+        + "central zone.";
 
     /// <summary>
     /// Which of the book's recurring elements this particular scene actually needs.
@@ -544,17 +593,47 @@ public static class CompositeIllustrationPrompt
             : "Create a new composition; do not copy the reference composition.");
 
     /// <summary>
-    /// The optional third reference, present only when one is actually attached — the template is
-    /// explicit that the placeholder is otherwise replaced by an empty string and no third image is
-    /// mentioned. A prompt that names an image the request does not carry is a prompt the model
-    /// answers by inventing what it thinks was there.
+    /// The child appearance anchor: the accepted spread-1 base, attached to every later spread.
+    ///
+    /// The sentence does two opposite jobs at once and both are deliberate. It asks for the child
+    /// to be matched exactly — face, hair, eyes, skin, outfit — because that is the drift this
+    /// campaign is fixing. And it refuses the anchor everything else: pose, camera, layout and
+    /// background all come from this page's own scene and shot, and a model shown one picture and
+    /// told to match it will otherwise redraw it.
+    ///
+    /// The last clause is the one that keeps the whole arrangement honest. The anchor is itself a
+    /// stylization, so making it the authority would let one good-but-slightly-off spread 1 define
+    /// a child who is not quite the child on all eight pages. The photograph stays the authority;
+    /// the anchor only fixes how it was drawn.
     /// </summary>
-    private static string ContinuityLine(IReadOnlyList<string> elementNames) =>
+    public const string AnchorInstruction =
+        "Image 3 - child appearance anchor. Match this exact stylized child - same face, hair "
+        + "style and colour, eye colour, skin tone, outfit. Do not copy pose, camera, layout, or "
+        + "background from this image. The child photo (Image 1) remains the identity authority; "
+        + "the anchor fixes the stylization.";
+
+    private static string AnchorLine(bool anchorAttached) =>
+        anchorAttached ? "\n" + AnchorInstruction : string.Empty;
+
+    /// <summary>
+    /// The optional continuity reference, present only when one is actually attached — the template
+    /// is explicit that the placeholder is otherwise replaced by an empty string and no such image
+    /// is mentioned. A prompt that names an image the request does not carry is a prompt the model
+    /// answers by inventing what it thinks was there.
+    ///
+    /// Its number moves with the anchor, because the numbers are positions in the attached list and
+    /// nothing else. On spread 1 there is no anchor and this is Image 3; on every later spread the
+    /// anchor is Image 3 and this is Image 4. Getting that wrong would tell the model to take a
+    /// recurring creature's appearance from the picture of the child, and the child's stylization
+    /// from the picture of the creature.
+    /// </summary>
+    private static string ContinuityLine(IReadOnlyList<string> elementNames, bool anchorAttached) =>
         elementNames.Count == 0
             ? string.Empty
-            : "\nImage 3 - continuity reference. Preserve only the appearance of these named "
-              + $"recurring story elements: {string.Join("; ", elementNames)}. Do not copy the "
-              + "child, Beki, pose, camera, layout, lighting, or background from this image.";
+            : $"\nImage {(anchorAttached ? 4 : 3)} - continuity reference. Preserve only the "
+              + $"appearance of these named recurring story elements: {string.Join("; ", elementNames)}. "
+              + "Do not copy the child, Beki, pose, camera, layout, lighting, or background from "
+              + "this image.";
 
     private static string RecurringBlock(IReadOnlyList<string> elements) =>
         elements.Count == 0
@@ -568,6 +647,12 @@ public static class CompositeIllustrationPrompt
     /// whole prompt: every promise this pipeline makes about the character — one approved PNG,
     /// pasted, never redrawn — holds only while no image model is ever asked to draw her. The two
     /// lines after it exist because a model told not to draw a named guide draws an unnamed one.
+    ///
+    /// The unbroken-painting line is v1.1's rewrite of the same rule. It says what must not appear
+    /// — a line, a crease, a band, a strip, an edge, a border, a split — and then says what to do
+    /// instead, without naming a fold, a gutter, a seam or a binding anywhere. The version it
+    /// replaced named the fold twice while forbidding it once, and the model obliged: the first
+    /// real books came back with the band painted in.
     /// </summary>
     private const string SpreadConstraints =
         """
@@ -577,11 +662,22 @@ public static class CompositeIllustrationPrompt
         Do not generate characters or objects not required by the current scene.
         No duplicate child or duplicated supporting character.
         No text, letters, numbers, logos, captions, labels, signs, frames, QR codes, watermarks, or pseudo-text anywhere.
-        The picture is one continuous unbroken painting: no visible fold line, crease, seam, gutter shadow, vertical dividing line, page edge or split down the middle. The fold is where the printed book will be bound, never something to draw.
+        The picture is one continuous unbroken painting: no visible vertical dividing line, crease, shadow band, dark strip, page edge, border, or split down the middle. Paint the environment straight through the centre of the canvas as if it were any other part of the scene.
         No split screen, montage, comic panel, inset frame, before-and-after view, or repeated version of the same character.
         No dark text panel, artificial blur panel, or blank rectangle. The text-safe area must be part of the natural environment.
         """;
 
+    /// <summary>
+    /// The cover template's constraint list, still v1's — including its fold wording.
+    ///
+    /// Left alone deliberately rather than missed. This is the transcription of
+    /// <c>BEKI_Cover_Base_Prompt_Template_v1.md</c>, which the v1.1 amendment did not touch, and
+    /// nothing reaches it: <see cref="CompositeCoverGeometryResolver"/> returns null in every
+    /// deployment, so the composite cover stops at <see cref="CompositeFailureCodes.LayoutFailed"/>
+    /// before a prompt is built. Rewording a live prompt to match a contract nobody amended would
+    /// put the code and its source out of step in the other direction. It moves when the printer's
+    /// dieline lands and the cover contract is amended with it.
+    /// </summary>
     private const string CoverConstraints =
         """
         Exactly one child, on the front panel only.

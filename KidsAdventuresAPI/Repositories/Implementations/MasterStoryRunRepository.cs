@@ -3,8 +3,19 @@ using AdventurePacks.Api.Repositories.Interfaces;
 
 namespace AdventurePacks.Api.Repositories.Implementations;
 
-public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFactory) : IMasterStoryRunRepository
+public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFactory)
+    : IMasterStoryRunRepository, IMasterStoryRunSweepStore
 {
+    /// <summary>
+    /// The statuses a writing job leaves behind while it works, and the only ones the sweep will
+    /// fail. Pending has no job yet; Ready and Failed are already terminal.
+    /// </summary>
+    public static readonly IReadOnlyList<string> StaleStatuses =
+    [
+        MasterStoryRunStatus.Writing,
+        MasterStoryRunStatus.Illustrating
+    ];
+
     private const string Columns = """
         Id, UserId, PackId, Status, ProgressMessage, ChildName, BirthDate, Age, Gender, Theme, EyeColor,
         ExtraWishes, AppearanceDescription, PhotoBlobUrl, StoryLanguage, SpreadCount, Model, SystemPrompt,
@@ -209,6 +220,69 @@ public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFac
         using var connection = connectionFactory.CreateConnection();
         return await connection.ExecuteAsync(
             new CommandDefinition(sql, new { Ids = ids }, cancellationToken: cancellationToken));
+    }
+
+    public async Task<IReadOnlyList<StaleMasterStoryRun>> ListStaleAsync(
+        DateTime cutoffUtc,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        // Three columns rather than the row: a run carries two whole books in StoryJson and
+        // ContentJson, and the sweep reads every quiet row on the table every five minutes.
+        const string sql = """
+                           SELECT TOP (@Limit) Id, Status, UpdatedAt
+                           FROM dbo.MasterStoryRuns
+                           WHERE Status IN @Statuses
+                             AND UpdatedAt < @CutoffUtc
+                           ORDER BY UpdatedAt;
+                           """;
+
+        using var connection = connectionFactory.CreateConnection();
+        var rows = await connection.QueryAsync<StaleMasterStoryRun>(new CommandDefinition(
+            sql,
+            new { Limit = limit, CutoffUtc = cutoffUtc, Statuses = StaleStatuses },
+            cancellationToken: cancellationToken));
+        return rows.ToList();
+    }
+
+    /// <summary>
+    /// The run half of the same rule: still in the status the sweep saw, and still as quiet.
+    ///
+    /// Every write in this repository stamps UpdatedAt, so a job that saved its prompts or its
+    /// story between the sweep's read and its write moves the row forward without changing its
+    /// status — and a status-only compare-and-set would fail a run that had just proved it was
+    /// alive. Repeating the cutoff in the predicate is what makes the verdict conditional on the
+    /// silence that justified it.
+    /// </summary>
+    public async Task<bool> TryFailStaleAsync(
+        Guid id,
+        string expectedStatus,
+        DateTime cutoffUtc,
+        string errorMessage,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE dbo.MasterStoryRuns
+                           SET Status = @Status, ErrorMessage = @ErrorMessage,
+                               UpdatedAt = SYSUTCDATETIME()
+                           WHERE Id = @Id
+                             AND Status = @ExpectedStatus
+                             AND UpdatedAt < @CutoffUtc;
+                           """;
+
+        using var connection = connectionFactory.CreateConnection();
+        var affected = await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                Id = id,
+                ExpectedStatus = expectedStatus,
+                CutoffUtc = cutoffUtc,
+                Status = MasterStoryRunStatus.Failed,
+                ErrorMessage = Truncate(errorMessage, 1000)
+            },
+            cancellationToken: cancellationToken));
+        return affected > 0;
     }
 
     private static string Truncate(string value, int max) =>

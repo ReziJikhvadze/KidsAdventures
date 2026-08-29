@@ -1,5 +1,24 @@
 ﻿namespace AdventurePacks.Api.Repositories.Interfaces;
 
+/// <summary>
+/// One pack whose generation job has stopped saying anything, as the sweep sees it.
+///
+/// <paramref name="LastSignalUtc"/> is the heartbeat, or <c>CreatedAt</c> when the pack predates
+/// the heartbeat column — it is the number the sweep judged, carried out of the query so the log
+/// line can say how long the pack had actually been quiet rather than only that it was too long.
+/// </summary>
+public sealed record StaleGenerationPack(
+    Guid Id,
+    AdventurePackStatus Status,
+    DateTime CreatedAt,
+    DateTime? GenerationHeartbeatUtc)
+{
+    public DateTime LastSignalUtc => GenerationHeartbeatUtc ?? CreatedAt;
+
+    /// <summary>True when this row predates the heartbeat column, or was never claimed.</summary>
+    public bool HeartbeatMissing => GenerationHeartbeatUtc is null;
+}
+
 public interface IAdventurePackRepository
 {
     Task<Guid> CreatePendingAsync(AdventurePack pack, CancellationToken cancellationToken);
@@ -22,7 +41,64 @@ public interface IAdventurePackRepository
 
     Task UpdateBookPresentationAsync(Guid id, string? title, string? coverImageUrl, CancellationToken cancellationToken);
     Task<int> CountForMonthAsync(Guid userId, DateTime utcMonthStart, DateTime utcMonthEnd, CancellationToken cancellationToken);
+    /// <summary>
+    /// Writes the status unconditionally, and stamps the generation heartbeat with it.
+    ///
+    /// Fine for a claim or a phase change. A <em>terminal</em> transition should go through
+    /// <see cref="TryUpdateStatusAsync"/> instead, so that a job which has already been declared
+    /// lost cannot quietly overrule the verdict.
+    /// </summary>
     Task<bool> UpdateStatusAsync(Guid id, AdventurePackStatus status, string? generatedJson, string? pdfUrl, string? errorMessage, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Compare-and-set: writes the status only while the pack is still in
+    /// <paramref name="expectedStatus"/>. False means another writer — almost always the
+    /// stale-generation sweep — got there first, and the caller should log and defer to what is
+    /// stored rather than overwrite it.
+    /// </summary>
+    Task<bool> TryUpdateStatusAsync(
+        Guid id,
+        AdventurePackStatus expectedStatus,
+        AdventurePackStatus status,
+        string? generatedJson,
+        string? pdfUrl,
+        string? errorMessage,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Packs still in a working status whose last signal — the heartbeat, or CreatedAt when the
+    /// row predates that column — is older than <paramref name="cutoffUtc"/>.
+    /// </summary>
+    Task<IReadOnlyList<StaleGenerationPack>> ListStaleGenerationAsync(
+        DateTime cutoffUtc,
+        int limit,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Fails one stalled pack if it is still in <paramref name="expectedStatus"/> <em>and</em> its
+    /// last signal is still older than <paramref name="cutoffUtc"/> — the same cutoff the listing
+    /// used. Re-testing staleness inside the write is what stops a job that delivered a spread
+    /// between the sweep's read and its write from being buried while alive.
+    ///
+    /// Touches only the status and the message: whatever the dead job managed to store stays.
+    /// </summary>
+    Task<bool> TryFailStaleGenerationAsync(
+        Guid id,
+        AdventurePackStatus expectedStatus,
+        DateTime cutoffUtc,
+        string errorMessage,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// A job failing the book it was itself making: status and message only, and only while the
+    /// pack is still in <paramref name="expectedStatus"/>. False means the sweep — or another
+    /// writer — got there first and the caller should defer to what is stored.
+    /// </summary>
+    Task<bool> TryFailAsync(
+        Guid id,
+        AdventurePackStatus expectedStatus,
+        string errorMessage,
+        CancellationToken cancellationToken);
     /// <summary>
     /// Records where the printable copy was stored. Its own call rather than another argument to
     /// <see cref="UpdateStatusAsync"/>, because every other caller of that would pass null and

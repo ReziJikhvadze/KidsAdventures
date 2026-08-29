@@ -156,6 +156,26 @@ public sealed class BekiOptions
     public int SpreadConcurrency { get; set; } = 2;
 
     /// <summary>
+    /// The wall clock a whole book gets, in minutes, before the job is stopped and the pack is
+    /// failed.
+    ///
+    /// There was no such limit, and a book found the shape of the gap: a pack stalled after one
+    /// spread and sat in GeneratingStory permanently, because the only thing that ever wrote a
+    /// terminal status was the job's own catch, and the job was inside a call that could take
+    /// twelve minutes, three times over, sleeping an uncapped Retry-After between attempts. A
+    /// parent had paid for it.
+    ///
+    /// Thirty minutes is well beyond a healthy run — the slowest complete book measured 651
+    /// seconds — and well inside the patience of somebody who has been charged. A book that has
+    /// not finished by then is not slow, it is lost, and saying so is worth more than waiting.
+    ///
+    /// The budget is the job's own deadline. The stale-generation sweep uses it too, plus a grace
+    /// period, as the point past which a row nobody is updating must be a row whose process is
+    /// gone.
+    /// </summary>
+    public int GenerationBudgetMinutes { get; set; } = 30;
+
+    /// <summary>
     /// How many times a refused Beki illustration is redrawn with the reviewer's corrections
     /// attached, per image.
     ///

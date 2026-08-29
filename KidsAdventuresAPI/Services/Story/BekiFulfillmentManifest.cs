@@ -100,6 +100,22 @@ public sealed record BekiFulfillmentManifest
     public IReadOnlyList<BekiCompositionManifestEntry>? Compositions { get; init; }
 
     /// <summary>
+    /// Where this book's derived child identity spec is stored.
+    ///
+    /// It is on the manifest for the reason the scenario is: a resumed run must draw its remaining
+    /// spreads to the same description of the child as the ones it adopts. The four attributes go
+    /// into every image prompt, so a second derivation — same photograph, same model, "wavy" where
+    /// the first said "curly" — would give the redrawn half of a book a different child from the
+    /// adopted half, with every page passing its own review on the way.
+    ///
+    /// The URL, never the attributes. The spec describes a real child's body and belongs in the
+    /// pack's own private storage beside the photograph it was read from; this manifest is an
+    /// operational document that gets read, logged and pasted into support threads.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? IdentitySpecUrl { get; init; }
+
+    /// <summary>
     /// The terms this pack's spreads would be drawn under, right now.
     /// </summary>
     /// <param name="composite">
@@ -146,13 +162,20 @@ public sealed record BekiFulfillmentManifest
 /// Everything about the composite pipeline that decides what a page looks like, as one line of the
 /// resume contract.
 ///
-/// Five terms, and each one is a way a page can silently stop matching the rest of its book. The
+/// Six terms, and each one is a way a page can silently stop matching the rest of its book. The
 /// pose registry names the nine approved PNGs and their hashes — a revised registry is different
 /// artwork. The pipeline config carries the anchors, so a revision moves Beki on the page. The
 /// story prompt version decides the words the pictures were planned from. The image template's
 /// version decides what every image call was told.
 ///
-/// And the fifth is the theme reference's own SHA-256, which the four versions above would miss.
+/// The identity derivation prompt's version is the newest of them, and it earns its place the same
+/// way. The four attributes it produces — hair, eyes, skin — are written into every image prompt
+/// and compared by every review, so a revised derivation prompt describes the child differently,
+/// and a run that adopted pages drawn to the old description while drawing the rest to the new one
+/// would produce two children in one book with every page passing its own review. A version change
+/// redraws instead, which is the whole point of this line.
+///
+/// And the last is the theme reference's own SHA-256, which the five versions above would miss.
 /// Every picture in a composite book is generated against one approved world PNG, and that file
 /// can be re-art-directed without the registry's version string moving — a lighter palette, a
 /// redrawn skyline. A resumed run would then adopt spreads drawn from the old world and draw the
@@ -169,6 +192,7 @@ public sealed record BekiCompositeContractTerms(
     string PipelineConfigVersion,
     string StoryPromptVersion,
     string ImagePromptVersion,
+    string IdentityPromptVersion,
     string ThemeId,
     string ThemeReferenceSha256)
 {
@@ -192,6 +216,7 @@ public sealed record BekiCompositeContractTerms(
             config.ConfigVersion,
             Composite.MasterStoryPromptComposite.Version,
             Composite.CompositeIllustrationPrompt.Version,
+            Composite.CompositeChildIdentity.Version,
             themeId,
             Composite.CompositeThemeReferences.RegisteredSha256(themeId));
     }
@@ -203,6 +228,7 @@ public sealed record BekiCompositeContractTerms(
         PipelineConfigVersion,
         StoryPromptVersion,
         ImagePromptVersion,
+        IdentityPromptVersion,
         ThemeId,
         ThemeReferenceSha256);
 }

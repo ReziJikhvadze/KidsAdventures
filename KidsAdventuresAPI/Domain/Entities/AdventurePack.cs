@@ -68,5 +68,15 @@ public sealed class AdventurePack
     /// <summary>When this book was last opened in the reader, on any device. Null until read.</summary>
     public DateTime? LastReadAt { get; set; }
 
+    /// <summary>
+    /// When the generation job last said anything about this pack — refreshed on the claim and on
+    /// every status or progress write, so a stalled job is distinguishable from a slow one.
+    ///
+    /// Null for a pack that has never been claimed, and for every row written before the column
+    /// existed. The stale-generation sweep falls back to <see cref="CreatedAt"/> when it is null,
+    /// which is the only reason it can reach the books that are already stuck.
+    /// </summary>
+    public DateTime? GenerationHeartbeatUtc { get; set; }
+
     public bool IsFullyUnlocked => AccessLevel == BookAccessLevel.Full;
 }

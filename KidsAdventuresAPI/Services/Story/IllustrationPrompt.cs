@@ -67,7 +67,11 @@ public static class IllustrationPrompt
     /// Either the visual description of a character appearing for the first time, or the
     /// instruction to match an attached anchor. Empty when the child is alone in the spread.
     /// </param>
-    /// <param name="textSide">left | right — which half stays calm enough to set text on.</param>
+    /// <param name="textSide">
+    /// left | right — which half stays calm enough to set text on. Anything else ("either", from
+    /// the cover, which carries no story text at all) selects the cover composition, and with it
+    /// the cover's own opening sentence and identity paragraph.
+    /// </param>
     /// <param name="shotInstruction">One short sentence. The rhythm is code's decision, not the story's.</param>
     /// <param name="extraExclusions">What would go wrong in this picture specifically.</param>
     /// <param name="worldLock">
@@ -99,10 +103,23 @@ public static class IllustrationPrompt
             ? string.Empty
             : WorldParagraph(worldLock) + "\n\n";
 
-        return $"""
-            Create one continuous children's book illustration for a two-page spread.
+        // One question, asked once, and every part of the prompt that differs between the two
+        // pictures reads the same answer.
+        var cover = !NamesATextSide(textSide);
 
-            Scene: {scene.Trim()}
+        // The cover gets the photograph directive, and gets it second — after the one line that
+        // says what shape of picture this is and before anything else. This class opens by saying
+        // identity is put first because an image model weights the start of a prompt most heavily
+        // and the child's face is what a parent checks first; the cover is the picture that claim
+        // was written about, and until now it was the one prompt here that did not carry the
+        // directive at all. Spreads are unchanged: they lean on the stylization paragraph below,
+        // whose balance is deliberately different.
+        var identityBlock = cover ? PhotographDirective + "\n\n" : string.Empty;
+
+        return $"""
+            {(cover ? CoverOpening : SpreadOpening)}
+
+            {identityBlock}Scene: {scene.Trim()}
 
             Render the child as a polished stylized 3D animated children's-film character, not
             photorealistic, while preserving the recognizable facial features, hair, approximate age
@@ -122,11 +139,66 @@ public static class IllustrationPrompt
 
             No text, letters, logos, captions, frames or QR codes anywhere in the image.
 
-            The picture is one continuous unbroken painting: no visible fold line, crease, seam, gutter shadow, vertical dividing line, page edge or split down the middle. The fold is where the printed book will be bound, never something to draw.
+            {(cover ? CoverWholePictureRule : SpreadWholePictureRule)}
 
             Do not include: {exclusions}
             """;
     }
+
+    /// <summary>
+    /// Whether a side was actually named. Anything else — "either", empty, a value nobody meant —
+    /// is the cover, the one picture in a Beki book that carries no story text over it.
+    ///
+    /// Asked in one place so the opening sentence and <see cref="ComposeTextSide"/> can never
+    /// disagree about which of the two pictures they are describing, which is the disagreement
+    /// that shipped: a cover told in its first line that it was a two-page spread, and told in its
+    /// last line not to draw the fold of one.
+    /// </summary>
+    private static bool NamesATextSide(string textSide) =>
+        textSide.Trim().ToLowerInvariant() is "left" or "right";
+
+    /// <summary>
+    /// The first sentence, which is where an image model decides what shape of thing it is
+    /// painting.
+    ///
+    /// Every cover this class has ever drawn opened by asking for a two-page spread, because the
+    /// cover borrowed the spread assembler whole. Three later sentences then told it where the
+    /// fold would fall, and one final sentence told it not to draw one. It drew one: the newest
+    /// cover carries a full-height shadow at the exact centre of the frame, and the centre crop
+    /// that turns the wide render into an upright leaf keeps that shadow at the centre of the
+    /// printed page. One trailing negative does not beat three positives, so the positives are
+    /// gone — the cover is never told it is a spread in the first place.
+    /// </summary>
+    private const string CoverOpening =
+        "Create one single upright children's book cover illustration.";
+
+    /// <summary>The spreads, which really are one picture across two pages, are unchanged.</summary>
+    private const string SpreadOpening =
+        "Create one continuous children's book illustration for a two-page spread.";
+
+    /// <summary>
+    /// What may not run down the middle of a spread, said without naming it.
+    ///
+    /// The wording this replaces forbade a "fold line, crease, seam, gutter shadow" and then
+    /// explained, helpfully, where the book would be bound. That is four nouns for the artefact
+    /// plus a reason it exists, and a model reads a noun it has been handed as a thing that
+    /// belongs in the picture — the same way "do not think of the centre" puts something there.
+    /// Same rule, described as an unbroken surface rather than as the break.
+    /// </summary>
+    private const string SpreadWholePictureRule =
+        "Paint this as one single unbroken picture: the artwork runs continuously across the whole "
+        + "frame, with no vertical dividing line, no crease, no darker vertical band, no page edge "
+        + "and nothing that divides the image into two halves.";
+
+    /// <summary>
+    /// The same rule for the cover, minus every word that would tell it there are two halves to
+    /// divide. It forbids the artefact that was actually measured on the shipped cover — a
+    /// full-height vertical band at centre — and names nothing else.
+    /// </summary>
+    private const string CoverWholePictureRule =
+        "Paint the cover as one single unbroken picture: the artwork is continuous across the "
+        + "whole frame, with no vertical dividing line, no crease and no darker vertical band "
+        + "anywhere in it.";
 
     /// <summary>
     /// The character lock describes the child once; this says the description is not a suggestion
@@ -180,11 +252,18 @@ public static class IllustrationPrompt
     ///
     /// So it names a fraction of the frame, says what may be in it, and says who may not. And it
     /// says where the hero goes instead — a rule that only forbids leaves the model to guess, and
-    /// what it guesses is the centre, which is where the fold is.
+    /// what it guesses is the centre, which on a spread is the worst place to put a face.
     ///
     /// An empty or "either" side means no text is set over this image at all — the cover, whose
     /// title is typeset later. That case used to reach the model as "on the either", which is not
     /// a place.
+    ///
+    /// The cover branch used to be the spread rules with a cover sentence bolted on, and the two
+    /// halves contradicted each other outright: keep nothing important at the centre, then put the
+    /// hero and the title space in the central portion. A contradiction is resolved by the model,
+    /// not by us, and it resolved it by drawing the centre band it had been told about. The cover
+    /// now describes only the picture it is: one upright leaf, hero large, one calm area where the
+    /// title lands, and the outer edges as the part print takes.
     ///
     /// It also asks for that third to be *light*. "Quiet background" was read as "dark background"
     /// often enough — foliage in shadow was one of the examples this rule itself gave — and the
@@ -194,17 +273,31 @@ public static class IllustrationPrompt
     /// </summary>
     private static string ComposeTextSide(string textSide, bool ctaSafe = false)
     {
-        var side = textSide.Trim().ToLowerInvariant();
-        if (side is not ("left" or "right"))
+        if (!NamesATextSide(textSide))
         {
-            // The cover. Printed as a single upright leaf cut from a wider render, so its outer
-            // edges are the part the trim takes.
-            return "Keep faces and important story action away from the centre of the spread, "
-                + "where the fold falls. " + GutterRule + " Compose for a single upright page: "
-                + "keep the hero and the calm title space within the central portion of the "
-                + "frame, because the outer left and right edges may be trimmed away in print.";
+            // The cover. Printed as a single upright leaf centre-cut from a wider render, so the
+            // outer edges are the part the trim takes and roughly half the width never prints
+            // (BekiPdfComposer.CropToSheet). The title is typeset over the finished image at the
+            // bottom, centred (BekiPdfComposer.ComposeCover) — which is why the calm area is asked
+            // for down there and not left to the model to place.
+            return """
+                Composition, which is a hard requirement of this cover and not a preference: this
+                is one upright book cover, a single whole picture with the child as its subject.
+                Draw the child and the story's action large, clearly lit and unmistakable — the
+                hero is the one thing this cover is about and must read at a glance, even at
+                thumbnail size.
+
+                Keep the lower fifth of the image calm and naturally light: quiet background only,
+                and no face, no hands and no part of the main action inside it. The book's title
+                is set across that area afterwards, so it must stay clear.
+
+                Keep the hero, that calm lower area and everything else the cover cannot lose
+                inside the central portion of the frame: the outer left and right edges may be
+                trimmed away in print.
+                """;
         }
 
+        var side = textSide.Trim().ToLowerInvariant();
         var heroSide = side == "left" ? "right" : "left";
         var ctaClause = ctaSafe ? " The lower part of the reserved side must stay especially clear — a printed continuation module sits there in the finished book." : string.Empty;
 
@@ -217,8 +310,8 @@ public static class IllustrationPrompt
             part of the main action may enter it.{ctaClause}
 
             Place the child and the story's action in the {heroSide} two thirds instead, and keep
-            every face clear of the vertical centre line, where the fold of the spread falls.
-            {GutterRule}
+            every face clear of the vertical centre line of the image.
+            {CentreBandRule}
 
             Keep every face and the story's key action inside the central horizontal band of the
             image as well: the printed spread is wider than it is tall, so the top and bottom
@@ -228,16 +321,25 @@ public static class IllustrationPrompt
     }
 
     /// <summary>
-    /// The centre line was already a rule — no face crosses it — but a line has no width, and the
-    /// fold it stands for does: the gutter swallows a narrow strip on either side of it, not one
-    /// pixel down the middle. Written out as its own sentence, and shared verbatim with
-    /// <see cref="Prompts.BekiImageQaPrompt"/>'s text-side rule, so the illustrator and the
-    /// reviewer are working from the same words rather than two paraphrases of one rule.
+    /// The centre line was already a rule — no face crosses it — but a line has no width and what
+    /// print takes at the middle of a spread does: a narrow strip on either side of centre, not
+    /// one pixel down the middle. So the rule is a band, and it is a band the picture continues
+    /// straight through: the only thing that changes across it is how much the story keeps there.
+    ///
+    /// It says that, and no longer says why. Naming the thing at the centre of the page was the
+    /// defect — see <see cref="SpreadWholePictureRule"/> — and this sentence named it while
+    /// describing a zone, which is the worst of both.
+    ///
+    /// Spreads only. The cover has no centre to keep clear; its hero belongs there.
+    ///
+    /// <see cref="Prompts.BekiImageQaPrompt"/> holds its own past-tense copy of the older wording
+    /// for the reviewer. That reviewer is switched off (<c>QaReviewEnabled</c>), so the two are
+    /// not in force at once; if it is ever switched back on, its copy is the thing to reconcile.
     /// </summary>
-    private const string GutterRule =
-        "A narrow vertical strip at the exact centre of the frame is a low-information zone "
-        + "crossing the printed fold: background may continue through it, but no face, no eyes, "
-        + "no hands, no key object and no part of the main action may sit inside it.";
+    private const string CentreBandRule =
+        "A narrow vertical strip at the exact centre of the frame is a low-information zone: "
+        + "background may continue through it unchanged, but no face, no eyes, no hands, no key "
+        + "object and no part of the main action may sit inside it.";
 
     /// <summary>
     /// The cover a Beki book falls back to when the Beki cover could not be drawn or was refused.

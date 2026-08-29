@@ -206,7 +206,26 @@ public static class ServiceCollectionExtensions
                 .UseRecommendedSerializerSettings()
                 .UseSqlServerStorage(connectionString, new SqlServerStorageOptions
                 {
-                    PrepareSchemaIfNecessary = true
+                    PrepareSchemaIfNecessary = true,
+
+                    /*
+                      Which fetch strategy the queue uses, chosen by whether this is set at all.
+
+                      Unset, Hangfire.SqlServer holds a job with a database transaction that stays
+                      open for as long as the job runs. A Beki book runs for minutes over an SSH
+                      tunnel to Azure SQL, and a transaction held across a connection that drops is
+                      a job that is neither running nor available: the server has to notice the
+                      session is gone before the row is released, and until it does, the work sits
+                      invisible to every worker including the one that would retry it.
+
+                      Set, the row is fetched with an invisibility stamp that the worker renews
+                      while it works, and a worker that disappears simply stops renewing. Five
+                      minutes is the window after the last renewal in which nothing else will touch
+                      the job — long enough that a slow database or a paused container is not
+                      mistaken for a dead worker, short enough that a genuinely dead one does not
+                      keep a paid book to itself for half an hour.
+                    */
+                    SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5)
                 }));
         services.AddHangfireServer();
 
@@ -288,8 +307,23 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAuthChallengeRepository, AuthChallengeRepository>();
         services.AddScoped<IGuestPreviewRepository, GuestPreviewRepository>();
         services.AddScoped<IMasterStoryRunRepository, MasterStoryRunRepository>();
+
+        // The sweep's half of the same table, registered separately because it is a separate
+        // contract — see IMasterStoryRunSweepStore for why it is not simply more methods on the
+        // repository interface.
+        services.AddScoped<IMasterStoryRunSweepStore, MasterStoryRunRepository>();
         services.AddScoped<IMasterBookService, MasterBookService>();
         services.AddScoped<IMasterStoryRunCleanupService, MasterStoryRunCleanupService>();
+
+        // What a long job's deadline is measured against. Registered so it is injected rather than
+        // read from the ambient clock: a wall-clock budget whose only implementation is the real
+        // clock can only be tested by a test that actually waits, and a test that waits half an
+        // hour is a test nobody runs.
+        services.AddSingleton(TimeProvider.System);
+
+        // The backstop for a job that stopped existing. Nothing in a running process can write
+        // this verdict, which is the whole reason it exists.
+        services.AddScoped<IStaleGenerationSweepService, StaleGenerationSweepService>();
         services.AddScoped<IChildRepository, ChildRepository>();
         services.AddScoped<ICharacterRepository, CharacterRepository>();
         services.AddScoped<ICharacterService, CharacterService>();

@@ -28,9 +28,15 @@ public interface IBekiPackFulfillment
     /// The lock is keyed by the pack id ({0} is formatted from the first job argument), not by
     /// the method alone. A method-keyed lock would serialize every Beki book in the system behind
     /// whichever one is currently drawing — many minutes each — and unrelated paid orders would
-    /// queue up against the 1800-second timeout for no reason.
+    /// queue up against the timeout for no reason.
+    ///
+    /// Sixty seconds, not the 1800 it was. The timeout is how long a duplicate waits for the lock,
+    /// and a duplicate of a job that is genuinely running should not wait at all — the book is
+    /// already being drawn, and the second worker's only job is to give up so its thread can do
+    /// something else. Half an hour of a blocked worker per duplicate is how a queue of paid
+    /// orders stops moving behind one book, over an SSH tunnel where duplicates are not rare.
     /// </summary>
-    [DisableConcurrentExecution("beki-pack:{0}", 1800)]
+    [DisableConcurrentExecution("beki-pack:{0}", 60)]
     Task ProcessAsync(Guid packId, Guid runId, CancellationToken cancellationToken);
 }
 
@@ -63,6 +69,18 @@ public static class BekiPackBlobs
     /// </summary>
     public static string ScenarioName(Guid userId, Guid packId) =>
         $"{userId}/{packId}/visual-scenario.json";
+
+    /// <summary>
+    /// The four identity attributes this book's child is drawn to, read once from the photograph.
+    ///
+    /// Under the pack's own prefix, beside the photograph and the pictures, because that is the
+    /// privacy domain it belongs to: it describes a real child's hair, eyes and skin, and it is
+    /// deleted when the pack's other private artifacts are. It is stored at all because a resumed
+    /// run must draw its remaining spreads to the same description as the ones it adopts — a second
+    /// derivation would give one book two slightly different children.
+    /// </summary>
+    public static string IdentitySpecName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}/child-identity.json";
 
     /// <summary>
     /// One page's composition receipt: which approved pose was pasted where, and what the result
@@ -104,11 +122,34 @@ public sealed class BekiPackFulfillment(
     IBekiPdfComposer composer,
     IAdminNotifier adminNotifier,
     IOptions<BekiOptions> bekiOptions,
-    ILogger<BekiPackFulfillment> logger) : IBekiPackFulfillment
+    ILogger<BekiPackFulfillment> logger,
+    TimeProvider? timeProvider = null) : IBekiPackFulfillment
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    [DisableConcurrentExecution("beki-pack:{0}", 1800)]
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
+    /// <summary>
+    /// The statuses a pack may be picked up from.
+    ///
+    /// <c>StoryReady</c> is the ordinary one: order fulfilment creates the pack, adopts the story
+    /// the parent previewed — which writes StoryReady — and only then enqueues this job.
+    /// <c>Pending</c> is the same book when that adoption failed. The two generating statuses are a
+    /// requeue of an attempt that had already claimed the pack, which is how resuming works.
+    ///
+    /// Everything else is refused, and the one that matters is <c>Failed</c>: it is the only status
+    /// written from outside this process, by the stale-generation sweep, and a job that claimed its
+    /// way back out of it would make that verdict meaningless.
+    /// </summary>
+    private static readonly AdventurePackStatus[] ClaimableStatuses =
+    [
+        AdventurePackStatus.Pending,
+        AdventurePackStatus.StoryReady,
+        AdventurePackStatus.GeneratingStory,
+        AdventurePackStatus.GeneratingPdf
+    ];
+
+    [DisableConcurrentExecution("beki-pack:{0}", 60)]
     public async Task ProcessAsync(Guid packId, Guid runId, CancellationToken cancellationToken)
     {
         // The spec's telemetry mandate (§27): before any performance work, measure where the
@@ -117,36 +158,112 @@ public sealed class BekiPackFulfillment(
         var totalStopwatch = Stopwatch.StartNew();
         long uploadMs = 0;
 
-        var pack = await packRepository.GetByIdNoOwnershipAsync(packId, cancellationToken);
-        if (pack is null)
-        {
-            return;
-        }
+        /*
+          The wall clock this book gets, and the thing that makes a stall terminal.
 
-        // A completed pack is not reprocessed. The lease above stops two workers overlapping on
-        // the same run; this stops a job that reaches this point a second time after the pack had
-        // already finished — a stalled-order sweep re-enqueuing generation whose first attempt
-        // had, in fact, already succeeded.
-        if (pack.Status == AdventurePackStatus.Completed)
-        {
-            logger.LogInformation("Beki pack {PackId} is already completed; skipping.", packId);
-            return;
-        }
+          Every await below runs under deadline.Token rather than Hangfire's, so the deadline
+          reaches all the way down: the image calls, the QA calls, the retry sleeps inside the
+          Gemini client, the uploads. Without that it would only be a timer nobody was watching —
+          which is what the job had before, since it ran under CancellationToken.None.
 
+          Which of the two tokens fired is the question the catch blocks ask, and it is why this is
+          a deadline object rather than one linked source: a source that has cancelled itself
+          cannot say why.
+        */
+        using var deadline = GenerationBudget.Start(
+            cancellationToken, GenerationBudget.For(bekiOptions.Value), _timeProvider);
+        var jobToken = deadline.Token;
+
+        // Where the job was when it stopped, for the one log line somebody will read afterwards.
+        // A cancelled job leaves no stack worth having: the exception says only that something was
+        // cancelled, and every await in this method can raise it.
+        var stage = "loading the pack";
+
+        // What this job believes the row says, and therefore what its own terminal write is allowed
+        // to overwrite. It becomes the status the pack was read in, then GeneratingStory the moment
+        // the claim lands, so a failure at any point compares against the right thing.
+        var expectedStatus = AdventurePackStatus.Pending;
+
+        // Whether the row was ever actually read. A failure before that leaves the handler below
+        // with nothing to compare against, and it goes and looks rather than guessing.
+        var packWasRead = false;
+
+        /*
+          The load is inside the guarded region, which is not where it started.
+
+          It ran above the try, under the budget's token, so a deadline that expired while this
+          single SELECT was outstanding threw straight past every handler below: no terminal status,
+          no classification of the cause, and a Hangfire retry that would do the same thing again.
+          The pack would sit in the status it was enqueued in — one the sweep deliberately does not
+          touch, because that is also the status a pack holds while queued — and nothing anywhere
+          would ever close the case.
+        */
         try
         {
+            var pack = await packRepository.GetByIdNoOwnershipAsync(packId, jobToken);
+            if (pack is null)
+            {
+                return;
+            }
+
+            packWasRead = true;
+
+            // A completed pack is not reprocessed. The lease above stops two workers overlapping on
+            // the same run; this stops a job that reaches this point a second time after the pack had
+            // already finished — a stalled-order sweep re-enqueuing generation whose first attempt
+            // had, in fact, already succeeded.
+            if (pack.Status == AdventurePackStatus.Completed)
+            {
+                logger.LogInformation("Beki pack {PackId} is already completed; skipping.", packId);
+                return;
+            }
+
+            /*
+              And a pack the sweep has already buried is not exhumed.
+
+              A requeued attempt used to claim any non-Completed pack straight back into
+              GeneratingStory, which quietly undid the one verdict written by something outside this
+              process: a book declared abandoned at forty minutes would be revived by the next
+              retry, redrawn, and — because the redraw starts from the manifest — plausibly succeed,
+              leaving nothing anywhere saying it had ever been lost. Worse, it made the sweep's
+              Failed a status a book could bounce out of, which is the opposite of terminal.
+
+              StoryReady belongs on this list and is the reason it is a list rather than a single
+              check: a Beki pack adopts its previewed story into StoryReady at fulfilment and is
+              enqueued from there, so that — not Pending — is the status nearly every real book
+              arrives here in.
+            */
+            if (!ClaimableStatuses.Contains(pack.Status))
+            {
+                logger.LogWarning(
+                    "Beki pack {PackId} is {Status}, which is not a status generation may claim; "
+                    + "leaving it alone. A pack the stale-generation sweep failed needs a person to "
+                    + "decide whether it is retried, not a requeue.",
+                    packId, pack.Status);
+                return;
+            }
+
+            expectedStatus = pack.Status;
+            stage = "claiming the pack";
+
             // Claimed before any work: the stalled-order sweep re-enqueues generation for a pack
             // still Pending, and a book that costs nine images must never be drawn twice because
             // it was slow. Same move the legacy job opens with, for the same reason.
+            //
+            // The claim is also the first heartbeat — the repository stamps one on every status
+            // write — which is what starts the clock the stale-generation sweep reads.
             await packRepository.UpdateStatusAsync(
                 packId,
                 AdventurePackStatus.GeneratingStory,
                 pack.GeneratedJson,
                 null,
                 null,
-                cancellationToken);
+                jobToken);
 
-            var run = await masterStoryRunRepository.GetByIdAsync(runId, cancellationToken)
+            expectedStatus = AdventurePackStatus.GeneratingStory;
+            stage = "reading the plan";
+
+            var run = await masterStoryRunRepository.GetByIdAsync(runId, jobToken)
                       ?? throw new InvalidOperationException($"Preview run {runId} is gone.");
 
             if (string.IsNullOrWhiteSpace(run.StoryJson) || string.IsNullOrWhiteSpace(run.PhotoBlobUrl))
@@ -167,10 +284,12 @@ public sealed class BekiPackFulfillment(
             }
 
             await packRepository.UpdateProgressAsync(
-                packId, "ბეკის წიგნის გვერდებს ვხატავთ…", 10, cancellationToken);
+                packId, "ბეკის წიგნის გვერდებს ვხატავთ…", 10, jobToken);
+
+            stage = "reading the portrait";
 
             var photo = await blobStorage.DownloadBytesFromStoredUrlAsync(
-                run.PhotoBlobUrl, cancellationToken);
+                run.PhotoBlobUrl, jobToken);
 
             // The cover the parent previewed, when it survived; drawn fresh when it did not.
             byte[]? existingCover = null;
@@ -179,7 +298,7 @@ public sealed class BekiPackFulfillment(
                 try
                 {
                     existingCover = await blobStorage.DownloadBytesFromStoredUrlAsync(
-                        run.CoverImageUrl, cancellationToken);
+                        run.CoverImageUrl, jobToken);
                 }
                 catch (Exception coverEx)
                 {
@@ -230,7 +349,7 @@ public sealed class BekiPackFulfillment(
                     ? BekiCompositeContractTerms.Current(compositeThemeId)
                     : null);
 
-            var manifest = await TryReadManifestAsync(manifestName, cancellationToken);
+            var manifest = await TryReadManifestAsync(manifestName, jobToken);
 
             if (manifest is not null && !manifest.IllustrationContract.SequenceEqual(currentContract))
             {
@@ -239,6 +358,45 @@ public sealed class BekiPackFulfillment(
                     + "shot, Beki version) no longer matches the current one; ignoring it and "
                     + "redrawing.", packId);
                 manifest = null;
+            }
+
+            /*
+              The child identity spec an earlier attempt derived, read BEFORE anything is adopted —
+              because whether it can be read decides whether anything may be.
+
+              The four attributes are written into every image prompt, so a run that adopted pages
+              and then derived a second spec would describe the child one way on the spreads it
+              redraws and another on the spreads it keeps. That is the split book this whole
+              amendment exists to prevent, and it would pass every review on the way, so it cannot
+              be left to the pipeline to notice: by the time the pipeline sees a null spec it has no
+              way to tell "first attempt" from "resume whose spec blob is gone".
+
+              So an unreadable spec drops the artwork rather than the spec. The scenario stays —
+              nothing is wrong with it, the outfit and recurring elements it fixes are still the
+              ones this book was sold as, and eight pages redrawn against it under one fresh spec is
+              a whole book. It is the same answer a prompt-version change already gets from the
+              resume contract, reached by a different route.
+            */
+            string? storedIdentitySpec = null;
+
+            if (compositeEnabled && manifest is not null)
+            {
+                storedIdentitySpec = await TryReadIdentitySpecAsync(
+                    packId, manifest.IdentitySpecUrl, jobToken);
+
+                if (string.IsNullOrWhiteSpace(storedIdentitySpec) && manifest.Entries.Count > 0)
+                {
+                    logger.LogWarning(
+                        "Beki pack {PackId}: {Stored} spread(s) are stored but this book's child "
+                        + "identity spec cannot be read, so the pages that would be redrawn could "
+                        + "not be drawn to the same child as the pages that would be adopted. "
+                        + "Discarding the stored artwork and redrawing the whole book.",
+                        packId, manifest.Entries.Count);
+
+                    // The pages and their receipts go; the scenario and everything else about the
+                    // manifest stay, which is what keeps this a redraw rather than a replan.
+                    manifest = manifest with { Entries = [], Compositions = null };
+                }
             }
 
             var existingSpreads = new Dictionary<int, byte[]>();
@@ -256,7 +414,7 @@ public sealed class BekiPackFulfillment(
                     try
                     {
                         var bytes = await blobStorage.DownloadBytesFromStoredUrlAsync(
-                            entry.StoredUrl, cancellationToken);
+                            entry.StoredUrl, jobToken);
                         if (bytes is not { Length: > 0 })
                         {
                             continue;
@@ -288,7 +446,7 @@ public sealed class BekiPackFulfillment(
                     try
                     {
                         var bytes = await blobStorage.DownloadBytesFromStoredUrlAsync(
-                            baseUrl, cancellationToken);
+                            baseUrl, jobToken);
 
                         if (bytes is { Length: > 0 })
                         {
@@ -316,7 +474,7 @@ public sealed class BekiPackFulfillment(
                         packId,
                         $"დაიხატა {existingSpreads.Count}/{BookFormat.SpreadCount} ილუსტრაცია…",
                         percent,
-                        cancellationToken);
+                        jobToken);
                 }
             }
 
@@ -336,6 +494,7 @@ public sealed class BekiPackFulfillment(
                 .ToDictionary(entry => entry.SpreadNumber);
 
             var scenarioUrl = manifest?.ScenarioUrl;
+            var identitySpecUrl = manifest?.IdentitySpecUrl;
 
             /*
               The scenario an earlier attempt planned, read back before anything is drawn.
@@ -355,7 +514,7 @@ public sealed class BekiPackFulfillment(
                 try
                 {
                     var bytes = await blobStorage.DownloadBytesFromStoredUrlAsync(
-                        scenarioUrl, cancellationToken);
+                        scenarioUrl, jobToken);
 
                     if (bytes is { Length: > 0 })
                     {
@@ -400,8 +559,36 @@ public sealed class BekiPackFulfillment(
                         // field exists so a failure can say which blob could not be read without
                         // the photograph itself ending up anywhere near a log line.
                         ChildPhotoRef = run.PhotoBlobUrl!,
+                        // The parent's own answer, where the run has one. It overrides the model's
+                        // reading of the photograph for that single attribute and reaches nothing
+                        // else: the normalized story input has nowhere to put it.
+                        LegacyEyeColor = run.EyeColor,
                     },
-                    Resume = new CompositeResumeState(storedScenario, existingSpreads, existingBases),
+                    Resume = new CompositeResumeState(storedScenario, existingSpreads, existingBases)
+                    {
+                        IdentitySpecJson = storedIdentitySpec,
+                        // The child appearance anchor is the accepted first spread's base image,
+                        // which is already in hand whenever that spread was adopted — the same
+                        // bytes the manifest's composition entry points at, not a second copy of
+                        // them. Absent means the pipeline redraws spread one and makes a new one.
+                        AnchorBasePng = existingBases.GetValueOrDefault(
+                            CompositeBookPipeline.AnchorSpreadNumber),
+                    },
+                    OnIdentitySpec = async identityJson =>
+                    {
+                        // Before the first image call and awaited, exactly as the scenario is: the
+                        // attempt that dies on spread three is the one that has to leave this
+                        // behind, because the attempt that finishes never needed it written down.
+                        identitySpecUrl = await blobStorage.UploadAsync(
+                            BekiPackBlobs.IdentitySpecName(pack.UserId, pack.Id),
+                            System.Text.Encoding.UTF8.GetBytes(identityJson),
+                            "application/json",
+                            jobToken);
+
+                        await WriteManifestAsync(
+                            manifestName, storedUrls, currentContract, scenarioUrl, identitySpecUrl,
+                            compositions, jobToken);
+                    },
                     OnScenario = async scenarioJson =>
                     {
                         // Before the first image call, because the attempt that dies on spread three
@@ -412,14 +599,16 @@ public sealed class BekiPackFulfillment(
                             BekiPackBlobs.ScenarioName(pack.UserId, pack.Id),
                             System.Text.Encoding.UTF8.GetBytes(scenarioJson),
                             "application/json",
-                            cancellationToken);
+                            jobToken);
 
                         await WriteManifestAsync(
-                            manifestName, storedUrls, currentContract, scenarioUrl, compositions,
-                            cancellationToken);
+                            manifestName, storedUrls, currentContract, scenarioUrl, identitySpecUrl,
+                            compositions, jobToken);
                     },
                 }
                 : null;
+
+            stage = "drawing the spreads";
 
             var book = await generator.IllustrateAsync(
                 plan,
@@ -443,19 +632,19 @@ public sealed class BekiPackFulfillment(
                             BekiPackBlobs.SpreadName(pack.UserId, pack.Id, number),
                             image.Image,
                             "image/png",
-                            cancellationToken);
+                            jobToken);
 
                         // Null on the legacy path, so this block is not merely skipped there — it
                         // has nothing to skip.
                         if (image.Composition is { } composition)
                         {
                             compositions[number] = await StoreCompositionAsync(
-                                pack, composition, cancellationToken);
+                                pack, composition, jobToken);
                         }
 
                         await WriteManifestAsync(
-                            manifestName, storedUrls, currentContract, scenarioUrl, compositions,
-                            cancellationToken);
+                            manifestName, storedUrls, currentContract, scenarioUrl, identitySpecUrl,
+                            compositions, jobToken);
                         uploadMs += uploadStopwatch.ElapsedMilliseconds;
                     }
 
@@ -465,9 +654,9 @@ public sealed class BekiPackFulfillment(
                         packId,
                         $"დაიხატა {processedSpreads}/{BookFormat.SpreadCount} ილუსტრაცია…",
                         percent,
-                        cancellationToken);
+                        jobToken);
                 },
-                cancellationToken,
+                jobToken,
                 existingSpreads.Count > 0 ? existingSpreads : null,
                 compositeContext);
 
@@ -498,12 +687,12 @@ public sealed class BekiPackFulfillment(
                     }
 
                     compositions[artifact.SpreadNumber] =
-                        await StoreCompositionAsync(pack, artifact, cancellationToken);
+                        await StoreCompositionAsync(pack, artifact, jobToken);
                 }
 
                 await WriteManifestAsync(
-                    manifestName, storedUrls, currentContract, scenarioUrl, compositions,
-                    cancellationToken);
+                    manifestName, storedUrls, currentContract, scenarioUrl, identitySpecUrl,
+                    compositions, jobToken);
 
                 uploadMs += artifactStopwatch.ElapsedMilliseconds;
 
@@ -513,8 +702,10 @@ public sealed class BekiPackFulfillment(
                     packId, scenarioUrl is null ? "(none)" : "its blob", compositions.Count);
             }
 
+            stage = "laying out the PDF";
+
             await packRepository.UpdateProgressAsync(
-                packId, "წიგნს ვაწყობთ და PDF-ს ვამზადებთ…", 85, cancellationToken);
+                packId, "წიგნს ვაწყობთ და PDF-ს ვამზადებთ…", 85, jobToken);
 
             // Everything ships. A NEEDS_REVIEW spread is a picture a human should look at, not a
             // hole in a paid book — the warning above is the trail. The callback has already
@@ -530,7 +721,7 @@ public sealed class BekiPackFulfillment(
                         BekiPackBlobs.SpreadName(pack.UserId, pack.Id, number),
                         spread.Image,
                         "image/png",
-                        cancellationToken);
+                        jobToken);
                     uploadMs += uploadStopwatch.ElapsedMilliseconds;
                 }
 
@@ -552,30 +743,56 @@ public sealed class BekiPackFulfillment(
 
             var pdfUploadStopwatch = Stopwatch.StartNew();
             var pdfUrl = await blobStorage.UploadAsync(
-                $"{pack.UserId}/{pack.Id}.pdf", pdf, "application/pdf", cancellationToken);
+                $"{pack.UserId}/{pack.Id}.pdf", pdf, "application/pdf", jobToken);
             uploadMs += pdfUploadStopwatch.ElapsedMilliseconds;
 
             // One file serves both shelves: the Beki layout is print geometry already — bleed,
             // spread pages, the QR leaf — so the reading copy and the print copy are the same
             // bytes, unlike the A5 book whose print copy differs by binding blanks.
-            await packRepository.UpdatePrintPdfUrlAsync(packId, pdfUrl, cancellationToken);
+            await packRepository.UpdatePrintPdfUrlAsync(packId, pdfUrl, jobToken);
+
+            stage = "publishing the book";
 
             var content = ProjectForReader(plan, run.ChildName, pack, storedUrls);
 
-            await packRepository.UpdateStatusAsync(
+            /*
+              Completed, but only over the status this job left behind.
+
+              The stale-generation sweep can have reached this pack while the last upload was in
+              flight — it fails a book whose row has been silent for the whole budget plus a grace
+              period, and a job that took that long and then finished is exactly the case. Writing
+              Completed unconditionally would erase that verdict and leave nothing anywhere saying
+              the book took forty minutes and was declared lost. The pictures and the PDF are
+              already stored either way, so the losing side of this race costs nobody a book: it
+              costs a status, and the sweep's is the one with a reason attached.
+            */
+            var completed = await packRepository.TryUpdateStatusAsync(
                 packId,
+                expectedStatus,
                 AdventurePackStatus.Completed,
                 JsonSerializer.Serialize(content, JsonOptions),
                 pdfUrl,
                 null,
-                cancellationToken);
+                jobToken);
 
-            await packRepository.UpdateProgressAsync(
-                packId, "მზადაა! წიგნი ბიბლიოთეკაშია.", 100, cancellationToken);
+            if (completed)
+            {
+                await packRepository.UpdateProgressAsync(
+                    packId, "მზადაა! წიგნი ბიბლიოთეკაშია.", 100, jobToken);
 
-            logger.LogInformation(
-                "Beki pack {PackId} completed from run {RunId}: \"{Title}\", {Spreads} spreads.",
-                packId, runId, plan.Concept.Title, stored.Count);
+                logger.LogInformation(
+                    "Beki pack {PackId} completed from run {RunId}: \"{Title}\", {Spreads} spreads.",
+                    packId, runId, plan.Concept.Title, stored.Count);
+            }
+            else
+            {
+                logger.LogWarning(
+                    "Beki pack {PackId} finished drawing {Spreads} spreads, but its status is no "
+                    + "longer {Expected} — the stale-generation sweep or another writer moved it "
+                    + "first. Leaving the stored status alone; the PDF and the spreads are saved "
+                    + "and the manifest can resume from them.",
+                    packId, stored.Count, expectedStatus);
+            }
 
             // Telemetry last, and best-effort: the order is already complete, and a failed
             // measurement must never look like a failed book. Per-attempt rows come from the
@@ -624,7 +841,7 @@ public sealed class BekiPackFulfillment(
                     $"{pack.UserId}/{pack.Id}/telemetry.json",
                     JsonSerializer.SerializeToUtf8Bytes(telemetry, JsonOptions),
                     "application/json",
-                    cancellationToken);
+                    jobToken);
 
                 logger.LogInformation(
                     "Beki pack {PackId} telemetry: totalMs={TotalMs}, pdfBuildMs={PdfBuildMs}, "
@@ -638,6 +855,30 @@ public sealed class BekiPackFulfillment(
                 logger.LogWarning(telemetryEx, "Beki pack {PackId}: telemetry not written.", packId);
             }
         }
+        /*
+          Cancelled by the host, not by the clock: a deploy, a restart, a scale-in.
+
+          Nothing is wrong with this book, so nothing terminal is written. The exception is
+          rethrown, Hangfire sees a failed attempt and requeues it, and the next attempt reads the
+          manifest and adopts every spread this one had already drawn and stored. Marking the pack
+          Failed here — which is what the catch below used to do, since an OperationCanceledException
+          is an Exception like any other — would turn every deployment into a handful of paid books
+          declared unmakeable, each of which was one requeue away from finishing.
+
+          The pack is deliberately left in GeneratingStory. That is not a leak: the stale-generation
+          sweep is what closes the case if the requeue never comes.
+        */
+        catch (OperationCanceledException ex) when (!deadline.Expired)
+        {
+            logger.LogWarning(
+                ex,
+                "Beki fulfilment for pack {PackId} was stopped by the host while {Stage} "
+                + "(cause: {Cause}). The pack is left in {Status} so Hangfire can requeue it and "
+                + "the manifest can resume from the spreads already stored.",
+                packId, stage, deadline.Cause, expectedStatus);
+
+            throw;
+        }
         catch (Exception ex)
         {
             /*
@@ -649,22 +890,113 @@ public sealed class BekiPackFulfillment(
 
               Inert on the legacy path: nothing there throws this type, so the message stored for
               every book in production is the one it always was.
+
+              A cancellation reaching here is the budget's — the filter above sent the host's back
+              to Hangfire — and it gets a reason of its own, because "The operation was canceled."
+              is exactly the message that made this defect take a day to find.
             */
-            var reason = ex is CompositePipelineException composite
-                ? $"{composite.FailureCode}"
-                  + (composite.Page is { } page ? $" (spread {page})" : string.Empty)
-                  + $": {ex.Message}"
-                : ex.Message;
+            var reason = ex switch
+            {
+                OperationCanceledException => GenerationBudget.ExceededReason(deadline.Budget, stage),
+                CompositePipelineException composite =>
+                    $"{composite.FailureCode}"
+                    + (composite.Page is { } page ? $" (spread {page})" : string.Empty)
+                    + $": {ex.Message}",
+                _ => ex.Message
+            };
 
-            logger.LogError(ex, "Beki fulfilment failed for pack {PackId}: {Reason}", packId, reason);
-            await packRepository.UpdateStatusAsync(
-                packId, AdventurePackStatus.Failed, pack.GeneratedJson, null, reason,
-                CancellationToken.None);
+            logger.LogError(
+                ex, "Beki fulfilment failed for pack {PackId} while {Stage}: {Reason}",
+                packId, stage, reason);
 
-            // This book was paid for before this job ever started, so a failure here is money
-            // taken with nothing delivered. It is the one generation failure that always needs
-            // a person.
-            await adminNotifier.BookFailedAsync(packId, reason, CancellationToken.None);
+            /*
+              A failure before the row was ever read leaves nothing to compare against.
+
+              That is a real case now that the load is inside this region: the budget can expire
+              while the SELECT is outstanding. Guessing a status would either write nothing (a wrong
+              guess loses the compare-and-set) or, worse, be right by accident. So it looks — with a
+              fresh token, because the one that was in force is the one that just killed the read.
+            */
+            if (!packWasRead)
+            {
+                try
+                {
+                    var current = await packRepository.GetByIdNoOwnershipAsync(
+                        packId, CancellationToken.None);
+
+                    if (current is not null)
+                    {
+                        expectedStatus = current.Status;
+                    }
+                }
+                catch (Exception readEx)
+                {
+                    logger.LogWarning(
+                        readEx, "Beki pack {PackId}: could not re-read the pack to record why it "
+                        + "failed; the terminal write will almost certainly find nothing to match.",
+                        packId);
+                }
+            }
+
+            // Compare-and-set for the same reason the Completed write is: the sweep may have got
+            // here first, and its verdict — with the reason it recorded — is not worth overwriting
+            // with a second copy of the same news. Status and message only, so the spreads, the
+            // manifest and the story this attempt did manage to store all survive for the next one.
+            var failed = await packRepository.TryFailAsync(
+                packId, expectedStatus, reason, CancellationToken.None);
+
+            if (!failed)
+            {
+                logger.LogWarning(
+                    "Beki pack {PackId} could not be marked Failed: its status is no longer "
+                    + "{Expected}. Deferring to what is stored.", packId, expectedStatus);
+            }
+
+            /*
+              Who gets told, and when.
+
+              This book was paid for before the job started, so a failure is money taken with
+              nothing delivered — the one generation failure that always needs a person. But
+              "always" used to mean literally always, including when the compare-and-set lost
+              because the book had in fact been Completed by another writer. That is a page-out
+              about a book that exists.
+
+              So: told when this job's verdict stood, and told when it lost to a verdict that is
+              also Failed — which is the sweep's, and the sweep tells nobody. A pack that rests in
+              any other status is not a failure and nobody is woken for it.
+            */
+            if (failed || await RestsInFailedAsync(packId))
+            {
+                await adminNotifier.BookFailedAsync(packId, reason, CancellationToken.None);
+            }
+            else
+            {
+                logger.LogWarning(
+                    "Beki pack {PackId} failed in this job, but the stored pack is not Failed; "
+                    + "another writer got a better outcome, so nobody is being paged.", packId);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Whether the pack actually rests in Failed, when this job's own attempt to say so lost.
+    ///
+    /// Best effort by design: if the read itself fails, the answer is "assume it did" and somebody
+    /// is told. A spurious page about a book that turned out fine costs an operator a minute; a
+    /// silent paid failure costs a family their book.
+    /// </summary>
+    private async Task<bool> RestsInFailedAsync(Guid packId)
+    {
+        try
+        {
+            var current = await packRepository.GetByIdNoOwnershipAsync(packId, CancellationToken.None);
+            return current is null || current.Status == AdventurePackStatus.Failed;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex, "Beki pack {PackId}: could not confirm the stored status; notifying anyway.", packId);
+            return true;
         }
     }
 
@@ -710,6 +1042,40 @@ public sealed class BekiPackFulfillment(
     /// manifest it cannot trust.
     /// </summary>
 
+    /// <summary>
+    /// This book's stored child identity spec, or null when there is not one to be had.
+    ///
+    /// Null for every reason at once — no URL on the manifest, a blob that is gone, a download that
+    /// failed — because the caller does the same thing with all three, and it is not a thing to be
+    /// done quietly: a stored book with no readable spec has its artwork discarded and is redrawn.
+    /// Never throws; a resumed job must not die over a file it can replace.
+    /// </summary>
+    private async Task<string?> TryReadIdentitySpecAsync(
+        Guid packId, string? identitySpecUrl, CancellationToken cancellationToken)
+    {
+        if (identitySpecUrl is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        try
+        {
+            var bytes = await blobStorage.DownloadBytesFromStoredUrlAsync(
+                identitySpecUrl, cancellationToken);
+
+            return bytes is { Length: > 0 }
+                ? System.Text.Encoding.UTF8.GetString(bytes)
+                : null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex, "Beki pack {PackId}: could not read the stored child identity spec.", packId);
+
+            return null;
+        }
+    }
+
     private async Task<BekiFulfillmentManifest?> TryReadManifestAsync(
         string manifestName, CancellationToken cancellationToken)
     {
@@ -742,12 +1108,17 @@ public sealed class BekiPackFulfillment(
     /// written by the path this campaign leaves alone is byte-identical to the ones written before
     /// the composite pipeline existed.
     /// </param>
+    /// <param name="identitySpecUrl">
+    /// Likewise null and likewise omitted for a legacy book — the identity spec is a composite
+    /// artifact and the previous path derives none.
+    /// </param>
     /// <param name="compositions">Empty for a legacy book, and likewise omitted.</param>
     private async Task WriteManifestAsync(
         string manifestName,
         IReadOnlyDictionary<int, string> storedUrls,
         IReadOnlyList<string> illustrationContract,
         string? scenarioUrl,
+        string? identitySpecUrl,
         IReadOnlyDictionary<int, BekiCompositionManifestEntry> compositions,
         CancellationToken cancellationToken)
     {
@@ -759,6 +1130,7 @@ public sealed class BekiPackFulfillment(
                 .Select(pair => new BekiFulfillmentManifestEntry(pair.Key, pair.Value))
                 .ToList(),
             ScenarioUrl = scenarioUrl,
+            IdentitySpecUrl = identitySpecUrl,
             Compositions = compositions.Count == 0
                 ? null
                 : compositions.OrderBy(pair => pair.Key).Select(pair => pair.Value).ToList(),

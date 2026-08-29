@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Models;
@@ -65,6 +67,16 @@ public sealed record CompositeBookContext
     /// See <see cref="CompositeBookRequest.OnScenario"/> for why the timing is the point.
     /// </summary>
     public Func<string, Task>? OnScenario { get; init; }
+
+    /// <summary>
+    /// Where to persist the derived child identity spec, called before the first image call and
+    /// for the same reason the scenario's callback is.
+    ///
+    /// It rides on the context rather than being written here because the spec is private data
+    /// about a real child: it belongs in the pack's own storage, beside the photograph it was read
+    /// from, and this pipeline has no storage dependency on purpose.
+    /// </summary>
+    public Func<string, Task>? OnIdentitySpec { get; init; }
 }
 
 /// <summary>
@@ -180,6 +192,33 @@ public sealed record CompositeResumeState(
     IReadOnlyDictionary<int, byte[]> Spreads,
     IReadOnlyDictionary<int, byte[]> BaseImages)
 {
+    /// <summary>
+    /// The child identity spec that attempt derived, as it was stored.
+    ///
+    /// Adopting it matters for the same reason adopting the scenario does. The four attributes are
+    /// written into every image prompt, so a resumed run that derived a second spec — from the same
+    /// photograph, by the same model, and quite possibly with "wavy" where the first said "curly" —
+    /// would redraw its missing spreads to a different description of the same child than the ones
+    /// it is adopting. Every page would still pass its own review.
+    ///
+    /// Null, unreadable, or written by a different derivation prompt version all mean the same
+    /// thing: derive a new one. See <see cref="CompositeChildIdentity.TryReadStored"/>.
+    /// </summary>
+    public string? IdentitySpecJson { get; init; }
+
+    /// <summary>
+    /// The base image of the accepted first spread — the child appearance anchor every later
+    /// spread is drawn and reviewed against.
+    ///
+    /// It is not a second copy of anything: it is <see cref="BaseImages"/>' entry for spread one,
+    /// named separately because its job is different. As a continuity reference a base teaches a
+    /// later page about a creature; as the anchor it teaches every later page what this child looks
+    /// like once drawn. A resumed run that adopted spread one but cannot produce this has no anchor,
+    /// and the honest answer there is to redraw spread one rather than to draw seven pages of a
+    /// child nothing pins down.
+    /// </summary>
+    public byte[]? AnchorBasePng { get; init; }
+
     public static readonly CompositeResumeState Empty = new(
         null,
         new Dictionary<int, byte[]>(),
@@ -217,9 +256,25 @@ public sealed record CompositeBookRequest
     public Func<string, Task>? OnScenario { get; init; }
 
     /// <summary>
-    /// Called once per finished page, in page order, before the next one starts — the same
-    /// contract the legacy generator's callback has, and for the same reason: a parent is watching
-    /// a spinner for several minutes.
+    /// Called with the derived identity spec before the first image call, and awaited — the
+    /// scenario callback's timing, for the scenario callback's reason.
+    /// </summary>
+    public Func<string, Task>? OnIdentitySpec { get; init; }
+
+    /// <summary>
+    /// Called once per finished page, in page order, one at a time — the same contract the legacy
+    /// generator's callback has, and for the same reason: a parent is watching a spinner for
+    /// several minutes.
+    ///
+    /// "In page order, one at a time" is a promise this pipeline keeps on the callback's behalf and
+    /// not a description of how the pages are drawn. Spreads two to eight are drawn concurrently;
+    /// the callback still sees two, then three, then four, with the previous call finished before
+    /// the next begins. That is not politeness — the fulfilment job's callback mutates a dictionary
+    /// and a counter and rewrites one manifest blob, none of which survives being run twice at
+    /// once, and a manifest written out of order describes a book with holes in it.
+    ///
+    /// What it no longer promises is that nothing else is happening: page five may be generating
+    /// while page two's picture is being uploaded.
     /// </summary>
     public Func<CompositeSpreadResult, Task>? OnSpread { get; init; }
 }
@@ -306,6 +361,17 @@ public sealed class CompositeBookPipeline(
     /// printed spread.
     /// </summary>
     public const string SpreadImageSize = BekiBookGenerator.SpreadImageSize;
+
+    /// <summary>
+    /// The page whose accepted base becomes the child appearance anchor for the rest of the book.
+    ///
+    /// One rather than "whichever page is drawn first", and named here rather than assumed in two
+    /// files. The scenario is validated as exactly eight spreads numbered 1 to 8 in order, so the
+    /// first page of the book is the first page drawn on a fresh run; the constant exists so that
+    /// the fulfilment job — which has to hand a resumed run the right stored base image — is
+    /// reading the same answer this pipeline is, rather than its own copy of the number 1.
+    /// </summary>
+    public const int AnchorSpreadNumber = 1;
 
     private readonly BekiOptions _options = bekiOptions.Value;
 
@@ -437,72 +503,191 @@ public sealed class CompositeBookPipeline(
             await request.OnScenario(scenarioJson);
         }
 
-        // ---- Steps 3-7: one page at a time ----------------------------------------------------
+        // ---- Step 2b: the child identity spec --------------------------------------------------
         //
-        // Sequential, and not because it is simpler. Each page's continuity reference is the most
-        // recent accepted base image containing a recurring element, so page five's request depends
-        // on what page four actually produced; drawing them at once would mean either no continuity
-        // or a dependency graph, and the legacy path's graph exists to solve a problem this
-        // pipeline solves by having one obvious order.
+        // Once per book, before any picture is bought, and required. See DeriveIdentityAsync.
+        var storedIdentity = CompositeChildIdentity.TryReadStored(resume.IdentitySpecJson);
+
+        /*
+          Stored artwork with no spec to go with it is adopted as nothing at all.
+
+          The four attributes are written into every image prompt, so pages drawn under one spec and
+          pages drawn under another are pages of two different children — and a run that adopted the
+          first while deriving the second would produce exactly that, from the same photograph, with
+          every page passing its own review. There is no reading of a missing spec that makes the
+          two halves match: the derivation is a model call over a photograph, so a second one is a
+          second opinion, not a recovery of the first.
+
+          A spec is missing here for one of three reasons and they all end the same way: an earlier
+          attempt stored none, the blob is gone, or it was written by a derivation prompt this
+          deployment no longer uses. So the artwork goes and the book is redrawn under one spec,
+          which is the same answer a prompt-version change already gets from the resume contract.
+
+          The scenario is untouched. Nothing is wrong with it — the outfit and the recurring elements
+          it fixes are still the ones this book was sold as — and eight pages redrawn against it is
+          a whole book rather than two halves.
+        */
+        if (resume.Spreads.Count > 0 && storedIdentity is null)
+        {
+            logger.LogWarning(
+                "Composite pipeline {JobId}: {Stored} stored spread(s) have no usable child "
+                + "identity spec, so the pages this attempt redrew could not be drawn to the same "
+                + "child as the pages it adopted. Redrawing the whole book.",
+                context.JobId, resume.Spreads.Count);
+
+            warnings.Add(
+                $"{resume.Spreads.Count} spread(s) from an earlier attempt were discarded: this "
+                + "book's child identity spec is missing or was derived by a different prompt "
+                + "version, and finishing the book without it would draw two different children "
+                + "into one book.");
+
+            resume = resume with
+            {
+                Spreads = new Dictionary<int, byte[]>(),
+                BaseImages = new Dictionary<int, byte[]>(),
+                // The anchor goes with them: it is the first page of the discarded book, and
+                // matching seven fresh spreads to it would put the drift back one level down.
+                AnchorBasePng = null,
+            };
+        }
+
+        var identity = storedIdentity
+                       ?? await DeriveIdentityAsync(context, request, childPhoto, cancellationToken);
+
+        if (storedIdentity is not null)
+        {
+            logger.LogInformation(
+                "Composite pipeline {JobId}: identity_spec_adopted promptVersion={PromptVersion}; "
+                + "no new identity call.",
+                context.JobId, CompositeChildIdentity.Version);
+        }
+
+        // ---- Steps 3-7: the anchor spread, then the rest ---------------------------------------
         var visualLock = scenario.VisualLock!;
         var continuity = new CompositeContinuity();
-        var spreads = new List<CompositeSpreadResult>(BookFormat.SpreadCount);
+        var pages = scenario.Spreads!;
 
-        foreach (var page in scenario.Spreads!)
+        // Validated as exactly eight, numbered 1 to 8 in order, so the first entry is spread one —
+        // the page that produces the anchor and therefore the page that cannot be drawn beside any
+        // other.
+        const int anchorPage = AnchorSpreadNumber;
+
+        var adopted = new Dictionary<int, CompositeSpreadResult>();
+        var toDraw = new List<VisualScenarioSpread>(pages.Count);
+
+        /*
+          The anchor an earlier attempt left behind, decided before a single page is adopted.
+
+          Named explicitly by the caller, or simply spread one's stored base — the same bytes
+          either way. The named field exists so the fulfilment job can say which image is the
+          anchor rather than leaving this class to know the page number twice; the fallback keeps
+          a caller that supplies only the bases correct.
+        */
+        var anchor = resume.AnchorBasePng is { Length: > 0 } named
+            ? named
+            : resume.BaseImages.GetValueOrDefault(anchorPage);
+
+        /*
+          Stored artwork with no anchor to go with it is adopted as nothing at all.
+
+          Redrawing only the missing anchor was the wrong repair, and it was wrong in the way this
+          whole amendment exists to prevent. The stored pages were drawn against an anchor this
+          attempt cannot see; a fresh spread one is a fresh stylization of the same child; so the
+          pages this run redraws would be matched to the new one and the pages it adopts would keep
+          the old — one book, two children, every page passing its own review. The same holds when
+          spread one itself is missing while later pages are stored.
+
+          So the whole book is redrawn under one anchor. It costs eight images, which is the price
+          of the only outcome that is a book rather than two halves of two books; and it is the
+          same answer a prompt-version change already gets from the resume contract.
+        */
+        if (resume.Spreads.Count > 0 && anchor is not { Length: > 0 })
+        {
+            logger.LogWarning(
+                "Composite pipeline {JobId}: {Stored} stored spread(s) have no child appearance "
+                + "anchor — spread {AnchorPage}'s base image is missing — so they were drawn "
+                + "against a stylization this attempt cannot match. Redrawing the whole book.",
+                context.JobId, resume.Spreads.Count, anchorPage);
+
+            warnings.Add(
+                $"{resume.Spreads.Count} spread(s) from an earlier attempt were discarded: spread "
+                + $"{anchorPage}'s base image, which is the child appearance anchor for the whole "
+                + "book, is missing, and finishing the book without it would mix two stylizations "
+                + "of the same child.");
+
+            resume = resume with
+            {
+                Spreads = new Dictionary<int, byte[]>(),
+                BaseImages = new Dictionary<int, byte[]>(),
+            };
+        }
+
+        foreach (var page in pages)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (resume.Spreads.TryGetValue(page.Page, out var alreadyDrawn) && alreadyDrawn.Length > 0)
+            if (!resume.Spreads.TryGetValue(page.Page, out var alreadyDrawn)
+                || alreadyDrawn.Length == 0)
             {
-                /*
-                  An adopted page still teaches the pages after it.
-
-                  Skipping it entirely was the bug: spread two introduces the story's creature, a
-                  resumed run adopts spread two and redraws spread three, and spread three arrives
-                  with no continuity reference and redesigns the creature — in the middle of a book
-                  where the reader can see both pages at once.
-
-                  The reference restored here is the BASE image, never the composited one. The
-                  composite has the approved Beki pasted onto it, and the continuity instruction
-                  tells the model to copy the named elements from the attached picture: hand it a
-                  composite and the thing it is being shown is Beki.
-                */
-                var elements = CompositeIllustrationPrompt.RelevantRecurringElements(
-                    visualLock.RecurringElements, page.ChildWorldScene);
-
-                if (resume.BaseImages.TryGetValue(page.Page, out var storedBase)
-                    && storedBase.Length > 0)
-                {
-                    continuity.Remember(elements, storedBase);
-                }
-                else if (elements.Count > 0)
-                {
-                    warnings.Add(
-                        $"Spread {page.Page} was adopted without its base image, so the recurring "
-                        + "elements it introduced cannot be a continuity reference for later spreads.");
-                }
-
-                spreads.Add(AdoptedSpread(page.Page, alreadyDrawn));
+                toDraw.Add(page);
                 continue;
             }
 
-            var spread = await DrawSpreadAsync(
-                context, input, theme, scenario, page, continuity, childPhoto, childPhotoContentType,
-                cancellationToken);
+            /*
+              An adopted page still teaches the pages after it.
 
-            spreads.Add(spread);
+              Skipping it entirely was the bug: spread two introduces the story's creature, a
+              resumed run adopts spread two and redraws spread three, and spread three arrives
+              with no continuity reference and redesigns the creature — in the middle of a book
+              where the reader can see both pages at once.
 
-            if (spread.PoseFallback)
+              The reference restored here is the BASE image, never the composited one. The
+              composite has the approved Beki pasted onto it, and the continuity instruction
+              tells the model to copy the named elements from the attached picture: hand it a
+              composite and the thing it is being shown is Beki.
+            */
+            var elements = CompositeIllustrationPrompt.RelevantRecurringElements(
+                visualLock.RecurringElements, page.ChildWorldScene);
+
+            if (resume.BaseImages.TryGetValue(page.Page, out var storedBase)
+                && storedBase.Length > 0)
+            {
+                continuity.Remember(elements, storedBase);
+            }
+            else if (elements.Count > 0)
             {
                 warnings.Add(
-                    $"Spread {spread.Page}: no pose keyword matched the scenario's Beki action, so "
-                    + "the neutral hover was composited.");
+                    $"Spread {page.Page} was adopted without its base image, so the recurring "
+                    + "elements it introduced cannot be a continuity reference for later spreads.");
             }
 
-            if (request.OnSpread is not null)
+            adopted[page.Page] = AdoptedSpread(page.Page, alreadyDrawn);
+
+            if (page.Page == anchorPage)
             {
-                await request.OnSpread(spread);
+                logger.LogInformation(
+                    "Composite pipeline {JobId}: adopting spread {Page}'s stored base as the child "
+                    + "appearance anchor for the rest of the book.", context.JobId, page.Page);
             }
+        }
+
+        var drawn = await DrawSpreadsAsync(
+            context, input, theme, scenario, toDraw, anchorPage, anchor, identity, continuity,
+            childPhoto, childPhotoContentType, request.OnSpread, cancellationToken);
+
+        var spreads = pages
+            .Select(page => adopted.TryGetValue(page.Page, out var already)
+                ? already
+                : drawn[page.Page])
+            .ToList();
+
+        // Collected here rather than as each page lands, because the pages no longer land in order:
+        // gathering them from the finished book keeps the warning list the same list it always was.
+        foreach (var spread in spreads.Where(spread => spread.PoseFallback))
+        {
+            warnings.Add(
+                $"Spread {spread.Page}: no pose keyword matched the scenario's Beki action, so "
+                + "the neutral hover was composited.");
         }
 
         return new CompositeBookResult
@@ -577,7 +762,7 @@ public sealed class CompositeBookPipeline(
 
         var (image, _) = await GenerateBaseImageAsync(
             context, page: null, prompt,
-            References(childPhoto, childPhotoContentType, theme, continuityImage: null),
+            References(childPhoto, childPhotoContentType, theme, childAnchor: null, continuityImage: null),
             cancellationToken);
 
         return image;
@@ -767,8 +952,332 @@ public sealed class CompositeBookPipeline(
             : _options.VisualScenarioModel.Trim();
 
     // -----------------------------------------------------------------------------------------
-    // Steps 3-7 — one page
+    // Step 2b — the child identity spec
     // -----------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The four attributes every page of this book draws the child to, read once from the
+    /// photograph.
+    ///
+    /// Required, and terminal when it cannot be had. That is the amendment's whole point. Before
+    /// it, identity rode on the attached photograph alone, which means the model interpreted the
+    /// same picture afresh nine times; the completed book that proved it wrong had a visibly
+    /// different child on every spread and had passed all eight of its own reviews. So there is no
+    /// soft-degrade here: two unusable answers stop the book with
+    /// <see cref="CompositeFailureCodes.IdentitySpecFailed"/>, before the first image is paid for.
+    ///
+    /// Called only when there is no spec to adopt — see the caller, which discards a resumed run's
+    /// artwork rather than let a second derivation describe the same child differently from the
+    /// pages it would keep. The parent's eye colour is applied here, once, for the same reason: an
+    /// adopted spec is adopted exactly as stored.
+    ///
+    /// Nothing in here logs an attribute, or a digest of one. The event and the prompt version are
+    /// the whole record; the values live in the pack's private storage with the photograph they
+    /// were read from.
+    /// </summary>
+    /// <param name="childPhoto">
+    /// The photograph itself, and no content type beside it: the reviewer door takes bytes, and
+    /// the normalizer behind it decodes by sniffing rather than by what it is told — a JPEG and a
+    /// PNG reach the model as the same normalized picture either way.
+    /// </param>
+    private async Task<ChildIdentitySpec> DeriveIdentityAsync(
+        CompositeBookContext context,
+        CompositeBookRequest request,
+        byte[] childPhoto,
+        CancellationToken cancellationToken)
+    {
+        var model = _options.VisualReviewerModel;
+        ChildIdentityParseResult? previous = null;
+
+        for (var attempt = 0; attempt <= 1; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var ask = attempt == 0
+                ? CompositeChildIdentity.Prompt
+                : CompositeChildIdentity.RetryPrompt(previous!.Problems);
+
+            var started = Stopwatch.StartNew();
+            string answer;
+
+            try
+            {
+                /*
+                  The existing multimodal reviewer door, not a new one.
+
+                  It is already exactly this call — images plus an instruction, in, one text answer
+                  out, validated against a schema by the caller — and on the Gemini route it is
+                  already the vision model the handoff names for this work. A second method on the
+                  illustration client would have been the same request with a different name on it,
+                  and one more surface for the router, the OpenAI implementation and every test
+                  double to keep in step.
+
+                  The photograph goes in the "under review" position because that is the picture
+                  being read; the prompt says in its first line what the image is.
+                */
+                answer = await openAi.ReviewIllustrationAsync(
+                    childPhoto, ask, [], cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                started.Stop();
+                LogModelCall(
+                    context, "identity_spec", model, CompositeChildIdentity.Version,
+                    started.ElapsedMilliseconds, attempt, "failed");
+
+                // A transport failure and an unreadable answer are the same thing here: no spec.
+                // Both are worth the one retry, and the second of either stops the book.
+                previous = new ChildIdentityParseResult(
+                    false, null, ["the identity call did not complete."]);
+
+                continue;
+            }
+
+            started.Stop();
+
+            var parsed = CompositeChildIdentity.Parse(answer);
+
+            // parsed.Summary is value-free by construction — see ChildIdentityParseResult — which
+            // is what makes it safe to put in the validation field of a log line.
+            LogModelCall(
+                context, "identity_spec", model, CompositeChildIdentity.Version,
+                started.ElapsedMilliseconds, attempt, parsed.IsValid ? "accepted" : parsed.Summary);
+
+            if (!parsed.IsValid)
+            {
+                previous = parsed;
+
+                logger.LogWarning(
+                    "Composite pipeline {JobId}: identity spec attempt {Attempt} rejected — {Problems}",
+                    context.JobId, attempt + 1, parsed.Summary);
+
+                continue;
+            }
+
+            var spec = CompositeChildIdentity.WithParentEyeColor(
+                parsed.Spec!, context.Input.LegacyEyeColor);
+
+            // The event and the version, and one boolean that is about the order form rather than
+            // about the child: whether a parent-supplied eye colour replaced the derived one. No
+            // attribute value and no digest of one — see CompositeChildIdentity for why a hash of
+            // four low-entropy attributes salted with a job id that is logged beside it is the
+            // attributes with extra steps.
+            logger.LogInformation(
+                "Composite pipeline {JobId}: identity_spec_derived promptVersion={PromptVersion} "
+                + "parentEyeColour={ParentSupplied}.",
+                context.JobId, CompositeChildIdentity.Version,
+                !string.IsNullOrWhiteSpace(context.Input.LegacyEyeColor));
+
+            // The request's own callback when a caller set one, and the context's otherwise. The
+            // fallback is what lets the fulfilment job persist the spec without the illustrator in
+            // between having to learn about it: that class builds this request from the context and
+            // copies the callbacks it knows about, and this campaign did not touch it.
+            var persist = request.OnIdentitySpec ?? context.OnIdentitySpec;
+
+            if (persist is not null)
+            {
+                await persist(CompositeChildIdentity.ToStoredJson(spec));
+            }
+
+            return spec;
+        }
+
+        throw new CompositePipelineException(
+            CompositeFailureCodes.IdentitySpecFailed,
+            "The child's identity attributes could not be read from the photograph in two "
+            + "attempts, and this book may not be drawn without them: " + previous!.Summary);
+    }
+
+    // -----------------------------------------------------------------------------------------
+    // Steps 3-7 — the pages
+    // -----------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Draws every page this run owes, spread one alone and the rest together.
+    ///
+    /// Spread one is alone because it is the anchor: it is the picture the other seven are told to
+    /// match the child against, so nothing else can start until it has been drawn and accepted.
+    /// After that the remaining pages have no dependency on each other that a shared continuity
+    /// reference does not already satisfy, and drawing them one at a time cost the first real book
+    /// 651 seconds of mostly waiting.
+    ///
+    /// Three rules make the concurrency safe rather than merely fast.
+    ///
+    /// Delivery stays serialized and in spread order. The callback belongs to the fulfilment job,
+    /// where it mutates a dictionary of stored URLs, advances a progress counter and rewrites one
+    /// manifest blob; two of those at once corrupts the manifest and the third reports a book as
+    /// further along than it is. <see cref="OrderedSpreadDelivery"/> is the whole of that promise.
+    ///
+    /// The first terminal failure stops the rest. A book fails as a book — one page's
+    /// IMAGE_QA_FAILED is the run's failure — so the sibling token is cancelled the moment one page
+    /// gives up, and the pages still in flight stop before their next paid call rather than
+    /// finishing pictures for a book that is already over.
+    ///
+    /// The continuity reference is whatever was accepted when a page was scheduled. It is usually
+    /// spread one, which is the accepted trade: a creature introduced mid-book may now be matched
+    /// against the page that introduced it rather than against the page immediately before, and QA
+    /// still checks it.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<int, CompositeSpreadResult>> DrawSpreadsAsync(
+        CompositeBookContext context,
+        NormalizedBookInput input,
+        CompositeThemeReference theme,
+        VisualScenarioV2 scenario,
+        IReadOnlyList<VisualScenarioSpread> toDraw,
+        int anchorPage,
+        byte[]? anchor,
+        ChildIdentitySpec identity,
+        CompositeContinuity continuity,
+        byte[] childPhoto,
+        string childPhotoContentType,
+        Func<CompositeSpreadResult, Task>? onSpread,
+        CancellationToken cancellationToken)
+    {
+        var drawn = new ConcurrentDictionary<int, CompositeSpreadResult>();
+
+        if (toDraw.Count == 0)
+        {
+            return drawn;
+        }
+
+        var delivery = new OrderedSpreadDelivery(
+            toDraw.Select(page => page.Page).ToList(), onSpread);
+
+        var remaining = toDraw;
+
+        // The anchor page, when this run is the one drawing it: alone, first, and awaited.
+        if (anchor is not { Length: > 0 })
+        {
+            var first = toDraw[0];
+
+            if (first.Page != anchorPage)
+            {
+                // Unreachable: a page is either adopted with its base — which is what gives this
+                // run an anchor — or it is in toDraw, and toDraw is in page order. Stated anyway,
+                // because the alternative to a loud contradiction is seven spreads silently drawn
+                // with no anchor at all.
+                throw new CompositePipelineException(
+                    CompositeFailureCodes.ImageGenerationFailed,
+                    $"Spread {anchorPage} is neither adopted with its base image nor the first "
+                    + "page to be drawn, so this run has no child appearance anchor.");
+            }
+
+            var anchorSpread = await DrawSpreadAsync(
+                context, input, theme, scenario, first, continuity, childPhoto,
+                childPhotoContentType, identity, anchor: null, cancellationToken);
+
+            drawn[anchorSpread.Page] = anchorSpread;
+
+            // The accepted base, which on a page that spent its one regeneration is the regenerated
+            // picture and never the refused draft — DrawSpreadAsync only returns what QA passed.
+            anchor = anchorSpread.BasePng;
+
+            logger.LogInformation(
+                "Composite pipeline {JobId}: spread {Page} accepted; its base is the child "
+                + "appearance anchor for the remaining {Count} spread(s).",
+                context.JobId, anchorSpread.Page, toDraw.Count - 1);
+
+            await delivery.DeliverAsync(anchorSpread, cancellationToken);
+
+            remaining = toDraw.Skip(1).ToList();
+        }
+
+        if (remaining.Count == 0)
+        {
+            return drawn;
+        }
+
+        var concurrency = Math.Max(1, _options.SpreadConcurrency);
+        var anchorImage = anchor!;
+
+        logger.LogInformation(
+            "Composite pipeline {JobId}: drawing {Count} spread(s) with at most {Concurrency} at "
+            + "once.", context.JobId, remaining.Count, concurrency);
+
+        // Linked, so the caller's own cancellation still stops everything, and cancellable by us,
+        // so the first terminal failure stops everything too.
+        using var siblings = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using var slots = new SemaphoreSlim(concurrency, concurrency);
+
+        Exception? terminal = null;
+
+        var tasks = remaining.Select(DrawOneAsync).ToList();
+
+        try
+        {
+            await Task.WhenAll(tasks);
+        }
+        catch (Exception)
+        {
+            /*
+              What the run failed of is the first page that gave up, not whichever exception
+              Task.WhenAll happens to surface — and once the siblings are cancelled, most of what
+              it surfaces is cancellation. So the real failure is captured at the moment it
+              happens and rethrown here with its stack intact.
+            */
+            if (terminal is not null)
+            {
+                ExceptionDispatchInfo.Capture(terminal).Throw();
+            }
+
+            // No terminal failure means the caller cancelled us, which is not this run's to
+            // reinterpret.
+            cancellationToken.ThrowIfCancellationRequested();
+            throw;
+        }
+
+        return drawn;
+
+        async Task DrawOneAsync(VisualScenarioSpread page)
+        {
+            await slots.WaitAsync(siblings.Token).ConfigureAwait(false);
+
+            CompositeSpreadResult spread;
+
+            try
+            {
+                spread = await DrawSpreadAsync(
+                    context, input, theme, scenario, page, continuity, childPhoto,
+                    childPhotoContentType, identity, anchorImage, siblings.Token);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Fail(ex);
+                throw;
+            }
+            finally
+            {
+                slots.Release();
+            }
+
+            drawn[spread.Page] = spread;
+
+            try
+            {
+                // Outside the slot on purpose: the callback uploads a picture and rewrites a
+                // manifest, and holding a generation slot through somebody else's network calls
+                // would make the concurrency limit a limit on uploads.
+                await delivery.DeliverAsync(spread, siblings.Token);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Fail(ex);
+                throw;
+            }
+        }
+
+        void Fail(Exception ex)
+        {
+            // First writer wins: the page that actually stopped the book is the one reported.
+            Interlocked.CompareExchange(ref terminal, ex, null);
+
+            logger.LogError(
+                ex, "Composite pipeline {JobId}: a spread failed terminally; cancelling the "
+                + "spreads still in flight.", context.JobId);
+
+            siblings.Cancel();
+        }
+    }
 
     private async Task<CompositeSpreadResult> DrawSpreadAsync(
         CompositeBookContext context,
@@ -779,6 +1288,8 @@ public sealed class CompositeBookPipeline(
         CompositeContinuity continuity,
         byte[] childPhoto,
         string childPhotoContentType,
+        ChildIdentitySpec identity,
+        byte[]? anchor,
         CancellationToken cancellationToken)
     {
         var textSide = CompositeSpreadRhythm.TextSideFor(page.Page);
@@ -787,7 +1298,13 @@ public sealed class CompositeBookPipeline(
         var elements = CompositeIllustrationPrompt.RelevantRecurringElements(
             visualLock.RecurringElements, page.ChildWorldScene);
 
+        // Read once, when this page is scheduled: the most recently accepted base carrying one of
+        // this page's recurring elements. With the pages drawn concurrently that is usually spread
+        // one rather than the page immediately before, which is the trade the parallel campaign
+        // accepted and QA's CAST_ERROR still checks.
         var reference = continuity.For(elements);
+
+        var anchored = anchor is { Length: > 0 };
 
         var prompt = CompositeIllustrationPrompt.ForSpread(new CompositeSpreadPromptInput
         {
@@ -797,7 +1314,9 @@ public sealed class CompositeBookPipeline(
             ChildWorldScene = page.ChildWorldScene!,
             ChildOutfit = visualLock.ChildOutfit!,
             RecurringElements = elements,
-            ContinuityElementNames = reference?.ElementNames ?? []
+            ContinuityElementNames = reference?.ElementNames ?? [],
+            IdentitySpec = identity,
+            AnchorAttached = anchored,
         });
 
         // Chosen from the scenario's Beki sentence and nothing else, before a single pixel exists.
@@ -815,7 +1334,7 @@ public sealed class CompositeBookPipeline(
 
         var (rawPng, generationMs) = await GenerateBaseImageAsync(
             context, page.Page, prompt,
-            References(childPhoto, childPhotoContentType, theme, reference?.Image),
+            References(childPhoto, childPhotoContentType, theme, anchor, reference?.Image),
             cancellationToken);
 
         var basePng = NormalizeToSpread(context, page.Page, rawPng);
@@ -837,7 +1356,7 @@ public sealed class CompositeBookPipeline(
 
             var (verdict, reviewMs) = await ReviewAsync(
                 context, page, scenario, composite, textSide, childPhoto, childPhotoContentType,
-                theme, elements, cancellationToken);
+                theme, elements, anchor, cancellationToken);
 
             attempts.Add(new CompositeAttempt(
                 generationMs, reviewMs, verdict.ToString(), verdict.Passed));
@@ -880,7 +1399,7 @@ public sealed class CompositeBookPipeline(
 
                 (rawPng, generationMs) = await GenerateBaseImageAsync(
                     context, page.Page, prompt,
-                    References(childPhoto, childPhotoContentType, theme, reference?.Image),
+                    References(childPhoto, childPhotoContentType, theme, anchor, reference?.Image),
                     cancellationToken);
 
                 basePng = NormalizeToSpread(context, page.Page, rawPng);
@@ -942,6 +1461,12 @@ public sealed class CompositeBookPipeline(
         StoryImageReference? references,
         CancellationToken cancellationToken)
     {
+        // Checked here rather than only by the provider, and that is what makes fail-fast real: a
+        // sibling spread that has already given up cancels this token, and the promise is that no
+        // further image is PAID FOR after a book has terminally failed — not that a request is sent
+        // and abandoned.
+        cancellationToken.ThrowIfCancellationRequested();
+
         var started = Stopwatch.StartNew();
         byte[] image;
 
@@ -1144,23 +1669,37 @@ public sealed class CompositeBookPipeline(
         string childPhotoContentType,
         CompositeThemeReference theme,
         IReadOnlyList<string> elements,
+        byte[]? anchor,
         CancellationToken cancellationToken)
     {
+        var anchored = anchor is { Length: > 0 };
+
         var prompt = CompositeMinimalQa.Prompt(
             page.ChildWorldScene!,
             page.BekiAction!,
             scenario.VisualLock!.ChildOutfit!,
             elements,
-            textSide);
+            textSide,
+            anchored);
 
-        // The child's photograph, and only the child's photograph. The reviewer is told to use it
-        // for identity and age; sending the theme reference too would invite it to grade the world
-        // against a picture the scene was never meant to reproduce, and sending a Beki reference
-        // would invite exactly the identity judgement the hash already settles.
+        /*
+          The child's photograph, and — after spread one — the child appearance anchor. Nothing else.
+
+          The photograph answers "is this the same child"; the anchor answers "is this the same
+          child as the rest of this book", which is the question the drifting book's eight PASSes
+          were never asked. Both are about the child. The theme reference is still absent, because
+          it would invite the reviewer to grade the world against a picture the scene was never
+          meant to reproduce, and a Beki reference is still absent, because a SHA-256 settles that.
+        */
         var references = new List<(byte[] Bytes, string ContentType, string Label)>
         {
             (childPhoto, childPhotoContentType, "Original child photograph"),
         };
+
+        if (anchored)
+        {
+            references.Add((anchor!, "image/png", "Child appearance anchor (accepted spread 1)"));
+        }
 
         CompositeQaParseResult? previous = null;
 
@@ -1170,6 +1709,10 @@ public sealed class CompositeBookPipeline(
 
         for (var attempt = 0; attempt <= 1; attempt++)
         {
+            // A sibling spread that has terminally failed has already ended this book; reviewing
+            // a page for it is one more paid call for nothing.
+            cancellationToken.ThrowIfCancellationRequested();
+
             var ask = attempt == 0
                 ? prompt
                 : prompt
@@ -1232,22 +1775,41 @@ public sealed class CompositeBookPipeline(
     }
 
     /// <summary>
-    /// The images the generation call carries, and the one it must never carry.
+    /// The images the generation call carries, in the order the prompt numbers them, and the one it
+    /// must never carry.
     ///
-    /// Two, or three when a recurring element has been drawn before: the child's photograph as the
-    /// identity reference, the approved world reference, and optionally the last accepted base that
-    /// contained the element this page reuses. No Beki, in any position, under any label — the
-    /// config says <c>send_beki_reference: false</c>, and a list built anywhere else is a list this
-    /// rule could be broken in.
+    /// Two on the first spread — the child's photograph as the identity reference and the approved
+    /// world reference — then the child appearance anchor on every page after it, then the last
+    /// accepted base containing this page's recurring element when there is one. Four at most,
+    /// which is the template's own limit.
+    ///
+    /// The order is not cosmetic. The prompt calls them Image 1 to Image 4 by position, so a list
+    /// assembled in a different order tells the model to take the child's stylization from a
+    /// picture of a creature. It is also the weighting: the first reference is the one the image
+    /// model leans on hardest, and that is the photograph, deliberately, on every page.
+    ///
+    /// No Beki, in any position, under any label — the config says <c>send_beki_reference: false</c>,
+    /// and a list built anywhere else is a list this rule could be broken in. Note what the anchor
+    /// is for the same reason: the accepted BASE of spread one, which is the page before Beki was
+    /// pasted onto it.
     /// </summary>
     private static StoryImageReference? References(
-        byte[] childPhoto, string childPhotoContentType, CompositeThemeReference theme, byte[]? continuityImage)
+        byte[] childPhoto,
+        string childPhotoContentType,
+        CompositeThemeReference theme,
+        byte[]? childAnchor,
+        byte[]? continuityImage)
     {
         var references = new List<(byte[] Bytes, string ContentType, string Label)>
         {
             (childPhoto, childPhotoContentType, "Child identity reference"),
             (theme.Bytes, "image/png", $"Approved {theme.OfficialName} world reference"),
         };
+
+        if (childAnchor is { Length: > 0 })
+        {
+            references.Add((childAnchor, "image/png", "Child appearance anchor"));
+        }
 
         if (continuityImage is { Length: > 0 })
         {
@@ -1337,6 +1899,14 @@ public sealed class CompositeBookPipeline(
         private readonly Dictionary<string, byte[]> _byElement = new(StringComparer.Ordinal);
 
         /// <summary>
+        /// Read while one page is being scheduled, written when another is accepted, and those two
+        /// now happen at the same time. A plain dictionary torn by a concurrent write is not a
+        /// wrong reference — it is a corrupted dictionary, on the path that decides what nine paid
+        /// image calls are shown.
+        /// </summary>
+        private readonly object _gate = new();
+
+        /// <summary>
         /// The reference for this page: the last accepted base containing any of the elements this
         /// page reuses, and the names it may be read for.
         ///
@@ -1347,15 +1917,18 @@ public sealed class CompositeBookPipeline(
         /// </summary>
         public (byte[] Image, IReadOnlyList<string> ElementNames)? For(IReadOnlyList<string> elements)
         {
-            foreach (var element in elements)
+            lock (_gate)
             {
-                if (_byElement.TryGetValue(element, out var image))
+                foreach (var element in elements)
                 {
-                    return (image, [element]);
+                    if (_byElement.TryGetValue(element, out var image))
+                    {
+                        return (image, [element]);
+                    }
                 }
-            }
 
-            return null;
+                return null;
+            }
         }
 
         /// <summary>
@@ -1375,9 +1948,104 @@ public sealed class CompositeBookPipeline(
                 return;
             }
 
-            foreach (var element in elements)
+            lock (_gate)
             {
-                _byElement[element] = basePng;
+                foreach (var element in elements)
+                {
+                    _byElement[element] = basePng;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// The promise the fulfilment callback is written against: one at a time, in spread order,
+    /// however the pages actually finish.
+    ///
+    /// It exists because the callback is not a notification. On the other side of it a job uploads
+    /// a picture, stores a composition receipt, advances a percentage and rewrites the one manifest
+    /// blob that decides what a resumed run may adopt — reading and rewriting a dictionary it also
+    /// mutates. Two of those at once is a manifest missing whichever page lost the race, which is
+    /// then a page redrawn by the next attempt and paid for twice; out of order, it is a book that
+    /// reports page five as done while page three is still being drawn.
+    ///
+    /// Making the callback thread-safe was the alternative, and it is the wrong place for the fix:
+    /// the fulfilment job's callback is written once and read by people reasoning about a book, and
+    /// "pages arrive in order, one at a time" is a sentence they can hold. The concurrency this
+    /// campaign added belongs to the pipeline that added it.
+    ///
+    /// Pages that were adopted from an earlier attempt are not in the order at all — they were
+    /// delivered by the run that drew them, and their pictures are already stored.
+    /// </summary>
+    private sealed class OrderedSpreadDelivery(
+        IReadOnlyList<int> order, Func<CompositeSpreadResult, Task>? callback)
+    {
+        private readonly SemaphoreSlim _gate = new(1, 1);
+        private readonly Dictionary<int, CompositeSpreadResult> _ready = [];
+
+        /// <summary>How far down <c>order</c> the callback has been taken.</summary>
+        private int _next;
+
+        /// <summary>
+        /// Set when the callback itself throws, and read before anything else is handed over.
+        ///
+        /// The sibling cancellation that follows such a failure is a moment behind it — the
+        /// callback throws, this gate is released, and only then does the catch upstream cancel —
+        /// which is long enough for the next page, already queued here, to be delivered into a
+        /// storage layer that has just failed. The latch closes that window without depending on
+        /// how quickly cancellation arrives. Only ever touched inside the gate.
+        /// </summary>
+        private bool _abandoned;
+
+        /// <summary>
+        /// Hands over one finished page, and with it every page that was only waiting for this one.
+        ///
+        /// A spread that finishes early simply waits: page four completing before page three
+        /// records itself and returns, and page three's own call delivers three and then four. So
+        /// the callback runs on whichever thread completed the page that unblocked it, one call at
+        /// a time, in the book's order.
+        /// </summary>
+        public async Task DeliverAsync(CompositeSpreadResult spread, CancellationToken cancellationToken)
+        {
+            if (callback is null)
+            {
+                return;
+            }
+
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                if (_abandoned)
+                {
+                    return;
+                }
+
+                _ready[spread.Page] = spread;
+
+                while (_next < order.Count && _ready.TryGetValue(order[_next], out var due))
+                {
+                    // A book that has already failed terminally does not go on being delivered:
+                    // the pages after the failure will never exist, and the manifest should not
+                    // claim otherwise.
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    try
+                    {
+                        await callback(due).ConfigureAwait(false);
+                    }
+                    catch (Exception)
+                    {
+                        _abandoned = true;
+                        throw;
+                    }
+
+                    _next++;
+                }
+            }
+            finally
+            {
+                _gate.Release();
             }
         }
     }

@@ -144,11 +144,18 @@ public sealed class GeminiInteractionsClient(
             }
             catch (TransientGeminiException ex) when (attempt < attempts)
             {
-                var delay = ex.RetryAfter
-                            ?? TimeSpan.FromSeconds(Math.Max(1, _options.RetryBackoffSeconds) * attempt);
+                var delay = RetryDelay(ex.RetryAfter, attempt, _options.RetryBackoffSeconds);
                 logger.LogWarning(
-                    "Gemini attempt {Attempt}/{Total} failed ({Reason}); retrying in {Delay}s.",
-                    attempt, attempts, ex.Message, delay.TotalSeconds);
+                    "Gemini attempt {Attempt}/{Total} failed ({Reason}); retrying in {Delay}s"
+                    + "{Capped}.",
+                    attempt, attempts, ex.Message, delay.TotalSeconds,
+                    ex.RetryAfter is { } asked && asked > MaxRetryDelay
+                        ? $" (the server asked for {asked.TotalSeconds:0}s)"
+                        : string.Empty);
+
+                // Cancellable, and that is the point of passing the token: this sleep is inside
+                // the generation budget, and a job whose deadline passes while it is waiting on a
+                // provider's advice must stop waiting.
                 await Task.Delay(delay, cancellationToken);
             }
         }
@@ -206,6 +213,37 @@ public sealed class GeminiInteractionsClient(
 
         client.Timeout = TimeSpan.FromMinutes(Math.Max(1, _options.TimeoutMinutes));
         return client;
+    }
+
+    /// <summary>
+    /// The longest this client will sleep between attempts, however patiently it is asked to.
+    ///
+    /// <c>Retry-After</c> is the server's opinion and it was being obeyed without limit. A single
+    /// 429 quoting a long delay parked a generation attempt for as long as the header said, three
+    /// times over, inside a job that nothing was watching — which is a large part of how a book
+    /// ended up stalled for hours rather than failing in minutes. A minute is long enough for a
+    /// rate limit window to move and short enough that three attempts still fit inside a
+    /// generation budget with room for the work itself.
+    ///
+    /// The advice is not ignored, only capped: a server asking for five seconds still gets five.
+    /// </summary>
+    internal static readonly TimeSpan MaxRetryDelay = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// How long to wait before attempt <paramref name="attempt"/> + 1: the server's own
+    /// <c>Retry-After</c> when it sent one, otherwise the configured backoff multiplied by the
+    /// attempt — and never more than <see cref="MaxRetryDelay"/>.
+    ///
+    /// Pure, and separated from the loop so that the rule can be tested for what it is rather than
+    /// by a test that actually waits a minute to find out.
+    /// </summary>
+    internal static TimeSpan RetryDelay(TimeSpan? retryAfter, int attempt, int backoffSeconds)
+    {
+        var requested = retryAfter is { } advice && advice > TimeSpan.Zero
+            ? advice
+            : TimeSpan.FromSeconds(Math.Max(1, backoffSeconds) * Math.Max(1, attempt));
+
+        return requested > MaxRetryDelay ? MaxRetryDelay : requested;
     }
 
     private static TimeSpan? RetryAfter(HttpResponseMessage response)

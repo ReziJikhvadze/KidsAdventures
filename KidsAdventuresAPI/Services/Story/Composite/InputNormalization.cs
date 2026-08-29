@@ -26,6 +26,17 @@ public static class CompositeFailureCodes
     /// <summary>Two Visual Scenario attempts, both invalid.</summary>
     public const string VisualScenarioFailed = "VISUAL_SCENARIO_FAILED";
 
+    /// <summary>
+    /// Two attempts at reading the child's four identity attributes from the photograph, both
+    /// unusable — so the book stops before its first picture.
+    ///
+    /// Added by the v1.1 campaign, and deliberately terminal rather than a warning. The alternative
+    /// was tried: a book drawn with identity riding on the photograph alone came back with a
+    /// visibly different child on every spread, and passed all eight of its own reviews on the way.
+    /// A soft-degrade here would restore exactly that book, minus the evidence.
+    /// </summary>
+    public const string IdentitySpecFailed = "IDENTITY_SPEC_FAILED";
+
     public const string ImageGenerationFailed = "IMAGE_GENERATION_FAILED";
 
     public const string ImageQaFailed = "IMAGE_QA_FAILED";
@@ -48,6 +59,7 @@ public static class CompositeFailureCodes
         InvalidBookInput,
         StoryFailed,
         VisualScenarioFailed,
+        IdentitySpecFailed,
         ImageGenerationFailed,
         ImageQaFailed,
         TextOverflow,
@@ -121,6 +133,20 @@ public sealed record BookGenerationInput
 
     /// <summary>Where the child's photograph is stored. Read by the image stage, never by Story.</summary>
     public required string ChildPhotoRef { get; init; }
+
+    /// <summary>
+    /// The eye colour the parent typed on the order form, when the stored row carries one.
+    ///
+    /// Beside <see cref="ChildPhotoRef"/> and for the same reason: the image stage needs it and
+    /// Story must never see it. It reaches exactly one place — the identity spec, where a parent
+    /// looking at their own child overrides a model looking at a photograph in which the eyes may
+    /// be forty pixels wide — and it cannot reach the planner, because
+    /// <see cref="NormalizedBookInput"/> has nowhere to put it.
+    ///
+    /// Optional in every sense: absent on most rows, and an absent value simply leaves the derived
+    /// attribute standing.
+    /// </summary>
+    public string? LegacyEyeColor { get; init; }
 
     /// <summary>
     /// The parent's legacy Extra Wish, if a stored row still carries one.

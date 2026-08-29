@@ -108,6 +108,22 @@ RecurringJob.AddOrUpdate<IMasterStoryRunCleanupService>(
     service => service.PurgeExpiredAsync(),
     Cron.Hourly);
 
+// A book whose generation process stopped existing has nothing left that can write down what
+// happened to it: the terminal status is written by the job's own catch, and there is no job. One
+// paid book sat in GeneratingStory permanently for exactly that reason, and the order sweep above
+// could never rescue it — an order is marked fulfilled when generation is enqueued, not when it
+// finishes.
+//
+// So this reads the rows instead of trusting a process, and fails the ones that have been silent
+// for longer than a whole generation budget plus a grace period. Every five minutes, like the
+// order sweep, because the thing it is racing is a parent refreshing a progress bar. It never
+// requeues: a book that has already spent forty minutes and real money is a decision for a person,
+// not for a timer.
+RecurringJob.AddOrUpdate<IStaleGenerationSweepService>(
+    "stale-generation-sweep",
+    service => service.SweepAsync(),
+    "*/5 * * * *");
+
 app.MapControllers();
 app.UseFrontendHosting();
 

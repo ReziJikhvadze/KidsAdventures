@@ -48,8 +48,11 @@ public sealed class MasterBookService(
     IBackgroundJobClient backgroundJobClient,
     IBekiBookGenerator bekiBookGenerator,
     IOptions<BekiOptions> bekiOptions,
-    ILogger<MasterBookService> logger) : IMasterBookService
+    ILogger<MasterBookService> logger,
+    TimeProvider? timeProvider = null) : IMasterBookService
 {
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
     /// <summary>
     /// How long an unclaimed guest run is kept. Long enough to finish, be read, and survive the
     /// sign-up round trip; short enough that a visitor who walks away leaves nothing behind.
@@ -135,45 +138,95 @@ public sealed class MasterBookService(
 
     public async Task WriteBookAsync(Guid runId, CancellationToken cancellationToken)
     {
-        var run = await runRepository.GetByIdAsync(runId, cancellationToken);
-        if (run is null)
-        {
-            logger.LogWarning("Master story run {RunId} vanished before the job started.", runId);
-            return;
-        }
+        /*
+          The same wall clock the fulfilment job runs under, for the same reason.
+
+          A preview is cheaper than a purchased book but it fails the same way: the story call and
+          the cover call are both minutes long, both retry, and both can sleep on a provider's
+          Retry-After. A run that hangs inside one of them used to sit in Writing forever with a
+          browser polling it, because the only thing that ever wrote a terminal status was the
+          catch below — and nothing was going to throw.
+
+          Which token fired decides what that means. A deadline that fires is a preview that is not
+          coming; the host's token firing is a deployment, and the run has a resume path a few lines
+          down that starts at the cover rather than rewriting the book.
+        */
+        using var deadline = GenerationBudget.Start(
+            cancellationToken, GenerationBudget.For(bekiOptions.Value), _timeProvider);
+        var jobToken = deadline.Token;
+
+        // Where the job was when it stopped. A cancelled await leaves an exception that names
+        // neither the call nor the stage, and "the story" and "the cover" are answered very
+        // differently by whoever reads the log.
+        var stage = "loading the run";
 
         // Where a preview's minutes actually go. Asked often enough — and guessed at often
         // enough — to be worth measuring rather than reasoning about.
         var started = System.Diagnostics.Stopwatch.StartNew();
         var writingDoneMs = 0L;
 
-        // A book already written is never written twice.
-        //
-        // Hangfire re-queues a job whose process died, and this one dies in the most expensive
-        // place available: mid-way through a call that takes minutes and costs real money. On a
-        // deploy or a restart the retry would start again from the top and buy a second book —
-        // and hand the parent a different story from the one they had been waiting for.
-        //
-        // Exceptions do not reach this path, because the catch below marks the run failed and
-        // swallows them, so Hangfire never sees a failure to retry. This is for the case where
-        // nothing threw and the process simply stopped existing.
-        if (!string.IsNullOrWhiteSpace(run.StoryJson) && !string.IsNullOrWhiteSpace(run.ContentJson))
-        {
-            logger.LogInformation(
-                "Run {RunId} already has its story; resuming at the cover rather than rewriting it.",
-                runId);
+        /*
+          Once the story is saved the run is a finished preview, cover or no cover.
 
-            await ResumeAtCoverAsync(run, cancellationToken);
-            return;
-        }
+          The reader opens on the world's own artwork and swaps in the real cover when it lands, so
+          a run that is Ready without one is a supported state rather than a broken book. That is
+          what makes the flag worth keeping: a deadline that expires while the cover is being drawn
+          must not roll a complete story back to Failed over the one part of the job that was always
+          allowed to be missing.
+        */
+        var storyIsSaved = false;
 
+        /*
+          The load, and the resume branch, are inside the guarded region — which is not where they
+          started.
+
+          Both sat above the try, under the budget's token, so a deadline expiring in either threw
+          past every handler below: no terminal status, no classification of the cause, and a
+          Hangfire retry that would do the same thing again while a browser kept polling a run that
+          said Writing.
+        */
         try
         {
+            var run = await runRepository.GetByIdAsync(runId, jobToken);
+            if (run is null)
+            {
+                logger.LogWarning("Master story run {RunId} vanished before the job started.", runId);
+                return;
+            }
+
+            // A book already written is never written twice.
+            //
+            // Hangfire re-queues a job whose process died, and this one dies in the most expensive
+            // place available: mid-way through a call that takes minutes and costs real money. On a
+            // deploy or a restart the retry would start again from the top and buy a second book —
+            // and hand the parent a different story from the one they had been waiting for.
+            //
+            // Exceptions do not reach this path, because the catch below marks the run failed and
+            // swallows them, so Hangfire never sees a failure to retry — with one deliberate
+            // exception, added with the budget: a job stopped because the host is going away is
+            // rethrown, which is precisely the case this branch then answers on the next attempt.
+            if (!string.IsNullOrWhiteSpace(run.StoryJson) && !string.IsNullOrWhiteSpace(run.ContentJson))
+            {
+                logger.LogInformation(
+                    "Run {RunId} already has its story; resuming at the cover rather than rewriting it.",
+                    runId);
+
+                // The story is on the row already, so this branch can only ever be finishing the
+                // cover — and the handlers below must treat it that way.
+                storyIsSaved = true;
+                stage = "finishing the cover of a resumed run";
+
+                await ResumeAtCoverAsync(run, jobToken);
+                return;
+            }
+
+            stage = "writing the story";
+
             await runRepository.SetProgressAsync(
                 runId,
                 MasterStoryRunStatus.Writing,
                 "ვწერთ შენს ზღაპარს… ეს რამდენიმე წუთს გრძელდება.",
-                cancellationToken);
+                jobToken);
 
             if (!Enum.TryParse<ThemeType>(run.Theme, ignoreCase: true, out var theme))
             {
@@ -261,7 +314,7 @@ public sealed class MasterBookService(
                 masterStoryService.PromptVersion,
                 systemPrompt,
                 userPrompt,
-                cancellationToken);
+                jobToken);
 
             // Kept in step with what was just persisted: `run` was loaded once, above, before
             // this call wrote its version to the database, and DrawCoverAsync below reads
@@ -283,9 +336,9 @@ public sealed class MasterBookService(
             run.PromptVersion = masterStoryService.PromptVersion;
 
             var result = compositeStoryInput is null
-                ? await masterStoryService.WriteAsync(storyInput, cancellationToken)
+                ? await masterStoryService.WriteAsync(storyInput, jobToken)
                 : await masterStoryService.WriteCompositePlanAsync(
-                    compositeStoryInput, [], cancellationToken);
+                    compositeStoryInput, [], jobToken);
 
             logger.LogInformation(
                 compositeStoryInput is not null
@@ -322,9 +375,9 @@ public sealed class MasterBookService(
                     // would ship written by the prompt the composite path exists to avoid.
                     var retried = compositeStoryInput is null
                         ? await masterStoryService.RetryPlanWithCorrectionsAsync(
-                            storyInput, problems, cancellationToken)
+                            storyInput, problems, jobToken)
                         : await masterStoryService.WriteCompositePlanAsync(
-                            compositeStoryInput, problems, cancellationToken);
+                            compositeStoryInput, problems, jobToken);
 
                     // Both attempts were paid for; the run's token accounting AND its stored
                     // prompts report both, not just the attempt that happened to survive. The
@@ -362,7 +415,7 @@ public sealed class MasterBookService(
                 masterStoryService.PromptVersion,
                 result.SystemPrompt,
                 result.UserPrompt,
-                cancellationToken);
+                jobToken);
 
             var content = MasterStoryProjection.ToContent(result.Story, run.ChildName, run.Theme);
 
@@ -372,7 +425,7 @@ public sealed class MasterBookService(
                 JsonSerializer.Serialize(content, JsonOptions),
                 result.PromptTokens,
                 result.CompletionTokens,
-                cancellationToken);
+                jobToken);
 
             writingDoneMs = started.ElapsedMilliseconds;
             logger.LogInformation(
@@ -387,16 +440,21 @@ public sealed class MasterBookService(
             await runRepository.MarkReadyAsync(
                 runId,
                 JsonSerializer.Serialize(content, JsonOptions),
-                cancellationToken);
+                jobToken);
+
+            // From here the expensive half is on the row and the run is a book somebody can read.
+            storyIsSaved = true;
 
             // The cover is the book's cover, not page one. Writing it onto the first page would
             // overwrite that page's own illustration — which has its own prompt and its own
             // moment in the story — and quietly leave the book with eight pictures instead of
             // nine.
-            var coverUrl = await DrawCoverAsync(run, result.Story, cancellationToken);
+            stage = "drawing the cover";
+
+            var coverUrl = await DrawCoverAsync(run, result.Story, jobToken);
             if (coverUrl is not null)
             {
-                await runRepository.SaveCoverAsync(runId, coverUrl, cancellationToken);
+                await runRepository.SaveCoverAsync(runId, coverUrl, jobToken);
             }
 
             logger.LogInformation(
@@ -407,10 +465,55 @@ public sealed class MasterBookService(
                 (started.ElapsedMilliseconds - writingDoneMs) / 1000.0,
                 result.Story.Concept.Title);
         }
+        /*
+          Stopped by the host rather than by the clock.
+
+          Rethrown, so Hangfire requeues it. That is not a lost preview: the next attempt reads the
+          run back, finds the story if it was already saved, and resumes at the cover — the branch
+          a hundred lines above, which existed for exactly this case and could never be reached
+          while every cancellation was being swallowed into a terminal Failed.
+        */
+        catch (OperationCanceledException ex) when (!deadline.Expired)
+        {
+            logger.LogWarning(
+                ex,
+                "Master story run {RunId} was stopped by the host while {Stage} (cause: {Cause}); "
+                + "leaving it unfinished so Hangfire can requeue it.",
+                runId, stage, deadline.Cause);
+
+            throw;
+        }
+        /*
+          Out of time, but only for the cover.
+
+          The story is written, projected and on the row, and the run is already Ready — a preview
+          the parent can open and read. Rolling that back to Failed because the picture on the front
+          took the last of the half hour would throw away the expensive part over the cheap one,
+          which is the rule this flow has always had: the reader opens on the world's own artwork
+          and swaps in the real cover when it lands.
+
+          Only the budget lands here. A host cancellation goes back to Hangfire above, and the next
+          attempt takes the resume branch and draws the cover properly.
+        */
+        catch (OperationCanceledException ex) when (storyIsSaved)
+        {
+            logger.LogWarning(
+                ex,
+                "Master story run {RunId} ran out of its {Minutes:0}-minute budget while {Stage}. "
+                + "The story is saved and the run stays Ready; it simply has no cover of its own.",
+                runId, deadline.Budget.TotalMinutes, stage);
+        }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Master story run {RunId} failed.", runId);
-            await runRepository.MarkFailedAsync(runId, ex.Message, CancellationToken.None);
+            // A cancellation reaching here is the deadline's — the filter above returned the
+            // host's to Hangfire — and it gets a reason that says so, rather than the bare
+            // "The operation was canceled." that a cancelled await leaves behind.
+            var reason = ex is OperationCanceledException
+                ? GenerationBudget.ExceededReason(deadline.Budget, stage)
+                : ex.Message;
+
+            logger.LogError(ex, "Master story run {RunId} failed while {Stage}: {Reason}", runId, stage, reason);
+            await runRepository.MarkFailedAsync(runId, reason, CancellationToken.None);
         }
     }
 
@@ -505,10 +608,16 @@ public sealed class MasterBookService(
                 await runRepository.SaveCoverAsync(run.Id, coverUrl, cancellationToken);
             }
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // The story is safe and the reader can open on the world's artwork, so a cover that
             // cannot be redrawn is not worth failing a finished book over.
+            //
+            // A cancellation is excluded, and that exclusion is the fix for a real fault: swallowed
+            // here, a shutdown mid-cover looked exactly like a cover that could not be drawn, the
+            // job reported success, Hangfire never requeued it, and the run kept a missing cover
+            // permanently. Passed up, the caller can tell a deploy (requeue, and this very branch
+            // redraws it next time) from a budget that ran out (keep the story, keep the run Ready).
             logger.LogWarning(ex, "Could not finish the cover for resumed run {RunId}.", run.Id);
         }
     }
@@ -608,11 +717,15 @@ public sealed class MasterBookService(
                 stored.ContentType,
                 cancellationToken);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // A missing cover is a worse-looking preview, not a lost book. The story is already
             // saved, so failing the whole run here would throw away the expensive part over the
             // cheap one.
+            //
+            // A cancellation is not one of those failures and is passed up instead. It says the
+            // process is going away or the run is out of time, and only the caller knows which —
+            // and the difference is whether Hangfire gets to try again or the run stops here.
             logger.LogWarning(ex, "Cover illustration failed for run {RunId}; the story stands without it.", run.Id);
             return null;
         }
@@ -668,11 +781,16 @@ public sealed class MasterBookService(
 
             return (url, null);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Includes the deliberate throw for a missing Beki master reference: the generator
             // will not draw a cover that needs Beki without it, and this is the caller that can
             // turn that into a cover with no companion at all rather than no preview.
+            //
+            // A cancellation is excluded for the reason it is excluded one level up: falling back
+            // to the legacy cover because the host is shutting down would spend another image call
+            // on a token that is already cancelled, and then report a cover that could not be drawn
+            // rather than a job that should be retried.
             logger.LogWarning(ex, "Beki cover failed for run {RunId}.", run.Id);
             return (null, $"the Beki cover threw: {ex.Message}");
         }
