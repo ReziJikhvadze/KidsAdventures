@@ -164,19 +164,17 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// The outline used to cost the document eight extra copies of every paragraph: the faux
-    /// stroke was eight offset text runs under the fill, and all nine were real text, so every
-    /// sentence of every book came back nine times from <c>pdftotext</c> — and from anything else
-    /// that reads a PDF for words, a screen reader included. The outline is now rastered once and
-    /// exactly one invisible text run is laid over it.
+    /// The outlined blocks are vector text again — nine real runs, not a picture of them.
     ///
-    /// Which makes this checkable without a PDF library: turn the outline off and the composer
-    /// draws one plain text run per block by construction, so that book's text-operator count is
-    /// the arithmetic floor. Turn it back on and the count must not move. Before the fix it was
-    /// roughly nine times higher.
+    /// This asserts the OPPOSITE of what it used to. The nine-copy stack was once rastered to a
+    /// PNG with one invisible run over it, so <c>pdftotext</c> said each line once; the
+    /// supplier's preflight then rejected exactly that raster ("a raster title-effect image is
+    /// placed underneath" the vector title), because a printed glyph should be the RIP's own
+    /// edge. So the stack ships as text runs, the operator count rises with the outline on, and
+    /// the nine-fold extraction of the two outlined lines is the recorded, accepted cost.
     /// </summary>
     [Fact]
-    public void The_outline_no_longer_multiplies_the_text_in_the_document()
+    public void The_outline_is_vector_text_runs_not_a_raster()
     {
         var plan = SyntheticPlan();
         var spreads = plan.Spreads
@@ -193,7 +191,12 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
         // Guards the guard: if QuestPDF ever stops deflating its content streams there is nothing
         // to count, and a test that silently compares zero to zero is worse than no test.
         Assert.True(floor > 0, "No readable text operators were found; the counter needs revisiting.");
-        Assert.Equal(floor, TextShowOperators(withOutline));
+
+        // Strictly more operators with the outline on: the rim is drawn as text. If this ever
+        // equals the floor again, the visible glyphs have gone back to being pixels somewhere.
+        Assert.True(
+            TextShowOperators(withOutline) > floor,
+            "The outlined blocks drew no extra text runs — the outline is a raster again.");
     }
 
     /// <summary>

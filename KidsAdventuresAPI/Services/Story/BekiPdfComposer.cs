@@ -213,28 +213,6 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// </summary>
     private static readonly Color CtaChipInk = Color.FromHex("#C80D071D");
 
-    /// <summary>
-    /// The ink a semantic text block is set in when a raster is already drawing the visible
-    /// glyphs — fully transparent, so the words are in the PDF's text layer and nowhere on it.
-    /// The cover title is the only block left that works this way.
-    /// </summary>
-    private static readonly Color InvisibleInk = Color.FromHex("#00000000");
-
-    /// <summary>
-    /// The resolution the outlined-text raster is drawn at. Print resolution, so a glyph edge in
-    /// the PNG is no coarser than one the printer's RIP would have made from the vector itself.
-    /// </summary>
-    private const int OutlinedTextRasterDpi = 300;
-
-    /// <summary>
-    /// How far past the text's own box the outline raster is allowed to spill, in points, on top
-    /// of the outline width itself. The eight offset copies push ink up to one outline-width
-    /// outside the box on every side, and a page sized exactly to the text would clip that ink at
-    /// the trim; the extra point covers antialiasing on top of it. Paid for in the raster only —
-    /// the placed image is offset back by the same amount, so the text's layout box is unchanged.
-    /// </summary>
-    private const float OutlineRasterBleedPt = 1f;
-
     /// <summary>Points per millimetre, both ways, in one place.</summary>
     private const float PointsPerMm = 72f / 25.4f;
 
@@ -254,9 +232,6 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// </summary>
     private static readonly Lazy<BekiCompositeEngine> Engine =
         new(() => BekiCompositeEngine.Create(), isThreadSafe: true);
-
-    /// <summary>Outlined-text rasters — the cover title — keyed by everything that decides them.</summary>
-    private readonly Dictionary<string, OutlinedTextRaster?> _outlinedTextRasters = [];
 
     /// <summary>
     /// Measured block heights, keyed the same way. The step-down ladder asks for the same paragraph
@@ -1080,23 +1055,23 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     }
 
     /// <summary>
-    /// Light type with its own dark edge — drawn once as pixels, and present once as words.
+    /// Light type with its own dark edge, drawn entirely as vector text.
     ///
     /// Two callers are left: the cover title and the Continue Adventure line. Both set light type
     /// straight onto artwork, where a wash cannot be relied on and a glyph needs a rim of its own.
     /// The story text no longer comes through here at all — it is vector Noto on a cream box, which
     /// is what §6 Step 8 asks for and what the supplier's audit found missing.
     ///
-    /// **Why the visible glyphs are a raster.** QuestPDF has no stroke, so the rim is the text drawn
-    /// eight more times on a small circle beneath itself. Nine copies of a paragraph drawn as nine
-    /// real text runs are nine paragraphs as far as the file is concerned: <c>pdftotext -raw</c>
-    /// returned every sentence nine times over, and so does anything else that reads a PDF for its
-    /// words. So the stack is built in a throwaway one-page document, rendered to a PNG at print
-    /// resolution, and exactly one real text block in fully transparent ink is laid over it — the
-    /// reader sees what they saw before, and the document says each line once.
+    /// This used to be a raster: the nine-copy stack rendered to a PNG at 300 DPI with one
+    /// invisible text run over it, so that <c>pdftotext</c> said each line once. The supplier's
+    /// preflight rejected exactly that trade — "a raster title-effect image is placed underneath"
+    /// the vector text, and a printed glyph should be the RIP's own edge, not a picture of one.
+    /// So the visible glyphs are the vector stack again: QuestPDF has no stroke, and the rim is
+    /// the text drawn eight more times on a small circle beneath the fill. The cost, accepted
+    /// knowingly, is that a text extractor reads an outlined line nine times.
     ///
-    /// <paramref name="blockWidthPt"/> has to be passed in rather than discovered: QuestPDF hands an
-    /// element its width during layout, and the raster must exist before layout begins.
+    /// <paramref name="blockWidthPt"/> is kept for the callers' layout arithmetic even though no
+    /// raster needs sizing any more; a box too narrow to set type in still falls back to plain.
     /// </summary>
     private void OutlinedText(
         IContainer container,
@@ -1109,43 +1084,15 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         string fontFamily = PdfFontBootstrap.BodyFamily,
         bool centred = false)
     {
-        // No outline asked for, nothing to outline, or a box too narrow to raster into: plain
-        // text, which was already a single text run and needs no help from any of this.
+        // No outline asked for, nothing to outline, or a box too narrow: plain text, which is a
+        // single run and needs no rim.
         if (_layout.TextOutlineWidth <= 0f || string.IsNullOrWhiteSpace(text) || blockWidthPt <= 1f)
         {
             PlainText(container, text, fontSize, lineHeight, fill, fontFamily, centred);
             return;
         }
 
-        var raster = OutlinedTextRasterFor(
-            text, fontSize, lineHeight, fill, outline, fontFamily, blockWidthPt, centred);
-
-        if (raster is null)
-        {
-            // The raster is how the words stay singular, not how they stay legible. If it could
-            // not be built, the cover still prints — with the old nine-copy stack, whose only sin
-            // is being nine copies.
-            DrawOutlineStack(container, text, fontSize, lineHeight, fill, outline, fontFamily, centred);
-            return;
-        }
-
-        var bleed = OutlineBleedPt;
-
-        container.Layers(layers =>
-        {
-            layers.Layer()
-                .Unconstrained()
-                .TranslateX(-bleed)
-                .TranslateY(-bleed)
-                .Width(raster.WidthPt)
-                .Height(raster.HeightPt)
-                .Image(raster.Png)
-                .FitUnproportionally()
-                .UseOriginalImage();
-
-            layers.PrimaryLayer().Element(item =>
-                PlainText(item, text, fontSize, lineHeight, InvisibleInk, fontFamily, centred));
-        });
+        DrawOutlineStack(container, text, fontSize, lineHeight, fill, outline, fontFamily, centred);
     }
 
     /// <summary>
@@ -1172,8 +1119,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
     /// <summary>
     /// The faux outline itself: eight offset copies on a circle of the outline's own radius, then
-    /// the fill. Lives here because two callers need it — the raster document below, which is what
-    /// ships, and <see cref="OutlinedText"/>'s fallback for when that document cannot be made.
+    /// the fill — all real vector text runs, which since the supplier's preflight ruling is the
+    /// shipped form rather than the source of a raster.
     /// </summary>
     private void DrawOutlineStack(
         IContainer container, string text, float fontSize, float lineHeight,
@@ -1196,112 +1143,6 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             layers.PrimaryLayer().Element(item =>
                 PlainText(item, text, fontSize, lineHeight, fill, fontFamily, centred));
         });
-    }
-
-    /// <summary>A built outlined-text block: the pixels, and the box they belong in.</summary>
-    private sealed record OutlinedTextRaster(byte[] Png, float WidthPt, float HeightPt);
-
-    /// <summary>
-    /// How far the raster spills past the text's own box on every side. The outline itself reaches
-    /// one outline-width out; the extra point is for the antialiasing on top of it.
-    /// </summary>
-    private float OutlineBleedPt => _layout.TextOutlineWidth + OutlineRasterBleedPt;
-
-    /// <summary>Built once per distinct block, and reused for the rest of this book.</summary>
-    private OutlinedTextRaster? OutlinedTextRasterFor(
-        string text, float fontSize, float lineHeight, Color fill, Color outline,
-        string fontFamily, float blockWidthPt, bool centred)
-    {
-        // A unit separator, because every part is free text and a comma is not: two blocks
-        // whose fields ran together differently must never collide on one key.
-        var key = string.Join(
-            '\u001F',
-            text, fontSize, lineHeight, fill.Hex, outline.Hex, fontFamily, blockWidthPt, centred);
-
-        if (_outlinedTextRasters.TryGetValue(key, out var cached))
-        {
-            return cached;
-        }
-
-        var built = BuildOutlinedTextRaster(
-            text, fontSize, lineHeight, fill, outline, fontFamily, blockWidthPt, centred);
-
-        _outlinedTextRasters[key] = built;
-        return built;
-    }
-
-    /// <summary>
-    /// A whole QuestPDF document for one line.
-    ///
-    /// Extravagant-looking and the cheapest correct option available: rendering glyph outlines as
-    /// vectors would mean reaching into a font file and stroking paths, which is a text-shaping
-    /// engine and a new dependency. Asking QuestPDF to draw the same nine copies it always drew —
-    /// into a page whose width is this block's width, whose ground is transparent, and whose height
-    /// simply follows the content — gets pixels from the same layout code, with no second opinion
-    /// about how Georgian wraps.
-    ///
-    /// Null on any trouble at all — the caller falls back to drawing the stack directly, and a cover
-    /// is never worth losing over a picture of its own title.
-    /// </summary>
-    private OutlinedTextRaster? BuildOutlinedTextRaster(
-        string text, float fontSize, float lineHeight, Color fill, Color outline,
-        string fontFamily, float blockWidthPt, bool centred)
-    {
-        var bleed = OutlineBleedPt;
-
-        try
-        {
-            var block = Document.Create(document =>
-            {
-                document.Page(page =>
-                {
-                    page.ContinuousSize(blockWidthPt + (bleed * 2f), Unit.Point);
-                    page.Margin(0);
-
-                    // Nothing behind the glyphs: this PNG is laid over artwork, and a page colour
-                    // here would be an opaque rectangle across the illustration.
-                    page.PageColor(Colors.Transparent);
-                    page.DefaultTextStyle(style => style.FontFamily(PdfFontBootstrap.BodyFamily));
-
-                    page.Content()
-                        .Padding(bleed, Unit.Point)
-                        .Element(item => DrawOutlineStack(
-                            item, text, fontSize, lineHeight, fill, outline, fontFamily, centred));
-                });
-            });
-
-            var pages = block
-                .GenerateImages(new ImageGenerationSettings
-                {
-                    ImageFormat = ImageFormat.Png,
-                    RasterDpi = OutlinedTextRasterDpi,
-                })
-                .ToList();
-
-            // A block that paginated is a block whose height did not follow its content, which
-            // means the two halves would land on top of each other. Fall back instead.
-            if (pages.Count != 1 || pages[0].Length == 0)
-            {
-                return null;
-            }
-
-            var size = SixLabors.ImageSharp.Image.Identify(pages[0]);
-            if (size.Width < 1 || size.Height < 1)
-            {
-                return null;
-            }
-
-            // Back to points at the DPI it was drawn at, so the image is placed at exactly the
-            // size it was rendered for — 1:1 with the box the words occupy, not a fit-to-frame.
-            return new OutlinedTextRaster(
-                pages[0],
-                size.Width * 72f / OutlinedTextRasterDpi,
-                size.Height * 72f / OutlinedTextRasterDpi);
-        }
-        catch (Exception)
-        {
-            return null;
-        }
     }
 
     /// <summary>
