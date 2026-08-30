@@ -250,12 +250,32 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private readonly Dictionary<string, float?> _measuredBlockHeights = [];
 
     /// <summary>
-    /// The canonical Beki PNG, read once per composer instance and reused by the credits page and
-    /// the back cover. Null means the file was not found — those two are cover-side marks rather
-    /// than approved interior artwork, so a missing one drops the picture, not the book.
+    /// The approved Beki mark for the credits spread and the back cover, resolved through the
+    /// pose registry by the id the layout registry names.
+    ///
+    /// This used to be the legacy opaque raster from a hardcoded path, with null-and-drop when
+    /// the file was missing — precisely the silent legacy fallback the supplier's audit rejected
+    /// (P0-F): a dark-rectangle Beki nobody approved, printed in a sold book, with no receipt
+    /// anywhere. Now the mark is the same class of asset as everything else on a page: named in a
+    /// registry, hash-verified before use, and a missing or tampered file stops the book with
+    /// LAYOUT_FAILED rather than quietly changing what prints.
     /// </summary>
-    private byte[]? _bekiVisual;
-    private bool _bekiVisualLoaded;
+    private byte[] BekiMark()
+    {
+        var poseId = _assets.BekiMarkPoseId;
+
+        try
+        {
+            return Engine.Value.Registry.ApprovedPoseBytes(poseId);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException)
+        {
+            throw new BekiLayoutException(
+                CompositeFailureCodes.LayoutFailed,
+                $"The Beki mark (pose '{poseId}') could not be resolved from the approved pose "
+                + $"registry: {ex.Message}");
+        }
+    }
 
     public byte[] Compose(
         MasterStory plan,
@@ -289,6 +309,16 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         // parent opened it.
         var themeId = CanonicalThemeId(personalization);
         _assets.VerifyForBook(themeId);
+
+        // The mark beside the fonts and the pattern: proven before a page exists, and its receipt
+        // — id, file, hash — in the build log, which is where the audit asks to be able to read
+        // which fixed asset a printed book actually carries.
+        _ = BekiMark();
+        var mark = Engine.Value.Registry.Pose(_assets.BekiMarkPoseId);
+        _logger.LogInformation(
+            "Beki PDF: credits/back-cover mark resolved — pose {PoseId}, file {FileName}, "
+            + "sha256 {Sha256}.",
+            mark.Id, mark.FileName, mark.Sha256);
 
         PdfFontBootstrap.EnsureRegistered();
 
@@ -594,12 +624,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                          {
                              column.Spacing(14);
 
-                             var visual = BekiVisual();
-                             if (visual is not null)
-                             {
-                                 column.Item().AlignCenter().Width(32, Unit.Millimetre)
-                                     .Image(visual).FitWidth();
-                             }
+                             column.Item().AlignCenter().Width(32, Unit.Millimetre)
+                                 .Image(BekiMark()).FitWidth();
 
                              column.Item().AlignCenter().Text(_layout.EndingLine)
                                  .FontFamily(PdfFontBootstrap.BodyFamily)
@@ -649,12 +675,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 {
                     column.Spacing(10);
 
-                    var visual = BekiVisual();
-                    if (visual is not null)
-                    {
-                        column.Item().AlignCenter().Width(24, Unit.Millimetre)
-                            .Image(visual).FitWidth();
-                    }
+                    column.Item().AlignCenter().Width(24, Unit.Millimetre)
+                        .Image(BekiMark()).FitWidth();
 
                     // Literal rather than an option: nothing before this needed the brand
                     // address configurable, and adding a setting nobody will ever change is a
@@ -1614,22 +1636,6 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private float CoverTitleWidthPt =>
         SheetWidthPt(_layout.PageWidthMm) - (MmToPt(_layout.SafeMarginMm) * 2f);
 
-    /// <summary>
-    /// The canonical Beki PNG, read from disk once and cached on the instance.
-    ///
-    /// Cover-side rather than interior: the credits page and the back cover use it as a mark, and a
-    /// missing file costs those two their picture rather than the book. The interior's Beki is the
-    /// composited pose on the intro spread, and that one is hash-verified and cannot be missing.
-    /// </summary>
-    private byte[]? BekiVisual()
-    {
-        if (_bekiVisualLoaded) return _bekiVisual;
-
-        var path = Path.Combine(AppContext.BaseDirectory, BekiIdentity.ReferenceAssetPath);
-        _bekiVisual = File.Exists(path) ? File.ReadAllBytes(path) : null;
-        _bekiVisualLoaded = true;
-        return _bekiVisual;
-    }
 }
 
 /// <summary>

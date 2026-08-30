@@ -382,10 +382,24 @@ public sealed class BekiPackFulfillment(
             */
             // The theme resolved before the contract, because the contract names the approved world
             // reference this book's pages are drawn against — a hash, per world, not a version per
-            // deployment. A theme that maps to nothing leaves the composite terms out entirely and
-            // the pipeline refuses the book properly a few lines later, with INVALID_BOOK_INPUT and
-            // the reason, rather than this line throwing over a stored value nobody can map.
+            // deployment.
             var compositeThemeId = InputNormalization.CanonicalThemeId(pack.Theme.ToString());
+
+            // Refused here rather than "a few lines later" as it used to be. A composite-enabled
+            // run whose theme maps to nothing used to fall through with a LEGACY-shaped contract,
+            // which meant a manifest written by the AI-draws-Beki pipeline would have matched it
+            // and its pages could be adopted into this book before anything refused anything. The
+            // pipeline did refuse the book eventually — but a contract that can wear the wrong
+            // pipeline's shape while the flag is on is a mixed book waiting for the coupling to
+            // loosen, and the supplier's audit found exactly that book: seven composited spreads
+            // and one AI-drawn Beki.
+            if (compositeEnabled && compositeThemeId is null)
+            {
+                throw new CompositePipelineException(
+                    CompositeFailureCodes.InvalidBookInput,
+                    $"Theme '{pack.Theme}' does not map to an approved composite theme, so no "
+                    + "composite book can be drawn or resumed for it.");
+            }
 
             var currentContract = BekiFulfillmentManifest.CurrentContract(
                 BookFormat.SpreadCount,
@@ -947,6 +961,35 @@ public sealed class BekiPackFulfillment(
             var personalization = new BekiBookPersonalization(
                 run.ChildName, run.Age, pack.CreatedAt, pack.Theme.ToString(),
                 StoryWorlds.For(pack.Theme).Place);
+
+            /*
+              Every page must show its exact-Beki receipt before it may be laid out.
+
+              The composition manifest entries are the proof that a spread's Beki is the approved
+              PNG — pose id, source hash, output hash — and the supplier's audit is what a book
+              looks like when one page lacks the receipt and ships anyway: seven composited
+              spreads and one AI-drawn Beki, indistinguishable in the PDF until a reviewer put
+              them side by side. A missing receipt here means the page came from somewhere other
+              than the compositor, whatever that somewhere was, and the book stops instead of
+              printing it.
+            */
+            if (compositeEnabled)
+            {
+                var unreceipted = stored
+                    .Select(artwork => artwork.SpreadNumber)
+                    .Where(number => !compositions.ContainsKey(number))
+                    .OrderBy(number => number)
+                    .ToList();
+
+                if (unreceipted.Count > 0)
+                {
+                    throw new CompositePipelineException(
+                        CompositeFailureCodes.ImageGenerationFailed,
+                        "No exact-Beki composition receipt for spread(s) "
+                        + $"{string.Join(", ", unreceipted)}: a page without one did not come "
+                        + "from the approved compositor and must not be printed.");
+                }
+            }
 
             var pdfStopwatch = Stopwatch.StartNew();
             var pdf = composer.Compose(plan, coverImage, stored, personalization);

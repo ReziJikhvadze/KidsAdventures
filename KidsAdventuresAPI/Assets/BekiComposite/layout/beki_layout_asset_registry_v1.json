@@ -1,11 +1,13 @@
 {
-  "registry_version": "beki-layout-assets-v1",
+  "registry_version": "beki-layout-assets-v1.1",
   "source_manifest": "BEKI_Developer_Production_Assets_v1/APPROVED_ASSET_MANIFEST_v1.csv",
   "note": "Paths are relative to the published output folder. The endpaper pattern and the six intro backgrounds are NOT re-stated here: their filenames and hashes live in the supplier's own theme_reference_registry_v1.json, which this registry reads, so there is exactly one hash per asset in the tree.",
   "theme_reference_registry": "Assets/BekiComposite/theme_reference_registry_v1.json",
   "endpaper_directory": "Assets/BekiComposite/layout",
   "intro_background_directory": "Assets/BekiComposite/theme_references",
   "font_directory": "Assets/Fonts",
+  "beki_mark_pose_id": "pose_01_neutral_hover",
+  "beki_mark_note": "The Beki mark printed on the credits spread and the back cover resolves through the pose registry by this id - approved transparent artwork, hash-verified there, never the legacy opaque raster. v1.1, against the supplier audit's P0-F: the composer used to load Assets/Beki/beki-canonical-v2.png from a hardcoded path with a silent null fallback.",
   "fonts": [
     {
       "id": "noto_sans_georgian_regular",

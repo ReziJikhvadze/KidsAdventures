@@ -75,6 +75,7 @@ public sealed class BekiLayoutAssets
         string endpaperDirectory,
         string introBackgroundDirectory,
         string fontDirectory,
+        string bekiMarkPoseId,
         BekiLayoutAsset endpaperPattern,
         IReadOnlyDictionary<string, BekiLayoutAsset> introBackgrounds,
         IReadOnlyDictionary<string, BekiLayoutAsset> fonts,
@@ -85,6 +86,7 @@ public sealed class BekiLayoutAssets
         _endpaperDirectory = endpaperDirectory;
         _introBackgroundDirectory = introBackgroundDirectory;
         _fontDirectory = fontDirectory;
+        BekiMarkPoseId = bekiMarkPoseId;
         EndpaperPattern = endpaperPattern;
         _introBackgrounds = introBackgrounds;
         _fonts = fonts;
@@ -94,6 +96,18 @@ public sealed class BekiLayoutAssets
 
     /// <summary>The registry's own version string, for logs and for the resume contract.</summary>
     public string RegistryVersion { get; }
+
+    /// <summary>
+    /// Which approved pose is the Beki mark on the credits spread and the back cover.
+    ///
+    /// An id into the pose registry rather than a filename and hash of its own, for the same
+    /// reason the endpaper's hash is not re-stated here: one asset, one hash, one place to change
+    /// when a pack revises. The supplier's audit found the composer loading a legacy opaque
+    /// raster from a hardcoded path with a silent null fallback — resolving through the pose
+    /// registry is what makes the mark approved artwork with a receipt, and a missing or
+    /// tampered file a stopped book rather than a shipped one.
+    /// </summary>
+    public string BekiMarkPoseId { get; }
 
     /// <summary>The approved endpaper pattern — one file, both endpaper spreads.</summary>
     public BekiLayoutAsset EndpaperPattern { get; }
@@ -201,6 +215,7 @@ public sealed class BekiLayoutAssets
             Require(document.EndpaperDirectory, path, "endpaper_directory"),
             Require(document.IntroBackgroundDirectory, path, "intro_background_directory"),
             Require(document.FontDirectory, path, "font_directory"),
+            Require(document.BekiMarkPoseId, path, "beki_mark_pose_id"),
             endpaper,
             introBackgrounds,
             fonts,
@@ -418,6 +433,7 @@ public sealed class BekiLayoutAssets
         [JsonPropertyName("endpaper_directory")] public string? EndpaperDirectory { get; init; }
         [JsonPropertyName("intro_background_directory")] public string? IntroBackgroundDirectory { get; init; }
         [JsonPropertyName("font_directory")] public string? FontDirectory { get; init; }
+        [JsonPropertyName("beki_mark_pose_id")] public string? BekiMarkPoseId { get; init; }
         [JsonPropertyName("fonts")] public List<FontDocument>? Fonts { get; init; }
         [JsonPropertyName("forbidden_font_files")] public List<string>? ForbiddenFontFiles { get; init; }
     }

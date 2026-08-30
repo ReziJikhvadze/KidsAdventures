@@ -120,6 +120,45 @@ public class CompositeCoverProjectionTests
         Assert.Equal(redrawnCover, world.Composer.CoverLaidOut);
     }
 
+    /// <summary>
+    /// The supplier's audit found a shipped book with seven composited spreads and one AI-drawn
+    /// Beki — a page from somewhere other than the compositor, indistinguishable in the PDF. The
+    /// receipt is what tells them apart, so a composite book with a page that has none stops
+    /// before layout instead of printing it.
+    /// </summary>
+    [Fact]
+    public async Task A_spread_without_an_exact_Beki_receipt_stops_the_book()
+    {
+        var world = new PackWorld { DropReceiptForSpread = 8 };
+
+        await world.Job().ProcessAsync(world.PackId, world.RunId, CancellationToken.None);
+
+        Assert.NotNull(world.Packs.FailureReason);
+        Assert.StartsWith("IMAGE_GENERATION_FAILED", world.Packs.FailureReason);
+        Assert.Contains("spread(s) 8", world.Packs.FailureReason);
+    }
+
+    /// <summary>
+    /// A composite-enabled run whose theme maps to no approved world used to fall through with a
+    /// legacy-shaped resume contract — the shape under which an AI-draws-Beki manifest matches
+    /// and its pages could be adopted. Now it refuses at the door, before any adoption decision
+    /// exists to get wrong.
+    /// </summary>
+    [Fact]
+    public async Task A_theme_with_no_composite_world_is_refused_before_anything_is_adopted()
+    {
+        var world = new PackWorld(theme: (ThemeType)99);
+
+        await world.Job().ProcessAsync(world.PackId, world.RunId, CancellationToken.None);
+
+        Assert.NotNull(world.Packs.FailureReason);
+        Assert.StartsWith("INVALID_BOOK_INPUT", world.Packs.FailureReason);
+
+        // This refusal, not a later stage's: the point is that no legacy-shaped contract was
+        // built and no manifest was consulted on the way to it.
+        Assert.Contains("approved composite theme", world.Packs.FailureReason);
+    }
+
     // =======================================================================================
     // Harness
     // =======================================================================================
@@ -151,12 +190,15 @@ public class CompositeCoverProjectionTests
         /// </summary>
         public bool RedrawTheCover { get; init; } = true;
 
-        public PackWorld() =>
+        /// <summary>A spread whose exact-Beki receipt the stub withholds, for the gate test.</summary>
+        public int? DropReceiptForSpread { get; init; }
+
+        public PackWorld(ThemeType theme = ThemeType.Dinosaurs) =>
             Packs = new FakePacks(new AdventurePack
             {
                 Id = PackId,
                 UserId = UserId,
-                Theme = ThemeType.Dinosaurs,
+                Theme = theme,
                 Status = AdventurePackStatus.StoryReady,
                 CoverImageUrl = PreviewCoverUrl,
                 CreatedAt = DateTime.UtcNow,
@@ -178,7 +220,7 @@ public class CompositeCoverProjectionTests
             new(Packs,
                 new FakeRuns(RunId),
                 Blobs,
-                new StubGenerator(RedrawTheCover),
+                new StubGenerator(RedrawTheCover, DropReceiptForSpread),
                 Composer,
                 new SilentNotifier(),
                 new RecordingEmailService(),
@@ -218,7 +260,8 @@ public class CompositeCoverProjectionTests
     /// are about: attempt rows are what tell the job a redraw actually happened, exactly as the
     /// real generator reports it.
     /// </summary>
-    private sealed class StubGenerator(bool redrawTheCover) : IBekiBookGenerator
+    private sealed class StubGenerator(bool redrawTheCover, int? dropReceiptForSpread = null)
+        : IBekiBookGenerator
     {
         public Task<BekiBookResult> GenerateAsync(
             MasterStoryInput input, byte[] childPhoto, string childPhotoContentType,
@@ -279,7 +322,18 @@ public class CompositeCoverProjectionTests
                 Composite = new CompositeBookArtifacts
                 {
                     ScenarioJson = "{}",
-                    Spreads = [],
+                    // One receipt per page: the fulfilment job refuses to lay out a composite
+                    // spread without its exact-Beki composition receipt, and this stub's book
+                    // claims to be a finished composite book.
+                    Spreads = spreads
+                        .Where(spread => spread.SpreadNumber != dropReceiptForSpread)
+                        .Select(spread => new CompositeSpreadArtifact(
+                            spread.SpreadNumber!.Value,
+                            "pose_01_neutral_hover",
+                            "{}",
+                            new string('0', 64),
+                            BasePng: []))
+                        .ToList(),
                 },
             });
         }

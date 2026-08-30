@@ -25,9 +25,13 @@ public class BekiLayoutAssetTests
         // Fonts, the approved endpaper pattern and all six intro backgrounds, in one pass.
         BekiLayoutAssets.Current.VerifyAll();
 
-        Assert.Equal("beki-layout-assets-v1", BekiLayoutAssets.Current.RegistryVersion);
+        Assert.Equal("beki-layout-assets-v1.1", BekiLayoutAssets.Current.RegistryVersion);
         Assert.Equal(6, BekiLayoutAssets.Current.CanonicalThemeIds.Count);
         Assert.Equal(4, BekiLayoutAssets.Current.Fonts.Count);
+
+        // v1.1: the credits/back-cover mark resolves through the pose registry — approved
+        // transparent artwork with a hash, never the legacy opaque raster from a hardcoded path.
+        Assert.Equal("pose_01_neutral_hover", BekiLayoutAssets.Current.BekiMarkPoseId);
     }
 
     /// <summary>

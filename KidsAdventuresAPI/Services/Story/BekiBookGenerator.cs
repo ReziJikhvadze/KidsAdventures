@@ -195,10 +195,18 @@ public sealed class BekiBookGenerator(
     /// <summary>What a single-shot illustration records where a reviewer's verdict would be.</summary>
     private const string QaReviewDisabledVerdict = "QA review disabled (flow-misho)";
 
-    private const string BekiReferencePath = BekiIdentity.ReferenceAssetPath;
-
     private readonly BekiPrintLayoutOptions _layout = printLayoutOptions.Value;
     private readonly BekiOptions _bekiOptions = bekiOptions.Value;
+
+    /// <summary>
+    /// Where the Beki master reference lives — the configured value, not the const it defaults
+    /// to. This was a <c>const</c> aliasing <see cref="BekiIdentity.ReferenceAssetPath"/>, which
+    /// silently overrode <see cref="BekiOptions.BekiReferenceAssetPath"/>: the setting existed,
+    /// <c>BekiVisualPipeline</c> honoured it, and changing it did nothing to the book generator —
+    /// one of the audit's "hardcoded legacy paths". The default is unchanged; the override now
+    /// actually overrides.
+    /// </summary>
+    private string BekiReferencePath => _bekiOptions.BekiReferenceAssetPath;
 
     /// <summary>
     /// Read once per generator instance and kept: the file never changes mid-run, and a book
