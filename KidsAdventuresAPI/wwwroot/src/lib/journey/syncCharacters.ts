@@ -29,14 +29,31 @@ export async function ensureServerCharacters(
     };
 
     let serverId = character.serverId;
+    let isDifferentName = false;
+
     if (serverId) {
+      let originalName = character.originalName;
+      if (originalName === undefined) {
+        try {
+          const remote = await charactersApi.getCharacter(serverId);
+          originalName = remote.name;
+        } catch {
+          originalName = character.name;
+        }
+      }
+      if (character.name.trim().toLowerCase() !== originalName.trim().toLowerCase()) {
+        isDifferentName = true;
+      }
+    }
+
+    if (serverId && !isDifferentName) {
       await charactersApi.updateCharacter(serverId, input);
     } else {
       const created = await charactersApi.createCharacter(input);
       serverId = created.id;
     }
 
-    const next = { ...character, serverId };
+    const next = { ...character, serverId, originalName: input.name };
     updated.push(next);
     if (character.isPrimary) primaryId = serverId;
     else supportingIds.push(serverId);

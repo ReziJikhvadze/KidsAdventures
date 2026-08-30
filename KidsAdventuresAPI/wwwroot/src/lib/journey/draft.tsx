@@ -26,6 +26,7 @@ export type DraftCharacter = {
   localId: string;
   serverId?: string;
   name: string;
+  originalName?: string;
   birthDate: string;
   gender: CharacterGender | null;
   eyeColor: EyeColor | null;
@@ -212,6 +213,7 @@ function applyDeepLink(base: JourneyDraft, search: string): JourneyDraft {
             ...emptyCharacter(true),
             serverId: primaryId,
             name: draft.characters.find((c) => c.isPrimary)?.name ?? "",
+            originalName: draft.characters.find((c) => c.isPrimary)?.originalName,
           },
           ...supportingIds.map((id) => ({
             ...emptyCharacter(false),

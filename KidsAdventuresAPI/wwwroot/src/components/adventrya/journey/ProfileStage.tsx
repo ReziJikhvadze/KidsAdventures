@@ -194,6 +194,15 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
                   }
                   setError(null);
                 }}
+                onClearToNew={() => {
+                  const fresh = emptyCharacter(character.isPrimary);
+                  onChange((prev) => ({
+                    ...prev,
+                    characters: prev.characters.map((c) => (c.localId === character.localId ? fresh : c)),
+                  }));
+                  setEditingId(fresh.localId);
+                  setError(null);
+                }}
               />
             );
           }
@@ -279,16 +288,25 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
   );
 }
 
+// გოგა → გოგასთვის, დავით → დავითისთვის: the benefactive attaches to the genitive stem,
+// never with a hyphen — the same rule the book interior enforces for the child's name.
+function benefactive(name: string): string {
+  const n = name.trim();
+  return /[აეიოუ]$/.test(n) ? `${n}სთვის` : `${n}ისთვის`;
+}
+
 function CharacterEditor({
   character,
   index,
   onChange,
   onCancel,
+  onClearToNew,
 }: {
   character: DraftCharacter;
   index: number;
   onChange: (patch: Partial<DraftCharacter>) => void;
   onCancel: () => void;
+  onClearToNew: () => void;
 }) {
   const t = useT();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -385,6 +403,19 @@ function CharacterEditor({
           <h2>{title}</h2>
         </div>
       </div>
+
+      {character.serverId && character.originalName ? (
+        <div className="ux-known-character-banner" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'baseline', backgroundColor: 'var(--surface-sunken, #f7f7f7)', padding: '12px 16px', borderRadius: 12, marginBottom: 24 }}>
+          <strong style={{ fontSize: '0.9rem', color: 'var(--text-main, #111)' }}>
+            {character.name.trim() !== character.originalName.trim() && character.name.trim() !== ""
+              ? `შეიქმნება ახალი გმირი: ${character.name.trim()}`
+              : `ქმნი ახალ წიგნს ${benefactive(character.originalName)}`}
+          </strong>
+          <button type="button" className="ux-inline-link" style={{ fontSize: '0.85rem' }} onClick={onClearToNew}>
+            სხვა ბავშვისთვის? დაიწყე ახალი გმირით
+          </button>
+        </div>
+      ) : null}
 
       <div className="ux-character-fields">
         <div className="ux-character-inputs">

@@ -6,7 +6,7 @@ import { CheckoutStage } from "@/components/adventrya/journey/CheckoutStage";
 import { GeneratingStage } from "@/components/adventrya/journey/GeneratingStage";
 import { PreviewStage } from "@/components/adventrya/journey/PreviewStage";
 import { ProfileStage } from "@/components/adventrya/journey/ProfileStage";
-import { getCharacter } from "@/lib/api/characters";
+import { getCharacter, fetchCharacterPhotoObjectUrl } from "@/lib/api/characters";
 import { getToken } from "@/lib/api/client";
 import type { CharacterGender, CharacterType, EyeColor } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -29,7 +29,7 @@ export function JourneyScreen() {
 
   // When continuing from the map, draft slots may only have serverIds — fill names/photos.
   useEffect(() => {
-    if (isLoading || !isAuthenticated) return;
+    if (isLoading) return;
     const needsHydration = draft.characters.filter((c) => c.serverId && !c.name.trim());
     if (needsHydration.length === 0) return;
     const key = needsHydration.map((c) => c.serverId).join(",");
@@ -45,6 +45,7 @@ export function JourneyScreen() {
             const birthDate = remote.birthDate ? remote.birthDate.slice(0, 10) : "";
             const patch: Partial<DraftCharacter> = {
               name: remote.name,
+              originalName: remote.name,
               birthDate,
               gender: (remote.gender as CharacterGender | null) ?? null,
               eyeColor: (remote.eyeColor as EyeColor | null) ?? null,
@@ -53,6 +54,15 @@ export function JourneyScreen() {
               // Existing portraits satisfy the photo gate for continuation.
               photoReady: !!remote.photoUrl,
             };
+
+            if (remote.photoUrl) {
+              try {
+                patch.photoDataUrl = await fetchCharacterPhotoObjectUrl(slot.serverId!);
+              } catch {
+                // Ignore error, photo preview just won't show
+              }
+            }
+
             return { localId: slot.localId, patch };
           } catch {
             return null;
@@ -72,7 +82,7 @@ export function JourneyScreen() {
     return () => {
       cancelled = true;
     };
-  }, [draft.characters, isAuthenticated, isLoading, setDraft]);
+  }, [draft.characters, isLoading, setDraft]);
 
   const goAfterProfile = useCallback(() => {
     // The world is chosen before the details now, so this normally goes straight to the preview.
