@@ -121,13 +121,14 @@ public class CompositeCoverProjectionTests
     }
 
     /// <summary>
-    /// The print slot points at the interior-only artifact, never at the hybrid. The reading copy
-    /// keeps its cover faces for the screen; the production cover is a dieline wrap this
-    /// deployment cannot build yet, and the audit's ruling is that the 14-page file must not
-    /// stand in for it.
+    /// The print slot never points at the hybrid again. With print prep unconfigured — this
+    /// deployment's actual state, the FOGRA39 profile being an owner-side input — the interior
+    /// is composed, the stage refuses, and the slot is explicitly cleared: a withheld print
+    /// artifact with a named reason, not a layout export wearing a print label. The parent's
+    /// reading copy ships regardless.
     /// </summary>
     [Fact]
-    public async Task The_print_slot_points_at_the_interior_and_never_at_the_hybrid()
+    public async Task The_print_slot_is_withheld_until_print_prep_can_actually_run()
     {
         var world = new PackWorld();
 
@@ -135,13 +136,13 @@ public class CompositeCoverProjectionTests
 
         Assert.True(world.Composer.InteriorComposed);
 
-        var interiorName = $"{world.UserId}/{world.PackId}-interior.pdf";
-        Assert.Contains(interiorName, world.Blobs.Uploaded.Keys);
-        Assert.Equal($"https://blob.test/{interiorName}", world.Packs.PrintPdfUrl);
+        // Withheld on purpose: the slot was written, and written null.
+        Assert.True(world.Packs.PrintPdfUrlWritten);
+        Assert.Null(world.Packs.PrintPdfUrl);
 
-        // The reading copy still exists, under its own name, and is not the print artifact.
+        // No print artifact was stored, and the reading copy was — under its own name.
+        Assert.DoesNotContain($"{world.UserId}/{world.PackId}-interior.pdf", world.Blobs.Uploaded.Keys);
         Assert.Contains($"{world.UserId}/{world.PackId}.pdf", world.Blobs.Uploaded.Keys);
-        Assert.NotEqual($"https://blob.test/{world.UserId}/{world.PackId}.pdf", world.Packs.PrintPdfUrl);
     }
 
     /// <summary>
@@ -459,9 +460,13 @@ public class CompositeCoverProjectionTests
 
         public string? PrintPdfUrl { get; private set; }
 
+        /// <summary>Distinguishes "withheld on purpose" from "never written at all".</summary>
+        public bool PrintPdfUrlWritten { get; private set; }
+
         public Task UpdatePrintPdfUrlAsync(Guid id, string? printPdfUrl, CancellationToken cancellationToken)
         {
             PrintPdfUrl = printPdfUrl;
+            PrintPdfUrlWritten = true;
             return Task.CompletedTask;
         }
 

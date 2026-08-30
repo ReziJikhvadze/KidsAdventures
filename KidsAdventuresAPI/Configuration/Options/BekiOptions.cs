@@ -194,6 +194,14 @@ public sealed class BekiOptions
 
     /// <summary>Canonical Beki asset, attached only to pages whose cast includes Beki.</summary>
     public string BekiReferenceAssetPath { get; set; } = Services.Story.BekiIdentity.ReferenceAssetPath;
+
+    /// <summary>
+    /// The print-preparation stage's inputs — the FOGRA39 profile path and the printer's CMYK
+    /// ruling. Nested here so the fulfilment job, which already reads these options, needs no new
+    /// constructor seam; see <see cref="BekiPrintPrepOptions"/> for why every default is "not
+    /// supplied".
+    /// </summary>
+    public BekiPrintPrepOptions PrintPrep { get; set; } = new();
     public string BekiAssetVersion { get; set; } = Services.Story.BekiIdentity.Version;
 
     /// <summary>Visual review thresholds. Configurable because they need tuning against real output.</summary>

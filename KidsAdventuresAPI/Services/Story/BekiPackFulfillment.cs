@@ -7,6 +7,7 @@ using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.Infrastructure;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
+using AdventurePacks.Api.Services.Pdf;
 using AdventurePacks.Api.Services.Story.Composite;
 using Hangfire;
 
@@ -1006,20 +1007,51 @@ public sealed class BekiPackFulfillment(
               copy. The print deliverable is the interior alone: the production cover is a
               continuous back-spine-front wrap built from the printer's dieline, which this
               deployment does not have, and the audit's ruling is that the 14-page hybrid must
-              never stand in for it. So the print slot points at interior.pdf, and the cover's
-              print artifact stays withheld — LAYOUT_FAILED territory, on the record below —
-              until the dieline is configured.
+              never stand in for it.
+
+              And the interior only earns the print slot through the print-preparation stage —
+              PDF/X-4 identification, the Coated FOGRA39 output intent, a preflight report. If
+              that stage refuses (today it does: the ICC profile is owner item 4), the slot is
+              cleared rather than pointed at a layout export, because "layout export treated as
+              completed print preparation" is a finding this book already has. The parent's
+              digital book ships either way.
             */
             var interior = composer.ComposeInterior(plan, stored, personalization);
-            var interiorUrl = await blobStorage.UploadAsync(
-                $"{pack.UserId}/{pack.Id}-interior.pdf", interior, "application/pdf", jobToken);
-            await packRepository.UpdatePrintPdfUrlAsync(packId, interiorUrl, jobToken);
 
-            logger.LogWarning(
-                "Beki pack {PackId}: print interior stored at {InteriorUrl}; the print cover is "
-                + "withheld ({Code}: no printer-approved cover dieline is configured — back panel, "
-                + "spine, hinge, front panel and wrap are owner-side inputs).",
-                packId, interiorUrl, CompositeFailureCodes.LayoutFailed);
+            try
+            {
+                var (preparedInterior, preflightReport) = BekiPrintPrep.Prepare(
+                    interior, plan.Concept.Title, bekiOptions.Value.PrintPrep);
+
+                var interiorUrl = await blobStorage.UploadAsync(
+                    $"{pack.UserId}/{pack.Id}-interior.pdf",
+                    preparedInterior, "application/pdf", jobToken);
+
+                await blobStorage.UploadAsync(
+                    $"{pack.UserId}/{pack.Id}-interior-preflight.json",
+                    System.Text.Encoding.UTF8.GetBytes(preflightReport),
+                    "application/json", jobToken);
+
+                await packRepository.UpdatePrintPdfUrlAsync(packId, interiorUrl, jobToken);
+
+                logger.LogInformation(
+                    "Beki pack {PackId}: print interior prepared ({PdfxVersion}, {Intent}) and "
+                    + "stored with its preflight report; the print cover stays withheld ({Code}: "
+                    + "no printer-approved cover dieline is configured).",
+                    packId, BekiPrintPrep.PdfxVersion,
+                    bekiOptions.Value.PrintPrep.OutputConditionInfo,
+                    CompositeFailureCodes.LayoutFailed);
+            }
+            catch (BekiLayoutException ex)
+                when (ex.FailureCode == CompositeFailureCodes.PrintPreflightFailed)
+            {
+                await packRepository.UpdatePrintPdfUrlAsync(packId, null, jobToken);
+
+                logger.LogWarning(
+                    "Beki pack {PackId}: print artifact withheld ({Code}) — {Reason} The parent's "
+                    + "digital book is unaffected.",
+                    packId, CompositeFailureCodes.PrintPreflightFailed, ex.Message);
+            }
 
             stage = "publishing the book";
 

@@ -95,6 +95,11 @@ public sealed class AdminOrdersController(
             ? pack?.PrintPdfUrl ?? pack?.PdfUrl
             : pack?.PdfUrl ?? pack?.PrintPdfUrl;
 
+        // The fallback stays, but it stops being silent: a reading copy handed to an operator
+        // who asked for the print file is how the unprepped hybrid reached a printer's reviewer.
+        // The filename now says what the file is, so the substitution travels with the download.
+        var printFallback = isPrint && string.IsNullOrWhiteSpace(pack?.PrintPdfUrl);
+
         // 409 rather than 404: the book exists and the file does not exist *yet*, which is a
         // different thing to tell an operator — one of them has a button next to it.
         if (string.IsNullOrWhiteSpace(url))
@@ -105,7 +110,12 @@ public sealed class AdminOrdersController(
         try
         {
             var bytes = await blobStorage.DownloadBytesFromStoredUrlAsync(url, cancellationToken);
-            return File(bytes, "application/pdf", $"beki-{detail.Book.Id}.pdf");
+            return File(
+                bytes,
+                "application/pdf",
+                printFallback
+                    ? $"beki-{detail.Book.Id}-READING-COPY-not-print.pdf"
+                    : $"beki-{detail.Book.Id}.pdf");
         }
         catch (Exception ex)
         {
