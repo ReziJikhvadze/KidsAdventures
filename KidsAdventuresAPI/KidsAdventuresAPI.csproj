@@ -57,6 +57,20 @@
     <Content Update="Assets\BekiComposite\**\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!--
+    The evaluation-only Ottia is not allowed to exist in the font folder, and this is the check
+    that runs before anything is packaged rather than after somebody prints it. It shipped once,
+    in a sold book, alongside the licensed build; the runtime registry refuses it too
+    (BekiLayoutAssets.ForbiddenFontFiles), and a licence breach is worth failing twice over.
+  -->
+  <Target Name="RefuseTrialFonts" BeforeTargets="BeforeBuild">
+    <ItemGroup>
+      <TrialFonts Include="Assets\Fonts\*Trial*" />
+    </ItemGroup>
+    <Error Condition="'@(TrialFonts)' != ''"
+           Text="Evaluation-only font file(s) in Assets/Fonts: @(TrialFonts). The licensed Ottia-v01-Regular is the only build that may ship." />
+  </Target>
+
   <!-- Drop stale static web asset manifests (VS can cache old wwwroot/azure-ssr paths). -->
   <Target Name="CleanStaleStaticWebAssets" BeforeTargets="PrepareForPublish">
     <RemoveDir Directories="$(BaseIntermediateOutputPath)staticwebassets" Condition="Exists('$(BaseIntermediateOutputPath)staticwebassets')" />

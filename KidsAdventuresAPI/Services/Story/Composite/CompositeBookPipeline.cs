@@ -189,6 +189,16 @@ public sealed record CompositeSpreadResult
     /// from eight fallbacks is a scenario-prompt problem, and it is only visible if it is counted.
     /// </summary>
     public bool PoseFallback { get; init; }
+
+    /// <summary>
+    /// The reviewer's advisory remark that this page's composition contradicts the shot it was asked
+    /// for, or null — which is the usual answer.
+    ///
+    /// It rides on the accepted page rather than only on the attempt rows because it is a note about
+    /// the picture that actually shipped. Nothing branches on it anywhere: <see cref="Verdict"/> is
+    /// what the retry ladder read, and this was never part of that.
+    /// </summary>
+    public string? ShotNote { get; init; }
 }
 
 /// <summary>
@@ -205,6 +215,27 @@ public sealed record CompositeBookArtifacts
     public required string ScenarioJson { get; init; }
 
     public required IReadOnlyList<CompositeSpreadArtifact> Spreads { get; init; }
+
+    /// <summary>
+    /// The book-level quality record: pose fallbacks, Georgian flags, shot advisories — see
+    /// <see cref="CompositeBookReview"/>.
+    ///
+    /// An artifact rather than a log line only, because every one of these is a thing somebody has
+    /// to go and read *after* a book ships, and scrollback is not where that happens. Null on a
+    /// path that produced no review, which is none of them today.
+    /// </summary>
+    public string? ReviewJson { get; init; }
+
+    /// <summary>
+    /// The same record, typed, for the caller that projects a few numbers out of it rather than
+    /// storing the document whole.
+    ///
+    /// Both, rather than one and a parse. The fulfilment job stores <see cref="ReviewJson"/>
+    /// byte-for-byte as the pack's own artifact, and separately puts the counts — and only the
+    /// counts — into its telemetry; re-parsing a string it was just handed, to read two integers
+    /// out of it, is the kind of seam that eventually disagrees with itself.
+    /// </summary>
+    public CompositeBookReview? Review { get; init; }
 }
 
 /// <summary>One page's composition manifest, ready to store beside the image it describes.</summary>
@@ -269,6 +300,22 @@ public sealed record CompositeResumeState(
     /// child nothing pins down.
     /// </summary>
     public byte[]? AnchorBasePng { get; init; }
+
+    /// <summary>
+    /// The book-level review an earlier attempt stored, as it was written.
+    ///
+    /// Adopted for two fields only, and see <see cref="CompositeBookReview.MergedWith"/> for why
+    /// those two: a shot advisory belongs to the attempt that reviewed the page, and an adopted page
+    /// was reviewed by somebody else. Without it, a resume that adopts seven pages writes a review
+    /// saying the book has no shot trouble, and the fulfilment job overwrites the earlier attempt's
+    /// document with that — silence where there were observations, on pages nobody will look at
+    /// again.
+    ///
+    /// Null is normal and harmless: a first attempt, a book that failed before the review existed,
+    /// or a document that could no longer be read. It means there is nothing to complete this
+    /// attempt's own reading with.
+    /// </summary>
+    public string? ReviewJson { get; init; }
 
     public static readonly CompositeResumeState Empty = new(
         null,
@@ -375,6 +422,13 @@ public sealed record CompositeBookResult
     /// brought back into agreement with.
     /// </summary>
     public int SpreadsDrawnThisRun { get; init; }
+
+    /// <summary>
+    /// What this book is worth flagging for a person, none of which failed it: how often the pose
+    /// table fell back, what the Georgian check-list found in the printed copy, and which pages the
+    /// reviewer thought were shot wrongly.
+    /// </summary>
+    public required CompositeBookReview Review { get; init; }
 
     public IReadOnlyList<string> Warnings { get; init; } = [];
 }
@@ -530,6 +584,51 @@ public sealed class CompositeBookPipeline(
 
         var boundary = boundaryResult.Boundary!;
 
+        /*
+          The deterministic Georgian read, on the copy that will actually be printed.
+
+          Here rather than after the pictures because this is where the prose is settled: the plan is
+          either the one the parent previewed or the one this run just wrote, and nothing downstream
+          edits a Georgian word. Flags, never repairs — see CompositeGeorgianCheck for why the fix
+          belongs to the polish pass and why a silent correction would hide the miss.
+
+          It cannot fail a book. A misspelling is a thing to tell somebody about, not a reason to
+          refuse an order that is otherwise a finished book.
+        */
+        var georgianFlags = CompositeGeorgianCheck.Inspect(plan);
+
+        /*
+          A check-list that could not be fully loaded is reported, not swallowed and not fatal.
+
+          "No flags" and "no rules ran" look identical on a finished book, and only one of them
+          means the Georgian was read. So a broken rule lands in the log and on the book's own
+          record, while the rules that did compile still run — an advisory check may not be the
+          reason a paid book fails, least of all over its own configuration.
+        */
+        foreach (var problem in CompositeGeorgianCheck.RuleProblems)
+        {
+            logger.LogWarning(
+                "Composite pipeline {JobId}: georgian_checklist_problem — {Problem} This book was "
+                + "checked by the remaining rules only.", context.JobId, problem);
+
+            warnings.Add(
+                $"Georgian check-list ({CompositeGeorgianCheck.ChecklistVersion}): {problem} This "
+                + "book was checked by the remaining rules only.");
+        }
+
+        foreach (var flag in georgianFlags)
+        {
+            logger.LogWarning(
+                "Composite pipeline {JobId}: georgian_text_flag rule={Rule} location={Location} "
+                + "found=\"{Found}\" expected={Expected}. Flagged for human review; nothing was "
+                + "rewritten.",
+                context.JobId, flag.RuleId, flag.Location, flag.Found, flag.Expected);
+
+            warnings.Add(
+                $"Georgian check-list ({CompositeGeorgianCheck.ChecklistVersion}): {flag}. This book "
+                + "is flagged for human reading; no text was changed.");
+        }
+
         // ---- Step 2: the Visual Scenario ------------------------------------------------------
         //
         // Adopted when a previous attempt at this book already planned one, and planned afresh
@@ -582,8 +681,23 @@ public sealed class CompositeBookPipeline(
             resume = CompositeResumeState.Empty;
         }
 
-        var (scenario, scenarioJson) = adoptedScenario
-            ?? await PlanVisualScenarioAsync(context, input, theme, boundary, cancellationToken);
+        var planned = adoptedScenario is { } already
+            ? (already.Scenario, already.Json, PoseAudit: (CompositePoseAudit?)null, RetrySpent: false)
+            : await PlanVisualScenarioAsync(context, input, theme, boundary, cancellationToken);
+
+        var (scenario, scenarioJson) = (planned.Scenario, planned.Json);
+
+        /*
+          An adopted scenario is audited too, and it is worth saying why rather than skipping it.
+
+          The pose count is a fact about the book that ships, not about the call that planned it. A
+          resumed run adopts the scenario an earlier attempt wrote — possibly under the previous
+          keyword table, possibly before the verb steering existed — and the finished book still has
+          however many neutral hovers in it. What the resumed run does NOT do is spend a retry: the
+          scenario is not being asked for again, the pages are already drawn against it, and
+          replanning it is the one thing the whole resume path exists to prevent.
+        */
+        var poseAudit = planned.PoseAudit ?? CompositePoseVocabulary.Audit(_engine.Value.Registry, scenario);
 
         // Persisted before the first image call, and awaited, so that the attempt which dies on
         // spread three is not the attempt that never wrote down what it was drawing.
@@ -779,6 +893,56 @@ public sealed class CompositeBookPipeline(
                 + "the neutral hover was composited.");
         }
 
+        /*
+          The book-level record: the three findings that are true of a book rather than of a page.
+
+          Built from the scenario's audit rather than from the drawn pages, deliberately. A resumed
+          run adopts pages it did not draw and knows nothing about how their poses were chosen; the
+          scenario is what every page — adopted or drawn — was composited from, so replaying it is
+          the only count that describes the finished book. The shot advisories come from the pages,
+          because only a page that was actually reviewed has one.
+        */
+        var review = new CompositeBookReview
+        {
+            PoseRegistryVersion = _engine.Value.Registry.RegistryVersion,
+            PoseKeywordRevision = _engine.Value.Registry.KeywordRevision,
+            ScenarioPromptVersion = CompositeVisualScenarioPrompt.Version,
+            PoseSelectionFallbacks = poseAudit.FallbackCount,
+            PoseFallbackPages = poseAudit.FallbackPages,
+            DistinctPoses = poseAudit.DistinctPoses,
+            PoseVocabularyRetrySpent = planned.RetrySpent,
+            PoseFallbackBudgetExceeded = poseAudit.ExceedsFallbackBudget,
+            GeorgianFlags = georgianFlags,
+            GeorgianChecklistVersion = CompositeGeorgianCheck.ChecklistVersion,
+            GeorgianChecklistProblems = CompositeGeorgianCheck.RuleProblems,
+            ShotAdvisories = spreads
+                .Where(spread => spread.ShotNote is { Length: > 0 })
+                .Select(spread => new CompositeShotAdvisory(
+                    spread.Page, CompositeSpreadRhythm.ShotFor(spread.Page), spread.ShotNote!))
+                .ToList(),
+        }
+            /*
+              …completed with what an earlier attempt observed about the pages this one adopted.
+
+              An adopted page was reviewed by the run that drew it, and its shot advisory lives in
+              that run's review and nowhere else. Rebuilding from what this attempt can see would
+              write a book with no shot trouble in it and hand that to the fulfilment job, which
+              overwrites the stored document — losing observations about pages nobody is going to
+              look at again. The retry flag rides along for the same reason: a resumed run adopts
+              the scenario and never re-asks, so it cannot know the retry was spent.
+            */
+            .MergedWith(
+                CompositeBookReview.TryRead(resume.ReviewJson),
+                adopted.Keys.ToHashSet());
+
+        // One line, whole, in the same key=value idiom as every other observability line here. The
+        // fallback count is the number R13 exists to drive down and the one to watch across books.
+        logger.LogInformation(
+            "Composite book review {JobId}: {Summary} registry={Registry} keywords={Keywords} "
+            + "scenarioPrompt={ScenarioPrompt} needsHumanReading={NeedsReading}",
+            context.JobId, review.Summary, review.PoseRegistryVersion, review.PoseKeywordRevision,
+            review.ScenarioPromptVersion, review.NeedsHumanReading);
+
         return new CompositeBookResult
         {
             Plan = plan,
@@ -788,10 +952,13 @@ public sealed class CompositeBookPipeline(
             Identity = identity,
             Anchor = bookAnchor,
             SpreadsDrawnThisRun = drawn.Count,
+            Review = review,
             Warnings = warnings,
             Artifacts = new CompositeBookArtifacts
             {
                 ScenarioJson = scenarioJson,
+                ReviewJson = review.ToJson(),
+                Review = review,
                 Spreads = spreads
                     .Where(spread => !spread.Adopted)
                     .Select(spread => new CompositeSpreadArtifact(
@@ -946,8 +1113,19 @@ public sealed class CompositeBookPipeline(
     /// error list appended to the original ask. What it is not sent is a rewritten prompt: the
     /// second attempt has to be the same scenario without the fault, and a model given a different
     /// instruction returns a different book's pictures.
+    ///
+    /// v2.1 adds one more thing a scenario can be rejected for, and it is deliberately inside the
+    /// same budget rather than beside it. After both validation layers pass, the pose registry is
+    /// replayed over the eight Beki sentences — no model call, the same selector the pages use — and
+    /// a book that would be composited from more than
+    /// <see cref="CompositePoseVocabulary.MaxFallbacksPerBook"/> neutral hovers is treated as a
+    /// semantic miss and spends the one retry it already had. It never buys a second one, and it
+    /// never fails a book: a scenario that is still repetitive after its retry is drawn anyway, and
+    /// the count is recorded. The fallback is an approved pose; six of them in eight pages is a
+    /// quality signal, not a defect worth discarding a paid plan over.
     /// </summary>
-    private async Task<(VisualScenarioV2 Scenario, string Json)> PlanVisualScenarioAsync(
+    private async Task<(VisualScenarioV2 Scenario, string Json, CompositePoseAudit? PoseAudit, bool RetrySpent)>
+        PlanVisualScenarioAsync(
         CompositeBookContext context,
         NormalizedBookInput input,
         CompositeThemeReference theme,
@@ -958,6 +1136,12 @@ public sealed class CompositeBookPipeline(
         var model = VisualScenarioModel;
 
         VisualScenarioValidationResult? previous = null;
+
+        // Whether the one retry was spent on the pose vocabulary specifically, rather than on a
+        // schema or semantic fault. The record wants to distinguish them: "the planner was asked
+        // again about its verbs" and "the planner returned invalid JSON" are different stories about
+        // the same retry.
+        var poseRetrySpent = false;
 
         for (var attempt = 0; attempt <= 1; attempt++)
         {
@@ -977,7 +1161,9 @@ public sealed class CompositeBookPipeline(
                 // exactly the responses that need explaining.
                 var result = await storyClient.CompleteAsync<JsonElement>(
                     model,
-                    CompositeVisualScenarioPrompt.System,
+                    // The contract's instruction plus v2.1's verb-family block — see
+                    // CompositeVisualScenarioPrompt.SystemInstruction for why they are two members.
+                    CompositeVisualScenarioPrompt.SystemInstruction,
                     user,
                     CompositeVisualScenarioPrompt.SchemaName,
                     CompositeVisualScenarioPrompt.ResponseSchema(),
@@ -1007,6 +1193,43 @@ public sealed class CompositeBookPipeline(
                     ]
                 };
 
+            /*
+              The pose audit, run only on an answer that already passed both validation layers.
+
+              Deterministic and free: it replays the registry over the eight Beki sentences with the
+              selector the pages themselves use. Doing it here rather than in the validator keeps the
+              two documents apart — the validator is the supplied schema plus the contract MD's own
+              rules, and this is a fact about a different file with its own revisions.
+            */
+            CompositePoseAudit? audit = null;
+
+            if (validation.IsValid)
+            {
+                audit = CompositePoseVocabulary.Audit(_engine.Value.Registry, validation.Scenario!);
+
+                // Only on the first attempt. The retry is one retry; a second rejection here would
+                // be the pipeline paying twice to be told the same thing, which is the exact rule
+                // the whole retry budget exists to hold.
+                if (audit.ExceedsFallbackBudget && attempt == 0)
+                {
+                    logger.LogWarning(
+                        "Composite pipeline {JobId}: the Visual Scenario is valid but maps "
+                        + "{Fallbacks} of {Spreads} spreads to the fallback pose (pages {Pages}); "
+                        + "spending the one corrective retry on the Beki action vocabulary.",
+                        context.JobId, audit.FallbackCount, audit.Choices.Count,
+                        string.Join(", ", audit.FallbackPages));
+
+                    validation = validation with
+                    {
+                        IsValid = false,
+                        Problems = [CompositePoseVocabulary.Problem(audit)],
+                    };
+
+                    poseRetrySpent = true;
+                    audit = null;
+                }
+            }
+
             LogModelCall(
                 context, "visual_scenario", model, CompositeVisualScenarioPrompt.Version,
                 started.ElapsedMilliseconds, attempt,
@@ -1014,7 +1237,20 @@ public sealed class CompositeBookPipeline(
 
             if (validation.IsValid)
             {
-                return (validation.Scenario!, answer!);
+                if (audit!.ExceedsFallbackBudget)
+                {
+                    // The retry has been spent and the second answer is still repetitive. The book
+                    // is drawn: the fallback is an approved pose, and refusing a paid plan over
+                    // Beki's variety would trade a delivered book for a better one nobody gets.
+                    logger.LogWarning(
+                        "Composite pipeline {JobId}: the Visual Scenario still maps "
+                        + "{Fallbacks} of {Spreads} spreads to the fallback pose after its one "
+                        + "retry (pages {Pages}). Drawing the book and recording the count.",
+                        context.JobId, audit.FallbackCount, audit.Choices.Count,
+                        string.Join(", ", audit.FallbackPages));
+                }
+
+                return (validation.Scenario!, answer!, audit, poseRetrySpent);
             }
 
             previous = validation;
@@ -1472,6 +1708,18 @@ public sealed class CompositeBookPipeline(
                 // refused is precisely the one a later spread must not be told to match.
                 continuity.Remember(elements, basePng);
 
+                if (verdict.ShotNote is { Length: > 0 } shotNote)
+                {
+                    // Logged as a warning and carried out, and that is the whole of its effect. The
+                    // page passed; nothing below this line reads it. A hard gate on a subjective
+                    // single-frame judgement would spend a paid image call on every false positive,
+                    // and there is no evidence yet to price that — which is what this collects.
+                    logger.LogWarning(
+                        "Composite pipeline {JobId} spread {Page}: shot_note (advisory, no effect "
+                        + "on the verdict) — asked for \"{Shot}\", reviewer says \"{Note}\".",
+                        context.JobId, page.Page, CompositeSpreadRhythm.ShotFor(page.Page), shotNote);
+                }
+
                 return new CompositeSpreadResult
                 {
                     Page = page.Page,
@@ -1485,6 +1733,7 @@ public sealed class CompositeBookPipeline(
                     BaseAttempts = baseAttempts,
                     Attempts = attempts,
                     PoseFallback = selection.Fallback,
+                    ShotNote = verdict.ShotNote,
                 };
             }
 
@@ -1979,7 +2228,10 @@ public sealed class CompositeBookPipeline(
             elements,
             textSide,
             anchored,
-            identity);
+            identity,
+            // v1.3: the same sentence the image prompt opened its composition block with, so the
+            // reviewer's advisory shot_note is a comparison rather than a description.
+            CompositeSpreadRhythm.ShotFor(page.Page));
 
         /*
           The child's photograph, and — after spread one — the child appearance anchor. Nothing else.

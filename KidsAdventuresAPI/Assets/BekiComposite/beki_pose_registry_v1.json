@@ -1,5 +1,7 @@
 {
   "registry_version": "beki-pose-registry-v1",
+  "keyword_revision": "v1.1",
+  "keyword_revision_note": "Keyword lists only. See contracts/BEKI_Pose_Registry_Keyword_Changelog.md for the amendment, the observed defect and the collision rules. registry_version is deliberately unchanged: the nine approved PNGs, their hashes, priority_order, fallback_pose_id and forced_usage are byte-identical to v1, and pipeline_config_v1.json pins that string.",
   "matching": {
     "normalization": "lowercase Unicode text; trim; collapse whitespace",
     "strategy": "Evaluate poses in priority_order. Select the first pose whose ordered keyword list contains a case-insensitive substring match. Record the matched keyword. If none match, use fallback_pose_id.",
@@ -26,49 +28,49 @@
       "id": "pose_02_welcome_invitation",
       "filename": "BEKI_RASTER_Pose_02_WELCOME_INVITATION_2048x2048_FINAL_v01.png",
       "sha256": "db7101a8973bce18a0d162be8e5abbc6b32bfcba3a3108a7802b556253c20a6e",
-      "keywords": ["welcome", "welcomes", "invite", "invites", "inviting", "greet", "greets", "beckon", "beckons"]
+      "keywords": ["welcome", "welcomes", "invite", "invites", "inviting", "greet", "greets", "beckon", "beckons", "waves warmly", "waves hello", "waves back", "waves goodbye", "waves at the", "waves to the", "waving hello", "waving back", "welcoming", "invitation", "greeting", "calls the child over"]
     },
     {
       "id": "pose_03_guide_point",
       "filename": "BEKI_RASTER_Pose_03_GUIDE_POINT_2048x2048_FINAL_v01.png",
       "sha256": "22dfcd99b3c946fca6966d674794d87700a993335f8c711cf2e5bbeed31835dc",
-      "keywords": ["points", "pointing", "gestures forward", "shows the way", "guides", "indicates", "directs", "reveals the path", "lights the way", "illuminates"]
+      "keywords": ["points", "pointing", "gestures forward", "shows the way", "guides", "indicates", "directs", "reveals the path", "lights the way", "illuminates", "gestures encouragingly", "gestures toward", "gestures along", "gestures ahead", "gestures onward", "motions toward", "motions ahead", "signals toward", "shows the child the way", "leads the way", "traces the path", "marks the path", "lights the path", "guiding"]
     },
     {
       "id": "pose_04_listen",
       "filename": "BEKI_RASTER_Pose_04_LISTEN_2048x2048_FINAL_v01.png",
       "sha256": "b90c3cd74f62e36eb701c65410ef80aad9c19fcf617c0fb14cf3d97b27d016a8",
-      "keywords": ["listens", "listening", "attentively", "hears", "sound", "turns toward the call"]
+      "keywords": ["listens", "listening", "attentively", "hears", "sound", "turns toward the call", "listen", "hearing", "attentive", "tilts their head", "tilts her head", "tilts his head", "tilts the head", "head tilted", "cocks their head", "leans an ear", "perks up"]
     },
     {
       "id": "pose_05_excited_celebrate",
       "filename": "BEKI_RASTER_Pose_05_EXCITED_CELEBRATE_2048x2048_FINAL_v01.png",
       "sha256": "085363484d60787196a272cc777c0fa06209615c1013fc6bfb2cd12462488c38",
-      "keywords": ["celebrates", "celebrating", "joyful", "delighted", "cheers", "cheering", "applauds", "proud", "relieved"]
+      "keywords": ["celebrates", "celebrating", "joyful", "delighted", "cheers", "cheering", "applauds", "proud", "relieved", "claps", "clapping", "clap", "applauding", "celebrate", "happily", "excitedly", "excited", "cheerful", "in awe", "with awe", "awe and joy", "grins"]
     },
     {
       "id": "pose_06_brave_protective",
       "filename": "BEKI_RASTER_Pose_06_BRAVE_PROTECTIVE_2048x2048_FINAL_v01.png",
       "sha256": "f4242ad82f504862f16e49ab44b0143ab2bd623374e88cd2e55ecd75191954e0",
-      "keywords": ["protects", "protective", "shields", "guards", "bravely", "stands between", "blocks danger"]
+      "keywords": ["protects", "protective", "shields", "guards", "bravely", "stands between", "blocks danger", "protect", "shield", "guarding", "stands guard", "steps in front", "stands firm", "shelters", "keeps the child safe", "braces"]
     },
     {
       "id": "pose_07_curious_lean",
       "filename": "BEKI_RASTER_Pose_07_CURIOUS_LEAN_2048x2048_FINAL_v01.png",
       "sha256": "d8f3ee34b0c0b72ff8cf1b9c0ddd0efd4a393b176c9ff0e9a326dd4fcc879686",
-      "keywords": ["curious", "curiously", "leans closer", "inspects", "investigates", "wonders", "examines", "surprised"]
+      "keywords": ["curious", "curiously", "leans closer", "inspects", "investigates", "wonders", "examines", "surprised", "wonder", "marvels", "marveling", "marvelling", "leans in", "leans forward", "leans down", "peers", "peering", "peeks", "studies", "looks closely", "looks carefully", "inspect", "examine", "investigate", "intrigued", "puzzled"]
     },
     {
       "id": "pose_08_gentle_reassure",
       "filename": "BEKI_RASTER_Pose_08_GENTLE_REASSURE_2048x2048_FINAL_v01.png",
       "sha256": "633af636e32e122e4be78dd982a1702ad5495928e82dcb8cc0840691da3346e3",
-      "keywords": ["reassures", "reassuring", "comforts", "comforting", "soothes", "calms", "concern", "stays close"]
+      "keywords": ["reassures", "reassuring", "comforts", "comforting", "soothes", "calms", "concern", "stays close", "reassure", "comfort", "encourages", "encouraging", "encouragement", "stands beside", "stands close", "stands nearby", "stands near", "stays beside", "sits beside", "kneels beside", "rests beside", "rests peacefully", "rests quietly", "rests cozily", "rests calmly", "waits beside", "nods", "smiles warmly", "smiles gently", "smiles softly", "watches warmly", "watches warm-heartedly", "watches thoughtfully", "watches gently", "watches quietly", "watches over", "watching over", "warm and caring", "caring expression", "caring smile", "gentle", "gently", "tenderly"]
     },
     {
       "id": "pose_09_forward_adventure_glide",
       "filename": "BEKI_RASTER_Pose_09_FORWARD_ADVENTURE_GLIDE_2048x2048_FINAL_v01.png",
       "sha256": "54b6947096e686fad8f9d5a9be1d6c333a3a3d7e8c678ed87305663252a8793e",
-      "keywords": ["glides forward", "flies forward", "moves ahead", "leads onward", "sets off", "continues onward", "adventure"]
+      "keywords": ["glides forward", "flies forward", "moves ahead", "leads onward", "sets off", "continues onward", "adventure", "walks beside", "walks alongside", "walks with the child", "steps alongside", "steps beside", "moves alongside", "follows close behind", "follows behind", "follows the child", "glides ahead", "glides alongside", "flies ahead", "heads onward", "sets out", "travels onward", "journeys onward", "looks out", "looking out", "gazes out", "gazing out", "onward"]
     }
   ],
   "forced_usage": {

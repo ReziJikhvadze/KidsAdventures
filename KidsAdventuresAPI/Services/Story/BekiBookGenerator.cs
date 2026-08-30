@@ -287,6 +287,64 @@ public sealed class BekiBookGenerator(
     private float CoverCropRatio =>
         (_layout.PageWidthMm + (_layout.BleedMm * 2)) / (_layout.SpreadHeightMm + (_layout.BleedMm * 2));
 
+    /// <summary>
+    /// The sheet's own shape, given to a spread render before anything else keeps it.
+    ///
+    /// gpt-image draws 3:2 (<see cref="SpreadImageSize"/>) and the printed spread is 15:7, so a
+    /// render stored raw carries about a sixth of its height in bands the print will never show.
+    /// That used to be the composer's problem — it centre-cropped at layout time — and the price was
+    /// that every stage in between judged, stored and resumed a picture whose edges nobody would
+    /// ever see. It is now a refusal rather than a quiet crop: the layout stage stops a book whose
+    /// artwork would lose more than <see cref="BekiPrintLayoutOptions.PrintCropTolerance"/> per axis,
+    /// which is the right rule and which every book drawn on this path would have hit.
+    ///
+    /// So the crop happens once, here, by the same arithmetic the composite pipeline already uses —
+    /// <see cref="SpreadArtCrop.CropToRatio"/>, the one helper both pipelines call, so the two
+    /// cannot drift — and before the reviewer's copy is derived, before the image is stored, and
+    /// before it becomes the appearance anchor a later spread is drawn against. What QA sees, what
+    /// the resume manifest keeps and what the printer receives are then the same pixels.
+    ///
+    /// The cover does not come through here. Its geometry is the printer's wrap rather than this
+    /// sheet (handoff §5), its print artifact stays withheld until the dieline exists, and the
+    /// layout stage exempts it from the tolerance for exactly the same reason.
+    ///
+    /// Idempotent, which matters for the resume path: a render that is already the sheet's shape is
+    /// returned unchanged, so artwork adopted from an earlier attempt is normalized once whether it
+    /// was drawn before this rule or after it.
+    /// </summary>
+    /// <summary>
+    /// Every spread a previous attempt left behind, at the sheet's shape. See
+    /// <see cref="NormalizeSpreadToSheet"/> — the work is one decode per adopted page on a resume
+    /// and nothing at all on a first run, where there is no dictionary to walk.
+    /// </summary>
+    private IReadOnlyDictionary<int, byte[]> NormalizedAdoptedSpreads(
+        IReadOnlyDictionary<int, byte[]>? existingSpreads)
+        => existingSpreads is null || existingSpreads.Count == 0
+            ? new Dictionary<int, byte[]>()
+            : existingSpreads.ToDictionary(
+                entry => entry.Key,
+                entry => NormalizeSpreadToSheet(entry.Value, entry.Key));
+
+    private byte[] NormalizeSpreadToSheet(byte[] image, int spreadNumber)
+    {
+        var normalized = SpreadArtCrop.CropToRatio(image, SpreadCropRatio);
+
+        if (ReferenceEquals(normalized, image))
+        {
+            return image;
+        }
+
+        var before = Image.Identify(image);
+        var after = Image.Identify(normalized);
+
+        logger.LogInformation(
+            "Beki spread {Spread}: normalized {BeforeWidth}x{BeforeHeight} to "
+            + "{AfterWidth}x{AfterHeight} for the {Ratio:F4} sheet, before review and storage.",
+            spreadNumber, before.Width, before.Height, after.Width, after.Height, SpreadCropRatio);
+
+        return normalized;
+    }
+
     public async Task<BekiBookResult> GenerateAsync(
         MasterStoryInput input,
         byte[] childPhoto,
@@ -336,7 +394,14 @@ public sealed class BekiBookGenerator(
         }
 
         var warnings = new List<string>();
-        var adopted = existingSpreads ?? new Dictionary<int, byte[]>();
+
+        // Artwork a previous attempt drew, brought to the sheet's shape exactly as a fresh render
+        // is. Here rather than assumed: a job that started before this rule existed resumes into it,
+        // and the pages it stored are still the provider's 3:2 frame — which the layout stage now
+        // refuses. Both the anchors below and the adopted results further down read this one
+        // dictionary, so normalizing it once keeps a redrawn spread anchored on the same pixels the
+        // book will actually print.
+        var adopted = NormalizedAdoptedSpreads(existingSpreads);
 
         var castById = (plan.Cast ?? []).ToDictionary(member => member.Id, StringComparer.OrdinalIgnoreCase);
         var objById = (plan.Objects ?? []).ToDictionary(o => o.Id, StringComparer.OrdinalIgnoreCase);
@@ -830,6 +895,15 @@ public sealed class BekiBookGenerator(
             prompt, reference, cancellationToken, SpreadImageSize);
         genSw.Stop();
 
+        // The sheet's shape, before anything downstream keeps this picture — the reviewer's copy,
+        // the appearance anchor, the resume manifest and the printer all get the same pixels. The
+        // cover comes through this same method and is deliberately left at the provider's frame;
+        // see NormalizeSpreadToSheet.
+        if (spreadNumber is { } spreadToNormalize)
+        {
+            image = NormalizeSpreadToSheet(image, spreadToNormalize);
+        }
+
         // Single-shot: what was drawn is what the book gets, and nothing below runs — no crop, no
         // reviewer, no redraw. Accepted rather than merely unreviewed, because every reader of
         // this result treats a refusal as a reason to fall back, and there is no refusal to have.
@@ -872,6 +946,11 @@ public sealed class BekiBookGenerator(
             image = await openAi.GenerateStoryImageAsync(
                 corrected, reference, cancellationToken, SpreadImageSize);
             genSw.Stop();
+
+            if (spreadNumber is { } redrawnSpread)
+            {
+                image = NormalizeSpreadToSheet(image, redrawnSpread);
+            }
 
             reviewCopy = SpreadArtCrop.CropAndReduce(image, reviewRatio, ReviewImageWidth);
             revSw.Restart();

@@ -239,6 +239,21 @@ public sealed record CompositeQaVerdict(
     string RecommendedAction,
     IReadOnlyList<string> Notes)
 {
+    /// <summary>
+    /// The reviewer's optional remark that the rendered shot clearly contradicts the shot this page
+    /// was asked for — advisory, and only ever advisory (v1.3).
+    ///
+    /// It is a property with a default rather than a constructor parameter for a reason worth
+    /// stating: nothing in the retry ladder may branch on it, and a positional parameter beside
+    /// <see cref="FailedChecks"/> invites exactly that. It cannot fail a page, cannot change
+    /// <see cref="RecommendedAction"/>, cannot buy an image and does not appear in
+    /// <see cref="ToString"/>, which is the line the ladder and the stored verdict read. It exists
+    /// so that the next revision of the shot instruction has counted evidence rather than an
+    /// impression from a printed proof — the supplier's finding was real, and a hard gate on a
+    /// subjective single-frame judgement would pay for its false positives in image calls.
+    /// </summary>
+    public string? ShotNote { get; init; }
+
     public const string Pass = "PASS";
 
     public const string ActionPass = "pass";
@@ -301,12 +316,23 @@ public static class CompositeMinimalQa
     /// spec is there for the same reason: eyebrows, glasses and face shape were drifting precisely
     /// because nothing named them.
     /// </summary>
-    public const string Version = "minimal-visual-qa-v1.2";
+    /// <summary>
+    /// v1.3 states the deterministic shot this page was asked for and accepts one optional,
+    /// advisory <c>shot_note</c> back when the rendered composition clearly contradicts it.
+    ///
+    /// No new failed-check category, no effect on the verdict, no retry. The supplier's audit found
+    /// wide and close spreads rendering as the same medium composition and nothing in the pipeline
+    /// measured it; a hard gate on a subjective judgement made from one frame would spend a paid
+    /// image call on every false positive. So the reviewer records, and the next revision decides.
+    /// </summary>
+    public const string Version = "minimal-visual-qa-v1.3";
 
     /// <summary>
-    /// The response schema is v1's and stays v1's: the nine category names, the shape and the
-    /// validation rules did not move, so the supplied file is still the authority. v1.1 changed
-    /// what the reviewer is shown and what CHILD_IDENTITY means, neither of which is in the schema.
+    /// The supplied file stays the authority. The nine category names, the shape and the validation
+    /// rules have not moved since v1; v1.1 and v1.2 changed only what the reviewer is shown and what
+    /// CHILD_IDENTITY means, neither of which is in the schema. v1.3 added exactly one **optional**
+    /// property, <c>shot_note</c> — required because the shape is <c>additionalProperties: false</c>,
+    /// and optional so that every answer valid under v1.2 is still valid.
     /// </summary>
     public const string SchemaFileName = "minimal_visual_qa_v1.schema.json";
 
@@ -331,6 +357,14 @@ public static class CompositeMinimalQa
     /// rather than an impression. Null only for a caller that has none, which the composite path
     /// no longer has.
     /// </param>
+    /// <param name="shotInstruction">
+    /// The deterministic shot this page was asked for, verbatim from the config's rhythm — v1.3.
+    ///
+    /// Stated so the advisory <c>shot_note</c> has something to be about: a reviewer that is not
+    /// told what was asked for can only report what it sees, which is not a comparison. Empty or
+    /// null omits both the line and the invitation to write a note, so a caller with no rhythm
+    /// entry (the cover) is not asking about a shot nobody specified.
+    /// </param>
     public static string Prompt(
         string childWorldScene,
         string bekiAction,
@@ -338,7 +372,8 @@ public static class CompositeMinimalQa
         IReadOnlyList<string> recurringElements,
         string textSide,
         bool anchorAttached = false,
-        ChildIdentitySpec? identity = null)
+        ChildIdentitySpec? identity = null,
+        string? shotInstruction = null)
     {
         var elements = recurringElements is { Count: > 0 }
             ? string.Join("; ", recurringElements)
@@ -362,6 +397,15 @@ public static class CompositeMinimalQa
               + "do not, that alone is a CHILD_IDENTITY failure."
               + GlassesRule(identity);
 
+        // Advisory, and the wording says so twice — in the instruction and here. A reviewer that
+        // suspects a note has consequences either writes none or writes one about everything.
+        var shot = string.IsNullOrWhiteSpace(shotInstruction)
+            ? string.Empty
+            : $"\nShot this page was asked for: {shotInstruction.Trim()} If the rendered "
+              + "composition clearly contradicts that shot type, put one short sentence in "
+              + "shot_note. This is advisory only: it is not a failed check and must not change "
+              + "status or recommended_action.";
+
         return $"""
             {SystemInstruction}
 
@@ -372,7 +416,7 @@ public static class CompositeMinimalQa
             Child/world scene: {childWorldScene.Trim()}
             Beki action: {bekiAction.Trim()}
             Required base outfit: {childOutfit.Trim()}
-            Relevant recurring elements: {elements}
+            Relevant recurring elements: {elements}{shot}
             Reserved text side: {textSide.ToUpperInvariant()} — the {textSide.ToLowerInvariant()} third of the spread carries printed story text and must stay clear of faces, hands, characters, foreground objects and key action.
             Central exclusion zone: a narrow vertical strip at the exact centre of the spread; continuous environment may cross it, but no face, hand, character or story-critical detail may.{spec}{anchor}
             """;
@@ -487,7 +531,17 @@ public static class CompositeMinimalQa
                     root.GetProperty("status").GetString()!,
                     Strings(root, "failed_checks"),
                     root.GetProperty("recommended_action").GetString()!,
-                    Strings(root, "notes")),
+                    Strings(root, "notes"))
+                {
+                    // Absent and empty are the same answer — "the shot is fine, or I could not
+                    // tell" — and both must read as no note at all, because a whitespace string
+                    // would otherwise be counted and reported as an observation.
+                    ShotNote = root.TryGetProperty("shot_note", out var note)
+                               && note.ValueKind == JsonValueKind.String
+                               && !string.IsNullOrWhiteSpace(note.GetString())
+                        ? note.GetString()!.Trim()
+                        : null,
+                },
                 []);
         }
     }
@@ -555,11 +609,14 @@ public static class CompositeMinimalQa
           "status": "PASS",
           "failed_checks": [],
           "recommended_action": "pass",
-          "notes": []
+          "notes": [],
+          "shot_note": ""
         }
 
         Each failed_checks item, when present, must be one of:
         CHILD_IDENTITY, CHILD_AGE, OUTFIT_CONTINUITY, MAIN_SCENE_BEAT, CAST_ERROR, GENERATED_TEXT, TEXT_SAFE_AREA, FOLD_SAFETY, BEKI_INTEGRATION.
+
+        shot_note is optional, advisory, and never a failure. The page description states the shot this spread was asked for. Fill shot_note with one short sentence only when the rendered composition clearly contradicts that shot type - for example a close-up where a wide establishing view was asked for. Leave it out, or empty, when the shot is right or you are unsure. A shot_note is not a failed check, does not appear in failed_checks, does not change status or recommended_action, and never causes a retry.
 
         Keep notes short, concrete, and visible in the supplied composite. Do not include sensitive descriptions of the child's source photo.
         """;

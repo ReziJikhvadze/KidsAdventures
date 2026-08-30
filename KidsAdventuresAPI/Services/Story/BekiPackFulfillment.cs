@@ -89,6 +89,19 @@ public static class BekiPackBlobs
         $"{userId}/{packId}/child-identity.json";
 
     /// <summary>
+    /// The book-level quality record: how often the pose table fell back, what the Georgian
+    /// check-list found in the printed copy, and which pages the reviewer thought were shot wrongly.
+    ///
+    /// Its own artifact rather than a section of the manifest, for the reason the scenario and the
+    /// identity spec are: the manifest is an operational document that gets read, logged and pasted
+    /// into support threads, and this one quotes the book's own Georgian — which is where the
+    /// child's name lives. The manifest carries the URL; the words stay under the pack's private
+    /// prefix, beside the story they came from, and are deleted with it.
+    /// </summary>
+    public static string CompositeReviewName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}/composite-review.json";
+
+    /// <summary>
     /// The cover this pack shipped, stored beside its spreads.
     ///
     /// Under the pack's own prefix rather than the preview run's, because from v1.2 they are not
@@ -401,10 +414,18 @@ public sealed class BekiPackFulfillment(
             */
             string? storedIdentitySpec = null;
 
+            // The earlier attempt's review, read for the two things a resumed run cannot rebuild:
+            // the shot advisories of the pages it adopts, and whether the pose-vocabulary retry was
+            // already spent. Read even when the artwork is later discarded below — a redrawn book
+            // still inherits the fact that its plan cost a retry.
+            string? storedReview = null;
+
             if (compositeEnabled && manifest is not null)
             {
                 storedIdentitySpec = await TryReadIdentitySpecAsync(
                     packId, manifest.IdentitySpecUrl, jobToken);
+
+                storedReview = await TryReadReviewAsync(packId, manifest.ReviewUrl, jobToken);
 
                 if (string.IsNullOrWhiteSpace(storedIdentitySpec) && manifest.Entries.Count > 0)
                 {
@@ -518,6 +539,20 @@ public sealed class BekiPackFulfillment(
             var scenarioUrl = manifest?.ScenarioUrl;
             var identitySpecUrl = manifest?.IdentitySpecUrl;
 
+            /*
+              The review an earlier attempt stored, kept until this attempt has one of its own.
+
+              Seeded rather than started at null for the same reason the compositions are: a resumed
+              run rewrites this manifest from the first page it stores, long before it has a finished
+              book to measure. Dropping the earlier attempt's URL there would leave the pack with a
+              review blob nothing points at — and if this attempt then failed, the pack would have
+              lost the only record of what was wrong with the book it had.
+
+              A run that completes overwrites both the blob and this URL with its own, which is
+              correct: the review describes the book that shipped, and that is this attempt's book.
+            */
+            var reviewUrl = manifest?.ReviewUrl;
+
             // Written once, after the book is drawn — until then the manifest carries whatever an
             // earlier attempt recorded, which is the cover that attempt shipped.
             var coverRecord = manifest?.Cover;
@@ -598,6 +633,7 @@ public sealed class BekiPackFulfillment(
                     Resume = new CompositeResumeState(storedScenario, existingSpreads, existingBases)
                     {
                         IdentitySpecJson = storedIdentitySpec,
+                        ReviewJson = storedReview,
                         // The child appearance anchor is the accepted first spread's base image,
                         // which is already in hand whenever that spread was adopted — the same
                         // bytes the manifest's composition entry points at, not a second copy of
@@ -618,7 +654,7 @@ public sealed class BekiPackFulfillment(
 
                         await WriteManifestAsync(
                             manifestName, storedUrls, currentContract, scenarioUrl, identitySpecUrl,
-                            coverRecord, compositions, jobToken);
+                            coverRecord, compositions, jobToken, reviewUrl);
                     },
                     OnScenario = async scenarioJson =>
                     {
@@ -634,7 +670,7 @@ public sealed class BekiPackFulfillment(
 
                         await WriteManifestAsync(
                             manifestName, storedUrls, currentContract, scenarioUrl, identitySpecUrl,
-                            coverRecord, compositions, jobToken);
+                            coverRecord, compositions, jobToken, reviewUrl);
                     },
                 }
                 : null;
@@ -675,7 +711,7 @@ public sealed class BekiPackFulfillment(
 
                         await WriteManifestAsync(
                             manifestName, storedUrls, currentContract, scenarioUrl, identitySpecUrl,
-                            coverRecord, compositions, jobToken);
+                            coverRecord, compositions, jobToken, reviewUrl);
                         uploadMs += uploadStopwatch.ElapsedMilliseconds;
                     }
 
@@ -821,16 +857,51 @@ public sealed class BekiPackFulfillment(
                         ? $"redrawn against the accepted first spread and reviewed ({book.Cover.Verdict})"
                         : "the previewed cover, adopted unchanged");
 
+                /*
+                  The book-level review, stored with the finished book and pointed at from the
+                  manifest.
+
+                  Last rather than first, and that is the whole reason it is not written beside the
+                  scenario: every number in it is a count across all eight spreads. A partial review
+                  written at spread three would say "two fallbacks" about a book that will have six,
+                  and a number an operator can read is a number they will act on.
+
+                  Best-effort, deliberately. The book is drawn, reviewed, composited and about to be
+                  laid out; losing the measurement of a finished book to a storage hiccup is a bad
+                  trade, and the same record is already in the log line the pipeline wrote.
+                */
+                if (compositeArtifacts.ReviewJson is { Length: > 0 } reviewDocument)
+                {
+                    try
+                    {
+                        reviewUrl = await blobStorage.UploadAsync(
+                            BekiPackBlobs.CompositeReviewName(pack.UserId, pack.Id),
+                            System.Text.Encoding.UTF8.GetBytes(reviewDocument),
+                            "application/json",
+                            jobToken);
+                    }
+                    catch (Exception reviewEx) when (reviewEx is not OperationCanceledException)
+                    {
+                        logger.LogWarning(
+                            reviewEx, "Beki pack {PackId}: the composite review could not be "
+                            + "stored; the book is unaffected and the counts are in the log.",
+                            packId);
+                    }
+                }
+
                 await WriteManifestAsync(
                     manifestName, storedUrls, currentContract, scenarioUrl, identitySpecUrl,
-                    coverRecord, compositions, jobToken);
+                    coverRecord, compositions, jobToken, reviewUrl);
 
                 uploadMs += artifactStopwatch.ElapsedMilliseconds;
 
                 logger.LogInformation(
                     "Beki pack {PackId}: composite artifacts stored — visual scenario at "
-                    + "{ScenarioStored} and {Receipts} composition manifest(s).",
-                    packId, scenarioUrl is null ? "(none)" : "its blob", compositions.Count);
+                    + "{ScenarioStored}, {Receipts} composition manifest(s), review at "
+                    + "{ReviewStored} ({ReviewSummary}).",
+                    packId, scenarioUrl is null ? "(none)" : "its blob", compositions.Count,
+                    reviewUrl is null ? "(none)" : "its blob",
+                    compositeArtifacts.Review?.Summary ?? "no review");
             }
 
             stage = "laying out the PDF";
@@ -959,6 +1030,30 @@ public sealed class BekiPackFulfillment(
                         accepted = s.Accepted,
                         adoptedFromManifest = s.AttemptDetails.Count == 0,
                     }).ToList(),
+                    /*
+                      The book-level quality record, as numbers.
+
+                      Here as well as in its own artifact because telemetry is the file that gets
+                      read across books — "how often does the pose table fall back", "which packs
+                      need a human to read the Georgian" — and those questions are answered by
+                      counts, not by prose. The URL is carried with them so a number that looks
+                      wrong leads straight to the document that explains it.
+
+                      Counts only, and that is a privacy decision rather than a size one: a Georgian
+                      flag's matched text is a window into the story, and the story is where the
+                      child's name is — the hyphenated-suffix rule finds precisely that. Telemetry
+                      is a comparison document; it gets the rule id and the page. See
+                      CompositeBookReview.ToTelemetry.
+
+                      Null on the legacy path, which writes the key with a null rather than omitting
+                      it. Left that way deliberately: unlike the fulfilment manifest — which a
+                      resumed run deserializes, and where an added property is a compatibility
+                      question — nothing anywhere reads telemetry.json back. It is written once and
+                      read by people, so a null key on a legacy book is a null key, not a breakage,
+                      and the alternative (a second anonymous shape, or a serializer that drops
+                      nulls across the whole document) buys nothing for it.
+                    */
+                    compositeReview = book.Composite?.Review?.ToTelemetry(reviewUrl),
                     uploadMs,
                     pdfBuildMs = pdfStopwatch.ElapsedMilliseconds,
                     totalMs = totalStopwatch.ElapsedMilliseconds,
@@ -1029,11 +1124,7 @@ public sealed class BekiPackFulfillment(
             var reason = ex switch
             {
                 OperationCanceledException => GenerationBudget.ExceededReason(deadline.Budget, stage),
-                CompositePipelineException composite =>
-                    $"{composite.FailureCode}"
-                    + (composite.Page is { } page ? $" (spread {page})" : string.Empty)
-                    + $": {ex.Message}",
-                _ => ex.Message
+                _ => CodedFailureReason(ex) ?? ex.Message
             };
 
             logger.LogError(
@@ -1205,18 +1296,66 @@ public sealed class BekiPackFulfillment(
     /// done quietly: a stored book with no readable spec has its artwork discarded and is redrawn.
     /// Never throws; a resumed job must not die over a file it can replace.
     /// </summary>
-    private async Task<string?> TryReadIdentitySpecAsync(
-        Guid packId, string? identitySpecUrl, CancellationToken cancellationToken)
+    /// <summary>
+    /// The stored failure reason for the exceptions that carry an agreed code, or null for the ones
+    /// that do not — where the caller falls back to the bare message, as it always did.
+    ///
+    /// The code goes first because the reason is read by two audiences who both need it there: it is
+    /// written onto the pack, where support reads it, and it is what the admin notification carries.
+    /// A sentence like "The approved endpaper pattern is not in the published output." is a fine
+    /// second half and a useless first one — every other failure on this path opens with a code
+    /// somebody can look up, and a stage that quietly stopped doing that is a stage whose failures
+    /// read as unclassified.
+    ///
+    /// <see cref="BekiLayoutException"/> is the case that was missing. It carries TEXT_OVERFLOW
+    /// (a spread's copy will not fit at any permitted size) and LAYOUT_FAILED (a required layout
+    /// asset is absent or does not hash to the approved file), and it fell through to the bare
+    /// message. It has no page: a layout failure is about the book being assembled, and the
+    /// composer's own message names the spread when there is one.
+    ///
+    /// A method rather than two more arms in the catch's switch so that it can be tested: the switch
+    /// lives inside a job that needs a repository, a blob account, a generator and a PDF composer to
+    /// reach, and "does a layout failure keep its code" is a question about one string.
+    /// </summary>
+    public static string? CodedFailureReason(Exception exception) => exception switch
     {
-        if (identitySpecUrl is not { Length: > 0 })
+        CompositePipelineException composite =>
+            $"{composite.FailureCode}"
+            + (composite.Page is { } page ? $" (spread {page})" : string.Empty)
+            + $": {composite.Message}",
+
+        BekiLayoutException layout => $"{layout.FailureCode}: {layout.Message}",
+
+        _ => null
+    };
+
+    private async Task<string?> TryReadIdentitySpecAsync(
+        Guid packId, string? identitySpecUrl, CancellationToken cancellationToken) =>
+        await TryReadTextAsync(packId, identitySpecUrl, "child identity spec", cancellationToken);
+
+    /// <summary>
+    /// The book-level review an earlier attempt stored, so a resumed run can complete its own
+    /// reading with what that attempt observed about the pages this one is adopting.
+    ///
+    /// Best-effort in the strongest sense: a review that cannot be read is nothing to merge, and
+    /// nothing about the book changes. It is not the identity spec — losing that discards artwork,
+    /// because pages drawn to two descriptions of one child are two books; losing this loses a note.
+    /// </summary>
+    private async Task<string?> TryReadReviewAsync(
+        Guid packId, string? reviewUrl, CancellationToken cancellationToken) =>
+        await TryReadTextAsync(packId, reviewUrl, "composite review", cancellationToken);
+
+    private async Task<string?> TryReadTextAsync(
+        Guid packId, string? storedUrl, string what, CancellationToken cancellationToken)
+    {
+        if (storedUrl is not { Length: > 0 })
         {
             return null;
         }
 
         try
         {
-            var bytes = await blobStorage.DownloadBytesFromStoredUrlAsync(
-                identitySpecUrl, cancellationToken);
+            var bytes = await blobStorage.DownloadBytesFromStoredUrlAsync(storedUrl, cancellationToken);
 
             return bytes is { Length: > 0 }
                 ? System.Text.Encoding.UTF8.GetString(bytes)
@@ -1224,8 +1363,7 @@ public sealed class BekiPackFulfillment(
         }
         catch (Exception ex)
         {
-            logger.LogWarning(
-                ex, "Beki pack {PackId}: could not read the stored child identity spec.", packId);
+            logger.LogWarning(ex, "Beki pack {PackId}: could not read the stored {What}.", packId, what);
 
             return null;
         }
@@ -1268,6 +1406,12 @@ public sealed class BekiPackFulfillment(
     /// artifact and the previous path derives none.
     /// </param>
     /// <param name="compositions">Empty for a legacy book, and likewise omitted.</param>
+    /// <param name="reviewUrl">
+    /// Null on every write but the last one, and not because it is optional — the review counts
+    /// fallbacks across a whole book, so there is nothing true to record until all eight spreads
+    /// exist. A mid-run manifest that carried a partial count would be a number an operator could
+    /// read and act on.
+    /// </param>
     private async Task WriteManifestAsync(
         string manifestName,
         IReadOnlyDictionary<int, string> storedUrls,
@@ -1276,10 +1420,12 @@ public sealed class BekiPackFulfillment(
         string? identitySpecUrl,
         BekiCoverRecord? cover,
         IReadOnlyDictionary<int, BekiCompositionManifestEntry> compositions,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? reviewUrl = null)
     {
         var manifest = new BekiFulfillmentManifest
         {
+            ReviewUrl = reviewUrl,
             IllustrationContract = illustrationContract,
             Entries = storedUrls
                 .OrderBy(pair => pair.Key)

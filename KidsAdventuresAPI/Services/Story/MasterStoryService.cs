@@ -790,20 +790,218 @@ public sealed class MasterStoryService(
                 story.Spreads.Count, input.SpreadCount);
         }
 
+        /*
+          The editing pass, which this path did not have.
+
+          It was not a decision; it was a gap. v6 writes and then polishes, and the composite prompt
+          was forked from v6's *writer* — so every composite book in existence shipped its first
+          draft. The supplier's audit found what that costs in the only place it shows: ფუნღუროში
+          for ფუღუროში and ეწყოს for იყოს, in a printed book, in a language most of the people
+          reading the logs cannot proof-read.
+
+          One call, best-effort, and the same merge discipline v6 uses: only the title and the
+          per-spread Georgian text can cross back, so a polisher that rewrites a scene, invents a
+          cast member or renumbers the spreads has wasted its own output rather than damaged a book.
+        */
+        var polished = await PolishCompositeAsync(input, story, cancellationToken);
+
         logger.LogInformation(
             "Composite book \"{Title}\" written: {Spreads} spreads, {Prompt} prompt tokens, "
             + "{Completion} completion tokens.",
-            story.Concept.Title, story.Spreads.Count, result.PromptTokens, result.CompletionTokens);
+            polished.Story.Concept.Title, polished.Story.Spreads.Count,
+            result.PromptTokens + polished.PromptTokens,
+            result.CompletionTokens + polished.CompletionTokens);
+
+        var polishRan = !string.IsNullOrEmpty(polished.PolishSystem);
 
         return new MasterStoryResult
         {
-            Story = story,
-            SystemPrompt = systemPrompt,
-            UserPrompt = userPrompt,
+            Story = polished.Story,
+            // Both calls in the stored columns, separated, exactly as FinishPolished records v6's.
+            // A polish that never happened leaves no separator behind, so a stored prompt never
+            // describes a call that was not made.
+            SystemPrompt = polishRan ? systemPrompt + StepSeparator + polished.PolishSystem : systemPrompt,
+            UserPrompt = polishRan ? userPrompt + StepSeparator + polished.PolishUser : userPrompt,
             Model = model,
-            PromptTokens = result.PromptTokens,
-            CompletionTokens = result.CompletionTokens
+            PromptTokens = result.PromptTokens + polished.PromptTokens,
+            CompletionTokens = result.CompletionTokens + polished.CompletionTokens
         };
+    }
+
+    /// <summary>
+    /// The composite path's editing pass: one call, the composite schema, and a merge that copies
+    /// back the title and each spread's Georgian text and nothing else.
+    ///
+    /// A sibling of <see cref="PolishAndMergeAsync"/> rather than a parameter on it, because three
+    /// things differ and every one of them would have been a branch through the middle of a method
+    /// that edits every book in production. The schema is <see cref="CompositeStorySchema"/>, which
+    /// has no <c>characterLock</c>, no <c>titleEn</c> and no <c>textEn</c> — asking the polisher for
+    /// v6's shape would demand a character lock this path deliberately does not have. The book is
+    /// handed over as a JsonElement and read back through <see cref="ReadCompositePlan"/> for the
+    /// same reason. And the merge copies two fields rather than four, because the other two do not
+    /// exist here.
+    ///
+    /// Everything else is v6's, deliberately: best-effort (a failed polish keeps the written book,
+    /// because a book with an unpolished sentence beats no book), the spread-number guard before any
+    /// merge, and the validator diff that puts the written prose back if the correction introduced a
+    /// problem the draft did not have.
+    /// </summary>
+    private async Task<(MasterStory Story, string PolishSystem, string PolishUser, int PromptTokens, int CompletionTokens)>
+        PolishCompositeAsync(
+            CompositeStoryInput input,
+            MasterStory written,
+            CancellationToken cancellationToken)
+    {
+        var polishSystem = StoryPolishPrompt.CompositeSystem;
+        var polishUser = string.Empty;
+        ModelResult<JsonElement> answer;
+
+        try
+        {
+            polishUser = StoryPolishPrompt.CompositeUser(
+                input.AgeBand, CompositePolishJson(written));
+
+            answer = await polishClient.Client.CompleteAsync<JsonElement>(
+                polishClient.ModelName,
+                polishSystem,
+                polishUser,
+                CompositeStorySchema.Name,
+                CompositeStorySchema.Build(input.SpreadCount),
+                cancellationToken);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning(
+                ex, "The composite polish call failed for {Child}'s book; keeping the written story "
+                + "as it is.", input.ChildName);
+
+            return (written, string.Empty, string.Empty, 0, 0);
+        }
+
+        MasterStory corrected;
+        try
+        {
+            corrected = ReadCompositePlan(answer.Value);
+        }
+        catch (Exception ex)
+        {
+            // The call was made and paid for, so its prompts and tokens are still reported; what
+            // came back was not a book, so nothing is merged.
+            logger.LogWarning(
+                ex, "The composite polish returned something that is not a usable plan; the written "
+                + "story stands.");
+
+            return (written, polishSystem, polishUser, answer.PromptTokens, answer.CompletionTokens);
+        }
+
+        var writtenNumbers = written.Spreads.Select(spread => spread.Number).ToList();
+        var polishedNumbers = corrected.Spreads.Select(spread => spread.Number).ToList();
+
+        // Without the same set of numbers on both sides there is no correspondence to merge along,
+        // and merging by position would put one spread's corrected text under another's picture.
+        if (polishedNumbers.Distinct().Count() != polishedNumbers.Count
+            || !writtenNumbers.ToHashSet().SetEquals(polishedNumbers))
+        {
+            logger.LogWarning(
+                "The polished composite book numbers its spreads {Polished}, not {Written}; nothing "
+                + "was merged and the written story stands.",
+                string.Join(", ", polishedNumbers), string.Join(", ", writtenNumbers));
+
+            return (written, polishSystem, polishUser, answer.PromptTokens, answer.CompletionTokens);
+        }
+
+        var byNumber = corrected.Spreads.ToDictionary(spread => spread.Number);
+
+        var merged = written with
+        {
+            Concept = written.Concept with
+            {
+                Title = Prefer(corrected.Concept.Title, written.Concept.Title)
+            },
+            Spreads = written.Spreads
+                .Select(spread => spread with
+                {
+                    Text = Prefer(byNumber[spread.Number].Text, spread.Text)
+                })
+                .ToList()
+        };
+
+        // Only what the correction introduced counts. A problem the written book already had is the
+        // caller's corrective retry's business, not the polisher's — and the composite path has two
+        // validators, so both are differenced.
+        var before = CompositeProblems(written, input);
+        var introduced = CompositeProblems(merged, input).Except(before).ToList();
+
+        if (introduced.Count == 0)
+        {
+            logger.LogInformation(
+                "Composite book polished by {Editor} ({Version}): {Changed} of {Spreads} spread "
+                + "text(s) corrected, title {TitleChanged}.",
+                polishClient.ModelName, StoryPolishPrompt.CompositeVersion,
+                merged.Spreads.Count(spread =>
+                    !string.Equals(
+                        spread.Text,
+                        written.Spreads.First(w => w.Number == spread.Number).Text,
+                        StringComparison.Ordinal)),
+                merged.Spreads.Count,
+                string.Equals(merged.Concept.Title, written.Concept.Title, StringComparison.Ordinal)
+                    ? "unchanged"
+                    : "corrected");
+
+            return (merged, polishSystem, polishUser, answer.PromptTokens, answer.CompletionTokens);
+        }
+
+        // One pass, no loop, and the whole polish is dropped rather than merged field by field: the
+        // composite book has two prose fields, so "put back only the spreads that broke" and "put
+        // the draft back" are nearly the same repair, and the simpler one cannot get it wrong.
+        logger.LogWarning(
+            "The composite polish introduced {Count} problem(s); dropping it and keeping the "
+            + "written story: {Problems}",
+            introduced.Count, string.Join(" | ", introduced));
+
+        return (written, polishSystem, polishUser, answer.PromptTokens, answer.CompletionTokens);
+    }
+
+    /// <summary>
+    /// Everything wrong with a composite plan, from both validators that judge one.
+    ///
+    /// Used only as a difference — before the merge against after it — so a plan that already fails
+    /// a rule is not the polisher's fault and does not cost it its corrections. The age is not
+    /// passed: the composite path holds an age band and <see cref="BekiPlanValidator"/> wants a
+    /// number, and the word caps it would apply are not this book's caps.
+    /// </summary>
+    private static IReadOnlyList<string> CompositeProblems(MasterStory plan, CompositeStoryInput input) =>
+    [
+        .. BekiPlanValidator.Validate(plan, input.SpreadCount),
+        .. CompositePlanRules.Problems(plan, input.SpreadCount),
+    ];
+
+    /// <summary>
+    /// The written book as the polisher is shown it: the composite schema's own fields, and not one
+    /// field more.
+    ///
+    /// <see cref="MasterStory"/> carries three properties this path does not use — an empty
+    /// <c>characterLock</c> that <see cref="ReadCompositePlan"/> supplied, and a null
+    /// <c>titleEn</c>/<c>textEn</c> from the A5 format. Serializing them would hand the editor a
+    /// document in a shape its own response schema forbids, which is an invitation to answer in the
+    /// shape it was shown.
+    /// </summary>
+    private static string CompositePolishJson(MasterStory story)
+    {
+        var node = JsonNode.Parse(JsonSerializer.Serialize(story, PolishJsonOptions))!.AsObject();
+
+        node.Remove("characterLock");
+        node.Remove("titleEn");
+
+        if (node["spreads"] is JsonArray spreads)
+        {
+            foreach (var spread in spreads)
+            {
+                spread?.AsObject().Remove("textEn");
+            }
+        }
+
+        return node.ToJsonString(PolishJsonOptions);
     }
 
     /// <summary>

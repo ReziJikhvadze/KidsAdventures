@@ -300,8 +300,17 @@ public static class CompositeIllustrationPrompt
     /// and the child's identity is carried by an attribute lock plus an appearance anchor rather
     /// than by nine independent readings of one photograph. Both are recorded in the contract's
     /// own v1.1 changelog, against the defects that produced them.
+    ///
+    /// v1.3 moves one line and changes no other word. The deterministic shot instruction — the only
+    /// thing that makes spread 3 a wide establishing view and spread 6 a close one — used to sit
+    /// second in the COMPOSITION block, behind "one continuous very wide panoramic two-page spread",
+    /// and the books came back as eight similar medium shots. A model reading a block that opens
+    /// with "very wide panoramic" has already chosen its camera by the time the shot is mentioned.
+    /// So the shot is now the block's first line and the panorama sentence follows it: the same two
+    /// sentences, in the order that makes the variable one the instruction rather than the caveat.
+    /// Recorded in the contract's v1.3 changelog against the supplier's shot-rhythm finding.
     /// </summary>
-    public const string Version = "child-world-image-v1.2";
+    public const string Version = "child-world-image-v1.3";
 
     /// <summary>The cover base template's version. A different document, a different version.</summary>
     public const string CoverVersion = "cover-child-world-v1";
@@ -351,8 +360,8 @@ public static class CompositeIllustrationPrompt
             {RecurringBlock(input.RecurringElements)}
 
             COMPOSITION
-            Create one continuous very wide panoramic two-page spread designed for a final 15:7 crop.
             {shot}
+            Create one continuous very wide panoramic two-page spread designed for a final 15:7 crop.
             {CompositionBlockFor(textSide)}
             {CentralZoneRule}
             Keep all important content in the central horizontal band so modest top-and-bottom crop normalization is safe.
@@ -770,7 +779,15 @@ public static class CompositeIllustrationPrompt
 /// </summary>
 public static class CompositeVisualScenarioPrompt
 {
-    public const string Version = "visual-scenario-v2";
+    /// <summary>
+    /// v2.1 is this campaign's amendment: the contract's instruction, unchanged, with one appended
+    /// block naming the nine verb families the deterministic pose table can read.
+    ///
+    /// It is a version bump rather than a silent addition because this string is recorded against
+    /// every scenario call — a book planned before the steering and a book planned after it were
+    /// asked for different sentences, and the record should say which.
+    /// </summary>
+    public const string Version = "visual-scenario-v2.1";
 
     /// <summary>The schema name recorded against the call. The file itself is the response schema.</summary>
     public const string SchemaName = "visual_scenario_v2";
@@ -831,9 +848,26 @@ public static class CompositeVisualScenarioPrompt
     }
 
     /// <summary>
+    /// What is actually sent: the contract's instruction, then v2.1's vocabulary block.
+    ///
+    /// Two members rather than one edited string, so the transcription of the supplier's document
+    /// stays a transcription — <see cref="System"/> can still be diffed against the MD line for
+    /// line, and the amendment this campaign made is visible as an amendment rather than as an
+    /// untraceable edit inside 90 lines of somebody else's prose.
+    ///
+    /// The block is appended last on purpose. Everything above it is the contract's own definition
+    /// of a <c>beki_action</c> — one concise sentence, Beki named, no pose id, no body, no page
+    /// position — and this only narrows the verb, so it has to be read after the rules it narrows.
+    /// </summary>
+    public static string SystemInstruction { get; } =
+        System + "\n\n" + CompositePoseVocabulary.PromptBlock();
+
+    /// <summary>
     /// The contract's exact system instruction. Every line of it is load-bearing; the two that
     /// decide whether the pipeline works at all are the separation of the child/world scene from
     /// the Beki action, and the rule that a scene may never mention Beki.
+    ///
+    /// Kept verbatim and no longer sent on its own — see <see cref="SystemInstruction"/>.
     /// </summary>
     public const string System =
         """

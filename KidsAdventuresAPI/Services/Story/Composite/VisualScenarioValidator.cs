@@ -44,6 +44,19 @@ public static class VisualScenarioProblemCodes
 
     /// <summary>A Beki action does not name Beki, so the pose selector has nothing to match on.</summary>
     public const string BekiMissingFromAction = "BEKI_MISSING_FROM_BEKI_ACTION";
+
+    /// <summary>
+    /// Too many Beki actions are phrased in verbs the approved pose table cannot read, so the book
+    /// would be composited from the neutral hover on most of its pages.
+    ///
+    /// Not a rule <see cref="VisualScenarioValidator"/> can apply: it is about the pose registry,
+    /// which is a different document with its own revisions, and it is a judgement about the book as
+    /// a whole rather than about any one spread — three fallbacks in eight pages is a scenario worth
+    /// re-asking for, and the same three sentences in isolation are each perfectly valid. So it is
+    /// raised by <see cref="CompositePoseVocabulary"/> after validation passes, and travels in this
+    /// vocabulary because the retry it spends is the scenario's one retry.
+    /// </summary>
+    public const string PoseVocabularyMiss = "POSE_VOCABULARY_MISS";
 }
 
 /// <summary>One reason, in a code the retry can be told and a detail a human can read.</summary>

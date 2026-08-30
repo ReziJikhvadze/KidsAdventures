@@ -1,0 +1,39 @@
+{
+  "checklist_version": "georgian-text-checklist-v1",
+  "purpose": "Deterministic known-bad patterns in a book's Georgian copy. A hit FLAGS the book for human review and is recorded on the run. Nothing here ever rewrites a word: this file is a reading aid for a person, not an editor. Correcting the text is the story-polish pass's job (StoryPolishPrompt), and a rule that silently repaired a book would hide the fact that the polish missed it.",
+  "scope": "Story text and the title of a composite-pipeline book, after the polish pass. Never the English fields, never the scene descriptions, never a model prompt.",
+  "rules": [
+    {
+      "id": "funguro_misspelling",
+      "kind": "substring",
+      "pattern": "ფუნღურ",
+      "expected": "ფუღურ",
+      "severity": "flag",
+      "note": "Shipped in a completed book as ფუნღუროში. The stem is ფუღურ- (hollow, tree hollow); the inserted ნ is a misspelling, not a dialect form. Matched as a stem so every case ending is caught."
+    },
+    {
+      "id": "hyphenated_name_suffix",
+      "kind": "regex",
+      "pattern": "\\p{IsGeorgian}{2,}-(ს|მ|ში|ზე|თან|ის|ისთვის|ით|ად|ებს)(?![\\p{IsGeorgian}])",
+      "expected": "Georgian case suffixes attach directly to the name: თემოს, not თემო-ს.",
+      "severity": "flag",
+      "note": "Shipped in a completed book as თემო-ს. The hyphen comes from personalization templating that concatenates the child's name with a suffix; a Georgian noun takes its ending with no separator. Flagged rather than repaired because the fix belongs where the concatenation happens (R12a), and a book already carrying it needs a person to look at every occurrence."
+    },
+    {
+      "id": "ewyos_verb_choice",
+      "kind": "substring",
+      "pattern": "ეწყოს",
+      "expected": "იყოს, or ეგდოს where the sense is 'to lie / be lying there'",
+      "severity": "flag",
+      "note": "Shipped in a completed book. ეწყოს is a real word, so this is a verb-choice flag rather than a spelling one: in the sentence it appeared in, the sense wanted იყოს (to be) or ეგდოს (to lie there). A human decides which; this rule only makes sure nobody has to notice it in a printed proof."
+    },
+    {
+      "id": "beki_with_qari",
+      "kind": "substring",
+      "pattern": "ბექ",
+      "expected": "ბეკ",
+      "severity": "flag",
+      "note": "The companion's name is ბეკი in every grammatical form, always with კ. BekiIdentityRules.EnforceBrandSpelling already corrects this deterministically on the legacy path; the rule is here so that a book which somehow reaches storage with ქ is flagged rather than printed."
+    }
+  ]
+}

@@ -1611,8 +1611,8 @@ public class CompositePipelineTests
     {
         var current = BekiCompositeContractTerms.Current("dinosaurs");
 
-        Assert.Equal("child-world-image-v1.2", CompositeIllustrationPrompt.Version);
-        Assert.Equal("minimal-visual-qa-v1.2", CompositeMinimalQa.Version);
+        Assert.Equal("child-world-image-v1.3", CompositeIllustrationPrompt.Version);
+        Assert.Equal("minimal-visual-qa-v1.3", CompositeMinimalQa.Version);
         Assert.Equal("child-identity-spec-v1.2", CompositeChildIdentity.Version);
 
         // The two v1 shapes an in-flight book could have been written under.
@@ -1668,6 +1668,361 @@ public class CompositePipelineTests
         Assert.DoesNotContain("identitySpecUrl", legacy);
         Assert.DoesNotContain("scenarioUrl", legacy);
         Assert.DoesNotContain("compositions", legacy);
+        Assert.DoesNotContain("reviewUrl", legacy);
+    }
+
+    /// <summary>
+    /// The composite review reaches the pack's stored record: the document under the pack's own
+    /// prefix, the URL on the manifest, the counts in telemetry — and it survives a resume that drew
+    /// nothing.
+    ///
+    /// Three things are being pinned, and each one is a way the supplier's handback package or the
+    /// admin would otherwise have to grep a log for what a completed book is actually like.
+    ///
+    /// That the review exists on a finished book at all, with its counts. That a fully-adopted
+    /// resume still produces one — the count describes the book that ships, not the pages this
+    /// attempt happened to draw, so a run that adopted all eight spreads has as much to record as
+    /// the run that drew them. And that the telemetry projection carries no prose: the Georgian
+    /// flags quote the story, and the story is where the child's name is.
+    /// </summary>
+    [Fact]
+    public async Task The_review_lands_on_the_pack_record_and_survives_a_fully_adopted_resume()
+    {
+        var flagged = Plan() with
+        {
+            Spreads = Plan().Spreads
+                .Select((spread, index) => index == 1
+                    ? spread with { Text = "თემო-ს გაუხარდა და ბილიკი გამოჩნდა." }
+                    : spread)
+                .ToList(),
+        };
+
+        var repetitive = WithBekiActions(
+            "Beki hovers quietly nearby.", "Beki hovers quietly nearby.",
+            "Beki hovers quietly nearby.", "Beki hovers quietly nearby.",
+            "Beki points toward the path.", "Beki claps for the child.",
+            "Beki listens attentively.", "Beki welcomes the child.");
+
+        var stored = Enumerable.Range(1, BookFormat.SpreadCount)
+            .ToDictionary(page => page, _ => BasePng());
+
+        var result = await Pipeline(new ScriptedStoryModelClient(), new StubImageService()).RunAsync(
+            Request(resume: new CompositeResumeState(repetitive, stored, stored)
+            {
+                IdentitySpecJson = CompositeChildIdentity.ToStoredJson(IdentityFixture),
+                AnchorBasePng = BasePng(),
+            }) with { ExistingPlan = flagged },
+            CancellationToken.None);
+
+        // Nothing was drawn — and there is still a review, because the review is about the book.
+        Assert.Equal(0, result.SpreadsDrawnThisRun);
+        Assert.NotNull(result.Artifacts.Review);
+        Assert.NotNull(result.Artifacts.ReviewJson);
+        Assert.Same(result.Review, result.Artifacts.Review);
+
+        Assert.Equal(4, result.Review.PoseSelectionFallbacks);
+        var flag = Assert.Single(result.Review.GeorgianFlags);
+        Assert.Equal("hyphenated_name_suffix", flag.RuleId);
+        Assert.Equal("spread 2", flag.Location);
+
+        /*
+          The document the fulfilment job stores under the pack's own prefix carries the prose,
+          because it sits beside the story it quotes.
+
+          Read as JSON rather than searched as text: the serializer escapes Georgian to \uXXXX, so a
+          substring search for the name would fail here and — worse — would pass on the telemetry
+          document below for the wrong reason, proving escaping rather than omission.
+        */
+        using var document = JsonDocument.Parse(result.Artifacts.ReviewJson!);
+        var storedFlag = document.RootElement.GetProperty("georgian_flags")[0];
+
+        Assert.Equal("თემო-ს", storedFlag.GetProperty("found").GetString());
+        Assert.Contains("თემო-ს", storedFlag.GetProperty("excerpt").GetString()!);
+        Assert.Equal(4, document.RootElement.GetProperty("pose_selection_fallback").GetInt32());
+
+        // The blob it is stored as, and the manifest field that points at it — additive, and the
+        // URL rather than the content.
+        var packId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var reviewUrl = $"https://blob/{BekiPackBlobs.CompositeReviewName(userId, packId)}";
+
+        Assert.EndsWith("/composite-review.json", BekiPackBlobs.CompositeReviewName(userId, packId));
+
+        var manifest = JsonSerializer.Serialize(
+            new BekiFulfillmentManifest
+            {
+                IllustrationContract = ["a"],
+                Entries = [new BekiFulfillmentManifestEntry(1, "https://blob/spread-01.png")],
+                ReviewUrl = reviewUrl,
+            },
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.Contains("reviewUrl", manifest);
+        Assert.Contains("composite-review.json", manifest);
+        Assert.DoesNotContain("თემო", manifest);
+
+        // A manifest written before this field existed still reads, and still resumes.
+        var older = JsonSerializer.Deserialize<BekiFulfillmentManifest>(
+            """{"illustrationContract":["a"],"entries":[{"spreadNumber":1,"storedUrl":"u"}]}""",
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.NotNull(older);
+        Assert.Null(older!.ReviewUrl);
+
+        /*
+          And the telemetry projection: the numbers, the URL, and not one word of the book.
+
+          The Georgian flag's matched text is a window into the story, and the hyphenated-suffix
+          rule finds the child's name with a suffix stuck on it — which is exactly what telemetry,
+          the document read across packs, must not carry.
+        */
+        using var telemetry = JsonDocument.Parse(JsonSerializer.Serialize(
+            result.Review.ToTelemetry(reviewUrl),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+
+        var measured = telemetry.RootElement;
+
+        Assert.Equal(4, measured.GetProperty("poseSelectionFallback").GetInt32());
+        Assert.Equal(1, measured.GetProperty("georgianFlagCount").GetInt32());
+        Assert.Equal(reviewUrl, measured.GetProperty("reviewUrl").GetString());
+        Assert.True(measured.GetProperty("needsHumanReading").GetBoolean());
+
+        // Which rule, and which page to open. That is the whole of what a comparison document needs.
+        var measuredFlag = measured.GetProperty("georgianFlags")[0];
+        Assert.Equal("hyphenated_name_suffix", measuredFlag.GetProperty("ruleId").GetString());
+        Assert.Equal("spread 2", measuredFlag.GetProperty("location").GetString());
+
+        // And not the words. Asserted as absent properties rather than as an absent substring,
+        // because the substring would also be absent if it were merely escaped.
+        Assert.False(measuredFlag.TryGetProperty("found", out _));
+        Assert.False(measuredFlag.TryGetProperty("excerpt", out _));
+
+        Assert.DoesNotContain(
+            Strings(measured), value => value.Contains("თემო", StringComparison.Ordinal));
+
+        // Nothing about the child either, in either document — the review never carried the spec.
+        foreach (var attribute in (string[])[IdentityFixture.HairColor, IdentityFixture.EyeColor])
+        {
+            Assert.DoesNotContain(
+                Strings(measured), value => value.Contains(attribute, StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(
+                Strings(document.RootElement),
+                value => value.Contains(attribute, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    /// <summary>
+    /// A resumed run's review is the union of what this attempt saw and what the earlier attempt
+    /// recorded about the pages this one adopted — not a reset.
+    ///
+    /// The defect: a resume rebuilds the review from what it can see, and a shot advisory is not
+    /// something it can see. It belongs to a page's review, and an adopted page was reviewed by the
+    /// attempt that drew it; the pose-vocabulary retry is the same shape of fact, because a resumed
+    /// run adopts the scenario and never re-asks for one. The fulfilment job then overwrites
+    /// composite-review.json with the rebuilt record, so an earlier attempt's observations became
+    /// silence — on pages nobody was going to look at again.
+    /// </summary>
+    [Fact]
+    public async Task A_resumed_review_keeps_what_the_earlier_attempt_recorded()
+    {
+        var storedReview = new CompositeBookReview
+        {
+            PoseRegistryVersion = "beki-pose-registry-v1",
+            PoseKeywordRevision = "v1.1",
+            ScenarioPromptVersion = CompositeVisualScenarioPrompt.Version,
+            PoseSelectionFallbacks = 0,
+            DistinctPoses = 8,
+            PoseVocabularyRetrySpent = true,
+            GeorgianChecklistVersion = CompositeGeorgianCheck.ChecklistVersion,
+            ShotAdvisories =
+            [
+                new CompositeShotAdvisory(
+                    3, CompositeSpreadRhythm.ShotFor(3), "A close-up where a wide view was asked for."),
+                new CompositeShotAdvisory(
+                    7, CompositeSpreadRhythm.ShotFor(7), "A wide view where a close one was asked for."),
+            ],
+        }.ToJson();
+
+        // Seven pages adopted; spread 7 is the one this attempt redraws.
+        var adopted = Enumerable.Range(1, BookFormat.SpreadCount)
+            .Where(page => page != 7)
+            .ToDictionary(page => page, _ => BasePng());
+
+        var storyClient = new ScriptedStoryModelClient();
+
+        var result = await Pipeline(storyClient, new StubImageService()).RunAsync(
+            Request(resume: new CompositeResumeState(ScenarioFixture(), adopted, adopted)
+            {
+                IdentitySpecJson = CompositeChildIdentity.ToStoredJson(IdentityFixture),
+                AnchorBasePng = BasePng(),
+                ReviewJson = storedReview,
+            }),
+            CancellationToken.None);
+
+        Assert.Equal(1, result.SpreadsDrawnThisRun);
+
+        // The adopted page's advisory survives: this attempt never looked at spread 3.
+        var kept = Assert.Single(result.Review.ShotAdvisories, a => a.Page == 3);
+        Assert.Contains("close-up", kept.ReviewerNote);
+
+        // Spread 7 was redrawn and reviewed here, and this review found nothing — so the stale note
+        // about the picture it replaced is gone. A note about an image nobody will ever see is
+        // worse than no note.
+        Assert.DoesNotContain(result.Review.ShotAdvisories, a => a.Page == 7);
+
+        // And the retry the earlier attempt spent is still on the book's record, though this run
+        // adopted the scenario and never asked for one — which is precisely why it could not have
+        // known without being told.
+        Assert.True(result.Review.PoseVocabularyRetrySpent);
+        Assert.Equal(0, storyClient.Calls);
+
+        // The document the fulfilment job overwrites is the merged one.
+        using var document = JsonDocument.Parse(result.Artifacts.ReviewJson!);
+        Assert.True(document.RootElement.GetProperty("pose_vocabulary_retry_spent").GetBoolean());
+        Assert.Equal(1, document.RootElement.GetProperty("shot_advisories").GetArrayLength());
+    }
+
+    /// <summary>
+    /// A stored review this build cannot read is nothing to merge, and nothing more: the book is
+    /// unaffected.
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("not json at all")]
+    [InlineData("[]")]
+    public async Task An_unreadable_stored_review_costs_the_book_nothing(string? stored)
+    {
+        var adopted = Enumerable.Range(1, BookFormat.SpreadCount)
+            .ToDictionary(page => page, _ => BasePng());
+
+        var result = await Pipeline(new ScriptedStoryModelClient(), new StubImageService()).RunAsync(
+            Request(resume: new CompositeResumeState(ScenarioFixture(), adopted, adopted)
+            {
+                IdentitySpecJson = CompositeChildIdentity.ToStoredJson(IdentityFixture),
+                AnchorBasePng = BasePng(),
+                ReviewJson = stored,
+            }),
+            CancellationToken.None);
+
+        Assert.Equal(BookFormat.SpreadCount, result.Spreads.Count);
+        Assert.Empty(result.Review.ShotAdvisories);
+        Assert.False(result.Review.PoseVocabularyRetrySpent);
+    }
+
+    /// <summary>
+    /// The keyword revision is a term of the resume contract, so a keyword amendment redraws a
+    /// half-drawn book rather than finishing it under a second table.
+    ///
+    /// The choice, stated: pin it. A keyword revision deliberately leaves `registry_version`
+    /// untouched — no pixel, hash, priority order or forced pose moves, and pipeline_config_v1.json
+    /// pins that string — so the version alone cannot see the change. What the revision does change
+    /// is which approved pose a sentence selects: "Beki claps happily" was the neutral hover under
+    /// v1.0 and is the celebrate pose under v1.1. A resume that adopted pages composited under the
+    /// old table while compositing the rest under the new one binds one book from two readings of
+    /// one scenario, every page individually correct.
+    ///
+    /// The alternative — recovering each adopted page's pose from its stored composition manifest
+    /// and auditing from those — was rejected: it is more code for a worse answer, since it lets the
+    /// mixed book ship and merely describes it accurately.
+    /// </summary>
+    [Fact]
+    public void A_keyword_revision_change_redraws_rather_than_mixing_two_pose_tables()
+    {
+        var current = BekiCompositeContractTerms.Current("dinosaurs");
+
+        // The installed table, on the contract.
+        Assert.Equal(BekiPoseRegistry.Load().KeywordRevision, current.PoseKeywordRevision);
+        Assert.Contains(current.PoseKeywordRevision, current.ToString());
+
+        // A book half-composited under the pack as delivered is not finished under the amendment.
+        var underV10Keywords = current with { PoseKeywordRevision = "v1.0" };
+
+        Assert.NotEqual(current.ToString(), underV10Keywords.ToString());
+        Assert.False(
+            BekiFulfillmentManifest.CurrentContract(BookFormat.SpreadCount, underV10Keywords)
+                .SequenceEqual(BekiFulfillmentManifest.CurrentContract(
+                    BookFormat.SpreadCount, current)));
+
+        // And the pack revision genuinely does not move with it, which is why the term is needed:
+        // without it these two contracts would be identical.
+        Assert.Equal(current.PoseRegistryVersion, underV10Keywords.PoseRegistryVersion);
+
+        // The legacy path's contract is still untouched by any of it.
+        Assert.Equal(
+            BookFormat.SpreadCount,
+            BekiFulfillmentManifest.CurrentContract(BookFormat.SpreadCount).Count);
+    }
+
+    /// <summary>
+    /// A layout failure keeps its agreed code in the reason stored against the pack and sent to the
+    /// admin — it used to fall through to the bare message.
+    ///
+    /// The code has to come first because of who reads the string: support sees it on the pack and
+    /// the admin notification carries it, and every other failure on this path opens with a code
+    /// somebody can look up. "The approved endpaper pattern is not in the published output." is a
+    /// fine second half and a useless first one.
+    /// </summary>
+    [Theory]
+    [InlineData(CompositeFailureCodes.TextOverflow, "Spread 4's copy does not fit at any permitted size.")]
+    [InlineData(CompositeFailureCodes.LayoutFailed, "The approved endpaper pattern is not in the published output.")]
+    public void A_layout_failure_keeps_its_code_in_the_stored_reason(string code, string message)
+    {
+        var reason = BekiPackFulfillment.CodedFailureReason(new BekiLayoutException(code, message));
+
+        Assert.NotNull(reason);
+        Assert.StartsWith(code, reason!, StringComparison.Ordinal);
+        Assert.Equal($"{code}: {message}", reason);
+    }
+
+    /// <summary>
+    /// The pipeline's own failures are formatted exactly as they were, page included — the layout
+    /// case was added beside them and did not move them.
+    /// </summary>
+    [Fact]
+    public void The_pipeline_failure_reasons_are_unchanged_and_still_name_the_page()
+    {
+        var page = BekiPackFulfillment.CodedFailureReason(
+            new CompositePipelineException(CompositeFailureCodes.ImageQaFailed, "Spread 7 was refused.")
+            {
+                Page = 7,
+            });
+
+        Assert.Equal($"{CompositeFailureCodes.ImageQaFailed} (spread 7): Spread 7 was refused.", page);
+
+        var book = BekiPackFulfillment.CodedFailureReason(
+            new CompositePipelineException(CompositeFailureCodes.StoryFailed, "The story call failed."));
+
+        Assert.Equal($"{CompositeFailureCodes.StoryFailed}: The story call failed.", book);
+
+        // Everything else still falls back to the bare message, exactly as it always did.
+        Assert.Null(BekiPackFulfillment.CodedFailureReason(new InvalidOperationException("plain")));
+    }
+
+    /// <summary>Every string value anywhere in a JSON document, unescaped — so a privacy assertion
+    /// is about what the document says rather than about how it happens to be encoded.</summary>
+    private static IReadOnlyList<string> Strings(JsonElement element)
+    {
+        var found = new List<string>();
+
+        void Walk(JsonElement node)
+        {
+            switch (node.ValueKind)
+            {
+                case JsonValueKind.String:
+                    found.Add(node.GetString() ?? string.Empty);
+                    break;
+                case JsonValueKind.Object:
+                    foreach (var property in node.EnumerateObject()) Walk(property.Value);
+                    break;
+                case JsonValueKind.Array:
+                    foreach (var item in node.EnumerateArray()) Walk(item);
+                    break;
+            }
+        }
+
+        Walk(element);
+        return found;
     }
 
     // ---------------------------------------------------------------------------------------
@@ -2000,6 +2355,424 @@ public class CompositePipelineTests
         // Nothing was drawn. The whole point of validating before the image stage is that a bad
         // scenario costs one text call, not nine image calls.
         Assert.Equal(0, images.ImageCalls);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // R13 — pose variety: the vocabulary steering, the fallback count, and the one retry it spends
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The planner is sent the contract's instruction with the verb families appended, on both
+    /// attempts — vocabulary steering, not a rewritten ask.
+    /// </summary>
+    [Fact]
+    public async Task The_planner_is_told_which_verbs_the_pose_table_can_read()
+    {
+        var storyClient = new ScriptedStoryModelClient(ScenarioFixture());
+
+        await Pipeline(storyClient, new StubImageService()).RunAsync(Request(), CancellationToken.None);
+
+        var system = storyClient.SystemPrompts[0];
+
+        Assert.Contains("You are the Visual Scenario Planner", system);
+        Assert.Contains("BEKI ACTION VOCABULARY", system);
+        Assert.Contains("- celebrate: celebrates, claps, cheers", system);
+        Assert.Contains("- reassure: reassures, comforts, stands beside, nods", system);
+
+        // Still a beki_action of the same shape: no pose is named and no pose id is asked for.
+        Assert.DoesNotContain("pose_0", system);
+    }
+
+    /// <summary>
+    /// A scenario that would compose most of its book from the neutral hover is valid, and is still
+    /// re-asked once — the R13c check, spending the retry the scenario stage already had.
+    ///
+    /// The evidence this is modelled on is book <c>c4fc5fe7</c>: eight ordinary Beki sentences, all
+    /// of them schema-valid, six of them selecting the fallback. Nothing in the pipeline objected,
+    /// and the book printed with the same drawing on six spreads.
+    /// </summary>
+    [Fact]
+    public async Task A_scenario_that_would_compose_six_neutral_hovers_is_re_asked_once()
+    {
+        var storyClient = new ScriptedStoryModelClient(
+            WithBekiActions(
+                "Beki hovers quietly nearby.", "Beki hovers quietly nearby.",
+                "Beki hovers quietly nearby.", "Beki hovers quietly nearby.",
+                "Beki hovers quietly nearby.", "Beki hovers quietly nearby.",
+                "Beki points toward the path.", "Beki claps for the child."),
+            ScenarioFixture());
+
+        var result = await Pipeline(storyClient, new StubImageService())
+            .RunAsync(Request(), CancellationToken.None);
+
+        // Exactly two: the ask and its one retry. Never a third.
+        Assert.Equal(2, storyClient.Calls);
+
+        // The retry is the original ask with the reason appended, in the same idiom every other
+        // corrective retry on this path uses.
+        Assert.StartsWith(storyClient.UserPrompts[0], storyClient.UserPrompts[1]);
+        Assert.Contains(VisualScenarioProblemCodes.PoseVocabularyMiss, storyClient.UserPrompts[1]);
+        Assert.Contains("Beki hovers quietly nearby.", storyClient.UserPrompts[1]);
+        Assert.Contains("nine verb families", storyClient.UserPrompts[1]);
+
+        // The second answer is the fixture, which reads cleanly — so the book that ships has none.
+        Assert.Equal(0, result.Review.PoseSelectionFallbacks);
+        Assert.True(result.Review.PoseVocabularyRetrySpent);
+        Assert.False(result.Review.PoseFallbackBudgetExceeded);
+    }
+
+    /// <summary>
+    /// Two fallbacks is inside the budget and buys nothing: the scenario stands and the book is
+    /// drawn from one call.
+    ///
+    /// The budget exists because a fallback is an approved pose. Re-asking for a sentence the table
+    /// genuinely has no verb for would spend a retry on a book that is fine.
+    /// </summary>
+    [Fact]
+    public async Task Two_fallbacks_are_inside_the_budget_and_cost_no_retry()
+    {
+        var storyClient = new ScriptedStoryModelClient(
+            WithBekiActions(
+                "Beki hovers quietly nearby.", "Beki hovers quietly nearby.",
+                "Beki points toward the path.", "Beki claps for the child.",
+                "Beki listens attentively.", "Beki stands beside the child.",
+                "Beki welcomes the child.", "Beki walks beside the child."));
+
+        var result = await Pipeline(storyClient, new StubImageService())
+            .RunAsync(Request(), CancellationToken.None);
+
+        Assert.Equal(1, storyClient.Calls);
+        Assert.Equal(2, result.Review.PoseSelectionFallbacks);
+        Assert.Equal([1, 2], result.Review.PoseFallbackPages);
+        Assert.False(result.Review.PoseVocabularyRetrySpent);
+        Assert.False(result.Review.PoseFallbackBudgetExceeded);
+    }
+
+    /// <summary>
+    /// A second repetitive answer is drawn anyway, and recorded.
+    ///
+    /// This is the rule that keeps the check from becoming a way to lose paid books: the retry is
+    /// spent once, and after that a repetitive Beki is a quality signal rather than a failure. The
+    /// count reaches the book's own record, and the pages say which spreads they were.
+    /// </summary>
+    [Fact]
+    public async Task A_scenario_still_repetitive_after_its_retry_is_drawn_and_recorded()
+    {
+        var repetitive = WithBekiActions(
+            "Beki hovers quietly nearby.", "Beki hovers quietly nearby.",
+            "Beki hovers quietly nearby.", "Beki hovers quietly nearby.",
+            "Beki hovers quietly nearby.", "Beki hovers quietly nearby.",
+            "Beki points toward the path.", "Beki claps for the child.");
+
+        var storyClient = new ScriptedStoryModelClient(repetitive, repetitive);
+        var images = new StubImageService();
+
+        var result = await Pipeline(storyClient, images).RunAsync(Request(), CancellationToken.None);
+
+        // Two scenario calls, no third — and the book was drawn.
+        Assert.Equal(2, storyClient.Calls);
+        Assert.Equal(BookFormat.SpreadCount, result.Spreads.Count);
+
+        Assert.Equal(6, result.Review.PoseSelectionFallbacks);
+        Assert.Equal([1, 2, 3, 4, 5, 6], result.Review.PoseFallbackPages);
+        Assert.True(result.Review.PoseVocabularyRetrySpent);
+        Assert.True(result.Review.PoseFallbackBudgetExceeded);
+        Assert.True(result.Review.NeedsHumanReading);
+
+        // The pages themselves agree with the audit, which is what makes the count a fact about the
+        // book rather than about the plan.
+        Assert.Equal(6, result.Spreads.Count(spread => spread.PoseFallback));
+        Assert.Equal(6, result.Warnings.Count(warning => warning.Contains("no pose keyword matched")));
+
+        // And it is on the stored record, not only in the log.
+        Assert.Contains("\"pose_selection_fallback\": 6", result.Artifacts.ReviewJson);
+        Assert.Contains("\"pose_keyword_revision\": \"v1.1\"", result.Artifacts.ReviewJson);
+    }
+
+    /// <summary>
+    /// A resumed run audits the scenario it adopted, and does not re-ask for it.
+    ///
+    /// The count describes the book that ships, so an adopted scenario is still read; but replanning
+    /// it is the one thing the whole resume path exists to prevent — the pages are already drawn
+    /// against it.
+    /// </summary>
+    [Fact]
+    public async Task An_adopted_scenario_is_audited_but_never_replanned()
+    {
+        var repetitive = WithBekiActions(
+            "Beki hovers quietly nearby.", "Beki hovers quietly nearby.",
+            "Beki hovers quietly nearby.", "Beki hovers quietly nearby.",
+            "Beki hovers quietly nearby.", "Beki hovers quietly nearby.",
+            "Beki points toward the path.", "Beki claps for the child.");
+
+        var storyClient = new ScriptedStoryModelClient();
+
+        var result = await Pipeline(storyClient, new StubImageService()).RunAsync(
+            Request(resume: new CompositeResumeState(repetitive, new Dictionary<int, byte[]>(),
+                new Dictionary<int, byte[]>())),
+            CancellationToken.None);
+
+        // Not one scenario call: the stored plan is the book's specification.
+        Assert.Equal(0, storyClient.Calls);
+
+        Assert.Equal(6, result.Review.PoseSelectionFallbacks);
+        Assert.False(result.Review.PoseVocabularyRetrySpent);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // R12c — the Georgian check-list flags a book and never edits it
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// A book carrying the two misspellings that actually shipped is flagged, delivered, and
+    /// unchanged.
+    ///
+    /// All three matter. Flagged, because nobody reading these logs can proof-read Georgian.
+    /// Delivered, because a misspelling is not a reason to refuse a paid order. Unchanged, because
+    /// the substring rule that found it does not understand the sentence, and the pass that could
+    /// correct it is the polish call upstream.
+    /// </summary>
+    [Fact]
+    public async Task A_book_with_known_bad_georgian_is_flagged_delivered_and_left_alone()
+    {
+        var flagged = Plan() with
+        {
+            Concept = Plan().Concept with { Title = "ფუნღუროს ზღაპარი" },
+            Spreads = Plan().Spreads
+                .Select((spread, index) => index == 3
+                    ? spread with { Text = "თემო-ს გაუხარდა და ბილიკი გამოჩნდა." }
+                    : spread)
+                .ToList(),
+        };
+
+        var request = Request() with { ExistingPlan = flagged };
+
+        var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), new StubImageService())
+            .RunAsync(request, CancellationToken.None);
+
+        // The book is finished.
+        Assert.Equal(BookFormat.SpreadCount, result.Spreads.Count);
+
+        // Both faults are named, with the page to open.
+        Assert.Equal(2, result.Review.GeorgianFlags.Count);
+        Assert.Contains(result.Review.GeorgianFlags,
+            flag => flag.RuleId == "funguro_misspelling" && flag.Location == "title");
+        Assert.Contains(result.Review.GeorgianFlags,
+            flag => flag.RuleId == "hyphenated_name_suffix" && flag.Location == "spread 4");
+
+        Assert.True(result.Review.NeedsHumanReading);
+        Assert.Equal(2, result.Warnings.Count(w => w.Contains("Georgian check-list")));
+        Assert.Contains("\"georgian_checklist_version\": \"georgian-text-checklist-v1\"",
+            result.Artifacts.ReviewJson);
+
+        // And not one word was rewritten: the plan that comes out is the plan that went in.
+        Assert.Equal("ფუნღუროს ზღაპარი", result.Plan.Concept.Title);
+        Assert.Equal("თემო-ს გაუხარდა და ბილიკი გამოჩნდა.", result.Plan.Spreads[3].Text);
+    }
+
+    /// <summary>A book with nothing to flag says so, and carries no noise into the record.</summary>
+    [Fact]
+    public async Task A_clean_book_is_flagged_for_nothing()
+    {
+        var result = await Pipeline(
+                new ScriptedStoryModelClient(ScenarioFixture()), new StubImageService())
+            .RunAsync(Request(), CancellationToken.None);
+
+        Assert.Empty(result.Review.GeorgianFlags);
+        Assert.Empty(result.Review.ShotAdvisories);
+        Assert.False(result.Review.NeedsHumanReading);
+        Assert.Equal(0, result.Review.PoseSelectionFallbacks);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // R14 — the shot instruction leads, and the reviewer's note about it is advisory
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Every page's image prompt opens its composition block with that page's own shot, and the
+    /// reviewer is told the same sentence.
+    /// </summary>
+    [Fact]
+    public async Task Every_page_leads_its_composition_block_with_its_own_shot()
+    {
+        var images = new StubImageService();
+
+        await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+            .RunAsync(Request(), CancellationToken.None);
+
+        for (var page = 1; page <= BookFormat.SpreadCount; page++)
+        {
+            var shot = CompositeSpreadRhythm.ShotFor(page);
+
+            Assert.Contains($"COMPOSITION\n{shot}\n", images.Prompts[page - 1]);
+            Assert.Contains($"Shot this page was asked for: {shot}", images.ReviewPrompts[page - 1]);
+        }
+    }
+
+    /// <summary>
+    /// A shot note is recorded and changes nothing: the page passes, no picture is bought again, and
+    /// the note reaches the book's record rather than the retry ladder.
+    /// </summary>
+    [Fact]
+    public async Task A_shot_note_is_recorded_and_costs_the_book_nothing()
+    {
+        var images = new StubImageService();
+
+        images.Verdicts.Enqueue(
+            """
+            {"status":"PASS","failed_checks":[],"recommended_action":"pass","notes":[],
+             "shot_note":"A tight close-up, where a wide establishing view was asked for."}
+            """);
+
+        var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+            .RunAsync(Request(), CancellationToken.None);
+
+        // One image per spread: an advisory note buys nothing.
+        Assert.Equal(BookFormat.SpreadCount, images.ImageCalls);
+        Assert.Equal(BookFormat.SpreadCount, images.ReviewCalls);
+        Assert.All(result.Spreads, spread => Assert.Equal(1, spread.BaseAttempts));
+
+        var advisory = Assert.Single(result.Review.ShotAdvisories);
+        Assert.Equal(1, advisory.Page);
+        Assert.Equal(CompositeSpreadRhythm.ShotFor(1), advisory.ShotInstruction);
+        Assert.Contains("close-up", advisory.ReviewerNote);
+
+        Assert.True(result.Review.NeedsHumanReading);
+        Assert.Contains("\"shot_advisories\"", result.Artifacts.ReviewJson);
+
+        // The verdict the ladder read never mentioned it: PASS, and nothing else.
+        Assert.StartsWith("PASS", result.Spreads[0].Verdict);
+        Assert.DoesNotContain("close-up", result.Spreads[0].Verdict);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // R12b — the composite story path is polished
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The composite plan goes through the editor, which this path simply never did.
+    ///
+    /// The composite prompt was forked from v6's *writer*, so every composite book shipped its first
+    /// draft — which is how ფუნღუროში and ეწყოს reached a printed page. The pass is the same one v6
+    /// has: one call, after the whole book exists, with only prose merged back.
+    /// </summary>
+    [Fact]
+    public async Task A_composite_plan_is_edited_before_it_is_returned()
+    {
+        var written = CompositePlanJson(spreads: 8);
+        var corrected = CompositePlanJson(
+            spreads: 8,
+            title: "ბაფუს ბილიკი და ვარსკვლავი",
+            spreadText: (3, "ნინა და ბეკი ფუღუროში — გვერდი 3."));
+
+        var client = new ScriptedStoryModelClient(written, corrected);
+
+        var result = await CompositeStoryService(client).WriteCompositePlanAsync(
+            CompositeStoryInputFixture(), [], CancellationToken.None);
+
+        Assert.Equal(2, client.Calls);
+
+        // The editor is asked in the composite schema, with the composite editor's rules.
+        Assert.Equal(CompositeStorySchema.Name, "composite_book_plan");
+        Assert.Contains("You are an editor of Georgian children's books", client.SystemPrompts[1]);
+        Assert.Contains("MISSPELLINGS", client.SystemPrompts[1]);
+        Assert.Contains("„ფუნღუროში“", client.SystemPrompts[1]);
+        Assert.Contains("This book is Georgian only", client.SystemPrompts[1]);
+        Assert.Contains("3-5 age band", client.UserPrompts[1]);
+
+        // What crossed back: the title and the spread text, and that is all there is here.
+        Assert.Equal("ბაფუს ბილიკი და ვარსკვლავი", result.Story.Concept.Title);
+        Assert.Equal("ნინა და ბეკი ფუღუროში — გვერდი 3.", result.Story.Spreads[2].Text);
+
+        // Both calls are on the record — prompts and tokens — the way v6 records its two.
+        Assert.Contains("===== STEP 2 =====", result.SystemPrompt);
+        Assert.Equal(2, result.PromptTokens);
+        Assert.Equal(2, result.CompletionTokens);
+    }
+
+    /// <summary>
+    /// The editor is shown the book in the shape it must answer in — no character lock, no English.
+    ///
+    /// A document carrying fields the response schema forbids is an invitation to answer in the
+    /// shape it was shown, and <c>characterLock</c> is the paragraph this path deliberately does not
+    /// have.
+    /// </summary>
+    [Fact]
+    public async Task The_editor_is_shown_a_georgian_only_book()
+    {
+        var client = new ScriptedStoryModelClient(CompositePlanJson(spreads: 8), CompositePlanJson(spreads: 8));
+
+        await CompositeStoryService(client).WriteCompositePlanAsync(
+            CompositeStoryInputFixture(), [], CancellationToken.None);
+
+        Assert.DoesNotContain("characterLock", client.UserPrompts[1]);
+        Assert.DoesNotContain("titleEn", client.UserPrompts[1]);
+        Assert.DoesNotContain("textEn", client.UserPrompts[1]);
+        Assert.Contains("worldLock", client.UserPrompts[1]);
+    }
+
+    /// <summary>
+    /// A polish that renumbers the spreads is dropped whole: without the same numbers on both sides
+    /// there is no correspondence to merge along, and merging by position would put one spread's
+    /// text under another spread's picture.
+    /// </summary>
+    [Fact]
+    public async Task A_polish_that_renumbers_the_spreads_is_not_merged()
+    {
+        var renumbered = CompositePlanJson(
+            spreads: 8,
+            spreadText: (2, "სულ სხვა ტექსტი."),
+            renumberFirstSpreadTo: 9);
+
+        var client = new ScriptedStoryModelClient(CompositePlanJson(spreads: 8), renumbered);
+
+        var result = await CompositeStoryService(client).WriteCompositePlanAsync(
+            CompositeStoryInputFixture(), [], CancellationToken.None);
+
+        // The written book stands, whole.
+        Assert.Equal([1, 2, 3, 4, 5, 6, 7, 8], result.Story.Spreads.Select(s => s.Number));
+        Assert.Equal("ნინა და ბეკი — გვერდი 2.", result.Story.Spreads[1].Text);
+
+        // The call was still made and paid for, so it is still on the record.
+        Assert.Contains("===== STEP 2 =====", result.SystemPrompt);
+        Assert.Equal(2, result.PromptTokens);
+    }
+
+    /// <summary>
+    /// A polish that empties a spread's text is dropped rather than merged: the polisher can only
+    /// improve prose, never remove it, and an empty spread is a blank page in a printed book.
+    /// </summary>
+    [Fact]
+    public async Task A_polish_that_empties_a_spread_is_not_merged()
+    {
+        var emptied = CompositePlanJson(spreads: 8, spreadText: (5, string.Empty));
+
+        var client = new ScriptedStoryModelClient(CompositePlanJson(spreads: 8), emptied);
+
+        var result = await CompositeStoryService(client).WriteCompositePlanAsync(
+            CompositeStoryInputFixture(), [], CancellationToken.None);
+
+        Assert.Equal("ნინა და ბეკი — გვერდი 5.", result.Story.Spreads[4].Text);
+    }
+
+    /// <summary>
+    /// A failed polish call keeps the written book. It is best-effort by design: a book with an
+    /// unpolished sentence beats no book at all.
+    /// </summary>
+    [Fact]
+    public async Task A_failed_polish_keeps_the_written_book()
+    {
+        var client = new ThrowingAfterFirstCallClient(CompositePlanJson(spreads: 8));
+
+        var result = await CompositeStoryService(client).WriteCompositePlanAsync(
+            CompositeStoryInputFixture(), [], CancellationToken.None);
+
+        Assert.Equal(BookFormat.SpreadCount, result.Story.Spreads.Count);
+        Assert.Equal("ბაფუს ბილიკი", result.Story.Concept.Title);
+
+        // A polish that never happened leaves no separator behind, so a stored prompt never
+        // describes a call that was not made.
+        Assert.DoesNotContain("===== STEP 2 =====", result.SystemPrompt);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -3136,7 +3909,12 @@ public class CompositePipelineTests
 
         // Returned, not thrown — and with the fault intact for the caller's validator to name.
         Assert.Equal(7, result.Story.Spreads.Count);
-        Assert.Equal(1, client.Calls);
+
+        // Two model calls now: the writer, then R12b's editing pass. The stub answers the second
+        // with "{}", which is not a book — so nothing is merged and the written plan comes back
+        // untouched, fault and all, which is exactly the behaviour this test is about.
+        Assert.Equal(2, client.Calls);
+        Assert.Contains("You are an editor of Georgian children's books", client.SystemPrompts[1]);
 
         // The composite plan carries no characterLock, and the read path supplies the empty string
         // rather than letting System.Text.Json refuse a perfectly correct answer.
@@ -3572,6 +4350,25 @@ public class CompositePipelineTests
         return scenario.ToJsonString();
     }
 
+    /// <summary>
+    /// The fixture with its eight Beki sentences replaced, so a test can say what the pose table
+    /// would make of a book without touching anything else the scenario fixes.
+    /// </summary>
+    private static string WithBekiActions(params string[] actions)
+    {
+        Assert.Equal(BookFormat.SpreadCount, actions.Length);
+
+        var scenario = JsonNode.Parse(ScenarioFixture())!;
+        var spreads = scenario["spreads"]!.AsArray();
+
+        for (var index = 0; index < actions.Length; index++)
+        {
+            spreads[index]!["beki_action"] = actions[index];
+        }
+
+        return scenario.ToJsonString();
+    }
+
     /// <summary>The fixture with a different outfit lock — a scenario nothing would replan into.</summary>
     private static string WithOutfit(string outfit)
     {
@@ -3704,6 +4501,28 @@ public class CompositePipelineTests
             var reply = _replies.Count > 0 ? _replies.Dequeue() : "{}";
             return Task.FromResult(new ModelResult<T>(
                 JsonSerializer.Deserialize<T>(reply, StoryJson.Options)!, 1, 1));
+        }
+    }
+
+    /// <summary>
+    /// Answers the first call and then throws — the polish call failing on a book that was written
+    /// successfully, which is the case the editing pass has to survive.
+    /// </summary>
+    private sealed class ThrowingAfterFirstCallClient(string firstReply) : IStoryModelClient
+    {
+        private int _calls;
+
+        public Task<ModelResult<T>> CompleteAsync<T>(
+            string model, string systemPrompt, string userPrompt, string schemaName,
+            JsonElement schema, CancellationToken cancellationToken)
+        {
+            if (_calls++ > 0)
+            {
+                throw new HttpRequestException("the editor is unreachable.");
+            }
+
+            return Task.FromResult(new ModelResult<T>(
+                JsonSerializer.Deserialize<T>(firstReply, StoryJson.Options)!, 1, 1));
         }
     }
 
@@ -3985,6 +4804,40 @@ public class CompositePipelineTests
                 cover = new { scene = "The child at the valley's edge.", avoid = string.Empty },
             },
             new JsonSerializerOptions(JsonSerializerDefaults.Web));
+    }
+
+    /// <summary>
+    /// The same plan with the editor's corrections applied — built by editing the parsed document
+    /// rather than by string replacement.
+    ///
+    /// Replacement does not work here and fails silently, which is worse: the serializer escapes
+    /// every Georgian character as \uXXXX, so a search for the literal title finds nothing and the
+    /// "corrected" book comes back identical to the written one. A test that asserts a merge against
+    /// a document that was never changed proves nothing.
+    /// </summary>
+    private static string CompositePlanJson(
+        int spreads, string? title = null, (int Number, string Text)? spreadText = null,
+        int? renumberFirstSpreadTo = null)
+    {
+        var plan = JsonNode.Parse(CompositePlanJson(spreads))!;
+
+        if (title is not null)
+        {
+            plan["concept"]!["title"] = title;
+        }
+
+        if (spreadText is { } edit)
+        {
+            plan["spreads"]!.AsArray()
+                .First(spread => (int)spread!["number"]! == edit.Number)!["text"] = edit.Text;
+        }
+
+        if (renumberFirstSpreadTo is { } number)
+        {
+            plan["spreads"]!.AsArray()[0]!["number"] = number;
+        }
+
+        return plan.ToJsonString();
     }
 
     /// <summary>A real JPEG, so truncating it truncates something a decoder actually walks.</summary>

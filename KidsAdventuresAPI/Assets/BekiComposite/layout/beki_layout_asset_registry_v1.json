@@ -1,0 +1,45 @@
+{
+  "registry_version": "beki-layout-assets-v1",
+  "source_manifest": "BEKI_Developer_Production_Assets_v1/APPROVED_ASSET_MANIFEST_v1.csv",
+  "note": "Paths are relative to the published output folder. The endpaper pattern and the six intro backgrounds are NOT re-stated here: their filenames and hashes live in the supplier's own theme_reference_registry_v1.json, which this registry reads, so there is exactly one hash per asset in the tree.",
+  "theme_reference_registry": "Assets/BekiComposite/theme_reference_registry_v1.json",
+  "endpaper_directory": "Assets/BekiComposite/layout",
+  "intro_background_directory": "Assets/BekiComposite/theme_references",
+  "font_directory": "Assets/Fonts",
+  "fonts": [
+    {
+      "id": "noto_sans_georgian_regular",
+      "manifest_asset_id": "noto_sans_georgian_regular",
+      "role": "interior_body",
+      "filename": "NotoSansGeorgian-Regular.ttf",
+      "sha256": "a1c1e6926e292cb10bc57685c65c8c15a3f1250c9b49fa005e25f314c9076a76"
+    },
+    {
+      "id": "noto_sans_georgian_bold",
+      "manifest_asset_id": "noto_sans_georgian_bold",
+      "role": "interior_emphasis",
+      "filename": "NotoSansGeorgian-Bold.ttf",
+      "sha256": "7ba515d66223d8985159a93664e649debe1c161af77f5c7ead9df02fe5f5b543"
+    },
+    {
+      "id": "ottia_regular_ttf",
+      "manifest_asset_id": "ottia_regular_ttf",
+      "role": "cover_title",
+      "filename": "Ottia-v01-Regular.ttf",
+      "sha256": "1ed2265e415cacffea23f3be993d5adc480b714d2510290c317b72d1c6f9a7c5"
+    },
+    {
+      "id": "ottia_regular_otf",
+      "manifest_asset_id": "ottia_regular_otf",
+      "role": "cover_title_alternate",
+      "filename": "Ottia-v01-Regular.otf",
+      "sha256": "2b8c4037c65a3f4aadec36ae59429a2864692fb4431b0a909cc1548bf75503e6"
+    }
+  ],
+  "forbidden_font_files": [
+    "Ottia-v01-Trial-Regular.ttf",
+    "Ottia-v01-Trial-Regular.otf",
+    "Ottia-v01-Trial-Regular.woff",
+    "Ottia-v01-Trial-Regular.woff2"
+  ]
+}

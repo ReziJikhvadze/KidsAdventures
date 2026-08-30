@@ -58,6 +58,7 @@ public sealed class BekiPoseRegistry
     private BekiPoseRegistry(
         string baseDirectory,
         string registryVersion,
+        string keywordRevision,
         IReadOnlyList<BekiPose> poses,
         IReadOnlyList<string> priorityOrder,
         string fallbackPoseId,
@@ -65,6 +66,7 @@ public sealed class BekiPoseRegistry
     {
         _baseDirectory = baseDirectory;
         RegistryVersion = registryVersion;
+        KeywordRevision = keywordRevision;
         Poses = poses;
         PriorityOrder = priorityOrder;
         FallbackPoseId = fallbackPoseId;
@@ -74,6 +76,19 @@ public sealed class BekiPoseRegistry
 
     /// <summary>The pack's version string, recorded on every composite for traceability.</summary>
     public string RegistryVersion { get; }
+
+    /// <summary>
+    /// Which revision of the <em>keyword lists</em> is installed — <c>v1.0</c> for the pack as
+    /// delivered, <c>v1.1</c> for this campaign's amendment.
+    ///
+    /// A field of its own rather than a bumped <see cref="RegistryVersion"/>, because the two answer
+    /// different questions. <see cref="RegistryVersion"/> names the artwork: the nine PNGs, their
+    /// hashes, the priority order and the fallback, all of which <c>pipeline_config_v1.json</c> pins
+    /// by string — moving it would stop the engine over a change that touched no pixel. The keywords
+    /// decide only which approved pose a sentence selects, so a revision of them is a matching
+    /// change, and this is where an operator reading a log sees which table was in force.
+    /// </summary>
+    public string KeywordRevision { get; }
 
     /// <summary>Every approved pose, in the registry's own order.</summary>
     public IReadOnlyList<BekiPose> Poses { get; }
@@ -200,6 +215,9 @@ public sealed class BekiPoseRegistry
         return new BekiPoseRegistry(
             root,
             document.RegistryVersion,
+            // Absent means the pack as delivered: v1.0 had no such field, and a registry that
+            // predates the amendment must not read as though it carried the amended table.
+            string.IsNullOrWhiteSpace(document.KeywordRevision) ? "v1.0" : document.KeywordRevision,
             poses,
             priorityOrder,
             matching.FallbackPoseId,
@@ -283,6 +301,7 @@ public sealed class BekiPoseRegistry
     private sealed record RegistryDocument
     {
         [JsonPropertyName("registry_version")] public string? RegistryVersion { get; init; }
+        [JsonPropertyName("keyword_revision")] public string? KeywordRevision { get; init; }
         [JsonPropertyName("matching")] public MatchingDocument? Matching { get; init; }
         [JsonPropertyName("poses")] public List<PoseDocument>? Poses { get; init; }
         [JsonPropertyName("forced_usage")] public Dictionary<string, string>? ForcedUsage { get; init; }

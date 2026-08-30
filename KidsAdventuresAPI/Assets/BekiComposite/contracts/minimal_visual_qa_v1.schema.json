@@ -25,7 +25,8 @@
       }
     },
     "recommended_action": {"enum": ["pass", "regenerate_base", "recomposite_beki", "human_review"]},
-    "notes": {"type": "array", "items": {"type": "string", "minLength": 1}}
+    "notes": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "shot_note": {"type": "string"}
   },
   "allOf": [
     {

@@ -1,9 +1,18 @@
-# BEKI Visual Scenario Prompt v2
+# BEKI Visual Scenario Prompt v2.1
 
-**Prompt version:** `visual-scenario-v2`  
+**Prompt version:** `visual-scenario-v2.1`  
 **Status:** Implementation source  
 **Calls:** One normal text-model call per complete book; one validation retry maximum  
 **Purpose:** Convert one approved eight-spread Georgian story into one cover plan, one book-level visual lock, and eight machine-safe child/world scenes with separate Beki actions.
+
+## v2.1 changelog
+
+Amended after reading the `beki_action` lines of four real books back out of storage (2026-08-30).
+
+- **Observed defect: the planner writes in vocabulary the pose table cannot read.** Book `c4fc5fe7` was composited from the fallback pose — the neutral hover — on **6 of 8** spreads, and `09d57d46` on 4 of 8. The sentences were not bad; they simply used verbs the registry did not list ("Beki **claps happily**", "Beki **gazes in wonder**"), and this prompt never told the planner that a fixed verb table exists downstream. **Fix (a):** the keyword lists were extended to the model's real vocabulary (`beki_pose_registry_v1.json`, `keyword_revision: v1.1`, changelog in `BEKI_Pose_Registry_Keyword_Changelog.md`). **Fix (b), here:** one appended block, `BEKI ACTION VOCABULARY`, naming the nine verb families with two or three exemplar verbs each and asking the planner to phrase each `beki_action` around one of them while keeping the page's own beat. This is vocabulary steering, not a new task: no pose is named, no pose id is emitted, the sentence shape is unchanged, and the model is told explicitly not to force a beat or reuse one family for the whole book.
+- **Fix (c): a deterministic post-validation count.** After the scenario passes both validation layers, the pose registry is replayed over all eight `beki_action` lines with no model call. More than **two** fallbacks in one book is treated as a semantic-validation miss and spends the **existing single** retry (never a second one), with `POSE_VOCABULARY_MISS` and the offending sentences quoted in the error list. A book that still exceeds the budget after its one retry is drawn anyway and the count is logged and recorded — a repetitive Beki is not a reason to refuse a paid book.
+
+Everything above the appended block is v2's, character for character.
 
 ## Runtime input
 
@@ -149,7 +158,26 @@ Return valid JSON only, with exactly this structure and no additional keys:
 }
 
 The spreads array must contain exactly eight entries, ordered from page 1 to page 8.
+
+BEKI ACTION VOCABULARY
+
+Code matches each beki_action against a fixed table of nine approved poses, by verb. A sentence whose verb is not in the table gets a neutral hovering pose, so a book written in words the table cannot read is a book in which Beki does the same thing on every page.
+
+Phrase each beki_action around one of these nine verb families:
+
+- protect: protects, shields, guards
+- listen: listens, hears, attentive
+- wonder: curious, wonder, leans in, peers
+- point: points, guides, shows the way
+- reassure: reassures, comforts, stands beside, nods
+- celebrate: celebrates, claps, cheers
+- travel onward: glides forward, walks beside, leads onward
+- welcome: welcomes, invites, beckons
+
+Use the family that the story page actually calls for, in a natural sentence — do not force a beat the page does not contain, and do not reuse one family for the whole book. Prefer the plain verb ("Beki claps", "Beki gazes in wonder", "Beki stands beside the child") over an abstract paraphrase. This is wording guidance only: never name a pose, a pose id, or a page position.
 ```
+
+The vocabulary block is generated from the registry's own priority order by `CompositePoseVocabulary.PromptBlock()`, so a keyword revision that renames a family cannot leave this prompt describing the old one. The ninth pose — the neutral hover — carries no verbs and is deliberately not offered: it is reachable only as the fallback, which is what makes the fallback count meaningful.
 
 ## Runtime user message
 
@@ -175,3 +203,13 @@ Reject output when:
 - `back_environment` mentions either the child or Beki.
 
 On failure, retry once with the same original input and the validator's short error list. After the second invalid result, return `VISUAL_SCENARIO_FAILED` and stop safely.
+
+### Pose vocabulary audit (v2.1)
+
+After the two layers above pass, replay `beki_pose_registry_v1.json` over the eight `beki_action` lines — the same selector the pipeline uses per page, no model call, no second matching rule. Then:
+
+- record `pose_selection_fallback` per spread and the count per book;
+- when the count is **greater than two** and the one retry has not been spent, reject with `POSE_VOCABULARY_MISS`, quoting the offending sentences, and spend it;
+- when the retry has already been spent, **accept the scenario** and record the count. This never becomes a second retry and never fails a book: the fallback is an approved pose, and a repetitive Beki is a quality signal, not a defect that justifies discarding a paid plan.
+
+The cover's `beki_action` is audited too, but advisory only and outside the count: no cover is composited on this path yet (`LAYOUT_FAILED`, pending the printer dieline).

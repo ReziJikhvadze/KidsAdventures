@@ -158,6 +158,32 @@ public sealed record BekiFulfillmentManifest
     public BekiCoverRecord? Cover { get; init; }
 
     /// <summary>
+    /// Where this book's composite review is stored: the pose-fallback count, the Georgian
+    /// check-list's flags and the reviewer's advisory shot notes.
+    ///
+    /// On the manifest because it is the one artifact that says what is *wrong* with a book that
+    /// nevertheless shipped. Everything else recorded here is provenance — which picture, which
+    /// prompt, which pose — and a completed pack looks identical whether its guide hovers neutrally
+    /// on six spreads or acts on all eight, whether its Georgian carries a misspelling that reached
+    /// print, and whether the reviewer thought half the book was shot wrongly. Those are the
+    /// questions the supplier's handback package and the admin actually arrive with, and until now
+    /// the only answer was to grep a log.
+    ///
+    /// The URL, never the content, exactly as <see cref="IdentitySpecUrl"/> is. The review quotes
+    /// short windows of the book's Georgian to show what a check-list rule matched, and the child's
+    /// name is in that prose — the hyphenated-suffix rule finds the name with a suffix stuck on it.
+    /// This manifest is read, logged and pasted into support threads; the words belong in the pack's
+    /// private folder and are deleted with it.
+    ///
+    /// Written once, with the finished book, unlike the two URLs above: the review is a fact about a
+    /// whole book — a count across eight spreads — so there is nothing true to write down until all
+    /// eight exist. Nullable and omitted when null, so a legacy manifest stays byte-identical and a
+    /// manifest written before this field existed still deserializes and still resumes.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ReviewUrl { get; init; }
+
+    /// <summary>
     /// The terms this pack's spreads would be drawn under, right now.
     /// </summary>
     /// <param name="composite">
@@ -217,6 +243,19 @@ public sealed record BekiFulfillmentManifest
 /// would produce two children in one book with every page passing its own review. A version change
 /// redraws instead, which is the whole point of this line.
 ///
+/// The pose registry's KEYWORD REVISION is a term of its own beside its version, and it has to be.
+/// A keyword amendment deliberately does not move <c>registry_version</c> — no pixel, hash, priority
+/// order or forced pose changes, and <c>pipeline_config_v1.json</c> pins that string — so the
+/// version alone cannot see it. What a keyword revision does change is which approved pose a
+/// sentence selects: under v1.0 "Beki claps happily" selected the neutral hover, and under v1.1 it
+/// selects the celebrate pose. A resumed run that adopted pages composited under the old table while
+/// compositing the rest under the new one would bind one book from two different readings of the
+/// same scenario, every page individually correct, and the review would then count fallbacks against
+/// a table half the book was never selected by. The alternative considered — recovering each adopted
+/// page's pose from its stored composition manifest and auditing from those — is strictly more code
+/// for a worse answer: it would let the mixed book ship and merely describe it accurately. Pinning
+/// redraws instead, which is what every other version key here does.
+///
 /// And the last is the theme reference's own SHA-256, which the five versions above would miss.
 /// Every picture in a composite book is generated against one approved world PNG, and that file
 /// can be re-art-directed without the registry's version string moving — a lighter palette, a
@@ -236,7 +275,8 @@ public sealed record BekiCompositeContractTerms(
     string ImagePromptVersion,
     string IdentityPromptVersion,
     string ThemeId,
-    string ThemeReferenceSha256)
+    string ThemeReferenceSha256,
+    string PoseKeywordRevision)
 {
     /// <summary>
     /// The terms as they stand in this deployment, for the world this particular book is set in.
@@ -260,7 +300,11 @@ public sealed record BekiCompositeContractTerms(
             Composite.CompositeIllustrationPrompt.Version,
             Composite.CompositeChildIdentity.Version,
             themeId,
-            Composite.CompositeThemeReferences.RegisteredSha256(themeId));
+            Composite.CompositeThemeReferences.RegisteredSha256(themeId),
+            // Read from the installed registry rather than from the config, because the config
+            // pins the pack revision and this is deliberately not part of it. Loading here is one
+            // JSON read per job, beside the two this method already does.
+            Composite.Poses.BekiPoseRegistry.Load().KeywordRevision);
     }
 
     public override string ToString() => string.Join(
@@ -272,5 +316,6 @@ public sealed record BekiCompositeContractTerms(
         ImagePromptVersion,
         IdentityPromptVersion,
         ThemeId,
-        ThemeReferenceSha256);
+        ThemeReferenceSha256,
+        PoseKeywordRevision);
 }

@@ -1,8 +1,18 @@
-# BEKI Minimal Visual QA v1.2
+# BEKI Minimal Visual QA v1.3
 
-**Prompt version:** `minimal-visual-qa-v1.2`  
+**Prompt version:** `minimal-visual-qa-v1.3`  
 **Status:** Implementation source  
 **Purpose:** Review only parent-visible critical failures after exact Beki compositing.
+
+## v1.3 changelog
+
+Amended alongside the image template's v1.3, after the supplier's PDF audit reported that the wide, action and close spreads all render as similar medium compositions.
+
+- **Observed defect: nothing measures whether the deterministic shot was obeyed.** The shot instruction is injected per page from `pipeline_config_v1.json`, and no stage — deterministic or model — ever looked at whether the picture that came back was that shot. The only evidence was a human flicking through a printed proof. **Fix:** the page description now states the shot this spread was asked for, and the reviewer may return one optional free-text `shot_note` when the rendered composition **clearly** contradicts it.
+- **Advisory only, and deliberately toothless.** `shot_note` is **not** a failed-check category, cannot appear in `failed_checks`, cannot change `status`, cannot change `recommended_action`, and cannot cause a regeneration, a re-composite or a retry. A page whose only remark is a shot note is a `PASS`. The reviewer is told this in the instruction, because a reviewer that believes a note has teeth writes it defensively. The reason for no gate is the supplier's own: shot-type judgement from a single frame is subjective, the false-positive cost is a paid image call, and there is not yet evidence to price it. This note is how that evidence gets collected.
+- `minimal_visual_qa_v1.schema.json` gains **one optional** string property, `shot_note`. Every answer that was valid under v1.2 is still valid — the property is not in `required`, and the shape's `additionalProperties: false` is what made adding it a schema change rather than a free-form note.
+
+Nothing else moved. The nine category names, `status`, `failed_checks`, `recommended_action`, `notes`, the deterministic validation list and the retry ladder are v1.2's.
 
 ## v1.2 changelog
 
@@ -95,11 +105,14 @@ Return exactly this structure and no additional keys:
   "status": "PASS",
   "failed_checks": [],
   "recommended_action": "pass",
-  "notes": []
+  "notes": [],
+  "shot_note": ""
 }
 
 Each failed_checks item, when present, must be one of:
 CHILD_IDENTITY, CHILD_AGE, OUTFIT_CONTINUITY, MAIN_SCENE_BEAT, CAST_ERROR, GENERATED_TEXT, TEXT_SAFE_AREA, FOLD_SAFETY, BEKI_INTEGRATION.
+
+shot_note is optional, advisory, and never a failure. The page description states the shot this spread was asked for. Fill shot_note with one short sentence only when the rendered composition clearly contradicts that shot type - for example a close-up where a wide establishing view was asked for. Leave it out, or empty, when the shot is right or you are unsure. A shot_note is not a failed check, does not appear in failed_checks, does not change status or recommended_action, and never causes a retry.
 
 Keep notes short, concrete, and visible in the supplied composite. Do not include sensitive descriptions of the child's source photo.
 ```
@@ -114,6 +127,7 @@ The category name `FOLD_SAFETY` is unchanged and stays unchanged: it is a value 
 - `FAIL` requires at least one failed check and a non-`pass` action;
 - `recommended_action` is one of `pass`, `regenerate_base`, `recomposite_beki`, `human_review`;
 - `notes` is an array of short strings;
+- `shot_note`, when present, is a string; it is advisory and is never read as a failure;
 - unexpected keys are rejected.
 
 Retry JSON parsing once without rerunning image generation. A second invalid QA response returns `IMAGE_QA_FAILED` for human review.

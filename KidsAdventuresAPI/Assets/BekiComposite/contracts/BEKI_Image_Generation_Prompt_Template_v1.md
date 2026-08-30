@@ -1,8 +1,17 @@
-# BEKI Child/World Image Prompt Template v1.2
+# BEKI Child/World Image Prompt Template v1.3
 
-**Prompt version:** `child-world-image-v1.2`  
+**Prompt version:** `child-world-image-v1.3`  
 **Status:** Implementation source  
 **Purpose:** Generate a text-free child-and-world base image. Beki is composited later from an approved transparent PNG.
+
+## v1.3 changelog
+
+Amended after the supplier's PDF audit of a shipped book (2026-08-30) reported that the wide, action and close spreads all render as similar medium compositions.
+
+- **Observed defect: the shot instruction was injected but weakly positioned.** `{{SHOT_INSTRUCTION}}` is the only line that distinguishes spread 3's wide establishing view from spread 6's close one, and it sat *second* in the `COMPOSITION` block, behind "Create one continuous very wide panoramic two-page spread designed for a final 15:7 crop." A model that has just been told "very wide panoramic" has chosen its camera before it reaches the shot. **Fix:** the shot instruction is now the **first line of the composition block** and the panorama sentence follows it. Both sentences are unchanged, character for character; only their order moved. The shot wording itself still comes from `pipeline_config_v1.json`'s `spread_rhythm` — this template does not restate it.
+- **Advisory, not a gate.** The minimal visual QA reviewer is now asked to record a free-text `shot_note` when the rendered shot clearly contradicts the described shot type (see `BEKI_Minimal_Visual_QA_v1.md` v1.3). It creates **no** new failed-check category, cannot fail a page, and cannot cause a retry — the false-positive risk on a subjective judgement is too high to spend a paid image call on. It exists so the next revision of this line has evidence instead of impressions.
+
+Nothing else moved: the section order, the scene/outfit/identity/recurring blocks, the 15:7 target, the composition resolver's geometry and percentages, the constraint list and the retry ladder are v1.2's.
 
 ## v1.2 changelog
 
@@ -109,8 +118,8 @@ RECURRING ELEMENTS REQUIRED ON THIS IMAGE
 {{RELEVANT_RECURRING_ELEMENTS_OR_NONE}}
 
 COMPOSITION
-Create one continuous very wide panoramic two-page spread designed for a final 15:7 crop.
 {{SHOT_INSTRUCTION}}
+Create one continuous very wide panoramic two-page spread designed for a final 15:7 crop.
 {{RESOLVED_TEXT_AND_BEKI_ZONE_BLOCK}}
 Keep the narrow vertical strip at the exact centre of the canvas as a central low-information zone, with only continuous environment passing through it. No face, hand, child, supporting character, or story-critical detail may cross or touch that central zone.
 Keep all important content in the central horizontal band so modest top-and-bottom crop normalization is safe.

@@ -11,20 +11,20 @@ namespace AdventurePacks.Api.Configuration.Options;
 /// text is set over it, so the geometry starts from the spread and the page is half of it — the
 /// opposite of the A5 book, where a page is a page and a spread is two of them side by side.
 ///
-/// **The sheet is the handoff's 440×200 and the artwork is not.** gpt-image draws 1:1, 2:3 and
-/// 3:2 and nothing else, so every render arrives at 3:2 and the composer centre-crops it to the
-/// sheet — the print keeps the central band and the top and bottom sixths are trimmed away.
-/// This format held the artwork's own 3:2 for a while to avoid that loss; the product decision
-/// went the other way, to the handoff's physical book, and the illustration prompt now confines
-/// faces and action to the central band so the crop never takes anything the story needs.
+/// **The numbers are the handoff's, and they are exact.** 440 × 200 mm trims out of a 450 × 210 mm
+/// sheet with 5 mm of bleed on every outer edge; at 300 PPI that sheet is 5315 × 2480 px, and its
+/// ratio is exactly 15:7 — which is the ratio the illustration stage normalizes to, so a picture
+/// that arrived normalized fits the sheet with nothing to crop. The book shipped at 446 × 206 with
+/// 3 mm for a while, which is a different physical object; the supplier's audit of a printed PDF is
+/// what found it.
 /// </summary>
 public sealed class BekiPrintLayoutOptions
 {
     public const string SectionName = "BekiPrintLayout";
 
     /// <summary>
-    /// The finished spread, both leaves together, in millimetres. The handoff's page is
-    /// 220 × 200; the spread is two of them side by side.
+    /// The finished spread, both leaves together, in millimetres — the trim, not the sheet. The
+    /// handoff's page is 220 × 200; the spread is two of them side by side.
     /// </summary>
     public float SpreadWidthMm { get; set; } = 440f;
 
@@ -34,8 +34,14 @@ public sealed class BekiPrintLayoutOptions
     /// <summary>Half the spread. A single leaf, portrait, the way a picture book opens.</summary>
     public float PageWidthMm => SpreadWidthMm / 2f;
 
-    /// <summary>How far the illustration runs past the trim on every side.</summary>
-    public float BleedMm { get; set; } = 3f;
+    /// <summary>
+    /// How far the illustration runs past the trim on every outer edge, in millimetres.
+    ///
+    /// Five, per the handoff's interior rule — which puts the MediaBox and BleedBox at 450 × 210 and
+    /// the TrimBox at 440 × 200 centred inside them. This does not apply to the cover: a cover is a
+    /// wrap with a spine and its geometry comes from the printer's dieline (handoff §5).
+    /// </summary>
+    public float BleedMm { get; set; } = 5f;
 
     /// <summary>
     /// How far the story text stays clear of the trim — the spec's outer safe area. Larger than
@@ -48,9 +54,9 @@ public sealed class BekiPrintLayoutOptions
     /// The width of the low-information band straddling the fold, in millimetres — half of it
     /// falls on each page. A print gutter swallows a sliver of the sheet into the binding, and
     /// even before a printer's own imposition is known, nothing planned this close to the fold
-    /// should be trusted to survive it. Not yet wired into a dedicated layout check — that is
-    /// future QA — but used now to hold the story text column's inner edge back from the fold on
-    /// every spread, so a widened <see cref="TextColumnShare"/> can never quietly creep into it.
+    /// should be trusted to survive it. Used to hold the story text column's inner edge back from
+    /// the fold on every spread, so a widened <see cref="TextColumnShare"/> can never quietly creep
+    /// into it.
     /// </summary>
     public float GutterZoneMm { get; set; } = 30f;
 
@@ -62,10 +68,30 @@ public sealed class BekiPrintLayoutOptions
     public float TextColumnShare { get; set; } = 0.33f;
 
     /// <summary>
-    /// Story text size, in points. A spread is read aloud from arm's length by an adult holding a
-    /// book open, which is further away than a page of prose is ever read from.
+    /// Story text size, in points — the approved spread-1 reference's 18 pt (handoff §6 Step 8).
+    ///
+    /// A spread is read aloud from arm's length by an adult holding a book open, which is further
+    /// away than a page of prose is ever read from. Configurable, and deliberately: the handoff
+    /// calls these "configurable v0 defaults, not permanent typography law for every age band".
     /// </summary>
-    public float StoryFontSize { get; set; } = 15f;
+    public float StoryFontSize { get; set; } = 18f;
+
+    /// <summary>
+    /// The leading the reference sets <see cref="StoryFontSize"/> on, in points: 18 on 27.
+    ///
+    /// Stated as a pair of point sizes rather than as a multiplier because that is how the approved
+    /// proof states it, and applied as their ratio, so a spread that steps down to 16 pt tightens
+    /// its leading with the type instead of keeping 27 pt of air around smaller words.
+    /// </summary>
+    public float StoryLeadingPt { get; set; } = 27f;
+
+    /// <summary>
+    /// The widest measure a line of story text may be set to, in millimetres — the reference's
+    /// 170 mm. On today's 450 mm spread a third of the sheet is already narrower than this, so the
+    /// cap does not bind; it is written down because <see cref="TextColumnShare"/> is configuration
+    /// and a very wide column would otherwise produce a measure no reading age can track across.
+    /// </summary>
+    public float MaxTextWidthMm { get; set; } = 170f;
 
     /// <summary>
     /// Whether the English text is printed under the Georgian. Off by default: the handoff asks
@@ -75,12 +101,25 @@ public sealed class BekiPrintLayoutOptions
     public bool PrintEnglishToo { get; set; }
 
     /// <summary>
-    /// The stroke drawn around every printed glyph, in points. The wash quiets the artwork
-    /// behind the words; the outline is the guarantee that holds when the wash meets a picture
-    /// it cannot quiet — cream type over a sunlit cloud still has a dark edge to read by.
-    /// Zero turns it off.
+    /// The stroke drawn around every glyph of the cover title and the Continue Adventure line, in
+    /// points. Those two set light type straight onto artwork, where the picture can win against
+    /// the words; the story text does not come through here any more — it is dark type on a cream
+    /// wash, which needs no rim. Zero turns it off.
     /// </summary>
     public float TextOutlineWidth { get; set; } = 0.6f;
+
+    /// <summary>
+    /// How much of an illustration a centred crop to the sheet may remove, per axis, before the
+    /// book stops.
+    ///
+    /// The handoff allows "a tiny centered crop … only to normalize to 15:7" and forbids stretching.
+    /// The bled sheet is exactly 15:7, so artwork that arrived normalized loses nothing at all and
+    /// never comes near this. Four per cent is the line between a rounding difference and a
+    /// recomposition: a raw 3:2 render loses three tenths of its height to this crop, which is not a
+    /// normalization, and the whole point of the number is that taking it has to be a decision
+    /// somebody records here rather than something the composer does quietly.
+    /// </summary>
+    public float PrintCropTolerance { get; set; } = 0.04f;
 
     /// <summary>
     /// Where spread 8's Continue Adventure QR sends the reader. Used to be the closing page's own
@@ -108,58 +147,58 @@ public sealed class BekiPrintLayoutOptions
     public string ContinueCtaText { get; set; } = "განაგრძე თავგადასავალი ბეკისთან";
 
     /// <summary>
-    /// Finished art for the intro spread — a {theme} template naming one of the partner's six
-    /// approved per-world visuals, with Beki already integrated into each. Null — the default —
-    /// keeps the code-drawn placeholder the composer builds.
+    /// The intro spread's dedication.
     ///
-    /// Five of the book's fourteen pages carry nothing from the customer's own story: both
-    /// endpaper spreads, the intro spread's artwork and the back cover are the same in every
-    /// order, and the composer draws them from primitives only because the partner has not
-    /// delivered the real thing yet. These settings are the door that delivery comes through:
-    /// point one at a file, drop the file into the published folder, and that page starts
-    /// printing the partner's art full bleed instead. Nothing else changes — the page count, the
-    /// sheet size and the bleed are the book's, not the asset's.
-    ///
-    /// Relative paths resolve against the published output folder
-    /// (<see cref="AppContext.BaseDirectory"/>), the same way the fonts and the canonical Beki
-    /// PNG do, so a value like <c>Assets/Beki/intro-{theme}.png</c> works identically on a
-    /// developer's machine and in a container. An absolute path is used as given. A path that
-    /// points at nothing is not an error: the page falls back to the drawn placeholder, because
-    /// a mistyped setting should cost a page its art, never the order its book.
+    /// <c>{name_dative}</c> is the child's name already in the dative — the case „ეკუთვნის“ governs
+    /// — built by <see cref="Services.Story.GeorgianNameSuffix"/> rather than by gluing a suffix on
+    /// here. The old default was <c>"…ეკუთვნის {name}-ს"</c>, and it printed „თემო-ს“ in a sold book:
+    /// the hyphen belongs to a name written in another alphabet, never to a Georgian one.
+    /// <c>{name}</c> is still accepted, uninflected, for a template that wants the plain name.
     /// </summary>
-    public string? IntroAssetPathTemplate { get; set; }
+    public string IntroBelongsTemplate { get; set; } = "ეს წიგნი ეკუთვნის {name_dative}";
+
+    /// <summary>The quiet line under the dedication. <c>{age}</c> is the child's age in years.</summary>
+    public string IntroAgeTemplate { get; set; } = "{age} წლის";
 
     /// <summary>
-    /// The intro spread's ownership line. <c>{name}</c> and <c>{age}</c> are filled per order;
-    /// the spec's example is "This book belongs to Nina, age 2", said the Georgian way.
+    /// The world the book opens into, named the way the parent chose it. <c>{world}</c> is quoted in
+    /// the template itself so an arbitrary place name never has to inflect.
     /// </summary>
-    public string IntroBelongsTemplate { get; set; } = "ეს წიგნი ეკუთვნის {name}-ს — {age} წლის";
-
-    /// <summary>The intro spread's date line. <c>{date}</c> is the purchase, in Tbilisi's clock.</summary>
-    public string IntroDateTemplate { get; set; } = "{date}";
+    public string IntroThemeTemplate { get; set; } = "„{world}“";
 
     /// <summary>
-    /// The invitation into the chosen world. <c>{world}</c> is the name the parent picked the
-    /// book by (<see cref="Services.Story.StoryWorlds"/>), quoted in the template itself so an
-    /// arbitrary place name never has to inflect.
+    /// The invitation. <c>{name}</c> is the plain name — Georgian addresses a person by the
+    /// nominative — and this template must never take a case ending.
     /// </summary>
-    public string IntroInviteTemplate { get; set; } = "{name}, ძალიან მიხარია, რომ ერთად მივემგზავრებით სამყაროში „{world}“. დროა, დავიწყოთ ჩვენი თავგადასავალი!";
+    public string IntroInviteTemplate { get; set; } =
+        "{name}, ერთად გავუყვებით ამ ბილიკს. დროა, დაიწყოს ჩვენი თავგადასავალი!";
 
     /// <summary>The credits page's own line, under the review QR.</summary>
     public string CreditsLine { get; set; } = "Beki • beki.ge";
 
     /// <summary>
     /// The spec's starting type targets by reader age (§20): generous for the youngest readers,
-    /// a step down for the readers who get more words. Print-proof-pending — these stay
-    /// configurable because no physical proof has been held yet — and the composer's step-down
-    /// ladder may fall back from them, never below <see cref="StoryFontSize"/>.
+    /// a step down for the readers who get more words. The composer starts the step-down ladder at
+    /// whichever of these the child's age selects.
     /// </summary>
     public float StoryFontSizeAges2To4 { get; set; } = 20f;
-    public float StoryFontSizeAges5To8 { get; set; } = 17.5f;
+    public float StoryFontSizeAges5To8 { get; set; } = 18f;
 
     /// <summary>
-    /// The print-normalization target (§25): accepted artwork is upscaled once toward this
-    /// density at compose time. Zero disables the step and embeds the native render.
+    /// Every type size the story copy is allowed to be reduced to, largest first.
+    ///
+    /// The age band picks where the ladder starts; each rung below it is a permitted reduction, and
+    /// below the last rung there is nothing but <c>TEXT_OVERFLOW</c>. A list rather than a step size,
+    /// because "which sizes may this book be set at" is a typographic decision an owner should be
+    /// able to read off a config file — and because the previous ladder ended by accepting its own
+    /// last rung whether the copy fitted or not, which is how a book printed off the bottom of a page.
+    /// </summary>
+    public float[] StoryFontSizeLadderPt { get; set; } = [20f, 18f, 16f, 14f];
+
+    /// <summary>
+    /// The print-normalization target (§6 Step 8): every interior raster layer is delivered at this
+    /// density, which on the 450 × 210 mm sheet is exactly 5315 × 2480 px. Zero disables the step
+    /// and embeds the native render.
     /// </summary>
     public int PrintTargetPpi { get; set; } = 300;
 
@@ -169,23 +208,7 @@ public sealed class BekiPrintLayoutOptions
     /// </summary>
     public int PrintAssetJpegQuality { get; set; } = 90;
 
-    /// <summary>The story type size a book prints at for this reader's age.</summary>
+    /// <summary>The story type size a book starts its step-down ladder at, for this reader's age.</summary>
     internal static float StoryFontSizeFor(int? age, BekiPrintLayoutOptions layout) =>
         age == null ? layout.StoryFontSize : (age <= 4 ? layout.StoryFontSizeAges2To4 : layout.StoryFontSizeAges5To8);
-
-    /// <summary>Finished art for the back cover. See <see cref="IntroAssetPathTemplate"/>.</summary>
-    public string? BackCoverAssetPath { get; set; }
-
-    /// <summary>
-    /// Finished art for the endpapers — a template rather than a path, because the endpaper is the
-    /// one reusable page the handoff wants to vary: a book about the sea and a book about space can
-    /// bind different papers. <c>{theme}</c> is replaced with the pack's theme, lowercased and
-    /// stripped to letters, digits, dashes and underscores, so
-    /// <c>Assets/Beki/endpaper-{theme}.png</c> becomes <c>Assets/Beki/endpaper-space.png</c>.
-    ///
-    /// A theme with no file of its own falls back to the drawn dot field, which means a partial
-    /// set of endpapers is a perfectly good state to ship in — the themes that have art get it,
-    /// the rest keep the placeholder. See <see cref="IntroAssetPathTemplate"/> for how paths resolve.
-    /// </summary>
-    public string? EndpaperAssetPathTemplate { get; set; }
 }

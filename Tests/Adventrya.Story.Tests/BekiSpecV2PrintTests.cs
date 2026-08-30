@@ -7,7 +7,6 @@ using AdventurePacks.Api.Services.Story;
 using AdventurePacks.Api.Domain.Story;
 using Microsoft.Extensions.Options;
 using AdventurePacks.Api.Configuration.Options;
-using AdventurePacks.Api.Services.Pdf;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -15,96 +14,102 @@ namespace Adventrya.Story.Tests;
 
 public class BekiSpecV2PrintTests
 {
-    private static byte[] SolidPng((byte R, byte G, byte B) colour)
+    /// <summary>
+    /// The handoff's interior geometry, restated so the test fails if the defaults drift back.
+    ///
+    /// These used to be 420 × 210 with 3 mm of bleed — numbers that matched neither the handoff nor
+    /// the composer's own defaults, and that therefore proved nothing about the book being printed.
+    /// The sheet is 450 × 210 mm: a 440 × 200 trim with 5 mm on every outer edge.
+    /// </summary>
+    private const float TrimWidthMm = 440f;
+    private const float TrimHeightMm = 200f;
+    private const float BleedMm = 5f;
+    private const float MediaWidthMm = TrimWidthMm + (BleedMm * 2f);
+    private const float MediaHeightMm = TrimHeightMm + (BleedMm * 2f);
+
+    private static BekiPrintLayoutOptions DefaultLayout => BekiLayoutFixture.ScreenProofLayout();
+
+    /// <summary>
+    /// The book's own defaults are the handoff's numbers.
+    ///
+    /// A build-time acceptance check (R15): 3 mm of bleed shipped once and the only thing that
+    /// caught it was a supplier opening the printed PDF.
+    /// </summary>
+    [Fact]
+    public void The_interior_geometry_defaults_are_the_handoffs()
     {
         var layout = new BekiPrintLayoutOptions();
-        const int width = 440;
-        var height = (int)System.MathF.Round(width
-            * (layout.SpreadHeightMm + (layout.BleedMm * 2))
-            / (layout.PageWidthMm + (layout.BleedMm * 2)));
 
-        using var image = new SixLabors.ImageSharp.Image<SixLabors.ImageSharp.PixelFormats.Rgba32>(
-            width, height, new SixLabors.ImageSharp.PixelFormats.Rgba32(colour.R, colour.G, colour.B, 255));
-        using var buffer = new System.IO.MemoryStream();
-        image.Save(buffer, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
-        return buffer.ToArray();
+        Assert.Equal(TrimWidthMm, layout.SpreadWidthMm);
+        Assert.Equal(TrimHeightMm, layout.SpreadHeightMm);
+        Assert.Equal(BleedMm, layout.BleedMm);
+        Assert.Equal(TrimWidthMm / 2f, layout.PageWidthMm);
+
+        // 450 ÷ 210 is exactly 15:7, which is the ratio the illustration stage normalizes to — so
+        // artwork that arrived normalized has nothing to crop. That equality is the whole reason
+        // the crop tolerance can be as tight as it is.
+        Assert.Equal(15f / 7f, MediaWidthMm / MediaHeightMm, 5);
     }
-
-    
-
-    private static MasterStory SyntheticPlan() => new()
-    {
-        Concept = new StoryConcept { Title = "ტესტი", Outline = ["a", "b"] },
-        CharacterLock = "A child.",
-        Cover = new IllustrationBrief { Scene = "cover" },
-        TitleEn = "Test",
-        Spreads = Enumerable.Range(1, 14).Select(i => new StorySpread
-        {
-            Number = i,
-            Title = string.Empty,
-            Caption = string.Empty,
-            Text = $"Spread {i}",
-            TextEn = $"Spread {i} EN",
-            Illustration = new IllustrationBrief { Scene = $"scene {i}" }
-        }).ToList()
-    };
-
-
-    private static BekiPrintLayoutOptions DefaultLayout => new()
-    {
-        SpreadHeightMm = 210,
-        SpreadWidthMm = 420,
-        BleedMm = 3,
-        IntroBelongsTemplate = "ეს წიგნი ეკუთვნის {name}-ს",
-        IntroDateTemplate = "{date}",
-        IntroInviteTemplate = "მოემზადე თავგადასავლებისთვის, {name}!",
-        PrintTargetPpi = 300,
-        PrintAssetJpegQuality = 90
-    };
 
     [Fact]
     public void PdfPrintBoxes_Apply_CreatesCorrectMediaAndTrimBoxes()
     {
-        // Arrange
-        var layout = DefaultLayout;
-        var plan = SyntheticPlan();
-        var composer = new BekiPdfComposer(Options.Create(layout));
-        
-        var spreads = plan.Spreads.Select(s => new BekiSpreadArtwork(s.Number, SolidPng((0,255,0)))).ToList();
-        var pdfBytes = composer.Compose(plan, SolidPng((255, 0, 0)), spreads, new BekiBookPersonalization("Luka", 6, DateTime.UtcNow, "Space", "ბეკის"));
+        var pdfBytes = ComposeFixtureBook();
 
-        // Act
         using var stream = new MemoryStream(pdfBytes);
         using var document = PdfReader.Open(stream, PdfDocumentOpenMode.Import);
         var page = document.Pages[0];
 
-        // Assert
         Assert.NotNull(page.MediaBox);
         Assert.NotNull(page.TrimBox);
-        
-        // Bleed is 3mm. MediaBox should be larger than TrimBox by 3mm on all sides (or just verify they exist and differ)
+
         Assert.True(page.MediaBox.Width > page.TrimBox.Width);
         Assert.True(page.MediaBox.Height > page.TrimBox.Height);
     }
 
+    /// <summary>
+    /// One interior layer, at exactly the working raster §6 Step 8 specifies.
+    ///
+    /// The old version of this test asked only whether the output was a JPEG, which the previous
+    /// implementation satisfied while resizing by width alone, skipping anything already wide enough
+    /// and writing neither a density nor a colour profile. All four clauses are the test now.
+    /// </summary>
     [Fact]
-    public void NormalizeForPrint_ResizesImageCorrectly()
+    public void NormalizeForPrint_delivers_the_exact_working_raster()
     {
-        // Arrange
-        using var image = new Image<Rgba32>(100, 100);
-        using var ms = new MemoryStream();
-        image.SaveAsPng(ms);
-        var pngBytes = ms.ToArray();
-        
-        // Act
-        var normalized = BekiPdfComposer.NormalizeForPrint(pngBytes, 420, 210, 3, 300, 90);
+        var target = new BekiPdfComposer.PrintRasterTarget(5315, 2480, 300, 90);
 
-        // Assert
-        Assert.NotNull(normalized);
-        Assert.True(normalized.Length > 0);
-        // It should be a JPEG now
+        // A sheet-shaped source, well under the target: the resize is an upscale and stays
+        // proportional, which is the only kind of resize the interior rules permit.
+        var normalized = BekiPdfComposer.NormalizeForPrint(SheetPng(1500), target);
+
+        var info = Image.Identify(normalized);
+        Assert.Equal(5315, info.Width);
+        Assert.Equal(2480, info.Height);
+        Assert.Equal(300, info.Metadata.HorizontalResolution, 1);
+        Assert.Equal(300, info.Metadata.VerticalResolution, 1);
+        Assert.NotNull(info.Metadata.IccProfile);
+
         Assert.Equal(0xFF, normalized[0]);
         Assert.Equal(0xD8, normalized[1]);
+    }
+
+    /// <summary>
+    /// An image that is not the sheet's shape is refused rather than squashed onto it. §6 Step 8
+    /// forbids stretching, and the composer's crop is what makes the ratios agree — so a layer that
+    /// still disagrees by the time it reaches here never went through it.
+    /// </summary>
+    [Fact]
+    public void NormalizeForPrint_refuses_to_stretch_a_layer_onto_the_sheet()
+    {
+        var target = new BekiPdfComposer.PrintRasterTarget(5315, 2480, 300, 90);
+        var square = Solid(1200, 1200, (10, 10, 10));
+
+        var failure = Assert.Throws<BekiLayoutException>(
+            () => BekiPdfComposer.NormalizeForPrint(square, target));
+
+        Assert.Equal("LAYOUT_FAILED", failure.FailureCode);
+        Assert.Contains("stretch", failure.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -117,15 +122,7 @@ public class BekiSpecV2PrintTests
     [Fact]
     public void The_composed_book_has_fourteen_pages_with_correct_print_boxes()
     {
-        var layout = new BekiPrintLayoutOptions();
-        var plan = EightSpreadPlan();
-        var spreads = plan.Spreads
-            .Select(s => new BekiSpreadArtwork(s.Number, SolidPng((0, 255, 0))))
-            .ToList();
-
-        var pdf = new BekiPdfComposer(Options.Create(layout)).Compose(
-            plan, SolidPng((255, 0, 0)), spreads,
-            new BekiBookPersonalization("ლილე", 4, new DateTime(2026, 8, 22, 12, 0, 0, DateTimeKind.Utc), "Space", "ვარსკვლავების გზა"));
+        var pdf = ComposeFixtureBook();
 
         using var stream = new MemoryStream(pdf);
         using var document = PdfReader.Open(stream, PdfDocumentOpenMode.Import);
@@ -133,10 +130,10 @@ public class BekiSpecV2PrintTests
         Assert.Equal(14, document.Pages.Count);
 
         const double mmToPt = 72.0 / 25.4;
-        var leafPt = (layout.PageWidthMm + (layout.BleedMm * 2)) * mmToPt;
-        var spreadPt = (layout.SpreadWidthMm + (layout.BleedMm * 2)) * mmToPt;
-        var heightPt = (layout.SpreadHeightMm + (layout.BleedMm * 2)) * mmToPt;
-        var bleedPt = layout.BleedMm * mmToPt;
+        var leafPt = ((TrimWidthMm / 2f) + (BleedMm * 2f)) * mmToPt;
+        var spreadPt = MediaWidthMm * mmToPt;
+        var heightPt = MediaHeightMm * mmToPt;
+        var bleedPt = BleedMm * mmToPt;
 
         for (var index = 0; index < document.Pages.Count; index++)
         {
@@ -163,87 +160,136 @@ public class BekiSpecV2PrintTests
             Assert.True(trim.Width < bleed.Width,
                 $"Page {index + 1}: TrimBox must never equal the bleed size.");
         }
+
+        // And the interior sheets are the handoff's 450 × 210 mm exactly, not merely self-consistent.
+        // Within a fifth of a point — 0.07 mm — because a PDF's own boxes are written to one decimal.
+        var interior = document.Pages[1];
+        AssertMillimetres(MediaWidthMm, interior.MediaBox.Width, "MediaBox width");
+        AssertMillimetres(MediaHeightMm, interior.MediaBox.Height, "MediaBox height");
+        AssertMillimetres(TrimWidthMm, interior.TrimBox.Width, "TrimBox width");
+        AssertMillimetres(TrimHeightMm, interior.TrimBox.Height, "TrimBox height");
+
+        static void AssertMillimetres(double expectedMm, double actualPt, string what)
+        {
+            var expectedPt = expectedMm * 72.0 / 25.4;
+            Assert.True(Math.Abs(actualPt - expectedPt) < 0.2,
+                $"{what}: {actualPt:F2}pt, expected {expectedPt:F2}pt ({expectedMm}mm).");
+        }
     }
 
     /// <summary>
-    /// The intro spread's personalization is real typeset text: a personalized book carries
-    /// strictly more draw-text calls than an anonymous one, because the belongs-line and the
-    /// date-line print only when there is a child to print them for. Counted rather than
-    /// extracted — the Georgian lives in the file as font glyph indices a substring search
-    /// cannot see — and counted as an inequality, because an operator maps to a typeset line,
-    /// not to a block, and line counts follow wrapping.
+    /// The intro spread's personalization is real typeset text: a book that prints the child's own
+    /// lines carries strictly more draw-text calls than one whose dedication templates are blank.
+    /// Counted rather than extracted — the Georgian lives in the file as font glyph indices a
+    /// substring search cannot see — and counted as an inequality, because an operator maps to a
+    /// typeset line, not to a block, and line counts follow wrapping.
+    ///
+    /// The comparison used to be against an anonymous book. There is no such book any more: without
+    /// a theme there is no approved intro background, and R11 makes that a stop rather than a
+    /// generic page.
     /// </summary>
     [Fact]
     public void The_personalized_intro_adds_its_personal_lines()
     {
-        var layout = new BekiPrintLayoutOptions();
-        var plan = EightSpreadPlan();
-        var spreads = plan.Spreads
-            .Select(s => new BekiSpreadArtwork(s.Number, SolidPng((0, 255, 0))))
-            .ToList();
+        var bare = BekiLayoutFixture.ScreenProofLayout();
+        bare.IntroBelongsTemplate = string.Empty;
+        bare.IntroAgeTemplate = string.Empty;
 
-        var anonymous = new BekiPdfComposer(Options.Create(layout))
-            .Compose(plan, SolidPng((255, 0, 0)), spreads);
-        var personalized = new BekiPdfComposer(Options.Create(layout))
-            .Compose(plan, SolidPng((255, 0, 0)), spreads,
-                new BekiBookPersonalization("ლილე", 4, new DateTime(2026, 8, 22, 12, 0, 0, DateTimeKind.Utc), "Space", "ვარსკვლავების გზა"));
-
-        var floor = TextShowOperators(anonymous);
+        var floor = TextShowOperators(ComposeFixtureBook(bare));
         Assert.True(floor > 0, "No readable text operators were found; the counter needs revisiting.");
-        Assert.True(TextShowOperators(personalized) > floor,
-            "A personalized book must carry more typeset text than an anonymous one.");
+        Assert.True(TextShowOperators(ComposeFixtureBook()) > floor,
+            "A book that prints the child's own lines must carry more typeset text than one that does not.");
     }
 
     /// <summary>
-    /// Spread 8's Continue Adventure module now shares the right column with the story text —
-    /// the QR tile must still land in the lower-right corner, inset a full safe margin from the
-    /// trim. Probed as pixels in the rendered page: the tile's quiet zone is white by
-    /// construction, and the layout geometry is fixed, so the probe point is deterministic.
+    /// Spread 8's Continue Adventure module shares the right column with the story text — the QR
+    /// tile must still land in the lower-right corner. Found rather than probed at a point: the
+    /// tile's quiet zone is white by construction and nothing else on that page is, so the white
+    /// pixels' own bounding box says where the code is.
     /// </summary>
     [Fact]
     public void Spread_8_still_carries_its_qr_tile_in_the_lower_right_corner()
     {
-        var layout = new BekiPrintLayoutOptions();
-        var plan = EightSpreadPlan();
+        var layout = BekiLayoutFixture.ScreenProofLayout();
+        var plan = BekiLayoutFixture.EightSpreadPlan();
         var spreads = plan.Spreads
-            .Select(s => new BekiSpreadArtwork(s.Number, SolidPng((0, 255, 0))))
+            .Select(s => new BekiSpreadArtwork(s.Number, BekiLayoutFixture.SheetPng((0, 255, 0))))
             .ToList();
 
         var pages = new BekiPdfComposer(Options.Create(layout)).RenderPages(
-            plan, SolidPng((255, 0, 0)), spreads,
-            new BekiBookPersonalization("ლილე", 4, new DateTime(2026, 8, 22, 12, 0, 0, DateTimeKind.Utc), "Space", "ვარსკვლავების გზა"));
+            plan, BekiLayoutFixture.LeafPng((255, 0, 0)), spreads, BekiLayoutFixture.Personalization());
 
         // Cover, front endpapers, intro, then the eight spreads: the final spread is index 10.
-        using var page = SixLabors.ImageSharp.Image.Load<Rgba32>(pages[10]);
+        using var page = Image.Load<Rgba32>(pages[10]);
 
-        // The tile spans 20–44mm from the sheet's right and bottom edges; its quiet zone makes
-        // the strip just inside the tile's edge white whatever the QR's modules do. 96 DPI.
+        int minX = page.Width, maxX = -1, minY = page.Height, maxY = -1, white = 0;
+        for (var x = 0; x < page.Width; x++)
+        {
+            for (var y = 0; y < page.Height; y++)
+            {
+                var pixel = page[x, y];
+                if (pixel.R < 235 || pixel.G < 235 || pixel.B < 235) continue;
+
+                white++;
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        }
+
+        Assert.True(white > 500, $"Spread 8's QR tile was not found ({white} white pixels).");
+        Assert.True(minX > page.Width / 2, $"The QR tile must be on the right leaf; it starts at x={minX}.");
+        Assert.True(minY > page.Height / 2, $"The QR tile must be in the lower half; it starts at y={minY}.");
+
+        // Inset from the trim by the safe margin, measured from the bled sheet — the module is the
+        // one element on the page a scanner has to find, so it holds a full margin from the cut.
         const double pxPerMm = 96.0 / 25.4;
-        var x = page.Width - (int)(21 * pxPerMm);
-        var y = page.Height - (int)(32 * pxPerMm);
-        var pixel = page[x, y];
+        var rightInsetMm = (page.Width - maxX) / pxPerMm;
+        var bottomInsetMm = (page.Height - maxY) / pxPerMm;
 
-        Assert.True(pixel.R > 200 && pixel.G > 200 && pixel.B > 200,
-            $"Expected the QR tile's white quiet zone at ({x},{y}); found #{pixel.R:X2}{pixel.G:X2}{pixel.B:X2}.");
+        Assert.True(rightInsetMm >= 12, $"The QR tile is only {rightInsetMm:F1}mm from the sheet's right edge.");
+        Assert.True(bottomInsetMm >= 12, $"The QR tile is only {bottomInsetMm:F1}mm from the sheet's bottom edge.");
     }
 
-    private static MasterStory EightSpreadPlan() => new()
+    [Fact]
+    public void StoryFontSizeFor_ReturnsCorrectSizeBasedOnAge()
     {
-        Concept = new StoryConcept { Title = "ტესტი", Outline = ["a", "b"] },
-        CharacterLock = "A child.",
-        Cover = new IllustrationBrief { Scene = "cover" },
-        TitleEn = "Test",
-        Spreads = Enumerable.Range(1, BookFormat.SpreadCount).Select(i => new StorySpread
-        {
-            Number = i,
-            Title = string.Empty,
-            Caption = string.Empty,
-            Text = $"ქართული ტექსტი {i}.",
-            TextEn = $"English {i}.",
-            Illustration = new IllustrationBrief { Scene = $"scene {i}" },
-            Characters = ["child"],
-        }).ToList(),
-    };
+        var layout = DefaultLayout;
+        layout.StoryFontSizeAges2To4 = 20f;
+        layout.StoryFontSizeAges5To8 = 17.5f;
+        layout.StoryFontSize = 16f;
+
+        Assert.Equal(20f, BekiPrintLayoutOptions.StoryFontSizeFor(3, layout));
+        Assert.Equal(17.5f, BekiPrintLayoutOptions.StoryFontSizeFor(6, layout));
+        Assert.Equal(17.5f, BekiPrintLayoutOptions.StoryFontSizeFor(10, layout));
+        Assert.Equal(16f, BekiPrintLayoutOptions.StoryFontSizeFor(null, layout));
+    }
+
+    private static byte[] ComposeFixtureBook(BekiPrintLayoutOptions? layout = null)
+    {
+        var plan = BekiLayoutFixture.EightSpreadPlan();
+        var spreads = plan.Spreads
+            .Select(s => new BekiSpreadArtwork(s.Number, BekiLayoutFixture.SheetPng((0, 255, 0))))
+            .ToList();
+
+        return new BekiPdfComposer(Options.Create(layout ?? BekiLayoutFixture.ScreenProofLayout()))
+            .Compose(plan, BekiLayoutFixture.LeafPng((255, 0, 0)), spreads, BekiLayoutFixture.Personalization());
+    }
+
+    private static byte[] SheetPng(int width)
+    {
+        var height = (int)MathF.Round(width * MediaHeightMm / MediaWidthMm);
+        return Solid(width, height, (0, 255, 0));
+    }
+
+    private static byte[] Solid(int width, int height, (byte R, byte G, byte B) colour)
+    {
+        using var image = new Image<Rgba32>(width, height, new Rgba32(colour.R, colour.G, colour.B, 255));
+        using var buffer = new MemoryStream();
+        image.Save(buffer, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
+        return buffer.ToArray();
+    }
 
     /// <summary>
     /// Draw-text calls in the file — a copy of the counter BekiPdfComposerTests uses, asking the
@@ -282,19 +328,5 @@ public class BekiSpecV2PrintTests
         }
 
         return total;
-    }
-
-    [Fact]
-    public void StoryFontSizeFor_ReturnsCorrectSizeBasedOnAge()
-    {
-        var layout = DefaultLayout;
-        layout.StoryFontSizeAges2To4 = 20f;
-        layout.StoryFontSizeAges5To8 = 17.5f;
-        layout.StoryFontSize = 16f;
-
-        Assert.Equal(20f, BekiPrintLayoutOptions.StoryFontSizeFor(3, layout));
-        Assert.Equal(17.5f, BekiPrintLayoutOptions.StoryFontSizeFor(6, layout));
-        Assert.Equal(17.5f, BekiPrintLayoutOptions.StoryFontSizeFor(10, layout));
-        Assert.Equal(16f, BekiPrintLayoutOptions.StoryFontSizeFor(null, layout));
     }
 }
