@@ -107,6 +107,12 @@ public sealed class OpenAiOptions
     /// </summary>
     public int StoryRetryAttempts { get; set; } = 3;
 
-    /// <summary>Base seconds between story attempts; the wait grows with each one.</summary>
+    /// <summary>
+    /// Base seconds between story attempts; the wait grows with each one. Zero is a real value —
+    /// retry immediately — and it is what the retry tests run with so the suite does not sleep.
+    /// An accidental zero cannot happen: unset stays at the default here, and a negative refuses
+    /// to boot rather than being silently rewritten, so a zero that arrives at the client was
+    /// typed on purpose.
+    /// </summary>
     public int StoryRetryBackoffSeconds { get; set; } = 4;
 }

@@ -121,6 +121,26 @@ public class StoryModelRetryTests
     }
 
     [Fact]
+    public async Task A_zero_backoff_really_means_no_waiting()
+    {
+        // The client used to clamp a configured zero up to a second "for safety", which meant
+        // the value in Build() lied and every retrying test in this file slept real seconds.
+        // Zero is deliberate now — a negative is what gets refused, at startup. Two failures
+        // before success would sleep three seconds under the old clamp; the bound is well above
+        // an honest zero and well below that.
+        var (client, handler) = Build(Fail((HttpStatusCode)520), Fail((HttpStatusCode)520), Ok("written"));
+
+        var started = DateTimeOffset.UtcNow;
+        var result = await Complete(client);
+
+        Assert.Equal("written", result.Value.Value);
+        Assert.Equal(3, handler.Calls);
+        Assert.True(
+            DateTimeOffset.UtcNow - started < TimeSpan.FromSeconds(2),
+            "a zero backoff must not sleep between attempts");
+    }
+
+    [Fact]
     public async Task Attempts_are_bounded_and_the_original_message_survives()
     {
         var (client, handler) = Build(Fail((HttpStatusCode)520));

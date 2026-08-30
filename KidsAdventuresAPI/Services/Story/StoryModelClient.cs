@@ -100,8 +100,12 @@ public sealed class StoryModelClient(
             }
             catch (TransientStoryModelException ex) when (attempt < attempts)
             {
+                // A zero backoff means retry immediately, and the retry tests depend on it
+                // meaning what it says. A negative cannot get here from configuration — options
+                // validation refuses it at startup — so the floor only covers a client built by
+                // hand around that check, where Task.Delay would otherwise throw.
                 var delay = ex.RetryAfter
-                            ?? TimeSpan.FromSeconds(Math.Max(1, _options.StoryRetryBackoffSeconds) * attempt);
+                            ?? TimeSpan.FromSeconds(Math.Max(0, _options.StoryRetryBackoffSeconds) * attempt);
                 logger.LogWarning(
                     "Story model attempt {Attempt}/{Total} failed ({Reason}); retrying in {Delay}s.",
                     attempt,

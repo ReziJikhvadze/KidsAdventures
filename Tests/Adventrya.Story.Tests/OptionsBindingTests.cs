@@ -65,6 +65,39 @@ public class OptionsBindingTests
         await host.StopAsync();
     }
 
+    [Fact]
+    public async Task A_negative_story_backoff_stops_the_host_starting()
+    {
+        // Zero has a meaning — retry immediately, which the retry tests run with — but a
+        // negative is a typo, and the client reading it would have to either rewrite it
+        // silently or hand it to Task.Delay in the middle of a paid book.
+        using var host = BuildHost(new Dictionary<string, string?>
+        {
+            ["OpenAI:StoryRetryBackoffSeconds"] = "-1"
+        });
+
+        var exception = await Record.ExceptionAsync(() => host.StartAsync());
+
+        Assert.NotNull(exception);
+        Assert.Contains("StoryRetryBackoffSeconds", FlattenMessages(exception));
+    }
+
+    [Fact]
+    public async Task A_zero_story_backoff_is_a_value_not_a_mistake()
+    {
+        using var host = BuildHost(new Dictionary<string, string?>
+        {
+            ["OpenAI:StoryRetryBackoffSeconds"] = "0"
+        });
+
+        await host.StartAsync();
+
+        var openAi = host.Services.GetRequiredService<IOptions<OpenAiOptions>>().Value;
+        Assert.Equal(0, openAi.StoryRetryBackoffSeconds);
+
+        await host.StopAsync();
+    }
+
     /// <summary>
     /// Only the options registration, not the whole application: this is about configuration
     /// binding, and a host that also wanted a database would fail for reasons of its own.

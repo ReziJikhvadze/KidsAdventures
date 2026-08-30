@@ -23,7 +23,6 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAdventurePacksOptions(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
-        services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
         // ValidateOnStart, for the binding rather than for a rule.
         //
         // These sections come from App Service settings, where every value is a string somebody
@@ -37,6 +36,17 @@ public static class ServiceCollectionExtensions
         // somebody is watching. The message .NET gives names the exact key.
         services.AddOptions<BekiOptions>()
             .Bind(configuration.GetSection(BekiOptions.SectionName))
+            .ValidateOnStart();
+        // OpenAI carries one rule of its own on top of the binding check. A zero story backoff
+        // is a value with a meaning — retry immediately, which the retry tests run with so the
+        // suite does not sleep — but a negative is a typo, and the client reading it would have
+        // to either rewrite it silently or hand it to Task.Delay mid-book. Refuse it here, at
+        // the deploy that caused it.
+        services.AddOptions<OpenAiOptions>()
+            .Bind(configuration.GetSection(OpenAiOptions.SectionName))
+            .Validate(
+                options => options.StoryRetryBackoffSeconds >= 0,
+                "OpenAI:StoryRetryBackoffSeconds must be 0 or greater; 0 means retry immediately.")
             .ValidateOnStart();
         // Validated at boot rather than trusted. A misspelled provider name would otherwise fall
         // through to the default and keep billing the vendor everyone believed had just been
