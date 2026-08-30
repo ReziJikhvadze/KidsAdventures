@@ -94,6 +94,14 @@ export const story = {
     worldCount: (count: number) =>
       count === 0 ? "No worlds yet" : count === 1 ? "1 world opened" : `${count} worlds opened`,
     newWorld: "A new world",
+    spaceOf: (name: string) => `${name}'s personal space`,
+    shelfLead: "Every story made so far — to read, to download, and to carry on.",
+    journeySuffix: "'s journey",
+    nextAdventure: "The next adventure",
+    resumeTitle: "A book is still being made",
+    resumeBody:
+      "Leaving this page did not stop it — the story is still being written. Come back and see where it got to.",
+    resumeAction: "Back to the book",
     openedStoriesSuffix: "'s stories discovered so far",
     archiveNote:
       "Older books stay exactly as they were; new information applies only to future stories.",

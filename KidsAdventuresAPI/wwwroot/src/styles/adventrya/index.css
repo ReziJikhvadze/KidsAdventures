@@ -23,5 +23,8 @@
    owns the /themes page outright and must not be trimmed by first-map.css above it. */
 @import "./world-selector.css";
 @import "./storybook-spread.css";
+/* The child's world, rebuilt to the standalone dashboard handoff. After story-map.css, which
+   still owns the older `.world-screen` layout that other routes have not left behind. */
+@import "./world-journey.css";
 @import "./extensions.css";
 @import "./admin-console.css";

@@ -1,0 +1,285 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700&amp;family=Noto+Serif+Georgian:wght@600;700&amp;display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #e8c98a; }
+    a:hover { color: #f5df9f; }
+    .c-root { width: 1440px; height: 900px; overflow: hidden; position: relative;
+      background: #130d29; color: #f8f2e5;
+      font-family: "Noto Sans Georgian", system-ui, sans-serif; }
+    .c-sky { position: absolute; inset: 0;
+      background: radial-gradient(110% 80% at 30% 12%, #2a1c58 0%, #1a1140 46%, #130d29 82%); }
+    .c-head { position: relative; z-index: 4; height: 108px; display: flex;
+      align-items: center; justify-content: space-between; padding: 0 56px; background: #21183f; }
+    .c-back { width: 44px; height: 44px; display: grid; place-items: center;
+      border: 1px solid rgba(229,216,244,.22); border-radius: 50%; background: #1d144257; }
+    .c-head-end { display: flex; align-items: center; gap: 12px; }
+    .c-pill { height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 16px;
+      border: 1px solid rgba(229,216,244,.22); border-radius: 999px; background: #1d144257;
+      font-size: 13px; font-weight: 600; }
+    .c-cabinet { height: 52px; display: flex; align-items: center; gap: 11px;
+      padding: 0 14px 0 8px; border: 1px solid rgba(229,216,244,.22); border-radius: 999px;
+      background: #1d144257; }
+    .c-av { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%;
+      background: linear-gradient(145deg,#f5df9f,#d9a654); color: #2c1c49; font-weight: 700; font-size: 15px; }
+    .c-cabinet small { display: block; color: #f8f2e58f; font-size: 10.5px; }
+    .c-cabinet b { font-size: 13.5px; font-weight: 600; }
+
+    .c-body { position: relative; z-index: 2; display: grid;
+      grid-template-columns: 296px 372px 1fr; gap: 28px; padding: 26px 56px 0; }
+
+    .c-profile { display: flex; flex-direction: column; gap: 12px; }
+    .c-profile-av { width: 62px; height: 62px; display: grid; place-items: center;
+      border-radius: 50%; background: linear-gradient(145deg,#f5df9f,#d9a654); color: #2c1c49;
+      font-family: "Noto Serif Georgian", Georgia, serif; font-size: 26px; font-weight: 700; }
+    .c-profile small { display: block; color: #f8f2e58f; font-size: 11.5px; }
+    .c-profile h1 { margin: 4px 0 0; font-family: "Noto Serif Georgian", Georgia, serif;
+      font-size: 25px; font-weight: 700; color: #fff6db; line-height: 1.16; }
+    .c-label { margin: 22px 0 9px; color: #f8f2e58f; font-size: 11px; font-weight: 600;
+      letter-spacing: .14em; text-transform: uppercase; }
+    .c-kids { display: flex; flex-direction: column; gap: 7px; }
+    .c-kid { display: flex; align-items: center; gap: 11px; padding: 10px 12px;
+      border: 1px solid rgba(229,216,244,.16); border-radius: 14px; background: rgba(23,14,54,.42); }
+    .c-kid.is-on { border-color: rgba(255,227,163,.72); background: rgba(41,25,90,.74); }
+    .c-kid-av { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%;
+      background: #3b2a67; color: #f5df9f; font-size: 14px; font-weight: 700; }
+    .c-kid-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+    .c-kid-txt b { font-size: 14px; font-weight: 600; color: #fff6db; }
+    .c-kid-txt small { font-size: 11.5px; color: #f8f2e58f; }
+    .c-cta { margin-top: 20px; height: 54px; display: flex; align-items: center;
+      justify-content: center; gap: 9px; border-radius: 16px;
+      background: linear-gradient(145deg,#f5df9f,#e0ac52); color: #2c1c49;
+      font-size: 14.5px; font-weight: 700; box-shadow: 0 14px 34px rgba(233,172,91,.24); }
+
+    /* ---- chronicle ---------------------------------------------------- */
+    .c-chron-head { display: flex; align-items: baseline; gap: 10px; }
+    .c-chron-head h2 { margin: 0; font-family: "Noto Serif Georgian", Georgia, serif;
+      font-size: 19px; font-weight: 700; color: #fff6db; }
+    .c-chron-head span { font-size: 12.5px; color: #f8f2e58f; }
+    .c-chron-head b { color: #e8c98a; }
+    .c-line { position: relative; margin-top: 16px; padding-left: 34px; }
+    .c-line::before { content: ""; position: absolute; left: 15px; top: 8px; bottom: 34px;
+      width: 2px; border-radius: 1px;
+      background: linear-gradient(180deg, #e8c98a 0%, #e8c98a 44%, #7564b5 48%, #7564b5 58%, rgba(248,242,229,.14) 62%); }
+    .c-entry { position: relative; margin-bottom: 12px; padding: 12px 14px;
+      border-radius: 16px; border: 1px solid rgba(255,255,255,.12); background: rgba(27,18,59,.66); }
+    .c-entry.done { border-color: rgba(232,201,138,.46);
+      background: linear-gradient(140deg, rgba(60,42,26,.58), rgba(27,18,59,.76)); }
+    .c-entry.now { border-color: rgba(117,100,181,.72);
+      background: linear-gradient(140deg, rgba(48,36,102,.76), rgba(27,18,59,.76)); }
+    .c-entry.locked { opacity: .56; padding: 10px 14px; }
+    .c-dot { position: absolute; left: -34px; top: 13px; width: 32px; height: 32px;
+      display: grid; place-items: center; border-radius: 50%;
+      border: 2px solid #130d29; background: linear-gradient(145deg,#f5df9f,#d9a654);
+      color: #2c1c49; font-family: "Noto Serif Georgian", Georgia, serif;
+      font-size: 13px; font-weight: 700; }
+    .c-entry.now .c-dot { background: #7455b2; color: #fff9ed; }
+    .c-entry.locked .c-dot { width: 26px; height: 26px; left: -31px; top: 12px;
+      background: rgba(30,20,64,.95); border-color: #130d29;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.16); }
+    .c-entry-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+    .c-entry-top b { font-size: 14.5px; font-weight: 600; color: #fff6db; }
+    .c-date { font-size: 11px; color: #e8c98ad9; white-space: nowrap; }
+    .c-entry.now .c-date { color: #c4b4f2; }
+    .c-entry.locked .c-date { color: #efe8f26b; }
+    .c-entry p { margin: 6px 0 0; font-size: 12px; line-height: 1.5; color: #f8f2e5a8; }
+    .c-entry-foot { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
+    .c-chip { display: inline-flex; align-items: center; gap: 5px; height: 28px;
+      padding: 0 11px; border-radius: 999px; border: 1px solid rgba(248,242,229,.22);
+      font-size: 11.5px; color: #f8f2e5cc; }
+    .c-chip.solid { border-color: transparent; background: #e8c98a; color: #2c1c49; font-weight: 600; }
+
+    /* ---- map ---------------------------------------------------------- */
+    .c-map { position: relative; height: 640px; border-radius: 24px; overflow: hidden;
+      border: 1px solid rgba(244,229,203,.14); box-shadow: 0 26px 60px rgba(5,2,18,.44); }
+    .c-map img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .c-map-veil { position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(19,13,41,.38), rgba(19,13,41,.05) 40%, rgba(19,13,41,.58)); }
+    .c-pin { position: absolute; transform: translate(-50%,-50%); }
+    .c-seal { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%;
+      border: 1px solid rgba(255,239,202,.56); background: linear-gradient(145deg,#f5df9f,#d9a654);
+      color: #2c1c49; font-family: "Noto Serif Georgian", Georgia, serif;
+      font-size: 16px; font-weight: 700;
+      box-shadow: 0 0 0 5px rgba(236,191,105,.10), 0 0 26px rgba(241,191,91,.42); }
+    .c-seal.now { border-color: rgba(214,203,242,.62); color: #fff9ed;
+      background: linear-gradient(145deg,#8a6fd0,#4a3486);
+      box-shadow: 0 0 0 5px rgba(189,166,239,.12), 0 0 28px rgba(183,156,237,.34); }
+    .c-seal.lock { width: 28px; height: 28px; border-color: rgba(214,203,242,.28);
+      background: rgba(23,14,54,.74); box-shadow: none; }
+  </style>
+</helmet>
+
+<div class="c-root">
+  <div class="c-sky"></div>
+
+  <header class="c-head">
+    <span class="c-back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff3d6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg>
+    </span>
+    <div class="c-head-end">
+      <span class="c-pill">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"></path></svg>
+        KA
+      </span>
+      <span class="c-cabinet">
+        <span class="c-av">R</span>
+        <span><small>მშობლის სივრცე</small><b>ჩემი კაბინეტი</b></span>
+      </span>
+    </div>
+  </header>
+
+  <div class="c-body">
+    <aside>
+      <div class="c-profile">
+        <span class="c-profile-av">ლ</span>
+        <div>
+          <small>6 წლის · 2 დასრულებული ამბავი</small>
+          <h1>ლილის სამყარო</h1>
+        </div>
+      </div>
+
+      <p class="c-label">ბავშვის პროფილები</p>
+      <div class="c-kids">
+        <div class="c-kid is-on">
+          <span class="c-kid-av">ლ</span>
+          <span class="c-kid-txt"><b>ლილი</b><small>2 სამყარო გახსნილია</small></span>
+        </div>
+        <div class="c-kid">
+          <span class="c-kid-av">ე</span>
+          <span class="c-kid-txt"><b>ელენე</b><small>ჯერ არცერთი სამყარო</small></span>
+        </div>
+      </div>
+
+      <div class="c-cta">
+        გახსენი შემდეგი თავი
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"></path><path d="m13 7 5 5-5 5"></path></svg>
+      </div>
+    </aside>
+
+    <section>
+      <div class="c-chron-head">
+        <h2>ლილის ქრონიკა</h2>
+        <span><b>2</b> / 6 გახსნილი</span>
+      </div>
+
+      <div class="c-line">
+        <article class="c-entry done">
+          <span class="c-dot">I</span>
+          <div class="c-entry-top">
+            <b>დაკარგული ხეობა</b>
+            <span class="c-date">14 ივლისი</span>
+          </div>
+          <p>აქ მოხდა პირველი შეხვედრა რექსთან — მეგობართან, რომელიც ყველა ახალ თავში გაჰყვება.</p>
+          <div class="c-entry-foot">
+            <span class="c-chip">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v18H6.5A2.5 2.5 0 0 1 4 18.5z"></path></svg>
+              წაკითხულია
+            </span>
+            <span class="c-chip">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 3v12"></path><path d="m7 12 5 5 5-5"></path><path d="M4 21h16"></path></svg>
+              PDF
+            </span>
+          </div>
+        </article>
+
+        <article class="c-entry done">
+          <span class="c-dot">II</span>
+          <div class="c-entry-top">
+            <b>ვარსკვლავების გზა</b>
+            <span class="c-date">21 აგვისტო</span>
+          </div>
+          <p>აქ იპოვეს დაკარგული ვარსკვლავი და რუკაზე ახალი გზა გაანათეს.</p>
+          <div class="c-entry-foot">
+            <span class="c-chip">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v18H6.5A2.5 2.5 0 0 1 4 18.5z"></path></svg>
+              წაკითხულია
+            </span>
+            <span class="c-chip">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="6" y="3" width="12" height="7" rx="1"></rect><path d="M6 14h12v7H6z"></path><path d="M4 10h16v4H4z"></path></svg>
+              ბეჭდური გზაშია
+            </span>
+          </div>
+        </article>
+
+        <article class="c-entry now">
+          <span class="c-dot">III</span>
+          <div class="c-entry-top">
+            <b>საიდუმლო კუნძული</b>
+            <span class="c-date">მზადაა</span>
+          </div>
+          <p>ძველი ოქროსფერი რუკა ზღვაში დამალულ კუნძულზე მიუთითებს.</p>
+          <div class="c-entry-foot">
+            <span class="c-chip solid">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"></path><path d="m13 7 5 5-5 5"></path></svg>
+              დაიწყე ეს თავი
+            </span>
+          </div>
+        </article>
+
+        <article class="c-entry locked">
+          <span class="c-dot">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#efe8f2a8" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+          </span>
+          <div class="c-entry-top">
+            <b>მოჯადოებული ტყე</b>
+            <span class="c-date">დახურული</span>
+          </div>
+        </article>
+
+        <article class="c-entry locked">
+          <span class="c-dot">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#efe8f2a8" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+          </span>
+          <div class="c-entry-top">
+            <b>ღრუბლების ქალაქი</b>
+            <span class="c-date">დახურული</span>
+          </div>
+        </article>
+
+        <article class="c-entry locked">
+          <span class="c-dot">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#efe8f2a8" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+          </span>
+          <div class="c-entry-top">
+            <b>სინათლის კარიბჭე</b>
+            <span class="c-date">დახურული</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <div class="c-map">
+        <img src="worldmap.jpg" alt="">
+        <div class="c-map-veil"></div>
+        <svg style="position:absolute; inset:0;" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <path d="M71.5 78 C63 63 57 44 71.5 23" fill="none" stroke="#f0c86e" stroke-width="0.7" stroke-linecap="round" opacity=".9"></path>
+          <path d="M71.5 23 C79 32 83 42 84 50" fill="none" stroke="#c9b6f4" stroke-width="0.6" stroke-linecap="round" stroke-dasharray="2 2.4" opacity=".66"></path>
+        </svg>
+        <div class="c-pin" style="left:71.5%; top:78%;"><span class="c-seal">I</span></div>
+        <div class="c-pin" style="left:71.5%; top:23%;"><span class="c-seal">II</span></div>
+        <div class="c-pin" style="left:84%; top:50%;"><span class="c-seal now">III</span></div>
+        <div class="c-pin" style="left:16.5%; top:48.5%;"><span class="c-seal lock">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#efe8f2a8" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+        </span></div>
+        <div class="c-pin" style="left:30.5%; top:21%;"><span class="c-seal lock">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#efe8f2a8" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+        </span></div>
+        <div class="c-pin" style="left:25%; top:75%;"><span class="c-seal lock">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#efe8f2a8" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+        </span></div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -101,11 +101,23 @@ export function PreviewStage({ draft, onChange, onContinue, onStopWaiting }: Pro
     // which cleared only by leaving and coming back.
     if (!hydrated) return;
 
+    /*
+      A book already being written outranks the question of which world it is in.
+
+      The world gate below is right for a book that has not started: writing one without a theme
+      produced a book about the wrong subject. It was wrong for a book already in progress. The
+      draft is deliberately never restored from storage, so a parent who left this screen and came
+      back after a real page load arrived with an empty draft — and was told to choose a world for
+      a story the server had already finished writing, with the run id sitting in localStorage the
+      whole time. The theme was settled when the run started; polling needs nothing but its id.
+    */
+    const resumableRunId = readPendingRunId();
+
     // Once the draft is known, a missing world is real: there is no story to write.
     // Generating anyway produced a book about the wrong subject, which costs a real
     // generation and reads as a bug — so stop and send them back to choose.
     const apiTheme = draft.worldId ? THEME_ID_TO_API[draft.worldId] : undefined;
-    if (!apiTheme) {
+    if (!apiTheme && !resumableRunId) {
       setLoading(false);
       setError(t.journey.preview.chooseWorldFirst);
       return;
@@ -252,11 +264,14 @@ export function PreviewStage({ draft, onChange, onContinue, onStopWaiting }: Pro
       try {
         // A reload used to throw away a book that was already being written and start
         // another. The id is kept so the page comes back to the one in progress.
-        const pending = readPendingRunId();
-        if (pending) {
-          poll(pending);
+        if (resumableRunId) {
+          poll(resumableRunId);
           return;
         }
+
+        // Only reachable with a theme: the branch above returns for every resumable run, and the
+        // gate above that refuses a start without one.
+        if (!apiTheme) return;
 
         const photo = hero.photoDataUrl
           ? dataUrlToFile(hero.photoDataUrl, `${hero.name || "hero"}.jpg`)

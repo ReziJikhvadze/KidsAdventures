@@ -1,0 +1,839 @@
+/*
+ * The child's world, rebuilt to the standalone dashboard handoff.
+ *
+ * `BEKI_Dashboard_Standalone_Prototype.html` — the file the prototype ships as — is a light
+ * page: cream canvas, ink text, white cards, and one dark card at the bottom carrying the world
+ * painting with the six worlds laid along its foot as a track. Values below are that file's own,
+ * not approximations of it; where it names a token this sheet names the same one, so the two can
+ * be diffed.
+ *
+ * What it replaces was the older `/world`: a dark split screen with the painted map filling the
+ * right half and six pins scattered across it. Which worlds a child had finished was carried by
+ * the colour of a 44px pin sitting on a busy illustration, which is the thing this screen exists
+ * to say and the one thing it said worst.
+ *
+ * Scoped under `.journey-screen` so nothing here reaches the older `.world-screen` rules in
+ * base.css, the reader, or /themes.
+ */
+
+.journey-screen {
+  --jw-ink: #29233a;
+  --jw-ink-soft: #655f72;
+  --jw-night: #130d29;
+  --jw-violet: #6f51b8;
+  --jw-violet-soft: #eee8ff;
+  --jw-lavender: #d8c9ff;
+  --jw-canvas: #fbf7ee;
+  --jw-paper: #fffdf8;
+  --jw-gold: #e9b95f;
+  --jw-gold-light: #ffe8a9;
+  --jw-mint: #dff2e7;
+  --jw-mint-ink: #2f6d53;
+  --jw-line: #e9e1d7;
+  --jw-shadow: 0 18px 48px rgba(41, 35, 58, 0.09);
+
+  min-height: 100vh;
+  color: var(--jw-ink);
+  background:
+    radial-gradient(circle at 7% 4%, rgba(233, 185, 95, 0.12), transparent 25rem),
+    linear-gradient(180deg, #fffdf9 0%, var(--jw-canvas) 100%);
+}
+
+/* The app's own bar stays; only its colours join the light page. */
+.journey-screen .app-header {
+  color: var(--jw-ink);
+  background: rgba(255, 253, 248, 0.9);
+  border-bottom: 1px solid rgba(41, 35, 58, 0.08);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+.journey-screen .app-header .back-button,
+.journey-screen .app-header .header-pill,
+.journey-screen .app-header .child-pill,
+.journey-screen .app-header .icon-button {
+  border-color: var(--jw-line);
+  background: #fff;
+  color: var(--jw-ink);
+}
+/*
+  base.css paints the pill's text cream for the dark bar it was written for — `.child-pill >
+  span:nth-child(2)` — which on this white pill is white on white. Same specificity plus the
+  screen class, so it wins without an !important.
+*/
+.journey-screen .app-header .child-pill > span:nth-child(2) {
+  color: var(--jw-ink);
+}
+.journey-screen .app-header .child-pill small {
+  color: var(--jw-ink-soft);
+}
+.journey-screen .app-header .child-avatar {
+  background: var(--jw-gold-light);
+  color: var(--jw-ink);
+}
+
+.journey-wrap {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 52px 24px 30px;
+}
+
+/* ---- the greeting row ---------------------------------------------------- */
+
+.journey-welcome {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 30px;
+  margin-bottom: 46px;
+}
+.journey-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 10px;
+  color: #8d692b;
+  font-size: 0.69rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.journey-eyebrow svg {
+  width: 15px;
+  height: 15px;
+}
+.journey-welcome h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.25rem, 4vw, 4rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+}
+.journey-welcome p {
+  margin: 12px 0 0;
+  color: var(--jw-ink-soft);
+  font-size: 0.98rem;
+  line-height: 1.7;
+}
+.journey-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 800;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease,
+    border-color 0.16s ease;
+}
+.journey-button:hover {
+  transform: translateY(-1px);
+}
+.journey-button svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.journey-primary-button {
+  height: 52px;
+  padding: 0 24px;
+  color: #fff;
+  background: var(--jw-ink);
+  box-shadow: 0 12px 32px rgba(41, 35, 58, 0.14);
+}
+.journey-primary-button:hover {
+  background: var(--jw-violet);
+}
+
+/* ---- whose journey ------------------------------------------------------- */
+
+.journey-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+.journey-section-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.58rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+.journey-section-head p {
+  margin: 7px 0 0;
+  color: var(--jw-ink-soft);
+  font-size: 0.82rem;
+}
+
+/* The children, as the prototype's filter tabs: one pill row, one selected. */
+.journey-kids {
+  display: inline-flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #eee9e1;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.journey-kid {
+  height: 32px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--jw-ink-soft);
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+.journey-kid.is-on {
+  color: var(--jw-ink);
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(41, 35, 58, 0.08);
+}
+.journey-kid i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--jw-gold);
+}
+.journey-kid.is-empty i {
+  background: rgba(41, 35, 58, 0.18);
+}
+
+/* ---- the books ----------------------------------------------------------- */
+
+.journey-books {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.journey-book {
+  display: grid;
+  grid-template-columns: 145px minmax(0, 1fr);
+  gap: 20px;
+  min-height: 224px;
+  padding: 12px;
+  overflow: hidden;
+  border: 1px solid var(--jw-line);
+  border-radius: 24px;
+  background: rgba(255, 253, 248, 0.92);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+.journey-book:hover {
+  border-color: rgba(111, 81, 184, 0.28);
+  box-shadow: var(--jw-shadow);
+  transform: translateY(-2px);
+}
+.journey-cover {
+  position: relative;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px 13px;
+  overflow: hidden;
+  border-radius: 16px 9px 9px 16px;
+  color: #fff;
+  background-color: var(--jw-night);
+  background-position: center;
+  background-size: cover;
+  box-shadow:
+    9px 9px 20px rgba(19, 13, 41, 0.16),
+    inset -7px 0 8px rgba(0, 0, 0, 0.18);
+}
+/* The spine highlight and the gutter shadow, so a cover reads as a book rather than a tile. */
+.journey-cover::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.12),
+    transparent 12%,
+    transparent 87%,
+    rgba(0, 0, 0, 0.18)
+  );
+  content: "";
+}
+/* Its own scrim: the world art is bright at the foot, where the title sits. */
+.journey-cover::before {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    transparent 18%,
+    rgba(19, 13, 41, 0.18) 55%,
+    rgba(19, 13, 41, 0.93) 100%
+  );
+  content: "";
+}
+.journey-cover-brand {
+  position: relative;
+  z-index: 2;
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+}
+.journey-cover-title {
+  position: relative;
+  z-index: 2;
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  font-weight: 800;
+  line-height: 1.18;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+}
+.journey-book-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 7px 8px 7px 0;
+}
+.journey-book-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.journey-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 9px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.journey-badge svg {
+  width: 14px;
+  height: 14px;
+}
+.journey-badge-digital {
+  color: #5f42a8;
+  background: var(--jw-violet-soft);
+}
+.journey-badge-printed {
+  color: var(--jw-mint-ink);
+  background: var(--jw-mint);
+}
+.journey-badge-new {
+  color: #8d692b;
+  background: var(--jw-gold-light);
+}
+.journey-book-date {
+  color: #918b98;
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+.journey-book-body h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 850;
+  line-height: 1.35;
+}
+.journey-book-body h3 + p {
+  margin: 4px 0 0;
+  color: var(--jw-ink-soft);
+  font-size: 0.72rem;
+}
+.journey-delivery {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: var(--jw-mint-ink);
+  background: #f4faf6;
+  font-size: 0.68rem;
+}
+.journey-delivery svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.journey-book-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+.journey-book-actions > * {
+  flex: 1;
+}
+.journey-small-button {
+  height: 38px;
+  padding: 0 12px;
+}
+.journey-outline-button {
+  color: var(--jw-ink);
+  border: 1px solid var(--jw-line);
+  background: #fff;
+}
+.journey-gold-button {
+  color: var(--jw-ink);
+  background: var(--jw-gold-light);
+}
+.journey-gold-button:hover {
+  background: var(--jw-gold);
+}
+.journey-book-error {
+  margin: 0;
+  color: #a3372f;
+  font-size: 0.68rem;
+}
+
+/* ---- the story path ------------------------------------------------------ */
+
+.journey-story {
+  margin-top: 66px;
+}
+.journey-eyebrow-violet {
+  margin-bottom: 8px;
+  color: var(--jw-violet);
+}
+.journey-progress {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  background: var(--jw-violet-soft);
+}
+.journey-progress strong {
+  color: var(--jw-violet);
+  font-size: 1.05rem;
+}
+.journey-progress span {
+  color: var(--jw-ink-soft);
+  font-size: 0.7rem;
+}
+
+.journey-map {
+  position: relative;
+  height: 520px;
+  overflow: hidden;
+  border-radius: 30px;
+  background-color: var(--jw-night);
+  background-position: center 48%;
+  background-size: cover;
+  box-shadow: 0 22px 70px rgba(44, 31, 83, 0.17);
+}
+.journey-map::before {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(19, 13, 41, 0.9) 0%,
+      rgba(19, 13, 41, 0.63) 34%,
+      rgba(19, 13, 41, 0.03) 67%
+    ),
+    linear-gradient(0deg, rgba(19, 13, 41, 0.96) 0%, transparent 43%);
+  content: "";
+}
+.journey-summary {
+  position: absolute;
+  z-index: 2;
+  top: 48px;
+  left: 46px;
+  max-width: 365px;
+  color: #fff;
+}
+.journey-kicker {
+  display: block;
+  margin-bottom: 12px;
+  color: var(--jw-gold-light);
+  font-size: 0.67rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.journey-summary h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.65rem, 3vw, 2.75rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+.journey-summary p {
+  max-width: 330px;
+  margin: 17px 0 22px;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: 0.78rem;
+  line-height: 1.7;
+}
+.journey-story-cta {
+  height: 43px;
+  padding: 0 17px;
+  color: var(--jw-night);
+  background: var(--jw-gold-light);
+}
+.journey-story-cta:hover {
+  background: var(--jw-gold);
+}
+.journey-story-cta[disabled] {
+  cursor: not-allowed;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.14);
+  transform: none;
+}
+
+/* The six worlds, along the foot of the painting. This is the milestone: a finished world is a
+   gold disc with a tick, the next is violet and numbered, the rest are dim and locked — and the
+   bar behind them fills to how far the child has come. */
+.journey-track {
+  position: absolute;
+  z-index: 3;
+  right: 42px;
+  bottom: 33px;
+  left: 42px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+.journey-track-line {
+  position: absolute;
+  top: 19px;
+  right: calc(100% / 12);
+  left: calc(100% / 12);
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+}
+.journey-track-line span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--jw-gold-light), var(--jw-gold));
+}
+.journey-node {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.72);
+  background: transparent;
+}
+.journey-node:disabled {
+  cursor: not-allowed;
+}
+.journey-marker {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  color: #fff;
+  background: #322751;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  font-size: 0.72rem;
+  font-weight: 900;
+  transition: transform 0.16s ease;
+}
+.journey-marker svg {
+  width: 16px;
+  height: 16px;
+}
+.journey-node[data-state="done"] .journey-marker {
+  color: var(--jw-night);
+  border-color: var(--jw-gold-light);
+  background: var(--jw-gold-light);
+}
+.journey-node[data-state="available"] .journey-marker {
+  border-color: var(--jw-lavender);
+  background: var(--jw-violet);
+}
+.journey-node[data-state="locked"] {
+  opacity: 0.48;
+}
+.journey-node.is-selected .journey-marker {
+  box-shadow:
+    0 0 0 6px rgba(216, 201, 255, 0.18),
+    0 6px 18px rgba(0, 0, 0, 0.25);
+  transform: translateY(-3px) scale(1.06);
+}
+.journey-node-label {
+  width: 100%;
+  overflow: hidden;
+  font-size: 0.62rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- the book still being written ---------------------------------------- */
+
+/*
+  A book in progress is the one thing on this page that is happening rather than done, so it sits
+  above the shelf and says what it is. It exists because leaving the creation screen used to be a
+  one-way door: the run kept going on the server with nothing anywhere pointing back at it.
+*/
+.journey-resume {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border: 1px solid rgba(111, 81, 184, 0.26);
+  border-radius: 20px;
+  background: linear-gradient(140deg, #f6f1ff, var(--jw-paper));
+}
+.journey-resume-spark {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: #fff;
+  background: var(--jw-violet);
+}
+.journey-resume-spark svg {
+  width: 20px;
+  height: 20px;
+  animation: journey-resume-turn 2.4s linear infinite;
+}
+@keyframes journey-resume-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.journey-resume-copy {
+  flex: 1;
+  min-width: 0;
+}
+.journey-resume-copy strong {
+  display: block;
+  font-size: 0.94rem;
+  font-weight: 850;
+}
+.journey-resume-copy small {
+  color: var(--jw-ink-soft);
+  font-size: 0.74rem;
+  line-height: 1.55;
+}
+.journey-resume-button {
+  height: 44px;
+  flex-shrink: 0;
+  padding: 0 18px;
+  color: #fff;
+  background: var(--jw-violet);
+}
+.journey-resume-button:hover {
+  background: #5f42a8;
+}
+
+.journey-empty {
+  padding: 30px 24px;
+  border: 1px dashed var(--jw-line);
+  border-radius: 24px;
+  color: var(--jw-ink-soft);
+  background: rgba(255, 253, 248, 0.7);
+  font-size: 0.86rem;
+  line-height: 1.7;
+}
+.journey-note {
+  margin: 0;
+  color: #a3372f;
+  font-size: 0.8rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journey-resume-spark svg {
+    animation: none;
+  }
+}
+
+/* ---- the prototype's three breakpoints ----------------------------------- */
+
+@media (max-width: 1000px) {
+  .journey-books {
+    grid-template-columns: 1fr;
+  }
+  .journey-map::before {
+    background:
+      linear-gradient(
+        90deg,
+        rgba(19, 13, 41, 0.9) 0%,
+        rgba(19, 13, 41, 0.6) 47%,
+        rgba(19, 13, 41, 0.09) 85%
+      ),
+      linear-gradient(0deg, rgba(19, 13, 41, 0.97) 0%, transparent 47%);
+  }
+}
+
+@media (max-width: 720px) {
+  .journey-wrap {
+    padding: 34px 16px 24px;
+  }
+  .journey-welcome,
+  .journey-section-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .journey-welcome {
+    gap: 24px;
+    margin-bottom: 40px;
+  }
+  .journey-welcome h1 {
+    font-size: 2.55rem;
+  }
+  .journey-welcome p {
+    font-size: 0.86rem;
+  }
+  .journey-primary-button {
+    width: 100%;
+  }
+  .journey-section-head {
+    gap: 15px;
+  }
+  .journey-kids {
+    align-self: flex-start;
+  }
+  .journey-book {
+    grid-template-columns: 112px minmax(0, 1fr);
+    gap: 14px;
+    min-height: 191px;
+    padding: 10px;
+  }
+  .journey-cover {
+    min-height: 171px;
+    padding: 11px 10px;
+  }
+  .journey-cover-title {
+    font-size: 0.86rem;
+  }
+  .journey-book-body {
+    gap: 9px;
+    padding: 4px 3px 4px 0;
+  }
+  .journey-book-date,
+  .journey-delivery {
+    display: none;
+  }
+  .journey-book-body h3 {
+    font-size: 0.84rem;
+  }
+  .journey-book-body h3 + p {
+    font-size: 0.64rem;
+  }
+  .journey-book-actions {
+    flex-direction: column;
+    gap: 6px;
+  }
+  .journey-small-button {
+    width: 100%;
+    height: 33px;
+  }
+  .journey-story {
+    margin-top: 52px;
+  }
+  .journey-section-head-story {
+    align-items: flex-start;
+    gap: 16px;
+  }
+  .journey-progress {
+    flex: 0 0 auto;
+  }
+  .journey-map {
+    height: 550px;
+    background-position: 51% 55%;
+  }
+  .journey-map::before {
+    background: linear-gradient(
+      180deg,
+      rgba(19, 13, 41, 0.92) 0%,
+      rgba(19, 13, 41, 0.25) 52%,
+      rgba(19, 13, 41, 0.98) 100%
+    );
+  }
+  .journey-summary {
+    top: 27px;
+    right: 23px;
+    left: 23px;
+    max-width: calc(100% - 46px);
+  }
+  .journey-summary h3 {
+    max-width: 290px;
+    font-size: 1.75rem;
+  }
+  .journey-summary p {
+    max-width: 285px;
+    margin: 12px 0 16px;
+    font-size: 0.7rem;
+  }
+  .journey-track {
+    right: 20px;
+    bottom: 22px;
+    left: 20px;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 9px 5px;
+  }
+  .journey-track-line {
+    display: none;
+  }
+  .journey-node {
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 7px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    background: rgba(19, 13, 41, 0.58);
+  }
+  .journey-marker {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    box-shadow: none;
+  }
+  .journey-node-label {
+    font-size: 0.58rem;
+    text-align: left;
+  }
+  .journey-resume {
+    flex-wrap: wrap;
+  }
+  .journey-resume-button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .journey-book {
+    grid-template-columns: 96px minmax(0, 1fr);
+  }
+  .journey-cover {
+    min-height: 165px;
+  }
+  .journey-badge {
+    padding: 6px 7px;
+    font-size: 0.58rem;
+  }
+}

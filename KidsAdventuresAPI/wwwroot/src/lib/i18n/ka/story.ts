@@ -102,6 +102,16 @@ export const story = {
     worldCount: (count: number) =>
       count === 0 ? "ჯერ არცერთი სამყარო" : `${count} სამყარო გახსნილია`,
     newWorld: "ახალი სამყარო",
+    /* The rebuilt /world: a shelf of this child's books above the path of six worlds. */
+    spaceOf: (name: string) => `${name}ს პერსონალური სივრცე`,
+    shelfLead: "ყველა შექმნილი ამბავი — წასაკითხად, ჩამოსატვირთად და გასაგრძელებლად.",
+    journeySuffix: "ს მოგზაურობა",
+    nextAdventure: "შემდეგი თავგადასავალი",
+    /* The book the parent walked away from, and the way back into it. */
+    resumeTitle: "წიგნი ჯერ კიდევ იქმნება",
+    resumeBody:
+      "დატოვე თუ არა ეს გვერდი, ისტორია სერვერზე მაინც იწერება. დაბრუნდი და ნახე, სად არის.",
+    resumeAction: "დაბრუნდი წიგნთან",
     openedStoriesSuffix: "ს უკვე აღმოჩენილი ამბები",
     archiveNote:
       "ძველი წიგნები უცვლელად ინახება; ახალი ინფორმაცია მხოლოდ მომავალ ისტორიებზე ვრცელდება.",
