@@ -934,6 +934,9 @@ public class GenerationBudgetTests
         public byte[] Compose(MasterStory plan, byte[] coverImage, IReadOnlyList<BekiSpreadArtwork> spreads, BekiBookPersonalization? personalization = null) =>
             throw new NotSupportedException();
 
+        public byte[] ComposeInterior(MasterStory plan, IReadOnlyList<BekiSpreadArtwork> spreads, BekiBookPersonalization? personalization = null) =>
+            throw new NotSupportedException();
+
         public IReadOnlyList<byte[]> RenderPages(MasterStory plan, byte[] coverImage, IReadOnlyList<BekiSpreadArtwork> spreads, BekiBookPersonalization? personalization = null) =>
             throw new NotSupportedException();
     }

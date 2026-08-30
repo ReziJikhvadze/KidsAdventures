@@ -36,6 +36,21 @@ public interface IBekiPdfComposer
         BekiBookPersonalization? personalization = null);
 
     /// <summary>
+    /// The production print interior: the twelve interior spreads and nothing else — no cover
+    /// face, no back-cover face.
+    ///
+    /// A separate artifact because the supplier's audit rejected the alternative outright: the
+    /// cover is a continuous back-spine-front wrap whose geometry comes from the printer's
+    /// dieline, and a 230x210 leaf bound into the interior file is not an approximation of that,
+    /// it is a different object. Until the dieline is configured, the print package is this file
+    /// and a recorded LAYOUT_FAILED for the cover — never the hybrid.
+    /// </summary>
+    byte[] ComposeInterior(
+        MasterStory plan,
+        IReadOnlyList<BekiSpreadArtwork> spreads,
+        BekiBookPersonalization? personalization = null);
+
+    /// <summary>
     /// The same book as one image per page. For looking at: a PDF cannot be inspected by anything
     /// that does not already render PDFs, and a layout nobody can see is a layout nobody can fix.
     /// </summary>
@@ -284,6 +299,14 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         BekiBookPersonalization? personalization = null) =>
         PdfPrintBoxes.Apply(Build(plan, coverImage, spreads, personalization, true).GeneratePdf(), _layout.BleedMm);
 
+    public byte[] ComposeInterior(
+        MasterStory plan,
+        IReadOnlyList<BekiSpreadArtwork> spreads,
+        BekiBookPersonalization? personalization = null) =>
+        PdfPrintBoxes.Apply(
+            Build(plan, coverImage: null, spreads, personalization, print: true).GeneratePdf(),
+            _layout.BleedMm);
+
     public IReadOnlyList<byte[]> RenderPages(
         MasterStory plan,
         byte[] coverImage,
@@ -293,9 +316,15 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             .GenerateImages(new ImageGenerationSettings { ImageFormat = ImageFormat.Png, RasterDpi = 96 })
             .ToList();
 
+    /// <param name="coverImage">
+    /// Null builds the print interior: the twelve interior spreads with no cover faces. The cover
+    /// is a printer-dieline wrap, not two leaves of this document, and the audit's finding stands
+    /// as the reason this is a parameter and not a second builder: the hybrid 14-page file must
+    /// never again be the production deliverable.
+    /// </param>
     private Document Build(
         MasterStory plan,
-        byte[] coverImage,
+        byte[]? coverImage,
         IReadOnlyList<BekiSpreadArtwork> spreads,
         BekiBookPersonalization? personalization,
         bool print)
@@ -338,7 +367,11 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
         return Document.Create(document =>
         {
-            ComposeCover(document, plan.Concept.Title, coverImage, print);
+            if (coverImage is not null)
+            {
+                ComposeCover(document, plan.Concept.Title, coverImage, print);
+            }
+
             ComposeEndpaper(document, rear: false);
             ComposeIntro(document, themeId, personalization);
 
@@ -357,7 +390,11 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
             ComposeCredits(document);
             ComposeEndpaper(document, rear: true);
-            ComposeBackCover(document);
+
+            if (coverImage is not null)
+            {
+                ComposeBackCover(document);
+            }
         });
     }
 

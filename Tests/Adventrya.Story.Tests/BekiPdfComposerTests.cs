@@ -69,6 +69,38 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// The print interior is the twelve interior spreads and nothing else: no cover face, no
+    /// back-cover face, and every page a full spread wide. The supplier's audit rejected the
+    /// hybrid — two 230mm leaves bound into a 450mm interior — as the production deliverable,
+    /// and this is the artifact that replaces it. The cover is a dieline wrap delivered
+    /// separately, or not at all until the dieline exists.
+    /// </summary>
+    [Fact]
+    public void The_print_interior_carries_no_cover_faces_and_only_spread_wide_pages()
+    {
+        var layout = BekiLayoutFixture.ScreenProofLayout();
+        var plan = SyntheticPlan();
+        var spreads = plan.Spreads
+            .Select(spread => new BekiSpreadArtwork(spread.Number, PixelPng()))
+            .ToList();
+
+        var pdf = Compose(layout).ComposeInterior(plan, spreads, BekiLayoutFixture.Personalization());
+
+        // Front endpaper, intro, eight story spreads, credits, rear endpaper — twelve, the
+        // supplier config's interior.spread_count.
+        Assert.Equal(BookFormat.SpreadCount + 4, CountPages(pdf));
+
+        var sizes = MediaBoxSizes(pdf);
+        var leafPt = MmToPt(layout.PageWidthMm + (layout.BleedMm * 2));
+        var spreadPt = MmToPt(layout.SpreadWidthMm + (layout.BleedMm * 2));
+
+        Assert.All(sizes, size => Assert.True(
+            Math.Abs(size.Width - spreadPt) < 1.5,
+            $"an interior page is {size.Width}pt wide, not the spread's {spreadPt}pt."));
+        Assert.DoesNotContain(sizes, size => Math.Abs(size.Width - leafPt) < 1.5);
+    }
+
+    /// <summary>
     /// A spread whose words went missing is still printed as artwork rather than dropped. The
     /// alternative is a book that is quietly one page shorter than the story it was written from.
     /// </summary>

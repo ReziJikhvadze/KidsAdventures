@@ -1000,10 +1000,26 @@ public sealed class BekiPackFulfillment(
                 $"{pack.UserId}/{pack.Id}.pdf", pdf, "application/pdf", jobToken);
             uploadMs += pdfUploadStopwatch.ElapsedMilliseconds;
 
-            // One file serves both shelves: the Beki layout is print geometry already — bleed,
-            // spread pages, the QR leaf — so the reading copy and the print copy are the same
-            // bytes, unlike the A5 book whose print copy differs by binding blanks.
-            await packRepository.UpdatePrintPdfUrlAsync(packId, pdfUrl, jobToken);
+            /*
+              Two shelves, two files — the supplier's audit ended the era of one blob serving
+              both. The full document above, cover faces and all, stays the parent's reading
+              copy. The print deliverable is the interior alone: the production cover is a
+              continuous back-spine-front wrap built from the printer's dieline, which this
+              deployment does not have, and the audit's ruling is that the 14-page hybrid must
+              never stand in for it. So the print slot points at interior.pdf, and the cover's
+              print artifact stays withheld — LAYOUT_FAILED territory, on the record below —
+              until the dieline is configured.
+            */
+            var interior = composer.ComposeInterior(plan, stored, personalization);
+            var interiorUrl = await blobStorage.UploadAsync(
+                $"{pack.UserId}/{pack.Id}-interior.pdf", interior, "application/pdf", jobToken);
+            await packRepository.UpdatePrintPdfUrlAsync(packId, interiorUrl, jobToken);
+
+            logger.LogWarning(
+                "Beki pack {PackId}: print interior stored at {InteriorUrl}; the print cover is "
+                + "withheld ({Code}: no printer-approved cover dieline is configured — back panel, "
+                + "spine, hinge, front panel and wrap are owner-side inputs).",
+                packId, interiorUrl, CompositeFailureCodes.LayoutFailed);
 
             stage = "publishing the book";
 

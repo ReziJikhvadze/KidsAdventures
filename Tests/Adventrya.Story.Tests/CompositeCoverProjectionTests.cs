@@ -121,6 +121,30 @@ public class CompositeCoverProjectionTests
     }
 
     /// <summary>
+    /// The print slot points at the interior-only artifact, never at the hybrid. The reading copy
+    /// keeps its cover faces for the screen; the production cover is a dieline wrap this
+    /// deployment cannot build yet, and the audit's ruling is that the 14-page file must not
+    /// stand in for it.
+    /// </summary>
+    [Fact]
+    public async Task The_print_slot_points_at_the_interior_and_never_at_the_hybrid()
+    {
+        var world = new PackWorld();
+
+        await world.Run();
+
+        Assert.True(world.Composer.InteriorComposed);
+
+        var interiorName = $"{world.UserId}/{world.PackId}-interior.pdf";
+        Assert.Contains(interiorName, world.Blobs.Uploaded.Keys);
+        Assert.Equal($"https://blob.test/{interiorName}", world.Packs.PrintPdfUrl);
+
+        // The reading copy still exists, under its own name, and is not the print artifact.
+        Assert.Contains($"{world.UserId}/{world.PackId}.pdf", world.Blobs.Uploaded.Keys);
+        Assert.NotEqual($"https://blob.test/{world.UserId}/{world.PackId}.pdf", world.Packs.PrintPdfUrl);
+    }
+
+    /// <summary>
     /// The supplier's audit found a shipped book with seven composited spreads and one AI-drawn
     /// Beki — a page from somewhere other than the compositor, indistinguishable in the PDF. The
     /// receipt is what tells them apart, so a composite book with a page that has none stops
@@ -344,12 +368,23 @@ public class CompositeCoverProjectionTests
         /// <summary>The cover the PDF was actually laid out from.</summary>
         public byte[]? CoverLaidOut { get; private set; }
 
+        /// <summary>Whether the print interior was composed as its own artifact.</summary>
+        public bool InteriorComposed { get; private set; }
+
         public byte[] Compose(
             MasterStory plan, byte[] coverImage, IReadOnlyList<BekiSpreadArtwork> spreads,
             BekiBookPersonalization? personalization = null)
         {
             CoverLaidOut = coverImage;
             return [0x25, 0x50, 0x44, 0x46];
+        }
+
+        public byte[] ComposeInterior(
+            MasterStory plan, IReadOnlyList<BekiSpreadArtwork> spreads,
+            BekiBookPersonalization? personalization = null)
+        {
+            InteriorComposed = true;
+            return [0x25, 0x50, 0x44, 0x46, 0x2D];
         }
 
         public IReadOnlyList<byte[]> RenderPages(
@@ -422,8 +457,13 @@ public class CompositeCoverProjectionTests
             Guid id, string? progressMessage, int? progressPercent, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
-        public Task UpdatePrintPdfUrlAsync(Guid id, string? printPdfUrl, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
+        public string? PrintPdfUrl { get; private set; }
+
+        public Task UpdatePrintPdfUrlAsync(Guid id, string? printPdfUrl, CancellationToken cancellationToken)
+        {
+            PrintPdfUrl = printPdfUrl;
+            return Task.CompletedTask;
+        }
 
         // Everything else the interface declares and this job never calls.
         public Task<Guid> CreatePendingAsync(AdventurePack pack, CancellationToken cancellationToken) =>
