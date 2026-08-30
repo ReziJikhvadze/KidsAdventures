@@ -223,4 +223,171 @@ public class CompositePipelineSeamTests : CompositePipelineTestBase
         // And the reviewer judged the repaired page, not the one that came back from the provider.
         Assert.False(CompositeSeamRepair.Measure(images.ReviewImages[0]).Exceeded);
     }
+
+    // ---------------------------------------------------------------------------------------
+    // The centre-field gate: the veil and the step the interpolating repair must decline
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The supplier's rejected book, in synthetic form: a milky veil over the whole text-side
+    /// half, ending in a soft shoulder near the centre. Too wide for the interpolating repair by
+    /// design — and exactly what the field reading exists to refuse.
+    /// </summary>
+    [Fact]
+    public void A_half_canvas_veil_is_refused_by_the_field_reading()
+    {
+        var veiled = WithVeil(Gradient(1536, 717), leftSide: true, lift: 0.5, shoulderColumns: 24);
+
+        var measured = CompositeSeamRepair.MeasureCentreField(veiled);
+
+        Assert.True(
+            measured.FieldCoverage >= CompositeSeamRepair.FieldCoverageLimit,
+            $"the veil's field reading is only {measured.FieldCoverage:P0}.");
+        Assert.True(measured.Exceeded);
+
+        // The mirrored veil — text on the other side — is the same defect.
+        var mirrored = WithVeil(Gradient(1536, 717), leftSide: false, lift: 0.5, shoulderColumns: 24);
+        Assert.True(CompositeSeamRepair.MeasureCentreField(mirrored).Exceeded);
+    }
+
+    /// <summary>
+    /// A hard half-to-half tone step has ONE elevated boundary, so the interpolating repair
+    /// rightly declines it — there is no band between two edges to paint across. It used to
+    /// decline in silence; now the measurement says so and the edge reading refuses the picture.
+    /// </summary>
+    [Fact]
+    public void A_hard_step_at_the_centre_is_declined_by_the_repair_and_refused_by_the_edge_reading()
+    {
+        var stepped = WithVeil(Gradient(1536, 717), leftSide: true, lift: 0.25, shoulderColumns: 0);
+
+        var seam = CompositeSeamRepair.Measure(stepped);
+        Assert.True(seam.DeclinedRepair, $"the step measured {seam.Ratio:F1}x but was not declined.");
+        Assert.False(seam.Exceeded);
+
+        var field = CompositeSeamRepair.MeasureCentreField(stepped);
+        Assert.True(
+            field.EdgeCoverage >= CompositeSeamRepair.EdgeCoverageLimit,
+            $"the step's edge reading is only {field.EdgeCoverage:P0}.");
+        Assert.True(field.Exceeded);
+    }
+
+    /// <summary>
+    /// The readings must pass real pictures: a clean gradient, a repaired narrow seam, and a
+    /// legitimately asymmetric composition whose halves differ without a centre-aligned boundary.
+    /// The gate's whole risk is treating a picture as a defect — a false positive here spends a
+    /// paid image call on artwork that was fine.
+    /// </summary>
+    [Fact]
+    public void Clean_and_repaired_pictures_pass_the_centre_field_gate()
+    {
+        Assert.False(CompositeSeamRepair.MeasureCentreField(Gradient(1536, 717)).Exceeded);
+
+        // A narrow painted seam is the interpolating repair's job; after it has done that job,
+        // the field gate must agree the picture is whole.
+        var (repaired, before, _) = CompositeSeamRepair.Gate(
+            WithSeam(Gradient(1536, 717), columns: 2, darken: 90));
+        Assert.True(before.Exceeded);
+        Assert.False(CompositeSeamRepair.MeasureCentreField(repaired).Exceeded);
+
+        // A frame too small for the strips is a fixture, not a spread: measured as nothing.
+        Assert.False(CompositeSeamRepair.MeasureCentreField(SyntheticImages.SolidPng(64, 64)).Exceeded);
+    }
+
+    /// <summary>
+    /// A veiled base spends the spread's one regeneration before any review is bought, and the
+    /// book ships on the clean redraw. The budget is shared with the reviewer's ladder — one
+    /// extra picture per spread, never two.
+    /// </summary>
+    [Fact]
+    public async Task A_veiled_base_buys_one_redraw_and_the_book_ships_the_clean_one()
+    {
+        var images = new StubImageService();
+        images.QueuedImages.Enqueue(
+            WithVeil(Gradient(ProviderWidth, ProviderHeight), leftSide: true, lift: 0.5, shoulderColumns: 24));
+
+        var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+            .RunAsync(Request(), CancellationToken.None);
+
+        // The veiled picture went back; the page that shipped is the redraw, and it is clean.
+        Assert.Equal(2, result.Spreads[0].BaseAttempts);
+        Assert.False(CompositeSeamRepair.MeasureCentreField(result.Spreads[0].BasePng).Exceeded);
+
+        // The reviewer never saw the veiled picture — the gate is cheaper than a review and runs
+        // first.
+        Assert.All(
+            images.ReviewImages,
+            reviewed => Assert.False(CompositeSeamRepair.MeasureCentreField(reviewed).Exceeded));
+    }
+
+    /// <summary>
+    /// A redraw that comes back veiled again stops the spread as IMAGE_GENERATION_FAILED. Two
+    /// pictures is the budget; a third would be paying to fail differently.
+    /// </summary>
+    [Fact]
+    public async Task A_veiled_redraw_stops_the_spread_rather_than_shipping()
+    {
+        var veiled = WithVeil(
+            Gradient(ProviderWidth, ProviderHeight), leftSide: true, lift: 0.5, shoulderColumns: 24);
+
+        var images = new StubImageService();
+        images.QueuedImages.Enqueue(veiled);
+        images.QueuedImages.Enqueue(veiled);
+
+        var failure = await Assert.ThrowsAsync<CompositePipelineException>(() =>
+            Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+                .RunAsync(Request(), CancellationToken.None));
+
+        Assert.Equal(CompositeFailureCodes.ImageGenerationFailed, failure.FailureCode);
+        Assert.Contains("centre-field gate", failure.Message);
+
+        // Spread one is drawn first and alone, so the stop cost exactly two pictures and zero
+        // reviews.
+        Assert.Equal(2, images.ImageCalls);
+        Assert.Empty(images.ReviewImages);
+    }
+
+    /// <summary>
+    /// The rejected book's veil, applied to a synthetic canvas the way the audit measured it:
+    /// lighter on the text side, alternating with the page rhythm. Built here so the constants'
+    /// calibration against the stored real bases has a checked-in stand-in.
+    /// </summary>
+    private static byte[] WithVeil(byte[] png, bool leftSide, double lift, int shoulderColumns)
+    {
+        using var image = Image.Load<Rgba32>(png);
+        var half = image.Width / 2;
+
+        image.ProcessPixelRows(accessor =>
+        {
+            for (var y = 0; y < accessor.Height; y++)
+            {
+                var row = accessor.GetRowSpan(y);
+                for (var x = 0; x < row.Length; x++)
+                {
+                    var distanceIntoVeil = leftSide ? half - x : x - half + 1;
+
+                    var factor = distanceIntoVeil <= 0
+                        ? 0
+                        : shoulderColumns > 0 && distanceIntoVeil <= shoulderColumns
+                            ? lift * distanceIntoVeil / shoulderColumns
+                            : lift;
+
+                    if (factor <= 0)
+                    {
+                        continue;
+                    }
+
+                    var pixel = row[x];
+                    row[x] = new Rgba32(
+                        (byte)Math.Round(pixel.R + ((255 - pixel.R) * factor)),
+                        (byte)Math.Round(pixel.G + ((255 - pixel.G) * factor)),
+                        (byte)Math.Round(pixel.B + ((255 - pixel.B) * factor)),
+                        pixel.A);
+                }
+            }
+        });
+
+        using var buffer = new MemoryStream();
+        image.SaveAsPng(buffer);
+        return buffer.ToArray();
+    }
 }

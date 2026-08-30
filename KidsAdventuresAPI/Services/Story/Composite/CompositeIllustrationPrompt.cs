@@ -309,8 +309,19 @@ public static class CompositeIllustrationPrompt
     /// So the shot is now the block's first line and the panorama sentence follows it: the same two
     /// sentences, in the order that makes the variable one the instruction rather than the caveat.
     /// Recorded in the contract's v1.3 changelog against the supplier's shot-rhythm finding.
+    ///
+    /// v1.5 answers the supplier's production rejection (2026-08-31): every shipped spread carried
+    /// a milky veil over the full text-side half, ending in a razor edge at the fold. The veil was
+    /// model-painted and prompt-invited — this template asked for a "two-page spread", told the
+    /// model the text third should be "gently lightening toward the outer edge", used the central
+    /// low-information zone as a spatial landmark twice, and then banned only the DARK version of
+    /// the band it had invited. v1.5 removes every one of those invitations: the canvas is one
+    /// painting, the text third is calm at full colour with lightening forbidden by name, the
+    /// centre is ordinary painting rather than a named zone, and the negatives now ban pale,
+    /// milky and half-toned treatments as loudly as dark ones. Recorded in the contract's v1.5
+    /// changelog against the audit's P0-A/P0-B findings.
     /// </summary>
-    public const string Version = "child-world-image-v1.4";
+    public const string Version = "child-world-image-v1.5";
 
     /// <summary>The cover base template's version. A different document, a different version.</summary>
     public const string CoverVersion = "cover-child-world-v1";
@@ -371,7 +382,7 @@ public static class CompositeIllustrationPrompt
 
             COMPOSITION
             {shot}
-            Create one continuous very wide panoramic two-page spread designed for a final 15:7 crop.
+            Create one continuous very wide panoramic painting designed for a final 15:7 crop.
             {CompositionBlockFor(textSide)}
             {CentralZoneRule}
             Keep all important content in the central horizontal band so modest top-and-bottom crop normalization is safe.
@@ -450,46 +461,54 @@ public static class CompositeIllustrationPrompt
     public static string CompositionBlockFor(string textSide) =>
         BekiCompositeConfig.ParseTextSide(textSide) == BekiTextSide.Left
             ? "Keep the full left third quiet enough to set story text over: continue the same "
-              + "scene through it as soft distant environment — sky, far foliage, haze, open "
-              + "ground — gently lightening toward the outer edge. It is part of the painting, "
-              + "not a panel: there must be no hard vertical boundary where it begins, no flat "
-              + "field of colour, and no visible edge between it and the rest of the picture. No "
+              + "scene through it as calm open environment — sky, far foliage, open ground — "
+              + "painted at exactly the same colour depth, saturation, contrast, exposure, and "
+              + "finish as the rest of the picture. It is calm because the scene is calm there, "
+              + "not because anything covers it: do not lighten it, and do not fade, veil, haze "
+              + "over, wash, whiten, blur, or desaturate it or any other region of the painting. "
+              + "It is part of the painting, not a panel: there must be no hard vertical boundary "
+              + "where it begins, no flat field of colour, no visible edge between it and the rest "
+              + "of the picture, and no change of tone marking where it begins or ends. No "
               + "character, face, hand, foreground object, or key action may enter this area. "
-              + "Place the child and the main action in the outer-right area, away from the "
-              + "central low-information zone. Leave a naturally lit, visually quiet Beki "
-              + "integration zone between the central low-information zone and the child, centered "
-              + "approximately at 59.4% of the canvas width and 45.8% of the canvas height. Keep "
-              + "that zone free of characters, faces, hands, hard edges, foreground objects, and "
-              + "story-critical details."
+              + "Place the child and the main action in the outer-right area. Leave a naturally "
+              + "lit, visually quiet Beki integration zone centered approximately at 59.4% of the "
+              + "canvas width and 45.8% of the canvas height. Keep that zone free of characters, "
+              + "faces, hands, hard edges, foreground objects, and story-critical details."
             : "Keep the full right third quiet enough to set story text over: continue the same "
-              + "scene through it as soft distant environment — sky, far foliage, haze, open "
-              + "ground — gently lightening toward the outer edge. It is part of the painting, "
-              + "not a panel: there must be no hard vertical boundary where it begins, no flat "
-              + "field of colour, and no visible edge between it and the rest of the picture. No "
+              + "scene through it as calm open environment — sky, far foliage, open ground — "
+              + "painted at exactly the same colour depth, saturation, contrast, exposure, and "
+              + "finish as the rest of the picture. It is calm because the scene is calm there, "
+              + "not because anything covers it: do not lighten it, and do not fade, veil, haze "
+              + "over, wash, whiten, blur, or desaturate it or any other region of the painting. "
+              + "It is part of the painting, not a panel: there must be no hard vertical boundary "
+              + "where it begins, no flat field of colour, no visible edge between it and the rest "
+              + "of the picture, and no change of tone marking where it begins or ends. No "
               + "character, face, hand, foreground object, or key action may enter this area. "
-              + "Place the child and the main action in the outer-left area, away from the "
-              + "central low-information zone. Leave a naturally lit, visually quiet Beki "
-              + "integration zone between the child and the central low-information zone, centered "
-              + "approximately at 40.6% of the canvas width and 45.8% of the canvas height. Keep "
-              + "that zone free of characters, faces, hands, hard edges, foreground objects, and "
-              + "story-critical details.";
+              + "Place the child and the main action in the outer-left area. Leave a naturally "
+              + "lit, visually quiet Beki integration zone centered approximately at 40.6% of the "
+              + "canvas width and 45.8% of the canvas height. Keep that zone free of characters, "
+              + "faces, hands, hard edges, foreground objects, and story-critical details.";
 
     /// <summary>
-    /// The centre of the canvas, described as a place to keep quiet rather than as a fold.
+    /// The centre of the canvas, described as ordinary painting with a content rule, not as a place.
     ///
-    /// The geometry is v1's exactly — a narrow vertical strip at the exact centre, environment may
-    /// pass through it, nothing else may touch it — and every word that named it a fold is gone.
-    /// That is the whole of the fix: the first real books came back with a full-height dark band
-    /// painted down the middle at 35× the baseline column-brightness step, in raw model output,
-    /// because this line and the composition block told a model three times that a fold was there
-    /// before one trailing negative asked it not to draw one. A model that is told there is a fold
-    /// draws a fold, and it is right to.
+    /// This line has been de-escalated twice, each time against a measured defect. v1.1 removed
+    /// every word that named it a fold, because the first real books came back with a full-height
+    /// dark band painted down the middle at 35× the baseline column-brightness step — a model
+    /// that is told there is a fold draws a fold. That version still named a "central
+    /// low-information zone", and the composition block used that zone as a landmark twice; the
+    /// shipped book came back with every text-side veil terminating in a razor edge at exactly
+    /// that landmark. A zone with a name is a zone with edges. So v1.5 stops naming a place at
+    /// all: the constraint is now about content — keep faces and critical detail away from the
+    /// middle — and the middle itself is required to be indistinguishable in treatment from the
+    /// painting around it.
     /// </summary>
     public const string CentralZoneRule =
-        "Keep the narrow vertical strip at the exact centre of the canvas as a central "
-        + "low-information zone, with only continuous environment passing through it. No face, "
-        + "hand, child, supporting character, or story-critical detail may cross or touch that "
-        + "central zone.";
+        "The middle of the canvas is ordinary painting: continue the environment through it with "
+        + "the same light, the same colour, and the same level of detail as its surroundings, and "
+        + "give it no edges, boundaries, or change of treatment of its own. No face, hand, child, "
+        + "supporting character, or story-critical detail may sit at or near the horizontal "
+        + "middle of the picture.";
 
     /// <summary>
     /// Which of the book's recurring elements this particular scene actually needs.
@@ -748,11 +767,13 @@ public static class CompositeIllustrationPrompt
     /// pasted, never redrawn — holds only while no image model is ever asked to draw her. The two
     /// lines after it exist because a model told not to draw a named guide draws an unnamed one.
     ///
-    /// The unbroken-painting line is v1.1's rewrite of the same rule. It says what must not appear
-    /// — a line, a crease, a band, a strip, an edge, a border, a split — and then says what to do
-    /// instead, without naming a fold, a gutter, a seam or a binding anywhere. The version it
-    /// replaced named the fold twice while forbidding it once, and the model obliged: the first
-    /// real books came back with the band painted in.
+    /// The unbroken-painting line is v1.1's rewrite of the same rule, extended by v1.5. v1.1
+    /// banned what the first books actually painted — a line, a crease, a band, a strip, an edge,
+    /// a border, a split — every one of them a DARK thing, and the models obliged by switching to
+    /// the light version: a milky veil over the whole text-side half, which no word of the list
+    /// forbade. v1.5 bans the defect symmetrically (pale strip, milky band, whitened half) and
+    /// adds the rule the audit's acceptance test actually measures: the two halves must match in
+    /// brightness, colour, contrast and finish.
     /// </summary>
     private const string SpreadConstraints =
         """
@@ -762,9 +783,10 @@ public static class CompositeIllustrationPrompt
         Do not generate characters or objects not required by the current scene.
         No duplicate child or duplicated supporting character.
         No text, letters, numbers, logos, captions, labels, signs, frames, QR codes, watermarks, or pseudo-text anywhere.
-        The picture is one continuous unbroken painting: no visible vertical dividing line, crease, shadow band, dark strip, page edge, border, or split down the middle. Paint the environment straight through the centre of the canvas as if it were any other part of the scene.
+        The picture is one continuous unbroken painting: no visible vertical dividing line, crease, shadow band, dark strip, pale strip, milky or whitened band, page edge, border, or split down the middle. Paint the environment straight through the centre of the canvas as if it were any other part of the scene.
+        The left and right halves of the picture must match in brightness, colour, contrast, and finish: neither half may be lighter, paler, hazier, more faded, or more washed-out than the other, and no veil, wash, fog, or overlay may cover any part of the painting.
         No split screen, montage, comic panel, inset frame, before-and-after view, or repeated version of the same character.
-        No dark text panel, artificial blur panel, or blank rectangle. The text-safe area must be part of the natural environment.
+        No dark or pale text panel, milky veil, white or cream overlay, artificial blur panel, or blank rectangle. The text-safe area is ordinary full-colour painting like the rest of the scene.
         """;
 
     /// <summary>

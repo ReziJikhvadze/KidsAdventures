@@ -621,6 +621,13 @@ public abstract class CompositePipelineTestBase
         /// <summary>Returned instead of a good render — a truncated response, say.</summary>
         public byte[]? NextImage { get; init; }
 
+        /// <summary>
+        /// Scripted renders, one per call, ahead of <see cref="NextImage"/>. For the tests where
+        /// the first picture and its regeneration must differ — a veiled base bought a redraw —
+        /// which a single fixed image cannot express.
+        /// </summary>
+        public Queue<byte[]> QueuedImages { get; } = new();
+
         public Task<byte[]> GenerateStoryImageAsync(
             string imagePrompt, StoryImageReference? reference,
             CancellationToken cancellationToken, string? imageSize = null,
@@ -670,7 +677,9 @@ public abstract class CompositePipelineTestBase
             //
             // A distinct picture per call: identical bytes would make "continuity kept the most
             // recent one" unfalsifiable.
-            var image = NextImage ?? Png(ProviderWidth, ProviderHeight, red: (byte)(10 + ImageCalls));
+            var image = QueuedImages.Count > 0
+                ? QueuedImages.Dequeue()
+                : NextImage ?? Png(ProviderWidth, ProviderHeight, red: (byte)(10 + ImageCalls));
             Returned.Add(image);
             return Task.FromResult(image);
         }

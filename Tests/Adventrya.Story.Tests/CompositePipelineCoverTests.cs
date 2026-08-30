@@ -688,11 +688,17 @@ public class CompositePipelineCoverTests : CompositePipelineTestBase
         {
             var block = CompositeIllustrationPrompt.CompositionBlockFor(side);
 
-            Assert.Contains("continue the same scene through it as soft distant environment", block);
-            Assert.Contains("gently lightening toward the outer edge", block);
+            Assert.Contains("continue the same scene through it as calm open environment", block);
             Assert.Contains("no hard vertical boundary where it begins", block);
             Assert.Contains("no flat field of colour", block);
             Assert.DoesNotContain("naturally calm, light background", block);
+
+            // v1.5: the third is calm at full colour. "Gently lightening toward the outer edge"
+            // was the sentence the shipped book obeyed — a milky veil over the whole half — so
+            // lightening is now forbidden by name rather than requested.
+            Assert.DoesNotContain("gently lightening", block);
+            Assert.Contains("do not lighten it", block);
+            Assert.Contains("same colour depth, saturation, contrast, exposure, and finish", block);
         }
 
         // The geometry did not move: it is the same third and the same two anchors.

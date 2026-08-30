@@ -1689,6 +1689,32 @@ public sealed class CompositeBookPipeline(
         // repair for a particular picture rather than a new default.
         BekiCompositeAnchor? placement = null;
 
+        /*
+          The centre-field gate, before a token is spent on anything downstream.
+
+          The interpolating repair inside NormalizeToSpread handles a one-to-eight column seam;
+          this handles what it must decline — the veil over a full half, the hard step between two
+          differently treated sides. Both shipped in the book the supplier rejected, because the
+          decline was silent and nothing else measured the halves against each other.
+
+          It spends the same single regeneration the reviewer's ladder spends, not a budget of its
+          own: a veiled base costs one redraw whether a model or a measurement noticed it, and
+          RegenerateBaseAsync gates its own output, so a second veiled picture stops the spread as
+          IMAGE_GENERATION_FAILED rather than shipping.
+        */
+        var centreField = CompositeDeterministicChecks.CentreFieldProblems(basePng);
+        if (centreField.Count > 0)
+        {
+            (basePng, generationMs, placement) = await RegenerateBaseAsync(
+                context, page, prompt,
+                $"centre-field gate: {string.Join(" ", centreField)}",
+                childPhoto, childPhotoContentType, theme, anchor, reference?.Image,
+                cancellationToken);
+
+            regenerated = true;
+            baseAttempts++;
+        }
+
         // One row per generate-and-review cycle, kept whether it passed or not. A page that shipped
         // on its second attempt is a page whose first verdict is the only record of what was wrong,
         // and that verdict is what the fulfilment job's telemetry is read for.
@@ -1781,8 +1807,8 @@ public sealed class CompositeBookPipeline(
             if (verdict.RecommendedAction == CompositeQaVerdict.ActionRegenerateBase && !regenerated)
             {
                 (basePng, generationMs, placement) = await RegenerateBaseAsync(
-                    context, page, prompt, verdict, childPhoto, childPhotoContentType, theme,
-                    anchor, reference?.Image, cancellationToken);
+                    context, page, prompt, verdict.ToString(), childPhoto, childPhotoContentType,
+                    theme, anchor, reference?.Image, cancellationToken);
 
                 regenerated = true;
                 baseAttempts++;
@@ -1869,8 +1895,8 @@ public sealed class CompositeBookPipeline(
             if (recomposited && !regenerated)
             {
                 (basePng, generationMs, placement) = await RegenerateBaseAsync(
-                    context, page, prompt, verdict, childPhoto, childPhotoContentType, theme,
-                    anchor, reference?.Image, cancellationToken);
+                    context, page, prompt, verdict.ToString(), childPhoto, childPhotoContentType,
+                    theme, anchor, reference?.Image, cancellationToken);
 
                 regenerated = true;
                 baseAttempts++;
@@ -1911,7 +1937,7 @@ public sealed class CompositeBookPipeline(
             CompositeBookContext context,
             VisualScenarioSpread page,
             string prompt,
-            CompositeQaVerdict verdict,
+            string reason,
             byte[] childPhoto,
             string childPhotoContentType,
             CompositeThemeReference theme,
@@ -1920,15 +1946,32 @@ public sealed class CompositeBookPipeline(
             CancellationToken cancellationToken)
     {
         logger.LogWarning(
-            "Composite pipeline {JobId} spread {Page}: buying a new base image — {Verdict}",
-            context.JobId, page.Page, verdict);
+            "Composite pipeline {JobId} spread {Page}: buying a new base image — {Reason}",
+            context.JobId, page.Page, reason);
 
         var (rawPng, generationMs) = await GenerateBaseImageAsync(
             context, page.Page, prompt,
             References(childPhoto, childPhotoContentType, theme, anchor, continuityImage),
             cancellationToken);
 
-        return (NormalizeToSpread(context, page.Page, rawPng), generationMs, null);
+        var normalized = NormalizeToSpread(context, page.Page, rawPng);
+
+        // The regeneration was the budget; a second picture that still fails the centre-field
+        // gate ends the spread here, before a review is bought for a page that cannot ship. The
+        // failure names the measurement so the log reads like the audit that mandated it.
+        var field = CompositeDeterministicChecks.CentreFieldProblems(normalized);
+        if (field.Count > 0)
+        {
+            throw new CompositePipelineException(
+                CompositeFailureCodes.ImageGenerationFailed,
+                $"The regenerated base image for spread {page.Page} still fails the centre-field "
+                + $"gate: {string.Join(" ", field)}")
+            {
+                Page = page.Page
+            };
+        }
+
+        return (normalized, generationMs, null);
     }
 
     /// <summary>
@@ -2131,6 +2174,23 @@ public sealed class CompositeBookPipeline(
 
         if (!before.Exceeded)
         {
+            if (before.DeclinedRepair)
+            {
+                // Measured, declined, and said out loud. The old silence here is how five veiled
+                // spreads at 11-57× baseline reached a printed proof: the interpolator rightly
+                // refused to smear a band that wide, and nothing recorded that it had seen one.
+                // The centre-field gate now decides what happens to this picture; this line is so
+                // the log shows both instruments read the same page.
+                logger.LogWarning(
+                    "Composite pipeline {JobId} {Page}: centre measured {Ratio:F1}x baseline "
+                    + "({Centre:F2} against {Baseline:F2}) at {Offset:+0.0%;-0.0%;0.0%} from "
+                    + "centre, but no narrow run to repair — a step or a band wider than "
+                    + "{Max} columns. Deferring to the centre-field gate.",
+                    context.JobId, page is null ? "cover" : $"spread {page}",
+                    before.Ratio, before.Centre, before.Baseline, before.OffsetFraction,
+                    CompositeSeamRepair.MaxRepairColumns);
+            }
+
             return png;
         }
 

@@ -119,11 +119,27 @@ public class CompositePipelineTests : CompositePipelineTestBase
         }
 
         // And the exclusion is still stated, in the words that replaced them — an absence on its
-        // own would also be satisfied by deleting the rule.
+        // own would also be satisfied by deleting the rule. Since v1.5 the centre is not a named
+        // zone at all: naming it gave the veil an edge to stop at, so the rule is now about the
+        // content and the treatment of the middle, not about a place.
         var spread = SpreadPrompt(scenario, page: 1);
-        Assert.Contains("central low-information zone", spread);
-        Assert.Contains("narrow vertical strip at the exact centre of the canvas", spread);
+        Assert.Contains("The middle of the canvas is ordinary painting", spread);
+        Assert.Contains("no edges, boundaries, or change of treatment of its own", spread);
         Assert.Contains("one continuous unbroken painting", spread);
+        Assert.DoesNotContain("low-information", spread);
+
+        // The deterministic shot instructions ride into the same prompts from
+        // pipeline_config_v1.json, so the no-fold rule binds them too: the supplier config's
+        // page-7 entry said "without crowding the fold" long after the templates were de-folded,
+        // and page 7 shipped with an unrepaired seam in both measured runs.
+        for (var page = 1; page <= 8; page++)
+        {
+            foreach (var word in (string[])["fold", "gutter", "seam", "binding", "bend"])
+            {
+                Assert.DoesNotContain(
+                    word, CompositeSpreadRhythm.ShotFor(page), StringComparison.OrdinalIgnoreCase);
+            }
+        }
 
         // The v1 document said the opposite four times over. Read from the preserved fixture, so
         // this is a statement about what changed rather than about what we remember changing.
@@ -256,17 +272,21 @@ public class CompositePipelineTests : CompositePipelineTestBase
             "No text, letters, numbers, logos, captions, labels, signs, frames, QR codes, "
             + "watermarks, or pseudo-text anywhere.", prompt);
 
-        // The panorama and the central exclusion the layout stage depends on. The v1 wording —
-        // "center-fold zone low-information" — is what painted the seam; the geometry it described
-        // survives it word for word in the fixture and in the builder.
+        // The panorama and the central exclusion the layout stage depends on. The wording has
+        // been de-escalated twice against measured defects — v1 named a fold and the model
+        // painted one; the v1.1 "central low-information zone" gave the veil a named edge to
+        // stop at — so the live prompt now demands ordinary painting at the middle, while the
+        // preserved fixture still carries the zone wording it was approved with.
         Assert.Contains("final 15:7 crop", prompt);
+        Assert.Contains("The middle of the canvas is ordinary painting", prompt);
         Assert.Contains(
-            "Keep the narrow vertical strip at the exact centre of the canvas as a central "
-            + "low-information zone", prompt);
+            "No face, hand, child, supporting character, or story-critical detail may sit at or "
+            + "near the horizontal middle of the picture.", prompt);
         Assert.Contains(
             "Keep the narrow vertical strip at the exact centre of the canvas as a central "
             + "low-information zone", approved);
         Assert.DoesNotContain("center-fold zone low-information", prompt);
+        Assert.DoesNotContain("low-information", prompt);
     }
 
     // ---------------------------------------------------------------------------------------

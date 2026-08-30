@@ -1,8 +1,17 @@
-# BEKI Child/World Image Prompt Template v1.4
+# BEKI Child/World Image Prompt Template v1.5
 
-**Prompt version:** `child-world-image-v1.4`  
+**Prompt version:** `child-world-image-v1.5`  
 **Status:** Implementation source  
 **Purpose:** Generate a text-free child-and-world base image. Beki is composited later from an approved transparent PNG.
+
+## v1.5 changelog
+
+Amended against the supplier's production rejection of 2026-08-31 (P0-A "full-half-page wash" and P0-B "visible centre seam" — measured as one defect: every shipped Story base carried a model-painted milky veil over the complete text-side half, terminating in a razor edge at the fold, luma delta 43–75 between the halves).
+
+- **Observed defect: the veil was prompt-invited three ways and banned only in its dark form.** The template (1) called the canvas a "two-page spread"; (2) asked for the text third "gently lightening toward the outer edge" — a model that is told to lighten a third lightens the half it was told has its own identity; (3) used the "central low-information zone" as a spatial landmark twice in the composition resolver, giving the veil a named edge to stop at; and (4) the unbroken-painting negative listed only dark artefacts (shadow band, dark strip), so a light veil satisfied it. **Fix, four wordings:** the canvas is "one continuous very wide panoramic painting"; the text third is calm open environment "painted at exactly the same colour depth, saturation, contrast, exposure, and finish as the rest of the picture", with lighten/fade/veil/haze/wash/whiten/blur/desaturate forbidden by name; the centre is no longer a named zone — it is "ordinary painting" with a content rule (no face, hand, or critical detail at or near the horizontal middle) and a treatment rule (no edges, boundaries, or change of treatment of its own); and the constraints ban the defect symmetrically (pale strip, milky or whitened band, veil, wash, fog, overlay) and state the acceptance test outright: the left and right halves must match in brightness, colour, contrast, and finish.
+- **Observed defect: the interpolating centre gate declined every real veil in silence.** The gate repairs a 1–8 column band and must leave anything wider alone; the veil's soft shoulder is 9–16 columns wide and its body is half the canvas, so five of eight shipped spreads measured 11–57× baseline, were declined, and passed along with nothing logged. **Fix:** a decline is now logged, and a second deterministic reading — the **centre-field gate** (§ *Centre-field gate*) — refuses the picture instead of repairing it. It spends the same single regeneration the review ladder spends; a second refused base stops the spread as `IMAGE_GENERATION_FAILED`.
+
+Nothing else moved: the identity lock, the anchor-first numbering, the outfit clause, the shot-first composition order, the 15:7 target, and both integration-zone percentages are v1.4's to the digit.
 
 ## v1.4 changelog
 
@@ -96,13 +105,13 @@ Resolve the following block in application code before sending the prompt.
 ### When `text_side = LEFT`
 
 ```text
-Keep the full left third quiet enough to set story text over: continue the same scene through it as soft distant environment - sky, far foliage, haze, open ground - gently lightening toward the outer edge. It is part of the painting, not a panel: there must be no hard vertical boundary where it begins, no flat field of colour, and no visible edge between it and the rest of the picture. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-right area, away from the central low-information zone. Leave a naturally lit, visually quiet Beki integration zone between the central low-information zone and the child, centered approximately at 59.4% of the canvas width and 45.8% of the canvas height. Keep that zone free of characters, faces, hands, hard edges, foreground objects, and story-critical details.
+Keep the full left third quiet enough to set story text over: continue the same scene through it as calm open environment - sky, far foliage, open ground - painted at exactly the same colour depth, saturation, contrast, exposure, and finish as the rest of the picture. It is calm because the scene is calm there, not because anything covers it: do not lighten it, and do not fade, veil, haze over, wash, whiten, blur, or desaturate it or any other region of the painting. It is part of the painting, not a panel: there must be no hard vertical boundary where it begins, no flat field of colour, no visible edge between it and the rest of the picture, and no change of tone marking where it begins or ends. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-right area. Leave a naturally lit, visually quiet Beki integration zone centered approximately at 59.4% of the canvas width and 45.8% of the canvas height. Keep that zone free of characters, faces, hands, hard edges, foreground objects, and story-critical details.
 ```
 
 ### When `text_side = RIGHT`
 
 ```text
-Keep the full right third quiet enough to set story text over: continue the same scene through it as soft distant environment - sky, far foliage, haze, open ground - gently lightening toward the outer edge. It is part of the painting, not a panel: there must be no hard vertical boundary where it begins, no flat field of colour, and no visible edge between it and the rest of the picture. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-left area, away from the central low-information zone. Leave a naturally lit, visually quiet Beki integration zone between the child and the central low-information zone, centered approximately at 40.6% of the canvas width and 45.8% of the canvas height. Keep that zone free of characters, faces, hands, hard edges, foreground objects, and story-critical details.
+Keep the full right third quiet enough to set story text over: continue the same scene through it as calm open environment - sky, far foliage, open ground - painted at exactly the same colour depth, saturation, contrast, exposure, and finish as the rest of the picture. It is calm because the scene is calm there, not because anything covers it: do not lighten it, and do not fade, veil, haze over, wash, whiten, blur, or desaturate it or any other region of the painting. It is part of the painting, not a panel: there must be no hard vertical boundary where it begins, no flat field of colour, no visible edge between it and the rest of the picture, and no change of tone marking where it begins or ends. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-left area. Leave a naturally lit, visually quiet Beki integration zone centered approximately at 40.6% of the canvas width and 45.8% of the canvas height. Keep that zone free of characters, faces, hands, hard edges, foreground objects, and story-critical details.
 ```
 
 ## Exact runtime prompt template
@@ -139,9 +148,9 @@ RECURRING ELEMENTS REQUIRED ON THIS IMAGE
 
 COMPOSITION
 {{SHOT_INSTRUCTION}}
-Create one continuous very wide panoramic two-page spread designed for a final 15:7 crop.
+Create one continuous very wide panoramic painting designed for a final 15:7 crop.
 {{RESOLVED_TEXT_AND_BEKI_ZONE_BLOCK}}
-Keep the narrow vertical strip at the exact centre of the canvas as a central low-information zone, with only continuous environment passing through it. No face, hand, child, supporting character, or story-critical detail may cross or touch that central zone.
+The middle of the canvas is ordinary painting: continue the environment through it with the same light, the same colour, and the same level of detail as its surroundings, and give it no edges, boundaries, or change of treatment of its own. No face, hand, child, supporting character, or story-critical detail may sit at or near the horizontal middle of the picture.
 Keep all important content in the central horizontal band so modest top-and-bottom crop normalization is safe.
 
 STYLE AND MOOD
@@ -154,9 +163,10 @@ Do not generate any substitute guide, floating mascot, leaf spirit, lamb, sheep,
 Do not generate characters or objects not required by the current scene.
 No duplicate child or duplicated supporting character.
 No text, letters, numbers, logos, captions, labels, signs, frames, QR codes, watermarks, or pseudo-text anywhere.
-The picture is one continuous unbroken painting: no visible vertical dividing line, crease, shadow band, dark strip, page edge, border, or split down the middle. Paint the environment straight through the centre of the canvas as if it were any other part of the scene.
+The picture is one continuous unbroken painting: no visible vertical dividing line, crease, shadow band, dark strip, pale strip, milky or whitened band, page edge, border, or split down the middle. Paint the environment straight through the centre of the canvas as if it were any other part of the scene.
+The left and right halves of the picture must match in brightness, colour, contrast, and finish: neither half may be lighter, paler, hazier, more faded, or more washed-out than the other, and no veil, wash, fog, or overlay may cover any part of the painting.
 No split screen, montage, comic panel, inset frame, before-and-after view, or repeated version of the same character.
-No dark text panel, artificial blur panel, or blank rectangle. The text-safe area must be part of the natural environment.
+No dark or pale text panel, milky veil, white or cream overlay, artificial blur panel, or blank rectangle. The text-safe area is ordinary full-colour painting like the rest of the scene.
 ```
 
 ## Numbered input images
@@ -194,7 +204,16 @@ Deterministic, arithmetic, and applied to every generated base and to the redraw
 4. when the centre reading is more than **5×** the baseline, replace the offending run of **1 to 8 columns** with a straight linear interpolation between the intact columns on either side, row by row, and measure again;
 5. log both readings.
 
-The threshold sits between a picture's ordinary variation (about 1×) and the measured defect (35-68× before the v1.1 de-folding). A run wider than eight columns is not a seam and is left alone: the cost of a missed seam is a faint line, and the cost of a false positive is four smeared columns of somebody's artwork.
+The threshold sits between a picture's ordinary variation (about 1×) and the measured defect (35-68× before the v1.1 de-folding). A run wider than eight columns is not a seam and is left alone: the cost of a missed seam is a faint line, and the cost of a false positive is four smeared columns of somebody's artwork. **v1.5:** a measurement above threshold with no repairable run — a hard step, or a band wider than eight columns — is logged and handed to the centre-field gate below rather than silently passed.
+
+## Centre-field gate (v1.5)
+
+Deterministic, arithmetic, applied to every normalized base immediately after the centre-column gate and before the compositor or the reviewer sees one. It repairs nothing; it refuses. This is the audit's own acceptance test — "compare narrow image strips immediately to the left and right of the centre and reject a centre-aligned discontinuity affecting most of the image height" — plus a second reading for the veil whose soft shoulder no strip comparison at the boundary can see:
+
+1. **Edge reading.** For every candidate boundary within four per cent of the width either side of centre, compare the 8-column strips immediately left and right of it, row by row; a row counts when they differ by more than 12 luma. The reading is the largest fraction of counting rows over any candidate. **Limit 40%.** A razor seam scores most rows; the worst clean reference (the supplier's approved fixture base) scores 27%.
+2. **Field reading.** Same candidates, but compare 48-column strips starting 12 columns out on either side — past the veil's soft shoulder — and count a row only in its dominant direction (left-lighter vs right-lighter, threshold 15 luma). The reading is the larger one-way fraction. **Limit 55%.** The sign discipline is what keeps a legitimately asymmetric composition safe: the approved fixture's halves differ by 52 luma yet score 43% because its differences point both ways, while a veil lifts one whole side and scores 56-100%.
+3. Calibration: the thirty-nine veiled bases stored from six real runs all exceed at least one limit; the supplier's approved fixture base and all six approved intro backgrounds pass both.
+4. A refused base spends the spread's single regeneration (the same budget the review ladder spends). A regenerated base that is refused again stops the spread with `IMAGE_GENERATION_FAILED`, naming both readings.
 
 ## Application checks before the call
 
@@ -207,7 +226,7 @@ The threshold sits between a picture's ordinary variation (about 1×) and the me
 - the child appearance anchor is omitted on spread 1 and is the FIRST attached image on every later spread;
 - the child photograph is attached on every call, whichever position it holds;
 - the numbers written in the prompt are the positions the images are actually attached in;
-- the centre-column gate has run on this base;
+- the centre-column gate and the centre-field gate have run on this base;
 - the continuity image is omitted unless a continuity element is explicitly named;
 - the images are numbered in the order they are attached, and no more than four are attached;
 - no secret, signed URL, raw image bytes, identity-spec attribute value, or unrelated child data is inserted into the logged prompt record.
@@ -217,3 +236,5 @@ The threshold sits between a picture's ordinary variation (about 1×) and the me
 The image stage gets one regeneration attempt per spread, and never more than one. A Beki placement failure is fixed by re-compositing at an adjusted anchor and must not, on its own, trigger a new image-model call.
 
 v1.1 adds the one case where it may. A placement the reviewer refuses *twice* — once at the configured anchor and once at the adjusted one — is evidence about the picture rather than about the placement, so if the single regeneration has not already been spent, it is spent then, at the approved anchor. The bound is unchanged in the only way that matters: two generated base images per spread, never three. The ladder is written out in full in `BEKI_Minimal_Visual_QA_v1.md`.
+
+v1.5 adds the second case: a base the centre-field gate refuses spends the same single regeneration, before any review is bought. The bound still holds — two generated base images per spread, never three — because the gate and the ladder draw from one budget, and a spread whose second base is also refused stops as `IMAGE_GENERATION_FAILED` without a further call of any kind.

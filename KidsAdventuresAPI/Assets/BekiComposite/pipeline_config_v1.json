@@ -1,5 +1,5 @@
 {
-  "config_version": "beki-pipeline-v1",
+  "config_version": "beki-pipeline-v1.1",
   "story": {
     "language": "ka",
     "input_fields": ["child_name", "child_age", "child_gender", "theme_id"],
@@ -26,7 +26,7 @@
     {"page": 4, "text_side": "RIGHT", "shot_instruction": "Use a dramatic atmospheric wide view. Let the environmental change feel important while keeping the child emotionally readable."},
     {"page": 5, "text_side": "LEFT", "shot_instruction": "Use a wide travelling view. Show the child actively choosing or following the route through the environment."},
     {"page": 6, "text_side": "RIGHT", "shot_instruction": "Use a medium-wide major-reveal or problem-solving view. Keep the child's action and the obstacle/reveal legible in one frame."},
-    {"page": 7, "text_side": "LEFT", "shot_instruction": "Use a close emotional view. Prioritize the child's face, the emotional exchange, and the story-relevant object without crowding the fold."},
+    {"page": 7, "text_side": "LEFT", "shot_instruction": "Use a close emotional view. Prioritize the child's face, the emotional exchange, and the story-relevant object, keeping every face and key object away from the middle of the canvas."},
     {"page": 8, "text_side": "RIGHT", "shot_instruction": "Use a cinematic wide continuation view. Resolve the current beat and make the new path or continuation cue clearly visible."}
   ],
   "image_generation": {

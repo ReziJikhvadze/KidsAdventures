@@ -129,6 +129,58 @@ public static class CompositeDeterministicChecks
     }
 
     /// <summary>
+    /// Why a normalized base does not read as one continuous painting across the fold. Empty means
+    /// it does.
+    ///
+    /// This is the supplier's own acceptance test, run before a token is spent on review: compare
+    /// the material either side of the centre and refuse a centre-aligned discontinuity affecting
+    /// most of the image height. It exists because the shipped book it rejects actually shipped —
+    /// every spread carried a milky veil over the text-side half ending in a razor edge at the
+    /// fold, the interpolating repair rightly declined to touch a band that wide, and nothing else
+    /// was looking. The reviewer cannot be the answer: its taxonomy judges content, and a page can
+    /// be perfectly composed and still be two pictures joined at the middle.
+    /// </summary>
+    public static IReadOnlyList<string> CentreFieldProblems(byte[]? png)
+    {
+        var problems = BaseImageProblems(png);
+        if (problems.Count > 0)
+        {
+            return problems;
+        }
+
+        var measured = CompositeSeamRepair.MeasureCentreField(png!);
+        if (!measured.Exceeded)
+        {
+            return [];
+        }
+
+        var readings = new List<string>();
+
+        if (measured.EdgeCoverage >= CompositeSeamRepair.EdgeCoverageLimit)
+        {
+            readings.Add(
+                $"a tonal edge at column {measured.EdgeColumn} runs through "
+                + $"{measured.EdgeCoverage:P0} of the rows (limit "
+                + $"{CompositeSeamRepair.EdgeCoverageLimit:P0})");
+        }
+
+        if (measured.FieldCoverage >= CompositeSeamRepair.FieldCoverageLimit)
+        {
+            readings.Add(
+                $"the two sides of column {measured.FieldColumn} disagree one-way in "
+                + $"{measured.FieldCoverage:P0} of the rows (limit "
+                + $"{CompositeSeamRepair.FieldCoverageLimit:P0})");
+        }
+
+        return
+        [
+            "the picture does not continue across the centre: "
+            + string.Join(", and ", readings)
+            + ". A veil or seam this large is painted into the artwork and cannot be repaired."
+        ];
+    }
+
+    /// <summary>
     /// The fraction of the longer-than-needed dimension a centre-crop to 15:7 removes. Zero for an
     /// image that is already 15:7.
     /// </summary>

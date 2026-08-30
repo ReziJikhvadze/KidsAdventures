@@ -32,7 +32,45 @@ public sealed record SeamMeasurement(
     /// <summary>Whether this picture has a seam worth repairing, and a run of columns to repair.</summary>
     public bool Exceeded => Ratio > CompositeSeamRepair.Threshold && FirstColumn >= 0;
 
+    /// <summary>
+    /// A seam was measured but no repairable run was found — a hard step between the two sides,
+    /// or a band wider than a repair may touch. The interpolator has nothing safe to do with
+    /// either, and the supplier's audit is what happens when that fact stays quiet: five of eight
+    /// shipped spreads measured 11-57× baseline, every one was declined here, and no log said so.
+    /// </summary>
+    public bool DeclinedRepair => Ratio > CompositeSeamRepair.Threshold && FirstColumn < 0;
+
     public int ColumnCount => FirstColumn < 0 ? 0 : LastColumn - FirstColumn + 1;
+}
+
+/// <summary>
+/// What the two sides of a picture's centre measure, against the two ways the audited defect
+/// actually presented: a razor-straight tonal edge at the fold, and a milky veil over the whole
+/// text-side half whose soft shoulder no narrow-band repair can touch.
+/// </summary>
+/// <param name="EdgeCoverage">
+/// The largest fraction of rows, over any candidate boundary in the centre band, whose adjacent
+/// 8-column strips differ by more than the edge step. A razor seam scores most rows; a real
+/// object crossing the centre scores only the rows it occupies.
+/// </param>
+/// <param name="EdgeColumn">The boundary column that scored it, or -1 when nothing measured.</param>
+/// <param name="FieldCoverage">
+/// The largest fraction of rows whose wider flanking strips — sampled past the veil's soft
+/// shoulder — differ by more than the field step <em>in one consistent direction</em>. The sign
+/// matters: a veil lifts one whole side, so nearly every row moves the same way, while ordinary
+/// scene content differs in both directions and cancels.
+/// </param>
+/// <param name="FieldColumn">The boundary column that scored it, or -1.</param>
+public sealed record CentreFieldMeasurement(
+    double EdgeCoverage, int EdgeColumn, double FieldCoverage, int FieldColumn)
+{
+    /// <summary>
+    /// Whether either reading crosses its limit — the audit's own acceptance test, inverted: "no
+    /// centre-aligned discontinuity affecting most of the image height".
+    /// </summary>
+    public bool Exceeded =>
+        EdgeCoverage >= CompositeSeamRepair.EdgeCoverageLimit
+        || FieldCoverage >= CompositeSeamRepair.FieldCoverageLimit;
 }
 
 /// <summary>
@@ -82,6 +120,49 @@ public static class CompositeSeamRepair
     /// somebody's artwork and leave the rest.
     /// </summary>
     public const int MaxRepairColumns = 8;
+
+    /// <summary>
+    /// The narrow strips either side of a candidate boundary, for the razor-edge reading. Eight
+    /// columns: tight enough that a strip sits wholly on one side of a sharp seam, wide enough to
+    /// average out grain.
+    /// </summary>
+    public const int EdgeStripColumns = 8;
+
+    /// <summary>A row counts toward the edge reading when its two strips differ by more than this.</summary>
+    public const double EdgeRowStep = 12.0;
+
+    /// <summary>
+    /// The edge coverage above which a picture is refused.
+    ///
+    /// Calibrated against real material rather than chosen: the thirty-nine veiled bases stored
+    /// from six real runs — the material behind the supplier's rejection — measure 42% to 100%
+    /// where this reading is the one that fires, and every clean reference (the supplier's own
+    /// approved fixture base and the six approved intro backgrounds) stays at or under 27%.
+    /// </summary>
+    public const double EdgeCoverageLimit = 0.40;
+
+    /// <summary>
+    /// How far past the boundary the field strips start. A veil ends in a soft shoulder nine to
+    /// sixteen columns wide; sampling from twelve columns out reads the two sides' actual levels
+    /// instead of the ramp between them.
+    /// </summary>
+    public const int FieldGapColumns = 12;
+
+    /// <summary>The width of each field strip.</summary>
+    public const int FieldStripColumns = 48;
+
+    /// <summary>A row counts toward the field reading when its strips differ by more than this, one-way.</summary>
+    public const double FieldRowStep = 15.0;
+
+    /// <summary>
+    /// The one-directional field coverage above which a picture is refused.
+    ///
+    /// The sign discipline is what makes 0.55 safe: the supplier's approved fixture base — a
+    /// legitimately asymmetric composition whose halves differ by 52 luma — reaches only 43%
+    /// because its differences point both ways, while a veil lifts one whole side and the veiled
+    /// bases that evade the edge reading measure 56% to 100% here.
+    /// </summary>
+    public const double FieldCoverageLimit = 0.55;
 
     /// <summary>
     /// Measures the centre of one PNG.
@@ -244,6 +325,130 @@ public static class CompositeSeamRepair
         }
 
         return new SeamMeasurement(baseline, peak, ratio, first, last, offset);
+    }
+
+    /// <summary>
+    /// Measures both centre-field readings of one PNG.
+    ///
+    /// This is the check the interpolating gate above cannot be: that gate repairs a one-to-eight
+    /// column band and must leave everything wider alone, which meant a milky veil over a full
+    /// half — the defect the supplier rejected a shipped book for — was measured at up to 57×
+    /// baseline and then passed along in silence. This reading does not repair anything. It only
+    /// answers whether the two sides of the centre agree, so the pipeline can refuse the picture
+    /// and buy a redraw while that is still cheap.
+    ///
+    /// Two readings because the defect has two shapes. The razor edge is caught by narrow strips:
+    /// a full-height straight boundary scores most rows, and nothing legitimate does — the worst
+    /// clean reference scores 27% against a 40% limit. The soft-shouldered veil is caught by wide
+    /// strips sampled past the shoulder, counted only in their dominant direction: content differs
+    /// both ways row by row, a veil lifts one side everywhere.
+    /// </summary>
+    public static CentreFieldMeasurement MeasureCentreField(byte[] png)
+    {
+        ArgumentNullException.ThrowIfNull(png);
+
+        using var image = Image.Load<Rgba32>(png);
+
+        var width = image.Width;
+        var height = image.Height;
+
+        var reach = Math.Max(EdgeStripColumns, FieldGapColumns + FieldStripColumns);
+        var centre = width / 2;
+        var slack = Math.Max(3, (int)Math.Round(width * CentreBandFraction));
+
+        var from = Math.Max(reach, centre - slack);
+        var to = Math.Min(width - reach, centre + slack);
+
+        // A frame too small to hold the strips is a test fixture or a thumbnail, not a spread;
+        // there is nothing to measure and nothing to refuse.
+        if (height < 1 || from > to)
+        {
+            return new CentreFieldMeasurement(0, -1, 0, -1);
+        }
+
+        var candidates = to - from + 1;
+        var edgeHits = new int[candidates];
+        var fieldLighterLeft = new int[candidates];
+        var fieldLighterRight = new int[candidates];
+
+        image.ProcessPixelRows(accessor =>
+        {
+            // One prefix-sum row, reused: strip means at every candidate boundary become two
+            // subtractions, which is what keeps ~200 candidates × ~1200 rows arithmetic rather
+            // than a second image pass per candidate.
+            var prefix = new double[width + 1];
+
+            for (var y = 0; y < accessor.Height; y++)
+            {
+                var row = accessor.GetRowSpan(y);
+
+                for (var x = 0; x < width; x++)
+                {
+                    var pixel = row[x];
+                    prefix[x + 1] = prefix[x] + ((pixel.R + pixel.G + pixel.B) / 3.0);
+                }
+
+                for (var i = 0; i < candidates; i++)
+                {
+                    var boundary = from + i;
+
+                    var edgeLeft =
+                        (prefix[boundary] - prefix[boundary - EdgeStripColumns]) / EdgeStripColumns;
+                    var edgeRight =
+                        (prefix[boundary + EdgeStripColumns] - prefix[boundary]) / EdgeStripColumns;
+
+                    if (Math.Abs(edgeLeft - edgeRight) > EdgeRowStep)
+                    {
+                        edgeHits[i]++;
+                    }
+
+                    var fieldLeft =
+                        (prefix[boundary - FieldGapColumns]
+                         - prefix[boundary - FieldGapColumns - FieldStripColumns])
+                        / FieldStripColumns;
+                    var fieldRight =
+                        (prefix[boundary + FieldGapColumns + FieldStripColumns]
+                         - prefix[boundary + FieldGapColumns])
+                        / FieldStripColumns;
+
+                    var difference = fieldLeft - fieldRight;
+                    if (difference > FieldRowStep)
+                    {
+                        fieldLighterLeft[i]++;
+                    }
+                    else if (difference < -FieldRowStep)
+                    {
+                        fieldLighterRight[i]++;
+                    }
+                }
+            }
+        });
+
+        var edgeCoverage = 0.0;
+        var edgeColumn = -1;
+        var fieldCoverage = 0.0;
+        var fieldColumn = -1;
+
+        for (var i = 0; i < candidates; i++)
+        {
+            var edge = (double)edgeHits[i] / height;
+            if (edge > edgeCoverage)
+            {
+                edgeCoverage = edge;
+                edgeColumn = from + i;
+            }
+
+            // The dominant direction only: rows disagreeing about which side is lighter are scene
+            // content, and letting them add up would fail exactly the pictures this must pass.
+            var field = (double)Math.Max(fieldLighterLeft[i], fieldLighterRight[i]) / height;
+            if (field > fieldCoverage)
+            {
+                fieldCoverage = field;
+                fieldColumn = from + i;
+            }
+        }
+
+        return new CentreFieldMeasurement(edgeCoverage, edgeColumn, fieldCoverage, fieldColumn);
     }
 
     /// <summary>

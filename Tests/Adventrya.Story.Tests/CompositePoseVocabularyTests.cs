@@ -882,12 +882,16 @@ public class CompositeGeorgianAndShotNoteTests
 
         Assert.Equal(CompositeSpreadRhythm.ShotFor(3), firstLine);
 
-        // The panorama sentence is still there, and now second.
+        // The panorama sentence is still there, and now second. Since v1.5 it asks for a
+        // "painting" rather than a "two-page spread": a model told the canvas is two pages
+        // treats the middle as a place where one page ends, and the shipped book's veils all
+        // stopped exactly there.
         Assert.Contains(
             $"{CompositeSpreadRhythm.ShotFor(3)}\nCreate one continuous very wide panoramic "
-            + "two-page spread designed for a final 15:7 crop.", prompt);
+            + "painting designed for a final 15:7 crop.", prompt);
+        Assert.DoesNotContain("two-page", prompt);
 
-        Assert.Equal("child-world-image-v1.4", CompositeIllustrationPrompt.Version);
+        Assert.Equal("child-world-image-v1.5", CompositeIllustrationPrompt.Version);
     }
 
     /// <summary>
