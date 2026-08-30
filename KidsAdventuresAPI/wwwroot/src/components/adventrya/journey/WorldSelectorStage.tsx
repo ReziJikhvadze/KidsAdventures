@@ -14,7 +14,7 @@ import {
   SELECTOR_WORLDS,
   type SelectorWorldId,
 } from "@/lib/journey/worldSelector";
-import { useWorldById } from "@/lib/worlds";
+import { useWorldById, type WorldId } from "@/lib/worlds";
 
 type Variant = "desktop" | "mobile";
 
@@ -56,6 +56,20 @@ type Props = {
    * header is already on screen and "back" would point at the ground the reader is standing on.
    */
   embedded?: boolean;
+  /**
+   * Worlds this child already has a finished book in.
+   *
+   * The one thing the parent's space adds to the picker: a tick on the islands they have been
+   * to. A preview does not count — an unpaid draft is not a book, and marking one would tell a
+   * parent they own something they have not bought.
+   */
+  completedWorldIds?: readonly WorldId[];
+  /**
+   * Extra query carried into `/create` when an island is chosen — the child, the book being
+   * continued, the cast. On `/themes` these arrive in the address and are read from there; the
+   * parent's space already holds them and hands them straight in.
+   */
+  startSearch?: Record<string, string>;
 };
 
 /**
@@ -115,7 +129,13 @@ function useChildWorldStates(
  * which is where everything the parent has typed lives. So the behaviour is a component and the
  * CTA is a router navigation.
  */
-export function WorldSelectorStage({ draft, onChange, embedded = false }: Props) {
+export function WorldSelectorStage({
+  draft,
+  onChange,
+  embedded = false,
+  completedWorldIds,
+  startSearch,
+}: Props) {
   const t = useT();
   const router = useRouter();
   const worldById = useWorldById();
@@ -254,7 +274,14 @@ export function WorldSelectorStage({ draft, onChange, embedded = false }: Props)
 
     // Carried through exactly as the old picker carried it: an existing child keeps their id, so
     // starting a second book does not create a second copy of the same kid at checkout.
-    const incoming = router.state.location.search as Record<string, unknown>;
+    /*
+      Handed in, or read from the address.
+
+      `/themes` is reached by a link that carries the child and the adventure in its query. The
+      parent's space renders this picker in place and already holds both, so it passes them as
+      `startSearch` rather than putting them in an address nobody navigated to.
+    */
+    const incoming = (startSearch ?? router.state.location.search) as Record<string, unknown>;
     const text = (key: string) =>
       typeof incoming[key] === "string" ? (incoming[key] as string) : undefined;
     const forChild = text("characterId");
@@ -297,7 +324,7 @@ export function WorldSelectorStage({ draft, onChange, embedded = false }: Props)
       },
       hash: "profile",
     });
-  }, [router, selected]);
+  }, [router, selected, startSearch]);
 
   const selectedWorld = selected
     ? SELECTOR_WORLDS.find((world) => world.id === selected)
@@ -337,6 +364,7 @@ export function WorldSelectorStage({ draft, onChange, embedded = false }: Props)
           embedded={embedded}
           backHref={backHref}
           worldStates={worldStates}
+          completedWorldIds={completedWorldIds}
           onPreview={setPreviewed}
           onChoose={chooseWorld}
           onStart={start}
@@ -364,6 +392,7 @@ function WorldStageArt({
   embedded,
   backHref,
   worldStates,
+  completedWorldIds,
   onPreview,
   onChoose,
   onStart,
@@ -379,6 +408,8 @@ function WorldStageArt({
   backHref: string;
   /** This child's progress through the six worlds, or null when there is no child. */
   worldStates: Record<string, WorldNodeState> | null;
+  /** Worlds with a finished book, marked with a tick. See WorldSelectorStage. */
+  completedWorldIds?: readonly WorldId[];
   onPreview: (id: SelectorWorldId | null) => void;
   onChoose: (id: SelectorWorldId) => void;
   onStart: () => void;
@@ -454,6 +485,8 @@ function WorldStageArt({
           {SELECTOR_WORLDS.map((world) => {
             const isSelected = selected === world.id;
             const place = worldById[world.worldId];
+            /* The one addition the parent's space makes to this picker. */
+            const finished = completedWorldIds?.includes(world.worldId) ?? false;
 
             /*
               Only a child has a state. Without one every island is simply open, which is what a
@@ -471,7 +504,9 @@ function WorldStageArt({
                 key={world.id}
                 className={`world-node hotspot-${world.id}${isSelected ? " is-selected" : ""}${
                   previewed === world.id ? " is-previewed" : ""
-                }${isLocked ? " is-locked" : ""}${isVisited ? " is-visited" : ""}`}
+                }${isLocked ? " is-locked" : ""}${isVisited ? " is-visited" : ""}${
+                  finished ? " is-finished" : ""
+                }`}
                 data-world-node={world.id}
                 /* Placed from the same island coordinates the star flies to, so a tap and a
                    landing can never again disagree about where a world is. */
@@ -488,7 +523,9 @@ function WorldStageArt({
                   aria-label={
                     isLocked
                       ? copy.lockedNote(place.mapTitle)
-                      : `${place.mapTitle}: ${place.teaserBody}`
+                      : finished
+                        ? `${place.mapTitle} — ${copy.visited}`
+                        : `${place.mapTitle}: ${place.teaserBody}`
                   }
                   aria-pressed={isSelected}
                   aria-disabled={isLocked}
@@ -501,6 +538,13 @@ function WorldStageArt({
                   <span className="hotspot-marker" aria-hidden="true">
                     <i />
                   </span>
+                  {finished ? (
+                    <span className="world-finished" aria-hidden="true">
+                      <svg viewBox="0 0 24 24">
+                        <path d="m5 12 4 4L19 6" />
+                      </svg>
+                    </span>
+                  ) : null}
                 </button>
 
                 {/*

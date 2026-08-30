@@ -72,11 +72,19 @@ export function useWorldById(): Record<WorldId, World> {
 }
 
 /** Cover art shipped with the demo, reused for preview and library thumbnails. */
+/*
+  A world's own painting, used wherever a book has no cover of its own yet.
+
+  Three images shared between six worlds is what this was: pirates borrowed the magic castle,
+  animals borrowed the dinosaurs, aeroplanes borrowed space. On the parent's space that showed
+  as a card headed "საიდუმლო კუნძული" over a picture of a castle. `public/adventrya/worlds/`
+  has had all six since the world art was drawn; nothing was pointing at them.
+*/
 export const WORLD_COVER_ART: Record<WorldId, string> = {
-  dinosaurs: "/adventrya/dinosaur-story-v3.webp",
-  space: "/adventrya/space-story-v3.webp",
-  pirates: "/adventrya/magic-story-v3.webp",
-  animals: "/adventrya/dinosaur-story-v3.webp",
-  airplanes: "/adventrya/space-story-v3.webp",
-  magic: "/adventrya/magic-story-v3.webp",
+  dinosaurs: "/adventrya/worlds/dinosaurs.webp",
+  space: "/adventrya/worlds/space.webp",
+  pirates: "/adventrya/worlds/pirates.webp",
+  animals: "/adventrya/worlds/animals.webp",
+  airplanes: "/adventrya/worlds/airplanes.webp",
+  magic: "/adventrya/worlds/magic.webp",
 };

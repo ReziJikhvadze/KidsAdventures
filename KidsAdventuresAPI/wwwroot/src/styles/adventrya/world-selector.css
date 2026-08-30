@@ -1175,3 +1175,50 @@
     display: none;
   }
 }
+
+/*
+  A finished world, marked.
+
+  The only thing the parent's space adds to this picker: an island whose book has actually been
+  made — paid for and generated, never a preview — wears a tick. It rides the island's own marker
+  rather than the name card below it, so the mark is on the place and not on a label that only
+  appears once the island is pointed at. Nothing else about the island changes: it is still
+  chosen the same way, and still leads to a new book in the same world.
+*/
+.world-node.is-finished .world-finished {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  width: clamp(20px, 1.9vw, 30px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 239, 202, 0.66);
+  border-radius: 50%;
+  background: linear-gradient(145deg, #f7e3a8, #cf9c47);
+  box-shadow:
+    0 0 0 4px rgba(236, 191, 105, 0.14),
+    0 0 22px rgba(241, 191, 91, 0.5);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.world-node.is-finished .world-finished svg {
+  width: 62%;
+  height: 62%;
+  fill: none;
+  stroke: #2c1c49;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Its own name reads as somewhere that has been rather than somewhere to go. */
+.world-node.is-finished .world-label {
+  border-color: rgba(255, 232, 169, 0.62);
+}
+
+.mobile-frame .world-node.is-finished .world-finished {
+  width: clamp(18px, 5vw, 26px);
+}

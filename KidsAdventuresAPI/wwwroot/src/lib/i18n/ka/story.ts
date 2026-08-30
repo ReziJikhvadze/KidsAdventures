@@ -107,6 +107,8 @@ export const story = {
     shelfLead: "ყველა შექმნილი ამბავი — წასაკითხად, ჩამოსატვირთად და გასაგრძელებლად.",
     journeySuffix: "ს მოგზაურობა",
     nextAdventure: "შემდეგი თავგადასავალი",
+    /* When an island has been picked on the map, the button says which one it will open. */
+    startHere: (world: string) => `დაიწყე — ${world}`,
     /* The book the parent walked away from, and the way back into it. */
     resumeTitle: "წიგნი ჯერ კიდევ იქმნება",
     resumeBody:

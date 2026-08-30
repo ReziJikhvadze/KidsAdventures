@@ -16,6 +16,15 @@
  * base.css, the reader, or /themes.
  */
 
+/*
+  Deliberately not `.screen`.
+
+  That class comes from the partner demo, where every view was a fixed tableau: `height: 100svh`,
+  `overflow: hidden`, and `min-width: 1100px`. The old dashboard wore it and undid the first two
+  in `dashboard.css`; nobody undid the third, so the page had a horizontal scrollbar at every
+  width below 1100 — measured at 950px: a 1100px shell in a 935px viewport, 165px of overflow.
+  This is a page, so it takes none of it.
+*/
 .journey-screen {
   --jw-ink: #29233a;
   --jw-ink-soft: #655f72;
@@ -369,17 +378,25 @@
   height: 14px;
   flex-shrink: 0;
 }
+/*
+  Two actions fit the handoff's row; a digital book has three, because it can still become a
+  printed one. Wrapping is what makes the third safe — without it "ბეჭდვა · 65 ₾" broke across
+  two lines inside a button whose height is fixed at 38px, and the second line fell out of it.
+*/
 .journey-book-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: auto;
 }
 .journey-book-actions > * {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .journey-small-button {
   height: 38px;
   padding: 0 12px;
+  white-space: nowrap;
 }
 .journey-outline-button {
   color: var(--jw-ink);
@@ -425,167 +442,34 @@
   font-size: 0.7rem;
 }
 
-.journey-map {
-  position: relative;
-  height: 520px;
+/* ---- the picker, inside the page ----------------------------------------- */
+
+/*
+  `/themes`' own component, standing in a section rather than filling a window.
+
+  Everything it does — the hotspots, the star's flight, the light that lifts the chosen island,
+  the button that grows out of its name — belongs to that component. All this does is give it a
+  box: it sizes itself against `100svh` because there it IS the window, and here it is a card in
+  a page that scrolls. The frame keeps the painting's own aspect ratio, so the islands stay
+  exactly where `ISLAND_SPOTS` puts them, and the crop band goes to zero because nothing is
+  cropped.
+*/
+.journey-selector {
   overflow: hidden;
   border-radius: 30px;
-  background-color: var(--jw-night);
-  background-position: center 48%;
-  background-size: cover;
   box-shadow: 0 22px 70px rgba(44, 31, 83, 0.17);
 }
-.journey-map::before {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(
-      90deg,
-      rgba(19, 13, 41, 0.9) 0%,
-      rgba(19, 13, 41, 0.63) 34%,
-      rgba(19, 13, 41, 0.03) 67%
-    ),
-    linear-gradient(0deg, rgba(19, 13, 41, 0.96) 0%, transparent 43%);
-  content: "";
+.journey-selector .experience-shell {
+  min-height: 0;
 }
-.journey-summary {
-  position: absolute;
-  z-index: 2;
-  top: 48px;
-  left: 46px;
-  max-width: 365px;
-  color: #fff;
+.journey-selector .art-stage {
+  height: auto;
+  max-height: none;
 }
-.journey-kicker {
-  display: block;
-  margin-bottom: 12px;
-  color: var(--jw-gold-light);
-  font-size: 0.67rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.journey-summary h3 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(1.65rem, 3vw, 2.75rem);
-  font-weight: 800;
-  letter-spacing: -0.035em;
-  line-height: 1.05;
-}
-.journey-summary p {
-  max-width: 330px;
-  margin: 17px 0 22px;
-  color: rgba(255, 255, 255, 0.76);
-  font-size: 0.78rem;
-  line-height: 1.7;
-}
-.journey-story-cta {
-  height: 43px;
-  padding: 0 17px;
-  color: var(--jw-night);
-  background: var(--jw-gold-light);
-}
-.journey-story-cta:hover {
-  background: var(--jw-gold);
-}
-.journey-story-cta[disabled] {
-  cursor: not-allowed;
-  color: rgba(255, 255, 255, 0.72);
-  background: rgba(255, 255, 255, 0.14);
-  transform: none;
-}
-
-/* The six worlds, along the foot of the painting. This is the milestone: a finished world is a
-   gold disc with a tick, the next is violet and numbered, the rest are dim and locked — and the
-   bar behind them fills to how far the child has come. */
-.journey-track {
-  position: absolute;
-  z-index: 3;
-  right: 42px;
-  bottom: 33px;
-  left: 42px;
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 10px;
-}
-.journey-track-line {
-  position: absolute;
-  top: 19px;
-  right: calc(100% / 12);
-  left: calc(100% / 12);
-  height: 4px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.22);
-}
-.journey-track-line span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--jw-gold-light), var(--jw-gold));
-}
-.journey-node {
-  position: relative;
-  z-index: 2;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 0;
-  border: 0;
-  cursor: pointer;
-  color: rgba(255, 255, 255, 0.72);
-  background: transparent;
-}
-.journey-node:disabled {
-  cursor: not-allowed;
-}
-.journey-marker {
-  width: 42px;
-  height: 42px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid rgba(255, 255, 255, 0.22);
-  border-radius: 999px;
-  color: #fff;
-  background: #322751;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
-  font-size: 0.72rem;
-  font-weight: 900;
-  transition: transform 0.16s ease;
-}
-.journey-marker svg {
-  width: 16px;
-  height: 16px;
-}
-.journey-node[data-state="done"] .journey-marker {
-  color: var(--jw-night);
-  border-color: var(--jw-gold-light);
-  background: var(--jw-gold-light);
-}
-.journey-node[data-state="available"] .journey-marker {
-  border-color: var(--jw-lavender);
-  background: var(--jw-violet);
-}
-.journey-node[data-state="locked"] {
-  opacity: 0.48;
-}
-.journey-node.is-selected .journey-marker {
-  box-shadow:
-    0 0 0 6px rgba(216, 201, 255, 0.18),
-    0 6px 18px rgba(0, 0, 0, 0.25);
-  transform: translateY(-3px) scale(1.06);
-}
-.journey-node-label {
+.journey-selector .desktop-frame,
+.journey-selector .mobile-frame {
   width: 100%;
-  overflow: hidden;
-  font-size: 0.62rem;
-  font-weight: 750;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  --crop-band: 0px;
 }
 
 /* ---- the book still being written ---------------------------------------- */
@@ -677,16 +561,6 @@
   .journey-books {
     grid-template-columns: 1fr;
   }
-  .journey-map::before {
-    background:
-      linear-gradient(
-        90deg,
-        rgba(19, 13, 41, 0.9) 0%,
-        rgba(19, 13, 41, 0.6) 47%,
-        rgba(19, 13, 41, 0.09) 85%
-      ),
-      linear-gradient(0deg, rgba(19, 13, 41, 0.97) 0%, transparent 47%);
-  }
 }
 
 @media (max-width: 720px) {
@@ -707,6 +581,13 @@
   }
   .journey-welcome p {
     font-size: 0.86rem;
+  }
+  .journey-welcome-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .journey-child-switch {
+    justify-content: flex-start;
   }
   .journey-primary-button {
     width: 100%;
@@ -762,61 +643,6 @@
   .journey-progress {
     flex: 0 0 auto;
   }
-  .journey-map {
-    height: 550px;
-    background-position: 51% 55%;
-  }
-  .journey-map::before {
-    background: linear-gradient(
-      180deg,
-      rgba(19, 13, 41, 0.92) 0%,
-      rgba(19, 13, 41, 0.25) 52%,
-      rgba(19, 13, 41, 0.98) 100%
-    );
-  }
-  .journey-summary {
-    top: 27px;
-    right: 23px;
-    left: 23px;
-    max-width: calc(100% - 46px);
-  }
-  .journey-summary h3 {
-    max-width: 290px;
-    font-size: 1.75rem;
-  }
-  .journey-summary p {
-    max-width: 285px;
-    margin: 12px 0 16px;
-    font-size: 0.7rem;
-  }
-  .journey-track {
-    right: 20px;
-    bottom: 22px;
-    left: 20px;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 9px 5px;
-  }
-  .journey-track-line {
-    display: none;
-  }
-  .journey-node {
-    flex-direction: row;
-    justify-content: flex-start;
-    padding: 7px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 14px;
-    background: rgba(19, 13, 41, 0.58);
-  }
-  .journey-marker {
-    width: 32px;
-    height: 32px;
-    flex: 0 0 auto;
-    box-shadow: none;
-  }
-  .journey-node-label {
-    font-size: 0.58rem;
-    text-align: left;
-  }
   .journey-resume {
     flex-wrap: wrap;
   }
@@ -835,5 +661,355 @@
   .journey-badge {
     padding: 6px 7px;
     font-size: 0.58rem;
+  }
+}
+
+/* ---- the pill that adds a child ------------------------------------------ */
+
+.journey-kid-add {
+  padding: 0 12px;
+  color: var(--jw-ink-soft);
+}
+.journey-kid-add svg {
+  width: 15px;
+  height: 15px;
+}
+.journey-kid-add:hover {
+  color: var(--jw-ink);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+/* ---- the book being drawn ------------------------------------------------- */
+
+.journey-resume-drawing {
+  border-color: rgba(233, 185, 95, 0.34);
+  background: linear-gradient(140deg, #fff6e4, var(--jw-paper));
+}
+.journey-resume-drawing .journey-resume-spark {
+  background: var(--jw-gold);
+  color: var(--jw-night);
+}
+.journey-resume-bar {
+  display: block;
+  height: 4px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(41, 35, 58, 0.1);
+}
+.journey-resume-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--jw-gold-light), var(--jw-gold));
+  transition: width 0.4s ease;
+}
+.journey-resume-percent {
+  flex-shrink: 0;
+  color: #8d692b;
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+/* ---- paging -------------------------------------------------------------- */
+
+.journey-paging {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 18px;
+  color: var(--jw-ink-soft);
+  font-size: 0.78rem;
+}
+.journey-paging button[disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+}
+
+/* ---- the printed-copy panel ---------------------------------------------- */
+
+/*
+  The journey's own package panel used to be reused here, and it is a dark card: on this cream
+  page it arrived as a slab of another screen's palette, down to a cancel button that was dark on
+  dark. This is the same form in this page's colours.
+*/
+.journey-print-panel {
+  max-width: 620px;
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid var(--jw-line);
+  border-radius: 24px;
+  background: var(--jw-paper);
+  box-shadow: var(--jw-shadow);
+}
+.journey-print-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 850;
+}
+.journey-print-heading svg {
+  width: 17px;
+  height: 17px;
+  color: var(--jw-violet);
+}
+.journey-print-note {
+  margin: 7px 0 0;
+  color: var(--jw-ink-soft);
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+.journey-print-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+  margin-top: 16px;
+}
+.journey-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.journey-field-wide {
+  grid-column: 1 / -1;
+}
+.journey-field span {
+  color: rgba(41, 35, 58, 0.72);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+.journey-field input {
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid var(--jw-line);
+  border-radius: 14px;
+  outline: 0;
+  color: var(--jw-ink);
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.86rem;
+}
+.journey-field input:focus {
+  border-color: rgba(111, 81, 184, 0.5);
+}
+.journey-field input::placeholder {
+  color: rgba(41, 35, 58, 0.36);
+}
+.journey-print-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+.journey-delivery-edit {
+  margin-left: auto;
+  border: 0;
+  cursor: pointer;
+  color: var(--jw-mint-ink);
+  background: transparent;
+  font-size: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+@media (max-width: 720px) {
+  .journey-print-fields {
+    grid-template-columns: 1fr;
+  }
+  .journey-print-actions {
+    flex-direction: column-reverse;
+  }
+  .journey-print-actions .journey-button {
+    width: 100%;
+  }
+}
+
+/* ---- the child switcher -------------------------------------------------- */
+
+.journey-welcome-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.journey-child-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  height: 52px;
+  padding: 0 14px 0 7px;
+  border: 1px solid var(--jw-line);
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--jw-ink);
+  background: #fff;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+.journey-child-switch:hover,
+.journey-child-switch[data-state="open"] {
+  border-color: rgba(111, 81, 184, 0.34);
+  box-shadow: var(--jw-shadow);
+}
+.journey-child-switch > span {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  line-height: 1.2;
+}
+.journey-child-switch small {
+  color: var(--jw-ink-soft);
+  font-size: 0.64rem;
+}
+.journey-child-switch strong {
+  font-size: 0.85rem;
+  font-weight: 850;
+}
+.journey-child-switch > svg {
+  width: 15px;
+  height: 15px;
+  color: var(--jw-ink-soft);
+}
+.journey-child-avatar {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 999px;
+  color: var(--jw-ink);
+  background: var(--jw-gold-light);
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+.journey-child-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/*
+  Literal colours, and `[role="menu"]` on every rule.
+
+  This menu is a Radix popover: React portals it to <body>, outside `.journey-screen` — which is
+  where `--jw-paper` and the rest are declared. Referring to them from here resolved to nothing,
+  so `background-color` computed to `rgba(0, 0, 0, 0)` and the text fell back to the body's cream.
+  Cream on nothing, over a cream page: the menu was there and unreadable, exactly as reported.
+  The attribute takes the specificity back from Tailwind's `bg-popover text-popover-foreground`,
+  which is built for this product's dark screens and is wrong here either way.
+*/
+.journey-child-menu[role="menu"] {
+  min-width: 268px;
+  padding: 6px;
+  border: 1px solid #e9e1d7;
+  border-radius: 18px;
+  background-color: #fffdf8;
+  color: #29233a;
+  box-shadow: 0 24px 60px rgba(41, 35, 58, 0.18);
+}
+.journey-child-menu[role="menu"] [role="menuitem"] {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 10px;
+  border-radius: 14px;
+  color: #29233a;
+  cursor: pointer;
+}
+.journey-child-menu[role="menu"] [role="menuitem"]:focus,
+.journey-child-menu[role="menu"] [role="menuitem"]:hover {
+  background-color: #f3eee6;
+  color: #29233a;
+}
+.journey-child-menu[role="menu"] [role="menuitem"] > span:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.journey-child-menu[role="menu"] strong {
+  color: #29233a;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+.journey-child-menu[role="menu"] small {
+  color: #655f72;
+  font-size: 0.71rem;
+}
+.journey-child-menu[role="menu"] [role="menuitem"][data-on] {
+  background-color: #eee8ff;
+}
+.journey-child-menu[role="menu"] [role="menuitem"] > svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #6f51b8;
+}
+.journey-child-menu[role="menu"] [role="separator"] {
+  height: 1px;
+  margin: 5px 8px;
+  background-color: #e9e1d7;
+}
+/* The avatar and the add-a-child disc travel into the portal too. */
+.journey-child-menu[role="menu"] .journey-child-avatar {
+  color: #29233a;
+  background: #ffe8a9;
+}
+.journey-child-menu[role="menu"] .journey-child-add {
+  border-color: rgba(41, 35, 58, 0.28);
+  color: #655f72;
+}
+.journey-child-add {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  border: 1px dashed rgba(41, 35, 58, 0.28);
+  border-radius: 999px;
+  color: var(--jw-ink-soft);
+}
+.journey-child-add svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ---- the PDF being built ------------------------------------------------- */
+
+.journey-pdf-progress {
+  margin-top: 8px;
+}
+.journey-pdf-progress small {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--jw-ink-soft);
+  font-size: 0.7rem;
+}
+/* No number from the server yet, so the bar says "working" rather than "nothing has happened". */
+.journey-resume-bar[data-indeterminate] i {
+  width: 38%;
+  animation: journey-bar-sweep 1.5s ease-in-out infinite;
+}
+@keyframes journey-bar-sweep {
+  0% {
+    margin-left: -38%;
+  }
+  100% {
+    margin-left: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journey-resume-bar[data-indeterminate] i {
+    width: 100%;
+    animation: none;
+    opacity: 0.5;
   }
 }

@@ -292,7 +292,9 @@ function Footer() {
           <strong>{F.product}</strong>
           <Link to={START_JOURNEY}>{t.common.nav.createBook}</Link>
           <a href="#pricing">{t.common.nav.pricing}</a>
-          <Link to="/world">{F.myWorld}</Link>
+          <Link to="/dashboard" hash="story-path">
+            {F.myWorld}
+          </Link>
         </div>
         <div>
           <strong>{F.help}</strong>

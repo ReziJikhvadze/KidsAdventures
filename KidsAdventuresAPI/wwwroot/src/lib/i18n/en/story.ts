@@ -98,6 +98,7 @@ export const story = {
     shelfLead: "Every story made so far — to read, to download, and to carry on.",
     journeySuffix: "'s journey",
     nextAdventure: "The next adventure",
+    startHere: (world: string) => `Start here — ${world}`,
     resumeTitle: "A book is still being made",
     resumeBody:
       "Leaving this page did not stop it — the story is still being written. Come back and see where it got to.",
