@@ -183,6 +183,17 @@ public static class CompositeThemeReferences
 }
 
 /// <summary>
+/// One page's recurring elements, resolved three ways for three readers: the raw descriptions
+/// (continuity references and the QA reviewer key on them), the same descriptions annotated with
+/// their prop state (the image prompt's RECURRING block), and the prohibition sentences for
+/// elements whose state bans them from the page (the hard constraints).
+/// </summary>
+public sealed record CompositeSpreadElements(
+    IReadOnlyList<string> Required,
+    IReadOnlyList<string> Annotated,
+    IReadOnlyList<string> Forbidden);
+
+/// <summary>
 /// Everything one spread's image prompt is resolved from. All of it is either code's decision or
 /// the Visual Scenario's; none of it is the image model's.
 /// </summary>
@@ -202,8 +213,15 @@ public sealed record CompositeSpreadPromptInput
     /// <summary>The book-level outfit lock, identical on every image of this book.</summary>
     public required string ChildOutfit { get; init; }
 
-    /// <summary>Only the recurring elements this page needs — see <see cref="CompositeIllustrationPrompt.RelevantRecurringElements"/>.</summary>
+    /// <summary>Only the recurring elements this page needs — see <see cref="CompositeIllustrationPrompt.ElementsFor"/>.</summary>
     public IReadOnlyList<string> RecurringElements { get; init; } = [];
+
+    /// <summary>
+    /// Full prohibition sentences for elements whose prop state bans them from this page — the
+    /// object before its discovery, the object after it was left behind. Appended to the hard
+    /// constraints, because the audit's lantern appeared exactly where nothing forbade it.
+    /// </summary>
+    public IReadOnlyList<string> ForbiddenElements { get; init; } = [];
 
     /// <summary>
     /// The recurring elements a continuity reference is attached for. Empty means that image is
@@ -382,6 +400,7 @@ public static class CompositeIllustrationPrompt
 
             COMPOSITION
             {shot}
+            Obey that camera distance and framing exactly; do not default to a medium shot, and keep the page's main story subject fully inside the frame.
             Create one continuous very wide panoramic painting designed for a final 15:7 crop.
             {CompositionBlockFor(textSide)}
             {CentralZoneRule}
@@ -391,9 +410,14 @@ public static class CompositeIllustrationPrompt
             Premium warm stylized 3D children's-book illustration; expressive but natural; soft tactile materials; cinematic depth; welcoming, age-appropriate emotional tone. Match the supplied approved theme reference while creating a new scene.
 
             HARD CONSTRAINTS
-            {SpreadConstraints}
+            {SpreadConstraints}{ForbiddenElementLines(input.ForbiddenElements)}
             """;
     }
+
+    private static string ForbiddenElementLines(IReadOnlyList<string> lines) =>
+        lines.Count == 0
+            ? string.Empty
+            : "\n" + string.Join("\n", lines);
 
     /// <summary>
     /// The continuous cover base, resolved against the printer's own geometry.
@@ -542,6 +566,83 @@ public static class CompositeIllustrationPrompt
                 scene.Contains(LeadPhrase(element), StringComparison.OrdinalIgnoreCase)
                 || Tokens(element).Count(sceneTokens.Contains) >= 2)
             .ToList();
+    }
+
+    /// <summary>
+    /// One page's recurring elements resolved under the prop-state contract (v2.2), or — for a
+    /// scenario planned before the amendment — by the fuzzy scene-matching above.
+    ///
+    /// The difference is the difference the supplier's audit measured. Fuzzy matching decided an
+    /// element's presence from whether the model's own prose happened to name it, so the lantern
+    /// appeared before its discovery and nothing was wrong with any single page. A stated state
+    /// makes presence a plan: FOUND, CARRIED and PLACED elements are required with their state
+    /// written into the prompt; AMBIENT ones are required as before; NOT_FOUND and
+    /// NO_LONGER_CARRIED ones become explicit prohibitions in the hard constraints; ABSENT ones
+    /// are simply not asked for.
+    /// </summary>
+    public static CompositeSpreadElements ElementsFor(
+        IReadOnlyList<string>? elements,
+        string? scene,
+        IReadOnlyList<VisualScenarioProp>? props)
+    {
+        if (props is null)
+        {
+            var fuzzy = RelevantRecurringElements(elements, scene);
+            return new CompositeSpreadElements(fuzzy, fuzzy, []);
+        }
+
+        var required = new List<string>();
+        var annotated = new List<string>();
+        var forbidden = new List<string>();
+
+        foreach (var element in elements ?? [])
+        {
+            var state = props.FirstOrDefault(prop =>
+                    string.Equals(prop.Element?.Trim(), element, StringComparison.Ordinal))
+                ?.State?.Trim();
+
+            if (state is null)
+            {
+                continue;
+            }
+
+            switch (state)
+            {
+                case VisualScenarioPropStates.Found:
+                    required.Add(element);
+                    annotated.Add(element + " — the child discovers this in this very moment; it has not been seen before this page.");
+                    break;
+
+                case VisualScenarioPropStates.Carried:
+                    required.Add(element);
+                    annotated.Add(element + " — the child is holding or carrying this.");
+                    break;
+
+                case VisualScenarioPropStates.Placed:
+                    required.Add(element);
+                    annotated.Add(element + " — the child is placing this where the story says it now belongs.");
+                    break;
+
+                case VisualScenarioPropStates.Ambient:
+                    required.Add(element);
+                    annotated.Add(element);
+                    break;
+
+                case VisualScenarioPropStates.NotFound:
+                    forbidden.Add(
+                        $"Do not show {LeadPhrase(element)} anywhere in this picture: the story "
+                        + "has not discovered it yet.");
+                    break;
+
+                case VisualScenarioPropStates.NoLongerCarried:
+                    forbidden.Add(
+                        $"Do not show {LeadPhrase(element)} anywhere in this picture: the child "
+                        + "left it behind and no longer has it.");
+                    break;
+            }
+        }
+
+        return new CompositeSpreadElements(required, annotated, forbidden);
     }
 
     /// <summary>
@@ -829,8 +930,17 @@ public static class CompositeVisualScenarioPrompt
     /// It is a version bump rather than a silent addition because this string is recorded against
     /// every scenario call — a book planned before the steering and a book planned after it were
     /// asked for different sentences, and the record should say which.
+    ///
+    /// v2.2 adds the prop-state contract, against the supplier's rejection of the lantern book:
+    /// the key object was in the child's hand a page before its discovery and again a page after
+    /// being left in the nest, and every page passed its own review because nothing anywhere
+    /// stated where the object stood. Every spread now carries one state per recurring element
+    /// (NOT_FOUND → FOUND → CARRIED → PLACED → NO_LONGER_CARRIED for a carried object; AMBIENT
+    /// for a companion; ABSENT for "not in this picture"), the validator enforces the chain's
+    /// order across the book, and the image prompt turns the states into explicit inclusions and
+    /// prohibitions.
     /// </summary>
-    public const string Version = "visual-scenario-v2.1";
+    public const string Version = "visual-scenario-v2.2";
 
     /// <summary>The schema name recorded against the call. The file itself is the response schema.</summary>
     public const string SchemaName = "visual_scenario_v2";
@@ -985,6 +1095,16 @@ public static class CompositeVisualScenarioPrompt
         - Keep beki_action to one concise sentence.
         - Vary action and emotion naturally, but never invent activity only to create variety.
 
+        PROP STATES
+
+        - Every spread carries a props array with EXACTLY ONE entry per recurring element, using the element's exact recurring_elements wording.
+        - Each entry's state says where that element stands on that page, so no picture can show an object the story has not discovered yet or has already left behind.
+        - For an object the child finds, carries, and leaves, use the chain in story order: NOT_FOUND on every page before the discovery, FOUND on the one page where the child discovers it, CARRIED while the child has it, PLACED on the one page where the child sets it where it now belongs, NO_LONGER_CARRIED on every page after that.
+        - FOUND appears on exactly one page. PLACED appears on at most one page. Never move backwards along the chain.
+        - For a companion character or a scenery element that is simply present, use AMBIENT on the pages where it appears.
+        - Use ABSENT for any element that is not visible in that page's picture. Never mix AMBIENT with the chain states for one element.
+        - The scene text and the state must agree: a page whose scene shows the child holding the object is a CARRIED page, and a page before the discovery must neither show nor name it.
+
         OUTPUT
 
         Return valid JSON only, with exactly this structure and no additional keys:
@@ -1005,12 +1125,18 @@ public static class CompositeVisualScenarioPrompt
             {
               "page": 1,
               "child_world_scene": "One concise scene that mentions the child and does not mention Beki",
-              "beki_action": "One concise sentence that explicitly mentions Beki"
+              "beki_action": "One concise sentence that explicitly mentions Beki",
+              "props": [
+                {
+                  "element": "The exact recurring_elements wording",
+                  "state": "NOT_FOUND | FOUND | CARRIED | PLACED | NO_LONGER_CARRIED | AMBIENT | ABSENT"
+                }
+              ]
             }
           ]
         }
 
-        The spreads array must contain exactly eight entries, ordered from page 1 to page 8.
+        The spreads array must contain exactly eight entries, ordered from page 1 to page 8. Each spread's props array holds one entry per recurring element; use an empty array when recurring_elements is empty.
         """;
 
     /// <summary>
@@ -1097,7 +1223,7 @@ public static class CompositeVisualScenarioPrompt
                     {
                         type = "object",
                         additionalProperties = false,
-                        required = new[] { "page", "child_world_scene", "beki_action" },
+                        required = new[] { "page", "child_world_scene", "beki_action", "props" },
                         properties = new Dictionary<string, object>
                         {
                             ["page"] = new
@@ -1113,7 +1239,37 @@ public static class CompositeVisualScenarioPrompt
                                 + "substitute guide. Non-empty."),
                             ["beki_action"] = Text(
                                 "One concise sentence that explicitly mentions Beki. Read only by "
-                                + "code, to choose an approved pose. Non-empty.")
+                                + "code, to choose an approved pose. Non-empty."),
+                            ["props"] = new
+                            {
+                                type = "array",
+                                description =
+                                    "EXACTLY one entry per recurring element, using the element's "
+                                    + "exact recurring_elements wording; an empty array when there "
+                                    + "are no recurring elements. States follow the PROP STATES "
+                                    + "rules: the carried-object chain in story order, AMBIENT for "
+                                    + "a present companion, ABSENT for anything not in this "
+                                    + "picture.",
+                                items = new
+                                {
+                                    type = "object",
+                                    additionalProperties = false,
+                                    required = new[] { "element", "state" },
+                                    properties = new Dictionary<string, object>
+                                    {
+                                        ["element"] = Text(
+                                            "The exact recurring_elements wording for this "
+                                            + "element."),
+                                        ["state"] = new
+                                        {
+                                            type = "string",
+                                            @enum = VisualScenarioPropStates.All,
+                                            description =
+                                                "Where this element stands on this page."
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

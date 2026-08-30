@@ -520,7 +520,7 @@ public class CompositePoseVocabularyTests
         // And it must not undo the contract's own variety rule by inviting one family everywhere.
         Assert.Contains("do not reuse one family for the whole book", instruction);
 
-        Assert.Equal("visual-scenario-v2.1", CompositeVisualScenarioPrompt.Version);
+        Assert.Equal("visual-scenario-v2.2", CompositeVisualScenarioPrompt.Version);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -882,13 +882,16 @@ public class CompositeGeorgianAndShotNoteTests
 
         Assert.Equal(CompositeSpreadRhythm.ShotFor(3), firstLine);
 
-        // The panorama sentence is still there, and now second. Since v1.5 it asks for a
-        // "painting" rather than a "two-page spread": a model told the canvas is two pages
-        // treats the middle as a place where one page ends, and the shipped book's veils all
-        // stopped exactly there.
+        // The reinforcement rides directly under the shot (v1.5, against the audit's "only
+        // partially followed" finding), and the panorama sentence follows. Since v1.5 it asks
+        // for a "painting" rather than a "two-page spread": a model told the canvas is two
+        // pages treats the middle as a place where one page ends, and the shipped book's veils
+        // all stopped exactly there.
         Assert.Contains(
-            $"{CompositeSpreadRhythm.ShotFor(3)}\nCreate one continuous very wide panoramic "
-            + "painting designed for a final 15:7 crop.", prompt);
+            $"{CompositeSpreadRhythm.ShotFor(3)}\nObey that camera distance and framing exactly; "
+            + "do not default to a medium shot, and keep the page's main story subject fully "
+            + "inside the frame.\nCreate one continuous very wide panoramic painting designed "
+            + "for a final 15:7 crop.", prompt);
         Assert.DoesNotContain("two-page", prompt);
 
         Assert.Equal("child-world-image-v1.5", CompositeIllustrationPrompt.Version);
@@ -912,8 +915,11 @@ public class CompositeGeorgianAndShotNoteTests
             shotInstruction: CompositeSpreadRhythm.ShotFor(3));
 
         Assert.Contains($"Shot this page was asked for: {CompositeSpreadRhythm.ShotFor(3)}", prompt);
-        Assert.Contains("This is advisory only: it is not a failed check", prompt);
-        Assert.Contains("shot_note is optional, advisory, and never a failure", prompt);
+
+        // v1.5: a clear contradiction is a real check; the note survives only for the borderline
+        // impression, and still changes nothing on its own.
+        Assert.Contains("fail SHOT_COMPLIANCE with recommended_action regenerate_base", prompt);
+        Assert.Contains("shot_note is optional, advisory, and never a failure on its own", prompt);
 
         // A caller with no rhythm entry says nothing about a shot rather than inventing one.
         Assert.DoesNotContain(
@@ -922,7 +928,7 @@ public class CompositeGeorgianAndShotNoteTests
                 "The child steps into the valley.", "Beki points toward the path.",
                 "a mustard tunic", [], "LEFT"));
 
-        Assert.Equal("minimal-visual-qa-v1.4", CompositeMinimalQa.Version);
+        Assert.Equal("minimal-visual-qa-v1.5", CompositeMinimalQa.Version);
     }
 
     /// <summary>

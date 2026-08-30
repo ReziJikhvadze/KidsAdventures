@@ -1,9 +1,17 @@
-# BEKI Visual Scenario Prompt v2.1
+# BEKI Visual Scenario Prompt v2.2
 
-**Prompt version:** `visual-scenario-v2.1`  
+**Prompt version:** `visual-scenario-v2.2`  
 **Status:** Implementation source  
 **Calls:** One normal text-model call per complete book; one validation retry maximum  
-**Purpose:** Convert one approved eight-spread Georgian story into one cover plan, one book-level visual lock, and eight machine-safe child/world scenes with separate Beki actions.
+**Purpose:** Convert one approved eight-spread Georgian story into one cover plan, one book-level visual lock, and eight machine-safe child/world scenes with separate Beki actions and per-spread prop states.
+
+## v2.2 changelog
+
+Amended against the supplier's production rejection of 2026-08-31 (P1-A "prop continuity is broken"): the audited book's blue lantern was in the child's hand on spread 1 although the story discovers it on spread 2, was being lowered into the nest on spread 6 although placement belongs to spread 7, and reappeared in hand on spread 8 after being left behind — and every page passed its own review, because no layer of the plan stated where the object stood.
+
+- **New required output, `props`:** every spread carries one entry per recurring element — the element's exact `recurring_elements` wording plus a state. A carried object runs the audit's own chain in story order: `NOT_FOUND → FOUND → CARRIED → PLACED → NO_LONGER_CARRIED` (FOUND on exactly one page, PLACED on at most one, never backwards). A companion or scenery element is `AMBIENT` where it appears; `ABSENT` means "not in this picture" and is legal for anything at any time. The system instruction gains a `PROP STATES` section stating these rules; the OUTPUT example shows the shape.
+- **Validation:** `visual_scenario_v2.schema.json` gains the optional `props` property (enum-checked states); the validator enforces coverage (`PROP_STATES_INCOMPLETE`), well-formedness (`PROP_STATE_INVALID`) and the chain's order across the book (`PROP_STATE_SEQUENCE`) — the lantern book is now rejected at planning time, before a single image is paid for. A scenario with no props anywhere (the approved fixture; a stored plan read back on a resume) stays valid; the request-side response schema is what makes every new scenario carry them.
+- **Downstream:** the image prompt turns the states into facts — FOUND/CARRIED/PLACED elements are required with their state written beside them, NOT_FOUND and NO_LONGER_CARRIED become explicit prohibitions in the hard constraints, ABSENT is simply not asked for — replacing the fuzzy scene-text matching for state-carrying scenarios. The minimal visual QA (v1.5) is told the states and fails a contradicting page with the new `PROP_STATE` category.
 
 ## v2.1 changelog
 

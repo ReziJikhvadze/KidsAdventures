@@ -81,6 +81,63 @@ public sealed record VisualScenarioSpread
 
     [JsonPropertyName("beki_action")]
     public string? BekiAction { get; init; }
+
+    /// <summary>
+    /// v2.2: where each recurring element stands on this page — the cross-spread object-state
+    /// contract the supplier's audit mandated after the lantern book. The rejected book showed
+    /// its key object in the child's hand a page before its discovery and again a page after it
+    /// was left in the nest; nothing in the plan said either was wrong, because the plan had no
+    /// words for an object's state. Null on scenarios planned before the amendment, which stay
+    /// valid; every new scenario states one entry per recurring element per spread.
+    /// </summary>
+    [JsonPropertyName("props")]
+    public IReadOnlyList<VisualScenarioProp>? Props { get; init; }
+}
+
+/// <summary>
+/// One recurring element's state on one spread.
+///
+/// The states are the audit's own contract, plus the two a real book needs beside it. An object
+/// the story picks up and leaves runs the chain NOT_FOUND → FOUND → CARRIED → PLACED →
+/// NO_LONGER_CARRIED. A companion creature is AMBIENT wherever it appears — a friend is not
+/// carried. ABSENT means "not in this picture" and is legal for anything at any time, because a
+/// carried object can sit in a pocket for a page without the plan lying about it.
+/// </summary>
+public sealed record VisualScenarioProp
+{
+    /// <summary>The recurring element, exactly as visual_lock.recurring_elements states it.</summary>
+    [JsonPropertyName("element")]
+    public string? Element { get; init; }
+
+    [JsonPropertyName("state")]
+    public string? State { get; init; }
+}
+
+/// <summary>The prop-state vocabulary, spelled once.</summary>
+public static class VisualScenarioPropStates
+{
+    public const string NotFound = "NOT_FOUND";
+    public const string Found = "FOUND";
+    public const string Carried = "CARRIED";
+    public const string Placed = "PLACED";
+    public const string NoLongerCarried = "NO_LONGER_CARRIED";
+    public const string Ambient = "AMBIENT";
+    public const string Absent = "ABSENT";
+
+    /// <summary>The carried-object chain, in story order. Position is the state's stage.</summary>
+    public static readonly IReadOnlyList<string> Chain =
+        [NotFound, Found, Carried, Placed, NoLongerCarried];
+
+    public static readonly IReadOnlyList<string> All =
+        [NotFound, Found, Carried, Placed, NoLongerCarried, Ambient, Absent];
+
+    /// <summary>States that put the element in the picture.</summary>
+    public static bool Visible(string state) =>
+        state is Found or Carried or Placed or Ambient;
+
+    /// <summary>States that forbid the element from the picture outright.</summary>
+    public static bool Forbidden(string state) =>
+        state is NotFound or NoLongerCarried;
 }
 
 /// <summary>

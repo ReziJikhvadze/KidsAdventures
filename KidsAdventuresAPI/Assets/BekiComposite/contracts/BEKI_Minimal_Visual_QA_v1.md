@@ -1,8 +1,16 @@
-# BEKI Minimal Visual QA v1.4
+# BEKI Minimal Visual QA v1.5
 
-**Prompt version:** `minimal-visual-qa-v1.4`  
+**Prompt version:** `minimal-visual-qa-v1.5`  
 **Status:** Implementation source  
 **Purpose:** Review only parent-visible critical failures after exact Beki compositing.
+
+## v1.5 changelog
+
+Amended against the supplier's production rejection of 2026-08-31 (P1-A prop continuity, P1-B shot rhythm). v1.3 made the shot judgement advisory pending evidence; the evidence arrived as a rejected book, so the clear cases become checks while the borderline impression keeps its note.
+
+- **New category `PROP_STATE`:** the page description now quotes the plan's own object states (Visual Scenario v2.2's `props`), and a picture that contradicts one — the object visible before its discovery or after being left behind, or missing while the plan says the child is discovering, holding, or placing it — fails with `recommended_action: regenerate_base`. The audited lantern passed eight reviews because no reviewer was ever told where the lantern was supposed to be.
+- **New category `SHOT_COMPLIANCE`:** a rendering that clearly contradicts the stated shot — wrong camera distance, a required full figure not fully visible, the main story subject cropped by the canvas edge — is a failure with `recommended_action: regenerate_base`, bounded by the unchanged one-regeneration budget. `shot_note` survives for borderline impressions only and still changes nothing on its own.
+- **Schema:** the two names join the `failed_checks` enum in `minimal_visual_qa_v1.schema.json` — additive, so every answer valid under v1.4 remains valid.
 
 ## v1.4 changelog
 

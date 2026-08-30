@@ -855,8 +855,8 @@ public sealed class CompositeBookPipeline(
               tells the model to copy the named elements from the attached picture: hand it a
               composite and the thing it is being shown is Beki.
             */
-            var elements = CompositeIllustrationPrompt.RelevantRecurringElements(
-                visualLock.RecurringElements, page.ChildWorldScene);
+            var elements = CompositeIllustrationPrompt.ElementsFor(
+                visualLock.RecurringElements, page.ChildWorldScene, page.Props).Required;
 
             if (resume.BaseImages.TryGetValue(page.Page, out var storedBase)
                 && storedBase.Length > 0)
@@ -1635,8 +1635,11 @@ public sealed class CompositeBookPipeline(
         var textSide = CompositeSpreadRhythm.TextSideFor(page.Page);
         var visualLock = scenario.VisualLock!;
 
-        var elements = CompositeIllustrationPrompt.RelevantRecurringElements(
-            visualLock.RecurringElements, page.ChildWorldScene);
+        // The prop-state contract decides what this page shows, forbids and matches on; a
+        // scenario planned before v2.2 falls back to the fuzzy scene matching inside.
+        var elementPlan = CompositeIllustrationPrompt.ElementsFor(
+            visualLock.RecurringElements, page.ChildWorldScene, page.Props);
+        var elements = elementPlan.Required;
 
         // Read once, when this page is scheduled: the most recently accepted base carrying one of
         // this page's recurring elements. With the pages drawn concurrently that is usually spread
@@ -1653,7 +1656,8 @@ public sealed class CompositeBookPipeline(
             Theme = theme,
             ChildWorldScene = page.ChildWorldScene!,
             ChildOutfit = visualLock.ChildOutfit!,
-            RecurringElements = elements,
+            RecurringElements = elementPlan.Annotated,
+            ForbiddenElements = elementPlan.Forbidden,
             ContinuityElementNames = reference?.ElementNames ?? [],
             IdentitySpec = identity,
             AnchorAttached = anchored,
@@ -2322,8 +2326,12 @@ public sealed class CompositeBookPipeline(
             anchored,
             identity,
             // v1.3: the same sentence the image prompt opened its composition block with, so the
-            // reviewer's advisory shot_note is a comparison rather than a description.
-            CompositeSpreadRhythm.ShotFor(page.Page));
+            // reviewer's shot judgement is a comparison rather than a description.
+            CompositeSpreadRhythm.ShotFor(page.Page),
+            // v1.5: the plan's own object states, so PROP_STATE is a check against a stated fact
+            // — the lantern book's every page passed because no reviewer was ever told where the
+            // lantern was supposed to be.
+            CompositeMinimalQa.PropStateLines(page.Props));
 
         /*
           The child's photograph, and — after spread one — the child appearance anchor. Nothing else.

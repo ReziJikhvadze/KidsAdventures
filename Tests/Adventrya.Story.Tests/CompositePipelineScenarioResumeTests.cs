@@ -386,7 +386,7 @@ public class CompositePipelineScenarioResumeTests : CompositePipelineTestBase
         var current = BekiCompositeContractTerms.Current("dinosaurs");
 
         Assert.Equal("child-world-image-v1.5", CompositeIllustrationPrompt.Version);
-        Assert.Equal("minimal-visual-qa-v1.4", CompositeMinimalQa.Version);
+        Assert.Equal("minimal-visual-qa-v1.5", CompositeMinimalQa.Version);
         Assert.Equal("child-identity-spec-v1.2", CompositeChildIdentity.Version);
 
         // The two v1 shapes an in-flight book could have been written under.

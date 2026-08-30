@@ -393,14 +393,25 @@ public static class CompositeMinimalQa
     /// measured it; a hard gate on a subjective judgement made from one frame would spend a paid
     /// image call on every false positive. So the reviewer records, and the next revision decides.
     /// </summary>
-    public const string Version = "minimal-visual-qa-v1.4";
+    /// <summary>
+    /// v1.5 is that next revision, and the evidence arrived as a production rejection rather than
+    /// as counted notes: the audited book's shots were "only partially followed" and its key
+    /// object appeared before its discovery and after being left behind, with every page passing
+    /// review. Two categories join the taxonomy. SHOT_COMPLIANCE fails a page whose framing
+    /// clearly contradicts the stated shot — wrong camera distance, a required full figure not
+    /// fully visible, the main story subject cropped by the canvas edge. PROP_STATE fails a page
+    /// that contradicts the plan's stated object states, which v2.2 scenarios now carry and this
+    /// prompt now quotes. The advisory <c>shot_note</c> survives for borderline impressions; the
+    /// clear contradiction is a check.
+    /// </summary>
+    public const string Version = "minimal-visual-qa-v1.5";
 
     /// <summary>
-    /// The supplied file stays the authority. The nine category names, the shape and the validation
-    /// rules have not moved since v1; v1.1 and v1.2 changed only what the reviewer is shown and what
-    /// CHILD_IDENTITY means, neither of which is in the schema. v1.3 added exactly one **optional**
-    /// property, <c>shot_note</c> — required because the shape is <c>additionalProperties: false</c>,
-    /// and optional so that every answer valid under v1.2 is still valid.
+    /// The supplied file stays the authority. v1.1 and v1.2 changed only what the reviewer is
+    /// shown and what CHILD_IDENTITY means, neither of which is in the schema. v1.3 added exactly
+    /// one **optional** property, <c>shot_note</c>. v1.5 adds the two category names
+    /// <c>PROP_STATE</c> and <c>SHOT_COMPLIANCE</c> to the <c>failed_checks</c> enum — additive,
+    /// so every answer valid under v1.4 is still valid.
     /// </summary>
     public const string SchemaFileName = "minimal_visual_qa_v1.schema.json";
 
@@ -441,7 +452,8 @@ public static class CompositeMinimalQa
         string textSide,
         bool anchorAttached = false,
         ChildIdentitySpec? identity = null,
-        string? shotInstruction = null)
+        string? shotInstruction = null,
+        IReadOnlyList<string>? propStates = null)
     {
         var elements = recurringElements is { Count: > 0 }
             ? string.Join("; ", recurringElements)
@@ -465,14 +477,24 @@ public static class CompositeMinimalQa
               + "do not, that alone is a CHILD_IDENTITY failure."
               + GlassesRule(identity);
 
-        // Advisory, and the wording says so twice — in the instruction and here. A reviewer that
-        // suspects a note has consequences either writes none or writes one about everything.
+        // v1.5: the clear contradiction is SHOT_COMPLIANCE, a real check; the note stays for the
+        // borderline impression a check should not be failed on.
         var shot = string.IsNullOrWhiteSpace(shotInstruction)
             ? string.Empty
             : $"\nShot this page was asked for: {shotInstruction.Trim()} If the rendered "
-              + "composition clearly contradicts that shot type, put one short sentence in "
-              + "shot_note. This is advisory only: it is not a failed check and must not change "
-              + "status or recommended_action.";
+              + "composition clearly contradicts that shot type — wrong camera distance, a "
+              + "required full figure not fully visible, the main story subject cropped by the "
+              + "canvas edge — fail SHOT_COMPLIANCE with recommended_action regenerate_base. For "
+              + "a borderline impression, put one short sentence in shot_note instead; the note "
+              + "is advisory and changes nothing.";
+
+        // v1.5: the plan's own object states, quoted so PROP_STATE is a judgement against a
+        // stated fact rather than an inference from one frame.
+        var props = propStates is { Count: > 0 }
+            ? "\nStory object states this page: " + string.Join("; ", propStates)
+              + ". A picture that contradicts one of these states is a PROP_STATE failure with "
+              + "recommended_action regenerate_base."
+            : string.Empty;
 
         return $"""
             {SystemInstruction}
@@ -484,10 +506,57 @@ public static class CompositeMinimalQa
             Child/world scene: {childWorldScene.Trim()}
             Beki action: {bekiAction.Trim()}
             Required base outfit: {childOutfit.Trim()}
-            Relevant recurring elements: {elements}{shot}
+            Relevant recurring elements: {elements}{props}{shot}
             Reserved text side: {textSide.ToUpperInvariant()} — the {textSide.ToLowerInvariant()} third of the spread carries printed story text and must stay clear of faces, hands, characters, foreground objects and key action.
             Central exclusion zone: a narrow vertical strip at the exact centre of the spread; continuous environment may cross it, but no face, hand, character or story-critical detail may.{spec}{anchor}
             """;
+    }
+
+    /// <summary>
+    /// The plan's prop states as short reviewer-facing sentences, one per element that has a
+    /// state worth judging. AMBIENT and ABSENT are omitted: an ambient companion is already
+    /// covered by CAST_ERROR, and "not in this picture" is not a fact a single frame can
+    /// contradict without also being NOT_FOUND or NO_LONGER_CARRIED.
+    /// </summary>
+    public static IReadOnlyList<string> PropStateLines(IReadOnlyList<VisualScenarioProp>? props)
+    {
+        if (props is null or { Count: 0 })
+        {
+            return [];
+        }
+
+        var lines = new List<string>();
+
+        foreach (var prop in props)
+        {
+            var element = prop.Element?.Trim();
+            if (string.IsNullOrWhiteSpace(element))
+            {
+                continue;
+            }
+
+            var line = prop.State?.Trim() switch
+            {
+                VisualScenarioPropStates.NotFound =>
+                    $"{element} — not yet discovered in the story and must not appear",
+                VisualScenarioPropStates.Found =>
+                    $"{element} — the child discovers it on this very page",
+                VisualScenarioPropStates.Carried =>
+                    $"{element} — the child is holding or carrying it",
+                VisualScenarioPropStates.Placed =>
+                    $"{element} — the child is placing it where it now belongs",
+                VisualScenarioPropStates.NoLongerCarried =>
+                    $"{element} — left behind earlier in the story and must not appear",
+                _ => null,
+            };
+
+            if (line is not null)
+            {
+                lines.Add(line);
+            }
+        }
+
+        return lines;
     }
 
     /// <summary>
@@ -784,6 +853,8 @@ public static class CompositeMinimalQa
         6. TEXT_SAFE_AREA - A face, hand, character, foreground object, or key action blocks the reserved text side.
         7. FOLD_SAFETY - A face, hand, character, or story-critical detail crosses or touches the central exclusion zone.
         8. BEKI_INTEGRATION - Beki is duplicated, clipped, hidden, materially obstructs the main action, or is visibly pasted into an unsuitable hard-edged/foreground area.
+        9. PROP_STATE - The page description states where each recurring story object stands; the picture contradicts one of those states - the object appears although it is not yet discovered or was left behind, or it is missing although the child is stated to be discovering, holding, or placing it here.
+        10. SHOT_COMPLIANCE - The rendered framing clearly contradicts the shot stated for this page: the camera distance is wrong, a required full figure is not fully visible, or the main story subject is cropped by the canvas edge.
 
         Do not fail Beki for artistic anatomy or exact asset identity; those are enforced by the approved PNG hash. Do not fail for small differences in background detail. Do not rewrite the prompt.
 
@@ -807,11 +878,11 @@ public static class CompositeMinimalQa
         }
 
         Each failed_checks item, when present, must be one of:
-        CHILD_IDENTITY, OUTFIT_CONTINUITY, MAIN_SCENE_BEAT, CAST_ERROR, GENERATED_TEXT, TEXT_SAFE_AREA, FOLD_SAFETY, BEKI_INTEGRATION.
+        CHILD_IDENTITY, OUTFIT_CONTINUITY, MAIN_SCENE_BEAT, CAST_ERROR, GENERATED_TEXT, TEXT_SAFE_AREA, FOLD_SAFETY, BEKI_INTEGRATION, PROP_STATE, SHOT_COMPLIANCE.
 
         age_note is optional, advisory, and never a failure. Fill it with one short sentence only when the illustrated child reads as a clearly different age from the stated one. Leave it out, or empty, otherwise. An age_note is not a failed check, does not appear in failed_checks, does not change status or recommended_action, and never causes a retry. The age the parent entered is the age the book is drawn to, whatever the photograph shows.
 
-        shot_note is optional, advisory, and never a failure. The page description states the shot this spread was asked for. Fill shot_note with one short sentence only when the rendered composition clearly contradicts that shot type - for example a close-up where a wide establishing view was asked for. Leave it out, or empty, when the shot is right or you are unsure. A shot_note is not a failed check, does not appear in failed_checks, does not change status or recommended_action, and never causes a retry.
+        shot_note is optional, advisory, and never a failure on its own. A CLEAR contradiction of the stated shot is the SHOT_COMPLIANCE check above. Use shot_note only for a borderline impression the check should not be failed on - the framing is defensible but drifts toward a medium shot, say. Leave it out, or empty, when the shot is right. A shot_note is not a failed check, does not appear in failed_checks, does not change status or recommended_action, and never causes a retry.
 
         Keep notes short, concrete, and visible in the supplied composite. Do not include sensitive descriptions of the child's source photo.
         """;

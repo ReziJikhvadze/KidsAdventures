@@ -46,6 +46,27 @@ public static class VisualScenarioProblemCodes
     public const string BekiMissingFromAction = "BEKI_MISSING_FROM_BEKI_ACTION";
 
     /// <summary>
+    /// A spread's prop states do not cover the recurring elements one-for-one — an element with no
+    /// state, a state for an element the lock does not name, or a page missing its props while the
+    /// rest of the scenario carries them. (v2.2)
+    /// </summary>
+    public const string PropStatesIncomplete = "PROP_STATES_INCOMPLETE";
+
+    /// <summary>
+    /// A prop entry is malformed in itself: an unknown state word, or one element mixing AMBIENT
+    /// with the carried-object chain. (v2.2)
+    /// </summary>
+    public const string PropStateInvalid = "PROP_STATE_INVALID";
+
+    /// <summary>
+    /// The states are individually legal and collectively impossible: the chain runs backwards, an
+    /// object is carried before it is found, found twice, or no longer carried before it was ever
+    /// placed. This is the lantern book, caught at planning time instead of on a printed proof.
+    /// (v2.2)
+    /// </summary>
+    public const string PropStateSequence = "PROP_STATE_SEQUENCE";
+
+    /// <summary>
     /// Too many Beki actions are phrased in verbs the approved pose table cannot read, so the book
     /// would be composited from the neutral hover on most of its pages.
     ///
@@ -193,8 +214,183 @@ public static class VisualScenarioValidator
         CheckVisualLock(scenario.VisualLock, problems);
         CheckCover(scenario.Cover, problems);
         CheckSpreads(scenario.Spreads, problems);
+        CheckPropStates(scenario, problems);
 
         return problems;
+    }
+
+    /// <summary>
+    /// The v2.2 prop-state contract: complete coverage, legal states, and a chain that only moves
+    /// forward.
+    ///
+    /// Grandfathered deliberately: a scenario with no props anywhere is a v2-era plan — the
+    /// supplier's approved fixture, or one stored by an earlier attempt that a resumed job reads
+    /// back — and remains valid. The moment any spread carries props, all of them must, because
+    /// half a state contract is a contract about half the book.
+    /// </summary>
+    private static void CheckPropStates(VisualScenarioV2 scenario, List<VisualScenarioProblem> problems)
+    {
+        var spreads = scenario.Spreads ?? [];
+        if (spreads.Count == 0 || spreads.All(spread => spread.Props is null))
+        {
+            return;
+        }
+
+        var elements = scenario.VisualLock?.RecurringElements ?? [];
+
+        // element → ordered (page, state) chain entries, for the cross-spread sequence check.
+        var chains = new Dictionary<string, List<(int Page, string State)>>(StringComparer.Ordinal);
+        var ambient = new HashSet<string>(StringComparer.Ordinal);
+
+        for (var index = 0; index < spreads.Count; index++)
+        {
+            var spread = spreads[index];
+            var location = $"spreads[{index}].props";
+
+            if (spread.Props is null)
+            {
+                problems.Add(new VisualScenarioProblem(
+                    VisualScenarioProblemCodes.PropStatesIncomplete,
+                    $"{location} is missing while other spreads state prop states; every spread "
+                    + "carries one entry per recurring element."));
+                continue;
+            }
+
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var prop in spread.Props)
+            {
+                var element = prop.Element?.Trim() ?? string.Empty;
+                var state = prop.State?.Trim() ?? string.Empty;
+
+                if (!elements.Contains(element, StringComparer.Ordinal))
+                {
+                    problems.Add(new VisualScenarioProblem(
+                        VisualScenarioProblemCodes.PropStatesIncomplete,
+                        $"{location} names \"{Lead(element)}\", which is not one of "
+                        + "visual_lock.recurring_elements; states use the exact element wording."));
+                    continue;
+                }
+
+                if (!seen.Add(element))
+                {
+                    problems.Add(new VisualScenarioProblem(
+                        VisualScenarioProblemCodes.PropStatesIncomplete,
+                        $"{location} states \"{Lead(element)}\" twice."));
+                    continue;
+                }
+
+                if (!VisualScenarioPropStates.All.Contains(state, StringComparer.Ordinal))
+                {
+                    problems.Add(new VisualScenarioProblem(
+                        VisualScenarioProblemCodes.PropStateInvalid,
+                        $"{location} gives \"{Lead(element)}\" the unknown state \"{state}\"."));
+                    continue;
+                }
+
+                if (state == VisualScenarioPropStates.Ambient)
+                {
+                    ambient.Add(element);
+                }
+                else if (state != VisualScenarioPropStates.Absent)
+                {
+                    if (!chains.TryGetValue(element, out var chain))
+                    {
+                        chains[element] = chain = [];
+                    }
+
+                    chain.Add((spread.Page, state));
+                }
+            }
+
+            foreach (var element in elements)
+            {
+                if (!seen.Contains(element))
+                {
+                    problems.Add(new VisualScenarioProblem(
+                        VisualScenarioProblemCodes.PropStatesIncomplete,
+                        $"{location} has no state for \"{Lead(element)}\"."));
+                }
+            }
+        }
+
+        foreach (var (element, chain) in chains)
+        {
+            if (ambient.Contains(element))
+            {
+                problems.Add(new VisualScenarioProblem(
+                    VisualScenarioProblemCodes.PropStateInvalid,
+                    $"\"{Lead(element)}\" mixes AMBIENT with the carried-object chain; an element "
+                    + "is one or the other for the whole book."));
+                continue;
+            }
+
+            var foundOnce = false;
+            var placedOnce = false;
+            var lastStage = -1;
+
+            foreach (var (page, state) in chain)
+            {
+                var stage = VisualScenarioPropStates.Chain.ToList().IndexOf(state);
+
+                if (stage < lastStage)
+                {
+                    problems.Add(new VisualScenarioProblem(
+                        VisualScenarioProblemCodes.PropStateSequence,
+                        $"\"{Lead(element)}\" moves backwards to {state} on page {page}; the chain "
+                        + "runs NOT_FOUND, FOUND, CARRIED, PLACED, NO_LONGER_CARRIED and never "
+                        + "returns."));
+                    break;
+                }
+
+                if (state == VisualScenarioPropStates.Found)
+                {
+                    if (foundOnce)
+                    {
+                        problems.Add(new VisualScenarioProblem(
+                            VisualScenarioProblemCodes.PropStateSequence,
+                            $"\"{Lead(element)}\" is FOUND twice; discovery happens on exactly one "
+                            + "page."));
+                        break;
+                    }
+
+                    foundOnce = true;
+                }
+
+                if (stage >= 2 && stage <= 3 && !foundOnce)
+                {
+                    problems.Add(new VisualScenarioProblem(
+                        VisualScenarioProblemCodes.PropStateSequence,
+                        $"\"{Lead(element)}\" is {state} on page {page} before any FOUND page; "
+                        + "an object cannot be carried before the child discovers it."));
+                    break;
+                }
+
+                if (state == VisualScenarioPropStates.Placed)
+                {
+                    placedOnce = true;
+                }
+
+                if (state == VisualScenarioPropStates.NoLongerCarried && !placedOnce)
+                {
+                    problems.Add(new VisualScenarioProblem(
+                        VisualScenarioProblemCodes.PropStateSequence,
+                        $"\"{Lead(element)}\" is NO_LONGER_CARRIED on page {page} without a PLACED "
+                        + "page before it; the story has to show where the object was left."));
+                    break;
+                }
+
+                lastStage = stage;
+            }
+        }
+    }
+
+    /// <summary>The first few words of an element description — enough to name it in an error.</summary>
+    private static string Lead(string element)
+    {
+        var comma = element.IndexOf(',');
+        var lead = comma > 0 ? element[..comma] : element;
+        return lead.Length <= 60 ? lead : lead[..60] + "…";
     }
 
     private static void CheckVisualLock(VisualLock? visualLock, List<VisualScenarioProblem> problems)
