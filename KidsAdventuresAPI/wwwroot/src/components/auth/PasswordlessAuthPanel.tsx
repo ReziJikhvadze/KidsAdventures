@@ -29,7 +29,7 @@ type Props = {
  */
 export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: Props) {
   const t = useT();
-  const { loginWithGoogle, signInWithPhoneCode } = useAuth();
+  const { loginWithGoogle, signInWithPhoneCode, signInWithMagicLink } = useAuth();
 
   const [tab, setTab] = useState<AuthTab>("email");
   const [email, setEmail] = useState("");
@@ -58,6 +58,28 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
       setChallenge(result);
       setMagicSent(true);
       setCooldown(result.resendAfterSeconds || 30);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "ბმული ვერ გაიგზავნა.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const demoSignIn = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const demoEmail = "demo@adventurepacks.com";
+      const result = await authApi.requestMagicLink(demoEmail, returnPath);
+      if (result.devSecret && !result.deliveryLive) {
+        await signInWithMagicLink(result.devSecret);
+        onAuthenticated();
+      } else {
+        setEmail(demoEmail);
+        setChallenge(result);
+        setMagicSent(true);
+        setCooldown(result.resendAfterSeconds || 30);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "ბმული ვერ გაიგზავნა.");
     } finally {
@@ -225,6 +247,17 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
                 {cooldown > 0 ? t.journey.auth.resendIn(cooldown) : ""}
                 <ArrowRight aria-hidden="true" size={16} />
               </button>
+              {import.meta.env.DEV && (
+                <button
+                  className="button auth-main"
+                  type="button"
+                  style={{ marginTop: "0.5rem", opacity: 0.8, backgroundColor: "transparent", color: "inherit", border: "1px dashed currentColor" }}
+                  disabled={busy}
+                  onClick={() => void demoSignIn()}
+                >
+                  {busy ? t.journey.auth.demoLoading : t.journey.auth.demoLogin}
+                </button>
+              )}
             </>
           ) : (
             <>

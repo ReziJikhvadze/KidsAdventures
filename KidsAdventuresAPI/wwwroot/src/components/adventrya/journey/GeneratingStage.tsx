@@ -66,6 +66,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
         // finished book, however long it took to draw.
         let status: OrderStatusResponse | null = null;
         let attempts = 0;
+        let transientFailures = 0;
         while (status === null && attempts < 50) {
           attempts++;
           try {
@@ -79,8 +80,16 @@ export function GeneratingStage({ draft, onChange }: Props) {
             if (err instanceof BookFailedError) {
               throw err;
             }
-            if (!(err instanceof OrderStillWorkingError)) throw err;
+            if (err instanceof OrderStillWorkingError) {
+              setStillWorking(true);
+              continue;
+            }
+            // A single dropped request mid-poll is not a failed book. Keep watching through
+            // brief network noise; only a persistent inability to ask counts as an error.
+            transientFailures++;
+            if (transientFailures >= 3) throw err;
             setStillWorking(true);
+            await new Promise((r) => setTimeout(r, 4000));
           }
         }
 

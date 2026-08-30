@@ -18,6 +18,7 @@ import {
   downloadAdventurePack,
   generatePackPdf,
   listAdventurePacks,
+  PackStillWorkingError,
   pollAdventurePack,
 } from "@/lib/api/adventure-packs";
 import { listCharacters } from "@/lib/api/characters";
@@ -702,7 +703,17 @@ function LibraryBookCard({
       }
       await downloadAdventurePack(pack.id, `${title}.pdf`);
     } catch (err) {
-      setPdfError(t.dashboard.library.failedTitle);
+      // A book that is merely still composing its PDF must never wear the failed-book copy —
+      // that exact mix-up sent the owner hunting a phantom failure on a healthy book.
+      if (err instanceof PackStillWorkingError) {
+        setPdfError(t.dashboard.library.pdfNotReady);
+      } else if (isPackFailed(pack)) {
+        setPdfError(t.dashboard.library.failedTitle);
+      } else {
+        setPdfError(
+          err instanceof Error && err.message ? err.message : t.dashboard.library.pdfNotReady,
+        );
+      }
     } finally {
       setPdfBusy(false);
     }

@@ -21,6 +21,7 @@ export const dashboard = {
     readMark: "read",
     pdfBusy: "Preparing…",
     drawing: "The book is being drawn…",
+    pdfNotReady: "The PDF is still being prepared — try again in a minute.",
     failedTitle: "The book could not finish",
     failedBody:
       "The book generation was interrupted. We are already working on it. Nothing is lost.",

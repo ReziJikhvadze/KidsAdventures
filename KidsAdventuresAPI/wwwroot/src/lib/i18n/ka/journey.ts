@@ -231,6 +231,8 @@ export const journey = {
     back: " უკან",
     devDelivery: "დემო რეჟიმი · რეალური შეტყობინება არ იგზავნება.",
     devCode: (secret: string) => `საცდელი კოდი: ${secret}`,
+    demoLogin: "დემო ანგარიშით შესვლა",
+    demoLoading: "შესვლა მიმდინარეობს…",
 
     /** The page the emailed magic link lands on. */
     landing: {

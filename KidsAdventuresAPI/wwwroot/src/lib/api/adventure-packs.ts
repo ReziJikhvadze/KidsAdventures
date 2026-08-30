@@ -225,6 +225,17 @@ export async function getAdventurePack(id: string): Promise<AdventurePackDetailR
   return apiRequest<AdventurePackDetailResponse>(`/api/adventure-packs/${id}`);
 }
 
+/**
+ * The poll window ran out while the book was still healthy. Not a failure: the caller
+ * shows "still preparing", never the failed-book copy.
+ */
+export class PackStillWorkingError extends Error {
+  constructor() {
+    super("PDF ჯერ მზადდება.");
+    this.name = "PackStillWorkingError";
+  }
+}
+
 export function getDownloadUrl(packId: string): string {
   return `${getApiBaseUrl()}/api/adventure-packs/${packId}/download`;
 }
@@ -470,7 +481,5 @@ export async function pollAdventurePack(
     await new Promise((r) => setTimeout(r, intervalMs));
   }
 
-  throw new Error(
-    "Still working — your book is saved in My Books. Refresh there in a few minutes.",
-  );
+  throw new PackStillWorkingError();
 }

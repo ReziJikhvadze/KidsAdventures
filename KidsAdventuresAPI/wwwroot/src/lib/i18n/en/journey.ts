@@ -222,6 +222,8 @@ export const journey = {
     back: " Back",
     devDelivery: "Demo mode · no real message is sent.",
     devCode: (secret: string) => `Test code: ${secret}`,
+    demoLogin: "Sign in with demo account",
+    demoLoading: "Signing in…",
 
     /** The page the emailed magic link lands on. */
     landing: {
