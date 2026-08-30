@@ -633,13 +633,8 @@ public class CompositeIdentityTests
         };
     }
 
-    private static byte[] Png(int width, int height, byte red = 0)
-    {
-        using var image = new Image<Rgba32>(width, height, new Rgba32(red, 0, 0, 255));
-        using var buffer = new MemoryStream();
-        image.SaveAsPng(buffer);
-        return buffer.ToArray();
-    }
+    private static byte[] Png(int width, int height, byte red = 0) =>
+        SyntheticImages.SolidPng(width, height, red);
 
     /// <summary>Hands back the approved scenario; these tests never exercise its retry.</summary>
     private sealed class ScenarioClient(string scenario) : IStoryModelClient

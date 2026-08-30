@@ -1,6 +1,8 @@
+using System.Collections.Concurrent;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.Services.Story;
+using Microsoft.Extensions.Options;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
@@ -67,13 +69,31 @@ internal static class BekiLayoutFixture
         return Solid(width, height, colour);
     }
 
-    private static byte[] Solid(int width, int height, (byte R, byte G, byte B) colour)
+    private static byte[] Solid(int width, int height, (byte R, byte G, byte B) colour) =>
+        SyntheticImages.SolidPng(width, height, colour);
+
+    /// <summary>
+    /// The fixture book rendered to pages at screen proof resolution — green spreads, a red cover
+    /// leaf, the default personalization — which is the book three separate layout suites were each
+    /// rendering for themselves, page for page identical.
+    ///
+    /// §R15 asks for one frozen fixture book; this is it, rendered once for the whole assembly
+    /// rather than once per test. The pages are handed out as copies, so a caller still owns what it
+    /// receives and no suite can be perturbed by another.
+    /// </summary>
+    public static IReadOnlyList<byte[]> ScreenProofPages() =>
+        StandardPages.Value.Select(page => page.ToArray()).ToList();
+
+    private static readonly Lazy<IReadOnlyList<byte[]>> StandardPages = new(() =>
     {
-        using var image = new Image<Rgba32>(width, height, new Rgba32(colour.R, colour.G, colour.B, 255));
-        using var buffer = new MemoryStream();
-        image.Save(buffer, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
-        return buffer.ToArray();
-    }
+        var plan = EightSpreadPlan();
+        var spreads = plan.Spreads
+            .Select(spread => new BekiSpreadArtwork(spread.Number, SheetPng((0, 200, 120))))
+            .ToList();
+
+        return new BekiPdfComposer(Options.Create(ScreenProofLayout()))
+            .RenderPages(plan, LeafPng((200, 60, 60)), spreads, Personalization());
+    });
 
     public static MasterStory EightSpreadPlan(string? text = null) => new()
     {

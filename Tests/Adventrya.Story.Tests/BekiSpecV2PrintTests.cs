@@ -283,13 +283,8 @@ public class BekiSpecV2PrintTests
         return Solid(width, height, (0, 255, 0));
     }
 
-    private static byte[] Solid(int width, int height, (byte R, byte G, byte B) colour)
-    {
-        using var image = new Image<Rgba32>(width, height, new Rgba32(colour.R, colour.G, colour.B, 255));
-        using var buffer = new MemoryStream();
-        image.Save(buffer, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
-        return buffer.ToArray();
-    }
+    private static byte[] Solid(int width, int height, (byte R, byte G, byte B) colour) =>
+        SyntheticImages.SolidPng(width, height, colour);
 
     /// <summary>
     /// Draw-text calls in the file — a copy of the counter BekiPdfComposerTests uses, asking the

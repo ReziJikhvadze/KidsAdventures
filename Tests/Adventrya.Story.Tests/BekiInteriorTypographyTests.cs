@@ -252,16 +252,23 @@ public class BekiInteriorTypographyTests
             "ნინო ფრთხილად შევიდა მოჯადოებულ ტყეში და ხავსიან ბილიკზე ნაბიჯ-ნაბიჯ წავიდა წინ.",
             sentences));
 
-    private static byte[] Solid(int width, int height)
-    {
-        using var image = new Image<Rgba32>(width, height, new Rgba32(20, 120, 90, 255));
-        using var buffer = new MemoryStream();
-        image.Save(buffer, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
-        return buffer.ToArray();
-    }
+    private static byte[] Solid(int width, int height) =>
+        SyntheticImages.SolidPng(width, height, (20, 120, 90));
+
+    /// <summary>
+    /// The standard book composed to a PDF, built once. Two tests below open exactly this document
+    /// and ask different questions of it, and composing it twice bought nothing but the wait.
+    /// </summary>
+    private static readonly Lazy<byte[]> StandardBook = new(() => ComposeBook(null, null, null));
 
     private static byte[] ComposeFixtureBook(
-        BekiPrintLayoutOptions? layout = null, string? text = null, byte[]? artwork = null)
+        BekiPrintLayoutOptions? layout = null, string? text = null, byte[]? artwork = null) =>
+        layout is null && text is null && artwork is null
+            ? StandardBook.Value.ToArray()
+            : ComposeBook(layout, text, artwork);
+
+    private static byte[] ComposeBook(
+        BekiPrintLayoutOptions? layout, string? text, byte[]? artwork)
     {
         var plan = BekiLayoutFixture.EightSpreadPlan(text);
         var spreads = plan.Spreads
@@ -273,16 +280,7 @@ public class BekiInteriorTypographyTests
             .Compose(plan, BekiLayoutFixture.LeafPng((200, 60, 60)), spreads, BekiLayoutFixture.Personalization());
     }
 
-    private static IReadOnlyList<byte[]> RenderFixtureBook()
-    {
-        var plan = BekiLayoutFixture.EightSpreadPlan();
-        var spreads = plan.Spreads
-            .Select(spread => new BekiSpreadArtwork(spread.Number, BekiLayoutFixture.SheetPng((0, 200, 120))))
-            .ToList();
-
-        return new BekiPdfComposer(Options.Create(BekiLayoutFixture.ScreenProofLayout()))
-            .RenderPages(plan, BekiLayoutFixture.LeafPng((200, 60, 60)), spreads, BekiLayoutFixture.Personalization());
-    }
+    private static IReadOnlyList<byte[]> RenderFixtureBook() => BekiLayoutFixture.ScreenProofPages();
 
     private static bool IsCream(Rgba32 pixel)
         => pixel.R > 200 && pixel.G > 195 && pixel.B > 170 && pixel.B < pixel.R;

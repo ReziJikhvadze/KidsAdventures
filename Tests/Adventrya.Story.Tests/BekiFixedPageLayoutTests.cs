@@ -272,14 +272,5 @@ public class BekiFixedPageLayoutTests
         return deviation / (samples * 3);
     }
 
-    private static IReadOnlyList<byte[]> RenderBook()
-    {
-        var plan = BekiLayoutFixture.EightSpreadPlan();
-        var spreads = plan.Spreads
-            .Select(spread => new BekiSpreadArtwork(spread.Number, BekiLayoutFixture.SheetPng((0, 200, 120))))
-            .ToList();
-
-        return new BekiPdfComposer(Options.Create(BekiLayoutFixture.ScreenProofLayout()))
-            .RenderPages(plan, BekiLayoutFixture.LeafPng((200, 60, 60)), spreads, BekiLayoutFixture.Personalization());
-    }
+    private static IReadOnlyList<byte[]> RenderBook() => BekiLayoutFixture.ScreenProofPages();
 }

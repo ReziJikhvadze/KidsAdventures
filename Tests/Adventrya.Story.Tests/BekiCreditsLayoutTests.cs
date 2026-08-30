@@ -121,6 +121,10 @@ public class BekiCreditsLayoutTests
 
     private static IReadOnlyList<byte[]> RenderBook(BekiPrintLayoutOptions? layout = null)
     {
+        // The standard book is rendered once for the whole assembly; only a test that asks for a
+        // different layout pays for a render of its own.
+        if (layout is null) return BekiLayoutFixture.ScreenProofPages();
+
         var plan = BekiLayoutFixture.EightSpreadPlan();
         var spreads = plan.Spreads
             .Select(spread => new BekiSpreadArtwork(spread.Number, BekiLayoutFixture.SheetPng((0, 200, 120))))
