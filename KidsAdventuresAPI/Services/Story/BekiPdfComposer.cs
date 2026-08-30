@@ -373,7 +373,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             }
 
             ComposeEndpaper(document, rear: false);
-            ComposeIntro(document, themeId, personalization);
+            ComposeIntro(document, themeId, plan.Concept.Title, personalization);
 
             foreach (var artwork in spreads.OrderBy(spread => spread.SpreadNumber))
             {
@@ -395,6 +395,12 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             {
                 ComposeBackCover(document);
             }
+        }).WithMetadata(new DocumentMetadata
+        {
+            // The canonical book title — the same string the cover and the intro print. The
+            // audited file carried QuestPDF's defaults here while its pages disagreed with each
+            // other about the book's name; one field now feeds all of them.
+            Title = plan.Concept.Title,
         });
     }
 
@@ -519,7 +525,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// makes a reprint a different book from the one that was bought.
     /// </summary>
     private void ComposeIntro(
-        IDocumentContainer container, string themeId, BekiBookPersonalization? personalization)
+        IDocumentContainer container,
+        string themeId,
+        string title,
+        BekiBookPersonalization? personalization)
     {
         container.Page(page =>
         {
@@ -545,7 +554,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                         .Background(StoryWash)
                         .CornerRadius(WashRadiusMm, Unit.Millimetre)
                         .Padding(WashPaddingMm, Unit.Millimetre)
-                        .Column(column => ComposeIntroCopy(column, personalization));
+                        .Column(column => ComposeIntroCopy(column, title, personalization));
 
                     row.RelativeItem();
                 });
@@ -563,7 +572,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// keeps the hyphen only for a name written in another alphabet. See
     /// <see cref="GeorgianNameSuffix.Dative"/>.
     /// </summary>
-    private void ComposeIntroCopy(ColumnDescriptor column, BekiBookPersonalization? personalization)
+    private void ComposeIntroCopy(
+        ColumnDescriptor column, string title, BekiBookPersonalization? personalization)
     {
         column.Spacing(WashPaddingMm * PointsPerMm * 0.8f);
 
@@ -598,10 +608,17 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             }
         }
 
-        var world = personalization?.WorldName ?? string.Empty;
-        var theme = string.IsNullOrWhiteSpace(world)
+        /*
+          The quoted line is the BOOK'S OWN TITLE — the same string the cover prints — not the
+          theme world's fixed name. It used to be StoryWorlds' per-theme place („სინათლის
+          ქალაქი“), which reads as a title on the page, and the supplier's audit duly read it as
+          one: the cover said „სინათლის პატარა ქალაქი“ and the intro appeared to disagree about
+          what the book is called. One canonical title now feeds the cover, this line, and the
+          PDF metadata; the world's name still steers the story planner, where it belongs.
+        */
+        var theme = string.IsNullOrWhiteSpace(title)
             ? string.Empty
-            : _layout.IntroThemeTemplate.Replace("{world}", world);
+            : _layout.IntroThemeTemplate.Replace("{world}", title.Trim());
 
         if (!string.IsNullOrWhiteSpace(theme))
         {
@@ -676,7 +693,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                                      .Width(46, Unit.Millimetre)
                                      .Background(Colors.White)
                                      .Padding(4, Unit.Millimetre)
-                                     .Image(QrPng(_layout.ReviewQrUrl))
+                                     .Svg(QrSvg(_layout.ReviewQrUrl))
                                      .FitWidth();
 
                                  column.Item().AlignCenter().Text(_layout.EndingQrCaption)
@@ -1057,7 +1074,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                     .Background(Colors.White)
                     .CornerRadius(QrTileRadiusMm, Unit.Millimetre)
                     .Padding(QrQuietZoneMm, Unit.Millimetre)
-                    .Image(QrPng(_layout.EndingQrUrl))
+                    .Svg(QrSvg(_layout.EndingQrUrl))
                     .FitWidth();
             });
     }
@@ -1357,15 +1374,24 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         => config.IntroAnchor with { VisibleCenterY = 1d - config.IntroAnchor.VisibleCenterY };
 
     /// <summary>
-    /// A code, with its quiet zone drawn into the PNG rather than assumed. QRCoder defaults that
-    /// flag to true, and a default is exactly the kind of thing that changes under a version bump
-    /// without anybody printing a test sheet — so it is written down.
+    /// A code as vector geometry, with its quiet zone drawn rather than assumed. QRCoder defaults
+    /// that flag to true, and a default is exactly the kind of thing that changes under a version
+    /// bump without anybody printing a test sheet — so it is written down.
+    ///
+    /// SVG rather than the PNG this used to be, because the supplier's preflight found the codes
+    /// as raster image objects: a bitmap module edge softens under resampling and colour
+    /// conversion on its way to a press, and a scanner reads edges. Deterministic vector
+    /// rectangles have no resolution to lose. QuestPDF places SVG as PDF vector content.
     /// </summary>
-    private static byte[] QrPng(string url)
+    private static string QrSvg(string url)
     {
         using var generator = new QRCoder.QRCodeGenerator();
         using var data = generator.CreateQrCode(url.Trim(), QRCoder.QRCodeGenerator.ECCLevel.Q);
-        return new QRCoder.PngByteQRCode(data).GetGraphic(16, drawQuietZones: true);
+        return new QRCoder.SvgQRCode(data).GetGraphic(
+            pixelsPerModule: 16,
+            darkColorHex: "#000000",
+            lightColorHex: "#FFFFFF",
+            drawQuietZones: true);
     }
 
     /// <summary>

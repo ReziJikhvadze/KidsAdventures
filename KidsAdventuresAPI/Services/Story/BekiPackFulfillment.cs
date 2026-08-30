@@ -1055,6 +1055,11 @@ public sealed class BekiPackFulfillment(
 
             stage = "publishing the book";
 
+            // The order record's copy of the canonical title — the same string the cover, the
+            // intro and the PDF metadata carry, so an operator reading the order and a parent
+            // holding the book are reading about the same object.
+            await packRepository.UpdateTitleAsync(packId, plan.Concept.Title, jobToken);
+
             var content = ProjectForReader(plan, run.ChildName, pack, storedUrls);
 
             /*

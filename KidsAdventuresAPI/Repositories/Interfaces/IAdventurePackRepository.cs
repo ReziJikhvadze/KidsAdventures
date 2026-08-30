@@ -106,6 +106,15 @@ public interface IAdventurePackRepository
     /// </summary>
     Task UpdatePrintPdfUrlAsync(Guid id, string? printPdfUrl, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Records the book's canonical title on the pack row — the order record's copy of the one
+    /// string the cover, the intro and the PDF metadata all print. A default no-op rather than an
+    /// abstract member: only fulfilment writes it, and every test double of this wide interface
+    /// should not have to say so.
+    /// </summary>
+    Task UpdateTitleAsync(Guid id, string title, CancellationToken cancellationToken) =>
+        Task.CompletedTask;
+
     Task UpdateProgressMessageAsync(Guid id, string? progressMessage, CancellationToken cancellationToken);
 
     /// <summary>Message and percentage together, so a progress bar and its caption never disagree.</summary>

@@ -502,6 +502,20 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
     private static string Truncate(string message) =>
         message.Length <= 2000 ? message : message[..2000];
 
+    public async Task UpdateTitleAsync(Guid id, string title, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE AdventurePacks
+                           SET Title = @Title
+                           WHERE Id = @Id;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new { Id = id, Title = title },
+            cancellationToken: cancellationToken));
+    }
+
     public async Task UpdatePrintPdfUrlAsync(Guid id, string? printPdfUrl, CancellationToken cancellationToken)
     {
         const string sql = """
