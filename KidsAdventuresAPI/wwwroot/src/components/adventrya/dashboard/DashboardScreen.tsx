@@ -193,8 +193,6 @@ export function DashboardScreen() {
     action, and it resolved to a continuation for any family that already had books — which
     lands on the preview stage and starts a billed generation on sight.
   */
-  const newHref = useMemo(() => newBookHref(characterId), [characterId]);
-
   const hrefParts = useCallback((href: string) => {
     const [pathAndQuery, hash] = href.split("#");
     const [to, query = ""] = (pathAndQuery || "/create").split("?");
@@ -206,6 +204,19 @@ export function DashboardScreen() {
       hash: hash || undefined,
     };
   }, []);
+
+  const newHref = useMemo(() => newBookHref(characterId, { from: "dashboard" }), [characterId]);
+
+  /*
+    Adding a child is a different intention, and it starts at the world too.
+
+    It used to jump straight to `/create#profile`, which asked a parent to fill in a name, a
+    birth date and a photograph before they had seen what any of it was for — and left the one
+    step this journey opens with, choosing a world, to happen afterwards or not at all. `new`
+    keeps the form blank, which is the point of the button.
+  */
+  const addChildHref = useMemo(() => newBookHref(null, { from: "dashboard", fresh: true }), []);
+  const addChildParts = useMemo(() => hrefParts(addChildHref), [hrefParts, addChildHref]);
 
   const newParts = useMemo(() => hrefParts(newHref), [hrefParts, newHref]);
 
@@ -445,9 +456,9 @@ export function DashboardScreen() {
           {/* Adding a child is a different intention, and must begin genuinely blank. */}
           <Link
             className="add-child"
-            to="/create"
-            search={{ new: "1" }}
-            hash="profile"
+            to={addChildParts.to}
+            search={addChildParts.search}
+            hash={addChildParts.hash}
             aria-label={t.dashboard.sidebar.addChild}
           >
             <Plus aria-hidden="true" />
@@ -599,6 +610,24 @@ function ChildAvatar({ name, portraitUrl }: { name: string; portraitUrl?: string
   );
 }
 
+/**
+ * How far a parent has taken this book, in the three steps they asked to see: created, then
+ * downloaded, then printed.
+ *
+ * Derived rather than stored, because every step already leaves its own mark. A PDF only exists
+ * once somebody asked for one — building it is what the download button does — and a print
+ * entitlement only exists once a printed copy has been paid for. The furthest step wins: a book
+ * that was printed was downloaded and created on the way there, and saying so three times on one
+ * card tells a parent nothing.
+ */
+type BookProgress = "created" | "downloaded" | "printed";
+
+function bookProgress(pack: AdventurePackResponse, printOrder?: PrintOrderResponse): BookProgress {
+  if (pack.hasPrintEntitlement || printOrder) return "printed";
+  if (pack.pdfUrl || pack.status === "Completed") return "downloaded";
+  return "created";
+}
+
 function isPackGenerating(status: AdventurePackResponse["status"]): boolean {
   return status === "Pending" || status === "Generating" || status === "GeneratingStory";
 }
@@ -665,6 +694,12 @@ function LibraryBookCard({
   // filtered to one child, so it can name them instead of describing them.
   const title = pack.title?.trim() || world.bookTitle(heroName);
   const hasPrint = pack.hasPrintEntitlement || !!printOrder;
+  const progress = bookProgress(pack, printOrder);
+  const progressLabel = {
+    created: t.dashboard.library.statusCreated,
+    downloaded: t.dashboard.library.statusDownloaded,
+    printed: t.dashboard.library.statusPrinted,
+  }[progress];
 
   /*
     Read, download, print: the same three actions in the same order on every card. Once the
@@ -749,6 +784,21 @@ function LibraryBookCard({
           {world.theme}
           {isRead ? ` · ${t.dashboard.library.readMark}` : ""}
         </small>
+
+        {/*
+          What has already happened to this book.
+
+          The card could say what a parent may do next — read it, get the PDF, order a print —
+          but never what they had already done, so a shelf of six books gave no way to tell the
+          one waiting to be downloaded from the one that arrived in the post last week.
+        */}
+        <span
+          className={`library-status library-status-${progress}`}
+          aria-label={`${t.dashboard.library.statusLabel}: ${progressLabel}`}
+        >
+          <i aria-hidden="true" />
+          {progressLabel}
+        </span>
 
         {/*
           The promotion moves the button in the markup, not with `order`. Reordering a flex row
@@ -873,8 +923,15 @@ function PrintUpgradePanel({
           />
         </label>
       </div>
+      {/*
+          An error, not a label.
+
+          It wore `.eyebrow` — the uppercase caption style — so a sentence asking for a delivery
+          address was printed letter-spaced like a heading, in the gold that belongs to the dark
+          journey screens and washes out on the cabinet's cream.
+      */}
       {error ? (
-        <p className="eyebrow" style={{ color: "#f1c970", marginTop: 10 }}>
+        <p className="print-panel-error" role="alert">
           {error}
         </p>
       ) : null}

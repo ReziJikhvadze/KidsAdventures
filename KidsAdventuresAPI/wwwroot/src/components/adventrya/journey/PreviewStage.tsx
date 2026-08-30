@@ -23,6 +23,8 @@ type Props = {
   draft: JourneyDraft;
   onChange: (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => void;
   onContinue: () => void;
+  /** Leaves the waiting screen for the step before it; the book keeps being written. */
+  onStopWaiting: () => void;
 };
 
 // One book is one vision call + one whole-book call + a cover image, so the paid start must
@@ -64,7 +66,7 @@ function clearPendingRunId(): void {
   }
 }
 
-export function PreviewStage({ draft, onChange, onContinue }: Props) {
+export function PreviewStage({ draft, onChange, onContinue, onStopWaiting }: Props) {
   const WORLD_BY_ID = useWorldById();
   const t = useT();
   // The story is written in the language the site is being read in; there is no separate
@@ -395,6 +397,22 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
                   {label}
                 </span>
               ))}
+            </div>
+
+            {/*
+              A way off this screen.
+
+              Writing a book takes minutes and there was nothing here but the wait — no button,
+              and a header arrow that is easy to miss on a screen that is plainly busy. It is not
+              a cancel and does not pretend to be: the story is already being written and the
+              request cannot be recalled. What it does is stop the waiting. The run id is kept,
+              so coming back rejoins this book instead of buying another.
+            */}
+            <div className="preview-loader-exit">
+              <p>{t.journey.previewLoader.stopWaitingNote}</p>
+              <button className="button button-quiet" type="button" onClick={onStopWaiting}>
+                {t.journey.previewLoader.stopWaiting}
+              </button>
             </div>
           </div>
         </div>

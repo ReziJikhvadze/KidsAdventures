@@ -1802,8 +1802,6 @@
     condition, so nothing changes on the screens that were already getting them.
   */
 
-
-
   .ux-profile-footer .privacy-inline {
     font-size: 11.5px;
     line-height: 1.4;
@@ -1952,7 +1950,6 @@
     height: clamp(36px, 5.3vh, 52px);
   }
 
-
   .ux-profile-footer .journey-primary {
     min-height: clamp(42px, 6.2vh, 58px);
   }
@@ -2008,7 +2005,6 @@
   .ux-profile-footer {
     padding-top: 6px;
   }
-
 
   /*
     And the controls grow more slowly down here. The clamps above are still what draws them —
@@ -2423,4 +2419,32 @@
 }
 .ux-checkout-handover svg {
   color: var(--story-gold);
+}
+
+/*
+  The way off a screen that is busy.
+
+  Quiet and below the progress on purpose: it is not the thing to do, it is the thing that has
+  to be possible. Left-aligned with the copy beside it rather than centred, so it reads as part
+  of the paragraph explaining it rather than as a second call to action.
+*/
+.preview-loader-exit,
+.generation-exit {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.preview-loader-exit p {
+  flex: 1 1 190px;
+  min-width: 0;
+  margin: 0;
+  color: #f8f2e58f;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.preview-loader-exit .button,
+.generation-exit .button {
+  flex-shrink: 0;
 }

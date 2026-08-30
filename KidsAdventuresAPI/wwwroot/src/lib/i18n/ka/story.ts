@@ -9,7 +9,9 @@ export const story = {
     belongsTo: (hero: string) => `ეს ამბავი ${hero.trim()}სია`,
     nextChapter: (hero: string) => "შემდეგი თავგადასავალი",
     adventureOf: (hero: string) => `${hero}ს ამბავი`,
-    coverLabel: (total: number) => `ყდა · ${total} გვერდი`,
+    /* The count alone. The word sat on the shelf on the home page, where the picture of a
+       cover is already saying it, and this is the same counter the reader uses. */
+    coverLabel: (total: number) => `${total} გვერდი`,
     spreadLabel: (from: number, to: number, total: number) => `${from}–${to} / ${total}`,
     pageLabel: (page: number, total: number) => `${page} / ${total}`,
     pages: "წიგნის გვერდები",
@@ -95,6 +97,11 @@ export const story = {
     lastMemory: "ბოლო მოგონება",
     lastMemoryNote: "რექსს თქვენი ბოლო თავგადასავალი ახსოვს.",
     profileLine: (age: number, stories: number) => `${age} წლის · ${stories} დასრულებული ამბავი`,
+    /* Beside each name in the list on the left: what that child has opened, not what the
+       product could offer them. */
+    worldCount: (count: number) =>
+      count === 0 ? "ჯერ არცერთი სამყარო" : `${count} სამყარო გახსნილია`,
+    newWorld: "ახალი სამყარო",
     openedStoriesSuffix: "ს უკვე აღმოჩენილი ამბები",
     archiveNote:
       "ძველი წიგნები უცვლელად ინახება; ახალი ინფორმაცია მხოლოდ მომავალ ისტორიებზე ვრცელდება.",

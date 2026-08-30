@@ -107,7 +107,8 @@ export const journey = {
     stageLabel: "ჯადოსნური სამყაროს არჩევა",
     artLabel: "ექვსი მოფარფატე ჯადოსნური სამყარო, ბექი და მანათობელი წიგნი",
     brandLabel: "Beki — მთავარი",
-    backLabel: "უკან, მთავარ გვერდზე",
+    /* The arrow no longer always leads home — it leads back to wherever the parent came from. */
+    backLabel: "უკან დაბრუნება",
     /* "Create", not "let's go to this world": the button makes a book, and the world is already
        chosen by the time it can be pressed. */
     create: "შექმნა",
@@ -117,6 +118,14 @@ export const journey = {
     statusIdle: "სამყარო ჯერ არ არის არჩეული.",
     statusFlying: (world: string) => `${world} არჩეულია. ბექის ვარსკვლავი მიემართება სამყაროსკენ.`,
     statusReady: (world: string) => `${world} არჩეულია. ღილაკი ამ სამყაროში წასასვლელად მზადაა.`,
+
+    /* Shown only when the map is opened for a child who already has books: which worlds they
+       have been to, and which are still shut. */
+    visited: "უკვე გავლილი",
+    locked: "ჯერ დახურულია",
+    lockedNote: (world: string) =>
+      `${world} ჯერ დახურულია — წინა თავგადასავალი ჯერ არ დასრულებულა.`,
+    forChild: (name: string) => `${name}ს სამყაროები`,
   },
 
   firstMap: {
@@ -151,6 +160,15 @@ export const journey = {
 
   previewLoader: {
     paintingCover: "ზღაპარი დაწერილია — ვხატავთ ყდას…",
+    /*
+      A way off the waiting screen.
+
+      Nothing here can be recalled — the story is already being written on the server — so the
+      button says what it honestly does: stop waiting and go back. The run is remembered, so
+      coming back rejoins this same book rather than paying for another.
+    */
+    stopWaiting: "შეაჩერე და დაბრუნდი",
+    stopWaitingNote: "ისტორია იწერება. შეგიძლია დაელოდო აქ, ან უკან დაბრუნდე — დაკარგული არაფერია.",
     heading: " პერსონალიზებული Preview იქმნება",
     subheading: "ს პირველი გვერდი უკვე მზადდება ✨",
     reassurance: "დარჩი ამ ჯადოსნურ მომენტში — დაახლოებით 30 წამი.",

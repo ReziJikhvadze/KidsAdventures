@@ -223,6 +223,27 @@ export function GeneratingStage({ draft, onChange }: Props) {
           ))}
         </ul>
         {progress ? <p>{progress}</p> : null}
+
+        {/*
+          Always offered, not only once the poll has run out.
+
+          A paid book takes minutes to draw and this screen had no control on it at all until
+          something went slowly or went wrong — so the ordinary case, where everything is fine,
+          was the one that trapped the parent. Leaving changes nothing about the book: it is
+          being written on the server and lands in the cabinet when it is done.
+        */}
+        {!error ? (
+          <div className="generation-exit">
+            <button
+              className="button button-quiet"
+              type="button"
+              onClick={() => void navigate({ to: "/dashboard" })}
+            >
+              {t.journey.previewLoader.stopWaiting}
+            </button>
+          </div>
+        ) : null}
+
         {stillWorking && !error ? (
           <div className="generation-still-working">
             <p>
@@ -230,13 +251,6 @@ export function GeneratingStage({ draft, onChange }: Props) {
               დაკარგულა. შეგიძლია აქ დაელოდო, ან მოგვიანებით დაფაზე ნახო: როგორც კი მზად იქნება, იქ
               გამოჩნდება.
             </p>
-            <button
-              className="button journey-primary"
-              type="button"
-              onClick={() => void navigate({ to: "/dashboard" })}
-            >
-              დაფაზე გადასვლა
-            </button>
           </div>
         ) : null}
         {error ? (

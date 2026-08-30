@@ -15,6 +15,64 @@ import { useJourneyDraft } from "@/lib/journey/draft";
 const START_JOURNEY = "/themes";
 
 /**
+ * Which section of this page a call to action was pressed in.
+ *
+ * The picker's back arrow reads it, so a parent who pressed the button at the very foot of the
+ * page is returned to the foot of the page. Without it every arrow led to the top, and the
+ * section they had been reading — the prices, the last word — was somewhere below the fold with
+ * no sign of how they got there.
+ */
+function fromSection(section: string) {
+  return { from: section } as const;
+}
+
+/**
+ * Land on the section the address bar names.
+ *
+ * The browser's own fragment scrolling does not survive this page: it is server-rendered and
+ * then hydrated, and the hydration puts the reader back at the top — so `/#books` and `/#final`
+ * both opened on the hero with the section they named several screens further down. That is why
+ * the back arrow out of the world picker appeared to do nothing useful for anyone who had
+ * started from the foot of the page.
+ *
+ * Instant, and repeated as the page settles. The sections above the target are the tall ones —
+ * the hero and the painted map — and their heights are not final until the artwork has loaded,
+ * so a single scroll on the first frame lands short of where the section ends up. Animating it
+ * would be worse than useless: this is a reader coming *back* to where they were, and five
+ * thousand pixels of scenery flying past is not a place they asked to revisit.
+ */
+function useScrollToHashSection() {
+  useEffect(() => {
+    const jump = () => {
+      const id = window.location.hash.replace(/^#/, "");
+      if (!id) return;
+      const target = document.getElementById(id);
+      if (!target) return;
+      /*
+        `instant`, not `auto`. `auto` means "whatever CSS says", and this stylesheet sets
+        `scroll-behavior: smooth` on `html` — so the jump became a five-thousand-pixel animation
+        that this effect then fought with on its second pass. scrollIntoView rather than a
+        computed offset: `body` carries `overflow-y: auto`, so which element actually scrolls is
+        not something this can assume.
+      */
+      target.scrollIntoView({ behavior: "instant", block: "start" });
+    };
+
+    const frame = window.requestAnimationFrame(jump);
+    // Once more after the hero art and the map painting have arrived and stopped moving things.
+    const settle = window.setTimeout(jump, 450);
+    window.addEventListener("hashchange", jump);
+    window.addEventListener("load", jump);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(settle);
+      window.removeEventListener("hashchange", jump);
+      window.removeEventListener("load", jump);
+    };
+  }, []);
+}
+
+/**
  * The section that says the world outlives the book — and now shows it.
  *
  * What stood here was a drawing of a map: three cards pinned to the corners of an empty box with
@@ -40,7 +98,7 @@ function Memory() {
     starts the book exactly as choosing one there does.
   */
   return (
-    <section className="landing-v3-memory">
+    <section className="landing-v3-memory" id="worlds">
       <WorldSelectorStage draft={draft} onChange={setDraft} embedded />
     </section>
   );
@@ -85,7 +143,7 @@ function Pricing() {
               </li>
             ))}
           </ul>
-          <Link to={START_JOURNEY}>
+          <Link to={START_JOURNEY} search={fromSection("pricing")}>
             {L.digital.cta}
             <ArrowIcon />
           </Link>
@@ -107,7 +165,7 @@ function Pricing() {
               </li>
             ))}
           </ul>
-          <Link to={START_JOURNEY}>
+          <Link to={START_JOURNEY} search={fromSection("pricing")}>
             {L.print.cta}
             <ArrowIcon />
           </Link>
@@ -192,7 +250,7 @@ function Final() {
   const t = useT();
   const L = t.landing.final;
   return (
-    <section className="landing-v3-final">
+    <section className="landing-v3-final" id="final">
       <div className="landing-v3-final-art" aria-hidden="true" />
       <div className="landing-v3-final-wash" aria-hidden="true" />
       <div className="landing-v3-final-copy">
@@ -205,11 +263,10 @@ function Final() {
           <em>{L.titleEm}</em>
         </h2>
         <span>{L.lead}</span>
-        <Link to={START_JOURNEY}>
+        <Link to={START_JOURNEY} search={fromSection("final")}>
           {t.landing.hero.primaryCta}
           <ArrowIcon />
         </Link>
-        <small>{L.note}</small>
       </div>
     </section>
   );
@@ -299,6 +356,8 @@ function MobileCta() {
 
 /** Landing markup matches Partner Demo v13 class tree (Hero/Header/Books/How modules). */
 export function LandingPage() {
+  useScrollToHashSection();
+
   return (
     <div className="landing-v3">
       <Header />

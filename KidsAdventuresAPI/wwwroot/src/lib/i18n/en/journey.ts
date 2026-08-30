@@ -100,12 +100,18 @@ export const journey = {
     stageLabel: "Choosing a magical world",
     artLabel: "Six floating magical worlds, Beki, and a glowing book",
     brandLabel: "Beki — home",
-    backLabel: "Back to the home page",
+    backLabel: "Go back",
     create: "Create",
     continueTo: (world: string) => `Create — ${world}`,
     statusIdle: "No world chosen yet.",
     statusFlying: (world: string) => `${world} chosen. Beki's star is on its way.`,
     statusReady: (world: string) => `${world} chosen. The button to go there is ready.`,
+
+    visited: "Already visited",
+    locked: "Still locked",
+    lockedNote: (world: string) =>
+      `${world} is still locked — the previous adventure is not finished yet.`,
+    forChild: (name: string) => `${name}'s worlds`,
   },
 
   firstMap: {
@@ -140,6 +146,8 @@ export const journey = {
 
   previewLoader: {
     paintingCover: "The story is written — painting the cover…",
+    stopWaiting: "Stop and go back",
+    stopWaitingNote: "The story is being written. You can wait here, or go back — nothing is lost.",
     heading: " Your personalised preview is being made",
     subheading: "'s first page is already being made ✨",
     reassurance: "Stay for this bit of magic — it takes about 30 seconds.",

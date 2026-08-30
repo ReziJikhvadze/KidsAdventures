@@ -23,7 +23,7 @@ export const landing = {
     titleLine1: "A book your child will remember",
     titleEm: "as their own",
     titleLine2: " story",
-    lead: "Every book has a personalised cover, 7 illustrated story pages, and a QR code to continue the adventure.",
+    lead: "Every book has 16 personalised pages and a QR code to continue the adventure.",
     priceFrom: "from 14 ₾",
     createSimilar: "Create something like this ",
     exampleAlt: (title: string) => `See the book for ${title}`,
@@ -65,7 +65,7 @@ export const landing = {
       },
       {
         title: "See the preview and order",
-        body: "Before paying you see the personalised cover and first page, choose the format there, and the book is created automatically after that.",
+        body: "Before paying you see the personalised first page, choose the format there, and the book is created automatically after that.",
       },
     ],
   },
@@ -106,8 +106,8 @@ export const landing = {
       name: "Digital",
       note: "Ready to read online",
       features: [
-        " Personalised cover and first page free",
-        " 7 illustrated story pages",
+        " Personalised first page free",
+        " 16 personalised pages",
         " QR code for the next adventure",
         " PDF download",
         " Upgrade to Printed later",
@@ -170,7 +170,7 @@ export const landing = {
     quotes: [
       {
         quote:
-          "“When she saw her name on the cover she went quiet — then showed it to everyone, one by one, because it was her book.”",
+          "“When she saw her own name she went quiet — then showed it to everyone, one by one, because it was her book.”",
         author: "Mariam · parent of a 5-year-old",
       },
       {
@@ -196,7 +196,7 @@ export const landing = {
       {
         question: "What do I see before paying?",
         answer:
-          "A cover created with your child's name and the first illustrated page. The remaining 6 pages are created and opened after a successful payment.",
+          "The first illustrated page, created with your child's name. The remaining 15 pages are created and opened after a successful payment.",
       },
       {
         question: "How is my child's photo used?",
@@ -222,6 +222,5 @@ export const landing = {
     titleLine1: "One day childhood ends.",
     titleEm: "Their world stays.",
     lead: "Create a book that delights them today — and brings them home again years from now.",
-    note: "Digital from 14 ₾ · takes about 3 minutes to create",
   },
 };

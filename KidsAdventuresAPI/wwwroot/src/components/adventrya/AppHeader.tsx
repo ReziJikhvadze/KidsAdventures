@@ -2,7 +2,6 @@ import { Link, useCanGoBack, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, ChevronDown, ChevronRight, Globe, LogOut } from "lucide-react";
 
 import { LanguageSwitcher } from "@/components/adventrya/LanguageSwitcher";
-import { BRAND_HEADER_NAME } from "@/lib/brand";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useT } from "@/lib/i18n";
 
@@ -107,11 +106,15 @@ export function AppHeader({
               aria-label, where it is read to the people who cannot see the arrow. */}
           <ArrowLeft aria-hidden="true" />
         </Link>
-        {!minimal ? (
-          <Link className="wordmark wordmark-small" to="/">
-            {BRAND_HEADER_NAME}
-          </Link>
-        ) : null}
+        {/*
+          No wordmark inside the app.
+
+          The arrow and the name sat side by side and went to two different places — the arrow
+          one step back, the name all the way out to the home page — so the corner of every
+          screen offered two "backs" and the bigger, more inviting one threw away the flow the
+          parent was halfway through. The brand keeps its wordmark on the home page, which is
+          the one place it is a destination rather than an exit.
+        */}
       </div>
 
       {/*
@@ -152,7 +155,7 @@ export function AppHeader({
             </span>
             <span>
               <small>{t.common.nav.parentSpace}</small>
-              {t.common.nav.myFamily}
+              {t.common.nav.myCabinet}
             </span>
             <ChevronRight />
           </Link>

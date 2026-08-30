@@ -555,28 +555,6 @@
   flex-shrink: 0;
 }
 
-/*
-  The wordmark, matched to `.wordmark` in base.css — same weight, spacing and gold. It was set in
-  the display serif at a lighter weight with a gradient rule under it, which made the name look
-  like a different brand on the one page a parent meets it first.
-
-  The shadow is this page's own and stays: the name sits on a painting here rather than on a bar,
-  and without it the gold disappears into a bright sky.
-*/
-.experience-header .brand {
-  display: inline-flex;
-  align-items: center;
-  color: #f2d48f;
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  line-height: 1;
-  text-decoration: none;
-  text-shadow:
-    0 2px 20px rgba(3, 2, 23, 0.9),
-    0 0 18px rgba(255, 210, 112, 0.38);
-}
-
 .headline {
   position: absolute;
   top: calc(var(--crop-band) + 1.7%);
@@ -843,6 +821,74 @@
   transform: translate(-50%, -50%) scale(1);
 }
 
+/*
+  Where this child has been, and where they cannot go yet.
+
+  Only drawn when the map was opened for a particular child — every island is plain and open to
+  a visitor who has no progress to show. A shut island stays visible and readable: it is the
+  reason to finish the book they are on, and hiding it would just make the painting look smaller.
+*/
+.world-node.is-locked .world-hotspot {
+  cursor: not-allowed;
+}
+
+.world-node.is-locked .world-label {
+  border-color: rgba(214, 205, 233, 0.22);
+  background: rgba(9, 6, 28, 0.66);
+}
+
+.world-node.is-locked .world-label strong {
+  color: rgba(240, 234, 252, 0.62);
+}
+
+/* The lock rides the label rather than the island, so it cannot land on open sea. */
+.world-node.is-locked .world-label::before {
+  margin-bottom: 1px;
+  color: rgba(240, 234, 252, 0.72);
+  content: "F512";
+  font-size: clamp(7px, 0.62vw, 10px);
+  line-height: 1;
+}
+
+/* A shut island does not light up under a pointer: nothing is on offer there. */
+.world-node.is-locked.is-previewed .world-label,
+.world-node.is-locked:hover .world-label,
+.world-node.is-locked:focus-within .world-label {
+  border-color: rgba(214, 205, 233, 0.3);
+  background: rgba(9, 6, 28, 0.72);
+  box-shadow: none;
+  transform: none;
+}
+
+.world-node.is-locked::before {
+  opacity: 0;
+}
+
+.world-node.is-visited .world-label {
+  border-color: rgba(151, 226, 178, 0.42);
+}
+
+.world-state {
+  color: rgba(247, 201, 95, 0.85);
+  font-size: clamp(6px, 0.46vw, 8px);
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  line-height: 1.2;
+}
+
+.world-node.is-locked .world-state {
+  color: rgba(232, 226, 246, 0.6);
+}
+
+.world-node.is-visited .world-state {
+  color: rgba(151, 226, 178, 0.9);
+}
+
+.mobile-frame .world-state {
+  font-size: clamp(6px, 1.5vw, 9px);
+}
+
 .world-node.is-selected .world-label::after {
   position: absolute;
   top: -4px;
@@ -974,10 +1020,6 @@
   top: calc(var(--crop-band) + max(1.25%, env(safe-area-inset-top, 0px)));
   left: 4%;
   gap: 10px;
-}
-
-.mobile-frame .experience-header .brand {
-  font-size: clamp(15px, 4.2vw, 22px);
 }
 
 .mobile-frame .headline {

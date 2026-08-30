@@ -185,15 +185,28 @@
   border-color: #e8c98aa8;
   background: #66497b6e;
 }
+/*
+  The swatch has to survive the word beside it.
+
+  `flex-shrink` was left at its default, so in a two-column grid the two options whose names are
+  long — ყავისფერი and ნაცრისფერი — squeezed their circle down to a four-pixel sliver while
+  ლურჯი and მწვანე, being short, kept theirs whole. Two of the four colours were simply not on
+  screen, and the two that were made it look deliberate.
+
+  The dark inner ring is thinner as well. At 3px it covered most of a 13px disc, leaving a hair
+  of colour that brown and grey — the two quietest of the four — could not carry against this
+  background.
+*/
 .eye {
-  width: 13px;
-  height: 13px;
-  border: 2px solid rgba(255, 255, 255, 0.38);
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.48);
   border-radius: 50%;
-  box-shadow: inset 0 0 0 3px #130c2a9e;
+  box-shadow: inset 0 0 0 2px #130c2a80;
 }
 .eye-0 {
-  background: #8c654b;
+  background: #a97a58;
 }
 .eye-1 {
   background: #78a5c3;
@@ -202,7 +215,7 @@
   background: #6c9674;
 }
 .eye-3 {
-  background: #a5a7ae;
+  background: #bcbec6;
 }
 .privacy-inline {
   display: flex;

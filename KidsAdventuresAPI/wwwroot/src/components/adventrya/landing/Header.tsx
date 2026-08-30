@@ -50,6 +50,16 @@ export function Header() {
       <a href="#faq" onClick={() => setMenuOpen(false)}>
         {t.common.nav.faq}
       </a>
+      {/*
+        The child's map, reachable from the top of the page.
+
+        It was named once, in the footer, at the bottom of a page seven screens long — so the
+        one screen a returning family actually comes back for was the hardest thing here to
+        find. A router Link rather than an anchor: it is a page, not a section of this one.
+      */}
+      <Link to="/world" onClick={() => setMenuOpen(false)}>
+        {t.common.nav.myWorld}
+      </Link>
     </>
   );
 

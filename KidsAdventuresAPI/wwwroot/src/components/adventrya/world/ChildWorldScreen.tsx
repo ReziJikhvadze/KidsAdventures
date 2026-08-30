@@ -9,7 +9,7 @@ import { listCharacters } from "@/lib/api/characters";
 import type { AdventureMapResponse, CharacterResponse } from "@/lib/api/types";
 import { getAdventureMap, listAdventureMaps } from "@/lib/api/worlds";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { continueHrefFromMap, newBookHref } from "@/lib/continue";
+import { continueViaPickerHref, newBookHref } from "@/lib/continue";
 import { useT } from "@/lib/i18n";
 import { useWorldById, isWorldId, type WorldId } from "@/lib/worlds";
 
@@ -26,6 +26,14 @@ export function ChildWorldScreen({ celebrationBookId }: ChildWorldScreenProps) {
   const [characters, setCharacters] = useState<CharacterResponse[]>([]);
   const [characterId, setCharacterId] = useState<string | null>(null);
   const [map, setMap] = useState<AdventureMapResponse | null>(null);
+  /*
+    Every child's progress, not only the one on screen.
+
+    The left column names the family, and a name on its own does not say which child has been
+    anywhere. `listAdventureMaps` returns one map per child in a single request, so the counts
+    beside the names cost nothing beyond what the celebration handoff already asks for.
+  */
+  const [mapsByCharacter, setMapsByCharacter] = useState<Record<string, AdventureMapResponse>>({});
   const [activeWorldId, setActiveWorldId] = useState<string | null>(null);
   const [celebrationWorldId, setCelebrationWorldId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -52,12 +60,25 @@ export function ChildWorldScreen({ celebrationBookId }: ChildWorldScreenProps) {
         const primary = list.find((c) => c.isPrimary) ?? list[0] ?? null;
         let selectedCharacterId = primary?.id ?? null;
 
+        /*
+          Every child's map, always — not only when a finished book has to find its owner.
+
+          It was fetched under that one condition, and the left column needs it on every visit:
+          it is what lets each name carry the number of worlds that child has opened. One request
+          for the whole family, and the celebration handoff below reads the same answer.
+        */
+        const maps = await listAdventureMaps().catch(() => null);
+        if (cancelled) return;
+        if (maps) {
+          const byCharacter: Record<string, AdventureMapResponse> = {};
+          for (const candidate of maps) byCharacter[candidate.characterId] = candidate;
+          setMapsByCharacter(byCharacter);
+        }
+
         // A family can have more than one child. Find the finished book's owner before
         // selecting the default hero, so a sibling's map can receive its earned celebration.
         const handoffBookId = initialCelebrationBookId.current;
         if (handoffBookId) {
-          const maps = await listAdventureMaps().catch(() => null);
-          if (cancelled) return;
           const eligibleCharacterIds = new Set(list.map((character) => character.id));
           const mapWithCompletedBook = maps?.find(
             (candidate) =>
@@ -93,9 +114,25 @@ export function ChildWorldScreen({ celebrationBookId }: ChildWorldScreenProps) {
       .then((response) => {
         if (cancelled) return;
         setMap(response);
+        /*
+          Open on somewhere the child can actually go.
+
+          `nextWorldId` used to win outright, and it is a suggestion the server makes without
+          checking it against this child's own progress — so a map whose suggestion was still
+          locked opened on that island, with the one button on the screen greyed out and reading
+          "this world is locked". A parent switching between two children hit it immediately.
+          The suggestion is still preferred; it just has to be a place they may start.
+        */
+        const startable = (worldId: string | null | undefined) =>
+          !!worldId &&
+          response.worlds.some(
+            (w) => w.worldId === worldId && (w.canStart || w.state !== "Locked"),
+          );
+
         const next =
-          response.nextWorldId ||
+          (startable(response.nextWorldId) ? response.nextWorldId : null) ||
           response.worlds.find((w) => w.state === "Next")?.worldId ||
+          response.worlds.find((w) => w.state === "Unlocked")?.worldId ||
           response.worlds.find((w) => w.state === "Completed")?.worldId ||
           response.worlds[0]?.worldId ||
           null;
@@ -143,32 +180,31 @@ export function ChildWorldScreen({ celebrationBookId }: ChildWorldScreenProps) {
   ) as WorldId;
   const world = WORLD_BY_ID[worldId];
 
+  /*
+    One button, and it opens the map of worlds.
+
+    Every branch of this used to end at `/create#preview`, which writes a book the moment it is
+    on screen. So the child's own map had a single button that skipped the choice of world
+    entirely and started generating one — for whichever world the server happened to suggest —
+    with nothing on the way to stop it. All of them lead to the picker now; the prior book and
+    the friends it carries forward ride along in the query, and the questions after it are where
+    a parent says yes.
+  */
   const continueHref = useMemo(() => {
-    // Nothing to continue from yet, so this is a new book: it starts at the world picker rather
-    // than on the preview stage, which would generate one before anything had been chosen.
-    if (!characterId) return newBookHref();
-    if (map?.isFirstJourney) return newBookHref(characterId);
-    if (activeNode?.canStart || activeNode?.state === "Next" || activeNode?.state === "Unlocked") {
-      return continueHrefFromMap(map?.continuation, characterId, worldId);
-    }
-    if (activeNode?.state === "Completed" && activeNode.bookId) {
-      return continueHrefFromMap(
-        map?.continuation ?? {
-          fromBookId: activeNode.bookId,
-          fromWorldId: worldId,
-          fromSequenceNumber: activeNode.sequenceNumber ?? 1,
-          nextSequenceNumber: (activeNode.sequenceNumber ?? 1) + 1,
-          suggestedWorldId: map?.nextWorldId ?? worldId,
-          carryForwardCharacters: [
-            { id: characterId, name: heroName, characterType: "child", isPrimary: true },
-          ],
-        },
-        characterId,
-        map?.nextWorldId ?? worldId,
-      );
-    }
-    return continueHrefFromMap(map?.continuation, characterId, worldId);
-  }, [characterId, map, activeNode, worldId, heroName]);
+    if (!characterId) return newBookHref(null, { from: "world" });
+    if (map?.isFirstJourney) return newBookHref(characterId, { from: "world" });
+
+    const continuation = map?.continuation;
+    const priorBookId =
+      continuation?.fromBookId ??
+      (activeNode?.state === "Completed" ? (activeNode.bookId ?? null) : null);
+
+    return continueViaPickerHref({
+      characterId,
+      continuesFromBookId: priorBookId,
+      characterIds: continuation?.carryForwardCharacters.map((c) => c.id) ?? [characterId],
+    });
+  }, [characterId, map, activeNode]);
 
   const continueParts = useMemo(() => {
     const [pathAndQuery, hash] = continueHref.split("#");
@@ -208,18 +244,41 @@ export function ChildWorldScreen({ celebrationBookId }: ChildWorldScreenProps) {
           </div>
         </div>
 
-        <div className="memory-note">
-          <span className="rex-seal" aria-hidden="true">
-            R
-          </span>
-          <div>
-            <small>{t.story.world.lastMemory}</small>
-            <p>{t.story.world.lastMemoryNote}</p>
-          </div>
-          <Sparkles aria-hidden="true" />
-        </div>
+        {/*
+          The family down the left, the worlds across the right.
 
-        <p className="world-explanation">{t.story.world.guidance}</p>
+          What stood here was one child — the selected one — under a keepsake note about a
+          dinosaur named Rex that belonged to no book anyone had bought, a paragraph explaining
+          the map beside the map, and, only if there happened to be more than one child, a row of
+          bare name buttons at the bottom with nothing to tell them apart. A parent with two
+          children could not see, without pressing each in turn, which of them had been anywhere.
+          The list says it: the name, and how many worlds that child has opened.
+        */}
+        <p className="world-children-title">{t.dashboard.sidebar.parentLabel}</p>
+
+        <div className="world-children">
+          {characters.map((c) => {
+            const opened = mapsByCharacter[c.id]?.completedCount ?? 0;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                className={`world-child-card ${c.id === characterId ? "selected" : ""}`}
+                onClick={() => setCharacterId(c.id)}
+                aria-pressed={c.id === characterId}
+              >
+                <span className="child-avatar" aria-hidden="true">
+                  {c.name.slice(0, 1)}
+                </span>
+                <span>
+                  <strong>{c.name}</strong>
+                  <small>{t.story.world.worldCount(opened)}</small>
+                </span>
+                <ArrowRight aria-hidden="true" />
+              </button>
+            );
+          })}
+        </div>
 
         <div className="selected-world-inline" aria-live="polite">
           <span>
@@ -237,21 +296,6 @@ export function ChildWorldScreen({ celebrationBookId }: ChildWorldScreenProps) {
             </p>
           </div>
         </div>
-
-        {characters.length > 1 ? (
-          <div className="world-language-row" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {characters.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                className={`button button-quiet ${c.id === characterId ? "button-primary" : ""}`}
-                onClick={() => setCharacterId(c.id)}
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
-        ) : null}
 
         <div className="world-actions">
           {lockedSelected ? (

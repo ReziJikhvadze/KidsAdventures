@@ -28,6 +28,11 @@ export const dashboard = {
       `Hardcover. ${tbilisi} days in Tbilisi, ${regions} days elsewhere.`,
     printOrdered: "Printed book on its way ✓",
 
+    statusCreated: "Created",
+    statusDownloaded: "Downloaded",
+    statusPrinted: "Printed",
+    statusLabel: "Status",
+
     pagingLabel: "Library pages",
     pageOf: (page: number, total: number) => `Page ${page} of ${total}`,
   },

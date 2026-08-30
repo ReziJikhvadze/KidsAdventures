@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useRouter } from "@tanstack/react-router";
 
+import type { JourneyOrigin } from "@/lib/journey/draft";
+
 export const JOURNEY_STAGES = [
   "profile",
   "world",
@@ -81,25 +83,60 @@ function normalizeStage(rawHash: string | undefined): JourneyStage {
 /** Back-link target for each stage, mirroring the demo's navigation model. */
 export function backHrefForStage(
   stage: JourneyStage,
-  options: { mode: "first" | "continue"; isPrintUpgrade: boolean; hasWorld: boolean },
+  options: {
+    mode: "first" | "continue";
+    isPrintUpgrade: boolean;
+    hasWorld: boolean;
+    /**
+     * The child this book is being made for, when there is one. Carried back to the picker so
+     * stepping back from the questions returns to *their* map — the one that knows which worlds
+     * they have already been to — rather than to a blank one that would go on to create a second
+     * copy of the same child.
+     */
+    characterId?: string | null;
+    /** The screen the journey was entered from; see `JourneyDraft.cameFrom`. */
+    cameFrom?: JourneyOrigin;
+  },
 ): string {
   switch (stage) {
     // World first, so it is the one that leads back out of the journey; details step back to it.
     case "world":
       return "/";
+    /*
+      One step back, to the world picker, whatever brought the parent here.
+
+      Continuing an adventure used to jump straight out to the dashboard from this step, which
+      skipped the choice the parent had just made and, from the child's own map, put them on a
+      screen they had not come from. Every route into the questions now passes through the
+      picker, so the picker is what "back" means — carrying the child and the origin, so the
+      picker's own arrow can finish the journey home.
+    */
     case "profile":
-      return options.mode === "continue" ? "/dashboard" : "/themes";
+      return themesHref(options.characterId, options.cameFrom);
     case "preview":
       return "/create#profile";
     case "auth":
       return "/create#preview";
     case "checkout":
-      if (options.isPrintUpgrade) return "/dashboard";
+      if (options.isPrintUpgrade) return originHref(options.cameFrom);
       // Auth is skipped when already signed in; preview is the real prior step.
       return "/create#preview";
     default:
-      return "/dashboard";
+      return originHref(options.cameFrom);
   }
+}
+
+/** Where a parent who leaves the journey lands: the screen they came in from. */
+function originHref(cameFrom: JourneyOrigin | undefined): string {
+  return cameFrom === "world" ? "/world" : "/dashboard";
+}
+
+function themesHref(characterId: string | null | undefined, cameFrom: JourneyOrigin | undefined) {
+  const params = new URLSearchParams();
+  if (characterId) params.set("characterId", characterId);
+  if (cameFrom) params.set("from", cameFrom);
+  const query = params.toString();
+  return query ? `/themes?${query}` : "/themes";
 }
 
 /*

@@ -2,7 +2,9 @@ import { useLocation, useRouter } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { BRAND_HEADER_NAME } from "@/lib/brand";
+import { getAdventureMap } from "@/lib/api/worlds";
+import type { WorldNodeState } from "@/lib/api/types";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { useT } from "@/lib/i18n";
 import type { JourneyDraft } from "@/lib/journey/draft";
 import {
@@ -16,6 +18,33 @@ import { useWorldById } from "@/lib/worlds";
 
 type Variant = "desktop" | "mobile";
 
+/**
+ * Sections of the home page a parent can be sent here from, so the arrow can put them back
+ * exactly where they were standing rather than at the top of a very long page.
+ *
+ * A closed list rather than "whatever `from` says": the value ends up in a URL this page hands
+ * to an anchor, and an open one would follow anything a link chose to put there.
+ */
+const LANDING_SECTIONS = new Set(["books", "worlds", "pricing", "faq", "final"]);
+
+function backHrefFromSearch(search: string): string {
+  let params: URLSearchParams;
+  try {
+    params = new URLSearchParams(search);
+  } catch {
+    return "/";
+  }
+
+  const from = params.get("from");
+  if (from === "dashboard") return "/dashboard";
+  // The child's own map, which is where the "next world" button lives.
+  if (from === "world") return "/world";
+  if (from && LANDING_SECTIONS.has(from)) return `/#${from}`;
+  // A book cover on the shelf is the one link that predates `from=`; it only carries `?world=`.
+  if (params.has("world")) return "/#books";
+  return "/";
+}
+
 type Props = {
   draft: JourneyDraft;
   onChange: (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => void;
@@ -28,6 +57,47 @@ type Props = {
    */
   embedded?: boolean;
 };
+
+/**
+ * Which of the six worlds this child has already been to, and which are still shut.
+ *
+ * The map endpoint is the authority on progress and needs a session, so this asks for nothing
+ * while signed out and returns nothing when the request fails — an unreachable API leaves the
+ * painting exactly as it looks for a first-time visitor, which is the safe way to be wrong: six
+ * open islands and no false lock in front of a book somebody is trying to buy.
+ */
+function useChildWorldStates(
+  characterId: string | null,
+  enabled: boolean,
+): Record<string, WorldNodeState> | null {
+  const [states, setStates] = useState<Record<string, WorldNodeState> | null>(null);
+
+  useEffect(() => {
+    if (!characterId || !enabled) {
+      setStates(null);
+      return;
+    }
+
+    let cancelled = false;
+    void getAdventureMap(characterId)
+      .then((map) => {
+        if (cancelled) return;
+        const next: Record<string, WorldNodeState> = {};
+        for (const node of map.worlds) next[node.worldId] = node.state;
+        setStates(next);
+      })
+      .catch(() => {
+        /* No map, no locks. See above. */
+        if (!cancelled) setStates(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [characterId, enabled]);
+
+  return states;
+}
 
 /**
  * The delivered world selector, wired into the journey.
@@ -54,16 +124,26 @@ export function WorldSelectorStage({ draft, onChange, embedded = false }: Props)
   /*
     Back to where the reader actually came from.
 
-    The arrow always pointed at `/`, so a parent who had scrolled down the home page to the
-    shelf, picked a book off it and landed here was returned to the top of the page — with the
-    shelf they were reading somewhere below the fold and no sign of the book they had just
-    chosen. A book card is the only thing that arrives carrying `?world=`, which is exactly the
-    case that should go back to the shelf; the hero's own button carries nothing and still comes
-    from the top of the page, where it belongs.
+    The arrow always pointed at `/`, so a parent who had scrolled to the foot of the home page
+    and pressed the last call to action was returned to the top of it, and one who came from
+    their own cabinet was thrown out to the marketing page entirely. Whoever sends a parent here
+    now says so in `?from=`, and this reads it; `?world=` from a book cover is kept as the older
+    spelling of "the shelf".
   */
   const search = useLocation().searchStr ?? "";
-  const cameFromShelf = new URLSearchParams(search).has("world");
-  const backHref = cameFromShelf ? "/#books" : "/";
+  const backHref = backHrefFromSearch(search);
+
+  /*
+    Whose map this is.
+
+    Empty for everyone arriving from the marketing page: the painting is then simply a choice of
+    six, because a visitor with no account has no progress to show. The cabinet is what supplies
+    a child — its "new book" button carries the selected child's id — and that is the only case
+    where an island can be shut.
+  */
+  const characterId = new URLSearchParams(search).get("characterId");
+  const { isAuthenticated } = useAuth();
+  const worldStates = useChildWorldStates(characterId, isAuthenticated && !embedded);
 
   /*
     Two ids for one place, and the seam is here on purpose.
@@ -144,6 +224,8 @@ export function WorldSelectorStage({ draft, onChange, embedded = false }: Props)
     (selectorId: SelectorWorldId) => {
       const world = SELECTOR_WORLDS.find((candidate) => candidate.id === selectorId);
       if (!world) return;
+      // A shut island is shown, not offered: the child has not finished what opens it yet.
+      if (worldStates?.[world.worldId] === "Locked") return;
 
       if (ctaTimer.current !== null) window.clearTimeout(ctaTimer.current);
 
@@ -153,13 +235,17 @@ export function WorldSelectorStage({ draft, onChange, embedded = false }: Props)
       setFlightRun((run) => run + 1);
       onChange({ worldId: world.worldId });
 
-      // The button appears when the star lands, not before: offering it mid-flight is offering
-      // it over an animation the eye is still following. Honouring reduced motion means there
-      // is no flight to wait for, so it appears at once.
-      const wait = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 1040;
+      /*
+        The button appears when the star lands, not before: offering it mid-flight is offering it
+        over an animation the eye is still following. Halved from 1040ms — the flight was
+        finished well before the button showed up, so the last half second was a pause with
+        nothing happening in it. Honouring reduced motion means there is no flight to wait for,
+        so it appears at once.
+      */
+      const wait = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 520;
       ctaTimer.current = window.setTimeout(() => setCtaReady(true), wait);
     },
-    [onChange],
+    [onChange, worldStates],
   );
 
   const start = useCallback(() => {
@@ -169,11 +255,46 @@ export function WorldSelectorStage({ draft, onChange, embedded = false }: Props)
     // Carried through exactly as the old picker carried it: an existing child keeps their id, so
     // starting a second book does not create a second copy of the same kid at checkout.
     const incoming = router.state.location.search as Record<string, unknown>;
-    const characterId = typeof incoming.characterId === "string" ? incoming.characterId : undefined;
+    const text = (key: string) =>
+      typeof incoming[key] === "string" ? (incoming[key] as string) : undefined;
+    const forChild = text("characterId");
 
+    /*
+      Everything a continuation needs, carried straight through.
+
+      The child's map used to link past this page to the preview, which starts writing a book on
+      sight — so "another world" was a purchase, not a choice. It comes here first now, and this
+      hands the prior book and the cast it carries forward on to the questions, where the parent
+      confirms before anything is written.
+    */
+    const carried: Record<string, string> = {};
+    for (const key of ["continuesFromBookId", "characterIds", "from"]) {
+      const value = text(key);
+      if (value) carried[key] = value;
+    }
+
+    /*
+      Without a child, the form opens empty.
+
+      The draft lives in a provider above the routes and every step of this journey is a
+      client-side navigation, so it survives a finished book: a parent who made one for one child
+      and then started another was met by the first child's name, birth date and photograph
+      already filled in, and had to clear four fields before they could answer honestly. `new`
+      is what JourneyDraftProvider reads as "this is a beginning" — it is set here rather than on
+      every link into the picker, because this is the single door out of it.
+
+      A child carried in the query is the opposite case and deliberately keeps its details: the
+      cabinet asked for a second book for *that* child, and asking their parent to type them in
+      again would be the same bug pointing the other way.
+    */
     void router.navigate({
       to: "/create",
-      search: { mode: "first", world: world.worldId, ...(characterId ? { characterId } : {}) },
+      search: {
+        mode: carried.continuesFromBookId ? "continue" : "first",
+        world: world.worldId,
+        ...carried,
+        ...(forChild ? { characterId: forChild } : { new: "1" }),
+      },
       hash: "profile",
     });
   }, [router, selected]);
@@ -215,6 +336,7 @@ export function WorldSelectorStage({ draft, onChange, embedded = false }: Props)
           status={status}
           embedded={embedded}
           backHref={backHref}
+          worldStates={worldStates}
           onPreview={setPreviewed}
           onChoose={chooseWorld}
           onStart={start}
@@ -241,6 +363,7 @@ function WorldStageArt({
   status,
   embedded,
   backHref,
+  worldStates,
   onPreview,
   onChoose,
   onStart,
@@ -254,6 +377,8 @@ function WorldStageArt({
   embedded: boolean;
   /** Where the arrow in the corner goes; see WorldSelectorStage. */
   backHref: string;
+  /** This child's progress through the six worlds, or null when there is no child. */
+  worldStates: Record<string, WorldNodeState> | null;
   onPreview: (id: SelectorWorldId | null) => void;
   onChoose: (id: SelectorWorldId) => void;
   onStart: () => void;
@@ -301,19 +426,13 @@ function WorldStageArt({
           */}
           {!embedded ? (
             /*
-              Arrow and wordmark in one row, the way every other screen's header holds them.
-              They used to be two independently positioned things — the arrow at a fixed inset,
-              the wordmark at a percentage — which meant the two moved apart at different rates
-              as the viewport changed and, at ordinary desktop widths, the arrow's blurred disc
-              sat directly on top of the name.
+              The arrow, and only the arrow. The wordmark beside it went to the home page while
+              the arrow went one step back, so the corner of the map offered two different
+              exits and the larger one abandoned whatever the parent had started.
             */
             <div className="map-header-start">
               <a className="map-back" href={backHref} aria-label={copy.backLabel}>
                 <ArrowLeft aria-hidden="true" />
-              </a>
-
-              <a className="brand" href="/" aria-label={copy.brandLabel}>
-                {BRAND_HEADER_NAME}
               </a>
             </div>
           ) : null}
@@ -334,8 +453,16 @@ function WorldStageArt({
         <div className="world-map">
           {SELECTOR_WORLDS.map((world) => {
             const isSelected = selected === world.id;
-            const showAction = isSelected && ctaReady;
             const place = worldById[world.worldId];
+
+            /*
+              Only a child has a state. Without one every island is simply open, which is what a
+              visitor who has never signed in should see.
+            */
+            const state = worldStates?.[world.worldId] ?? null;
+            const isLocked = state === "Locked";
+            const isVisited = state === "Completed";
+            const showAction = isSelected && ctaReady && !isLocked;
 
             const spot = ISLAND_SPOTS[variant][world.id];
 
@@ -344,7 +471,7 @@ function WorldStageArt({
                 key={world.id}
                 className={`world-node hotspot-${world.id}${isSelected ? " is-selected" : ""}${
                   previewed === world.id ? " is-previewed" : ""
-                }`}
+                }${isLocked ? " is-locked" : ""}${isVisited ? " is-visited" : ""}`}
                 data-world-node={world.id}
                 /* Placed from the same island coordinates the star flies to, so a tap and a
                    landing can never again disagree about where a world is. */
@@ -358,8 +485,13 @@ function WorldStageArt({
                 <button
                   type="button"
                   className="world-hotspot"
-                  aria-label={`${place.mapTitle}: ${place.teaserBody}`}
+                  aria-label={
+                    isLocked
+                      ? copy.lockedNote(place.mapTitle)
+                      : `${place.mapTitle}: ${place.teaserBody}`
+                  }
                   aria-pressed={isSelected}
+                  aria-disabled={isLocked}
                   onClick={() => onChoose(world.id)}
                   onPointerEnter={() => onPreview(world.id)}
                   onPointerLeave={() => onPreview(null)}
@@ -391,6 +523,11 @@ function WorldStageArt({
                   <span className="world-label">
                     <strong className="full-title">{place.mapTitle}</strong>
                     <strong className="short-title">{place.mapLabel}</strong>
+                    {/* One line under the name, and only for a child whose map this is: where
+                        they have been, and what is not open to them yet. */}
+                    {isLocked || isVisited ? (
+                      <em className="world-state">{isLocked ? copy.locked : copy.visited}</em>
+                    ) : null}
                   </span>
 
                   <div

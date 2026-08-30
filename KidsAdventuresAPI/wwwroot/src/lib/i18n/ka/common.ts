@@ -52,12 +52,13 @@ export const common = {
     faq: "FAQ",
     childWorld: "ბავშვის სამყარო",
     mySpace: "ჩემი სივრცე",
+    myWorld: "ჩემი სამყარო",
     createBook: "შექმენი წიგნი ",
     changeLanguage: "ენის შეცვლა",
     georgian: "ქართული",
     parentSpace: "მშობლის სივრცე",
     openDashboard: "მშობლის სივრცის გახსნა",
-    myFamily: "ჩემი ოჯახი",
+    myCabinet: "ჩემი კაბინეტი",
   },
 
   footer: {

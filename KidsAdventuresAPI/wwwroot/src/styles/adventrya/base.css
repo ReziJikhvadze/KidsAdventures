@@ -659,6 +659,78 @@ svg {
   border: 1px solid rgba(207, 227, 236, 0.56);
   background: #cfe3ec1f;
 }
+/*
+  The family, down the left of the child's map.
+
+  Sized against `.child-switch-card` in the cabinet on purpose: it is the same list of the same
+  children doing the same job, and two different-looking lists of one family is a product with
+  two ideas about who the parent is. The colours are this screen's, which is dark.
+*/
+.world-children-title {
+  margin-top: 18px;
+  color: #f8f2e58f;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.world-children {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 9px;
+}
+.world-child-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  cursor: pointer;
+  border: 1px solid rgba(229, 216, 244, 0.16);
+  border-radius: 14px;
+  background: rgba(23, 14, 54, 0.42);
+  color: inherit;
+  text-align: left;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease;
+}
+.world-child-card:hover,
+.world-child-card:focus-visible {
+  border-color: rgba(255, 227, 163, 0.42);
+  background: rgba(33, 20, 74, 0.62);
+}
+.world-child-card.selected {
+  border-color: rgba(255, 227, 163, 0.72);
+  background: rgba(41, 25, 90, 0.74);
+}
+.world-child-card > span:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.world-child-card strong {
+  overflow: hidden;
+  color: #fff6db;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.world-child-card small {
+  color: #f8f2e58f;
+  font-size: 11.5px;
+}
+.world-child-card > svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #f8f2e561;
+}
+
 .living-map {
   position: absolute;
   z-index: 6;

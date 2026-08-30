@@ -35,6 +35,16 @@ export const dashboard = {
       `მაგარყდიანი წიგნი. თბილისში ${tbilisi} დღეში, სხვა რეგიონებში ${regions} დღეში.`,
     printOrdered: "ბეჭდური წიგნი გზაშია ✓",
 
+    /*
+      What has already been done with this book, in the order the money and the effort went in:
+      a book that was printed was also downloaded, and one that was downloaded was created
+      first — so the furthest step is the one worth showing.
+    */
+    statusCreated: "შექმნილია",
+    statusDownloaded: "ჩამოტვირთულია",
+    statusPrinted: "ბეჭდური",
+    statusLabel: "სტატუსი",
+
     pagingLabel: "წიგნების გვერდები",
     pageOf: (page: number, total: number) => `გვერდი ${page} / ${total}`,
   },
