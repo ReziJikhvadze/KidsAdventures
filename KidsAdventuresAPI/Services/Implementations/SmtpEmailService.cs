@@ -114,6 +114,41 @@ public sealed class SmtpEmailService(
         return SendEmailCoreAsync(toAddress, $"Your storybook PDF is ready — {childName}", html, cancellationToken);
     }
 
+    public Task SendBookFailedAsync(
+        string toAddress,
+        string? childName,
+        string? bookTitle,
+        string parentMessage,
+        CancellationToken cancellationToken = default)
+    {
+        // What the letter can call the book. The title first, the child's book second, and a plain
+        // "your book" last — a failure is the one moment both may be missing, and a letter that
+        // says "-ის წიგნი" because a name was blank is worse than one that says nothing.
+        var subject = string.IsNullOrWhiteSpace(bookTitle)
+            ? string.IsNullOrWhiteSpace(childName)
+                ? $"{Brand} — წიგნი ვერ შეიქმნა"
+                : $"{Brand} — {childName.Trim()}-ის წიგნი ვერ შეიქმნა"
+            : $"{Brand} — „{bookTitle.Trim()}“ ვერ შეიქმნა";
+
+        var named = string.IsNullOrWhiteSpace(bookTitle)
+            ? string.IsNullOrWhiteSpace(childName)
+                ? "თქვენი წიგნი"
+                : $"{WebUtility.HtmlEncode(childName.Trim())}-ის წიგნი"
+            : $"„{WebUtility.HtmlEncode(bookTitle.Trim())}“";
+
+        // The mapped message and nothing else. It is Georgian, it carries no code, and it is the
+        // same sentence the parent is already reading on their screen — one story, two places.
+        var html = GeorgianShell($"""
+            <p>გამარჯობა,</p>
+            <p><strong>{named}</strong> — {WebUtility.HtmlEncode(parentMessage)}</p>
+            <p>თქვენგან არაფერია საჭირო — ჩვენი გუნდი უკვე იხილავს ამ შემთხვევას და თავად
+               დაგიკავშირდებით. თუ კითხვა გაქვთ, უბრალოდ გვიპასუხეთ ამ წერილს.</p>
+            <p>ბოდიშს გიხდით შეფერხებისთვის.</p>
+            """);
+
+        return SendEmailCoreAsync(toAddress, subject, html, cancellationToken);
+    }
+
     public Task SendContactFormAsync(
         string senderName,
         string senderEmail,

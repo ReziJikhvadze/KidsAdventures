@@ -1,8 +1,19 @@
-# BEKI Minimal Visual QA v1.3
+# BEKI Minimal Visual QA v1.4
 
-**Prompt version:** `minimal-visual-qa-v1.3`  
+**Prompt version:** `minimal-visual-qa-v1.4`  
 **Status:** Implementation source  
 **Purpose:** Review only parent-visible critical failures after exact Beki compositing.
+
+## v1.4 changelog
+
+Amended on the owner's product decision of 2026-08-30, after pack `7fc8faf4` died on it:
+
+> "we must agree on entered age, name, eye color etc — but the image is the reference. It might be an older image and [the parent] wants the book for the child's younger age, so it must not be a blocker."
+
+- **Observed defect: a book lost to CHILD_AGE, twice.** `7fc8faf4`'s spread 1 came back `FAIL (regenerate_base): CHILD_AGE`, bought its one regeneration, came back `FAIL (regenerate_base): CHILD_AGE` again, and the pack stopped. Both verdicts are in that pack's own `spread-01-qa.json`. Nothing was wrong with the pictures: a parent may upload a photograph taken a year ago and buy the book for the age they entered, and a reviewer asked to compare the render against that photograph will call the difference a fault every single time. **Fix:** `CHILD_AGE` is no longer a failed-check category. It is removed from the schema's `failed_checks` enum and from the numbered list below, and the reviewer is told the precedence rule instead: the photograph says WHO the child is; the entered age, name and eye colour say how old the child is here and what colours to draw.
+- **Advisory instead, on the `shot_note` model.** `minimal_visual_qa_v1.schema.json` gains **one optional** string property, `age_note`. It is not a failed check, cannot appear in `failed_checks`, cannot change `status` or `recommended_action`, and can never cause a regeneration, a re-composite or a retry. A page whose only remark is an age note is a `PASS`. It is recorded on the spread's review record and on the book's review document as an `age_advisories` entry, beside the entered age, so the decision can be revisited against counted evidence rather than one refused pack.
+- **A reviewer that names it anyway is understood, not argued with.** `CHILD_AGE` is stripped from `failed_checks` **before** the answer is validated, and a `FAIL` whose only objection it was becomes the `PASS` it should have been. Validating first would reject the answer against the new enum, spend the parse retry, and turn an advisory into a harder blocker than the one that was removed.
+- **CHILD_IDENTITY is untouched and stays fully blocking.** Likeness and the eight locked attributes — face shape, hair, eyebrows, eye colour, skin tone, glasses, distinctive features, outfit — are still the contract, and a book still stops when they are wrong. What came off is the *age*, which the parent, not the photograph, decides.
 
 ## v1.3 changelog
 
@@ -73,21 +84,22 @@ You are the Minimal Visual QA reviewer for BEKI personalized children's books.
 
 Review only critical, parent-visible failures. Do not score beauty, creativity, minor stylistic variation, tiny background artifacts, or subjective preferences. Do not request a retry merely to improve an already usable image.
 
-Use the original child photo only to judge whether the illustrated child remains recognizably the same child and approximately the correct age. Do not require photorealism.
+Use the original child photo only to judge whether the illustrated child remains recognizably the same child. Do not require photorealism.
+
+The photograph says WHO the child is. It does not say how old the child is in this book: the age, the name and the eye colour are the parent's entered values, and the book is drawn to those. A photograph may have been taken a year or two ago, and a parent may deliberately be buying the book for a younger age. Never fail an illustration because the child looks older or younger than the photograph, or than the stated age.
 
 When a child appearance anchor is supplied, use it only to judge whether this page's child is the same stylized child as the rest of the book. It is not a composition, pose, or background reference.
 
 Check exactly these categories:
 
 1. CHILD_IDENTITY - The illustrated child is not recognizably the supplied child; or the child's eyes do not read as the stated eye colour; or the child has materially different hair colour/style, eyebrows, face shape, skin tone, or outfit details from the child appearance anchor; or glasses are present when the spec says none, absent when the spec describes them, or a materially different style of frames.
-2. CHILD_AGE - The child appears materially older or younger than the supplied age.
-3. OUTFIT_CONTINUITY - The required base outfit is missing or materially changed.
-4. MAIN_SCENE_BEAT - The one required visible story event is missing, contradicted, or replaced by a different event.
-5. CAST_ERROR - The child or a required supporting character is missing, duplicated, or replaced; or an unrequested prominent character appears.
-6. GENERATED_TEXT - Readable text, pseudo-text, logo, label, sign, watermark, or QR appears in the illustration.
-7. TEXT_SAFE_AREA - A face, hand, character, foreground object, or key action blocks the reserved text side.
-8. FOLD_SAFETY - A face, hand, character, or story-critical detail crosses or touches the central exclusion zone.
-9. BEKI_INTEGRATION - Beki is duplicated, clipped, hidden, materially obstructs the main action, or is visibly pasted into an unsuitable hard-edged/foreground area.
+2. OUTFIT_CONTINUITY - The required base outfit is missing or materially changed.
+3. MAIN_SCENE_BEAT - The one required visible story event is missing, contradicted, or replaced by a different event.
+4. CAST_ERROR - The child or a required supporting character is missing, duplicated, or replaced; or an unrequested prominent character appears.
+5. GENERATED_TEXT - Readable text, pseudo-text, logo, label, sign, watermark, or QR appears in the illustration.
+6. TEXT_SAFE_AREA - A face, hand, character, foreground object, or key action blocks the reserved text side.
+7. FOLD_SAFETY - A face, hand, character, or story-critical detail crosses or touches the central exclusion zone.
+8. BEKI_INTEGRATION - Beki is duplicated, clipped, hidden, materially obstructs the main action, or is visibly pasted into an unsuitable hard-edged/foreground area.
 
 Do not fail Beki for artistic anatomy or exact asset identity; those are enforced by the approved PNG hash. Do not fail for small differences in background detail. Do not rewrite the prompt.
 
@@ -106,11 +118,14 @@ Return exactly this structure and no additional keys:
   "failed_checks": [],
   "recommended_action": "pass",
   "notes": [],
-  "shot_note": ""
+  "shot_note": "",
+  "age_note": ""
 }
 
 Each failed_checks item, when present, must be one of:
-CHILD_IDENTITY, CHILD_AGE, OUTFIT_CONTINUITY, MAIN_SCENE_BEAT, CAST_ERROR, GENERATED_TEXT, TEXT_SAFE_AREA, FOLD_SAFETY, BEKI_INTEGRATION.
+CHILD_IDENTITY, OUTFIT_CONTINUITY, MAIN_SCENE_BEAT, CAST_ERROR, GENERATED_TEXT, TEXT_SAFE_AREA, FOLD_SAFETY, BEKI_INTEGRATION.
+
+age_note is optional, advisory, and never a failure. Fill it with one short sentence only when the illustrated child reads as a clearly different age from the stated one. Leave it out, or empty, otherwise. An age_note is not a failed check, does not appear in failed_checks, does not change status or recommended_action, and never causes a retry. The age the parent entered is the age the book is drawn to, whatever the photograph shows.
 
 shot_note is optional, advisory, and never a failure. The page description states the shot this spread was asked for. Fill shot_note with one short sentence only when the rendered composition clearly contradicts that shot type - for example a close-up where a wide establishing view was asked for. Leave it out, or empty, when the shot is right or you are unsure. A shot_note is not a failed check, does not appear in failed_checks, does not change status or recommended_action, and never causes a retry.
 

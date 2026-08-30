@@ -1077,9 +1077,12 @@ public sealed class AdventureGenerationService(
                 packId, expectedStatus);
         }
 
+        // The same sentence the Beki path now writes, from the same constant. It was a literal
+        // here and absent there, which is how one pipeline apologised and the other left the
+        // parent's bar frozen at 18% forever.
         await SetProgressAsync(
             packId,
-            "რაღაც შეფერხდა. სცადე ხელახლა ან აირჩიე სხვა თემა.",
+            ParentFacingFailure.ProgressLine,
             null,
             cancellationToken);
 
@@ -1090,6 +1093,68 @@ public sealed class AdventureGenerationService(
         // Sent whether or not this writer won: the only thing that beats it to a terminal status is
         // the sweep, whose whole shape is that it tells nobody.
         await adminNotifier.BookFailedAsync(packId, message, CancellationToken.None);
+
+        /*
+          And the family — but only when this writer's verdict is the one on the row.
+
+          A book drawn by this pipeline is as paid-for as a Beki one: the legacy flow is what a
+          purchase falls back to when the Beki format is off, or when the preview run no longer
+          holds what that format needs. It wrote the parent-safe progress line and then told
+          nobody, so the failure reached the parent as a shelf card that stopped moving.
+
+          The condition matches the Beki job's for the same reason: when the compare-and-set
+          loses, the sweep got there first and has already written to this parent. A second
+          letter explaining the same failure differently is worse than no second letter.
+        */
+        if (failed)
+        {
+            await TellTheParentAsync(pack, packId, message);
+        }
+    }
+
+    /// <summary>
+    /// Tells the parent, in Georgian, that the book they paid for could not be made.
+    ///
+    /// Best effort throughout, and last in the handler: the verdict is written and the operator is
+    /// paged before this runs, so an unreachable mail server costs a letter and nothing else. The
+    /// stored reason never travels — <see cref="ParentFacingFailure"/> turns it into a sentence
+    /// with no code in it, which is what separates this from the admin alert above.
+    ///
+    /// <paramref name="pack"/> is whatever the opening read got, which on this path may be null:
+    /// a row that could not be read is still a row whose owner is unknown, and there is nobody to
+    /// write to.
+    /// </summary>
+    private async Task TellTheParentAsync(AdventurePack? pack, Guid packId, string reason)
+    {
+        try
+        {
+            pack ??= await adventurePackRepository.GetByIdNoOwnershipAsync(packId, CancellationToken.None);
+            if (pack is null)
+            {
+                return;
+            }
+
+            var user = await userRepository.GetByIdAsync(pack.UserId, CancellationToken.None);
+            if (user is null || string.IsNullOrWhiteSpace(user.Email))
+            {
+                logger.LogWarning(
+                    "Pack {PackId} failed and its owner has no email address on file; only the "
+                    + "admin alert went out.", packId);
+                return;
+            }
+
+            await emailService.SendBookFailedAsync(
+                user.Email,
+                null,
+                pack.Title,
+                ParentFacingFailure.ToParentMessage(reason),
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex, "Pack {PackId}: the parent could not be told their book failed.", packId);
+        }
     }
 
     private async Task SetProgressAsync(Guid packId, string message, CancellationToken cancellationToken)

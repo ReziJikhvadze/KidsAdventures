@@ -254,6 +254,22 @@ public sealed record CompositeQaVerdict(
     /// </summary>
     public string? ShotNote { get; init; }
 
+    /// <summary>
+    /// What the reviewer thought about the child's apparent age — advisory, and only ever advisory
+    /// (v1.4).
+    ///
+    /// CHILD_AGE was a blocking category until a pack died on it twice. The owner's ruling is that
+    /// the photograph is the identity reference and nothing else: a parent may upload a picture
+    /// from last year and buy the book for the age they typed, and a reviewer comparing the render
+    /// to the photograph will call that a fault every time. So the observation is kept and the
+    /// gate is gone.
+    ///
+    /// Like <see cref="ShotNote"/>, it is a property with a default rather than a constructor
+    /// parameter, it stays out of <see cref="ToString"/> — the line the retry ladder reads — and
+    /// nothing anywhere may branch on it.
+    /// </summary>
+    public string? AgeNote { get; init; }
+
     public const string Pass = "PASS";
 
     public const string ActionPass = "pass";
@@ -325,7 +341,7 @@ public static class CompositeMinimalQa
     /// measured it; a hard gate on a subjective judgement made from one frame would spend a paid
     /// image call on every false positive. So the reviewer records, and the next revision decides.
     /// </summary>
-    public const string Version = "minimal-visual-qa-v1.3";
+    public const string Version = "minimal-visual-qa-v1.4";
 
     /// <summary>
     /// The supplied file stays the authority. The nine category names, the shape and the validation
@@ -504,8 +520,13 @@ public static class CompositeMinimalQa
 
         using (document)
         {
+            // CHILD_AGE comes out before the schema sees the answer, and a page whose only
+            // objection it was becomes a pass. See DemoteAge.
+            var (demoted, ageNote) = DemoteAge(document.RootElement);
+            using var _ = demoted;
+
             var results = Schema.Value.Evaluate(
-                document.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
+                demoted.RootElement, new EvaluationOptions { OutputFormat = OutputFormat.List });
 
             if (!results.IsValid)
             {
@@ -523,14 +544,16 @@ public static class CompositeMinimalQa
                         : [$"the reviewer's answer does not satisfy {SchemaFileName}."]);
             }
 
-            var root = document.RootElement;
+            var root = demoted.RootElement;
 
             return new CompositeQaParseResult(
                 true,
                 new CompositeQaVerdict(
-                    root.GetProperty("status").GetString()!,
+                    // Proved strings by the schema a few lines above — read through the same
+                    // guard as everything else so that no path out of Parse can throw.
+                    Text(root, "status"),
                     Strings(root, "failed_checks"),
-                    root.GetProperty("recommended_action").GetString()!,
+                    Text(root, "recommended_action"),
                     Strings(root, "notes"))
                 {
                     // Absent and empty are the same answer — "the shot is fine, or I could not
@@ -541,18 +564,134 @@ public static class CompositeMinimalQa
                                && !string.IsNullOrWhiteSpace(note.GetString())
                         ? note.GetString()!.Trim()
                         : null,
+                    AgeNote = ageNote,
                 },
                 []);
         }
     }
 
+    /// <summary>
+    /// Takes CHILD_AGE out of the answer before anything is decided by it, and says what it said.
+    ///
+    /// The owner's decision, on 2026-08-30, after a pack died on it twice: *"we must agree on
+    /// entered age, name, eye color etc — but the image is the reference. It might be an older image
+    /// and [the parent] wants the book for the child's younger age, so it must not be a blocker."*
+    /// Pack 7fc8faf4 refused spread 1 as `FAIL (regenerate_base): CHILD_AGE`, bought a second
+    /// picture, was refused for the same thing again, and stopped — a book lost to a disagreement
+    /// between a photograph and a number the parent typed, when the number is the one that is right.
+    ///
+    /// Done here, before the schema, rather than after the verdict is built, because the two would
+    /// otherwise disagree about what a valid answer is: the contract's failed-check list no longer
+    /// contains CHILD_AGE, so an answer naming it would be rejected outright and spend the parse
+    /// retry — turning an advisory into a harder blocker than it was. Stripping first means a
+    /// reviewer that still names it is understood rather than argued with.
+    ///
+    /// A FAIL whose only objection was the age becomes the PASS it should always have been. A FAIL
+    /// that also names something blocking keeps its status, its action and its other checks, and
+    /// loses only the age.
+    /// </summary>
+    /// <returns>
+    /// The document the schema and the verdict are read from, and the age remark to record — the
+    /// reviewer's own <c>age_note</c> when it wrote one, and otherwise a short line saying the age
+    /// was raised as a check and demoted, so the record is not silent about what was seen.
+    /// </returns>
+    private static (JsonDocument Demoted, string? AgeNote) DemoteAge(JsonElement root)
+    {
+        var reviewerNote = root.TryGetProperty("age_note", out var stated)
+                           && stated.ValueKind == JsonValueKind.String
+                           && !string.IsNullOrWhiteSpace(stated.GetString())
+            ? stated.GetString()!.Trim()
+            : null;
+
+        var items = root.TryGetProperty("failed_checks", out var checks)
+                    && checks.ValueKind == JsonValueKind.Array
+            ? checks.EnumerateArray().ToList()
+            : [];
+
+        /*
+          An answer whose failed_checks are not all strings is left exactly as it arrived.
+
+          This runs before validation — it has to, so that a reviewer still naming CHILD_AGE is
+          understood rather than rejected against an enum that no longer lists it — which means it
+          is the first thing to touch a document nothing has checked yet. A number in that array
+          used to throw straight out of here and fail a paid book on the spot, where the schema
+          would merely have refused the answer and spent the parse retry. So a malformed array is
+          not demoted, not rewritten and not read: it is handed on to the schema, which is the part
+          that knows how to say no.
+        */
+        if (items.Any(item => item.ValueKind != JsonValueKind.String))
+        {
+            return (JsonDocument.Parse(root.GetRawText()), reviewerNote);
+        }
+
+        var failed = items.Select(item => item.GetString() ?? string.Empty).ToList();
+
+        var raisedAge = failed.Any(check => string.Equals(check, AdvisoryAgeCheck, StringComparison.Ordinal));
+
+        if (!raisedAge)
+        {
+            // Nothing to demote. The document is handed straight through, cloned only because the
+            // caller owns the lifetime of what it evaluates.
+            return (JsonDocument.Parse(root.GetRawText()), reviewerNote);
+        }
+
+        var kept = failed
+            .Where(check => !string.Equals(check, AdvisoryAgeCheck, StringComparison.Ordinal))
+            .ToList();
+
+        var rewritten = new Dictionary<string, object?>(StringComparer.Ordinal);
+
+        foreach (var property in root.EnumerateObject())
+        {
+            rewritten[property.Name] = property.Name switch
+            {
+                "failed_checks" => kept,
+                // A page objected to only for the child's age is a page with nothing wrong with it.
+                "status" when kept.Count == 0 => CompositeQaVerdict.Pass,
+                "recommended_action" when kept.Count == 0 => CompositeQaVerdict.ActionPass,
+                _ => JsonSerializer.Deserialize<JsonElement>(property.Value.GetRawText()),
+            };
+        }
+
+        return (
+            JsonDocument.Parse(JsonSerializer.Serialize(rewritten)),
+            reviewerNote
+            ?? "The reviewer raised CHILD_AGE; recorded as advisory and not treated as a failure.");
+    }
+
+    /// <summary>
+    /// The one check that is collected rather than enforced (v1.4).
+    ///
+    /// Not a member of the contract's failed-check list any more — the schema's enum does not
+    /// contain it — but named here because the reviewer may still return it, and this is what
+    /// recognises it in order to take it out.
+    /// </summary>
+    public const string AdvisoryAgeCheck = "CHILD_AGE";
+
     private static string Location(string location) =>
         location.Length == 0 ? "(root)" : location;
 
+    /// <summary>
+    /// The string members of an array property, and only the string members.
+    ///
+    /// Belt to the schema's braces: this runs after validation, so every element here has already
+    /// been proved a string — but it is one <c>GetString()</c> on an unchecked element away from
+    /// throwing <see cref="InvalidOperationException"/> out of a parse that is supposed to return a
+    /// verdict or a reason, and a throw here fails a paid book where an invalid parse would have
+    /// spent the retry. Reading only what is actually a string costs nothing and cannot throw.
+    /// </summary>
     private static IReadOnlyList<string> Strings(JsonElement root, string property) =>
         root.TryGetProperty(property, out var array) && array.ValueKind == JsonValueKind.Array
-            ? array.EnumerateArray().Select(item => item.GetString() ?? string.Empty).ToList()
+            ? array.EnumerateArray()
+                .Where(item => item.ValueKind == JsonValueKind.String)
+                .Select(item => item.GetString() ?? string.Empty)
+                .ToList()
             : [];
+
+    private static string Text(JsonElement root, string property) =>
+        root.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
 
     private static CompositeQaParseResult Invalid(string problem) => new(false, null, [problem]);
 
@@ -577,21 +716,22 @@ public static class CompositeMinimalQa
 
         Review only critical, parent-visible failures. Do not score beauty, creativity, minor stylistic variation, tiny background artifacts, or subjective preferences. Do not request a retry merely to improve an already usable image.
 
-        Use the original child photo only to judge whether the illustrated child remains recognizably the same child and approximately the correct age. Do not require photorealism.
+        Use the original child photo only to judge whether the illustrated child remains recognizably the same child. Do not require photorealism.
+
+        The photograph says WHO the child is. It does not say how old the child is in this book: the age, the name and the eye colour are the parent's entered values, and the book is drawn to those. A photograph may have been taken a year or two ago, and a parent may deliberately be buying the book for a younger age. Never fail an illustration because the child looks older or younger than the photograph, or than the stated age.
 
         When a child appearance anchor is supplied, use it only to judge whether this page's child is the same stylized child as the rest of the book. It is not a composition, pose, or background reference.
 
         Check exactly these categories:
 
         1. CHILD_IDENTITY - The illustrated child is not recognizably the supplied child; or the child's eyes do not read as the stated eye colour; or the child has materially different hair colour/style, eyebrows, face shape, skin tone, or outfit details from the child appearance anchor; or glasses are present when the spec says none, absent when the spec describes them, or a materially different style of frames.
-        2. CHILD_AGE - The child appears materially older or younger than the supplied age.
-        3. OUTFIT_CONTINUITY - The required base outfit is missing or materially changed.
-        4. MAIN_SCENE_BEAT - The one required visible story event is missing, contradicted, or replaced by a different event.
-        5. CAST_ERROR - The child or a required supporting character is missing, duplicated, or replaced; or an unrequested prominent character appears.
-        6. GENERATED_TEXT - Readable text, pseudo-text, logo, label, sign, watermark, or QR appears in the illustration.
-        7. TEXT_SAFE_AREA - A face, hand, character, foreground object, or key action blocks the reserved text side.
-        8. FOLD_SAFETY - A face, hand, character, or story-critical detail crosses or touches the central exclusion zone.
-        9. BEKI_INTEGRATION - Beki is duplicated, clipped, hidden, materially obstructs the main action, or is visibly pasted into an unsuitable hard-edged/foreground area.
+        2. OUTFIT_CONTINUITY - The required base outfit is missing or materially changed.
+        3. MAIN_SCENE_BEAT - The one required visible story event is missing, contradicted, or replaced by a different event.
+        4. CAST_ERROR - The child or a required supporting character is missing, duplicated, or replaced; or an unrequested prominent character appears.
+        5. GENERATED_TEXT - Readable text, pseudo-text, logo, label, sign, watermark, or QR appears in the illustration.
+        6. TEXT_SAFE_AREA - A face, hand, character, foreground object, or key action blocks the reserved text side.
+        7. FOLD_SAFETY - A face, hand, character, or story-critical detail crosses or touches the central exclusion zone.
+        8. BEKI_INTEGRATION - Beki is duplicated, clipped, hidden, materially obstructs the main action, or is visibly pasted into an unsuitable hard-edged/foreground area.
 
         Do not fail Beki for artistic anatomy or exact asset identity; those are enforced by the approved PNG hash. Do not fail for small differences in background detail. Do not rewrite the prompt.
 
@@ -610,11 +750,14 @@ public static class CompositeMinimalQa
           "failed_checks": [],
           "recommended_action": "pass",
           "notes": [],
-          "shot_note": ""
+          "shot_note": "",
+          "age_note": ""
         }
 
         Each failed_checks item, when present, must be one of:
-        CHILD_IDENTITY, CHILD_AGE, OUTFIT_CONTINUITY, MAIN_SCENE_BEAT, CAST_ERROR, GENERATED_TEXT, TEXT_SAFE_AREA, FOLD_SAFETY, BEKI_INTEGRATION.
+        CHILD_IDENTITY, OUTFIT_CONTINUITY, MAIN_SCENE_BEAT, CAST_ERROR, GENERATED_TEXT, TEXT_SAFE_AREA, FOLD_SAFETY, BEKI_INTEGRATION.
+
+        age_note is optional, advisory, and never a failure. Fill it with one short sentence only when the illustrated child reads as a clearly different age from the stated one. Leave it out, or empty, otherwise. An age_note is not a failed check, does not appear in failed_checks, does not change status or recommended_action, and never causes a retry. The age the parent entered is the age the book is drawn to, whatever the photograph shows.
 
         shot_note is optional, advisory, and never a failure. The page description states the shot this spread was asked for. Fill shot_note with one short sentence only when the rendered composition clearly contradicts that shot type - for example a close-up where a wide establishing view was asked for. Leave it out, or empty, when the shot is right or you are unsure. A shot_note is not a failed check, does not appear in failed_checks, does not change status or recommended_action, and never causes a retry.
 

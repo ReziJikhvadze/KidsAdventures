@@ -180,7 +180,7 @@ public class CompositePipelineTests
         var v11 = ResolvedPromptFixture();
 
         foreach (var geometry in (string[])
-                 ["Reserve the full left third", "59.4% of the canvas width",
+                 ["59.4% of the canvas width",
                   "45.8% of the canvas height", "final 15:7 crop",
                   "Keep all important content in the central horizontal band"])
         {
@@ -250,7 +250,7 @@ public class CompositePipelineTests
             + "Eyebrows: soft, medium-thick, gently arched\nEye colour: brown\n"
             + "Skin tone: light warm\nGlasses: none\n"
             + "Distinctive features: light freckles across the nose; a dimple on the left cheek\n"
-            + "The child is approximately 1 years old.\n", prompt);
+            + "The child is 1 years old in this book.", prompt);
 
         Assert.Contains("CHILD IDENTITY LOCK", approved);
         Assert.Contains("Hair colour: dark brown", prompt);
@@ -258,17 +258,15 @@ public class CompositePipelineTests
         Assert.Contains("Eye colour: brown", prompt);
         Assert.Contains("Skin tone: light warm", prompt);
         Assert.Contains(
-            "Image 1 is the identity reference photograph; where this list and that photograph "
-            + "disagree, follow the photograph.", prompt);
+            "Image 1 is the identity reference photograph and settles who this child is", prompt);
         Assert.Contains(
-            "Image 1 is the identity reference photograph; where this list and that photograph "
-            + "disagree, follow the photograph.", approved);
+            "Image 1 is the identity reference photograph and settles who this child is", approved);
 
         // Deterministic, and from the config rather than from the model.
         Assert.Contains(CompositeSpreadRhythm.ShotFor(1), prompt);
         Assert.Contains(CompositeSpreadRhythm.ShotFor(1), approved);
-        Assert.Contains("Reserve the full left third", prompt);
-        Assert.DoesNotContain("Reserve the full right third", prompt);
+        Assert.Contains("Keep the full left third quiet enough to set story text over", prompt);
+        Assert.DoesNotContain("Keep the full right third", prompt);
 
         // Spread 1 is the page where the small dinosaur is deliberately unseen. A prompt carrying
         // his description would have drawn him, which is the whole reason relevance is computed.
@@ -400,8 +398,7 @@ public class CompositePipelineTests
                   "Image 2 - child identity reference photograph.",
                   "Image 3 - approved",
                   "Draw the outfit exactly as rendered in Image 1.",
-                  "Image 2 is the identity reference photograph; where this list and that "
-                  + "photograph disagree, follow the photograph.",
+                  "Image 2 is the identity reference photograph and settles who this child is",
                   "Glasses: none"])
         {
             Assert.Contains(line, prompt);
@@ -1155,6 +1152,315 @@ public class CompositePipelineTests
     }
 
     // ---------------------------------------------------------------------------------------
+    // CHILD_AGE: collected, not enforced
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// A page objected to only for the child's age is a page with nothing wrong with it.
+    ///
+    /// Pack 7fc8faf4 died on this: spread 1 came back `FAIL (regenerate_base): CHILD_AGE`, bought
+    /// its one regeneration, came back with the same verdict, and the book stopped. The owner's
+    /// ruling is that the photograph is the identity reference and may be a year old — the entered
+    /// age is what the book is for — so the observation is kept and the gate is gone.
+    /// </summary>
+    [Fact]
+    public void An_age_objection_alone_reads_as_a_pass_with_an_advisory()
+    {
+        var parsed = CompositeMinimalQa.Parse(
+            """
+            {"status":"FAIL","failed_checks":["CHILD_AGE"],"recommended_action":"regenerate_base",
+             "notes":["the child looks about seven"]}
+            """);
+
+        Assert.True(parsed.IsValid, parsed.Summary);
+
+        var verdict = parsed.Verdict!;
+
+        // The verdict the retry ladder reads is a pass, and carries no failed check at all.
+        Assert.True(verdict.Passed);
+        Assert.Equal(CompositeQaVerdict.ActionPass, verdict.RecommendedAction);
+        Assert.Empty(verdict.FailedChecks);
+        Assert.DoesNotContain("CHILD_AGE", verdict.ToString());
+
+        // And the observation survives, off to one side where nothing branches on it.
+        Assert.NotNull(verdict.AgeNote);
+        Assert.Contains("CHILD_AGE", verdict.AgeNote);
+    }
+
+    /// <summary>
+    /// A well-formed JSON answer of the wrong shape is refused, never thrown out of.
+    ///
+    /// <c>failed_checks: [123]</c> is valid JSON and not a verdict. Reading it as strings threw
+    /// <see cref="InvalidOperationException"/> straight out of the parser and failed a paid book on
+    /// the spot — where the schema would merely have refused the answer and spent the parse retry
+    /// the contract provides for exactly this. Nothing about a malformed answer should cost more
+    /// than a re-ask.
+    /// </summary>
+    [Theory]
+    [InlineData("""{"status":"FAIL","failed_checks":[123],"recommended_action":"human_review","notes":[]}""")]
+    [InlineData("""{"status":"FAIL","failed_checks":["CHILD_IDENTITY",123],"recommended_action":"human_review","notes":[]}""")]
+    [InlineData("""{"status":"FAIL","failed_checks":["CHILD_AGE",123],"recommended_action":"human_review","notes":[]}""")]
+    [InlineData("""{"status":"PASS","failed_checks":[null],"recommended_action":"pass","notes":[]}""")]
+    [InlineData("""{"status":"PASS","failed_checks":[{"check":"CHILD_AGE"}],"recommended_action":"pass","notes":[]}""")]
+    [InlineData("""{"status":"PASS","failed_checks":"CHILD_IDENTITY","recommended_action":"pass","notes":[]}""")]
+    [InlineData("""{"status":"PASS","failed_checks":[],"recommended_action":"pass","notes":[7]}""")]
+    [InlineData("""{"status":7,"failed_checks":[],"recommended_action":"pass","notes":[]}""")]
+    public void A_malformed_answer_is_an_invalid_parse_rather_than_an_exception(string answer)
+    {
+        var parsed = CompositeMinimalQa.Parse(answer);
+
+        Assert.False(parsed.IsValid, "a malformed answer was read as a verdict.");
+        Assert.Null(parsed.Verdict);
+        Assert.NotEmpty(parsed.Problems);
+    }
+
+    /// <summary>
+    /// And the malformed shape that also names the advisory is not quietly promoted to a pass:
+    /// the age demotion runs before validation, so a rewrite there could have turned an unreadable
+    /// answer into a PASS with an empty check list.
+    /// </summary>
+    [Fact]
+    public void A_malformed_answer_naming_the_age_is_still_refused()
+    {
+        var parsed = CompositeMinimalQa.Parse(
+            """
+            {"status":"FAIL","failed_checks":["CHILD_AGE",123],
+             "recommended_action":"regenerate_base","notes":[]}
+            """);
+
+        Assert.False(parsed.IsValid);
+        Assert.Null(parsed.Verdict);
+    }
+
+    /// <summary>The reviewer's own words are kept when it wrote any.</summary>
+    [Fact]
+    public void The_reviewers_own_age_note_is_the_one_recorded()
+    {
+        var parsed = CompositeMinimalQa.Parse(
+            """
+            {"status":"PASS","failed_checks":[],"recommended_action":"pass","notes":[],
+             "age_note":"reads a couple of years older than five"}
+            """);
+
+        Assert.True(parsed.IsValid, parsed.Summary);
+        Assert.True(parsed.Verdict!.Passed);
+        Assert.Equal("reads a couple of years older than five", parsed.Verdict.AgeNote);
+    }
+
+    /// <summary>
+    /// A page that fails for something real still fails: only the age comes off the list. The
+    /// identity check is untouched and stays fully blocking — likeness and the eight locked
+    /// attributes are still the contract.
+    /// </summary>
+    [Fact]
+    public void An_age_objection_beside_a_real_failure_removes_only_the_age()
+    {
+        var parsed = CompositeMinimalQa.Parse(
+            """
+            {"status":"FAIL","failed_checks":["CHILD_AGE","CHILD_IDENTITY"],
+             "recommended_action":"regenerate_base","notes":["different child"]}
+            """);
+
+        Assert.True(parsed.IsValid, parsed.Summary);
+
+        var verdict = parsed.Verdict!;
+
+        Assert.False(verdict.Passed);
+        Assert.Equal(["CHILD_IDENTITY"], verdict.FailedChecks);
+        Assert.Equal(CompositeQaVerdict.ActionRegenerateBase, verdict.RecommendedAction);
+        Assert.NotNull(verdict.AgeNote);
+    }
+
+    /// <summary>
+    /// And the whole book survives a reviewer that says it on every page: eight pictures, eight
+    /// reviews, no regeneration bought, and the advisories on the review record.
+    ///
+    /// This is the pack that died, replayed.
+    /// </summary>
+    [Fact]
+    public async Task A_book_the_reviewer_calls_the_wrong_age_on_every_page_still_ships()
+    {
+        var images = new StubImageService();
+
+        for (var page = 0; page < BookFormat.SpreadCount; page++)
+        {
+            images.Verdicts.Enqueue(
+                """
+                {"status":"FAIL","failed_checks":["CHILD_AGE"],
+                 "recommended_action":"regenerate_base","notes":["looks older than the age given"]}
+                """);
+        }
+
+        var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+            .RunAsync(Request(), CancellationToken.None);
+
+        Assert.Equal(BookFormat.SpreadCount, result.Spreads.Count);
+
+        // One picture per page and one review per page: not a single regeneration was bought.
+        Assert.Equal(BookFormat.SpreadCount, images.ImageCalls);
+        Assert.Equal(BookFormat.SpreadCount, images.ReviewCalls);
+        Assert.All(result.Spreads, spread => Assert.Equal(1, spread.BaseAttempts));
+
+        // Every page carries the advisory, and the book's review record has them all with the age
+        // the parent actually entered beside each.
+        Assert.All(result.Spreads, spread => Assert.NotNull(spread.AgeNote));
+        Assert.Equal(BookFormat.SpreadCount, result.Review.AgeAdvisories.Count);
+        Assert.All(result.Review.AgeAdvisories, advisory => Assert.Equal(1, advisory.EnteredAge));
+        Assert.True(result.Review.NeedsHumanReading);
+    }
+
+    /// <summary>
+    /// The contract no longer lists CHILD_AGE among the blocking categories, and the schema no
+    /// longer accepts it in <c>failed_checks</c> — which is exactly why the parser takes it out
+    /// before the schema is consulted rather than after.
+    /// </summary>
+    [Fact]
+    public void The_blocking_categories_no_longer_include_the_age()
+    {
+        Assert.DoesNotContain("CHILD_AGE - The child appears", CompositeMinimalQa.SystemInstruction);
+        Assert.Contains("age_note is optional, advisory, and never a failure", CompositeMinimalQa.SystemInstruction);
+        Assert.Contains("The photograph says WHO the child is", CompositeMinimalQa.SystemInstruction);
+
+        var schema = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory, "Assets", "BekiComposite", "contracts",
+            CompositeMinimalQa.SchemaFileName));
+
+        Assert.DoesNotContain("\"CHILD_AGE\"", schema);
+        Assert.Contains("\"age_note\"", schema);
+
+        // The identity gate is untouched.
+        Assert.Contains("1. CHILD_IDENTITY", CompositeMinimalQa.SystemInstruction);
+        Assert.Contains("\"CHILD_IDENTITY\"", schema);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // The entered age is the age the book is drawn to
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Both places the age is stated now say which source wins, because the model was being asked
+    /// to reconcile a photograph with a number and given no rule for doing it.
+    /// </summary>
+    [Fact]
+    public void The_prompt_says_the_photograph_is_who_and_the_entered_age_is_how_old()
+    {
+        var scenario = VisualScenarioValidator.Validate(ScenarioFixture()).Scenario!;
+        var prompt = SpreadPrompt(scenario, page: 1);
+
+        Assert.Contains("this photograph says WHO the child is, and nothing else", prompt);
+        Assert.Contains(
+            "Render the child's proportions and face at 1 years old, which is the age this book is "
+            + "for, even if the photograph appears older or younger", prompt);
+
+        Assert.Contains("The child is 1 years old in this book.", prompt);
+        Assert.Contains(
+            "the photograph says who the child is, not how old they are here", prompt);
+
+        // And the anchored spreads carry it too — the anchor is a drawing, not a birth certificate.
+        Assert.Contains(
+            "The child is 1 years old in this book.",
+            SpreadPrompt(scenario, page: 2, anchorAttached: true));
+    }
+
+    /// <summary>
+    /// The lock tells the illustrator which source wins for which attribute, and the two halves do
+    /// not contradict each other.
+    ///
+    /// They did. The lock ended "where this list and that photograph disagree, follow the
+    /// photograph" — every attribute, one authority — while the reviewer was told to fail any page
+    /// whose eyes did not read as the entered colour. A parent entering green for a child
+    /// photographed brown-eyed therefore had the illustrator instructed to draw brown and the
+    /// reviewer instructed to refuse brown: refused, redrawn from the same instruction, refused
+    /// again, book stopped. Neither model was wrong.
+    /// </summary>
+    [Fact]
+    public void The_photograph_settles_who_the_child_is_and_the_entered_values_settle_the_rest()
+    {
+        var scenario = VisualScenarioValidator.Validate(ScenarioFixture()).Scenario!;
+        var prompt = SpreadPrompt(scenario, page: 1);
+
+        Assert.Contains(
+            "Image 1 is the identity reference photograph and settles who this child is — the face "
+            + "and the likeness — wherever it and this list disagree about that; the eye colour and "
+            + "the age above are the parent's own entered values and win over the photograph "
+            + "wherever they differ.", prompt);
+
+        // The blanket deference is gone: it is the sentence that made the loop.
+        Assert.DoesNotContain("where this list and that photograph disagree, follow the photograph", prompt);
+
+        // And the illustrator's rule now agrees with the reviewer's. The prompt is told to draw the
+        // entered eye colour; the reviewer is told to fail anything else. One instruction, two
+        // models — which is the only arrangement a page can actually satisfy.
+        var ask = CompositeMinimalQa.Prompt(
+            scenario.Spreads![0].ChildWorldScene!, scenario.Spreads[0].BekiAction!,
+            scenario.VisualLock!.ChildOutfit!, [], "LEFT", false, IdentityFixture);
+
+        Assert.Contains($"Eye colour: {IdentityFixture.EyeColor}", prompt);
+        Assert.Contains($"The child's eyes must read as {IdentityFixture.EyeColor}", ask);
+
+        // The same on the anchored spreads, where the photograph is Image 2.
+        Assert.Contains(
+            "Image 2 is the identity reference photograph and settles who this child is",
+            SpreadPrompt(scenario, page: 2, anchorAttached: true));
+    }
+
+    /// <summary>
+    /// The parent's entered eye colour reaches the prompt as the colour to draw — the case the
+    /// contradiction was actually about.
+    /// </summary>
+    [Fact]
+    public void A_parent_eye_colour_that_differs_from_the_photo_is_the_one_drawn()
+    {
+        var scenario = VisualScenarioValidator.Validate(ScenarioFixture()).Scenario!;
+
+        // The model read brown from the photograph; the parent entered green.
+        var overridden = CompositeChildIdentity.WithParentEyeColor(IdentityFixture, "green");
+
+        var prompt = CompositeIllustrationPrompt.ForSpread(new CompositeSpreadPromptInput
+        {
+            Page = 1,
+            ChildAge = 1,
+            Theme = CompositeThemeReferences.For("dinosaurs"),
+            ChildWorldScene = scenario.Spreads![0].ChildWorldScene!,
+            ChildOutfit = scenario.VisualLock!.ChildOutfit!,
+            IdentitySpec = overridden,
+        });
+
+        Assert.Contains("Eye colour: green", prompt);
+        Assert.Contains("The child's eyes are green on every page.", prompt);
+        Assert.Contains("win over the photograph wherever they differ", prompt);
+        Assert.DoesNotContain("Eye colour: brown", prompt);
+    }
+
+    /// <summary>
+    /// The reserved third is described as scene rather than as a panel.
+    ///
+    /// The refused image rendered it as a flat blank field with a hard vertical boundary — which
+    /// the constraint list forbids as a "blank rectangle" while the resolver was inviting it:
+    /// "naturally calm, light background" reads as an instruction to paint a light background
+    /// there. Same geometry, same percentages, different request.
+    /// </summary>
+    [Fact]
+    public void The_reserved_text_third_is_asked_for_as_continued_scene()
+    {
+        foreach (var side in (string[])["LEFT", "RIGHT"])
+        {
+            var block = CompositeIllustrationPrompt.CompositionBlockFor(side);
+
+            Assert.Contains("continue the same scene through it as soft distant environment", block);
+            Assert.Contains("gently lightening toward the outer edge", block);
+            Assert.Contains("no hard vertical boundary where it begins", block);
+            Assert.Contains("no flat field of colour", block);
+            Assert.DoesNotContain("naturally calm, light background", block);
+        }
+
+        // The geometry did not move: it is the same third and the same two anchors.
+        Assert.Contains("59.4% of the canvas width", CompositeIllustrationPrompt.CompositionBlockFor("LEFT"));
+        Assert.Contains("40.6% of the canvas width", CompositeIllustrationPrompt.CompositionBlockFor("RIGHT"));
+        Assert.Contains("45.8% of the canvas height", CompositeIllustrationPrompt.CompositionBlockFor("LEFT"));
+    }
+
+    // ---------------------------------------------------------------------------------------
     // The centre-column seam gate
     // ---------------------------------------------------------------------------------------
 
@@ -1201,6 +1507,96 @@ public class CompositePipelineTests
         }
 
         Assert.InRange(changed, 1, CompositeSeamRepair.MaxRepairColumns);
+    }
+
+    /// <summary>
+    /// A seam that is not at the exact centre is still a seam.
+    ///
+    /// The refused image carried a visible vertical band at about 52.5% of the width — some forty
+    /// columns out on a spread — and the gate, which scanned three columns either side of centre,
+    /// reported nothing wrong with it. The band is now four per cent of the width, and the offset
+    /// is recorded so the next one can be read off a log rather than measured by hand.
+    /// </summary>
+    [Fact]
+    public void A_seam_at_fifty_two_and_a_half_per_cent_is_found_and_repaired()
+    {
+        const int width = 1536;
+        var offCentreColumn = (int)Math.Round(width * 0.525);
+
+        var seamed = WithSeam(Gradient(width, 717), columns: 3, darken: 90, atColumn: offCentreColumn);
+
+        var before = CompositeSeamRepair.Measure(seamed);
+
+        Assert.True(before.Exceeded, $"the 52.5% seam measured only {before.Ratio:F1}x.");
+        Assert.InRange(before.ColumnCount, 1, CompositeSeamRepair.MaxRepairColumns);
+
+        // The offset is recorded, and it is where the seam actually is — a couple of per cent
+        // right of centre, well outside the three-column window the gate used to scan.
+        Assert.InRange(before.OffsetFraction, 0.020, 0.030);
+        Assert.InRange(before.FirstColumn, offCentreColumn - 4, offCentreColumn + 4);
+
+        var (repaired, _, after) = CompositeSeamRepair.Gate(seamed);
+
+        Assert.False(after.Exceeded, $"the seam still measures {after.Ratio:F1}x after the repair.");
+        Assert.NotEqual(seamed, repaired);
+    }
+
+    /// <summary>
+    /// A wider band — up to the eight columns the gate now allows — is repaired; one wider than
+    /// that is a structure and is left alone rather than trimmed to fit.
+    /// </summary>
+    [Fact]
+    public void A_band_up_to_eight_columns_is_repaired_and_a_wider_one_is_not()
+    {
+        var eight = WithSeam(Gradient(1536, 717), columns: 8, darken: 90);
+        var measured = CompositeSeamRepair.Measure(eight);
+
+        Assert.True(measured.Exceeded, $"an eight-column seam measured only {measured.Ratio:F1}x.");
+        Assert.Equal(8, measured.ColumnCount);
+
+        var (_, _, after) = CompositeSeamRepair.Gate(eight);
+        Assert.False(after.Exceeded);
+
+        // Twelve columns is not a seam. Left alone: repairing part of a real feature and leaving
+        // the rest would be a defect this gate introduced.
+        Assert.False(CompositeSeamRepair.Measure(
+            WithSeam(Gradient(1536, 717), columns: 12, darken: 90)).Exceeded);
+    }
+
+    /// <summary>
+    /// The reserved text third's own boundary, at exactly 33% of the width, is never touched — even
+    /// when it is a hard edge measuring far above the baseline.
+    ///
+    /// That edge is precisely the defect the prompt amendment addresses, and it is the one thing
+    /// this gate must not "fix": it sits in the middle of the picture's content, a repair would
+    /// smear eight columns of somebody's artwork, and the fix for it is wording. Outside the band
+    /// by a wide margin, and the margin is the point.
+    /// </summary>
+    [Fact]
+    public void The_text_zone_boundary_at_a_third_of_the_width_is_never_repaired()
+    {
+        const int width = 1536;
+        var boundary = (int)Math.Round(width / 3.0);
+
+        // A hard-edged flat panel exactly like the refused image's: everything left of the third
+        // is a pale flat field, and the edge where it ends is severe.
+        var panelled = WithSeam(Gradient(width, 717), columns: 3, darken: 120, atColumn: boundary);
+
+        var measured = CompositeSeamRepair.Measure(panelled);
+
+        Assert.False(
+            measured.Exceeded,
+            $"the 33% content edge was treated as a seam ({measured.Ratio:F1}x, columns "
+            + $"{measured.FirstColumn}-{measured.LastColumn}).");
+
+        var (unchanged, _, _) = CompositeSeamRepair.Gate(panelled);
+        Assert.Same(panelled, unchanged);
+
+        // It is outside the scanned band by a wide margin, which is why: the band reaches 4% either
+        // side of centre and this edge is 17% away.
+        Assert.True(
+            Math.Abs((boundary / (double)width) - 0.5) > CompositeSeamRepair.CentreBandFraction * 3,
+            "the text-zone boundary is closer to the scanned band than this test assumes.");
     }
 
     [Fact]
@@ -1611,12 +2007,12 @@ public class CompositePipelineTests
     {
         var current = BekiCompositeContractTerms.Current("dinosaurs");
 
-        Assert.Equal("child-world-image-v1.3", CompositeIllustrationPrompt.Version);
-        Assert.Equal("minimal-visual-qa-v1.3", CompositeMinimalQa.Version);
+        Assert.Equal("child-world-image-v1.4", CompositeIllustrationPrompt.Version);
+        Assert.Equal("minimal-visual-qa-v1.4", CompositeMinimalQa.Version);
         Assert.Equal("child-identity-spec-v1.2", CompositeChildIdentity.Version);
 
         // The two v1 shapes an in-flight book could have been written under.
-        var underV1Image = current with { ImagePromptVersion = "child-world-image-v1.1" };
+        var underV1Image = current with { ImagePromptVersion = "child-world-image-v1.3" };
         var underNoIdentity = current with { IdentityPromptVersion = string.Empty };
 
         Assert.NotEqual(current.ToString(), underV1Image.ToString());

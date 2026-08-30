@@ -9,6 +9,7 @@ using AdventurePacks.Api.DTOs.Orders;
 using AdventurePacks.Api.DTOs.Print;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
+using AdventurePacks.Api.Services.Story;
 
 namespace AdventurePacks.Api.Services.Implementations;
 
@@ -423,7 +424,7 @@ public sealed class OrderService(
         // the job, this is the row as it stands now — including the BookId a job that ran a
         // moment ago may just have written, which is the whole idempotency story.
         var order = await orderRepository.GetByIdAsync(orderId, CancellationToken.None);
-        if (order is null || !order.IsPaid || order.FulfilledAt is not null)
+        if (order is null || !await CanRedriveAsync(order, CancellationToken.None))
         {
             logger.LogDebug("Order {OrderId} needs no fulfilment; skipping.", orderId);
             return;
@@ -448,10 +449,7 @@ public sealed class OrderService(
     {
         var order = await orderRepository.GetByIdAsync(orderId, cancellationToken);
 
-        // Only a paid order can be re-driven. An unpaid one has nothing to deliver, and a
-        // fulfilled one already delivered it. The job re-checks both under its lock; this check
-        // is here so the operator gets told, instead of watching a queued job do nothing.
-        if (order is null || !order.IsPaid || order.FulfilledAt is not null)
+        if (order is null || !await CanRedriveAsync(order, cancellationToken))
         {
             return false;
         }
@@ -460,6 +458,65 @@ public sealed class OrderService(
         logger.LogInformation("Admin re-queued fulfilment for order {OrderId}.", orderId);
 
         return true;
+    }
+
+    /// <summary>
+    /// Whether this order may be driven through fulfilment again — the one rule the console's
+    /// retry button and the background job both apply, so that a retry the operator is told was
+    /// queued cannot be silently declined by the job it queued.
+    ///
+    /// Two of the three clauses are the old ones and unchanged. An unpaid order has nothing to
+    /// deliver. A paid order that has not been fulfilled is the ordinary retry, and the reason
+    /// this check exists at all is idempotency: the job re-reads under its lock.
+    ///
+    /// The third is the hole this closes. An order is marked fulfilled the moment generation is
+    /// <em>enqueued</em>, not when a book comes out the other end — so every generation failure
+    /// happens to an order that already says Fulfilled, and refusing those meant the one failure
+    /// that always needs an operator was the one the operator had no working button for. Pack
+    /// 7fc8faf4 is that case: paid, fulfilled, and a book that stopped on spread one.
+    ///
+    /// Narrow on purpose. A fulfilled order passes only when its book is really there and really
+    /// Failed, which is a state nothing else produces by accident: the sweep writes it from
+    /// outside, the job writes it about itself, and both mean a person should decide. A fulfilled
+    /// order whose book is fine still cannot be re-driven, because redrawing a finished book is
+    /// how a parent ends up with a different one from the one they read.
+    ///
+    /// <see cref="BookFulfillmentService"/> does the rest: its revival branch moves the pack out
+    /// of Failed — deliberately, and with a compare-and-set — before anything is enqueued.
+    /// </summary>
+    private async Task<bool> CanRedriveAsync(Order order, CancellationToken cancellationToken)
+    {
+        if (!order.IsPaid)
+        {
+            return false;
+        }
+
+        if (order.FulfilledAt is null)
+        {
+            return true;
+        }
+
+        if (order.BookId is not { } bookId)
+        {
+            return false;
+        }
+
+        /*
+          And only for the order type that redriving actually helps.
+
+          A fulfilled PrintUpgrade dispatches FulfillPrintUpgradeAsync, which grants the print
+          entitlement and returns — it never touches generation, and never reaches the revival
+          branch. Letting one through on a Failed book would answer the console with "queued",
+          run a job that re-grants an entitlement the order already granted, and leave the pack
+          exactly as Failed as it found it. The operator would be told the retry worked.
+        */
+        if (order.Type != OrderType.NewBook)
+        {
+            return false;
+        }
+
+        var book = await packRepository.GetByIdAsync(bookId, order.UserId, cancellationToken);
+        return book?.Status == AdventurePackStatus.Failed;
     }
 
     // -- checkout -----------------------------------------------------------
@@ -863,6 +920,31 @@ public sealed class OrderService(
                 response.BookReady = book.IsFullyUnlocked
                     && book.Status is AdventurePackStatus.StoryReady or AdventurePackStatus.Completed;
                 response.ProgressMessage = book.ProgressMessage;
+
+                /*
+                  The other end of the same question, and the one nobody was asking.
+
+                  This response reported readiness and nothing else, so a book that had failed
+                  looked exactly like a book that was slow: BookReady false, the order still
+                  Fulfilled — it is marked fulfilled when generation is enqueued — and the progress
+                  message frozen at whatever the dead job last wrote. Pack 7fc8faf4 sat on a paid
+                  parent's screen at "18%" indefinitely for that reason.
+
+                  The message is mapped, not copied. book.ErrorMessage is
+                  "IMAGE_QA_FAILED (spread 1): …" and belongs to the operator; FailureReason above
+                  stays the payment's own, so the two failures are never confused for each other.
+                */
+                if (book.Status == AdventurePackStatus.Failed)
+                {
+                    response.BookFailed = true;
+                    response.ParentMessage = ParentFacingFailure.ToParentMessage(book.ErrorMessage);
+
+                    // Overwrites the frozen mid-generation line for the books that already have
+                    // one. New failures write a parent-safe line into the row itself, but every
+                    // pack failed before that stopped mid-sentence, and this screen is where the
+                    // parent reads it.
+                    response.ProgressMessage = response.ParentMessage;
+                }
             }
         }
 

@@ -1,5 +1,6 @@
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Repositories.Interfaces;
+using AdventurePacks.Api.Services.Interfaces;
 
 namespace AdventurePacks.Api.Services.Story;
 
@@ -31,10 +32,16 @@ public interface IStaleGenerationSweepService
 /// the books that are already stuck can be reached at all. A preview run answers with UpdatedAt,
 /// which it has always had.
 ///
-/// What it does about it is deliberately small. It fails the row, with a reason, and stops. No
-/// requeue: a book that has been silent for the whole budget plus a grace period has already spent
-/// forty minutes and real money, and starting it again on a timer — with nobody having looked at
-/// why — is how one broken input becomes an unbounded bill. A person decides whether to retry.
+/// What it does about it is deliberately small. It fails the row, with a reason, tells the family
+/// whose book it was, and stops. No requeue: a book that has been silent for the whole budget plus
+/// a grace period has already spent forty minutes and real money, and starting it again on a timer
+/// — with nobody having looked at why — is how one broken input becomes an unbounded bill. A person
+/// decides whether to retry.
+///
+/// The letter is new, and it closes the gap this class used to open. Every other terminal write is
+/// made by a job that also pages an operator and now writes to the parent; the sweep's was made
+/// from outside, silently, so the one book nobody was watching was also the one nobody was told
+/// about. It says only what <see cref="ParentFacingFailure"/> says — never the stored code.
 ///
 /// Every write is compare-and-set. The sweep is by definition operating on stale information: the
 /// job it is about to declare dead may answer between the read and the write, and if it does, the
@@ -43,6 +50,8 @@ public interface IStaleGenerationSweepService
 public sealed class StaleGenerationSweepService(
     IAdventurePackRepository packRepository,
     IMasterStoryRunSweepStore runStore,
+    IEmailService emailService,
+    IUserRepository userRepository,
     IOptions<BekiOptions> bekiOptions,
     ILogger<StaleGenerationSweepService> logger,
     TimeProvider? timeProvider = null) : IStaleGenerationSweepService
@@ -113,6 +122,13 @@ public sealed class StaleGenerationSweepService(
                         + "{Source}). A parent paid for this book; it needs a person.",
                         pack.Id, pack.Status, silence.TotalMinutes,
                         pack.HeartbeatMissing ? "CreatedAt, as it has no heartbeat" : "its heartbeat");
+
+                    // "It tells nobody" was the last true thing in this class's own doc comment.
+                    // The sweep is the only writer of a terminal status that runs outside the job,
+                    // so a book it buries is a book whose owner would otherwise never be told
+                    // anything at all — their screen simply stops changing. It still requeues
+                    // nothing and decides nothing; it only says so.
+                    await TellTheParentAsync(pack.Id, reason);
                 }
                 else
                 {
@@ -134,6 +150,48 @@ public sealed class StaleGenerationSweepService(
         }
 
         return failed;
+    }
+
+    /// <summary>
+    /// Tells the owner of a book this sweep just buried, in Georgian and without the code.
+    ///
+    /// Wrapped whole, and deliberately after the write rather than before it: the verdict is the
+    /// sweep's job and the letter is a courtesy, so a mail server that is down must not cost the
+    /// row its terminal status — nor stop the next pack in the batch, which belongs to a different
+    /// parent. The same reason every method on <see cref="Services.Interfaces.IAdminNotifier"/>
+    /// swallows everything.
+    /// </summary>
+    private async Task TellTheParentAsync(Guid packId, string reason)
+    {
+        try
+        {
+            var pack = await packRepository.GetByIdNoOwnershipAsync(packId, CancellationToken.None);
+            if (pack is null)
+            {
+                return;
+            }
+
+            var user = await userRepository.GetByIdAsync(pack.UserId, CancellationToken.None);
+            if (user is null || string.IsNullOrWhiteSpace(user.Email))
+            {
+                logger.LogWarning(
+                    "Stale-generation sweep failed pack {PackId} but its owner has no email "
+                    + "address on file, so nobody outside the logs has been told.", packId);
+                return;
+            }
+
+            await emailService.SendBookFailedAsync(
+                user.Email,
+                null,
+                pack.Title,
+                ParentFacingFailure.ToParentMessage(reason),
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex, "Stale-generation sweep could not tell the owner of pack {PackId}.", packId);
+        }
     }
 
     private async Task<int> SweepRunsAsync(DateTime cutoffUtc, DateTime now)

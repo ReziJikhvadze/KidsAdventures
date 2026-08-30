@@ -310,12 +310,19 @@ public static class CompositeIllustrationPrompt
     /// sentences, in the order that makes the variable one the instruction rather than the caveat.
     /// Recorded in the contract's v1.3 changelog against the supplier's shot-rhythm finding.
     /// </summary>
-    public const string Version = "child-world-image-v1.3";
+    public const string Version = "child-world-image-v1.4";
 
     /// <summary>The cover base template's version. A different document, a different version.</summary>
     public const string CoverVersion = "cover-child-world-v1";
 
     /// <summary>
+    /// <remarks>
+    /// The prefix is load-bearing: <see cref="BekiCoverRecord.IsRedraw"/> matches on it rather than
+    /// on the whole string, so a cover redrawn by an earlier version still counts as a redraw for
+    /// the reader's pointer. What the exact version decides is narrower — whether a resumed book
+    /// gets today's cover prompt, which is how a book in flight when the age steer landed picks it
+    /// up instead of keeping a cover drawn without it.
+    /// </remarks>
     /// The version of the cover this pipeline actually ships: the legacy upright-cover composition,
     /// redrawn after spread one with the identity lock written into it and the accepted first
     /// spread attached as the appearance anchor.
@@ -326,7 +333,10 @@ public static class CompositeIllustrationPrompt
     /// campaign and a cover drawn after it are different pictures made different ways, and the
     /// manifest is where that is recorded.
     /// </summary>
-    public const string CoverRedrawVersion = "cover-identity-redraw-v1.2";
+    public const string CoverRedrawVersion = "cover-identity-redraw-v1.4";
+
+    /// <summary>Every version of the cover redraw shares this prefix. See the remark above.</summary>
+    public const string CoverRedrawVersionPrefix = "cover-identity-redraw-";
 
     /// <summary>
     /// One spread's prompt.
@@ -439,17 +449,25 @@ public static class CompositeIllustrationPrompt
     /// </summary>
     public static string CompositionBlockFor(string textSide) =>
         BekiCompositeConfig.ParseTextSide(textSide) == BekiTextSide.Left
-            ? "Reserve the full left third as naturally calm, light background for later story "
-              + "text. No character, face, hand, foreground object, or key action may enter this "
-              + "area. Place the child and the main action in the outer-right area, away from the "
+            ? "Keep the full left third quiet enough to set story text over: continue the same "
+              + "scene through it as soft distant environment — sky, far foliage, haze, open "
+              + "ground — gently lightening toward the outer edge. It is part of the painting, "
+              + "not a panel: there must be no hard vertical boundary where it begins, no flat "
+              + "field of colour, and no visible edge between it and the rest of the picture. No "
+              + "character, face, hand, foreground object, or key action may enter this area. "
+              + "Place the child and the main action in the outer-right area, away from the "
               + "central low-information zone. Leave a naturally lit, visually quiet Beki "
               + "integration zone between the central low-information zone and the child, centered "
               + "approximately at 59.4% of the canvas width and 45.8% of the canvas height. Keep "
               + "that zone free of characters, faces, hands, hard edges, foreground objects, and "
               + "story-critical details."
-            : "Reserve the full right third as naturally calm, light background for later story "
-              + "text. No character, face, hand, foreground object, or key action may enter this "
-              + "area. Place the child and the main action in the outer-left area, away from the "
+            : "Keep the full right third quiet enough to set story text over: continue the same "
+              + "scene through it as soft distant environment — sky, far foliage, haze, open "
+              + "ground — gently lightening toward the outer edge. It is part of the painting, "
+              + "not a panel: there must be no hard vertical boundary where it begins, no flat "
+              + "field of colour, and no visible edge between it and the rest of the picture. No "
+              + "character, face, hand, foreground object, or key action may enter this area. "
+              + "Place the child and the main action in the outer-left area, away from the "
               + "central low-information zone. Leave a naturally lit, visually quiet Beki "
               + "integration zone between the child and the central low-information zone, centered "
               + "approximately at 40.6% of the canvas width and 45.8% of the canvas height. Keep "
@@ -604,10 +622,13 @@ public static class CompositeIllustrationPrompt
     /// book that can drift away from the child it is for without any one page being wrong.
     /// </summary>
     private static string ChildReferenceBody(int childAge, bool anchored) =>
-        "child identity reference photograph. Preserve the child's recognizable identity and "
-        + $"visibly age-appropriate proportions for approximately {childAge.ToString(CultureInfo.InvariantCulture)} "
-        + "years old. Render the child as a warm, polished stylized 3D animated character, not "
-        + "photorealistically. Do not copy clothing, pose, lighting, crop, or background from the photo."
+        "child identity reference photograph. Preserve the child's recognizable identity: this "
+        + "photograph says WHO the child is, and nothing else. Render the child's proportions and "
+        + $"face at {childAge.ToString(CultureInfo.InvariantCulture)} years old, which is the age "
+        + "this book is for, even if the photograph appears older or younger — it may have been "
+        + "taken some time ago. Render the child as a warm, polished stylized 3D animated "
+        + "character, not photorealistically. Do not copy clothing, pose, lighting, crop, or "
+        + "background from the photo."
         + (anchored
             ? " This photograph is the identity ground truth: Image 1 shows how this child has "
               + "already been drawn, and where the two disagree about who the child is, the "

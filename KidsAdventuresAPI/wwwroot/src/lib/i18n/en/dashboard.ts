@@ -21,6 +21,12 @@ export const dashboard = {
     readMark: "read",
     pdfBusy: "Preparing…",
     drawing: "The book is being drawn…",
+    failedTitle: "The book could not finish",
+    failedBody:
+      "The book generation was interrupted. We are already working on it. Nothing is lost.",
+    failedCta: "Contact us",
+    stalledNote:
+      "The book is taking longer than usual — it is still being drawn and nothing is lost. You can wait here, or check the dashboard later: it will appear there as soon as it is ready.",
 
     orderPrint: (price: string) => `Print · ${price}`,
     printEdition: "Printed edition",

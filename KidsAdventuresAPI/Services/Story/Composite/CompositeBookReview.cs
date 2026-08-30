@@ -9,6 +9,16 @@ namespace AdventurePacks.Api.Services.Story.Composite;
 public sealed record CompositeShotAdvisory(int Page, string ShotInstruction, string ReviewerNote);
 
 /// <summary>
+/// One page whose child the reviewer read as a clearly different age from the entered one.
+///
+/// Advisory, and by owner decision it will stay that way: the photograph is the identity reference
+/// and may be a year old, the entered age is what the book is drawn for, and a book was lost to
+/// that disagreement before the gate came off.
+/// </summary>
+/// <param name="EnteredAge">The age the parent typed, which is the age the book is drawn to.</param>
+public sealed record CompositeAgeAdvisory(int Page, int EnteredAge, string ReviewerNote);
+
+/// <summary>
 /// Everything a finished composite book is worth telling a human about but that did not fail it.
 ///
 /// Three findings live here and they have one shape in common: each is a book-level quality signal
@@ -79,10 +89,13 @@ public sealed record CompositeBookReview
     /// <summary>Pages the reviewer thought were shot differently from the way they were asked for.</summary>
     public IReadOnlyList<CompositeShotAdvisory> ShotAdvisories { get; init; } = [];
 
+    /// <summary>Pages whose child the reviewer read as a different age from the entered one.</summary>
+    public IReadOnlyList<CompositeAgeAdvisory> AgeAdvisories { get; init; } = [];
+
     /// <summary>True when there is anything here a person should actually read.</summary>
     public bool NeedsHumanReading =>
         GeorgianFlags.Count > 0 || PoseFallbackBudgetExceeded || ShotAdvisories.Count > 0
-        || GeorgianChecklistProblems.Count > 0;
+        || AgeAdvisories.Count > 0 || GeorgianChecklistProblems.Count > 0;
 
     /// <summary>
     /// This attempt's review, completed with what an earlier attempt recorded about the pages this
@@ -126,11 +139,21 @@ public sealed record CompositeBookReview
             .Where(advisory => adoptedPages.Contains(advisory.Page) && !mine.Contains(advisory.Page))
             .ToList();
 
+        var mineAges = AgeAdvisories.Select(advisory => advisory.Page).ToHashSet();
+
+        var inheritedAges = stored.AgeAdvisories
+            .Where(advisory => adoptedPages.Contains(advisory.Page) && !mineAges.Contains(advisory.Page))
+            .ToList();
+
         return this with
         {
             ShotAdvisories = inherited.Count == 0
                 ? ShotAdvisories
                 : ShotAdvisories.Concat(inherited).OrderBy(advisory => advisory.Page).ToList(),
+
+            AgeAdvisories = inheritedAges.Count == 0
+                ? AgeAdvisories
+                : AgeAdvisories.Concat(inheritedAges).OrderBy(advisory => advisory.Page).ToList(),
 
             PoseVocabularyRetrySpent = PoseVocabularyRetrySpent || stored.PoseVocabularyRetrySpent,
         };
@@ -174,6 +197,7 @@ public sealed record CompositeBookReview
                 GeorgianChecklistVersion = Text(root, "georgian_checklist_version"),
                 GeorgianFlags = ReadFlags(root),
                 ShotAdvisories = ReadAdvisories(root),
+                AgeAdvisories = ReadAgeAdvisories(root),
             };
         }
         catch (JsonException)
@@ -193,6 +217,13 @@ public sealed record CompositeBookReview
         Items(root, "shot_advisories")
             .Select(item => new CompositeShotAdvisory(
                 Number(item, "page"), Text(item, "shot_instruction"), Text(item, "reviewer_note")))
+            .Where(advisory => advisory.Page > 0 && advisory.ReviewerNote.Length > 0)
+            .ToList();
+
+    private static IReadOnlyList<CompositeAgeAdvisory> ReadAgeAdvisories(JsonElement root) =>
+        Items(root, "age_advisories")
+            .Select(item => new CompositeAgeAdvisory(
+                Number(item, "page"), Number(item, "entered_age"), Text(item, "reviewer_note")))
             .Where(advisory => advisory.Page > 0 && advisory.ReviewerNote.Length > 0)
             .ToList();
 
@@ -232,6 +263,7 @@ public sealed record CompositeBookReview
         $"pose_selection_fallback={PoseSelectionFallbacks} distinct_poses={DistinctPoses} "
         + $"pose_vocabulary_retry={PoseVocabularyRetrySpent.ToString().ToLowerInvariant()} "
         + $"georgian_flags={GeorgianFlags.Count} shot_advisories={ShotAdvisories.Count} "
+        + $"age_advisories={AgeAdvisories.Count} "
         + $"georgian_checklist_problems={GeorgianChecklistProblems.Count}";
 
     /// <summary>
@@ -306,6 +338,12 @@ public sealed record CompositeBookReview
             {
                 page = advisory.Page,
                 shot_instruction = advisory.ShotInstruction,
+                reviewer_note = advisory.ReviewerNote,
+            }).ToList(),
+            age_advisories = AgeAdvisories.Select(advisory => new
+            {
+                page = advisory.Page,
+                entered_age = advisory.EnteredAge,
                 reviewer_note = advisory.ReviewerNote,
             }).ToList(),
             needs_human_reading = NeedsHumanReading,

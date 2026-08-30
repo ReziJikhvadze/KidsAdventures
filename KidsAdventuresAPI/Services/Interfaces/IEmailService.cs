@@ -34,6 +34,30 @@ public interface IEmailService
         string packUrl,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// The letter that was never written: this book could not be made.
+    ///
+    /// Every other outcome of a purchase has an email behind it — the story is ready, the pictures
+    /// are ready, the PDF is ready, the parcel has shipped. A failure had none, so the only person
+    /// told was whoever was on duty, and the family who paid learned about it by refreshing a
+    /// screen that never changed.
+    ///
+    /// <paramref name="parentMessage"/> comes from
+    /// <see cref="Story.ParentFacingFailure.ToParentMessage"/> and is the entire explanation the
+    /// letter carries. The stored failure — code, stage, spread number — must never reach it: the
+    /// same string goes to the admin alert, which is where it belongs.
+    ///
+    /// <paramref name="childName"/> and <paramref name="bookTitle"/> are both optional because a
+    /// failure is exactly the moment they may be missing: a book that stopped before its title was
+    /// written still needs its parent told.
+    /// </summary>
+    Task SendBookFailedAsync(
+        string toAddress,
+        string? childName,
+        string? bookTitle,
+        string parentMessage,
+        CancellationToken cancellationToken = default);
+
     Task SendContactFormAsync(
         string senderName,
         string senderEmail,

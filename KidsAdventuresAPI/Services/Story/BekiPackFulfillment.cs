@@ -151,6 +151,8 @@ public sealed class BekiPackFulfillment(
     IBekiBookGenerator generator,
     IBekiPdfComposer composer,
     IAdminNotifier adminNotifier,
+    IEmailService emailService,
+    IUserRepository userRepository,
     IOptions<BekiOptions> bekiOptions,
     ILogger<BekiPackFulfillment> logger,
     TimeProvider? timeProvider = null) : IBekiPackFulfillment
@@ -221,6 +223,11 @@ public sealed class BekiPackFulfillment(
         // Hoisted for the failure handler: the evidence blobs are keyed by owner, and the pack
         // variable itself lives inside the guarded region.
         Guid? packUserId = null;
+
+        // Also for the failure handler, and for one line of one email: the child this book is
+        // about. It lives on the preview run rather than the pack, so a failure before the run is
+        // read simply has no name to use — which the letter is written to survive.
+        string? childName = null;
 
         /*
           The load is inside the guarded region, which is not where it started.
@@ -300,6 +307,8 @@ public sealed class BekiPackFulfillment(
 
             var run = await masterStoryRunRepository.GetByIdAsync(runId, jobToken)
                       ?? throw new InvalidOperationException($"Preview run {runId} is gone.");
+
+            childName = run.ChildName;
 
             if (string.IsNullOrWhiteSpace(run.StoryJson) || string.IsNullOrWhiteSpace(run.PhotoBlobUrl))
             {
@@ -629,7 +638,7 @@ public sealed class BekiPackFulfillment(
                     // illustrator cannot know it — the manifest is this job's — and a resumed
                     // attempt that redrew it again would replace a reviewed cover with one that
                     // has to be reviewed from scratch, for no gain.
-                    CoverAlreadyRedrawn = coverRecord?.IsRedraw == true,
+                    CoverAlreadyRedrawn = coverRecord?.IsCurrentRedraw == true,
                     Resume = new CompositeResumeState(storedScenario, existingSpreads, existingBases)
                     {
                         IdentitySpecJson = storedIdentitySpec,
@@ -1214,6 +1223,31 @@ public sealed class BekiPackFulfillment(
             if (failed || await RestsInFailedAsync(packId))
             {
                 await adminNotifier.BookFailedAsync(packId, reason, CancellationToken.None);
+
+                /*
+                  The family, on a stricter condition than the operator.
+
+                  An operator can absorb a second page about a book they are already looking at.
+                  A parent cannot absorb a second apology — least of all one that explains the
+                  failure differently, which is exactly what the losing branch would send: the
+                  sweep's verdict is on the row, this job's own reason is in hand, and they are
+                  not the same sentence.
+
+                  The only writer that beats this one to Failed is the sweep, and the sweep now
+                  writes to the parent itself. So a lost compare-and-set means the letter has
+                  already gone, and the right move is to send nothing.
+                */
+                if (failed)
+                {
+                    await TellTheParentAsync(packId, childName, reason);
+                }
+                else
+                {
+                    logger.LogInformation(
+                        "Beki pack {PackId}: the stale-generation sweep recorded this failure "
+                        + "first and has already written to the parent, so this job is not "
+                        + "sending a second letter.", packId);
+                }
             }
             else
             {
@@ -1221,6 +1255,51 @@ public sealed class BekiPackFulfillment(
                     "Beki pack {PackId} failed in this job, but the stored pack is not Failed; "
                     + "another writer got a better outcome, so nobody is being paged.", packId);
             }
+        }
+    }
+
+    /// <summary>
+    /// Tells the parent their book could not be made, in their own language.
+    ///
+    /// Best effort in the strongest sense: every step is inside the try, and nothing it can throw
+    /// is allowed to reach the caller. By the time this runs the verdict is written and the
+    /// operator is paged, so an SMTP timeout must not turn a recorded failure into an unhandled
+    /// exception on a Hangfire job that would then retry the whole book.
+    ///
+    /// The reason is mapped on the way out. What is stored is
+    /// <c>IMAGE_QA_FAILED (spread 1): …</c>; what is sent is a Georgian sentence with no code in
+    /// it — the same one the parent's screen is showing.
+    /// </summary>
+    private async Task TellTheParentAsync(Guid packId, string? childName, string reason)
+    {
+        try
+        {
+            var pack = await packRepository.GetByIdNoOwnershipAsync(packId, CancellationToken.None);
+            if (pack is null)
+            {
+                return;
+            }
+
+            var user = await userRepository.GetByIdAsync(pack.UserId, CancellationToken.None);
+            if (user is null || string.IsNullOrWhiteSpace(user.Email))
+            {
+                logger.LogWarning(
+                    "Beki pack {PackId} failed and its owner has no email address on file; only "
+                    + "the admin alert went out.", packId);
+                return;
+            }
+
+            await emailService.SendBookFailedAsync(
+                user.Email,
+                childName,
+                pack.Title,
+                ParentFacingFailure.ToParentMessage(reason),
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex, "Beki pack {PackId}: the parent could not be told their book failed.", packId);
         }
     }
 

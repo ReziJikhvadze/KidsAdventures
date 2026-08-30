@@ -150,7 +150,11 @@ public sealed class AdventurePacksController(
             RunId = progress.Id,
             Status = progress.Status,
             ProgressMessage = progress.ProgressMessage,
-            ErrorMessage = progress.ErrorMessage,
+            // Same rule as the pack DTOs: a browser gets the parent-facing Georgian line,
+            // never the raw failure code the run row stores for the operator.
+            ErrorMessage = progress.ErrorMessage is null
+                ? null
+                : ParentFacingFailure.ToParentMessage(progress.ErrorMessage),
             // Ready now means the story is written. The cover is painted after it, so this stays
             // null for a little longer and the reader opens on the world's own artwork until it
             // arrives.
@@ -246,6 +250,11 @@ public sealed class AdventurePacksController(
 
         return Ok(new
         {
+            // The one fact this endpoint left out. The generating screen polls it every few
+            // seconds and had no way to learn that the job behind the spreads had stopped: it read
+            // a progress message frozen mid-sentence and kept waiting. A status the client can see
+            // is what lets it stop waiting and say so.
+            status = pack.Status.ToString(),
             progressMessage = pack.ProgressMessage,
             progressPercent = pack.ProgressPercent,
             spreads = ready
@@ -618,7 +627,17 @@ public sealed class AdventurePacksController(
         target.PdfUrl = x.PdfUrl;
         target.ProgressMessage = x.ProgressMessage;
         target.ProgressPercent = x.ProgressPercent;
-        target.ErrorMessage = x.ErrorMessage;
+        target.IsFailed = x.Status == AdventurePackStatus.Failed;
+
+        // Mapped, never copied. The stored message is an English failure code written for whoever
+        // is on duty; this response goes to the family's shelf. Mapped whenever there is one at
+        // all rather than only on a Failed book, because a PDF export that fails puts the book
+        // back to StoryReady and records why — the client waits on that message, and it is just
+        // as English as the terminal ones.
+        target.ErrorMessage = string.IsNullOrWhiteSpace(x.ErrorMessage)
+            ? null
+            : ParentFacingFailure.ToParentMessage(x.ErrorMessage);
+
         target.StoryLanguage = x.StoryLanguage;
         target.PreviewIllustrationStatus = x.PreviewIllustrationStatus;
         target.StoryPageCount = x.StoryPageCount;

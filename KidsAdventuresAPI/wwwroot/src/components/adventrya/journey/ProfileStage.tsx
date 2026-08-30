@@ -198,7 +198,9 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
                   const fresh = emptyCharacter(character.isPrimary);
                   onChange((prev) => ({
                     ...prev,
-                    characters: prev.characters.map((c) => (c.localId === character.localId ? fresh : c)),
+                    characters: prev.characters.map((c) =>
+                      c.localId === character.localId ? fresh : c,
+                    ),
                   }));
                   setEditingId(fresh.localId);
                   setError(null);
@@ -405,13 +407,31 @@ function CharacterEditor({
       </div>
 
       {character.serverId && character.originalName ? (
-        <div className="ux-known-character-banner" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'baseline', backgroundColor: 'var(--surface-sunken, #f7f7f7)', padding: '12px 16px', borderRadius: 12, marginBottom: 24 }}>
-          <strong style={{ fontSize: '0.9rem', color: 'var(--text-main, #111)' }}>
+        <div
+          className="ux-known-character-banner"
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 12,
+            justifyContent: "space-between",
+            alignItems: "baseline",
+            backgroundColor: "var(--surface-sunken, #f7f7f7)",
+            padding: "12px 16px",
+            borderRadius: 12,
+            marginBottom: 24,
+          }}
+        >
+          <strong style={{ fontSize: "0.9rem", color: "var(--text-main, #111)" }}>
             {character.name.trim() !== character.originalName.trim() && character.name.trim() !== ""
               ? `შეიქმნება ახალი გმირი: ${character.name.trim()}`
               : `ქმნი ახალ წიგნს ${benefactive(character.originalName)}`}
           </strong>
-          <button type="button" className="ux-inline-link" style={{ fontSize: '0.85rem' }} onClick={onClearToNew}>
+          <button
+            type="button"
+            className="ux-inline-link"
+            style={{ fontSize: "0.85rem" }}
+            onClick={onClearToNew}
+          >
             სხვა ბავშვისთვის? დაიწყე ახალი გმირით
           </button>
         </div>

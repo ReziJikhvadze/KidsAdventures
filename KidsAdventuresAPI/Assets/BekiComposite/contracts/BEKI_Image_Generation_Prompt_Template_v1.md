@@ -1,8 +1,20 @@
-# BEKI Child/World Image Prompt Template v1.3
+# BEKI Child/World Image Prompt Template v1.4
 
-**Prompt version:** `child-world-image-v1.3`  
+**Prompt version:** `child-world-image-v1.4`  
 **Status:** Implementation source  
 **Purpose:** Generate a text-free child-and-world base image. Beki is composited later from an approved transparent PNG.
+
+## v1.4 changelog
+
+One amendment, from a contradiction the v1.3 wording created between this template and `minimal-visual-qa-v1.4`.
+
+- **Observed defect: an unwinnable page when the parent's eye colour differs from the photograph.** v1.3 ended the identity lock with *"where this list and that photograph disagree, follow the photograph"* — a single authority, applied to every attribute. But the eye colour and the age are the parent's own entered values and beat the photograph by the same decision that made CHILD_AGE advisory. So a parent entering green eyes for a child whose photograph reads brown had the illustrator told to follow the photograph and the reviewer told to fail anything whose eyes were not green: the page is refused, redrawn from the same instruction, refused again, and the book stops. Neither model is wrong — they were given contradictory orders. **Fix:** the deference is scoped. The photograph settles WHO the child is; the entered values win where they differ.
+
+```text
+Image {{IDENTITY_PHOTO_IMAGE_NUMBER}} is the identity reference photograph and settles who this child is - the face and the likeness - wherever it and this list disagree about that; the eye colour and the age above are the parent's own entered values and win over the photograph wherever they differ.
+```
+
+Nothing else moved: the eight attributes, the anchor-first numbering, the outfit clause, the composition resolver and the centre-column gate are v1.3's.
 
 ## v1.3 changelog
 
@@ -12,6 +24,14 @@ Amended after the supplier's PDF audit of a shipped book (2026-08-30) reported t
 - **Advisory, not a gate.** The minimal visual QA reviewer is now asked to record a free-text `shot_note` when the rendered shot clearly contradicts the described shot type (see `BEKI_Minimal_Visual_QA_v1.md` v1.3). It creates **no** new failed-check category, cannot fail a page, and cannot cause a retry — the false-positive risk on a subjective judgement is too high to spend a paid image call on. It exists so the next revision of this line has evidence instead of impressions.
 
 Nothing else moved: the section order, the scene/outfit/identity/recurring blocks, the 15:7 target, the composition resolver's geometry and percentages, the constraint list and the retry ladder are v1.2's.
+
+## v1.3 changelog
+
+Three amendments from one refused image (pack `7fc8faf4`) and the owner's decision of 2026-08-30 that followed it.
+
+- **Precedence, stated in the prompt: the photograph is WHO, the entered fields are HOW OLD and WHAT COLOUR.** The image had been refused for the child reading older than the entered age, and the prompt had never said which of the two to believe — it asked for "visibly age-appropriate proportions" and attached a photograph, leaving the model to reconcile them. It cannot: the photograph may be a year old, and the parent may be buying the book for a younger age deliberately. The child reference line and the identity lock's age line now say it outright — *render the child's proportions and face at {age} years old, which is the age this book is for, even if the photograph appears older or younger*. The matching QA gate came off in `minimal-visual-qa-v1.4`.
+- **The reserved text third is scene, not a panel.** The same refused image rendered the reserved third as a flat blank field with a hard vertical boundary down its inner edge — while the constraint list forbids a "blank rectangle". The resolver was inviting what the constraints banned: "naturally calm, light background" reads as *paint a light background there*. It now asks for the same scene continued through that third as soft distant environment, gently lightening toward the outer edge, with no hard vertical boundary and no flat field of colour. Geometry and percentages are unchanged; this is wording only, and no new QA check was added for it.
+- **The centre-column gate looks wider.** That image also carried a visible vertical band at about 52.5% of the width — outside the exact-centre window the gate had been scanning, so it reported nothing. The band is now four per cent of the width either side of centre, a repaired run may be up to eight columns, and the offset from centre is logged. The 5×-over-median threshold, the outermost-boundary pairing and the leave-alone rules for single edges and wide structures are unchanged, and the run is paired within a seam's width of the peak so that an ordinary edge inside the band cannot be dragged into a repair.
 
 ## v1.2 changelog
 
@@ -76,13 +96,13 @@ Resolve the following block in application code before sending the prompt.
 ### When `text_side = LEFT`
 
 ```text
-Reserve the full left third as naturally calm, light background for later story text. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-right area, away from the central low-information zone. Leave a naturally lit, visually quiet Beki integration zone between the central low-information zone and the child, centered approximately at 59.4% of the canvas width and 45.8% of the canvas height. Keep that zone free of characters, faces, hands, hard edges, foreground objects, and story-critical details.
+Keep the full left third quiet enough to set story text over: continue the same scene through it as soft distant environment - sky, far foliage, haze, open ground - gently lightening toward the outer edge. It is part of the painting, not a panel: there must be no hard vertical boundary where it begins, no flat field of colour, and no visible edge between it and the rest of the picture. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-right area, away from the central low-information zone. Leave a naturally lit, visually quiet Beki integration zone between the central low-information zone and the child, centered approximately at 59.4% of the canvas width and 45.8% of the canvas height. Keep that zone free of characters, faces, hands, hard edges, foreground objects, and story-critical details.
 ```
 
 ### When `text_side = RIGHT`
 
 ```text
-Reserve the full right third as naturally calm, light background for later story text. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-left area, away from the central low-information zone. Leave a naturally lit, visually quiet Beki integration zone between the child and the central low-information zone, centered approximately at 40.6% of the canvas width and 45.8% of the canvas height. Keep that zone free of characters, faces, hands, hard edges, foreground objects, and story-critical details.
+Keep the full right third quiet enough to set story text over: continue the same scene through it as soft distant environment - sky, far foliage, haze, open ground - gently lightening toward the outer edge. It is part of the painting, not a panel: there must be no hard vertical boundary where it begins, no flat field of colour, and no visible edge between it and the rest of the picture. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-left area, away from the central low-information zone. Leave a naturally lit, visually quiet Beki integration zone between the child and the central low-information zone, centered approximately at 40.6% of the canvas width and 45.8% of the canvas height. Keep that zone free of characters, faces, hands, hard edges, foreground objects, and story-critical details.
 ```
 
 ## Exact runtime prompt template
@@ -111,8 +131,8 @@ Eye colour: {{EYE_COLOR}}
 Skin tone: {{SKIN_TONE}}
 Glasses: {{GLASSES}}
 Distinctive features: {{DISTINCTIVE_FEATURES}}
-The child is approximately {{CHILD_AGE_YEARS}} years old.
-These attributes are identical on the cover and on all eight spreads. The child's eyes are {{EYE_COLOR}} on every page. Image {{IDENTITY_PHOTO_IMAGE_NUMBER}} is the identity reference photograph; where this list and that photograph disagree, follow the photograph.
+The child is {{CHILD_AGE_YEARS}} years old in this book. That is the age the parent entered, and it is the age to draw: the photograph says who the child is, not how old they are here, and it may have been taken some time ago.
+These attributes are identical on the cover and on all eight spreads. The child's eyes are {{EYE_COLOR}} on every page. Image {{IDENTITY_PHOTO_IMAGE_NUMBER}} is the identity reference photograph and settles who this child is - the face and the likeness - wherever it and this list disagree about that; the eye colour and the age above are the parent's own entered values and win over the photograph wherever they differ.
 
 RECURRING ELEMENTS REQUIRED ON THIS IMAGE
 {{RELEVANT_RECURRING_ELEMENTS_OR_NONE}}
@@ -146,7 +166,7 @@ The images are numbered by the order they are actually attached, and the prompt'
 **Spread 1 — no anchor yet, because this is the page that makes it:**
 
 ```text
-Image 1 - child identity reference photograph. Preserve the child's recognizable identity and visibly age-appropriate proportions for approximately {{CHILD_AGE_YEARS}} years old. Render the child as a warm, polished stylized 3D animated character, not photorealistically. Do not copy clothing, pose, lighting, crop, or background from the photo.
+Image 1 - child identity reference photograph. Preserve the child's recognizable identity: this photograph says WHO the child is, and nothing else. Render the child's proportions and face at {{CHILD_AGE_YEARS}} years old, which is the age this book is for, even if the photograph appears older or younger - it may have been taken some time ago. Render the child as a warm, polished stylized 3D animated character, not photorealistically. Do not copy clothing, pose, lighting, crop, or background from the photo.
 Image 2 - approved {{THEME_ID}} world/style reference. …
 Image 3 - continuity reference. …            (only when one is attached)
 ```
@@ -169,12 +189,12 @@ The anchor is the **final QA-accepted** spread-1 base, which on a page that need
 Deterministic, arithmetic, and applied to every generated base and to the redrawn cover before the reviewer or the compositor sees one:
 
 1. measure the mean absolute difference between each adjacent pair of columns, over every row and the three colour channels;
-2. take the **median** of those differences outside a narrow band at the exact centre as the picture's baseline — a median, because a scene with a few hard vertical edges would otherwise hide a seam behind its own strongest features;
-3. take the largest difference inside that band as the centre reading;
-4. when the centre reading is more than **5×** the baseline, replace the offending run of **1 to 4 columns** with a straight linear interpolation between the intact columns on either side, row by row, and measure again;
+2. take the **median** of those differences outside a band of **four per cent of the width either side of the exact centre** as the picture's baseline — a median, because a scene with a few hard vertical edges would otherwise hide a seam behind its own strongest features;
+3. take the largest difference inside that band as the centre reading, and record how far from the centre it sits;
+4. when the centre reading is more than **5×** the baseline, replace the offending run of **1 to 8 columns** with a straight linear interpolation between the intact columns on either side, row by row, and measure again;
 5. log both readings.
 
-The threshold sits between a picture's ordinary variation (about 1×) and the measured defect (35-68× before the v1.1 de-folding). A run wider than four columns is not a seam and is left alone: the cost of a missed seam is a faint line, and the cost of a false positive is four smeared columns of somebody's artwork.
+The threshold sits between a picture's ordinary variation (about 1×) and the measured defect (35-68× before the v1.1 de-folding). A run wider than eight columns is not a seam and is left alone: the cost of a missed seam is a faint line, and the cost of a false positive is four smeared columns of somebody's artwork.
 
 ## Application checks before the call
 

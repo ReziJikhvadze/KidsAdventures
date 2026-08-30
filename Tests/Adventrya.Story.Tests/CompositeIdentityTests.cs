@@ -247,7 +247,7 @@ public class CompositeIdentityTests
                   "Skin tone: light warm",
                   "Glasses: none",
                   "Distinctive features: light freckles across the nose; a dimple on the left cheek",
-                  "The child is approximately 5 years old.",
+                  "The child is 5 years old in this book.",
                   "The child's eyes are brown on every page."])
         {
             Assert.Contains(line, onSpreadOne);
@@ -256,8 +256,8 @@ public class CompositeIdentityTests
 
         // The deference moves with the photograph's position, because a lock that named the wrong
         // image would tell the model to defer to a drawing.
-        Assert.Contains("Image 1 is the identity reference photograph", onSpreadOne);
-        Assert.Contains("Image 2 is the identity reference photograph", onLaterSpread);
+        Assert.Contains("Image 1 is the identity reference photograph and settles", onSpreadOne);
+        Assert.Contains("Image 2 is the identity reference photograph and settles", onLaterSpread);
     }
 
     /// <summary>

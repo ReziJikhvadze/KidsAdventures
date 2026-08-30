@@ -3,6 +3,7 @@ using AdventurePacks.Api.Domain.Entities;
 using AdventurePacks.Api.Domain.Enums;
 using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.Repositories.Interfaces;
+using AdventurePacks.Api.Services.Interfaces;
 using AdventurePacks.Api.Services.Story;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -27,6 +28,9 @@ namespace Adventrya.Story.Tests;
 public class StaleGenerationSweepTests
 {
     private static readonly DateTime Now = new(2026, 8, 29, 12, 00, 00, DateTimeKind.Utc);
+
+    /// <summary>The parent every book in these tests belongs to.</summary>
+    private static readonly Guid Owner = Guid.NewGuid();
 
     [Fact]
     public async Task A_pack_that_has_been_silent_past_the_budget_and_its_grace_is_failed()
@@ -358,14 +362,98 @@ public class StaleGenerationSweepTests
             GenerationBudget.SweepSilenceLimit(new BekiOptions { GenerationBudgetMinutes = 0 }));
     }
 
+    // -- who gets told ---------------------------------------------------
+
+    [Fact]
+    public async Task The_family_whose_book_was_buried_is_told()
+    {
+        /*
+          The line this class's own doc comment used to end on: "the sweep tells nobody".
+
+          It is the only writer of a terminal status that runs outside the job, so a book it fails
+          is a book whose owner would otherwise never learn anything — their screen simply stops
+          changing. Every other terminal write pages an operator and writes to the parent; this one
+          did neither.
+        */
+        var packId = Guid.NewGuid();
+        var packs = new FakePackStore(Pack(packId, AdventurePackStatus.GeneratingStory,
+            heartbeat: Now.AddMinutes(-45)));
+        var email = new RecordingEmailService();
+
+        await Sweep(packs, email: email).SweepAsync();
+
+        var sent = Assert.Single(email.Failures);
+        Assert.Equal(SingleUserRepository.Address, sent.To);
+        Assert.Equal("ბექა და ცისარტყელას ხიდი", sent.BookTitle);
+
+        // Georgian, and not the sweep's own sentence: that one names the code and the forty-five
+        // minutes, and it is written for whoever is on duty.
+        Assert.False(string.IsNullOrWhiteSpace(sent.ParentMessage));
+        Assert.DoesNotContain(GenerationBudget.StalledCode, sent.ParentMessage);
+        Assert.DoesNotContain(sent.ParentMessage, char.IsAsciiLetter);
+    }
+
+    [Fact]
+    public async Task Nobody_is_written_to_about_a_book_that_was_left_alone()
+    {
+        // The compare-and-set losing means the job is alive and the book is fine. An email here
+        // would be an apology for a book that is still being drawn.
+        var packId = Guid.NewGuid();
+        var packs = new FakePackStore(Pack(packId, AdventurePackStatus.GeneratingStory,
+            heartbeat: Now.AddMinutes(-45)));
+        packs.OnBeforeWrite = () => packs.Force(packId, AdventurePackStatus.Completed);
+        var email = new RecordingEmailService();
+
+        await Sweep(packs, email: email).SweepAsync();
+
+        Assert.Empty(email.Failures);
+    }
+
+    [Fact]
+    public async Task A_mail_server_that_is_down_costs_neither_the_verdict_nor_the_rest_of_the_batch()
+    {
+        // The letter is a courtesy that runs after the write. The next pack in the list belongs to
+        // a different parent, and neither of them should lose a recorded verdict to SMTP.
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var packs = new FakePackStore(
+            Pack(first, AdventurePackStatus.GeneratingStory, Now.AddMinutes(-45)),
+            Pack(second, AdventurePackStatus.GeneratingStory, Now.AddMinutes(-50)));
+
+        await Sweep(packs, email: new RecordingEmailService { Throw = true }).SweepAsync();
+
+        Assert.Equal(AdventurePackStatus.Failed, packs.StatusOf(first));
+        Assert.Equal(AdventurePackStatus.Failed, packs.StatusOf(second));
+    }
+
+    [Fact]
+    public async Task An_owner_with_no_address_on_file_is_not_written_to()
+    {
+        // Accounts created by phone code have no email at all. Sending to an empty string is an
+        // exception, not a message.
+        var packId = Guid.NewGuid();
+        var packs = new FakePackStore(Pack(packId, AdventurePackStatus.GeneratingStory,
+            heartbeat: Now.AddMinutes(-45)));
+        var email = new RecordingEmailService();
+
+        await Sweep(packs, email: email, users: new SingleUserRepository { HasEmail = false }).SweepAsync();
+
+        Assert.Empty(email.Failures);
+        Assert.Equal(AdventurePackStatus.Failed, packs.StatusOf(packId));
+    }
+
     // -- harness ---------------------------------------------------------
 
     private static StaleGenerationSweepService Sweep(
         FakePackStore packs,
         FakeRunStore? runs = null,
-        int budgetMinutes = 30) =>
+        int budgetMinutes = 30,
+        RecordingEmailService? email = null,
+        SingleUserRepository? users = null) =>
         new(packs,
             runs ?? new FakeRunStore(),
+            email ?? new RecordingEmailService(),
+            users ?? new SingleUserRepository(),
             Options.Create(new BekiOptions { GenerationBudgetMinutes = budgetMinutes }),
             NullLogger<StaleGenerationSweepService>.Instance,
             new FixedTimeProvider(Now));
@@ -373,6 +461,8 @@ public class StaleGenerationSweepTests
     private static AdventurePack Pack(Guid id, AdventurePackStatus status, DateTime heartbeat) => new()
     {
         Id = id,
+        UserId = Owner,
+        Title = "ბექა და ცისარტყელას ხიდი",
         Status = status,
         CreatedAt = heartbeat.AddMinutes(-5),
         GenerationHeartbeatUtc = heartbeat
@@ -484,9 +574,12 @@ public class StaleGenerationSweepTests
             return Task.FromResult(true);
         }
 
+        /// <summary>Read once per buried pack, to find out whose book it was.</summary>
+        public Task<AdventurePack?> GetByIdNoOwnershipAsync(Guid id, CancellationToken cancellationToken) =>
+            Task.FromResult(_packs.TryGetValue(id, out var pack) ? pack : null);
+
         public Task<Guid> CreatePendingAsync(AdventurePack pack, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<AdventurePack?> GetByIdAsync(Guid id, Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<AdventurePack?> GetByIdNoOwnershipAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<AdventurePack>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<AdventurePack>> GetByCharacterIdAsync(Guid characterId, Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<int> GetNextSequenceNumberAsync(Guid seriesId, CancellationToken cancellationToken) => throw new NotSupportedException();

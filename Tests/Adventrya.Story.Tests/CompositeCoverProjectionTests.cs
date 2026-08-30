@@ -181,6 +181,8 @@ public class CompositeCoverProjectionTests
                 new StubGenerator(RedrawTheCover),
                 Composer,
                 new SilentNotifier(),
+                new RecordingEmailService(),
+                new SingleUserRepository(),
                 Options.Create(new BekiOptions { CompositePipelineEnabled = true }),
                 NullLogger<BekiPackFulfillment>.Instance,
                 TimeProvider.System);

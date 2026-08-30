@@ -14,7 +14,23 @@ public class AdventurePackResponse
     /// <summary>0-100 while a job is running, null otherwise. Drives the loader bar.</summary>
     public int? ProgressPercent { get; set; }
 
+    /// <summary>
+    /// True when this book could not be made. The shelf reads it rather than comparing
+    /// <see cref="Status"/> against a string, and it is the flag that tells a failed card from a
+    /// card whose job is merely slow.
+    /// </summary>
+    public bool IsFailed { get; set; }
+
+    /// <summary>
+    /// What went wrong, in the parent's language — never the stored message.
+    ///
+    /// The row holds an operator's string: <c>IMAGE_QA_FAILED (spread 1): …</c>. This carried it
+    /// verbatim to a parent's shelf, in English, with a code in front of it. It now carries what
+    /// <see cref="Services.Story.ParentFacingFailure"/> makes of it, and the raw text stays on the
+    /// admin order page, where somebody can act on it.
+    /// </summary>
     public string? ErrorMessage { get; set; }
+
     public string? StoryLanguage { get; set; }
     public PreviewIllustrationStatus PreviewIllustrationStatus { get; set; }
     public int StoryPageCount { get; set; }

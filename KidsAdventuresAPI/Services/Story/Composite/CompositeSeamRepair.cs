@@ -19,8 +19,15 @@ namespace AdventurePacks.Api.Services.Story.Composite;
 /// </param>
 /// <param name="FirstColumn">The first column of the run that will be repaired, or -1 for none.</param>
 /// <param name="LastColumn">The last column of that run, or -1.</param>
+/// <param name="OffsetFraction">
+/// Where the strongest change sits, as a signed fraction of the width away from the exact centre —
+/// -0.02 is two per cent left of centre. Recorded because the seam that prompted the band being
+/// widened was not at the centre at all: it sat at 52.5% of the width, two and a half per cent out,
+/// and a gate that only ever looked at the exact middle reported nothing wrong with it.
+/// </param>
 public sealed record SeamMeasurement(
-    double Baseline, double Centre, double Ratio, int FirstColumn, int LastColumn)
+    double Baseline, double Centre, double Ratio, int FirstColumn, int LastColumn,
+    double OffsetFraction = 0)
 {
     /// <summary>Whether this picture has a seam worth repairing, and a run of columns to repair.</summary>
     public bool Exceeded => Ratio > CompositeSeamRepair.Threshold && FirstColumn >= 0;
@@ -59,13 +66,22 @@ public static class CompositeSeamRepair
     public const double Threshold = 5.0;
 
     /// <summary>
-    /// How far either side of the exact centre a seam may sit. A generated seam lands on the centre
-    /// column; three columns of slack covers the rounding in a centred crop.
+    /// How far either side of the exact centre a seam may sit, as a fraction of the width.
+    ///
+    /// Three columns of slack was the first guess and it was too tight to catch the defect it was
+    /// written for: the band on the refused image sat at 52.5% of the width — about forty columns
+    /// out on a 1536-wide render — and the gate looked straight past it. Four per cent either side
+    /// covers where a model actually paints these, and still stops a long way short of the reserved
+    /// text third's boundary at 33%, which is a real content edge and prompt territory.
     /// </summary>
-    public const int CentreBand = 3;
+    public const double CentreBandFraction = 0.04;
 
-    /// <summary>The widest run this repairs. Past four columns it is not a seam, it is a feature.</summary>
-    public const int MaxRepairColumns = 4;
+    /// <summary>
+    /// The widest run this repairs. Past eight columns it is not a seam, it is a feature — and a
+    /// feature is left alone rather than trimmed to fit, because trimming would repair part of
+    /// somebody's artwork and leave the rest.
+    /// </summary>
+    public const int MaxRepairColumns = 8;
 
     /// <summary>
     /// Measures the centre of one PNG.
@@ -121,8 +137,9 @@ public static class CompositeSeamRepair
         }
 
         var centre = width / 2;
-        var from = Math.Max(0, centre - CentreBand);
-        var to = Math.Min(differences.Length - 1, centre + CentreBand);
+        var slack = Math.Max(3, (int)Math.Round(width * CentreBandFraction));
+        var from = Math.Max(0, centre - slack);
+        var to = Math.Min(differences.Length - 1, centre + slack);
 
         // The baseline is everything the centre band is not. A median rather than a mean: a scene
         // with a few hard vertical edges has a handful of large values, and a mean would let the
@@ -156,7 +173,9 @@ public static class CompositeSeamRepair
 
         if (peakAt < 0 || ratio <= Threshold)
         {
-            return new SeamMeasurement(baseline, peak, ratio, -1, -1);
+            return new SeamMeasurement(
+                baseline, peak, ratio, -1, -1,
+                peakAt < 0 ? 0 : (double)(peakAt - centre) / width);
         }
 
         /*
@@ -174,10 +193,23 @@ public static class CompositeSeamRepair
         */
         var elevated = Math.Max(floor * 2, 0.1);
 
+        /*
+          The run is looked for around the PEAK, not across the whole band.
+
+          The band is wide now — four per cent of the width, some hundred and twenty columns on a
+          spread — and the outermost elevated boundaries in a window that size can belong to two
+          unrelated things: the seam, and an ordinary edge in the picture that happens to fall
+          inside the band. Pairing those would span them both and interpolate away everything
+          between. A seam is a narrow band with two edges of its own, so the second edge is looked
+          for within a seam's width of the first.
+        */
+        var windowFrom = Math.Max(from, peakAt - MaxRepairColumns);
+        var windowTo = Math.Min(to, peakAt + MaxRepairColumns);
+
         var firstBoundary = -1;
         var lastBoundary = -1;
 
-        for (var x = from; x <= to; x++)
+        for (var x = windowFrom; x <= windowTo; x++)
         {
             if (differences[x] <= elevated)
             {
@@ -194,33 +226,24 @@ public static class CompositeSeamRepair
 
         var first = firstBoundary + 1;
         var last = lastBoundary;
+        var offset = (double)(peakAt - centre) / width;
 
         // One elevated boundary and no second one is a step, not a band: the picture genuinely
         // changes at that column and there is nothing between two edges to interpolate across.
-        if (firstBoundary < 0 || first > last)
+        //
+        // And a run wider than a seam is a structure, left alone rather than trimmed to fit — a
+        // trimmed repair would smear part of a real feature and leave the rest of it standing.
+        if (firstBoundary < 0 || first > last || last - first + 1 > MaxRepairColumns)
         {
-            return new SeamMeasurement(baseline, peak, ratio, -1, -1);
+            return new SeamMeasurement(baseline, peak, ratio, -1, -1, offset);
         }
 
-        while (last - first + 1 > MaxRepairColumns)
+        if (first < 1 || last > width - 2)
         {
-            // Trim the weaker end, so a run wider than a seam keeps the columns most likely to be it.
-            if (differences[Math.Max(first, 0)] <= differences[Math.Min(last - 1, differences.Length - 1)])
-            {
-                first++;
-            }
-            else
-            {
-                last--;
-            }
+            return new SeamMeasurement(baseline, peak, ratio, -1, -1, offset);
         }
 
-        if (first < 1 || last > width - 2 || first > last)
-        {
-            return new SeamMeasurement(baseline, peak, ratio, -1, -1);
-        }
-
-        return new SeamMeasurement(baseline, peak, ratio, first, last);
+        return new SeamMeasurement(baseline, peak, ratio, first, last, offset);
     }
 
     /// <summary>

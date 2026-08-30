@@ -5,7 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
 import { ApiError } from "@/lib/api/client";
 import * as ordersApi from "@/lib/api/orders";
-import { OrderStillWorkingError } from "@/lib/api/orders";
+import { BookFailedError, OrderStillWorkingError } from "@/lib/api/orders";
 import type { OrderStatusResponse } from "@/lib/api/types";
 import { useT } from "@/lib/i18n";
 import { primaryCharacter, type JourneyDraft } from "@/lib/journey/draft";
@@ -65,7 +65,9 @@ export function GeneratingStage({ draft, onChange }: Props) {
         // simply starts again, so a parent who stays on this page is still taken to the
         // finished book, however long it took to draw.
         let status: OrderStatusResponse | null = null;
-        while (status === null) {
+        let attempts = 0;
+        while (status === null && attempts < 50) {
+          attempts++;
           try {
             status = await ordersApi.pollOrderUntilReady(orderId, (current) => {
               if (cancelled) return;
@@ -74,23 +76,36 @@ export function GeneratingStage({ draft, onChange }: Props) {
             });
           } catch (err) {
             if (cancelled) return;
+            if (err instanceof BookFailedError) {
+              throw err;
+            }
             if (!(err instanceof OrderStillWorkingError)) throw err;
             setStillWorking(true);
           }
         }
 
         if (cancelled) return;
-        onChange({ bookId: status.bookId ?? draft.bookId });
-        if (status.bookId) {
-          void navigate({ to: "/reader/$bookId", params: { bookId: status.bookId } });
+        if (status) {
+          onChange({ bookId: status.bookId ?? draft.bookId });
+          if (status.bookId) {
+            void navigate({ to: "/reader/$bookId", params: { bookId: status.bookId } });
+          } else {
+            void navigate({ to: "/dashboard" });
+          }
         } else {
           void navigate({ to: "/dashboard" });
         }
       } catch (err) {
         if (cancelled) return;
-        setError(
-          err instanceof ApiError ? err.message : err instanceof Error ? err.message : "შეცდომა",
-        );
+        if (err instanceof BookFailedError) {
+          setError(err.parentMessage || t.journey.generating.failedBody);
+        } else if (err instanceof Error && err.message) {
+          // A declined or cancelled order throws its own reason — telling that parent
+          // "generation was interrupted" would send them waiting on a book nobody charged for.
+          setError(err.message);
+        } else {
+          setError(t.journey.generating.failedBody);
+        }
       }
     })();
 
@@ -144,6 +159,27 @@ export function GeneratingStage({ draft, onChange }: Props) {
   // gives way to pages they have not.
   const newest = pages.length > 0 ? pages[pages.length - 1] : null;
   const artSrc = newest?.url ?? coverSrc;
+
+  if (error) {
+    return (
+      <section className="ux-preview-stage">
+        <header className="ux-stage-heading ux-preview-heading">
+          <p className="eyebrow">
+            <Sparkles aria-hidden="true" /> {t.journey.generating.heading}
+          </p>
+          <h1>{t.journey.generating.failedTitle}</h1>
+          <p className="ux-form-error">{error}</p>
+          <button
+            className="button journey-primary"
+            type="button"
+            onClick={() => void navigate({ to: "/dashboard" })}
+          >
+            Dashboard
+          </button>
+        </header>
+      </section>
+    );
+  }
 
   return (
     <section
@@ -223,31 +259,15 @@ export function GeneratingStage({ draft, onChange }: Props) {
           ))}
         </ul>
         {progress ? <p>{progress}</p> : null}
-        {stillWorking && !error ? (
+        {stillWorking ? (
           <div className="generation-still-working">
-            <p>
-              წიგნის მომზადებას ჩვეულებრივზე ცოტა მეტი დრო სჭირდება — ის ისევ იხატება და არაფერი
-              დაკარგულა. შეგიძლია აქ დაელოდო, ან მოგვიანებით დაფაზე ნახო: როგორც კი მზად იქნება, იქ
-              გამოჩნდება.
-            </p>
+            <p>{t.journey.generating.stillWorking}</p>
             <button
               className="button journey-primary"
               type="button"
               onClick={() => void navigate({ to: "/dashboard" })}
             >
               დაფაზე გადასვლა
-            </button>
-          </div>
-        ) : null}
-        {error ? (
-          <div>
-            <p className="ux-form-error">{error}</p>
-            <button
-              className="button journey-primary"
-              type="button"
-              onClick={() => void navigate({ to: "/dashboard" })}
-            >
-              Dashboard
             </button>
           </div>
         ) : null}

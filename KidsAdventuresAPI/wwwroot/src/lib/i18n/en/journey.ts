@@ -264,6 +264,11 @@ export const journey = {
 
   generating: {
     heading: "Being created now",
+    failedTitle: "The book could not finish",
+    failedBody:
+      "The book generation was interrupted. We are already working on it. Nothing is lost.",
+    stillWorking:
+      "The book is taking longer than usual — it is still being drawn and nothing is lost. You can wait here, or check the dashboard later: it will appear there as soon as it is ready.",
     titleSuffix: "'s story, where the magic starts…",
     companionPrefix: "Rex opened the door to ",
     companionSuffix: "'s new world",

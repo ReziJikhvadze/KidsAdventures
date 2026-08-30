@@ -887,7 +887,7 @@ public class CompositeGeorgianAndShotNoteTests
             $"{CompositeSpreadRhythm.ShotFor(3)}\nCreate one continuous very wide panoramic "
             + "two-page spread designed for a final 15:7 crop.", prompt);
 
-        Assert.Equal("child-world-image-v1.3", CompositeIllustrationPrompt.Version);
+        Assert.Equal("child-world-image-v1.4", CompositeIllustrationPrompt.Version);
     }
 
     /// <summary>
@@ -918,7 +918,7 @@ public class CompositeGeorgianAndShotNoteTests
                 "The child steps into the valley.", "Beki points toward the path.",
                 "a mustard tunic", [], "LEFT"));
 
-        Assert.Equal("minimal-visual-qa-v1.3", CompositeMinimalQa.Version);
+        Assert.Equal("minimal-visual-qa-v1.4", CompositeMinimalQa.Version);
     }
 
     /// <summary>

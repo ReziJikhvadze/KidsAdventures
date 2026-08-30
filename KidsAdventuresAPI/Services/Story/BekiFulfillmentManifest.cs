@@ -31,7 +31,17 @@ public sealed record BekiCoverRecord(string StoredUrl, string PromptVersion, str
     /// so pointing at a copy would change nothing. And a resumed run that drew no cover of its own
     /// keeps a stored redraw rather than overwriting it with the previewed picture.
     /// </summary>
-    public bool IsRedraw => string.Equals(
+    public bool IsRedraw => PromptVersion.StartsWith(
+        Composite.CompositeIllustrationPrompt.CoverRedrawVersionPrefix, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Whether that redraw was made by the cover prompt this deployment sends.
+    ///
+    /// The narrower of the two questions, and the one the skip guard asks: a cover drawn before the
+    /// entered-age steer landed is a redraw — the reader should keep pointing at it — but it is not
+    /// today's cover, so a resumed book is allowed to buy the better one once.
+    /// </summary>
+    public bool IsCurrentRedraw => string.Equals(
         PromptVersion, Composite.CompositeIllustrationPrompt.CoverRedrawVersion, StringComparison.Ordinal);
 }
 

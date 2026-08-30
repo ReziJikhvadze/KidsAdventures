@@ -150,6 +150,7 @@ export type AdventurePackResponse = {
   /** 0-100 while a job is running, null otherwise. */
   progressPercent?: number | null;
   errorMessage: string | null;
+  isFailed?: boolean;
   storyLanguage: string | null;
   previewIllustrationStatus?: PreviewIllustrationStatus;
   storyPageCount?: number;
@@ -387,6 +388,8 @@ export type OrderStatusResponse = {
   status: OrderStatus;
   bookId?: string | null;
   bookReady: boolean;
+  bookFailed?: boolean;
+  parentMessage?: string | null;
   progressMessage?: string | null;
   failureReason?: string | null;
 };

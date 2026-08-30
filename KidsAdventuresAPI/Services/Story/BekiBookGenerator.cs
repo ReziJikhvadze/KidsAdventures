@@ -1465,8 +1465,10 @@ public sealed class BekiBookGenerator(
             {
                 logger.LogWarning(
                     "Composite book {JobId}: the redrawn cover had a centre seam at "
-                    + "{Before:F1}x baseline; interpolated {Columns} column(s), now {After:F1}x.",
-                    composite.JobId, seamBefore.Ratio, seamBefore.ColumnCount, seamAfter.Ratio);
+                    + "{Before:F1}x baseline, {Offset:+0.0%;-0.0%;0.0%} from centre; interpolated "
+                    + "{Columns} column(s), now {After:F1}x.",
+                    composite.JobId, seamBefore.Ratio, seamBefore.OffsetFraction,
+                    seamBefore.ColumnCount, seamAfter.Ratio);
             }
 
             image = gated;

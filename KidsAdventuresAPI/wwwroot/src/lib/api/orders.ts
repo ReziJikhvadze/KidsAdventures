@@ -57,6 +57,15 @@ export class OrderStillWorkingError extends Error {
   }
 }
 
+export class BookFailedError extends Error {
+  parentMessage?: string | null;
+  constructor(message?: string | null) {
+    super(message || "წიგნი ვერ შეიქმნა.");
+    this.name = "BookFailedError";
+    this.parentMessage = message;
+  }
+}
+
 export async function pollOrderUntilReady(
   orderId: string,
   onProgress?: (status: OrderStatusResponse) => void,
@@ -70,6 +79,7 @@ export async function pollOrderUntilReady(
     onProgress?.(status);
 
     if (status.bookReady) return status;
+    if (status.bookFailed) throw new BookFailedError(status.parentMessage);
     if (status.failureReason || status.status === "Failed" || status.status === "Cancelled") {
       throw new Error(status.failureReason ?? "შეკვეთა ვერ შესრულდა.");
     }

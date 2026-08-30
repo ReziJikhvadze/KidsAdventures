@@ -126,7 +126,7 @@ export function DashboardScreen() {
   // into a book on the shelf the moment the pipeline completes.
   useEffect(() => {
     if (!isAuthenticated) return;
-    if (!packs.some((p) => isPackGenerating(p.status))) return;
+    if (!packs.some((p) => isPackGenerating(p.status) || p.status === "GeneratingPdf")) return;
     const timer = window.setInterval(() => {
       void listAdventurePacks()
         .then((fresh) => setPacks(fresh))
@@ -158,9 +158,13 @@ export function DashboardScreen() {
     the card at the top of the page, which is the only thing here that changes while a parent
     watches it — and joins the shelf as an ordinary book when the pipeline finishes.
   */
-  const drawing = useMemo(() => childPacks.filter((p) => isPackGenerating(p.status)), [childPacks]);
+  const drawing = useMemo(
+    () => childPacks.filter((p) => isPackGenerating(p.status) && !isPackFailed(p)),
+    [childPacks],
+  );
+  const failedPacks = useMemo(() => childPacks.filter((p) => isPackFailed(p)), [childPacks]);
   const shelfPacks = useMemo(
-    () => childPacks.filter((p) => !isPackGenerating(p.status)),
+    () => childPacks.filter((p) => !isPackGenerating(p.status) && !isPackFailed(p)),
     [childPacks],
   );
   const hasStories = childPacks.length > 0;
@@ -230,8 +234,9 @@ export function DashboardScreen() {
     for (const pack of packs) {
       const id = pack.primaryCharacterId;
       if (!id) continue;
+      if (isPackFailed(pack)) continue;
       if (isPackGenerating(pack.status)) drawing[id] = (drawing[id] ?? 0) + 1;
-      else if (pack.status !== "Failed") done[id] = (done[id] ?? 0) + 1;
+      else done[id] = (done[id] ?? 0) + 1;
     }
     return [done, drawing] as const;
   }, [packs]);
@@ -488,12 +493,16 @@ export function DashboardScreen() {
             <DrawingBookCard key={pack.id} pack={pack} heroName={heroName} />
           ))}
 
+          {failedPacks.map((pack) => (
+            <FailedBookCard key={pack.id} pack={pack} heroName={heroName} />
+          ))}
+
           <div className="dashboard-section-heading" id="dashboard-library">
             <h2>{t.dashboard.library.heading(heroName)}</h2>
             <span>{t.dashboard.library.bookCount(shelfPacks.length)}</span>
           </div>
 
-          {visiblePacks.length === 0 && drawing.length === 0 ? (
+          {visiblePacks.length === 0 && drawing.length === 0 && failedPacks.length === 0 ? (
             // Silence here read as a bug: books existed, just under another child's name.
             <p className="shelf-other-child">{t.dashboard.library.otherChild(heroName)}</p>
           ) : null}
@@ -599,6 +608,10 @@ function ChildAvatar({ name, portraitUrl }: { name: string; portraitUrl?: string
   );
 }
 
+function isPackFailed(pack: AdventurePackResponse): boolean {
+  return pack.status === "Failed" || pack.isFailed === true;
+}
+
 function isPackGenerating(status: AdventurePackResponse["status"]): boolean {
   return status === "Pending" || status === "Generating" || status === "GeneratingStory";
 }
@@ -689,9 +702,7 @@ function LibraryBookCard({
       }
       await downloadAdventurePack(pack.id, `${title}.pdf`);
     } catch (err) {
-      setPdfError(
-        err instanceof ApiError ? err.message : (err as Error)?.message || "PDF ვერ მომზადდა.",
-      );
+      setPdfError(t.dashboard.library.failedTitle);
     } finally {
       setPdfBusy(false);
     }
@@ -897,5 +908,49 @@ function PrintUpgradePanel({
         </button>
       </div>
     </section>
+  );
+}
+
+function FailedBookCard({ pack, heroName }: { pack: AdventurePackResponse; heroName: string }) {
+  const WORLD_BY_ID = useWorldById();
+  const t = useT();
+  const worldId = pack.worldId && isWorldId(pack.worldId) ? pack.worldId : "dinosaurs";
+  const world = WORLD_BY_ID[worldId];
+  const cover = useIllustrationUrl(pack.coverImageUrl) ?? WORLD_COVER_ART[worldId];
+  const title = pack.title?.trim() || world.bookTitle(heroName);
+
+  return (
+    <article className="library-book is-failed">
+      <div
+        className={`library-cover cover-${worldId === "space" ? "space" : "dino"}`}
+        style={{
+          backgroundImage: `url("${cover}")`,
+          backgroundSize: "cover",
+          opacity: 0.5,
+          filter: "grayscale(1)",
+        }}
+        aria-hidden="true"
+      >
+        <strong>{title}</strong>
+      </div>
+      <div>
+        <small>{world.theme}</small>
+        <p style={{ marginTop: 8, fontSize: 14, fontWeight: 500, color: "#f1c970" }}>
+          {t.dashboard.library.failedTitle}
+        </p>
+        <p style={{ fontSize: 13, lineHeight: 1.4, marginTop: 4 }}>
+          {pack.errorMessage || t.dashboard.library.failedBody}
+        </p>
+        <div className="library-actions" style={{ marginTop: 12 }}>
+          <a
+            className="library-action is-primary"
+            href="mailto:hello@beki.ge"
+            style={{ textAlign: "center" }}
+          >
+            {t.dashboard.library.failedCta}
+          </a>
+        </div>
+      </div>
+    </article>
   );
 }

@@ -166,6 +166,16 @@ public class GenerationBudgetTests
         // Still told. A book that failed is money taken with nothing delivered whichever writer
         // recorded it, and the sweep notifies nobody.
         Assert.Equal(1, world.Notifier.Notifications);
+
+        /*
+          The parent, though, hears once.
+
+          The operator is paged either way because a duplicate page costs a minute. A duplicate
+          letter costs more than that: the sweep already wrote to this parent — with its own reason
+          — and a second one arriving from this job would explain the same failure differently.
+          Whoever's verdict is on the row is whoever's letter went out.
+        */
+        Assert.Empty(world.Email.Failures);
     }
 
     [Theory]
@@ -230,6 +240,65 @@ public class GenerationBudgetTests
 
         Assert.Equal(AdventurePackStatus.Completed, world.Packs.StatusOf(world.PackId));
         Assert.Equal(0, world.Notifier.Notifications);
+    }
+
+    [Fact]
+    public async Task The_family_is_told_as_well_as_the_operator()
+    {
+        /*
+          Pack 7fc8faf4: paid for, stopped on spread one, and the only person told was whoever was
+          on duty. The parent's own copy of the news went to nobody, so the failure reached them as
+          a screen that stopped changing.
+
+          Sent under the same guard as the admin alert, because it is the same decision — this book
+          is really failed — and what differs is only the words.
+        */
+        var world = new PackWorld
+        {
+            GeneratorFailure = new InvalidOperationException(
+                "IMAGE_QA_FAILED (spread 1): the child's hair does not match.")
+        };
+
+        await world.Job().ProcessAsync(world.PackId, world.RunId, CancellationToken.None);
+
+        Assert.Equal(1, world.Notifier.Notifications);
+        var sent = Assert.Single(world.Email.Failures);
+        Assert.Equal(SingleUserRepository.Address, sent.To);
+
+        // The operator's string stays on the row and in the alert. What the parent gets is
+        // Georgian, and mentions neither the code nor the spread.
+        Assert.Equal("IMAGE_QA_FAILED (spread 1): the child's hair does not match.",
+            world.Packs.ErrorOf(world.PackId));
+        Assert.DoesNotContain("IMAGE_QA_FAILED", sent.ParentMessage);
+        Assert.DoesNotContain(sent.ParentMessage, char.IsAsciiLetter);
+    }
+
+    [Fact]
+    public async Task Nobody_is_written_to_when_the_book_turned_out_to_be_completed()
+    {
+        // The other side of the guard. An apology for a book that exists is worse than silence —
+        // the parent goes looking for a problem they do not have.
+        var world = new PackWorld { GeneratorFailure = new InvalidOperationException("too late") };
+        world.Packs.OnBeforeWrite = () => world.Packs.Force(world.PackId, AdventurePackStatus.Completed, null);
+
+        await world.Job().ProcessAsync(world.PackId, world.RunId, CancellationToken.None);
+
+        Assert.Empty(world.Email.Failures);
+    }
+
+    [Fact]
+    public async Task A_mail_server_that_is_down_does_not_undo_the_verdict()
+    {
+        // The letter is the last thing the failure handler does and the least important: the status
+        // is written, the operator is paged, and an SMTP timeout must not turn a recorded failure
+        // into an unhandled exception on a job Hangfire would then retry from the top.
+        var world = new PackWorld { GeneratorFailure = new InvalidOperationException("the model refused") };
+        world.Email.Throw = true;
+
+        await world.Job().ProcessAsync(world.PackId, world.RunId, CancellationToken.None);
+
+        Assert.Equal(AdventurePackStatus.Failed, world.Packs.StatusOf(world.PackId));
+        Assert.Equal(1, world.Notifier.Notifications);
     }
 
     [Fact]
@@ -422,6 +491,10 @@ public class GenerationBudgetTests
         public Guid RunId { get; } = Guid.NewGuid();
         public FakePacks Packs { get; }
         public CountingNotifier Notifier { get; } = new();
+
+        /// <summary>The parent's half of the same news the notifier carries to the operator.</summary>
+        public RecordingEmailService Email { get; } = new();
+
         public ManualTimeProvider Clock { get; } = new();
 
         /// <summary>Set to cancel the host's token instead of letting the deadline pass.</summary>
@@ -450,6 +523,8 @@ public class GenerationBudgetTests
                 new CancellingGenerator(this),
                 new ThrowingComposer(),
                 Notifier,
+                Email,
+                new SingleUserRepository(),
                 Options.Create(new BekiOptions()),
                 NullLogger<BekiPackFulfillment>.Instance,
                 Clock);

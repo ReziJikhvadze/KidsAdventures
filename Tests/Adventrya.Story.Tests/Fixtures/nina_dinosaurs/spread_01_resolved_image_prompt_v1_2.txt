@@ -2,7 +2,7 @@ Use case: illustration-story
 Asset type: BEKI personalized children's book child/world base image for later exact Beki PNG compositing
 
 INPUT IMAGES
-Image 1 - child identity reference photograph. Preserve the child's recognizable identity and visibly age-appropriate proportions for approximately one year old. Render the child as a warm, polished stylized 3D animated character, not photorealistically. Do not copy clothing, pose, lighting, crop, or background from the photo.
+Image 1 - child identity reference photograph. Preserve the child's recognizable identity: this photograph says WHO the child is, and nothing else. Render the child's proportions and face at 1 years old, which is the age this book is for, even if the photograph appears older or younger - it may have been taken some time ago. Render the child as a warm, polished stylized 3D animated character, not photorealistically. Do not copy clothing, pose, lighting, crop, or background from the photo.
 Image 2 - approved Dinosaur Valley world/style reference. Use its warm golden light, soft violet and coral plants, turquoise water, rounded rock forms, distant mountains, welcoming prehistoric atmosphere, and premium stylized 3D rendering language. Create a new composition; do not copy the reference composition.
 
 SCENE
@@ -22,8 +22,8 @@ Eye colour: brown
 Skin tone: light warm
 Glasses: none
 Distinctive features: light freckles across the nose; a dimple on the left cheek
-The child is approximately one year old.
-These attributes are identical on the cover and on all eight spreads. The child's eyes are brown on every page. Image 1 is the identity reference photograph; where this list and that photograph disagree, follow the photograph.
+The child is 1 years old in this book. That is the age the parent entered, and it is the age to draw: the photograph says who the child is, not how old they are here, and it may have been taken some time ago.
+These attributes are identical on the cover and on all eight spreads. The child's eyes are brown on every page. Image 1 is the identity reference photograph and settles who this child is — the face and the likeness — wherever it and this list disagree about that; the eye colour and the age above are the parent's own entered values and win over the photograph wherever they differ.
 
 RECURRING ELEMENTS REQUIRED ON THIS IMAGE
 None. Bafu and the mysterious caller remain hidden on this page.
@@ -31,7 +31,7 @@ None. Bafu and the mysterious caller remain hidden on this page.
 COMPOSITION
 Create one continuous very wide panoramic two-page spread designed for a final 15:7 crop.
 Use a wide establishing view. The environment is dominant and the child is relatively small within it.
-Reserve the full left third as naturally calm, light background for later story text. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-right area, away from the central low-information zone. Leave a naturally lit, visually quiet Beki integration zone between the central low-information zone and the child, centered approximately at 59.4% of the canvas width and 45.8% of the canvas height. Keep that zone free of characters, faces, hands, hard edges, foreground objects, and story-critical details.
+Keep the full left third quiet enough to set story text over: continue the same scene through it as soft distant environment - sky, far foliage, haze, open ground - gently lightening toward the outer edge. It is part of the painting, not a panel: there must be no hard vertical boundary where it begins, no flat field of colour, and no visible edge between it and the rest of the picture. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-right area, away from the central low-information zone. Leave a naturally lit, visually quiet Beki integration zone between the central low-information zone and the child, centered approximately at 59.4% of the canvas width and 45.8% of the canvas height. Keep that zone free of characters, faces, hands, hard edges, foreground objects, and story-critical details.
 Keep the narrow vertical strip at the exact centre of the canvas as a central low-information zone, with only continuous environment passing through it. No face, hand, child, supporting character, or story-critical detail may cross or touch that central zone.
 Keep all important content in the central horizontal band so modest top-and-bottom crop normalization is safe.
 

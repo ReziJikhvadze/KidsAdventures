@@ -180,5 +180,30 @@ public sealed class OrderStatusResponse
     /// <summary>Georgian progress line, mirroring the pack's own progress message.</summary>
     public string? ProgressMessage { get; set; }
 
+    /// <summary>
+    /// True when the book this order paid for could not be made.
+    ///
+    /// Distinct from <see cref="Status"/>, which is the <em>order's</em> status and stays
+    /// Fulfilled: an order is marked fulfilled the moment generation is enqueued, so a book that
+    /// dies an hour later leaves a perfectly healthy-looking order behind it. Without this flag
+    /// the generating screen polls a Fulfilled order with <see cref="BookReady"/> false forever,
+    /// which is exactly what a paid parent saw.
+    /// </summary>
+    public bool BookFailed { get; set; }
+
+    /// <summary>
+    /// What to tell the parent, in Georgian, when <see cref="BookFailed"/> is true. Null otherwise.
+    ///
+    /// Written by <see cref="Services.Story.ParentFacingFailure"/> from the book's stored failure,
+    /// never the stored failure itself: that string is an English code and a stage name, and it is
+    /// for the operator reading the admin page.
+    /// </summary>
+    public string? ParentMessage { get; set; }
+
+    /// <summary>
+    /// Why the <em>payment</em> failed — never why the book did. A parent whose card was declined
+    /// and a parent whose book could not be drawn are in two different situations, and collapsing
+    /// them into one field is how a generation failure came to be reported as a payment problem.
+    /// </summary>
     public string? FailureReason { get; set; }
 }

@@ -234,6 +234,7 @@ export async function getMakingOf(packId: string): Promise<{
   progressMessage: string | null;
   progressPercent: number | null;
   spreads: number[];
+  status: string;
 }> {
   return apiRequest(`/api/adventure-packs/${packId}/making-of`);
 }
@@ -463,9 +464,7 @@ export async function pollAdventurePack(
     }
 
     if (pack.status === "Failed") {
-      throw new Error(
-        pack.errorMessage ?? pack.progressMessage ?? "Generation failed. Please try again.",
-      );
+      throw new Error("წიგნი ვერ შეიქმნა.");
     }
 
     await new Promise((r) => setTimeout(r, intervalMs));

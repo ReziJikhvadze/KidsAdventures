@@ -306,6 +306,20 @@ export function ReaderScreen() {
           <p className="eyebrow" style={{ color: "#f1c970" }}>
             {error}
           </p>
+        ) : pack && (pack.status === "Failed" || pack.isFailed) ? (
+          <div
+            style={{
+              padding: "2rem",
+              textAlign: "center",
+              background: "rgba(0,0,0,0.2)",
+              borderRadius: 16,
+            }}
+          >
+            <h2 style={{ color: "#f1c970", marginBottom: "1rem" }}>
+              {t.dashboard.library.failedTitle}
+            </h2>
+            <p>{pack.errorMessage || t.dashboard.library.failedBody}</p>
+          </div>
         ) : pack && !isIllustrating ? (
           /*
             A real book's illustration is one painting across the open spread, so the reader shows

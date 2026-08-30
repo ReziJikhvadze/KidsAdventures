@@ -3,7 +3,7 @@ Asset type: BEKI personalized children's book child/world base image for later e
 
 INPUT IMAGES
 Image 1 - child appearance anchor - the accepted first spread of this same book. Reproduce this exact rendered child: same face and face shape, same hair colour and style, same eyebrows, same glasses or absence of glasses, same eye colour, same skin tone, same outfit down to its colours. Give the child a new pose, camera angle and background as this page's scene requires. Do not copy the pose, camera, layout, lighting or background from this image.
-Image 2 - child identity reference photograph. Preserve the child's recognizable identity and visibly age-appropriate proportions for approximately one year old. Render the child as a warm, polished stylized 3D animated character, not photorealistically. Do not copy clothing, pose, lighting, crop, or background from the photo. This photograph is the identity ground truth: Image 1 shows how this child has already been drawn, and where the two disagree about who the child is, the photograph is right.
+Image 2 - child identity reference photograph. Preserve the child's recognizable identity: this photograph says WHO the child is, and nothing else. Render the child's proportions and face at 1 years old, which is the age this book is for, even if the photograph appears older or younger - it may have been taken some time ago. Render the child as a warm, polished stylized 3D animated character, not photorealistically. Do not copy clothing, pose, lighting, crop, or background from the photo. This photograph is the identity ground truth: Image 1 shows how this child has already been drawn, and where the two disagree about who the child is, the photograph is right.
 Image 3 - approved Dinosaur Valley world/style reference. Use its warm golden light, soft violet and coral plants, turquoise water, rounded rock forms, distant mountains, welcoming prehistoric atmosphere, and premium stylized 3D rendering language. Create a new composition; do not copy the reference composition.
 
 SCENE
@@ -23,8 +23,8 @@ Eye colour: brown
 Skin tone: light warm
 Glasses: none
 Distinctive features: light freckles across the nose; a dimple on the left cheek
-The child is approximately one year old.
-These attributes are identical on the cover and on all eight spreads. The child's eyes are brown on every page. Image 2 is the identity reference photograph; where this list and that photograph disagree, follow the photograph.
+The child is 1 years old in this book. That is the age the parent entered, and it is the age to draw: the photograph says who the child is, not how old they are here, and it may have been taken some time ago.
+These attributes are identical on the cover and on all eight spreads. The child's eyes are brown on every page. Image 2 is the identity reference photograph and settles who this child is — the face and the likeness — wherever it and this list disagree about that; the eye colour and the age above are the parent's own entered values and win over the photograph wherever they differ.
 
 RECURRING ELEMENTS REQUIRED ON THIS IMAGE
 Bafu, a tiny mint-green baby sauropod with oversized amber eyes and three soft coral spots along his back.
@@ -32,7 +32,7 @@ Bafu, a tiny mint-green baby sauropod with oversized amber eyes and three soft c
 COMPOSITION
 Create one continuous very wide panoramic two-page spread designed for a final 15:7 crop.
 Use a medium view for the first clear discovery. Make the child, the discovered subject, and their relationship immediately readable.
-Reserve the full right third as naturally calm, light background for later story text. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-left area, away from the central low-information zone. Leave a naturally lit, visually quiet Beki integration zone between the child and the central low-information zone, centered approximately at 40.6% of the canvas width and 45.8% of the canvas height. Keep that zone free of characters, faces, hands, hard edges, foreground objects, and story-critical details.
+Keep the full right third quiet enough to set story text over: continue the same scene through it as soft distant environment - sky, far foliage, haze, open ground - gently lightening toward the outer edge. It is part of the painting, not a panel: there must be no hard vertical boundary where it begins, no flat field of colour, and no visible edge between it and the rest of the picture. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-left area, away from the central low-information zone. Leave a naturally lit, visually quiet Beki integration zone between the child and the central low-information zone, centered approximately at 40.6% of the canvas width and 45.8% of the canvas height. Keep that zone free of characters, faces, hands, hard edges, foreground objects, and story-critical details.
 Keep the narrow vertical strip at the exact centre of the canvas as a central low-information zone, with only continuous environment passing through it. No face, hand, child, supporting character, or story-critical detail may cross or touch that central zone.
 Keep all important content in the central horizontal band so modest top-and-bottom crop normalization is safe.
 

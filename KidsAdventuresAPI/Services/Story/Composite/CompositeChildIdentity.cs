@@ -301,11 +301,20 @@ public static class CompositeChildIdentity
     /// the model to decide, and a model deciding page by page is how a child ends up bespectacled
     /// on spread four and not on spread five.
     ///
-    /// The last line is load-bearing and is the reason this block is safe to add at all: the
-    /// photograph stays the authority. Eight phrases cannot describe a face, and a prompt that
-    /// presented them as the specification rather than as the consistency rule would trade one
-    /// failure — a child who changes between pages — for a worse one, a child who is nobody in
-    /// particular on all eight.
+    /// The last line is load-bearing, and it says two things rather than one because a single
+    /// authority is wrong here. The photograph settles WHO the child is: eight phrases cannot
+    /// describe a face, and a prompt that presented them as the specification rather than as the
+    /// consistency rule would trade one failure — a child who changes between pages — for a worse
+    /// one, a child who is nobody in particular on all eight. But the eye colour and the age are
+    /// the parent's entered values, and they beat the photograph.
+    ///
+    /// That second half was missing and it made an unwinnable book. A parent who enters green eyes
+    /// for a child whose photograph reads brown had the illustrator told to follow the photograph
+    /// and the reviewer told to fail anything whose eyes were not green — so the page was refused,
+    /// redrawn from the same instruction, refused again, and the book stopped. Neither model was
+    /// wrong; they had been given contradictory orders. The rule is now the one the rest of v1.3
+    /// and v1.4 already state: the photograph is WHO, the entered fields are what colour and how
+    /// old.
     /// </summary>
     /// <param name="identityImage">
     /// Which attached image the prompt should defer to when this list and the picture disagree.
@@ -326,8 +335,8 @@ public static class CompositeChildIdentity
             Skin tone: {spec.SkinTone}
             Glasses: {spec.Glasses}
             Distinctive features: {spec.DistinctiveFeatures}
-            The child is approximately {childAge.ToString(CultureInfo.InvariantCulture)} years old.
-            These attributes are identical on the cover and on all eight spreads. The child's eyes are {spec.EyeColor} on every page. Image {identityImage.ToString(CultureInfo.InvariantCulture)} is the identity reference photograph; where this list and that photograph disagree, follow the photograph.
+            The child is {childAge.ToString(CultureInfo.InvariantCulture)} years old in this book. That is the age the parent entered, and it is the age to draw: the photograph says who the child is, not how old they are here, and it may have been taken some time ago.
+            These attributes are identical on the cover and on all eight spreads. The child's eyes are {spec.EyeColor} on every page. Image {identityImage.ToString(CultureInfo.InvariantCulture)} is the identity reference photograph and settles who this child is — the face and the likeness — wherever it and this list disagree about that; the eye colour and the age above are the parent's own entered values and win over the photograph wherever they differ.
             """;
     }
 

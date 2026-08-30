@@ -199,6 +199,12 @@ public sealed record CompositeSpreadResult
     /// what the retry ladder read, and this was never part of that.
     /// </summary>
     public string? ShotNote { get; init; }
+
+    /// <summary>
+    /// What the reviewer thought about the child's apparent age on this page — advisory, and only
+    /// ever advisory. Nothing in the retry ladder reads it; it is here to be counted.
+    /// </summary>
+    public string? AgeNote { get; init; }
 }
 
 /// <summary>
@@ -919,6 +925,11 @@ public sealed class CompositeBookPipeline(
                 .Where(spread => spread.ShotNote is { Length: > 0 })
                 .Select(spread => new CompositeShotAdvisory(
                     spread.Page, CompositeSpreadRhythm.ShotFor(spread.Page), spread.ShotNote!))
+                .ToList(),
+            AgeAdvisories = spreads
+                .Where(spread => spread.AgeNote is { Length: > 0 })
+                .Select(spread => new CompositeAgeAdvisory(
+                    spread.Page, input.ChildAge, spread.AgeNote!))
                 .ToList(),
         }
             /*
@@ -1708,6 +1719,25 @@ public sealed class CompositeBookPipeline(
                 // refused is precisely the one a later spread must not be told to match.
                 continuity.Remember(elements, basePng);
 
+                if (verdict.AgeNote is { Length: > 0 } ageNote)
+                {
+                    /*
+                      Logged and carried, and that is the whole of its effect.
+
+                      CHILD_AGE was a blocking check until a pack died on it twice — refused, redrawn,
+                      refused again for the same thing, stopped. The owner's ruling is that the
+                      photograph says who the child is and the entered age says how old the book is
+                      for: a picture from last year is a perfectly good identity reference for a book
+                      about a four-year-old, and a reviewer comparing render to photograph will call
+                      that a fault every time it is asked to. So the observation is collected and the
+                      gate is gone.
+                    */
+                    logger.LogInformation(
+                        "Composite pipeline {JobId} spread {Page}: age_note (advisory, no effect on "
+                        + "the verdict) — entered age {Age}, reviewer says \"{Note}\".",
+                        context.JobId, page.Page, input.ChildAge, ageNote);
+                }
+
                 if (verdict.ShotNote is { Length: > 0 } shotNote)
                 {
                     // Logged as a warning and carried out, and that is the whole of its effect. The
@@ -1734,6 +1764,7 @@ public sealed class CompositeBookPipeline(
                     Attempts = attempts,
                     PoseFallback = selection.Fallback,
                     ShotNote = verdict.ShotNote,
+                    AgeNote = verdict.AgeNote,
                 };
             }
 
@@ -2105,10 +2136,11 @@ public sealed class CompositeBookPipeline(
 
         logger.LogWarning(
             "Composite pipeline {JobId} {Page}: a centre seam measured {BeforeRatio:F1}x the "
-            + "picture's baseline column change ({BeforeCentre:F2} against {Baseline:F2}); "
-            + "interpolated {Columns} column(s) from {First} to {Last}, now {AfterRatio:F1}x.",
+            + "picture's baseline column change ({BeforeCentre:F2} against {Baseline:F2}) at "
+            + "{Offset:+0.0%;-0.0%;0.0%} from centre; interpolated {Columns} column(s) from {First} "
+            + "to {Last}, now {AfterRatio:F1}x.",
             context.JobId, page is null ? "cover" : $"spread {page}",
-            before.Ratio, before.Centre, before.Baseline,
+            before.Ratio, before.Centre, before.Baseline, before.OffsetFraction,
             before.ColumnCount, before.FirstColumn, before.LastColumn, after.Ratio);
 
         return repaired;

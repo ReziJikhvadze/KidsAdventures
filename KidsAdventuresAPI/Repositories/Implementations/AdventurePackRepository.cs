@@ -1,4 +1,5 @@
 ﻿using AdventurePacks.Api.Repositories.Interfaces;
+using AdventurePacks.Api.Services.Story;
 
 namespace AdventurePacks.Api.Repositories.Implementations;
 
@@ -410,11 +411,18 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
     ///
     /// The cutoff is the caller's own, so the two halves of one sweep pass judge by one clock.
     ///
-    /// Status and message only: the book's own columns are left exactly as the dead job left them,
-    /// because a pack that stalled on spread seven still has seven spreads and a manifest, and a
-    /// sweep that blanked GeneratedJson would destroy the evidence and any chance of a later
-    /// resume. The heartbeat is stamped so the row does not keep being re-read by the next sweep
-    /// before the status write is visible.
+    /// The book's own content columns are left exactly as the dead job left them, because a pack
+    /// that stalled on spread seven still has seven spreads and a manifest, and a sweep that
+    /// blanked GeneratedJson would destroy the evidence and any chance of a later resume. The
+    /// heartbeat is stamped so the row does not keep being re-read by the next sweep before the
+    /// status write is visible.
+    ///
+    /// The two progress columns are the exception, and they are written for the parent rather than
+    /// for the sweep. Left alone they keep whatever the dead job last wrote — "იხატება მე-2
+    /// გვერდი", 18% — which is a promise the row can no longer keep, on the screen the family is
+    /// watching. So the same UPDATE that records the verdict replaces the line and clears the bar,
+    /// in one write, because a row that is Failed with a percentage on it is a row somebody's
+    /// loader will keep animating.
     /// </summary>
     public async Task<bool> TryFailStaleGenerationAsync(
         Guid id,
@@ -427,6 +435,8 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
                            UPDATE AdventurePacks
                            SET Status = @Status,
                                ErrorMessage = @ErrorMessage,
+                               ProgressMessage = @ProgressMessage,
+                               ProgressPercent = NULL,
                                GenerationHeartbeatUtc = SYSUTCDATETIME()
                            WHERE Id = @Id
                              AND Status = @ExpectedStatus
@@ -439,7 +449,8 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
             ExpectedStatus = expectedStatus.ToString(),
             CutoffUtc = cutoffUtc,
             Status = AdventurePackStatus.Failed.ToString(),
-            ErrorMessage = Truncate(errorMessage)
+            ErrorMessage = Truncate(errorMessage),
+            ProgressMessage = ParentFacingFailure.ProgressLine
         }, cancellationToken: cancellationToken));
         return affected > 0;
     }
@@ -454,6 +465,11 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
     /// does not touch: the story, the PDF url and the rest stay exactly as they are, which is both
     /// safer than writing back a copy read minutes ago and the only way to record a verdict when
     /// the row could not be read at all.
+    ///
+    /// Progress is not part of "the rest". A terminal write leaves nothing running, so the line and
+    /// the percentage are replaced with the parent-safe apology in the same statement — the legacy
+    /// pipeline has always overwritten them on failure, and the Beki path's not doing so is why a
+    /// paid parent watched a dead book sit at 18%.
     /// </summary>
     public async Task<bool> TryFailAsync(
         Guid id,
@@ -465,6 +481,8 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
                            UPDATE AdventurePacks
                            SET Status = @Status,
                                ErrorMessage = @ErrorMessage,
+                               ProgressMessage = @ProgressMessage,
+                               ProgressPercent = NULL,
                                GenerationHeartbeatUtc = SYSUTCDATETIME()
                            WHERE Id = @Id AND Status = @ExpectedStatus;
                            """;
@@ -474,7 +492,8 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
             Id = id,
             ExpectedStatus = expectedStatus.ToString(),
             Status = AdventurePackStatus.Failed.ToString(),
-            ErrorMessage = Truncate(errorMessage)
+            ErrorMessage = Truncate(errorMessage),
+            ProgressMessage = ParentFacingFailure.ProgressLine
         }, cancellationToken: cancellationToken));
         return affected > 0;
     }

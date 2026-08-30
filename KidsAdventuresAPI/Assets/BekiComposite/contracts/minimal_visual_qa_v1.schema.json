@@ -13,7 +13,6 @@
       "items": {
         "enum": [
           "CHILD_IDENTITY",
-          "CHILD_AGE",
           "OUTFIT_CONTINUITY",
           "MAIN_SCENE_BEAT",
           "CAST_ERROR",
@@ -26,7 +25,8 @@
     },
     "recommended_action": {"enum": ["pass", "regenerate_base", "recomposite_beki", "human_review"]},
     "notes": {"type": "array", "items": {"type": "string", "minLength": 1}},
-    "shot_note": {"type": "string"}
+    "shot_note": {"type": "string"},
+    "age_note": {"type": "string"}
   },
   "allOf": [
     {
