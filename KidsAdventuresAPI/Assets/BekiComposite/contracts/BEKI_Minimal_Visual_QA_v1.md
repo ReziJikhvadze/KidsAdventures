@@ -1,8 +1,12 @@
-# BEKI Minimal Visual QA v1.5
+# BEKI Minimal Visual QA v1.6
 
-**Prompt version:** `minimal-visual-qa-v1.5`  
+**Prompt version:** `minimal-visual-qa-v1.6`  
 **Status:** Implementation source  
 **Purpose:** Review only parent-visible critical failures after exact Beki compositing.
+
+## v1.6 changelog
+
+One amendment, beside image template v1.6: a live page shipped with a translucent rectangle painted into the scene (the model's rendering of the integration zone it was told to leave), and no category could name it. `GENERATED_TEXT` now covers "an artificial blank, white, translucent, or semi-transparent panel or rectangle painted into the scene, with or without anything on it" - text furniture without the text is still furniture. No schema change; the category name is unchanged.
 
 ## v1.5 changelog
 

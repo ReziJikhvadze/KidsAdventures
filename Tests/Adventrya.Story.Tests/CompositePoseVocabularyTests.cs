@@ -894,7 +894,7 @@ public class CompositeGeorgianAndShotNoteTests
             + "for a final 15:7 crop.", prompt);
         Assert.DoesNotContain("two-page", prompt);
 
-        Assert.Equal("child-world-image-v1.5", CompositeIllustrationPrompt.Version);
+        Assert.Equal("child-world-image-v1.6", CompositeIllustrationPrompt.Version);
     }
 
     /// <summary>
@@ -928,7 +928,7 @@ public class CompositeGeorgianAndShotNoteTests
                 "The child steps into the valley.", "Beki points toward the path.",
                 "a mustard tunic", [], "LEFT"));
 
-        Assert.Equal("minimal-visual-qa-v1.5", CompositeMinimalQa.Version);
+        Assert.Equal("minimal-visual-qa-v1.6", CompositeMinimalQa.Version);
     }
 
     /// <summary>

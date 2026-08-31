@@ -338,8 +338,16 @@ public static class CompositeIllustrationPrompt
     /// centre is ordinary painting rather than a named zone, and the negatives now ban pale,
     /// milky and half-toned treatments as loudly as dark ones. Recorded in the contract's v1.5
     /// changelog against the audit's P0-A/P0-B findings.
+    ///
+    /// v1.6, one live book later: page 4 came back with a literal translucent rectangle painted
+    /// at exactly 40.6% of the width — the model had materialised the "Beki integration zone" it
+    /// was told to "leave" as an object, precisely where the sentence put it. The zone phrasing
+    /// is gone the way the fold's was in v1.1: the placement ask is now a keep-this-area-calm
+    /// rule that says outright it is never a shape to draw, and the negatives ban translucent
+    /// panels of any size. The matching QA amendment (v1.6) makes a painted panel a
+    /// GENERATED_TEXT failure, which is the category whose job is "furniture that is not scene".
     /// </summary>
-    public const string Version = "child-world-image-v1.5";
+    public const string Version = "child-world-image-v1.6";
 
     /// <summary>The cover base template's version. A different document, a different version.</summary>
     public const string CoverVersion = "cover-child-world-v1";
@@ -494,10 +502,11 @@ public static class CompositeIllustrationPrompt
               + "where it begins, no flat field of colour, no visible edge between it and the rest "
               + "of the picture, and no change of tone marking where it begins or ends. No "
               + "character, face, hand, foreground object, or key action may enter this area. "
-              + "Place the child and the main action in the outer-right area. Leave a naturally "
-              + "lit, visually quiet Beki integration zone centered approximately at 59.4% of the "
-              + "canvas width and 45.8% of the canvas height. Keep that zone free of characters, "
-              + "faces, hands, hard edges, foreground objects, and story-critical details."
+              + "Place the child and the main action in the outer-right area. Keep the area "
+              + "around 59.4% of the canvas width and 45.8% of the canvas height naturally lit, "
+              + "calm, and free of characters, faces, hands, hard edges, foreground objects, and "
+              + "story-critical details — it is ordinary continuous environment exactly like its "
+              + "surroundings, never a zone, shape, panel, or region to mark or draw in any way."
             : "Keep the full right third quiet enough to set story text over: continue the same "
               + "scene through it as calm open environment — sky, far foliage, open ground — "
               + "painted at exactly the same colour depth, saturation, contrast, exposure, and "
@@ -508,10 +517,11 @@ public static class CompositeIllustrationPrompt
               + "where it begins, no flat field of colour, no visible edge between it and the rest "
               + "of the picture, and no change of tone marking where it begins or ends. No "
               + "character, face, hand, foreground object, or key action may enter this area. "
-              + "Place the child and the main action in the outer-left area. Leave a naturally "
-              + "lit, visually quiet Beki integration zone centered approximately at 40.6% of the "
-              + "canvas width and 45.8% of the canvas height. Keep that zone free of characters, "
-              + "faces, hands, hard edges, foreground objects, and story-critical details.";
+              + "Place the child and the main action in the outer-left area. Keep the area "
+              + "around 40.6% of the canvas width and 45.8% of the canvas height naturally lit, "
+              + "calm, and free of characters, faces, hands, hard edges, foreground objects, and "
+              + "story-critical details — it is ordinary continuous environment exactly like its "
+              + "surroundings, never a zone, shape, panel, or region to mark or draw in any way.";
 
     /// <summary>
     /// The centre of the canvas, described as ordinary painting with a content rule, not as a place.
@@ -887,7 +897,7 @@ public static class CompositeIllustrationPrompt
         The picture is one continuous unbroken painting: no visible vertical dividing line, crease, shadow band, dark strip, pale strip, milky or whitened band, page edge, border, or split down the middle. Paint the environment straight through the centre of the canvas as if it were any other part of the scene.
         The left and right halves of the picture must match in brightness, colour, contrast, and finish: neither half may be lighter, paler, hazier, more faded, or more washed-out than the other, and no veil, wash, fog, or overlay may cover any part of the painting.
         No split screen, montage, comic panel, inset frame, before-and-after view, or repeated version of the same character.
-        No dark or pale text panel, milky veil, white or cream overlay, artificial blur panel, or blank rectangle. The text-safe area is ordinary full-colour painting like the rest of the scene.
+        No dark or pale text panel, milky veil, white or cream overlay, artificial blur panel, or blank rectangle. No translucent or semi-transparent rectangle, square, or panel of any size, anywhere in the picture, for any purpose. The text-safe area is ordinary full-colour painting like the rest of the scene.
         """;
 
     /// <summary>

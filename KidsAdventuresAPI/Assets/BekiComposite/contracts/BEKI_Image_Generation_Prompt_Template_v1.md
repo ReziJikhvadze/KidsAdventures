@@ -1,8 +1,16 @@
-# BEKI Child/World Image Prompt Template v1.5
+# BEKI Child/World Image Prompt Template v1.6
 
-**Prompt version:** `child-world-image-v1.5`  
+**Prompt version:** `child-world-image-v1.6`  
 **Status:** Implementation source  
 **Purpose:** Generate a text-free child-and-world base image. Beki is composited later from an approved transparent PNG.
+
+## v1.6 changelog
+
+One amendment, from one live page under v1.5 (pack `e820a114`, spread 4).
+
+- **Observed defect: the model painted the Beki integration zone as an object.** The page carried a literal translucent rectangle whose left edge sat at exactly 40.6% of the canvas width — the precise coordinate of the composition resolver's *"Leave a naturally lit, visually quiet Beki integration zone centered approximately at 40.6%…"*. Told to *leave a zone*, the model *drew* one, exactly where the sentence put it — the same failure family as v1's painted fold. **Fix:** the zone phrasing is gone. The placement ask is now a keep-this-area-calm rule that says outright the area "is ordinary continuous environment exactly like its surroundings, never a zone, shape, panel, or region to mark or draw in any way", and the hard constraints add: *"No translucent or semi-transparent rectangle, square, or panel of any size, anywhere in the picture, for any purpose."* The Minimal Visual QA (v1.6) broadens `GENERATED_TEXT` to cover a painted blank/translucent panel, so the reviewer can refuse the next one — no page had a category for it, and eight reviews passed it.
+
+Nothing else moved: geometry and both anchor percentages are v1.5's to the digit.
 
 ## v1.5 changelog
 
@@ -105,13 +113,13 @@ Resolve the following block in application code before sending the prompt.
 ### When `text_side = LEFT`
 
 ```text
-Keep the full left third quiet enough to set story text over: continue the same scene through it as calm open environment - sky, far foliage, open ground - painted at exactly the same colour depth, saturation, contrast, exposure, and finish as the rest of the picture. It is calm because the scene is calm there, not because anything covers it: do not lighten it, and do not fade, veil, haze over, wash, whiten, blur, or desaturate it or any other region of the painting. It is part of the painting, not a panel: there must be no hard vertical boundary where it begins, no flat field of colour, no visible edge between it and the rest of the picture, and no change of tone marking where it begins or ends. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-right area. Leave a naturally lit, visually quiet Beki integration zone centered approximately at 59.4% of the canvas width and 45.8% of the canvas height. Keep that zone free of characters, faces, hands, hard edges, foreground objects, and story-critical details.
+Keep the full left third quiet enough to set story text over: continue the same scene through it as calm open environment - sky, far foliage, open ground - painted at exactly the same colour depth, saturation, contrast, exposure, and finish as the rest of the picture. It is calm because the scene is calm there, not because anything covers it: do not lighten it, and do not fade, veil, haze over, wash, whiten, blur, or desaturate it or any other region of the painting. It is part of the painting, not a panel: there must be no hard vertical boundary where it begins, no flat field of colour, no visible edge between it and the rest of the picture, and no change of tone marking where it begins or ends. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-right area. Keep the area around 59.4% of the canvas width and 45.8% of the canvas height naturally lit, calm, and free of characters, faces, hands, hard edges, foreground objects, and story-critical details - it is ordinary continuous environment exactly like its surroundings, never a zone, shape, panel, or region to mark or draw in any way.
 ```
 
 ### When `text_side = RIGHT`
 
 ```text
-Keep the full right third quiet enough to set story text over: continue the same scene through it as calm open environment - sky, far foliage, open ground - painted at exactly the same colour depth, saturation, contrast, exposure, and finish as the rest of the picture. It is calm because the scene is calm there, not because anything covers it: do not lighten it, and do not fade, veil, haze over, wash, whiten, blur, or desaturate it or any other region of the painting. It is part of the painting, not a panel: there must be no hard vertical boundary where it begins, no flat field of colour, no visible edge between it and the rest of the picture, and no change of tone marking where it begins or ends. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-left area. Leave a naturally lit, visually quiet Beki integration zone centered approximately at 40.6% of the canvas width and 45.8% of the canvas height. Keep that zone free of characters, faces, hands, hard edges, foreground objects, and story-critical details.
+Keep the full right third quiet enough to set story text over: continue the same scene through it as calm open environment - sky, far foliage, open ground - painted at exactly the same colour depth, saturation, contrast, exposure, and finish as the rest of the picture. It is calm because the scene is calm there, not because anything covers it: do not lighten it, and do not fade, veil, haze over, wash, whiten, blur, or desaturate it or any other region of the painting. It is part of the painting, not a panel: there must be no hard vertical boundary where it begins, no flat field of colour, no visible edge between it and the rest of the picture, and no change of tone marking where it begins or ends. No character, face, hand, foreground object, or key action may enter this area. Place the child and the main action in the outer-left area. Keep the area around 40.6% of the canvas width and 45.8% of the canvas height naturally lit, calm, and free of characters, faces, hands, hard edges, foreground objects, and story-critical details - it is ordinary continuous environment exactly like its surroundings, never a zone, shape, panel, or region to mark or draw in any way.
 ```
 
 ## Exact runtime prompt template
@@ -166,7 +174,7 @@ No text, letters, numbers, logos, captions, labels, signs, frames, QR codes, wat
 The picture is one continuous unbroken painting: no visible vertical dividing line, crease, shadow band, dark strip, pale strip, milky or whitened band, page edge, border, or split down the middle. Paint the environment straight through the centre of the canvas as if it were any other part of the scene.
 The left and right halves of the picture must match in brightness, colour, contrast, and finish: neither half may be lighter, paler, hazier, more faded, or more washed-out than the other, and no veil, wash, fog, or overlay may cover any part of the painting.
 No split screen, montage, comic panel, inset frame, before-and-after view, or repeated version of the same character.
-No dark or pale text panel, milky veil, white or cream overlay, artificial blur panel, or blank rectangle. The text-safe area is ordinary full-colour painting like the rest of the scene.
+No dark or pale text panel, milky veil, white or cream overlay, artificial blur panel, or blank rectangle. No translucent or semi-transparent rectangle, square, or panel of any size, anywhere in the picture, for any purpose. The text-safe area is ordinary full-colour painting like the rest of the scene.
 ```
 
 ## Numbered input images

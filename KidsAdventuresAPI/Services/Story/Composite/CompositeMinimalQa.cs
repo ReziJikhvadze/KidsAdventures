@@ -413,7 +413,15 @@ public static class CompositeMinimalQa
     /// prompt now quotes. The advisory <c>shot_note</c> survives for borderline impressions; the
     /// clear contradiction is a check.
     /// </summary>
-    public const string Version = "minimal-visual-qa-v1.5";
+    /// <summary>
+    /// v1.6 broadens GENERATED_TEXT to the panel that carries no text: a live book shipped a
+    /// page with a translucent rectangle painted into the scene — the model's rendering of the
+    /// "integration zone" it had been told to leave — and no category could name it, so eight
+    /// reviews passed it. Text furniture without the text is still furniture; the category whose
+    /// job is "things that are not scene" now says so. No schema change: the category name is
+    /// unchanged, only its definition grew.
+    /// </summary>
+    public const string Version = "minimal-visual-qa-v1.6";
 
     /// <summary>
     /// The supplied file stays the authority. v1.1 and v1.2 changed only what the reviewer is
@@ -858,7 +866,7 @@ public static class CompositeMinimalQa
         2. OUTFIT_CONTINUITY - The required base outfit is missing or materially changed.
         3. MAIN_SCENE_BEAT - The one required visible story event is missing, contradicted, or replaced by a different event.
         4. CAST_ERROR - The child or a required supporting character is missing, duplicated, or replaced; or an unrequested prominent character appears.
-        5. GENERATED_TEXT - Readable text, pseudo-text, logo, label, sign, watermark, or QR appears in the illustration.
+        5. GENERATED_TEXT - Readable text, pseudo-text, logo, label, sign, watermark, or QR appears in the illustration; or an artificial blank, white, translucent, or semi-transparent panel or rectangle is painted into the scene, with or without anything on it.
         6. TEXT_SAFE_AREA - A face, hand, character, foreground object, or key action blocks the reserved text side.
         7. FOLD_SAFETY - A face, hand, character, or story-critical detail crosses or touches the central exclusion zone.
         8. BEKI_INTEGRATION - Beki is duplicated, clipped, hidden, materially obstructs the main action, or is visibly pasted into an unsuitable hard-edged/foreground area.
