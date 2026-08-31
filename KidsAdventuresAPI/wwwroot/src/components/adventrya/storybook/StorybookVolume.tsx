@@ -730,11 +730,17 @@ export function StorybookVolume({
             {/* No page counter on the shop window. On the home page the sample book is there to
                 be looked at, and "3 / 16" under it is bookkeeping for a reader who has not
                 bought anything yet. The reader itself keeps its counter. */}
-            {variant === "hero" ? null : (
-              <span className="storybook-progress" aria-live="polite">
-                {progressLabel}
-              </span>
-            )}
+            {/* The middle track is still occupied when the counter is hidden: the controls are a
+                three-column grid, and dropping the element outright slid "next" into the centre
+                and both buttons out of balance. */}
+            <span
+              className="storybook-progress"
+              aria-live="polite"
+              aria-hidden={variant === "hero" ? true : undefined}
+              style={variant === "hero" ? { visibility: "hidden" } : undefined}
+            >
+              {progressLabel}
+            </span>
             <button
               type="button"
               onClick={() => goTo(nextTarget, "next")}

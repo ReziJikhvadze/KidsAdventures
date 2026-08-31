@@ -19,6 +19,16 @@ import { useWorldById, type WorldId } from "@/lib/worlds";
 type Variant = "desktop" | "mobile";
 
 /**
+ * Whether the server would let this child start here.
+ *
+ * `null` is a visitor with no progress at all, who may start anywhere. Everything else mirrors
+ * `WorldProgressService.EnsureCanStartAsync`: `Unlocked` and `Next` only.
+ */
+function startableState(state: WorldNodeState | null | undefined): boolean {
+  return !state || state === "Unlocked" || state === "Next";
+}
+
+/**
  * Sections of the home page a parent can be sent here from, so the arrow can put them back
  * exactly where they were standing rather than at the top of a very long page.
  *
@@ -244,6 +254,17 @@ export function WorldSelectorStage({
     (selectorId: SelectorWorldId) => {
       const world = SELECTOR_WORLDS.find((candidate) => candidate.id === selectorId);
       if (!world) return;
+      /*
+        Only what the server will actually accept.
+
+        `WorldProgressService.EnsureCanStartAsync` refuses any node whose `CanStart` is false,
+        and the map sets that flag for `Unlocked` and `Next` alone — so both a locked world and
+        a finished one are refused. Offering them here does not open them; it walks a parent
+        through the whole creation flow and fails at the moment they try to pay. Dimming a
+        finished world is right and stays; letting it be chosen is not ours to decide from the
+        browser.
+      */
+      if (!startableState(worldStates?.[world.worldId])) return;
 
       if (ctaTimer.current !== null) window.clearTimeout(ctaTimer.current);
 
@@ -263,7 +284,7 @@ export function WorldSelectorStage({
       const wait = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 520;
       ctaTimer.current = window.setTimeout(() => setCtaReady(true), wait);
     },
-    [onChange],
+    [onChange, worldStates],
   );
 
   const start = useCallback(() => {
@@ -585,7 +606,7 @@ function WorldStageArt({
                       tabIndex={showAction ? 0 : -1}
                       onClick={onStart}
                     >
-                      {isDone || finished ? copy.tryAgain : copy.create}
+                      {copy.create}
                       <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M5 12h13m-5-5 5 5-5 5" />
                       </svg>

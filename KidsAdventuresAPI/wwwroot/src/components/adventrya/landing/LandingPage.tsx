@@ -230,7 +230,10 @@ function Faq() {
             key={item.question}
             open={openIndex === index}
             onToggle={(event) => {
-              if ((event.target as HTMLDetailsElement).open) setOpenIndex(index);
+              // Closing the open one has to clear it too: the marker is drawn from this, and
+              // leaving the index behind left a minus sign over a collapsed answer.
+              const open = (event.target as HTMLDetailsElement).open;
+              setOpenIndex((current) => (open ? index : current === index ? -1 : current));
             }}
           >
             <summary>
