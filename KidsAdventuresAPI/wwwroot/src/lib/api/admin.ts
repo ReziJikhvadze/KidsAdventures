@@ -159,6 +159,32 @@ export async function downloadOrderPdf(orderId: string): Promise<Blob> {
   return response.blob();
 }
 
+/**
+ * Downloads the book's whole handback package as one zip — press files with their preflight
+ * reports, the reading copy, the plan, and every spread with its base and composition receipt.
+ * Same shape as the PDF download and for the same reason: the file arrives as bytes, never as a
+ * storage URL.
+ */
+export async function downloadOrderPackage(orderId: string): Promise<Blob> {
+  const token = getToken();
+  const response = await fetch(resolveApiUrl(`/api/admin/orders/${orderId}/package`), {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+
+  if (!response.ok) {
+    let message = "პაკეტი ვერ ჩამოიტვირთა.";
+    try {
+      const body = (await response.json()) as { message?: string };
+      if (body?.message) message = body.message;
+    } catch {
+      /* a non-JSON error body is still an error; the default message covers it */
+    }
+    throw new Error(message);
+  }
+
+  return response.blob();
+}
+
 export function listCustomers(params: {
   search?: string;
   page?: number;

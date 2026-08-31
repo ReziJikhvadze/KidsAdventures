@@ -269,6 +269,18 @@ function OrderDetail({ orderId, onChanged }: { orderId: string; onChanged: () =>
       return "PDF ჩამოიტვირთა.";
     });
 
+  const downloadPackage = () =>
+    run("package", async () => {
+      const blob = await admin.downloadOrderPackage(orderId);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `beki-${orderId}-package.zip`;
+      link.click();
+      URL.revokeObjectURL(url);
+      return "პაკეტი ჩამოიტვირთა.";
+    });
+
   if (busy) return <p className="empty-state">იტვირთება…</p>;
   if (error) return <p className="empty-state">{error}</p>;
   if (!detail) return null;
@@ -373,6 +385,17 @@ function OrderDetail({ orderId, onChanged }: { orderId: string; onChanged: () =>
             onClick={() => void downloadPdf()}
           >
             {action === "pdf" ? "იტვირთება…" : "PDF ჩამოტვირთვა"}
+          </button>
+        ) : null}
+
+        {book ? (
+          <button
+            type="button"
+            className="button button-secondary"
+            disabled={action !== null}
+            onClick={() => void downloadPackage()}
+          >
+            {action === "package" ? "იტვირთება…" : "სრული პაკეტი (ZIP)"}
           </button>
         ) : null}
 
