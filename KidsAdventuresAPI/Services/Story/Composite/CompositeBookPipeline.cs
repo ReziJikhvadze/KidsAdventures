@@ -1785,39 +1785,29 @@ public sealed class CompositeBookPipeline(
         BekiCompositeAnchor? placement = null;
 
         /*
-          The centre-field gate, before a token is spent on anything downstream.
+          The centre-field measurement is TELEMETRY ONLY — the owner's ruling of 2026-08-31,
+          after its first live outing refused a clean page twice and stopped a paid order.
 
-          The interpolating repair inside NormalizeToSpread handles a one-to-eight column seam;
-          this handles what it must decline — the veil over a full half, the hard step between two
-          differently treated sides. Both shipped in the book the supplier rejected, because the
-          decline was silent and nothing else measured the halves against each other.
-
-          It spends the same single regeneration the reviewer's ladder spends, not a budget of its
-          own: a veiled base costs one redraw whether a model or a measurement noticed it, and
-          RegenerateBaseAsync gates its own output, so a second veiled picture stops the spread as
-          IMAGE_GENERATION_FAILED rather than shipping.
+          The measurement was calibrated on the veiled books the supplier rejected; the v1.5
+          prompt then changed what clean art measures like (a calm bright text side against a
+          busy action side is the composition the prompt itself asks for), and the two
+          distributions overlap too much to refuse on. So it reads, it logs, and it touches
+          nothing: no regeneration, no failure, no spend. The log lines are the data the
+          thresholds get re-judged from once enough live v1.5 pages exist. What still guards the
+          page: the shape checks in NormalizeToSpread, the narrow seam repair (which only ever
+          repairs, never refuses), and the model reviewer.
         */
-        var centreField = CompositeDeterministicChecks.CentreFieldProblems(basePng);
-        if (centreField.Count > 0)
+        var centreField = CompositeSeamRepair.MeasureCentreField(basePng);
+        if (centreField.Exceeded)
         {
-            (basePng, generationMs, placement) = await RegenerateBaseAsync(
-                context, page, prompt,
-                $"centre-field gate: {string.Join(" ", centreField)}",
-                childPhoto, childPhotoContentType, theme, anchor, reference?.Image,
-                cancellationToken);
-
-            regenerated = true;
-            baseAttempts++;
-        }
-        else if (CompositeDeterministicChecks.CentreFieldWarning(basePng) is { } fieldAdvisory)
-        {
-            // The tier between clean and refused: said out loud and left alone. The first live
-            // v1.5 book is why — its clean anchor page measured within a few points of the old
-            // single-tier limit, and a warning here is what lets the thresholds be re-judged
-            // from real pages instead of from a stopped order.
             logger.LogWarning(
-                "Composite pipeline {JobId} spread {Page}: {Advisory}.",
-                context.JobId, page.Page, fieldAdvisory);
+                "Composite pipeline {JobId} spread {Page}: centre-field telemetry (no effect) — "
+                + "edge {Edge:P1} at column {EdgeColumn}, one-way field {Field:P1} at column "
+                + "{FieldColumn}{Severe}.",
+                context.JobId, page.Page,
+                centreField.EdgeCoverage, centreField.EdgeColumn,
+                centreField.FieldCoverage, centreField.FieldColumn,
+                centreField.Severe ? " — SEVERE tier" : string.Empty);
         }
 
         // One row per generate-and-review cycle, kept whether it passed or not. A page that shipped
@@ -2059,39 +2049,9 @@ public sealed class CompositeBookPipeline(
             References(childPhoto, childPhotoContentType, theme, anchor, continuityImage),
             cancellationToken);
 
-        var normalized = NormalizeToSpread(context, page.Page, rawPng);
-
-        // The regeneration was the budget; a second picture that still fails the centre-field
-        // gate ends the spread here, before a review is bought for a page that cannot ship —
-        // and the refused picture travels with the failure. The first refusal of a live book
-        // left nothing behind to judge the gate by, which turned a debugging question into an
-        // argument about thresholds; a stopped order must always carry its evidence.
-        var field = CompositeDeterministicChecks.CentreFieldProblems(normalized);
-        if (field.Count > 0)
-        {
-            throw new CompositePipelineException(
-                CompositeFailureCodes.ImageGenerationFailed,
-                $"The regenerated base image for spread {page.Page} still fails the centre-field "
-                + $"gate: {string.Join(" ", field)}")
-            {
-                Page = page.Page,
-                Evidence = new CompositeFailureEvidence(
-                    page.Page,
-                    normalized,
-                    JsonSerializer.Serialize(
-                        new
-                        {
-                            page = page.Page,
-                            failure_code = CompositeFailureCodes.ImageGenerationFailed,
-                            gate = "centre-field",
-                            problems = field,
-                            image_prompt_version = CompositeIllustrationPrompt.Version,
-                        },
-                        CompositeJson.Readable)),
-            };
-        }
-
-        return (normalized, generationMs, null);
+        // The centre-field measurement is telemetry-only by the owner's ruling — see the reading
+        // in DrawSpreadAsync. A regenerated base gets no second judgement here either.
+        return (NormalizeToSpread(context, page.Page, rawPng), generationMs, null);
     }
 
     /// <summary>

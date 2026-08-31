@@ -317,56 +317,31 @@ public class CompositePipelineSeamTests : CompositePipelineTestBase
     }
 
     /// <summary>
-    /// A veiled base spends the spread's one regeneration before any review is bought, and the
-    /// book ships on the clean redraw. The budget is shared with the reviewer's ladder — one
-    /// extra picture per spread, never two.
+    /// The centre-field measurement is telemetry-only, by the owner's ruling of 2026-08-31: its
+    /// first live outing refused a clean page twice and stopped a paid order, because the v1.5
+    /// prompt changed what clean art measures like. A veiled base now costs nothing — no
+    /// regeneration, no failure — it is measured, logged, and shipped to the reviewer, who
+    /// remains the judge of content.
     /// </summary>
     [Fact]
-    public async Task A_veiled_base_buys_one_redraw_and_the_book_ships_the_clean_one()
-    {
-        var images = new StubImageService();
-        images.QueuedImages.Enqueue(
-            WithVeil(Gradient(ProviderWidth, ProviderHeight), leftSide: true, lift: 0.5, shoulderColumns: 24));
-
-        var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
-            .RunAsync(Request(), CancellationToken.None);
-
-        // The veiled picture went back; the page that shipped is the redraw, and it is clean.
-        Assert.Equal(2, result.Spreads[0].BaseAttempts);
-        Assert.False(CompositeSeamRepair.MeasureCentreField(result.Spreads[0].BasePng).Exceeded);
-
-        // The reviewer never saw the veiled picture — the gate is cheaper than a review and runs
-        // first.
-        Assert.All(
-            images.ReviewImages,
-            reviewed => Assert.False(CompositeSeamRepair.MeasureCentreField(reviewed).Exceeded));
-    }
-
-    /// <summary>
-    /// A redraw that comes back veiled again stops the spread as IMAGE_GENERATION_FAILED. Two
-    /// pictures is the budget; a third would be paying to fail differently.
-    /// </summary>
-    [Fact]
-    public async Task A_veiled_redraw_stops_the_spread_rather_than_shipping()
+    public async Task A_veiled_base_is_measured_logged_and_never_charged_for()
     {
         var veiled = WithVeil(
             Gradient(ProviderWidth, ProviderHeight), leftSide: true, lift: 0.5, shoulderColumns: 24);
 
         var images = new StubImageService();
         images.QueuedImages.Enqueue(veiled);
-        images.QueuedImages.Enqueue(veiled);
 
-        var failure = await Assert.ThrowsAsync<CompositePipelineException>(() =>
-            Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
-                .RunAsync(Request(), CancellationToken.None));
+        var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+            .RunAsync(Request(), CancellationToken.None);
 
-        Assert.Equal(CompositeFailureCodes.ImageGenerationFailed, failure.FailureCode);
-        Assert.Contains("centre-field gate", failure.Message);
+        // One picture per spread, no gate spend anywhere: eight spreads, eight calls.
+        Assert.Equal(BookFormat.SpreadCount, images.ImageCalls);
+        Assert.Equal(1, result.Spreads[0].BaseAttempts);
 
-        // Spread one is drawn first and alone, so the stop cost exactly two pictures and zero
-        // reviews.
-        Assert.Equal(2, images.ImageCalls);
-        Assert.Empty(images.ReviewImages);
+        // The measurement still reads the page — the log line is the retuning data — and the
+        // page it read went on to review and shipping regardless.
+        Assert.True(CompositeSeamRepair.MeasureCentreField(result.Spreads[0].BasePng).Exceeded);
     }
 
     /// <summary>
