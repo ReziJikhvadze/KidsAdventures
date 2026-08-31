@@ -1,4 +1,4 @@
-import { ArrowRight, Mail } from "lucide-react";
+import { ArrowRight, KeyRound, Mail } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { GoogleSignInButton, GoogleSignInBusyButton } from "@/components/auth/GoogleSignInButton";
@@ -9,6 +9,26 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { formatGeorgianPhone, normalizeGeorgianPhone, useT } from "@/lib/i18n";
 
 type AuthTab = "email" | "phone";
+
+/**
+ * How a parent proves the email is theirs: a link we send them, or a password they set.
+ *
+ * The link is still the default — it is one tap and there is nothing to remember. The password
+ * is here because a link that has to survive a mail client, a spam filter and a browser switch
+ * does not always arrive, and a parent halfway through paying for a book should not be stuck
+ * waiting on one.
+ */
+type EmailMode = "link" | "password";
+
+/**
+ * Mirrors `PasswordValidator.ValidateOrThrow` on the server, so a password the API will refuse
+ * is refused here — where the parent can still see both fields — rather than after a round trip
+ * that answers in English. `\p{Lu}`/`\p{Ll}` rather than `A-Z`/`a-z` because that is what
+ * .NET's `char.IsUpper`/`IsLower` mean.
+ */
+function passwordMeetsPolicy(value: string): boolean {
+  return value.length >= 8 && /\d/.test(value) && /\p{Lu}/u.test(value) && /\p{Ll}/u.test(value);
+}
 
 type Props = {
   /** Where the magic link should land the parent once it is followed. */
@@ -29,10 +49,13 @@ type Props = {
  */
 export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: Props) {
   const t = useT();
-  const { loginWithGoogle, signInWithPhoneCode } = useAuth();
+  const { loginWithGoogle, signInWithPhoneCode, continueWith } = useAuth();
 
   const [tab, setTab] = useState<AuthTab>("email");
+  const [emailMode, setEmailMode] = useState<EmailMode>("link");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordRepeat, setPasswordRepeat] = useState("");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [challenge, setChallenge] = useState<AuthChallengeResponse | null>(null);
@@ -60,6 +83,36 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
       setCooldown(result.resendAfterSeconds || 30);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "ბმული ვერ გაიგზავნა.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /*
+    One call for both halves of it.
+
+    `continueAuth` signs the parent in when the email is already known and creates the account
+    when it is not, so this is a sign-in form and a registration form at once and nobody has to
+    be asked which one they are. The repeated field is checked here and never sent: it exists to
+    catch a typo in a password that is about to become the only way back into an account.
+  */
+  const submitPassword = async () => {
+    if (password !== passwordRepeat) {
+      setError(t.journey.auth.passwordMismatch);
+      return;
+    }
+    if (!passwordMeetsPolicy(password)) {
+      setError(t.journey.auth.passwordHint);
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      await continueWith(email.trim(), password);
+      onAuthenticated();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t.journey.auth.passwordFailed);
     } finally {
       setBusy(false);
     }
@@ -204,26 +257,93 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
                   />
                 </div>
               </label>
-              {magicSent ? (
-                <p className="ux-mock-note">{t.journey.auth.magicLinkSent(email)}</p>
-              ) : null}
-              {challenge && !challenge.deliveryLive ? (
-                <p className="ux-mock-note">{t.journey.auth.devDelivery}</p>
-              ) : null}
-              {magicDevUrl ? (
-                <p className="ux-mock-note">
-                  <a href={magicDevUrl}>{t.journey.auth.openMagicLink}</a>
-                </p>
-              ) : null}
+              {emailMode === "link" ? (
+                <>
+                  {magicSent ? (
+                    <p className="ux-mock-note">{t.journey.auth.magicLinkSent(email)}</p>
+                  ) : null}
+                  {challenge && !challenge.deliveryLive ? (
+                    <p className="ux-mock-note">{t.journey.auth.devDelivery}</p>
+                  ) : null}
+                  {magicDevUrl ? (
+                    <p className="ux-mock-note">
+                      <a href={magicDevUrl}>{t.journey.auth.openMagicLink}</a>
+                    </p>
+                  ) : null}
+                  <button
+                    className="button button-primary auth-main"
+                    type="button"
+                    disabled={busy || !email.trim() || cooldown > 0}
+                    onClick={() => void sendMagicLink()}
+                  >
+                    {t.journey.auth.sendMagicLink}
+                    {cooldown > 0 ? t.journey.auth.resendIn(cooldown) : ""}
+                    <ArrowRight aria-hidden="true" size={16} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* Both fields wear `auth-email`, which is what dresses the field above them:
+                      the label colour, the icon inset into the box and the pale input are all
+                      already written there, and this is one form rather than two that resemble
+                      each other. */}
+                  <label className="field auth-email" htmlFor="journey-auth-password">
+                    <span>{t.journey.auth.passwordLabel}</span>
+                    <div>
+                      <KeyRound aria-hidden="true" />
+                      <input
+                        id="journey-auth-password"
+                        name="new-password"
+                        type="password"
+                        value={password}
+                        autoComplete="new-password"
+                        aria-label={t.journey.auth.passwordLabel}
+                        onChange={(e) => setPassword(e.target.value)}
+                      />
+                    </div>
+                  </label>
+                  <label className="field auth-email" htmlFor="journey-auth-password-repeat">
+                    <span>{t.journey.auth.passwordRepeatLabel}</span>
+                    <div>
+                      <KeyRound aria-hidden="true" />
+                      <input
+                        id="journey-auth-password-repeat"
+                        name="confirm-password"
+                        type="password"
+                        value={passwordRepeat}
+                        autoComplete="new-password"
+                        aria-label={t.journey.auth.passwordRepeatLabel}
+                        onChange={(e) => setPasswordRepeat(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void submitPassword();
+                        }}
+                      />
+                    </div>
+                  </label>
+                  <p className="ux-mock-note">{t.journey.auth.passwordHint}</p>
+                  <button
+                    className="button button-primary auth-main"
+                    type="button"
+                    disabled={busy || !email.trim() || !password || !passwordRepeat}
+                    onClick={() => void submitPassword()}
+                  >
+                    {t.journey.auth.passwordSubmit}
+                    <ArrowRight aria-hidden="true" size={16} />
+                  </button>
+                </>
+              )}
+
+              {/* The way between the two, and it clears the error on the way: a complaint about
+                  a password is not about the link the parent just switched to. */}
               <button
-                className="button button-primary auth-main"
+                className="text-back"
                 type="button"
-                disabled={busy || !email.trim() || cooldown > 0}
-                onClick={() => void sendMagicLink()}
+                onClick={() => {
+                  setEmailMode(emailMode === "link" ? "password" : "link");
+                  setError(null);
+                }}
               >
-                {t.journey.auth.sendMagicLink}
-                {cooldown > 0 ? t.journey.auth.resendIn(cooldown) : ""}
-                <ArrowRight aria-hidden="true" size={16} />
+                {emailMode === "link" ? t.journey.auth.usePassword : t.journey.auth.useMagicLink}
               </button>
             </>
           ) : (

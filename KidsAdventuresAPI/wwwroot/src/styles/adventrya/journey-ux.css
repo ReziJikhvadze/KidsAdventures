@@ -2448,3 +2448,18 @@
 .generation-exit .button {
   flex-shrink: 0;
 }
+
+/*
+  The sign-in dialog is as tall as the panel inside it, and the panel now has a password form.
+
+  Radix centres this box on the viewport and lets it be any height it likes, which was survivable
+  while the tallest thing in it was one email field: on a 812px phone the card measured 1020 and
+  hung 104px off both ends, with the Google button above the screen and the way back to the
+  magic link below it, and nothing scrolling in between. It is the dialog that has to give — a
+  cap and a scroller here, rather than a shorter form.
+*/
+.ux-auth-dialog {
+  max-height: calc(100svh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
