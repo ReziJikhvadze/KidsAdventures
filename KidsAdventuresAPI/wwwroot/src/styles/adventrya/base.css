@@ -452,6 +452,37 @@ svg {
     margin: 0;
   }
 }
+/*
+  The site's navigation in the app header.
+
+  Centred absolutely, like the step counter it shares the slot with, so it does not push the
+  back arrow and the account pill apart. It leaves at 1080px for the reason the old one was
+  taken out: below that it meets both of them at once and the three read as one run of letters.
+*/
+.app-header-nav {
+  position: absolute;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 2vw, 30px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.app-header-nav a {
+  color: #f8f2e5b8;
+  font-size: 13px;
+  font-weight: 600;
+  transition: color 0.16s ease;
+}
+.app-header-nav a:hover,
+.app-header-nav a:focus-visible {
+  color: var(--cream);
+}
+@media (max-width: 1080px) {
+  .app-header-nav {
+    display: none;
+  }
+}
 .step-progress {
   position: absolute;
   left: 50%;

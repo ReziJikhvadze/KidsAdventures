@@ -107,6 +107,14 @@
   font-size: 15px;
   line-height: 1;
 }
+/* The nav joins the light header rather than the dark bar it was written for. */
+.journey-screen .app-header-nav a {
+  color: var(--jw-ink-soft);
+}
+.journey-screen .app-header-nav a:hover,
+.journey-screen .app-header-nav a:focus-visible {
+  color: var(--jw-ink);
+}
 .journey-wrap {
   max-width: 1240px;
   margin: 0 auto;
@@ -883,7 +891,15 @@
   border-color: rgba(111, 81, 184, 0.34);
   box-shadow: var(--jw-shadow);
 }
-.journey-child-switch > span {
+/*
+  The second span, not every span.
+
+  The avatar is a direct child of the trigger too, so this — written for the name and the line
+  under it — was also landing on the disc: `display: flex; align-items: flex-start` beat
+  `.journey-child-avatar`'s own grid centring on specificity, and pushed the initial ten pixels
+  up and ten left of the middle.
+*/
+.journey-child-switch > span:nth-child(2) {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -909,6 +925,8 @@
   flex-shrink: 0;
   display: inline-grid;
   place-items: center;
+  /* The Georgian glyph rides high in its line box; centring the box is not centring the letter. */
+  line-height: 1;
   overflow: hidden;
   border-radius: 999px;
   color: var(--jw-ink);

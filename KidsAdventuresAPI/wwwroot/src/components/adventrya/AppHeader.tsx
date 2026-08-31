@@ -147,6 +147,23 @@ export function AppHeader({
             <i style={{ width: `${progressValue}%` }} />
           </div>
         </div>
+      ) : !minimal ? (
+        /*
+          The site's own navigation, inside the app.
+
+          It was removed once, for good reasons that still hold: on a phone it became a third row
+          that scrolled sideways. So it comes back on the terms that fix that — absolute paths, so
+          each link reaches the home page's section from wherever the parent is standing, and gone
+          below the width where it would start crowding the two blocks either side of it. It never
+          shares the slot with the step counter: a parent halfway through making a book is not
+          being offered the price list.
+        */
+        <nav className="app-header-nav" aria-label={t.common.nav.primaryNav}>
+          <a href="/#books">{t.common.nav.books}</a>
+          <a href="/#pricing">{t.common.nav.pricing}</a>
+          <a href="/#faq">{t.common.nav.faq}</a>
+          <a href="/#worlds">{t.common.nav.chooseWorld}</a>
+        </nav>
       ) : null}
 
       <div className="app-header-end">
