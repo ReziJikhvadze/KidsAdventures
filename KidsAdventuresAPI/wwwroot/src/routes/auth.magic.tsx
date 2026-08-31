@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -24,6 +24,21 @@ export const Route = createFileRoute("/auth/magic")({
   component: MagicLinkLanding,
 });
 
+/**
+ * One attempt per token, for as long as the tab is open.
+ *
+ * This component does not get to mount only once. The page is server-rendered and then
+ * hydrated, and a hydration mismatch makes React throw the server's markup away and build the
+ * tree again — which unmounts and remounts this route. A `useRef` guard is per mount, so the
+ * second mount spent the token a second time; the server had already burned it, and answered
+ * "this link is invalid" about a link that had just worked a moment earlier.
+ *
+ * Keyed by the token, so a parent who gives up and asks for a second link is not handed the
+ * verdict on their first one. Keeping the promise rather than a boolean is the point: whichever
+ * instance is mounted when it settles lands the outcome, including one that mounted after.
+ */
+const attempts = new Map<string, Promise<void>>();
+
 function MagicLinkLanding() {
   const copy = useT().journey.auth.landing;
   const { token, next } = Route.useSearch();
@@ -33,38 +48,49 @@ function MagicLinkLanding() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  // React 18 mounts effects twice in development, and a magic link is single-use:
-  // the second call would consume nothing and report the link as invalid.
-  const attempted = useRef(false);
-
   useEffect(() => {
-    if (attempted.current) return;
-    attempted.current = true;
-
     if (!token) {
       setError(copy.missingToken);
       return;
     }
 
-    let cancelled = false;
+    let mounted = true;
 
-    void (async () => {
-      try {
-        await signInWithMagicLink(token);
-        if (cancelled) return;
+    /*
+      Fire once; subscribe every time.
+
+      The teardown used to set a `cancelled` flag that the handlers checked, so a remount
+      mid-flight threw away the answer to the one request the token was good for — leaving the
+      screen on "signing in…" with no error and no way forward, for a parent who was by then
+      signed in. The flag now only guards `setState` on a dead instance; the outcome itself
+      belongs to the promise, which outlives any one mount.
+    */
+    let attempt = attempts.get(token);
+    if (!attempt) {
+      attempt = signInWithMagicLink(token);
+      attempts.set(token, attempt);
+      // The real handlers are attached below, and again by any later mount. This one is here so
+      // a rejection is never momentarily unhandled between the two.
+      attempt.catch(() => {});
+    }
+
+    void attempt.then(
+      () => {
+        if (!mounted) return;
         setDone(true);
         const target = safeNext(next);
         navigate({ to: target.to, hash: target.hash, replace: true });
-      } catch (err) {
-        if (cancelled) return;
+      },
+      (err: unknown) => {
+        if (!mounted) return;
         setError(err instanceof ApiError ? err.message : copy.failedTitle);
-      }
-    })();
+      },
+    );
 
     return () => {
-      cancelled = true;
+      mounted = false;
     };
-  }, [token, next, signInWithMagicLink, navigate]);
+  }, [token, next, signInWithMagicLink, navigate, copy]);
 
   return (
     <main className="ux-auth-landing">
