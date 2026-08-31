@@ -108,6 +108,7 @@ export const journey = {
     statusReady: (world: string) => `${world} chosen. The button to go there is ready.`,
 
     visited: "Already visited",
+    tryAgain: "Try it again",
     locked: "Still locked",
     lockedNote: (world: string) =>
       `${world} is still locked — the previous adventure is not finished yet.`,

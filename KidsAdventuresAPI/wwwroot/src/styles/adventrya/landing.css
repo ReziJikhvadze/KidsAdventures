@@ -1423,8 +1423,9 @@
   font-weight: 400;
   transition: transform 0.2s ease;
 }
+/* The glyph itself changes now; rotating it made a cross of it. */
 .landing-v3-faq-list details[open] summary > i {
-  transform: rotate(45deg);
+  transform: none;
 }
 .landing-v3-faq-list details > p {
   max-width: 630px;

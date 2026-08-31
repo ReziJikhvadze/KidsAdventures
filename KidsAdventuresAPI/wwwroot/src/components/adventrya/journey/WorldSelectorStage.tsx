@@ -244,8 +244,6 @@ export function WorldSelectorStage({
     (selectorId: SelectorWorldId) => {
       const world = SELECTOR_WORLDS.find((candidate) => candidate.id === selectorId);
       if (!world) return;
-      // A shut island is shown, not offered: the child has not finished what opens it yet.
-      if (worldStates?.[world.worldId] === "Locked") return;
 
       if (ctaTimer.current !== null) window.clearTimeout(ctaTimer.current);
 
@@ -265,7 +263,7 @@ export function WorldSelectorStage({
       const wait = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 520;
       ctaTimer.current = window.setTimeout(() => setCtaReady(true), wait);
     },
-    [onChange, worldStates],
+    [onChange],
   );
 
   const start = useCallback(() => {
@@ -492,10 +490,17 @@ function WorldStageArt({
               Only a child has a state. Without one every island is simply open, which is what a
               visitor who has never signed in should see.
             */
-            const state = worldStates?.[world.worldId] ?? null;
-            const isLocked = state === "Locked";
-            const isVisited = state === "Completed";
-            const showAction = isSelected && ctaReady && !isLocked;
+            /*
+              Two states, and neither shuts a door.
+
+              A world this child already has a book in is dimmed — there is nothing new behind
+              it, and the button there offers to try it again rather than to open it. Everything
+              else is lit, including worlds the server has not "unlocked" yet: locking turned six
+              places to visit into four refusals, and a parent who wants the forest first should
+              have the forest first.
+            */
+            const isDone = worldStates?.[world.worldId] === "Completed";
+            const showAction = isSelected && ctaReady;
 
             const spot = ISLAND_SPOTS[variant][world.id];
 
@@ -504,9 +509,7 @@ function WorldStageArt({
                 key={world.id}
                 className={`world-node hotspot-${world.id}${isSelected ? " is-selected" : ""}${
                   previewed === world.id ? " is-previewed" : ""
-                }${isLocked ? " is-locked" : ""}${isVisited ? " is-visited" : ""}${
-                  finished ? " is-finished" : ""
-                }`}
+                }${isDone || finished ? " is-done" : ""}`}
                 data-world-node={world.id}
                 /* Placed from the same island coordinates the star flies to, so a tap and a
                    landing can never again disagree about where a world is. */
@@ -521,14 +524,11 @@ function WorldStageArt({
                   type="button"
                   className="world-hotspot"
                   aria-label={
-                    isLocked
-                      ? copy.lockedNote(place.mapTitle)
-                      : finished
-                        ? `${place.mapTitle} — ${copy.visited}`
-                        : `${place.mapTitle}: ${place.teaserBody}`
+                    isDone || finished
+                      ? `${place.mapTitle} — ${copy.visited}`
+                      : `${place.mapTitle}: ${place.teaserBody}`
                   }
                   aria-pressed={isSelected}
-                  aria-disabled={isLocked}
                   onClick={() => onChoose(world.id)}
                   onPointerEnter={() => onPreview(world.id)}
                   onPointerLeave={() => onPreview(null)}
@@ -569,9 +569,7 @@ function WorldStageArt({
                     <strong className="short-title">{place.mapLabel}</strong>
                     {/* One line under the name, and only for a child whose map this is: where
                         they have been, and what is not open to them yet. */}
-                    {isLocked || isVisited ? (
-                      <em className="world-state">{isLocked ? copy.locked : copy.visited}</em>
-                    ) : null}
+                    {isDone || finished ? <em className="world-state">{copy.visited}</em> : null}
                   </span>
 
                   <div
@@ -587,7 +585,7 @@ function WorldStageArt({
                       tabIndex={showAction ? 0 : -1}
                       onClick={onStart}
                     >
-                      {copy.create}
+                      {isDone || finished ? copy.tryAgain : copy.create}
                       <svg viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M5 12h13m-5-5 5 5-5 5" />
                       </svg>

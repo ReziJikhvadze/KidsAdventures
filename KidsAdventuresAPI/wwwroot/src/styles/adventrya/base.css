@@ -78,6 +78,22 @@ svg {
   overflow: hidden;
   isolation: isolate;
 }
+/*
+  The pages that are documents: about, contact, refunds, privacy, terms.
+
+  They used `.screen` above, which is why none of them scrolled. What they actually need is a
+  column that grows with its content and keeps the footer at the bottom of short ones.
+*/
+.legal-page {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+}
+.legal-page > main {
+  flex: 1;
+}
 .world-art {
   position: absolute;
   inset: 0;

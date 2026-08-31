@@ -57,9 +57,17 @@ export function Header() {
         one screen a returning family actually comes back for was the hardest thing here to
         find. A router Link rather than an anchor: it is a page, not a section of this one.
       */}
-      <Link to="/dashboard" hash="story-path" onClick={() => setMenuOpen(false)}>
-        {t.common.nav.myWorld}
-      </Link>
+      {/*
+        "Choose a world", and it goes to the choosing.
+
+        It read "my world" and opened the parent's own cabinet — which is books, not worlds, and
+        means nothing to somebody who has not made one yet. It is an anchor to the section of
+        this page that holds the picker, so a visitor lands on the six islands with the page
+        still under them, and nobody is asked to sign in to look.
+      */}
+      <a href="/#worlds" onClick={() => setMenuOpen(false)}>
+        {t.common.nav.chooseWorld}
+      </a>
     </>
   );
 

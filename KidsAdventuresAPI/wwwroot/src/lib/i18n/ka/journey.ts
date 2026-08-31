@@ -122,6 +122,8 @@ export const journey = {
     /* Shown only when the map is opened for a child who already has books: which worlds they
        have been to, and which are still shut. */
     visited: "უკვე გავლილი",
+    /* Pressing a world this child has already been to offers the trip again, not a new door. */
+    tryAgain: "სცადე თავიდან",
     locked: "ჯერ დახურულია",
     lockedNote: (world: string) =>
       `${world} ჯერ დახურულია — წინა თავგადასავალი ჯერ არ დასრულებულა.`,

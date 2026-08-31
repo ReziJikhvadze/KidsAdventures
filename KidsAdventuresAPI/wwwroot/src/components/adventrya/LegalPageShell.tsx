@@ -10,7 +10,16 @@ export function LegalPageShell({ children }: { children: ReactNode }) {
   const F = t.common.footer;
 
   return (
-    <div className="screen" style={{ minHeight: "100vh" }}>
+    /*
+      Deliberately not `.screen`.
+
+      That class is the partner demo's fixed tableau: `height: 100svh`, `overflow: hidden`,
+      `max-height: 1000px` and `min-width: 1100px`. An inline `min-height` cannot undo any of it,
+      so every page wearing this shell — about, contact, refunds, privacy, terms — was clipped at
+      one viewport with no way to scroll to the rest, cut off at the bottom, and carrying a
+      horizontal scrollbar at any width under 1100px. These are documents; they scroll.
+    */
+    <div className="legal-page">
       <div className="grain" aria-hidden="true" />
       <AppHeader backHref="/" />
       <main style={{ padding: "24px 0 48px" }}>{children}</main>

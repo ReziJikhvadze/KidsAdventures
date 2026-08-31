@@ -822,67 +822,50 @@
 }
 
 /*
-  Where this child has been, and where they cannot go yet.
+  Where this child has already been.
 
-  Only drawn when the map was opened for a particular child — every island is plain and open to
-  a visitor who has no progress to show. A shut island stays visible and readable: it is the
-  reason to finish the book they are on, and hiding it would just make the painting look smaller.
+  One state, and it does not shut anything: a world whose book has been made is dimmed, because
+  there is nothing new behind it — its button offers the trip again rather than a first one.
+  Everything else stays lit, locks included: turning six places to visit into four refusals was
+  the wrong shape for a picker a child is meant to want to touch.
+
+  Only drawn when the map was opened for a particular child. A visitor with no progress sees six
+  worlds, all lit.
 */
-.world-node.is-locked .world-hotspot {
-  cursor: not-allowed;
+.world-node.is-done .world-label {
+  border-color: rgba(214, 205, 233, 0.28);
+  background: rgba(9, 6, 28, 0.62);
 }
 
-.world-node.is-locked .world-label {
-  border-color: rgba(214, 205, 233, 0.22);
-  background: rgba(9, 6, 28, 0.66);
+.world-node.is-done .world-label strong {
+  color: rgba(240, 234, 252, 0.66);
 }
 
-.world-node.is-locked .world-label strong {
-  color: rgba(240, 234, 252, 0.62);
+/* The island itself reads as visited rather than new. */
+.world-node.is-done .hotspot-marker {
+  opacity: 0.5;
 }
 
-/* The lock rides the label rather than the island, so it cannot land on open sea. */
-.world-node.is-locked .world-label::before {
-  margin-bottom: 1px;
-  color: rgba(240, 234, 252, 0.72);
-  content: "F512";
-  font-size: clamp(7px, 0.62vw, 10px);
-  line-height: 1;
+.world-node.is-done .world-finished {
+  opacity: 0.72;
 }
 
-/* A shut island does not light up under a pointer: nothing is on offer there. */
-.world-node.is-locked.is-previewed .world-label,
-.world-node.is-locked:hover .world-label,
-.world-node.is-locked:focus-within .world-label {
-  border-color: rgba(214, 205, 233, 0.3);
-  background: rgba(9, 6, 28, 0.72);
-  box-shadow: none;
-  transform: none;
-}
-
-.world-node.is-locked::before {
-  opacity: 0;
-}
-
-.world-node.is-visited .world-label {
-  border-color: rgba(151, 226, 178, 0.42);
+/* Pointed at or chosen, it comes back up: it is still somewhere to go. */
+.world-node.is-done.is-previewed .world-label,
+.world-node.is-done.is-selected .world-label,
+.world-node.is-done:hover .world-label,
+.world-node.is-done:focus-within .world-label {
+  border-color: rgba(255, 235, 180, 0.6);
+  background: rgba(28, 15, 66, 0.8);
 }
 
 .world-state {
-  color: rgba(247, 201, 95, 0.85);
+  color: rgba(232, 226, 246, 0.6);
   font-size: clamp(6px, 0.46vw, 8px);
   font-style: normal;
   font-weight: 500;
   letter-spacing: 0.07em;
   line-height: 1.2;
-}
-
-.world-node.is-locked .world-state {
-  color: rgba(232, 226, 246, 0.6);
-}
-
-.world-node.is-visited .world-state {
-  color: rgba(151, 226, 178, 0.9);
 }
 
 .mobile-frame .world-state {

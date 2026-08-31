@@ -236,7 +236,9 @@ function Faq() {
             <summary>
               <span>{String(index + 1).padStart(2, "0")}</span>
               {item.question}
-              <i aria-hidden="true">+</i>
+              {/* Plus to minus. It was a plus rotated 45°, which is a cross — and a cross reads
+                  as "close" or "wrong", not as "collapse this answer". */}
+              <i aria-hidden="true">{openIndex === index ? "−" : "+"}</i>
             </summary>
             <p>{item.answer}</p>
           </details>
@@ -292,9 +294,7 @@ function Footer() {
           <strong>{F.product}</strong>
           <Link to={START_JOURNEY}>{t.common.nav.createBook}</Link>
           <a href="#pricing">{t.common.nav.pricing}</a>
-          <Link to="/dashboard" hash="story-path">
-            {F.myWorld}
-          </Link>
+          <a href="/#worlds">{F.chooseWorld}</a>
         </div>
         <div>
           <strong>{F.help}</strong>

@@ -727,9 +727,14 @@ export function StorybookVolume({
               <ChevronLeft size={13} absoluteStrokeWidth />
               <span>{t.story.storybook.previous}</span>
             </button>
-            <span className="storybook-progress" aria-live="polite">
-              {progressLabel}
-            </span>
+            {/* No page counter on the shop window. On the home page the sample book is there to
+                be looked at, and "3 / 16" under it is bookkeeping for a reader who has not
+                bought anything yet. The reader itself keeps its counter. */}
+            {variant === "hero" ? null : (
+              <span className="storybook-progress" aria-live="polite">
+                {progressLabel}
+              </span>
+            )}
             <button
               type="button"
               onClick={() => goTo(nextTarget, "next")}

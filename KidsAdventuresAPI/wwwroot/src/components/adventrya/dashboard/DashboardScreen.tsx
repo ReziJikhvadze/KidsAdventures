@@ -13,7 +13,6 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { AppHeader } from "@/components/adventrya/AppHeader";
-import { WorldSelectorStage } from "@/components/adventrya/journey/WorldSelectorStage";
 import { PasswordlessAuthDialog } from "@/components/auth/PasswordlessAuthDialog";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -41,9 +40,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FLIGHT_ROUTES, ISLAND_SPOTS, SELECTOR_WORLDS } from "@/lib/journey/worldSelector";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { useJourneyDraft } from "@/lib/journey/draft";
 import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { continueViaPickerHref, newBookHref } from "@/lib/continue";
 import { formatGel, formatGelAmount, normalizeGeorgianPhone, useT } from "@/lib/i18n";
@@ -106,7 +103,6 @@ export function DashboardScreen({ celebrationBookId }: { celebrationBookId?: str
   const [printOrders, setPrintOrders] = useState<PrintOrderResponse[]>([]);
   const [map, setMap] = useState<AdventureMapResponse | null>(null);
   const [mapsByCharacter, setMapsByCharacter] = useState<Record<string, AdventureMapResponse>>({});
-  const [activeWorldId, setActiveWorldId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [printBookId, setPrintBookId] = useState<string | null>(null);
@@ -116,8 +112,6 @@ export function DashboardScreen({ celebrationBookId }: { celebrationBookId?: str
   const [printError, setPrintError] = useState<string | null>(null);
   const [pendingRunId] = useState<string | null>(readPendingRunId);
   const navigate = useNavigate();
-  // The picker below writes the chosen world into the draft, exactly as it does at /themes.
-  const [draft, setDraft] = useJourneyDraft();
   const initialCelebrationBookId = useRef(celebrationBookId);
   const consumedCelebrationBookId = useRef<string | null>(null);
   const WORLD_BY_ID = useWorldById();
@@ -209,22 +203,6 @@ export function DashboardScreen({ celebrationBookId }: { celebrationBookId?: str
         if (cancelled) return;
         setMap(response);
         setMapsByCharacter((prev) => ({ ...prev, [response.characterId]: response }));
-        /*
-          Open on somewhere the child can actually go. `nextWorldId` is a suggestion the server
-          makes without checking it against this child's own progress, and a locked suggestion
-          left the one button on the card greyed out.
-        */
-        const startable = (id: string | null | undefined) =>
-          !!id &&
-          response.worlds.some((w) => w.worldId === id && (w.canStart || w.state !== "Locked"));
-        setActiveWorldId(
-          (startable(response.nextWorldId) ? response.nextWorldId : null) ||
-            response.worlds.find((w) => w.state === "Next")?.worldId ||
-            response.worlds.find((w) => w.state === "Unlocked")?.worldId ||
-            response.worlds.find((w) => w.state === "Completed")?.worldId ||
-            response.worlds[0]?.worldId ||
-            null,
-        );
       })
       .catch(() => {
         /* The shelf is still worth showing without the path behind it. */
@@ -236,20 +214,16 @@ export function DashboardScreen({ celebrationBookId }: { celebrationBookId?: str
     };
   }, [characterId, isAuthenticated]);
 
+  /*
+    The reader hands a finished book over as `?bookId=`. Its only job now is choosing whose shelf
+    opens, which the loader above does; there is no longer a map here for it to celebrate on. The
+    query is cleared so a refresh does not look like a fresh arrival.
+  */
   useEffect(() => {
-    if (!celebrationBookId || !map || consumedCelebrationBookId.current === celebrationBookId) {
-      return;
-    }
-    const completedNode = map.worlds.find(
-      (node) => node.state === "Completed" && node.bookId === celebrationBookId,
-    );
-    if (!completedNode) return;
-
+    if (!celebrationBookId || consumedCelebrationBookId.current === celebrationBookId) return;
     consumedCelebrationBookId.current = celebrationBookId;
-    setActiveWorldId(completedNode.worldId);
-    // Keep the handoff ephemeral: preserving it would replay the celebration after a refresh.
     void navigate({ to: "/dashboard", search: { bookId: undefined }, replace: true });
-  }, [celebrationBookId, map, navigate]);
+  }, [celebrationBookId, navigate]);
 
   // A book still being drawn becomes ready without the parent refreshing: while any pack is
   // mid-generation the shelf re-asks for the list, and the card at the top of the page turns
@@ -317,19 +291,13 @@ export function DashboardScreen({ celebrationBookId }: { celebrationBookId?: str
     };
   }, []);
 
-  const nodesById = useMemo(() => {
-    const dict: Record<string, WorldNodeResponse> = {};
-    for (const node of map?.worlds ?? []) dict[node.worldId] = node;
-    return dict;
-  }, [map]);
-
-  const activeNode = activeWorldId ? nodesById[activeWorldId] : undefined;
-  const worldId = (
-    activeWorldId && isWorldId(activeWorldId) ? activeWorldId : "dinosaurs"
-  ) as WorldId;
-  const world = WORLD_BY_ID[worldId];
+  /*
+    The world this child is up to, kept only for the two things left that ask about it: the count
+    beside their name, and the prior book a continuation carries. Choosing a world happens on the
+    home page now, so nothing here draws a map.
+  */
+  const nextNode = map?.worlds.find((w) => w.state === "Next" || w.state === "Unlocked");
   const completedCount = map?.completedCount ?? 0;
-  const totalWorlds = map?.totalWorlds || map?.worlds.length || WORLD_IDS.length;
 
   /*
     One creation action, and it starts something new.
@@ -354,7 +322,7 @@ export function DashboardScreen({ celebrationBookId }: { celebrationBookId?: str
     const continuation = map.continuation;
     const priorBookId =
       continuation?.fromBookId ??
-      (activeNode?.state === "Completed" ? (activeNode.bookId ?? null) : null);
+      (nextNode?.state === "Completed" ? (nextNode.bookId ?? null) : null);
 
     const base = continueViaPickerHref({
       characterId,
@@ -363,7 +331,7 @@ export function DashboardScreen({ celebrationBookId }: { celebrationBookId?: str
     });
 
     return base;
-  }, [characterId, map, activeNode]);
+  }, [characterId, map, nextNode]);
 
   const newParts = useMemo(() => hrefParts(newHref), [hrefParts, newHref]);
 
@@ -376,44 +344,6 @@ export function DashboardScreen({ celebrationBookId }: { celebrationBookId?: str
     () => hrefParts(newBookHref(null, { from: "dashboard", fresh: true })),
     [hrefParts],
   );
-
-  /*
-    Worlds this child has an actual book in.
-
-    Read from the shelf rather than from the map's `Completed` state, because the question is
-    narrower than the map's: `accessLevel === "Full"` is a book that was paid for and generated.
-    A preview is a draft nobody has bought, and ticking its island would tell a parent they own
-    something they do not.
-  */
-  const finishedWorldIds = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          childPacks
-            .filter(
-              (p) =>
-                p.accessLevel === "Full" &&
-                !isPackGenerating(p.status) &&
-                p.status !== "Failed" &&
-                p.worldId &&
-                isWorldId(p.worldId),
-            )
-            .map((p) => p.worldId as WorldId),
-        ),
-      ),
-    [childPacks],
-  );
-
-  /* The child and the adventure the picker should carry into the questions. */
-  const startSearch = useMemo(() => {
-    const carried: Record<string, string> = { from: "dashboard" };
-    if (characterId) carried.characterId = characterId;
-    const continuation = map?.continuation;
-    if (continuation?.fromBookId) carried.continuesFromBookId = continuation.fromBookId;
-    const ids = continuation?.carryForwardCharacters.map((c) => c.id);
-    if (ids?.length) carried.characterIds = ids.join(",");
-    return carried;
-  }, [characterId, map]);
 
   const printByBook = useMemo(() => {
     const dict: Record<string, PrintOrderResponse> = {};
@@ -711,60 +641,6 @@ export function DashboardScreen({ celebrationBookId }: { celebrationBookId?: str
           ) : null}
 
           {error ? <p className="journey-note">{error}</p> : null}
-        </section>
-
-        {/*
-          The path, on the same page as the shelf it explains.
-
-          `/world` was a screen of its own and is now this section: a parent who wants to know
-          which worlds are open no longer has to leave the books to find out, and the books no
-          longer sit next to a number they cannot see the meaning of.
-        */}
-        <section className="journey-story" id="story-path" aria-labelledby="dashboard-path-title">
-          <div className="journey-section-head journey-section-head-story">
-            <div>
-              <span className="journey-eyebrow journey-eyebrow-violet">
-                <Sparkle /> STORY PATH
-              </span>
-              <h2 id="dashboard-path-title">
-                {heroName}
-                {t.story.world.journeySuffix}
-              </h2>
-              <p>{t.story.map.lead}</p>
-            </div>
-            <div
-              className="journey-progress"
-              aria-label={t.story.map.progress(completedCount, totalWorlds)}
-            >
-              <strong>{completedCount}</strong>
-              {/* The handoff's separator. Without it the two numbers read as one. */}
-              <span>/ {t.story.map.ofTotal(totalWorlds)}</span>
-            </div>
-          </div>
-
-          {/*
-            The picker itself, standing in the parent's space.
-
-            Not a second map drawn to look like it: this is `/themes`' own component, so the
-            island hotspots, the star that flies out of Beki's lantern when one is chosen, the
-            light that lifts the chosen island out of the dimmer and the button that grows from
-            its name are all the same behaviour, from the same file. A copy would have been two
-            maps to keep in step, and the first thing to drift would have been where the islands
-            are.
-
-            Embedded, because the wordmark and the back arrow belong to a page, and this is a
-            section of one. One thing is added and nothing else: a tick on the worlds this child
-            has a finished book in.
-          */}
-          <div className="journey-selector">
-            <WorldSelectorStage
-              draft={draft}
-              onChange={setDraft}
-              embedded
-              completedWorldIds={finishedWorldIds}
-              startSearch={startSearch}
-            />
-          </div>
         </section>
       </main>
     </div>
