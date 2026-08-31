@@ -466,6 +466,14 @@ public abstract class CompositePipelineTestBase
             CoverCalls++;
             throw new InvalidOperationException("The composite cover must not run with the flag off.");
         }
+
+        public Task<CompositeCoverWrap> DrawCoverWrapAsync(
+            CompositeBookContext context, VisualScenarioV2 scenario, byte[] childPhoto,
+            string childPhotoContentType, CancellationToken cancellationToken)
+        {
+            CoverCalls++;
+            throw new InvalidOperationException("The press cover wrap must not run with the flag off.");
+        }
     }
 
     /// <summary>

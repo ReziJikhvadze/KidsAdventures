@@ -308,8 +308,12 @@ public sealed class BekiLayoutAssets
     /// Both halves are the point. A trial Ottia sitting beside the licensed one would register
     /// under whichever name the bootstrap happened to ask for first, and the shipped book proved
     /// that a font nobody chose can reach a printed page without anything noticing.
+    ///
+    /// Public since the press cover: the wrap composer places no registry artwork of its own —
+    /// its picture arrives pre-composited — but its Ottia title deserves the same proof as
+    /// everything else that prints.
     /// </summary>
-    private void VerifyFonts()
+    public void VerifyFonts()
     {
         foreach (var font in _fonts.Values)
         {

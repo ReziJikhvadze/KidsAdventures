@@ -51,6 +51,17 @@ public interface IBekiPdfComposer
         BekiBookPersonalization? personalization = null);
 
     /// <summary>
+    /// The press cover: the composited 512 × 245 mm wrap as one full-bleed page with the Ottia
+    /// title typeset as vector into the locked front title-safe rectangle
+    /// (<see cref="Composite.BekiCoverDieline"/>). Press preparation — boxes, colour, PDF/X —
+    /// happens to the result, not here. The default refuses so test doubles need not care.
+    /// </summary>
+    byte[] ComposeCoverPress(string title, byte[] wrapComposite) =>
+        throw new BekiLayoutException(
+            CompositeFailureCodes.LayoutFailed,
+            "This composer does not produce press covers.");
+
+    /// <summary>
     /// The same book as one image per page. For looking at: a PDF cannot be inspected by anything
     /// that does not already render PDFs, and a layout nobody can see is a layout nobody can fix.
     /// </summary>
@@ -254,6 +265,58 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         Build(plan, coverImage, spreads, personalization, false)
             .GenerateImages(new ImageGenerationSettings { ImageFormat = ImageFormat.Png, RasterDpi = 96 })
             .ToList();
+
+    /// <summary>
+    /// <inheritdoc cref="IBekiPdfComposer.ComposeCoverPress"/>
+    ///
+    /// One page at the wrap's own 512 × 245 — no bleed added, because the locked spec's turn-ins
+    /// ARE the wrap's overrun and its boxes are all equal. The artwork arrives already composited
+    /// (base plus the exact approved pose); this only sets the title, in the same outlined Ottia
+    /// the reading cover uses, centred inside the locked title-safe rectangle.
+    /// </summary>
+    public byte[] ComposeCoverPress(string title, byte[] wrapComposite)
+    {
+        ArgumentNullException.ThrowIfNull(wrapComposite);
+
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        // Only the faces: the wrap carries no registry artwork of its own — the pose is already
+        // composited into the bytes, hash-verified where the compositing happened.
+        _assets.VerifyFonts();
+        PdfFontBootstrap.EnsureRegistered();
+
+        var titleWidthPt = MmToPt(BekiCoverDieline.TitleSafeWidthMm);
+
+        return Document.Create(document =>
+        {
+            document.Page(page =>
+            {
+                page.Size(new PageSize(
+                    BekiCoverDieline.CanvasWidthMm, BekiCoverDieline.CanvasHeightMm,
+                    Unit.Millimetre));
+                page.Margin(0);
+
+                page.Content().Layers(layers =>
+                {
+                    layers.PrimaryLayer().Image(wrapComposite)
+                        .FitUnproportionally().UseOriginalImage();
+
+                    layers.Layer()
+                        .PaddingLeft(BekiCoverDieline.TitleSafeLeftMm, Unit.Millimetre)
+                        .PaddingTop(BekiCoverDieline.TitleSafeTopMm, Unit.Millimetre)
+                        .AlignLeft()
+                        .AlignTop()
+                        .Width(BekiCoverDieline.TitleSafeWidthMm, Unit.Millimetre)
+                        .Height(BekiCoverDieline.TitleSafeHeightMm, Unit.Millimetre)
+                        .AlignMiddle()
+                        .Element(item => OutlinedText(
+                            item, title, _layout.StoryFontSize * 2f, 1.25f,
+                            TextColor, OutlineColor, titleWidthPt,
+                            PdfFontBootstrap.TitleFamily, centred: true));
+                });
+            });
+        }).WithMetadata(new DocumentMetadata { Title = title }).GeneratePdf();
+    }
 
     /// <param name="coverImage">
     /// Null builds the print interior: the twelve interior spreads with no cover faces. The cover

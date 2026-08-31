@@ -129,6 +129,26 @@ public interface IBekiBookGenerator
         string childPhotoContentType,
         CancellationToken cancellationToken,
         CompositeBookContext? composite = null);
+
+    /// <summary>
+    /// The press cover: the Locked Print Specification's 512 × 245 mm hardcover wrap, generated
+    /// against <see cref="Composite.BekiCoverDieline"/> with the exact approved Beki pose
+    /// composited on the front board. One paid image call, made by the fulfilment job for the
+    /// print package alone — the reader-facing cover is a different picture and a different flow.
+    ///
+    /// A default that refuses rather than an abstract member: only the real generator can draw a
+    /// wrap, and every test double should not have to say so. The refusal carries
+    /// <c>LAYOUT_FAILED</c>, which the press stage records as a withheld cover.
+    /// </summary>
+    Task<CompositeCoverWrap> DrawCoverWrapAsync(
+        VisualScenarioV2 scenario,
+        byte[] childPhoto,
+        string childPhotoContentType,
+        CompositeBookContext composite,
+        CancellationToken cancellationToken) =>
+        throw new BekiLayoutException(
+            CompositeFailureCodes.LayoutFailed,
+            "This generator does not produce press cover wraps.");
 }
 
 /// <summary>
@@ -715,6 +735,33 @@ public sealed class BekiBookGenerator(
 
         return await DrawReviewedAsync(
             null, plan.Cover.Scene, "either", plan.CharacterLock, prompt, references, [], cancellationToken);
+    }
+
+    /// <summary>
+    /// <inheritdoc cref="IBekiBookGenerator.DrawCoverWrapAsync"/>
+    ///
+    /// Routed through the same gate every composite call takes: a deployment or a caller that
+    /// cannot supply the composite pipeline gets a coded refusal, never a legacy substitute —
+    /// there is no legacy press wrap to fall back to, and inventing one is the exact
+    /// substitution the cover contract forbids.
+    /// </summary>
+    public async Task<CompositeCoverWrap> DrawCoverWrapAsync(
+        VisualScenarioV2 scenario,
+        byte[] childPhoto,
+        string childPhotoContentType,
+        CompositeBookContext composite,
+        CancellationToken cancellationToken)
+    {
+        if (!UsesCompositePipeline(composite, "the press cover wrap"))
+        {
+            throw new BekiLayoutException(
+                CompositeFailureCodes.LayoutFailed,
+                "The press cover wrap needs the composite pipeline, which this deployment or "
+                + "caller does not provide.");
+        }
+
+        return await compositePipeline!.DrawCoverWrapAsync(
+            composite, scenario, childPhoto, childPhotoContentType, cancellationToken);
     }
 
     /// <summary>

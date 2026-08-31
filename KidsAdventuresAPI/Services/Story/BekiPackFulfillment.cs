@@ -1053,6 +1053,68 @@ public sealed class BekiPackFulfillment(
                     packId, CompositeFailureCodes.PrintPreflightFailed, ex.Message);
             }
 
+            /*
+              The press cover — the locked spec's second file. Generated against the dieline now
+              carried in code, exact Beki composited on the front board, Ottia title typeset,
+              and the same press preparation the interior gets, with the cover's own box rule
+              (every box equals the 512 × 245 canvas; zero trim inset).
+
+              One paid image call per book, spec-mandated. Its failure withholds the press cover
+              and nothing else: the digital book has shipped by now and the interior press file
+              stands on its own — a book is not lost to its wrap.
+            */
+            if (compositeEnabled && book.Composite?.ScenarioJson is { Length: > 0 } pressScenarioJson)
+            {
+                try
+                {
+                    var pressScenario = VisualScenarioValidator.Validate(pressScenarioJson).Scenario
+                        ?? throw new BekiLayoutException(
+                            CompositeFailureCodes.LayoutFailed,
+                            "the stored Visual Scenario could not be read back for the press cover.");
+
+                    var wrap = await generator.DrawCoverWrapAsync(
+                        pressScenario, photo, "image/png", compositeContext!, jobToken);
+
+                    var coverPdf = composer.ComposeCoverPress(plan.Concept.Title, wrap.CompositePng);
+
+                    var (preparedCover, coverPreflight) = BekiPrintPrep.Prepare(
+                        coverPdf, plan.Concept.Title, bekiOptions.Value.PrintPrep, trimInsetMm: 0f);
+
+                    var coverUrl = await blobStorage.UploadAsync(
+                        $"{pack.UserId}/{pack.Id}-cover.pdf",
+                        preparedCover, "application/pdf", jobToken);
+
+                    await blobStorage.UploadAsync(
+                        $"{pack.UserId}/{pack.Id}-cover-preflight.json",
+                        System.Text.Encoding.UTF8.GetBytes(coverPreflight),
+                        "application/json", jobToken);
+
+                    // The wrap's own audit trail: the pre-composite base and the exact-Beki
+                    // receipt, beside the file they produced — the same paperwork every story
+                    // spread carries.
+                    await blobStorage.UploadAsync(
+                        $"{pack.UserId}/{pack.Id}-cover-wrap-base.png",
+                        wrap.BasePng, "image/png", jobToken);
+                    await blobStorage.UploadAsync(
+                        $"{pack.UserId}/{pack.Id}-cover-composition.json",
+                        System.Text.Encoding.UTF8.GetBytes(wrap.ManifestJson),
+                        "application/json", jobToken);
+
+                    logger.LogInformation(
+                        "Beki pack {PackId}: press cover prepared ({PdfxVersion}, pose {PoseId}) "
+                        + "and stored at {CoverUrl} with its preflight and composition receipts.",
+                        packId, BekiPrintPrep.PdfxVersion, wrap.PoseId, coverUrl);
+                }
+                catch (Exception ex) when (
+                    ex is BekiLayoutException or CompositePipelineException)
+                {
+                    logger.LogWarning(
+                        "Beki pack {PackId}: press cover withheld — {Reason} The interior press "
+                        + "file and the parent's digital book are unaffected.",
+                        packId, ex.Message);
+                }
+            }
+
             stage = "publishing the book";
 
             // The order record's copy of the canonical title — the same string the cover, the

@@ -259,6 +259,15 @@ public sealed record CompositeSpreadArtifact(
     int SpreadNumber, string PoseId, string ManifestJson, string OutputSha256, byte[] BasePng);
 
 /// <summary>
+/// The press cover wrap and its paperwork: the generated 512:245 base (stored for the audit
+/// package), the exact-Beki composite that gets typeset and press-prepared, the composition
+/// manifest recording the pose, its hash and the locked front-panel anchor, and the resolved
+/// prompt the base was generated from.
+/// </summary>
+public sealed record CompositeCoverWrap(
+    byte[] BasePng, byte[] CompositePng, string ManifestJson, string PoseId, string Prompt);
+
+/// <summary>
 /// What an earlier attempt at this same book left behind, and what this attempt may therefore
 /// adopt instead of paying for again.
 /// </summary>
@@ -457,6 +466,19 @@ public interface ICompositeBookPipeline
     /// with extra steps.
     /// </summary>
     Task<byte[]> DrawCoverAsync(
+        CompositeBookContext context,
+        VisualScenarioV2 scenario,
+        byte[] childPhoto,
+        string childPhotoContentType,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The press cover: one continuous 512 × 245 mm hardcover wrap generated against the Locked
+    /// Print Specification's dieline (<see cref="BekiCoverDieline"/>), with the exact approved
+    /// Beki pose composited onto the front board and the receipt to prove it. One paid image
+    /// call; the caller typesets the title and press-prepares the result.
+    /// </summary>
+    Task<CompositeCoverWrap> DrawCoverWrapAsync(
         CompositeBookContext context,
         VisualScenarioV2 scenario,
         byte[] childPhoto,
@@ -1036,6 +1058,75 @@ public sealed class CompositeBookPipeline(
             cancellationToken);
 
         return image;
+    }
+
+    /// <summary>
+    /// <inheritdoc cref="ICompositeBookPipeline.DrawCoverWrapAsync"/>
+    ///
+    /// Beside <see cref="DrawCoverAsync"/> rather than replacing it, because the two answer
+    /// different questions. That method serves the reader-facing cover flow, whose geometry
+    /// resolver still refuses — a wrap squeezed onto the app's cover leaf would be the wrong
+    /// picture. This one exists for the press package alone: the Locked Print Specification
+    /// supplied the dieline the resolver was refusing to invent, as code
+    /// (<see cref="BekiCoverDieline"/>), and the press cover is generated, cropped and
+    /// Beki-composited against it.
+    /// </summary>
+    public async Task<CompositeCoverWrap> DrawCoverWrapAsync(
+        CompositeBookContext context,
+        VisualScenarioV2 scenario,
+        byte[] childPhoto,
+        string childPhotoContentType,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(scenario);
+
+        var cover = scenario.Cover!;
+        var input = InputNormalization.Normalize(context.Input, childPhoto).Story!;
+        var theme = CompositeThemeReferences.For(input.ThemeId);
+
+        var prompt = CompositeIllustrationPrompt.ForCover(
+            BekiCoverDieline.Geometry,
+            input.ChildAge,
+            theme,
+            cover.FrontChildWorldScene!,
+            cover.BackEnvironment!,
+            scenario.VisualLock!.ChildOutfit!,
+            CompositeIllustrationPrompt.RelevantRecurringElements(
+                scenario.VisualLock.RecurringElements, cover.FrontChildWorldScene));
+
+        var (raw, _) = await GenerateBaseImageAsync(
+            context, page: null, prompt,
+            References(childPhoto, childPhotoContentType, theme, childAnchor: null, continuityImage: null),
+            cancellationToken);
+
+        // To the wrap's own shape — 512:245 — not the interior's 15:7. The centre-field gate is
+        // deliberately not applied here: the wrap's centre is the spine, which the prompt keeps
+        // low-information on purpose, and a hinge-to-board tonal read would be judging bookbinding
+        // as if it were a story spread.
+        var basePng = SpreadArtCrop.CropToRatio(raw, BekiCoverDieline.AspectRatio);
+
+        // The pose from the scenario's own cover sentence, composited at the locked front-panel
+        // anchor — the exact-PNG discipline of every story page, applied to the one page that
+        // never had it.
+        var selection = BekiPoseSelector.Select(_engine.Value.Registry, cover.BekiAction!);
+
+        if (selection.Fallback)
+        {
+            logger.LogWarning(
+                "Composite pipeline {JobId} cover wrap: no pose keyword matched \"{Action}\"; "
+                + "using {PoseId}.", context.JobId, cover.BekiAction, selection.PoseId);
+        }
+
+        var composite = _engine.Value.Composite(
+            basePng,
+            "cover-wrap-base.png",
+            selection.PoseId,
+            BekiCoverDieline.FrontBekiAnchor,
+            "cover-wrap-composite.png");
+
+        return new CompositeCoverWrap(
+            basePng, composite.Png, composite.Manifest.ToJson(), selection.PoseId, prompt);
     }
 
     /// <summary>
