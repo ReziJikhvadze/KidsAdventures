@@ -150,7 +150,10 @@ function StoryFace({
         <div className="storybook-back-copy">
           <strong>{t.story.storybook.qrTitle}</strong>
           <p>{t.story.storybook.backTap(heroName)}</p>
-          <a className="storybook-back-cta" href="/create">
+          {/* To the worlds, not to the form. `/create` opens on the questions — a name, a date
+              of birth, a photograph — which is the wrong thing to meet at the end of a story you
+              have just read. The first step is choosing where the next one happens. */}
+          <a className="storybook-back-cta" href="/#worlds">
             {t.story.storybook.backCta}
           </a>
         </div>

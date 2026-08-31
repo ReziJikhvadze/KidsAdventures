@@ -164,7 +164,6 @@ export function JourneyScreen() {
     mode: draft.continuesFromBookId ? "continue" : "first",
     isPrintUpgrade: false,
     hasWorld: !!draft.worldId,
-    characterId: draft.characters.find((c) => c.isPrimary)?.serverId ?? null,
     cameFrom: draft.cameFrom,
   });
 

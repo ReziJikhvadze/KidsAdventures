@@ -45,14 +45,20 @@ function backHrefFromSearch(search: string): string {
     return "/";
   }
 
+  /*
+    Back to the worlds on the home page, wherever the parent came in from.
+
+    Choosing a world lives on the home page now; this route is what a bookmark or an older link
+    still reaches. Sending someone from here to their cabinet — a page of books — put them a step
+    further from what they were in the middle of doing, which is the report this fixes.
+
+    Two exceptions, both about landing where you actually were: a section of the home page names
+    itself in `from=`, and a book cover off the shelf carries `?world=` and goes back to the shelf.
+  */
   const from = params.get("from");
-  if (from === "dashboard") return "/dashboard";
-  // The child's own map, which is where the "next world" button lives.
-  if (from === "world") return "/world";
   if (from && LANDING_SECTIONS.has(from)) return `/#${from}`;
-  // A book cover on the shelf is the one link that predates `from=`; it only carries `?world=`.
-  if (params.has("world")) return "/#books";
-  return "/";
+  if (params.has("world") && !from) return "/#books";
+  return "/#worlds";
 }
 
 type Props = {

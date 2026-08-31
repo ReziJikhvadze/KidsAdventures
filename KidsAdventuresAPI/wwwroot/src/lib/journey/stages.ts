@@ -87,13 +87,6 @@ export function backHrefForStage(
     mode: "first" | "continue";
     isPrintUpgrade: boolean;
     hasWorld: boolean;
-    /**
-     * The child this book is being made for, when there is one. Carried back to the picker so
-     * stepping back from the questions returns to *their* map — the one that knows which worlds
-     * they have already been to — rather than to a blank one that would go on to create a second
-     * copy of the same child.
-     */
-    characterId?: string | null;
     /** The screen the journey was entered from; see `JourneyDraft.cameFrom`. */
     cameFrom?: JourneyOrigin;
   },
@@ -111,8 +104,16 @@ export function backHrefForStage(
       picker, so the picker is what "back" means — carrying the child and the origin, so the
       picker's own arrow can finish the journey home.
     */
+    /*
+      Back to the home page's worlds, with the page under it.
+
+      This used to go to `/themes` — a second, full-screen copy of the picker — so stepping back
+      from the questions landed on what looked like a different page of worlds, and stepping back
+      again threw the parent out to the top of the home page. One place chooses a world now, and
+      it is a section of a page they can carry on scrolling.
+    */
     case "profile":
-      return themesHref(options.characterId, options.cameFrom);
+      return "/#worlds";
     case "preview":
       return "/create#profile";
     case "auth":
@@ -129,14 +130,6 @@ export function backHrefForStage(
 /** Where a parent who leaves the journey lands: the screen they came in from. */
 function originHref(cameFrom: JourneyOrigin | undefined): string {
   return cameFrom === "world" ? "/world" : "/dashboard";
-}
-
-function themesHref(characterId: string | null | undefined, cameFrom: JourneyOrigin | undefined) {
-  const params = new URLSearchParams();
-  if (characterId) params.set("characterId", characterId);
-  if (cameFrom) params.set("from", cameFrom);
-  const query = params.toString();
-  return query ? `/themes?${query}` : "/themes";
 }
 
 /*

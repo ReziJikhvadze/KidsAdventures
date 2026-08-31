@@ -11,7 +11,7 @@ import {
   Printer,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useCanGoBack, useNavigate, useRouter } from "@tanstack/react-router";
 import { AppHeader } from "@/components/adventrya/AppHeader";
 import { PasswordlessAuthDialog } from "@/components/auth/PasswordlessAuthDialog";
 import { ApiError } from "@/lib/api/client";
@@ -112,6 +112,8 @@ export function DashboardScreen({ celebrationBookId }: { celebrationBookId?: str
   const [printError, setPrintError] = useState<string | null>(null);
   const [pendingRunId] = useState<string | null>(readPendingRunId);
   const navigate = useNavigate();
+  const router = useRouter();
+  const canGoBack = useCanGoBack();
   const initialCelebrationBookId = useRef(celebrationBookId);
   const consumedCelebrationBookId = useRef<string | null>(null);
   const WORLD_BY_ID = useWorldById();
@@ -435,8 +437,20 @@ export function DashboardScreen({ celebrationBookId }: { celebrationBookId?: str
         <PasswordlessAuthDialog
           open
           onOpenChange={(open) => {
-            /* Dismissed, not completed: leave the screen rather than reveal an empty one. */
-            if (!open && !signedInHere.current) void navigate({ to: "/" });
+            /*
+              Dismissed, not completed: leave the screen rather than reveal an empty one — and
+              leave it the way they came in. This sent everyone to `/`, which on a page seven
+              screens long meant a parent who pressed "my space" from the foot of the home page
+              was answered by throwing them back to the top of it. Going back through history
+              returns them to the exact place, scroll included; the fixed address is kept for a
+              tab opened straight onto this page, where there is no history to walk.
+            */
+            if (open || signedInHere.current) return;
+            if (canGoBack) {
+              router.history.back();
+              return;
+            }
+            void navigate({ to: "/" });
           }}
           onSuccess={() => {
             signedInHere.current = true;
