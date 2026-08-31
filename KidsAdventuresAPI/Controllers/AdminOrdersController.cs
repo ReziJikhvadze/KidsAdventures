@@ -2,6 +2,7 @@ using AdventurePacks.Api.DTOs.Admin;
 using AdventurePacks.Api.Repositories.Implementations;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
+using AdventurePacks.Api.Services.Story;
 
 namespace AdventurePacks.Api.Controllers;
 
@@ -22,6 +23,7 @@ public sealed class AdminOrdersController(
     IBlobStorageService blobStorage,
     IAdventureGenerationService generationService,
     IOrderService orderService,
+    BekiPackageExport packageExport,
     ILogger<AdminOrdersController> logger) : ControllerBase
 {
     /// <summary>
@@ -122,6 +124,34 @@ public sealed class AdminOrdersController(
             logger.LogWarning(ex, "Admin PDF download failed for book {BookId}.", detail.Book.Id);
             return NotFound(new { message = "PDF ფაილი საცავში ვერ მოიძებნა." });
         }
+    }
+
+    /// <summary>
+    /// The book's whole handback package as one zip: press interior and cover with their
+    /// preflight reports, the reading copy, the Visual Scenario, the review, every spread with
+    /// its base and exact-Beki receipt, and a contents listing that says what is missing and
+    /// why some things are excluded on purpose. This is the download an operator sends to the
+    /// supplier; the parent-facing book is served elsewhere and never bundles any of this.
+    /// </summary>
+    [HttpGet("orders/{id:guid}/package")]
+    public async Task<IActionResult> OrderHandbackPackage(Guid id, CancellationToken cancellationToken)
+    {
+        var detail = await reporting.GetOrderDetailAsync(id, cancellationToken);
+        if (detail?.Book is null)
+        {
+            return NotFound(new { message = "ამ შეკვეთას წიგნი არ აქვს." });
+        }
+
+        var pack = await packRepository.GetByIdNoOwnershipAsync(detail.Book.Id, cancellationToken);
+        if (pack is null)
+        {
+            return NotFound();
+        }
+
+        var package = await packageExport.BuildAsync(
+            pack.UserId, pack.Id, pack.Title, cancellationToken);
+
+        return File(package, "application/zip", $"beki-{detail.Book.Id}-package.zip");
     }
 
     /// <summary>

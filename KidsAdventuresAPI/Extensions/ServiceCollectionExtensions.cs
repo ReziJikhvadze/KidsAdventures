@@ -418,6 +418,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBekiBookGenerator, BekiBookGenerator>();
         services.AddScoped<IBekiPdfComposer, BekiPdfComposer>();
         services.AddScoped<IBekiPackFulfillment, BekiPackFulfillment>();
+        services.AddScoped<BekiPackageExport>();
 
         // The intake gate is not part of a pipeline: it runs on its own, in front of everything,
         // while a parent is still on the form.
