@@ -2,6 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://beki.ge/schemas/visual-scenario-v2.json",
   "title": "BEKI Visual Scenario v2",
+  "$comment": "v2.3 (P1-08): the narrative fields carry sentence guards. $defs/sentence is 'starts with a capital Latin or Georgian letter, four words or more, ends in terminal punctuation'; $defs/shortSentence is the same with a three-word floor, for beki_action. JSON Schema cannot say 'the value equals its own trim' — the leading-uppercase anchor refuses leading whitespace and the terminal-punctuation anchor refuses everything but a trailing newline, and VisualScenarioValidator's MALFORMED_TEXT check owns the exact-trim rule and the leading-conjunction rule. The fields are English by contract (the system instruction's GENERAL RULES: 'Write every output description in clear English'), so the Georgian ranges here are permissiveness, not an invitation.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -43,16 +44,13 @@
       ],
       "properties": {
         "front_child_world_scene": {
-          "type": "string",
-          "minLength": 1
+          "$ref": "#/$defs/sentence"
         },
         "beki_action": {
-          "type": "string",
-          "minLength": 1
+          "$ref": "#/$defs/shortSentence"
         },
         "back_environment": {
-          "type": "string",
-          "minLength": 1
+          "$ref": "#/$defs/sentence"
         }
       }
     },
@@ -90,6 +88,18 @@
     }
   },
   "$defs": {
+    "sentence": {
+      "$comment": "A complete sentence: no leading or trailing space, a capital Latin letter or a Georgian letter first, at least four whitespace-separated words, and . ! or ? last. The audited page-7 fragment ' sensitivity, the child gently pats...' fails on its leading space and its lowercase first letter.",
+      "type": "string",
+      "minLength": 16,
+      "pattern": "^[A-Z\\u10A0-\\u10FF\\u1C90-\\u1CBF][^\\s]*(?:\\s+[^\\s]+){3,}[.!?]$"
+    },
+    "shortSentence": {
+      "$comment": "The same rule with a three-word floor, for beki_action — one concise sentence that must still name Beki and a verb the pose table can read ('Beki listens attentively.').",
+      "type": "string",
+      "minLength": 12,
+      "pattern": "^[A-Z\\u10A0-\\u10FF\\u1C90-\\u1CBF][^\\s]*(?:\\s+[^\\s]+){2,}[.!?]$"
+    },
     "spreadBase": {
       "type": "object",
       "additionalProperties": false,
@@ -103,12 +113,10 @@
           "type": "integer"
         },
         "child_world_scene": {
-          "type": "string",
-          "minLength": 1
+          "$ref": "#/$defs/sentence"
         },
         "beki_action": {
-          "type": "string",
-          "minLength": 1
+          "$ref": "#/$defs/shortSentence"
         },
         "props": {
           "type": "array",

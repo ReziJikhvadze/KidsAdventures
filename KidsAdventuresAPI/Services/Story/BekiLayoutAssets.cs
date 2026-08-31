@@ -72,6 +72,7 @@ public sealed class BekiLayoutAssets
     private BekiLayoutAssets(
         string baseDirectory,
         string registryVersion,
+        string themeRegistryVersion,
         string endpaperDirectory,
         string introBackgroundDirectory,
         string fontDirectory,
@@ -83,6 +84,7 @@ public sealed class BekiLayoutAssets
     {
         _baseDirectory = baseDirectory;
         RegistryVersion = registryVersion;
+        ThemeRegistryVersion = themeRegistryVersion;
         _endpaperDirectory = endpaperDirectory;
         _introBackgroundDirectory = introBackgroundDirectory;
         _fontDirectory = fontDirectory;
@@ -96,6 +98,17 @@ public sealed class BekiLayoutAssets
 
     /// <summary>The registry's own version string, for logs and for the resume contract.</summary>
     public string RegistryVersion { get; }
+
+    /// <summary>
+    /// The supplier's theme-reference registry version — the document that actually names the
+    /// endpaper and the six intro backgrounds.
+    ///
+    /// Two versions rather than one because the two files revise independently, and the asset-lock
+    /// manifest (audit §10.1) has to record which document approved each asset. A manifest that
+    /// stamped every entry with the layout registry's version would be claiming provenance the
+    /// layout registry does not have for artwork it does not describe.
+    /// </summary>
+    public string ThemeRegistryVersion { get; }
 
     /// <summary>
     /// Which approved pose is the Beki mark on the credits spread and the back cover.
@@ -114,6 +127,17 @@ public sealed class BekiLayoutAssets
 
     /// <summary>The canonical theme ids that have an approved intro background, in registry order.</summary>
     public IReadOnlyList<string> CanonicalThemeIds { get; }
+
+    /// <summary>
+    /// Every approved intro background, by canonical theme id.
+    ///
+    /// <see cref="IntroBackground(string?)"/> answers the book's question — which background is
+    /// this world's — and refuses everything else. The asset lock asks the opposite question: what
+    /// is the complete set, so that all of it can be named in the manifest. Exposing the table
+    /// rather than making the lock walk <see cref="CanonicalThemeIds"/> and re-resolve each id
+    /// keeps one enumeration of the registry instead of two.
+    /// </summary>
+    public IReadOnlyDictionary<string, BekiLayoutAsset> IntroBackgrounds => _introBackgrounds;
 
     /// <summary>Every registered font, by id.</summary>
     public IReadOnlyDictionary<string, BekiLayoutAsset> Fonts => _fonts;
@@ -203,7 +227,9 @@ public sealed class BekiLayoutAssets
                 throw Failure($"Beki layout asset registry at '{path}' has a font without an id.");
             }
 
-            if (!fonts.TryAdd(font.Id, ToAsset(font.Filename, font.Sha256, $"font '{font.Id}'", path)))
+            if (!fonts.TryAdd(
+                    font.Id,
+                    ToAsset(font.Filename, font.Sha256, $"font '{font.Id}'", path, font.Role)))
             {
                 throw Failure($"Beki layout asset registry at '{path}' lists font '{font.Id}' twice.");
             }
@@ -212,6 +238,7 @@ public sealed class BekiLayoutAssets
         return new BekiLayoutAssets(
             root,
             document.RegistryVersion,
+            Require(themes.RegistryVersion, themeRegistryPath, "registry_version"),
             Require(document.EndpaperDirectory, path, "endpaper_directory"),
             Require(document.IntroBackgroundDirectory, path, "intro_background_directory"),
             Require(document.FontDirectory, path, "font_directory"),
@@ -266,6 +293,44 @@ public sealed class BekiLayoutAssets
 
         _ = VerifiedAssetBytes(font, _fontDirectory);
         return AbsolutePath(font, _fontDirectory);
+    }
+
+    /// <summary>
+    /// The approved hash for a font <em>file name</em>, or null if this registry does not describe
+    /// that file at all.
+    ///
+    /// By file name rather than by registry id because the caller is
+    /// <see cref="Pdf.PdfFontBootstrap"/>, which knows only the five paths it registers. The null
+    /// case is the interesting one and is not a convenience: audit P1-02's finding was that two of
+    /// those five files were in no registry, so "the registry has never heard of this face" is a
+    /// governance failure the bootstrap has to be able to report, not a lookup miss it can shrug at.
+    /// </summary>
+    public string? ExpectedFontSha256(string fileName)
+    {
+        foreach (var font in _fonts.Values)
+        {
+            if (string.Equals(font.FileName, fileName, StringComparison.Ordinal))
+            {
+                return font.Sha256;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The approved endpaper pattern's absolute path, hash-verified on first use.</summary>
+    public string VerifiedEndpaperPatternPath()
+    {
+        _ = EndpaperPatternBytes();
+        return AbsolutePath(EndpaperPattern, _endpaperDirectory);
+    }
+
+    /// <summary>One theme's approved intro background as an absolute path, hash-verified first.</summary>
+    public string VerifiedIntroBackgroundPath(string canonicalThemeId)
+    {
+        var asset = IntroBackground(canonicalThemeId);
+        _ = VerifiedAssetBytes(asset, _introBackgroundDirectory);
+        return AbsolutePath(asset, _introBackgroundDirectory);
     }
 
     /// <summary>
@@ -363,7 +428,12 @@ public sealed class BekiLayoutAssets
     private string AbsolutePath(BekiLayoutAsset asset, string directory)
         => Path.GetFullPath(Path.Combine(_baseDirectory, directory, asset.FileName));
 
-    private static BekiLayoutAsset ToAsset(string? fileName, string? sha256, string where, string path)
+    private static BekiLayoutAsset ToAsset(
+        string? fileName,
+        string? sha256,
+        string where,
+        string path,
+        string? role = null)
     {
         if (string.IsNullOrWhiteSpace(fileName) || !IsSha256Hex(sha256))
         {
@@ -379,7 +449,7 @@ public sealed class BekiLayoutAssets
             throw Failure($"The entry for {where} in '{path}' names a path rather than a file: '{fileName}'.");
         }
 
-        return new BekiLayoutAsset(fileName, sha256);
+        return new BekiLayoutAsset(fileName, sha256, role);
     }
 
     private static T ReadJson<T>(string path, string what) where T : class
@@ -452,6 +522,7 @@ public sealed class BekiLayoutAssets
 
     private sealed record ThemeRegistryDocument
     {
+        [JsonPropertyName("registry_version")] public string? RegistryVersion { get; init; }
         [JsonPropertyName("canonical_theme_ids")] public List<string>? CanonicalThemeIds { get; init; }
         [JsonPropertyName("themes")] public List<ThemeDocument>? Themes { get; init; }
         [JsonPropertyName("endpaper")] public EndpaperDocument? Endpaper { get; init; }
@@ -471,5 +542,14 @@ public sealed class BekiLayoutAssets
     }
 }
 
-/// <summary>One approved layout asset: the file it names, and the hash that proves the file.</summary>
-public sealed record BekiLayoutAsset(string FileName, string Sha256);
+/// <summary>
+/// One approved layout asset: the file it names, and the hash that proves the file.
+/// </summary>
+/// <param name="Role">
+/// What the asset is for, in the registry's own words (<c>interior_body</c>, <c>cover_title</c>).
+/// Null for the endpaper and the intro backgrounds, whose role is their position in the
+/// theme-reference document rather than a field. Carried since audit P1-02 asked for a manifest
+/// keyed by role: a role that lives only in a C# switch is a second opinion about what a file is
+/// for, and the registry's is the one that ships.
+/// </param>
+public sealed record BekiLayoutAsset(string FileName, string Sha256, string? Role = null);

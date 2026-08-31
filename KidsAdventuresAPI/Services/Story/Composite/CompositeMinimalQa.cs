@@ -139,6 +139,12 @@ public static class CompositeDeterministicChecks
     /// fold, the interpolating repair rightly declined to touch a band that wide, and nothing else
     /// was looking. The reviewer cannot be the answer: its taxonomy judges content, and a page can
     /// be perfectly composed and still be two pictures joined at the middle.
+    ///
+    /// What this is NOT, since audit-2 P0-05, is the pipeline's gate. The gate acts on the
+    /// ADVISORY pair and acts by buying a redraw — see <c>CompositeBookPipeline.DrawSpreadAsync</c>
+    /// — so this pair of helpers is now the tier vocabulary alone: it classifies a reading the way
+    /// the two thresholds were calibrated, which is how the logs stay comparable across the
+    /// reversal, and it decides nothing.
     /// </summary>
     public static IReadOnlyList<string> CentreFieldProblems(byte[]? png)
     {
@@ -150,11 +156,11 @@ public static class CompositeDeterministicChecks
 
         var measured = CompositeSeamRepair.MeasureCentreField(png!);
 
-        // Refusal is reserved for the overlay's own signature: a straight full-height boundary
-        // AND a sustained one-way level shift, together. One reading alone is what honest art
-        // does — a trunk near centre, a calm side against a busy one — and costs a warning, not
-        // an order. The first live v1.5 book is the calibration: its clean page sat at
-        // 38.7%/49.3% and its sibling was refused twice at 69% field with the edge quiet.
+        // The severe tier: a straight full-height boundary AND a sustained one-way level shift,
+        // together — the overlay's own signature. One reading alone is what honest art does: a
+        // trunk near centre, a calm side against a busy one. The first live v1.5 book is the
+        // calibration, its clean page at 38.7%/49.3% and its sibling refused twice at 69% field
+        // with the edge quiet.
         if (!measured.Severe)
         {
             return [];
@@ -172,9 +178,13 @@ public static class CompositeDeterministicChecks
     }
 
     /// <summary>
-    /// The advisory tier: a reading past the ordinary limits but short of severe. One line for
-    /// the log and the human who reads it, never a refusal — the cost of a missed borderline is
-    /// a second look, and the cost of refusing honest art is a stopped paid order.
+    /// The advisory tier: a reading past the ordinary limits but short of severe, as one line for
+    /// a log and the human who reads it.
+    ///
+    /// A classification, not a decision — see <see cref="CentreFieldProblems"/>. This tier is the
+    /// one the pipeline's centre-fold gate now acts on, and what it does there is buy a redraw:
+    /// the cost of a missed borderline is a fold printed into somebody's book, and the cost of a
+    /// false positive is one image call rather than the stopped order it used to be.
     /// </summary>
     public static string? CentreFieldWarning(byte[] png)
     {

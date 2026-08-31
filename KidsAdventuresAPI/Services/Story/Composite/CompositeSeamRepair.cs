@@ -44,9 +44,16 @@ public sealed record SeamMeasurement(
 }
 
 /// <summary>
-/// What the two sides of a picture's centre measure, against the two ways the audited defect
-/// actually presented: a razor-straight tonal edge at the fold, and a milky veil over the whole
-/// text-side half whose soft shoulder no narrow-band repair can touch.
+/// What the two sides of one vertical line in a picture measure, against the two ways the audited
+/// defect actually presented: a razor-straight tonal edge at the fold, and a milky veil over the
+/// whole text-side half whose soft shoulder no narrow-band repair can touch.
+///
+/// "Centre" in the names is where this reading was born rather than where it must be taken. Audit-2
+/// item P0-03 found the same shape of defect painted at the cover's four dieline boundaries — 47.4%
+/// to 52.6% of a 512 mm wrap, none of them the middle — so the reading is now taken at whatever
+/// x-position it is handed (see <see cref="CompositeSeamRepair.MeasureFieldAt(byte[], double,
+/// FieldReadingGeometry)"/>), and the field names below are read as "at the boundary" rather than
+/// "at the centre".
 /// </summary>
 /// <param name="EdgeCoverage">
 /// The largest fraction of rows, over any candidate boundary in the centre band, whose adjacent
@@ -65,8 +72,16 @@ public sealed record CentreFieldMeasurement(
     double EdgeCoverage, int EdgeColumn, double FieldCoverage, int FieldColumn)
 {
     /// <summary>
-    /// Whether either reading crosses its advisory limit — worth a warning in the log and a
-    /// second look from a human, not worth a stopped order on its own.
+    /// Whether either reading crosses its advisory limit.
+    ///
+    /// This is the blocking pair again, as of audit-2 P0-05. It was demoted to a warning on
+    /// 2026-08-31 after its first live outing refused a clean page twice and stopped a paid
+    /// order; the supplier's audit then rejected a shipped book for the defect it was demoted
+    /// past — "no full-height change aligned to exactly 50% of the canvas", with an automated
+    /// centerline test named as the required correction — and the ruling was reversed. What
+    /// makes the reversal affordable is that crossing this line no longer refuses a book on the
+    /// spot: it buys the page's one base regeneration first, and only a second picture that
+    /// still crosses it stops the run. See <c>CompositeBookPipeline.DrawSpreadAsync</c>.
     /// </summary>
     public bool Exceeded =>
         EdgeCoverage >= CompositeSeamRepair.EdgeCoverageLimit
@@ -75,15 +90,112 @@ public sealed record CentreFieldMeasurement(
     /// <summary>
     /// Whether BOTH readings cross their severe limits — a straight full-height boundary AND a
     /// sustained one-way level shift at once, which is the audited overlay's signature and not a
-    /// composition's. Only this tier refuses a picture. The first live book under the v1.5
-    /// prompt is why the tiers exist: a page with no veil at all measured 38.7%/49.3% — a tree
-    /// trunk near centre, a calm text side against a busy action side, both of them things the
-    /// prompt itself asks for — and the single-tier gate failed its sibling twice and stopped a
-    /// paid order over what the evidence says was art.
+    /// composition's.
+    ///
+    /// It no longer selects a behaviour. The tier was invented when the advisory pair could only
+    /// warn, so that something could still refuse an unmistakable overlay; now that the advisory
+    /// pair blocks (P0-05), a severe reading is an advisory reading that is also severe, and both
+    /// take the same road — one regeneration, then a stopped book. It stays because it is the
+    /// calibration vocabulary the logs are written in and the thresholds will be re-judged from:
+    /// the rejected book's clearest pages sat at 75-100% edge with 70-100% field, while the
+    /// failure modes of honest art are one-sided — a trunk near centre raises the edge alone, an
+    /// asymmetric composition raises the field alone, and the first live v1.5 book's clean page
+    /// measured 38.7%/49.3%.
     /// </summary>
     public bool Severe =>
         EdgeCoverage >= CompositeSeamRepair.SevereEdgeCoverageLimit
         && FieldCoverage >= CompositeSeamRepair.SevereFieldCoverageLimit;
+}
+
+/// <summary>
+/// The strip geometry one field reading is taken with: how wide the two strips either side of a
+/// candidate boundary are, how far past it the wide pair starts, and how far either side of the
+/// nominal x-position a boundary may sit and still be the same defect.
+///
+/// A record rather than four more constants because the two things this reading is now taken of
+/// want different numbers, and the difference is physical rather than a preference. A story
+/// spread has one boundary in the middle of a metre-wide panorama, so the veil-width strips may
+/// reach sixty columns out and the band may wander four per cent of the width. A cover's four
+/// dieline boundaries sit 8 and 11 mm apart — 1.6% and 2.1% of a 512 mm wrap — so strips that
+/// reached sixty columns would sample across the *next* boundary and report the spine as a fault
+/// at the hinge, and a four-per-cent band would make all four readings the same reading.
+/// </summary>
+/// <param name="BandFraction">
+/// How far either side of the nominal x-position the strongest boundary may be looked for, as a
+/// fraction of the width.
+/// </param>
+public sealed record FieldReadingGeometry(
+    int EdgeStripColumns, int FieldGapColumns, int FieldStripColumns, double BandFraction)
+{
+    /// <summary>How many columns either side of a boundary this geometry actually touches.</summary>
+    public int Reach => Math.Max(EdgeStripColumns, FieldGapColumns + FieldStripColumns);
+
+    /// <summary>The story spread's reading: one fold, a whole panorama to spread out in.</summary>
+    public static readonly FieldReadingGeometry Spread = new(
+        CompositeSeamRepair.EdgeStripColumns,
+        CompositeSeamRepair.FieldGapColumns,
+        CompositeSeamRepair.FieldStripColumns,
+        CompositeSeamRepair.CentreBandFraction);
+
+    /// <summary>
+    /// The cover's reading, sized to the 8 mm hinge: everything it touches has to fit between two
+    /// dieline boundaries, which leaves about four millimetres either side.
+    ///
+    /// Which makes it, honestly, the razor-edge instrument with a near-neighbour confirmation
+    /// rather than the veil instrument — and that is the right trade for what P0-03 found. The
+    /// audited defect was "strong vertical tonal jumps at approximately x=1236 and x=1291 px", a
+    /// full-height step painted exactly where the prompt had named a percentage: the edge reading's
+    /// own signature. A veil over a whole cover board would be caught by the outer two boundaries
+    /// anyway, where the board's own material is what the strips land on.
+    /// </summary>
+    public static readonly FieldReadingGeometry CoverBand = new(
+        CompositeSeamRepair.CoverEdgeStripColumns,
+        CompositeSeamRepair.CoverFieldGapColumns,
+        CompositeSeamRepair.CoverFieldStripColumns,
+        CompositeSeamRepair.CoverBandFraction);
+}
+
+/// <summary>
+/// One of the cover wrap's construction lines, named and placed in the Locked Print Spec's own
+/// millimetres so that a reading can be reported as "the hinge" rather than as "column 1236".
+/// </summary>
+/// <param name="MillimetresFromLeft">Where the line sits across the 512 mm wrap.</param>
+public sealed record CoverConstructionBoundary(string Name, double MillimetresFromLeft)
+{
+    /// <summary>The same line as a fraction of the canvas width, which is what a raster knows.</summary>
+    public double WidthFraction => MillimetresFromLeft / BekiCoverDieline.CanvasWidthMm;
+}
+
+/// <summary>What one construction line measured.</summary>
+public sealed record CoverBandReading(
+    CoverConstructionBoundary Boundary, CentreFieldMeasurement Measurement)
+{
+    public bool Exceeded => Measurement.Exceeded;
+
+    public override string ToString() =>
+        $"{Boundary.Name} at {Boundary.MillimetresFromLeft:0.#}mm ({Boundary.WidthFraction:P2}): "
+        + $"edge {Measurement.EdgeCoverage:P1} at column {Measurement.EdgeColumn}, one-way field "
+        + $"{Measurement.FieldCoverage:P1} at column {Measurement.FieldColumn}";
+}
+
+/// <summary>
+/// What a cover wrap's four dieline boundaries measure — the audit's P0-03 instrument.
+///
+/// The finding it exists for: the cover prompt named the centre construction as percentage regions
+/// ("from 47% to 53% of the canvas width"), the model painted the regions it was told about, and
+/// the shipped wrap carried visible vertical bands at 250.5 mm and 261.5 mm — the exact spine
+/// boundaries. Nothing measured the cover at all; the centre-field reading was pointed at the fold
+/// of a story spread and the wrap path skipped it on the argument that a spine is not a fold.
+/// </summary>
+public sealed record CoverBandMeasurement(IReadOnlyList<CoverBandReading> Bands)
+{
+    /// <summary>Whether any one of the four lines reads as painted rather than as bookbinding.</summary>
+    public bool Exceeded => Bands.Any(band => band.Exceeded);
+
+    public IReadOnlyList<CoverBandReading> Offending =>
+        Bands.Where(band => band.Exceeded).ToList();
+
+    public override string ToString() => string.Join("; ", Bands);
 }
 
 /// <summary>
@@ -189,6 +301,60 @@ public static class CompositeSeamRepair
 
     /// <summary>The field coverage half of the refusal tier — see <see cref="SevereEdgeCoverageLimit"/>.</summary>
     public const double SevereFieldCoverageLimit = 0.65;
+
+    // -------------------------------------------------------------------------------------
+    // The cover wrap's construction lines (audit-2 P0-03, plan amendment A2)
+    // -------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// How far either side of a dieline boundary the painted line may sit, as a fraction of the
+    /// width. Half a per cent — about 13 columns on the audited 2528-wide wrap.
+    ///
+    /// Tight, and deliberately much tighter than a story spread's four per cent, for two reasons.
+    /// A model that paints a boundary it was told about in percentages paints it where it was
+    /// told, so the tolerance only has to cover millimetre-to-pixel rounding; and the four lines
+    /// are 8 and 11 mm apart, so a wide band would let all four readings find the same worst
+    /// boundary and report one painted hinge as four faults.
+    /// </summary>
+    public const double CoverBandFraction = 0.005;
+
+    /// <summary>The razor-edge strips for a cover reading — the same eight columns a spread uses.</summary>
+    public const int CoverEdgeStripColumns = 8;
+
+    /// <summary>
+    /// How far past a dieline boundary the cover's wider strips start, and how wide they are.
+    ///
+    /// Three and eight rather than twelve and forty-eight: everything a reading touches has to
+    /// stay inside the 8 mm hinge it sits in, which is about 24 columns on a 1536-wide wrap and
+    /// 40 on the audited 2528-wide one. Strips that reached sixty columns from the hinge would be
+    /// sampling the spine on one side and the board on the other, and would report the wrap's own
+    /// construction as the defect it is looking for.
+    /// </summary>
+    public const int CoverFieldGapColumns = 3;
+
+    /// <summary>The width of each cover field strip — see <see cref="CoverFieldGapColumns"/>.</summary>
+    public const int CoverFieldStripColumns = 8;
+
+    /// <summary>
+    /// The four lines the wrap is measured at, in the Locked Print Spec's millimetres.
+    ///
+    /// Derived from <see cref="BekiCoverDieline"/> rather than written out, so that the geometry
+    /// this measures and the geometry the cover is built to cannot drift into two numbers. Back
+    /// board ends at 242.5 mm (47.36%), hinge meets spine at 250.5 (48.93%), spine meets hinge at
+    /// 261.5 (51.07%), front board begins at 269.5 (52.64%) — which is amendment A2's list, and
+    /// the middle two are the exact columns the audit found painted on the shipped wrap.
+    /// </summary>
+    public static readonly IReadOnlyList<CoverConstructionBoundary> CoverConstructionBoundaries =
+    [
+        new("back-board-edge",
+            BekiCoverDieline.TurnInMm + BekiCoverDieline.BoardWidthMm),
+        new("back-hinge-to-spine",
+            BekiCoverDieline.TurnInMm + BekiCoverDieline.BoardWidthMm + BekiCoverDieline.HingeMm),
+        new("spine-to-front-hinge",
+            BekiCoverDieline.TurnInMm + BekiCoverDieline.BoardWidthMm + BekiCoverDieline.HingeMm
+            + BekiCoverDieline.SpineMm),
+        new("front-board-edge", BekiCoverDieline.FrontBoardLeftMm),
+    ];
 
     /// <summary>
     /// Measures the centre of one PNG.
@@ -368,6 +534,11 @@ public static class CompositeSeamRepair
     /// clean reference scores 27% against a 40% limit. The soft-shouldered veil is caught by wide
     /// strips sampled past the shoulder, counted only in their dominant direction: content differs
     /// both ways row by row, a veil lifts one side everywhere.
+    ///
+    /// The fold, at the spread's own geometry. Everything about where and how the reading is taken
+    /// now lives in <see cref="MeasureFieldAt(byte[], double, FieldReadingGeometry)"/>; this
+    /// overload is the story spread's answer to it, kept as its own name because the fold is the
+    /// question nearly every caller is asking.
     /// </summary>
     public static CentreFieldMeasurement MeasureCentreField(byte[] png)
     {
@@ -375,12 +546,64 @@ public static class CompositeSeamRepair
 
         using var image = Image.Load<Rgba32>(png);
 
+        return MeasureFieldAt(image, 0.5, FieldReadingGeometry.Spread);
+    }
+
+    /// <summary>
+    /// The same reading, taken at an arbitrary vertical line rather than at the middle.
+    ///
+    /// Generalized for audit-2 P0-03: the cover wrap's painted bands sit at 47.4% to 52.6% of the
+    /// width and a reading that only ever looked at 50% found none of them. The arithmetic is
+    /// unchanged — the x-position and the strip geometry are the only things that were ever
+    /// hard-coded about it.
+    /// </summary>
+    /// <param name="widthFraction">Where to read, as a fraction of the width. 0.5 is the fold.</param>
+    public static CentreFieldMeasurement MeasureFieldAt(
+        byte[] png, double widthFraction, FieldReadingGeometry geometry)
+    {
+        ArgumentNullException.ThrowIfNull(png);
+        ArgumentNullException.ThrowIfNull(geometry);
+
+        using var image = Image.Load<Rgba32>(png);
+
+        return MeasureFieldAt(image, widthFraction, geometry);
+    }
+
+    /// <summary>
+    /// Every construction line of one cover wrap, read from a single decode.
+    ///
+    /// One decode rather than four calls, because the wrap is the largest raster this pipeline
+    /// handles — 2528 × 1210 on the audited book — and decoding it four times to read four lines
+    /// eleven millimetres apart is three decodes of pure waste.
+    /// </summary>
+    /// <param name="basePng">The cropped wrap base, before Beki and before any typesetting.</param>
+    public static CoverBandMeasurement MeasureConstructionBands(byte[] basePng)
+    {
+        ArgumentNullException.ThrowIfNull(basePng);
+
+        using var image = Image.Load<Rgba32>(basePng);
+
+        return new CoverBandMeasurement(
+            CoverConstructionBoundaries
+                .Select(boundary => new CoverBandReading(
+                    boundary,
+                    MeasureFieldAt(image, boundary.WidthFraction, FieldReadingGeometry.CoverBand)))
+                .ToList());
+    }
+
+    private static CentreFieldMeasurement MeasureFieldAt(
+        Image<Rgba32> image, double widthFraction, FieldReadingGeometry geometry)
+    {
         var width = image.Width;
         var height = image.Height;
 
-        var reach = Math.Max(EdgeStripColumns, FieldGapColumns + FieldStripColumns);
-        var centre = width / 2;
-        var slack = Math.Max(3, (int)Math.Round(width * CentreBandFraction));
+        var reach = geometry.Reach;
+        var edgeStrip = geometry.EdgeStripColumns;
+        var fieldGap = geometry.FieldGapColumns;
+        var fieldStrip = geometry.FieldStripColumns;
+
+        var centre = (int)Math.Round(width * widthFraction);
+        var slack = Math.Max(3, (int)Math.Round(width * geometry.BandFraction));
 
         var from = Math.Max(reach, centre - slack);
         var to = Math.Min(width - reach, centre + slack);
@@ -419,9 +642,9 @@ public static class CompositeSeamRepair
                     var boundary = from + i;
 
                     var edgeLeft =
-                        (prefix[boundary] - prefix[boundary - EdgeStripColumns]) / EdgeStripColumns;
+                        (prefix[boundary] - prefix[boundary - edgeStrip]) / edgeStrip;
                     var edgeRight =
-                        (prefix[boundary + EdgeStripColumns] - prefix[boundary]) / EdgeStripColumns;
+                        (prefix[boundary + edgeStrip] - prefix[boundary]) / edgeStrip;
 
                     if (Math.Abs(edgeLeft - edgeRight) > EdgeRowStep)
                     {
@@ -429,13 +652,13 @@ public static class CompositeSeamRepair
                     }
 
                     var fieldLeft =
-                        (prefix[boundary - FieldGapColumns]
-                         - prefix[boundary - FieldGapColumns - FieldStripColumns])
-                        / FieldStripColumns;
+                        (prefix[boundary - fieldGap]
+                         - prefix[boundary - fieldGap - fieldStrip])
+                        / fieldStrip;
                     var fieldRight =
-                        (prefix[boundary + FieldGapColumns + FieldStripColumns]
-                         - prefix[boundary + FieldGapColumns])
-                        / FieldStripColumns;
+                        (prefix[boundary + fieldGap + fieldStrip]
+                         - prefix[boundary + fieldGap])
+                        / fieldStrip;
 
                     var difference = fieldLeft - fieldRight;
                     if (difference > FieldRowStep)

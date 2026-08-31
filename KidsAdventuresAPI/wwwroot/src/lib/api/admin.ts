@@ -185,6 +185,51 @@ export async function downloadOrderPackage(orderId: string): Promise<Blob> {
   return response.blob();
 }
 
+/** One of the sixteen hard gates from BEKI_Acceptance_Gates_v1.json, as the console shows it. */
+export type AdminReleaseGate = {
+  id: string;
+  /** "PASS" | "FAIL" | "NEEDS_HUMAN" | "UNKNOWN" — only the first releases anything. */
+  status: string;
+  /** "shared" | "press" | "digital" | "package" — which deliverable a failure withholds. */
+  class: string;
+  detail: string;
+};
+
+export type AdminReleaseGates = {
+  /** null for a book fulfilled before the gates existed; shown as such rather than hidden. */
+  verdict: string | null;
+  evaluatedAtUtc: string | null;
+  failingGates: string[];
+  awaitingHumanReview: boolean;
+  /** The rendering a reviewer signs. Sent back with the approval so a stale sheet is refused. */
+  contactSheetSha256: string | null;
+  customerPdfPublished: boolean;
+  pressFilesPublished: boolean;
+  gates: AdminReleaseGate[];
+};
+
+export function getReleaseGates(orderId: string): Promise<AdminReleaseGates> {
+  return apiRequest<AdminReleaseGates>(`/api/admin/orders/${orderId}/release-gates`);
+}
+
+/**
+ * Records a reviewer's sign-off on the rendered contact sheet, then re-runs the whole gate
+ * evaluation server-side and publishes whatever the new verdict unlocks.
+ *
+ * `contactSheetSha256` is not optional in practice: the endpoint refuses an approval that names a
+ * different rendering than the one on file, which is what stops "somebody once looked at some
+ * version of this book" from counting as a resolution.
+ */
+export function approveVisualReview(
+  orderId: string,
+  body: { note?: string; contactSheetSha256: string },
+): Promise<AdminReleaseGates> {
+  return apiRequest<AdminReleaseGates>(`/api/admin/orders/${orderId}/approve-review`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 export function listCustomers(params: {
   search?: string;
   page?: number;

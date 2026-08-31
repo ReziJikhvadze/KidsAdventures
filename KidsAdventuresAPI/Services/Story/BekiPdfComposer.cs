@@ -1,4 +1,7 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.Services.Pdf;
@@ -18,48 +21,232 @@ public sealed record BekiSpreadArtwork(int SpreadNumber, byte[] Image);
 
 public sealed record BekiBookPersonalization(string ChildName, int Age, DateTime Date, string Theme, string WorldName);
 
+/// <summary>
+/// The cream wash under one page's copy, as it was actually drawn.
+///
+/// Amendment A4 asks the composer for this because nothing upstream can produce it: the wash is
+/// sized to the wrapped copy, and the copy is not wrapped until layout runs. Audit P1-04 and the
+/// §11 acceptance list turn that into gate evidence — "story text wash is local, copy-sized, and
+/// outside the fold safety zone" is a claim about millimetres that only this stage knows.
+///
+/// The rectangle is stated in millimetres from the page's TOP-LEFT corner, which is both how a
+/// layout is written and how <see cref="BekiTextProbeRect"/> is read, so a receipt can be handed
+/// straight to the press probe without a conversion nobody would remember to make.
+/// </summary>
+/// <param name="PageSide">"left" or "right" — which leaf of the spread the wash belongs to.</param>
+/// <param name="FoldClearanceMm">Distance from the wash's inner edge to the centre fold.</param>
+/// <param name="TrimClearanceMm">Smallest distance from the wash to any trim edge.</param>
+public sealed record BekiWashGeometry(
+    [property: JsonPropertyName("x_mm")] double XMm,
+    [property: JsonPropertyName("y_mm")] double YMm,
+    [property: JsonPropertyName("width_mm")] double WidthMm,
+    [property: JsonPropertyName("height_mm")] double HeightMm,
+    [property: JsonPropertyName("padding_mm")] double PaddingMm,
+    [property: JsonPropertyName("corner_radius_mm")] double CornerRadiusMm,
+    [property: JsonPropertyName("ink")] string Ink,
+    [property: JsonPropertyName("page_side")] string PageSide,
+    [property: JsonPropertyName("fold_clearance_mm")] double FoldClearanceMm,
+    [property: JsonPropertyName("trim_clearance_mm")] double TrimClearanceMm);
+
+/// <summary>One block of type on a page, as it was set: the face, the size, and the ink.</summary>
+public sealed record BekiTypographyRecord(
+    [property: JsonPropertyName("role")] string Role,
+    [property: JsonPropertyName("family")] string Family,
+    [property: JsonPropertyName("size_pt")] double SizePt,
+    [property: JsonPropertyName("line_height")] double LineHeight,
+    [property: JsonPropertyName("colour")] string Colour);
+
+/// <summary>
+/// Everything a gate needs to know about one finished page that only layout can answer.
+/// </summary>
+/// <param name="ImageSha256">
+/// The hash of every raster this page actually placed, in placement order — the bytes as embedded,
+/// after cropping and any normalization, not the bytes that arrived. Audit §9 asks for a receipt
+/// that names what a printed page carries; a hash of the source would name something else.
+/// </param>
+/// <param name="TextLines">The wrapped lines, measured. The customer gate compares these.</param>
+/// <param name="SourceSha256">
+/// The hash of every APPROVED asset this page's rasters were derived from, in the same order — the
+/// provenance half of the same question <see cref="ImageSha256"/> answers about the artefact.
+///
+/// The two are not the same number and were being read as though they were. A reading-mode endpaper
+/// is the approved pattern downsampled for a screen, and the intro is a background with Beki
+/// composited onto it: both embed bytes that cannot possibly hash to a locked file, so a placement
+/// check comparing the embedded raster against the asset lock failed every approved page it looked
+/// at. The final hash says what the printed page carries; this one says which approved file it came
+/// from, and ASSET_PLACEMENT is a question about the second.
+///
+/// Null on a page whose art is this book's own — the cover boards are crops of the generated wrap,
+/// and there is no approved source to name.
+/// </param>
+public sealed record BekiLayoutPageReceipt(
+    [property: JsonPropertyName("page")] int Page,
+    [property: JsonPropertyName("role")] string Role,
+    [property: JsonPropertyName("page_width_mm")] double PageWidthMm,
+    [property: JsonPropertyName("page_height_mm")] double PageHeightMm,
+    [property: JsonPropertyName("bleed_mm")] double BleedMm,
+    [property: JsonPropertyName("image_sha256")] IReadOnlyList<string> ImageSha256,
+    [property: JsonPropertyName("wash")] BekiWashGeometry? Wash,
+    [property: JsonPropertyName("typography")] IReadOnlyList<BekiTypographyRecord> Typography,
+    [property: JsonPropertyName("text_lines")] IReadOnlyList<string> TextLines,
+    [property: JsonPropertyName("text_probe")] BekiTextProbeRect? TextProbe,
+    [property: JsonPropertyName("source_sha256")] IReadOnlyList<string>? SourceSha256 = null)
+{
+    /// <summary>The name fulfillment stores this under: <c>receipts/page-NN-layout.json</c>.</summary>
+    [JsonIgnore]
+    public string FileName => $"page-{Page:00}-layout.json";
+
+    public string ToJson() => JsonSerializer.Serialize(this, BekiLayoutReceipts.JsonOptions);
+}
+
+/// <summary>
+/// The post-layout receipts for one composed document — amendment A4's "final post-layout receipts
+/// and QA for every page".
+///
+/// Pre-layout illustration QA cannot evidence any of this. It knows what was drawn; it does not know
+/// where the words landed on it, how they broke, what colour they ended up, or whether the cream
+/// under them stayed off the fold. The rejected book's package had eight spread QA files missing and
+/// no layout evidence at all, and the wash that crossed the fold on Story Spread 4 was invisible to
+/// every check that existed.
+/// </summary>
+/// <param name="Mode">"press", "proof" or "reading" — which of the three outputs this describes.</param>
+public sealed record BekiLayoutReceipts(
+    [property: JsonPropertyName("mode")] string Mode,
+    [property: JsonPropertyName("pages")] IReadOnlyList<BekiLayoutPageReceipt> Pages)
+{
+    internal static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        // For the one record in here this file does not own: BekiTextProbeRect belongs to print
+        // prep and carries no naming attributes, and a receipt whose probe block was PascalCase
+        // while everything around it was snake_case would be a receipt somebody has to read twice.
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        // Georgian in a receipt should be legible to a human opening the file, not ნ escapes.
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
+    public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
+
+    /// <summary>
+    /// The rectangles amendment A10a's rendered-pixel probe samples: every page whose text was
+    /// authored light on a flat ground. Today that is the credits page and only the credits page —
+    /// everything else sets dark type on cream over artwork, where luminance sampling would be
+    /// measuring the illustration.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyList<BekiTextProbeRect> FlatGroundTextProbes =>
+        Pages.Where(page => page.TextProbe is not null).Select(page => page.TextProbe!).ToList();
+
+    /// <summary>The 1-based page numbers whose type was authored light, for the same probe.</summary>
+    [JsonIgnore]
+    public IReadOnlyList<int> LightTextPages =>
+        Pages.Where(page => page.Typography.Any(type => IsLight(type.Colour)))
+             .Select(page => page.Page)
+             .ToList();
+
+    private static bool IsLight(string hex) =>
+        hex.Equals("#FFF8EB", StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>One composed document and the evidence for it. Amendment A4's return shape.</summary>
+public sealed record BekiComposedBook(byte[] Pdf, BekiLayoutReceipts Receipts);
+
 public interface IBekiPdfComposer
 {
+    // ------------------------------------------------------------------------------------------
+    // The receipt-returning API (amendment A4).
+    //
+    // These carry `WithReceipts` names for a reason that is now historical: three byte[]-returning
+    // methods stood beside them through the audit-2 campaign, because C# cannot overload on the
+    // return type and the batches did not all own each other's call sites. Every caller has moved
+    // and the three are gone. The names stay as they are rather than being taken back, because a
+    // rename across this many call sites buys nothing a reader does not already have — and
+    // "WithReceipts" is a true description: a composed document that leaves no evidence is the state
+    // amendment A4 exists to end.
+    // ------------------------------------------------------------------------------------------
+
     /// <summary>
-    /// <paramref name="personalization"/> carries what the intro spread prints and which approved
-    /// theme background it is built on: the child's name and age, the purchase date, and the world.
+    /// **The customer's book** — audit P0-08's dedicated trim-size export, and P0-01/P0-02's single
+    /// cover master.
     ///
-    /// Optional in the signature and required in fact. It stays optional so that every caller which
-    /// only wants a page count keeps compiling, but a book composed without it cannot resolve an
-    /// approved intro background and stops with <c>LAYOUT_FAILED</c> rather than printing a generic
-    /// one — R11's rule, and the reason the shipped book had the wrong intro spread.
+    /// Fourteen pages at the finished size and nothing else: 220 × 200 mm front and back covers,
+    /// 440 × 200 mm spreads, zero bleed, CropBox equal to MediaBox, <c>/Lang ka-GE</c>, rasters at
+    /// their own resolution and in sRGB. The cover pages are crops of <paramref name="wrapComposite"/>
+    /// — the same canonical wrap the press cover is made from — so the parent's book and the printed
+    /// book are one design rather than two.
     /// </summary>
-    byte[] Compose(
+    BekiComposedBook ComposeReading(
+        MasterStory plan,
+        byte[] wrapComposite,
+        IReadOnlyList<BekiSpreadArtwork> spreads,
+        BekiBookPersonalization? personalization = null) =>
+        throw new BekiLayoutException(
+            CompositeFailureCodes.LayoutFailed,
+            "This composer does not produce reading copies.");
+
+    /// <summary>
+    /// The legacy fourteen-page document, laid out on printer geometry from a front-only cover
+    /// image — what the previous (non-composite) pipeline still ships and what audit P0-08 rejected
+    /// for customer delivery. Composite books use <see cref="ComposeReading"/> instead.
+    ///
+    /// <paramref name="personalization"/> carries what the intro spread prints and which approved
+    /// theme background it is built on. Optional in the signature and required in fact: a book
+    /// composed without it cannot resolve an approved intro background and stops with
+    /// <c>LAYOUT_FAILED</c> rather than printing a generic one.
+    /// </summary>
+    BekiComposedBook ComposeWithReceipts(
         MasterStory plan,
         byte[] coverImage,
         IReadOnlyList<BekiSpreadArtwork> spreads,
-        BekiBookPersonalization? personalization = null);
+        BekiBookPersonalization? personalization = null) =>
+        throw new BekiLayoutException(
+            CompositeFailureCodes.LayoutFailed,
+            "This composer does not produce layout receipts.");
 
     /// <summary>
-    /// The production print interior: the twelve interior spreads and nothing else — no cover
-    /// face, no back-cover face.
+    /// The production print interior: the twelve interior spreads and nothing else — no cover face,
+    /// no back-cover face.
     ///
-    /// A separate artifact because the supplier's audit rejected the alternative outright: the
-    /// cover is a continuous back-spine-front wrap whose geometry comes from the printer's
-    /// dieline, and a 230x210 leaf bound into the interior file is not an approximation of that,
-    /// it is a different object. Until the dieline is configured, the print package is this file
-    /// and a recorded LAYOUT_FAILED for the cover — never the hybrid.
+    /// A separate artifact because the supplier's audit rejected the alternative outright: the cover
+    /// is a continuous back-spine-front wrap whose geometry comes from the printer's dieline, and a
+    /// 230x210 leaf bound into the interior file is not an approximation of that, it is a different
+    /// object.
     /// </summary>
-    byte[] ComposeInterior(
+    BekiComposedBook ComposeInteriorWithReceipts(
         MasterStory plan,
         IReadOnlyList<BekiSpreadArtwork> spreads,
-        BekiBookPersonalization? personalization = null);
+        BekiBookPersonalization? personalization = null) =>
+        throw new BekiLayoutException(
+            CompositeFailureCodes.LayoutFailed,
+            "This composer does not produce layout receipts.");
 
     /// <summary>
-    /// The press cover: the composited 512 × 245 mm wrap as one full-bleed page with the Ottia
-    /// title typeset as vector into the locked front title-safe rectangle
+    /// The press cover: the composited 512 × 245 mm wrap as one full-bleed page with the Ottia title
+    /// typeset as vector into the locked front title-safe rectangle
     /// (<see cref="Composite.BekiCoverDieline"/>). Press preparation — boxes, colour, PDF/X —
     /// happens to the result, not here. The default refuses so test doubles need not care.
     /// </summary>
-    byte[] ComposeCoverPress(string title, byte[] wrapComposite) =>
+    BekiComposedBook ComposeCoverPressWithReceipts(string title, byte[] wrapComposite) =>
         throw new BekiLayoutException(
             CompositeFailureCodes.LayoutFailed,
-            "This composer does not produce press covers.");
+            "This composer does not produce layout receipts.");
+
+    /// <summary>
+    /// The canonical wrap's front board, cropped for a 220 × 200 mm page — the same bytes the
+    /// customer's front cover is built on, exposed so that the reader UI's own cover image is that
+    /// crop rather than a third design (audit P0-01, plan D1).
+    /// </summary>
+    byte[] CropFrontBoard(byte[] wrapPng) =>
+        throw new BekiLayoutException(
+            CompositeFailureCodes.LayoutFailed,
+            "This composer does not crop cover boards.");
+
+    /// <summary>The same for the back board (audit P0-02).</summary>
+    byte[] CropBackBoard(byte[] wrapPng) =>
+        throw new BekiLayoutException(
+            CompositeFailureCodes.LayoutFailed,
+            "This composer does not crop cover boards.");
 
     /// <summary>
     /// The same book as one image per page. For looking at: a PDF cannot be inspected by anything
@@ -73,7 +260,7 @@ public interface IBekiPdfComposer
 }
 
 /// <summary>
-/// Sets a Beki-format book for print.
+/// Sets a Beki-format book for print and for the parent's own screen.
 ///
 /// A separate composer from <see cref="Implementations.AdventurePdfService"/>, which keeps
 /// printing A5 books exactly as it always has. The two formats do not differ in styling; they
@@ -88,6 +275,14 @@ public interface IBekiPdfComposer
 /// printers impose the fold themselves, and a spread split into two files is a spread with a seam
 /// down the middle of the picture, the one thing a continuous illustration exists to avoid.
 ///
+/// **Three outputs, one layout state.** Audit §10.2 is explicit that the press interior, the press
+/// cover and the customer reading PDF must be derived from one logical layout and not from
+/// independent pipelines — the rejected release had two cover producers and a reading copy built
+/// straight through the print path. So the text geometry here is computed on the TRIM in every mode
+/// and the press page is that geometry with the bleed added around it: the same column, the same
+/// fitted size, the same wrapped lines, offset by five millimetres. What differs between the press
+/// file and the download is the paper it is imagined on, not the book.
+///
 /// **The fixed pages are approved artwork, not drawings.** The endpaper pattern and the six intro
 /// backgrounds arrive from <see cref="BekiLayoutAssets"/>, hash-verified before they are placed,
 /// and Beki herself is composited onto the intro by the same exact engine the story spreads use.
@@ -95,13 +290,18 @@ public interface IBekiPdfComposer
 /// no approved background, stops the book. The composer used to draw a dot field and a tinted
 /// ground instead, and the first anyone noticed was a printed book with a placeholder bound into it.
 ///
-/// **The story text is outlined vector type straight on the artwork.** Light Noto Sans Georgian
-/// with its own dark rim, set once, upper-left in the reserved column — no box, no wash, no
-/// background of its own, by the owner's ruling after the first live v1.5 book (the audit's
-/// cream copy-sized zone was tried and rejected on sight). Not a picture of words either: the
-/// rim is real vector text runs. If the copy will not fit at any size the age band allows, the
-/// book stops with <c>TEXT_OVERFLOW</c>; it is never set at a size that still overflows, and it
-/// is never rewritten.
+/// **The story text is dark vector type on a cream wash measured to itself — again.** That sentence
+/// has been written three times in this file and this is the version that stands. The wash was
+/// built, then removed by the owner's ruling after the first live v1.5 book in favour of outlined
+/// light type straight on the artwork, and audit 1.0 reversed the ruling on evidence: P1-04 finds
+/// the text support "inconsistent" and asks for "one local soft cream wash with approximately 6–8 mm
+/// internal padding … within the selected page, outside the fold safety area and trim safety
+/// margins", and P0-07 pairs it with the colour rule — "intended dark text on localized cream story
+/// washes" and light cream only where the ground is dark. Outlined light type therefore survives in
+/// exactly two places: the cover title, which is part of a picture, and the credits page, whose
+/// ground is the book's own purple. Everything else is #241A33 on cream. If the copy will not fit at
+/// any size the age band allows, the book stops with <c>TEXT_OVERFLOW</c>; it is never set at a size
+/// that still overflows, and it is never rewritten.
 ///
 /// Every picture is placed at the sheet's own proportions. A centred crop of more than
 /// <see cref="BekiPrintLayoutOptions.PrintCropTolerance"/> per axis is refused rather than performed
@@ -138,33 +338,63 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         _assets = assets ?? BekiLayoutAssets.Current;
     }
 
+    /// <summary>Which of the three documents is being built, and on whose geometry.</summary>
+    private enum BekiRenderMode
+    {
+        /// <summary>The press file: trim plus bleed, and every raster normalized to the sheet.</summary>
+        Press,
+
+        /// <summary>The proof render: the press geometry, native rasters, for looking at.</summary>
+        Proof,
+
+        /// <summary>The parent's download: trim exactly, no bleed, rasters at their own resolution.</summary>
+        Reading,
+    }
+
     /// <summary>Every page's ground, unless a page — an endpaper — asks for its own.</summary>
     private static readonly Color PageInk = Color.FromHex("#281B3F");
 
     /// <summary>Cream, and the same one the reader sets its pages on.</summary>
-    private static readonly Color TextColor = Color.FromHex("#FFF8EB");
+    private const string TextColorHex = "#FFF8EB";
+
+    private static readonly Color TextColor = Color.FromHex(TextColorHex);
 
     /// <summary>
-    /// The ink the measurement document sets its stand-in type in. Colour never changes metrics;
-    /// it exists so the throwaway page is a valid document.
-    /// </summary>
-    private static readonly Color StoryInk = Color.FromHex("#241A33");
-
-    /// <summary>
-    /// The inset the copy keeps from its column's edges, in millimetres.
+    /// The story text's own ink: the page's dark, printed ON the cream wash rather than under it.
     ///
-    /// This used to be the padding of a cream wash box behind the words. The box is gone — the
-    /// owner's ruling after the first live v1.5 book: the copy is outlined light type straight
-    /// on the artwork, no background of its own — but the inset stays exactly as it was, because
-    /// the fit ladder's measurements were made against it and a book must not overflow over a
-    /// styling change.
+    /// Audit P0-07's second clause, and the half of the wash that matters most. Cream type over a
+    /// dark panel is a caption over a photograph; §6 Step 8 asks for the opposite, and dark-on-light
+    /// is also the only version that survives a printer's dot gain at 18 pt — and, as the audit
+    /// found the hard way, the only version that survives a CMYK conversion which coerces text to
+    /// black, because black on cream is still readable and black on purple is not.
     /// </summary>
-    private const float WashPaddingMm = 6f;
+    private const string StoryInkHex = "#241A33";
+
+    private static readonly Color StoryInk = Color.FromHex(StoryInkHex);
+
+    /// <summary>The quieter ink the second language is set in, when a book prints both.</summary>
+    private const string EnglishInkHex = "#B3241A33";
+
+    private static readonly Color EnglishInk = Color.FromHex(EnglishInkHex);
 
     /// <summary>
-    /// The wash ink behind the outlined cover title — the one place left in the book where type
-    /// is set light over artwork, because a cover title is a picture. The Continue Adventure chip
-    /// shared this ink until the Locked Print Specification §6 removed it with its QR.
+    /// The wash under the words: cream, nearly opaque, and only as large as the copy.
+    ///
+    /// Nearly rather than fully, so the artwork underneath still shows as a tint at the edges and
+    /// the box reads as part of the picture rather than as a sticker on it. The size is the point —
+    /// the supplier's first audit called the old full-height version a "dark half-page text panel",
+    /// audit 1.0 called the rasterized one on Story Spread 4 "a large raster rectangle crossing the
+    /// fold", and both corrections say the same thing: a wash is a vector shape sized to the wrapped
+    /// copy, drawn in layout, never baked into an illustration and never a fixed half-page mask.
+    /// </summary>
+    private const string StoryWashHex = "#F2FFF8EB";
+
+    private static readonly Color StoryWash = Color.FromHex(StoryWashHex);
+
+    /// <summary>
+    /// The wash ink behind the outlined cover title — one of the two places left in the book where
+    /// type is set light over artwork, because a cover title is a picture. The Continue Adventure
+    /// chip shared this ink until the Locked Print Specification §6 removed it with its QR.
     /// </summary>
     private const string TextWashInk = "0D071D";
 
@@ -177,6 +407,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// the spreads' dark ground.
     /// </summary>
     private static readonly Color EndpaperPaper = Color.FromHex("#F3E7D2");
+
+    /// <summary>The brand address on the back cover. Type, not a character — Locked Spec §6.</summary>
+    private const string BackCoverAddress = "beki.ge";
 
     /// <summary>Points per millimetre, both ways, in one place.</summary>
     private const float PointsPerMm = 72f / 25.4f;
@@ -192,6 +425,18 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private static readonly ConcurrentDictionary<string, byte[]> FixedPageArtwork = new(StringComparer.Ordinal);
 
     /// <summary>
+    /// The wrapped lines of one block of copy, keyed by the text, the size and the measure.
+    ///
+    /// Static for the same reason and with the same safety: wrapping is a pure function of those
+    /// three plus the face, which does not change within a process. It is cached because working the
+    /// lines out costs one measurement document per word, and the receipts want them for every
+    /// spread of every book — a service composing its second Forest book should not pay twice for
+    /// the same sentence.
+    /// </summary>
+    private static readonly ConcurrentDictionary<string, IReadOnlyList<string>> WrappedLines =
+        new(StringComparer.Ordinal);
+
+    /// <summary>
     /// The composite engine, loaded once per process from the published asset tree. Read-only from
     /// here: this composer asks it to place the approved pose and never does that arithmetic itself.
     /// </summary>
@@ -205,8 +450,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private readonly Dictionary<string, float?> _measuredBlockHeights = [];
 
     /// <summary>
-    /// The approved Beki mark for the credits spread and the back cover, resolved through the
-    /// pose registry by the id the layout registry names.
+    /// The approved Beki mark for the credits spread, resolved through the pose registry by the id
+    /// the layout registry names.
     ///
     /// This used to be the legacy opaque raster from a hardcoded path, with null-and-drop when
     /// the file was missing — precisely the silent legacy fallback the supplier's audit rejected
@@ -232,39 +477,91 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         }
     }
 
-    public byte[] Compose(
+    // ==============================================================================================
+    // The public compose methods
+    // ==============================================================================================
+
+    public BekiComposedBook ComposeWithReceipts(
         MasterStory plan,
         byte[] coverImage,
         IReadOnlyList<BekiSpreadArtwork> spreads,
-        BekiBookPersonalization? personalization = null) =>
-        PdfPrintBoxes.Apply(Build(plan, coverImage, spreads, personalization, true).GeneratePdf(), _layout.BleedMm);
+        BekiBookPersonalization? personalization = null)
+    {
+        var receipts = new ReceiptBook(BekiRenderMode.Press);
+        var pdf = PdfPrintBoxes.Apply(
+            Build(plan, coverImage, null, spreads, personalization, BekiRenderMode.Press, receipts)
+                .GeneratePdf(),
+            _layout.BleedMm);
 
-    public byte[] ComposeInterior(
+        return new BekiComposedBook(pdf, receipts.Build());
+    }
+
+    public BekiComposedBook ComposeInteriorWithReceipts(
         MasterStory plan,
         IReadOnlyList<BekiSpreadArtwork> spreads,
-        BekiBookPersonalization? personalization = null) =>
-        PdfPrintBoxes.Apply(
-            Build(plan, coverImage: null, spreads, personalization, print: true).GeneratePdf(),
+        BekiBookPersonalization? personalization = null)
+    {
+        var receipts = new ReceiptBook(BekiRenderMode.Press);
+        var pdf = PdfPrintBoxes.Apply(
+            Build(plan, null, null, spreads, personalization, BekiRenderMode.Press, receipts)
+                .GeneratePdf(),
             _layout.BleedMm);
+
+        return new BekiComposedBook(pdf, receipts.Build());
+    }
+
+    /// <summary>
+    /// <inheritdoc cref="IBekiPdfComposer.ComposeReading"/>
+    ///
+    /// Three things make this a different document rather than the print file with a flag flipped,
+    /// and each of them is an audit finding:
+    ///
+    /// * **Zero bleed, CropBox present** (P0-08). The page IS the trim, so there is no overrun to
+    ///   hide and no box to disagree about; <see cref="PdfReaderBoxes"/> then states the CropBox a
+    ///   viewer needs and the document language P2-2 asks for.
+    /// * **No print normalization** (P1-01, P2-1). Nothing is stretched to a 300-PPI target here.
+    ///   The rasters are embedded as they arrived, which is both the honest resolution and the
+    ///   reason the download stops being an inflated copy of the press file.
+    /// * **Cover pages cropped from the wrap** (P0-01, P0-02). The front page is the front board of
+    ///   <paramref name="wrapComposite"/> with the same Ottia title set into the same relative
+    ///   rectangle; the back page is the back board, environment-only by construction, carrying
+    ///   nothing but the address. There is no second cover design and no flat purple placeholder.
+    /// </summary>
+    public BekiComposedBook ComposeReading(
+        MasterStory plan,
+        byte[] wrapComposite,
+        IReadOnlyList<BekiSpreadArtwork> spreads,
+        BekiBookPersonalization? personalization = null)
+    {
+        ArgumentNullException.ThrowIfNull(wrapComposite);
+
+        var receipts = new ReceiptBook(BekiRenderMode.Reading);
+        var pdf = PdfReaderBoxes.Apply(
+            Build(plan, null, wrapComposite, spreads, personalization, BekiRenderMode.Reading, receipts)
+                .GeneratePdf());
+
+        return new BekiComposedBook(pdf, receipts.Build());
+    }
 
     public IReadOnlyList<byte[]> RenderPages(
         MasterStory plan,
         byte[] coverImage,
         IReadOnlyList<BekiSpreadArtwork> spreads,
         BekiBookPersonalization? personalization = null) =>
-        Build(plan, coverImage, spreads, personalization, false)
+        Build(plan, coverImage, null, spreads, personalization,
+                BekiRenderMode.Proof, new ReceiptBook(BekiRenderMode.Proof))
             .GenerateImages(new ImageGenerationSettings { ImageFormat = ImageFormat.Png, RasterDpi = 96 })
             .ToList();
 
     /// <summary>
-    /// <inheritdoc cref="IBekiPdfComposer.ComposeCoverPress"/>
+    /// <inheritdoc cref="IBekiPdfComposer.ComposeCoverPressWithReceipts"/>
     ///
     /// One page at the wrap's own 512 × 245 — no bleed added, because the locked spec's turn-ins
     /// ARE the wrap's overrun and its boxes are all equal. The artwork arrives already composited
     /// (base plus the exact approved pose); this only sets the title, in the same outlined Ottia
     /// the reading cover uses, centred inside the locked title-safe rectangle.
     /// </summary>
-    public byte[] ComposeCoverPress(string title, byte[] wrapComposite)
+    public BekiComposedBook ComposeCoverPressWithReceipts(string title, byte[] wrapComposite)
     {
         ArgumentNullException.ThrowIfNull(wrapComposite);
 
@@ -276,8 +573,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         PdfFontBootstrap.EnsureRegistered();
 
         var titleWidthPt = MmToPt(BekiCoverDieline.TitleSafeWidthMm);
+        var titleSize = _layout.StoryFontSize * 2f;
 
-        return Document.Create(document =>
+        var pdf = Document.Create(document =>
         {
             document.Page(page =>
             {
@@ -300,26 +598,53 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                         .Height(BekiCoverDieline.TitleSafeHeightMm, Unit.Millimetre)
                         .AlignMiddle()
                         .Element(item => OutlinedText(
-                            item, title, _layout.StoryFontSize * 2f, 1.25f,
+                            item, title, titleSize, 1.25f,
                             TextColor, OutlineColor, titleWidthPt,
                             PdfFontBootstrap.TitleFamily, centred: true));
                 });
             });
         }).WithMetadata(new DocumentMetadata { Title = title }).GeneratePdf();
+
+        var receipts = new ReceiptBook(BekiRenderMode.Press);
+        receipts.Add("cover-press-wrap", page => new BekiLayoutPageReceipt(
+            page,
+            "cover-press-wrap",
+            BekiCoverDieline.CanvasWidthMm,
+            BekiCoverDieline.CanvasHeightMm,
+            0d,
+            [Sha256(wrapComposite)],
+            Wash: null,
+            [new BekiTypographyRecord(
+                "cover-title", PdfFontBootstrap.TitleFamily, titleSize, 1.25d, TextColorHex)],
+            WrapLines(title, titleSize, titleWidthPt, PdfFontBootstrap.TitleFamily),
+            TextProbe: null));
+
+        return new BekiComposedBook(pdf, receipts.Build());
     }
 
+    // ==============================================================================================
+    // The build
+    // ==============================================================================================
+
     /// <param name="coverImage">
-    /// Null builds the print interior: the twelve interior spreads with no cover faces. The cover
-    /// is a printer-dieline wrap, not two leaves of this document, and the audit's finding stands
-    /// as the reason this is a parameter and not a second builder: the hybrid 14-page file must
-    /// never again be the production deliverable.
+    /// The legacy front-only cover face, for <see cref="BekiRenderMode.Press"/> and
+    /// <see cref="BekiRenderMode.Proof"/> only. Null builds the print interior: the twelve interior
+    /// spreads with no cover faces. The cover is a printer-dieline wrap, not two leaves of this
+    /// document, and the audit's finding stands as the reason this is a parameter and not a second
+    /// builder: the hybrid 14-page file must never again be the production deliverable.
+    /// </param>
+    /// <param name="wrapComposite">
+    /// The canonical cover master, for <see cref="BekiRenderMode.Reading"/>. Its two board crops
+    /// become the customer's front and back pages (P0-01, P0-02).
     /// </param>
     private Document Build(
         MasterStory plan,
         byte[]? coverImage,
+        byte[]? wrapComposite,
         IReadOnlyList<BekiSpreadArtwork> spreads,
         BekiBookPersonalization? personalization,
-        bool print)
+        BekiRenderMode mode,
+        ReceiptBook receipts)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -359,13 +684,17 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
         return Document.Create(document =>
         {
-            if (coverImage is not null)
+            if (mode == BekiRenderMode.Reading)
             {
-                ComposeCover(document, plan.Concept.Title, coverImage, print);
+                ComposeReadingFrontCover(document, plan.Concept.Title, wrapComposite!, receipts);
+            }
+            else if (coverImage is not null)
+            {
+                ComposeCover(document, plan.Concept.Title, coverImage, mode, receipts);
             }
 
-            ComposeEndpaper(document, rear: false);
-            ComposeIntro(document, themeId, plan.Concept.Title, personalization);
+            ComposeEndpaper(document, rear: false, mode, receipts);
+            ComposeIntro(document, themeId, plan.Concept.Title, personalization, mode, receipts);
 
             foreach (var artwork in spreads.OrderBy(spread => spread.SpreadNumber))
             {
@@ -373,19 +702,23 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 {
                     // A picture with no words is still a page of the book; dropping it would
                     // silently shorten the story.
-                    ComposeArtOnly(document, artwork.Image, print);
+                    ComposeArtOnly(document, artwork.Image, artwork.SpreadNumber, mode, receipts);
                     continue;
                 }
 
-                ComposeSpread(document, artwork.Image, spread, personalization, print);
+                ComposeSpread(document, artwork.Image, spread, personalization, mode, receipts);
             }
 
-            ComposeCredits(document);
-            ComposeEndpaper(document, rear: true);
+            ComposeCredits(document, mode, receipts);
+            ComposeEndpaper(document, rear: true, mode, receipts);
 
-            if (coverImage is not null)
+            if (mode == BekiRenderMode.Reading)
             {
-                ComposeBackCover(document);
+                ComposeReadingBackCover(document, wrapComposite!, receipts);
+            }
+            else if (coverImage is not null)
+            {
+                ComposeBackCover(document, mode, receipts);
             }
         }).WithMetadata(new DocumentMetadata
         {
@@ -393,6 +726,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             // audited file carried QuestPDF's defaults here while its pages disagreed with each
             // other about the book's name; one field now feeds all of them.
             Title = plan.Concept.Title,
+            Language = PdfReaderBoxes.DocumentLanguage,
         });
     }
 
@@ -423,44 +757,255 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 + "no approved intro background can be selected for it.");
     }
 
+    // ==============================================================================================
+    // Cover pages
+    // ==============================================================================================
+
     /// <summary>
-    /// The cover: a single leaf, half the spread, artwork to the bleed, and the title set over
-    /// it in the licensed display face. Bottom-centre, outlined, and nothing else: one line is a
-    /// title, and a second thing on the cover is a subtitle nobody asked for.
+    /// The legacy cover leaf: a single page, half the spread, artwork to the bleed, and the title
+    /// set over it in the licensed display face.
     ///
-    /// The cover is deliberately outside the interior rules this campaign tightened. Its geometry
-    /// is the printer's wrap and not this sheet (handoff §5), its print artifact stays withheld
-    /// until the dieline arrives, and its artwork is therefore not held to the interior's crop
-    /// tolerance — a cover drawn 3:2 for a leaf-shaped page loses its outer thirds by design.
+    /// **Not a customer deliverable any more.** Audit P0-01 found this page and the press cover to
+    /// be two different designs — this one built from a separately AI-redrawn cover with a Beki that
+    /// is not the approved asset. The customer's front page is now
+    /// <see cref="ComposeReadingFrontCover"/>, cropped from the same wrap the press cover uses. What
+    /// remains here serves the proof render and any caller not yet moved off
+    /// <see cref="Compose"/>.
     /// </summary>
-    private void ComposeCover(IDocumentContainer container, string title, byte[] image, bool print)
+    private void ComposeCover(
+        IDocumentContainer container, string title, byte[] image,
+        BekiRenderMode mode, ReceiptBook receipts)
     {
+        var placed = CropToPage(image, _layout.PageWidthMm, mode, enforceCropTolerance: false);
+        var titleSize = _layout.StoryFontSize * 2f;
+
         container.Page(page =>
         {
-            ApplyGeometry(page, _layout.PageWidthMm);
+            ApplyGeometry(page, _layout.PageWidthMm, mode);
 
             page.Content().Layers(layers =>
             {
-                layers.PrimaryLayer()
-                    .Image(CropToSheet(image, _layout.PageWidthMm, print, enforceCropTolerance: false))
-                    .FitUnproportionally().UseOriginalImage();
+                layers.PrimaryLayer().Image(placed).FitUnproportionally().UseOriginalImage();
 
                 // The title band is the full width between the safe margins, and the type is
                 // centred inside it rather than the block being centred around the type. The two
                 // put a single line in exactly the same place — but only the first gives
-                // OutlinedText a width it can know before the page is laid out, which is what the
-                // raster has to be built against.
+                // OutlinedText a width it can know before the page is laid out.
                 layers.Layer()
+                    .Padding(Bleed(mode), Unit.Millimetre)
                     .PaddingHorizontal(_layout.SafeMarginMm, Unit.Millimetre)
                     .PaddingBottom(_layout.SafeMarginMm * 1.6f, Unit.Millimetre)
                     .AlignBottom()
                     .Element(item => OutlinedText(
-                        item, title, _layout.StoryFontSize * 2f, 1.25f,
+                        item, title, titleSize, 1.25f,
                         TextColor, OutlineColor, CoverTitleWidthPt,
                         PdfFontBootstrap.TitleFamily, centred: true));
             });
         });
+
+        receipts.Add("cover-front-legacy", page => new BekiLayoutPageReceipt(
+            page, "cover-front-legacy",
+            _layout.PageWidthMm + (Bleed(mode) * 2f), _layout.SpreadHeightMm + (Bleed(mode) * 2f),
+            Bleed(mode),
+            [Sha256(placed)],
+            Wash: null,
+            [new BekiTypographyRecord(
+                "cover-title", PdfFontBootstrap.TitleFamily, titleSize, 1.25d, TextColorHex)],
+            WrapLines(title, titleSize, CoverTitleWidthPt, PdfFontBootstrap.TitleFamily),
+            TextProbe: null));
     }
+
+    /// <summary>
+    /// The customer's front cover: the wrap master's front board, and the same title on it.
+    ///
+    /// Audit P0-01's required correction, clause 5 — "crop the front and back board panels from that
+    /// same master for the customer PDF". The crop window is
+    /// <see cref="BekiCoverDieline.FrontBoardDigitalCrop"/>, which takes the board's full width and
+    /// the page's own ratio out of its height so that the placement onto 220 × 200 mm is a uniform
+    /// scale and not a squash (amendment A3).
+    ///
+    /// The title is the identical string, in the identical face, set into the identical rectangle —
+    /// expressed as fractions of the crop window so that "the same place on the cover" survives the
+    /// change of coordinate system. What the parent downloads and what the press prints are the same
+    /// design, which is the whole of what P0-01 asked for.
+    /// </summary>
+    private void ComposeReadingFrontCover(
+        IDocumentContainer container, string title, byte[] wrapComposite, ReceiptBook receipts)
+    {
+        var board = FitForScreen(CropFrontBoard(wrapComposite), BekiCoverDieline.DigitalPageWidthMm);
+
+        var (leftFraction, topFraction, widthFraction, heightFraction) =
+            BekiCoverDieline.InsideFrontBoardCrop(
+                BekiCoverDieline.TitleSafeLeftMm, BekiCoverDieline.TitleSafeTopMm,
+                BekiCoverDieline.TitleSafeWidthMm, BekiCoverDieline.TitleSafeHeightMm);
+
+        var titleLeftMm = leftFraction * BekiCoverDieline.DigitalPageWidthMm;
+        var titleTopMm = topFraction * BekiCoverDieline.DigitalPageHeightMm;
+        var titleWidthMm = widthFraction * BekiCoverDieline.DigitalPageWidthMm;
+        var titleHeightMm = heightFraction * BekiCoverDieline.DigitalPageHeightMm;
+
+        // The type scales with the board (BekiCoverDieline.DigitalScale). Setting the press size on
+        // a page 1.12% smaller would break the title's lines somewhere the printed cover does not.
+        var titleSize = _layout.StoryFontSize * 2f * BekiCoverDieline.DigitalScale;
+
+        container.Page(page =>
+        {
+            ApplyGeometry(page, _layout.PageWidthMm, BekiRenderMode.Reading);
+
+            page.Content().Layers(layers =>
+            {
+                layers.PrimaryLayer().Image(board).FitUnproportionally().UseOriginalImage();
+
+                layers.Layer()
+                    .PaddingLeft(titleLeftMm, Unit.Millimetre)
+                    .PaddingTop(titleTopMm, Unit.Millimetre)
+                    .AlignLeft()
+                    .AlignTop()
+                    .Width(titleWidthMm, Unit.Millimetre)
+                    .Height(titleHeightMm, Unit.Millimetre)
+                    .AlignMiddle()
+                    .Element(item => OutlinedText(
+                        item, title, titleSize, 1.25f,
+                        TextColor, OutlineColor, MmToPt(titleWidthMm),
+                        PdfFontBootstrap.TitleFamily, centred: true));
+            });
+        });
+
+        receipts.Add("cover-front", page => new BekiLayoutPageReceipt(
+            page, "cover-front",
+            BekiCoverDieline.DigitalPageWidthMm, BekiCoverDieline.DigitalPageHeightMm, 0d,
+            [Sha256(board)],
+            Wash: null,
+            [new BekiTypographyRecord(
+                "cover-title", PdfFontBootstrap.TitleFamily, titleSize, 1.25d, TextColorHex)],
+            WrapLines(title, titleSize, MmToPt(titleWidthMm), PdfFontBootstrap.TitleFamily),
+            TextProbe: null));
+    }
+
+    /// <summary>
+    /// The customer's back cover: the wrap master's back board, and the address on it.
+    ///
+    /// Audit P0-02 in one sentence — the shipped back cover was "a flat dark-purple page with only
+    /// beki.ge", a placeholder where the printed book carries the back panel of a continuous world.
+    /// So this page is that panel, cropped by the same rule as the front. It carries no Beki: the
+    /// crop is environment-only by construction, because the wrap prompt forbids a character on the
+    /// left of the picture and the exact pose is composited on the right — and Locked Spec §6 keeps
+    /// the back cover Beki-free besides. Nothing is drawn here but the address, which is type.
+    /// </summary>
+    private void ComposeReadingBackCover(
+        IDocumentContainer container, byte[] wrapComposite, ReceiptBook receipts)
+    {
+        var board = FitForScreen(CropBackBoard(wrapComposite), BekiCoverDieline.DigitalPageWidthMm);
+        var addressSize = _layout.StoryFontSize * 0.85f;
+
+        container.Page(page =>
+        {
+            ApplyGeometry(page, _layout.PageWidthMm, BekiRenderMode.Reading);
+
+            page.Content().Layers(layers =>
+            {
+                layers.PrimaryLayer().Image(board).FitUnproportionally().UseOriginalImage();
+
+                layers.Layer()
+                    .PaddingHorizontal(_layout.SafeMarginMm, Unit.Millimetre)
+                    .PaddingBottom(_layout.SafeMarginMm, Unit.Millimetre)
+                    .AlignBottom()
+                    .Element(item => OutlinedText(
+                        item, BackCoverAddress, addressSize, 1.25f,
+                        TextColor, OutlineColor,
+                        MmToPt(BekiCoverDieline.DigitalPageWidthMm - (_layout.SafeMarginMm * 2f)),
+                        PdfFontBootstrap.BodyFamily, centred: true));
+            });
+        });
+
+        receipts.Add("cover-back", page => new BekiLayoutPageReceipt(
+            page, "cover-back",
+            BekiCoverDieline.DigitalPageWidthMm, BekiCoverDieline.DigitalPageHeightMm, 0d,
+            [Sha256(board)],
+            Wash: null,
+            [new BekiTypographyRecord(
+                "back-cover-address", PdfFontBootstrap.BodyFamily, addressSize, 1.25d, TextColorHex)],
+            [BackCoverAddress],
+            TextProbe: null));
+    }
+
+    /// <summary>
+    /// The legacy back cover: the book's ground and the address, and since the Locked Print
+    /// Specification §6 no Beki on it. Superseded for customer delivery by
+    /// <see cref="ComposeReadingBackCover"/>, which shows the wrap's own back panel instead of a
+    /// flat colour — audit P0-02.
+    /// </summary>
+    private void ComposeBackCover(
+        IDocumentContainer container, BekiRenderMode mode, ReceiptBook receipts)
+    {
+        var addressSize = _layout.StoryFontSize * 0.85f;
+
+        container.Page(page =>
+        {
+            ApplyGeometry(page, _layout.PageWidthMm, mode);
+
+            page.Content()
+                .AlignMiddle()
+                .Column(column =>
+                {
+                    column.Spacing(10);
+
+                    column.Item().AlignCenter().Text(BackCoverAddress)
+                        .FontFamily(PdfFontBootstrap.BodyFamily)
+                        .FontSize(addressSize)
+                        .FontColor(TextColor);
+                });
+        });
+
+        receipts.Add("cover-back-legacy", page => new BekiLayoutPageReceipt(
+            page, "cover-back-legacy",
+            _layout.PageWidthMm + (Bleed(mode) * 2f), _layout.SpreadHeightMm + (Bleed(mode) * 2f),
+            Bleed(mode),
+            [],
+            Wash: null,
+            [new BekiTypographyRecord(
+                "back-cover-address", PdfFontBootstrap.BodyFamily, addressSize, 1.25d, TextColorHex)],
+            [BackCoverAddress],
+            TextProbe: null));
+    }
+
+    /// <summary>The front board of the canonical wrap, cropped for the customer's front page.</summary>
+    public byte[] CropFrontBoard(byte[] wrapPng)
+        => CropBoard(wrapPng, front: true);
+
+    /// <summary>The back board of the canonical wrap, cropped for the customer's back page.</summary>
+    public byte[] CropBackBoard(byte[] wrapPng)
+        => CropBoard(wrapPng, front: false);
+
+    /// <summary>
+    /// One board out of the wrap, and nothing else done to it.
+    ///
+    /// Crop only — no resize. The window already carries the customer page's ratio (amendment A3),
+    /// so the scale onto 220 × 200 mm happens once, at placement, uniformly; resampling here would
+    /// be a second resize of the same pixels and would throw away detail before the page even knows
+    /// how large it will be shown.
+    /// </summary>
+    private static byte[] CropBoard(byte[] wrapPng, bool front)
+    {
+        ArgumentNullException.ThrowIfNull(wrapPng);
+
+        using var image = SixLabors.ImageSharp.Image.Load<Rgba32>(wrapPng);
+
+        var window = front
+            ? BekiCoverDieline.FrontBoardDigitalCrop(image.Width, image.Height)
+            : BekiCoverDieline.BackBoardDigitalCrop(image.Width, image.Height);
+
+        image.Mutate(ctx => ctx.Crop(new SixLabors.ImageSharp.Rectangle(
+            window.XPx, window.YPx, window.WidthPx, window.HeightPx)));
+
+        using var buffer = new MemoryStream();
+        image.Save(buffer, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
+        return buffer.ToArray();
+    }
+
+    // ==============================================================================================
+    // Fixed interior pages
+    // ==============================================================================================
 
     /// <summary>
     /// An endpaper spread, from the approved pattern — placed once, across the whole sheet.
@@ -474,15 +1019,18 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// (handoff §5, spread 1), which is a paper-coloured leaf laid over the right half rather than
     /// a second, differently-cropped copy of the artwork. The rear spread patterns both leaves.
     /// </summary>
-    private void ComposeEndpaper(IDocumentContainer container, bool rear)
+    private void ComposeEndpaper(
+        IDocumentContainer container, bool rear, BekiRenderMode mode, ReceiptBook receipts)
     {
+        var artwork = EndpaperArtwork(mode);
+
         container.Page(page =>
         {
-            ApplyGeometry(page, _layout.SpreadWidthMm, EndpaperPaper);
+            ApplyGeometry(page, _layout.SpreadWidthMm, mode, EndpaperPaper);
 
             page.Content().Layers(layers =>
             {
-                layers.PrimaryLayer().Image(EndpaperArtwork())
+                layers.PrimaryLayer().Image(artwork)
                     .FitUnproportionally().UseOriginalImage();
 
                 if (rear)
@@ -497,12 +1045,25 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 });
             });
         });
+
+        var endpaperRole = rear ? "endpaper-rear" : "endpaper-front";
+
+        receipts.Add(endpaperRole, page => new BekiLayoutPageReceipt(
+            page, endpaperRole,
+            _layout.SpreadWidthMm + (Bleed(mode) * 2f), _layout.SpreadHeightMm + (Bleed(mode) * 2f),
+            Bleed(mode),
+            [Sha256(artwork)],
+            Wash: null, [], [], TextProbe: null,
+            // The approved pattern this page's raster was derived from. On the press path the two
+            // hashes are the same file; on the reading path the embedded bytes are a downsample of
+            // it, and only this one can be looked up in the asset lock.
+            SourceSha256: [_assets.EndpaperPattern.Sha256]));
     }
 
     /// <summary>
     /// The personalized intro spread (handoff §9): the approved theme background across the whole
     /// sheet, the exact <c>pose_07_curious_lean</c> composited onto its right half, and the child's
-    /// own lines set in vector Noto on the left.
+    /// own lines set in vector Noto on a cream wash on the left.
     ///
     /// Beki is placed by <see cref="BekiCompositeEngine"/> — the same engine, the same hash-verified
     /// PNG and the same arithmetic every story spread uses — at the anchor the supplier proved, with
@@ -515,23 +1076,63 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// The copy is a hierarchy rather than a paragraph — whose book this is, how old they are, which
     /// world it opens into, and the invitation — and it carries no date. A date on the intro spread
     /// makes a reprint a different book from the one that was bought.
+    ///
+    /// The wash under it is audit P1-04's other half: "the intro has no controlled local support"
+    /// was a finding about this page in particular, and the answer is the same shape the story
+    /// spreads get, measured to these four lines rather than to a paragraph.
     /// </summary>
     private void ComposeIntro(
         IDocumentContainer container,
         string themeId,
         string title,
-        BekiBookPersonalization? personalization)
+        BekiBookPersonalization? personalization,
+        BekiRenderMode mode,
+        ReceiptBook receipts)
     {
+        var artwork = IntroArtwork(themeId, mode);
+        var lines = IntroLines(title, personalization);
+        var washWidthMm = IntroWashWidthMm;
+        var copyWidthPt = MmToPt(washWidthMm) - (MmToPt(_layout.WashPaddingMm) * 2f);
+
+        // Measured before the page exists, for the same reason the story ladder is: the wash's
+        // height is the copy's height, and a receipt that guessed it would be evidence of nothing.
+        var spacingPt = _layout.WashPaddingMm * PointsPerMm * 0.8f;
+        var copyHeightPt = 0f;
+        for (var index = 0; index < lines.Count; index++)
+        {
+            if (index > 0) copyHeightPt += spacingPt;
+            copyHeightPt += MeasureBlockHeightPt(lines[index].Text, lines[index].SizePt, copyWidthPt);
+        }
+
+        var washHeightMm = (copyHeightPt / PointsPerMm) + (_layout.WashPaddingMm * 2f);
+        var availableHeightMm = _layout.SpreadHeightMm - (_layout.SafeMarginMm * 2f);
+
+        if (washHeightMm > availableHeightMm)
+        {
+            throw new BekiLayoutException(
+                CompositeFailureCodes.TextOverflow,
+                $"The intro spread's copy needs {washHeightMm:0.#} mm of leaf and the safe area "
+                + $"holds {availableHeightMm:0.#} mm. The intro has no step-down ladder — its lines "
+                + "come from configured templates — so this is a templates change, not a layout one.");
+        }
+
+        var washTopMm = Bleed(mode) + _layout.SafeMarginMm
+            + ((availableHeightMm - washHeightMm) / 2f);
+        var washLeftMm = Bleed(mode) + _layout.SafeMarginMm;
+
         container.Page(page =>
         {
-            ApplyGeometry(page, _layout.SpreadWidthMm);
+            ApplyGeometry(page, _layout.SpreadWidthMm, mode);
 
             page.Content().Layers(layers =>
             {
-                layers.PrimaryLayer().Image(IntroArtwork(themeId))
+                layers.PrimaryLayer().Image(artwork)
                     .FitUnproportionally().UseOriginalImage();
 
-                layers.Layer().Row(row =>
+                // Everything below is written on the TRIM: the bleed is a frame around the layout,
+                // never part of it, which is what lets the press file and the download break their
+                // lines identically (audit §10.2, "one canonical layout state").
+                layers.Layer().Padding(Bleed(mode), Unit.Millimetre).Row(row =>
                 {
                     // The left leaf carries the words; the right one is Beki's, which is where the
                     // composite engine has just put her.
@@ -542,17 +1143,51 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                         .PaddingRight(InnerPaddingMm, Unit.Millimetre)
                         .AlignMiddle()
                         .AlignLeft()
-                        .MaxWidth(_layout.MaxTextWidthMm, Unit.Millimetre)
-                        // Same ruling as the story spreads: no box behind the words — outlined
-                        // light type straight on the approved background, padding kept as inset.
-                        .Padding(WashPaddingMm, Unit.Millimetre)
-                        .Column(column => ComposeIntroCopy(column, title, personalization));
+                        .Width(washWidthMm, Unit.Millimetre)
+                        .Background(StoryWash)
+                        .CornerRadius(_layout.WashCornerRadiusMm, Unit.Millimetre)
+                        .Padding(_layout.WashPaddingMm, Unit.Millimetre)
+                        .Column(column =>
+                        {
+                            column.Spacing(spacingPt);
+
+                            foreach (var line in lines)
+                            {
+                                var text = line;
+                                column.Item().Element(item => PlainText(
+                                    item, text.Text, text.SizePt, StoryLineHeight,
+                                    StoryInk, PdfFontBootstrap.BodyFamily, centred: false));
+                            }
+                        });
 
                     row.RelativeItem();
                 });
             });
         });
+
+        var wash = WashGeometry(
+            washLeftMm, washTopMm, washWidthMm, washHeightMm, "left", mode, "intro");
+
+        receipts.Add("intro", page => new BekiLayoutPageReceipt(
+            page, "intro",
+            _layout.SpreadWidthMm + (Bleed(mode) * 2f), _layout.SpreadHeightMm + (Bleed(mode) * 2f),
+            Bleed(mode),
+            [Sha256(artwork)],
+            wash,
+            lines.Select(line => new BekiTypographyRecord(
+                line.Role, PdfFontBootstrap.BodyFamily, line.SizePt, StoryLineHeight, StoryInkHex))
+                .ToList(),
+            lines.SelectMany(line =>
+                WrapLines(line.Text, line.SizePt, copyWidthPt, PdfFontBootstrap.BodyFamily)).ToList(),
+            TextProbe: null,
+            // Both approved files this page's single raster was composited from: the world's
+            // background and the pose pasted onto it. The composite itself hashes to neither, which
+            // is exactly why the placement check needs these.
+            SourceSha256: [_assets.IntroBackground(themeId).Sha256, IntroPoseSha256()]));
     }
+
+    /// <summary>One typeset line of the intro spread: what it says, how big, and what it is for.</summary>
+    private readonly record struct IntroLine(string Role, string Text, float SizePt);
 
     /// <summary>
     /// The intro spread's four lines, in the proof's own order: the dedication, the age under it,
@@ -563,16 +1198,17 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// Georgian writes the dative straight onto a Georgian-script name — ნინო becomes ნინოს — and
     /// keeps the hyphen only for a name written in another alphabet. See
     /// <see cref="GeorgianNameSuffix.Dative"/>.
+    ///
+    /// Returned as data rather than drawn, because the wash above has to know how tall they are
+    /// before any of them is set.
     /// </summary>
-    private void ComposeIntroCopy(
-        ColumnDescriptor column, string title, BekiBookPersonalization? personalization)
+    private List<IntroLine> IntroLines(string title, BekiBookPersonalization? personalization)
     {
-        column.Spacing(WashPaddingMm * PointsPerMm * 0.8f);
-
         var headerSize = _layout.StoryFontSize * 1.35f;
         var bodySize = _layout.StoryFontSize;
         var quietSize = _layout.StoryFontSize * 0.8f;
-        var lineWidthPt = MmToPt(_layout.MaxTextWidthMm - (WashPaddingMm * 2f));
+
+        var lines = new List<IntroLine>(4);
 
         if (personalization is not null)
         {
@@ -582,17 +1218,13 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
             if (!string.IsNullOrWhiteSpace(belongs))
             {
-                column.Item().Element(item => OutlinedText(
-                    item, belongs, headerSize, StoryLineHeight,
-                    TextColor, OutlineColor, lineWidthPt));
+                lines.Add(new IntroLine("intro-dedication", belongs, headerSize));
             }
 
             var age = _layout.IntroAgeTemplate.Replace("{age}", personalization.Age.ToString());
             if (!string.IsNullOrWhiteSpace(age))
             {
-                column.Item().Element(item => OutlinedText(
-                    item, age, quietSize, StoryLineHeight,
-                    TextColor, OutlineColor, lineWidthPt));
+                lines.Add(new IntroLine("intro-age", age, quietSize));
             }
         }
 
@@ -610,9 +1242,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
         if (!string.IsNullOrWhiteSpace(theme))
         {
-            column.Item().Element(item => OutlinedText(
-                item, theme, bodySize, StoryLineHeight,
-                TextColor, OutlineColor, lineWidthPt));
+            lines.Add(new IntroLine("intro-world", theme, bodySize));
         }
 
         // The invitation addresses the child by name in the vocative, which in Georgian is the
@@ -623,10 +1253,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
         if (!string.IsNullOrWhiteSpace(invite))
         {
-            column.Item().Element(item => OutlinedText(
-                item, invite, bodySize, StoryLineHeight,
-                TextColor, OutlineColor, lineWidthPt));
+            lines.Add(new IntroLine("intro-invite", invite, bodySize));
         }
+
+        return lines;
     }
 
     /// <summary>
@@ -637,18 +1267,32 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// The blank-URL-drops-the-QR stance is inherited unchanged: a code that scans to nothing
     /// is worse than no code.
     ///
-    /// Reused exactly, per handoff §5 and R9 — the layout is pinned by
-    /// <c>BekiCreditsLayoutTests</c>, which was written before anything on this page moved. The one
-    /// change is the face: the sign-off used to be set in Noto Serif Georgian, which R10 removes
-    /// from the interior altogether.
+    /// **The one page in the book that keeps light type, and the one that nearly lost it.** Audit
+    /// P0-07: the CMYK conversion turned this cream into `0 g` black on the book's own purple and
+    /// the credits became "nearly invisible". The colour authored here is unchanged and correct; the
+    /// fix is upstream, in print prep, and the evidence it needs is the text rectangle this page
+    /// reports in its layout receipt — a rendered-pixel probe has to be told where to look, and
+    /// amendment A10a says the layout receipt is what tells it.
+    ///
+    /// The mark is placed with <c>UseOriginalImage</c>, which is not a detail: without it QuestPDF
+    /// re-rasters a 32 mm placement at 288 DPI and the press resolution gate — which since amendment
+    /// A1 measures effective PPI per placed image and not per page — fails the book on the one image
+    /// in it that was never short of pixels.
     /// </summary>
-    private void ComposeCredits(IDocumentContainer container)
+    private void ComposeCredits(
+        IDocumentContainer container, BekiRenderMode mode, ReceiptBook receipts)
     {
+        var mark = BekiMark();
+        var endingSize = _layout.StoryFontSize * 1.05f;
+        var captionSize = _layout.StoryFontSize * 0.7f;
+        var creditsSize = _layout.StoryFontSize * 0.85f;
+        var hasQr = !string.IsNullOrWhiteSpace(_layout.ReviewQrUrl);
+
         container.Page(page =>
         {
-            ApplyGeometry(page, _layout.SpreadWidthMm);
+            ApplyGeometry(page, _layout.SpreadWidthMm, mode);
 
-            page.Content().Row(row =>
+            page.Content().Padding(Bleed(mode), Unit.Millimetre).Row(row =>
             {
                 row.RelativeItem().Background(PageInk);
 
@@ -661,16 +1305,16 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                          {
                              column.Spacing(14);
 
-                             column.Item().AlignCenter().Width(32, Unit.Millimetre)
-                                 .Image(BekiMark()).FitWidth();
+                             column.Item().AlignCenter().Width(CreditsMarkWidthMm, Unit.Millimetre)
+                                 .Image(mark).FitWidth().UseOriginalImage();
 
                              column.Item().AlignCenter().Text(_layout.EndingLine)
                                  .FontFamily(PdfFontBootstrap.BodyFamily)
-                                 .FontSize(_layout.StoryFontSize * 1.05f)
+                                 .FontSize(endingSize)
                                  .LineHeight(1.5f)
                                  .FontColor(TextColor);
 
-                             if (!string.IsNullOrWhiteSpace(_layout.ReviewQrUrl))
+                             if (hasQr)
                              {
                                  column.Item().AlignCenter()
                                      .Width(46, Unit.Millimetre)
@@ -681,63 +1325,146 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
                                  column.Item().AlignCenter().Text(_layout.EndingQrCaption)
                                      .FontFamily(PdfFontBootstrap.BodyFamily)
-                                     .FontSize(_layout.StoryFontSize * 0.7f)
+                                     .FontSize(captionSize)
                                      .FontColor(TextColor);
                              }
 
                              column.Item().AlignCenter().Text(_layout.CreditsLine)
                                  .FontFamily(PdfFontBootstrap.BodyFamily)
-                                 .FontSize(_layout.StoryFontSize * 0.85f)
+                                 .FontSize(creditsSize)
                                  .FontColor(TextColor);
                          });
                 });
             });
         });
+
+        receipts.Add("credits", page => new BekiLayoutPageReceipt(
+            page, "credits",
+            _layout.SpreadWidthMm + (Bleed(mode) * 2f), _layout.SpreadHeightMm + (Bleed(mode) * 2f),
+            Bleed(mode),
+            [Sha256(mark)],
+            Wash: null,
+            [
+                new BekiTypographyRecord(
+                    "credits-ending", PdfFontBootstrap.BodyFamily, endingSize, 1.5d, TextColorHex),
+                new BekiTypographyRecord(
+                    "credits-line", PdfFontBootstrap.BodyFamily, creditsSize, 1.0d, TextColorHex),
+            ],
+            WrapLines(_layout.EndingLine, endingSize, CreditsColumnWidthPt, PdfFontBootstrap.BodyFamily),
+            CreditsTextProbe(page, mode, endingSize, captionSize, creditsSize, hasQr),
+            // The mark is placed verbatim, so the two hashes agree here — stated anyway, because a
+            // provenance the gate has to infer from a coincidence is not a provenance.
+            SourceSha256: [Engine.Value.Registry.Pose(_assets.BekiMarkPoseId).Sha256]));
     }
 
     /// <summary>
-    /// The back cover: quiet on purpose, and since the Locked Print Specification §6, without a
-    /// Beki on it — "keep the back cover environment-only, without a Beki character or draft
-    /// wordmark". The mark that used to sit here belongs to the credits spread, the one place §6
-    /// approves it. What remains is the address, which is type, not a character.
+    /// Where the credits column's own type sits, in millimetres from the page's top-left — the
+    /// rectangle amendment A10a's rendered-pixel probe samples.
+    ///
+    /// Computed rather than eyeballed: the column is vertically centred in the right leaf's safe
+    /// area, so its top follows from the total height of what is in it, and each item's height is
+    /// either a known millimetre width times the mark's own aspect or a measured block. The
+    /// rectangle returned is the sign-off line's band, widened to the column, because that is the
+    /// largest continuous run of cream glyphs on the page and therefore the easiest thing on it to
+    /// measure the luminance of.
     /// </summary>
-    private void ComposeBackCover(IDocumentContainer container)
+    private BekiTextProbeRect? CreditsTextProbe(
+        int page, BekiRenderMode mode, float endingSize, float captionSize, float creditsSize,
+        bool hasQr)
     {
-        container.Page(page =>
+        try
         {
-            ApplyGeometry(page, _layout.PageWidthMm);
+            const float spacingPt = 14f;
+            var columnWidthPt = CreditsColumnWidthPt;
 
-            page.Content()
-                .AlignMiddle()
-                .Column(column =>
-                {
-                    column.Spacing(10);
+            var markHeightPt = MmToPt(CreditsMarkWidthMm) / MarkAspect();
+            var endingHeightPt = MeasureBlockHeightPt(_layout.EndingLine, endingSize, columnWidthPt);
+            var qrHeightPt = hasQr ? MmToPt(46f) : 0f;
+            var captionHeightPt = hasQr
+                ? MeasureBlockHeightPt(_layout.EndingQrCaption, captionSize, columnWidthPt)
+                : 0f;
+            var creditsHeightPt = MeasureBlockHeightPt(_layout.CreditsLine, creditsSize, columnWidthPt);
 
-                    // Literal rather than an option: nothing before this needed the brand
-                    // address configurable, and adding a setting nobody will ever change is a
-                    // setting somebody eventually has to explain.
-                    column.Item().AlignCenter().Text("beki.ge")
-                        .FontFamily(PdfFontBootstrap.BodyFamily)
-                        .FontSize(_layout.StoryFontSize * 0.85f)
-                        .FontColor(TextColor);
-                });
-        });
+            var items = hasQr ? 5 : 3;
+            var totalPt = markHeightPt + endingHeightPt + qrHeightPt + captionHeightPt
+                + creditsHeightPt + (spacingPt * (items - 1));
+
+            var availablePt = MmToPt(_layout.SpreadHeightMm - (_layout.SafeMarginMm * 2f));
+            var topPt = MmToPt(Bleed(mode) + _layout.SafeMarginMm)
+                + MathF.Max(0f, (availablePt - totalPt) / 2f);
+
+            var endingTopPt = topPt + markHeightPt + spacingPt;
+
+            var leftMm = Bleed(mode) + (_layout.SpreadWidthMm / 2f) + _layout.SafeMarginMm;
+
+            return new BekiTextProbeRect(
+                page,
+                Math.Round(leftMm, 2),
+                Math.Round(endingTopPt / PointsPerMm, 2),
+                Math.Round(columnWidthPt / PointsPerMm, 2),
+                Math.Round(endingHeightPt / PointsPerMm, 2),
+                "credits-text");
+        }
+        catch (BekiLayoutException)
+        {
+            // A probe rectangle is evidence, not a gate. If the credits line cannot be measured the
+            // page is still correct and the press probe simply has nothing to sample here; failing
+            // a paid book over a missing measurement would be the wrong trade in the wrong place.
+            return null;
+        }
     }
 
-    /// <summary>A spread whose text went missing: artwork to the bleed and nothing else.</summary>
-    private void ComposeArtOnly(IDocumentContainer container, byte[] image, bool print)
+    /// <summary>The credits mark's own width-to-height ratio, so its placed height is known.</summary>
+    private float MarkAspect()
     {
+        try
+        {
+            var info = SixLabors.ImageSharp.Image.Identify(BekiMark());
+            return info.Height <= 0 ? 1f : (float)info.Width / info.Height;
+        }
+        catch (Exception)
+        {
+            return 1f;
+        }
+    }
+
+    /// <summary>The credits column's measure: the right leaf between its safe margins.</summary>
+    private float CreditsColumnWidthPt =>
+        MmToPt((_layout.SpreadWidthMm / 2f) - (_layout.SafeMarginMm * 2f));
+
+    /// <summary>The Beki mark's placed width on the credits spread, in millimetres.</summary>
+    private const float CreditsMarkWidthMm = 32f;
+
+    // ==============================================================================================
+    // Story spreads
+    // ==============================================================================================
+
+    /// <summary>A spread whose text went missing: artwork to the bleed and nothing else.</summary>
+    private void ComposeArtOnly(
+        IDocumentContainer container, byte[] image, int number,
+        BekiRenderMode mode, ReceiptBook receipts)
+    {
+        var placed = CropToPage(image, _layout.SpreadWidthMm, mode);
+
         container.Page(page =>
         {
-            ApplyGeometry(page, _layout.SpreadWidthMm);
-            page.Content().Image(CropToSheet(image, _layout.SpreadWidthMm, print))
-                .FitUnproportionally().UseOriginalImage();
+            ApplyGeometry(page, _layout.SpreadWidthMm, mode);
+            page.Content().Image(placed).FitUnproportionally().UseOriginalImage();
         });
+
+        var artOnlyRole = $"spread-{number:00}-art-only";
+
+        receipts.Add(artOnlyRole, page => new BekiLayoutPageReceipt(
+            page, artOnlyRole,
+            _layout.SpreadWidthMm + (Bleed(mode) * 2f), _layout.SpreadHeightMm + (Bleed(mode) * 2f),
+            Bleed(mode),
+            [Sha256(placed)],
+            Wash: null, [], [], TextProbe: null));
     }
 
     private void ComposeSpread(
         IDocumentContainer container, byte[] image, StorySpread spread,
-        BekiBookPersonalization? personalization, bool print)
+        BekiBookPersonalization? personalization, BekiRenderMode mode, ReceiptBook receipts)
     {
         var textSide = Prompts.BekiSpreadRhythm.TextSideFor(spread.Number);
         var textOnLeft = textSide.Equals("left", StringComparison.OrdinalIgnoreCase);
@@ -749,25 +1476,38 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         var outerPaddingMm = _layout.SafeMarginMm;
         var innerPaddingMm = InnerPaddingMm;
 
-        var usableHeightPt = SheetHeightPt(_layout.SpreadHeightMm)
-            - MmToPt(outerPaddingMm * 2f);
+        var usableHeightPt = MmToPt(_layout.SpreadHeightMm - (outerPaddingMm * 2f));
 
         // Decided before the page is laid out, because the ladder is allowed to fail the book and a
         // failure has to happen before any of it is drawn.
         var fitted = FitStoryText(spread, personalization, usableHeightPt);
+        var placed = CropToPage(image, _layout.SpreadWidthMm, mode);
+
+        var washWidthMm = StoryColumnWidthPt / PointsPerMm;
+        var washHeightMm = (fitted.ContentHeightPt / PointsPerMm) + (_layout.WashPaddingMm * 2f);
+        var washTopMm = Bleed(mode) + outerPaddingMm;
+        var washLeftMm = Bleed(mode) + (textOnLeft
+            ? outerPaddingMm
+            : (_layout.SpreadWidthMm * (1f - _layout.TextColumnShare)) + innerPaddingMm);
+
+        var wash = WashGeometry(
+            washLeftMm, washTopMm, washWidthMm, washHeightMm,
+            textOnLeft ? "left" : "right", mode, $"spread {spread.Number}");
 
         container.Page(page =>
         {
-            ApplyGeometry(page, _layout.SpreadWidthMm);
+            ApplyGeometry(page, _layout.SpreadWidthMm, mode);
 
             page.Content().Layers(layers =>
             {
                 // Cropped to the sheet's own proportions, so filling the frame is exact rather
                 // than a stretch.
-                layers.PrimaryLayer().Image(CropToSheet(image, _layout.SpreadWidthMm, print))
-                    .FitUnproportionally().UseOriginalImage();
+                layers.PrimaryLayer().Image(placed).FitUnproportionally().UseOriginalImage();
 
-                layers.Layer().Row(row =>
+                // The bleed is a frame around the layout, not part of it: the row below divides the
+                // TRIM, so the column, the fitted size and the wrapped lines are the same numbers in
+                // the press file and in the download (audit §10.2).
+                layers.Layer().Padding(Bleed(mode), Unit.Millimetre).Row(row =>
                 {
                     // Two edges, two jobs. The outer edge — away from the fold — only ever needs
                     // the ordinary safe margin. The inner edge sits over the low-information band
@@ -784,39 +1524,66 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                         // top of its column and the wash starts with it.
                         .AlignTop()
                         .AlignLeft()
-                        .MaxWidth(StoryColumnWidthPt / PointsPerMm, Unit.Millimetre)
-                        // No box behind the words — the owner's ruling after the first live
-                        // v1.5 book: the copy sits straight on the artwork as light type with
-                        // its own dark rim, the way earlier versions set it. The padding stays
-                        // as a plain inset so the fit ladder's measurements are unchanged.
-                        .Padding(WashPaddingMm, Unit.Millimetre)
+                        .Width(washWidthMm, Unit.Millimetre)
+                        .Background(StoryWash)
+                        .CornerRadius(_layout.WashCornerRadiusMm, Unit.Millimetre)
+                        .Padding(_layout.WashPaddingMm, Unit.Millimetre)
                         .Column(column =>
                         {
-                            column.Spacing(10);
+                            column.Spacing(EnglishGapPt);
 
-                            column.Item().Element(item => OutlinedText(
+                            column.Item().Element(item => PlainText(
                                 item, spread.Text, fitted.FontSize, StoryLineHeight,
-                                TextColor, OutlineColor,
-                                StoryColumnWidthPt - (MmToPt(WashPaddingMm) * 2f)));
+                                StoryInk, PdfFontBootstrap.BodyFamily, centred: false));
 
                             if (fitted.EnglishFontSize is { } englishSize)
                             {
-                                column.Item().Element(item => OutlinedText(
+                                column.Item().Element(item => PlainText(
                                     item, spread.TextEn!, englishSize, StoryLineHeight,
-                                    TextColor, OutlineColor,
-                                    StoryColumnWidthPt - (MmToPt(WashPaddingMm) * 2f)));
+                                    EnglishInk, PdfFontBootstrap.BodyFamily, centred: false));
                             }
                         });
 
                     if (textOnLeft) row.RelativeItem(1f - _layout.TextColumnShare);
                 });
-
             });
         });
+
+        var typography = new List<BekiTypographyRecord>
+        {
+            new($"spread-{spread.Number:00}-ka", PdfFontBootstrap.BodyFamily,
+                fitted.FontSize, StoryLineHeight, StoryInkHex),
+        };
+
+        var textLines = WrapLines(
+            spread.Text, fitted.FontSize, StoryCopyWidthPt, PdfFontBootstrap.BodyFamily).ToList();
+
+        if (fitted.EnglishFontSize is { } english)
+        {
+            typography.Add(new BekiTypographyRecord(
+                $"spread-{spread.Number:00}-en", PdfFontBootstrap.BodyFamily,
+                english, StoryLineHeight, EnglishInkHex));
+            textLines.AddRange(
+                WrapLines(spread.TextEn!, english, StoryCopyWidthPt, PdfFontBootstrap.BodyFamily));
+        }
+
+        var spreadRole = $"spread-{spread.Number:00}";
+
+        receipts.Add(spreadRole, page => new BekiLayoutPageReceipt(
+            page, spreadRole,
+            _layout.SpreadWidthMm + (Bleed(mode) * 2f), _layout.SpreadHeightMm + (Bleed(mode) * 2f),
+            Bleed(mode),
+            [Sha256(placed)],
+            wash, typography, textLines, TextProbe: null));
     }
 
-    /// <summary>The type size a spread's copy is set at, and the English size if it prints too.</summary>
-    private readonly record struct FittedStoryText(float FontSize, float? EnglishFontSize);
+    /// <summary>The air between the Georgian block and its English sibling, in points.</summary>
+    private const float EnglishGapPt = 10f;
+
+    /// <summary>The type size a spread's copy is set at, the English size if it prints too, and
+    /// the measured height of the two together.</summary>
+    private readonly record struct FittedStoryText(
+        float FontSize, float? EnglishFontSize, float ContentHeightPt);
 
     /// <summary>
     /// The step-down ladder (§6 Step 8), and the failure at the end of it.
@@ -830,13 +1597,16 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// and printed straight off the bottom of the page, and the failure code the handoff reserved
     /// for exactly this was never reachable. Copy is never rewritten to make it fit; §6 Step 8 is
     /// explicit, and rewriting a bought book's words to save a layout is the wrong trade.
+    ///
+    /// The measured height comes back with the size, because the wash is that height plus its
+    /// padding and measuring it a second time would be a second opinion about the same page.
     /// </summary>
     private FittedStoryText FitStoryText(
         StorySpread spread, BekiBookPersonalization? personalization, float usableHeightPt)
     {
         var printEnglish = _layout.PrintEnglishToo && !string.IsNullOrWhiteSpace(spread.TextEn);
-        var columnWidthPt = StoryColumnWidthPt - (MmToPt(WashPaddingMm) * 2f);
-        var washHeightPt = MmToPt(WashPaddingMm) * 2f;
+        var columnWidthPt = StoryCopyWidthPt;
+        var washHeightPt = MmToPt(_layout.WashPaddingMm) * 2f;
 
         var ladder = StoryFontSizeLadder(personalization?.Age);
         var measured = new List<string>(ladder.Count);
@@ -848,14 +1618,14 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
             if (englishSize is { } english)
             {
-                height += 10f + MeasureBlockHeightPt(spread.TextEn!, english, columnWidthPt);
+                height += EnglishGapPt + MeasureBlockHeightPt(spread.TextEn!, english, columnWidthPt);
             }
 
             measured.Add($"{size:0.##}pt→{height + washHeightPt:0}pt");
 
             if (height + washHeightPt <= usableHeightPt)
             {
-                return new FittedStoryText(size, englishSize);
+                return new FittedStoryText(size, englishSize, height);
             }
         }
 
@@ -887,6 +1657,82 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         return rungs;
     }
 
+    // ==============================================================================================
+    // Wash geometry and its rules
+    // ==============================================================================================
+
+    /// <summary>
+    /// One wash, checked against the three rules audit P1-04 states for it, and refused if it
+    /// breaks any of them.
+    ///
+    /// "Keep it within the selected page, outside the fold safety area and trim safety margins."
+    /// Three sentences, three assertions, and the book stops rather than printing a fourth version
+    /// of the defect the audit rejected — Story Spread 4's panel crossed the fold, and nothing in
+    /// the pipeline was in a position to notice. A refusal here is a layout bug and not a content
+    /// one: the geometry that produces these numbers is entirely ours.
+    /// </summary>
+    private BekiWashGeometry WashGeometry(
+        float leftMm, float topMm, float widthMm, float heightMm,
+        string side, BekiRenderMode mode, string what)
+    {
+        // A twentieth of a millimetre. The rules are exactly met by the default geometry — the safe
+        // margin IS the trim clearance — so a comparison without slack would fail on the last bit
+        // of a float rather than on a layout anybody could see.
+        const float Slack = 0.05f;
+
+        var bleed = Bleed(mode);
+        var pageWidthMm = _layout.SpreadWidthMm + (bleed * 2f);
+        var trimLeft = bleed;
+        var trimTop = bleed;
+        var trimRight = bleed + _layout.SpreadWidthMm;
+        var trimBottom = bleed + _layout.SpreadHeightMm;
+        var fold = pageWidthMm / 2f;
+
+        var right = leftMm + widthMm;
+        var bottom = topMm + heightMm;
+
+        var onLeft = side == "left";
+        var foldClearance = onLeft ? fold - right : leftMm - fold;
+
+        var trimClearance = MathF.Min(
+            MathF.Min(leftMm - trimLeft, trimRight - right),
+            MathF.Min(topMm - trimTop, trimBottom - bottom));
+
+        if (onLeft ? right > fold + Slack : leftMm < fold - Slack)
+        {
+            throw new BekiLayoutException(
+                CompositeFailureCodes.LayoutFailed,
+                $"The {what} wash crosses the centre fold: it is the {side} leaf's, and it runs from "
+                + $"{leftMm:0.#} mm to {right:0.#} mm on a page whose fold is at {fold:0.#} mm.");
+        }
+
+        if (foldClearance < _layout.FoldSafetyMm - Slack)
+        {
+            throw new BekiLayoutException(
+                CompositeFailureCodes.LayoutFailed,
+                $"The {what} wash comes within {foldClearance:0.#} mm of the centre fold; audit "
+                + $"P1-04 keeps it outside the {_layout.FoldSafetyMm:0.#} mm fold safety area.");
+        }
+
+        if (trimClearance < _layout.SafeMarginMm - Slack)
+        {
+            throw new BekiLayoutException(
+                CompositeFailureCodes.LayoutFailed,
+                $"The {what} wash comes within {trimClearance:0.#} mm of the trim; audit P1-04 keeps "
+                + $"it inside the {_layout.SafeMarginMm:0.#} mm trim safety margin.");
+        }
+
+        return new BekiWashGeometry(
+            Math.Round(leftMm, 2), Math.Round(topMm, 2),
+            Math.Round(widthMm, 2), Math.Round(heightMm, 2),
+            _layout.WashPaddingMm, _layout.WashCornerRadiusMm, StoryWashHex,
+            side, Math.Round(foldClearance, 2), Math.Round(trimClearance, 2));
+    }
+
+    // ==============================================================================================
+    // Measurement
+    // ==============================================================================================
+
     /// <summary>
     /// The leading every block of story type is set on, as QuestPDF's multiple of the size.
     ///
@@ -913,7 +1759,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// </summary>
     private float MeasureBlockHeightPt(string text, float fontSize, float widthPt)
     {
-        var key = string.Join('\u001F', text, fontSize, widthPt);
+        var key = string.Join('', text, fontSize, widthPt);
 
         if (!_measuredBlockHeights.TryGetValue(key, out var cached))
         {
@@ -927,12 +1773,15 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             + $"{widthPt:0}pt column, so it cannot tell whether the copy fits the page.");
     }
 
-    private float? BuildBlockHeightPt(string text, float fontSize, float widthPt)
+    private float? BuildBlockHeightPt(
+        string text, float fontSize, float widthPt, string? fontFamily = null)
     {
         if (string.IsNullOrWhiteSpace(text) || widthPt <= 1f)
         {
             return 0f;
         }
+
+        var family = fontFamily ?? PdfFontBootstrap.BodyFamily;
 
         try
         {
@@ -941,10 +1790,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 page.ContinuousSize(widthPt, Unit.Point);
                 page.Margin(0);
                 page.PageColor(Colors.Transparent);
-                page.DefaultTextStyle(style => style.FontFamily(PdfFontBootstrap.BodyFamily));
+                page.DefaultTextStyle(style => style.FontFamily(family));
 
                 page.Content().Text(text)
-                    .FontFamily(PdfFontBootstrap.BodyFamily)
+                    .FontFamily(family, PdfFontBootstrap.BodyFamily)
                     .FontSize(fontSize)
                     .LineHeight(StoryLineHeight)
                     .FontColor(StoryInk);
@@ -971,108 +1820,104 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     }
 
     /// <summary>
-    /// Light type with its own dark edge, drawn entirely as vector text.
+    /// Where a block of copy actually breaks, line by line — amendment A4's "text line breaks (the
+    /// measured wrapped lines)".
     ///
-    /// Every piece of type set over artwork comes through here again — the cover title, the
-    /// story copy, and the intro's lines — since the owner removed the cream box: a glyph on a
-    /// picture needs a rim of its own, and the rim is the text drawn eight more times beneath
-    /// the fill, all of it real vector runs.
+    /// Measured, not modelled. The line breaks are Skia's and HarfBuzz's business, so the only
+    /// honest way to learn them is the way the composer learns a block's height: set the text and
+    /// look. Words are added one at a time and the accumulated string is measured; the word that
+    /// makes the block two lines tall is the first word of the second line. That is one measurement
+    /// document per word, which is why the answers are cached process-wide — the function is pure in
+    /// the text, the size, the measure and the face.
     ///
-    /// This used to be a raster: the nine-copy stack rendered to a PNG at 300 DPI with one
-    /// invisible text run over it, so that <c>pdftotext</c> said each line once. The supplier's
-    /// preflight rejected exactly that trade — "a raster title-effect image is placed underneath"
-    /// the vector text, and a printed glyph should be the RIP's own edge, not a picture of one.
-    /// So the visible glyphs are the vector stack again: QuestPDF has no stroke, and the rim is
-    /// the text drawn eight more times on a small circle beneath the fill. The cost, accepted
-    /// knowingly, is that a text extractor reads an outlined line nine times.
-    ///
-    /// <paramref name="blockWidthPt"/> is kept for the callers' layout arithmetic even though no
-    /// raster needs sizing any more; a box too narrow to set type in still falls back to plain.
+    /// Best-effort by design. These lines are evidence for the customer-PDF gate ("visual content,
+    /// line breaks, text colors, and asset versions match the canonical master"), and evidence that
+    /// cannot be gathered is a weaker receipt, never a failed book: a measurement that will not run
+    /// returns the block as one line and the page is unaffected.
     /// </summary>
-    private void OutlinedText(
-        IContainer container,
-        string text,
-        float fontSize,
-        float lineHeight,
-        Color fill,
-        Color outline,
-        float blockWidthPt,
-        string fontFamily = PdfFontBootstrap.BodyFamily,
-        bool centred = false)
+    private IReadOnlyList<string> WrapLines(
+        string text, float fontSize, float widthPt, string fontFamily)
     {
-        // No outline asked for, nothing to outline, or a box too narrow: plain text, which is a
-        // single run and needs no rim.
-        if (_layout.TextOutlineWidth <= 0f || string.IsNullOrWhiteSpace(text) || blockWidthPt <= 1f)
+        if (string.IsNullOrWhiteSpace(text) || widthPt <= 1f)
         {
-            PlainText(container, text, fontSize, lineHeight, fill, fontFamily, centred);
-            return;
+            return [];
         }
 
-        DrawOutlineStack(container, text, fontSize, lineHeight, fill, outline, fontFamily, centred);
+        var key = string.Join(
+            '', fontFamily, fontSize.ToString("R"), widthPt.ToString("R"),
+            StoryLineHeight.ToString("R"), text);
+
+        return WrappedLines.GetOrAdd(key, _ => MeasureWrappedLines(text, fontSize, widthPt, fontFamily));
     }
 
-    /// <summary>
-    /// One block of type, with no outline of its own.
-    ///
-    /// The family behind the first one is a per-glyph fallback, not a preference: QuestPDF asks the
-    /// next family for a character the one before it lacks, which is how the cover title keeps
-    /// Ottia's letters and borrows a dash from Noto instead of printing a box. Noto Serif Georgian
-    /// used to sit in the middle of that chain; R10 removes it, because a chain is a way for a face
-    /// nobody chose to end up embedded in the book.
-    /// </summary>
-    private static void PlainText(
-        IContainer container, string text, float fontSize, float lineHeight,
-        Color colour, string fontFamily, bool centred)
+    private IReadOnlyList<string> MeasureWrappedLines(
+        string text, float fontSize, float widthPt, string fontFamily)
     {
-        var block = container.Text(text)
-            .FontFamily(fontFamily, PdfFontBootstrap.BodyFamily)
-            .FontSize(fontSize)
-            .LineHeight(lineHeight)
-            .FontColor(colour);
-
-        if (centred) block.AlignCenter();
-    }
-
-    /// <summary>
-    /// The faux outline itself: eight offset copies on a circle of the outline's own radius, then
-    /// the fill — all real vector text runs, which since the supplier's preflight ruling is the
-    /// shipped form rather than the source of a raster.
-    /// </summary>
-    private void DrawOutlineStack(
-        IContainer container, string text, float fontSize, float lineHeight,
-        Color fill, Color outline, string fontFamily, bool centred)
-    {
-        var width = _layout.TextOutlineWidth;
-
-        container.Layers(layers =>
+        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (words.Length <= 1)
         {
-            for (var step = 0; step < 8; step++)
+            return [text.Trim()];
+        }
+
+        var oneLinePt = BuildBlockHeightPt(words[0], fontSize, widthPt, fontFamily);
+        if (oneLinePt is not { } unit || unit <= 0f)
+        {
+            return [text.Trim()];
+        }
+
+        // Half a line of slack: the raster measurement rounds to whole pixels, and a block that is
+        // one line tall must never be read as two because of a rounding pixel.
+        var ceiling = unit * 1.5f;
+
+        var lines = new List<string>();
+        var current = words[0];
+
+        for (var index = 1; index < words.Length; index++)
+        {
+            var candidate = current + " " + words[index];
+            var height = BuildBlockHeightPt(candidate, fontSize, widthPt, fontFamily);
+
+            if (height is null)
             {
-                var angle = MathF.PI / 4f * step;
-                layers.Layer()
-                    .TranslateX(width * MathF.Cos(angle))
-                    .TranslateY(width * MathF.Sin(angle))
-                    .Element(item =>
-                        PlainText(item, text, fontSize, lineHeight, outline, fontFamily, centred));
+                return [text.Trim()];
             }
 
-            layers.PrimaryLayer().Element(item =>
-                PlainText(item, text, fontSize, lineHeight, fill, fontFamily, centred));
-        });
+            if (height <= ceiling)
+            {
+                current = candidate;
+                continue;
+            }
+
+            lines.Add(current);
+            current = words[index];
+        }
+
+        lines.Add(current);
+        return lines;
     }
+
+    // ==============================================================================================
+    // Artwork
+    // ==============================================================================================
 
     /// <summary>
     /// The approved endpaper pattern, ready for the sheet it is going onto.
     ///
-    /// It arrives at exactly the working raster — 5315 × 2480, 300 PPI, sRGB — so on the print path
+    /// On the press path it arrives at exactly the working raster — 5315 × 2480, 300 PPI, sRGB — so
     /// it passes through byte-identical. "Use the approved endpaper pattern exactly; do not
-    /// regenerate it" (§9), and a lossy re-encode of an approved asset is a regeneration.
+    /// regenerate it" (§9), and a lossy re-encode of an approved asset is a regeneration. On the
+    /// reading path nothing touches it at all: the download embeds the approved bytes, which is both
+    /// §9's instruction and audit P1-01's — no resampling in either direction.
     /// </summary>
-    private byte[] EndpaperArtwork()
+    private byte[] EndpaperArtwork(BekiRenderMode mode)
         => FixedPageArtwork.GetOrAdd(
-            FixedPageKey("endpaper", _assets.EndpaperPattern.Sha256),
-            _ => NormalizeForPrint(
-                _assets.EndpaperPatternBytes(), PrintRaster, preserveApprovedBytes: true));
+            FixedPageKey(
+                $"endpaper|{(mode == BekiRenderMode.Reading ? "screen" : "press")}",
+                _assets.EndpaperPattern.Sha256),
+            _ => mode == BekiRenderMode.Reading
+                ? FitForScreen(_assets.EndpaperPatternBytes(), _layout.SpreadWidthMm)
+                : NormalizeForPrint(
+                    _assets.EndpaperPatternBytes(), PrintRaster, preserveApprovedBytes: true));
 
     /// <summary>
     /// The intro spread's finished artwork: the approved background for this world with the approved
@@ -1084,9 +1929,11 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// would be a second implementation of the one thing in the pipeline that is supposed to be
     /// provably identical between the proof and the book.
     /// </summary>
-    private byte[] IntroArtwork(string themeId)
+    private byte[] IntroArtwork(string themeId, BekiRenderMode mode)
         => FixedPageArtwork.GetOrAdd(
-            FixedPageKey($"intro|{themeId}", _assets.IntroBackground(themeId).Sha256),
+            FixedPageKey(
+                $"intro|{themeId}|{(mode == BekiRenderMode.Reading ? "screen" : "press")}",
+                _assets.IntroBackground(themeId).Sha256),
             _ =>
             {
                 var background = _assets.IntroBackgroundBytes(themeId);
@@ -1109,8 +1956,71 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                     composite.Manifest.Canvas.WidthPx,
                     composite.Manifest.Canvas.HeightPx);
 
-                return NormalizeForPrint(composite.Png, PrintRaster);
+                return mode == BekiRenderMode.Reading
+                    ? FitForScreen(composite.Png, _layout.SpreadWidthMm)
+                    : NormalizeForPrint(composite.Png, PrintRaster);
             });
+
+    /// <summary>
+    /// One raster made fit for a screen, which here means made no larger than it needs to be.
+    ///
+    /// The whole of what this does is reduce. Audit P1-01's finding is that enlargement is a lie
+    /// about detail, and P2-1's is that a 34 MB download is a press master somebody forgot to
+    /// export; both are answered by a function that has no branch for making an image bigger. A
+    /// story spread arrives at about 143 PPI of the finished page and passes through untouched; the
+    /// approved endpaper and intro artwork arrive at 300 and come out at
+    /// <see cref="BekiPrintLayoutOptions.ScreenTargetPpi"/>. The press masters are not involved:
+    /// nothing on the print path calls this.
+    ///
+    /// Any failure to read or resize returns the bytes as they came. A reading copy carrying an
+    /// oversized picture is a large file; a reading copy that failed to build is a parent without
+    /// their book.
+    /// </summary>
+    private byte[] FitForScreen(byte[] png, float pageWidthMm)
+    {
+        if (_layout.ScreenTargetPpi <= 0 || pageWidthMm <= 0f)
+        {
+            return png;
+        }
+
+        try
+        {
+            using var image = SixLabors.ImageSharp.Image.Load<Rgba32>(png);
+
+            var ceiling = PixelsFor(pageWidthMm, _layout.ScreenTargetPpi);
+            if (image.Width <= ceiling)
+            {
+                return png;
+            }
+
+            var height = Math.Max(1, (int)MathF.Round(
+                (float)image.Height * ceiling / image.Width));
+
+            image.Mutate(ctx => ctx.Resize(new ResizeOptions
+            {
+                Size = new SixLabors.ImageSharp.Size(ceiling, height),
+                Mode = ResizeMode.Stretch,
+                Sampler = KnownResamplers.Lanczos3,
+            }));
+
+            image.Metadata.ResolutionUnits = PixelResolutionUnit.PixelsPerInch;
+            image.Metadata.HorizontalResolution = _layout.ScreenTargetPpi;
+            image.Metadata.VerticalResolution = _layout.ScreenTargetPpi;
+            image.Metadata.IccProfile ??= SrgbProfile();
+
+            using var buffer = new MemoryStream();
+            image.Save(buffer, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder
+            {
+                Quality = _layout.PrintAssetJpegQuality,
+            });
+
+            return buffer.ToArray();
+        }
+        catch (Exception)
+        {
+            return png;
+        }
+    }
 
     /// <summary>
     /// The intro anchor the engine is given: the supplier's numbers with their origin converted.
@@ -1129,6 +2039,13 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// </summary>
     internal static BekiCompositeAnchor IntroAnchor(BekiCompositeConfig config)
         => config.IntroAnchor with { VisibleCenterY = 1d - config.IntroAnchor.VisibleCenterY };
+
+    /// <summary>
+    /// The approved pose the intro spread composites, by hash — the second half of that page's
+    /// source provenance, read from the same registry the engine pastes from.
+    /// </summary>
+    private string IntroPoseSha256() =>
+        Engine.Value.Registry.Pose(Engine.Value.Config.IntroPoseId).Sha256;
 
     /// <summary>
     /// A code as vector geometry, with its quiet zone drawn rather than assumed. QRCoder defaults
@@ -1157,14 +2074,20 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// </summary>
     /// <param name="WidthPx">5315 on the handoff's 450 mm sheet at 300 PPI.</param>
     /// <param name="HeightPx">2480 on its 210 mm height.</param>
-    internal readonly record struct PrintRasterTarget(int WidthPx, int HeightPx, int Ppi, int JpegQuality);
+    /// <param name="MaxUpscale">
+    /// The largest linear enlargement permitted on the way here (D5b / audit P1-01). Zero or less
+    /// disables the guard, which only the screen-proof fixture does.
+    /// </param>
+    internal readonly record struct PrintRasterTarget(
+        int WidthPx, int HeightPx, int Ppi, int JpegQuality, float MaxUpscale = 1.05f);
 
     /// <summary>This book's print raster target, computed from the sheet rather than written down.</summary>
     private PrintRasterTarget PrintRaster => new(
         PixelsFor(_layout.SpreadWidthMm + (_layout.BleedMm * 2f), _layout.PrintTargetPpi),
         PixelsFor(_layout.SpreadHeightMm + (_layout.BleedMm * 2f), _layout.PrintTargetPpi),
         _layout.PrintTargetPpi,
-        _layout.PrintAssetJpegQuality);
+        _layout.PrintAssetJpegQuality,
+        _layout.MaxPrintUpscale);
 
     /// <summary>
     /// The cache key for one fixed page's finished artwork.
@@ -1185,13 +2108,21 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// One interior layer at exactly the working raster the handoff specifies: 5315 × 2480 px,
     /// 300 PPI in the file's own metadata, and an sRGB profile embedded rather than assumed.
     ///
-    /// Three things changed here. It used to resize by width alone and let the height fall where it
-    /// fell, so a layer was "about" the right size; it used to skip anything already wide enough,
-    /// so a 6000-pixel render shipped at 6000 pixels; and it never wrote a density or a colour
-    /// profile at all, which is how a book reached a printer as an untagged RGB file. Now the
+    /// Three things changed here originally. It used to resize by width alone and let the height
+    /// fall where it fell, so a layer was "about" the right size; it used to skip anything already
+    /// wide enough, so a 6000-pixel render shipped at 6000 pixels; and it never wrote a density or a
+    /// colour profile at all, which is how a book reached a printer as an untagged RGB file. Now the
     /// dimensions are exact in both axes, and the ratio is checked before the resize — the caller
     /// has already cropped to the sheet, so anything that still disagrees would be a stretch, and
     /// §6 Step 8 forbids stretching in as many words.
+    ///
+    /// **And the fourth thing, which is D5b.** All of the above was still satisfied by taking a
+    /// 2528 × 1180 story render and Lanczos-stretching it to 5315 × 2480: the file then says 300 PPI
+    /// and carries about 143 PPI of detail, which is precisely what audit P1-01 found in the
+    /// rejected press interior. Interpolation does not make detail. So an enlargement beyond
+    /// <see cref="PrintRasterTarget.MaxUpscale"/> is refused, naming <c>PRESS_RESOLUTION</c>, and a
+    /// real source or an approved upscaler has to arrive BEFORE layout. Reduction is untouched:
+    /// making an approved asset smaller loses nothing a press would have printed.
     ///
     /// <paramref name="preserveApprovedBytes"/> lets an approved asset that already satisfies every
     /// clause pass through byte-identical, which is what §9 asks for of the endpaper pattern: "use
@@ -1239,6 +2170,22 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
         if (image.Width != target.WidthPx || image.Height != target.HeightPx)
         {
+            var factor = MathF.Max(
+                (float)target.WidthPx / image.Width,
+                (float)target.HeightPx / image.Height);
+
+            if (target.MaxUpscale > 0f && factor > target.MaxUpscale)
+            {
+                throw new BekiLayoutException(
+                    CompositeFailureCodes.LayoutFailed,
+                    $"PRESS_RESOLUTION: a print layer is {image.Width}×{image.Height} and the sheet "
+                    + $"needs {target.WidthPx}×{target.HeightPx} — a {factor:0.00}× enlargement, past "
+                    + $"the {target.MaxUpscale:0.00}× this layout allows. Audit item P1-01: "
+                    + "interpolation does not create detail, and a layer stretched to the target "
+                    + "reports 300 PPI while carrying far less. Deliver real source detail, or run "
+                    + "an approved upscaler, BEFORE layout.");
+            }
+
             image.Mutate(ctx => ctx.Resize(new ResizeOptions
             {
                 Size = new SixLabors.ImageSharp.Size(target.WidthPx, target.HeightPx),
@@ -1336,11 +2283,19 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// book ends up with the composition trimmed off the page it was drawn for.
     /// <see cref="BekiPrintLayoutOptions.PrintCropTolerance"/> is where that line is drawn, and it is
     /// configuration so that an owner who decides to accept a deeper crop records the decision.
+    ///
+    /// **The reading copy takes the same crop and then the trim out of it.** Not a crop of its own:
+    /// the parent's page has to show exactly what the printed page shows, so the artwork is fitted
+    /// to the bled sheet the way the press file fits it and then the bleed is taken off all four
+    /// edges. Cropping straight to 440 : 200 instead would keep a slightly different part of the
+    /// picture, and the customer gate asks for the two to match.
     /// </summary>
-    private byte[] CropToSheet(byte[] png, float sheetWidthMm, bool print = false, bool enforceCropTolerance = true)
+    private byte[] CropToPage(
+        byte[] png, float sheetWidthMm, BekiRenderMode mode, bool enforceCropTolerance = true)
     {
-        var targetRatio = (sheetWidthMm + (_layout.BleedMm * 2f))
-            / (_layout.SpreadHeightMm + (_layout.BleedMm * 2f));
+        var bledWidthMm = sheetWidthMm + (_layout.BleedMm * 2f);
+        var bledHeightMm = _layout.SpreadHeightMm + (_layout.BleedMm * 2f);
+        var targetRatio = bledWidthMm / bledHeightMm;
 
         using var image = SixLabors.ImageSharp.Image.Load<Rgba32>(png);
 
@@ -1375,6 +2330,23 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             }
         }
 
+        var x = (width - cropWidth) / 2;
+        var y = (height - cropHeight) / 2;
+
+        if (mode == BekiRenderMode.Reading && _layout.BleedMm > 0f)
+        {
+            var insetX = (int)MathF.Round(cropWidth * _layout.BleedMm / bledWidthMm);
+            var insetY = (int)MathF.Round(cropHeight * _layout.BleedMm / bledHeightMm);
+
+            if (cropWidth - (insetX * 2) >= 1 && cropHeight - (insetY * 2) >= 1)
+            {
+                x += insetX;
+                y += insetY;
+                cropWidth -= insetX * 2;
+                cropHeight -= insetY * 2;
+            }
+        }
+
         byte[] outBytes;
         if (cropWidth == width && cropHeight == height)
         {
@@ -1383,23 +2355,35 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         else
         {
             image.Mutate(ctx => ctx.Crop(new SixLabors.ImageSharp.Rectangle(
-                (width - cropWidth) / 2, (height - cropHeight) / 2, cropWidth, cropHeight)));
+                x, y, cropWidth, cropHeight)));
 
             using var buffer = new MemoryStream();
             image.Save(buffer, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
             outBytes = buffer.ToArray();
         }
 
-        return print
-            ? NormalizeForPrint(outBytes, PrintRaster with
+        return mode switch
+        {
+            BekiRenderMode.Press => NormalizeForPrint(outBytes, PrintRaster with
             {
-                WidthPx = PixelsFor(sheetWidthMm + (_layout.BleedMm * 2f), _layout.PrintTargetPpi),
-            })
-            : outBytes;
+                WidthPx = PixelsFor(bledWidthMm, _layout.PrintTargetPpi),
+            }),
+            BekiRenderMode.Reading => FitForScreen(outBytes, sheetWidthMm),
+            _ => outBytes,
+        };
     }
 
+    // ==============================================================================================
+    // Page geometry
+    // ==============================================================================================
+
+    /// <summary>How far the artwork runs past the trim on this document. Zero on the download.</summary>
+    private float Bleed(BekiRenderMode mode)
+        => mode == BekiRenderMode.Reading ? 0f : _layout.BleedMm;
+
     /// <summary>
-    /// One geometry, two widths: the spread, and the single leaf that is half of it.
+    /// One geometry, two widths and three modes: the spread, the single leaf that is half of it,
+    /// and whether the page carries the printer's bleed or is the finished trim exactly.
     ///
     /// The default text style is set here as well, and it is not decoration. QuestPDF's own default
     /// family is Lato; a run that named no family, or a glyph no named family carried, fell through
@@ -1407,11 +2391,14 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// in the shipped PDF. Naming the body face as the page default means there is nothing left for
     /// a fall-through to reach.
     /// </summary>
-    private void ApplyGeometry(PageDescriptor page, float widthMm, Color? pageColor = null)
+    private void ApplyGeometry(
+        PageDescriptor page, float widthMm, BekiRenderMode mode, Color? pageColor = null)
     {
+        var bleed = Bleed(mode);
+
         page.Size(new PageSize(
-            widthMm + (_layout.BleedMm * 2),
-            _layout.SpreadHeightMm + (_layout.BleedMm * 2),
+            widthMm + (bleed * 2f),
+            _layout.SpreadHeightMm + (bleed * 2f),
             Unit.Millimetre));
 
         page.Margin(0);
@@ -1423,39 +2410,185 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private static float MmToPt(float mm) => mm * PointsPerMm;
 
     /// <summary>
-    /// A sheet's full width in points, bleed included — the box QuestPDF actually lays out in,
-    /// since <see cref="ApplyGeometry"/> sets the page to trim plus bleed and takes no margin.
-    /// </summary>
-    private float SheetWidthPt(float sheetWidthMm) => MmToPt(sheetWidthMm + (_layout.BleedMm * 2f));
-    private float SheetHeightPt(float sheetHeightMm) => MmToPt(sheetHeightMm + (_layout.BleedMm * 2f));
-
-    /// <summary>
     /// How far a spread's text column holds back on its inner edge — see <see cref="ComposeSpread"/>
     /// for why the fold side is not simply the safe margin.
     /// </summary>
     private float InnerPaddingMm => MathF.Max(_layout.SafeMarginMm, _layout.GutterZoneMm / 2f);
 
     /// <summary>
-    /// The width, in points, of the box a spread's story text is set in: the reserved column less
-    /// its two paddings, and never wider than the configured maximum.
+    /// The width, in points, of the wash a spread's story text sits on: the reserved column less its
+    /// two paddings, and never wider than the configured maximum.
     ///
-    /// The maximum is the approved reference's 170 mm (§6 Step 8). On a 450 mm spread a third of the
+    /// Written on the TRIM and not on the sheet, which is the whole of what makes the press file and
+    /// the download the same layout: the bleed is a frame the press page carries and the download
+    /// does not, and a column measured from the sheet's edge would be five millimetres narrower on
+    /// one of them and break its lines somewhere else.
+    ///
+    /// The maximum is the approved reference's 170 mm (§6 Step 8). On a 440 mm spread a third of the
     /// sheet is narrower than that, so today the cap does not bind — it is written down because the
     /// column share is configuration, and a book whose column was widened must not get a 200 mm
     /// measure that no reading age can track across.
     /// </summary>
     private float StoryColumnWidthPt => MathF.Min(
-        (SheetWidthPt(_layout.SpreadWidthMm) * _layout.TextColumnShare)
+        (MmToPt(_layout.SpreadWidthMm) * _layout.TextColumnShare)
             - MmToPt(_layout.SafeMarginMm)
             - MmToPt(InnerPaddingMm),
         MmToPt(_layout.MaxTextWidthMm));
 
+    /// <summary>The measure the copy itself is set to: the wash, less the wash's own padding.</summary>
+    private float StoryCopyWidthPt => StoryColumnWidthPt - (MmToPt(_layout.WashPaddingMm) * 2f);
+
+    /// <summary>The intro wash's width: the left leaf's text area, capped at the same measure.</summary>
+    private float IntroWashWidthMm => MathF.Min(
+        (_layout.SpreadWidthMm / 2f) - _layout.SafeMarginMm - InnerPaddingMm,
+        _layout.MaxTextWidthMm);
+
     /// <summary>
-    /// The exact width, in points, of the cover title's band: the leaf between its safe margins.
+    /// The exact width, in points, of the legacy cover title's band: the leaf between its safe
+    /// margins, on the trim.
     /// </summary>
     private float CoverTitleWidthPt =>
-        SheetWidthPt(_layout.PageWidthMm) - (MmToPt(_layout.SafeMarginMm) * 2f);
+        MmToPt(_layout.PageWidthMm) - (MmToPt(_layout.SafeMarginMm) * 2f);
 
+    // ==============================================================================================
+    // Type
+    // ==============================================================================================
+
+    /// <summary>
+    /// Light type with its own dark edge, drawn entirely as vector text.
+    ///
+    /// Two things come through here now, and both of them are type set over something this composer
+    /// did not draw: the cover title, and the address on the back cover. The story and intro copy
+    /// left when audit P1-04 restored the cream wash under it — dark ink on cream needs no rim, and
+    /// a rim on it would read as type printed twice.
+    ///
+    /// This used to be a raster: the nine-copy stack rendered to a PNG at 300 DPI with one
+    /// invisible text run over it, so that <c>pdftotext</c> said each line once. The supplier's
+    /// preflight rejected exactly that trade — "a raster title-effect image is placed underneath"
+    /// the vector text, and a printed glyph should be the RIP's own edge, not a picture of one.
+    /// So the visible glyphs are the vector stack again: QuestPDF has no stroke, and the rim is
+    /// the text drawn eight more times on a small circle beneath the fill. The cost, accepted
+    /// knowingly, is that a text extractor reads an outlined line nine times.
+    ///
+    /// <paramref name="blockWidthPt"/> is kept for the callers' layout arithmetic even though no
+    /// raster needs sizing any more; a box too narrow to set type in still falls back to plain.
+    /// </summary>
+    private void OutlinedText(
+        IContainer container,
+        string text,
+        float fontSize,
+        float lineHeight,
+        Color fill,
+        Color outline,
+        float blockWidthPt,
+        string fontFamily = PdfFontBootstrap.BodyFamily,
+        bool centred = false)
+    {
+        // No outline asked for, nothing to outline, or a box too narrow: plain text, which is a
+        // single run and needs no rim.
+        if (_layout.TextOutlineWidth <= 0f || string.IsNullOrWhiteSpace(text) || blockWidthPt <= 1f)
+        {
+            PlainText(container, text, fontSize, lineHeight, fill, fontFamily, centred);
+            return;
+        }
+
+        DrawOutlineStack(container, text, fontSize, lineHeight, fill, outline, fontFamily, centred);
+    }
+
+    /// <summary>
+    /// One block of type, with no outline of its own.
+    ///
+    /// The family behind the first one is a per-glyph fallback, not a preference: QuestPDF asks the
+    /// next family for a character the one before it lacks, which is how the cover title keeps
+    /// Ottia's letters and borrows a dash from Noto instead of printing a box. Noto Serif Georgian
+    /// used to sit in the middle of that chain; R10 removes it, because a chain is a way for a face
+    /// nobody chose to end up embedded in the book.
+    /// </summary>
+    private static void PlainText(
+        IContainer container, string text, float fontSize, float lineHeight,
+        Color colour, string fontFamily, bool centred)
+    {
+        var block = container.Text(text)
+            .FontFamily(fontFamily, PdfFontBootstrap.BodyFamily)
+            .FontSize(fontSize)
+            .LineHeight(lineHeight)
+            .FontColor(colour);
+
+        if (centred) block.AlignCenter();
+    }
+
+    /// <summary>
+    /// The faux outline itself: eight offset copies on a circle of the outline's own radius, then
+    /// the fill — all real vector text runs, which since the supplier's preflight ruling is the
+    /// shipped form rather than the source of a raster.
+    /// </summary>
+    private void DrawOutlineStack(
+        IContainer container, string text, float fontSize, float lineHeight,
+        Color fill, Color outline, string fontFamily, bool centred)
+    {
+        var width = _layout.TextOutlineWidth;
+
+        container.Layers(layers =>
+        {
+            for (var step = 0; step < 8; step++)
+            {
+                var angle = MathF.PI / 4f * step;
+                layers.Layer()
+                    .TranslateX(width * MathF.Cos(angle))
+                    .TranslateY(width * MathF.Sin(angle))
+                    .Element(item =>
+                        PlainText(item, text, fontSize, lineHeight, outline, fontFamily, centred));
+            }
+
+            layers.PrimaryLayer().Element(item =>
+                PlainText(item, text, fontSize, lineHeight, fill, fontFamily, centred));
+        });
+    }
+
+    // ==============================================================================================
+    // Receipts
+    // ==============================================================================================
+
+    /// <summary>
+    /// The page receipts as they accumulate, in page order, with the page numbering that a
+    /// fourteen-page book and a twelve-page interior each need.
+    ///
+    /// Keyed by role and upserted rather than appended, which is not fussiness: QuestPDF is free to
+    /// walk a document's composition more than once, and a receipts list that grew on the second
+    /// walk would report a twenty-eight page book. A role — "intro", "spread-04", "credits" — occurs
+    /// exactly once in a Beki book, so the second visit rewrites the first's entry in place and the
+    /// page numbering stays the document's own.
+    /// </summary>
+    private sealed class ReceiptBook(BekiRenderMode mode)
+    {
+        private readonly List<BekiLayoutPageReceipt> _pages = [];
+
+        public void Add(string role, Func<int, BekiLayoutPageReceipt> build)
+        {
+            var existing = _pages.FindIndex(page => page.Role == role);
+
+            if (existing >= 0)
+            {
+                _pages[existing] = build(existing + 1);
+                return;
+            }
+
+            _pages.Add(build(_pages.Count + 1));
+        }
+
+        public BekiLayoutReceipts Build() => new(
+            mode switch
+            {
+                BekiRenderMode.Reading => "reading",
+                BekiRenderMode.Proof => "proof",
+                _ => "press",
+            },
+            _pages);
+    }
+
+    /// <summary>The hash of exactly the bytes a page placed, which is what a receipt is about.</summary>
+    private static string Sha256(byte[] bytes)
+        => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
 }
 
 /// <summary>

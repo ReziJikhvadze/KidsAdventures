@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Enums;
 using AdventurePacks.Api.Services.Pdf;
@@ -25,9 +26,14 @@ public class BekiLayoutAssetTests
         // Fonts, the approved endpaper pattern and all six intro backgrounds, in one pass.
         BekiLayoutAssets.Current.VerifyAll();
 
-        Assert.Equal("beki-layout-assets-v1.1", BekiLayoutAssets.Current.RegistryVersion);
+        Assert.Equal("beki-layout-assets-v1.2", BekiLayoutAssets.Current.RegistryVersion);
+        Assert.Equal("beki-theme-references-v1", BekiLayoutAssets.Current.ThemeRegistryVersion);
         Assert.Equal(6, BekiLayoutAssets.Current.CanonicalThemeIds.Count);
-        Assert.Equal(4, BekiLayoutAssets.Current.Fonts.Count);
+
+        // v1.2, against audit P1-02: six faces, not four. The two Georgian SemiBolds were embedded
+        // in sold books by the PDF bootstrap and appeared in no registry anywhere, so nothing could
+        // say whether the bytes that printed were the bytes anybody approved.
+        Assert.Equal(6, BekiLayoutAssets.Current.Fonts.Count);
 
         // v1.1: the credits/back-cover mark resolves through the pose registry — approved
         // transparent artwork with a hash, never the legacy opaque raster from a hardcoded path.
@@ -68,6 +74,46 @@ public class BekiLayoutAssetTests
         {
             Assert.Contains(whitelisted, registered);
         }
+    }
+
+    /// <summary>
+    /// Every font file the PDF bootstrap embeds is described by the registry, with the hash of the
+    /// file that is actually installed.
+    ///
+    /// The stronger claim than the whitelist test above, and the one audit P1-02 asked for. The
+    /// whitelist says what the Beki book may be <em>set</em> in; this says what the process
+    /// <em>embeds</em>, which was the larger list — five files by hardcoded path, two of them in no
+    /// approval document at all, none of them hashed. A face nobody approved reaching a printed
+    /// page is not something the old arrangement could have detected.
+    /// </summary>
+    [Fact]
+    public void Every_face_the_bootstrap_embeds_is_in_the_registry_with_the_installed_hash()
+    {
+        var fontsDirectory = Path.Combine(AppContext.BaseDirectory, "Assets", "Fonts");
+
+        string[] embedded =
+        [
+            "NotoSansGeorgian-Regular.ttf",
+            "NotoSansGeorgian-SemiBold.ttf",
+            "NotoSansGeorgian-Bold.ttf",
+            "NotoSerifGeorgian-SemiBold.ttf",
+            "Ottia-v01-Regular.ttf",
+        ];
+
+        foreach (var file in embedded)
+        {
+            var expected = BekiLayoutAssets.Current.ExpectedFontSha256(file);
+            Assert.NotNull(expected);
+
+            var actual = Convert.ToHexString(
+                SHA256.HashData(File.ReadAllBytes(Path.Combine(fontsDirectory, file)))).ToLowerInvariant();
+
+            Assert.Equal(expected, actual);
+        }
+
+        // And a file the registry has never heard of answers null rather than shrugging — the
+        // bootstrap needs to be able to report that case, because it is the case that happened.
+        Assert.Null(BekiLayoutAssets.Current.ExpectedFontSha256("Nunito-Regular.ttf"));
     }
 
     /// <summary>
@@ -165,13 +211,13 @@ public class BekiLayoutAssetTests
             .ToList();
         var composer = new BekiPdfComposer(Options.Create(BekiLayoutFixture.ScreenProofLayout()));
 
-        var unknown = Assert.Throws<BekiLayoutException>(() => composer.Compose(
+        var unknown = Assert.Throws<BekiLayoutException>(() => composer.ComposeWithReceipts(
             plan, BekiLayoutFixture.LeafPng((200, 60, 60)), spreads,
             BekiLayoutFixture.Personalization(theme: "Atlantis")));
         Assert.Equal(CompositeFailureCodes.LayoutFailed, unknown.FailureCode);
 
         var anonymous = Assert.Throws<BekiLayoutException>(
-            () => composer.Compose(plan, BekiLayoutFixture.LeafPng((200, 60, 60)), spreads));
+            () => composer.ComposeWithReceipts(plan, BekiLayoutFixture.LeafPng((200, 60, 60)), spreads));
         Assert.Equal(CompositeFailureCodes.LayoutFailed, anonymous.FailureCode);
     }
 

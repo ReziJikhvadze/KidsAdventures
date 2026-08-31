@@ -47,7 +47,7 @@ public class BekiProofSheetTests(ITestOutputHelper output)
         var personalization = BekiLayoutFixture.Personalization();
         var cover = BekiLayoutFixture.LeafPng((160, 60, 60), width: 2716);
 
-        var pdf = composer.Compose(plan, cover, spreads, personalization);
+        var pdf = composer.ComposeWithReceipts(plan, cover, spreads, personalization).Pdf;
         var pdfPath = Path.Combine(folder, "beki-fixture-book.pdf");
         File.WriteAllBytes(pdfPath, pdf);
 

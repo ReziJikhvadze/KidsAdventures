@@ -24,6 +24,8 @@ public sealed class AdminOrdersController(
     IAdventureGenerationService generationService,
     IOrderService orderService,
     BekiPackageExport packageExport,
+    BekiReleaseGates releaseGates,
+    IUserContextService userContext,
     ILogger<AdminOrdersController> logger) : ControllerBase
 {
     /// <summary>
@@ -151,8 +153,231 @@ public sealed class AdminOrdersController(
         var package = await packageExport.BuildAsync(
             pack.UserId, pack.Id, pack.Title, cancellationToken);
 
-        return File(package, "application/zip", $"beki-{detail.Book.Id}-package.zip");
+        // The audit's own naming, so an operator forwarding this to the supplier is forwarding a
+        // file whose name means something in the supplier's vocabulary rather than in ours.
+        return File(package, "application/zip", BekiPackageExport.PackageFileName(pack.Id));
     }
+
+    /// <summary>
+    /// What the sixteen hard gates make of this book, and what is therefore being withheld.
+    ///
+    /// Read from the stored verdict rather than recomputed, deliberately: the console is showing an
+    /// operator the same document the handback package carries and the approval endpoint checks
+    /// against, and a view that computed its own answer could disagree with both.
+    /// </summary>
+    [HttpGet("orders/{id:guid}/release-gates")]
+    public async Task<ActionResult<AdminReleaseGatesResponse>> ReleaseGates(
+        Guid id, CancellationToken cancellationToken)
+    {
+        var pack = await PackForOrderAsync(id, cancellationToken);
+        if (pack is null)
+        {
+            return NotFound(new { message = "ამ შეკვეთას წიგნი არ აქვს." });
+        }
+
+        var report = await ReadReleaseGatesAsync(pack.UserId, pack.Id, cancellationToken);
+
+        // 200 with a null verdict rather than 404: "this book has no gate evaluation" is a fact the
+        // console should show, not an error it should hide. Books fulfilled before the gates existed
+        // are exactly this case.
+        return Ok(ToResponse(report));
+    }
+
+    /// <summary>
+    /// A reviewer's signature on the rendered contact sheet — the human half of VISUAL_QA
+    /// (plan D8, amendments A2 and A5).
+    ///
+    /// Three things make this more than a flag. It records WHO, from the authenticated admin rather
+    /// than from the request body, because an approval nobody can be asked about is not a resolution.
+    /// It records WHICH PIXELS, by the contact sheet's SHA-256, and refuses a sheet that is no longer
+    /// the current one — a book re-rendered after approval is a book nobody has approved. And it is
+    /// ATOMIC in the sense that matters: it writes the approval, re-runs the whole evaluation against
+    /// stored artifacts, rewrites the verdict, and publishes whatever the new verdict unlocks, inside
+    /// one request, so there is never a window where the approval exists and the book is still held.
+    /// </summary>
+    [HttpPost("orders/{id:guid}/approve-review")]
+    public async Task<ActionResult<AdminReleaseGatesResponse>> ApproveReview(
+        Guid id,
+        [FromBody] AdminApproveReviewRequest request,
+        CancellationToken cancellationToken)
+    {
+        var pack = await PackForOrderAsync(id, cancellationToken);
+        if (pack is null)
+        {
+            return NotFound(new { message = "ამ შეკვეთას წიგნი არ აქვს." });
+        }
+
+        var current = await ReadReleaseGatesAsync(pack.UserId, pack.Id, cancellationToken);
+        if (current is null)
+        {
+            return Conflict(new
+            {
+                message = "ამ წიგნს ჯერ არ აქვს გამოშვების შემოწმება — დასადასტურებელი არაფერია."
+            });
+        }
+
+        if (current.ContactSheetSha256 is not { Length: > 0 } sheet)
+        {
+            return Conflict(new
+            {
+                message = "რენდერის კონტაქტ-ფურცელი არ არსებობს, ამიტომ დასადასტურებელი სურათი არ არის."
+            });
+        }
+
+        // Amendment A2: the approval is of a specific rendering. A reviewer who looked at an older
+        // contact sheet is refused rather than recorded, because the alternative is an approval that
+        // means "somebody once looked at some version of this book".
+        if (!string.Equals(request.ContactSheetSha256?.Trim(), sheet, StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict(new
+            {
+                message = "დადასტურება ეხება სხვა კონტაქტ-ფურცელს — გვერდი განაახლეთ და ხელახლა ნახეთ.",
+                expected = sheet,
+            });
+        }
+
+        var approval = new BekiHumanApproval(
+            userContext.GetEmail() is { Length: > 0 } email ? email : userContext.GetUserId().ToString(),
+            DateTimeOffset.UtcNow,
+            sheet,
+            string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim());
+
+        await blobStorage.UploadAsync(
+            BekiPackBlobs.HumanApprovalName(pack.UserId, pack.Id),
+            System.Text.Encoding.UTF8.GetBytes(approval.ToJson()),
+            "application/json",
+            cancellationToken);
+
+        var revised = await releaseGates.EvaluateAsync(pack.UserId, pack.Id, cancellationToken);
+
+        await blobStorage.UploadAsync(
+            BekiPackBlobs.ReleaseGatesName(pack.UserId, pack.Id),
+            System.Text.Encoding.UTF8.GetBytes(revised.ToJson()),
+            "application/json",
+            cancellationToken);
+
+        await PublishUnlockedFilesAsync(pack, revised, cancellationToken);
+
+        logger.LogInformation(
+            "Beki pack {PackId}: {Approver} signed off contact sheet {Sheet}; the verdict is now "
+            + "{Verdict} ({Failing}).",
+            pack.Id, approval.ApprovedBy, sheet[..12], revised.Verdict,
+            revised.FailingGates.Count == 0 ? "no failing gates" : string.Join(", ", revised.FailingGates));
+
+        return Ok(ToResponse(revised));
+    }
+
+    /// <summary>
+    /// Writes the URL columns the new verdict unlocks, and only those.
+    ///
+    /// The compare-and-set idiom the fulfilment job's own terminal write uses, for the same reason:
+    /// this runs long after the job finished and must not resurrect a pack the stale-generation
+    /// sweep buried, or overwrite a status somebody else wrote. A pack that is not Completed keeps
+    /// its columns and the operator is told why.
+    /// </summary>
+    private async Task PublishUnlockedFilesAsync(
+        Domain.Entities.AdventurePack pack,
+        BekiReleaseGateReport verdict,
+        CancellationToken cancellationToken)
+    {
+        if (verdict.PressFilesMayPublish
+            && await blobStorage.ExistsAsync(
+                BekiPackBlobs.InteriorPdfName(pack.UserId, pack.Id), cancellationToken))
+        {
+            await packRepository.UpdatePrintPdfUrlAsync(
+                pack.Id,
+                await StoredUrlAsync(BekiPackBlobs.InteriorPdfName(pack.UserId, pack.Id)),
+                cancellationToken);
+        }
+
+        if (!verdict.CustomerPdfMayPublish
+            || !string.IsNullOrWhiteSpace(pack.PdfUrl)
+            || pack.Status != AdventurePackStatus.Completed)
+        {
+            return;
+        }
+
+        var published = await packRepository.TryUpdateStatusAsync(
+            pack.Id,
+            AdventurePackStatus.Completed,
+            AdventurePackStatus.Completed,
+            pack.GeneratedJson,
+            await StoredUrlAsync(BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id)),
+            null,
+            cancellationToken);
+
+        if (!published)
+        {
+            logger.LogWarning(
+                "Beki pack {PackId}: the customer PDF was unlocked by this approval but the pack is "
+                + "no longer Completed, so nothing was published. Whoever moved it decides next.",
+                pack.Id);
+        }
+
+        // The blob's own stored URL, which is whatever upload returned for it. Re-uploading the same
+        // bytes is the only way this account hands back that string, and it is cheap next to being
+        // wrong: a key assembled by hand reads on one storage backend and 404s on the other.
+        async Task<string?> StoredUrlAsync(string blobName)
+        {
+            if (!await blobStorage.ExistsAsync(blobName, cancellationToken))
+            {
+                return null;
+            }
+
+            await using var stream = await blobStorage.DownloadAsync(blobName, cancellationToken);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer, cancellationToken);
+
+            return await blobStorage.UploadAsync(
+                blobName, buffer.ToArray(), "application/pdf", cancellationToken);
+        }
+    }
+
+    private async Task<Domain.Entities.AdventurePack?> PackForOrderAsync(
+        Guid orderId, CancellationToken cancellationToken)
+    {
+        var detail = await reporting.GetOrderDetailAsync(orderId, cancellationToken);
+
+        return detail?.Book is null
+            ? null
+            : await packRepository.GetByIdNoOwnershipAsync(detail.Book.Id, cancellationToken);
+    }
+
+    private async Task<BekiReleaseGateReport?> ReadReleaseGatesAsync(
+        Guid userId, Guid packId, CancellationToken cancellationToken)
+    {
+        var name = BekiPackBlobs.ReleaseGatesName(userId, packId);
+
+        try
+        {
+            if (!await blobStorage.ExistsAsync(name, cancellationToken))
+            {
+                return null;
+            }
+
+            await using var stream = await blobStorage.DownloadAsync(name, cancellationToken);
+            using var reader = new StreamReader(stream);
+
+            return BekiReleaseGateReport.TryParse(await reader.ReadToEndAsync(cancellationToken));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Release gates for pack {PackId} could not be read.", packId);
+            return null;
+        }
+    }
+
+    private static AdminReleaseGatesResponse ToResponse(BekiReleaseGateReport? report) => new(
+        report?.Verdict,
+        report?.EvaluatedAtUtc,
+        report?.FailingGates ?? [],
+        report?.AwaitingHumanReview ?? false,
+        report?.ContactSheetSha256,
+        report?.CustomerPdfMayPublish ?? false,
+        report?.PressFilesMayPublish ?? false,
+        report?.Gates
+            .Select(gate => new AdminReleaseGate(gate.Id, gate.Status, gate.Class, gate.Detail))
+            .ToList() ?? []);
 
     /// <summary>
     /// Builds a PDF for a book that has none. Reuses the customer-facing job, which already

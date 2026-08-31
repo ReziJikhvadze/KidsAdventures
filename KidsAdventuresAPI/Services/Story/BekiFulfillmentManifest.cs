@@ -7,21 +7,74 @@ namespace AdventurePacks.Api.Services.Story;
 public sealed record BekiFulfillmentManifestEntry(int SpreadNumber, string StoredUrl);
 
 /// <summary>
-/// The cover as it was shipped: where it is stored, which prompt drew it, and the review verdict.
+/// A dependency that must be identified and must not travel: the child's photograph and the four
+/// identity attributes read from it (amendment A7).
+/// </summary>
+/// <param name="Reference">The immutable blob reference, inside the pack's private prefix.</param>
+/// <param name="Sha256">The hash of the bytes at that reference, so a claim can be checked.</param>
+/// <param name="Bytes">The size, which says a file was actually read rather than assumed.</param>
+public sealed record BekiPrivateArtifactReference(string Reference, string Sha256, long Bytes);
+
+/// <summary>
+/// The three fields the audit-2 correction added to the manifest, carried together so that the
+/// writer keeps one optional parameter rather than four.
+/// </summary>
+public sealed record BekiManifestPrivateRefs(
+    string? StoryUrl = null,
+    BekiPrivateArtifactReference? ChildPhotograph = null,
+    BekiPrivateArtifactReference? ChildIdentity = null);
+
+/// <summary>
+/// The cover as it was shipped: where the master is stored, what produced it, and its verdict.
+///
+/// Rewritten by audit-2 P0-01. This record used to say which of two AI redraw prompts had drawn the
+/// customer's front page — a question that only makes sense in a world with two cover producers,
+/// which is the world the supplier rejected. A composite book now has exactly one cover master, the
+/// composited 512 × 245 wrap, and every cover a human ever sees is a crop or a typeset derivation of
+/// it. So the record names that master: the approved pose composited onto it, the hash of the exact
+/// bytes every derivation was cut from, and the anchor the pose was placed at.
 /// </summary>
 /// <param name="PromptVersion">
-/// <see cref="Composite.CompositeIllustrationPrompt.CoverRedrawVersion"/> for a cover this job drew
-/// against the book's own first spread, and <see cref="AdoptedPreviewCover"/> for the previewed one
-/// kept because the redraw was refused or could not run.
+/// <see cref="WrapMaster"/> for a composite book's canonical wrap — the only value a book drawn
+/// since the audit-2 correction writes. <see cref="AdoptedPreviewCover"/> and the redraw versions
+/// appear only on manifests written before it, and are read so those books can still be resumed and
+/// explained.
 /// </param>
 /// <param name="Verdict">
-/// The minimal QA's one-line verdict for a redrawn cover. Null for an adopted one, which is
-/// honest rather than tidy: nobody reviewed it, and an empty verdict must not read as a pass.
+/// The one-line verdict the master shipped under. Null when nobody reviewed it, which is honest
+/// rather than tidy: an empty verdict must not read as a pass.
 /// </param>
 public sealed record BekiCoverRecord(string StoredUrl, string PromptVersion, string? Verdict)
 {
     /// <summary>What the prompt version says when the cover is the one the parent previewed.</summary>
     public const string AdoptedPreviewCover = "adopted-preview-cover";
+
+    /// <summary>
+    /// What it says for the single cover master: the composited wrap, from which the press cover,
+    /// the customer's front and back pages and the reader's image are all derived.
+    /// </summary>
+    public const string WrapMaster = "cover-wrap-master-v1";
+
+    /// <summary>
+    /// Whether this book has one cover master — the gate <c>SINGLE_COVER_MASTER</c> asks exactly
+    /// this, and a record still naming a redraw version is a book with two cover designs in it.
+    /// </summary>
+    public bool IsWrapMaster => string.Equals(PromptVersion, WrapMaster, StringComparison.Ordinal);
+
+    /// <summary>The approved pose composited onto the front board. Null on a pre-correction record.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PoseId { get; init; }
+
+    /// <summary>
+    /// The SHA-256 of the composited wrap, recomputed from the stored bytes and compared with the
+    /// composition receipt before a single derivation is cut (audit P0-10).
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CompositeSha256 { get; init; }
+
+    /// <summary>Where on the front board the pose was placed, as the receipt states it.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Anchor { get; init; }
 
     /// <summary>
     /// Whether this cover was drawn against the book's own first spread and reviewed.
@@ -192,6 +245,33 @@ public sealed record BekiFulfillmentManifest
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? ReviewUrl { get; init; }
+
+    /// <summary>
+    /// Where the normalized Story JSON this book was drawn from is stored.
+    ///
+    /// On the manifest because audit §9 moved it out of the handback's excluded list. The supplier
+    /// asked for the normalized story and got "it lives on the master-story run record" — an answer
+    /// about our schema, not about their package. The words the pictures were planned from are a
+    /// book artifact, so the book carries them.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? StoryUrl { get; init; }
+
+    /// <summary>
+    /// The child's photograph, as a reference and a hash and never as bytes — amendment A7.
+    ///
+    /// The handback has to be able to say which photograph a book was drawn from: a reprint that
+    /// cannot name its input cannot be shown to be the same book. What it must never do is carry the
+    /// photograph. So the manifest states the immutable blob reference and the SHA-256 of the bytes
+    /// at that reference, and anybody with the authority to open the pack's private prefix can check
+    /// one against the other.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BekiPrivateArtifactReference? ChildPhotograph { get; init; }
+
+    /// <summary><inheritdoc cref="ChildPhotograph"/></summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BekiPrivateArtifactReference? ChildIdentity { get; init; }
 
     /// <summary>
     /// The terms this pack's spreads would be drawn under, right now.

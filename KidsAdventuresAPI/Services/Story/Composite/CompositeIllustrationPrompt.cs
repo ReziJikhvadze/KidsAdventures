@@ -349,8 +349,22 @@ public static class CompositeIllustrationPrompt
     /// </summary>
     public const string Version = "child-world-image-v1.6";
 
-    /// <summary>The cover base template's version. A different document, a different version.</summary>
-    public const string CoverVersion = "cover-child-world-v1";
+    /// <summary>
+    /// The cover base template's version. A different document, a different version.
+    ///
+    /// v1.1 is this campaign's amendment against the supplier's P0-03 finding: the shipped wrap
+    /// carried vertical tonal jumps at x=1236 and x=1291 px — 250.5 mm and 261.5 mm on a 512 mm
+    /// cover, which are the spine boundaries to the tenth of a millimetre — and an abrupt
+    /// warm-green-to-purple transition across them. The prompt had named those boundaries as
+    /// percent-bounded regions and the model painted what it was given. It is the third time this
+    /// pipeline has measured the same law: name a region and it gets drawn (the v1.1 fold band,
+    /// the v1.6 spread-4 translucent panel, and now the spine bands). So the cover prompt stops
+    /// naming regions altogether: the panel block is painter's language about sides and the middle
+    /// of one picture, the title area is "the upper right stays naturally calm and open", the
+    /// spine, the hinge and the Beki rectangle are not mentioned at all, and the negatives ban a
+    /// vertical tonal step as loudly as they ban a drawn line.
+    /// </summary>
+    public const string CoverVersion = "cover-child-world-v1.1";
 
     /// <summary>
     /// <remarks>
@@ -433,6 +447,13 @@ public static class CompositeIllustrationPrompt
     /// Takes the geometry as a parameter rather than resolving it, so that the one caller that
     /// cannot supply it fails with <see cref="CompositeFailureCodes.LayoutFailed"/> at the point
     /// where the fact is known, instead of this builder inventing a rectangle to fill a hole.
+    ///
+    /// What it does with that geometry changed in v1.1. The dieline's millimetres decide where the
+    /// wrap is cut, where the pose is composited and where the title is typeset — they no longer
+    /// reach the model as coordinates. Everything below the interpolated block is painter's
+    /// language about one picture: a middle that is ordinary scene, edges the world runs off, and
+    /// no rectangle, zone, panel, or percentage anywhere. The composition the printer needs is
+    /// obtained by asking for a composition, not by describing a dieline.
     /// </summary>
     public static string ForCover(
         CompositeCoverGeometry geometry,
@@ -461,17 +482,15 @@ public static class CompositeIllustrationPrompt
 
             BACK-COVER ENVIRONMENT
             {backEnvironment.Trim()}
-            Continue the same world, terrain, atmosphere, and lighting naturally across the complete wrap. The back panel contains no child, Beki, or other main character unless the approved product specification explicitly requires one.
+            Continue the same world, terrain, atmosphere, and lighting naturally across the whole picture. The left side of the picture contains no child, no Beki, and no other main character.
 
             RECURRING ELEMENTS REQUIRED ON THE FRONT
             {RecurringBlock(recurringElements)}
 
             PRINTER-SPECIFIC COMPOSITION
             {geometry.PanelInstructions.Trim()}
-            Keep the spine and hinge zones low-information and continuous. No face, hand, child, supporting character, title-critical feature, or story-critical object may enter them.
-            Keep the front title-safe rectangle naturally calm and readable without using a blank panel, artificial blur, dark rectangle, or hard-edged box.
-            Keep the front Beki integration rectangle naturally lit and clear of characters, faces, hands, hard foreground edges, and story-critical details.
-            Extend the environment safely through every required wrap/bleed edge.
+            The middle of the picture is ordinary scene: continue the environment through it with the same light, the same colour, and the same level of detail as its surroundings, and give it no edge, band, tint, seam, or change of treatment of its own. No face, hand, child, supporting character, or story-critical object may sit at or near the horizontal middle of the picture.
+            Let the environment run all the way off every outer edge of the picture, and keep everything important well away from those edges.
 
             STYLE AND MOOD
             Premium warm stylized 3D children's-book cover; expressive but natural; soft tactile materials; cinematic depth; clear front-cover focal hierarchy; welcoming, age-appropriate adventure. Match the approved theme reference while creating a new scene.
@@ -901,24 +920,33 @@ public static class CompositeIllustrationPrompt
         """;
 
     /// <summary>
-    /// The cover template's constraint list, still v1's — including its fold wording.
+    /// The cover template's constraint list, amended by v1.1 the way v1.1 and v1.5 amended the
+    /// spread's.
     ///
-    /// Left alone deliberately rather than missed. This is the transcription of
-    /// <c>BEKI_Cover_Base_Prompt_Template_v1.md</c>, which the v1.1 amendment did not touch, and
-    /// nothing reaches it: <see cref="CompositeCoverGeometryResolver"/> returns null in every
-    /// deployment, so the composite cover stops at <see cref="CompositeFailureCodes.LayoutFailed"/>
-    /// before a prompt is built. Rewording a live prompt to match a contract nobody amended would
-    /// put the code and its source out of step in the other direction. It moves when the printer's
-    /// dieline lands and the cover contract is amended with it.
+    /// The dieline landed, so this prompt is live, and the first wrap it produced came back with
+    /// the defect the supplier's P0-03 measured: vertical tonal jumps at the two spine boundaries
+    /// and a warm-green-to-purple change of world across them. Two lines of the old list invited
+    /// exactly that. It named the fold — "the fold is where the printed book will be bound" — and
+    /// v1.1 of the spread template already proved that a model told about a fold paints one. And
+    /// it banned only drawn things (a line, a crease, a seam), so a *tonal* discontinuity satisfied
+    /// every word of it.
+    ///
+    /// So the fold is not mentioned, the centre is described as painting rather than as
+    /// architecture, and the ban is stated the way the defect actually appeared: no vertical step
+    /// in tone, colour, or light anywhere across the picture, and the two sides matching in
+    /// brightness, colour, contrast, and finish — which is the measurement the cover-band gate now
+    /// takes at the four dieline lines. "Spine text" also leaves the no-text line: the line already
+    /// says "anywhere", and the only thing naming the spine there could add is the idea of a spine.
     /// </summary>
     private const string CoverConstraints =
         """
-        Exactly one child, on the front panel only.
+        Exactly one child, on the right side of the picture only.
         Do not generate Beki.
         Do not generate any substitute guide, floating mascot, leaf spirit, lamb, sheep, or Beki-like character.
         No duplicate child or mirrored second child.
-        No text, title, letters, numbers, logo, caption, label, sign, spine text, QR code, watermark, or pseudo-text anywhere.
-        The picture is one continuous unbroken painting: no visible fold line, crease, seam, gutter shadow, vertical dividing line, page edge or split down the middle. The fold is where the printed book will be bound, never something to draw.
+        No text, title, letters, numbers, logo, caption, label, sign, QR code, watermark, or pseudo-text anywhere.
+        The picture is one continuous unbroken painting: no visible dividing line, crease, seam, shadow band, dark strip, pale strip, tinted band, page edge, border, or split anywhere across it. Paint the environment straight through the middle of the picture as if it were any other part of the scene.
+        No vertical step in tone, colour, temperature, or light anywhere in the picture: the world does not change from one side of the picture to the other, and the left and right of the painting must match in brightness, colour, contrast, and finish.
         No split screen, montage, comic panel, inset frame, or mirrored composition.
         """;
 }
@@ -949,8 +977,27 @@ public static class CompositeVisualScenarioPrompt
     /// for a companion; ABSENT for "not in this picture"), the validator enforces the chain's
     /// order across the book, and the image prompt turns the states into explicit inclusions and
     /// prohibitions.
+    ///
+    /// v2.3 answers two of the supplier's audit-2 findings at once, and both are about what a
+    /// stated plan is worth.
+    ///
+    /// P1-08: page 7 of the audited book began <c>" sensitivity, the child gently pats…"</c> — a
+    /// fragment with a leading space, no subject and no beginning, sent verbatim to a paid image
+    /// call, because the only text-quality rule anywhere was "not empty". The supplied schema now
+    /// carries sentence guards (capital first letter, four words or more, terminal punctuation),
+    /// <see cref="VisualScenarioValidator"/> carries the exact-trim and leading-fragment rules
+    /// that JSON Schema cannot express, and <see cref="ResponseSchema"/> asks the model for the
+    /// same shape at generation time so the rule is a request rather than only a rejection.
+    ///
+    /// P1-07: the audited book's pinecone was described as fading in the story and drawn brightly
+    /// glowing on the same spread. The prop chain says where an object *is*; it never said what it
+    /// was *doing*, so a light-emitting object had no planned state for the one property the story
+    /// kept changing. The PROP STATES block now requires the luminosity or intensity of a
+    /// story-critical light source to be stated in the page's own scene text, which is what the
+    /// existing PROP_STATE reviewer reads — no new enum, no new field, nothing downstream to
+    /// migrate.
     /// </summary>
-    public const string Version = "visual-scenario-v2.2";
+    public const string Version = "visual-scenario-v2.3";
 
     /// <summary>The schema name recorded against the call. The file itself is the response schema.</summary>
     public const string SchemaName = "visual_scenario_v2";
@@ -1048,6 +1095,7 @@ public static class CompositeVisualScenarioPrompt
         GENERAL RULES
 
         - Write every output description in clear English.
+        - Write every output description as whole sentences: a capital letter first, no leading or trailing space, at least four words, and a full stop, question mark or exclamation mark last. Never begin a description mid-phrase, with a stray fragment, or with "and", "but", "so", "because" or a comma. Every scene description is sent to the image model exactly as you write it.
         - Refer to the personalized protagonist as "the child". Do not invent or describe the child's face, eye color, hair, body, or other identity traits. Those are controlled later by the child photo and structured visual inputs.
         - Refer to the guide character only as "Beki". Do not define Beki's species and do not physically describe or redesign Beki.
         - The child is always the active protagonist. Beki may guide, help, point, react, encourage, listen, reassure, or reveal a path, but must never perform the child's main action instead of the child.
@@ -1114,6 +1162,7 @@ public static class CompositeVisualScenarioPrompt
         - For a companion character or a scenery element that is simply present, use AMBIENT on the pages where it appears.
         - Use ABSENT for any element that is not visible in that page's picture. Never mix AMBIENT with the chain states for one element.
         - The scene text and the state must agree: a page whose scene shows the child holding the object is a CARRIED page, and a page before the discovery must neither show nor name it.
+        - When a recurring element gives off light and the story turns on it, that page's child_world_scene must state how strongly it is shining right then — brightly glowing, softly lit, dimming, nearly out, dark. State it on every page the element appears on, and follow the story: an object the story says is fading is fading in that picture and stays that way until the story lights it again.
 
         OUTPUT
 
@@ -1174,6 +1223,16 @@ public static class CompositeVisualScenarioPrompt
     /// the model and enforced in code afterwards, which is where they were always enforced: the
     /// supplied schema's <c>maxItems</c> never stopped a model returning four, it only described
     /// what would happen next.
+    ///
+    /// v2.3's sentence guards are carried the same way, and deliberately so. The supplied file
+    /// states them as <c>pattern</c> and <c>minLength</c>; strict structured output is the mode
+    /// that rejected <c>minLength</c> outright and failed the request rather than the answer, so
+    /// putting a regular expression into this document would risk buying the page-7 fragment fix
+    /// at the price of a book that cannot be requested at all. The rule reaches the model as the
+    /// thing a model actually reads — the field's own description, in the same words as the
+    /// system instruction's new GENERAL RULE — and <see cref="VisualScenarioValidator"/> and the
+    /// supplied schema still refuse the fragment afterwards. Generation-time steering, validation
+    /// enforcement: the same division the eight-spread rule already lives under.
     /// </summary>
     public static JsonElement ResponseSchema()
     {
@@ -1214,12 +1273,12 @@ public static class CompositeVisualScenarioPrompt
                     {
                         ["front_child_world_scene"] = Text(
                             "One concise cover scene that mentions \"the child\" and never mentions "
-                            + "Beki. Non-empty."),
+                            + "Beki. " + WholeSentence),
                         ["beki_action"] = Text(
-                            "One concise sentence that explicitly mentions Beki. Non-empty."),
+                            "One concise sentence that explicitly mentions Beki. " + ShortSentence),
                         ["back_environment"] = Text(
                             "One concise continuation of the same environment containing neither "
-                            + "the child nor Beki. Non-empty.")
+                            + "the child nor Beki. " + WholeSentence)
                     }
                 },
                 ["spreads"] = new
@@ -1246,10 +1305,10 @@ public static class CompositeVisualScenarioPrompt
                             ["child_world_scene"] = Text(
                                 "One to three precise sentences. Sent straight to the image model. "
                                 + "Must mention \"the child\" and must never mention Beki or any "
-                                + "substitute guide. Non-empty."),
+                                + "substitute guide. " + WholeSentence),
                             ["beki_action"] = Text(
                                 "One concise sentence that explicitly mentions Beki. Read only by "
-                                + "code, to choose an approved pose. Non-empty."),
+                                + "code, to choose an approved pose. " + ShortSentence),
                             ["props"] = new
                             {
                                 type = "array",
@@ -1293,4 +1352,23 @@ public static class CompositeVisualScenarioPrompt
     }
 
     private static object Text(string description) => new { type = "string", description };
+
+    /// <summary>
+    /// v2.3's sentence guard, in the words the request carries — the supplied schema's
+    /// <c>pattern</c> said to a model instead of to a validator.
+    ///
+    /// One string reused by all four narrative fields rather than four paraphrases, because the
+    /// supplied schema applies one rule to all four and two wordings would eventually mean two
+    /// rules.
+    /// </summary>
+    private const string WholeSentence =
+        "A whole sentence: capital letter first, no leading or trailing space, at least four "
+        + "words, and a full stop, question mark or exclamation mark last. Never a fragment and "
+        + "never a mid-phrase opening.";
+
+    /// <summary>The same guard at the three-word floor a <c>beki_action</c> is written to.</summary>
+    private const string ShortSentence =
+        "A whole sentence: capital letter first, no leading or trailing space, at least three "
+        + "words, and a full stop, question mark or exclamation mark last. Never a fragment and "
+        + "never a mid-phrase opening.";
 }

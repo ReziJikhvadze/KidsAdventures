@@ -1,9 +1,18 @@
-# BEKI Visual Scenario Prompt v2.2
+# BEKI Visual Scenario Prompt v2.3
 
-**Prompt version:** `visual-scenario-v2.2`  
+**Prompt version:** `visual-scenario-v2.3`  
 **Status:** Implementation source  
 **Calls:** One normal text-model call per complete book; one validation retry maximum  
 **Purpose:** Convert one approved eight-spread Georgian story into one cover plan, one book-level visual lock, and eight machine-safe child/world scenes with separate Beki actions and per-spread prop states.
+
+## v2.3 changelog
+
+Amended against the supplier's audit of 2026-08-31, findings **P1-08** (malformed source text) and **P1-07** (prop-state and text mismatch).
+
+- **Observed defect (P1-08): a sentence fragment was planned, stored, and drawn.** `visual-scenario.json` began page 7 with `" sensitivity, the child gently pats..."` — a leading space, no subject, no beginning — and every layer let it through, because the only text rule anywhere was "not empty": the supplied schema said `minLength: 1` and the validator said `!IsNullOrWhiteSpace`. That string was sent verbatim to a paid image call. **Fix, three layers of one rule.** (a) This schema's narrative fields — `cover.front_child_world_scene`, `cover.back_environment`, every spread's `child_world_scene` — now carry `$defs/sentence`: a capital Latin or Georgian letter first, at least four whitespace-separated words, and `.`, `!` or `?` last, with `minLength: 16`. `beki_action` carries `$defs/shortSentence`, the same rule at a three-word floor (`"Beki listens attentively."` is a legitimate plan). The page-7 fragment fails twice over, on its leading space and on its lowercase first letter. (b) JSON Schema cannot say *"the value equals its own trim"* and cannot read a leading conjunction, so `VisualScenarioValidator` carries those as `MALFORMED_TEXT`, on the existing one-retry ladder. (c) The request-side response schema states the same rule in each field's description, because strict structured output is the mode that rejects `minLength` outright — a regular expression sent there would trade a fragment for a book that cannot be requested at all. Generation-time steering, validation-time enforcement: the division `spreads`' "exactly eight" already lives under.
+- **The fields are English by contract**, which is what makes the pattern safe to write: GENERAL RULES opens with *"Write every output description in clear English."* The Georgian ranges in the character class (`Ⴀ-ჿ`, `Ა-Ჿ`) are permissiveness for a proper noun or a quoted word, not an invitation — the Georgian a child reads lives on the story plan, never here.
+- **New GENERAL RULE, the same sentence in the planner's own words:** *"Write every output description as whole sentences: a capital letter first, no leading or trailing space, at least four words, and a full stop, question mark or exclamation mark last. Never begin a description mid-phrase, with a stray fragment, or with 'and', 'but', 'so', 'because' or a comma. Every scene description is sent to the image model exactly as you write it."*
+- **Observed defect (P1-07): the plan said where the object was and never what it was doing.** The audited story said the pinecone's light was fading on spread 4; spread 4's picture showed it strongly glowing, and the page passed its own review. The v2.2 prop chain tracks possession — NOT_FOUND, FOUND, CARRIED, PLACED, NO_LONGER_CARRIED — and possession was not the property the story was changing. **Fix, prompt text only:** PROP STATES gains a line requiring a story-critical light source's brightness to be stated in that page's own `child_world_scene`, on every page it appears on, following the story ("brightly glowing, softly lit, dimming, nearly out, dark"). No new state, no enum change, no schema change: the state vocabulary stays exactly the seven v2.2 values, and the reviewer's existing `PROP_STATE` category is what reads the result. The story side of the same finding is the composite story prompt's own amendment (`composite-v1.1`): one simple tense across the book, natural toddler phrasing, and text that tracks an object's state to the last page it appears on.
 
 ## v2.2 changelog
 
@@ -185,6 +194,8 @@ Phrase each beki_action around one of these nine verb families:
 Use the family that the story page actually calls for, in a natural sentence — do not force a beat the page does not contain, and do not reuse one family for the whole book. Prefer the plain verb ("Beki claps", "Beki gazes in wonder", "Beki stands beside the child") over an abstract paraphrase. This is wording guidance only: never name a pose, a pose id, or a page position.
 ```
 
+The block above is v2's own text, character for character. What v2.1, v2.2 and v2.3 append or amend is described in the changelogs at the top of this document and lives in `CompositeVisualScenarioPrompt`: the `BEKI ACTION VOCABULARY` block (v2.1), the `PROP STATES` section and the `props` shape in the OUTPUT example (v2.2), and the whole-sentence GENERAL RULE plus the prop-luminosity line (v2.3).
+
 The vocabulary block is generated from the registry's own priority order by `CompositePoseVocabulary.PromptBlock()`, so a keyword revision that renames a family cannot leave this prompt describing the old one. The ninth pose — the neutral hover — carries no verbs and is deliberately not offered: it is reachable only as the fallback, which is what makes the fallback count meaningful.
 
 ## Runtime user message
@@ -205,6 +216,7 @@ Reject output when:
 - `recurring_elements` contains more than three entries;
 - `spreads` is not exactly eight ordered entries with pages 1-8;
 - a required string is empty;
+- a narrative string is not a whole sentence (v2.3): it does not equal its own trim, does not begin with a capital Latin or Georgian letter, begins with a conjunction or a comma fragment, does not end in `.`, `!` or `?`, or carries fewer than four words — three for `beki_action`. The schema's `$defs/sentence` and `$defs/shortSentence` state the half a pattern can express; `MALFORMED_TEXT` states the rest;
 - a child/world scene does not mention `the child` case-insensitively;
 - a child/world scene mentions `Beki` case-insensitively;
 - a Beki action does not mention `Beki` case-insensitively;

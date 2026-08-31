@@ -277,7 +277,8 @@ public class BekiInteriorTypographyTests
             .ToList();
 
         return new BekiPdfComposer(Options.Create(layout ?? BekiLayoutFixture.ScreenProofLayout()))
-            .Compose(plan, BekiLayoutFixture.LeafPng((200, 60, 60)), spreads, BekiLayoutFixture.Personalization());
+            .ComposeWithReceipts(plan, BekiLayoutFixture.LeafPng((200, 60, 60)), spreads,
+                BekiLayoutFixture.Personalization()).Pdf;
     }
 
     private static IReadOnlyList<byte[]> RenderFixtureBook() => BekiLayoutFixture.ScreenProofPages();

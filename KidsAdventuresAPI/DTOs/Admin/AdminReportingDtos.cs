@@ -161,3 +161,44 @@ public sealed class UpdateUserAdminRequest
 {
     public bool IsAdmin { get; set; }
 }
+
+/// <summary>
+/// What the sixteen hard gates make of one book, flattened for the admin console.
+///
+/// A projection rather than the stored document itself: <c>release-gates.json</c> carries the
+/// evidence blob names each gate rests on, and those are storage keys — useful in a handback zip
+/// beside the files they point at, and nothing an operator's browser should be handed.
+/// </summary>
+/// <param name="Verdict">
+/// <c>RELEASABLE</c>, <c>NOT_RELEASABLE</c>, or null for a book with no evaluation stored — which is
+/// every book fulfilled before the release gates existed, and is shown rather than hidden.
+/// </param>
+/// <param name="ContactSheetSha256">
+/// The rendering the human approval is about (amendment A2). The console sends it back with the
+/// approval so that a reviewer signing a stale sheet is refused rather than recorded.
+/// </param>
+public sealed record AdminReleaseGatesResponse(
+    string? Verdict,
+    DateTimeOffset? EvaluatedAtUtc,
+    IReadOnlyList<string> FailingGates,
+    bool AwaitingHumanReview,
+    string? ContactSheetSha256,
+    bool CustomerPdfPublished,
+    bool PressFilesPublished,
+    IReadOnlyList<AdminReleaseGate> Gates);
+
+/// <summary>One gate's verdict, as the console shows it.</summary>
+public sealed record AdminReleaseGate(string Id, string Status, string Class, string Detail);
+
+/// <summary>Body of <c>POST /api/admin/orders/{id}/approve-review</c>.</summary>
+public sealed class AdminApproveReviewRequest
+{
+    /// <summary>What the reviewer wants on the record. Optional; trimmed; may be omitted.</summary>
+    public string? Note { get; set; }
+
+    /// <summary>
+    /// The contact sheet being approved, by SHA-256, exactly as the gate status reported it.
+    /// A mismatch is a 409: the reviewer looked at a different rendering than the one on file.
+    /// </summary>
+    public string? ContactSheetSha256 { get; set; }
+}

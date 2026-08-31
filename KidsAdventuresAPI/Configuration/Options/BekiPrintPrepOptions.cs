@@ -54,4 +54,53 @@ public sealed class BekiPrintPrepOptions
     /// §5 requires the binary on the deployment anyway.
     /// </summary>
     public string GhostscriptPath { get; set; } = "gs";
+
+    /// <summary>
+    /// The Poppler page rasteriser used by render validation, alongside Ghostscript.
+    ///
+    /// Two renderers, not one, because the gate says so: <c>RENDER_VALIDATION</c> in
+    /// <c>BEKI_Acceptance_Gates_v1.json</c> reads "the stored final artifacts pass **both**
+    /// Ghostscript and Poppler render validation", and the point of a second interpreter is that
+    /// it disagrees. A name resolves through PATH. When it is not installed the render stage
+    /// records <c>skipped</c> and the package is not releasable — audit-2 amendment A8: a check
+    /// that did not run is not a check that passed.
+    /// </summary>
+    public string PopplerPdftoppmPath { get; set; } = "pdftoppm";
+
+    /// <summary>Poppler's font lister — the second opinion on FONT_INTEGRITY, same rules as above.</summary>
+    public string PopplerPdffontsPath { get; set; } = "pdffonts";
+
+    /// <summary>
+    /// Dots per inch for the validation renders and the contact sheet. 120 is chosen against what
+    /// the renders are for: a human reading a full-spread contact sheet (amendment A2 makes that
+    /// review mandatory before release) and a QR decoder reading a 46 mm code — at 120 dpi that
+    /// code lands at ~217 px, comfortably above what ZXing needs, while a full press interior
+    /// stays small enough to upload with the evidence.
+    /// </summary>
+    public int RenderDpi { get; set; } = 120;
+
+    /// <summary>
+    /// The external super-resolution executable, empty by default — which means disabled.
+    ///
+    /// Audit P1-01 and P0-04: the shipped book was built on ~143 PPI story art and a ~125 PPI
+    /// cover, stretched to 300 PPI targets by a Lanczos pass. "Upscaling changes pixel count, not
+    /// source detail", so the resolution gate refuses interpolation-only enlargement outright and
+    /// there is exactly one lawful way to make a short source long enough: a real super-resolver,
+    /// named here, whose tool and factor are then recorded in the resolution receipt and the
+    /// preflight. Nothing is installed with this build; unconfigured is the shipped state, and an
+    /// unconfigured deployment withholds press files rather than passing thin ones.
+    /// </summary>
+    public string UpscalerPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The upscaler's argument template, whitespace-separated, with <c>{in}</c>, <c>{out}</c> and
+    /// <c>{scale}</c> substituted per invocation — for example
+    /// <c>-i {in} -o {out} -s {scale} -n realesrgan-x4plus</c>.
+    ///
+    /// A template rather than a command line: the tokens are expanded into
+    /// <see cref="System.Diagnostics.ProcessStartInfo.ArgumentList"/> one argument at a time, so a
+    /// path containing a space stays one argument instead of becoming two the way it would if this
+    /// were ever joined back into a string and handed to a shell.
+    /// </summary>
+    public string UpscalerArgsTemplate { get; set; } = string.Empty;
 }

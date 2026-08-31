@@ -45,12 +45,22 @@ public sealed class CompositePipelineException(string failureCode, string messag
 }
 
 /// <summary>
-/// What a page that stopped for human review leaves behind: the composite as the reviewer saw it,
-/// and a short document saying what each attempt was and what was said about it.
+/// What a page that stopped leaves behind: the picture that was refused, and a short document
+/// saying what each attempt was and what was said about it.
 /// </summary>
-/// <param name="Page">The spread number, for the blob names the fulfilment job builds.</param>
+/// <param name="Page">
+/// The spread number, for the blob names the fulfilment job builds. Zero for the cover wrap, which
+/// has no spread number and whose evidence therefore lands under spread zero — a page number no
+/// book has, which is the point.
+/// </param>
 /// <param name="CompositePng">
-/// The last composite the reviewer refused — the whole page, Beki included, exactly as judged.
+/// The picture as it was refused. Usually the last composite the reviewer saw — the whole page,
+/// Beki included, exactly as judged.
+///
+/// A BASE image for the two deterministic gates audit-2 restored (P0-05's centre fold, P0-03's
+/// cover construction bands), because those refuse a picture before Beki is ever pasted onto it:
+/// what a human needs to look at there is the artwork the model generated, and there is no
+/// composite to show.
 /// </param>
 /// <param name="QaJson">
 /// The attempt record: every verdict in order, what was generated or moved between them, and the
@@ -205,6 +215,18 @@ public sealed record CompositeSpreadResult
     /// ever advisory. Nothing in the retry ladder reads it; it is here to be counted.
     /// </summary>
     public string? AgeNote { get; init; }
+
+    /// <summary>
+    /// The accepted verdict as the document that gets stored — see <see cref="CompositeSpreadQa"/>.
+    ///
+    /// <see cref="Verdict"/> is the same answer as one line, and it stays: it is what the logs and
+    /// the telemetry rows are written in. This is the whole reviewer answer, structured, because
+    /// the release gates the audit demands have to read failed_checks and recommended_action
+    /// rather than parse a sentence.
+    ///
+    /// Null on an adopted page, which this run did not review.
+    /// </summary>
+    public string? QaJson { get; init; }
 }
 
 /// <summary>
@@ -244,6 +266,138 @@ public sealed record CompositeBookArtifacts
     public CompositeBookReview? Review { get; init; }
 }
 
+/// <summary>
+/// What one spread's stored QA record turned out to say, once it has been read back and found to
+/// be one this deployment still understands.
+///
+/// Deliberately three fields out of a document with a dozen. Everything a resumed run needs to
+/// know is "there is a readable verdict for this page, written by the reviewer contract now in
+/// force"; the notes, the failed checks and the advisory remarks are for the human who opens the
+/// blob, and re-deriving decisions from them here would be a second reviewer with no model behind
+/// it.
+/// </summary>
+public sealed record CompositeSpreadQaRecord(
+    int Page, string Status, string RecommendedAction, string QaPromptVersion);
+
+/// <summary>
+/// The per-spread QA document: written on the success path, and read back when a later attempt
+/// wants to adopt the page it belongs to.
+///
+/// It exists because of audit-2 P0-09, whose evidence is one sentence long: "PACKAGE_CONTENTS.json
+/// lists all eight qa/spread-XX-qa.json files as missing", on a package that nonetheless contained
+/// final press and customer PDFs. The verdicts were real — every page was reviewed, and a refused
+/// one wrote its record on the way out — but the accepted ones were held in memory, used to decide
+/// whether to ship, and dropped. A book's QA either survives the book or it was never evidence.
+/// </summary>
+public static class CompositeSpreadQa
+{
+    /// <summary>
+    /// One accepted page's verdict, as the document that gets stored beside it.
+    ///
+    /// The reviewer's own four fields, whole, plus the two advisory remarks and the provenance a
+    /// reader needs to judge them: which reviewer contract asked the questions, which image prompt
+    /// drew the picture, how many pictures were bought and how many readings it took. No model
+    /// call — this is the verdict the ladder already had in its hand, written down instead of
+    /// discarded.
+    ///
+    /// Nothing about the child is in it, for the reason the failure evidence gives: the scene, the
+    /// outfit and the identity attributes stay out, and the picture beside it is the thing to look
+    /// at.
+    /// </summary>
+    public static string Write(
+        int page,
+        string poseId,
+        string textSide,
+        int baseAttempts,
+        int reviewAttempts,
+        CompositeQaVerdict verdict)
+    {
+        ArgumentNullException.ThrowIfNull(verdict);
+
+        return JsonSerializer.Serialize(
+            new
+            {
+                page,
+                qa_prompt_version = CompositeMinimalQa.Version,
+                image_prompt_version = CompositeIllustrationPrompt.Version,
+                pose_id = poseId,
+                text_side = textSide,
+                base_attempts = baseAttempts,
+                review_attempts = reviewAttempts,
+                status = verdict.Status,
+                recommended_action = verdict.RecommendedAction,
+                failed_checks = verdict.FailedChecks,
+                notes = verdict.Notes,
+                // Advisory, and carried as themselves rather than folded into failed_checks: A9
+                // is explicit that a borderline shot impression and an age remark are for the
+                // human gate, and a record that promoted them here would be the weakening it
+                // forbids arriving through the back door.
+                shot_note = verdict.ShotNote,
+                age_note = verdict.AgeNote,
+                verdict = verdict.ToString(),
+            },
+            CompositeJson.Readable);
+    }
+
+    /// <summary>
+    /// A stored QA document, when it is one this deployment can still stand behind. Null otherwise.
+    ///
+    /// Version-guarded exactly the way the stored identity spec is, and for the same reason: a
+    /// verdict written by an older reviewer contract answered a different set of questions. The QA
+    /// prompt has been revised six times — v1.5 alone added SHOT_COMPLIANCE and PROP_STATE as
+    /// failing categories — so "this page passed" under v1.2 is not the same claim as "this page
+    /// passed" under v1.6, and a resumed book that carried the old claim forward would be shipping
+    /// a page nothing current ever looked at.
+    ///
+    /// Never throws. Absent, unreadable and out-of-date all mean the same thing to every caller.
+    /// </summary>
+    public static CompositeSpreadQaRecord? TryReadStored(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+
+            if (root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("qa_prompt_version", out var version)
+                || version.ValueKind != JsonValueKind.String
+                || !string.Equals(version.GetString(), CompositeMinimalQa.Version, StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            if (!root.TryGetProperty("status", out var status)
+                || status.ValueKind != JsonValueKind.String
+                || string.IsNullOrWhiteSpace(status.GetString()))
+            {
+                return null;
+            }
+
+            var page = root.TryGetProperty("page", out var pageValue)
+                       && pageValue.TryGetInt32(out var pageNumber)
+                ? pageNumber
+                : 0;
+
+            var action = root.TryGetProperty("recommended_action", out var recommended)
+                         && recommended.ValueKind == JsonValueKind.String
+                ? recommended.GetString()!
+                : string.Empty;
+
+            return new CompositeSpreadQaRecord(
+                page, status.GetString()!, action, version.GetString()!);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+}
+
 /// <summary>One page's composition manifest, ready to store beside the image it describes.</summary>
 /// <param name="BasePng">
 /// The child/world image before Beki was pasted onto it, which has to be stored and not only used.
@@ -256,7 +410,36 @@ public sealed record CompositeBookArtifacts
 /// own right.
 /// </param>
 public sealed record CompositeSpreadArtifact(
-    int SpreadNumber, string PoseId, string ManifestJson, string OutputSha256, byte[] BasePng);
+    int SpreadNumber, string PoseId, string ManifestJson, string OutputSha256, byte[] BasePng)
+{
+    /// <summary>
+    /// The accepted verdict for this page, as the document to store — audit-2 P0-09, D7.
+    ///
+    /// Null for exactly two cases, and they are not the same case. An adopted page (see
+    /// <see cref="Adopted"/>) was judged by the attempt that drew it and its record is already in
+    /// storage, so this attempt has nothing to write and the fulfilment job re-reads what is
+    /// there. A drawn page with a null here would be a page that shipped with no verdict at all,
+    /// which is the state the audit found and the state the release gates exist to refuse.
+    /// </summary>
+    public string? QaJson { get; init; }
+
+    /// <summary>
+    /// Whether this page was adopted whole from an earlier attempt rather than drawn by this run.
+    ///
+    /// Adopted pages used to be filtered out of the artifact list entirely — the run had nothing
+    /// new to say about them, so it said nothing — and amendment A4 is what that cost: the pages
+    /// vanished from the record the release gates read, so a resumed book's QA coverage was
+    /// whatever this attempt happened to redraw. They are in the list now, flagged, carrying no
+    /// receipt of their own.
+    ///
+    /// Which makes the flag a contract with the fulfilment layer rather than a label: an artifact
+    /// with this set has an empty <see cref="ManifestJson"/> and an empty
+    /// <see cref="OutputSha256"/> — this run composited nothing, so there is no receipt to write —
+    /// and storing it as though it were one would put an empty composition entry where the earlier
+    /// attempt's real one belongs.
+    /// </summary>
+    public bool Adopted { get; init; }
+}
 
 /// <summary>
 /// The press cover wrap and its paperwork: the generated 512:245 base (stored for the audit
@@ -331,6 +514,29 @@ public sealed record CompositeResumeState(
     /// attempt's own reading with.
     /// </summary>
     public string? ReviewJson { get; init; }
+
+    /// <summary>
+    /// The per-page QA verdict each stored spread was accepted on, by page number, exactly as it
+    /// was written — D7, amendment A4.
+    ///
+    /// Carried so that a resumed book cannot lose its QA record. An adopted page's evidence is the
+    /// document the attempt that drew it wrote; this attempt neither reviewed the page nor can
+    /// invent a verdict for it, so the only two honest outcomes are "the record is there and the
+    /// page may be adopted" and "the record is gone and the page is not what it claimed to be".
+    ///
+    /// What makes it a version guard rather than a presence check is
+    /// <see cref="CompositeSpreadQa.TryReadStored"/>: a verdict written by an older reviewer
+    /// contract answered older questions, and is treated as no verdict.
+    ///
+    /// Empty is not the same as "page N is missing", and the difference decides what happens.
+    /// Empty means the caller does not supply QA at all — a book stored before this campaign, or a
+    /// caller that predates it — and the run adopts as it always did, saying so in its warnings so
+    /// that the release gates, not the pipeline, answer for the gap. A non-empty map missing page
+    /// N means this caller does supply QA and page N's is gone, which is evidence about the page:
+    /// it is redrawn rather than adopted.
+    /// </summary>
+    public IReadOnlyDictionary<int, string> SpreadQaJson { get; init; } =
+        new Dictionary<int, string>();
 
     public static readonly CompositeResumeState Empty = new(
         null,
@@ -476,7 +682,8 @@ public interface ICompositeBookPipeline
     /// The press cover: one continuous 512 × 245 mm hardcover wrap generated against the Locked
     /// Print Specification's dieline (<see cref="BekiCoverDieline"/>), with the exact approved
     /// Beki pose composited onto the front board and the receipt to prove it. One paid image
-    /// call; the caller typesets the title and press-prepares the result.
+    /// call — two when the first one paints the dieline into the art (audit-2 P0-03) — and the
+    /// caller typesets the title and press-prepares the result.
     /// </summary>
     Task<CompositeCoverWrap> DrawCoverWrapAsync(
         CompositeBookContext context,
@@ -853,6 +1060,33 @@ public sealed class CompositeBookPipeline(
             };
         }
 
+        /*
+          Whether this caller keeps per-page QA records at all — D7, amendment A4.
+
+          The distinction is the version guard, and it is drawn once rather than per page so that
+          a resumed book gets one answer about itself. A caller that supplies no QA for any page
+          is a caller from before the records existed; refusing to adopt on those grounds would
+          redraw every book in flight at the moment this shipped, at eight paid image calls each,
+          to establish something the release gates already refuse to guess about. A caller that
+          supplies QA for some pages and not others is telling us something else entirely: those
+          pages' evidence is gone.
+        */
+        var qaTracked = resume.SpreadQaJson.Count > 0;
+
+        if (resume.Spreads.Count > 0 && !qaTracked)
+        {
+            logger.LogWarning(
+                "Composite pipeline {JobId}: {Stored} stored spread(s) are being adopted without "
+                + "per-page QA records — this book was stored before the records existed, or by a "
+                + "caller that does not keep them. Their artifacts are flagged adopted with no "
+                + "verdict, and the release gates decide what that is worth.",
+                context.JobId, resume.Spreads.Count);
+
+            warnings.Add(
+                $"{resume.Spreads.Count} spread(s) adopted from an earlier attempt carry no stored "
+                + "QA verdict, so this book's own record covers only the pages this attempt drew.");
+        }
+
         foreach (var page in pages)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -860,6 +1094,40 @@ public sealed class CompositeBookPipeline(
             if (!resume.Spreads.TryGetValue(page.Page, out var alreadyDrawn)
                 || alreadyDrawn.Length == 0)
             {
+                toDraw.Add(page);
+                continue;
+            }
+
+            /*
+              A stored page whose verdict is gone is not a stored page.
+
+              The audit's P0-09 finding was a package that shipped eight spreads and zero QA
+              documents, and the correction it demands is that a missing mandatory QA artifact
+              stops assembly. A resumed run that adopted a page whose record had been lost would
+              be manufacturing exactly that package one page at a time — the picture is there, the
+              evidence is not, and nothing downstream can tell the difference between a verdict
+              that was lost and a verdict that was never asked for.
+
+              So the page is redrawn, which is the resume path's existing answer to every piece of
+              missing provenance: an unreadable scenario, an absent identity spec and a missing
+              anchor all cost artwork rather than being worked around. This one costs the least of
+              the four — one page, not the book — because a verdict belongs to a page and to
+              nothing else.
+            */
+            if (qaTracked
+                && CompositeSpreadQa.TryReadStored(
+                    resume.SpreadQaJson.GetValueOrDefault(page.Page)) is null)
+            {
+                logger.LogWarning(
+                    "Composite pipeline {JobId}: spread {Page} is stored but has no readable QA "
+                    + "verdict from the reviewer contract now in force ({Version}), so it is being "
+                    + "redrawn rather than adopted on a record nobody can produce.",
+                    context.JobId, page.Page, CompositeMinimalQa.Version);
+
+                warnings.Add(
+                    $"Spread {page.Page} was redrawn rather than adopted: the QA verdict stored "
+                    + "for it is missing or was written by a different reviewer prompt version.");
+
                 toDraw.Add(page);
                 continue;
             }
@@ -992,14 +1260,41 @@ public sealed class CompositeBookPipeline(
                 ScenarioJson = scenarioJson,
                 ReviewJson = review.ToJson(),
                 Review = review,
+                /*
+                  Every page of the book, adopted ones included — amendment A4.
+
+                  The filter that used to stand here (`.Where(spread => !spread.Adopted)`) read as
+                  obviously right: an adopted page produced no receipt this run could write, so
+                  there was nothing to put in the list. What it actually did was decide what the
+                  book's own record contains, and a resumed book's record then covered whatever
+                  this attempt happened to redraw — six pages of evidence for an eight-page book,
+                  with the gap indistinguishable from a book that only had six pages.
+
+                  So an adopted page is in the list, flagged, carrying nothing: no manifest, no
+                  output hash, no base, no QA. What it carries is the assertion that page N exists
+                  and belongs to an earlier attempt, which is the one thing the release gates
+                  cannot work out for themselves — and it is the fulfilment layer that goes and
+                  reads that attempt's stored qa/spread-NN-qa.json, because it is the layer with a
+                  storage account. See CompositeSpreadArtifact.Adopted for what an empty manifest
+                  obliges that layer to do.
+                */
                 Spreads = spreads
-                    .Where(spread => !spread.Adopted)
-                    .Select(spread => new CompositeSpreadArtifact(
-                        spread.Page,
-                        spread.PoseId,
-                        spread.Manifest.ToJson(),
-                        spread.Manifest.Output.Sha256,
-                        spread.BasePng))
+                    .Select(spread => spread.Adopted
+                        ? new CompositeSpreadArtifact(
+                            spread.Page, string.Empty, string.Empty, string.Empty, [])
+                        {
+                            Adopted = true,
+                            QaJson = null,
+                        }
+                        : new CompositeSpreadArtifact(
+                            spread.Page,
+                            spread.PoseId,
+                            spread.Manifest.ToJson(),
+                            spread.Manifest.Output.Sha256,
+                            spread.BasePng)
+                        {
+                            QaJson = spread.QaJson,
+                        })
                     .ToList()
             }
         };
@@ -1100,11 +1395,90 @@ public sealed class CompositeBookPipeline(
             References(childPhoto, childPhotoContentType, theme, childAnchor: null, continuityImage: null),
             cancellationToken);
 
-        // To the wrap's own shape — 512:245 — not the interior's 15:7. The centre-field gate is
-        // deliberately not applied here: the wrap's centre is the spine, which the prompt keeps
-        // low-information on purpose, and a hinge-to-board tonal read would be judging bookbinding
-        // as if it were a story spread.
+        // To the wrap's own shape — 512:245 — not the interior's 15:7.
         var basePng = SpreadArtCrop.CropToRatio(raw, BekiCoverDieline.AspectRatio);
+
+        /*
+          The construction bands, measured — audit-2 P0-03, amendment A2.
+
+          The old reasoning here was that the wrap's centre is the spine, which the prompt keeps
+          low-information on purpose, and that a hinge-to-board tonal read would be judging
+          bookbinding as if it were a story spread. So the wrap was measured by nothing at all.
+
+          The supplier's audit is what that argument cost. The cover prompt names the centre
+          construction as percentage regions — "from 47% to 53% of the canvas width" — the model
+          painted the regions it was told about, and the shipped wrap carried "strong vertical
+          tonal jumps at approximately x=1236 and x=1291 px", which on a 2528-wide, 512 mm cover
+          are 250.5 mm and 261.5 mm: the exact spine boundaries, drawn as artwork. Hinge and spine
+          geometry may guide placement; it may not be rendered.
+
+          So the argument is answered rather than repeated. The reading is taken at the four
+          dieline lines rather than at the middle, and its strips are sized to fit inside an 8 mm
+          hinge, so what it judges is whether a boundary was PAINTED — not whether the two boards
+          of a hardcover differ. A wrap is a continuous panorama by contract; four full-height
+          discontinuities landing exactly on the four lines the prompt names is not a coincidence
+          any measurement should keep quiet about.
+
+          The wrap gets exactly one regeneration, which it never had before — the spread pattern,
+          applied to the page that costs the same as a spread and is the first thing a parent sees.
+        */
+        var bands = CompositeSeamRepair.MeasureConstructionBands(basePng);
+
+        if (bands.Exceeded)
+        {
+            logger.LogWarning(
+                "Composite pipeline {JobId} cover wrap: the generated base has a full-height "
+                + "discontinuity on {Count} of {Total} dieline boundaries — {Offending}. Spending "
+                + "the one base regeneration.",
+                context.JobId, bands.Offending.Count, bands.Bands.Count,
+                string.Join("; ", bands.Offending));
+
+            logger.LogWarning(
+                "Composite pipeline {JobId} cover wrap: buying a new base image — the centre "
+                + "construction is painted into the artwork.", context.JobId);
+
+            var (retry, _) = await GenerateBaseImageAsync(
+                context, page: null, prompt,
+                References(
+                    childPhoto, childPhotoContentType, theme,
+                    childAnchor: null, continuityImage: null),
+                cancellationToken);
+
+            basePng = SpreadArtCrop.CropToRatio(retry, BekiCoverDieline.AspectRatio);
+
+            var second = CompositeSeamRepair.MeasureConstructionBands(basePng);
+
+            if (second.Exceeded)
+            {
+                logger.LogError(
+                    "Composite pipeline {JobId} cover wrap: the regenerated base still paints the "
+                    + "centre construction — {Offending}. Stopping the book; the refused wrap and "
+                    + "the numbers are stored as evidence.",
+                    context.JobId, string.Join("; ", second.Offending));
+
+                throw new CompositePipelineException(
+                    CompositeFailureCodes.ImageGenerationFailed,
+                    "The cover wrap paints its own construction: both generated bases carry a "
+                    + "full-height discontinuity on the dieline boundaries "
+                    + $"{string.Join(", ", second.Offending.Select(band => band.Boundary.Name))}. "
+                    + "Hinge and spine geometry may guide placement but may not be rendered as "
+                    + "artwork, and no layout, upscale or colour conversion removes a band that is "
+                    + "in the source.")
+                {
+                    // No spread number: the cover is not a page of the book, and zero is the page
+                    // number no book has. The evidence blob lands under spread zero, which is
+                    // where somebody looking for a refused cover will find it.
+                    Page = 0,
+                    Evidence = new CompositeFailureEvidence(
+                        0, basePng, CoverBandEvidenceJson(bands, second)),
+                };
+            }
+
+            logger.LogInformation(
+                "Composite pipeline {JobId} cover wrap: the regenerated base reads as one "
+                + "continuous panorama across all {Total} dieline boundaries.",
+                context.JobId, second.Bands.Count);
+        }
 
         // The pose from the scenario's own cover sentence, composited at the locked front-panel
         // anchor — the exact-PNG discipline of every story page, applied to the one page that
@@ -1785,29 +2159,61 @@ public sealed class CompositeBookPipeline(
         BekiCompositeAnchor? placement = null;
 
         /*
-          The centre-field measurement is TELEMETRY ONLY — the owner's ruling of 2026-08-31,
-          after its first live outing refused a clean page twice and stopped a paid order.
+          The centre-fold gate BLOCKS again — audit-2 P0-05, which reversed the telemetry-only
+          ruling of 2026-08-31.
 
-          The measurement was calibrated on the veiled books the supplier rejected; the v1.5
-          prompt then changed what clean art measures like (a calm bright text side against a
-          busy action side is the composition the prompt itself asks for), and the two
-          distributions overlap too much to refuse on. So it reads, it logs, and it touches
-          nothing: no regeneration, no failure, no spend. The log lines are the data the
-          thresholds get re-judged from once enough live v1.5 pages exist. What still guards the
-          page: the shape checks in NormalizeToSpread, the narrow seam repair (which only ever
-          repairs, never refuses), and the model reviewer.
+          The history is worth keeping, because both rulings were made from evidence. The
+          measurement was calibrated on the veiled books the supplier rejected; the v1.5 prompt
+          then changed what clean art measures like — a calm bright text side against a busy
+          action side is the composition the prompt itself asks for — and on its first live
+          outing the gate refused a page the evidence says was art, twice, and stopped a paid
+          order. So it was demoted to a log line while the distributions were watched.
+
+          Then the supplier audited a shipped book and rejected it: five of eight story spreads
+          carried "an abnormal pixel jump exactly at x=1264/1265, the 50% fold coordinate", and
+          the required correction is named in as many words — "add an automated centerline test".
+          The book that proved the gate too eager and the book that proved it necessary are the
+          same instrument read at two thresholds, and the audit settles which way the doubt goes.
+
+          What makes the reversal affordable is that crossing the line is not a refusal any more.
+          It buys the page's one base regeneration first — the same budget the reviewer spends,
+          spent earlier and on arithmetic rather than on an opinion — and only a second picture
+          that still measures as two halves stops the run. A false positive now costs one image
+          call; the old single-tier gate's false positive cost a paid order.
+
+          The severe tier no longer selects anything (blocking makes two tiers moot) and the
+          numbers still go into the log, because they are the calibration data these thresholds
+          will be re-judged from.
         */
         var centreField = CompositeSeamRepair.MeasureCentreField(basePng);
+
         if (centreField.Exceeded)
         {
             logger.LogWarning(
-                "Composite pipeline {JobId} spread {Page}: centre-field telemetry (no effect) — "
-                + "edge {Edge:P1} at column {EdgeColumn}, one-way field {Field:P1} at column "
-                + "{FieldColumn}{Severe}.",
+                "Composite pipeline {JobId} spread {Page}: centre-fold gate — edge {Edge:P1} at "
+                + "column {EdgeColumn}, one-way field {Field:P1} at column {FieldColumn}{Severe} "
+                + "(advisory limits {EdgeLimit:P0}/{FieldLimit:P0}). Spending the one base "
+                + "regeneration.",
                 context.JobId, page.Page,
                 centreField.EdgeCoverage, centreField.EdgeColumn,
                 centreField.FieldCoverage, centreField.FieldColumn,
-                centreField.Severe ? " — SEVERE tier" : string.Empty);
+                centreField.Severe ? " — SEVERE tier" : string.Empty,
+                CompositeSeamRepair.EdgeCoverageLimit, CompositeSeamRepair.FieldCoverageLimit);
+
+            (basePng, generationMs, placement) = await RegenerateBaseAsync(
+                context, page, prompt,
+                $"the base does not continue across the centre fold ({Reading(centreField)})",
+                childPhoto, childPhotoContentType, theme, anchor, reference?.Image,
+                cancellationToken);
+
+            regenerated = true;
+            baseAttempts++;
+
+            // The refused picture is gone from here on: the reviewer judges the replacement, Beki
+            // is composited onto it, and it is what a later spread may be anchored to — once it has
+            // passed the same measurement, which is what the call below either grants or stops on.
+            centreField = MeasureRegeneratedBase(
+                context, page, basePng, selection.PoseId, textSide, baseAttempts, centreField);
         }
 
         // One row per generate-and-review cycle, kept whether it passed or not. A page that shipped
@@ -1886,6 +2292,13 @@ public sealed class CompositeBookPipeline(
                     PoseFallback = selection.Fallback,
                     ShotNote = verdict.ShotNote,
                     AgeNote = verdict.AgeNote,
+                    // The verdict that accepted this page, written down rather than dropped —
+                    // audit-2 P0-09, whose finding was that every one of a shipped book's eight QA
+                    // documents was missing because only refused pages ever wrote one. No second
+                    // model call: this is the answer the loop above just read.
+                    QaJson = CompositeSpreadQa.Write(
+                        page.Page, selection.PoseId, textSide, baseAttempts, attempts.Count,
+                        verdict),
                 };
             }
 
@@ -1907,6 +2320,12 @@ public sealed class CompositeBookPipeline(
 
                 regenerated = true;
                 baseAttempts++;
+
+                // And the replacement is measured, which it was not. See MeasureRegeneratedBase:
+                // a base bought here is a base the fold gate never saw, and the whole point of
+                // P0-05's automated centerline test is that no picture reaches the book unmeasured.
+                centreField = MeasureRegeneratedBase(
+                    context, page, basePng, selection.PoseId, textSide, baseAttempts, centreField);
 
                 continue;
             }
@@ -1996,6 +2415,10 @@ public sealed class CompositeBookPipeline(
                 regenerated = true;
                 baseAttempts++;
 
+                // Measured on the way in, exactly as rung one's replacement is.
+                centreField = MeasureRegeneratedBase(
+                    context, page, basePng, selection.PoseId, textSide, baseAttempts, centreField);
+
                 continue;
             }
 
@@ -2049,10 +2472,191 @@ public sealed class CompositeBookPipeline(
             References(childPhoto, childPhotoContentType, theme, anchor, continuityImage),
             cancellationToken);
 
-        // The centre-field measurement is telemetry-only by the owner's ruling — see the reading
-        // in DrawSpreadAsync. A regenerated base gets no second judgement here either.
+        /*
+          The centre-fold reading is taken by the caller rather than here, and every caller takes
+          it — see MeasureRegeneratedBase.
+
+          It used to say that measuring a QA-requested redraw would be "imposing the gate on a
+          picture bought to fix a different complaint", and that reasoning had a hole in it a review
+          found: a book whose first base passed the fold and whose reviewer then asked for a new
+          world shipped the replacement without any fold measurement at all. The gate was avoidable
+          by being asked for a redraw. It is not the caller's judgement whether the new picture is
+          measured — only which reading it is compared against.
+        */
         return (NormalizeToSpread(context, page.Page, rawPng), generationMs, null);
     }
+
+    /// <summary>
+    /// The blocking centre-fold measurement on a base that was just paid for, wherever it was
+    /// bought — audit-2 P0-05, and the hole a review found in it.
+    ///
+    /// The gate at the top of the page measured the first base and the regeneration it spent
+    /// itself, and stopped there. The two QA rungs buy the same one regeneration for a different
+    /// reason — the reviewer wanted a new world, or moving Beki on the old one did not help — and
+    /// their replacement went into the book unmeasured. So a spread whose first base was clean at
+    /// the fold and whose second was painted in half shipped, and the "automated centerline test"
+    /// the supplier asked for was, in that path, not run.
+    ///
+    /// The terminal behaviour is deliberately identical whichever rung bought the picture: the
+    /// budget is spent either way, and there is no third image to try. The evidence carries both
+    /// readings — the base this page started from and the one that failed — because the pair is
+    /// what tells a prompt problem from an unlucky picture.
+    /// </summary>
+    private CentreFieldMeasurement MeasureRegeneratedBase(
+        CompositeBookContext context,
+        VisualScenarioSpread page,
+        byte[] basePng,
+        string poseId,
+        string textSide,
+        int baseAttempts,
+        CentreFieldMeasurement previous)
+    {
+        var measured = CompositeSeamRepair.MeasureCentreField(basePng);
+
+        if (!measured.Exceeded)
+        {
+            logger.LogInformation(
+                "Composite pipeline {JobId} spread {Page}: the regenerated base continues across "
+                + "the centre fold — {Second}.",
+                context.JobId, page.Page, Reading(measured));
+
+            return measured;
+        }
+
+        logger.LogError(
+            "Composite pipeline {JobId} spread {Page}: the regenerated base does not continue "
+            + "across the centre fold — {Second} (the base it replaced read {First}). Stopping the "
+            + "book; the refused picture and the numbers are stored as evidence.",
+            context.JobId, page.Page, Reading(measured), Reading(previous));
+
+        throw new CompositePipelineException(
+            CompositeFailureCodes.ImageGenerationFailed,
+            $"Spread {page.Page} carries a full-height discontinuity at its centre fold in the "
+            + $"regenerated base ({Reading(measured)}); the base it replaced read "
+            + $"{Reading(previous)}. The page's one regeneration is spent, and a fold painted into "
+            + "the art cannot be repaired by layout, upscaling or colour conversion.")
+        {
+            Page = page.Page,
+            /*
+              The picture and the paperwork, exactly as the QA failure leaves them — same shape,
+              same two blobs, so the fulfilment job's evidence path needs to know nothing about
+              which gate refused a page.
+
+              The BASE rather than a composite, and the second one rather than the first: the defect
+              is in the generated artwork, and the picture worth looking at is the one that failed
+              after a redraw had already been paid for. Beki was never pasted onto either — a page
+              that cannot pass this gate never reaches the compositor.
+            */
+            Evidence = new CompositeFailureEvidence(
+                page.Page,
+                basePng,
+                CentreFoldEvidenceJson(
+                    page.Page, poseId, textSide, baseAttempts, previous, measured)),
+        };
+    }
+
+    /// <summary>One centre-field reading as a phrase, for a log line and for a failure message.</summary>
+    private static string Reading(CentreFieldMeasurement measured) =>
+        $"edge {measured.EdgeCoverage:P1} at column {measured.EdgeColumn}, one-way field "
+        + $"{measured.FieldCoverage:P1} at column {measured.FieldColumn}"
+        + (measured.Severe ? ", SEVERE" : string.Empty);
+
+    /// <summary>
+    /// The document stored beside a base the centre-fold gate refused, in the same shape and the
+    /// same two blobs as the QA failure's evidence (see <see cref="FailureEvidenceJson"/>).
+    ///
+    /// Both readings, before and after, because the pair is the whole argument: one measurement
+    /// past the limit is a picture, and two independent generations past the limit at the same
+    /// place is a prompt or a model painting a fold it was never asked for. The limits travel with
+    /// the numbers so that a document read in six months can be judged against the thresholds that
+    /// were in force when it was written rather than against whatever they became.
+    /// </summary>
+    private static string CentreFoldEvidenceJson(
+        int page,
+        string poseId,
+        string textSide,
+        int baseAttempts,
+        CentreFieldMeasurement first,
+        CentreFieldMeasurement second) =>
+        JsonSerializer.Serialize(
+            new
+            {
+                page,
+                failure_code = CompositeFailureCodes.ImageGenerationFailed,
+                audit_item = "P0-05",
+                image_prompt_version = CompositeIllustrationPrompt.Version,
+                pose_id = poseId,
+                text_side = textSide,
+                base_attempts = baseAttempts,
+                gate = "centre_fold",
+                limits = new
+                {
+                    edge_coverage = CompositeSeamRepair.EdgeCoverageLimit,
+                    field_coverage = CompositeSeamRepair.FieldCoverageLimit,
+                    severe_edge_coverage = CompositeSeamRepair.SevereEdgeCoverageLimit,
+                    severe_field_coverage = CompositeSeamRepair.SevereFieldCoverageLimit,
+                },
+                readings = new[] { CentreFoldReading(1, first), CentreFoldReading(2, second) },
+            },
+            CompositeJson.Readable);
+
+    private static object CentreFoldReading(int attempt, CentreFieldMeasurement measured) => new
+    {
+        attempt,
+        edge_coverage = measured.EdgeCoverage,
+        edge_column = measured.EdgeColumn,
+        field_coverage = measured.FieldCoverage,
+        field_column = measured.FieldColumn,
+        exceeded = measured.Exceeded,
+        severe = measured.Severe,
+    };
+
+    /// <summary>
+    /// The document stored beside a cover wrap the construction-band gate refused.
+    ///
+    /// Per boundary rather than in aggregate, and every boundary rather than only the offending
+    /// ones: what the audit's own evidence looked like was "x=1236 and x=1291" resolved to
+    /// millimetres, and the two lines that stayed clean are as much a part of the argument as the
+    /// two that did not — a wrap that is painted at every boundary is a prompt problem, and one
+    /// painted at the spine alone is a different conversation with the model.
+    /// </summary>
+    private static string CoverBandEvidenceJson(
+        CoverBandMeasurement first, CoverBandMeasurement second) =>
+        JsonSerializer.Serialize(
+            new
+            {
+                page = 0,
+                failure_code = CompositeFailureCodes.ImageGenerationFailed,
+                audit_item = "P0-03",
+                image_prompt_version = CompositeIllustrationPrompt.Version,
+                gate = "cover_construction_bands",
+                canvas_width_mm = BekiCoverDieline.CanvasWidthMm,
+                limits = new
+                {
+                    edge_coverage = CompositeSeamRepair.EdgeCoverageLimit,
+                    field_coverage = CompositeSeamRepair.FieldCoverageLimit,
+                    band_fraction = CompositeSeamRepair.CoverBandFraction,
+                },
+                attempts = new[] { CoverBandAttempt(1, first), CoverBandAttempt(2, second) },
+            },
+            CompositeJson.Readable);
+
+    private static object CoverBandAttempt(int attempt, CoverBandMeasurement measured) => new
+    {
+        attempt,
+        exceeded = measured.Exceeded,
+        boundaries = measured.Bands.Select(band => new
+        {
+            name = band.Boundary.Name,
+            millimetres_from_left = band.Boundary.MillimetresFromLeft,
+            width_fraction = band.Boundary.WidthFraction,
+            edge_coverage = band.Measurement.EdgeCoverage,
+            edge_column = band.Measurement.EdgeColumn,
+            field_coverage = band.Measurement.FieldCoverage,
+            field_column = band.Measurement.FieldColumn,
+            exceeded = band.Exceeded,
+        }).ToList(),
+    };
 
     /// <summary>
     /// The document that goes into the pack beside the refused picture.

@@ -520,7 +520,7 @@ public class CompositePoseVocabularyTests
         // And it must not undo the contract's own variety rule by inviting one family everywhere.
         Assert.Contains("do not reuse one family for the whole book", instruction);
 
-        Assert.Equal("visual-scenario-v2.2", CompositeVisualScenarioPrompt.Version);
+        Assert.Equal("visual-scenario-v2.3", CompositeVisualScenarioPrompt.Version);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -760,7 +760,7 @@ public class CompositeGeorgianAndShotNoteTests
     public void The_installed_checklist_loads_completely()
     {
         Assert.Empty(CompositeGeorgianCheck.RuleProblems);
-        Assert.Equal("georgian-text-checklist-v1", CompositeGeorgianCheck.ChecklistVersion);
+        Assert.Equal("georgian-text-checklist-v1.1", CompositeGeorgianCheck.ChecklistVersion);
     }
 
     /// <summary>Writes a check-list into a temp asset tree and loads it the way production does.</summary>
@@ -847,7 +847,7 @@ public class CompositeGeorgianAndShotNoteTests
         // The plan is a record and nothing here mutates it; said out loud because the whole
         // contract of this class is "flag, never repair".
         Assert.Equal(original, plan.Spreads[0].Text);
-        Assert.Equal("georgian-text-checklist-v1", CompositeGeorgianCheck.ChecklistVersion);
+        Assert.Equal("georgian-text-checklist-v1.1", CompositeGeorgianCheck.ChecklistVersion);
     }
 
     [Fact]

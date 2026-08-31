@@ -1,0 +1,92 @@
+{
+  "schema_version": "1.0",
+  "project": "BEKI",
+  "current_package_verdict": "REJECTED",
+  "release_policy": "all_hard_gates_must_pass",
+  "locked_values": {
+    "press_cover_mm": [512, 245],
+    "press_interior_media_mm": [450, 210],
+    "press_interior_trim_mm": [440, 200],
+    "digital_single_page_mm": [220, 200],
+    "digital_spread_mm": [440, 200],
+    "required_press_raster_ppi": 300,
+    "pdfx_version": "PDF/X-4",
+    "output_intent": "FOGRA39",
+    "output_intent_icc_sha256": "b35713ef7eff09349d4c3249e5f377736d06d8a2671c54712971a3546bf17c57",
+    "qr_count": 1,
+    "qr_destination": "https://beki.ge",
+    "interior_font": "Noto Sans Georgian",
+    "cover_title_font": "Ottia"
+  },
+  "hard_gates": [
+    {
+      "id": "ASSET_LOCK",
+      "requirement": "Every fixed asset resolves by immutable role and SHA-256; no legacy or default fallback is permitted."
+    },
+    {
+      "id": "EXACT_BEKI",
+      "requirement": "Every final Beki is an approved transparent source asset with no redraw, mirror, rotation, warp, or unapproved transformation."
+    },
+    {
+      "id": "SINGLE_COVER_MASTER",
+      "requirement": "Press cover and digital front/back are derived from the same canonical cover master."
+    },
+    {
+      "id": "COVER_CONTINUITY",
+      "requirement": "The cover is one continuous world with no visible hinge, spine, panel, turn-in, tint, blur, or guide boundary."
+    },
+    {
+      "id": "INTERIOR_CONTINUITY",
+      "requirement": "Every story spread is one uninterrupted panorama with no center seam, fold marker, half-page wash, or raster text panel."
+    },
+    {
+      "id": "TEXT_LAYER",
+      "requirement": "Noto story text and all text-support washes are separate vector/layout layers; each wash is local and copy-sized."
+    },
+    {
+      "id": "PRESS_GEOMETRY",
+      "requirement": "Cover and interior page counts and page boxes exactly match the locked millimetre geometry."
+    },
+    {
+      "id": "PRESS_COLOR",
+      "requirement": "Press PDFs are PDF/X-4, contain the locked FOGRA39 Output Intent bytes, and contain no RGB raster object."
+    },
+    {
+      "id": "PRESS_RESOLUTION",
+      "requirement": "Every press raster has at least 300 effective source PPI at placement size; interpolation-only upscaling is a failure."
+    },
+    {
+      "id": "TEXT_COLOR_INTEGRITY",
+      "requirement": "CMYK conversion preserves authored semantic text colors; credits remain light and readable on the dark background."
+    },
+    {
+      "id": "DIGITAL_GEOMETRY",
+      "requirement": "Digital front/back are 220 x 200 mm and digital spreads are 440 x 200 mm, with no printer bleed or wrap structures."
+    },
+    {
+      "id": "QR",
+      "requirement": "Exactly one vector QR appears on credits and scans from the rendered stored artifact to https://beki.ge."
+    },
+    {
+      "id": "FONT_INTEGRITY",
+      "requirement": "Licensed Noto and Ottia are embedded with no substitution, and source file hashes are recorded."
+    },
+    {
+      "id": "RENDER_VALIDATION",
+      "requirement": "The stored final artifacts pass both Ghostscript and Poppler render validation."
+    },
+    {
+      "id": "VISUAL_QA",
+      "requirement": "Every story and fixed page has a final QA record; any unresolved human-review flag blocks release."
+    },
+    {
+      "id": "HANDBACK_COMPLETENESS",
+      "requirement": "The package includes normalized story, visual scenario, asset lock, composition receipts, QA evidence, final checksums, build provenance, and final PDFs."
+    }
+  ],
+  "current_artifact_hashes": {
+    "reading_copy_pdf": "8a41310959e15b1abcbee08d7fe78b6810b1770c3d29325d3e53cd205b6a3a67",
+    "press_interior_pdf": "ac1186fbf95b5926413a4f9fcf88c108d8914718a2d1544a870bcf0e9dde845c",
+    "press_cover_pdf": "e650a8f4f971fac909cce1ed19fd249ccc50408d8989ec17d4ce9ed0f98d8d06"
+  }
+}

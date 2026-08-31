@@ -24,8 +24,15 @@ using Xunit;
 namespace Adventrya.Story.Tests;
 
 /// <summary>
-/// The centre-column seam gate: what counts as a painted seam, what is repaired, and what is
-/// deliberately left alone.
+/// The centre-column seam gate: what counts as a painted seam, what is repaired, what is
+/// deliberately left alone — and, since audit-2 P0-05, what stops a book.
+///
+/// Two instruments, and they answer different questions. The interpolating repair paints out a
+/// one-to-eight column band and refuses to touch anything wider, so a milky veil over half a page
+/// walks past it by construction. The centre-field reading measures whether the two sides of the
+/// fold agree at all; it repairs nothing, and it is now the gate that buys a redraw and then stops
+/// the run. The fixtures the two tiers were calibrated on are kept whole below, because the
+/// thresholds have been re-judged once and will be again.
 ///
 /// One of the classes CompositePipelineTestBase serves; see it for the fixtures these use.
 /// </summary>
@@ -272,13 +279,17 @@ public class CompositePipelineSeamTests : CompositePipelineTestBase
     }
 
     /// <summary>
-    /// The advisory tier: a reading past the ordinary limits but short of severe warns and
-    /// changes nothing. The first live v1.5 book is the reason the tier exists — a clean page
-    /// measured within a few points of the old single-tier limit, and its sibling was refused
-    /// twice over what the evidence says was composition, killing a paid order.
+    /// The advisory tier still classifies the way it was calibrated to — and it is now the tier
+    /// that blocks.
+    ///
+    /// Both halves matter. The fixture is the calibration: a faint one-way lift measures past the
+    /// advisory limits and well short of severe, which is the distinction the two tiers were cut
+    /// on and the log lines are still written in. What changed is the consequence. Audit-2 P0-05
+    /// demanded an automated centerline test, so the ADVISORY pair is what the pipeline acts on;
+    /// severe no longer selects a different road, because there is only one road left.
     /// </summary>
     [Fact]
-    public void A_borderline_reading_warns_and_is_not_refused()
+    public void A_borderline_reading_is_advisory_by_tier_and_blocking_by_ruling()
     {
         // A faint one-way lift: enough to push the field reading past its advisory limit (a 0.15
         // lift moves the wide strips ~21 luma against the 15-luma row step), far too gentle for
@@ -290,8 +301,34 @@ public class CompositePipelineSeamTests : CompositePipelineTestBase
         Assert.True(measured.Exceeded, $"the faint lift only measured {measured.FieldCoverage:P0}.");
         Assert.False(measured.Severe);
 
+        // The tier classifier is unchanged, which is what keeps the two thresholds comparable to
+        // every number already in the logs.
         Assert.Empty(CompositeDeterministicChecks.CentreFieldProblems(faint));
         Assert.NotNull(CompositeDeterministicChecks.CentreFieldWarning(faint));
+    }
+
+    /// <summary>
+    /// And the same borderline page, put through the pipeline, now costs a picture: the advisory
+    /// pair is the blocking pair, so a base that crosses it spends the page's one regeneration
+    /// before anything is reviewed.
+    /// </summary>
+    [Fact]
+    public async Task A_borderline_base_spends_the_pages_one_regeneration()
+    {
+        var faint = WithVeil(
+            Gradient(ProviderWidth, ProviderHeight), leftSide: true, lift: 0.15,
+            shoulderColumns: 24);
+
+        Assert.False(CompositeSeamRepair.MeasureCentreField(faint).Severe);
+
+        var images = new StubImageService();
+        images.QueuedImages.Enqueue(faint);
+
+        var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+            .RunAsync(Request(), CancellationToken.None);
+
+        Assert.Equal(2, result.Spreads[0].BaseAttempts);
+        Assert.False(CompositeSeamRepair.MeasureCentreField(result.Spreads[0].BasePng).Exceeded);
     }
 
     /// <summary>
@@ -316,15 +353,24 @@ public class CompositePipelineSeamTests : CompositePipelineTestBase
         Assert.False(CompositeSeamRepair.MeasureCentreField(SyntheticImages.SolidPng(64, 64)).Exceeded);
     }
 
+    // ---------------------------------------------------------------------------------------
+    // The centre-fold gate blocks again — audit-2 P0-05
+    // ---------------------------------------------------------------------------------------
+
     /// <summary>
-    /// The centre-field measurement is telemetry-only, by the owner's ruling of 2026-08-31: its
-    /// first live outing refused a clean page twice and stopped a paid order, because the v1.5
-    /// prompt changed what clean art measures like. A veiled base now costs nothing — no
-    /// regeneration, no failure — it is measured, logged, and shipped to the reviewer, who
-    /// remains the judge of content.
+    /// A veiled base buys the page's one regeneration, and the clean second picture is the one
+    /// that goes to the reviewer and into the book.
+    ///
+    /// This test replaces the one that pinned the opposite. From 2026-08-31 the measurement was
+    /// telemetry-only — its first live outing had refused a clean page twice and stopped a paid
+    /// order — and the supplier then rejected a shipped book for "an abnormal pixel jump exactly
+    /// at x=1264/1265, the 50% fold coordinate" on five of eight spreads, naming an automated
+    /// centerline test as the correction. The reversal is affordable because it is no longer a
+    /// refusal on sight: a false positive costs one image call, where the old single-tier gate's
+    /// cost an order.
     /// </summary>
     [Fact]
-    public async Task A_veiled_base_is_measured_logged_and_never_charged_for()
+    public async Task A_veiled_base_buys_one_redraw_and_the_clean_second_ships()
     {
         var veiled = WithVeil(
             Gradient(ProviderWidth, ProviderHeight), leftSide: true, lift: 0.5, shoulderColumns: 24);
@@ -335,13 +381,159 @@ public class CompositePipelineSeamTests : CompositePipelineTestBase
         var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
             .RunAsync(Request(), CancellationToken.None);
 
-        // One picture per spread, no gate spend anywhere: eight spreads, eight calls.
-        Assert.Equal(BookFormat.SpreadCount, images.ImageCalls);
-        Assert.Equal(1, result.Spreads[0].BaseAttempts);
+        // Nine pictures for eight spreads: the veiled first spread cost two, the rest one each.
+        Assert.Equal(BookFormat.SpreadCount + 1, images.ImageCalls);
+        Assert.Equal(2, result.Spreads[0].BaseAttempts);
 
-        // The measurement still reads the page — the log line is the retuning data — and the
-        // page it read went on to review and shipping regardless.
-        Assert.True(CompositeSeamRepair.MeasureCentreField(result.Spreads[0].BasePng).Exceeded);
+        // The veil is not in the book, and it never reached the reviewer either — the gate runs
+        // before the composite is built, so the refused picture was never judged or pasted onto.
+        Assert.False(CompositeSeamRepair.MeasureCentreField(result.Spreads[0].BasePng).Exceeded);
+        Assert.All(
+            images.ReviewImages,
+            judged => Assert.False(CompositeSeamRepair.MeasureCentreField(judged).Exceeded));
+    }
+
+    /// <summary>
+    /// Two generations, both veiled, and the book stops — with the picture and the numbers, in the
+    /// same two blobs a refused QA verdict leaves behind.
+    ///
+    /// The pair is the argument: one measurement past the limit is a picture, and two independent
+    /// generations past it at the same place is a fold being painted. The evidence is what makes
+    /// the gate answerable — the thresholds were re-judged once already, and the next time they
+    /// are, the documents this writes are what they will be judged from.
+    /// </summary>
+    [Fact]
+    public async Task A_base_veiled_twice_stops_the_book_with_the_picture_and_the_numbers()
+    {
+        var veiled = WithVeil(
+            Gradient(ProviderWidth, ProviderHeight), leftSide: true, lift: 0.5, shoulderColumns: 24);
+
+        var images = new StubImageService();
+        images.QueuedImages.Enqueue(veiled);
+        images.QueuedImages.Enqueue(veiled);
+
+        var failure = await Assert.ThrowsAsync<CompositePipelineException>(() =>
+            Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+                .RunAsync(Request(), CancellationToken.None));
+
+        Assert.Equal(CompositeFailureCodes.ImageGenerationFailed, failure.FailureCode);
+        Assert.Equal(1, failure.Page);
+
+        // Two pictures for the anchor spread and then nothing: the book stopped before it drew
+        // the seven pages that would have been thrown away.
+        Assert.Equal(2, images.ImageCalls);
+
+        // The reviewer was never asked. A page that cannot pass this gate is not worth a verdict.
+        Assert.Equal(0, images.ReviewCalls);
+
+        var evidence = Assert.IsType<CompositeFailureEvidence>(failure.Evidence);
+        Assert.Equal(1, evidence.Page);
+
+        // The picture is the refused BASE — Beki was never composited onto it — and it still
+        // measures as two halves, which is the point of storing it.
+        Assert.True(CompositeSeamRepair.MeasureCentreField(evidence.CompositePng).Exceeded);
+
+        using var document = JsonDocument.Parse(evidence.QaJson);
+        var root = document.RootElement;
+
+        Assert.Equal("centre_fold", root.GetProperty("gate").GetString());
+        Assert.Equal("P0-05", root.GetProperty("audit_item").GetString());
+        Assert.Equal(2, root.GetProperty("base_attempts").GetInt32());
+
+        // Both readings, in order, both over the line — and the limits they were judged against,
+        // so the document stands on its own when the thresholds move.
+        var readings = root.GetProperty("readings").EnumerateArray().ToList();
+        Assert.Equal(2, readings.Count);
+        Assert.All(readings, reading => Assert.True(reading.GetProperty("exceeded").GetBoolean()));
+        Assert.Equal(
+            CompositeSeamRepair.FieldCoverageLimit,
+            root.GetProperty("limits").GetProperty("field_coverage").GetDouble(),
+            3);
+    }
+
+    /// <summary>
+    /// A base bought by the REVIEWER is measured at the fold too — the way past the gate that a
+    /// review found, and the only way through it that existed.
+    ///
+    /// The gate ran on the first base and on the redraw the gate itself bought, and stopped there.
+    /// The two QA rungs spend the same one regeneration for a different reason — the reviewer wanted
+    /// a different world, or moving Beki on the old one did not help — and their replacement went
+    /// into the book without ever being measured. So a page whose first picture was clean at the
+    /// fold and whose second was painted in half shipped, and P0-05's "automated centerline test"
+    /// was, on that path, not run at all. Being asked for a redraw was a way around the gate.
+    ///
+    /// The terminal behaviour is the one the gate already had: the regeneration is spent, there is
+    /// no third picture, and the book stops with the refused base and both readings beside it.
+    /// </summary>
+    [Fact]
+    public async Task A_reviewer_requested_redraw_is_measured_at_the_fold_like_any_other_base()
+    {
+        var clean = Gradient(ProviderWidth, ProviderHeight);
+        var veiled = WithVeil(
+            Gradient(ProviderWidth, ProviderHeight), leftSide: true, lift: 0.5,
+            shoulderColumns: 24);
+
+        var images = new StubImageService();
+        images.QueuedImages.Enqueue(clean);
+        images.QueuedImages.Enqueue(veiled);
+
+        // The first base passes the fold gate on sight; what buys the second picture is the
+        // reviewer asking for a new world, which is the path that used to skip the measurement.
+        images.Verdicts.Enqueue(Fail("MAIN_SCENE_BEAT", CompositeQaVerdict.ActionRegenerateBase));
+
+        var failure = await Assert.ThrowsAsync<CompositePipelineException>(() =>
+            Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+                .RunAsync(Request(), CancellationToken.None));
+
+        Assert.Equal(CompositeFailureCodes.ImageGenerationFailed, failure.FailureCode);
+        Assert.Equal(1, failure.Page);
+
+        // Two pictures and one review: the clean first base was judged, the replacement never
+        // reached the reviewer because it never got past the fold.
+        Assert.Equal(2, images.ImageCalls);
+        Assert.Equal(1, images.ReviewCalls);
+
+        var evidence = Assert.IsType<CompositeFailureEvidence>(failure.Evidence);
+        Assert.Equal(1, evidence.Page);
+        Assert.True(CompositeSeamRepair.MeasureCentreField(evidence.CompositePng).Exceeded);
+
+        using var document = JsonDocument.Parse(evidence.QaJson);
+        var root = document.RootElement;
+
+        // The same document the gate's own refusal writes — same gate name, same shape, so the
+        // fulfilment job's evidence path needs to know nothing about which rung bought the picture.
+        Assert.Equal("centre_fold", root.GetProperty("gate").GetString());
+        Assert.Equal("P0-05", root.GetProperty("audit_item").GetString());
+        Assert.Equal(2, root.GetProperty("base_attempts").GetInt32());
+
+        // And the pair reads honestly: the base this page started from was clean, the one bought to
+        // replace it was not. A document claiming two failed readings would be describing a
+        // different failure.
+        var readings = root.GetProperty("readings").EnumerateArray().ToList();
+        Assert.Equal(2, readings.Count);
+        Assert.False(readings[0].GetProperty("exceeded").GetBoolean());
+        Assert.True(readings[1].GetProperty("exceeded").GetBoolean());
+    }
+
+    /// <summary>
+    /// And the measurement does not turn a healthy redraw into a refusal: a reviewer-requested base
+    /// that is clean at the fold goes on to be reviewed and shipped, at the cost of one picture.
+    /// </summary>
+    [Fact]
+    public async Task A_clean_reviewer_requested_redraw_still_ships()
+    {
+        var images = new StubImageService();
+        images.QueuedImages.Enqueue(Gradient(ProviderWidth, ProviderHeight));
+        images.QueuedImages.Enqueue(Gradient(ProviderWidth, ProviderHeight));
+
+        images.Verdicts.Enqueue(Fail("MAIN_SCENE_BEAT", CompositeQaVerdict.ActionRegenerateBase));
+
+        var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+            .RunAsync(Request(), CancellationToken.None);
+
+        Assert.Equal(BookFormat.SpreadCount, result.Spreads.Count);
+        Assert.Equal(2, result.Spreads[0].BaseAttempts);
+        Assert.False(CompositeSeamRepair.MeasureCentreField(result.Spreads[0].BasePng).Exceeded);
     }
 
     /// <summary>

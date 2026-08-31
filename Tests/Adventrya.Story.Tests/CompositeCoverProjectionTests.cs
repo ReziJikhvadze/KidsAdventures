@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Enums;
@@ -16,133 +17,201 @@ using Xunit;
 namespace Adventrya.Story.Tests;
 
 /// <summary>
-/// Which cover the reader is served, and which one the PDF is laid out from — and that the two are
-/// the same picture.
+/// Which cover this book has — and, since audit-2, that it has exactly one.
 ///
-/// They were not. From v1.2 the fulfilment job redraws the cover once the book's first spread is
-/// accepted, with the child's identity lock in the prompt and that spread as the appearance anchor,
-/// and stores it under the pack's own prefix; the PDF has been laid out from it since. The reader
-/// went on serving the pack's cover column, which has held the preview run's picture since
-/// purchase — the one drawn before the child had an identity spec at all, and the one the owner
-/// watched lose the eye colour. The owner's first check is the on-screen book, so a book whose
-/// cover was fixed only in the PDF was a book whose fix nobody could see.
+/// It had two. The printer's cover was the composited 512 × 245 wrap; the parent's cover was an AI
+/// redraw made after the first spread was accepted, and the reader's own image was re-pointed at
+/// that redraw. Two producers, two designs, one book. P0-01 is the supplier rejecting the package
+/// for it, and no amount of reviewing either picture would have caught it: each was individually
+/// fine.
 ///
-/// Three cases, and the third is the one worth writing a harness for: a resumed run that adopted
-/// every page draws no cover of its own, and must neither overwrite the stored redraw with the
-/// previewed picture nor stop pointing at it.
+/// So the flow was reordered (plan D1). The wrap is generated first, its bytes are stored and
+/// checked against their own composition receipt (P0-10), and every cover anybody sees is cut from
+/// them: the press cover, the customer PDF's front and back pages, and the reader's image. The
+/// redraw is not called at all, and a wrap that cannot be produced now fails the book rather than
+/// quietly falling back to a second design.
 /// </summary>
 public class CompositeCoverProjectionTests
 {
     [Fact]
-    public async Task An_accepted_redraw_points_the_reader_at_the_packs_own_cover()
+    public async Task The_stored_wrap_becomes_the_only_cover_and_the_reader_points_at_its_front_board()
     {
         var world = new PackWorld();
 
         await world.Run();
 
-        // The cover was stored under the pack's prefix…
-        var coverName = BekiPackBlobs.CoverName(world.UserId, world.PackId);
-        Assert.Contains(coverName, world.Blobs.Uploaded.Keys);
+        // The master is written down — audit P0-10's missing file.
+        var wrapName = BekiPackBlobs.CoverWrapCompositeName(world.UserId, world.PackId);
+        Assert.Contains(wrapName, world.Blobs.Uploaded.Keys);
+        Assert.Contains(BekiPackBlobs.CoverWrapBaseName(world.UserId, world.PackId), world.Blobs.Uploaded.Keys);
+        Assert.Contains(BekiPackBlobs.CoverCompositionName(world.UserId, world.PackId), world.Blobs.Uploaded.Keys);
 
-        // …and the reader's cover column now points at it rather than at the preview run's.
-        Assert.Equal($"https://blob.test/{coverName}", world.Packs.CoverImageUrl);
+        // The reader's cover is the wrap's own front board, not a second picture.
+        var frontName = BekiPackBlobs.CoverFrontName(world.UserId, world.PackId);
+        Assert.Contains(frontName, world.Blobs.Uploaded.Keys);
+        Assert.Equal($"https://blob.test/{frontName}", world.Packs.CoverImageUrl);
         Assert.NotEqual(PackWorld.PreviewCoverUrl, world.Packs.CoverImageUrl);
 
-        // The manifest says which of the two provenances shipped, with the verdict that passed.
+        // And the customer's book was laid out from the same bytes the printer's cover is made of.
+        Assert.Equal(world.Blobs.Uploaded[wrapName], world.Composer.ReadingWrap);
+
+        // The manifest names the master rather than a redraw version.
         var manifest = world.StoredManifest();
-        Assert.Equal(
-            CompositeIllustrationPrompt.CoverRedrawVersion, manifest.Cover!.PromptVersion);
-        Assert.True(manifest.Cover.IsRedraw);
-        Assert.Contains("PASS", manifest.Cover.Verdict);
-
-        // And the PDF was laid out from the same bytes the reader is now served.
-        Assert.Equal(world.Blobs.Uploaded[coverName], world.Composer.CoverLaidOut);
-    }
-
-    [Fact]
-    public async Task An_adopted_preview_cover_leaves_the_reader_pointing_where_it_did()
-    {
-        var world = new PackWorld { RedrawTheCover = false };
-
-        await world.Run();
-
-        // Unchanged: an adopted cover IS the preview run's cover, so re-pointing the column at a
-        // copy of it would change nothing except which blob a reader has to fetch.
-        Assert.Equal(PackWorld.PreviewCoverUrl, world.Packs.CoverImageUrl);
-
-        var manifest = world.StoredManifest();
-        Assert.Equal(BekiCoverRecord.AdoptedPreviewCover, manifest.Cover!.PromptVersion);
+        Assert.Equal(BekiCoverRecord.WrapMaster, manifest.Cover!.PromptVersion);
+        Assert.True(manifest.Cover.IsWrapMaster);
         Assert.False(manifest.Cover.IsRedraw);
-
-        // Nobody reviewed it, and a blank verdict in that field would read as a pass.
-        Assert.Null(manifest.Cover.Verdict);
+        Assert.Equal("pose_01_neutral_hover", manifest.Cover.PoseId);
+        Assert.Equal(64, manifest.Cover.CompositeSha256!.Length);
     }
 
     /// <summary>
-    /// A resumed run that adopted every page draws no cover, and must leave the redrawn one alone —
-    /// the blob, the record and the reader's pointer.
-    ///
-    /// The hazard is quiet and total: the run hands back the previewed cover because that is all it
-    /// has, and an unguarded job would upload it over the reviewed one, rewrite the record to say
-    /// "adopted", and leave a pack whose reader points at a picture that had just been replaced by
-    /// a worse one.
+    /// The AI redraw ships nowhere. `cover.png` is a historical blob from before the correction, and
+    /// this path must not write one — a second cover in storage is a second cover somebody points at.
     /// </summary>
     [Fact]
-    public async Task A_resumed_run_keeps_the_cover_an_earlier_attempt_redrew()
-    {
-        var world = new PackWorld { RedrawTheCover = false };
-
-        var coverName = BekiPackBlobs.CoverName(world.UserId, world.PackId);
-        var redrawnCover = new byte[] { 9, 9, 9, 9 };
-
-        // What the earlier attempt left: a redrawn cover blob and a manifest that says so.
-        world.Blobs.Seed(coverName, redrawnCover);
-        world.SeedManifest(new BekiCoverRecord(
-            $"https://blob.test/{coverName}",
-            CompositeIllustrationPrompt.CoverRedrawVersion,
-            "PASS (pass)"));
-
-        await world.Run();
-
-        // The stored cover is untouched: this run never uploaded over it.
-        Assert.Equal(redrawnCover, world.Blobs.Uploaded[coverName]);
-
-        // The record still says a redraw shipped, with the verdict it shipped under.
-        var manifest = world.StoredManifest();
-        Assert.True(manifest.Cover!.IsRedraw);
-        Assert.Equal("PASS (pass)", manifest.Cover.Verdict);
-
-        // The reader still points at it…
-        Assert.Equal($"https://blob.test/{coverName}", world.Packs.CoverImageUrl);
-
-        // …and this attempt's PDF was laid out from the stored redraw rather than from the
-        // previewed cover it was handed, so the printed book and the screen agree.
-        Assert.Equal(redrawnCover, world.Composer.CoverLaidOut);
-    }
-
-    /// <summary>
-    /// The print slot never points at the hybrid again. Print prep runs with the locked spec's
-    /// own defaults now, and this world's stub composer hands it a torn-off header instead of a
-    /// document — so the stage refuses, and the refusal must clear the slot explicitly: a
-    /// withheld print artifact with a named reason, not a layout export wearing a print label.
-    /// The parent's reading copy ships regardless.
-    /// </summary>
-    [Fact]
-    public async Task The_print_slot_is_withheld_when_print_prep_refuses()
+    public async Task The_composite_path_never_writes_the_redrawn_cover()
     {
         var world = new PackWorld();
 
         await world.Run();
 
-        Assert.True(world.Composer.InteriorComposed);
+        Assert.DoesNotContain(
+            BekiPackBlobs.CoverName(world.UserId, world.PackId), world.Blobs.Uploaded.Keys);
+    }
+
+    /// <summary>
+    /// Audit P0-10, as a check rather than as a claim: every cover derivation is cut from these
+    /// bytes, so a master whose hash disagrees with its own receipt is not a master.
+    /// </summary>
+    [Fact]
+    public async Task A_wrap_that_does_not_match_its_receipt_stops_the_book()
+    {
+        var world = new PackWorld { WrapReceiptLies = true };
+
+        await world.Job().ProcessAsync(world.PackId, world.RunId, CancellationToken.None);
+
+        Assert.NotNull(world.Packs.FailureReason);
+        Assert.StartsWith("IMAGE_GENERATION_FAILED", world.Packs.FailureReason);
+        Assert.Contains("composition receipt", world.Packs.FailureReason);
+    }
+
+    /// <summary>
+    /// Risk R1, accepted deliberately: a composite book with no wrap has no cover master, and the
+    /// old behaviour — degrade to the previewed picture — is the second producer the audit rejected.
+    /// </summary>
+    [Fact]
+    public async Task A_wrap_that_cannot_be_drawn_fails_the_book_rather_than_falling_back()
+    {
+        var world = new PackWorld { WrapFails = true };
+
+        await world.Job().ProcessAsync(world.PackId, world.RunId, CancellationToken.None);
+
+        Assert.NotNull(world.Packs.FailureReason);
+        Assert.Contains("cover wrap", world.Packs.FailureReason);
+
+        // Nothing shipped, and in particular the previewed cover was not promoted behind the scenes.
+        Assert.Equal(PackWorld.PreviewCoverUrl, world.Packs.CoverImageUrl);
+    }
+
+    /// <summary>
+    /// P0-09: the accepted verdicts were held in memory and dropped, so the rejected package listed
+    /// all eight QA files as missing beside two finished PDFs. They are written now, on the success
+    /// path, for every page.
+    /// </summary>
+    [Fact]
+    public async Task Every_accepted_spread_leaves_its_QA_record_behind()
+    {
+        var world = new PackWorld();
+
+        await world.Run();
+
+        for (var spread = 1; spread <= BookFormat.SpreadCount; spread++)
+        {
+            Assert.Contains(
+                BekiPackBlobs.SpreadQaName(world.UserId, world.PackId, spread),
+                world.Blobs.Uploaded.Keys);
+        }
+    }
+
+    /// <summary>
+    /// Amendment A4's invariant, from the pipeline side: an adopted artifact carries no receipt of
+    /// its own, and storing one anyway would put an empty composition entry where the earlier
+    /// attempt's real one belongs — satisfying the exact-Beki gate with nothing.
+    /// </summary>
+    [Fact]
+    public async Task An_adopted_spread_does_not_overwrite_its_earlier_receipt()
+    {
+        var world = new PackWorld { AdoptSpread = 3 };
+
+        var receiptName = BekiPackBlobs.CompositionManifestName(world.UserId, world.PackId, 3);
+        world.Blobs.Seed(receiptName, "{\"the earlier attempt\"}"u8.ToArray());
+
+        // The earlier attempt's own record of that page, which is what this run adopts and must not
+        // replace with the blank an adopted artifact carries.
+        world.SeedManifest(compositions:
+        [
+            new BekiCompositionManifestEntry(
+                3, $"https://blob.test/{receiptName}", "pose_04_point_forward",
+                new string('a', 64), null),
+        ]);
+
+        await world.Run();
+
+        Assert.Equal(
+            "{\"the earlier attempt\"}"u8.ToArray(), world.Blobs.Uploaded[receiptName]);
+
+        var manifest = world.StoredManifest();
+        var adopted = manifest.Compositions!.Single(entry => entry.SpreadNumber == 3);
+
+        Assert.Equal("pose_04_point_forward", adopted.PoseId);
+        Assert.Equal(new string('a', 64), adopted.OutputSha256);
+    }
+
+    /// <summary>
+    /// The asset lock runs before any model call (plan D9): a book built from unapproved bytes must
+    /// cost nothing to refuse.
+    /// </summary>
+    [Fact]
+    public async Task The_asset_lock_is_proved_and_stored_before_the_book_is_drawn()
+    {
+        var world = new PackWorld();
+
+        await world.Run();
+
+        Assert.Contains(
+            BekiPackBlobs.AssetLockName(world.UserId, world.PackId), world.Blobs.Uploaded.Keys);
+    }
+
+    /// <summary>
+    /// The verdict is written down and read. Under this harness the composed documents are stubs, so
+    /// print and digital preparation both refuse — which is the point: the files withhold, the pack
+    /// still completes, and the reader still has its spreads.
+    /// </summary>
+    [Fact]
+    public async Task The_release_verdict_is_stored_and_withholds_the_files_it_should()
+    {
+        var world = new PackWorld();
+
+        await world.Run();
+
+        var gatesName = BekiPackBlobs.ReleaseGatesName(world.UserId, world.PackId);
+        Assert.Contains(gatesName, world.Blobs.Uploaded.Keys);
+
+        var verdict = BekiReleaseGateReport.TryParse(
+            System.Text.Encoding.UTF8.GetString(world.Blobs.Uploaded[gatesName]))!;
+
+        Assert.Equal(BekiReleaseGates.NotReleasable, verdict.Verdict);
+        Assert.NotEmpty(verdict.FailingGates);
 
         // Withheld on purpose: the slot was written, and written null.
         Assert.True(world.Packs.PrintPdfUrlWritten);
         Assert.Null(world.Packs.PrintPdfUrl);
 
-        // No print artifact was stored, and the reading copy was — under its own name.
-        Assert.DoesNotContain($"{world.UserId}/{world.PackId}-interior.pdf", world.Blobs.Uploaded.Keys);
-        Assert.Contains($"{world.UserId}/{world.PackId}.pdf", world.Blobs.Uploaded.Keys);
+        // The parent's download is withheld with it — and the reader's spreads are not.
+        Assert.Null(world.Packs.PdfUrl);
+        Assert.Equal(AdventurePackStatus.Completed, world.Packs.Status);
+        Assert.Contains(
+            BekiPackBlobs.SpreadName(world.UserId, world.PackId, 1), world.Blobs.Uploaded.Keys);
     }
 
     /// <summary>
@@ -209,14 +278,17 @@ public class CompositeCoverProjectionTests
 
         public RecordingComposer Composer { get; } = new();
 
-        /// <summary>
-        /// Whether the generator hands back a cover it drew and had reviewed, or the previewed one
-        /// adopted unchanged — which is what a refused redraw and a resume both produce.
-        /// </summary>
-        public bool RedrawTheCover { get; init; } = true;
-
         /// <summary>A spread whose exact-Beki receipt the stub withholds, for the gate test.</summary>
         public int? DropReceiptForSpread { get; init; }
+
+        /// <summary>A spread the stub hands back flagged as adopted, carrying no receipt of its own.</summary>
+        public int? AdoptSpread { get; init; }
+
+        /// <summary>Whether the cover wrap refuses, which is now fatal for a composite book.</summary>
+        public bool WrapFails { get; init; }
+
+        /// <summary>Whether the wrap's receipt declares a hash the composited bytes do not have.</summary>
+        public bool WrapReceiptLies { get; init; }
 
         public PackWorld(ThemeType theme = ThemeType.Dinosaurs) =>
             Packs = new FakePacks(new AdventurePack
@@ -245,7 +317,7 @@ public class CompositeCoverProjectionTests
             new(Packs,
                 new FakeRuns(RunId),
                 Blobs,
-                new StubGenerator(RedrawTheCover, DropReceiptForSpread),
+                new StubGenerator(DropReceiptForSpread, AdoptSpread, WrapFails, WrapReceiptLies),
                 Composer,
                 new SilentNotifier(),
                 new RecordingEmailService(),
@@ -255,17 +327,20 @@ public class CompositeCoverProjectionTests
                 TimeProvider.System);
 
         /// <summary>What an earlier attempt left behind for this one to resume from.</summary>
-        public void SeedManifest(BekiCoverRecord cover)
+        public void SeedManifest(
+            BekiCoverRecord? cover = null,
+            IReadOnlyList<BekiCompositionManifestEntry>? compositions = null)
         {
             var manifest = new BekiFulfillmentManifest
             {
                 // The contract this run will compute for itself, so the manifest is adopted rather
-                // than discarded — this test is about the cover, not about invalidation.
+                // than discarded — these tests are about the cover, not about invalidation.
                 IllustrationContract = BekiFulfillmentManifest.CurrentContract(
                     BookFormat.SpreadCount,
                     BekiCompositeContractTerms.Current("dinosaurs")),
                 Entries = [],
                 Cover = cover,
+                Compositions = compositions,
             };
 
             Blobs.Seed(
@@ -281,13 +356,20 @@ public class CompositeCoverProjectionTests
     }
 
     /// <summary>
-    /// A generator that returns a finished composite book. The cover is the only part these tests
-    /// are about: attempt rows are what tell the job a redraw actually happened, exactly as the
-    /// real generator reports it.
+    /// A generator that returns a finished composite book and, on request, a cover wrap.
+    ///
+    /// The wrap is the part these tests are about. It hands back a real composition receipt — the
+    /// composited bytes' own SHA-256 under <c>output.sha256</c> — because that agreement is exactly
+    /// what the fulfilment job now checks before it cuts a single derivation from those bytes.
     /// </summary>
-    private sealed class StubGenerator(bool redrawTheCover, int? dropReceiptForSpread = null)
-        : IBekiBookGenerator
+    private sealed class StubGenerator(
+        int? dropReceiptForSpread = null,
+        int? adoptSpread = null,
+        bool wrapFails = false,
+        bool wrapReceiptLies = false) : IBekiBookGenerator
     {
+        public static readonly byte[] WrapComposite = [0x89, (byte)'P', (byte)'N', (byte)'G', 7, 7];
+
         public Task<BekiBookResult> GenerateAsync(
             MasterStoryInput input, byte[] childPhoto, string childPhotoContentType,
             CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -297,32 +379,61 @@ public class CompositeCoverProjectionTests
             CancellationToken cancellationToken, CompositeBookContext? composite = null) =>
             throw new NotSupportedException();
 
+        public Task<CompositeCoverWrap> DrawCoverWrapAsync(
+            VisualScenarioV2 scenario, byte[] childPhoto, string childPhotoContentType,
+            CompositeBookContext composite, CancellationToken cancellationToken)
+        {
+            if (wrapFails)
+            {
+                throw new BekiLayoutException(
+                    CompositeFailureCodes.LayoutFailed,
+                    "the cover wrap could not be drawn in this deployment.");
+            }
+
+            var declared = wrapReceiptLies
+                ? new string('f', 64)
+                : Convert.ToHexString(SHA256.HashData(WrapComposite)).ToLowerInvariant();
+
+            var receipt = JsonSerializer.Serialize(new
+            {
+                composition_version = "beki-exact-composite-v1",
+                beki_layer = new
+                {
+                    pose_id = "pose_01_neutral_hover",
+                    normalized_anchor = new
+                    {
+                        visible_center_x = 0.87,
+                        visible_center_y = 0.64,
+                        visible_height = 0.30,
+                    },
+                },
+                output = new { file = "cover-wrap-composite.png", sha256 = declared },
+            });
+
+            return Task.FromResult(new CompositeCoverWrap(
+                [0x89, (byte)'P', (byte)'N', (byte)'G', 1],
+                WrapComposite,
+                receipt,
+                "pose_01_neutral_hover",
+                "wrap prompt"));
+        }
+
         public Task<BekiBookResult> IllustrateAsync(
             MasterStory plan, byte[] childPhoto, string childPhotoContentType, byte[]? existingCover,
             Func<BekiImageResult, Task>? onImage, CancellationToken cancellationToken,
             IReadOnlyDictionary<int, byte[]>? existingSpreads = null,
             CompositeBookContext? composite = null)
         {
-            var cover = redrawTheCover
-                ? new BekiImageResult
-                {
-                    Image = [1, 2, 3, 4],
-                    Accepted = true,
-                    Verdict = "PASS (pass)",
-                    Attempts = 1,
-                    AttemptDetails = [new BekiImageAttempt(10, 5, "PASS (pass)", true)],
-                    Prompt = "cover prompt",
-                }
-                : new BekiImageResult
-                {
-                    // The previewed cover, adopted: no attempt rows, because nothing was drawn or
-                    // reviewed. That absence is what the job reads.
-                    Image = [7, 7, 7, 7],
-                    Accepted = true,
-                    Verdict = "Adopted from the preview the parent chose; not drawn here.",
-                    Attempts = 0,
-                    Prompt = string.Empty,
-                };
+            // The previewed cover, adopted. Since audit-2 the composite path draws no cover of its
+            // own here at all: the master is the wrap, and it is produced after the spreads.
+            var cover = new BekiImageResult
+            {
+                Image = [7, 7, 7, 7],
+                Accepted = true,
+                Verdict = "Adopted from the preview the parent chose; not drawn here.",
+                Attempts = 0,
+                Prompt = string.Empty,
+            };
 
             var spreads = Enumerable.Range(1, BookFormat.SpreadCount)
                 .Select(number => new BekiImageResult
@@ -343,54 +454,106 @@ public class CompositeCoverProjectionTests
                 Cover = cover,
                 Spreads = spreads,
                 Warnings = [],
-                // Non-null: the cover block this test is about lives inside the composite branch.
+                // Non-null: everything these tests are about lives inside the composite branch.
                 Composite = new CompositeBookArtifacts
                 {
-                    ScenarioJson = "{}",
+                    ScenarioJson = ScenarioJson,
+                    ReviewJson = """{"needs_human_reading": false}""",
                     // One receipt per page: the fulfilment job refuses to lay out a composite
                     // spread without its exact-Beki composition receipt, and this stub's book
                     // claims to be a finished composite book.
                     Spreads = spreads
                         .Where(spread => spread.SpreadNumber != dropReceiptForSpread)
-                        .Select(spread => new CompositeSpreadArtifact(
-                            spread.SpreadNumber!.Value,
-                            "pose_01_neutral_hover",
-                            "{}",
-                            new string('0', 64),
-                            BasePng: []))
+                        .Select(spread => spread.SpreadNumber == adoptSpread
+                            // The adopted shape the pipeline hands back: flagged, and empty, so a
+                            // fulfilment layer that stored it would be storing a blank receipt.
+                            ? new CompositeSpreadArtifact(
+                                spread.SpreadNumber!.Value, string.Empty, string.Empty,
+                                string.Empty, BasePng: [])
+                            {
+                                Adopted = true,
+                            }
+                            : new CompositeSpreadArtifact(
+                                spread.SpreadNumber!.Value,
+                                "pose_01_neutral_hover",
+                                "{}",
+                                new string('0', 64),
+                                BasePng: [])
+                            {
+                                QaJson = $$"""
+                                    {"page": {{spread.SpreadNumber}},
+                                     "qa_prompt_version": "{{CompositeMinimalQa.Version}}",
+                                     "status": "PASS", "recommended_action": "ship"}
+                                    """,
+                            })
                         .ToList(),
                 },
             });
         }
+
+        /// <summary>
+        /// A scenario the validator accepts, so the wrap stage can read one back. The same approved
+        /// Nina fixture the pipeline tests plan from, rather than a second one written here.
+        /// </summary>
+        private static string ScenarioJson => File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory, "Fixtures", "nina_dinosaurs", "visual_scenario_output_v2.json"));
     }
 
     private sealed class RecordingComposer : IBekiPdfComposer
     {
-        /// <summary>The cover the PDF was actually laid out from.</summary>
-        public byte[]? CoverLaidOut { get; private set; }
+        /// <summary>The wrap the customer's book was cut from — the single-master check.</summary>
+        public byte[]? ReadingWrap { get; private set; }
 
         /// <summary>Whether the print interior was composed as its own artifact.</summary>
         public bool InteriorComposed { get; private set; }
 
-        public byte[] Compose(
+        public BekiComposedBook ComposeWithReceipts(
             MasterStory plan, byte[] coverImage, IReadOnlyList<BekiSpreadArtwork> spreads,
+            BekiBookPersonalization? personalization = null) =>
+            new([0x25, 0x50, 0x44, 0x46], Receipts("press"));
+
+        public BekiComposedBook ComposeReading(
+            MasterStory plan, byte[] wrapComposite, IReadOnlyList<BekiSpreadArtwork> spreads,
             BekiBookPersonalization? personalization = null)
         {
-            CoverLaidOut = coverImage;
-            return [0x25, 0x50, 0x44, 0x46];
+            ReadingWrap = wrapComposite;
+            return new BekiComposedBook([0x25, 0x50, 0x44, 0x46], Receipts("reading"));
         }
 
-        public byte[] ComposeInterior(
+        public BekiComposedBook ComposeInteriorWithReceipts(
             MasterStory plan, IReadOnlyList<BekiSpreadArtwork> spreads,
             BekiBookPersonalization? personalization = null)
         {
             InteriorComposed = true;
-            return [0x25, 0x50, 0x44, 0x46, 0x2D];
+            return new BekiComposedBook([0x25, 0x50, 0x44, 0x46, 0x2D], Receipts("interior"));
         }
+
+        public BekiComposedBook ComposeCoverPressWithReceipts(string title, byte[] wrapComposite) =>
+            new([0x25, 0x50, 0x44, 0x46, 0x2D], Receipts("cover"));
+
+        public byte[] CropFrontBoard(byte[] wrapPng) => [.. wrapPng, 0xF1];
+
+        public byte[] CropBackBoard(byte[] wrapPng) => [.. wrapPng, 0xB1];
 
         public IReadOnlyList<byte[]> RenderPages(
             MasterStory plan, byte[] coverImage, IReadOnlyList<BekiSpreadArtwork> spreads,
             BekiBookPersonalization? personalization = null) => throw new NotSupportedException();
+
+        /// <summary>
+        /// A minimal receipt book: enough pages for the fixed-page QA to have something to describe,
+        /// which is what the VISUAL_QA gate reads.
+        /// </summary>
+        private static BekiLayoutReceipts Receipts(string mode) => new(
+            mode,
+            new[] { "cover-front", "endpaper-front", "intro", "credits", "endpaper-rear", "cover-back" }
+                .Select((role, index) => new BekiLayoutPageReceipt(
+                    index + 1, role, 220, 200, 0,
+                    ImageSha256: [new string('e', 64)],
+                    Wash: null,
+                    Typography: [new BekiTypographyRecord(role, "Noto Sans Georgian", 12, 1.3, "#241A33")],
+                    TextLines: ["ერთი სტრიქონი"],
+                    TextProbe: null))
+                .ToList());
     }
 
     /// <summary>A blob store that remembers what it was given and hands it back.</summary>
@@ -433,6 +596,11 @@ public class CompositeCoverProjectionTests
         private readonly AdventurePack _pack = seed;
 
         public string? CoverImageUrl => _pack.CoverImageUrl;
+
+        /// <summary>The parent's download column — null while a gate is still withholding it.</summary>
+        public string? PdfUrl => _pack.PdfUrl;
+
+        public AdventurePackStatus Status => _pack.Status;
 
         public Task UpdateBookPresentationAsync(
             Guid id, string? title, string? coverImageUrl, CancellationToken cancellationToken)
@@ -506,6 +674,10 @@ public class CompositeCoverProjectionTests
             string? pdfUrl, string? errorMessage, CancellationToken cancellationToken)
         {
             _pack.Status = status;
+
+            // The real statement writes the column unconditionally, null included — which is how a
+            // withheld download is recorded rather than merely not recorded.
+            _pack.PdfUrl = pdfUrl;
             return Task.FromResult(true);
         }
 

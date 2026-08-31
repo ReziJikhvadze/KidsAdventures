@@ -73,15 +73,20 @@ public class BekiSpecV2PrintTests
     /// The old version of this test asked only whether the output was a JPEG, which the previous
     /// implementation satisfied while resizing by width alone, skipping anything already wide enough
     /// and writing neither a density nor a colour profile. All four clauses are the test now.
+    ///
+    /// The source is now larger than the target rather than smaller. It used to be a 1500-pixel
+    /// sheet stretched up to 5315 — see the refusal below for why that is no longer a thing this
+    /// method will do.
     /// </summary>
     [Fact]
     public void NormalizeForPrint_delivers_the_exact_working_raster()
     {
         var target = new BekiPdfComposer.PrintRasterTarget(5315, 2480, 300, 90);
 
-        // A sheet-shaped source, well under the target: the resize is an upscale and stays
-        // proportional, which is the only kind of resize the interior rules permit.
-        var normalized = BekiPdfComposer.NormalizeForPrint(SheetPng(1500), target);
+        // A sheet-shaped source above the target: the resize is a reduction and stays proportional,
+        // which is the only kind of resize the interior rules permit and the only kind that cannot
+        // claim detail it does not have.
+        var normalized = BekiPdfComposer.NormalizeForPrint(SheetPng(6000), target);
 
         var info = Image.Identify(normalized);
         Assert.Equal(5315, info.Width);
@@ -92,6 +97,49 @@ public class BekiSpecV2PrintTests
 
         Assert.Equal(0xFF, normalized[0]);
         Assert.Equal(0xD8, normalized[1]);
+    }
+
+    /// <summary>
+    /// **This test asserts the opposite of what it used to.** It pinned the upscale as intended —
+    /// "the resize is an upscale and stays proportional, which is the only kind of resize the
+    /// interior rules permit" — and audit P1-01 read the printed consequence: the story rasters
+    /// arrived at about 143 effective PPI and were Lanczos-stretched to 5315 × 2480, so the press
+    /// PDF reported 300 PPI everywhere and carried less than half of it anywhere.
+    ///
+    /// Interpolation does not create detail. So an enlargement past 1.05× — five per cent, a
+    /// rounding difference rather than a claim — is refused (D5b), and real source pixels or an
+    /// approved upscaler have to arrive BEFORE layout. Reduction stays legal, which the test above
+    /// is now written on.
+    /// </summary>
+    [Fact]
+    public void NormalizeForPrint_refuses_to_invent_detail_by_enlarging()
+    {
+        var target = new BekiPdfComposer.PrintRasterTarget(5315, 2480, 300, 90);
+
+        var failure = Assert.Throws<BekiLayoutException>(
+            () => BekiPdfComposer.NormalizeForPrint(SheetPng(1500), target));
+
+        Assert.Equal("LAYOUT_FAILED", failure.FailureCode);
+        Assert.Contains("PRESS_RESOLUTION", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("P1-01", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("3.54×", failure.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// And the line is where it is said to be: five per cent up is a rounding difference and passes,
+    /// six per cent is a claim about detail and does not.
+    /// </summary>
+    [Fact]
+    public void NormalizeForPrint_allows_the_rounding_difference_and_refuses_the_claim()
+    {
+        var target = new BekiPdfComposer.PrintRasterTarget(5315, 2480, 300, 90);
+
+        // 5315 ÷ 1.04 — inside the allowance.
+        Assert.NotEmpty(BekiPdfComposer.NormalizeForPrint(SheetPng(5111), target));
+
+        // 5315 ÷ 1.20 — outside it.
+        Assert.Throws<BekiLayoutException>(
+            () => BekiPdfComposer.NormalizeForPrint(SheetPng(4429), target));
     }
 
     /// <summary>
@@ -261,6 +309,62 @@ public class BekiSpecV2PrintTests
         Assert.True(minX > credits.Width / 2, $"The credits QR must sit on the right leaf; it starts at x={minX}.");
     }
 
+    /// <summary>
+    /// The credits page carries exactly one raster — the approved Beki mark, at its own pixels —
+    /// and the QR beside it is vector.
+    ///
+    /// Two findings meet on this page. Amendment A1 made the press resolution gate measure effective
+    /// PPI per PLACED IMAGE rather than per page, and the mark is a 32 mm placement: without
+    /// <c>UseOriginalImage</c> QuestPDF re-rasters it at 288 DPI, which is about 363 px across, and
+    /// the one image in the book that was never short of pixels fails the gate. So the embedded
+    /// raster has to still be the approved pose's own 2048 px. And the QR has to remain vector — a
+    /// scanner reads edges, and a resampled, colour-converted bitmap module edge is the reason the
+    /// supplier's preflight rejected raster codes — so the page must carry no second image at all.
+    /// </summary>
+    [Fact]
+    public void The_credits_page_keeps_a_vector_qr_and_the_marks_own_pixels()
+    {
+        using var document = PdfReader.Open(
+            new MemoryStream(ComposeFixtureBook()), PdfDocumentOpenMode.Import);
+
+        // Cover, front endpaper, intro, eight spreads — the credits spread is page index 11.
+        var images = ImageXObjects(document.Pages[11]);
+
+        var mark = Assert.Single(images);
+        Assert.True(mark.Elements.GetInteger("/Width") >= 1024,
+            $"The credits mark is embedded {mark.Elements.GetInteger("/Width")} px wide. It is a "
+            + "32 mm placement re-rastered by QuestPDF — UseOriginalImage is missing, and the press "
+            + "resolution gate fails on it (amendment A1).");
+
+        // The blank-URL book, for contrast: the same single image, because the code was never one.
+        var noQr = BekiLayoutFixture.ScreenProofLayout();
+        noQr.ReviewQrUrl = string.Empty;
+
+        using var withoutCode = PdfReader.Open(
+            new MemoryStream(ComposeFixtureBook(noQr)), PdfDocumentOpenMode.Import);
+
+        Assert.Single(ImageXObjects(withoutCode.Pages[11]));
+    }
+
+    private static IReadOnlyList<PdfSharp.Pdf.PdfDictionary> ImageXObjects(PdfSharp.Pdf.PdfPage page)
+    {
+        var xObjects = page.Elements.GetDictionary("/Resources")?.Elements.GetDictionary("/XObject");
+        if (xObjects is null) return [];
+
+        var images = new List<PdfSharp.Pdf.PdfDictionary>();
+
+        foreach (var key in xObjects.Elements.Keys)
+        {
+            if (xObjects.Elements.GetObject(key) is PdfSharp.Pdf.PdfDictionary dictionary
+                && dictionary.Elements.GetName("/Subtype") == "/Image")
+            {
+                images.Add(dictionary);
+            }
+        }
+
+        return images;
+    }
+
     [Fact]
     public void StoryFontSizeFor_ReturnsCorrectSizeBasedOnAge()
     {
@@ -283,7 +387,8 @@ public class BekiSpecV2PrintTests
             .ToList();
 
         return new BekiPdfComposer(Options.Create(layout ?? BekiLayoutFixture.ScreenProofLayout()))
-            .Compose(plan, BekiLayoutFixture.LeafPng((255, 0, 0)), spreads, BekiLayoutFixture.Personalization());
+            .ComposeWithReceipts(plan, BekiLayoutFixture.LeafPng((255, 0, 0)), spreads,
+                BekiLayoutFixture.Personalization()).Pdf;
     }
 
     private static byte[] SheetPng(int width)

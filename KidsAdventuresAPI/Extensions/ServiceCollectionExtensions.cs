@@ -7,6 +7,7 @@ using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Ai;
 using AdventurePacks.Api.Services.Beki;
 using AdventurePacks.Api.Services.Implementations;
+using AdventurePacks.Api.Services.Pdf;
 using AdventurePacks.Api.Services.Story;
 using AdventurePacks.Api.Services.Story.Composite;
 using AdventurePacks.Api.Services.Interfaces;
@@ -36,6 +37,23 @@ public static class ServiceCollectionExtensions
         // somebody is watching. The message .NET gives names the exact key.
         services.AddOptions<BekiOptions>()
             .Bind(configuration.GetSection(BekiOptions.SectionName))
+            // Two rules on top of the binding check, both from the deliverables audit.
+            //
+            // P1-02 found that "empty OutputIntentIccSha256 disables the ICC check" — a deployment
+            // could unset one string and the press stage would stop verifying that the profile it
+            // was building a colour transform on was the profile the printer approved. The check
+            // was skippable by configuration, and nothing said so. Correction plan D4 makes it a
+            // startup error instead: an unset profile path or an unset hash is a deployment that
+            // cannot produce a press file, and that is worth finding out at the deploy rather than
+            // in the middle of a paid book — or, worse, on paper.
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.PrintPrep.OutputIntentIccPath),
+                "Beki:PrintPrep:OutputIntentIccPath is empty. The locked print specification ships "
+                + "a FOGRA39 profile and press preparation cannot run without one.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.PrintPrep.OutputIntentIccSha256),
+                "Beki:PrintPrep:OutputIntentIccSha256 is empty, which silently disables the check "
+                + "that the output intent profile is the one the printer approved (audit P1-02).")
             .ValidateOnStart();
         // OpenAI carries one rule of its own on top of the binding check. A zero story backoff
         // is a value with a meaning — retry immediately, which the retry tests run with so the
@@ -419,6 +437,29 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IBekiPdfComposer, BekiPdfComposer>();
         services.AddScoped<IBekiPackFulfillment, BekiPackFulfillment>();
         services.AddScoped<BekiPackageExport>();
+
+        /*
+          The audit-2 correction's three services.
+
+          The asset lock is stateless and holds nothing between calls — it reads the registries and
+          hashes files each time it is asked, which is the point: a lock that cached its answer would
+          prove the assets as they were when the process started rather than as they are.
+
+          The release gates need only the blob account. Scoped rather than singleton because the
+          admin approval endpoint resolves them inside a request, alongside the repositories whose
+          scope they share.
+
+          The press upscaler is the one with a configuration story. It is registered unconditionally
+          and ships DISABLED — `Beki:PrintPrep:UpscalerPath` is empty by default — because audit
+          P1-01's ruling is that interpolation-only enlargement is a failure, not a fallback. An
+          unconfigured deployment therefore withholds press files with PRESS_RESOLUTION, and the
+          parent's book is unaffected. Singleton: it holds a path and a template, and every call
+          starts its own process.
+        */
+        services.AddScoped<BekiAssetLock>();
+        services.AddScoped<BekiReleaseGates>();
+        services.AddSingleton<IPressUpscaler>(provider =>
+            new CliPressUpscaler(provider.GetRequiredService<IOptions<BekiOptions>>().Value.PrintPrep));
 
         // The intake gate is not part of a pipeline: it runs on its own, in front of everything,
         // while a parent is still on the form.

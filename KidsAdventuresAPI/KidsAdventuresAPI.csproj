@@ -33,6 +33,13 @@
     <PackageReference Include="Stripe.net" Version="49.0.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
+    <!-- The QR gate (BEKI_Acceptance_Gates_v1.json, gate "QR") is a *scan*, not a claim: the
+         credits page is rendered from the stored PDF and the code is read back off the pixels,
+         because the defect it exists to catch — a code that draws but does not resolve — is
+         invisible to every check that only looks at what we asked QRCoder to encode. ZXing.Net is
+         pure managed, so the decoder adds no native dependency to a deployment that already owes
+         Ghostscript and Poppler. -->
+    <PackageReference Include="ZXing.Net" Version="0.16.11" />
   </ItemGroup>
 
   <ItemGroup>
@@ -56,7 +63,43 @@
     <Content Include="Assets\BekiComposite\**\*.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\BekiComposite\**\*.icc" CopyToOutputDirectory="PreserveNewest" />
     <Content Update="Assets\BekiComposite\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The supplier's contract documents, shipped to the published output for the same reason the
+         schemas beside them are: the acceptance gates are read at runtime by print prep, and the
+         handback package (BEKI_Deliverables_Audit_and_Claude_Correction_Brief_v1.md, §9) has to
+         carry the documents a delivery was judged against. Until now only .json was copied, so a
+         .md contract existed in the repository and nowhere on the deployment. -->
+    <Content Include="Assets\BekiComposite\contracts\*.md" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+
+  <!--
+    Build provenance for the handback package (audit §9, plan D14).
+
+    The rejected package had no build provenance at all, and "which commit made this book" is the
+    first question anybody asks about a printed artifact they cannot reproduce. The SDK already
+    appends $(SourceRevisionId) to InformationalVersion — that is what
+    AddSourceRevisionToInformationalVersion does — so the only missing piece was somebody setting it.
+    SourceLink would, on a build that had it; this reads the working tree instead, which is what a
+    deployment built from a checkout actually has.
+
+    ContinueOnError because a source drop with no .git directory is a legitimate way to build this,
+    and a missing commit must degrade to provenance.json saying "unknown" rather than to a failed
+    build. BeforeTargets is the SDK's own target so the value lands before the attribute is written.
+  -->
+  <Target Name="BekiStampCommitSha"
+          BeforeTargets="AddSourceRevisionToInformationalVersion"
+          Condition="'$(SourceRevisionId)' == ''">
+    <Exec Command="git -C &quot;$(MSBuildProjectDirectory)&quot; rev-parse HEAD"
+          ConsoleToMSBuild="true"
+          ContinueOnError="true"
+          StandardOutputImportance="low"
+          StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_BekiCommitSha" />
+      <Output TaskParameter="ExitCode" PropertyName="_BekiGitExitCode" />
+    </Exec>
+    <PropertyGroup>
+      <SourceRevisionId Condition="'$(_BekiGitExitCode)' == '0' and '$(_BekiCommitSha)' != ''">$(_BekiCommitSha.Trim())</SourceRevisionId>
+    </PropertyGroup>
+  </Target>
 
   <!--
     The evaluation-only Ottia is not allowed to exist in the font folder, and this is the check

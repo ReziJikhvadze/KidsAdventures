@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using AdventurePacks.Api.Domain.Story;
 using Json.Schema;
@@ -29,6 +30,18 @@ public static class VisualScenarioProblemCodes
 
     /// <summary>More than three recurring elements: a book description, not a lock.</summary>
     public const string TooManyRecurringElements = "TOO_MANY_RECURRING_ELEMENTS";
+
+    /// <summary>
+    /// A narrative field is not a whole sentence: it carries stray whitespace, begins mid-phrase or
+    /// mid-punctuation, does not finish, or is too short to describe anything. (v2.3, audit P1-08)
+    ///
+    /// The delivered book's <c>visual-scenario.json</c> opened page 7 with
+    /// <c>" sensitivity, the child gently pats…"</c> — a fragment sheared off some longer sentence,
+    /// which passed the schema (<c>minLength: 1</c>), passed every semantic rule (it names the
+    /// child, it does not name Beki), and went to the image model exactly as written. Nothing in
+    /// the pipeline was capable of noticing, because the entire text-quality bar was "not empty".
+    /// </summary>
+    public const string MalformedText = "MALFORMED_TEXT";
 
     /// <summary>A scene bound for the image model names Beki. This is the fault the whole split exists to prevent.</summary>
     public const string BekiInChildWorldScene = "BEKI_IN_CHILD_WORLD_SCENE";
@@ -430,7 +443,10 @@ public static class VisualScenarioValidator
         CheckChildWorldScene(cover.FrontChildWorldScene, "cover.front_child_world_scene", problems);
         CheckBekiAction(cover.BekiAction, "cover.beki_action", problems);
 
-        RequireText(cover.BackEnvironment, "cover.back_environment", problems);
+        if (RequireText(cover.BackEnvironment, "cover.back_environment", problems))
+        {
+            CheckSentence(cover.BackEnvironment, "cover.back_environment", NarrativeMinimumWords, problems);
+        }
 
         // The back cover is the world with nobody in it. Beki is composited onto the wrap from
         // approved artwork, and the child belongs to the front panel; either one drawn here would
@@ -490,6 +506,8 @@ public static class VisualScenarioValidator
             return;
         }
 
+        CheckSentence(scene, location, NarrativeMinimumWords, problems);
+
         // This string is sent to the image model unchanged. Everything the pipeline promises about
         // Beki — one approved PNG, four rounded digits, never redrawn — holds only while no image
         // model is ever asked to draw him.
@@ -515,6 +533,11 @@ public static class VisualScenarioValidator
             return;
         }
 
+        // The same sentence rules, three words instead of four. A Beki action is legitimately
+        // terser than a scene — "Beki listens attentively." is a complete instruction to the pose
+        // selector — and a minimum written for scenes would reject good actions.
+        CheckSentence(action, location, BekiActionMinimumWords, problems);
+
         // The opposite rule to the one above, for the opposite reason: this string is never sent to
         // an image model, it is matched against the pose registry's keywords. An action that does
         // not name Beki is an action about somebody else.
@@ -526,7 +549,10 @@ public static class VisualScenarioValidator
         }
     }
 
-    private static bool RequireText(string? value, string location, List<VisualScenarioProblem> problems)
+    private static bool RequireText(
+        [NotNullWhen(true)] string? value,
+        string location,
+        List<VisualScenarioProblem> problems)
     {
         if (!string.IsNullOrWhiteSpace(value))
         {
@@ -537,6 +563,117 @@ public static class VisualScenarioValidator
             VisualScenarioProblemCodes.EmptyRequiredString, $"{location} is missing or empty."));
         return false;
     }
+
+    /// <summary>Four words for a scene: fewer cannot describe a picture. (v2.3, audit P1-08)</summary>
+    private const int NarrativeMinimumWords = 4;
+
+    /// <summary>Three for a Beki action, which is a shorter kind of sentence by design.</summary>
+    private const int BekiActionMinimumWords = 3;
+
+    /// <summary>
+    /// Whether a narrative field is a whole sentence — the bar audit P1-08 found missing.
+    ///
+    /// Applied to exactly four fields: <c>child_world_scene</c>, <c>front_child_world_scene</c>,
+    /// <c>back_environment</c> and <c>beki_action</c>. Deliberately <em>not</em> to
+    /// <c>child_outfit</c>, <c>recurring_elements</c> or the prop wording, where a bare phrase
+    /// ("a mustard tunic") is the correct and intended form — a sentence rule applied there would
+    /// reject the supplier's own approved fixture and teach the model to pad its locks into prose.
+    ///
+    /// The rules are deliberately mechanical. None of them judges whether a sentence is any good;
+    /// each of them catches a specific way a string arrives broken, and between them they catch the
+    /// delivered book's page 7 twice over — once for the leading space, once for the lowercase
+    /// "sensitivity," it starts on.
+    /// </summary>
+    private static void CheckSentence(
+        string value,
+        string location,
+        int minimumWords,
+        List<VisualScenarioProblem> problems)
+    {
+        var trimmed = value.Trim();
+
+        // Rule 1. The value equals its own trim. Stray whitespace is not cosmetic here: this string
+        // is concatenated into an image prompt, and a leading space is the fingerprint of a value
+        // that was sliced out of something longer.
+        if (!string.Equals(value, trimmed, StringComparison.Ordinal))
+        {
+            problems.Add(new VisualScenarioProblem(
+                VisualScenarioProblemCodes.MalformedText,
+                $"{location} carries leading or trailing whitespace; a scene is stated exactly, with "
+                + "no padding around it."));
+        }
+
+        if (trimmed.Length == 0)
+        {
+            return;
+        }
+
+        var first = trimmed[0];
+
+        // Rule 2. It does not open on punctuation. Stated separately from the capital-letter rule
+        // because it is a different fault with a different fix: ", the child gently pats" is the
+        // tail of a list, not a sentence that forgot its capital.
+        if (char.IsPunctuation(first) || char.IsSymbol(first))
+        {
+            problems.Add(new VisualScenarioProblem(
+                VisualScenarioProblemCodes.MalformedText,
+                $"{location} begins with the punctuation mark '{first}'; it reads as the middle of "
+                + "a longer sentence rather than the start of one."));
+        }
+        else if (!IsSentenceOpener(first))
+        {
+            // Rule 3. It opens on a capital Latin letter or on a Georgian letter. Georgian is
+            // unicameral — ბ is neither upper nor lower case and char.IsUpper says no — so a case
+            // test alone would reject every correctly written Georgian scene. Accepting the whole
+            // Georgian block (and Mtavruli, U+1C90–U+1CBF) is the only honest way to ask "does this
+            // start like a sentence?" in a book written in two scripts.
+            //
+            // This is also the rule that catches a fragment opening on a lowercase conjunction —
+            // "and the child…", "sensitivity, the child…" — without anyone having to maintain a
+            // list of conjunctions, which would always be somebody's partial list.
+            problems.Add(new VisualScenarioProblem(
+                VisualScenarioProblemCodes.MalformedText,
+                $"{location} begins \"{Lead(trimmed)}\" — a scene starts with a capital letter or a "
+                + "Georgian letter, not mid-phrase."));
+        }
+
+        // Rule 4. It finishes. A truncated value is the other half of the page-7 defect: a sentence
+        // cut at the front was cut somewhere, and the cut end is usually the one that shows.
+        var last = trimmed[^1];
+        if (last is not ('.' or '!' or '?'))
+        {
+            problems.Add(new VisualScenarioProblem(
+                VisualScenarioProblemCodes.MalformedText,
+                $"{location} does not end in '.', '!' or '?'; it ends \"{Trail(trimmed)}\" and reads "
+                + "as an unfinished sentence."));
+        }
+
+        // Rule 5. It says enough to draw. Three words describe nothing an illustrator could work
+        // from, and the schema's minLength of 1 was letting single words through.
+        var words = trimmed.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+        if (words < minimumWords)
+        {
+            problems.Add(new VisualScenarioProblem(
+                VisualScenarioProblemCodes.MalformedText,
+                $"{location} holds {words} word(s); this field needs at least {minimumWords} to "
+                + "describe anything."));
+        }
+    }
+
+    /// <summary>
+    /// A capital Latin letter, or any Georgian letter.
+    ///
+    /// U+10A0–U+10FF is the Georgian block (Asomtavruli, Mkhedruli and the archaic letters);
+    /// U+1C90–U+1CBF is Georgian Extended, the Mtavruli capitals added in Unicode 11.
+    /// </summary>
+    private static bool IsSentenceOpener(char c) =>
+        c is >= 'A' and <= 'Z'
+        or >= '\u10A0' and <= '\u10FF'
+        or >= '\u1C90' and <= '\u1CBF';
+
+    /// <summary>The last few characters of a value — enough to show how it ends in an error.</summary>
+    private static string Trail(string value) =>
+        value.Length <= 40 ? value : "…" + value[^40..];
 
     private static bool MentionsBeki(string? text) =>
         text is not null

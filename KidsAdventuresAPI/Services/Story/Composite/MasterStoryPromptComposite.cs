@@ -90,8 +90,32 @@ public sealed record CompositeStoryInput
 /// </summary>
 public static class MasterStoryPromptComposite
 {
-    /// <summary>The name this prompt is recorded under, beside "v5" and "v6".</summary>
-    public const string Version = "composite-v1";
+    /// <summary>
+    /// The name this prompt is recorded under, beside "v5" and "v6".
+    ///
+    /// v1.1 is this campaign's editorial amendment, against the supplier's P1-07 finding on the
+    /// audited book. Three defects, three lines.
+    ///
+    /// The story alternated tenses — ქრება and ანათებს on some pages, გამოვიდა, გაჰყვნენ and
+    /// აინთო on others — which a parent reading aloud to a two-year-old hears as two different
+    /// storytellers. The prompt now asks for one simple tense across all eight spreads and names
+    /// the present as the natural choice for this age.
+    ///
+    /// It carried „მას ძილი ნებავს", which is not how anyone speaks to a small child. The prompt
+    /// now asks for the everyday spoken form and gives the audit's own pair as the example:
+    /// „მას ეძინება" over „მას ძილი ნებავს" — a preference the Georgian editor still has to
+    /// approve, which is why the checklist rule beside it flags rather than rewrites.
+    ///
+    /// And spread 4 said the pinecone's light was fading while spread 4's picture showed it
+    /// strongly glowing, with spread 8 dropping the object altogether. The words are what the
+    /// scenario planner and the image model are given, so a story that contradicts itself about an
+    /// object contradicts the pictures too. The prompt now requires the text to track an
+    /// important object's state from the page that introduces it to the last page it appears on.
+    ///
+    /// Nothing else moved: the rhythm, the Beki rules, the Dumbadze voice, the title rule, the
+    /// word budgets and the safety block are composite-v1's word for word.
+    /// </summary>
+    public const string Version = "composite-v1.1";
 
     public static string System(CompositeStoryInput input)
     {
@@ -196,6 +220,23 @@ public static class MasterStoryPromptComposite
             speech; concrete, everyday words a child knows; gentle, humane humor and tenderness.
             Never archaic, bookish or ornate vocabulary, and no long winding constructions. Every
             sentence must read aloud beautifully.
+
+            One tense for the whole book: choose a single simple tense for the narration on spread
+            1 and keep it on all {input.SpreadCount} spreads. The present tense is the natural
+            choice at this age. Never drift between present and past narration — not between two
+            spreads and not inside one — because a book that says ქრება on one page and გამოვიდა
+            on the next is read aloud as two different storytellers. Dialogue keeps the tense the
+            speaker would naturally use; the narration around it does not move.
+
+            Natural spoken Georgian, the words a parent actually says to a small child, never a
+            bookish or archaic construction: write „მას ეძინება", not „მას ძილი ნებავს".
+
+            What the words say about an object is what the picture will show, so the story must
+            keep every important object straight from the page that introduces it to the last page
+            it appears on: who has it, where it is, and — if it gives off light — how brightly it
+            is shining. An object the story has said is fading is fading from that page onward and
+            is never described again as glowing, shining or bright unless the story itself lights
+            it again. An object that mattered to the ending is still there at the ending.
 
             The title: short, warm and inviting — Georgian words a parent is happy to say aloud at
             bedtime, built from wonder, friendship, discovery or light. Never build the title on a

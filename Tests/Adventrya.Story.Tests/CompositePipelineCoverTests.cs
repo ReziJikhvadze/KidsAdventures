@@ -24,167 +24,35 @@ using Xunit;
 namespace Adventrya.Story.Tests;
 
 /// <summary>
-/// The cover — redrawn against the book that was actually drawn — and the age the book is drawn
-/// to.
+/// The cover the composite pipeline does NOT draw, and the age the book is drawn to.
+///
+/// This class used to be about a redraw: after the spreads were accepted, an image model drew the
+/// customer's front page again with the identity lock in its prompt, and the reader was re-pointed
+/// at the result. Audit-2 P0-01 ended that — the printer's cover was the composited wrap and the
+/// parent's was the redraw, which is two designs for one book, and the supplier rejected the
+/// package for it. The five tests that pinned the redraw's ladder went with the code (correction
+/// plan D1); the single cover master is made in fulfilment now, from the wrap, and
+/// <c>CompositeCoverProjectionTests</c> is where it is pinned.
+///
+/// What is left here is what outlived the redraw: that this path draws no cover of its own, the
+/// cover review prompt's own shape and rules (the wrap's QA still asks them), and the age band the
+/// book is drawn and judged to.
 ///
 /// One of the classes CompositePipelineTestBase serves; see it for the fixtures these use.
 /// </summary>
 public class CompositePipelineCoverTests : CompositePipelineTestBase
 {
     // ---------------------------------------------------------------------------------------
-    // The cover, redrawn against the book that was actually drawn
+    // The cover this path leaves alone
     // ---------------------------------------------------------------------------------------
 
     /// <summary>
-    /// After the spreads are accepted the cover is drawn again — with the identity lock in its
-    /// prompt and the accepted first spread attached ahead of the photograph — and reviewed.
+    /// A resume that adopted every page draws no cover — and neither, now, does any other run.
     ///
-    /// It is the one picture none of the identity work reached. The cover a parent sees was drawn
-    /// at preview time, before there was a spec or an anchor, and on a composite plan from a
-    /// character lock the planner leaves empty by design — so it carried no eye colour at all. The
-    /// owner's report was that the eye colour goes wrong "almost always, especially on the cover".
-    /// </summary>
-    [Fact]
-    public async Task The_cover_is_redrawn_against_the_accepted_first_spread_and_reviewed()
-    {
-        var images = new StubImageService();
-        var previewed = Png(1024, 1536, red: 42);
-
-        var generator = Generator(
-            images, Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images),
-            compositeEnabled: true);
-
-        var book = await generator.IllustrateAsync(
-            Plan(), Photo(), "image/png", existingCover: previewed, onImage: null,
-            cancellationToken: CancellationToken.None, existingSpreads: null, composite: Context());
-
-        // The previewed cover was replaced, not adopted.
-        Assert.NotEqual(previewed, book.Cover.Image);
-        Assert.True(book.Cover.Accepted);
-        Assert.NotEmpty(book.Cover.AttemptDetails);
-
-        // Nine image calls: eight spreads and the cover.
-        Assert.Equal(BookFormat.SpreadCount + 1, images.ImageCalls);
-
-        var coverPrompt = images.Prompts[^1];
-
-        // The identity lock is in it, including the two attributes nothing about a cover ever
-        // stated before, and the eye colour as a rule about every page.
-        Assert.Contains("CHILD IDENTITY LOCK", coverPrompt);
-        Assert.Contains("Eyebrows: soft, medium-thick, gently arched", coverPrompt);
-        Assert.Contains("Glasses: none", coverPrompt);
-        Assert.Contains("The child's eyes are brown on every page.", coverPrompt);
-
-        // It is the upright cover composition, not a spread: the legacy builder's own cover branch.
-        Assert.Contains("Create one single upright children's book cover illustration.", coverPrompt);
-        Assert.DoesNotContain("two-page spread", coverPrompt);
-
-        // The anchor leads the references and the photograph is behind it, so the lock defers to
-        // Image 2 — the same rule the spreads follow, with the cover's own order.
-        Assert.Contains("Image 2 is the identity reference photograph", coverPrompt);
-
-        // And the review actually happened, against the spec and the anchor.
-        Assert.Single(images.CoverReviewPrompts);
-        Assert.Contains("This is the book's COVER", images.CoverReviewPrompts[0]);
-        Assert.Contains("The child's eyes must read as brown", images.CoverReviewPrompts[0]);
-        Assert.Equal(2, images.CoverReviewReferences[0].Count);
-        Assert.Contains(
-            images.CoverReviewReferences[0],
-            reference => reference.Label.Contains("anchor", StringComparison.OrdinalIgnoreCase));
-    }
-
-    /// <summary>
-    /// A cover refused twice keeps the one the parent previewed, and the book still ships.
-    ///
-    /// The previewed cover is a real cover somebody already saw and bought. Failing a paid,
-    /// completed, eight-spread book over the picture on the front of it would trade the whole
-    /// delivery for a better front page — so the redraw is an improvement that is allowed to fail.
-    /// </summary>
-    [Fact]
-    public async Task A_cover_refused_twice_keeps_the_previewed_one_and_the_book_still_ships()
-    {
-        var images = new StubImageService();
-        images.CoverVerdicts.Enqueue(Fail("CHILD_IDENTITY", CompositeQaVerdict.ActionRegenerateBase));
-        images.CoverVerdicts.Enqueue(Fail("CHILD_IDENTITY", CompositeQaVerdict.ActionHumanReview));
-
-        var previewed = Png(1024, 1536, red: 42);
-
-        var generator = Generator(
-            images, Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images),
-            compositeEnabled: true);
-
-        var book = await generator.IllustrateAsync(
-            Plan(), Photo(), "image/png", existingCover: previewed, onImage: null,
-            cancellationToken: CancellationToken.None, existingSpreads: null, composite: Context());
-
-        // The previewed cover stands, and the eight spreads are all there.
-        Assert.Equal(previewed, book.Cover.Image);
-        Assert.Empty(book.Cover.AttemptDetails);
-        Assert.Equal(BookFormat.SpreadCount, book.Spreads.Count);
-
-        // One draw and one regeneration for the cover, and no third.
-        Assert.Equal(2, images.CoverReviewPrompts.Count);
-        Assert.Equal(BookFormat.SpreadCount + 2, images.ImageCalls);
-    }
-
-    /// <summary>
-    /// The reviewer judges the cover the reader will open, not the frame the provider returned.
-    ///
-    /// The cover prints and displays as a single upright leaf, which the composer centre-crops the
-    /// landscape render down to at layout time. Reviewing the uncropped frame would let a child —
-    /// or Beki — standing outside the shipped crop satisfy the identity check while being absent
-    /// from the cover a parent actually sees: a pass on pixels nobody receives.
-    /// </summary>
-    [Fact]
-    public async Task The_cover_review_judges_the_crop_that_ships_not_the_provider_frame()
-    {
-        var images = new StubImageService();
-        var layout = new BekiPrintLayoutOptions();
-
-        var generator = Generator(
-            images, Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images),
-            compositeEnabled: true);
-
-        await generator.IllustrateAsync(
-            Plan(), Photo(), "image/png", existingCover: Png(1024, 1536, red: 42), onImage: null,
-            cancellationToken: CancellationToken.None, existingSpreads: null, composite: Context());
-
-        var generated = images.Returned[^1];
-        var judged = images.CoverReviewImages[0];
-
-        // The same crop the layout stage will take: one leaf wide, the spread's height, bleed on
-        // both — computed from the layout options rather than restated, so the two cannot drift.
-        var coverRatio =
-            (layout.PageWidthMm + (layout.BleedMm * 2)) / (layout.SpreadHeightMm + (layout.BleedMm * 2));
-
-        Assert.Equal(SpreadArtCrop.CropAndReduce(generated, coverRatio, 1024), judged);
-
-        // Which is emphatically not what came back from the provider. A cover leaf is 220 by 200
-        // millimetres — nearly square — and the provider hands back a 3:2 landscape frame, so the
-        // print discards roughly a quarter of its width. Those are the pixels a child could have
-        // been standing in.
-        var frame = Image.Identify(generated);
-        var reviewed = Image.Identify(judged);
-
-        var frameAspect = (double)frame.Width / frame.Height;
-        var reviewedAspect = (double)reviewed.Width / reviewed.Height;
-
-        Assert.Equal(coverRatio, reviewedAspect, 2);
-        Assert.True(
-            reviewedAspect < frameAspect - 0.3,
-            $"the reviewed cover is {reviewedAspect:F2}:1 against the frame's {frameAspect:F2}:1 — "
-            + "the layout crop was not applied.");
-        Assert.NotEqual(generated, judged);
-    }
-
-    /// <summary>
-    /// A resume that adopted every page redraws no cover.
-    ///
-    /// The anchor cannot answer this on its own — a fully-adopted resume hands back the stored one,
-    /// and a caller reading only that would take it for a freshly drawn book. It would then draw a
-    /// second cover and upload it over the reviewed one an earlier attempt had already stored and
-    /// pointed the reader at, and the fulfilment job's own guard could not tell the difference:
-    /// what it would see is a genuine redraw of a cover that needed none.
+    /// The assertion outlived the redraw it was written for. It used to prove that a fully-adopted
+    /// resume did not buy a second cover and overwrite the reviewed one an earlier attempt had
+    /// stored; it now proves the flat rule that replaced that reasoning, which is that this path
+    /// hands back the cover it was given and produces none of its own.
     /// </summary>
     [Fact]
     public async Task A_fully_adopted_resume_draws_no_cover_at_all()
@@ -222,11 +90,15 @@ public class CompositePipelineCoverTests : CompositePipelineTestBase
     }
 
     /// <summary>
-    /// And a book whose cover an earlier attempt already redrew does not buy a second one, even on
-    /// a resume that did draw some spreads. The improvement is bought once per book.
+    /// And a run that draws all eight spreads still draws no cover — the case the old redraw
+    /// existed for, which is now simply the same rule as every other case.
+    ///
+    /// <c>CoverAlreadyRedrawn</c> is set here because a resumed book still carries it on the
+    /// context; nothing reads it any more, and the point of the test is that the answer no longer
+    /// depends on it.
     /// </summary>
     [Fact]
-    public async Task A_cover_an_earlier_attempt_redrew_is_not_redrawn_again()
+    public async Task A_run_that_draws_every_spread_still_draws_no_cover()
     {
         var images = new StubImageService();
         var previewed = Png(1024, 1536, red: 42);
@@ -244,70 +116,6 @@ public class CompositePipelineCoverTests : CompositePipelineTestBase
         Assert.Equal(BookFormat.SpreadCount, images.ImageCalls);
         Assert.Empty(images.CoverReviewPrompts);
         Assert.Equal(previewed, book.Cover.Image);
-    }
-
-    /// <summary>
-    /// An unreadable verdict is re-asked about the same picture, and never paid for with a new one.
-    ///
-    /// A malformed answer is a fact about the reviewer, not about the cover. Treating it as a
-    /// refusal spends the redraw's single regeneration on a picture nobody has judged — and two
-    /// malformed replies in a row would discard a cover that may have been perfectly good.
-    /// </summary>
-    [Fact]
-    public async Task An_unreadable_cover_verdict_is_re_asked_rather_than_redrawn()
-    {
-        var images = new StubImageService();
-        images.CoverVerdicts.Enqueue("The cover looks lovely to me!");
-
-        var generator = Generator(
-            images, Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images),
-            compositeEnabled: true);
-
-        var book = await generator.IllustrateAsync(
-            Plan(), Photo(), "image/png", existingCover: Png(1024, 1536, red: 42), onImage: null,
-            cancellationToken: CancellationToken.None, existingSpreads: null, composite: Context());
-
-        // Two reviews, one picture: eight spreads and a single cover generation.
-        Assert.Equal(2, images.CoverReviewPrompts.Count);
-        Assert.Equal(BookFormat.SpreadCount + 1, images.ImageCalls);
-        Assert.Equal(images.CoverReviewImages[0], images.CoverReviewImages[1]);
-
-        // The re-ask says what was wrong with the last answer and asks for the same thing again.
-        Assert.StartsWith(images.CoverReviewPrompts[0], images.CoverReviewPrompts[1]);
-        Assert.Contains("The previous answer could not be read", images.CoverReviewPrompts[1]);
-
-        // And the second, readable PASS is the verdict the cover ships under.
-        Assert.True(book.Cover.Accepted);
-        Assert.Single(book.Cover.AttemptDetails);
-    }
-
-    /// <summary>
-    /// Two unreadable answers keep the previewed cover rather than spending the regeneration on a
-    /// verdict nobody could read.
-    /// </summary>
-    [Fact]
-    public async Task Two_unreadable_cover_verdicts_keep_the_previewed_cover()
-    {
-        var images = new StubImageService();
-        images.CoverVerdicts.Enqueue("Looks lovely!");
-        images.CoverVerdicts.Enqueue("Still lovely!");
-
-        var previewed = Png(1024, 1536, red: 42);
-
-        var generator = Generator(
-            images, Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images),
-            compositeEnabled: true);
-
-        var book = await generator.IllustrateAsync(
-            Plan(), Photo(), "image/png", existingCover: previewed, onImage: null,
-            cancellationToken: CancellationToken.None, existingSpreads: null, composite: Context());
-
-        // One cover drawn, two reviews of it, and no second cover bought on no evidence.
-        Assert.Equal(BookFormat.SpreadCount + 1, images.ImageCalls);
-        Assert.Equal(2, images.CoverReviewPrompts.Count);
-
-        Assert.Equal(previewed, book.Cover.Image);
-        Assert.Empty(book.Cover.AttemptDetails);
     }
 
     /// <summary>

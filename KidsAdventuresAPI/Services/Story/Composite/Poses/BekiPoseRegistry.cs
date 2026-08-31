@@ -268,8 +268,23 @@ public sealed class BekiPoseRegistry
     }
 
     /// <summary>
+    /// Where a pose's approved PNG actually is on this machine.
+    ///
+    /// The asset lock (audit §10.1) has to name a file, not an id: a manifest that recorded only
+    /// "pose_07_curious_lean" would be a manifest of the registry rather than of the bytes, and the
+    /// whole point of the lock is that somebody can walk from the manifest to a file and hash it
+    /// themselves. Deliberately not verifying — callers that want the bytes proven ask for
+    /// <see cref="ApprovedPoseBytes"/>, and the lock does both.
+    /// </summary>
+    public string PosePath(string poseId)
+        => Path.GetFullPath(Path.Combine(_baseDirectory, PoseAssetDirectory, Pose(poseId).FileName));
+
+    /// <summary>
     /// Verifies every registered pose in one pass, for a startup or test check that wants the whole
     /// asset set proven rather than the poses a single book happens to reach.
+    ///
+    /// Had no production caller until <see cref="BekiAssetLock"/>, which is most of what audit P1-02
+    /// was pointing at: the check existed, was correct, and ran nowhere a paid book could reach it.
     /// </summary>
     public void VerifyAllPoses()
     {

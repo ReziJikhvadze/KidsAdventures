@@ -83,7 +83,8 @@ public class BekiLegacySpreadNormalizationTests
             .ToList();
 
         var pdf = new BekiPdfComposer(Options.Create(BekiLayoutFixture.ScreenProofLayout()))
-            .Compose(plan, book.Cover.Image!, spreads, BekiLayoutFixture.Personalization());
+            .ComposeWithReceipts(plan, book.Cover.Image!, spreads,
+                BekiLayoutFixture.Personalization()).Pdf;
 
         Assert.True(pdf.Length > 0);
     }
@@ -108,7 +109,7 @@ public class BekiLegacySpreadNormalizationTests
 
         var failure = Assert.Throws<BekiLayoutException>(
             () => new BekiPdfComposer(Options.Create(BekiLayoutFixture.ScreenProofLayout()))
-                .Compose(plan, BekiLayoutFixture.LeafPng((200, 60, 60)), spreads,
+                .ComposeWithReceipts(plan, BekiLayoutFixture.LeafPng((200, 60, 60)), spreads,
                     BekiLayoutFixture.Personalization()));
 
         Assert.Equal(CompositeFailureCodes.LayoutFailed, failure.FailureCode);

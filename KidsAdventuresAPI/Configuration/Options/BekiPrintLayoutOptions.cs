@@ -61,6 +61,52 @@ public sealed class BekiPrintLayoutOptions
     public float GutterZoneMm { get; set; } = 30f;
 
     /// <summary>
+    /// How far the story wash must stay clear of the centre fold, in millimetres.
+    ///
+    /// Separate from <see cref="GutterZoneMm"/>, which is about where a text COLUMN may begin. This
+    /// is about where the cream may end. Audit P1-04's correction is explicit — "keep it within the
+    /// selected page, outside the fold safety area and trim safety margins" — and §10.3 repeats it,
+    /// because the rejected book had a wash crossing the fold on Story Spread 4. Ten millimetres,
+    /// five on each leaf, is the smallest gap at which a soft-edged shape reads as belonging to one
+    /// page rather than to the binding.
+    /// </summary>
+    public float FoldSafetyMm { get; set; } = 10f;
+
+    /// <summary>
+    /// How far the cream wash reaches past the wrapped copy on every side, in millimetres.
+    ///
+    /// Seven, which is the middle of the audit's own range: P1-04 asks for "one local soft cream
+    /// wash with approximately 6–8 mm internal padding". It was 6 mm while the wash existed the
+    /// first time, and it is configuration now because the range is the supplier's and a printed
+    /// proof is what settles where inside it this book sits.
+    /// </summary>
+    public float WashPaddingMm { get; set; } = 7f;
+
+    /// <summary>
+    /// The wash's corner radius, in millimetres, so the shape reads as a soft support under the
+    /// words rather than as a cut rectangle pasted onto the picture. Zero gives square corners.
+    /// </summary>
+    public float WashCornerRadiusMm { get; set; } = 4f;
+
+    /// <summary>
+    /// The largest linear resize <see cref="Services.Story.BekiPdfComposer"/> may perform on its way
+    /// to the print raster, as a factor of the source's own dimensions.
+    ///
+    /// 1.05 — five per cent, which is a rounding difference and not a claim about detail. Audit
+    /// P1-01 found the interior rasters at about 143 effective PPI, Lanczos-stretched to a nominal
+    /// 300 inside the press PDF: the number on the file said 300 and the picture in it did not.
+    /// Interpolation cannot create the detail a press needs, so beyond this factor the book stops
+    /// (<c>PRESS_RESOLUTION</c>) and either a larger source or an approved upscaler has to arrive
+    /// BEFORE layout. Downscaling is unaffected — reducing an approved asset loses nothing a printer
+    /// would have seen.
+    ///
+    /// Zero or less disables the guard, which exists for one caller only: the shared screen-proof
+    /// fixture, which composes stand-in artwork at 96 PPI precisely because none of its questions
+    /// are about resolution.
+    /// </summary>
+    public float MaxPrintUpscale { get; set; } = 1.05f;
+
+    /// <summary>
     /// The share of the spread reserved for story text — the same third the illustrator was told
     /// to leave quiet. Written here as well so the two cannot disagree: if this widens and the
     /// prompt does not, text starts landing on faces the model was never asked to move.
@@ -101,10 +147,12 @@ public sealed class BekiPrintLayoutOptions
     public bool PrintEnglishToo { get; set; }
 
     /// <summary>
-    /// The stroke drawn around every glyph of the cover title and the Continue Adventure line, in
-    /// points. Those two set light type straight onto artwork, where the picture can win against
-    /// the words; the story text does not come through here any more — it is dark type on a cream
-    /// wash, which needs no rim. Zero turns it off.
+    /// The stroke drawn around every glyph of the cover title, in points.
+    ///
+    /// The cover title is the one place in the book where light type is set straight onto artwork,
+    /// because a cover title is part of the picture. The story and intro copy does not come through
+    /// here: since audit P1-04 restored the cream wash, that copy is dark type on cream and a rim
+    /// around it would only make it look printed twice. Zero turns the rim off.
     /// </summary>
     public float TextOutlineWidth { get; set; } = 0.6f;
 
@@ -197,6 +245,21 @@ public sealed class BekiPrintLayoutOptions
     /// 300-PPI book tens of megabytes instead of hundreds.
     /// </summary>
     public int PrintAssetJpegQuality { get; set; } = 90;
+
+    /// <summary>
+    /// The ceiling, in pixels per inch of finished page, on what the customer's download carries.
+    ///
+    /// A CEILING, never a target: nothing is ever enlarged to reach it. Audit P2-1 measured the
+    /// rejected reading copy at 33,985,705 bytes and asked for "a visually approved sRGB export
+    /// around 144–180 PPI"; the approved endpaper and intro artwork are 300-PPI press masters, and
+    /// embedding them verbatim in a download rebuilds exactly the file the audit rejected. So a
+    /// raster already at or under this density is embedded as it arrived — which is every generated
+    /// story spread — and one above it is reduced to it. The press masters themselves are untouched;
+    /// P2-1 says so in as many words, and the press path never comes through here.
+    ///
+    /// Zero disables the reduction and embeds every raster at its own resolution.
+    /// </summary>
+    public int ScreenTargetPpi { get; set; } = 150;
 
     /// <summary>The story type size a book starts its step-down ladder at, for this reader's age.</summary>
     internal static float StoryFontSizeFor(int? age, BekiPrintLayoutOptions layout) =>

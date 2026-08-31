@@ -236,7 +236,7 @@ public class CompositePipelinePoseTests : CompositePipelineTestBase
 
         Assert.True(result.Review.NeedsHumanReading);
         Assert.Equal(2, result.Warnings.Count(w => w.Contains("Georgian check-list")));
-        Assert.Contains("\"georgian_checklist_version\": \"georgian-text-checklist-v1\"",
+        Assert.Contains("\"georgian_checklist_version\": \"georgian-text-checklist-v1.1\"",
             result.Artifacts.ReviewJson);
 
         // And not one word was rewritten: the plan that comes out is the plan that went in.

@@ -1,5 +1,5 @@
 {
-  "checklist_version": "georgian-text-checklist-v1",
+  "checklist_version": "georgian-text-checklist-v1.1",
   "purpose": "Deterministic known-bad patterns in a book's Georgian copy. A hit FLAGS the book for human review and is recorded on the run. Nothing here ever rewrites a word: this file is a reading aid for a person, not an editor. Correcting the text is the story-polish pass's job (StoryPolishPrompt), and a rule that silently repaired a book would hide the fact that the polish missed it.",
   "scope": "Story text and the title of a composite-pipeline book, after the polish pass. Never the English fields, never the scene descriptions, never a model prompt.",
   "rules": [
@@ -26,6 +26,22 @@
       "expected": "იყოს, or ეგდოს where the sense is 'to lie / be lying there'",
       "severity": "flag",
       "note": "Shipped in a completed book. ეწყოს is a real word, so this is a verb-choice flag rather than a spelling one: in the sentence it appeared in, the sense wanted იყოს (to be) or ეგდოს (to lie there). A human decides which; this rule only makes sure nobody has to notice it in a printed proof."
+    },
+    {
+      "id": "unnatural_toddler_phrasing",
+      "kind": "substring",
+      "pattern": "ნებავს",
+      "expected": "მას ეძინება — the everyday spoken form, pending Georgian editor approval",
+      "severity": "flag",
+      "note": "v1.1, from the supplier's audit-2 finding P1-07: the shipped book said მას ძილი ნებავს to a two-year-old. ნებავს is a real word and a bookish one, so this is a register flag rather than a spelling one — the audit's own suggested replacement is მას ეძინება 'if approved by the Georgian editor', which is exactly why this flags and never rewrites. The composite story prompt (composite-v1.1) asks for the natural form; this rule catches the book where the ask did not land."
+    },
+    {
+      "id": "mixed_tense_on_one_page",
+      "kind": "regex",
+      "pattern": "(?:(?<=(?:ება|ებს|ავს|ობს)[^\\p{IsGeorgian}][\\s\\S]{0,600})|(?=[\\s\\S]{0,600}?\\p{IsGeorgian}{2,}(?:ება|ებს|ავს|ობს)(?![\\p{IsGeorgian}])))(?<![\\p{IsGeorgian}])(?:გამო|გადა|ამო|გა|და|შე|ჩა|წა|მო|აღ|ა)\\p{IsGeorgian}{2,}(?:ნენ|ეს|ო|ა)(?![\\p{IsGeorgian}])",
+      "expected": "One simple tense for the whole book — the present, unless the book is written in the past throughout",
+      "severity": "flag",
+      "note": "v1.1, from audit-2 finding P1-07: the shipped book alternated ქრება/ანათებს with გამოვიდა/გაჰყვნენ/აინთო. The rule fires when one page carries both a present-tense form (a word ending -ება/-ებს/-ავს/-ობს) and a preverbed aorist (გამოვიდა, გაჰყვნენ, აინთო), which is the strongest signal a deterministic reading can take: this check sees one location at a time, so a book that is present on spread 3 and past on spread 5 is invisible to it and stays the Georgian editor's read. Dialogue may legitimately speak in another tense while the narration holds one — a person decides, which is the whole contract of this file."
     },
     {
       "id": "beki_with_qari",

@@ -32,7 +32,8 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
             .Select(spread => new BekiSpreadArtwork(spread.Number, PixelPng()))
             .ToList();
 
-        var pdf = Compose().Compose(plan, PixelPng(), spreads, BekiLayoutFixture.Personalization());
+        var pdf = Compose().ComposeWithReceipts(
+            plan, PixelPng(), spreads, BekiLayoutFixture.Personalization()).Pdf;
 
         // Cover, the front-matter spread, the intro spread, one page per story spread, the
         // credits spread, the rear endpaper spread and the back cover — six fixed pages around
@@ -56,7 +57,8 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
             .Select(spread => new BekiSpreadArtwork(spread.Number, PixelPng()))
             .ToList();
 
-        var pdf = Compose(layout).Compose(plan, PixelPng(), spreads, BekiLayoutFixture.Personalization());
+        var pdf = Compose(layout).ComposeWithReceipts(
+            plan, PixelPng(), spreads, BekiLayoutFixture.Personalization()).Pdf;
 
         var sizes = MediaBoxSizes(pdf);
         var leafPt = MmToPt(layout.PageWidthMm + (layout.BleedMm * 2));
@@ -84,7 +86,8 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
             .Select(spread => new BekiSpreadArtwork(spread.Number, PixelPng()))
             .ToList();
 
-        var pdf = Compose(layout).ComposeInterior(plan, spreads, BekiLayoutFixture.Personalization());
+        var pdf = Compose(layout).ComposeInteriorWithReceipts(
+            plan, spreads, BekiLayoutFixture.Personalization()).Pdf;
 
         // Front endpaper, intro, eight story spreads, credits, rear endpaper — twelve, the
         // supplier config's interior.spread_count.
@@ -113,7 +116,8 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
             .Append(new BekiSpreadArtwork(99, PixelPng()))
             .ToList();
 
-        var pdf = Compose().Compose(plan, PixelPng(), spreads, BekiLayoutFixture.Personalization());
+        var pdf = Compose().ComposeWithReceipts(
+            plan, PixelPng(), spreads, BekiLayoutFixture.Personalization()).Pdf;
 
         Assert.Equal(BookFormat.SpreadCount + 7, CountPages(pdf));
     }
@@ -143,7 +147,8 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
 
         var composer = Compose();
 
-        var pdf = composer.Compose(plan, cover, spreads, BekiLayoutFixture.Personalization());
+        var pdf = composer.ComposeWithReceipts(
+            plan, cover, spreads, BekiLayoutFixture.Personalization()).Pdf;
         var outputPath = Path.Combine(BookDirectory!, "beki-book.pdf");
         await File.WriteAllBytesAsync(outputPath, pdf);
 
@@ -182,9 +187,9 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
             .ToList();
 
         var withoutOutline = Compose(NoOutline())
-            .Compose(plan, PixelPng(), spreads, BekiLayoutFixture.Personalization());
+            .ComposeWithReceipts(plan, PixelPng(), spreads, BekiLayoutFixture.Personalization()).Pdf;
         var withOutline = Compose()
-            .Compose(plan, PixelPng(), spreads, BekiLayoutFixture.Personalization());
+            .ComposeWithReceipts(plan, PixelPng(), spreads, BekiLayoutFixture.Personalization()).Pdf;
 
         var floor = TextShowOperators(withoutOutline);
 

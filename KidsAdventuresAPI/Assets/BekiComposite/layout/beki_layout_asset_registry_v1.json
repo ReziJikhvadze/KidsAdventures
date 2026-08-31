@@ -1,6 +1,7 @@
 {
-  "registry_version": "beki-layout-assets-v1.1",
+  "registry_version": "beki-layout-assets-v1.2",
   "source_manifest": "BEKI_Developer_Production_Assets_v1/APPROVED_ASSET_MANIFEST_v1.csv",
+  "amendment_v1_2": "Audit P1-02: PdfFontBootstrap embedded five font files and this registry named only three of them, so NotoSansGeorgian-SemiBold and NotoSerifGeorgian-SemiBold reached printed pages with no hash to prove them. Both are listed below with their real sha256 and every registered file is now hash-checked at registration. Adding entries changes no artwork, so nothing that pins the pose registry or the print spec is affected.",
   "note": "Paths are relative to the published output folder. The endpaper pattern and the six intro backgrounds are NOT re-stated here: their filenames and hashes live in the supplier's own theme_reference_registry_v1.json, which this registry reads, so there is exactly one hash per asset in the tree.",
   "theme_reference_registry": "Assets/BekiComposite/theme_reference_registry_v1.json",
   "endpaper_directory": "Assets/BekiComposite/layout",
@@ -22,6 +23,22 @@
       "role": "interior_emphasis",
       "filename": "NotoSansGeorgian-Bold.ttf",
       "sha256": "7ba515d66223d8985159a93664e649debe1c161af77f5c7ead9df02fe5f5b543"
+    },
+    {
+      "id": "noto_sans_georgian_semibold",
+      "manifest_asset_id": null,
+      "role": "interior_semibold",
+      "filename": "NotoSansGeorgian-SemiBold.ttf",
+      "sha256": "e4b33e48987ae4b1f0085bed3f61716cd5cc336b4919b1ac71ff709bcb6d11e3",
+      "provenance": "Google Noto, SIL Open Font License 1.1. Not in the supplier's approved asset manifest - it is ours, registered under the Adventrya Sans family by PdfFontBootstrap. Listed here under audit P1-02 so the bytes that print can be proven."
+    },
+    {
+      "id": "noto_serif_georgian_semibold",
+      "manifest_asset_id": null,
+      "role": "a5_display_heading",
+      "filename": "NotoSerifGeorgian-SemiBold.ttf",
+      "sha256": "de2666febaf15d72c6d1db2aa0d3b9723a5f0267dd6b16d4e83100dfc5f7d9a0",
+      "provenance": "Google Noto, SIL Open Font License 1.1. The A5 book's heading face (Adventrya Serif), deliberately outside the Beki interior whitelist. Listed here under audit P1-02 because PdfFontBootstrap embeds it and nothing could tell whether the file had changed."
     },
     {
       "id": "ottia_regular_ttf",

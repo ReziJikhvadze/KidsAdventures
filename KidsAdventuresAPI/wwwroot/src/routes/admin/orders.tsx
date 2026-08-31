@@ -219,8 +219,24 @@ function OrderRows({
   );
 }
 
+/**
+ * The gate chip's one line of text.
+ *
+ * Three states, because they mean three different things to whoever is looking. RELEASABLE says the
+ * files are handed over. "N გეითი ვერ გავიდა" says something measurable is wrong and the package
+ * will say which. "ვიზუალური შემოწმება" says nothing is wrong — a person simply has not looked at
+ * the rendered book yet, and that is the one state with a button next to it.
+ */
+function gateLabel(gates: admin.AdminReleaseGates | null): string {
+  if (!gates || !gates.verdict) return "შემოწმება არ ჩატარებულა";
+  if (gates.awaitingHumanReview) return "ელოდება ვიზუალურ შემოწმებას";
+  if (gates.verdict === "RELEASABLE") return "გამოსაშვებად მზადაა";
+  return `${gates.failingGates.length} გეითი ვერ გავიდა`;
+}
+
 function OrderDetail({ orderId, onChanged }: { orderId: string; onChanged: () => void }) {
   const [detail, setDetail] = useState<admin.AdminOrderDetail | null>(null);
+  const [gates, setGates] = useState<admin.AdminReleaseGates | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(true);
   const [action, setAction] = useState<string | null>(null);
@@ -236,6 +252,13 @@ function OrderDetail({ orderId, onChanged }: { orderId: string; onChanged: () =>
         setError(err instanceof Error ? err.message : "დეტალები ვერ ჩაიტვირთა."),
       )
       .finally(() => setBusy(false));
+
+    // Separately and quietly: an order whose book predates the release gates has no verdict, and
+    // that is a normal thing to show rather than an error that should replace the whole panel.
+    admin
+      .getReleaseGates(orderId)
+      .then(setGates)
+      .catch(() => setGates(null));
   }, [orderId]);
 
   useEffect(load, [load]);
@@ -275,7 +298,12 @@ function OrderDetail({ orderId, onChanged }: { orderId: string; onChanged: () =>
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `beki-${orderId}-package.zip`;
+      // The audit's own naming, matching what the API sets on the response, so the file an
+      // operator forwards to the supplier is named in the supplier's vocabulary. Keyed by the
+      // book rather than the order, which is what the package is about.
+      link.download = detail?.book
+        ? `BEKI_${detail.book.id}_HANDBACK_v002.zip`
+        : `beki-${orderId}-package.zip`;
       link.click();
       URL.revokeObjectURL(url);
       return "პაკეტი ჩამოიტვირთა.";
@@ -396,6 +424,44 @@ function OrderDetail({ orderId, onChanged }: { orderId: string; onChanged: () =>
             onClick={() => void downloadPackage()}
           >
             {action === "package" ? "იტვირთება…" : "სრული პაკეტი (ZIP)"}
+          </button>
+        ) : null}
+
+        {book && gates?.verdict ? (
+          <span
+            className="cell-subtitle"
+            title={
+              gates.failingGates.length > 0 ? gates.failingGates.join(", ") : "ყველა გეითი გავიდა."
+            }
+          >
+            {gateLabel(gates)}
+          </span>
+        ) : null}
+
+        {/*
+          The human half of VISUAL_QA. It appears only when a person is actually being waited on —
+          a book with a measurable failure needs the failure fixed, not a signature — and it sends
+          the contact-sheet hash the chip is describing, so approving a stale rendering is refused
+          by the API rather than recorded here.
+        */}
+        {book && gates?.awaitingHumanReview && gates.contactSheetSha256 ? (
+          <button
+            type="button"
+            className="button button-secondary"
+            disabled={action !== null}
+            onClick={() =>
+              void run("approve", async () => {
+                const revised = await admin.approveVisualReview(orderId, {
+                  contactSheetSha256: gates.contactSheetSha256!,
+                });
+                setGates(revised);
+                return revised.verdict === "RELEASABLE"
+                  ? "შემოწმება დადასტურდა — წიგნი გამოსაშვებად მზადაა."
+                  : "შემოწმება დადასტურდა.";
+              })
+            }
+          >
+            {action === "approve" ? "მიმდინარეობს…" : "დაადასტურე ვიზუალური შემოწმება"}
           </button>
         ) : null}
 

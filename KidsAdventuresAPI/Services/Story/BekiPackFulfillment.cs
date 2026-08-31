@@ -103,15 +103,172 @@ public static class BekiPackBlobs
         $"{userId}/{packId}/composite-review.json";
 
     /// <summary>
-    /// The cover this pack shipped, stored beside its spreads.
+    /// The AI redraw of the cover, kept only as history.
     ///
-    /// Under the pack's own prefix rather than the preview run's, because from v1.2 they are not
-    /// always the same picture: the cover is redrawn against the book's accepted first spread, and
-    /// the run's copy is what the parent previewed. Storing it here is also what makes a finished
-    /// pack directory a complete book — cover, eight spreads and their receipts — rather than eight
-    /// spreads and a pointer to somebody else's blob.
+    /// It used to be the customer's cover: drawn again after the first spread was accepted, reviewed
+    /// against the child's identity spec, and pointed at by the reader. Audit P0-01 ended that — a
+    /// press cover composited from the wrap and a customer cover drawn by a model are two designs
+    /// for one book, and the supplier rejected the package for exactly that. From the audit-2
+    /// correction the composite path never calls the redraw at all; a blob under this name is a
+    /// historical preview from a run that predates the correction, and the handback package carries
+    /// it under <c>diagnostic/</c> so it can be seen and not mistaken for the master.
     /// </summary>
     public static string CoverName(Guid userId, Guid packId) => $"{userId}/{packId}/cover.png";
+
+    // ----------------------------------------------------------------------------------------
+    // The single cover master and its derivations (audit P0-01/P0-02/P0-10, plan D1/D2).
+    // ----------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The canonical cover: the 512 × 245 mm wrap with the approved Beki already composited on the
+    /// front board, as one PNG.
+    ///
+    /// Audit P0-10's finding was that this file did not exist. The composition receipt declared
+    /// <c>cover-wrap-composite.png</c> and its SHA-256, the bytes were used in memory to make the
+    /// press cover, and no code ever wrote them down — so the one artifact every cover derivation
+    /// claims to come from could not be checked against its own receipt. It is written now, and the
+    /// hash is recomputed and compared before anything is derived from it.
+    /// </summary>
+    public static string CoverWrapCompositeName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}-cover-wrap-composite.png";
+
+    /// <summary>The wrap before Beki was composited onto it — the band gate's own evidence.</summary>
+    public static string CoverWrapBaseName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}-cover-wrap-base.png";
+
+    /// <summary>The wrap's exact-Beki receipt: pose, source hash, anchor, output hash.</summary>
+    public static string CoverCompositionName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}-cover-composition.json";
+
+    /// <summary>
+    /// The reader's cover image: the wrap's front board, cropped, and nothing else.
+    ///
+    /// The pack's cover column points here, which is what makes the on-screen book, the download and
+    /// the printed book one design. It replaces the redraw repoint that audit P0-01 found.
+    /// </summary>
+    public static string CoverFrontName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}/cover-front.png";
+
+    // ----------------------------------------------------------------------------------------
+    // Release evidence (audit P0-09, plan D7/D8, amendments A4/A5).
+    // ----------------------------------------------------------------------------------------
+
+    /// <summary>Which approved bytes this book was built from, proved before the first model call.</summary>
+    public static string AssetLockName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}/{BekiAssetLock.ManifestFileName}";
+
+    /// <summary>The sixteen-gate verdict, rewritten whenever anything that feeds it changes.</summary>
+    public static string ReleaseGatesName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}/release-gates.json";
+
+    /// <summary>A reviewer's signature on a named contact sheet (amendment A2/A5).</summary>
+    public static string HumanApprovalName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}/human-approval.json";
+
+    /// <summary>
+    /// One fixed page's machine QA record: the cover boards, the endpapers, the intro, the credits.
+    /// </summary>
+    public static string FixedPageQaName(Guid userId, Guid packId, string role) =>
+        $"{userId}/{packId}/fixed-{role}-qa.json";
+
+    /// <summary>The three composed documents that carry post-layout receipts.</summary>
+    public static readonly IReadOnlyList<string> LayoutModes = ["reading", "interior", "cover"];
+
+    /// <summary>One composed document's whole receipt set (amendment A4).</summary>
+    public static string LayoutReceiptName(Guid userId, Guid packId, string mode) =>
+        $"{userId}/{packId}/receipts/{mode}-layout.json";
+
+    /// <summary>One page of one composed document, under the composer's own file name.</summary>
+    public static string LayoutPageReceiptName(Guid userId, Guid packId, string mode, string fileName) =>
+        $"{userId}/{packId}/receipts/{mode}-{fileName}";
+
+    /// <summary>The reading copy, as it is scanned and rendered back for the QR and human gates.</summary>
+    public const string DigitalRenderArtifact = "digital-reading";
+
+    public const string InteriorRenderArtifact = "press-interior";
+
+    public const string CoverRenderArtifact = "press-cover";
+
+    /// <summary>Every stored final that render validation is run against (amendment A8).</summary>
+    public static readonly IReadOnlyList<string> RenderedArtifacts =
+        [InteriorRenderArtifact, CoverRenderArtifact, DigitalRenderArtifact];
+
+    /// <summary>
+    /// The stored final one render artifact is the validation OF — the pairing that makes
+    /// "every stored final has a releasable report" a question anything can ask.
+    ///
+    /// Written down once because two places need the same answer and used to each carry their own
+    /// copy: the stage that renders the finals back, and the gate that checks whether every stored
+    /// final was rendered. The gate could not enumerate the finals at all, which is how a press
+    /// cover with no render report of its own passed RENDER_VALIDATION on the strength of the other
+    /// two.
+    /// </summary>
+    public static string FinalPdfName(Guid userId, Guid packId, string artifact) => artifact switch
+    {
+        InteriorRenderArtifact => InteriorPdfName(userId, packId),
+        CoverRenderArtifact => CoverPdfName(userId, packId),
+        DigitalRenderArtifact => ReadingPdfName(userId, packId),
+        _ => throw new ArgumentOutOfRangeException(
+            nameof(artifact), artifact, "not a render-validated artifact."),
+    };
+
+    /// <summary>
+    /// Which deliverable class an artifact's render evidence belongs to — amendment A5's governance
+    /// split, applied per artifact rather than per gate id.
+    ///
+    /// RENDER_VALIDATION and QR are classed press because they were written for the printer's
+    /// files, but they read evidence from the customer's PDF too. Classing the ARTIFACT is what
+    /// lets a failure on the reading copy withhold the download it is about, while a press cover's
+    /// failure still leaves the parent's book alone.
+    /// </summary>
+    public static string RenderArtifactClass(string artifact) =>
+        artifact == DigitalRenderArtifact
+            ? BekiReleaseGates.DigitalClass
+            : BekiReleaseGates.PressClass;
+
+    public static string RenderReportName(Guid userId, Guid packId, string artifact) =>
+        $"{userId}/{packId}/render-{artifact}.json";
+
+    public static string ContactSheetName(Guid userId, Guid packId, string artifact) =>
+        $"{userId}/{packId}/contact-sheet-{artifact}.png";
+
+    /// <summary>The press files and the reports that prove they were prepared rather than exported.</summary>
+    public static string InteriorPdfName(Guid userId, Guid packId) => $"{userId}/{packId}-interior.pdf";
+
+    public static string InteriorPreflightName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}-interior-preflight.json";
+
+    public static string CoverPdfName(Guid userId, Guid packId) => $"{userId}/{packId}-cover.pdf";
+
+    public static string CoverPreflightName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}-cover-preflight.json";
+
+    /// <summary>
+    /// Why the press files are not there, when they are not.
+    ///
+    /// Print preparation refuses rather than degrades, so its success leaves a preflight report and
+    /// its failure used to leave a log line. The release gates need the second half: which gate
+    /// refused, in a document that outlives the process that wrote it.
+    /// </summary>
+    public static string PressStatusName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}-press-status.json";
+
+    /// <summary>The customer PDF and its own preflight (amendment A10c).</summary>
+    public static string ReadingPdfName(Guid userId, Guid packId) => $"{userId}/{packId}.pdf";
+
+    public static string DigitalReportName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}-digital-report.json";
+
+    /// <summary>
+    /// The normalized Story JSON this book was drawn from.
+    ///
+    /// Stored with the pack because audit §9 removes it from the handback's excluded list: the
+    /// supplier needs the words the pictures were planned from, and "it lives on the preview run
+    /// record" is an answer about our schema rather than about their package.
+    /// </summary>
+    public static string StoryName(Guid userId, Guid packId) => $"{userId}/{packId}/story.json";
+
+    public static string TelemetryName(Guid userId, Guid packId) => $"{userId}/{packId}/telemetry.json";
 
     /// <summary>
     /// One page's composition receipt: which approved pose was pasted where, and what the result
@@ -130,6 +287,48 @@ public static class BekiPackBlobs
     /// </summary>
     public static string SpreadBaseName(Guid userId, Guid packId, int spreadNumber) =>
         $"{userId}/{packId}/spread-{spreadNumber:00}-base.png";
+}
+
+/// <summary>
+/// The document written OVER a preflight report whose stage has just refused — the answer to a
+/// review finding about retries.
+///
+/// The defect it closes: a pack is retried, the digital preparation that succeeded last time now
+/// fails, the current unprepared PDF is uploaded under the same name — and the PREVIOUS run's
+/// successful report is still sitting under the report's name. A gate that read presence then found
+/// evidence, and an unvalidated file published on the strength of a document about a different one.
+/// Stale evidence is worse than no evidence, because absence is at least legible as absence.
+///
+/// Written rather than deleted. <c>IBlobStorageService</c>'s delete is keyed by a stored URL, and
+/// this code has no stored URL for a blob a previous run wrote; an overwrite is addressed the same
+/// way the upload was, and it leaves an operator something to read instead of a hole. The verdict
+/// field is what the release evaluator refuses on — the preparation stages write <c>PASS</c> there
+/// on success, so a report claiming anything else is a report of a refusal.
+/// </summary>
+public static class BekiWithheldReport
+{
+    public const string Stage = "beki-withheld-report-v1";
+
+    public const string FailVerdict = "FAIL";
+
+    /// <summary>
+    /// One refusal, in the shape the gate reads: which gate refused, at what stage, and why.
+    /// </summary>
+    public static byte[] Bytes(string gate, string stage, string reason) =>
+        JsonSerializer.SerializeToUtf8Bytes(
+            new
+            {
+                stage = Stage,
+                gate,
+                verdict = FailVerdict,
+                withheld_at_utc = DateTime.UtcNow,
+                withheld_stage = stage,
+                reason,
+                note = "This file replaced a report from an earlier attempt. The artifact it "
+                    + "describes was not prepared on this run, and no earlier run's verdict "
+                    + "applies to the bytes now in storage.",
+            },
+            new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
 }
 
 /// <summary>
@@ -156,11 +355,33 @@ public sealed class BekiPackFulfillment(
     IUserRepository userRepository,
     IOptions<BekiOptions> bekiOptions,
     ILogger<BekiPackFulfillment> logger,
-    TimeProvider? timeProvider = null) : IBekiPackFulfillment
+    TimeProvider? timeProvider = null,
+    IPressUpscaler? pressUpscaler = null,
+    BekiReleaseGates? releaseGates = null,
+    BekiAssetLock? assetLock = null) : IBekiPackFulfillment
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
+    /*
+      The three services the audit-2 correction added, defaulted rather than required.
+
+      Defaulted because every one of them is constructible from what this class already holds, and
+      because the alternative is a constructor break that reaches every test harness that ever
+      builds this job. Container-resolved in production — see ServiceCollectionExtensions — where
+      the upscaler reads the deployment's configured tool rather than the shipped-disabled default.
+
+      The disabled default is the correct default. An unconfigured deployment withholds press files
+      with PRESS_RESOLUTION rather than passing interpolated ones, which is precisely what audit
+      P1-01 asks for.
+    */
+    private readonly IPressUpscaler _pressUpscaler =
+        pressUpscaler ?? new CliPressUpscaler(bekiOptions.Value.PrintPrep);
+
+    private readonly BekiReleaseGates _releaseGates = releaseGates ?? new BekiReleaseGates(blobStorage);
+
+    private readonly BekiAssetLock _assetLock = assetLock ?? new BekiAssetLock();
 
     /// <summary>
     /// The statuses a pack may be picked up from.
@@ -229,6 +450,10 @@ public sealed class BekiPackFulfillment(
         // about. It lives on the preview run rather than the pack, so a failure before the run is
         // read simply has no name to use — which the letter is written to survive.
         string? childName = null;
+
+        // Every SHA-256 the asset lock proved, so the fixed pages' machine QA can say whether the
+        // rasters a page actually placed were approved files or something else.
+        IReadOnlySet<string> assetLockHashes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         /*
           The load is inside the guarded region, which is not where it started.
@@ -400,6 +625,27 @@ public sealed class BekiPackFulfillment(
                     CompositeFailureCodes.InvalidBookInput,
                     $"Theme '{pack.Theme}' does not map to an approved composite theme, so no "
                     + "composite book can be drawn or resumed for it.");
+            }
+
+            /*
+              The asset lock, before anything is drawn — audit P1-02, plan D9.
+
+              First, and that word is the whole design. The lock proves every fixed asset this book
+              will print — the endpaper pattern, the six intro backgrounds, the nine approved poses,
+              the five licensed font files, the FOGRA39 profile — against the registries that
+              approved them, and a book that fails it fails here rather than after nine paid image
+              calls. The finding it answers was not that a check was wrong: it was that the machinery
+              existed with no callers, so a delivered book could not be shown to have been built from
+              approved bytes at all.
+
+              Composite books only. The previous path draws Beki with an image model and places no
+              approved pose, so a lock over the pose registry would be asserting something about
+              artwork that path never touches.
+            */
+            if (compositeEnabled)
+            {
+                stage = "proving the approved assets";
+                assetLockHashes = await VerifyAssetLockAsync(pack, jobToken);
             }
 
             var currentContract = BekiFulfillmentManifest.CurrentContract(
@@ -581,6 +827,10 @@ public sealed class BekiPackFulfillment(
             // earlier attempt recorded, which is the cover that attempt shipped.
             var coverRecord = manifest?.Cover;
 
+            // Where this book's normalized story ends up, once there is a book to store it with.
+            // Null on the previous path, which stores no such artifact and never has.
+            string? storyUrl = manifest?.StoryUrl;
+
             /*
               The scenario an earlier attempt planned, read back before anything is drawn.
 
@@ -756,11 +1006,6 @@ public sealed class BekiPackFulfillment(
                 logger.LogWarning("Beki pack {PackId}: {Warning}", packId, warning);
             }
 
-            // The picture the PDF is laid out from. Normally the cover this run produced; on a
-            // resume that adopted everything, the redrawn cover an earlier run stored — so the
-            // printed book and the on-screen book stay the same book.
-            var coverImage = book.Cover.Image;
-
             /*
               The catch-up pass for composite artifacts, matching the one below for images.
 
@@ -777,7 +1022,19 @@ public sealed class BekiPackFulfillment(
 
                 foreach (var artifact in compositeArtifacts.Spreads)
                 {
-                    if (compositions.ContainsKey(artifact.SpreadNumber))
+                    /*
+                      An adopted page has no receipt to write, and writing one anyway is worse than
+                      writing nothing.
+
+                      Amendment A4 put adopted spreads back into this list — they used to be
+                      filtered out, which is how a resumed book's QA coverage became "whatever this
+                      attempt happened to redraw". They arrive flagged and deliberately empty: no
+                      pose, no manifest, no output hash, because this run composited nothing. Storing
+                      one as though it were a receipt would overwrite the earlier attempt's real
+                      composition entry with a blank, and the exact-Beki gate would then be satisfied
+                      by a document that proves nothing.
+                    */
+                    if (artifact.Adopted || compositions.ContainsKey(artifact.SpreadNumber))
                     {
                         continue;
                     }
@@ -787,99 +1044,41 @@ public sealed class BekiPackFulfillment(
                 }
 
                 /*
-                  The cover, stored with the book rather than borrowed from the preview run.
+                  And every page's QA verdict is written down — audit P0-09, plan D7.
 
-                  It is a different picture now: drawn again after the first spread was accepted,
-                  with the child's identity lock in the prompt and that accepted spread attached as
-                  the appearance anchor, then reviewed against the spec — which is the one image in
-                  a Beki book that had never been reviewed for identity at all, and the one the
-                  owner watched lose the eye colour on almost every book.
+                  The rejected package listed all eight `spread-XX-qa.json` files as missing beside
+                  two finished PDFs, and the reason was not that the pages went unreviewed: the
+                  accepted verdicts were held in memory, used to decide whether to ship, and dropped.
+                  Only a refusal wrote a record, on its way out. A book's QA either survives the book
+                  or it was never evidence.
 
-                  A redraw that was refused twice leaves the previewed cover in place and says so on
-                  the record, because a book must not die for its cover. The two cases are told
-                  apart by whether anything was actually attempted: an adopted cover has no attempt
-                  rows, and its verdict is null rather than blank — nobody reviewed it, and an empty
-                  string in that field would read as a pass.
+                  An adopted page is the one case where this run has nothing to write, so it reads
+                  back what the attempt that drew the page wrote — and a record that is gone or was
+                  written under a superseded reviewer contract is left absent on purpose. The
+                  release gates answer for the gap; papering over it here would be inventing a
+                  verdict for a page nothing current has looked at.
                 */
-                var redrawn = book.Cover.AttemptDetails.Count > 0;
-
-                /*
-                  A resumed run must not undo an earlier run's redrawn cover.
-
-                  The redraw happens only on a run that draws the first spread, so a resume that
-                  adopted all eight pages produces no redraw and hands back the previewed cover.
-                  Uploading that over the stored one would replace a reviewed cover with an
-                  unreviewed one, and rewriting the record would tell an operator the opposite of
-                  what happened — on a pack whose reader is already pointing at the good picture.
-                  So a stored redraw stands, and the run reads it back for the PDF instead, which
-                  is what keeps the printed book and the on-screen book the same book.
-                */
-                if (!redrawn && coverRecord is { IsRedraw: true } storedCover)
+                foreach (var artifact in compositeArtifacts.Spreads)
                 {
-                    try
-                    {
-                        var keptCover = await blobStorage.DownloadBytesFromStoredUrlAsync(
-                            storedCover.StoredUrl, jobToken);
-
-                        if (keptCover is { Length: > 0 })
-                        {
-                            coverImage = keptCover;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        // The PDF falls back to the previewed cover for this attempt; the reader
-                        // and the record still point at the redrawn one, which is the better half
-                        // to keep when only one can be had.
-                        logger.LogWarning(
-                            ex, "Beki pack {PackId}: the stored redrawn cover could not be read; "
-                            + "this attempt lays out the previewed cover instead.", packId);
-                    }
-
-                    logger.LogInformation(
-                        "Beki pack {PackId}: keeping the cover an earlier attempt redrew and "
-                        + "reviewed.", packId);
-                }
-                else
-                {
-                    var coverUrl = await blobStorage.UploadAsync(
-                        BekiPackBlobs.CoverName(pack.UserId, pack.Id),
-                        book.Cover.Image,
-                        "image/png",
-                        jobToken);
-
-                    coverRecord = new BekiCoverRecord(
-                        coverUrl,
-                        redrawn
-                            ? CompositeIllustrationPrompt.CoverRedrawVersion
-                            : BekiCoverRecord.AdoptedPreviewCover,
-                        redrawn ? book.Cover.Verdict : null);
+                    await StoreSpreadQaAsync(pack, artifact, jobToken);
                 }
 
                 /*
-                  And the reader is pointed at it, which is the half that was missing.
+                  The cover is no longer decided here, and that is audit P0-01 being answered.
 
-                  The pack's own cover column is what the library card and the reader serve, and it
-                  has held the preview run's cover since purchase — so the PDF shipped the redrawn
-                  cover while the screen kept showing the one drawn before the child had a spec.
-                  The owner's first check is the on-screen book, so the two have to agree.
+                  What used to stand in this place was a redraw: after the first spread was
+                  accepted, an image model drew the customer's front page again, and the reader's
+                  cover column was re-pointed at it. Meanwhile the printer's cover was the
+                  composited wrap. Two producers, two designs, one book — the finding the supplier
+                  rejected the package for, and one that no amount of reviewing either picture could
+                  have caught, because each was individually fine.
 
-                  Only for a redraw. An adopted cover IS the preview run's cover, and re-pointing
-                  the column at a copy of it would change nothing except which blob a reader that
-                  has cached the first one has to fetch.
+                  So the composite path now has exactly one cover master, the wrap, and it is built
+                  below with the delivery it feeds: press cover, customer front and back pages, and
+                  the reader's own image, all cut from the same bytes. `cover.png` is not written by
+                  this path any more; a blob under that name belongs to a run that predates the
+                  correction and travels in the handback under `diagnostic/`.
                 */
-                if (coverRecord is { IsRedraw: true } shipped)
-                {
-                    await packRepository.UpdateBookPresentationAsync(
-                        packId, title: null, coverImageUrl: shipped.StoredUrl, jobToken);
-                }
-
-                logger.LogInformation(
-                    "Beki pack {PackId}: cover stored — {Provenance}.",
-                    packId,
-                    redrawn
-                        ? $"redrawn against the accepted first spread and reviewed ({book.Cover.Verdict})"
-                        : "the previewed cover, adopted unchanged");
 
                 /*
                   The book-level review, stored with the finished book and pointed at from the
@@ -933,9 +1132,17 @@ public sealed class BekiPackFulfillment(
             await packRepository.UpdateProgressAsync(
                 packId, "წიგნს ვაწყობთ და PDF-ს ვამზადებთ…", 85, jobToken);
 
-            // Everything ships. A NEEDS_REVIEW spread is a picture a human should look at, not a
-            // hole in a paid book — the warning above is the trail. The callback has already
-            // stored each spread; this pass only catches one it somehow missed.
+            /*
+              Every spread is stored, and — since the audit — storing is not the same as shipping.
+
+              This pass only catches a page the mid-run callback missed; that part is unchanged. What
+              changed is what "everything ships" was allowed to mean. It used to mean the book
+              completed the moment the pictures existed: a NEEDS_REVIEW spread was a warning in a log
+              and a picture in a paid book, and the release gates document had no reader at all. The
+              spreads still reach the parent's in-app reader unconditionally — that is deliberate and
+              amendment A5 says so — but the deliverable FILES are now published by a verdict rather
+              than by nothing having thrown.
+            */
             var stored = new List<BekiSpreadArtwork>(book.Spreads.Count);
             foreach (var spread in book.Spreads.OrderBy(s => s.SpreadNumber ?? 0))
             {
@@ -993,127 +1200,292 @@ public sealed class BekiPackFulfillment(
             }
 
             var pdfStopwatch = Stopwatch.StartNew();
-            var pdf = composer.Compose(plan, coverImage, stored, personalization);
-            pdfStopwatch.Stop();
-
-            var pdfUploadStopwatch = Stopwatch.StartNew();
-            var pdfUrl = await blobStorage.UploadAsync(
-                $"{pack.UserId}/{pack.Id}.pdf", pdf, "application/pdf", jobToken);
-            uploadMs += pdfUploadStopwatch.ElapsedMilliseconds;
 
             /*
-              Two shelves, two files — the supplier's audit ended the era of one blob serving
-              both. The full document above, cover faces and all, stays the parent's reading
-              copy. The print deliverable is the interior alone: the production cover is a
-              continuous back-spine-front wrap built from the printer's dieline, which this
-              deployment does not have, and the audit's ruling is that the 14-page hybrid must
-              never stand in for it.
+              From here the book is delivered, and the two pipelines deliver differently now.
 
-              And the interior only earns the print slot through the print-preparation stage —
-              PDF/X-4 identification, the Coated FOGRA39 output intent, a preflight report. If
-              that stage refuses (today it does: the ICC profile is owner item 4), the slot is
-              cleared rather than pointed at a layout export, because "layout export treated as
-              completed print preparation" is a finding this book already has. The parent's
-              digital book ships either way.
+              The composite path is the one the audit rewrote. Its order is the correction: the
+              cover wrap is generated FIRST, becomes the only cover source, and everything a person
+              ever sees — the printed wrap, the customer PDF's front and back pages, the image in
+              the reader — is cut from those same bytes (D1). Its failure is fatal, which is new and
+              deliberate: a composite book with no wrap has no cover master, and the old behaviour
+              (fall back to the previewed picture) is precisely the second producer the supplier
+              rejected the package for.
+
+              The previous path is untouched. It has no wrap to generate, one cover it drew, and the
+              same fourteen-page document it has always shipped.
             */
-            var interior = composer.ComposeInterior(plan, stored, personalization);
+            string? pdfUrl;
+            BekiReleaseGateReport? release = null;
 
-            try
+            if (compositeEnabled && book.Composite is { ScenarioJson: { Length: > 0 } scenarioDocument })
             {
-                var (preparedInterior, preflightReport) = BekiPrintPrep.Prepare(
-                    interior, plan.Concept.Title, bekiOptions.Value.PrintPrep);
+                stage = "drawing the cover wrap";
 
-                var interiorUrl = await blobStorage.UploadAsync(
-                    $"{pack.UserId}/{pack.Id}-interior.pdf",
-                    preparedInterior, "application/pdf", jobToken);
+                var scenario = VisualScenarioValidator.Validate(scenarioDocument).Scenario
+                    ?? throw new BekiLayoutException(
+                        CompositeFailureCodes.LayoutFailed,
+                        "the stored Visual Scenario could not be read back for the cover master.");
 
+                var wrap = await generator.DrawCoverWrapAsync(
+                    scenario, photo, "image/png", compositeContext!, jobToken);
+
+                /*
+                  And the master is written down, then checked against its own receipt.
+
+                  Audit P0-10's finding was that this file did not exist: the composition manifest
+                  declared `cover-wrap-composite.png` and its SHA-256, the bytes lived in a local
+                  variable, and nothing wrote them. Every cover derivation claimed a provenance
+                  nobody could check. So the bytes are stored, and the hash is recomputed from what
+                  was stored and compared with what the receipt declares — a mismatch stops the book
+                  rather than shipping three derivations of an unidentified image.
+                */
+                var wrapSha = Sha256Hex(wrap.CompositePng);
+                var declaredSha = ReceiptValue(wrap.ManifestJson, "output", "sha256");
+
+                if (!string.Equals(declaredSha, wrapSha, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new CompositePipelineException(
+                        CompositeFailureCodes.ImageGenerationFailed,
+                        $"The cover wrap composite hashes to {wrapSha} and its composition receipt "
+                        + $"declares {declaredSha ?? "(nothing)"}. The press cover, both customer "
+                        + "cover pages and the reader's image are all cut from these bytes, so a "
+                        + "master that does not match its own receipt is not a master.");
+                }
+
+                var wrapUrl = await blobStorage.UploadAsync(
+                    BekiPackBlobs.CoverWrapCompositeName(pack.UserId, pack.Id),
+                    wrap.CompositePng, "image/png", jobToken);
+
+                // The wrap's audit trail: the pre-composite base the band gate measured, and the
+                // exact-Beki receipt — the same paperwork every story spread carries.
                 await blobStorage.UploadAsync(
-                    $"{pack.UserId}/{pack.Id}-interior-preflight.json",
-                    System.Text.Encoding.UTF8.GetBytes(preflightReport),
+                    BekiPackBlobs.CoverWrapBaseName(pack.UserId, pack.Id),
+                    wrap.BasePng, "image/png", jobToken);
+                await blobStorage.UploadAsync(
+                    BekiPackBlobs.CoverCompositionName(pack.UserId, pack.Id),
+                    System.Text.Encoding.UTF8.GetBytes(wrap.ManifestJson),
                     "application/json", jobToken);
 
-                await packRepository.UpdatePrintPdfUrlAsync(packId, interiorUrl, jobToken);
+                coverRecord = new BekiCoverRecord(
+                    wrapUrl,
+                    BekiCoverRecord.WrapMaster,
+                    $"exact-Beki composite verified against its receipt ({wrapSha[..12]}…)")
+                {
+                    PoseId = wrap.PoseId,
+                    CompositeSha256 = wrapSha,
+                    Anchor = ReceiptAnchor(wrap.ManifestJson),
+                };
+
+                /*
+                  The reader's cover, which is where the old redraw used to point.
+
+                  The pack's cover column is what the library card and the reader serve. It held the
+                  preview run's picture until v1.2 and the AI redraw after that, and in both cases
+                  it was a different design from the printed cover. It is now the wrap's own front
+                  board, cropped — the same rectangle the customer PDF's first page is built from.
+                */
+                var frontBoardUrl = await blobStorage.UploadAsync(
+                    BekiPackBlobs.CoverFrontName(pack.UserId, pack.Id),
+                    composer.CropFrontBoard(wrap.CompositePng), "image/png", jobToken);
+
+                await packRepository.UpdateBookPresentationAsync(
+                    packId, title: null, coverImageUrl: frontBoardUrl, jobToken);
 
                 logger.LogInformation(
-                    "Beki pack {PackId}: print interior prepared ({PdfxVersion}, {Intent}) and "
-                    + "stored with its preflight report; the print cover stays withheld ({Code}: "
-                    + "no printer-approved cover dieline is configured).",
-                    packId, BekiPrintPrep.PdfxVersion,
-                    bekiOptions.Value.PrintPrep.OutputConditionInfo,
-                    CompositeFailureCodes.LayoutFailed);
-            }
-            catch (BekiLayoutException ex)
-                when (ex.FailureCode == CompositeFailureCodes.PrintPreflightFailed)
-            {
-                await packRepository.UpdatePrintPdfUrlAsync(packId, null, jobToken);
+                    "Beki pack {PackId}: cover master stored — the composited wrap (pose {PoseId}, "
+                    + "sha {Sha}), with the reader pointed at its front-board crop.",
+                    packId, wrap.PoseId, wrapSha[..12]);
 
-                logger.LogWarning(
-                    "Beki pack {PackId}: print artifact withheld ({Code}) — {Reason} The parent's "
-                    + "digital book is unaffected.",
-                    packId, CompositeFailureCodes.PrintPreflightFailed, ex.Message);
-            }
+                // ---- The parent's book -------------------------------------------------------
+                stage = "laying out the customer's book";
 
-            /*
-              The press cover — the locked spec's second file. Generated against the dieline now
-              carried in code, exact Beki composited on the front board, Ottia title typeset,
-              and the same press preparation the interior gets, with the cover's own box rule
-              (every box equals the 512 × 245 canvas; zero trim inset).
+                /*
+                  A dedicated trim-size export, which audit P0-08 is entirely about. What shipped
+                  before was the press document with a different file name: bleed-inflated pages, no
+                  CropBox, every raster stretched to a 300-PPI target nothing on a screen can use.
+                  This is fourteen pages at the finished size, in sRGB, linearized, with the wrap's
+                  own boards as its covers — and it goes through its own preflight (amendment A10c)
+                  rather than through the press one.
+                */
+                var reading = composer.ComposeReading(plan, wrap.CompositePng, stored, personalization);
 
-              One paid image call per book, spec-mandated. Its failure withholds the press cover
-              and nothing else: the digital book has shipped by now and the interior press file
-              stands on its own — a book is not lost to its wrap.
-            */
-            if (compositeEnabled && book.Composite?.ScenarioJson is { Length: > 0 } pressScenarioJson)
-            {
+                /*
+                  A refused digital preflight withholds the download; it does not fail the book.
+
+                  The distinction is the one amendment A5 draws everywhere: the in-app reader is the
+                  spread PNGs and is already serving, so a family whose file will not pass its own
+                  geometry check still has the book they paid for on screen. What they do not get is
+                  a download, and the DIGITAL_GEOMETRY gate says so by finding no report. The
+                  composed bytes are still stored, under the same name, so an operator can open what
+                  was actually made rather than reasoning about a file nobody kept.
+                */
+                byte[] readingBytes;
+                string? digitalReport = null;
+
                 try
                 {
-                    var pressScenario = VisualScenarioValidator.Validate(pressScenarioJson).Scenario
-                        ?? throw new BekiLayoutException(
-                            CompositeFailureCodes.LayoutFailed,
-                            "the stored Visual Scenario could not be read back for the press cover.");
+                    (readingBytes, digitalReport) = BekiDigitalPrep.Prepare(
+                        reading.Pdf, bekiOptions.Value.PrintPrep);
+                }
+                catch (BekiLayoutException ex)
+                    when (ex.FailureCode == CompositeFailureCodes.PrintPreflightFailed)
+                {
+                    readingBytes = reading.Pdf;
 
-                    var wrap = await generator.DrawCoverWrapAsync(
-                        pressScenario, photo, "image/png", compositeContext!, jobToken);
+                    logger.LogWarning(
+                        "Beki pack {PackId}: the customer PDF is withheld ({Code}) — {Reason} The "
+                        + "in-app reader is unaffected.",
+                        packId, ex.FailureCode, ex.Message);
+                }
 
-                    var coverPdf = composer.ComposeCoverPress(plan.Concept.Title, wrap.CompositePng);
+                pdfUrl = await blobStorage.UploadAsync(
+                    BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id),
+                    readingBytes, "application/pdf", jobToken);
 
-                    var (preparedCover, coverPreflight) = BekiPrintPrep.Prepare(
-                        coverPdf, plan.Concept.Title, bekiOptions.Value.PrintPrep, trimInsetMm: 0f);
+                if (digitalReport is { Length: > 0 })
+                {
+                    await blobStorage.UploadAsync(
+                        BekiPackBlobs.DigitalReportName(pack.UserId, pack.Id),
+                        System.Text.Encoding.UTF8.GetBytes(digitalReport), "application/json", jobToken);
+                }
+                else
+                {
+                    /*
+                      And the previous attempt's report is written over, which it was not.
 
-                    var coverUrl = await blobStorage.UploadAsync(
-                        $"{pack.UserId}/{pack.Id}-cover.pdf",
-                        preparedCover, "application/pdf", jobToken);
+                      The unprepared PDF has just been uploaded under the name the prepared one uses.
+                      On a RETRY, the report blob still holds the last successful run's document —
+                      about bytes that are no longer there — and the DIGITAL_GEOMETRY gate, which
+                      read presence, would find evidence for a file nothing has preflighted and
+                      publish it. Replaced with a refusal the evaluator treats as a failure.
+                    */
+                    await blobStorage.UploadAsync(
+                        BekiPackBlobs.DigitalReportName(pack.UserId, pack.Id),
+                        BekiWithheldReport.Bytes(
+                            BekiDigitalPrep.DigitalGeometryGate,
+                            "laying out the customer's book",
+                            "the customer PDF did not pass its own preflight on this run, so the "
+                            + "stored file is the unprepared composition."),
+                        "application/json", jobToken);
+                }
+
+                await UploadLayoutReceiptsAsync(pack, "reading", reading.Receipts, jobToken);
+
+                // The normalized story, stored with the book rather than only on the preview run —
+                // audit §9 takes it off the handback's excluded list, and a package that excludes
+                // the words the pictures were planned from is a package the supplier cannot check.
+                storyUrl = await blobStorage.UploadAsync(
+                    BekiPackBlobs.StoryName(pack.UserId, pack.Id),
+                    System.Text.Encoding.UTF8.GetBytes(run.StoryJson!), "application/json", jobToken);
+
+                await StoreFixedPageQaAsync(pack, reading.Receipts, assetLockHashes, jobToken);
+
+                // ---- The printer's two files -------------------------------------------------
+                stage = "preparing the press files";
+
+                var press = await PreparePressAsync(
+                    pack, plan, stored, personalization, wrap.CompositePng, jobToken);
+
+                // ---- Render validation on what was actually stored ---------------------------
+                stage = "rendering the stored artifacts back";
+
+                await ValidateStoredRendersAsync(pack, jobToken);
+
+                // ---- The verdict --------------------------------------------------------------
+                stage = "evaluating the release gates";
+
+                await WriteManifestAsync(
+                    manifestName, storedUrls, currentContract, scenarioUrl, identitySpecUrl,
+                    coverRecord, compositions, jobToken, reviewUrl,
+                    await PrivateReferencesAsync(pack, run.PhotoBlobUrl!, identitySpecUrl, jobToken)
+                        with { StoryUrl = storyUrl });
+
+                release = await _releaseGates.EvaluateAsync(pack.UserId, pack.Id, jobToken);
+
+                await blobStorage.UploadAsync(
+                    BekiPackBlobs.ReleaseGatesName(pack.UserId, pack.Id),
+                    System.Text.Encoding.UTF8.GetBytes(release.ToJson()), "application/json", jobToken);
+
+                /*
+                  And the withholding, which is the whole point of having measured any of it.
+
+                  The in-app reader is already serving: the spreads are stored and the projection
+                  below points at them, and no gate touches that — amendment A5 is explicit that a
+                  paid book is not held hostage to a printer's colour profile. What is held is every
+                  deliverable FILE. The press slot takes the interior only when the shared and press
+                  gates pass; the parent's download column is written below, and only when the
+                  shared, digital and human gates do.
+                */
+                await packRepository.UpdatePrintPdfUrlAsync(
+                    packId,
+                    release.PressFilesMayPublish ? press.InteriorUrl : null,
+                    jobToken);
+
+                logger.LogInformation(
+                    "Beki pack {PackId}: release verdict {Verdict}. Failing gates: {Failing}. "
+                    + "Customer PDF {Customer}; press files {Press}.",
+                    packId, release.Verdict,
+                    release.FailingGates.Count == 0 ? "(none)" : string.Join(", ", release.FailingGates),
+                    release.CustomerPdfMayPublish ? "published" : "withheld",
+                    release.PressFilesMayPublish && press.InteriorUrl is not null
+                        ? "published" : "withheld");
+            }
+            else
+            {
+                /*
+                  The previous path, unchanged by this campaign.
+
+                  One document with the cover faces in it, laid out from the cover this run drew or
+                  adopted, and an interior press file that earns the print slot through print
+                  preparation or does not get it at all. No wrap, no gates, no withholding — a
+                  legacy book has none of the artifacts they are computed from.
+                */
+                var composed = composer.ComposeWithReceipts(
+                    plan, book.Cover.Image, stored, personalization);
+
+                pdfUrl = await blobStorage.UploadAsync(
+                    BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id),
+                    composed.Pdf, "application/pdf", jobToken);
+
+                try
+                {
+                    var (preparedInterior, preflightReport) = BekiPrintPrep.Prepare(
+                        composer.ComposeInteriorWithReceipts(plan, stored, personalization).Pdf,
+                        plan.Concept.Title,
+                        bekiOptions.Value.PrintPrep);
+
+                    var interiorUrl = await blobStorage.UploadAsync(
+                        BekiPackBlobs.InteriorPdfName(pack.UserId, pack.Id),
+                        preparedInterior, "application/pdf", jobToken);
 
                     await blobStorage.UploadAsync(
-                        $"{pack.UserId}/{pack.Id}-cover-preflight.json",
-                        System.Text.Encoding.UTF8.GetBytes(coverPreflight),
+                        BekiPackBlobs.InteriorPreflightName(pack.UserId, pack.Id),
+                        System.Text.Encoding.UTF8.GetBytes(preflightReport),
                         "application/json", jobToken);
 
-                    // The wrap's own audit trail: the pre-composite base and the exact-Beki
-                    // receipt, beside the file they produced — the same paperwork every story
-                    // spread carries.
-                    await blobStorage.UploadAsync(
-                        $"{pack.UserId}/{pack.Id}-cover-wrap-base.png",
-                        wrap.BasePng, "image/png", jobToken);
-                    await blobStorage.UploadAsync(
-                        $"{pack.UserId}/{pack.Id}-cover-composition.json",
-                        System.Text.Encoding.UTF8.GetBytes(wrap.ManifestJson),
-                        "application/json", jobToken);
+                    await packRepository.UpdatePrintPdfUrlAsync(packId, interiorUrl, jobToken);
 
                     logger.LogInformation(
-                        "Beki pack {PackId}: press cover prepared ({PdfxVersion}, pose {PoseId}) "
-                        + "and stored at {CoverUrl} with its preflight and composition receipts.",
-                        packId, BekiPrintPrep.PdfxVersion, wrap.PoseId, coverUrl);
+                        "Beki pack {PackId}: print interior prepared ({PdfxVersion}, {Intent}) and "
+                        + "stored with its preflight report.",
+                        packId, BekiPrintPrep.PdfxVersion,
+                        bekiOptions.Value.PrintPrep.OutputConditionInfo);
                 }
-                catch (Exception ex) when (
-                    ex is BekiLayoutException or CompositePipelineException)
+                catch (BekiLayoutException ex)
+                    when (ex.FailureCode == CompositeFailureCodes.PrintPreflightFailed)
                 {
+                    await packRepository.UpdatePrintPdfUrlAsync(packId, null, jobToken);
+
                     logger.LogWarning(
-                        "Beki pack {PackId}: press cover withheld — {Reason} The interior press "
-                        + "file and the parent's digital book are unaffected.",
-                        packId, ex.Message);
+                        "Beki pack {PackId}: print artifact withheld ({Code}) — {Reason} The "
+                        + "parent's digital book is unaffected.",
+                        packId, CompositeFailureCodes.PrintPreflightFailed, ex.Message);
                 }
             }
+
+            pdfStopwatch.Stop();
+            uploadMs += pdfStopwatch.ElapsedMilliseconds;
 
             stage = "publishing the book";
 
@@ -1135,12 +1507,23 @@ public sealed class BekiPackFulfillment(
               already stored either way, so the losing side of this race costs nobody a book: it
               costs a status, and the sweep's is the one with a reason attached.
             */
+            /*
+              The download column is where the customer-file gate lands.
+
+              Null is not "no book": the pack completes, the reader serves the spreads, and the
+              parent's library card is there. It is the downloadable PDF that waits — for a human's
+              signature on the rendered contact sheet, or for whichever digital gate is still
+              refusing. The file itself is already in storage under its own name, so publishing it
+              later is one column write and not a re-run.
+            */
+            var publishablePdfUrl = release is null || release.CustomerPdfMayPublish ? pdfUrl : null;
+
             var completed = await packRepository.TryUpdateStatusAsync(
                 packId,
                 expectedStatus,
                 AdventurePackStatus.Completed,
                 JsonSerializer.Serialize(content, JsonOptions),
-                pdfUrl,
+                publishablePdfUrl,
                 null,
                 jobToken);
 
@@ -1221,6 +1604,19 @@ public sealed class BekiPackFulfillment(
                       nulls across the whole document) buys nothing for it.
                     */
                     compositeReview = book.Composite?.Review?.ToTelemetry(reviewUrl),
+                    /*
+                      What the sixteen gates made of this book, as two fields somebody can compare
+                      across books.
+
+                      Here as well as in release-gates.json for the reason the review counts are:
+                      telemetry is the document that gets read in aggregate — "how many books are
+                      waiting on a human", "which gate refuses most often" — and those are questions
+                      about counts. Null on the previous path, which has none of the artifacts a
+                      verdict is computed from.
+                    */
+                    release = release is null
+                        ? null
+                        : new { verdict = release.Verdict, failingGates = release.FailingGates },
                     uploadMs,
                     pdfBuildMs = pdfStopwatch.ElapsedMilliseconds,
                     totalMs = totalStopwatch.ElapsedMilliseconds,
@@ -1231,7 +1627,7 @@ public sealed class BekiPackFulfillment(
                 };
 
                 await blobStorage.UploadAsync(
-                    $"{pack.UserId}/{pack.Id}/telemetry.json",
+                    BekiPackBlobs.TelemetryName(pack.UserId, pack.Id),
                     JsonSerializer.SerializeToUtf8Bytes(telemetry, JsonOptions),
                     "application/json",
                     jobToken);
@@ -1483,6 +1879,538 @@ public sealed class BekiPackFulfillment(
         }
     }
 
+    // ==============================================================================================
+    // The audit-2 correction's stages: asset lock, QA evidence, layout receipts, press, renders.
+    // ==============================================================================================
+
+    /// <summary>
+    /// Proves every fixed asset this book will print, stores the manifest, and hands back the hashes
+    /// the fixed-page QA measures placements against.
+    /// </summary>
+    /// <exception cref="BekiAssetLockException">
+    /// <c>ASSET_LOCK_FAILED</c>, before any model call. The exception carries every failure at once
+    /// rather than the first, because the answer to "which of my assets are wrong" is a list.
+    /// </exception>
+    private async Task<IReadOnlySet<string>> VerifyAssetLockAsync(
+        Domain.Entities.AdventurePack pack, CancellationToken cancellationToken)
+    {
+        var options = bekiOptions.Value.PrintPrep;
+
+        var manifest = _assetLock.Verify(new BekiAssetLockInputs
+        {
+            OutputIntentIccPath = options.OutputIntentIccPath,
+            OutputIntentIccSha256 = options.OutputIntentIccSha256,
+        });
+
+        await blobStorage.UploadAsync(
+            BekiPackBlobs.AssetLockName(pack.UserId, pack.Id),
+            System.Text.Encoding.UTF8.GetBytes(manifest.ToJson()),
+            "application/json",
+            cancellationToken);
+
+        logger.LogInformation(
+            "Beki pack {PackId}: asset lock passed — {Count} approved assets from {Registries}.",
+            pack.Id, manifest.Assets.Count,
+            string.Join(", ", manifest.SourceRegistries.Select(pair => $"{pair.Key} {pair.Value}")));
+
+        return manifest.Assets
+            .Select(asset => asset.Sha256)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// One spread's final QA verdict, stored beside the picture it judged.
+    ///
+    /// A drawn page writes what its reviewer said. An adopted page has nothing of its own to write
+    /// and is deliberately left alone: its record was written by the attempt that drew it and is
+    /// already under this exact name, so overwriting it would replace a real verdict with a blank
+    /// and reading it back only to write it again would be a round trip for no one.
+    /// </summary>
+    private async Task StoreSpreadQaAsync(
+        Domain.Entities.AdventurePack pack,
+        CompositeSpreadArtifact artifact,
+        CancellationToken cancellationToken)
+    {
+        if (artifact.QaJson is not { Length: > 0 } qa)
+        {
+            if (artifact.Adopted)
+            {
+                // Nothing to do and nothing wrong: the stored record stands. Whether it is still
+                // there, and still written under a reviewer contract this deployment stands behind,
+                // is the VISUAL_QA gate's question rather than this method's.
+                return;
+            }
+
+            logger.LogWarning(
+                "Beki pack {PackId}: spread {Spread} was drawn with no QA document to store; the "
+                + "VISUAL_QA gate will refuse the release until one exists.",
+                pack.Id, artifact.SpreadNumber);
+
+            return;
+        }
+
+        await blobStorage.UploadAsync(
+            BekiPackBlobs.SpreadQaName(pack.UserId, pack.Id, artifact.SpreadNumber),
+            System.Text.Encoding.UTF8.GetBytes(qa),
+            "application/json",
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// One composed document's post-layout receipts — amendment A4: the whole-document file and one
+    /// per page, under <c>receipts/</c>.
+    ///
+    /// They are what the TEXT_LAYER and wash gates read, and nothing upstream can stand in for them.
+    /// Pre-layout illustration QA knows what was drawn; only layout knows where the words landed on
+    /// it, how they broke, what colour they ended up and whether the cream under them stayed off the
+    /// fold. The rejected book's wash crossed the centre fold on Story Spread 4 and no check in the
+    /// pipeline could have seen it.
+    /// </summary>
+    private async Task UploadLayoutReceiptsAsync(
+        Domain.Entities.AdventurePack pack,
+        string mode,
+        BekiLayoutReceipts receipts,
+        CancellationToken cancellationToken)
+    {
+        await blobStorage.UploadAsync(
+            BekiPackBlobs.LayoutReceiptName(pack.UserId, pack.Id, mode),
+            System.Text.Encoding.UTF8.GetBytes(receipts.ToJson()),
+            "application/json",
+            cancellationToken);
+
+        foreach (var page in receipts.Pages)
+        {
+            await blobStorage.UploadAsync(
+                BekiPackBlobs.LayoutPageReceiptName(pack.UserId, pack.Id, mode, page.FileName),
+                System.Text.Encoding.UTF8.GetBytes(page.ToJson()),
+                "application/json",
+                cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// The six pages nobody generated, given the QA record they never had — D7.
+    ///
+    /// Machine-generated on purpose: there is no model verdict to write down for an endpaper, and
+    /// inventing one would be worse than the silence it replaces. What can be said is mechanical and
+    /// is exactly what the audit asks — the approved assets the page placed hash to files the lock
+    /// proved, the layout receipt exists, and any wash on it clears the fold and the trim.
+    /// </summary>
+    private async Task StoreFixedPageQaAsync(
+        Domain.Entities.AdventurePack pack,
+        BekiLayoutReceipts receipts,
+        IReadOnlySet<string> lockedAssetHashes,
+        CancellationToken cancellationToken)
+    {
+        foreach (var role in BekiFixedPageQa.Roles)
+        {
+            if (BekiFixedPageQa.Write(role, receipts, lockedAssetHashes) is not { } document)
+            {
+                continue;
+            }
+
+            await blobStorage.UploadAsync(
+                BekiPackBlobs.FixedPageQaName(pack.UserId, pack.Id, role),
+                System.Text.Encoding.UTF8.GetBytes(document),
+                "application/json",
+                cancellationToken);
+        }
+    }
+
+    /// <summary>Which press files came out of preparation, and which the gates will find absent.</summary>
+    private sealed record PressOutcome(string? InteriorUrl, string? CoverUrl);
+
+    /// <summary>
+    /// The printer's two files, with the resolution truth attached (D5c, audit P0-04/P1-01).
+    ///
+    /// The art is offered to the configured super-resolver first, and the receipt records what
+    /// actually happened rather than what was wanted: a deployment with no upscaler — the shipped
+    /// default — sends the raw art through with a receipt that says so, and print prep refuses the
+    /// file on PRESS_RESOLUTION. That refusal is the correct outcome and the audit's own ruling:
+    /// 2528×1180 art Lanczos-stretched to 5315×2480 measures 300 PPI and carries 143 PPI of detail,
+    /// and passing it was the defect.
+    ///
+    /// A refusal here withholds press files and nothing else. The parent's book has already shipped
+    /// by the time this runs, which is the reason the order was changed.
+    /// </summary>
+    private async Task<PressOutcome> PreparePressAsync(
+        Domain.Entities.AdventurePack pack,
+        MasterStory plan,
+        IReadOnlyList<BekiSpreadArtwork> spreads,
+        BekiBookPersonalization personalization,
+        byte[] wrapComposite,
+        CancellationToken cancellationToken)
+    {
+        var options = bekiOptions.Value.PrintPrep;
+        var failedGates = new List<string>();
+        var reasons = new List<string>();
+        string? interiorUrl = null;
+        string? coverUrl = null;
+
+        // ---- the interior -------------------------------------------------------------------
+        var pressArt = new List<BekiSpreadArtwork>(spreads.Count);
+        var sources = new List<BekiResolutionSource>(spreads.Count);
+
+        foreach (var spread in spreads)
+        {
+            var upscale = await _pressUpscaler.UpscaleAsync(
+                spread.Image, InteriorPressWidthPx, InteriorPressHeightPx, cancellationToken);
+
+            pressArt.Add(upscale is { Succeeded: true, Png: { Length: > 0 } enlarged }
+                ? new BekiSpreadArtwork(spread.SpreadNumber, enlarged)
+                : spread);
+
+            sources.Add(upscale.ToReceiptSource($"spread-{spread.SpreadNumber:00}"));
+
+            if (!upscale.Succeeded && upscale.Reason is { Length: > 0 } why)
+            {
+                logger.LogInformation(
+                    "Beki pack {PackId}: spread {Spread} goes to press preparation at its own "
+                    + "{Width}×{Height} — {Reason}",
+                    pack.Id, spread.SpreadNumber, upscale.SourceWidthPx, upscale.SourceHeightPx, why);
+            }
+        }
+
+        try
+        {
+            var interior = composer.ComposeInteriorWithReceipts(plan, pressArt, personalization);
+
+            var (preparedInterior, preflight) = BekiPrintPrep.Prepare(
+                interior.Pdf,
+                plan.Concept.Title,
+                options,
+                probe: new BekiPrintProbe(
+                    interior.Receipts.LightTextPages, interior.Receipts.FlatGroundTextProbes),
+                resolutionReceipt: new BekiResolutionReceipt(sources));
+
+            interiorUrl = await blobStorage.UploadAsync(
+                BekiPackBlobs.InteriorPdfName(pack.UserId, pack.Id),
+                preparedInterior, "application/pdf", cancellationToken);
+
+            await blobStorage.UploadAsync(
+                BekiPackBlobs.InteriorPreflightName(pack.UserId, pack.Id),
+                System.Text.Encoding.UTF8.GetBytes(preflight), "application/json", cancellationToken);
+
+            await UploadLayoutReceiptsAsync(pack, "interior", interior.Receipts, cancellationToken);
+        }
+        catch (BekiLayoutException ex)
+        {
+            failedGates.AddRange(GatesNamedIn(ex.Message));
+            reasons.Add($"interior: {ex.Message}");
+
+            // Symmetrically with the customer PDF above: a retry whose interior now refuses must
+            // not leave the previous attempt's preflight standing as this run's evidence.
+            await OverwriteStalePreflightAsync(
+                BekiPackBlobs.InteriorPreflightName(pack.UserId, pack.Id),
+                "preparing the press interior", ex, cancellationToken);
+
+            logger.LogWarning(
+                "Beki pack {PackId}: the press interior is withheld ({Code}) — {Reason}",
+                pack.Id, ex.FailureCode, ex.Message);
+        }
+
+        // ---- the cover ----------------------------------------------------------------------
+        try
+        {
+            var coverUpscale = await _pressUpscaler.UpscaleAsync(
+                wrapComposite, CoverPressWidthPx, CoverPressHeightPx, cancellationToken);
+
+            var coverArt = coverUpscale is { Succeeded: true, Png: { Length: > 0 } enlarged }
+                ? enlarged
+                : wrapComposite;
+
+            var cover = composer.ComposeCoverPressWithReceipts(plan.Concept.Title, coverArt);
+
+            var (preparedCover, coverPreflight) = BekiPrintPrep.Prepare(
+                cover.Pdf,
+                plan.Concept.Title,
+                options,
+                // The locked spec sets every box equal to the 512 × 245 canvas: the turn-ins ARE
+                // the overrun, so there is no inset to state.
+                trimInsetMm: 0f,
+                probe: new BekiPrintProbe(
+                    cover.Receipts.LightTextPages, cover.Receipts.FlatGroundTextProbes),
+                resolutionReceipt: new BekiResolutionReceipt(
+                    [coverUpscale.ToReceiptSource("cover-wrap")]));
+
+            coverUrl = await blobStorage.UploadAsync(
+                BekiPackBlobs.CoverPdfName(pack.UserId, pack.Id),
+                preparedCover, "application/pdf", cancellationToken);
+
+            await blobStorage.UploadAsync(
+                BekiPackBlobs.CoverPreflightName(pack.UserId, pack.Id),
+                System.Text.Encoding.UTF8.GetBytes(coverPreflight), "application/json",
+                cancellationToken);
+
+            await UploadLayoutReceiptsAsync(pack, "cover", cover.Receipts, cancellationToken);
+        }
+        catch (BekiLayoutException ex)
+        {
+            failedGates.AddRange(GatesNamedIn(ex.Message));
+            reasons.Add($"cover: {ex.Message}");
+
+            await OverwriteStalePreflightAsync(
+                BekiPackBlobs.CoverPreflightName(pack.UserId, pack.Id),
+                "preparing the press cover", ex, cancellationToken);
+
+            logger.LogWarning(
+                "Beki pack {PackId}: the press cover is withheld ({Code}) — {Reason}",
+                pack.Id, ex.FailureCode, ex.Message);
+        }
+
+        /*
+          Why the press files are not there, in a document rather than in a log line.
+
+          Print preparation refuses rather than degrades, so its success leaves a preflight report
+          that a gate can read. Its failure used to leave nothing an evaluator running hours later
+          could see, and "the report is absent" cannot tell a withheld file from an unattempted one.
+        */
+        await blobStorage.UploadAsync(
+            BekiPackBlobs.PressStatusName(pack.UserId, pack.Id),
+            JsonSerializer.SerializeToUtf8Bytes(
+                new
+                {
+                    stage = "beki-press-status-v1",
+                    recorded_at_utc = DateTime.UtcNow,
+                    interior = interiorUrl is null ? "withheld" : "prepared",
+                    cover = coverUrl is null ? "withheld" : "prepared",
+                    failed_gates = failedGates.Distinct(StringComparer.Ordinal).ToList(),
+                    reason = reasons.Count == 0 ? null : string.Join(" ", reasons),
+                    upscaler_configured = _pressUpscaler.IsConfigured,
+                },
+                JsonOptions),
+            "application/json",
+            cancellationToken);
+
+        return new PressOutcome(interiorUrl, coverUrl);
+    }
+
+    /// <summary>
+    /// Replaces a preflight report a refused stage did not write, so that nothing an earlier
+    /// attempt wrote can be read as this run's evidence.
+    ///
+    /// Best-effort on purpose: the press stage is already withholding, and a storage hiccup while
+    /// recording WHY must not turn a withheld file into a failed book. What it costs when it fails
+    /// is a stale report — which the press-status document written moments later also contradicts.
+    /// </summary>
+    private async Task OverwriteStalePreflightAsync(
+        string reportName,
+        string stage,
+        BekiLayoutException failure,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await blobStorage.UploadAsync(
+                reportName,
+                BekiWithheldReport.Bytes(
+                    GatesNamedIn(failure.Message).FirstOrDefault() ?? "PRESS_GEOMETRY",
+                    stage,
+                    failure.Message),
+                "application/json",
+                cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(
+                ex, "Beki: the withheld-preflight record for '{Report}' could not be written; a "
+                + "report from an earlier attempt may still be stored under that name.", reportName);
+        }
+    }
+
+    /// <summary>The press raster targets: 450 × 210 mm and 512 × 245 mm, both at 300 PPI.</summary>
+    private const int InteriorPressWidthPx = 5315;
+
+    private const int InteriorPressHeightPx = 2480;
+
+    private const int CoverPressWidthPx = 6047;
+
+    private const int CoverPressHeightPx = 2894;
+
+    /// <summary>
+    /// The acceptance-gate ids a print-prep refusal names in its own message, so the withholding
+    /// record can say which gate refused rather than only that something did. A message that names
+    /// none leaves the gates to report the absent preflight as UNKNOWN, which is the honest answer.
+    /// </summary>
+    private static IEnumerable<string> GatesNamedIn(string message) =>
+        new[]
+        {
+            BekiPrintPrep.PressResolutionGate,
+            BekiPrintPrep.TextColorIntegrityGate,
+            "PRESS_GEOMETRY",
+            "PRESS_COLOR",
+        }.Where(gate => message.Contains(gate, StringComparison.Ordinal));
+
+    /// <summary>
+    /// Renders the stored finals back and looks at the pixels — audit P2-6, amendment A8.
+    ///
+    /// Stored is the word that matters. Everything upstream reasons about a document it built
+    /// itself; this takes the bytes out of storage, hands them to two independent interpreters and
+    /// scans the credits QR off the rendered page, which is the only way the defect the QR gate
+    /// exists for — a code that draws perfectly and resolves to nothing — can be caught at all.
+    ///
+    /// It also produces the contact sheet the human approval signs, which is why the reading copy is
+    /// validated as well as the two press files: the reviewer's fourteen pages include the cover,
+    /// and amendment A7 puts the cover's identity and age review inside their scope.
+    ///
+    /// Best-effort as a stage and strict as evidence: a crash here must not fail a drawn book, and
+    /// an absent report is a gate that does not pass.
+    /// </summary>
+    private async Task ValidateStoredRendersAsync(
+        Domain.Entities.AdventurePack pack, CancellationToken cancellationToken)
+    {
+        var options = bekiOptions.Value.PrintPrep;
+
+        // The credits page carries the one QR the spec allows. It is the second-to-last leaf of the
+        // customer's fourteen pages and of the interior's twelve; a press cover has no credits page
+        // at all, and asserting a QR on it would be asserting a defect.
+        var artifacts = new (string Artifact, string Blob, int? QrPage)[]
+        {
+            (BekiPackBlobs.InteriorRenderArtifact,
+             BekiPackBlobs.FinalPdfName(pack.UserId, pack.Id, BekiPackBlobs.InteriorRenderArtifact),
+             BookFormat.SpreadCount + 3),
+            (BekiPackBlobs.CoverRenderArtifact,
+             BekiPackBlobs.FinalPdfName(pack.UserId, pack.Id, BekiPackBlobs.CoverRenderArtifact),
+             null),
+            (BekiPackBlobs.DigitalRenderArtifact,
+             BekiPackBlobs.FinalPdfName(pack.UserId, pack.Id, BekiPackBlobs.DigitalRenderArtifact),
+             BookFormat.SpreadCount + 4),
+        };
+
+        foreach (var (artifact, blobName, qrPage) in artifacts)
+        {
+            try
+            {
+                if (!await blobStorage.ExistsAsync(blobName, cancellationToken))
+                {
+                    continue;
+                }
+
+                await using var stream = await blobStorage.DownloadAsync(blobName, cancellationToken);
+                using var buffer = new MemoryStream();
+                await stream.CopyToAsync(buffer, cancellationToken);
+
+                var result = BekiRenderValidation.Validate(
+                    buffer.ToArray(), artifact, options,
+                    new BekiRenderValidationRequest(QrPage: qrPage));
+
+                await blobStorage.UploadAsync(
+                    BekiPackBlobs.RenderReportName(pack.UserId, pack.Id, artifact),
+                    System.Text.Encoding.UTF8.GetBytes(result.ReportJson),
+                    "application/json", cancellationToken);
+
+                if (result.ContactSheetPng is { Length: > 0 } sheet)
+                {
+                    await blobStorage.UploadAsync(
+                        BekiPackBlobs.ContactSheetName(pack.UserId, pack.Id, artifact),
+                        sheet, "image/png", cancellationToken);
+                }
+
+                logger.LogInformation(
+                    "Beki pack {PackId}: {Artifact} render validation {Verdict}{Failed}.",
+                    pack.Id, artifact, result.Verdict,
+                    result.FailedGates.Count == 0
+                        ? string.Empty
+                        : $" — {string.Join(", ", result.FailedGates)}");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(
+                    ex, "Beki pack {PackId}: {Artifact} could not be rendered back; the gates will "
+                    + "read the absence rather than a pass.", pack.Id, artifact);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The two artifacts that must be identified and must never travel — amendment A7.
+    ///
+    /// A reprint that cannot name the photograph it was drawn from cannot be shown to be the same
+    /// book, so the manifest carries the blob reference and the SHA-256 of the bytes at it. The
+    /// bytes themselves stay where they are and are excluded from the handback, as they always were.
+    /// </summary>
+    private async Task<BekiManifestPrivateRefs> PrivateReferencesAsync(
+        Domain.Entities.AdventurePack pack,
+        string photoBlobUrl,
+        string? identitySpecUrl,
+        CancellationToken cancellationToken)
+    {
+        return new BekiManifestPrivateRefs(
+            ChildPhotograph: await ReferenceAsync(photoBlobUrl),
+            ChildIdentity: await ReferenceAsync(identitySpecUrl));
+
+        async Task<BekiPrivateArtifactReference?> ReferenceAsync(string? storedUrl)
+        {
+            if (storedUrl is not { Length: > 0 })
+            {
+                return null;
+            }
+
+            try
+            {
+                var bytes = await blobStorage.DownloadBytesFromStoredUrlAsync(
+                    storedUrl, cancellationToken);
+
+                return bytes is { Length: > 0 }
+                    ? new BekiPrivateArtifactReference(storedUrl, Sha256Hex(bytes), bytes.Length)
+                    : null;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(
+                    ex, "Beki pack {PackId}: a private artifact could not be hashed for the "
+                    + "manifest; its reference is recorded without one.", pack.Id);
+
+                return new BekiPrivateArtifactReference(storedUrl, string.Empty, 0);
+            }
+        }
+    }
+
+    private static string Sha256Hex(byte[] bytes) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
+
+    /// <summary>One string out of a composition receipt, or null when it does not say.</summary>
+    private static string? ReceiptValue(string manifestJson, string section, string property)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(manifestJson);
+
+            return document.RootElement.TryGetProperty(section, out var node)
+                   && node.ValueKind == JsonValueKind.Object
+                   && node.TryGetProperty(property, out var value)
+                   && value.ValueKind == JsonValueKind.String
+                ? value.GetString()
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Where on the front board the approved pose was placed, as the receipt states it.</summary>
+    private static string? ReceiptAnchor(string manifestJson)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(manifestJson);
+
+            if (!document.RootElement.TryGetProperty("beki_layer", out var layer)
+                || !layer.TryGetProperty("normalized_anchor", out var anchor)
+                || anchor.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            return anchor.GetRawText();
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>
     /// Stores one page's composite artifacts: the composition receipt, and the pre-composite base
     /// image the receipt describes.
@@ -1649,6 +2577,12 @@ public sealed class BekiPackFulfillment(
     /// exist. A mid-run manifest that carried a partial count would be a number an operator could
     /// read and act on.
     /// </param>
+    /// <param name="privateRefs">
+    /// The normalized story's blob and the two hashed-but-excluded private artifacts (amendment A7).
+    /// Null on every write but the last, and omitted from the JSON when so: they are facts about a
+    /// finished book, and the mid-run writes have no photograph hash to record because nothing has
+    /// read the photograph back yet.
+    /// </param>
     private async Task WriteManifestAsync(
         string manifestName,
         IReadOnlyDictionary<int, string> storedUrls,
@@ -1658,7 +2592,8 @@ public sealed class BekiPackFulfillment(
         BekiCoverRecord? cover,
         IReadOnlyDictionary<int, BekiCompositionManifestEntry> compositions,
         CancellationToken cancellationToken,
-        string? reviewUrl = null)
+        string? reviewUrl = null,
+        BekiManifestPrivateRefs? privateRefs = null)
     {
         var manifest = new BekiFulfillmentManifest
         {
@@ -1671,6 +2606,9 @@ public sealed class BekiPackFulfillment(
             ScenarioUrl = scenarioUrl,
             IdentitySpecUrl = identitySpecUrl,
             Cover = cover,
+            StoryUrl = privateRefs?.StoryUrl,
+            ChildPhotograph = privateRefs?.ChildPhotograph,
+            ChildIdentity = privateRefs?.ChildIdentity,
             Compositions = compositions.Count == 0
                 ? null
                 : compositions.OrderBy(pair => pair.Key).Select(pair => pair.Value).ToList(),

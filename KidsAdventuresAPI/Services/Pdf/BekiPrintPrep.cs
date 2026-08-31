@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -8,8 +9,78 @@ using AdventurePacks.Api.Services.Story.Composite;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.Advanced;
 using PdfSharp.Pdf.IO;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace AdventurePacks.Api.Services.Pdf;
+
+/// <summary>
+/// Which pages the caller authored light text on, and where to look for it on the flat-ground ones.
+///
+/// Audit P0-07: credits text was authored cream on dark purple and came out of the CMYK conversion
+/// as <c>0 g</c> black — nearly invisible, on a page whose whole job is to be read. Correction-plan
+/// amendment A10a splits the check in two, because the two kinds of page cannot be checked the same
+/// way. Text over artwork (the cover title) is checked by inspecting the converted content stream:
+/// no authored-light text object may have acquired a device-black fill. Text on a flat ground (the
+/// credits page) is additionally checked by rendering it and looking: a bright glyph mode over a
+/// dark ground mode, measured, because a content stream can be innocent and the plate still wrong.
+///
+/// Nullable throughout: a caller that has not yet worked out its rects still gets the content-stream
+/// assertion for every page it flags, and a caller that flags nothing still gets the colour evidence
+/// recorded in the preflight.
+/// </summary>
+/// <param name="LightTextPages">1-based page numbers whose text was authored light.</param>
+/// <param name="FlatGroundRects">Where to sample, on the pages whose ground is a flat colour.</param>
+public sealed record BekiPrintProbe(
+    IReadOnlyList<int> LightTextPages,
+    IReadOnlyList<BekiTextProbeRect>? FlatGroundRects = null);
+
+/// <summary>
+/// One rectangle to sample, in millimetres from the page's top-left corner — the same corner a
+/// layout is written from, so the number in a layout receipt can be handed straight to this.
+/// </summary>
+public sealed record BekiTextProbeRect(
+    int Page, double XMm, double YMm, double WidthMm, double HeightMm, string Role = "text");
+
+/// <summary>
+/// Where the pixels in a press raster actually came from.
+///
+/// P1-01's finding is that pixel count is not evidence: 2528×1180 story art Lanczos-stretched to
+/// 5315×2480 measures 300 PPI and carries 143 PPI of detail. So the preflight is told, per raster,
+/// what the source was and what enlarged it — and amendment A1 makes an interpolation-only
+/// enlargement a <c>PRESS_RESOLUTION</c> failure rather than a note.
+/// </summary>
+public sealed record BekiResolutionReceipt(IReadOnlyList<BekiResolutionSource> Sources);
+
+/// <summary>One raster's provenance. <paramref name="Tool"/> "none" means it was never enlarged.</summary>
+public sealed record BekiResolutionSource(
+    string Role,
+    int SourceWidthPx,
+    int SourceHeightPx,
+    int DeliveredWidthPx,
+    int DeliveredHeightPx,
+    string Tool,
+    double Factor,
+    bool InterpolationOnly)
+{
+    /// <summary>
+    /// Resamplers that move pixels around without adding detail. Named here rather than trusted
+    /// from the caller's flag, because the failure this catches is precisely a caller who believes
+    /// a Lanczos stretch counts as resolution — the shipped book's own belief.
+    /// </summary>
+    private static readonly string[] Interpolators =
+        ["none", "", "resize", "resample", "lanczos", "lanczos3", "bicubic", "bilinear",
+         "nearest", "catmullrom", "mitchell", "box", "spline", "welch", "hermite"];
+
+    /// <summary>
+    /// Whether this raster was enlarged by interpolation alone. True either because the caller said
+    /// so or because the tool it named is a resampler and the factor is greater than one.
+    /// </summary>
+    public bool IsInterpolationOnly =>
+        InterpolationOnly
+        || (Factor > 1.0001d
+            && Interpolators.Contains(Tool.Trim().ToLowerInvariant(), StringComparer.Ordinal));
+}
 
 /// <summary>
 /// The print-preparation stage — the one the supplier's audit found did not exist.
@@ -24,13 +95,34 @@ namespace AdventurePacks.Api.Services.Pdf;
 ///
 /// The colour conversion is Ghostscript's <c>pdfwrite</c> rather than hand-rolled image surgery,
 /// deliberately: a press file's colour transform is the exact job a maintained conversion
-/// pipeline exists for, black text has to stay on the K plate rather than becoming four-colour,
-/// and spec §5 requires the Ghostscript binary on the deployment as a render validator anyway.
+/// pipeline exists for, and spec §5 requires the Ghostscript binary on the deployment as a render
+/// validator anyway.
+///
+/// Since the deliverables audit (2026-08-31, verdict REJECTED) the stage also measures two things
+/// it used to assert: what resolution each raster is actually placed at (P0-04/P1-01 — the cover
+/// shipped at ~125 PPI through a preflight that read <c>/ColorSpace</c> and never <c>/Width</c>),
+/// and what colour the text came out of the conversion (P0-07 — a global black-text option turned
+/// the cream credits page to near-invisible <c>0 g</c>). Both are gates, not notes, and both answer
+/// with the numbers they measured so that the report can be argued with.
 /// </summary>
 public static class BekiPrintPrep
 {
     /// <summary>PDF/X-4's version string, as XMP and the preflight report both name it.</summary>
     public const string PdfxVersion = "PDF/X-4";
+
+    /// <summary>
+    /// The acceptance gates this stage answers for, named as <c>BEKI_Acceptance_Gates_v1.json</c>
+    /// names them. The exception type is still <c>PRINT_PREFLIGHT_FAILED</c> — that word belongs to
+    /// the supplier's own failure vocabulary and is not ours to extend — so the gate id travels in
+    /// the message, where the admin view and the log both show it.
+    /// </summary>
+    public const string PressResolutionGate = "PRESS_RESOLUTION";
+
+    /// <inheritdoc cref="PressResolutionGate"/>
+    public const string TextColorIntegrityGate = "TEXT_COLOR_INTEGRITY";
+
+    /// <summary>The supplied gates document, read at runtime rather than transcribed into C#.</summary>
+    private const string AcceptanceGatesFile = "BEKI_Acceptance_Gates_v1.json";
 
     /// <summary>
     /// Applies print preparation to one laid-out artifact and proves what it did.
@@ -44,7 +136,18 @@ public static class BekiPrintPrep
     /// because the conversion pass rewrites the document and page boxes must be stated on the
     /// file that ships, not on an ancestor of it.
     /// </param>
-    /// <param name="baseDirectory">Test override for resolving the profile path.</param>
+    /// <param name="baseDirectory">
+    /// Test override for resolving the profile path and the supplied acceptance-gates document.
+    /// </param>
+    /// <param name="probe">
+    /// Which pages carry authored-light text and where to sample the flat-ground ones (amendment
+    /// A10a). Null runs the colour evidence without the assertions, which is what a caller that has
+    /// not yet produced layout receipts can honestly ask for.
+    /// </param>
+    /// <param name="resolutionReceipt">
+    /// Where each press raster's pixels came from (amendment A1). Null means no enlargement is
+    /// claimed; a receipt that admits interpolation-only enlargement fails the resolution gate.
+    /// </param>
     /// <returns>The prepared PDF and the preflight report, JSON, ready to store beside it.</returns>
     /// <exception cref="BekiLayoutException">
     /// <c>PRINT_PREFLIGHT_FAILED</c> — a required input is missing or a check failed. The message
@@ -55,13 +158,16 @@ public static class BekiPrintPrep
         string title,
         BekiPrintPrepOptions options,
         float trimInsetMm = 5f,
-        string? baseDirectory = null)
+        string? baseDirectory = null,
+        BekiPrintProbe? probe = null,
+        BekiResolutionReceipt? resolutionReceipt = null)
     {
         ArgumentNullException.ThrowIfNull(laidOutPdf);
         ArgumentNullException.ThrowIfNull(options);
 
         var root = baseDirectory ?? AppContext.BaseDirectory;
         var (iccPath, iccBytes) = ReadOutputIntentProfile(options, root);
+        var requiredPpi = ReadRequiredPressRasterPpi(root);
 
         // The input is proven before anything expensive touches it, and its page count becomes
         // the contract the conversion must honour. Ghostscript recovers from a broken input by
@@ -148,8 +254,34 @@ public static class BekiPrintPrep
             }
         }
 
+        // Everything below is measured on the converted document, because every defect these
+        // checks exist for was introduced BY the conversion or survived it unnoticed: the placed
+        // resolution the old preflight never computed (P0-04/A1), and the text colour the
+        // conversion itself destroyed (P0-07/A10a).
+        var contents = new List<BekiContentWalker.PageContent>();
+        for (var index = 0; index < document.Pages.Count; index++)
+        {
+            contents.Add(BekiContentWalker.Walk(document.Pages[index], index + 1));
+        }
+
+        var resolution = EnforcePressResolution(contents, requiredPpi, resolutionReceipt);
+        var textColour = EnforceTextColourIntegrity(contents, probe);
+
+        // Page heights are read before the save, while the document is unambiguously ours: the
+        // probe rectangles arrive measured from the top-left corner, and turning that into a
+        // renderer's coordinates needs the page's own height.
+        var pageHeightsMm = document.Pages
+            .OfType<PdfPage>()
+            .Select(page => page.MediaBox.Height / 72d * 25.4d)
+            .ToList();
+
         using var output = new MemoryStream();
         document.Save(output);
+        var prepared = output.ToArray();
+
+        // The rendered-pixel half of A10a runs on the bytes that ship, not on an ancestor of them:
+        // the whole point is to look at what a press would look at.
+        var pixelProbes = RunTextPixelProbes(prepared, pageHeightsMm, options, probe);
 
         var report = JsonSerializer.Serialize(
             new
@@ -174,6 +306,14 @@ public static class BekiPrintPrep
                         .GroupBy(image => image.ColourSpace + (image.IsMask ? " (soft mask)" : string.Empty))
                         .ToDictionary(group => group.Key, group => group.Count()),
                 },
+                // P0-04 and P1-01, answered with numbers instead of metadata. Every image the
+                // content stream actually paints, with the pixels it carries, the millimetres it
+                // covers and the resolution that arithmetic implies.
+                resolution,
+                // P0-07, answered the same way: what colour every text-showing operator was
+                // painted with once Ghostscript had finished with the document.
+                text_colour = textColour,
+                text_pixel_probes = pixelProbes,
                 fonts = fonts
                     .Select(font => new { name = font.Name, embedded = font.Embedded })
                     .ToList(),
@@ -194,13 +334,15 @@ public static class BekiPrintPrep
                     ghostscript = conversion is null
                         ? "not run; convert-and-validate with gs on the stored artifact"
                         : "interpreted the full document during colour conversion",
-                    poppler = "not run in this stage; render the stored artifact with pdftoppm",
-                    qr_scan = "run on the rendered artifact in acceptance checks",
+                    poppler = "not run in this stage; BekiRenderValidation runs pdftoppm and "
+                              + "pdffonts on the stored artifact",
+                    qr_scan = "not run in this stage; BekiRenderValidation decodes the rendered "
+                              + "credits page",
                 },
             },
             new JsonSerializerOptions { WriteIndented = true });
 
-        return (output.ToArray(), report);
+        return (prepared, report);
     }
 
     /// <summary>
@@ -253,8 +395,459 @@ public static class BekiPrintPrep
     }
 
     /// <summary>
-    /// The colour conversion: every device colour through the locked profile to CMYK, black text
-    /// preserved on the K plate, images re-encoded at a quality factor chosen to stay visually
+    /// The press resolution the supplier's acceptance gates lock, read from the shipped document
+    /// rather than restated in C#.
+    ///
+    /// <c>BEKI_Acceptance_Gates_v1.json</c> carries <c>required_press_raster_ppi</c> among its
+    /// locked values, and the number belongs to the people printing the book. A copy in code is a
+    /// second source of truth that nobody updates in the same commit, and the symptom of the drift
+    /// is a file that passes here and is rejected on paper. A missing document is a deployment
+    /// fault and is refused by name, exactly as a missing ICC profile is.
+    /// </summary>
+    private static int ReadRequiredPressRasterPpi(string baseDirectory)
+    {
+        var path = Path.Combine(
+            baseDirectory, "Assets", "BekiComposite", "contracts", AcceptanceGatesFile);
+
+        if (!File.Exists(path))
+        {
+            throw Failure(
+                $"the acceptance gates document is missing at '{path}'. The press resolution gate "
+                + "reads its threshold from the supplier's own file and will not guess one.");
+        }
+
+        try
+        {
+            using var gates = JsonDocument.Parse(File.ReadAllText(path));
+            var required = gates.RootElement
+                .GetProperty("locked_values")
+                .GetProperty("required_press_raster_ppi")
+                .GetInt32();
+
+            if (required <= 0)
+            {
+                throw Failure(
+                    $"'{AcceptanceGatesFile}' states required_press_raster_ppi as {required}, "
+                    + "which is not a resolution anything can be measured against.");
+            }
+
+            return required;
+        }
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException
+                                       or InvalidOperationException and not BekiLayoutException)
+        {
+            throw Failure(
+                $"'{AcceptanceGatesFile}' does not state locked_values.required_press_raster_ppi "
+                + $"({ex.GetType().Name}).");
+        }
+    }
+
+    /// <summary>
+    /// <c>PRESS_RESOLUTION</c>: "Every press raster has at least 300 effective source PPI at
+    /// placement size; interpolation-only upscaling is a failure."
+    ///
+    /// Two ways to fail, and the second is the one the audit had to invent. The first is
+    /// arithmetic: pixels over placed inches, per axis, for every image the content stream actually
+    /// paints — which is why there is a content-stream walker at all (amendment A1: the credits
+    /// Beki mark is a 32 mm image on a 440 mm page, and page-size arithmetic would report it at
+    /// forty times its density). The second is provenance: a raster can measure 300 PPI and carry
+    /// 143, because something stretched it, and only the receipt knows.
+    ///
+    /// A placement that could not be resolved fails too. Amendment A1 is explicit that unknown is
+    /// not a pass — the shipped cover passed a preflight that simply never asked.
+    /// </summary>
+    private static object EnforcePressResolution(
+        IReadOnlyList<BekiContentWalker.PageContent> contents,
+        int requiredPpi,
+        BekiResolutionReceipt? receipt)
+    {
+        var images = contents.SelectMany(page => page.Images).ToList();
+        var unresolved = contents.SelectMany(page => page.Unresolved).ToList();
+
+        if (unresolved.Count > 0)
+        {
+            throw Failure(
+                $"{PressResolutionGate}: {unresolved.Count} paint operation(s) could not be "
+                + "measured, so their resolution is unknown — and unknown is not a pass. "
+                + string.Join(" ", unresolved
+                    .Take(6)
+                    .Select(item => $"page {item.Page} '{item.Name}': {item.Reason}.")));
+        }
+
+        var thin = images.Where(image => image.EffectivePpi < requiredPpi - 0.5d).ToList();
+        if (thin.Count > 0)
+        {
+            throw Failure(
+                $"{PressResolutionGate}: {thin.Count} of {images.Count} placed raster(s) fall "
+                + $"below {requiredPpi} effective PPI. "
+                + string.Join(" ", thin
+                    .Take(6)
+                    .Select(image =>
+                        $"page {image.Page} '{image.Name}': {image.WidthPx}×{image.HeightPx} px at "
+                        + $"{image.PlacedWidthMm:F1}×{image.PlacedHeightMm:F1} mm is "
+                        + $"{image.EffectivePpiX:F0}×{image.EffectivePpiY:F0} PPI.")));
+        }
+
+        var stretched = (receipt?.Sources ?? []).Where(source => source.IsInterpolationOnly).ToList();
+        if (stretched.Count > 0)
+        {
+            throw Failure(
+                $"{PressResolutionGate}: {stretched.Count} raster(s) reached their pixel count by "
+                + "interpolation alone, and upscaling changes pixel count rather than source "
+                + "detail (audit P1-01). "
+                + string.Join(" ", stretched
+                    .Take(6)
+                    .Select(source =>
+                        $"'{source.Role}': {source.SourceWidthPx}×{source.SourceHeightPx} px "
+                        + $"enlarged ×{source.Factor:F2} by '{source.Tool}'.")));
+        }
+
+        return new
+        {
+            gate = PressResolutionGate,
+            contract = AcceptanceGatesFile,
+            required_press_raster_ppi = requiredPpi,
+            verdict = "PASS",
+            placed_images = images
+                .Select(image => new
+                {
+                    page = image.Page,
+                    name = image.Name,
+                    width_px = image.WidthPx,
+                    height_px = image.HeightPx,
+                    placed_width_mm = Math.Round(image.PlacedWidthMm, 2),
+                    placed_height_mm = Math.Round(image.PlacedHeightMm, 2),
+                    effective_ppi_x = Math.Round(image.EffectivePpiX, 1),
+                    effective_ppi_y = Math.Round(image.EffectivePpiY, 1),
+                    stencil_mask = image.IsStencilMask,
+                    inline = image.Inline,
+                })
+                .ToList(),
+            // Declared but never painted: no ink, so no gate — recorded because an XObject nobody
+            // draws is usually a sign that a layout changed and something was left behind.
+            declared_but_never_painted = contents
+                .SelectMany(page => page.ImagesNeverPlaced.Select(name => new { page = page.Page, name }))
+                .ToList(),
+            receipt = receipt is null
+                ? (object)"no resolution receipt supplied; no enlargement is claimed for any raster"
+                : receipt.Sources
+                    .Select(source => new
+                    {
+                        role = source.Role,
+                        source_px = new[] { source.SourceWidthPx, source.SourceHeightPx },
+                        delivered_px = new[] { source.DeliveredWidthPx, source.DeliveredHeightPx },
+                        tool = source.Tool,
+                        factor = Math.Round(source.Factor, 4),
+                        interpolation_only = source.IsInterpolationOnly,
+                    })
+                    .ToList(),
+        };
+    }
+
+    /// <summary>
+    /// <c>TEXT_COLOR_INTEGRITY</c>, content-stream half (amendment A10a).
+    ///
+    /// After the conversion, every text-showing operator is asked what fill colour was in force
+    /// when it ran. On a page the caller has flagged as carrying authored-light text — the credits
+    /// page, the cover title — a device-black fill is the exact signature of P0-07: cream text that
+    /// left the conversion as <c>0 0 0 1 k</c> and would print as a page nobody can read. Over
+    /// artwork this is the only honest test available, because sampling luminance across a painting
+    /// says nothing about the glyphs sitting on it.
+    ///
+    /// Pages nobody flagged are recorded and not judged: the evidence is worth having even where
+    /// there is no rule to apply to it.
+    /// </summary>
+    private static object EnforceTextColourIntegrity(
+        IReadOnlyList<BekiContentWalker.PageContent> contents, BekiPrintProbe? probe)
+    {
+        var lightPages = (probe?.LightTextPages ?? []).ToHashSet();
+
+        var offenders = contents
+            .Where(page => lightPages.Contains(page.Page))
+            .SelectMany(page => page.TextFills.Where(fill => fill.IsDeviceBlack))
+            .ToList();
+
+        if (offenders.Count > 0)
+        {
+            throw Failure(
+                $"{TextColorIntegrityGate}: text authored light came out of the CMYK conversion "
+                + "as device black. "
+                + string.Join(" ", offenders
+                    .Take(6)
+                    .Select(fill =>
+                        $"page {fill.Page}: {fill.Occurrences} text operator(s) filled "
+                        + $"{fill.Describe()}."))
+                + " Audit P0-07 is exactly this defect; a light page converted to black is not a "
+                + "press file, it is a blank one.");
+        }
+
+        return new
+        {
+            gate = TextColorIntegrityGate,
+            verdict = "PASS",
+            light_text_pages = lightPages.OrderBy(page => page).ToList(),
+            fills = contents
+                .Where(page => page.TextFills.Count > 0)
+                .Select(page => new
+                {
+                    page = page.Page,
+                    text_fills = page.TextFills
+                        .Select(fill => new
+                        {
+                            colour = fill.Describe(),
+                            device_black = fill.IsDeviceBlack,
+                            occurrences = fill.Occurrences,
+                        })
+                        .ToList(),
+                })
+                .ToList(),
+        };
+    }
+
+    /// <summary>
+    /// <c>TEXT_COLOR_INTEGRITY</c>, rendered-pixel half (amendment A10a) — for flat-ground pages
+    /// only, where "the text is lighter than what it sits on" is a statement pixels can settle.
+    ///
+    /// The page is rendered by Ghostscript at the configured validation density and the caller's
+    /// rectangle is sampled. Two modes are looked for inside it: a bright one that is the glyphs
+    /// and a dark one that is the ground. The thresholds are the correction plan's — glyphs at
+    /// luma ≥ 200 in a cream (warm, not blue) direction, ground at ≤ 90 — and they are stated as
+    /// measurements in the report either way, so a future shift can be argued about with numbers.
+    /// </summary>
+    private static object RunTextPixelProbes(
+        byte[] prepared,
+        IReadOnlyList<double> pageHeightsMm,
+        BekiPrintPrepOptions options,
+        BekiPrintProbe? probe)
+    {
+        var rects = probe?.FlatGroundRects;
+        if (rects is null || rects.Count == 0)
+        {
+            return "no flat-ground probe rects supplied; the content-stream assertion above is the "
+                   + "whole of the text-colour check for this artifact";
+        }
+
+        var dpi = options.RenderDpi > 0 ? options.RenderDpi : 120;
+        var results = new List<object>();
+        var failures = new List<string>();
+
+        var work = Path.Combine(Path.GetTempPath(), $"beki-text-probe-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(work);
+
+        try
+        {
+            var input = Path.Combine(work, "in.pdf");
+            File.WriteAllBytes(input, prepared);
+
+            foreach (var rect in rects)
+            {
+                if (rect.Page < 1 || rect.Page > pageHeightsMm.Count)
+                {
+                    failures.Add(
+                        $"page {rect.Page} was asked for and the document has "
+                        + $"{pageHeightsMm.Count} page(s)");
+                    continue;
+                }
+
+                var png = Path.Combine(work, $"page-{rect.Page}.png");
+                var render = RenderPage(options, input, png, rect.Page, dpi);
+
+                if (render is not null)
+                {
+                    failures.Add($"page {rect.Page} could not be rendered: {render}");
+                    continue;
+                }
+
+                var measurement = MeasureTextRect(png, rect, dpi);
+                results.Add(measurement.Report);
+
+                if (measurement.Problem is not null)
+                {
+                    failures.Add($"page {rect.Page} ({rect.Role}): {measurement.Problem}");
+                }
+            }
+        }
+        finally
+        {
+            try { Directory.Delete(work, recursive: true); } catch { /* temp cleanup only */ }
+        }
+
+        if (failures.Count > 0)
+        {
+            throw Failure(
+                $"{TextColorIntegrityGate}: the rendered page does not show light text on a dark "
+                + "ground where the layout says it should. " + string.Join(" ", failures) + ".");
+        }
+
+        return new { gate = TextColorIntegrityGate, verdict = "PASS", render_dpi = dpi, probes = results };
+    }
+
+    /// <summary>Renders one page to PNG. Returns null on success, or why it failed.</summary>
+    private static string? RenderPage(
+        BekiPrintPrepOptions options, string inputPdf, string outputPng, int page, int dpi)
+    {
+        try
+        {
+            var start = new ProcessStartInfo
+            {
+                FileName = options.GhostscriptPath,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+            };
+
+            foreach (var argument in new[]
+            {
+                "-dBATCH", "-dNOPAUSE", "-dQUIET", "-dSAFER",
+                "-sDEVICE=png16m",
+                $"-r{dpi.ToString(CultureInfo.InvariantCulture)}",
+                $"-dFirstPage={page.ToString(CultureInfo.InvariantCulture)}",
+                $"-dLastPage={page.ToString(CultureInfo.InvariantCulture)}",
+                $"-sOutputFile={outputPng}",
+                "-f", inputPdf,
+            })
+            {
+                start.ArgumentList.Add(argument);
+            }
+
+            using var process = Process.Start(start);
+            if (process is null)
+            {
+                return $"Ghostscript did not start ('{options.GhostscriptPath}')";
+            }
+
+            var (_, stderr) = Drain(process, TimeSpan.FromMinutes(3), out var finished);
+
+            if (!finished)
+            {
+                return "Ghostscript did not finish rendering within three minutes";
+            }
+
+            return process.ExitCode == 0 && File.Exists(outputPng)
+                ? null
+                : $"Ghostscript exited {process.ExitCode}: {Truncate(stderr)}";
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return $"Ghostscript is not available as '{options.GhostscriptPath}'";
+        }
+    }
+
+    /// <summary>The two modes inside one probe rectangle, and whether they are the right way round.</summary>
+    private static (object Report, string? Problem) MeasureTextRect(
+        string pngPath, BekiTextProbeRect rect, int dpi)
+    {
+        const int GlyphLuma = 200;
+        const int GroundLuma = 90;
+        const double MinimumGlyphShare = 0.004d;
+
+        using var image = Image.Load<Rgb24>(pngPath);
+
+        var left = (int)Math.Round(rect.XMm / 25.4d * dpi);
+        var top = (int)Math.Round(rect.YMm / 25.4d * dpi);
+        var width = (int)Math.Round(rect.WidthMm / 25.4d * dpi);
+        var height = (int)Math.Round(rect.HeightMm / 25.4d * dpi);
+
+        left = Math.Clamp(left, 0, Math.Max(0, image.Width - 1));
+        top = Math.Clamp(top, 0, Math.Max(0, image.Height - 1));
+        width = Math.Clamp(width, 1, image.Width - left);
+        height = Math.Clamp(height, 1, image.Height - top);
+
+        var histogram = new long[256];
+        long brightCount = 0;
+        double brightR = 0, brightG = 0, brightB = 0;
+
+        for (var y = top; y < top + height; y++)
+        {
+            for (var x = left; x < left + width; x++)
+            {
+                var pixel = image[x, y];
+                var luma = (int)Math.Round(
+                    (0.2126d * pixel.R) + (0.7152d * pixel.G) + (0.0722d * pixel.B));
+                luma = Math.Clamp(luma, 0, 255);
+                histogram[luma]++;
+
+                if (luma >= GlyphLuma)
+                {
+                    brightCount++;
+                    brightR += pixel.R;
+                    brightG += pixel.G;
+                    brightB += pixel.B;
+                }
+            }
+        }
+
+        long total = (long)width * height;
+        var glyphMode = ModeIn(histogram, GlyphLuma, 255);
+        var groundMode = ModeIn(histogram, 0, GroundLuma);
+        var share = total == 0 ? 0d : (double)brightCount / total;
+
+        var meanR = brightCount == 0 ? 0d : brightR / brightCount;
+        var meanG = brightCount == 0 ? 0d : brightG / brightCount;
+        var meanB = brightCount == 0 ? 0d : brightB / brightCount;
+
+        // Cream is warm: red at or above blue. A "bright" mode that is bluer than it is red is a
+        // highlight in the artwork, not the cream type this rect was pointed at.
+        var warm = brightCount > 0 && meanR + 6d >= meanB;
+
+        string? problem = null;
+        if (glyphMode is null)
+        {
+            problem = $"no glyph mode at or above luma {GlyphLuma} inside the text rect";
+        }
+        else if (groundMode is null)
+        {
+            problem = $"no dark ground mode at or below luma {GroundLuma} inside the text rect";
+        }
+        else if (share < MinimumGlyphShare)
+        {
+            problem =
+                $"only {share:P2} of the rect is at glyph brightness, which is less type than the "
+                + "layout says is there";
+        }
+        else if (!warm)
+        {
+            problem =
+                $"the bright pixels average R{meanR:F0} G{meanG:F0} B{meanB:F0}, which is not the "
+                + "cream the credits page is authored in";
+        }
+
+        return (new
+        {
+            page = rect.Page,
+            role = rect.Role,
+            rect_mm = new[] { rect.XMm, rect.YMm, rect.WidthMm, rect.HeightMm },
+            rect_px = new[] { left, top, width, height },
+            glyph_mode_luma = glyphMode,
+            ground_mode_luma = groundMode,
+            glyph_pixel_share = Math.Round(share, 5),
+            glyph_mean_rgb = new[] { Math.Round(meanR, 1), Math.Round(meanG, 1), Math.Round(meanB, 1) },
+            verdict = problem is null ? "PASS" : "FAIL",
+            problem,
+        }, problem);
+    }
+
+    /// <summary>The most populated luma in a band, or null when the band is effectively empty.</summary>
+    private static int? ModeIn(long[] histogram, int from, int to)
+    {
+        var best = -1;
+        long bestCount = 0;
+
+        for (var value = from; value <= to; value++)
+        {
+            if (histogram[value] > bestCount)
+            {
+                bestCount = histogram[value];
+                best = value;
+            }
+        }
+
+        return bestCount > 0 ? best : null;
+    }
+
+    /// <summary>
+    /// The colour conversion: every device colour through the locked profile to CMYK, images
+    /// re-encoded at a quality factor chosen to stay visually
     /// transparent (spec §5: no recompression that reduces approved source quality — conversion
     /// necessarily re-encodes, so it re-encodes as gently as JPEG allows, with no downsampling
     /// and no chroma subsampling).
@@ -296,7 +889,13 @@ public static class BekiPrintPrep
                 "-sColorConversionStrategy=CMYK",
                 "-dProcessColorModel=/DeviceCMYK",
                 $"-sOutputICCProfile={iccPath}",
-                "-dBlackText=true",
+                // No -dBlackText. It was here on the theory that black text belongs on the K plate
+                // alone, and audit P0-07 found what it actually did: the credits page is authored
+                // cream on dark purple, the option coerced its text to 0 g, and the press file
+                // shipped a page of near-invisible type. The audit's instruction is exactly one
+                // line — "remove global text-to-black coercion" — and the colour a designer chose
+                // now converts through the ICC profile like every other colour in the document.
+                // TEXT_COLOR_INTEGRITY, below, is what replaces it: measurement instead of a flag.
                 "-dDownsampleColorImages=false",
                 "-dDownsampleGrayImages=false",
                 "-dDownsampleMonoImages=false",
@@ -313,12 +912,13 @@ public static class BekiPrintPrep
             using var process = Process.Start(start)
                 ?? throw Failure($"Ghostscript did not start ('{options.GhostscriptPath}').");
 
-            var stderr = process.StandardError.ReadToEnd();
-            _ = process.StandardOutput.ReadToEnd();
+            // Both pipes are drained at once, never one after the other. Ghostscript talks on both,
+            // and a reader that blocks on one while the other's buffer fills stops the process it
+            // is waiting for — a deadlock that looks exactly like a slow conversion.
+            var (_, stderr) = Drain(process, TimeSpan.FromMinutes(5), out var finished);
 
-            if (!process.WaitForExit(TimeSpan.FromMinutes(5)))
+            if (!finished)
             {
-                try { process.Kill(entireProcessTree: true); } catch { /* already gone */ }
                 throw Failure("Ghostscript did not finish converting within five minutes.");
             }
 
@@ -332,8 +932,8 @@ public static class BekiPrintPrep
             return (
                 File.ReadAllBytes(output),
                 $"ghostscript pdfwrite, ColorConversionStrategy=CMYK, output profile "
-                + $"'{Path.GetFileName(iccPath)}', BlackText preserved, QFactor 0.15, no "
-                + "downsampling");
+                + $"'{Path.GetFileName(iccPath)}', no BlackText coercion (audit P0-07), "
+                + "QFactor 0.15, no downsampling");
         }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception)
         {
@@ -628,6 +1228,43 @@ public static class BekiPrintPrep
 
     private static PdfItem? Resolve(PdfItem? item) =>
         item is PdfReference reference ? reference.Value : item;
+
+    /// <summary>
+    /// Reads a child process's two output pipes concurrently and waits for it to exit.
+    ///
+    /// Sequential <c>ReadToEnd()</c> calls are the classic way to hang on Ghostscript: reading
+    /// stderr to its end blocks until the process exits, the process fills the stdout pipe's
+    /// buffer, and neither side can move again. Ghostscript is chatty on both streams — a
+    /// linearizing run narrates its object groups on stdout — so both are drained from the start.
+    /// </summary>
+    /// <param name="finished">False when the deadline passed; the process is killed in that case.</param>
+    internal static (string StandardOutput, string StandardError) Drain(
+        Process process, TimeSpan timeout, out bool finished)
+    {
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+
+        finished = process.WaitForExit(timeout);
+
+        if (!finished)
+        {
+            try { process.Kill(entireProcessTree: true); } catch { /* already gone */ }
+        }
+
+        // Both readers complete once the pipes close, which killing the process guarantees.
+        try
+        {
+            Task.WaitAll([stdout, stderr], TimeSpan.FromSeconds(30));
+        }
+        catch (AggregateException)
+        {
+            // A pipe that faulted has nothing to say; the exit code and the timeout flag do.
+        }
+
+        return (
+            stdout.IsCompletedSuccessfully ? stdout.Result : string.Empty,
+            stderr.IsCompletedSuccessfully ? stderr.Result : string.Empty);
+    }
 
     private static string Truncate(string value) =>
         string.IsNullOrEmpty(value) ? "(no stderr)" : value.Length <= 500 ? value : value[..500] + "…";
