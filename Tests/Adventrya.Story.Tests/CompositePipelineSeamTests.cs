@@ -280,9 +280,11 @@ public class CompositePipelineSeamTests : CompositePipelineTestBase
     [Fact]
     public void A_borderline_reading_warns_and_is_not_refused()
     {
-        // A faint one-way lift: enough to push the field reading past its advisory limit, far
-        // too gentle for the razor edge that makes a reading severe.
-        var faint = WithVeil(Gradient(1536, 717), leftSide: true, lift: 0.10, shoulderColumns: 24);
+        // A faint one-way lift: enough to push the field reading past its advisory limit (a 0.15
+        // lift moves the wide strips ~21 luma against the 15-luma row step), far too gentle for
+        // the razor edge that makes a reading severe — the 24-column shoulder spreads the step to
+        // ~7 luma per adjacent strip, under the edge reading's 12.
+        var faint = WithVeil(Gradient(1536, 717), leftSide: true, lift: 0.15, shoulderColumns: 24);
 
         var measured = CompositeSeamRepair.MeasureCentreField(faint);
         Assert.True(measured.Exceeded, $"the faint lift only measured {measured.FieldCoverage:P0}.");
