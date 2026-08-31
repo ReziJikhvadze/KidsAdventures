@@ -95,11 +95,13 @@ public interface IBekiPdfComposer
 /// no approved background, stops the book. The composer used to draw a dot field and a tinted
 /// ground instead, and the first anyone noticed was a printed book with a placeholder bound into it.
 ///
-/// **The story text is vector type on a wash measured to itself.** Dark Noto Sans Georgian, set
-/// once, upper-left in the reserved column, over a soft cream box that is exactly as tall as the
-/// wrapped copy — not the full-height panel that used to darken a third of every spread, and not a
-/// picture of words. If the copy will not fit at any size the age band allows, the book stops with
-/// <c>TEXT_OVERFLOW</c>; it is never set at a size that still overflows, and it is never rewritten.
+/// **The story text is outlined vector type straight on the artwork.** Light Noto Sans Georgian
+/// with its own dark rim, set once, upper-left in the reserved column — no box, no wash, no
+/// background of its own, by the owner's ruling after the first live v1.5 book (the audit's
+/// cream copy-sized zone was tried and rejected on sight). Not a picture of words either: the
+/// rim is real vector text runs. If the copy will not fit at any size the age band allows, the
+/// book stops with <c>TEXT_OVERFLOW</c>; it is never set at a size that still overflows, and it
+/// is never rewritten.
 ///
 /// Every picture is placed at the sheet's own proportions. A centred crop of more than
 /// <see cref="BekiPrintLayoutOptions.PrintCropTolerance"/> per axis is refused rather than performed
@@ -143,33 +145,21 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private static readonly Color TextColor = Color.FromHex("#FFF8EB");
 
     /// <summary>
-    /// The story text's own ink: the page's dark, printed on the cream wash rather than under it.
-    ///
-    /// The book used to set cream type over a dark panel, which is a caption over a photograph and
-    /// not a page of a picture book. §6 Step 8 asks for the opposite — Georgian in ink on a soft
-    /// cream ground — and dark-on-light is also the only version that survives a printer's dot gain
-    /// at 18 pt.
+    /// The ink the measurement document sets its stand-in type in. Colour never changes metrics;
+    /// it exists so the throwaway page is a valid document.
     /// </summary>
     private static readonly Color StoryInk = Color.FromHex("#241A33");
 
-    /// <summary>The quieter ink the second language is set in, when a book prints both.</summary>
-    private static readonly Color EnglishInk = Color.FromHex("#B3241A33");
-
     /// <summary>
-    /// The wash under the words: cream, nearly opaque, and only as large as the copy.
+    /// The inset the copy keeps from its column's edges, in millimetres.
     ///
-    /// Nearly rather than fully, so the artwork underneath still shows as a tint at the edges and
-    /// the box reads as part of the picture rather than as a sticker on it. The size is the point —
-    /// the supplier's audit called the old full-height version a "dark half-page text panel", and
-    /// §6 Step 8 asks for a wash "sized to the wrapped copy, not a fixed large panel".
+    /// This used to be the padding of a cream wash box behind the words. The box is gone — the
+    /// owner's ruling after the first live v1.5 book: the copy is outlined light type straight
+    /// on the artwork, no background of its own — but the inset stays exactly as it was, because
+    /// the fit ladder's measurements were made against it and a book must not overflow over a
+    /// styling change.
     /// </summary>
-    private static readonly Color StoryWash = Color.FromHex("#F2FFF8EB");
-
-    /// <summary>How far the cream reaches past the type on every side, in millimetres.</summary>
     private const float WashPaddingMm = 6f;
-
-    /// <summary>The wash's corner, so the box reads as a soft shape rather than a cut rectangle.</summary>
-    private const float WashRadiusMm = 4f;
 
     /// <summary>
     /// The wash ink behind the outlined cover title — the one place left in the book where type
@@ -553,8 +543,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                         .AlignMiddle()
                         .AlignLeft()
                         .MaxWidth(_layout.MaxTextWidthMm, Unit.Millimetre)
-                        .Background(StoryWash)
-                        .CornerRadius(WashRadiusMm, Unit.Millimetre)
+                        // Same ruling as the story spreads: no box behind the words — outlined
+                        // light type straight on the approved background, padding kept as inset.
                         .Padding(WashPaddingMm, Unit.Millimetre)
                         .Column(column => ComposeIntroCopy(column, title, personalization));
 
@@ -582,6 +572,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         var headerSize = _layout.StoryFontSize * 1.35f;
         var bodySize = _layout.StoryFontSize;
         var quietSize = _layout.StoryFontSize * 0.8f;
+        var lineWidthPt = MmToPt(_layout.MaxTextWidthMm - (WashPaddingMm * 2f));
 
         if (personalization is not null)
         {
@@ -591,22 +582,17 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
             if (!string.IsNullOrWhiteSpace(belongs))
             {
-                column.Item().Text(belongs)
-                    .FontFamily(PdfFontBootstrap.BodyFamily)
-                    .FontSize(headerSize)
-                    .LineHeight(StoryLineHeight)
-                    .Bold()
-                    .FontColor(StoryInk);
+                column.Item().Element(item => OutlinedText(
+                    item, belongs, headerSize, StoryLineHeight,
+                    TextColor, OutlineColor, lineWidthPt));
             }
 
             var age = _layout.IntroAgeTemplate.Replace("{age}", personalization.Age.ToString());
             if (!string.IsNullOrWhiteSpace(age))
             {
-                column.Item().Text(age)
-                    .FontFamily(PdfFontBootstrap.BodyFamily)
-                    .FontSize(quietSize)
-                    .LineHeight(StoryLineHeight)
-                    .FontColor(EnglishInk);
+                column.Item().Element(item => OutlinedText(
+                    item, age, quietSize, StoryLineHeight,
+                    TextColor, OutlineColor, lineWidthPt));
             }
         }
 
@@ -624,12 +610,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
         if (!string.IsNullOrWhiteSpace(theme))
         {
-            column.Item().Text(theme)
-                .FontFamily(PdfFontBootstrap.BodyFamily)
-                .FontSize(bodySize)
-                .LineHeight(StoryLineHeight)
-                .Bold()
-                .FontColor(StoryInk);
+            column.Item().Element(item => OutlinedText(
+                item, theme, bodySize, StoryLineHeight,
+                TextColor, OutlineColor, lineWidthPt));
         }
 
         // The invitation addresses the child by name in the vocative, which in Georgian is the
@@ -640,11 +623,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
         if (!string.IsNullOrWhiteSpace(invite))
         {
-            column.Item().Text(invite)
-                .FontFamily(PdfFontBootstrap.BodyFamily)
-                .FontSize(bodySize)
-                .LineHeight(StoryLineHeight)
-                .FontColor(StoryInk);
+            column.Item().Element(item => OutlinedText(
+                item, invite, bodySize, StoryLineHeight,
+                TextColor, OutlineColor, lineWidthPt));
         }
     }
 
@@ -804,26 +785,26 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                         .AlignTop()
                         .AlignLeft()
                         .MaxWidth(StoryColumnWidthPt / PointsPerMm, Unit.Millimetre)
-                        .Background(StoryWash)
-                        .CornerRadius(WashRadiusMm, Unit.Millimetre)
+                        // No box behind the words — the owner's ruling after the first live
+                        // v1.5 book: the copy sits straight on the artwork as light type with
+                        // its own dark rim, the way earlier versions set it. The padding stays
+                        // as a plain inset so the fit ladder's measurements are unchanged.
                         .Padding(WashPaddingMm, Unit.Millimetre)
                         .Column(column =>
                         {
                             column.Spacing(10);
 
-                            column.Item().Text(spread.Text)
-                                .FontFamily(PdfFontBootstrap.BodyFamily)
-                                .FontSize(fitted.FontSize)
-                                .LineHeight(StoryLineHeight)
-                                .FontColor(StoryInk);
+                            column.Item().Element(item => OutlinedText(
+                                item, spread.Text, fitted.FontSize, StoryLineHeight,
+                                TextColor, OutlineColor,
+                                StoryColumnWidthPt - (MmToPt(WashPaddingMm) * 2f)));
 
                             if (fitted.EnglishFontSize is { } englishSize)
                             {
-                                column.Item().Text(spread.TextEn!)
-                                    .FontFamily(PdfFontBootstrap.BodyFamily)
-                                    .FontSize(englishSize)
-                                    .LineHeight(StoryLineHeight)
-                                    .FontColor(EnglishInk);
+                                column.Item().Element(item => OutlinedText(
+                                    item, spread.TextEn!, englishSize, StoryLineHeight,
+                                    TextColor, OutlineColor,
+                                    StoryColumnWidthPt - (MmToPt(WashPaddingMm) * 2f)));
                             }
                         });
 
@@ -992,11 +973,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// <summary>
     /// Light type with its own dark edge, drawn entirely as vector text.
     ///
-    /// One caller is left: the cover title, which sets light type straight onto artwork, where a
-    /// wash cannot be relied on and a glyph needs a rim of its own. The Continue Adventure line
-    /// was the other until the Locked Print Specification removed its chip; the story text never
-    /// comes through here at all — it is vector Noto on a cream box, which is what §6 Step 8 asks
-    /// for and what the supplier's audit found missing.
+    /// Every piece of type set over artwork comes through here again — the cover title, the
+    /// story copy, and the intro's lines — since the owner removed the cream box: a glyph on a
+    /// picture needs a rim of its own, and the rim is the text drawn eight more times beneath
+    /// the fill, all of it real vector runs.
     ///
     /// This used to be a raster: the nine-copy stack rendered to a PNG at 300 DPI with one
     /// invisible text run over it, so that <c>pdftotext</c> said each line once. The supplier's

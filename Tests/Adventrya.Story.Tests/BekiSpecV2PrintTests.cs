@@ -229,7 +229,10 @@ public class BekiSpecV2PrintTests
             for (var y = 0; y < page.Height; y++)
             {
                 var pixel = page[x, y];
-                if (pixel.R >= 235 && pixel.G >= 235 && pixel.B >= 235)
+                // 250, not 235: the story copy is now outlined cream type (#FFF8EB, blue
+                // channel 235) straight on the artwork, and this probe is looking for the
+                // QR tile's PURE white quiet zone, not for type.
+                if (pixel.R >= 250 && pixel.G >= 250 && pixel.B >= 250)
                 {
                     white++;
                 }
@@ -247,7 +250,7 @@ public class BekiSpecV2PrintTests
             for (var y = 0; y < credits.Height; y++)
             {
                 var pixel = credits[x, y];
-                if (pixel.R < 235 || pixel.G < 235 || pixel.B < 235) continue;
+                if (pixel.R < 250 || pixel.G < 250 || pixel.B < 250) continue;
 
                 creditsWhite++;
                 if (x < minX) minX = x;
