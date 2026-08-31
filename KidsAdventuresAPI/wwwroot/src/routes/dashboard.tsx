@@ -10,11 +10,20 @@ type DashboardSearch = {
    * authenticated map response owns progress, so a guessed id cannot select an unrelated world.
    */
   bookId?: string;
+  /**
+   * Which child's space to open, when the parent is coming back from somewhere that knew.
+   *
+   * The world picker's back arrow carries it: the cabinet otherwise opens on whoever owns the
+   * newest book, which for a family with two children is not the one whose button was pressed.
+   * A hint only, like `bookId` — an id that names nobody in this family is ignored.
+   */
+  characterId?: string;
 };
 
 export const Route = createFileRoute("/dashboard")({
   validateSearch: (search: Record<string, unknown>): DashboardSearch => ({
     bookId: typeof search.bookId === "string" ? search.bookId : undefined,
+    characterId: typeof search.characterId === "string" ? search.characterId : undefined,
   }),
   head: () => {
     const { meta, links } = buildPageMeta({
@@ -29,6 +38,6 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function DashboardRoute() {
-  const { bookId } = Route.useSearch();
-  return <DashboardScreen celebrationBookId={bookId} />;
+  const { bookId, characterId } = Route.useSearch();
+  return <DashboardScreen celebrationBookId={bookId} preferredCharacterId={characterId} />;
 }

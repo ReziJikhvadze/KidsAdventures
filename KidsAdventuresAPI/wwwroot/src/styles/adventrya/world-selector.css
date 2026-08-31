@@ -846,6 +846,46 @@
   opacity: 0.5;
 }
 
+/*
+  Nightfall over an island that has already been visited.
+
+  Dimming the label was not dimming the world: the six islands are one painting, so a card that
+  went quiet still sat on an island lit exactly as brightly as the five a child has never been
+  to. Which is the report — there was no way to see, from the map itself, where they had been.
+
+  A veil over the island's own box, soft-edged so it reads as evening on that island rather than
+  as a grey disc laid on top of it, and lifted almost away the moment the island is pointed at
+  or chosen: a visited world is somewhere to go again, not somewhere shut.
+*/
+.world-node::after {
+  position: absolute;
+  inset: -8%;
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(5, 3, 20, 0.66) 40%,
+    rgba(5, 3, 20, 0.4) 66%,
+    rgba(5, 3, 20, 0) 82%
+  );
+  filter: blur(6px);
+  content: "";
+  transition: opacity 200ms ease;
+}
+
+.world-node.is-done::after {
+  opacity: 1;
+}
+
+.world-node.is-done.is-previewed::after,
+.world-node.is-done.is-selected::after,
+.world-node.is-done:hover::after,
+.world-node.is-done:focus-within::after {
+  opacity: 0.22;
+}
+
 .world-node.is-done .world-finished {
   opacity: 0.72;
 }

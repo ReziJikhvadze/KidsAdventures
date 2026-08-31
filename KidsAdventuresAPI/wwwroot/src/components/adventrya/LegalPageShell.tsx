@@ -22,7 +22,7 @@ export function LegalPageShell({ children }: { children: ReactNode }) {
     <div className="legal-page">
       <div className="grain" aria-hidden="true" />
       <AppHeader backHref="/" />
-      <main style={{ padding: "24px 0 48px" }}>{children}</main>
+      <main style={{ padding: "20px 0 36px" }}>{children}</main>
       <footer className="landing-v3-footer" style={{ marginTop: "auto" }}>
         <div>
           <Link to="/" className="landing-v3-logo">
@@ -47,7 +47,6 @@ export function LegalPageShell({ children }: { children: ReactNode }) {
             <Link to="/terms">წესები და პირობები</Link>
           </div>
         </nav>
-        <p className="landing-v3-footer-bottom">{F.madeIn}</p>
       </footer>
     </div>
   );

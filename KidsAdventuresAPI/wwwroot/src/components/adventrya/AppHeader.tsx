@@ -162,7 +162,9 @@ export function AppHeader({
           <a href="/#books">{t.common.nav.books}</a>
           <a href="/#pricing">{t.common.nav.pricing}</a>
           <a href="/#faq">{t.common.nav.faq}</a>
-          <a href="/#worlds">{t.common.nav.chooseWorld}</a>
+          {/* A page, not a section: choosing a world is the whole screen at `/themes`, and a
+              router Link keeps it that way rather than reloading the app to get there. */}
+          <Link to="/themes">{t.common.nav.chooseWorld}</Link>
         </nav>
       ) : null}
 

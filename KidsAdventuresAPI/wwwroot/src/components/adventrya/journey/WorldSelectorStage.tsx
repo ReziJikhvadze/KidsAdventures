@@ -35,7 +35,7 @@ function startableState(state: WorldNodeState | null | undefined): boolean {
  * A closed list rather than "whatever `from` says": the value ends up in a URL this page hands
  * to an anchor, and an open one would follow anything a link chose to put there.
  */
-const LANDING_SECTIONS = new Set(["books", "worlds", "pricing", "faq", "final"]);
+const LANDING_SECTIONS = new Set(["books", "worlds", "pricing", "faq", "final", "footer"]);
 
 function backHrefFromSearch(search: string): string {
   let params: URLSearchParams;
@@ -56,6 +56,23 @@ function backHrefFromSearch(search: string): string {
     itself in `from=`, and a book cover off the shelf carries `?world=` and goes back to the shelf.
   */
   const from = params.get("from");
+
+  /*
+    A third exception, and it is not the home page at all: the parent's space.
+
+    `from=world` and `from=dashboard` are both the cabinet — the first is what
+    `continueViaPickerHref` has always written, from the days when the child's map was its own
+    route. A parent who pressed "new book" there and then turned back was being put on the
+    marketing page, one section of a page they were not on when they left.
+
+    The child comes back with them. The cabinet opens on whichever child owns the newest book,
+    which for a family with two of them is not the one whose button was just pressed.
+  */
+  if (from === "world" || from === "dashboard") {
+    const characterId = params.get("characterId");
+    return characterId ? `/dashboard?characterId=${encodeURIComponent(characterId)}` : "/dashboard";
+  }
+
   if (from && LANDING_SECTIONS.has(from)) return `/#${from}`;
   if (params.has("world") && !from) return "/#books";
   return "/#worlds";

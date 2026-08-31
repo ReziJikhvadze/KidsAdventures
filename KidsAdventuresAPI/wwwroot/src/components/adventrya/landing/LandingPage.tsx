@@ -284,7 +284,10 @@ function Footer() {
   // actually next to when they want the top.
   const toTop = useLogoToTop();
   return (
-    <footer className="landing-v3-footer">
+    /* Named so the pages it links to can put a reader back where they were standing. The rest
+       of the page's sections carry an id for the same reason; the footer is seven screens down,
+       which makes it the one where being returned to the top is most obviously wrong. */
+    <footer className="landing-v3-footer" id="footer">
       <div>
         <Link to="/" className="landing-v3-logo" onClick={toTop}>
           {BRAND_HEADER_NAME}
@@ -297,7 +300,12 @@ function Footer() {
           <strong>{F.product}</strong>
           <Link to={START_JOURNEY}>{t.common.nav.createBook}</Link>
           <a href="#pricing">{t.common.nav.pricing}</a>
-          <a href="/#worlds">{F.chooseWorld}</a>
+          {/* The picker's back arrow is a plain link to a fixed address — it cannot use the
+              browser's history the way the pages below it do — so it is told where this reader
+              came from. Without it, leaving the picker dropped them seven screens up the page. */}
+          <Link to="/themes" search={{ from: "footer" }}>
+            {F.chooseWorld}
+          </Link>
         </div>
         <div>
           <strong>{F.help}</strong>
@@ -317,7 +325,6 @@ function Footer() {
           <Link to="/terms">წესები და პირობები</Link>
         </div>
       </nav>
-      <p className="landing-v3-footer-bottom">{F.madeIn}</p>
     </footer>
   );
 }

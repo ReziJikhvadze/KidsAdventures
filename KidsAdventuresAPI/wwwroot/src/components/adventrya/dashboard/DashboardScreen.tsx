@@ -9,6 +9,7 @@ import {
   Package,
   Plus,
   Printer,
+  UserPlus,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useCanGoBack, useNavigate, useRouter } from "@tanstack/react-router";
@@ -37,7 +38,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -94,7 +94,10 @@ function readPendingRunId(): string | null {
  * one dark card at the foot carrying the world art with the six worlds along its bottom edge as a
  * track — the milestone a parent actually comes back for. `/world` redirects here.
  */
-export function DashboardScreen({ celebrationBookId }: { celebrationBookId?: string } = {}) {
+export function DashboardScreen({
+  celebrationBookId,
+  preferredCharacterId,
+}: { celebrationBookId?: string; preferredCharacterId?: string } = {}) {
   const t = useT();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [characters, setCharacters] = useState<CharacterResponse[]>([]);
@@ -115,6 +118,7 @@ export function DashboardScreen({ celebrationBookId }: { celebrationBookId?: str
   const router = useRouter();
   const canGoBack = useCanGoBack();
   const initialCelebrationBookId = useRef(celebrationBookId);
+  const initialPreferredCharacterId = useRef(preferredCharacterId);
   const consumedCelebrationBookId = useRef<string | null>(null);
   const WORLD_BY_ID = useWorldById();
   /*
@@ -161,8 +165,17 @@ export function DashboardScreen({ celebrationBookId }: { celebrationBookId?: str
         const byNewestBook = newestPack?.primaryCharacterId
           ? list.find((c) => c.id === newestPack.primaryCharacterId)
           : null;
+        /*
+          A child named in the address wins over the shelf's own guess: it is there because the
+          parent was just looking at that child somewhere else. Checked against the family, so a
+          stray id in a shared link cannot open a space that is not theirs.
+        */
+        const asked = initialPreferredCharacterId.current;
+        const askedFor = asked ? list.find((c) => c.id === asked) : null;
+
         let selected =
-          (byNewestBook ?? list.find((c) => c.isPrimary) ?? list[0] ?? null)?.id ?? null;
+          (askedFor ?? byNewestBook ?? list.find((c) => c.isPrimary) ?? list[0] ?? null)?.id ??
+          null;
 
         // A book handed over by the reader belongs to whichever child earned it, which is not
         // always the one whose shelf would otherwise open.
@@ -224,7 +237,12 @@ export function DashboardScreen({ celebrationBookId }: { celebrationBookId?: str
   useEffect(() => {
     if (!celebrationBookId || consumedCelebrationBookId.current === celebrationBookId) return;
     consumedCelebrationBookId.current = celebrationBookId;
-    void navigate({ to: "/dashboard", search: { bookId: undefined }, replace: true });
+    void navigate({
+      to: "/dashboard",
+      // Only the handoff is spent. A child named in the address is still whose space this is.
+      search: (prev) => ({ ...prev, bookId: undefined }),
+      replace: true,
+    });
   }, [celebrationBookId, navigate]);
 
   // A book still being drawn becomes ready without the parent refreshing: while any pack is
@@ -525,24 +543,23 @@ export function DashboardScreen({ celebrationBookId }: { celebrationBookId?: str
                       {c.id === characterId ? <Check aria-hidden="true" /> : null}
                     </DropdownMenuItem>
                   ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link
-                      to={addChildParts.to}
-                      search={addChildParts.search}
-                      hash={addChildParts.hash}
-                    >
-                      <span className="journey-child-add" aria-hidden="true">
-                        <Plus />
-                      </span>
-                      <span>
-                        <strong>{t.dashboard.sidebar.addChild}</strong>
-                      </span>
-                    </Link>
-                  </DropdownMenuItem>
+                  {/* Adding a child used to be the last line of this menu. It is a button of its
+                      own now, beside the switcher: the menu answers "whose space am I in", and
+                      the one thing in it that did not switch anybody was the one a parent with a
+                      second child had to go hunting through a list to find. */}
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}
+
+            <Link
+              className="journey-button journey-quiet-button"
+              to={addChildParts.to}
+              search={addChildParts.search}
+              hash={addChildParts.hash}
+            >
+              <UserPlus aria-hidden="true" />
+              {t.dashboard.sidebar.addChild}
+            </Link>
 
             <Link
               className="journey-button journey-primary-button"

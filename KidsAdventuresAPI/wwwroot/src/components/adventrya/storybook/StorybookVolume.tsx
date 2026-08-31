@@ -152,8 +152,13 @@ function StoryFace({
           <p>{t.story.storybook.backTap(heroName)}</p>
           {/* To the worlds, not to the form. `/create` opens on the questions — a name, a date
               of birth, a photograph — which is the wrong thing to meet at the end of a story you
-              have just read. The first step is choosing where the next one happens. */}
-          <a className="storybook-back-cta" href="/#worlds">
+              have just read. The first step is choosing where the next one happens.
+
+              `/themes` rather than the home page's own picker: this page is read inside a book,
+              often full-screen, and sending someone back to a section of the marketing page
+              means landing them halfway down it with the story still open behind. The dedicated
+              picker is the whole screen, which is what "choose the next world" should be. */}
+          <a className="storybook-back-cta" href="/themes">
             {t.story.storybook.backCta}
           </a>
         </div>
@@ -737,7 +742,7 @@ export function StorybookVolume({
                 three-column grid, and dropping the element outright slid "next" into the centre
                 and both buttons out of balance. */}
             <span
-              className="storybook-progress"
+              className={`storybook-progress${variant === "hero" ? " is-spacer" : ""}`}
               aria-live="polite"
               aria-hidden={variant === "hero" ? true : undefined}
               style={variant === "hero" ? { visibility: "hidden" } : undefined}

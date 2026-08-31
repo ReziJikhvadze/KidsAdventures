@@ -193,6 +193,25 @@
   background: var(--jw-violet);
 }
 
+/*
+  The second action in the row, and it is deliberately the quieter one.
+
+  Adding a child and making a book are both things a parent does from here, but only one of them
+  is what they came for. This is an outline where the other is solid — same height, so the row
+  reads as one line of controls, and `border` after `.journey-button`'s `border: 0` so it wins.
+*/
+.journey-quiet-button {
+  height: 52px;
+  padding: 0 20px;
+  border: 1px solid var(--jw-line);
+  color: var(--jw-ink);
+  background: var(--jw-paper);
+}
+.journey-quiet-button:hover {
+  border-color: var(--jw-violet);
+  color: var(--jw-violet);
+}
+
 /* ---- whose journey ------------------------------------------------------- */
 
 .journey-section-head {
@@ -624,7 +643,8 @@
   .journey-child-switch {
     justify-content: flex-start;
   }
-  .journey-primary-button {
+  .journey-primary-button,
+  .journey-quiet-button {
     width: 100%;
   }
   .journey-section-head {

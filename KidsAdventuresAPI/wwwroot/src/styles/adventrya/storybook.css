@@ -1089,3 +1089,40 @@
 .ux-generated-stage > .storybook-full {
   margin-top: 8px;
 }
+
+/*
+  The gap between "previous" and "next" when there is no counter between them.
+
+  On the home page the sample book has no page counter — it is a shop window, not a reader — but
+  the element stays in the grid as a spacer, because dropping it slid "next" into the centre and
+  put the two buttons out of balance. Holding a counter's width, though, it pushed them to
+  opposite edges of the book: two controls that belong to each other, standing as far apart as
+  the row allowed. A spacer only has to be wide enough to read as a gap.
+
+  Last in the file on purpose: it has to outrank the hero's own `min-width` in the 1181px block.
+*/
+.storybook-progress.is-spacer {
+  /*
+    `width`, not `min-width`: the label is hidden with `visibility`, so its text is still laid
+    out and still measured, and a minimum could never shrink the column below the width of a
+    sentence nobody can see.
+  */
+  width: 26px;
+  min-width: 0;
+  overflow: hidden;
+}
+@media (min-width: 1181px) {
+  .storybook-progress.is-spacer {
+    width: 34px;
+  }
+}
+@media (max-width: 430px) {
+  /*
+    Same gap, same reason, on a phone. The 70px middle track under the reader is holding a real
+    page counter; the one under the sample book on the home page is holding nothing, between two
+    buttons stretched to the edges of a 375px screen.
+  */
+  .landing-v3-hero-product .storybook-controls {
+    grid-template-columns: 1fr 30px 1fr;
+  }
+}

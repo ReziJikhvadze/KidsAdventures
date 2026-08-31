@@ -61,13 +61,15 @@ export function Header() {
         "Choose a world", and it goes to the choosing.
 
         It read "my world" and opened the parent's own cabinet — which is books, not worlds, and
-        means nothing to somebody who has not made one yet. It is an anchor to the section of
-        this page that holds the picker, so a visitor lands on the six islands with the page
-        still under them, and nobody is asked to sign in to look.
+        means nothing to somebody who has not made one yet. Nobody is asked to sign in to look.
+
+        `/themes` rather than the section of this page: the picker there is the whole screen,
+        with the six islands at the size they were painted. The anchor dropped a visitor into a
+        band of a very long page with the next section already showing underneath.
       */}
-      <a href="/#worlds" onClick={() => setMenuOpen(false)}>
+      <Link to="/themes" onClick={() => setMenuOpen(false)}>
         {t.common.nav.chooseWorld}
-      </a>
+      </Link>
     </>
   );
 
