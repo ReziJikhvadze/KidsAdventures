@@ -54,6 +54,7 @@
     <Content Update="Prompts\Beki\schemas\*.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\Beki\*.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\BekiComposite\**\*.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\BekiComposite\**\*.icc" CopyToOutputDirectory="PreserveNewest" />
     <Content Update="Assets\BekiComposite\**\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

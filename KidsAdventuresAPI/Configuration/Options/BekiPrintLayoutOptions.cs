@@ -122,15 +122,11 @@ public sealed class BekiPrintLayoutOptions
     public float PrintCropTolerance { get; set; } = 0.04f;
 
     /// <summary>
-    /// Where spread 8's Continue Adventure QR sends the reader. Used to be the closing page's own
-    /// code as well, back when one URL did both jobs; <see cref="ReviewQrUrl"/> is the one that
-    /// took over the closing page, so each code can be repointed without disturbing the other.
-    /// </summary>
-    public string EndingQrUrl { get; set; } = "https://beki.ge";
-
-    /// <summary>
-    /// Where the closing page's rate-us QR sends the reader — see <see cref="EndingQrUrl"/> for
-    /// the sibling that stayed behind on spread 8.
+    /// Where the book's one QR code — on the credits spread — sends the reader.
+    ///
+    /// One code by ruling, not by accident: the Locked Print Specification §6 places exactly one
+    /// QR in the book, on the credits/closing spread, and removed spread 8's Continue Adventure
+    /// chip with its second code. The destination stays configurable for v0.
     /// </summary>
     public string ReviewQrUrl { get; set; } = "https://beki.ge";
 
@@ -139,12 +135,6 @@ public sealed class BekiPrintLayoutOptions
 
     /// <summary>Printed under the QR code, saying what scanning it is for.</summary>
     public string EndingQrCaption { get; set; } = "შეაფასე ბეკის წიგნი";
-
-    /// <summary>
-    /// The short line beside spread 8's Continue Adventure QR, so the code reads as an invitation
-    /// rather than a bare square the reader has to guess the purpose of.
-    /// </summary>
-    public string ContinueCtaText { get; set; } = "განაგრძე თავგადასავალი ბეკისთან";
 
     /// <summary>
     /// The intro spread's dedication.

@@ -202,13 +202,14 @@ public class BekiSpecV2PrintTests
     }
 
     /// <summary>
-    /// Spread 8's Continue Adventure module shares the right column with the story text — the QR
-    /// tile must still land in the lower-right corner. Found rather than probed at a point: the
-    /// tile's quiet zone is white by construction and nothing else on that page is, so the white
-    /// pixels' own bounding box says where the code is.
+    /// Spread 8 carries no QR and no Continue Adventure chip — the opposite of what this test
+    /// used to prove. The Locked Print Specification §6 places exactly ONE code in the book, on
+    /// the credits spread, and removed the chip from the final story spread. Probed the same way
+    /// the old assertion found the tile: the tile's quiet zone was white by construction and
+    /// nothing else on a pure-green spread is, so any white patch here is the chip come back.
     /// </summary>
     [Fact]
-    public void Spread_8_still_carries_its_qr_tile_in_the_lower_right_corner()
+    public void Spread_8_carries_no_qr_chip_and_the_credits_page_carries_the_only_code()
     {
         var layout = BekiLayoutFixture.ScreenProofLayout();
         var plan = BekiLayoutFixture.EightSpreadPlan();
@@ -222,34 +223,39 @@ public class BekiSpecV2PrintTests
         // Cover, front endpapers, intro, then the eight spreads: the final spread is index 10.
         using var page = Image.Load<Rgba32>(pages[10]);
 
-        int minX = page.Width, maxX = -1, minY = page.Height, maxY = -1, white = 0;
+        var white = 0;
         for (var x = 0; x < page.Width; x++)
         {
             for (var y = 0; y < page.Height; y++)
             {
                 var pixel = page[x, y];
-                if (pixel.R < 235 || pixel.G < 235 || pixel.B < 235) continue;
-
-                white++;
-                if (x < minX) minX = x;
-                if (x > maxX) maxX = x;
-                if (y < minY) minY = y;
-                if (y > maxY) maxY = y;
+                if (pixel.R >= 235 && pixel.G >= 235 && pixel.B >= 235)
+                {
+                    white++;
+                }
             }
         }
 
-        Assert.True(white > 500, $"Spread 8's QR tile was not found ({white} white pixels).");
-        Assert.True(minX > page.Width / 2, $"The QR tile must be on the right leaf; it starts at x={minX}.");
-        Assert.True(minY > page.Height / 2, $"The QR tile must be in the lower half; it starts at y={minY}.");
+        Assert.True(white < 500, $"Spread 8 shows a white tile again ({white} white pixels) — the chip is back.");
 
-        // Inset from the trim by the safe margin, measured from the bled sheet — the module is the
-        // one element on the page a scanner has to find, so it holds a full margin from the cut.
-        const double pxPerMm = 96.0 / 25.4;
-        var rightInsetMm = (page.Width - maxX) / pxPerMm;
-        var bottomInsetMm = (page.Height - maxY) / pxPerMm;
+        // The one code the book has left, on the credits spread (index 11), on its right leaf.
+        using var credits = Image.Load<Rgba32>(pages[11]);
 
-        Assert.True(rightInsetMm >= 12, $"The QR tile is only {rightInsetMm:F1}mm from the sheet's right edge.");
-        Assert.True(bottomInsetMm >= 12, $"The QR tile is only {bottomInsetMm:F1}mm from the sheet's bottom edge.");
+        int minX = credits.Width, creditsWhite = 0;
+        for (var x = 0; x < credits.Width; x++)
+        {
+            for (var y = 0; y < credits.Height; y++)
+            {
+                var pixel = credits[x, y];
+                if (pixel.R < 235 || pixel.G < 235 || pixel.B < 235) continue;
+
+                creditsWhite++;
+                if (x < minX) minX = x;
+            }
+        }
+
+        Assert.True(creditsWhite > 500, $"The credits QR tile was not found ({creditsWhite} white pixels).");
+        Assert.True(minX > credits.Width / 2, $"The credits QR must sit on the right leaf; it starts at x={minX}.");
     }
 
     [Fact]

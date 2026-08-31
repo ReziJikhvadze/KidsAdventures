@@ -161,12 +161,13 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private const float WashRadiusMm = 4f;
 
     /// <summary>
-    /// The wash ink behind the outlined cover title and the Continue Adventure chip — the one place
-    /// left in the book where type is set light over artwork, because a cover title is a picture.
+    /// The wash ink behind the outlined cover title — the one place left in the book where type
+    /// is set light over artwork, because a cover title is a picture. The Continue Adventure chip
+    /// shared this ink until the Locked Print Specification §6 removed it with its QR.
     /// </summary>
     private const string TextWashInk = "0D071D";
 
-    /// <summary>The glyph outline and the chip ground are the same ink, so they read as one shadow.</summary>
+    /// <summary>The glyph outline in the wash's own ink, so the rim reads as one shadow.</summary>
     private static readonly Color OutlineColor = Color.FromHex("#" + TextWashInk);
 
     /// <summary>
@@ -175,43 +176,6 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// the spreads' dark ground.
     /// </summary>
     private static readonly Color EndpaperPaper = Color.FromHex("#F3E7D2");
-
-    /// <summary>Roughly the handoff's ~22–26mm ask for the spread-8 Continue Adventure code.</summary>
-    private const float ContinueQrSizeMm = 24f;
-
-    /// <summary>
-    /// The Continue Adventure module, in millimetres.
-    ///
-    /// One chip, sized here rather than left to the layout, because every number in it depends on
-    /// every other: the text gets whatever the chip's inner width has left after the QR tile and
-    /// the gap between them, and a relative split would make that width something only a rendered
-    /// page could tell you — which is exactly the number <see cref="OutlinedText"/> needs in
-    /// advance to raster against.
-    /// </summary>
-    private const float CtaChipWidthMm = 118f;
-    private const float CtaChipPaddingMm = 5f;
-    private const float CtaChipGapMm = 5f;
-    private const float CtaChipRadiusMm = 7f;
-
-    /// <summary>
-    /// The white border around the QR inside its tile. A code needs a quiet zone — four modules of
-    /// blank on every side — or scanners hunting for its finder patterns give up. QRCoder already
-    /// encodes those four modules into the PNG; this tile is the second guarantee, so the code
-    /// keeps its margin even against a chip ground that is nearly the same value as the code.
-    /// </summary>
-    private const float QrQuietZoneMm = 2.5f;
-    private const float QrTileRadiusMm = 2f;
-
-    /// <summary>What the chip leaves for the CTA line once the QR and the gap are paid for.</summary>
-    private const float CtaTextWidthMm =
-        CtaChipWidthMm - (CtaChipPaddingMm * 2f) - CtaChipGapMm - ContinueQrSizeMm;
-
-    /// <summary>
-    /// The chip's own ground: the wash ink, mostly opaque. The story wash is a box around the copy
-    /// at the top of the column and has nothing to say in this corner, so the module brings its own
-    /// quiet rather than borrowing one that is not there.
-    /// </summary>
-    private static readonly Color CtaChipInk = Color.FromHex("#C80D071D");
 
     /// <summary>Points per millimetre, both ways, in one place.</summary>
     private const float PointsPerMm = 72f / 25.4f;
@@ -320,7 +284,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         _ = BekiMark();
         var mark = Engine.Value.Registry.Pose(_assets.BekiMarkPoseId);
         _logger.LogInformation(
-            "Beki PDF: credits/back-cover mark resolved — pose {PoseId}, file {FileName}, "
+            "Beki PDF: credits mark resolved — pose {PoseId}, file {FileName}, "
             + "sha256 {Sha256}.",
             mark.Id, mark.FileName, mark.Sha256);
 
@@ -688,9 +652,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     }
 
     /// <summary>
-    /// The back cover: quiet on purpose. A cover carries the illustration the customer paid for;
-    /// the back of the book carries none of that, so it gets a small mark and the address —
-    /// nothing a browsing shelf needs more than that.
+    /// The back cover: quiet on purpose, and since the Locked Print Specification §6, without a
+    /// Beki on it — "keep the back cover environment-only, without a Beki character or draft
+    /// wordmark". The mark that used to sit here belongs to the credits spread, the one place §6
+    /// approves it. What remains is the address, which is type, not a character.
     /// </summary>
     private void ComposeBackCover(IDocumentContainer container)
     {
@@ -703,9 +668,6 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 .Column(column =>
                 {
                     column.Spacing(10);
-
-                    column.Item().AlignCenter().Width(24, Unit.Millimetre)
-                        .Image(BekiMark()).FitWidth();
 
                     // Literal rather than an option: nothing before this needed the brand
                     // address configurable, and adding a setting nobody will ever change is a
@@ -736,20 +698,15 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         var textSide = Prompts.BekiSpreadRhythm.TextSideFor(spread.Number);
         var textOnLeft = textSide.Equals("left", StringComparison.OrdinalIgnoreCase);
 
-        var isSpread8 = spread.Number == BookFormat.SpreadCount;
+        // Spread 8 is an ordinary spread. It carried a Continue Adventure chip with a second QR
+        // until the Locked Print Specification §6 ruled: exactly one QR in the book, on the
+        // credits spread — the chip and its zone reservation are gone, and the last story page
+        // got its full text column back.
         var outerPaddingMm = _layout.SafeMarginMm;
         var innerPaddingMm = InnerPaddingMm;
 
-        // Spread 8's Continue Adventure module shares the text column: the copy at the top, the
-        // chip anchored at the bottom of the same region. The only extra reservation is the bleed
-        // on the bottom edge (the chip holds the full safe margin from the *trim*, and the column's
-        // padding is measured from the bled sheet).
-        var bottomExtraMm = isSpread8 ? _layout.BleedMm : 0f;
-        var chipZoneMm = isSpread8 ? ContinueQrSizeMm + (CtaChipPaddingMm * 2f) + 4f : 0f;
-
         var usableHeightPt = SheetHeightPt(_layout.SpreadHeightMm)
-            - MmToPt((outerPaddingMm * 2f) + bottomExtraMm)
-            - MmToPt(chipZoneMm);
+            - MmToPt(outerPaddingMm * 2f);
 
         // Decided before the page is laid out, because the ladder is allowed to fail the book and a
         // failure has to happen before any of it is drawn.
@@ -776,7 +733,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
                     row.RelativeItem(_layout.TextColumnShare)
                         .PaddingTop(outerPaddingMm, Unit.Millimetre)
-                        .PaddingBottom(outerPaddingMm + bottomExtraMm, Unit.Millimetre)
+                        .PaddingBottom(outerPaddingMm, Unit.Millimetre)
                         .PaddingLeft(textOnLeft ? outerPaddingMm : innerPaddingMm, Unit.Millimetre)
                         .PaddingRight(textOnLeft ? innerPaddingMm : outerPaddingMm, Unit.Millimetre)
                         // Upper-left, per the approved spread-1 reference: the copy starts at the
@@ -810,16 +767,6 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                     if (textOnLeft) row.RelativeItem(1f - _layout.TextColumnShare);
                 });
 
-                /*
-                  Spread 8's module is a page-level overlay rather than an item in the text column —
-                  a column cannot hand an item its leftover height — so the non-overlap guarantee
-                  lives in the step-down ladder instead: the height the copy is fitted against
-                  subtracts the chip's zone, from one shared set of constants.
-                */
-                if (isSpread8)
-                {
-                    layers.Layer().Element(ComposeContinueAdventureCta);
-                }
             });
         });
     }
@@ -980,87 +927,13 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     }
 
     /// <summary>
-    /// The Continue Adventure overlay: the lower-right corner of the spread's right page. The
-    /// corner holds back by the safe margin <em>plus the bleed</em> — measured from the bled
-    /// sheet, a bare safe margin puts the module closer to the trim than the number promises, fine
-    /// for a wash, not fine for the one element on the page a scanner has to find.
-    /// </summary>
-    private void ComposeContinueAdventureCta(IContainer container)
-    {
-        var inset = _layout.SafeMarginMm + _layout.BleedMm;
-
-        container.Row(row =>
-        {
-            row.RelativeItem(); // the left page: nothing here may touch the fold or the picture
-            row.RelativeItem()
-                .Padding(inset, Unit.Millimetre)
-                .AlignBottom()
-                .AlignRight()
-                .Element(ComposeContinueAdventureChip);
-        });
-    }
-
-    /// <summary>
-    /// One branded module rather than two loose things in a corner: a single rounded chip with its
-    /// own soft ground, so the line and the code read as one object the eye takes in at once.
-    ///
-    /// Every dimension is fixed rather than relative: the CTA line's width has to be known before
-    /// layout runs, because <see cref="OutlinedText"/> rasters the outline against exactly that
-    /// width. See <see cref="CtaChipWidthMm"/>.
-    /// </summary>
-    private void ComposeContinueAdventureChip(IContainer container)
-    {
-        var hasQr = !string.IsNullOrWhiteSpace(_layout.EndingQrUrl);
-
-        // A code that scans to nothing is worse than no code, so a blank URL drops the QR and the
-        // chip closes up around the line — the same stance the credits page takes on its own code.
-        var textWidthMm = hasQr
-            ? CtaTextWidthMm
-            : CtaChipWidthMm - (CtaChipPaddingMm * 2f);
-
-        container
-            .Width(CtaChipWidthMm, Unit.Millimetre)
-            .Shadow(new BoxShadowStyle
-            {
-                OffsetX = 0f,
-                OffsetY = MmToPt(1f),
-                Blur = MmToPt(3.5f),
-                Spread = 0f,
-                Color = Color.FromHex("#500D071D"),
-            })
-            .Background(CtaChipInk)
-            .CornerRadius(CtaChipRadiusMm, Unit.Millimetre)
-            .Padding(CtaChipPaddingMm, Unit.Millimetre)
-            .Row(row =>
-            {
-                row.Spacing(CtaChipGapMm, Unit.Millimetre);
-
-                row.RelativeItem().AlignMiddle().Element(item => OutlinedText(
-                    item, _layout.ContinueCtaText, _layout.StoryFontSize * 0.65f, 1.3f,
-                    TextColor, OutlineColor, MmToPt(textWidthMm)));
-
-                if (!hasQr)
-                {
-                    return;
-                }
-
-                row.ConstantItem(ContinueQrSizeMm, Unit.Millimetre)
-                    .AlignMiddle()
-                    .Background(Colors.White)
-                    .CornerRadius(QrTileRadiusMm, Unit.Millimetre)
-                    .Padding(QrQuietZoneMm, Unit.Millimetre)
-                    .Svg(QrSvg(_layout.EndingQrUrl))
-                    .FitWidth();
-            });
-    }
-
-    /// <summary>
     /// Light type with its own dark edge, drawn entirely as vector text.
     ///
-    /// Two callers are left: the cover title and the Continue Adventure line. Both set light type
-    /// straight onto artwork, where a wash cannot be relied on and a glyph needs a rim of its own.
-    /// The story text no longer comes through here at all — it is vector Noto on a cream box, which
-    /// is what §6 Step 8 asks for and what the supplier's audit found missing.
+    /// One caller is left: the cover title, which sets light type straight onto artwork, where a
+    /// wash cannot be relied on and a glyph needs a rim of its own. The Continue Adventure line
+    /// was the other until the Locked Print Specification removed its chip; the story text never
+    /// comes through here at all — it is vector Noto on a cream box, which is what §6 Step 8 asks
+    /// for and what the supplier's audit found missing.
     ///
     /// This used to be a raster: the nine-copy stack rendered to a PNG at 300 DPI with one
     /// invisible text run over it, so that <c>pdftotext</c> said each line once. The supplier's

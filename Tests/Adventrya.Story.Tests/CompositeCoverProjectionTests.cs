@@ -121,14 +121,14 @@ public class CompositeCoverProjectionTests
     }
 
     /// <summary>
-    /// The print slot never points at the hybrid again. With print prep unconfigured — this
-    /// deployment's actual state, the FOGRA39 profile being an owner-side input — the interior
-    /// is composed, the stage refuses, and the slot is explicitly cleared: a withheld print
-    /// artifact with a named reason, not a layout export wearing a print label. The parent's
-    /// reading copy ships regardless.
+    /// The print slot never points at the hybrid again. Print prep runs with the locked spec's
+    /// own defaults now, and this world's stub composer hands it a torn-off header instead of a
+    /// document — so the stage refuses, and the refusal must clear the slot explicitly: a
+    /// withheld print artifact with a named reason, not a layout export wearing a print label.
+    /// The parent's reading copy ships regardless.
     /// </summary>
     [Fact]
-    public async Task The_print_slot_is_withheld_until_print_prep_can_actually_run()
+    public async Task The_print_slot_is_withheld_when_print_prep_refuses()
     {
         var world = new PackWorld();
 

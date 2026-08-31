@@ -10,36 +10,69 @@ using PdfSharp.Pdf.IO;
 namespace Adventrya.Story.Tests;
 
 /// <summary>
-/// The print-preparation stage: what it refuses, and what a file that passes it can prove.
+/// The print-preparation stage under the Locked Print Specification v1: the exact FOGRA39
+/// profile ships with the assets and is hash-pinned, all-CMYK is the printer's locked ruling,
+/// and Ghostscript performs the conversion. What these pin is the same as before the spec —
+/// every missing or wrong input is a named refusal, and a file that passes carries claims a
+/// press-side preflight can verify — with the locked values now the defaults.
 ///
-/// The supplier's audit found the previous "print" file was a bare layout export — PDF 1.7, no
-/// PDF/X identification, no output intent, no preflight — and nothing recorded that the real
-/// stage had been skipped. These pin the replacement's two halves: every missing input is a
-/// named refusal, and a prepared file carries the claims a press-side preflight looks for.
+/// The conversion tests exercise the real Ghostscript binary; spec §5 makes it a required
+/// deployment dependency, so a machine without it fails these tests the way a deployment
+/// without it would fail print prep: loudly and by name.
 /// </summary>
 public class BekiPrintPrepTests
 {
     [Fact]
-    public void With_no_icc_profile_configured_the_stage_refuses_and_names_the_owner_item()
+    public void The_locked_profile_ships_with_the_assets_and_matches_its_pinned_hash()
     {
+        var options = new BekiPrintPrepOptions();
+
+        var path = Path.Combine(AppContext.BaseDirectory, options.OutputIntentIccPath);
+        Assert.True(File.Exists(path), $"the locked ICC profile is not in the published output at {path}");
+
+        var bytes = File.ReadAllBytes(path);
+        Assert.Equal(121_368, bytes.Length);
+        Assert.Equal(
+            options.OutputIntentIccSha256,
+            Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant());
+    }
+
+    [Fact]
+    public void An_unset_profile_path_is_refused()
+    {
+        var options = new BekiPrintPrepOptions { OutputIntentIccPath = string.Empty };
+
         var failure = Assert.Throws<BekiLayoutException>(() =>
-            BekiPrintPrep.Prepare(InteriorPdf(), "ტესტი", new BekiPrintPrepOptions()));
+            BekiPrintPrep.Prepare(InteriorPdf(), "ტესტი", options));
 
         Assert.Equal("PRINT_PREFLIGHT_FAILED", failure.FailureCode);
         Assert.Contains("OutputIntentIccPath", failure.Message);
     }
 
     [Fact]
-    public void A_cmyk_ruling_the_stage_cannot_honour_is_refused_rather_than_faked()
+    public void A_profile_that_does_not_match_the_locked_hash_is_refused()
     {
-        var options = ConfiguredOptions();
-        options.RequireAllCmyk = true;
+        var path = Path.Combine(Path.GetTempPath(), $"swapped-{Guid.NewGuid():N}.icc");
+        var bytes = new byte[200];
+        bytes[36] = (byte)'a';
+        bytes[37] = (byte)'c';
+        bytes[38] = (byte)'s';
+        bytes[39] = (byte)'p';
+        File.WriteAllBytes(path, bytes);
 
-        var failure = Assert.Throws<BekiLayoutException>(() =>
-            BekiPrintPrep.Prepare(InteriorPdf(), "ტესტი", options));
+        try
+        {
+            var failure = Assert.Throws<BekiLayoutException>(() =>
+                BekiPrintPrep.Prepare(
+                    InteriorPdf(), "ტესტი",
+                    new BekiPrintPrepOptions { OutputIntentIccPath = path }));
 
-        Assert.Equal("PRINT_PREFLIGHT_FAILED", failure.FailureCode);
-        Assert.Contains("CMYK", failure.Message);
+            Assert.Contains("not the locked", failure.Message);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
     }
 
     [Fact]
@@ -53,7 +86,13 @@ public class BekiPrintPrepTests
             var failure = Assert.Throws<BekiLayoutException>(() =>
                 BekiPrintPrep.Prepare(
                     InteriorPdf(), "ტესტი",
-                    new BekiPrintPrepOptions { OutputIntentIccPath = path }));
+                    new BekiPrintPrepOptions
+                    {
+                        OutputIntentIccPath = path,
+                        // The hash gate would fire first and correctly; blank it so this test
+                        // reaches the signature check it is about.
+                        OutputIntentIccSha256 = string.Empty,
+                    }));
 
             Assert.Contains("acsp", failure.Message);
         }
@@ -63,15 +102,31 @@ public class BekiPrintPrepTests
         }
     }
 
+    [Fact]
+    public void A_missing_ghostscript_is_refused_by_name()
+    {
+        var options = new BekiPrintPrepOptions
+        {
+            GhostscriptPath = "/definitely/not/gs-" + Guid.NewGuid().ToString("N"),
+        };
+
+        var failure = Assert.Throws<BekiLayoutException>(() =>
+            BekiPrintPrep.Prepare(InteriorPdf(), "ტესტი", options));
+
+        Assert.Equal("PRINT_PREFLIGHT_FAILED", failure.FailureCode);
+        Assert.Contains("Ghostscript", failure.Message);
+    }
+
     /// <summary>
-    /// The happy path, checked the way a press-side preflight checks it: the PDF/X-4 claim in
-    /// XMP, the GTS_PDFX output intent with the profile embedded, the boxes intact through the
-    /// rewrite, and a report that says what was and was not done.
+    /// The full locked pipeline: Ghostscript converts every raster to CMYK through the locked
+    /// profile, the PDF/X-4 claims are stamped, the boxes are re-stated on the converted file,
+    /// and the report says what happened. Checked the way a press-side preflight checks it.
     /// </summary>
     [Fact]
-    public void A_prepared_interior_carries_the_pdfx_claims_and_a_truthful_report()
+    public void A_prepared_interior_is_cmyk_pdfx4_with_a_truthful_report()
     {
-        var (pdf, reportJson) = BekiPrintPrep.Prepare(InteriorPdf(), "ტესტი", ConfiguredOptions());
+        var (pdf, reportJson) = BekiPrintPrep.Prepare(
+            InteriorPdf(), "ტესტი", new BekiPrintPrepOptions());
 
         var text = System.Text.Encoding.Latin1.GetString(pdf);
         Assert.Contains("/GTS_PDFX", text);
@@ -80,41 +135,62 @@ public class BekiPrintPrepTests
         Assert.Contains("PDF/X-4", text);
         Assert.Contains("/Metadata", text);
         Assert.Contains("/Trapped", text);
-
-        // The rewrite kept every page and its print boxes.
-        Assert.Equal(
-            BookFormat.SpreadCount + 4,
-            System.Text.RegularExpressions.Regex.Matches(text, @"/Type\s*/Page[^s]").Count);
         Assert.Contains("/TrimBox", text);
         Assert.Contains("/BleedBox", text);
 
-        // And the file still opens as a PDF — a claim stapled onto a broken document would be
-        // worse than no claim.
-        using var reopened = PdfReader.Open(new MemoryStream(pdf), PdfDocumentOpenMode.InformationOnly);
+        // The converted file still opens, with every page intact.
+        using (var reopened = PdfReader.Open(new MemoryStream(pdf), PdfDocumentOpenMode.InformationOnly))
+        {
+            Assert.Equal(BookFormat.SpreadCount + 4, reopened.PageCount);
+        }
 
         using var report = JsonDocument.Parse(reportJson);
         var root = report.RootElement;
 
         Assert.Equal("PDF/X-4", root.GetProperty("pdfx").GetProperty("version").GetString());
         Assert.Equal(
-            "Coated FOGRA39",
-            root.GetProperty("pdfx").GetProperty("output_condition_info").GetString());
+            new BekiPrintPrepOptions().OutputIntentIccSha256,
+            root.GetProperty("pdfx").GetProperty("icc_profile_sha256").GetString());
+        Assert.Equal("FOGRA39L Coated", root.GetProperty("pdfx").GetProperty("output_condition_info").GetString());
 
-        // Every font the inspector found is embedded — QuestPDF subsets and embeds, and the
-        // stage fails outright on one that is not.
+        // The ruling and the conversion are both on the record …
+        Assert.True(root.GetProperty("colour").GetProperty("require_all_cmyk").GetBoolean());
+        Assert.Contains("ghostscript", root.GetProperty("colour").GetProperty("conversion").GetString());
+
+        // … and no colour raster is RGB. Grey soft masks are transparency and stay grey.
+        var spaces = root.GetProperty("colour").GetProperty("image_colour_spaces")
+            .EnumerateObject()
+            .Select(entry => entry.Name)
+            .ToList();
+        Assert.NotEmpty(spaces);
+        Assert.DoesNotContain(spaces, space =>
+            !space.Contains("soft mask") && (space.Contains("RGB") || space.Contains("ICCBased(3)")));
+
+        // Fonts survived conversion embedded.
         var fonts = root.GetProperty("fonts").EnumerateArray().ToList();
         Assert.NotEmpty(fonts);
         Assert.All(fonts, font => Assert.True(font.GetProperty("embedded").GetBoolean()));
 
-        // Twelve interior pages, each with its boxes on the record.
         Assert.Equal(BookFormat.SpreadCount + 4, root.GetProperty("pages").GetArrayLength());
+    }
 
-        // The report never claims the renderer checks it did not run, and records that the CMYK
-        // ruling is still the printer's to give.
-        Assert.Contains("not run", root.GetProperty("renderers").GetProperty("poppler").GetString());
-        Assert.Contains(
-            "unconfirmed",
-            root.GetProperty("colour").GetProperty("ruling").GetString());
+    /// <summary>
+    /// The cover geometry: the locked spec sets every cover box equal, so a zero trim inset must
+    /// produce TrimBox == MediaBox on the prepared file.
+    /// </summary>
+    [Fact]
+    public void A_zero_trim_inset_makes_every_box_the_media_box()
+    {
+        var (pdf, _) = BekiPrintPrep.Prepare(
+            InteriorPdf(), "ტესტი", new BekiPrintPrepOptions(), trimInsetMm: 0f);
+
+        using var document = PdfReader.Open(new MemoryStream(pdf), PdfDocumentOpenMode.InformationOnly);
+
+        foreach (var page in document.Pages)
+        {
+            Assert.Equal(page.MediaBox.Width, page.TrimBox.Width, 2);
+            Assert.Equal(page.MediaBox.Height, page.TrimBox.Height, 2);
+        }
     }
 
     // -------------------------------------------------------------------------------------------
@@ -161,25 +237,4 @@ public class BekiPrintPrepTests
 
     private static byte[] PixelPng() => Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
-
-    private static BekiPrintPrepOptions ConfiguredOptions() =>
-        new() { OutputIntentIccPath = FakeIccPath.Value };
-
-    /// <summary>
-    /// A structurally valid stand-in profile — the 'acsp' signature is all the stage verifies,
-    /// because verifying colorimetry is the real profile's job and the real profile is the
-    /// owner-side deliverable these tests must not wait for.
-    /// </summary>
-    private static readonly Lazy<string> FakeIccPath = new(() =>
-    {
-        var bytes = new byte[200];
-        bytes[36] = (byte)'a';
-        bytes[37] = (byte)'c';
-        bytes[38] = (byte)'s';
-        bytes[39] = (byte)'p';
-
-        var path = Path.Combine(Path.GetTempPath(), $"fake-fogra39-{Guid.NewGuid():N}.icc");
-        File.WriteAllBytes(path, bytes);
-        return path;
-    });
 }
