@@ -149,35 +149,44 @@ public static class CompositeDeterministicChecks
         }
 
         var measured = CompositeSeamRepair.MeasureCentreField(png!);
-        if (!measured.Exceeded)
+
+        // Refusal is reserved for the overlay's own signature: a straight full-height boundary
+        // AND a sustained one-way level shift, together. One reading alone is what honest art
+        // does — a trunk near centre, a calm side against a busy one — and costs a warning, not
+        // an order. The first live v1.5 book is the calibration: its clean page sat at
+        // 38.7%/49.3% and its sibling was refused twice at 69% field with the edge quiet.
+        if (!measured.Severe)
         {
             return [];
         }
 
-        var readings = new List<string>();
-
-        if (measured.EdgeCoverage >= CompositeSeamRepair.EdgeCoverageLimit)
-        {
-            readings.Add(
-                $"a tonal edge at column {measured.EdgeColumn} runs through "
-                + $"{measured.EdgeCoverage:P0} of the rows (limit "
-                + $"{CompositeSeamRepair.EdgeCoverageLimit:P0})");
-        }
-
-        if (measured.FieldCoverage >= CompositeSeamRepair.FieldCoverageLimit)
-        {
-            readings.Add(
-                $"the two sides of column {measured.FieldColumn} disagree one-way in "
-                + $"{measured.FieldCoverage:P0} of the rows (limit "
-                + $"{CompositeSeamRepair.FieldCoverageLimit:P0})");
-        }
-
         return
         [
-            "the picture does not continue across the centre: "
-            + string.Join(", and ", readings)
-            + ". A veil or seam this large is painted into the artwork and cannot be repaired."
+            "the picture does not continue across the centre: a tonal edge at column "
+            + $"{measured.EdgeColumn} runs through {measured.EdgeCoverage:P0} of the rows (severe "
+            + $"limit {CompositeSeamRepair.SevereEdgeCoverageLimit:P0}) and the two sides of "
+            + $"column {measured.FieldColumn} disagree one-way in {measured.FieldCoverage:P0} of "
+            + $"the rows (severe limit {CompositeSeamRepair.SevereFieldCoverageLimit:P0}). Both "
+            + "together are an overlay's signature, not a composition's."
         ];
+    }
+
+    /// <summary>
+    /// The advisory tier: a reading past the ordinary limits but short of severe. One line for
+    /// the log and the human who reads it, never a refusal — the cost of a missed borderline is
+    /// a second look, and the cost of refusing honest art is a stopped paid order.
+    /// </summary>
+    public static string? CentreFieldWarning(byte[] png)
+    {
+        var measured = CompositeSeamRepair.MeasureCentreField(png);
+
+        return measured.Exceeded && !measured.Severe
+            ? $"centre-field advisory: edge {measured.EdgeCoverage:P0} at column "
+              + $"{measured.EdgeColumn}, one-way field {measured.FieldCoverage:P0} at column "
+              + $"{measured.FieldColumn} (advisory limits "
+              + $"{CompositeSeamRepair.EdgeCoverageLimit:P0}/"
+              + $"{CompositeSeamRepair.FieldCoverageLimit:P0})"
+            : null;
     }
 
     /// <summary>

@@ -65,12 +65,25 @@ public sealed record CentreFieldMeasurement(
     double EdgeCoverage, int EdgeColumn, double FieldCoverage, int FieldColumn)
 {
     /// <summary>
-    /// Whether either reading crosses its limit — the audit's own acceptance test, inverted: "no
-    /// centre-aligned discontinuity affecting most of the image height".
+    /// Whether either reading crosses its advisory limit — worth a warning in the log and a
+    /// second look from a human, not worth a stopped order on its own.
     /// </summary>
     public bool Exceeded =>
         EdgeCoverage >= CompositeSeamRepair.EdgeCoverageLimit
         || FieldCoverage >= CompositeSeamRepair.FieldCoverageLimit;
+
+    /// <summary>
+    /// Whether BOTH readings cross their severe limits — a straight full-height boundary AND a
+    /// sustained one-way level shift at once, which is the audited overlay's signature and not a
+    /// composition's. Only this tier refuses a picture. The first live book under the v1.5
+    /// prompt is why the tiers exist: a page with no veil at all measured 38.7%/49.3% — a tree
+    /// trunk near centre, a calm text side against a busy action side, both of them things the
+    /// prompt itself asks for — and the single-tier gate failed its sibling twice and stopped a
+    /// paid order over what the evidence says was art.
+    /// </summary>
+    public bool Severe =>
+        EdgeCoverage >= CompositeSeamRepair.SevereEdgeCoverageLimit
+        && FieldCoverage >= CompositeSeamRepair.SevereFieldCoverageLimit;
 }
 
 /// <summary>
@@ -155,14 +168,27 @@ public static class CompositeSeamRepair
     public const double FieldRowStep = 15.0;
 
     /// <summary>
-    /// The one-directional field coverage above which a picture is refused.
+    /// The one-directional field coverage above which a picture is worth a warning.
     ///
-    /// The sign discipline is what makes 0.55 safe: the supplier's approved fixture base — a
-    /// legitimately asymmetric composition whose halves differ by 52 luma — reaches only 43%
-    /// because its differences point both ways, while a veil lifts one whole side and the veiled
-    /// bases that evade the edge reading measure 56% to 100% here.
+    /// The sign discipline is what makes 0.55 a useful advisory line: the supplier's approved
+    /// fixture base — a legitimately asymmetric composition whose halves differ by 52 luma —
+    /// reaches only 43% because its differences point both ways, while a veil lifts one whole
+    /// side and the veiled bases that evade the edge reading measure 56% to 100% here.
     /// </summary>
     public const double FieldCoverageLimit = 0.55;
+
+    /// <summary>
+    /// The edge coverage half of the refusal tier. A picture is only refused when BOTH severe
+    /// limits are crossed together: the audited veils that were unmistakably overlays measured
+    /// high on both at once (the rejected book's clearest pages sat at 75-100% edge with 70-100%
+    /// field), while the failure modes of honest art are one-sided — a trunk near centre raises
+    /// the edge alone, an asymmetric composition raises the field alone. The first live v1.5
+    /// book's clean page measured 38.7%/49.3%; both severe limits sit well above it.
+    /// </summary>
+    public const double SevereEdgeCoverageLimit = 0.55;
+
+    /// <summary>The field coverage half of the refusal tier — see <see cref="SevereEdgeCoverageLimit"/>.</summary>
+    public const double SevereFieldCoverageLimit = 0.65;
 
     /// <summary>
     /// Measures the centre of one PNG.

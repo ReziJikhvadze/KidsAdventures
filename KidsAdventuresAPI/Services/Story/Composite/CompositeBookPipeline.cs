@@ -1809,6 +1809,16 @@ public sealed class CompositeBookPipeline(
             regenerated = true;
             baseAttempts++;
         }
+        else if (CompositeDeterministicChecks.CentreFieldWarning(basePng) is { } fieldAdvisory)
+        {
+            // The tier between clean and refused: said out loud and left alone. The first live
+            // v1.5 book is why — its clean anchor page measured within a few points of the old
+            // single-tier limit, and a warning here is what lets the thresholds be re-judged
+            // from real pages instead of from a stopped order.
+            logger.LogWarning(
+                "Composite pipeline {JobId} spread {Page}: {Advisory}.",
+                context.JobId, page.Page, fieldAdvisory);
+        }
 
         // One row per generate-and-review cycle, kept whether it passed or not. A page that shipped
         // on its second attempt is a page whose first verdict is the only record of what was wrong,
@@ -2052,8 +2062,10 @@ public sealed class CompositeBookPipeline(
         var normalized = NormalizeToSpread(context, page.Page, rawPng);
 
         // The regeneration was the budget; a second picture that still fails the centre-field
-        // gate ends the spread here, before a review is bought for a page that cannot ship. The
-        // failure names the measurement so the log reads like the audit that mandated it.
+        // gate ends the spread here, before a review is bought for a page that cannot ship —
+        // and the refused picture travels with the failure. The first refusal of a live book
+        // left nothing behind to judge the gate by, which turned a debugging question into an
+        // argument about thresholds; a stopped order must always carry its evidence.
         var field = CompositeDeterministicChecks.CentreFieldProblems(normalized);
         if (field.Count > 0)
         {
@@ -2062,7 +2074,20 @@ public sealed class CompositeBookPipeline(
                 $"The regenerated base image for spread {page.Page} still fails the centre-field "
                 + $"gate: {string.Join(" ", field)}")
             {
-                Page = page.Page
+                Page = page.Page,
+                Evidence = new CompositeFailureEvidence(
+                    page.Page,
+                    normalized,
+                    JsonSerializer.Serialize(
+                        new
+                        {
+                            page = page.Page,
+                            failure_code = CompositeFailureCodes.ImageGenerationFailed,
+                            gate = "centre-field",
+                            problems = field,
+                            image_prompt_version = CompositeIllustrationPrompt.Version,
+                        },
+                        CompositeJson.Readable)),
             };
         }
 

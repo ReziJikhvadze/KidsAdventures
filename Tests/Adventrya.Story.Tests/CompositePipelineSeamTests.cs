@@ -272,6 +272,27 @@ public class CompositePipelineSeamTests : CompositePipelineTestBase
     }
 
     /// <summary>
+    /// The advisory tier: a reading past the ordinary limits but short of severe warns and
+    /// changes nothing. The first live v1.5 book is the reason the tier exists — a clean page
+    /// measured within a few points of the old single-tier limit, and its sibling was refused
+    /// twice over what the evidence says was composition, killing a paid order.
+    /// </summary>
+    [Fact]
+    public void A_borderline_reading_warns_and_is_not_refused()
+    {
+        // A faint one-way lift: enough to push the field reading past its advisory limit, far
+        // too gentle for the razor edge that makes a reading severe.
+        var faint = WithVeil(Gradient(1536, 717), leftSide: true, lift: 0.10, shoulderColumns: 24);
+
+        var measured = CompositeSeamRepair.MeasureCentreField(faint);
+        Assert.True(measured.Exceeded, $"the faint lift only measured {measured.FieldCoverage:P0}.");
+        Assert.False(measured.Severe);
+
+        Assert.Empty(CompositeDeterministicChecks.CentreFieldProblems(faint));
+        Assert.NotNull(CompositeDeterministicChecks.CentreFieldWarning(faint));
+    }
+
+    /// <summary>
     /// The readings must pass real pictures: a clean gradient, a repaired narrow seam, and a
     /// legitimately asymmetric composition whose halves differ without a centre-aligned boundary.
     /// The gate's whole risk is treating a picture as a defect — a false positive here spends a
