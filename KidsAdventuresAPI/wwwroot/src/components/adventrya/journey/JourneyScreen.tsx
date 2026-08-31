@@ -165,6 +165,8 @@ export function JourneyScreen() {
     isPrintUpgrade: false,
     hasWorld: !!draft.worldId,
     cameFrom: draft.cameFrom,
+    characterId: draft.characters.find((c) => c.isPrimary)?.serverId ?? null,
+    continuesFromBookId: draft.continuesFromBookId,
   });
 
   const header = (

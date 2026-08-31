@@ -29,13 +29,27 @@ export interface AppHeaderProps {
   minimal?: boolean;
 }
 
-function splitHref(href: string): { to: string; hash?: string } {
+/**
+ * Splits a plain href into the three parts a router link wants.
+ *
+ * The query matters: the back link out of the questions carries the child and the book being
+ * continued, and leaving those inside `to` hands the router a path it does not have a route for.
+ */
+function splitHref(href: string): {
+  to: string;
+  hash?: string;
+  search?: Record<string, string>;
+} {
   const hashIndex = href.indexOf("#");
-  if (hashIndex < 0) return { to: href };
-  return {
-    to: href.slice(0, hashIndex) || "/",
-    hash: href.slice(hashIndex + 1),
-  };
+  const hash = hashIndex < 0 ? undefined : href.slice(hashIndex + 1);
+  const pathAndQuery = hashIndex < 0 ? href : href.slice(0, hashIndex);
+  const queryIndex = pathAndQuery.indexOf("?");
+  const to = (queryIndex < 0 ? pathAndQuery : pathAndQuery.slice(0, queryIndex)) || "/";
+  const search =
+    queryIndex < 0
+      ? undefined
+      : Object.fromEntries(new URLSearchParams(pathAndQuery.slice(queryIndex + 1)).entries());
+  return { to, hash, search };
 }
 
 export function AppHeader({
@@ -98,6 +112,7 @@ export function AppHeader({
           className="back-button"
           to={back.to}
           hash={back.hash}
+          search={back.search}
           onClick={goBack}
           aria-label={t.common.actions.backLink}
         >

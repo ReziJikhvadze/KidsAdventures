@@ -87,6 +87,16 @@ export function backHrefForStage(
     mode: "first" | "continue";
     isPrintUpgrade: boolean;
     hasWorld: boolean;
+    /**
+     * The child this book is for, and the book it continues, when there are any.
+     *
+     * They travel on the back link. The picker on the home page reads the address it is standing
+     * on, and without them it treats the next choice as a fresh start — `new=1`, a cleared draft
+     * and a blank form — so a parent stepping back to change the world for a child they had
+     * already named would come forward again as somebody else.
+     */
+    characterId?: string | null;
+    continuesFromBookId?: string | null;
     /** The screen the journey was entered from; see `JourneyDraft.cameFrom`. */
     cameFrom?: JourneyOrigin;
   },
@@ -113,7 +123,7 @@ export function backHrefForStage(
       it is a section of a page they can carry on scrolling.
     */
     case "profile":
-      return "/#worlds";
+      return worldsHref(options.characterId, options.continuesFromBookId);
     case "preview":
       return "/create#profile";
     case "auth":
@@ -125,6 +135,20 @@ export function backHrefForStage(
     default:
       return originHref(options.cameFrom);
   }
+}
+
+/**
+ * The worlds on the home page, carrying whatever the journey already knows.
+ *
+ * A query on `/` rather than on `/themes`: the picker there is a section of the page, and both it
+ * and `JourneyDraftProvider` read the address the page is standing on.
+ */
+function worldsHref(characterId?: string | null, continuesFromBookId?: string | null): string {
+  const params = new URLSearchParams();
+  if (characterId) params.set("characterId", characterId);
+  if (continuesFromBookId) params.set("continuesFromBookId", continuesFromBookId);
+  const query = params.toString();
+  return query ? `/?${query}#worlds` : "/#worlds";
 }
 
 /** Where a parent who leaves the journey lands: the screen they came in from. */
