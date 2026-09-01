@@ -220,6 +220,108 @@ public sealed record BekiLayoutReceipts(
 /// <summary>One composed document and the evidence for it. Amendment A4's return shape.</summary>
 public sealed record BekiComposedBook(byte[] Pdf, BekiLayoutReceipts Receipts);
 
+/// <summary>
+/// One candidate treatment for the story copy, for a proof sheet the owner picks from.
+///
+/// It exists because "the border is wrong" is not a number. The rim's strength, the type's size and
+/// the cream's exact tone were each settled by a measurement (see
+/// <see cref="BekiPrintLayoutOptions.TextOutlineWidthFactor"/>) and a measurement cannot tell anybody
+/// which of several passing treatments is the one the book should be set in. That is the owner's
+/// call, and the only honest way to make it is to look at the same real spread ten times.
+///
+/// **Everything here is a value the shipped path already computes for itself.** The fill is
+/// <c>TextColor</c>, the rim is <c>OutlineColor</c>, the radius is <c>RimRadiusPt</c> and the step
+/// count is <see cref="BekiPrintLayoutOptions.TextOutlineSteps"/> — so a style the owner chooses off
+/// the proof sheet is expressible as configuration and two constants, and there is no treatment on
+/// the sheet that production could not then print. Nothing in this record can draw a shape: it is
+/// type colour, type size and rim geometry, which is the whole of what the ruling put in question.
+///
+/// A null of this type — everywhere it is accepted — means "as the book ships", and the composer
+/// then evaluates every one of those expressions exactly as it did before this record existed. That
+/// is deliberate: the proof path must not be able to move the production path by a pixel.
+/// </summary>
+internal sealed record BekiTextStyleProof
+{
+    /// <summary>The type size, in points, taken as given rather than fitted by the step-down ladder:
+    /// an owner comparing 18 pt with 22 pt has to be shown 22 pt.</summary>
+    public required float FontSizePt { get; init; }
+
+    /// <summary>The leading, in points — the reference states 18 on 27, and so does this.</summary>
+    public required float LeadingPt { get; init; }
+
+    /// <summary>
+    /// Which cut of the body family: <c>Regular</c>, <c>SemiBold</c> or <c>Bold</c>.
+    ///
+    /// All three are already registered under <see cref="PdfFontBootstrap.BodyFamily"/>, so this
+    /// selects a real licensed face rather than asking Skia to thicken one — a synthesised bold is
+    /// a stroke around a Regular glyph, which on Georgian counters is the fault the rim exists to
+    /// avoid. Note that only Regular and Bold are on
+    /// <see cref="PdfFontBootstrap.BekiFontWhitelist"/>: a SemiBold sample can be looked at, and a
+    /// SemiBold book would need that list amended before it could be printed.
+    /// </summary>
+    public string Weight { get; init; } = "Regular";
+
+    /// <summary>The letter's own colour, <c>RRGGBB</c>, with or without its hash.</summary>
+    public string FillColorHex { get; init; } = "FFF8EB";
+
+    /// <summary>How opaque that fill is, 0–1. Under 1 the rim shows through the letter.</summary>
+    public float FillOpacity { get; init; } = 1f;
+
+    /// <summary>The rim's colour, <c>RRGGBB</c>.</summary>
+    public string RimColorHex { get; init; } = "0D071D";
+
+    /// <summary>How opaque the rim is, 0–1. Under 1 it reads as a halo rather than as an edge.</summary>
+    public float RimOpacity { get; init; } = 1f;
+
+    /// <summary>
+    /// The rim's reach as a fraction of the em — the shipped 0.09, and zero for no rim at all.
+    ///
+    /// No floor under it, unlike <see cref="BekiPrintLayoutOptions.TextOutlineWidth"/>: a proof states
+    /// its rim exactly, and a floor would silently give the "no rim" sample a hairline.
+    /// </summary>
+    public float RimWidthFactor { get; init; } = 0.09f;
+
+    /// <summary>How many offset copies make the rim. Sixteen is the shipped count.</summary>
+    public int RimSteps { get; init; } = 16;
+
+    /// <summary>QuestPDF's leading, which is a multiple of the size rather than a second size.</summary>
+    internal float LineHeight => FontSizePt <= 0f ? 1.5f : LeadingPt / FontSizePt;
+
+    /// <summary>How far the rim reaches from a glyph at this style's own size, in points.</summary>
+    internal float RimRadiusPt => MathF.Max(0f, FontSizePt) * MathF.Max(0f, RimWidthFactor);
+
+    internal string FillArgbHex => Argb(FillColorHex, FillOpacity);
+
+    internal string RimArgbHex => Argb(RimColorHex, RimOpacity);
+
+    internal Color Fill => Color.FromHex(FillArgbHex);
+
+    internal Color Rim => Color.FromHex(RimArgbHex);
+
+    /// <summary>
+    /// The named weight as QuestPDF's own, with anything unrecognised falling to Regular rather
+    /// than throwing: a proof sheet whose fifteenth sample has a typo in it should come back with a
+    /// sample somebody can look at and a name they can correct.
+    /// </summary>
+    internal FontWeight WeightValue => Weight?.Trim().ToUpperInvariant() switch
+    {
+        "BOLD" => FontWeight.Bold,
+        "SEMIBOLD" or "SEMI-BOLD" or "SEMI BOLD" => FontWeight.SemiBold,
+        _ => FontWeight.Normal,
+    };
+
+    /// <summary>
+    /// <c>#AARRGGBB</c>, which is the one form QuestPDF reads an alpha out of — and the same form the
+    /// shipped English secondary line is already written in (<c>#D9FFF8EB</c>).
+    /// </summary>
+    private static string Argb(string hex, float opacity)
+    {
+        var rgb = hex.TrimStart('#');
+        var alpha = (int)MathF.Round(Math.Clamp(opacity, 0f, 1f) * 255f);
+        return $"#{alpha:X2}{rgb.ToUpperInvariant()}";
+    }
+}
+
 public interface IBekiPdfComposer
 {
     // ------------------------------------------------------------------------------------------
@@ -654,6 +756,61 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 RasterDpi = rasterDpi > 0 ? rasterDpi : ProofRasterDpi,
             })
             .ToList();
+
+    /// <summary>The style proof's density: press-ish, so a rim is a letterform and not a blur.</summary>
+    internal const int StyleProofRasterDpi = 200;
+
+    /// <summary>
+    /// One story spread, set in one candidate text treatment, rendered to a PNG somebody can look at.
+    ///
+    /// **The proofing rig for the owner's question about the border.** It goes through
+    /// <see cref="ComposeSpread"/> — the real one, the same method that sets a sold book — with the
+    /// real registered faces, the real outline stack, the real column arithmetic and the real
+    /// artwork off the pack. Nothing about the picture is drawn here: what comes back is a page of
+    /// the book with one thing changed, so a treatment the owner points at is a treatment production
+    /// can print by construction rather than by a second implementation agreeing with a first.
+    ///
+    /// <paramref name="style"/> of null renders the spread exactly as the book ships it, which is
+    /// what makes the CURRENT sample on the sheet checkable: the shipped-style sample and the null
+    /// render are the same pixels, or the parameterization moved something it should not have.
+    ///
+    /// Only the faces are verified, not the whole book's asset set: this page carries no endpaper
+    /// pattern, no intro background and no Beki mark, so demanding a theme would be asking the proof
+    /// to prove something it does not use.
+    /// </summary>
+    internal byte[] RenderStyleProofSpread(
+        StorySpread spread,
+        byte[] artwork,
+        BekiBookPersonalization? personalization,
+        BekiTextStyleProof? style,
+        int rasterDpi = StyleProofRasterDpi)
+    {
+        ArgumentNullException.ThrowIfNull(spread);
+        ArgumentNullException.ThrowIfNull(artwork);
+
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        _assets.VerifyFonts();
+        PdfFontBootstrap.EnsureRegistered();
+
+        // Proof geometry: the press sheet, trim plus bleed, with the artwork at its own resolution.
+        // The same mode RenderPages uses, so a sample and a proof page of the same book are the same
+        // picture at the same size.
+        var pages = Document.Create(document => ComposeSpread(
+                document, artwork, spread, personalization,
+                BekiRenderMode.Proof, new ReceiptBook(BekiRenderMode.Proof), style))
+            .GenerateImages(new ImageGenerationSettings
+            {
+                ImageFormat = ImageFormat.Png,
+                RasterDpi = rasterDpi > 0 ? rasterDpi : StyleProofRasterDpi,
+            })
+            .ToList();
+
+        return pages.Count == 1
+            ? pages[0]
+            : throw new InvalidOperationException(
+                $"A one-spread style proof rendered {pages.Count} pages; a spread is one page.");
+    }
 
     /// <summary>
     /// <inheritdoc cref="IBekiPdfComposer.ComposeCoverPressWithReceipts"/>
@@ -1588,9 +1745,17 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             Rasters: [Provenance(artOnlyRole, image, placed)]));
     }
 
+    /// <param name="proof">
+    /// A candidate text treatment for the style proof sheet, or null — which is what production and
+    /// every other caller passes, and which makes every expression below the one it was before this
+    /// parameter existed. The layout itself is never parameterized: a proof render is the real page,
+    /// with the real column arithmetic, the real safety refusals and the real artwork, differing
+    /// only in the type set into it.
+    /// </param>
     private void ComposeSpread(
         IDocumentContainer container, byte[] image, StorySpread spread,
-        BekiBookPersonalization? personalization, BekiRenderMode mode, ReceiptBook receipts)
+        BekiBookPersonalization? personalization, BekiRenderMode mode, ReceiptBook receipts,
+        BekiTextStyleProof? proof = null)
     {
         var textSide = Prompts.BekiSpreadRhythm.TextSideFor(spread.Number);
         var textOnLeft = textSide.Equals("left", StringComparison.OrdinalIgnoreCase);
@@ -1606,7 +1771,17 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
         // Decided before the page is laid out, because the ladder is allowed to fail the book and a
         // failure has to happen before any of it is drawn.
-        var fitted = FitStoryText(spread, personalization, usableHeightPt);
+        var fitted = proof is null
+            ? FitStoryText(spread, personalization, usableHeightPt)
+            : FitProofText(spread, proof);
+
+        // The type the copy is actually set in. Read off the layout when nothing is being proofed,
+        // which is every book this composer has ever produced.
+        var lineHeight = proof?.LineHeight ?? StoryLineHeight;
+        var fill = proof is null ? TextColor : proof.Fill;
+        var rim = proof is null ? OutlineColor : proof.Rim;
+        var fillHex = proof is null ? TextColorHex : proof.FillArgbHex;
+
         var placed = CropToPage(image, _layout.SpreadWidthMm, mode);
 
         var columnWidthMm = StoryColumnWidthPt / PointsPerMm;
@@ -1661,9 +1836,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                             column.Spacing(EnglishGapPt);
 
                             column.Item().Element(item => OutlinedText(
-                                item, spread.Text, fitted.FontSize, StoryLineHeight,
-                                TextColor, OutlineColor, StoryCopyWidthPt,
-                                PdfFontBootstrap.BodyFamily, centred: false));
+                                item, spread.Text, fitted.FontSize, lineHeight,
+                                fill, rim, StoryCopyWidthPt,
+                                PdfFontBootstrap.BodyFamily, centred: false, proof));
 
                             // The second language follows its Georgian sibling in the same
                             // treatment — smaller, and a quieter cream — rather than being set some
@@ -1671,9 +1846,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                             if (fitted.EnglishFontSize is { } englishSize)
                             {
                                 column.Item().Element(item => OutlinedText(
-                                    item, spread.TextEn!, englishSize, StoryLineHeight,
-                                    EnglishTextColor, OutlineColor, StoryCopyWidthPt,
-                                    PdfFontBootstrap.BodyFamily, centred: false));
+                                    item, spread.TextEn!, englishSize, lineHeight,
+                                    EnglishTextColor, rim, StoryCopyWidthPt,
+                                    PdfFontBootstrap.BodyFamily, centred: false, proof));
                             }
                         });
 
@@ -1685,7 +1860,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         var typography = new List<BekiTypographyRecord>
         {
             new($"spread-{spread.Number:00}-ka", PdfFontBootstrap.BodyFamily,
-                fitted.FontSize, StoryLineHeight, TextColorHex),
+                fitted.FontSize, lineHeight, fillHex),
         };
 
         var textLines = WrapLines(
@@ -1695,7 +1870,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         {
             typography.Add(new BekiTypographyRecord(
                 $"spread-{spread.Number:00}-en", PdfFontBootstrap.BodyFamily,
-                english, StoryLineHeight, EnglishTextColorHex));
+                english, lineHeight, EnglishTextColorHex));
             textLines.AddRange(
                 WrapLines(spread.TextEn!, english, StoryCopyWidthPt, PdfFontBootstrap.BodyFamily));
         }
@@ -1771,6 +1946,26 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             + $"band allows ({string.Join(", ", measured)}; the column holds {usableHeightPt:0}pt). "
             + "The copy is not rewritten to make it fit — this book needs a human.");
     }
+
+    /// <summary>
+    /// The same block, at the size a proof style states, with the ladder taken out of the way.
+    ///
+    /// The ladder exists to keep a bought book inside its page, and it is right to. On a proof sheet
+    /// it would be a liar: the owner asks to see 22 pt, the ladder finds 22 pt a millimetre too tall,
+    /// and the sample that comes back says 20 pt in a filename that says 22. So a proof states its
+    /// size and the page is measured to it — and if that block is genuinely too tall for the column,
+    /// <see cref="EnforceCopyColumnSafety"/> refuses the render exactly as it would refuse a book,
+    /// which is the answer the owner actually needs about that size.
+    ///
+    /// No English sibling: the proof is about the Georgian the book is set in, and a second block
+    /// under it would change what the sample is a sample of.
+    /// </summary>
+    private FittedStoryText FitProofText(StorySpread spread, BekiTextStyleProof proof) =>
+        new(proof.FontSizePt,
+            EnglishFontSize: null,
+            // Measured in the proof's own leading and its own cut of the family, so the column the
+            // safety rules are applied to is the paragraph that is actually drawn.
+            MeasureBlockHeightPt(spread.Text, proof.FontSizePt, StoryCopyWidthPt, proof));
 
     /// <summary>
     /// The sizes this reader's copy may be set at, largest first.
@@ -1893,13 +2088,21 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// this page is deciding whether the copy fits, and "we could not tell" is the one answer that
     /// must not become "print it anyway" — which is what the old code did.
     /// </summary>
-    private float MeasureBlockHeightPt(string text, float fontSize, float widthPt)
+    /// <param name="proof">
+    /// A proof style, whose leading and weight the measurement has to borrow, or null for the
+    /// book's own — which every caller in the book passes, and which leaves both the cache key
+    /// and the measurement document exactly as they were.
+    /// </param>
+    private float MeasureBlockHeightPt(
+        string text, float fontSize, float widthPt, BekiTextStyleProof? proof = null)
     {
-        var key = string.Join('', text, fontSize, widthPt);
+        var key = proof is null
+            ? string.Join('', text, fontSize, widthPt)
+            : string.Join('', text, fontSize, widthPt, proof.LineHeight, proof.Weight);
 
         if (!_measuredBlockHeights.TryGetValue(key, out var cached))
         {
-            cached = BuildBlockHeightPt(text, fontSize, widthPt);
+            cached = BuildBlockHeightPt(text, fontSize, widthPt, proof: proof);
             _measuredBlockHeights[key] = cached;
         }
 
@@ -1910,7 +2113,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     }
 
     private float? BuildBlockHeightPt(
-        string text, float fontSize, float widthPt, string? fontFamily = null)
+        string text, float fontSize, float widthPt, string? fontFamily = null,
+        BekiTextStyleProof? proof = null)
     {
         if (string.IsNullOrWhiteSpace(text) || widthPt <= 1f)
         {
@@ -1919,6 +2123,12 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
         var family = fontFamily ?? PdfFontBootstrap.BodyFamily;
 
+        // A proof's block is measured the way the proof's block is set. Its leading is its own —
+        // the designers' sheets are not all on the reference's 18:27 — and a Bold cut is a wider
+        // letter that wraps a line earlier, so measuring it in Regular would size the column for a
+        // paragraph that is not the one being drawn.
+        var lineHeight = proof?.LineHeight ?? StoryLineHeight;
+
         try
         {
             var block = Document.Create(document => document.Page(page =>
@@ -1926,12 +2136,14 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 page.ContinuousSize(widthPt, Unit.Point);
                 page.Margin(0);
                 page.PageColor(Colors.Transparent);
-                page.DefaultTextStyle(style => style.FontFamily(family));
+                page.DefaultTextStyle(style => proof is null
+                    ? style.FontFamily(family)
+                    : style.FontFamily(family).Weight(proof.WeightValue));
 
                 page.Content().Text(text)
                     .FontFamily(family, PdfFontBootstrap.BodyFamily)
                     .FontSize(fontSize)
-                    .LineHeight(StoryLineHeight)
+                    .LineHeight(lineHeight)
                     // Any ink: this document is measured and thrown away, never looked at.
                     .FontColor(TextColor);
             }));
@@ -2691,6 +2903,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// <paramref name="blockWidthPt"/> is kept for the callers' layout arithmetic even though no
     /// raster needs sizing any more; a box too narrow to set type in still falls back to plain.
     /// </summary>
+    /// <param name="proof">
+    /// A proof style whose rim replaces the layout's, or null for the shipped rim — which is what
+    /// every caller in the book passes.
+    /// </param>
     private void OutlinedText(
         IContainer container,
         string text,
@@ -2700,17 +2916,26 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         Color outline,
         float blockWidthPt,
         string fontFamily = PdfFontBootstrap.BodyFamily,
-        bool centred = false)
+        bool centred = false,
+        BekiTextStyleProof? proof = null)
     {
+        // Two ways to have no rim, and they are not the same switch. The book's is
+        // TextOutlineWidth = 0 — the floor taken away, which is how a caller asks for plain type. A
+        // proof's is a factor of zero, which is the contrast sample the owner asked for: dark ink
+        // straight on the artwork with nothing under it.
+        var rimOff = proof is null ? _layout.TextOutlineWidth <= 0f : proof.RimRadiusPt <= 0f;
+
         // No outline asked for, nothing to outline, or a box too narrow: plain text, which is a
         // single run and needs no rim.
-        if (_layout.TextOutlineWidth <= 0f || string.IsNullOrWhiteSpace(text) || blockWidthPt <= 1f)
+        if (rimOff || string.IsNullOrWhiteSpace(text) || blockWidthPt <= 1f)
         {
-            PlainText(container, text, fontSize, lineHeight, fill, fontFamily, centred);
+            PlainText(
+                container, text, fontSize, lineHeight, fill, fontFamily, centred, proof?.WeightValue);
             return;
         }
 
-        DrawOutlineStack(container, text, fontSize, lineHeight, fill, outline, fontFamily, centred);
+        DrawOutlineStack(
+            container, text, fontSize, lineHeight, fill, outline, fontFamily, centred, proof);
     }
 
     /// <summary>
@@ -2722,11 +2947,23 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// used to sit in the middle of that chain; R10 removes it, because a chain is a way for a face
     /// nobody chose to end up embedded in the book.
     /// </summary>
+    /// <param name="weight">
+    /// A cut of the family other than the one the face registers as, or null — which is what the
+    /// book itself always passes, and which leaves the run exactly as it was before proofing
+    /// existed.
+    /// </param>
     private static void PlainText(
         IContainer container, string text, float fontSize, float lineHeight,
-        Color colour, string fontFamily, bool centred)
+        Color colour, string fontFamily, bool centred, FontWeight? weight = null)
     {
-        var block = container.Text(text)
+        // The cut goes on as a default rather than on the run: QuestPDF exposes family, size,
+        // leading and colour on a text block and the weight only on a style, and a default the
+        // block does not override is the same thing said in the place the API keeps it.
+        var target = weight is { } cut
+            ? container.DefaultTextStyle(style => style.Weight(cut))
+            : container;
+
+        var block = target.Text(text)
             .FontFamily(fontFamily, PdfFontBootstrap.BodyFamily)
             .FontSize(fontSize)
             .LineHeight(lineHeight)
@@ -2748,13 +2985,18 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// </summary>
     private void DrawOutlineStack(
         IContainer container, string text, float fontSize, float lineHeight,
-        Color fill, Color outline, string fontFamily, bool centred)
+        Color fill, Color outline, string fontFamily, bool centred,
+        BekiTextStyleProof? proof = null)
     {
-        var radius = RimRadiusPt(fontSize);
+        var radius = proof?.RimRadiusPt ?? RimRadiusPt(fontSize);
 
         // Four is the fewest directions that still surround a glyph; beyond sixty-four the copies
         // are closer together than any press can resolve and only the file grows.
-        var steps = Math.Clamp(_layout.TextOutlineSteps, 4, 64);
+        var steps = Math.Clamp(proof?.RimSteps ?? _layout.TextOutlineSteps, 4, 64);
+
+        // The rim is the same letter as the fill, so it is the same cut of the family too — a rim
+        // drawn in Regular under a Bold fill would show as a shadow the letter has outgrown.
+        var weight = proof?.WeightValue;
 
         container.Layers(layers =>
         {
@@ -2764,12 +3006,12 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 layers.Layer()
                     .TranslateX(radius * MathF.Cos(angle))
                     .TranslateY(radius * MathF.Sin(angle))
-                    .Element(item =>
-                        PlainText(item, text, fontSize, lineHeight, outline, fontFamily, centred));
+                    .Element(item => PlainText(
+                        item, text, fontSize, lineHeight, outline, fontFamily, centred, weight));
             }
 
-            layers.PrimaryLayer().Element(item =>
-                PlainText(item, text, fontSize, lineHeight, fill, fontFamily, centred));
+            layers.PrimaryLayer().Element(item => PlainText(
+                item, text, fontSize, lineHeight, fill, fontFamily, centred, weight));
         });
     }
 
