@@ -21,7 +21,13 @@ export const Route = createFileRoute("/privacy")({
 function PrivacyPage() {
   return (
     <LegalPageShell>
-      <LegalDocument title="Privacy Policy" intro={privacyIntro} sections={privacySections} />
+      {/* Written in English under an app that declares `<html lang="ka">`, so it says so. */}
+      <LegalDocument
+        lang="en"
+        title="Privacy Policy"
+        intro={privacyIntro}
+        sections={privacySections}
+      />
     </LegalPageShell>
   );
 }

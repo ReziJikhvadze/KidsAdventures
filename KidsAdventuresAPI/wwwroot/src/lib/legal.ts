@@ -1,7 +1,7 @@
 import { BRAND_NAME } from "@/lib/brand";
 
 /** Display date for legal pages — update when you materially change the documents. */
-export const LEGAL_LAST_UPDATED = "28 August 2026";
+export const LEGAL_LAST_UPDATED = "2 September 2026";
 
 export const LEGAL_CONTACT_EMAILS = ["support@adventrya.com", "info@adventrya.com"] as const;
 
