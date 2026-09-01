@@ -73,22 +73,29 @@ public sealed class MasterBookService(
         // the parent is still watching. The portrait itself is parked for the illustration step,
         // which runs later and draws a better likeness from the face than from a paragraph
         // about it.
-        string? appearance = null;
+        string? appearance = string.IsNullOrWhiteSpace(input.AppearanceDescription)
+            ? null
+            : input.AppearanceDescription.Trim();
         string? photoBlobUrl = null;
 
         if (input.PhotoBytes is { Length: > 0 })
         {
-            try
+            // A saved hero arrives with the description their earlier book already paid for; only
+            // a portrait nobody has described yet goes to the model.
+            if (appearance is null)
             {
-                appearance = await openAiService.DescribeCharacterFromPhotoAsync(
-                    input.PhotoBytes,
-                    input.PhotoContentType,
-                    MasterStoryPrompt.PhotoDescribe,
-                    cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Photo description failed for run {RunId}; continuing without it.", runId);
+                try
+                {
+                    appearance = await openAiService.DescribeCharacterFromPhotoAsync(
+                        input.PhotoBytes,
+                        input.PhotoContentType,
+                        MasterStoryPrompt.PhotoDescribe,
+                        cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Photo description failed for run {RunId}; continuing without it.", runId);
+                }
             }
 
             try

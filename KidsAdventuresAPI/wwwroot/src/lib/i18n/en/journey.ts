@@ -34,6 +34,12 @@ export const journey = {
     saveChanges: " Save changes",
     /* The heading of the dialog that says what the form is still waiting for. */
     missingTitle: "One moment",
+    heroPicker: {
+      title: "Who is this book for?",
+      hint: "A saved hero's details and photo are filled in for you.",
+      newChild: "A new child",
+      loading: "Loading your heroes…",
+    },
   },
 
   characterForm: {

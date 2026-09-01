@@ -78,6 +78,11 @@ export type StartGuestPreviewInput = {
   storyLanguage?: string;
   optionalStoryNotes?: string;
   photo?: File | null;
+  /**
+   * A saved hero of the signed-in parent. The server reads the stored portrait and the cached
+   * appearance for it, so a second book asks for no photograph. Ignored when signed out.
+   */
+  characterId?: string;
 };
 
 /**
@@ -102,9 +107,14 @@ export async function startGuestPreview(input: StartGuestPreviewInput): Promise<
   if (input.optionalStoryNotes?.trim())
     body.append("optionalStoryNotes", input.optionalStoryNotes.trim());
   if (input.photo) body.append("photo", input.photo);
+  if (input.characterId) body.append("characterId", input.characterId);
 
+  // The route is anonymous, but a signed-in parent sends their token anyway: it is what lets the
+  // server trust `characterId` and use the portrait it already holds for that child.
+  const token = getToken();
   const response = await fetch(`${getApiBaseUrl()}/api/adventure-packs/guest-preview/start`, {
     method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body,
   });
 

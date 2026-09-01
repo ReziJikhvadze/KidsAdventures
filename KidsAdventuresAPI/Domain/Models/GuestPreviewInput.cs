@@ -26,4 +26,11 @@ public sealed class GuestPreviewInput
     public string? OptionalStoryNotes { get; init; }
     public byte[]? PhotoBytes { get; init; }
     public string PhotoContentType { get; init; } = "image/jpeg";
+
+    /// <summary>
+    /// A description already derived from this same portrait, when the child is a saved hero
+    /// whose appearance was cached by an earlier book. Given, the vision call is skipped: the
+    /// answer would be the same paragraph about the same face, a second time, for money.
+    /// </summary>
+    public string? AppearanceDescription { get; init; }
 }

@@ -5,10 +5,12 @@ import { BirthDateField } from "@/components/adventrya/journey/BirthDateField";
 import { WorldArtPanel } from "@/components/adventrya/journey/WorldArtPanel";
 import { SparkleIcon } from "@/components/adventrya/landing/icons";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { listCharacters } from "@/lib/api/characters";
 import { checkPortrait, type PortraitRejection } from "@/lib/api/portraits";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { BOOK_LANGUAGES, type BookLanguage, useT } from "@/lib/i18n";
 import { preparePortrait } from "@/lib/images/preparePortrait";
-import type { CharacterGender, EyeColor } from "@/lib/api/types";
+import type { CharacterGender, CharacterResponse, EyeColor } from "@/lib/api/types";
 import { emptyCharacter, type DraftCharacter, type JourneyDraft } from "@/lib/journey/draft";
 
 // The keys are the stored values, not display copy, so they stay literal rather than
@@ -31,10 +33,115 @@ function entryEditingId(characters: DraftCharacter[]): string | null {
   return characters.find((c) => c.isPrimary)?.localId ?? null;
 }
 
+/** A saved hero whose details have all arrived from the account: nothing left to type. */
+function isHydratedHero(character: DraftCharacter): boolean {
+  return !!character.serverId && character.name.trim() !== "" && character.photoReady;
+}
+
+/** A slot nobody has touched: no saved child behind it and nothing typed into it. */
+function isBlankHero(character: DraftCharacter): boolean {
+  return (
+    !character.serverId &&
+    character.name.trim() === "" &&
+    !character.birthDate &&
+    !character.photoDataUrl &&
+    !character.photoReady
+  );
+}
+
+/** The children an account can make a book about, newest first. */
+function heroesOf(characters: CharacterResponse[]): CharacterResponse[] {
+  return characters
+    .filter((c) => c.isPrimary || c.characterType === "child")
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
 export function ProfileStage({ draft, onChange, onContinue }: Props) {
   const t = useT();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [editingId, setEditingId] = useState<string | null>(() => entryEditingId(draft.characters));
   const [error, setError] = useState<string | null>(null);
+  /*
+    Which cards the parent opened themselves, as opposed to the one the entry rule opens.
+
+    The hero's form opens on arrival so a blank page is a form and not a summary of nothing. A
+    saved hero fills in a moment later, and the form that was opened for typing is then a form
+    with nothing to type in — it closes to the summary card. A card the parent clicked "change" on
+    is theirs, and stays open however complete it is.
+  */
+  const userOpened = useRef<Set<string>>(new Set());
+
+  /*
+    The account's saved children, for the picker above the form.
+
+    Loaded once the session is known. `null` while unknown, so the auto-selection below can tell
+    "no heroes" from "not loaded yet" — selecting nothing on the first render and then nothing
+    again when the list arrives is how a parent ends up retyping a child the account already has.
+  */
+  const [heroes, setHeroes] = useState<CharacterResponse[] | null>(null);
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      setHeroes([]);
+      return;
+    }
+    let cancelled = false;
+    listCharacters()
+      .then((all) => {
+        if (!cancelled) setHeroes(heroesOf(all));
+      })
+      .catch(() => {
+        if (!cancelled) setHeroes([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isAuthenticated]);
+
+  const primary = draft.characters.find((c) => c.isPrimary) ?? null;
+
+  /**
+   * Puts a saved child in the hero slot. Only the id is written here: JourneyScreen sees a slot
+   * with an id and no name and fills in the rest from the account, portrait included.
+   */
+  const chooseHero = (hero: CharacterResponse) => {
+    const fresh: DraftCharacter = { ...emptyCharacter(true), serverId: hero.id };
+    onChange((prev) => ({
+      ...prev,
+      characters: prev.characters.map((c) => (c.isPrimary ? fresh : c)),
+    }));
+    userOpened.current.delete(fresh.localId);
+    setEditingId(fresh.localId);
+    setError(null);
+  };
+
+  /*
+    A signed-in parent with saved children starts from one of them, not from an empty form.
+
+    Once per visit, and only into a slot that is genuinely untouched: a parent who arrived with a
+    child in the URL, who has started typing, or who asked for a new child (`?new`) is left alone.
+    With one hero there is nothing to choose; with several the newest is the likeliest, and the
+    picker above the form is one tap from the rest.
+  */
+  const autoSelected = useRef(false);
+  useEffect(() => {
+    if (autoSelected.current || !heroes || heroes.length === 0 || !primary) return;
+    autoSelected.current = true;
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("new")) {
+      return;
+    }
+    if (!isBlankHero(primary)) return;
+    chooseHero(heroes[0]);
+    // chooseHero closes over onChange, which is stable; primary is read once when the list lands.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heroes, primary]);
+
+  // The form opened for a saved hero closes to a summary card once the account has filled it.
+  useEffect(() => {
+    if (!primary || editingId !== primary.localId) return;
+    if (userOpened.current.has(primary.localId)) return;
+    if (isHydratedHero(primary)) setEditingId(null);
+  }, [primary, editingId]);
   /*
     Consent to the terms, which is asked for once and here.
 
@@ -178,6 +285,15 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
           book now simply follows the interface it was ordered in.
         */}
 
+        {heroes && heroes.length > 0 && primary ? (
+          <HeroPicker
+            heroes={heroes}
+            selectedId={primary.serverId ?? null}
+            onPick={chooseHero}
+            onNew={() => clearPrimary(primary.localId)}
+          />
+        ) : null}
+
         {draft.characters.map((character, index) => {
           if (editingId === character.localId) {
             return (
@@ -225,6 +341,7 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
                 opening one card simply closes the other.
               */
               onEdit={() => {
+                userOpened.current.add(character.localId);
                 setEditingId(character.localId);
                 setError(null);
               }}
@@ -297,6 +414,61 @@ function benefactive(name: string): string {
   return /[აეიოუ]$/.test(n) ? `${n}სთვის` : `${n}ისთვის`;
 }
 
+/**
+ * The account's saved children, one tap each, and a way to start a new one.
+ *
+ * Chips rather than a dropdown: a family has a handful of children, and the names are the whole
+ * of what a parent needs to see to choose. The selected one is the child in the hero slot below;
+ * "a new child" empties that slot for someone the account has not met.
+ */
+function HeroPicker({
+  heroes,
+  selectedId,
+  onPick,
+  onNew,
+}: {
+  heroes: CharacterResponse[];
+  selectedId: string | null;
+  onPick: (hero: CharacterResponse) => void;
+  onNew: () => void;
+}) {
+  const copy = useT().journey.profile.heroPicker;
+  const isNew = selectedId === null;
+
+  return (
+    <fieldset className="choice-fieldset ux-hero-picker">
+      <legend>{copy.title}</legend>
+      <div className="ux-choice-chips">
+        {heroes.map((hero) => (
+          <button
+            key={hero.id}
+            type="button"
+            className={hero.id === selectedId ? "selected" : ""}
+            aria-pressed={hero.id === selectedId}
+            onClick={() => {
+              if (hero.id !== selectedId) onPick(hero);
+            }}
+          >
+            {hero.name}
+          </button>
+        ))}
+        <button
+          type="button"
+          className={isNew ? "selected" : ""}
+          aria-pressed={isNew}
+          onClick={() => {
+            if (!isNew) onNew();
+          }}
+        >
+          <Plus aria-hidden="true" size={14} />
+          {copy.newChild}
+        </button>
+      </div>
+      <p className="ux-hero-picker-hint">{copy.hint}</p>
+    </fieldset>
+  );
+}
+
 function CharacterEditor({
   character,
   index,
@@ -336,7 +508,7 @@ function CharacterEditor({
     setChecking(true);
     // The photo being replaced stops counting the moment a new one is chosen. Leaving the old
     // one ready would let the form continue on a portrait the parent has already moved on from.
-    onChange({ photoDataUrl: null, photoReady: false });
+    onChange({ photoDataUrl: null, photoReady: false, photoStored: false });
 
     void (async () => {
       try {
@@ -373,7 +545,7 @@ function CharacterEditor({
           return;
         }
 
-        onChange({ photoDataUrl: dataUrl, photoReady: true });
+        onChange({ photoDataUrl: dataUrl, photoReady: true, photoStored: false });
       } catch {
         // preparePortrait only throws when the file cannot be read at all — not a judgement
         // about the photograph, a broken file. It used to end here silently, leaving a parent
@@ -741,7 +913,17 @@ function CharacterSummary({
       <span className="ux-ready-check" aria-hidden="true">
         <Check />
       </span>
-      <span className="ux-summary-avatar">{character.name.trim().slice(0, 1) || "A"}</span>
+      <span className="ux-summary-avatar">
+        {character.photoDataUrl ? (
+          <img
+            src={character.photoDataUrl}
+            alt=""
+            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "inherit" }}
+          />
+        ) : (
+          character.name.trim().slice(0, 1) || "A"
+        )}
+      </span>
       <div>
         <small>{label}</small>
         <h2>{character.name}</h2>

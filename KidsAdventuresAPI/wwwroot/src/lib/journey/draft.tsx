@@ -36,6 +36,12 @@ export type DraftCharacter = {
   isPrimary: boolean;
   photoDataUrl: string | null;
   photoReady: boolean;
+  /**
+   * The portrait on screen is the one already saved on the account, shown from an object URL
+   * rather than carried as bytes. Nothing is uploaded again for it: the preview names the
+   * character and the server reads its own copy. A newly chosen file turns this off.
+   */
+  photoStored: boolean;
 };
 
 export type PreviewTeaser = {
@@ -100,6 +106,7 @@ export function emptyCharacter(isPrimary: boolean): DraftCharacter {
     isPrimary,
     photoDataUrl: null,
     photoReady: false,
+    photoStored: false,
   };
 }
 

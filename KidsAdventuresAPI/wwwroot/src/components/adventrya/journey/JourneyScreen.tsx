@@ -53,6 +53,11 @@ export function JourneyScreen() {
               relationship: remote.relationship?.trim() || slot.relationship,
               // Existing portraits satisfy the photo gate for continuation.
               photoReady: !!remote.photoUrl,
+              // The server keeps the bytes; the preview and the order name the character
+              // instead of sending them. The object URL below is for the screen only — it
+              // is not a data URL, and treating it as one is what used to make the preview
+              // and the checkout both fail for a saved hero.
+              photoStored: !!remote.photoUrl,
             };
 
             if (remote.photoUrl) {

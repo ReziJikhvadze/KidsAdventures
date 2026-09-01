@@ -12,8 +12,12 @@ export async function ensureServerCharacters(
   const supportingIds: string[] = [];
 
   for (const character of characters) {
+    // Only a portrait the parent chose in this session is bytes worth sending. A saved hero's
+    // photo is on the account already and is shown from an object URL, which is not a data URL
+    // and cannot be turned into a file — re-uploading it would also throw away the appearance
+    // cache that keeps the child's face the same from book to book.
     const photo =
-      character.photoDataUrl != null
+      !character.photoStored && character.photoDataUrl?.startsWith("data:")
         ? dataUrlToFile(character.photoDataUrl, `${character.name || "portrait"}.jpg`)
         : undefined;
 

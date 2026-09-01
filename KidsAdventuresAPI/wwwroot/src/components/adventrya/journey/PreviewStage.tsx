@@ -256,9 +256,14 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
           return;
         }
 
-        const photo = hero.photoDataUrl
-          ? dataUrlToFile(hero.photoDataUrl, `${hero.name || "hero"}.jpg`)
-          : null;
+        // A saved hero's portrait is an object URL for the screen, not bytes to send: the
+        // server is told which character and reads its own copy. Only a photo chosen in this
+        // session travels as a file.
+        const usesStoredPortrait = !!hero.serverId && hero.photoStored;
+        const photo =
+          !usesStoredPortrait && hero.photoDataUrl?.startsWith("data:")
+            ? dataUrlToFile(hero.photoDataUrl, `${hero.name || "hero"}.jpg`)
+            : null;
 
         // ??= is the once-guarantee: whichever effect run gets here first pays; every
         // other run — including one that outlives it — awaits the same promise.
@@ -277,6 +282,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
             storyLanguage: locale,
             optionalStoryNotes: draft.storyNotes || undefined,
             photo,
+            characterId: usesStoredPortrait ? hero.serverId : undefined,
           })
           .then((r) => r.runId);
 

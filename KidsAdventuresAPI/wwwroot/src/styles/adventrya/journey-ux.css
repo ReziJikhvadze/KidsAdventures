@@ -2424,3 +2424,27 @@
 .ux-checkout-handover svg {
   color: var(--story-gold);
 }
+
+/*
+  The saved-children picker above the hero form. Chips are the relationship chips, reused; what
+  is added is only the spacing that puts a question above a form rather than inside one.
+*/
+.ux-hero-picker {
+  margin-bottom: 18px;
+}
+.ux-hero-picker .ux-choice-chips button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  min-height: 42px;
+  padding: 0 16px;
+}
+.ux-hero-picker-hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #f8f2e5a6;
+}
+.ux-summary-avatar {
+  overflow: hidden;
+}

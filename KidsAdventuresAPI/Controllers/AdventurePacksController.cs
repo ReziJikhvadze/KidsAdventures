@@ -32,6 +32,7 @@ public sealed class AdventurePacksController(
     IMasterBookService masterBookService,
     IBekiDownloadStatusService downloadStatus,
     IOptions<ClientIpOptions> clientIpOptions,
+    ICharacterRepository characterRepository,
     ILogger<AdventurePacksController> logger) : ControllerBase
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -58,12 +59,30 @@ public sealed class AdventurePacksController(
         [FromForm] string? birthDate,
         [FromForm] string? storyLanguage,
         [FromForm] string? optionalStoryNotes,
+        [FromForm] string? characterId,
         IFormFile? photo,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
             return BadRequest(new { message = "Child's name is required." });
+        }
+
+        /*
+          A second book for a child who already exists.
+
+          The route is anonymous because the first book is written before anyone signs in, but a
+          signed-in parent starting another one for a saved hero used to be asked for the same
+          photograph again — the form had the child's name, date and eyes from the account and no
+          bytes to send for the face. When the caller's token names the character's owner, the
+          stored portrait is the photo, and the description that portrait was given for the
+          previous book is reused rather than bought again. A photo uploaded alongside still wins:
+          a parent who changed the picture meant to.
+        */
+        Character? knownHero = null;
+        if (Guid.TryParse(characterId, out var heroId) && TryGetSignedInUserId(out var ownerId))
+        {
+            knownHero = await characterRepository.GetByIdAsync(heroId, ownerId, cancellationToken);
         }
 
         // The age the browser worked out is a conclusion; the date is the evidence. A book once
@@ -103,6 +122,29 @@ public sealed class AdventurePacksController(
             return BadRequest(new { message = "That photo is too large. Please choose a smaller one." });
         }
 
+        string? cachedAppearance = null;
+        if (knownHero is not null && photoBytes.Bytes is null && !string.IsNullOrWhiteSpace(knownHero.PhotoUrl))
+        {
+            try
+            {
+                var stored = await blobStorageService.DownloadBytesFromStoredUrlAsync(knownHero.PhotoUrl, cancellationToken);
+                photoBytes = (stored, PhotoContentTypeFor(knownHero.PhotoUrl), false);
+
+                // The cache is only the truth for the portrait it was written from.
+                if (!string.IsNullOrWhiteSpace(knownHero.AppearanceDescription)
+                    && string.Equals(knownHero.AppearancePhotoUrl, knownHero.PhotoUrl, StringComparison.Ordinal))
+                {
+                    cachedAppearance = knownHero.AppearanceDescription;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Not fatal: the run is written from the description the model gives, as it was
+                // before portraits were parked at all. The parent is not asked for the file again.
+                logger.LogWarning(ex, "Stored portrait for character {CharacterId} could not be read.", knownHero.Id);
+            }
+        }
+
         try
         {
             var runId = await masterBookService.StartAsync(
@@ -117,9 +159,30 @@ public sealed class AdventurePacksController(
                     StoryLanguage = storyLanguage,
                     OptionalStoryNotes = string.IsNullOrWhiteSpace(optionalStoryNotes) ? null : optionalStoryNotes.Trim(),
                     PhotoBytes = photoBytes.Bytes,
-                    PhotoContentType = photoBytes.ContentType
+                    PhotoContentType = photoBytes.ContentType,
+                    AppearanceDescription = cachedAppearance
                 },
                 cancellationToken);
+
+            // What this run learned about the face is kept on the hero, so the next book for the
+            // same child starts without the vision call at all.
+            if (knownHero is not null && cachedAppearance is null && photoBytes.Bytes is not null
+                && !string.IsNullOrWhiteSpace(knownHero.PhotoUrl))
+            {
+                try
+                {
+                    var run = await masterBookService.GetAsync(runId, cancellationToken);
+                    if (!string.IsNullOrWhiteSpace(run?.AppearanceDescription))
+                    {
+                        await characterRepository.UpdateAppearanceCacheAsync(
+                            knownHero.Id, knownHero.UserId, run.AppearanceDescription, knownHero.PhotoUrl, cancellationToken);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogDebug(ex, "Appearance cache for character {CharacterId} was not written.", knownHero.Id);
+                }
+            }
 
             return Accepted(new MasterStoryRunStartedDto { RunId = runId });
         }
@@ -432,6 +495,20 @@ public sealed class AdventurePacksController(
     /// </summary>
     private string GetClientKey() =>
         ClientIpAddress.Resolve(HttpContext, clientIpOptions.Value.TrustedProxyHops);
+
+    /// <summary>
+    /// The signed-in parent on an anonymous route, when there is one. The token is still read
+    /// under <c>[AllowAnonymous]</c>; what changes is that its absence is not an error here.
+    /// </summary>
+    private bool TryGetSignedInUserId(out Guid userId) =>
+        Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
+
+    private static string PhotoContentTypeFor(string url) => url switch
+    {
+        _ when url.EndsWith(".png", StringComparison.OrdinalIgnoreCase) => "image/png",
+        _ when url.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) => "image/webp",
+        _ => "image/jpeg"
+    };
 
     /// <summary>
     /// Restarts illustration for a book whose render failed. Only a paid book gets here;

@@ -28,6 +28,17 @@ export const journey = {
     saveChanges: " ცვლილებების შენახვა",
     /* The heading of the dialog that says what the form is still waiting for. */
     missingTitle: "ერთი წუთით",
+    /*
+      A signed-in parent's saved children, offered before the empty form. A second book used to
+      begin with the same questions as the first — name, date, eyes, photo — for a child the
+      account already knew.
+    */
+    heroPicker: {
+      title: "ვისთვის ვქმნით წიგნს?",
+      hint: "შენახული გმირის მონაცემები და ფოტო ავტომატურად შეივსება.",
+      newChild: "ახალი ბავშვი",
+      loading: "გმირები იტვირთება…",
+    },
   },
 
   characterForm: {
