@@ -112,10 +112,22 @@ public static class MasterStoryPromptComposite
     /// object contradicts the pictures too. The prompt now requires the text to track an
     /// important object's state from the page that introduces it to the last page it appears on.
     ///
+    /// v1.2 is one line, about the child's name, and it is here because asking politely is the
+    /// half of the answer a prompt can give.
+    ///
+    /// A live run on 2026-09-01 wrote „ველო და მოციმციმე ტყე“ for a child called ვეკო: one Georgian
+    /// letter changed, in the child's own name, in the title — which is the one string that flows
+    /// canonically to the cover, the pack row and the PDF's metadata. The prompt was given the name
+    /// and never told that it was a name rather than a word, so the model spelled it the way it
+    /// spelled everything else: plausibly. The line added below says it is copied, letter for
+    /// letter, everywhere; <see cref="GeorgianNameFidelity"/> is what makes it true whatever the
+    /// model does, the same division of labour <see cref="BekiIdentityRules"/> has for Beki's own
+    /// name.
+    ///
     /// Nothing else moved: the rhythm, the Beki rules, the Dumbadze voice, the title rule, the
     /// word budgets and the safety block are composite-v1's word for word.
     /// </summary>
-    public const string Version = "composite-v1.1";
+    public const string Version = "composite-v1.2";
 
     public static string System(CompositeStoryInput input)
     {
@@ -137,6 +149,13 @@ public static class MasterStoryPromptComposite
             8. Satisfying ending with a small hint that another adventure could follow
 
             Make the child the main hero.
+
+            The child's name is „{input.ChildName}“, and it is copied, never spelled. Write it
+            exactly as it is given here — letter for letter — every single time it appears, in the
+            title and on every spread. Georgian case endings may follow it („{input.ChildName}ს“,
+            „{input.ChildName}მ“, „{input.ChildName}სთვის“), and that is the only thing that may
+            ever change about it: no other spelling of this child's name exists in this book, and a
+            title that names the hero names „{input.ChildName}“ and nothing near it.
 
             Beki is the platform's one canonical story character: every book this platform makes
             gives the child the same warm, curious, brave guide and friend. Beki is present in

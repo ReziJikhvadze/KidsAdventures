@@ -100,46 +100,119 @@ public class BekiSpecV2PrintTests
     }
 
     /// <summary>
-    /// **This test asserts the opposite of what it used to.** It pinned the upscale as intended —
-    /// "the resize is an upscale and stays proportional, which is the only kind of resize the
-    /// interior rules permit" — and audit P1-01 read the printed consequence: the story rasters
-    /// arrived at about 143 effective PPI and were Lanczos-stretched to 5315 × 2480, so the press
-    /// PDF reported 300 PPI everywhere and carried less than half of it anywhere.
+    /// **This test has now asserted three different things, and this is the owner's.**
     ///
-    /// Interpolation does not create detail. So an enlargement past 1.05× — five per cent, a
-    /// rounding difference rather than a claim — is refused (D5b), and real source pixels or an
-    /// approved upscaler have to arrive BEFORE layout. Reduction stays legal, which the test above
-    /// is now written on.
+    /// It first pinned the upscale as intended. Audit P1-01 read the printed consequence — the story
+    /// rasters arrived at about 143 effective PPI and were Lanczos-stretched to 5315 × 2480, so the
+    /// press PDF reported 300 PPI everywhere and carried less than half of it anywhere — and D5b
+    /// flipped it to pin a refusal. What the refusal actually bought, on a deployment with no
+    /// super-resolver, was no press interior at all, for any book.
+    ///
+    /// Owner ruling 2026-09-01, rule 4, verbatim: <b>"the sizes we have indicated for printing are
+    /// correct."</b> So the sheet is delivered at the size the product states — and the audit's
+    /// finding survives as the SECOND half of this test: the enlargement is declared, in the receipt
+    /// the page carries and in the preflight the supplier reads. Nobody is told 300 PPI of detail
+    /// arrived when it did not; the file simply exists.
     /// </summary>
     [Fact]
-    public void NormalizeForPrint_refuses_to_invent_detail_by_enlarging()
+    public void NormalizeForPrint_enlarges_to_the_stated_size_and_declares_that_it_did()
     {
         var target = new BekiPdfComposer.PrintRasterTarget(5315, 2480, 300, 90);
+        var source = SheetPng(1500);
 
-        var failure = Assert.Throws<BekiLayoutException>(
-            () => BekiPdfComposer.NormalizeForPrint(SheetPng(1500), target));
+        var normalized = BekiPdfComposer.NormalizeForPrint(source, target);
 
-        Assert.Equal("LAYOUT_FAILED", failure.FailureCode);
-        Assert.Contains("PRESS_RESOLUTION", failure.Message, StringComparison.Ordinal);
-        Assert.Contains("P1-01", failure.Message, StringComparison.Ordinal);
-        Assert.Contains("3.54×", failure.Message, StringComparison.Ordinal);
+        // The sheet is the sheet: the size the product indicates for printing (rule 4).
+        var info = Image.Identify(normalized);
+        Assert.Equal(5315, info.Width);
+        Assert.Equal(2480, info.Height);
+        Assert.Equal(300, info.Metadata.HorizontalResolution, 1);
+        Assert.NotNull(info.Metadata.IccProfile);
+
+        // And the receipt says where those pixels came from, which is the audit's finding kept.
+        var provenance = BekiPdfComposer.RasterProvenance(
+            "spread-04", source, normalized, maxSilentUpscale: 1.05f);
+
+        Assert.Equal(1500, provenance.SourceWidthPx);
+        Assert.Equal(5315, provenance.DeliveredWidthPx);
+        Assert.Equal(3.5433d, provenance.Factor, 3);
+        Assert.Equal("lanczos3", provenance.Resampler);
+        Assert.True(provenance.Interpolated,
+            "A 3.54× Lanczos enlargement has to be declared; unrecorded, it is exactly the "
+            + "metadata-passing audit P1-01 rejected.");
     }
 
     /// <summary>
-    /// And the line is where it is said to be: five per cent up is a rounding difference and passes,
-    /// six per cent is a claim about detail and does not.
+    /// And the line is where it is said to be: five per cent up is a rounding difference and is not
+    /// declared, twenty per cent is a claim about detail and is. Both are delivered — rule 4 — and
+    /// what differs between them is only what the receipt says.
     /// </summary>
     [Fact]
-    public void NormalizeForPrint_allows_the_rounding_difference_and_refuses_the_claim()
+    public void The_rounding_difference_is_silent_and_the_claim_about_detail_is_not()
     {
         var target = new BekiPdfComposer.PrintRasterTarget(5315, 2480, 300, 90);
 
-        // 5315 ÷ 1.04 — inside the allowance.
-        Assert.NotEmpty(BekiPdfComposer.NormalizeForPrint(SheetPng(5111), target));
+        // 5315 ÷ 1.04 — inside the allowance, so the receipt makes no claim about it.
+        var rounding = SheetPng(5111);
+        var roundingProvenance = BekiPdfComposer.RasterProvenance(
+            "spread-01", rounding, BekiPdfComposer.NormalizeForPrint(rounding, target), 1.05f);
 
-        // 5315 ÷ 1.20 — outside it.
-        Assert.Throws<BekiLayoutException>(
-            () => BekiPdfComposer.NormalizeForPrint(SheetPng(4429), target));
+        Assert.False(roundingProvenance.Interpolated);
+
+        // 5315 ÷ 1.20 — outside it, and declared.
+        var claim = SheetPng(4429);
+        var claimProvenance = BekiPdfComposer.RasterProvenance(
+            "spread-02", claim, BekiPdfComposer.NormalizeForPrint(claim, target), 1.05f);
+
+        Assert.True(claimProvenance.Interpolated);
+
+        // A reduction is never a claim about detail, whatever its factor.
+        var reduced = SheetPng(6000);
+        var reducedProvenance = BekiPdfComposer.RasterProvenance(
+            "spread-03", reduced, BekiPdfComposer.NormalizeForPrint(reduced, target), 1.05f);
+
+        Assert.False(reducedProvenance.Interpolated);
+        Assert.True(reducedProvenance.Factor < 1d);
+    }
+
+    /// <summary>
+    /// The composer's own pages carry that declaration — the receipt, not just the helper.
+    ///
+    /// The fixture composes 1500-pixel stand-ins onto a 96-PPI sheet, which is an enlargement by
+    /// construction, so this is the shape of the real thing: every spread's receipt names the pixels
+    /// that arrived, the pixels that were delivered, and says the difference was interpolated.
+    /// </summary>
+    [Fact]
+    public void Every_enlarged_page_says_so_in_its_layout_receipt()
+    {
+        var layout = BekiLayoutFixture.ScreenProofLayout();
+
+        // The fixture normally silences the declaration (MaxPrintUpscale = 0) because none of its
+        // questions are about resolution. This one is.
+        layout.MaxPrintUpscale = 1.05f;
+
+        var plan = BekiLayoutFixture.EightSpreadPlan();
+        var spreads = plan.Spreads
+            .Select(s => new BekiSpreadArtwork(s.Number, BekiLayoutFixture.SheetPng((0, 255, 0))))
+            .ToList();
+
+        var book = new BekiPdfComposer(Options.Create(layout)).ComposeInteriorWithReceipts(
+            plan, spreads, BekiLayoutFixture.Personalization());
+
+        var spread = book.Receipts.Pages.Single(page => page.Role == "spread-01");
+        var raster = Assert.Single(spread.Rasters!);
+
+        Assert.Equal("spread-01", raster.Role);
+        Assert.Equal(1500, raster.SourceWidthPx);
+        Assert.Equal(1701, raster.DeliveredWidthPx);   // 450 mm at the fixture's 96 PPI
+        Assert.True(raster.Interpolated);
+        Assert.Equal("lanczos3", raster.Resampler);
+
+        // And the same fact reaches the press gate in the shape it reads: an interpolation-only
+        // source, which is what makes PRESS_RESOLUTION able to fail on a stretch the upscaler in
+        // front of layout knows nothing about.
+        var stretched = book.Receipts.RasterSources.Where(source => source.IsInterpolationOnly).ToList();
+        Assert.Contains(stretched, source => source.Role == "spread-01");
     }
 
     /// <summary>

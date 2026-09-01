@@ -90,19 +90,30 @@ public sealed class BekiPrintLayoutOptions
 
     /// <summary>
     /// The largest linear resize <see cref="Services.Story.BekiPdfComposer"/> may perform on its way
-    /// to the print raster, as a factor of the source's own dimensions.
+    /// to the print raster WITHOUT SAYING SO, as a factor of the source's own dimensions.
     ///
-    /// 1.05 — five per cent, which is a rounding difference and not a claim about detail. Audit
-    /// P1-01 found the interior rasters at about 143 effective PPI, Lanczos-stretched to a nominal
-    /// 300 inside the press PDF: the number on the file said 300 and the picture in it did not.
-    /// Interpolation cannot create the detail a press needs, so beyond this factor the book stops
-    /// (<c>PRESS_RESOLUTION</c>) and either a larger source or an approved upscaler has to arrive
-    /// BEFORE layout. Downscaling is unaffected — reducing an approved asset loses nothing a printer
-    /// would have seen.
+    /// **It used to be a refusal and it is now a disclosure.** Audit P1-01 found the interior
+    /// rasters at about 143 effective PPI, Lanczos-stretched to a nominal 300 inside the press PDF:
+    /// the number on the file said 300 and the picture in it did not. Correction D5b answered that by
+    /// stopping the book above this factor — which, with no super-resolver on the deployment, means
+    /// the press interior is never built at all, at any size. Owner ruling 2026-09-01, rule 4: "the
+    /// sizes we have indicated for printing are correct." The book is delivered at the sizes the
+    /// product states, so the composer performs the upscale.
     ///
-    /// Zero or less disables the guard, which exists for one caller only: the shared screen-proof
-    /// fixture, which composes stand-in artwork at 96 PPI precisely because none of its questions
-    /// are about resolution.
+    /// What the audit was actually right about is kept, and kept where it belongs — in the evidence.
+    /// A resize above this factor is delivered AND marked: the page's layout receipt carries the
+    /// source pixels, the delivered pixels and <c>interpolated: true</c>, print prep's
+    /// <c>PRESS_RESOLUTION</c> gate still fails on it in the preflight report, and the release policy
+    /// decides what a failed gate is worth. Nothing here tells a printer 300 PPI of detail arrived
+    /// when it did not; it stops pretending that refusing to build the file is the same as fixing it.
+    ///
+    /// 1.05 — five per cent, a rounding difference rather than a claim, so a source that is already
+    /// the sheet to within its own rounding is not flagged. Downscaling is never flagged: reducing an
+    /// approved asset loses nothing a printer would have seen.
+    ///
+    /// Zero or less marks nothing at all, which is what the shared screen-proof fixture asks for: it
+    /// composes stand-in artwork at 96 PPI precisely because none of its questions are about
+    /// resolution.
     /// </summary>
     public float MaxPrintUpscale { get; set; } = 1.05f;
 
@@ -147,14 +158,72 @@ public sealed class BekiPrintLayoutOptions
     public bool PrintEnglishToo { get; set; }
 
     /// <summary>
-    /// The stroke drawn around every glyph of the cover title, in points.
+    /// The smallest rim any outlined glyph may carry, in points — and the switch that turns the rim
+    /// off altogether.
     ///
-    /// The cover title is the one place in the book where light type is set straight onto artwork,
-    /// because a cover title is part of the picture. The story and intro copy does not come through
-    /// here: since audit P1-04 restored the cream wash, that copy is dark type on cream and a rim
-    /// around it would only make it look printed twice. Zero turns the rim off.
+    /// A floor rather than the width itself since owner ruling 2026-09-01 (rule 3): "text must have
+    /// a STRONGER border so it is readable on all backgrounds." A fixed 0.6 pt was the whole rim on
+    /// every block in the book, which meant an 18 pt story line and a 36 pt cover title carried the
+    /// same edge — a thirtieth of the em on one and a sixtieth on the other. The rim is now a
+    /// proportion of the type it surrounds (<see cref="TextOutlineWidthFactor"/>) and this is the
+    /// floor under it, so a very small size still gets an edge a press can hold.
+    ///
+    /// Zero still means no rim at all, on any block, whatever the factor says — the one setting a
+    /// caller who wants plain type reaches for.
     /// </summary>
     public float TextOutlineWidth { get; set; } = 0.6f;
+
+    /// <summary>
+    /// The rim around every outlined glyph, as a fraction of that block's own type size.
+    ///
+    /// **0.09 — nine per cent of the em, chosen by measurement and not by eye.** Owner ruling
+    /// 2026-09-01, rule 3, is that book copy has to survive ANY background, and the ruling before it
+    /// took away the cream wash that used to make that easy: every word over artwork is now cream
+    /// #FFF8EB with a #0D071D rim and nothing else. The worst case is therefore a background the
+    /// exact colour of the fill, where the rim is the only thing drawing the glyph at all.
+    ///
+    /// <c>BekiTextRimReadabilityTests</c> composes that worst case — a spread whose artwork is solid
+    /// #FFF8EB — renders it at 220 PPI, and measures the rim's dark coverage inside the copy column's
+    /// own ink box. The old flat 0.6 pt rim on 20 pt type (0.03 of the em) leaves 5.8% of that box
+    /// dark: a hairline, and one that closes up the moment a press dot-gains. At 0.09 the same
+    /// measurement is 17.4% — three times the rim, and a glyph you can read as a shape. The cover
+    /// title, being twice story size, goes from 14,518 rim pixels to 73,235.
+    ///
+    /// Deliberately not "as thick as possible". At 0.12 the measurement is 21.3% and the counters of
+    /// the round Georgian letters — the bowl of ო, the eye of ფ — are visibly narrowing; past that
+    /// the rim starts eating the letterform it exists to describe, and a rim heavy enough to merge
+    /// between letters would be the panel the owner has three times ruled out. 0.09 is the far side
+    /// of legible-at-a-glance and the near side of that.
+    ///
+    /// It applies to every outlined block equally: story copy in both languages, the intro spread's
+    /// four lines, the back-cover address and the cover title — which, being twice story size, gets
+    /// twice the rim out of the same number.
+    ///
+    /// This is a RIM. It is never a box, a wash or a panel behind the words; the owner has ruled on
+    /// that three times and this file has no setting that would draw one.
+    /// </summary>
+    public float TextOutlineWidthFactor { get; set; } = 0.09f;
+
+    /// <summary>
+    /// How many offset copies of a glyph make up its rim — the number of directions on the circle.
+    ///
+    /// Sixteen, up from the eight this started at, and the reason is arithmetic rather than taste.
+    /// QuestPDF has no glyph stroke, so the rim is the text drawn again and again around a circle of
+    /// radius r. The result is not a circle: between two neighbouring directions the rim's outer edge
+    /// falls short of one by <c>r·(1 − cos(π/steps))</c> — 7.6% of the radius at eight directions,
+    /// 1.9% at sixteen — and it falls short exactly on the diagonals, where a round Georgian letter
+    /// is at its widest curvature.
+    ///
+    /// At the old hairline that flat spot was 0.6 pt × 7.6% = 0.05 pt, which no press can resolve. At
+    /// this rim it would be 1.8 pt × 7.6% = 0.14 pt, or well over half a pixel at 300 PPI, and a
+    /// rim that reads as an octagon on every letter is not the border the ruling asked for. Sixteen
+    /// puts it back to 0.03 pt, under a tenth of a press pixel.
+    ///
+    /// The cost is honest and recorded: every outlined line is that many more vector text runs in
+    /// the file, and a text extractor reads it that many times. The supplier's preflight requires
+    /// real vector glyphs rather than a raster of them, which is the trade being made.
+    /// </summary>
+    public int TextOutlineSteps { get; set; } = 16;
 
     /// <summary>
     /// How much of an illustration a centred crop to the sheet may remove, per axis, before the

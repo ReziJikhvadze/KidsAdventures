@@ -47,13 +47,16 @@ internal static class BekiLayoutFixture
     /// the area. The 300 PPI contract itself is asserted directly, on one image, by
     /// <c>BekiPrintRasterTests</c>.
     ///
-    /// <c>MaxPrintUpscale = 0</c> turns off the D5b upscale guard for this fixture and this fixture
-    /// only. The guard is real and the default is 1.05× — audit P1-01: a 143-PPI render Lanczos-
-    /// stretched to a 300-PPI target reports resolution it does not have, and the book stops. But
-    /// this fixture's spreads are one-pixel and 1500-pixel stand-ins composed against a 96-PPI
-    /// sheet, which is an enlargement by construction and has nothing to do with the questions any
-    /// of these suites ask. The law itself is asserted directly, on one image, by
-    /// <c>BekiSpecV2PrintTests.NormalizeForPrint_refuses_to_invent_detail_by_enlarging</c>.
+    /// <c>MaxPrintUpscale = 0</c> silences the enlargement declaration for this fixture and this
+    /// fixture only. The declaration is real and the default threshold is 1.05× — audit P1-01: a
+    /// 143-PPI render Lanczos-stretched to a 300-PPI target reports resolution it does not have, so
+    /// since owner ruling 2026-09-01 rule 4 the sheet is delivered at the stated size and the page's
+    /// receipt says <c>interpolated: true</c>. But this fixture's spreads are one-pixel and
+    /// 1500-pixel stand-ins composed against a 96-PPI sheet, which is an enlargement by construction
+    /// and has nothing to do with the questions any of these suites ask. The rule itself is asserted
+    /// directly, on one image and on one composed book, by
+    /// <c>BekiSpecV2PrintTests.NormalizeForPrint_enlarges_to_the_stated_size_and_declares_that_it_did</c>
+    /// and <c>BekiSpecV2PrintTests.Every_enlarged_page_says_so_in_its_layout_receipt</c>.
     /// </summary>
     public static BekiPrintLayoutOptions ScreenProofLayout() =>
         new() { PrintTargetPpi = 96, MaxPrintUpscale = 0f };

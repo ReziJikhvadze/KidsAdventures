@@ -75,14 +75,16 @@ public class BekiCoverDielineTests : CompositePipelineTestBase
     {
         var scenario = VisualScenarioValidator.Validate(ScenarioFixture()).Scenario!;
 
-        var prompt = CompositeIllustrationPrompt.ForCover(
-            BekiCoverDieline.Geometry,
-            childAge: 5,
-            CompositeThemeReferences.For("dinosaurs"),
-            scenario.Cover!.FrontChildWorldScene!,
-            scenario.Cover.BackEnvironment!,
-            scenario.VisualLock!.ChildOutfit!,
-            recurringElements: []);
+        var prompt = CompositeIllustrationPrompt.ForCover(new CompositeCoverPromptInput
+        {
+            Geometry = BekiCoverDieline.Geometry,
+            ChildAge = 5,
+            Theme = CompositeThemeReferences.For("dinosaurs"),
+            FrontChildWorldScene = scenario.Cover!.FrontChildWorldScene!,
+            BackEnvironment = scenario.Cover.BackEnvironment!,
+            ChildOutfit = scenario.VisualLock!.ChildOutfit!,
+            IdentitySpec = IdentityFixture,
+        });
 
         // The de-zoned composition block, resolved into the prompt — and the exact-Beki rule intact.
         //
@@ -325,7 +327,8 @@ public class BekiCoverDielineTests : CompositePipelineTestBase
         var scenario = VisualScenarioValidator.Validate(ScenarioFixture()).Scenario!;
 
         var wrap = await pipeline.DrawCoverWrapAsync(
-            Context(), scenario, Png(64, 64), "image/png", CancellationToken.None);
+            Context(), scenario, Png(64, 64), "image/png", IdentityFixture, childAnchor: null,
+            CancellationToken.None);
 
         // The base is the wrap's own shape, from the provider's 3:2 frame.
         using (var image = SixLabors.ImageSharp.Image.Load(wrap.BasePng))

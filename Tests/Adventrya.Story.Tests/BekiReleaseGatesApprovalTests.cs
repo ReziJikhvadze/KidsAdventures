@@ -75,10 +75,15 @@ public class BekiReleaseGatesApprovalTests
     /// The other direction, which fails just as quietly: a check the operator made KINDER releases
     /// the file it was holding.
     ///
-    /// PRESS_RESOLUTION ships as a blocker — a bad press PDF is somebody else's press time. A
-    /// deployment that has flagged it has accepted that trade, and the printer's file should go out
-    /// when the book is approved. Under the shipped defaults it did not, and the operator was left
-    /// with a switch that appeared to do nothing.
+    /// A press gate a deployment has flagged should release the printer's file when the book is
+    /// approved, and under the shipped defaults it did not — the operator was left with a switch
+    /// that appeared to do nothing.
+    ///
+    /// PRESS_RESOLUTION is the example because it is the one press gate the owner has since ruled a
+    /// flag by default (rule 4, 2026-09-01: the sizes we indicated for printing are correct). The
+    /// row is stated explicitly here anyway, so this test keeps saying what it is about — an
+    /// operator's setting reaching an approval — rather than depending on which way the default
+    /// happens to point.
     /// </summary>
     [Fact]
     public async Task An_approval_honours_a_check_the_operator_loosened()

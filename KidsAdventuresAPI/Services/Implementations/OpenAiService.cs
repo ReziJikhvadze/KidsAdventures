@@ -390,6 +390,35 @@ public sealed class OpenAiService(
         form.Add(new StringContent(size), "size");
         form.Add(new StringContent(quality), "quality");
 
+        /*
+          input_fidelity — the setting that decides whether the child in the photograph is the
+          child in the picture.
+
+          This route is the only one in this class that carries reference images, and it was
+          sending nothing here. On the gpt-image-1 family the field defaults to LOW, so every
+          anchored illustration was drawn from a deliberately coarse reading of the face we
+          attached — which is what the composite pipeline's CHILD_IDENTITY QA kept rejecting on
+          2026-09-01.
+
+          Sent as a form field because this is multipart, and only for models that accept it:
+          gpt-image-2 already treats every input as high fidelity and answers a request carrying
+          this field with a 400. ResolveImageInputFidelity holds that judgement; a null means the
+          field is omitted, and omitted is the correct request, not a degraded one.
+        */
+        var inputFidelity = referenceImages.Count > 0
+            ? ResolveImageInputFidelity(model, _options.ImageInputFidelity)
+            : null;
+
+        if (inputFidelity is not null)
+        {
+            form.Add(new StringContent(inputFidelity), "input_fidelity");
+        }
+
+        logger.LogDebug(
+            "Images edit input_fidelity for {Model}: {Value}",
+            model,
+            inputFidelity ?? "(omitted)");
+
         for (var index = 0; index < referenceImages.Count; index++)
         {
             var (bytes, fileName, contentType) = referenceImages[index];
@@ -424,6 +453,14 @@ public sealed class OpenAiService(
         // OpenAI:ImageQuality were set to. This is the default provider, so that silently
         // applied to essentially every picture the product has ever produced, and made those
         // two settings look broken. A storybook page is portrait; state it explicitly.
+        //
+        // No input_fidelity here, and it is not an omission. This route sends a prompt string and
+        // nothing else — there are no reference images for the model to be faithful to, so the
+        // tool property has nothing to act on. Note also that nothing calls this method:
+        // OpenAi:ImageGenerationProvider is read by configuration and by the live tests, but
+        // GenerateStoryImageAsync routes on whether references exist, never on the provider name.
+        // Anyone reviving this path for reference-carrying input must add the fidelity property to
+        // the tool object itself, subject to the same per-model rule as the edit route.
         var payload = new
         {
             model = _options.Model,
@@ -556,6 +593,46 @@ public sealed class OpenAiService(
 
     private static bool IsGptImageModel(string model) =>
         model.StartsWith("gpt-image", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// What to put in the request's <c>input_fidelity</c>, or null to leave the field out.
+    ///
+    /// Four separate reasons to send nothing, and they are not the same reason:
+    ///
+    /// - the operator asked for nothing (empty setting), which is the escape hatch for a model
+    ///   this code has not been taught about yet;
+    /// - the model is not a GPT Image model at all — DALL·E has never had the concept;
+    /// - the model always reads its inputs at high fidelity and refuses to be told so. gpt-image-2
+    ///   answers a request carrying this field with 400 invalid_input_fidelity_model, so omitting
+    ///   it there is not a lost setting: it is the same behaviour, correctly requested;
+    /// - the value is not one the API knows. "hgih" would be a 400 for a typo, and the request is
+    ///   better off without it — a slightly worse picture beats a failed page.
+    ///
+    /// Internal rather than private so the suite can assert the decision itself: the multipart
+    /// body proves the live route, and this proves the models that route never reaches.
+    /// </summary>
+    internal static string? ResolveImageInputFidelity(string model, string configured)
+    {
+        if (string.IsNullOrWhiteSpace(configured) ||
+            !IsGptImageModel(model) ||
+            AlwaysReadsInputsAtHighFidelity(model))
+        {
+            return null;
+        }
+
+        var value = configured.Trim().ToLowerInvariant();
+        return value is "low" or "high" ? value : null;
+    }
+
+    /// <summary>
+    /// Models that do the high-fidelity thing on their own and reject the instruction to do it.
+    ///
+    /// A prefix match on the family, because that is how the refusal is scoped: every gpt-image-2
+    /// variant OpenAI has shipped behaves this way, and matching the exact name would let
+    /// "gpt-image-2-mini" fail its first real book instead of its first test.
+    /// </summary>
+    private static bool AlwaysReadsInputsAtHighFidelity(string model) =>
+        model.StartsWith("gpt-image-2", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsDalleModel(string model) =>
         model.StartsWith("dall-e", StringComparison.OrdinalIgnoreCase);

@@ -417,11 +417,19 @@ public abstract class CompositePipelineTestBase
     /// limit, ordered delivery, fail-fast — is <see cref="CompositeConcurrencyTests"/>'s subject,
     /// and it needs stubs that actually yield to say anything about it.
     /// </param>
+    /// <param name="masterStory">
+    /// The planner, for the handful of tests that actually reach it. Almost every run here adopts a
+    /// previewed plan, which is what the fulfilment job does, so the default throws rather than
+    /// returning a book nobody asked for — see <see cref="StubMasterStoryService"/>.
+    /// </param>
     protected static CompositeBookPipeline Pipeline(
-        IStoryModelClient storyClient, IOpenAiService images, int spreadConcurrency = 1) =>
+        IStoryModelClient storyClient,
+        IOpenAiService images,
+        int spreadConcurrency = 1,
+        IMasterStoryService? masterStory = null) =>
         new(storyClient,
             images,
-            new StubMasterStoryService(),
+            masterStory ?? new StubMasterStoryService(),
             Options.Create(new BekiOptions
             {
                 CompositePipelineEnabled = true,
@@ -469,7 +477,8 @@ public abstract class CompositePipelineTestBase
 
         public Task<CompositeCoverWrap> DrawCoverWrapAsync(
             CompositeBookContext context, VisualScenarioV2 scenario, byte[] childPhoto,
-            string childPhotoContentType, CancellationToken cancellationToken)
+            string childPhotoContentType, ChildIdentitySpec identity, byte[]? childAnchor,
+            CancellationToken cancellationToken)
         {
             CoverCalls++;
             throw new InvalidOperationException("The press cover wrap must not run with the flag off.");
@@ -765,6 +774,59 @@ public abstract class CompositePipelineTestBase
                 "These tests adopt the previewed plan, exactly as the fulfilment job does.");
     }
 
+    /// <summary>
+    /// A planner that hands back plans somebody wrote in the test, in order, and remembers what it
+    /// was asked to correct.
+    ///
+    /// It exists for the name-fidelity ladder, which is the only thing in this pipeline that makes a
+    /// second planning call: the assertions are about how many plans were bought and what the
+    /// correction said, and neither is observable through a service that throws.
+    /// </summary>
+    protected sealed class ScriptedCompositeStoryService(params MasterStory[] plans) : IMasterStoryService
+    {
+        private readonly Queue<MasterStory> _plans = new(plans);
+
+        public int Calls { get; private set; }
+
+        /// <summary>The problems each call was sent, in order. Empty list for a first attempt.</summary>
+        public List<IReadOnlyList<string>> Problems { get; } = [];
+
+        public string ModelName => "stub-story-model";
+
+        public string PromptVersion => "v6";
+
+        public (string System, string User) BuildPrompts(MasterStoryInput input) =>
+            (string.Empty, string.Empty);
+
+        public Task<MasterStoryResult> WriteAsync(MasterStoryInput input, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<MasterStoryResult> RetryPlanWithCorrectionsAsync(
+            MasterStoryInput input, IReadOnlyList<string> problems, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<MasterStoryResult> WriteCompositePlanAsync(
+            CompositeStoryInput input, IReadOnlyList<string> problems, CancellationToken cancellationToken)
+        {
+            Calls++;
+            Problems.Add(problems);
+
+            // The last scripted plan stands for every call after it: a test about "it is still
+            // wrong on the second attempt" should say that once, not queue the same book twice.
+            var plan = _plans.Count > 1 ? _plans.Dequeue() : _plans.Peek();
+
+            return Task.FromResult(new MasterStoryResult
+            {
+                Story = plan,
+                SystemPrompt = "composite system",
+                UserPrompt = "composite user",
+                Model = ModelName,
+                PromptTokens = 1,
+                CompletionTokens = 1,
+            });
+        }
+    }
+
     /// <summary>The real story service, with the composite flag on and a scripted model behind it.</summary>
     protected static MasterStoryService CompositeStoryService(IStoryModelClient client) =>
         new(client,
@@ -953,6 +1015,15 @@ public abstract class CompositePipelineTestBase
         /// <summary>First plan leaves Beki off spread four.</summary>
         public bool FirstPlanDropsBekiFromSpreadFour { get; init; }
 
+        /// <summary>
+        /// First plan titles the book with the child's name one letter wrong — the observed defect
+        /// of 2026-09-01, in the shape this fixture's child (ნინა) can carry it.
+        /// </summary>
+        public bool FirstPlanMisspellsTheChild { get; init; }
+
+        /// <summary>Both attempts misspell it, so the preview has to fail.</summary>
+        public bool EveryPlanMisspellsTheChild { get; init; }
+
         public string ModelName => "stub-story-model";
 
         public string PromptVersion => "v6";
@@ -963,15 +1034,43 @@ public abstract class CompositePipelineTestBase
         public Task<MasterStoryResult> WriteAsync(MasterStoryInput input, CancellationToken cancellationToken)
         {
             LegacyCalls++;
-            return Task.FromResult(Remember(Result("legacy system", "legacy user", valid: true)));
+
+            var plan = Result("legacy system", "legacy user", valid: true);
+
+            // The name check is not behind the composite flag, so the legacy printing planner can
+            // be made to fail it too — which is the point of the test that does.
+            if (FirstPlanMisspellsTheChild || EveryPlanMisspellsTheChild)
+            {
+                plan = Misspelt(plan);
+            }
+
+            return Task.FromResult(Remember(plan));
         }
 
         public Task<MasterStoryResult> RetryPlanWithCorrectionsAsync(
             MasterStoryInput input, IReadOnlyList<string> problems, CancellationToken cancellationToken)
         {
             LegacyRetryCalls++;
-            return Task.FromResult(Result("legacy system", "legacy user", valid: true));
+
+            var plan = Result("legacy system", "legacy user", valid: true);
+
+            return Task.FromResult(
+                Remember(EveryPlanMisspellsTheChild ? Misspelt(plan) : plan));
         }
+
+        /// <summary>
+        /// ნინა, written ნინო: one Georgian letter, in the child's own name, in the title — the
+        /// observed defect of 2026-09-01 in the shape this fixture's child can carry it. The
+        /// spreads still spell it correctly, which is what makes this a mangled title rather than a
+        /// book with no child in it.
+        /// </summary>
+        private static MasterStoryResult Misspelt(MasterStoryResult plan) => plan with
+        {
+            Story = plan.Story with
+            {
+                Concept = plan.Story.Concept with { Title = "ნინოს დაკარგული ბილიკი" }
+            }
+        };
 
         public Task<MasterStoryResult> WriteCompositePlanAsync(
             CompositeStoryInput input, IReadOnlyList<string> problems, CancellationToken cancellationToken)
@@ -996,6 +1095,11 @@ public abstract class CompositePipelineTestBase
                         Spreads = plan.Story.Spreads.Take(BookFormat.SpreadCount - 1).ToList()
                     }
                 };
+            }
+
+            if (EveryPlanMisspellsTheChild || (FirstPlanMisspellsTheChild && first))
+            {
+                plan = Misspelt(plan);
             }
 
             if (FirstPlanDropsBekiFromSpreadFour && first)

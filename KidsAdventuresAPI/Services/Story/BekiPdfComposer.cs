@@ -50,6 +50,41 @@ public sealed record BekiWashGeometry(
     [property: JsonPropertyName("fold_clearance_mm")] double FoldClearanceMm,
     [property: JsonPropertyName("trim_clearance_mm")] double TrimClearanceMm);
 
+/// <summary>
+/// Where one placed raster's pixels came from — the honesty half of owner ruling 2026-09-01, rule 4.
+///
+/// The ruling is that "the sizes we have indicated for printing are correct", so the composer now
+/// delivers the press sheet at the stated size instead of refusing to build it. The audit finding the
+/// refusal came from (P1-01) is not thereby wrong: 2528 × 1180 story art Lanczos-stretched to
+/// 5315 × 2480 measures 300 PPI and carries about 143. Both things are true, and this record is how
+/// they are both said out loud — the delivered file is the right size, and its receipt states the
+/// pixels it actually started from.
+///
+/// Written into every page's layout receipt, so the answer to "was this sheet enlarged, and from
+/// what" is stored beside the book rather than inferred later from the file's own metadata, which is
+/// precisely the number that lied in the rejected release.
+/// </summary>
+/// <param name="Role">The page this raster was placed on — "spread-04", "intro", "cover-front".</param>
+/// <param name="Factor">
+/// Linear, source width to delivered width. At or under 1 is a reduction, which loses nothing a
+/// press would have seen and is never flagged.
+/// </param>
+/// <param name="Interpolated">
+/// True when the enlargement is past <see cref="BekiPrintLayoutOptions.MaxPrintUpscale"/> — pixels
+/// the resampler invented rather than detail that arrived. A press-resolution gate reading this
+/// receipt must fail on it; what a failed gate is worth is the release policy's decision, not this
+/// record's.
+/// </param>
+public sealed record BekiRasterProvenance(
+    [property: JsonPropertyName("role")] string Role,
+    [property: JsonPropertyName("source_width_px")] int SourceWidthPx,
+    [property: JsonPropertyName("source_height_px")] int SourceHeightPx,
+    [property: JsonPropertyName("delivered_width_px")] int DeliveredWidthPx,
+    [property: JsonPropertyName("delivered_height_px")] int DeliveredHeightPx,
+    [property: JsonPropertyName("factor")] double Factor,
+    [property: JsonPropertyName("resampler")] string Resampler,
+    [property: JsonPropertyName("interpolated")] bool Interpolated);
+
 /// <summary>One block of type on a page, as it was set: the face, the size, and the ink.</summary>
 public sealed record BekiTypographyRecord(
     [property: JsonPropertyName("role")] string Role,
@@ -94,7 +129,11 @@ public sealed record BekiLayoutPageReceipt(
     [property: JsonPropertyName("typography")] IReadOnlyList<BekiTypographyRecord> Typography,
     [property: JsonPropertyName("text_lines")] IReadOnlyList<string> TextLines,
     [property: JsonPropertyName("text_probe")] BekiTextProbeRect? TextProbe,
-    [property: JsonPropertyName("source_sha256")] IReadOnlyList<string>? SourceSha256 = null)
+    [property: JsonPropertyName("source_sha256")] IReadOnlyList<string>? SourceSha256 = null,
+    // Owner ruling 2026-09-01, rule 4: the press sheet is built at the stated size, and the size it
+    // was built FROM is stated here. One entry per raster this page placed, in placement order —
+    // the same order as ImageSha256.
+    [property: JsonPropertyName("rasters")] IReadOnlyList<BekiRasterProvenance>? Rasters = null)
 {
     /// <summary>The name fulfillment stores this under: <c>receipts/page-NN-layout.json</c>.</summary>
     [JsonIgnore]
@@ -141,6 +180,31 @@ public sealed record BekiLayoutReceipts(
     [JsonIgnore]
     public IReadOnlyList<BekiTextProbeRect> FlatGroundTextProbes =>
         Pages.Where(page => page.TextProbe is not null).Select(page => page.TextProbe!).ToList();
+
+    /// <summary>
+    /// Every raster in this document, as the resolution receipt <see cref="BekiPrintPrep"/> wants it.
+    ///
+    /// The bridge owner ruling 2026-09-01 rule 4 needs between the two halves of the honesty. Layout
+    /// is the only stage that knows a sheet was enlarged on its way onto the page — the upscaler in
+    /// front of it reports on its own attempt and says nothing about what the composer then did — so
+    /// a press caller that builds its <see cref="BekiResolutionReceipt"/> from the upscaler alone
+    /// hands the gate a receipt with the enlargement missing from it. Handing this list over as well
+    /// is what keeps <c>PRESS_RESOLUTION</c> able to see the stretch it exists to see.
+    ///
+    /// Every raster, not only the enlarged ones: a receipt that lists only its failures is a receipt
+    /// nobody can tell "clean" from "not looked at" in.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyList<BekiResolutionSource> RasterSources =>
+        Pages.SelectMany(page => page.Rasters ?? [])
+             .Select(raster => new BekiResolutionSource(
+                 raster.Role,
+                 raster.SourceWidthPx, raster.SourceHeightPx,
+                 raster.DeliveredWidthPx, raster.DeliveredHeightPx,
+                 raster.Resampler,
+                 raster.Factor,
+                 raster.Interpolated))
+             .ToList();
 
     /// <summary>The 1-based page numbers whose type was authored light, for the same probe.</summary>
     [JsonIgnore]
@@ -315,6 +379,17 @@ public interface IBekiPdfComposer
 /// Every picture is placed at the sheet's own proportions. A centred crop of more than
 /// <see cref="BekiPrintLayoutOptions.PrintCropTolerance"/> per axis is refused rather than performed
 /// quietly, because a crop that deep is a composition nobody approved.
+///
+/// **And every press sheet is built at the size the product states.** Owner ruling 2026-09-01,
+/// rule 4, verbatim: "the sizes we have indicated for printing are correct." The composer used to
+/// refuse to enlarge a short raster onto the 300-PPI sheet, which on a deployment with no approved
+/// super-resolver meant no press interior was ever produced — a rule about honesty that had turned
+/// into a rule about not shipping. <see cref="NormalizeForPrint"/> performs the enlargement again,
+/// and <see cref="RasterProvenance"/> writes what it did into the page's receipt: the pixels that
+/// arrived, the pixels that were delivered, the factor, and <c>interpolated: true</c> past
+/// <see cref="BekiPrintLayoutOptions.MaxPrintUpscale"/>. The press-resolution gate still fails on
+/// that, in the preflight report, where the release policy can see it. The file is the right size
+/// and the receipt is the truth; neither is traded for the other.
 /// </summary>
 public sealed class BekiPdfComposer : IBekiPdfComposer
 {
@@ -415,7 +490,17 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// world, and building it costs a 39-megapixel decode plus a Lanczos resize. Six entries is the
     /// ceiling, one per world, and a process that composes two Forest books does that work once.
     /// </summary>
-    private static readonly ConcurrentDictionary<string, byte[]> FixedPageArtwork = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, FixedPage> FixedPageArtwork =
+        new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// One fixed page's finished raster and the record of how it got that way.
+    ///
+    /// The two are cached together rather than the provenance being recomputed at receipt time,
+    /// because working it out means measuring the approved source — a 39-megapixel PNG read off disk
+    /// — and a book has two endpaper spreads and an intro that would each pay for it again.
+    /// </summary>
+    private readonly record struct FixedPage(byte[] Bytes, BekiRasterProvenance Provenance);
 
     /// <summary>
     /// The wrapped lines of one block of copy, keyed by the text, the size and the measure.
@@ -541,9 +626,33 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         byte[] coverImage,
         IReadOnlyList<BekiSpreadArtwork> spreads,
         BekiBookPersonalization? personalization = null) =>
+        RenderPages(plan, coverImage, spreads, personalization, ProofRasterDpi);
+
+    /// <summary>The proof render's density: enough to see a layout, cheap enough to render fourteen.</summary>
+    internal const int ProofRasterDpi = 96;
+
+    /// <summary>
+    /// <inheritdoc cref="IBekiPdfComposer.RenderPages"/>
+    ///
+    /// <paramref name="rasterDpi"/> is for measurement rather than for looking. A rim measured at
+    /// proof density is measured mostly in antialiasing — a two-pixel edge is one pixel of rim and
+    /// one of blend — and rule 3's readability evidence has to be about the letterform, not about the
+    /// rasteriser. <c>BekiTextRimReadabilityTests</c> renders the worst-case spread at press-ish
+    /// density and counts pixels there.
+    /// </summary>
+    internal IReadOnlyList<byte[]> RenderPages(
+        MasterStory plan,
+        byte[] coverImage,
+        IReadOnlyList<BekiSpreadArtwork> spreads,
+        BekiBookPersonalization? personalization,
+        int rasterDpi) =>
         Build(plan, coverImage, null, spreads, personalization,
                 BekiRenderMode.Proof, new ReceiptBook(BekiRenderMode.Proof))
-            .GenerateImages(new ImageGenerationSettings { ImageFormat = ImageFormat.Png, RasterDpi = 96 })
+            .GenerateImages(new ImageGenerationSettings
+            {
+                ImageFormat = ImageFormat.Png,
+                RasterDpi = rasterDpi > 0 ? rasterDpi : ProofRasterDpi,
+            })
             .ToList();
 
     /// <summary>
@@ -610,7 +719,11 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             [new BekiTypographyRecord(
                 "cover-title", PdfFontBootstrap.TitleFamily, titleSize, 1.25d, TextColorHex)],
             WrapLines(title, titleSize, titleWidthPt, PdfFontBootstrap.TitleFamily),
-            TextProbe: null));
+            TextProbe: null,
+            // The wrap arrives composited and is placed as it arrived — this page resizes nothing.
+            // Whether the wrap itself carries the dieline's 6047 × 2894 is the upscaler's receipt to
+            // answer, and it is a separate line in the same preflight.
+            Rasters: [Provenance("cover-press-wrap", wrapComposite, wrapComposite)]));
 
         return new BekiComposedBook(pdf, receipts.Build());
     }
@@ -805,7 +918,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             [new BekiTypographyRecord(
                 "cover-title", PdfFontBootstrap.TitleFamily, titleSize, 1.25d, TextColorHex)],
             WrapLines(title, titleSize, CoverTitleWidthPt, PdfFontBootstrap.TitleFamily),
-            TextProbe: null));
+            TextProbe: null,
+            Rasters: [Provenance("cover-front-legacy", image, placed)]));
     }
 
     /// <summary>
@@ -825,7 +939,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private void ComposeReadingFrontCover(
         IDocumentContainer container, string title, byte[] wrapComposite, ReceiptBook receipts)
     {
-        var board = FitForScreen(CropFrontBoard(wrapComposite), BekiCoverDieline.DigitalPageWidthMm);
+        var crop = CropFrontBoard(wrapComposite);
+        var board = FitForScreen(crop, BekiCoverDieline.DigitalPageWidthMm);
 
         var (leftFraction, topFraction, widthFraction, heightFraction) =
             BekiCoverDieline.InsideFrontBoardCrop(
@@ -872,7 +987,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             [new BekiTypographyRecord(
                 "cover-title", PdfFontBootstrap.TitleFamily, titleSize, 1.25d, TextColorHex)],
             WrapLines(title, titleSize, MmToPt(titleWidthMm), PdfFontBootstrap.TitleFamily),
-            TextProbe: null));
+            TextProbe: null,
+            // The board crop is the source: the wrap is a different picture, and a factor measured
+            // against it would be describing a crop rather than a resize.
+            Rasters: [Provenance("cover-front", crop, board)]));
     }
 
     /// <summary>
@@ -888,7 +1006,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private void ComposeReadingBackCover(
         IDocumentContainer container, byte[] wrapComposite, ReceiptBook receipts)
     {
-        var board = FitForScreen(CropBackBoard(wrapComposite), BekiCoverDieline.DigitalPageWidthMm);
+        var crop = CropBackBoard(wrapComposite);
+        var board = FitForScreen(crop, BekiCoverDieline.DigitalPageWidthMm);
         var addressSize = _layout.StoryFontSize * 0.85f;
 
         container.Page(page =>
@@ -919,7 +1038,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             [new BekiTypographyRecord(
                 "back-cover-address", PdfFontBootstrap.BodyFamily, addressSize, 1.25d, TextColorHex)],
             [BackCoverAddress],
-            TextProbe: null));
+            TextProbe: null,
+            Rasters: [Provenance("cover-back", crop, board)]));
     }
 
     /// <summary>
@@ -1023,7 +1143,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
             page.Content().Layers(layers =>
             {
-                layers.PrimaryLayer().Image(artwork)
+                layers.PrimaryLayer().Image(artwork.Bytes)
                     .FitUnproportionally().UseOriginalImage();
 
                 if (rear)
@@ -1045,12 +1165,13 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             page, endpaperRole,
             _layout.SpreadWidthMm + (Bleed(mode) * 2f), _layout.SpreadHeightMm + (Bleed(mode) * 2f),
             Bleed(mode),
-            [Sha256(artwork)],
+            [Sha256(artwork.Bytes)],
             Wash: null, [], [], TextProbe: null,
             // The approved pattern this page's raster was derived from. On the press path the two
             // hashes are the same file; on the reading path the embedded bytes are a downsample of
             // it, and only this one can be looked up in the asset lock.
-            SourceSha256: [_assets.EndpaperPattern.Sha256]));
+            SourceSha256: [_assets.EndpaperPattern.Sha256],
+            Rasters: [artwork.Provenance with { Role = endpaperRole }]));
     }
 
     /// <summary>
@@ -1120,7 +1241,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
             page.Content().Layers(layers =>
             {
-                layers.PrimaryLayer().Image(artwork)
+                layers.PrimaryLayer().Image(artwork.Bytes)
                     .FitUnproportionally().UseOriginalImage();
 
                 // Everything below is written on the TRIM: the bleed is a frame around the layout,
@@ -1168,7 +1289,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             page, "intro",
             _layout.SpreadWidthMm + (Bleed(mode) * 2f), _layout.SpreadHeightMm + (Bleed(mode) * 2f),
             Bleed(mode),
-            [Sha256(artwork)],
+            [Sha256(artwork.Bytes)],
             Wash: null,
             lines.Select(line => new BekiTypographyRecord(
                 line.Role, PdfFontBootstrap.BodyFamily, line.SizePt, StoryLineHeight, TextColorHex))
@@ -1179,7 +1300,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             // Both approved files this page's single raster was composited from: the world's
             // background and the pose pasted onto it. The composite itself hashes to neither, which
             // is exactly why the placement check needs these.
-            SourceSha256: [_assets.IntroBackground(themeId).Sha256, IntroPoseSha256()]));
+            SourceSha256: [_assets.IntroBackground(themeId).Sha256, IntroPoseSha256()],
+            Rasters: [artwork.Provenance]));
     }
 
     /// <summary>One typeset line of the intro spread: what it says, how big, and what it is for.</summary>
@@ -1353,7 +1475,11 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             CreditsTextProbe(page, mode, endingSize, captionSize, creditsSize, hasQr),
             // The mark is placed verbatim, so the two hashes agree here — stated anyway, because a
             // provenance the gate has to infer from a coincidence is not a provenance.
-            SourceSha256: [Engine.Value.Registry.Pose(_assets.BekiMarkPoseId).Sha256]));
+            SourceSha256: [Engine.Value.Registry.Pose(_assets.BekiMarkPoseId).Sha256],
+            // Placed verbatim at the approved pose's own pixels: nothing resampled it, and the
+            // receipt says so rather than leaving the one page that was never short of pixels
+            // looking like the one page nobody measured.
+            Rasters: [Provenance("credits", mark, mark)]));
     }
 
     /// <summary>
@@ -1458,7 +1584,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             _layout.SpreadWidthMm + (Bleed(mode) * 2f), _layout.SpreadHeightMm + (Bleed(mode) * 2f),
             Bleed(mode),
             [Sha256(placed)],
-            Wash: null, [], [], TextProbe: null));
+            Wash: null, [], [], TextProbe: null,
+            Rasters: [Provenance(artOnlyRole, image, placed)]));
     }
 
     private void ComposeSpread(
@@ -1580,7 +1707,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             _layout.SpreadWidthMm + (Bleed(mode) * 2f), _layout.SpreadHeightMm + (Bleed(mode) * 2f),
             Bleed(mode),
             [Sha256(placed)],
-            Wash: null, typography, textLines, TextProbe: null));
+            Wash: null, typography, textLines, TextProbe: null,
+            // Rule 4's disclosure, per spread: what the illustration stage delivered, what the sheet
+            // took, and whether the difference was made up by a resampler.
+            Rasters: [Provenance(spreadRole, image, placed)]));
     }
 
     /// <summary>The air between the Georgian block and its English sibling, in points.</summary>
@@ -1916,15 +2046,25 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// reading path nothing touches it at all: the download embeds the approved bytes, which is both
     /// §9's instruction and audit P1-01's — no resampling in either direction.
     /// </summary>
-    private byte[] EndpaperArtwork(BekiRenderMode mode)
+    /// <summary>
+    /// The provenance in the cached entry carries no role — the same bytes serve the front endpaper
+    /// and the rear, and a role baked in at first use would label the second page with the first
+    /// page's name. Callers stamp it with <c>with { Role = … }</c>.
+    /// </summary>
+    private FixedPage EndpaperArtwork(BekiRenderMode mode)
         => FixedPageArtwork.GetOrAdd(
             FixedPageKey(
                 $"endpaper|{(mode == BekiRenderMode.Reading ? "screen" : "press")}",
                 _assets.EndpaperPattern.Sha256),
-            _ => mode == BekiRenderMode.Reading
-                ? FitForScreen(_assets.EndpaperPatternBytes(), _layout.SpreadWidthMm)
-                : NormalizeForPrint(
-                    _assets.EndpaperPatternBytes(), PrintRaster, preserveApprovedBytes: true));
+            _ =>
+            {
+                var pattern = _assets.EndpaperPatternBytes();
+                var placed = mode == BekiRenderMode.Reading
+                    ? FitForScreen(pattern, _layout.SpreadWidthMm)
+                    : NormalizeForPrint(pattern, PrintRaster, preserveApprovedBytes: true);
+
+                return new FixedPage(placed, Provenance(string.Empty, pattern, placed));
+            });
 
     /// <summary>
     /// The intro spread's finished artwork: the approved background for this world with the approved
@@ -1936,7 +2076,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// would be a second implementation of the one thing in the pipeline that is supposed to be
     /// provably identical between the proof and the book.
     /// </summary>
-    private byte[] IntroArtwork(string themeId, BekiRenderMode mode)
+    private FixedPage IntroArtwork(string themeId, BekiRenderMode mode)
         => FixedPageArtwork.GetOrAdd(
             FixedPageKey(
                 $"intro|{themeId}|{(mode == BekiRenderMode.Reading ? "screen" : "press")}",
@@ -1963,9 +2103,14 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                     composite.Manifest.Canvas.WidthPx,
                     composite.Manifest.Canvas.HeightPx);
 
-                return mode == BekiRenderMode.Reading
+                var placed = mode == BekiRenderMode.Reading
                     ? FitForScreen(composite.Png, _layout.SpreadWidthMm)
                     : NormalizeForPrint(composite.Png, PrintRaster);
+
+                // The source is the composite, not the background: what this page places is the
+                // background with Beki already on it, and that is the picture whose pixels either
+                // reached the sheet or were stretched to it.
+                return new FixedPage(placed, Provenance("intro", composite.Png, placed));
             });
 
     /// <summary>
@@ -2081,20 +2226,15 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// </summary>
     /// <param name="WidthPx">5315 on the handoff's 450 mm sheet at 300 PPI.</param>
     /// <param name="HeightPx">2480 on its 210 mm height.</param>
-    /// <param name="MaxUpscale">
-    /// The largest linear enlargement permitted on the way here (D5b / audit P1-01). Zero or less
-    /// disables the guard, which only the screen-proof fixture does.
-    /// </param>
     internal readonly record struct PrintRasterTarget(
-        int WidthPx, int HeightPx, int Ppi, int JpegQuality, float MaxUpscale = 1.05f);
+        int WidthPx, int HeightPx, int Ppi, int JpegQuality);
 
     /// <summary>This book's print raster target, computed from the sheet rather than written down.</summary>
     private PrintRasterTarget PrintRaster => new(
         PixelsFor(_layout.SpreadWidthMm + (_layout.BleedMm * 2f), _layout.PrintTargetPpi),
         PixelsFor(_layout.SpreadHeightMm + (_layout.BleedMm * 2f), _layout.PrintTargetPpi),
         _layout.PrintTargetPpi,
-        _layout.PrintAssetJpegQuality,
-        _layout.MaxPrintUpscale);
+        _layout.PrintAssetJpegQuality);
 
     /// <summary>
     /// The cache key for one fixed page's finished artwork.
@@ -2106,10 +2246,18 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// </summary>
     private string FixedPageKey(string page, string sourceSha256) =>
         $"{page}|{sourceSha256}|{_layout.PrintTargetPpi}|{_layout.PrintAssetJpegQuality}"
-        + $"|{_layout.SpreadWidthMm}x{_layout.SpreadHeightMm}+{_layout.BleedMm}";
+        + $"|{_layout.SpreadWidthMm}x{_layout.SpreadHeightMm}+{_layout.BleedMm}"
+        // The entry carries a provenance now, and the threshold that decides whether it says
+        // "interpolated" is configuration: two books composed at different thresholds must not share
+        // one answer about what was declared.
+        + $"|{_layout.MaxPrintUpscale}";
 
     private static int PixelsFor(float millimetres, int ppi)
         => Math.Max(1, (int)MathF.Round(millimetres / 25.4f * ppi));
+
+    /// <summary>This book's honesty threshold applied to one raster. See <see cref="RasterProvenance"/>.</summary>
+    private BekiRasterProvenance Provenance(string role, byte[] source, byte[] delivered)
+        => RasterProvenance(role, source, delivered, _layout.MaxPrintUpscale);
 
     /// <summary>
     /// One interior layer at exactly the working raster the handoff specifies: 5315 × 2480 px,
@@ -2123,13 +2271,23 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// has already cropped to the sheet, so anything that still disagrees would be a stretch, and
     /// §6 Step 8 forbids stretching in as many words.
     ///
-    /// **And the fourth thing, which is D5b.** All of the above was still satisfied by taking a
-    /// 2528 × 1180 story render and Lanczos-stretching it to 5315 × 2480: the file then says 300 PPI
-    /// and carries about 143 PPI of detail, which is precisely what audit P1-01 found in the
-    /// rejected press interior. Interpolation does not make detail. So an enlargement beyond
-    /// <see cref="PrintRasterTarget.MaxUpscale"/> is refused, naming <c>PRESS_RESOLUTION</c>, and a
-    /// real source or an approved upscaler has to arrive BEFORE layout. Reduction is untouched:
-    /// making an approved asset smaller loses nothing a press would have printed.
+    /// **And the fourth thing, which was D5b and is now the owner's.** All of the above was still
+    /// satisfied by taking a 2528 × 1180 story render and Lanczos-stretching it to 5315 × 2480: the
+    /// file then says 300 PPI and carries about 143 PPI of detail, which is precisely what audit
+    /// P1-01 found in the rejected press interior. D5b answered that by REFUSING the enlargement,
+    /// which — with no super-resolver on the deployment — means the press interior is never built at
+    /// all, at any size. Owner ruling 2026-09-01, rule 4, verbatim: <b>"the sizes we have indicated
+    /// for printing are correct."</b> So the sheet is delivered at the size the product states, and
+    /// the enlargement happens.
+    ///
+    /// What the audit was right about is kept, and moved to where it belongs — the evidence. An
+    /// enlargement past <see cref="BekiPrintLayoutOptions.MaxPrintUpscale"/> is delivered AND
+    /// declared: <see cref="RasterProvenance"/> writes the source pixels, the delivered pixels and
+    /// <c>interpolated: true</c> into the page's layout receipt, print prep's <c>PRESS_RESOLUTION</c>
+    /// gate still fails on it in the preflight report, and the release policy decides what a failed
+    /// gate is worth. Nobody is told 300 PPI of detail arrived when it did not. Reduction is
+    /// untouched and never declared: making an approved asset smaller loses nothing a press would
+    /// have printed.
     ///
     /// <paramref name="preserveApprovedBytes"/> lets an approved asset that already satisfies every
     /// clause pass through byte-identical, which is what §9 asks for of the endpaper pattern: "use
@@ -2177,22 +2335,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
         if (image.Width != target.WidthPx || image.Height != target.HeightPx)
         {
-            var factor = MathF.Max(
-                (float)target.WidthPx / image.Width,
-                (float)target.HeightPx / image.Height);
-
-            if (target.MaxUpscale > 0f && factor > target.MaxUpscale)
-            {
-                throw new BekiLayoutException(
-                    CompositeFailureCodes.LayoutFailed,
-                    $"PRESS_RESOLUTION: a print layer is {image.Width}×{image.Height} and the sheet "
-                    + $"needs {target.WidthPx}×{target.HeightPx} — a {factor:0.00}× enlargement, past "
-                    + $"the {target.MaxUpscale:0.00}× this layout allows. Audit item P1-01: "
-                    + "interpolation does not create detail, and a layer stretched to the target "
-                    + "reports 300 PPI while carrying far less. Deliver real source detail, or run "
-                    + "an approved upscaler, BEFORE layout.");
-            }
-
+            // Up as well as down, since owner ruling 2026-09-01 rule 4. What used to stand here was
+            // a refusal above BekiPrintLayoutOptions.MaxPrintUpscale; the factor is now recorded by
+            // RasterProvenance instead of being thrown, so the sheet exists at the stated size and
+            // the receipt says exactly how it got there.
             image.Mutate(ctx => ctx.Resize(new ResizeOptions
             {
                 Size = new SixLabors.ImageSharp.Size(target.WidthPx, target.HeightPx),
@@ -2217,6 +2363,62 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         });
 
         return buffer.ToArray();
+    }
+
+    /// <summary>
+    /// What happened to one raster between arriving and being placed — measured off the two files
+    /// rather than remembered from the code path that produced them.
+    ///
+    /// Measured, because the number that matters is the one a printer could check: open the source,
+    /// open the page's raster, divide. A flag set by whichever branch happened to run would be a
+    /// claim about intent, and intent is what the rejected release's 300-PPI metadata was.
+    ///
+    /// <paramref name="maxSilentUpscale"/> is the line between a rounding difference and a claim
+    /// about detail — <see cref="BekiPrintLayoutOptions.MaxPrintUpscale"/>, five per cent by default.
+    /// Zero or less declares nothing, which is what the screen-proof fixture asks for. A reduction is
+    /// never declared: it loses nothing a press would have printed.
+    ///
+    /// Unreadable bytes come back as a zero-sized, uninterpolated record rather than throwing. This
+    /// is evidence about a page that has already been laid out; a book must not fail because its
+    /// receipt could not be written, and a receipt of zeroes is visibly a receipt of zeroes.
+    /// </summary>
+    internal static BekiRasterProvenance RasterProvenance(
+        string role, byte[] source, byte[] delivered, float maxSilentUpscale)
+    {
+        var (sourceWidth, sourceHeight) = Dimensions(source);
+        var (deliveredWidth, deliveredHeight) = Dimensions(delivered);
+
+        if (sourceWidth <= 0 || deliveredWidth <= 0)
+        {
+            return new BekiRasterProvenance(
+                role, sourceWidth, sourceHeight, deliveredWidth, deliveredHeight,
+                0d, "unreadable", false);
+        }
+
+        var factor = Math.Max(
+            (double)deliveredWidth / sourceWidth,
+            (double)deliveredHeight / sourceHeight);
+
+        var resized = deliveredWidth != sourceWidth || deliveredHeight != sourceHeight;
+
+        return new BekiRasterProvenance(
+            role, sourceWidth, sourceHeight, deliveredWidth, deliveredHeight,
+            Math.Round(factor, 4),
+            resized ? "lanczos3" : "none",
+            maxSilentUpscale > 0f && factor > maxSilentUpscale);
+    }
+
+    private static (int Width, int Height) Dimensions(byte[] png)
+    {
+        try
+        {
+            var info = SixLabors.ImageSharp.Image.Identify(png);
+            return (info.Width, info.Height);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            return (0, 0);
+        }
     }
 
     /// <summary>
@@ -2470,13 +2672,21 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// ink on cream needs no rim; owner ruling 2026-09-01 — the third and final on the question —
     /// took the wash away again, and they came back.
     ///
-    /// This used to be a raster: the nine-copy stack rendered to a PNG at 300 DPI with one
+    /// This used to be a raster: the offset stack rendered to a PNG at 300 DPI with one
     /// invisible text run over it, so that <c>pdftotext</c> said each line once. The supplier's
     /// preflight rejected exactly that trade — "a raster title-effect image is placed underneath"
     /// the vector text, and a printed glyph should be the RIP's own edge, not a picture of one.
     /// So the visible glyphs are the vector stack again: QuestPDF has no stroke, and the rim is
-    /// the text drawn eight more times on a small circle beneath the fill. The cost, accepted
-    /// knowingly, is that a text extractor reads an outlined line nine times.
+    /// the text drawn <see cref="BekiPrintLayoutOptions.TextOutlineSteps"/> more times on a small
+    /// circle beneath the fill. The cost, accepted knowingly, is that a text extractor reads an
+    /// outlined line once per copy.
+    ///
+    /// **How strong that rim is, is now the type's own business.** Owner ruling 2026-09-01, rule 3:
+    /// "text must have a STRONGER border so it is readable on all backgrounds." The radius is
+    /// <see cref="RimRadiusPt"/> — a proportion of this block's size, floored at the old fixed
+    /// width — so the cover title's rim grows with the cover title and the English secondary line's
+    /// with the English secondary line. It is a rim and only ever a rim: no background box, no wash,
+    /// no panel, which is the ruling before it and is not in question here.
     ///
     /// <paramref name="blockWidthPt"/> is kept for the callers' layout arithmetic even though no
     /// raster needs sizing any more; a box too narrow to set type in still falls back to plain.
@@ -2526,24 +2736,34 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     }
 
     /// <summary>
-    /// The faux outline itself: eight offset copies on a circle of the outline's own radius, then
-    /// the fill — all real vector text runs, which since the supplier's preflight ruling is the
-    /// shipped form rather than the source of a raster.
+    /// The faux outline itself: <see cref="BekiPrintLayoutOptions.TextOutlineSteps"/> offset copies
+    /// evenly around a circle of <see cref="RimRadiusPt"/>, then the fill on top — all real vector
+    /// text runs, which since the supplier's preflight ruling is the shipped form rather than the
+    /// source of a raster.
+    ///
+    /// The step count is the rim's thickness talking. Between two neighbouring directions the rim's
+    /// outer edge falls inside a true circle by <c>r·(1 − cos(π/steps))</c>, so a radius that grows
+    /// without the count growing with it produces a rim that is round on the axes and flat at 45° —
+    /// which on a round Georgian letter looks like a printing fault. See the option for the numbers.
     /// </summary>
     private void DrawOutlineStack(
         IContainer container, string text, float fontSize, float lineHeight,
         Color fill, Color outline, string fontFamily, bool centred)
     {
-        var width = _layout.TextOutlineWidth;
+        var radius = RimRadiusPt(fontSize);
+
+        // Four is the fewest directions that still surround a glyph; beyond sixty-four the copies
+        // are closer together than any press can resolve and only the file grows.
+        var steps = Math.Clamp(_layout.TextOutlineSteps, 4, 64);
 
         container.Layers(layers =>
         {
-            for (var step = 0; step < 8; step++)
+            for (var step = 0; step < steps; step++)
             {
-                var angle = MathF.PI / 4f * step;
+                var angle = MathF.Tau / steps * step;
                 layers.Layer()
-                    .TranslateX(width * MathF.Cos(angle))
-                    .TranslateY(width * MathF.Sin(angle))
+                    .TranslateX(radius * MathF.Cos(angle))
+                    .TranslateY(radius * MathF.Sin(angle))
                     .Element(item =>
                         PlainText(item, text, fontSize, lineHeight, outline, fontFamily, centred));
             }
@@ -2552,6 +2772,21 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 PlainText(item, text, fontSize, lineHeight, fill, fontFamily, centred));
         });
     }
+
+    /// <summary>
+    /// How far the rim reaches out from a glyph set at <paramref name="fontSize"/>, in points.
+    ///
+    /// Owner ruling 2026-09-01, rule 3, verbatim: "text must have a STRONGER border so it is
+    /// readable on all backgrounds." Proportional to the type rather than fixed, because a rim is
+    /// only strong relative to the letter it is drawn around — the same 0.6 pt that was a visible
+    /// edge on 18 pt story copy was a hairline on the 36 pt cover title, and the cover is where type
+    /// lands on the busiest artwork in the book. <see cref="BekiPrintLayoutOptions.TextOutlineWidth"/>
+    /// is the floor under the proportion, so nothing ends up with less rim than the book has always
+    /// had.
+    /// </summary>
+    internal float RimRadiusPt(float fontSize) => MathF.Max(
+        _layout.TextOutlineWidth,
+        MathF.Max(0f, fontSize) * MathF.Max(0f, _layout.TextOutlineWidthFactor));
 
     // ==============================================================================================
     // Receipts

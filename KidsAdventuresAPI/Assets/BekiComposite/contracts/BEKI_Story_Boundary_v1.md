@@ -1,9 +1,24 @@
-# BEKI Story Boundary v1.1
+# BEKI Story Boundary v1.2
 
-**Contract version:** `story-boundary-v1.1`  
+**Contract version:** `story-boundary-v1.2`  
 **Status:** Locked MVP boundary, not a replacement creative prompt
 
 The exact approved Story prompt and provider-specific response schema must be taken from the active backend branch. The archived `MasterStoryPromptV6.md` must not be copied into the new pipeline because it contains superseded requirements.
+
+## v1.2 changelog
+
+Amended against an observed defect in a live run on **2026-09-01**. The input and output boundaries are untouched, to the field: v1.2 adds one locked rule about the child's name, and names the prompt version that implements it — `composite-v1.2`, in `MasterStoryPromptComposite`.
+
+- **Observed defect: the book misspelled the child's name, in the title.** The child was `ვეკო`. The story came back titled **`ველო და მოციმციმე ტყე`** — one Georgian letter, `კ` written as `ლ`, in the child's own name. Nothing validated it. The title is canonical downstream: it is printed on the cover, stored on the pack row and written into the PDF's metadata, so the first thing that family would have seen of a book they paid to personalise is somebody else's name. **Locked:** the child's name is an input, not a word the story chooses. It is reproduced exactly, letter for letter, everywhere it appears — in the title and on every spread. Georgian case endings may follow it (`ვეკოს`, `ვეკომ`, `ვეკოსთვის`); the letters of the name itself never change, and no second spelling of it exists in the book. A title that does not name the hero is legal; a title that names the hero with a mangled name is not.
+
+**The deterministic check.** A prompt rule is how a model is told; `GeorgianNameFidelity` (backend, `Services/Story/GeorgianNameFidelity.cs`) is how the book is read afterwards, and it is the same division of labour `BekiIdentityRules` already has for Beki's own name. It cannot use a word list — the child's name is not knowable in advance — so it compares the book against the input:
+
+- **Near miss.** Georgian declines by suffix, so every comparison is made on a word's leading *len(name)* characters. A word whose prefix IS the name is the name, however it is suffixed. A word whose prefix is one edit (Levenshtein distance 1) from the name, shares its first character, and is not the name, is reported with the word and the page. `ვეკოს`, `ვეკომ`, `ვეკოსთვის` pass; `ველო`, `ველოს` do not.
+- **Absence.** The exact name must appear at least once in the story text. If the title carries a near miss, the title must also carry the exact name.
+- **Never repairs.** Substituting the right name into sentences written around the wrong one would produce a correct-looking book whose prose is about a different word, and would hide from everybody that the planner cannot spell the name it was given.
+- **Guards.** Names shorter than three characters are not checked (distance-1 prefix matching on two letters matches too much ordinary Georgian to be worth reading), the companion's name `ბეკი` is never read as a misspelling of anybody's, and a word this plan itself declares as another character's or object's name is exempt unless it is itself within one edit of the child's name.
+
+It runs at story acceptance on both paths — the preview's plan validation and the fulfilment pipeline's own planning call — and on an adopted preview story, which is the seam the observed defect actually came through. A failure buys one corrective retry with the exact name and the exact wrong word stated. After that the release policy decides: check id `name_fidelity`, **blocker by default** (identity class, like exact-Beki), admin-settable to `flag`, which ships the book and raises an alarm carrying the word and the page.
 
 ## v1.1 changelog
 
@@ -62,3 +77,4 @@ Validate with `story_boundary_v1.schema.json`. Provider-specific fields may exis
 - (v1.1) One simple tense across all eight spreads; the present tense unless the whole book is written otherwise.
 - (v1.1) Natural spoken Georgian for the age band — `მას ეძინება`, not `მას ძილი ნებავს` (pending Georgian editor approval).
 - (v1.1) The copy tracks an important object's state, luminosity included, from the page that introduces it to the last page it appears on.
+- (v1.2) The child's name is reproduced exactly, letter for letter, everywhere it appears — title and every spread. Case endings may follow it; its own letters never change. Checked deterministically by `GeorgianNameFidelity`; `name_fidelity` is a blocker by default.

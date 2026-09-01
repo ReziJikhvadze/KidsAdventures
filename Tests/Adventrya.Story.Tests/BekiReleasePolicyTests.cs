@@ -42,9 +42,30 @@ public class BekiReleasePolicyTests
             Assert.Equal(BekiReleaseSeverity.Flag, policy.SeverityOf(check));
         }
 
-        // The four press gates are the exception the ruling itself carves out.
-        Assert.Equal(BekiReleaseSeverity.Blocker, policy.SeverityOf("PRESS_RESOLUTION"));
+        // The press gates are the exception the ruling itself carves out — three of them, since
+        // 2026-09-01.
+        Assert.Equal(BekiReleaseSeverity.Blocker, policy.SeverityOf("PRESS_GEOMETRY"));
         Assert.Equal(BekiReleaseSeverity.Blocker, policy.SeverityOf("PRESS_COLOR"));
+        Assert.Equal(BekiReleaseSeverity.Blocker, policy.SeverityOf("TEXT_COLOR_INTEGRITY"));
+
+        /*
+          And the fourth is a flag — owner's rule 4, 2026-09-01: the sizes we indicated for printing
+          are correct.
+
+          PRESS_RESOLUTION was measuring the approved artwork against a placement resolution the
+          format does not require, and its refusal was withholding the printer's file on books whose
+          art is the art we approved. Its neighbours keep their blockers because they are about what
+          a press does with a file — geometry, colour, ink. What does not change is the raw report:
+          a failing PRESS_RESOLUTION still fails, still names the file, and still makes the handback
+          NOT_RELEASABLE. See A_press_gate_still_blocks_under_the_shipped_defaults below for both
+          halves of that.
+        */
+        Assert.Equal(BekiReleaseSeverity.Flag, policy.SeverityOf("PRESS_RESOLUTION"));
+
+        // The image reviewer, off by the same ruling's rule 5: "we don't need additional reviews
+        // for images". Blocker means the per-spread vision call is bought.
+        Assert.False(policy.ImageReviewRequired);
+        Assert.Equal(BekiReleaseSeverity.Flag, policy.SeverityOf(BekiReleaseChecks.ImageReview));
 
         // And the shared and digital gates flag, so a book with artwork in hand reaches the family.
         Assert.Equal(BekiReleaseSeverity.Flag, policy.SeverityOf("VISUAL_QA"));
@@ -386,8 +407,8 @@ public class BekiReleasePolicyGateTests
 
         blobs.Seed(BekiPackBlobs.PressStatusName(UserId, PackId), Json(new
         {
-            failed_gates = new[] { "PRESS_RESOLUTION" },
-            reason = "the source art carries 143 PPI of detail at placement size",
+            failed_gates = new[] { "PRESS_COLOR" },
+            reason = "the interior carries RGB image data outside the FOGRA39 profile",
         }));
 
         var verdict = await new BekiReleaseGates(blobs).EvaluateAsync(
@@ -395,10 +416,52 @@ public class BekiReleasePolicyGateTests
 
         Assert.False(verdict.PressFilesMayPublish);
         Assert.False(verdict.SupplierPressReleasable);
-        Assert.DoesNotContain(verdict.PolicyWaivers, w => w.CheckId == "PRESS_RESOLUTION");
+        Assert.DoesNotContain(verdict.PolicyWaivers, w => w.CheckId == "PRESS_COLOR");
 
         // And the parent's download, which this says nothing about, is unaffected.
         Assert.True(verdict.CustomerPdfMayPublish);
+    }
+
+    /// <summary>
+    /// The one press gate that does NOT block any more — owner's rule 4, 2026-09-01: the sizes we
+    /// indicated for printing are correct.
+    ///
+    /// Both halves in one test, because the point is precisely that they diverge. The printer's file
+    /// publishes: a refusal measured against a placement resolution the format does not require is
+    /// not a reason to hold a book. And the supplier is told exactly what happened anyway — the gate
+    /// still reads FAIL, the handback verdict is still NOT_RELEASABLE, and the waiver list names the
+    /// decision, which is what makes "why did this ship?" answerable a year later.
+    /// </summary>
+    [Fact]
+    public async Task The_resolution_gate_publishes_the_press_file_and_still_tells_the_supplier()
+    {
+        var blobs = new PolicyFakeBlobs();
+        Seed(blobs, UserId, PackId);
+
+        blobs.Seed(BekiPackBlobs.PressStatusName(UserId, PackId), Json(new
+        {
+            failed_gates = new[] { "PRESS_RESOLUTION" },
+            reason = "the source art carries 143 PPI of detail at placement size",
+        }));
+
+        var verdict = await new BekiReleaseGates(blobs).EvaluateAsync(
+            UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Defaults);
+
+        Assert.True(verdict.PressFilesMayPublish);
+
+        // Nothing about the truth moved.
+        Assert.False(verdict.SupplierPressReleasable);
+        Assert.Equal(BekiReleaseGates.NotReleasable, verdict.Verdict);
+        Assert.Contains("PRESS_RESOLUTION", verdict.FailingGates);
+
+        var gate = Assert.Single(verdict.Gates, g => g.Id == "PRESS_RESOLUTION");
+        Assert.Equal(BekiReleaseGates.Fail, gate.Status);
+        Assert.Equal(BekiReleaseGates.WaivedByPolicy, gate.Disposition);
+
+        Assert.Contains(
+            verdict.PolicyWaivers,
+            waiver => waiver.CheckId == "PRESS_RESOLUTION"
+                      && waiver.DeliverableClass == BekiReleaseGates.PressClass);
     }
 
     /// <summary>

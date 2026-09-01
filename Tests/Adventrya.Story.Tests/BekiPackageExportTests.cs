@@ -282,9 +282,9 @@ public class BekiPackageExportTests
         /*
           And a healthy book's listing is not buried under them.
 
-          There are forty-five possible waiver names per book and a good book has none. Reporting
-          each absence as "missing" would put ninety lines into the one document whose whole job is
-          to tell a recipient which of the files that SHOULD be here are not.
+          There are fifty-four possible waiver names per book and a good book has none. Reporting
+          each absence as "missing" would put a hundred and eight lines into the one document whose
+          whole job is to tell a recipient which of the files that SHOULD be here are not.
         */
         var missing = contents.RootElement.GetProperty("missing")
             .EnumerateArray().Select(element => element.GetString()!).ToList();

@@ -104,6 +104,14 @@ public sealed record BekiResolutionSource(
 /// and what colour the text came out of the conversion (P0-07 — a global black-text option turned
 /// the cream credits page to near-invisible <c>0 g</c>). Both are gates, not notes, and both answer
 /// with the numbers they measured so that the report can be argued with.
+///
+/// The two differ in one thing since owner ruling 2026-09-01, rule 4 — "the sizes we have indicated
+/// for printing are correct". <c>TEXT_COLOR_INTEGRITY</c> still refuses: an unreadable page is not a
+/// press file. <c>PRESS_RESOLUTION</c> now reports its verdict instead of throwing it, because
+/// refusing to build the press interior does not give anybody a 300-PPI book — it gives them no book
+/// — and the number it measured is worth having either way. The file is produced at the stated size,
+/// the gate says FAIL in the report and in <c>failed_gates</c>, and the release policy decides. The
+/// measurement itself is untouched to the pixel.
 /// </summary>
 public static class BekiPrintPrep
 {
@@ -146,14 +154,30 @@ public static class BekiPrintPrep
     /// </param>
     /// <param name="resolutionReceipt">
     /// Where each press raster's pixels came from (amendment A1). Null means no enlargement is
-    /// claimed; a receipt that admits interpolation-only enlargement fails the resolution gate.
+    /// claimed; a receipt that admits interpolation-only enlargement fails the resolution gate in
+    /// the report and in the returned gate list.
+    ///
+    /// The composer knows things the upscaler in front of it does not — it is the stage that
+    /// enlarges a short raster onto the stated sheet — so a caller building this from the upscaler
+    /// alone hands the gate a receipt with that enlargement missing. Combine it with
+    /// <see cref="BekiLayoutReceipts.RasterSources"/> from the composed book.
     /// </param>
-    /// <returns>The prepared PDF and the preflight report, JSON, ready to store beside it.</returns>
+    /// <returns>
+    /// The prepared PDF, the preflight report as JSON ready to store beside it, and the acceptance
+    /// gates that FAILED without withholding the file.
+    ///
+    /// That third value is the whole of what owner ruling 2026-09-01 rule 4 changed here. Exactly one
+    /// gate travels in it today — <c>PRESS_RESOLUTION</c> — because a press file that refuses to
+    /// exist is not a printing size being correct, and the audit's measurement is worth keeping
+    /// whether or not it is worth stopping a release for. Every other check in this stage still
+    /// refuses outright and throws. A caller that ignores this list is publishing a file whose
+    /// resolution gate may have failed; the release policy is where that is weighed.
+    /// </returns>
     /// <exception cref="BekiLayoutException">
-    /// <c>PRINT_PREFLIGHT_FAILED</c> — a required input is missing or a check failed. The message
-    /// names the cause, because the log is where somebody finds out what is still owed.
+    /// <c>PRINT_PREFLIGHT_FAILED</c> — a required input is missing or a hard check failed. The
+    /// message names the cause, because the log is where somebody finds out what is still owed.
     /// </exception>
-    public static (byte[] Pdf, string ReportJson) Prepare(
+    public static (byte[] Pdf, string ReportJson, IReadOnlyList<string> FailedGates) PrepareWithGates(
         byte[] laidOutPdf,
         string title,
         BekiPrintPrepOptions options,
@@ -264,8 +288,14 @@ public static class BekiPrintPrep
             contents.Add(BekiContentWalker.Walk(document.Pages[index], index + 1));
         }
 
-        var resolution = EnforcePressResolution(contents, requiredPpi, resolutionReceipt);
+        var (resolution, resolutionProblems) =
+            MeasurePressResolution(contents, requiredPpi, resolutionReceipt);
         var textColour = EnforceTextColourIntegrity(contents, probe);
+
+        // The one gate this stage measures and does not act on. Everything else in here still
+        // refuses outright: a missing ICC profile, an unembedded face, a wrong page box, a dropped
+        // page, an RGB raster, cream text converted to device black. See MeasurePressResolution.
+        var failedGates = resolutionProblems.Count > 0 ? new[] { PressResolutionGate } : [];
 
         // Page heights are read before the save, while the document is unambiguously ours: the
         // probe rectangles arrive measured from the top-left corner, and turning that into a
@@ -289,6 +319,11 @@ public static class BekiPrintPrep
                 stage = "beki-print-prep-v2",
                 spec = "BEKI_Print_Production_Locked_Spec_v1",
                 prepared_at_utc = DateTime.UtcNow,
+                // The gates that failed and did not stop the file being written. Empty on a clean
+                // artifact. This exists because owner ruling 2026-09-01 rule 4 moved the decision on
+                // PRESS_RESOLUTION out of this stage: the file is produced at the stated size, and
+                // whoever publishes it needs to be able to read, in one place, what is wrong with it.
+                failed_gates = failedGates,
                 pdfx = new
                 {
                     version = PdfxVersion,
@@ -342,7 +377,34 @@ public static class BekiPrintPrep
             },
             new JsonSerializerOptions { WriteIndented = true });
 
-        return (prepared, report);
+        return (prepared, report, failedGates);
+    }
+
+    /// <summary>
+    /// <inheritdoc cref="PrepareWithGates"/>
+    ///
+    /// The two-value form, for callers that read the preflight JSON rather than the gate list.
+    ///
+    /// No delivery path uses it any more, and that is the shape of review finding 1 rather than an
+    /// accident: a caller that drops the gate list has to read <c>failed_gates</c> out of the report
+    /// to learn the same thing, and the previous pipeline's press branch did neither — it published
+    /// whatever came back. Both delivery paths call <see cref="PrepareWithGates"/> now. What is left
+    /// here is the tests, which assert on the report, and any future caller that genuinely only
+    /// wants the document; the gate list it forgoes is still in the report under <c>failed_gates</c>.
+    /// </summary>
+    public static (byte[] Pdf, string ReportJson) Prepare(
+        byte[] laidOutPdf,
+        string title,
+        BekiPrintPrepOptions options,
+        float trimInsetMm = 5f,
+        string? baseDirectory = null,
+        BekiPrintProbe? probe = null,
+        BekiResolutionReceipt? resolutionReceipt = null)
+    {
+        var (pdf, report, _) = PrepareWithGates(
+            laidOutPdf, title, options, trimInsetMm, baseDirectory, probe, resolutionReceipt);
+
+        return (pdf, report);
     }
 
     /// <summary>
@@ -446,28 +508,41 @@ public static class BekiPrintPrep
     /// <c>PRESS_RESOLUTION</c>: "Every press raster has at least 300 effective source PPI at
     /// placement size; interpolation-only upscaling is a failure."
     ///
-    /// Two ways to fail, and the second is the one the audit had to invent. The first is
-    /// arithmetic: pixels over placed inches, per axis, for every image the content stream actually
-    /// paints — which is why there is a content-stream walker at all (amendment A1: the credits
-    /// Beki mark is a 32 mm image on a 440 mm page, and page-size arithmetic would report it at
-    /// forty times its density). The second is provenance: a raster can measure 300 PPI and carry
-    /// 143, because something stretched it, and only the receipt knows.
+    /// Three ways to fail, and the last is the one the audit had to invent. The first is a placement
+    /// that could not be measured — amendment A1 is explicit that unknown is not a pass, because the
+    /// shipped cover passed a preflight that simply never asked. The second is arithmetic: pixels
+    /// over placed inches, per axis, for every image the content stream actually paints, which is why
+    /// there is a content-stream walker at all (the credits Beki mark is a 32 mm image on a 440 mm
+    /// page, and page-size arithmetic would report it at forty times its density). The third is
+    /// provenance: a raster can measure 300 PPI and carry 143, because something stretched it, and
+    /// only the receipt knows.
     ///
-    /// A placement that could not be resolved fails too. Amendment A1 is explicit that unknown is
-    /// not a pass — the shipped cover passed a preflight that simply never asked.
+    /// **It measures and it reports; it no longer decides.** Every one of those three used to throw,
+    /// which meant a book whose art was thin produced no press file at all — and with no
+    /// super-resolver on the deployment, that is every book. Owner ruling 2026-09-01, rule 4: "the
+    /// sizes we have indicated for printing are correct", and a press build that refuses to exist is
+    /// not a size being correct. So the measurement is unchanged to the pixel, the message is
+    /// unchanged word for word, and the verdict lands in the report and in
+    /// <c>failed_gates</c> instead of in an exception. Whether a failed <c>PRESS_RESOLUTION</c>
+    /// withholds a release is the release policy's call, made where the other gates are weighed.
+    ///
+    /// Nothing here is softened. A gate that reads FAIL in the preflight is a gate that failed, and
+    /// the supplier handback carries the same numbers it always did.
     /// </summary>
-    private static object EnforcePressResolution(
+    /// <returns>The report block, and the problems found — empty when the gate passes.</returns>
+    private static (object Report, IReadOnlyList<string> Problems) MeasurePressResolution(
         IReadOnlyList<BekiContentWalker.PageContent> contents,
         int requiredPpi,
         BekiResolutionReceipt? receipt)
     {
         var images = contents.SelectMany(page => page.Images).ToList();
         var unresolved = contents.SelectMany(page => page.Unresolved).ToList();
+        var problems = new List<string>();
 
         if (unresolved.Count > 0)
         {
-            throw Failure(
-                $"{PressResolutionGate}: {unresolved.Count} paint operation(s) could not be "
+            problems.Add(
+                $"{unresolved.Count} paint operation(s) could not be "
                 + "measured, so their resolution is unknown — and unknown is not a pass. "
                 + string.Join(" ", unresolved
                     .Take(6)
@@ -477,8 +552,8 @@ public static class BekiPrintPrep
         var thin = images.Where(image => image.EffectivePpi < requiredPpi - 0.5d).ToList();
         if (thin.Count > 0)
         {
-            throw Failure(
-                $"{PressResolutionGate}: {thin.Count} of {images.Count} placed raster(s) fall "
+            problems.Add(
+                $"{thin.Count} of {images.Count} placed raster(s) fall "
                 + $"below {requiredPpi} effective PPI. "
                 + string.Join(" ", thin
                     .Take(6)
@@ -491,8 +566,8 @@ public static class BekiPrintPrep
         var stretched = (receipt?.Sources ?? []).Where(source => source.IsInterpolationOnly).ToList();
         if (stretched.Count > 0)
         {
-            throw Failure(
-                $"{PressResolutionGate}: {stretched.Count} raster(s) reached their pixel count by "
+            problems.Add(
+                $"{stretched.Count} raster(s) reached their pixel count by "
                 + "interpolation alone, and upscaling changes pixel count rather than source "
                 + "detail (audit P1-01). "
                 + string.Join(" ", stretched
@@ -502,12 +577,19 @@ public static class BekiPrintPrep
                         + $"enlarged ×{source.Factor:F2} by '{source.Tool}'.")));
         }
 
-        return new
+        return (new
         {
             gate = PressResolutionGate,
             contract = AcceptanceGatesFile,
             required_press_raster_ppi = requiredPpi,
-            verdict = "PASS",
+            verdict = problems.Count == 0 ? "PASS" : "FAIL",
+            // Named so a reader of the JSON is not left to guess why a FAIL still produced a file:
+            // the gate does not withhold anything on its own, and the stage that does is named.
+            decision = problems.Count == 0
+                ? "none needed"
+                : "withheld from this stage: BekiReleasePolicy weighs a failed PRESS_RESOLUTION "
+                  + "against the rest of the gates (owner ruling 2026-09-01, rule 4)",
+            problems,
             placed_images = images
                 .Select(image => new
                 {
@@ -541,7 +623,7 @@ public static class BekiPrintPrep
                         interpolation_only = source.IsInterpolationOnly,
                     })
                     .ToList(),
-        };
+        }, problems);
     }
 
     /// <summary>

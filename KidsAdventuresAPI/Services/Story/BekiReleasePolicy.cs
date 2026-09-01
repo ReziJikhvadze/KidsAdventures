@@ -47,9 +47,71 @@ public static class BekiReleaseChecks
     /// </summary>
     public const string HumanReview = "human_review";
 
-    /// <summary>Every check this deployment mints, for the admin table and the equivalence test.</summary>
+    /// <summary>
+    /// Whether a MODEL has to look at every spread before the book is built — the per-spread visual
+    /// QA call, and the retry ladder it drives.
+    ///
+    /// Owner's ruling, 2026-09-01: "we don't need additional reviews for images". So it reads like
+    /// <see cref="HumanReview"/> and not like the three checks above it: <c>blocker</c> means the
+    /// review runs exactly as it always has, <c>flag</c> — the shipped default — means it is not
+    /// bought at all and the spread's record says so in as many words
+    /// (<c>REVIEW_SKIPPED_BY_POLICY</c>).
+    ///
+    /// It is NOT one of the waivers. The three above are decisions to ship work that failed a
+    /// check; this is a decision not to run the check, and the difference is visible in what gets
+    /// written down. A waived page carries the refusal it earned; a skipped page carries a record
+    /// saying no model was asked. Neither ever says PASS.
+    ///
+    /// What it does not touch is anything that measures rather than judges: the centre-fold gate,
+    /// the base image checks, the composite receipts, the identity spec derivation and the fixed
+    /// pages' machine QA all run whatever this is set to. Turning off opinions is not turning off
+    /// arithmetic.
+    /// </summary>
+    public const string ImageReview = "image_review";
+
+    /// <summary>
+    /// The child's name, spelled the way the parent typed it, everywhere the book says it.
+    ///
+    /// A blocker by default, and the only one of ours that is — because it is not a judgement about
+    /// a picture, it is the same class of rule as exact-Beki: an identity the book either carries or
+    /// does not. The observed defect (2026-09-01) is the argument. A live run for a child called
+    /// ვეკო came back titled „ველო და მოციმციმე ტყე“: one Georgian letter wrong, in the child's own
+    /// name, in the title — which flows canonically to the cover, the pack row and the PDF metadata.
+    /// There is no version of that book worth shipping to the family who ordered it, so the flag
+    /// side of this switch exists only for an operator who has looked at a specific book and decided
+    /// otherwise.
+    ///
+    /// It is waivable at all — rather than terminal like the identity spec — because the failure it
+    /// describes is a story that can be rewritten, and by the time it is asked no artwork has been
+    /// drawn. See <see cref="GeorgianNameFidelity"/> for what it actually reads.
+    /// </summary>
+    public const string NameFidelity = "name_fidelity";
+
+    /// <summary>
+    /// Everything the pipeline asks the policy about whose shipped default is <c>flag</c>: B3's
+    /// three waivable judgements, and the two switches that decide whether a review happens at all.
+    ///
+    /// The two kinds are not the same thing and the constants above say which is which.
+    /// <see cref="CentreFold"/>, <see cref="CoverBands"/>, <see cref="ImageQa"/> and
+    /// <see cref="QaUnreadable"/> are waivers — a check ran, refused, and the artwork ships anyway
+    /// with the refusal recorded. <see cref="HumanReview"/> and <see cref="ImageReview"/> are
+    /// toggles — the review does not happen, and the record says that instead. What they share, and
+    /// the only reason one list holds both, is the answer: every one of them is a flag under the
+    /// owner's ruling, and every one of them is a row on the admin table.
+    ///
+    /// <see cref="NameFidelity"/> is deliberately NOT in this list. It is an identity and defaults
+    /// to stopping, and a list that mixed it in would make "every member of Pipeline is a flag" —
+    /// which is the owner's ruling, and a test — false.
+    /// </summary>
     public static readonly IReadOnlyList<string> Pipeline =
-        [CentreFold, CoverBands, ImageQa, QaUnreadable, HumanReview];
+        [CentreFold, CoverBands, ImageQa, QaUnreadable, HumanReview, ImageReview];
+
+    /// <summary>
+    /// Every check this deployment mints, whatever its default: the admin table's rows, and the set
+    /// a pack's diagnostics have to be able to carry evidence for.
+    /// </summary>
+    public static readonly IReadOnlyList<string> All =
+        [.. Pipeline, NameFidelity];
 }
 
 /// <summary>The two words a check can be set to, and the wildcard class.</summary>
@@ -157,6 +219,29 @@ public sealed class BekiReleasePolicySnapshot
     public bool HumanReviewRequired =>
         SeverityOf(BekiReleaseChecks.HumanReview) == BekiReleaseSeverity.Blocker;
 
+    /// <summary>
+    /// Whether the per-spread visual QA call is bought. False under the owner's default — rule 5,
+    /// 2026-09-01: "we don't need additional reviews for images" — in which case the page is
+    /// accepted on the deterministic checks and its record says <c>REVIEW_SKIPPED_BY_POLICY</c>.
+    ///
+    /// Read exactly once per book, off the snapshot the job is carrying, so a switch flipped
+    /// mid-fulfilment cannot produce a book whose first three pages were reviewed and whose last
+    /// five were not.
+    /// </summary>
+    public bool ImageReviewRequired =>
+        SeverityOf(BekiReleaseChecks.ImageReview) == BekiReleaseSeverity.Blocker;
+
+    /// <summary>
+    /// The name this policy's shape goes into a stored record under.
+    ///
+    /// It exists for one reader: the person opening a spread's QA document in a year and asking
+    /// what "REVIEW_SKIPPED_BY_POLICY" was decided under. The severity is written beside it, so the
+    /// pair says both what the vocabulary was and what this deployment had it set to. Bump it when
+    /// the meaning of a severity changes — not when a check is added, which stored records already
+    /// name individually.
+    /// </summary>
+    public const string Version = "beki-release-policy-v1";
+
     /*
       The two gate lists are declared HERE, above the snapshots that read them.
 
@@ -174,22 +259,59 @@ public sealed class BekiReleasePolicySnapshot
         "ASSET_LOCK", "EXACT_BEKI", "SINGLE_COVER_MASTER", "COVER_CONTINUITY",
         "INTERIOR_CONTINUITY", "TEXT_LAYER", "FONT_INTEGRITY", "VISUAL_QA",
         "DIGITAL_GEOMETRY", "HANDBACK_COMPLETENESS",
+
+        /*
+          PRESS_RESOLUTION moved here on 2026-09-01, and it is the only press gate that has.
+
+          Owner's rule 4: the sizes we indicated for printing are correct. The gate was measuring a
+          book against a placement resolution the format does not actually require, and its refusal
+          was withholding the printer's file on books whose art is the art we approved. Its three
+          neighbours keep their blockers, because they are about what a press does with a file —
+          geometry, colour, ink — rather than about a number we set ourselves.
+
+          What does NOT change is what the supplier is told. The raw gate result is untouched: a
+          failing PRESS_RESOLUTION still fails, still names the file, still makes the handback
+          verdict NOT_RELEASABLE, and still raises an alarm. Flag decides publication, never truth.
+        */
+        "PRESS_RESOLUTION",
     ];
 
     /// <summary>
-    /// The printer's four, which keep their blockers. A press PDF is somebody else's press time: a
-    /// bad one is a reprint and an invoice, not a disappointment a support message can answer.
+    /// The printer's remaining three, which keep their blockers. A press PDF is somebody else's
+    /// press time: a bad one is a reprint and an invoice, not a disappointment a support message
+    /// can answer.
     /// </summary>
     private static readonly IReadOnlyList<string> BlockingGateDefaults =
-        ["PRESS_GEOMETRY", "PRESS_COLOR", "PRESS_RESOLUTION", "TEXT_COLOR_INTEGRITY"];
+        ["PRESS_GEOMETRY", "PRESS_COLOR", "TEXT_COLOR_INTEGRITY"];
+
+    /// <summary>
+    /// Ours that stop rather than ship: the identity class.
+    ///
+    /// One member so far. The reasoning is the printer's, applied to a different currency — a press
+    /// PDF is somebody else's press time, and a book with the child's name misspelled on the cover
+    /// is the family's whole reason for ordering it. Neither is a taste an alarm can settle later.
+    ///
+    /// Migration 035 does not seed it, and does not need to: an absent row falls through to
+    /// <see cref="DefaultSeverityOf"/>, which reads this list. The admin table gets its row from
+    /// <see cref="Defaults"/> either way, so the switch is there to be flipped.
+    /// </summary>
+    private static readonly IReadOnlyList<string> BlockingCheckDefaults =
+        [BekiReleaseChecks.NameFidelity];
 
     /// <summary>
     /// The owner's ruling, as the policy a deployment has before anybody touches it — and the
     /// answer for any check with no row.
     ///
-    /// It must stay identical to the seed block at the bottom of migration 035. A disagreement would
-    /// make a deployment's behaviour depend on whether that script had run, which is the least
+    /// Every row migration 035 seeds is here, with the same severity. A disagreement on one of those
+    /// would make a deployment's behaviour depend on whether that script had run, which is the least
     /// debuggable difference a system can have.
+    ///
+    /// The reverse is allowed and is how a later campaign adds a check without a migration:
+    /// <c>name_fidelity</c> has a row here and none in 035, so a database that has never heard of it
+    /// answers through <see cref="DefaultSeverityOf"/> — with the same severity — and the admin table
+    /// still renders the switch, because that screen is built from this list rather than from the
+    /// stored rows. What must never happen is the opposite: a row seeded by the script that this
+    /// list does not know about.
     /// </summary>
     public static BekiReleasePolicySnapshot Defaults { get; } = new(DefaultSettings());
 
@@ -215,6 +337,11 @@ public sealed class BekiReleasePolicySnapshot
         foreach (var check in BekiReleaseChecks.Pipeline)
         {
             Add(check, BekiReleaseSeverity.AllClasses, BekiReleaseSeverity.Flag);
+        }
+
+        foreach (var check in BlockingCheckDefaults)
+        {
+            Add(check, BekiReleaseSeverity.AllClasses, BekiReleaseSeverity.Blocker);
         }
 
         foreach (var gate in FlaggedGateDefaults)
@@ -252,7 +379,8 @@ public sealed class BekiReleasePolicySnapshot
                 : BekiReleaseSeverity.Flag;
         }
 
-        if (BlockingGateDefaults.Contains(checkId, StringComparer.OrdinalIgnoreCase))
+        if (BlockingGateDefaults.Contains(checkId, StringComparer.OrdinalIgnoreCase)
+            || BlockingCheckDefaults.Contains(checkId, StringComparer.OrdinalIgnoreCase))
         {
             return BekiReleaseSeverity.Blocker;
         }

@@ -330,41 +330,74 @@ public class BekiPrintPrepTests
     }
 
     /// <summary>
-    /// The audit's own defect, reproduced and now caught: the composed book at the suite's screen
-    /// proof density is 96 PPI art, and the press gate refuses it by name and with the numbers.
+    /// The audit's own defect, reproduced and still measured — and, since owner ruling 2026-09-01
+    /// rule 4, no longer allowed to destroy the press build on its way to being reported.
     ///
-    /// This is correction-plan risk R4 written as a test — every real press run fails
+    /// The composed book at the suite's screen proof density is 96 PPI art. The gate says so, by
+    /// name and with the numbers, exactly as it always did. What has changed is that saying so no
+    /// longer throws: "the sizes we have indicated for printing are correct", and a press file that
+    /// refuses to exist is not a size being correct. So the prepared PDF comes back, the report
+    /// carries the verdict FAIL and the measurements behind it, <c>failed_gates</c> names the gate,
+    /// and the release policy is where a failed <c>PRESS_RESOLUTION</c> is weighed against the rest.
+    ///
+    /// This is still correction-plan risk R4 written as a test — every real press run fails
     /// <c>PRESS_RESOLUTION</c> until the source art is genuinely 300 PPI or an approved upscaler is
-    /// configured. That is the intended state, not a regression.
+    /// configured. The intended state is unchanged; only who acts on it has moved.
     /// </summary>
     [Fact]
-    public void A_book_composed_at_screen_resolution_fails_the_press_resolution_gate()
+    public void A_book_composed_at_screen_resolution_reports_a_failed_press_resolution_gate()
     {
         var interior = InteriorPdf();
 
         using (var composed = PdfReader.Open(
                    new MemoryStream(interior), PdfDocumentOpenMode.InformationOnly))
         {
-            // The page-count contract the composer owes, checked before the press stage refuses.
+            // The page-count contract the composer owes, checked before the press stage measures.
             Assert.Equal(BookFormat.SpreadCount + 4, composed.PageCount);
         }
 
-        var failure = Assert.Throws<BekiLayoutException>(() =>
-            BekiPrintPrep.Prepare(interior, "ტესტი", new BekiPrintPrepOptions()));
+        var (pdf, reportJson, failedGates) = BekiPrintPrep.PrepareWithGates(
+            interior, "ტესტი", new BekiPrintPrepOptions());
 
-        Assert.Equal("PRINT_PREFLIGHT_FAILED", failure.FailureCode);
-        Assert.Contains("PRESS_RESOLUTION", failure.Message);
-        Assert.Contains("effective PPI", failure.Message);
-        Assert.Contains(" px at ", failure.Message);
+        // The press file exists. That is rule 4.
+        Assert.NotEmpty(pdf);
+
+        // And it is not pretending: the gate failed, it is named, and the numbers are there to argue
+        // with — the same numbers the exception used to carry.
+        Assert.Equal([BekiPrintPrep.PressResolutionGate], failedGates);
+
+        using var report = JsonDocument.Parse(reportJson);
+        var resolution = report.RootElement.GetProperty("resolution");
+
+        Assert.Equal("FAIL", resolution.GetProperty("verdict").GetString());
+        Assert.Equal(
+            [BekiPrintPrep.PressResolutionGate],
+            report.RootElement.GetProperty("failed_gates").EnumerateArray()
+                .Select(gate => gate.GetString()).ToArray());
+
+        var problem = Assert.Single(resolution.GetProperty("problems").EnumerateArray()).GetString()!;
+        Assert.Contains("effective PPI", problem, StringComparison.Ordinal);
+        Assert.Contains(" px at ", problem, StringComparison.Ordinal);
+
+        // The report says out loud that it withheld the decision rather than passing the file.
+        Assert.Contains(
+            "BekiReleasePolicy", resolution.GetProperty("decision").GetString()!,
+            StringComparison.Ordinal);
     }
 
     /// <summary>
     /// The other half of the resolution gate, and the one arithmetic cannot see: a raster can carry
     /// 300 PPI of pixels and 143 PPI of detail. The receipt is where that is admitted, and admitting
-    /// it fails.
+    /// it still fails the gate — in the report, which under rule 4 is where a failed
+    /// <c>PRESS_RESOLUTION</c> lives.
+    ///
+    /// This is now the ORDINARY path rather than the exceptional one: the composer enlarges the
+    /// interior to the stated sheet and declares the enlargement in its layout receipts, so a press
+    /// build with no super-resolver configured produces files and a failed resolution gate every
+    /// time. The gate is what keeps that visible.
     /// </summary>
     [Fact]
-    public void A_receipt_that_admits_interpolation_only_upscaling_fails_the_gate()
+    public void A_receipt_that_admits_interpolation_only_upscaling_fails_the_gate_in_the_report()
     {
         var receipt = new BekiResolutionReceipt(
         [
@@ -372,14 +405,44 @@ public class BekiPrintPrepTests
                 "spread-04", 2528, 1180, 5315, 2480, "lanczos3", 2.1d, InterpolationOnly: false),
         ]);
 
-        var failure = Assert.Throws<BekiLayoutException>(() =>
-            BekiPrintPrep.Prepare(
-                BekiPressPrepFixtures.LightTextOnInk(), "ტესტი", new BekiPrintPrepOptions(),
-                resolutionReceipt: receipt));
+        var (pdf, reportJson, failedGates) = BekiPrintPrep.PrepareWithGates(
+            BekiPressPrepFixtures.LightTextOnInk(), "ტესტი", new BekiPrintPrepOptions(),
+            resolutionReceipt: receipt);
 
-        Assert.Contains("PRESS_RESOLUTION", failure.Message);
-        Assert.Contains("interpolation alone", failure.Message);
-        Assert.Contains("spread-04", failure.Message);
+        Assert.NotEmpty(pdf);
+        Assert.Equal([BekiPrintPrep.PressResolutionGate], failedGates);
+
+        using var report = JsonDocument.Parse(reportJson);
+        var resolution = report.RootElement.GetProperty("resolution");
+
+        Assert.Equal("FAIL", resolution.GetProperty("verdict").GetString());
+
+        var problem = Assert.Single(resolution.GetProperty("problems").EnumerateArray()).GetString()!;
+        Assert.Contains("interpolation alone", problem, StringComparison.Ordinal);
+        Assert.Contains("spread-04", problem, StringComparison.Ordinal);
+
+        // The receipt is echoed whatever the verdict: the supplier handback has to keep saying what
+        // is real, and "which raster, from what, by what" is the real thing.
+        var echoed = resolution.GetProperty("receipt").EnumerateArray().Single();
+        Assert.Equal("spread-04", echoed.GetProperty("role").GetString());
+        Assert.True(echoed.GetProperty("interpolation_only").GetBoolean());
+    }
+
+    /// <summary>
+    /// The hard failures are still hard. Rule 4 moved exactly one gate's decision out of this stage;
+    /// a page whose cream text converted to device black still refuses to become a press file at all,
+    /// and so do a missing profile, an unembedded face, a wrong box and a dropped page.
+    /// </summary>
+    [Fact]
+    public void Only_the_resolution_gate_withholds_its_decision()
+    {
+        var failure = Assert.Throws<BekiLayoutException>(() =>
+            BekiPrintPrep.PrepareWithGates(
+                BekiPressPrepFixtures.BlackTextOnInk(), "ტესტი", new BekiPrintPrepOptions(),
+                probe: new BekiPrintProbe(LightTextPages: [1])));
+
+        Assert.Equal("PRINT_PREFLIGHT_FAILED", failure.FailureCode);
+        Assert.Contains(BekiPrintPrep.TextColorIntegrityGate, failure.Message, StringComparison.Ordinal);
     }
 
     /// <summary>

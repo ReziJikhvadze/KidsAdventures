@@ -1,8 +1,22 @@
-# BEKI Cover Base Prompt Template v1.1
+# BEKI Cover Base Prompt Template v1.2
 
-**Prompt version:** `cover-child-world-v1.1`  
+**Prompt version:** `cover-child-world-v1.2`  
 **Status:** Implementation source with printer-geometry placeholders  
 **Purpose:** Generate one continuous cover base without Beki, title text, spine text, QR, or other typography.
+
+## v1.2 changelog
+
+Amended against the owner's ruling of 2026-09-01, rule 2, quoted in full:
+
+> **"characters must be consistent on cover and spreads"**
+
+- **Observed defect: the cover hero and the spread hero were different characters.** A shipped book's front board showed a child who was recognisably not the child on the eight story spreads — different face, different hair, different clothes in everything but name. Nothing in the pipeline was capable of noticing it, because every individual picture was good and each was judged alone.
+- **The cause was in the input, not in the checking.** The child/world template has carried a `CHILD IDENTITY LOCK` — eight named attributes plus the rule about which reference outranks the list — since v1.1, and spreads 2-8 additionally receive the accepted first spread as a **child appearance anchor** and are told to reproduce the child in it. This template carried **neither**. The cover was therefore a ninth independent stylization of a photograph, competing with eight pages that were reproductions of one agreed drawing; two producers, one book, exactly the shape of P0-01 and P0-03 in a different medium.
+- **Fix: the same block, from the same builder, on both.** The cover prompt now writes the CHILD IDENTITY LOCK verbatim — one function, `CompositeChildIdentity.LockBlock`, is the only place the block exists, so the cover and the spreads cannot describe two children — and the wrap call attaches the child appearance anchor when the book has one. The reference numbering follows the spreads' own convention exactly: with the anchor attached it is Image 1, the identity photograph is Image 2 and the world reference Image 3, and the lock is told to defer to Image 2; with no anchor the photograph is Image 1 and the world reference Image 2, which is precisely the condition spread one is drawn in. The outfit clause the anchored spreads use — *"Draw the outfit exactly as rendered in Image 1"* — is carried too, because "not the cloth" was half of the original drift complaint.
+- **A missing anchor is allowed and is not a substitute for anything.** A press rebuild whose stored base images are gone has no accepted first spread to attach. That case draws the cover from the lock and the photograph, which is what spread one is drawn from, and it says so in the job log. No other picture is ever substituted for the anchor.
+- **This is not a review.** Rule 5 of the same ruling is that this pipeline does not add reviews of images; consistency is obtained by conditioning the input, and the only thing that changes about checking is that the record now says truthfully which references a cover was drawn with.
+
+Nothing else moved: the de-zoned panel block, the negatives, the style paragraph, the exact-Beki prohibition and the deterministic post-generation steps are v1.1's word for word.
 
 ## v1.1 changelog
 
@@ -33,6 +47,8 @@ The audited benchmark has a 512 x 245 mm MediaBox/BleedBox and a 472 x 205 mm Tr
 
 - original consented child identity photo;
 - approved theme reference;
+- the book's child identity spec, written into the `CHILD IDENTITY LOCK` block (v1.2);
+- the child appearance anchor — the accepted first spread's base image — when the book has one (v1.2);
 - `cover.front_child_world_scene`;
 - `cover.back_environment`;
 - `visual_lock.child_outfit`;
@@ -54,6 +70,27 @@ Let the scene run off all four outer edges naturally, and keep everything import
 
 Do not send a Beki reference. `cover.beki_action` is used after generation by deterministic pose selection and exact-PNG compositing.
 
+### The input image block and the identity lock (v1.2)
+
+`{{INPUT_IMAGE_BLOCK}}` is numbered by the order the references are actually attached, which is the child/world template's own rule and for its own reason: the prompt calls them Image 1, 2, 3 by position, so a block that disagreed with the request would tell the model to take the child's face from a picture of a world.
+
+With a child appearance anchor:
+
+```text
+Image 1 - child appearance anchor - the accepted first spread of this same book. Reproduce this exact rendered child: same face and face shape, same hair colour and style, same eyebrows, same glasses or absence of glasses, same eye colour, same skin tone, same outfit down to its colours. Give the child a new pose, camera angle and background as this page's scene requires. Do not copy the pose, camera, layout, lighting or background from this image.
+Image 2 - child identity reference photograph. …
+Image 3 - approved {{THEME_ID}} world/style reference. … Create a new cover composition.
+```
+
+Without one — a first cover, or a rebuild whose stored bases are gone — the photograph leads and the world reference follows, and `{{OUTFIT_ANCHOR_CLAUSE}}` is empty:
+
+```text
+Image 1 - child identity reference photograph. …
+Image 2 - approved {{THEME_ID}} world/style reference. … Create a new cover composition.
+```
+
+`{{CHILD_IDENTITY_LOCK}}` is the child/world template's block verbatim, with the identity-image number that matches the block above (2 when anchored, 1 when not). Its last line already covers this document: *"These attributes are identical on the cover and on all eight spreads."*
+
 ## Exact runtime prompt template
 
 ```text
@@ -61,13 +98,14 @@ Use case: illustration-cover
 Asset type: BEKI personalized children's book continuous wraparound cover base for later vector title and exact Beki PNG compositing
 
 INPUT IMAGES
-Image 1 - child identity reference. Preserve the child's recognizable identity and visibly age-appropriate proportions for approximately {{CHILD_AGE_YEARS}} years old. Render the child as a warm, polished stylized 3D animated character, not photorealistically. Do not copy clothing, pose, lighting, crop, or background from the photo.
-Image 2 - approved {{THEME_ID}} world/style reference. Use its world vocabulary, palette, atmosphere, material treatment, and premium stylized 3D rendering language. Create a new cover composition.
+{{INPUT_IMAGE_BLOCK}}
 
 FRONT-COVER SCENE
 {{FRONT_CHILD_WORLD_SCENE}}
-Dress the child in {{CHILD_OUTFIT}}
-Show one inviting action only. Do not reveal the ending.
+Dress the child in {{CHILD_OUTFIT}}{{OUTFIT_ANCHOR_CLAUSE}}
+Keep the outfit consistent with all eight story spreads. Show one inviting action only. Do not reveal the ending.
+
+{{CHILD_IDENTITY_LOCK}}
 
 BACK-COVER ENVIRONMENT
 {{BACK_ENVIRONMENT}}

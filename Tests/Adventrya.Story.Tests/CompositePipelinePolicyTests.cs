@@ -262,7 +262,8 @@ public class CompositePipelinePolicyTests : CompositePipelineTestBase
         var scenario = VisualScenarioValidator.Validate(ScenarioFixture()).Scenario!;
 
         var wrap = await pipeline.DrawCoverWrapAsync(
-            Flagged(waivers), scenario, Photo(), "image/png", CancellationToken.None);
+            Flagged(waivers), scenario, Photo(), "image/png", IdentityFixture, childAnchor: null,
+            CancellationToken.None);
 
         // The wrap exists, receipt and all — and it still measures as painted, which is the point of
         // recording it rather than pretending otherwise.
@@ -355,7 +356,9 @@ public class CompositePipelinePolicyTests : CompositePipelineTestBase
 
         var context = Context() with
         {
-            ReleasePolicy = BekiReleasePolicySnapshot.Defaults,
+            // Reviewing, for the reason the Flagged harness gives: a waiver sink cannot be tested
+            // by a policy under which nothing is ever waived.
+            ReleasePolicy = Reviewing(BekiReleasePolicySnapshot.Defaults),
             OnPolicyWaiver = _ => throw new InvalidOperationException("the alarms table is down"),
         };
 
@@ -369,17 +372,39 @@ public class CompositePipelinePolicyTests : CompositePipelineTestBase
     // Harness
     // ==============================================================================================
 
-    /// <summary>The shipped policy — every whitelisted check a flag — with a sink to read.</summary>
+    /// <summary>
+    /// The shipped policy — every whitelisted check a flag — with the visual reviewer left ON, and
+    /// a sink to read.
+    ///
+    /// The one override is deliberate and is the whole reason it is spelled out here. Under the
+    /// owner's rule 5 of 2026-09-01 — "we don't need additional reviews for images" — the shipped
+    /// default for <c>image_review</c> is <c>flag</c>, which means no model looks at a spread at
+    /// all. Every test in this class is about what happens AFTER something refuses a page, so a
+    /// harness that skipped the reviewer would leave them asserting against a refusal that never
+    /// occurred — passing, and testing nothing.
+    ///
+    /// So this is the policy of a deployment that has turned the reviewer back on and left
+    /// everything else as it ships, which is exactly the case these tests describe: the check runs,
+    /// it refuses, and the flag decides that the family still gets their book.
+    /// <see cref="CompositeReviewPolicyTests"/> is where the default — no review at all — lives.
+    /// </summary>
     private static CompositeBookContext Flagged(List<CompositePolicyWaiver> waivers) =>
         Context() with
         {
-            ReleasePolicy = BekiReleasePolicySnapshot.Defaults,
+            ReleasePolicy = Reviewing(BekiReleasePolicySnapshot.Defaults),
             OnPolicyWaiver = waiver =>
             {
                 waivers.Add(waiver);
                 return Task.CompletedTask;
             },
         };
+
+    /// <summary>The same snapshot with the per-spread visual review switched back on.</summary>
+    internal static BekiReleasePolicySnapshot Reviewing(BekiReleasePolicySnapshot policy) =>
+        new(policy.Settings.Append(
+            new BekiReleaseCheckSetting(
+                BekiReleaseChecks.ImageReview, BekiReleaseSeverity.AllClasses,
+                BekiReleaseSeverity.Blocker, "test", null)));
 
     /// <summary>The same run with every check a blocker, which is the pre-policy behaviour.</summary>
     private static CompositeBookContext Blocking(List<CompositePolicyWaiver> waivers) =>

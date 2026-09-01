@@ -49,17 +49,21 @@ public class CompositeContractAmendmentTests : CompositePipelineTestBase
     {
         var scenario = VisualScenarioValidator.Validate(ScenarioFixture()).Scenario!;
 
-        return CompositeIllustrationPrompt.ForCover(
-            new CompositeCoverGeometry(
+        return CompositeIllustrationPrompt.ForCover(new CompositeCoverPromptInput
+        {
+            Geometry = new CompositeCoverGeometry(
                 panelInstructions,
                 new AdventurePacks.Api.Services.Story.Composite.Poses.BekiCompositeAnchor(
                     0.87, 0.64, 0.30)),
-            childAge: 5,
-            CompositeThemeReferences.For("dinosaurs"),
-            scenario.Cover!.FrontChildWorldScene!,
-            scenario.Cover.BackEnvironment!,
-            scenario.VisualLock!.ChildOutfit!,
-            recurringElements: []);
+            ChildAge = 5,
+            Theme = CompositeThemeReferences.For("dinosaurs"),
+            FrontChildWorldScene = scenario.Cover!.FrontChildWorldScene!,
+            BackEnvironment = scenario.Cover.BackEnvironment!,
+            ChildOutfit = scenario.VisualLock!.ChildOutfit!,
+            // v1.2: the lock is not optional on a cover any more — see CompositeCoverIdentityTests
+            // for what it says and why. Here it is simply part of the prompt these assertions read.
+            IdentitySpec = IdentityFixture,
+        });
     }
 
     /// <summary>
@@ -158,9 +162,14 @@ public class CompositeContractAmendmentTests : CompositePipelineTestBase
         Assert.Contains("QR code, watermark, or pseudo-text anywhere", prompt, StringComparison.Ordinal);
     }
 
+    /// <remarks>
+    /// v1.2 is the owner's rule 2 of 2026-09-01 — the identity lock and the appearance anchor on the
+    /// cover. The de-zoning this class is about is v1.1 and is unchanged by it; both are recorded in
+    /// the contract's changelog, and this assertion pins whichever amendment is currently shipped.
+    /// </remarks>
     [Fact]
     public void The_cover_prompt_version_is_bumped_for_the_amendment() =>
-        Assert.Equal("cover-child-world-v1.1", CompositeIllustrationPrompt.CoverVersion);
+        Assert.Equal("cover-child-world-v1.2", CompositeIllustrationPrompt.CoverVersion);
 
     // ===========================================================================================
     // D10 / P1-08 — the scenario's text quality bar
@@ -398,7 +407,54 @@ public class CompositeContractAmendmentTests : CompositePipelineTestBase
 
     [Fact]
     public void The_story_prompt_version_is_bumped_for_the_amendment() =>
-        Assert.Equal("composite-v1.1", MasterStoryPromptComposite.Version);
+        Assert.Equal("composite-v1.2", MasterStoryPromptComposite.Version);
+
+    // ===========================================================================================
+    // v1.2 / the observed defect of 2026-09-01 — the child's name
+    // ===========================================================================================
+
+    /// <summary>
+    /// The prompt asks for the name to be copied, with the name itself in front of the model.
+    ///
+    /// A live run for a child called ვეკო came back titled „ველო და მოციმციმე ტყე“: one Georgian
+    /// letter, in the child's own name, in the string that becomes the cover, the pack row and the
+    /// PDF's metadata. The prompt was given the name and never told it was a name rather than a
+    /// word, so the model spelled it the way it spells everything — plausibly.
+    /// </summary>
+    [Fact]
+    public void The_story_prompt_asks_for_the_childs_name_letter_for_letter()
+    {
+        var prompt = StoryPrompt();
+
+        Assert.Contains("copied, never spelled", prompt, StringComparison.Ordinal);
+        Assert.Contains("letter for letter", prompt, StringComparison.Ordinal);
+
+        // The name itself, and the endings Georgian actually adds — a model told to use the exact
+        // name and nothing else stops declining it, which is a different defect in the same place.
+        Assert.Contains("„ნინა“", prompt, StringComparison.Ordinal);
+        Assert.Contains("„ნინას“", prompt, StringComparison.Ordinal);
+        Assert.Contains("„ნინასთვის“", prompt, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// And the contract says what the code does, which is the point of a versioned boundary: the
+    /// prompt asks, and <c>GeorgianNameFidelity</c> reads the answer.
+    /// </summary>
+    [Fact]
+    public void The_story_boundary_contract_records_the_name_amendment()
+    {
+        var contract = File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory, "Assets", "BekiComposite", "contracts",
+            "BEKI_Story_Boundary_v1.md"));
+
+        Assert.Contains("story-boundary-v1.2", contract, StringComparison.Ordinal);
+        Assert.Contains("composite-v1.2", contract, StringComparison.Ordinal);
+
+        // The observed defect, as the canonical example.
+        Assert.Contains("ველო და მოციმციმე ტყე", contract, StringComparison.Ordinal);
+        Assert.Contains("GeorgianNameFidelity", contract, StringComparison.Ordinal);
+        Assert.Contains("name_fidelity", contract, StringComparison.Ordinal);
+    }
 
     /// <summary>
     /// Everything composite-v1 already promised is still promised. A prompt amendment that quietly

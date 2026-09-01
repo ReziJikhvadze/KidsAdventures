@@ -308,7 +308,10 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
           about prefixes. Page zero is the cover wrap; a healthy book has none of these, which is why
           they are optional and their absence is not reported as a gap.
         */
-        foreach (var check in BekiReleaseChecks.Pipeline)
+        // Every check that can be waived, not only the flag-by-default ones: name_fidelity is a
+        // blocker by default and waivable by decision, and a pack whose story problem an operator
+        // chose to ship must carry the record of that choice like any other.
+        foreach (var check in BekiReleaseChecks.All)
         {
             for (var page = 0; page <= BookFormat.SpreadCount; page++)
             {

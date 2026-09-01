@@ -201,7 +201,8 @@ public class CompositeCoverBandTests : CompositePipelineTestBase
         var scenario = VisualScenarioValidator.Validate(ScenarioFixture()).Scenario!;
 
         var wrap = await pipeline.DrawCoverWrapAsync(
-            Context(), scenario, Photo(), "image/png", CancellationToken.None);
+            Context(), scenario, Photo(), "image/png", IdentityFixture, childAnchor: null,
+            CancellationToken.None);
 
         Assert.Equal(2, images.ImageCalls);
         Assert.False(CompositeSeamRepair.MeasureConstructionBands(wrap.BasePng).Exceeded);
@@ -233,7 +234,8 @@ public class CompositeCoverBandTests : CompositePipelineTestBase
 
         var failure = await Assert.ThrowsAsync<CompositePipelineException>(() =>
             pipeline.DrawCoverWrapAsync(
-                Context(), scenario, Photo(), "image/png", CancellationToken.None));
+                Context(), scenario, Photo(), "image/png", IdentityFixture, childAnchor: null,
+                CancellationToken.None));
 
         Assert.Equal(CompositeFailureCodes.ImageGenerationFailed, failure.FailureCode);
         Assert.Equal(0, failure.Page);
@@ -282,7 +284,8 @@ public class CompositeCoverBandTests : CompositePipelineTestBase
         var scenario = VisualScenarioValidator.Validate(ScenarioFixture()).Scenario!;
 
         await pipeline.DrawCoverWrapAsync(
-            Context(), scenario, Photo(), "image/png", CancellationToken.None);
+            Context(), scenario, Photo(), "image/png", IdentityFixture, childAnchor: null,
+            CancellationToken.None);
 
         Assert.Equal(1, images.ImageCalls);
     }

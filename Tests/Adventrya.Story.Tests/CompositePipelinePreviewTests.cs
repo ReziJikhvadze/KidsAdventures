@@ -769,6 +769,80 @@ public class CompositePipelinePreviewTests : CompositePipelineTestBase
         Assert.NotEmpty(story.LastCompositeProblems);
     }
 
+    /// <summary>
+    /// A plan that misspells the child's name gets the corrective retry, on the path where the
+    /// observed defect of 2026-09-01 was first written.
+    ///
+    /// The preview is where the story is settled: the fulfilment job adopts it, so a name spelled
+    /// wrongly here is a name spelled wrongly on the cover, in the pack row and in the PDF's
+    /// metadata. The child is ნინა and the first plan titles the book „ნინოს დაკარგული ბილიკი“ —
+    /// one Georgian letter, exactly the shape of ვეკო written ველო.
+    /// </summary>
+    [Fact]
+    public async Task A_composite_plan_that_misspells_the_child_gets_the_corrective_retry()
+    {
+        var story = new RecordingMasterStoryService { FirstPlanMisspellsTheChild = true };
+        var runs = new RecordingRunRepository();
+
+        await PreviewService(story, runs, compositeEnabled: true)
+            .WriteBookAsync(runs.Run.Id, CancellationToken.None);
+
+        Assert.Equal(2, story.CompositeCalls);
+
+        // The correction carries both words, because a planner told only that "the name is wrong"
+        // has nothing to act on.
+        Assert.Contains(story.LastCompositeProblems, problem =>
+            problem.Contains("ნინო", StringComparison.Ordinal)
+            && problem.Contains("ნინა", StringComparison.Ordinal));
+
+        Assert.Null(runs.FailureMessage);
+        Assert.Equal("ბაფუს დაკარგული ბილიკი", story.LastStory!.Concept.Title);
+    }
+
+    /// <summary>
+    /// And a name still wrong after the retry fails the preview rather than storing a book that
+    /// calls the child by a name that is not theirs. Blocker-only on this path: the preview has no
+    /// pack, no blob container and no alarms table to waive into.
+    /// </summary>
+    [Fact]
+    public async Task A_misspelled_name_still_wrong_after_its_retry_fails_the_preview()
+    {
+        var story = new RecordingMasterStoryService { EveryPlanMisspellsTheChild = true };
+        var runs = new RecordingRunRepository();
+
+        await PreviewService(story, runs, compositeEnabled: true)
+            .WriteBookAsync(runs.Run.Id, CancellationToken.None);
+
+        Assert.Equal(2, story.CompositeCalls);
+        Assert.NotNull(runs.FailureMessage);
+        Assert.Contains("still invalid after a retry", runs.FailureMessage!);
+        Assert.Contains("ნინო", runs.FailureMessage!, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The legacy printing planner is held to it too, and answers with its own retry. Nothing about
+    /// a misspelled name is composite: every printing format takes the name as an input and prints
+    /// it on the cover.
+    /// </summary>
+    [Fact]
+    public async Task The_legacy_printing_planner_is_held_to_the_name_as_well()
+    {
+        var story = new RecordingMasterStoryService { FirstPlanMisspellsTheChild = true };
+        var runs = new RecordingRunRepository();
+
+        // No parked portrait, so this preview can never take the composite route and is written by
+        // the v6 planner — the branch the composite ladder does not serve.
+        runs.Run.PhotoBlobUrl = null;
+
+        await PreviewService(story, runs, compositeEnabled: true)
+            .WriteBookAsync(runs.Run.Id, CancellationToken.None);
+
+        Assert.Equal(0, story.CompositeCalls);
+        Assert.Equal(1, story.LegacyCalls);
+        Assert.Equal(1, story.LegacyRetryCalls);
+        Assert.Null(runs.FailureMessage);
+    }
+
     [Fact]
     public async Task An_input_the_boundary_refuses_stops_before_any_model_call()
     {

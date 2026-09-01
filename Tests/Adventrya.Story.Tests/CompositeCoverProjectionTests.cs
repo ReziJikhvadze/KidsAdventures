@@ -65,6 +65,29 @@ public class CompositeCoverProjectionTests
     }
 
     /// <summary>
+    /// The cover is drawn to the same child as the pages — owner's rule 2, 2026-09-01: "characters
+    /// must be consistent on cover and spreads".
+    ///
+    /// This is the seam the defect actually lived in. The pipeline knew the book's identity spec and
+    /// the accepted first spread; the wrap call took neither, so the one picture a parent judges the
+    /// book by was drawn from a photograph alone while all eight pages were drawn from an agreed
+    /// lock and an anchor. What the fulfilment layer hands this call is therefore worth an assertion
+    /// of its own — the prompt-side proof is <c>CompositeCoverIdentityTests</c>, and this is the
+    /// half that says the values arrive at all.
+    /// </summary>
+    [Fact]
+    public async Task The_wrap_is_drawn_to_the_books_own_identity_and_anchor()
+    {
+        var world = new PackWorld();
+
+        await world.Run();
+
+        Assert.Equal(CompositePipelineTestBase.IdentityFixture, world.Generator.WrapIdentity);
+        Assert.NotNull(world.Generator.WrapAnchor);
+        Assert.NotEmpty(world.Generator.WrapAnchor!);
+    }
+
+    /// <summary>
     /// The AI redraw ships nowhere. `cover.png` is a historical blob from before the correction, and
     /// this path must not write one — a second cover in storage is a second cover somebody points at.
     /// </summary>
@@ -327,11 +350,25 @@ public class CompositeCoverProjectionTests
             Assert.Null(Packs.FailureReason);
         }
 
+        private StubGenerator? _generator;
+
+        /// <summary>
+        /// The generator this world's job uses, kept rather than made on the spot: what the
+        /// fulfilment layer HANDED it is under test too, since owner's rule 2 of 2026-09-01 made the
+        /// cover's identity lock and appearance anchor arguments to the wrap call.
+        ///
+        /// Built on first use rather than in the constructor, because the four switches above are
+        /// <c>init</c> properties and are not set until the object initializer has run.
+        /// </summary>
+        public StubGenerator Generator =>
+            _generator ??= new StubGenerator(
+                DropReceiptForSpread, AdoptSpread, WrapFails, WrapReceiptLies);
+
         public BekiPackFulfillment Job() =>
             new(Packs,
                 new FakeRuns(RunId),
                 Blobs,
-                new StubGenerator(DropReceiptForSpread, AdoptSpread, WrapFails, WrapReceiptLies),
+                Generator,
                 Composer,
                 new SilentNotifier(),
                 new RecordingEmailService(),
@@ -393,10 +430,22 @@ public class CompositeCoverProjectionTests
             CancellationToken cancellationToken, CompositeBookContext? composite = null) =>
             throw new NotSupportedException();
 
+        /// <summary>
+        /// What the fulfilment job handed this call, so a test can say the cover was drawn to the
+        /// same child as the pages — owner's rule 2, 2026-09-01.
+        /// </summary>
+        public ChildIdentitySpec? WrapIdentity { get; private set; }
+
+        public byte[]? WrapAnchor { get; private set; }
+
         public Task<CompositeCoverWrap> DrawCoverWrapAsync(
             VisualScenarioV2 scenario, byte[] childPhoto, string childPhotoContentType,
-            CompositeBookContext composite, CancellationToken cancellationToken)
+            CompositeBookContext composite, ChildIdentitySpec identity, byte[]? childAnchor,
+            CancellationToken cancellationToken)
         {
+            WrapIdentity = identity;
+            WrapAnchor = childAnchor;
+
             if (wrapFails)
             {
                 throw new BekiLayoutException(
@@ -473,6 +522,10 @@ public class CompositeCoverProjectionTests
                 {
                     ScenarioJson = ScenarioJson,
                     ReviewJson = """{"needs_human_reading": false}""",
+                    // What a finished composite book carries out for the cover to be drawn from:
+                    // the spec its spreads were drawn to, and the accepted first spread's base.
+                    Identity = CompositePipelineTestBase.IdentityFixture,
+                    Anchor = [1, 2, 3, 4],
                     // One receipt per page: the fulfilment job refuses to lay out a composite
                     // spread without its exact-Beki composition receipt, and this stub's book
                     // claims to be a finished composite book.

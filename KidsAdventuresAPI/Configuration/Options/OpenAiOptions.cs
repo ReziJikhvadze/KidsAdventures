@@ -79,6 +79,27 @@ public sealed class OpenAiOptions
     public string ImageQuality { get; set; } = "medium";
     /// <summary>Legacy setting — story images now use ImageQuality for Pixar-style output.</summary>
     public string ImagePhotoQuality { get; set; } = "medium";
+
+    /// <summary>
+    /// How hard the image model works to keep the faces in the attached photographs: <c>high</c>,
+    /// <c>low</c>, or empty to send nothing.
+    ///
+    /// This exists because of a real failure: on 2026-09-01 the first composite book kept failing
+    /// CHILD_IDENTITY QA — the drawn child was not the child in the reference photo — and the
+    /// images/edits request was found to be sending no fidelity setting at all. On the gpt-image-1
+    /// family that means LOW, which is the setting that throws away exactly the facial detail this
+    /// product is built on. High costs more input tokens per reference; a book of a different child
+    /// costs the whole book.
+    ///
+    /// It is deliberately NOT sent to every model. gpt-image-2 processes every image input at high
+    /// fidelity on its own and rejects the field outright — a 400,
+    /// <c>invalid_input_fidelity_model</c>, "does not support the 'input_fidelity' parameter" — so
+    /// sending it there would turn a quality setting into an outage. <c>OpenAiService</c> decides
+    /// per model; this value only says what to ask for where asking is allowed. Which means that on
+    /// the current gpt-image-2 configuration this setting changes nothing, and is here for the
+    /// gpt-image-1.5 / -1 / -1-mini deployments and for the day a model asks again.
+    /// </summary>
+    public string ImageInputFidelity { get; set; } = "high";
     public bool EnableStoryImages { get; set; } = true;
     /// <summary>Seconds to wait between sequential illustration requests (rate-limit pacing).</summary>
     public int IllustrationPacingSeconds { get; set; } = 5;

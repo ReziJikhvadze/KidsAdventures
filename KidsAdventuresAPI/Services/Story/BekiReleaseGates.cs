@@ -10,9 +10,13 @@ namespace AdventurePacks.Api.Services.Story;
 /// One hard gate's answer, with the blobs a reviewer can open to check it.
 /// </summary>
 /// <param name="Status">
-/// <c>PASS</c>, <c>FAIL</c>, <c>NEEDS_HUMAN</c> or <c>UNKNOWN</c> — and only the first releases.
+/// <c>PASS</c>, <c>FAIL</c>, <c>NEEDS_HUMAN</c>, <c>REVIEW_SKIPPED_BY_POLICY</c> or
+/// <c>UNKNOWN</c> — and only the first releases.
 /// <c>UNKNOWN</c> is the one that took an audit to earn its place: the rejected package's evidence
 /// was absent, and absence was being read as silence rather than as a refusal.
+/// <c>REVIEW_SKIPPED_BY_POLICY</c> is the newest and says the least: the check was not run, so
+/// there is nothing here that is either evidence or a refusal — see
+/// <see cref="BekiReleaseGates.ReviewSkipped"/>.
 /// </param>
 /// <param name="Class">
 /// <c>shared</c>, <c>press</c>, <c>digital</c> or <c>package</c> — amendment A5's governance split.
@@ -331,6 +335,18 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
     public const string NeedsHuman = "NEEDS_HUMAN";
 
     public const string Unknown = "UNKNOWN";
+
+    /// <summary>
+    /// A gate whose evidence says the check was deliberately not run — today only VISUAL_QA, from
+    /// the pipeline's own <see cref="CompositeBookPipeline.ReviewSkippedStatus"/> records.
+    ///
+    /// The same word in both places on purpose: the gate is quoting the stored document rather than
+    /// summarising it, so "why does the handback say this?" is answered by opening one of the eight
+    /// files it names. Like every non-PASS status it keeps the verdict at NOT_RELEASABLE for the
+    /// supplier; unlike FAIL it asserts nothing about the pictures, and unlike NEEDS_HUMAN it puts
+    /// nobody in a queue.
+    /// </summary>
+    public const string ReviewSkipped = CompositeBookPipeline.ReviewSkippedStatus;
 
     public const string SharedClass = "shared";
 
@@ -697,11 +713,29 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
                     "no readable, current machine QA record for fixed page(s) "
                     + $"{string.Join(", ", stored.FixedPagesWithoutQa)}.",
                     stored.FixedQaNames)
+                /*
+                  An outstanding human-review requirement is asked BEFORE the skip, and the order is
+                  the whole of review finding 4.
+
+                  It used to be the other way round, and the consequence was a book that escaped the
+                  one gate a machine cannot close. A book with skipped pages AND a Georgian or pose
+                  advisory — or a stored NEEDS_HUMAN verdict — matched the skip clause first, was
+                  graded REVIEW_SKIPPED_BY_POLICY, and never produced a NEEDS_HUMAN status anywhere.
+                  AwaitingHumanReview is computed from that status, so it came back false: the console
+                  offered nobody the signature, and an operator who had deliberately set human_review
+                  to blocker had their blocker silently bypassed by an unrelated switch.
+
+                  The two statements do not compete. "Nobody was asked to look at the artwork" and
+                  "somebody must read this book" are both true of that book, and only one of them puts
+                  a person in front of it — so that one is the status, and the skip is written into the
+                  detail and the evidence rather than lost. A skip may only be the answer when there is
+                  no human-review requirement left outstanding.
+                */
                 : (stored.NeedsHumanReading || stored.SpreadsNeedingHumanQa.Count > 0)
                   && !stored.HumanApprovalIsCurrent
                     ? NeedsAHuman(
                         id,
-                        stored.HumanApprovalPresent
+                        (stored.HumanApprovalPresent
                             ? "the stored approval covers a different contact sheet than the one "
                               + "render validation produced; a stale approval is refused."
                             : stored.SpreadsNeedingHumanQa.Count > 0
@@ -710,8 +744,55 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
                                   + " have no readable reviewer verdict; the rendered contact sheet "
                                   + "needs a person to look at those pages."
                                 : "the book carries an unresolved human-review flag (shot or age "
-                                  + "advisory); the rendered contact sheet needs a reviewer's signature.",
-                        [stored.ReviewName, stored.HumanApprovalName])
+                                  + "advisory); the rendered contact sheet needs a reviewer's signature.")
+                        + (stored.SpreadsWithReviewSkipped.Count > 0
+                            ? " No visual review was performed on spread(s) "
+                              + string.Join(", ", stored.SpreadsWithReviewSkipped)
+                              + " either: the stored record for each says "
+                              + $"{CompositeBookPipeline.ReviewSkippedStatus} (release policy check "
+                              + "'image_review'). The reader is looking at pages no model judged."
+                            : string.Empty),
+                        [
+                            stored.ReviewName,
+                            stored.HumanApprovalName,
+                            // The skipped pages' own records travel with it, so the person the gate
+                            // just summoned can open the documents that say nobody looked.
+                            .. (stored.SpreadsWithReviewSkipped.Count > 0
+                                ? stored.SpreadQaNames
+                                : Array.Empty<string>()),
+                        ])
+                /*
+                  Nobody reviewed these pages, and the supplier is told exactly that.
+
+                  Owner's rule 5, 2026-09-01: "we don't need additional reviews for images". That is
+                  a decision about what this deployment buys, and it is a legitimate one — but it is
+                  not a claim about the artwork, and this gate exists to make claims about artwork.
+                  So the answer is its own word rather than a PASS: RELEASABLE would tell a supplier
+                  reading the handback that eight pages were visually checked when none were, which
+                  is the precise species of lie amendment B1's truth split was built to prevent.
+
+                  It is also not a FAIL and not NEEDS_HUMAN. Nothing refused these pages, and the
+                  ruling is that nobody has to look at them — a status meaning "somebody must" would
+                  put a queue in front of a decision that was taken to remove one. Which is exactly
+                  why it may only be said of a book that has no such queue outstanding, above.
+
+                  The family's copy is unaffected, and by the ordinary route rather than a special
+                  one: VISUAL_QA is a shared gate that the policy flags by default, so the waiver
+                  step below records this and publishes, exactly as it does for any other non-PASS
+                  shared gate. An operator who sets VISUAL_QA to blocker gets the other behaviour,
+                  and an operator who sets image_review to blocker never gets here at all.
+                */
+                    : stored.SpreadsWithReviewSkipped.Count > 0
+                    ? new BekiGateResult(
+                        id,
+                        ReviewSkipped,
+                        GateClasses.GetValueOrDefault(id, SharedClass),
+                        "no visual review was performed on spread(s) "
+                        + string.Join(", ", stored.SpreadsWithReviewSkipped)
+                        + $": the stored record for each says {CompositeBookPipeline.ReviewSkippedStatus} "
+                        + "(release policy check 'image_review'). Every page has a record and the "
+                        + "deterministic checks passed; no model judged the artwork.",
+                        stored.SpreadQaNames)
                     : Passed(
                         id,
                         stored.NeedsHumanReading
@@ -939,6 +1020,7 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
         var spreadsWithoutQa = new List<int>();
         var spreadsFailingQa = new List<int>();
         var spreadsNeedingHuman = new List<int>();
+        var spreadsReviewSkipped = new List<int>();
         for (var spread = 1; spread <= BookFormat.SpreadCount; spread++)
         {
             var name = BekiPackBlobs.SpreadQaName(userId, packId, spread);
@@ -966,6 +1048,22 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
             {
                 spreadsNeedingHuman.Add(spread);
             }
+            /*
+              And REVIEW_SKIPPED_BY_POLICY is what it writes when nobody was asked — owner's rule 5,
+              2026-09-01: "we don't need additional reviews for images".
+
+              Read here, at the same seam as the other three, because this gate's whole discipline is
+              that the stored document decides. The alternative — asking the policy what it is set to
+              now — would grade a book by a switch that may have been flipped since it was drawn, and
+              the record in front of us already says what actually happened.
+            */
+            else if (string.Equals(
+                         record.Status,
+                         CompositeBookPipeline.ReviewSkippedStatus,
+                         StringComparison.OrdinalIgnoreCase))
+            {
+                spreadsReviewSkipped.Add(spread);
+            }
             else
             {
                 spreadsFailingQa.Add(spread);
@@ -976,6 +1074,7 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
         evidence.SpreadsWithoutQa = spreadsWithoutQa;
         evidence.SpreadsFailingQa = spreadsFailingQa;
         evidence.SpreadsNeedingHumanQa = spreadsNeedingHuman;
+        evidence.SpreadsWithReviewSkipped = spreadsReviewSkipped;
 
         /*
           The fixed pages, read the way the spreads above are read.
@@ -1480,6 +1579,17 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
 
         /// <summary>Spreads whose stored record says there was no readable verdict to record.</summary>
         public IReadOnlyList<int> SpreadsNeedingHumanQa { get; set; } = [];
+
+        /// <summary>
+        /// Spreads whose stored record says no model was asked about them at all — the release
+        /// policy's <c>image_review</c> switch, as the pipeline wrote it down.
+        ///
+        /// Its own bucket rather than either of the two above, because it is neither. Nothing
+        /// refused these pages, so they are not failures; and nobody is waiting to look at them,
+        /// so they are not the human queue. What they are is unjudged, deliberately, and the
+        /// gate's job is to say so out loud.
+        /// </summary>
+        public IReadOnlyList<int> SpreadsWithReviewSkipped { get; set; } = [];
 
         public IReadOnlyList<string> FixedQaNames { get; set; } = [];
 

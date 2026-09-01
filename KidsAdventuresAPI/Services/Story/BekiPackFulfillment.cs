@@ -1310,8 +1310,25 @@ public sealed class BekiPackFulfillment(
                         CompositeFailureCodes.LayoutFailed,
                         "the stored Visual Scenario could not be read back for the cover master.");
 
+                /*
+                  The cover is drawn to the same child as the pages — owner's rule 2, 2026-09-01:
+                  "characters must be consistent on cover and spreads".
+
+                  The two things every spread was drawn with come out of the book and go into the
+                  wrap: the identity lock, and the accepted first spread as the appearance anchor.
+                  Until now this call carried neither, and the result was the observed defect — a
+                  cover hero who was a different character from the spread hero, on a book where
+                  every individual picture was good.
+
+                  Both survive a resume, because the pipeline hands back what it adopted rather than
+                  only what it drew: a run that redrew nothing still returns the stored spec (see
+                  CompositeBookPipeline's identity adoption) and the stored spread-one base. The
+                  anchor can still be null — a press rebuild whose base images are gone has none —
+                  and that is exactly spread one's own condition, which the prompt is built for.
+                */
                 var wrap = await generator.DrawCoverWrapAsync(
-                    scenario, photo, "image/png", compositeContext!, jobToken);
+                    scenario, photo, "image/png", compositeContext!,
+                    book.Composite.Identity, book.Composite.Anchor, jobToken);
 
                 /*
                   And the master is written down, then checked against its own receipt.
@@ -1535,12 +1552,15 @@ public sealed class BekiPackFulfillment(
             else
             {
                 /*
-                  The previous path, unchanged by this campaign.
+                  The previous path.
 
                   One document with the cover faces in it, laid out from the cover this run drew or
                   adopted, and an interior press file that earns the print slot through print
-                  preparation or does not get it at all. No wrap, no gates, no withholding — a
-                  legacy book has none of the artifacts they are computed from.
+                  preparation or does not get it at all. No wrap and no release-gate evaluation — a
+                  legacy book has none of the artifacts a verdict is computed from — which is
+                  precisely why the one gate print preparation now REPORTS rather than throws has to
+                  be read here, by this branch, instead of by a policy that will never run for this
+                  book. See the receipt and the withholding below (review finding 1).
                 */
                 var composed = composer.ComposeWithReceipts(
                     plan, book.Cover.Image, stored, personalization);
@@ -1551,10 +1571,31 @@ public sealed class BekiPackFulfillment(
 
                 try
                 {
-                    var (preparedInterior, preflightReport) = BekiPrintPrep.Prepare(
-                        composer.ComposeInteriorWithReceipts(plan, stored, personalization).Pdf,
-                        plan.Concept.Title,
-                        bekiOptions.Value.PrintPrep);
+                    /*
+                      The composer's receipts travel with the interior — review finding 1.
+
+                      This call used to be the two-value Prepare with no receipt at all, and that was
+                      safe only for as long as PRESS_RESOLUTION refused by throwing. It no longer
+                      does (owner ruling 2026-09-01, rule 4), and the shape of the hole it left is
+                      precise: layout interpolates an undersized sheet up onto the stated trim, the
+                      embedded image then measures a nominal 300 PPI, no receipt arrives to say where
+                      those pixels came from, and the gate has nothing left to fail on. A low-detail
+                      press file was published to the print slot with a PASSING preflight report
+                      beside it — the exact claim amendment A1 exists to make impossible.
+
+                      Layout is the only stage on this path that knows a raster was enlarged (there
+                      is no press upscaler here; the composite path's PreparePressAsync concatenates
+                      both lists for that reason), so the composer's own list IS the whole receipt.
+                    */
+                    var interior = composer.ComposeInteriorWithReceipts(plan, stored, personalization);
+
+                    var (preparedInterior, preflightReport, failedGates) =
+                        BekiPrintPrep.PrepareWithGates(
+                            interior.Pdf,
+                            plan.Concept.Title,
+                            bekiOptions.Value.PrintPrep,
+                            resolutionReceipt: new BekiResolutionReceipt(
+                                interior.Receipts.RasterSources));
 
                     var interiorUrl = await blobStorage.UploadAsync(
                         BekiPackBlobs.InteriorPdfName(pack.UserId, pack.Id),
@@ -1565,13 +1606,39 @@ public sealed class BekiPackFulfillment(
                         System.Text.Encoding.UTF8.GetBytes(preflightReport),
                         "application/json", jobToken);
 
-                    await packRepository.UpdatePrintPdfUrlAsync(packId, interiorUrl, jobToken);
+                    /*
+                      And a gate that failed withholds the print slot, because on this path there is
+                      nobody else to weigh it.
 
-                    logger.LogInformation(
-                        "Beki pack {PackId}: print interior prepared ({PdfxVersion}, {Intent}) and "
-                        + "stored with its preflight report.",
-                        packId, BekiPrintPrep.PdfxVersion,
-                        bekiOptions.Value.PrintPrep.OutputConditionInfo);
+                      The composite path stores a gate-failing press file and lets BekiReleaseGates
+                      and the release policy decide what to do about it. A legacy book has no gates
+                      evaluated, no verdict written and no policy consulted — so "recorded truthfully
+                      and published anyway" would mean published by nothing having looked. The file
+                      and its report are still stored, so the evidence exists and names the gate; what
+                      is withheld is the URL a printer would pull, which is exactly what this branch
+                      already does when preparation refuses outright.
+                    */
+                    await packRepository.UpdatePrintPdfUrlAsync(
+                        packId, failedGates.Count == 0 ? interiorUrl : null, jobToken);
+
+                    if (failedGates.Count > 0)
+                    {
+                        logger.LogWarning(
+                            "Beki pack {PackId}: print artifact withheld — {Gates} failed on the "
+                            + "prepared interior. The file and its preflight report are stored as "
+                            + "evidence; the previous path has no release-gates evaluator, so a "
+                            + "failed gate withholds the print slot outright. The parent's digital "
+                            + "book is unaffected.",
+                            packId, string.Join(", ", failedGates));
+                    }
+                    else
+                    {
+                        logger.LogInformation(
+                            "Beki pack {PackId}: print interior prepared ({PdfxVersion}, {Intent}) and "
+                            + "stored with its preflight report.",
+                            packId, BekiPrintPrep.PdfxVersion,
+                            bekiOptions.Value.PrintPrep.OutputConditionInfo);
+                    }
                 }
                 catch (BekiLayoutException ex)
                     when (ex.FailureCode == CompositeFailureCodes.PrintPreflightFailed)
@@ -2011,10 +2078,22 @@ public sealed class BekiPackFulfillment(
               stays what it has always been: where a spread that KILLED the book leaves its last
               attempt. (Review finding 5.)
             */
-            await blobStorage.UploadAsync(
-                BekiPackBlobs.WaivedEvidenceName(
-                    pack.UserId, pack.Id, waiver.CheckId, waiver.Page),
-                waiver.EvidencePng, "image/png", cancellationToken);
+            /*
+              …when there is a picture at all.
+
+              Every waiver in the original whitelist refused an image, so the PNG was unconditional.
+              name_fidelity refuses prose — the story misspelled the child's name — and it is asked
+              before a single image exists. A zero-byte .png beside the record would be a file an
+              operator opens expecting to see the problem and learns nothing from; the JSON below
+              carries the whole of it.
+            */
+            if (waiver.EvidencePng.Length > 0)
+            {
+                await blobStorage.UploadAsync(
+                    BekiPackBlobs.WaivedEvidenceName(
+                        pack.UserId, pack.Id, waiver.CheckId, waiver.Page),
+                    waiver.EvidencePng, "image/png", cancellationToken);
+            }
 
             await blobStorage.UploadAsync(
                 evidenceName,
@@ -2042,9 +2121,15 @@ public sealed class BekiPackFulfillment(
                 pack.UserId,
                 waiver.CheckId,
                 BekiReleaseSeverity.Flag,
-                waiver.Page == 0
-                    ? $"The cover wrap: {waiver.Detail}. The artwork shipped under the release policy."
-                    : $"Spread {waiver.Page}: {waiver.Detail}. The artwork shipped under the release policy.",
+                // The story's own check is not about a picture, so it is not described as one. Page
+                // zero means "the cover wrap" for every check that refuses artwork, and reading a
+                // misspelled title back as a cover-wrap complaint would send an operator to look at
+                // the wrong thing entirely.
+                waiver.CheckId == BekiReleaseChecks.NameFidelity
+                    ? $"The story: {waiver.Detail}. The book shipped under the release policy."
+                    : waiver.Page == 0
+                        ? $"The cover wrap: {waiver.Detail}. The artwork shipped under the release policy."
+                        : $"Spread {waiver.Page}: {waiver.Detail}. The artwork shipped under the release policy.",
                 evidenceName,
                 // The page is part of the identity: the same check on two spreads is two incidents,
                 // and one spread refused on two attempts of the same book is one.
@@ -2367,13 +2452,58 @@ public sealed class BekiPackFulfillment(
         {
             var interior = composer.ComposeInteriorWithReceipts(plan, pressArt, personalization);
 
-            var (preparedInterior, preflight) = BekiPrintPrep.Prepare(
+            /*
+              The whole provenance of every raster, from BOTH stages that touch it.
+
+              The upscaler reports on its own attempt — which tool, which factor, and whether it
+              declined — and it is blind to what the composer then does to place a sheet on the
+              page. Layout is the stage that enlarges a short raster onto the stated trim, and it is
+              the only one that knows. A receipt built from the upscaler alone therefore hands the
+              resolution gate a book with the stretch missing from it, and the gate reads PASS on an
+              interpolated page: the exact failure amendment A1 exists to catch, arriving through
+              the receipt rather than through the pixels.
+
+              So the two lists are concatenated rather than chosen between. Duplicate roles are not
+              a problem for the gate — it fails if ANY source was interpolation-only — and a role
+              appearing twice, once from each stage, is a truthful description of a raster that two
+              stages resized.
+            */
+            var (preparedInterior, preflight, interiorGates) = BekiPrintPrep.PrepareWithGates(
                 interior.Pdf,
                 plan.Concept.Title,
                 options,
                 probe: new BekiPrintProbe(
                     interior.Receipts.LightTextPages, interior.Receipts.FlatGroundTextProbes),
-                resolutionReceipt: new BekiResolutionReceipt(sources));
+                resolutionReceipt: new BekiResolutionReceipt(
+                    [.. sources, .. interior.Receipts.RasterSources]));
+
+            /*
+              The gates that failed WITHOUT withholding the file — owner's rule 4, 2026-09-01: the
+              sizes we indicated for printing are correct.
+
+              Print preparation used to answer this stage's questions by throwing, so the ledger
+              below was built in a catch block from the exception's message. PRESS_RESOLUTION no
+              longer throws, and a ledger read out of an exception that no longer happens is a clean
+              press-status document on a book whose resolution gate failed — the machinery telling
+              the supplier something better than the truth, which is the one thing this campaign
+              does not permit. The returned list is recorded exactly as a thrown one would have
+              been; the release policy is where it is weighed, and by default it publishes.
+            */
+            failedGates.AddRange(interiorGates);
+
+            if (interiorGates.Count > 0)
+            {
+                reasons.Add(
+                    "interior: prepared, and "
+                    + string.Join(", ", interiorGates)
+                    + " failed on the stored file — see the preflight report.");
+
+                logger.LogWarning(
+                    "Beki pack {PackId}: the press interior was prepared with {Gates} failing. The "
+                    + "file is stored and the gate result is recorded truthfully; whether it "
+                    + "publishes is the release policy's decision.",
+                    pack.Id, string.Join(", ", interiorGates));
+            }
 
             interiorUrl = await blobStorage.UploadAsync(
                 BekiPackBlobs.InteriorPdfName(pack.UserId, pack.Id),
@@ -2413,7 +2543,7 @@ public sealed class BekiPackFulfillment(
 
             var cover = composer.ComposeCoverPressWithReceipts(plan.Concept.Title, coverArt);
 
-            var (preparedCover, coverPreflight) = BekiPrintPrep.Prepare(
+            var (preparedCover, coverPreflight, coverGates) = BekiPrintPrep.PrepareWithGates(
                 cover.Pdf,
                 plan.Concept.Title,
                 options,
@@ -2422,8 +2552,26 @@ public sealed class BekiPackFulfillment(
                 trimInsetMm: 0f,
                 probe: new BekiPrintProbe(
                     cover.Receipts.LightTextPages, cover.Receipts.FlatGroundTextProbes),
+                // Both stages again — see the interior. The wrap is placed at its native pixels
+                // today, so the composer's list is what says so.
                 resolutionReceipt: new BekiResolutionReceipt(
-                    [coverUpscale.ToReceiptSource("cover-wrap")]));
+                    [coverUpscale.ToReceiptSource("cover-wrap"), .. cover.Receipts.RasterSources]));
+
+            failedGates.AddRange(coverGates);
+
+            if (coverGates.Count > 0)
+            {
+                reasons.Add(
+                    "cover: prepared, and "
+                    + string.Join(", ", coverGates)
+                    + " failed on the stored file — see the preflight report.");
+
+                logger.LogWarning(
+                    "Beki pack {PackId}: the press cover was prepared with {Gates} failing. The "
+                    + "file is stored and the gate result is recorded truthfully; whether it "
+                    + "publishes is the release policy's decision.",
+                    pack.Id, string.Join(", ", coverGates));
+            }
 
             coverUrl = await blobStorage.UploadAsync(
                 BekiPackBlobs.CoverPdfName(pack.UserId, pack.Id),

@@ -140,11 +140,22 @@ public interface IBekiBookGenerator
     /// wrap, and every test double should not have to say so. The refusal carries
     /// <c>LAYOUT_FAILED</c>, which the press stage records as a withheld cover.
     /// </summary>
+    /// <param name="identity">
+    /// The book's own child identity spec — the same eight attributes the spreads were drawn to.
+    /// Owner's rule 2, 2026-09-01: "characters must be consistent on cover and spreads", which is
+    /// made true by handing both pictures the same lock rather than by reviewing them afterwards.
+    /// </param>
+    /// <param name="childAnchor">
+    /// The accepted first spread's base, when the caller has one. Null on a rebuild whose stored
+    /// bases are gone, which is exactly the condition spread one itself is drawn in.
+    /// </param>
     Task<CompositeCoverWrap> DrawCoverWrapAsync(
         VisualScenarioV2 scenario,
         byte[] childPhoto,
         string childPhotoContentType,
         CompositeBookContext composite,
+        ChildIdentitySpec identity,
+        byte[]? childAnchor,
         CancellationToken cancellationToken) =>
         throw new BekiLayoutException(
             CompositeFailureCodes.LayoutFailed,
@@ -750,6 +761,8 @@ public sealed class BekiBookGenerator(
         byte[] childPhoto,
         string childPhotoContentType,
         CompositeBookContext composite,
+        ChildIdentitySpec identity,
+        byte[]? childAnchor,
         CancellationToken cancellationToken)
     {
         if (!UsesCompositePipeline(composite, "the press cover wrap"))
@@ -761,7 +774,8 @@ public sealed class BekiBookGenerator(
         }
 
         return await compositePipeline!.DrawCoverWrapAsync(
-            composite, scenario, childPhoto, childPhotoContentType, cancellationToken);
+            composite, scenario, childPhoto, childPhotoContentType, identity, childAnchor,
+            cancellationToken);
     }
 
     /// <summary>

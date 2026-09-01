@@ -266,6 +266,63 @@ public sealed record CompositeSpreadPromptInput
 public sealed record CompositeCoverGeometry(string PanelInstructions, BekiCompositeAnchor FrontBekiAnchor);
 
 /// <summary>
+/// Everything the cover's image prompt is resolved from — the same shape, and the same rules, as
+/// <see cref="CompositeSpreadPromptInput"/>.
+///
+/// A record rather than seven positional arguments, and that is the whole of rule 2's mechanism.
+/// The owner's ruling of 2026-09-01 is that "characters must be consistent on cover and spreads",
+/// and the observed defect was that the cover hero and the spread hero were different children: the
+/// spread builder wrote a CHILD IDENTITY LOCK and attached the appearance anchor, the cover builder
+/// took neither, and no review could have caught it because each picture was good on its own. Two
+/// inputs that must agree, described in two shapes, will eventually disagree — so the cover's input
+/// carries the same <see cref="IdentitySpec"/> and the same <see cref="AnchorAttached"/> as a
+/// spread's, is written into the prompt by the same builder, and cannot drift from it.
+/// </summary>
+public sealed record CompositeCoverPromptInput
+{
+    /// <summary>The printer-approved dieline's panel block, in the printer's own words.</summary>
+    public required CompositeCoverGeometry Geometry { get; init; }
+
+    /// <summary>The number the parent gave. Said out loud, exactly as a spread says it.</summary>
+    public required int ChildAge { get; init; }
+
+    public required CompositeThemeReference Theme { get; init; }
+
+    /// <summary>The Visual Scenario's cover sentence, sent verbatim.</summary>
+    public required string FrontChildWorldScene { get; init; }
+
+    /// <summary>The Visual Scenario's back-cover environment, sent verbatim.</summary>
+    public required string BackEnvironment { get; init; }
+
+    /// <summary>The book-level outfit lock — the same string every spread is dressed from.</summary>
+    public required string ChildOutfit { get; init; }
+
+    /// <summary>Only the recurring elements the cover scene actually names.</summary>
+    public IReadOnlyList<string> RecurringElements { get; init; } = [];
+
+    /// <summary>
+    /// The book's eight identity attributes, rendered into the CHILD IDENTITY LOCK block.
+    ///
+    /// Required, for the same reason it is required on a spread: a book without a spec does not
+    /// reach the image stage at all, and an optional field here would describe a state the pipeline
+    /// does not have — while quietly permitting the cover this campaign exists to stop, the one
+    /// drawn with no lock in it.
+    /// </summary>
+    public required ChildIdentitySpec IdentitySpec { get; init; }
+
+    /// <summary>
+    /// Whether the child appearance anchor — the accepted first spread's base — is attached to this
+    /// call.
+    ///
+    /// It decides the same two things it decides on a spread: whether the anchor's instruction is
+    /// written, and what number every later reference is given. False is not a defect; it is
+    /// exactly spread one's condition, and it is what a press rebuild that has no stored base image
+    /// left is honestly in.
+    /// </summary>
+    public bool AnchorAttached { get; init; }
+}
+
+/// <summary>
 /// Where the cover's geometry would come from, and why there is none yet.
 ///
 /// The cover base prompt is resolvable only against the active printer-approved dieline: the
@@ -363,8 +420,17 @@ public static class CompositeIllustrationPrompt
     /// of one picture, the title area is "the upper right stays naturally calm and open", the
     /// spine, the hinge and the Beki rectangle are not mentioned at all, and the negatives ban a
     /// vertical tonal step as loudly as they ban a drawn line.
+    ///
+    /// v1.2 is the owner's rule 2 of 2026-09-01 — "characters must be consistent on cover and
+    /// spreads" — answered where consistency is actually decided, which is the input. The observed
+    /// defect is that the cover hero and the spread hero were different characters: this prompt
+    /// never carried the CHILD IDENTITY LOCK and the wrap call never attached the child appearance
+    /// anchor, so the cover was one more independent stylization of a photograph while spreads 2-8
+    /// were reproductions of an agreed drawing. Both are now written by the same builder from the
+    /// same <see cref="CompositeChildIdentity.LockBlock"/>, numbered against the references the
+    /// request actually carries, so the two pictures cannot describe two children.
     /// </summary>
-    public const string CoverVersion = "cover-child-world-v1.1";
+    public const string CoverVersion = "cover-child-world-v1.2";
 
     /// <summary>
     /// <remarks>
@@ -455,40 +521,42 @@ public static class CompositeIllustrationPrompt
     /// no rectangle, zone, panel, or percentage anywhere. The composition the printer needs is
     /// obtained by asking for a composition, not by describing a dieline.
     /// </summary>
-    public static string ForCover(
-        CompositeCoverGeometry geometry,
-        int childAge,
-        CompositeThemeReference theme,
-        string frontChildWorldScene,
-        string backEnvironment,
-        string childOutfit,
-        IReadOnlyList<string> recurringElements)
+    /// <remarks>
+    /// v1.2 added the CHILD IDENTITY LOCK, and it is the same block, from the same builder, that
+    /// every spread carries — <see cref="CompositeChildIdentity.LockBlock"/>. That is rule 2's
+    /// mechanism: the cover and the spreads are consistent because they are told the same thing,
+    /// not because somebody looked at them afterwards and agreed.
+    /// </remarks>
+    public static string ForCover(CompositeCoverPromptInput input)
     {
-        ArgumentNullException.ThrowIfNull(geometry);
-        ArgumentNullException.ThrowIfNull(theme);
+        ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(input.Geometry);
+        ArgumentNullException.ThrowIfNull(input.Theme);
 
         return $"""
             Use case: illustration-cover
             Asset type: BEKI personalized children's book continuous wraparound cover base for later vector title and exact Beki PNG compositing
 
             INPUT IMAGES
-            {ChildReferenceLine(childAge)}
-            {ThemeReferenceLine(theme, forCover: true)}
+            {CoverInputImageBlock(input)}
 
             FRONT-COVER SCENE
-            {frontChildWorldScene.Trim()}
-            Dress the child in {childOutfit.Trim()}
-            Show one inviting action only. Do not reveal the ending.
+            {input.FrontChildWorldScene.Trim()}
+            Dress the child in {input.ChildOutfit.Trim()}{OutfitAnchorClause(input.AnchorAttached)}
+            Keep the outfit consistent with all eight story spreads. Show one inviting action only. Do not reveal the ending.
+
+            {CompositeChildIdentity.LockBlock(
+                input.IdentitySpec, input.ChildAge, input.AnchorAttached ? 2 : 1)}
 
             BACK-COVER ENVIRONMENT
-            {backEnvironment.Trim()}
+            {input.BackEnvironment.Trim()}
             Continue the same world, terrain, atmosphere, and lighting naturally across the whole picture. The left side of the picture contains no child, no Beki, and no other main character.
 
             RECURRING ELEMENTS REQUIRED ON THE FRONT
-            {RecurringBlock(recurringElements)}
+            {RecurringBlock(input.RecurringElements)}
 
             PRINTER-SPECIFIC COMPOSITION
-            {geometry.PanelInstructions.Trim()}
+            {input.Geometry.PanelInstructions.Trim()}
             The middle of the picture is ordinary scene: continue the environment through it with the same light, the same colour, and the same level of detail as its surroundings, and give it no edge, band, tint, seam, or change of treatment of its own. No face, hand, child, supporting character, or story-critical object may sit at or near the horizontal middle of the picture.
             Let the environment run all the way off every outer edge of the picture, and keep everything important well away from those edges.
 
@@ -757,9 +825,6 @@ public static class CompositeIllustrationPrompt
         "which", "while", "whose", "will", "with", "would"
     };
 
-    private static string ChildReferenceLine(int childAge) =>
-        "Image 1 - " + ChildReferenceBody(childAge, anchored: false);
-
     /// <summary>
     /// The photograph, which is attached on every page whichever position it holds.
     ///
@@ -794,9 +859,6 @@ public static class CompositeIllustrationPrompt
     /// Taking that from the registry rather than writing six of them here means a re-art-directed
     /// world is a data change in the file that also carries its hash.
     /// </summary>
-    private static string ThemeReferenceLine(CompositeThemeReference theme, bool forCover = false) =>
-        "Image 2 - " + ThemeReferenceBody(theme, forCover);
-
     private static string ThemeReferenceBody(CompositeThemeReference theme, bool forCover = false) =>
         $"approved {theme.OfficialName} world/style reference. Use its world vocabulary, "
         + "palette, atmosphere, material treatment, and premium stylized 3D rendering language: "
@@ -869,6 +931,38 @@ public static class CompositeIllustrationPrompt
         {
             lines.Add($"Image {number} - {ContinuityBody(input.ContinuityElementNames)}");
         }
+
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>
+    /// The cover's attached images, numbered by the order they are actually attached in — the
+    /// spread block's two shapes, minus the continuity reference a cover never carries.
+    ///
+    /// Written beside <see cref="InputImageBlock"/> rather than inside it because the two inputs
+    /// are different records, and shared with it in the only place sharing matters: the reference
+    /// BODIES and the numbering rule are the same functions, so a cover drawn with the anchor
+    /// attached says "Image 1 - child appearance anchor" and puts the photograph second, exactly as
+    /// spreads 2-8 do, and the CHILD IDENTITY LOCK is handed the same number.
+    ///
+    /// The anchor is the accepted first spread of this book, which makes the cover a reproduction
+    /// of a child the book has already drawn rather than a ninth independent reading of a
+    /// photograph. When there is none — a press rebuild whose stored bases are gone — this is
+    /// precisely spread one's condition, and the lock plus the photograph is what spread one is
+    /// drawn from too.
+    /// </summary>
+    private static string CoverInputImageBlock(CompositeCoverPromptInput input)
+    {
+        var lines = new List<string>();
+        var number = 1;
+
+        if (input.AnchorAttached)
+        {
+            lines.Add($"Image {number++} - {AnchorInstruction}");
+        }
+
+        lines.Add($"Image {number++} - {ChildReferenceBody(input.ChildAge, input.AnchorAttached)}");
+        lines.Add($"Image {number} - {ThemeReferenceBody(input.Theme, forCover: true)}");
 
         return string.Join("\n", lines);
     }

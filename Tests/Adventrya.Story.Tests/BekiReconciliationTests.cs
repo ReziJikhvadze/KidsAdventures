@@ -278,7 +278,9 @@ public class BekiReconciliationTests
 
         var packs = new ReconcilePacks(pack) { Withheld = [pack] };
 
-        // The switch: PRESS_RESOLUTION is a blocker by default and this deployment has flagged it.
+        // The switch, stated explicitly rather than relied on: PRESS_RESOLUTION has been a flag by
+        // default since the owner's rule 4 of 2026-09-01, and this test is about the row reaching an
+        // already-withheld book rather than about which way the default points.
         var flagged = new BekiReleasePolicySnapshot(
             BekiReleasePolicySnapshot.Defaults.Settings.Append(
                 new BekiReleaseCheckSetting(

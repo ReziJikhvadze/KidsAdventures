@@ -535,10 +535,17 @@ public sealed class MasterBookService(
     /// Everything wrong with a plan, in one list, so one corrective retry answers all of it.
     ///
     /// The shared checks first — Beki spelled the one way, the cast placed, the word budget, the
-    /// spread count — and then the composite path's own, which is stricter in exactly one place:
-    /// Beki on all eight spreads rather than on five, because the illustration contract cannot
-    /// describe a spread without her. Two lists rather than one validator, because the stricter
-    /// rule must not become the rule for every A5 book in production.
+    /// spread count — then the child's own name, and then the composite path's own rule, which is
+    /// stricter in exactly one place: Beki on all eight spreads rather than on five, because the
+    /// illustration contract cannot describe a spread without her. Separate lists rather than one
+    /// validator, because the stricter rule must not become the rule for every A5 book in
+    /// production.
+    ///
+    /// The name check is NOT behind the composite flag, and that is the point of where it sits. The
+    /// observed defect (2026-09-01) came out of the composite planner — ვეკო written ველო, one
+    /// Georgian letter, in the title — but nothing about it is composite: every printing format
+    /// takes the child's name as an input and prints it, and a misspelled name is the first thing a
+    /// parent sees whichever prompt wrote the book. See <see cref="GeorgianNameFidelity"/>.
     /// </summary>
     private static IReadOnlyList<string> PlanProblems(
         MasterStory story, MasterStoryInput input, bool composite)
@@ -546,6 +553,8 @@ public sealed class MasterBookService(
         var problems = BekiPlanValidator
             .Validate(story, input.SpreadCount, input.Age)
             .ToList();
+
+        problems.AddRange(GeorgianNameFidelity.Problems(story, input.ChildName));
 
         if (composite)
         {
