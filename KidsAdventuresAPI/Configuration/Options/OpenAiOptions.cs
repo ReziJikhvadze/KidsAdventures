@@ -59,9 +59,9 @@ public sealed class OpenAiOptions
     /// <summary>responses = Responses API + image_generation tool (recommended). dall-e = Images API only.</summary>
     public string ImageGenerationProvider { get; set; } = "responses";
     /// <summary>Image model: gpt-image-1-mini (budget), gpt-image-1.5, or gpt-image-2 (best).</summary>
-    public string ImageModel { get; set; } = "gpt-image-1.5";
+    public string ImageModel { get; set; } = "gpt-image-2";
     /// <summary>Model for character-anchor edits (images/edits) on pages 2+.</summary>
-    public string ImageEditModel { get; set; } = "gpt-image-1.5";
+    public string ImageEditModel { get; set; } = "gpt-image-2";
     /// <summary>
     /// Portrait 2:3, because that is the page it has to fill.
     ///

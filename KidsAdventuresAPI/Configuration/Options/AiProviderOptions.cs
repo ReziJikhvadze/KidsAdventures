@@ -9,8 +9,13 @@ namespace AdventurePacks.Api.Configuration.Options;
 /// the same plan drawn by two illustrators, or the same illustrator given two plans, is the only
 /// honest way to tell which vendor is actually better at this book.
 ///
-/// Both default to OpenAI, which is what every deployment has run until now, so an installation
-/// that sets nothing keeps exactly the pipeline it had.
+/// The shipped appsettings.json carries the owner's split of 2026-09-01: Gemini writes the
+/// words (Flash is fast and cheap enough to be the obvious choice for text), OpenAI draws and
+/// judges the pictures (gpt-image-2 is the illustrator the owner picked for the part the money
+/// and quality live in). The C# property defaults below deliberately stay OpenAI/OpenAI rather
+/// than mirroring that file: a default of Gemini would make a configuration with no Gemini key
+/// refuse to boot — including every test harness that builds DI from an empty configuration —
+/// so the file states the product's choice and the code states the one that can always start.
 /// </summary>
 public sealed class AiProviderOptions
 {
