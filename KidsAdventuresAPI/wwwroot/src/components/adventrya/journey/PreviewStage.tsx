@@ -35,19 +35,40 @@ type Props = {
 // Module scope on purpose: it must survive a remount.
 let inflightStart: Promise<string> | null = null;
 
+/**
+ * Which book the stored run belongs to.
+ *
+ * The id alone resumed the wrong book: start a book for one child, go back to the dashboard,
+ * start one for another, and the loader showed the first child's story as the second's. The
+ * world and the hero travel with the id, and a stored run is only rejoined when they match.
+ */
+type PendingRun = { runId: string; worldId: string | null; heroKey: string };
+
+function heroKeyOf(hero: { serverId?: string; name: string; birthDate: string }): string {
+  return hero.serverId ?? `${hero.name.trim().toLowerCase()}|${hero.birthDate}`;
+}
+
 // Storage can throw — Safari in private mode is the usual culprit — and a book that is already
 // being written should not be lost to a failed write of its own id.
-function readPendingRunId(): string | null {
+function readPendingRun(): PendingRun | null {
   try {
-    return localStorage.getItem(SESSION_KEYS.pendingBookRunId);
+    const raw = localStorage.getItem(SESSION_KEYS.pendingBookRunId);
+    if (!raw) return null;
+    // Earlier versions stored the bare id. It belongs to nobody in particular, so it is dropped
+    // rather than resumed into whichever book happens to be open now.
+    if (!raw.startsWith("{")) return null;
+    const parsed = JSON.parse(raw) as Partial<PendingRun>;
+    return typeof parsed.runId === "string" && typeof parsed.heroKey === "string"
+      ? { runId: parsed.runId, worldId: parsed.worldId ?? null, heroKey: parsed.heroKey }
+      : null;
   } catch {
     return null;
   }
 }
 
-function writePendingRunId(runId: string): void {
+function writePendingRun(run: PendingRun): void {
   try {
-    localStorage.setItem(SESSION_KEYS.pendingBookRunId, runId);
+    localStorage.setItem(SESSION_KEYS.pendingBookRunId, JSON.stringify(run));
   } catch {
     /* ignore */
   }
@@ -99,6 +120,11 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
     // which cleared only by leaving and coming back.
     if (!hydrated) return;
 
+    // A saved hero named in the URL is still on its way from the account. Starting now would
+    // write — and bill — a book for "შენი გმირი", aged five, with no photograph, and then adopt
+    // that story into the paid book. Wait; the hero's arrival re-runs this effect.
+    if (draft.characters.some((c) => c.serverId && !c.name.trim())) return;
+
     // Once the draft is known, a missing world is real: there is no story to write.
     // Generating anyway produced a book about the wrong subject, which costs a real
     // generation and reads as a bug — so stop and send them back to choose.
@@ -110,12 +136,18 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
     }
 
     setError(null);
+    // Re-armed on every start. An earlier pass that found no world had switched the loader off,
+    // and when the world arrived a moment later the stage showed the finished layout — stock art
+    // and a working "continue" button — over a book that was only now being written.
+    setLoading(true);
 
     let cancelled = false;
     let pollTimer = 0;
+    // Slowly. A book takes minutes, and a bar that reached its last step in under two used to
+    // sit full for the rest of the wait, which reads as "stuck" rather than "working".
     const stageTimer = window.setInterval(() => {
       setLoaderStep((s) => Math.min(s + 1, t.journey.previewLoader.stages.length - 1));
-    }, 20000);
+    }, 45000);
 
     // The cover is painted after the story is finished, so a book can be ready to read while
     // its picture is still a minute away. Rather than hold the whole preview back for it, the
@@ -249,11 +281,15 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
     void (async () => {
       try {
         // A reload used to throw away a book that was already being written and start
-        // another. The id is kept so the page comes back to the one in progress.
-        const pending = readPendingRunId();
+        // another. The id is kept so the page comes back to the one in progress — but only
+        // the one for this child in this world; a run left behind by another book is dropped.
+        const pending = readPendingRun();
         if (pending) {
-          poll(pending);
-          return;
+          if (pending.worldId === draft.worldId && pending.heroKey === heroKeyOf(hero)) {
+            poll(pending.runId);
+            return;
+          }
+          clearPendingRunId();
         }
 
         // A saved hero's portrait is an object URL for the screen, not bytes to send: the
@@ -291,14 +327,21 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
         // Written before the cancelled check: the run exists and is billed whether or not
         // this effect survived to see the response, and the id in storage is what lets the
         // next run — or the next page load — pick the book up instead of buying another.
-        writePendingRunId(runId);
+        writePendingRun({ runId, worldId: draft.worldId, heroKey: heroKeyOf(hero) });
         if (cancelled) return;
         poll(runId);
       } catch (err) {
         // A failed start is not "started": drop the shared promise so retry can try again.
         inflightStart = null;
         if (cancelled) return;
-        setError(err instanceof ApiError ? err.message : t.journey.preview.failed);
+        // In the parent's language, whatever the server said. Its refusals on this route are
+        // English sentences written for a log, and one of them tells a signed-in parent behind a
+        // shared address to "sign in".
+        setError(
+          err instanceof ApiError && err.status === 429
+            ? t.journey.preview.tooBusy
+            : t.journey.preview.failed,
+        );
         setLoading(false);
       }
     })();
@@ -308,10 +351,11 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
       window.clearInterval(stageTimer);
       window.clearTimeout(pollTimer);
     };
-    // Re-evaluated when the draft hydrates or the world changes; the shared `inflightStart`
-    // promise is what guarantees the paid call itself still happens only once.
+    // Re-evaluated when the draft hydrates, the world changes, or the hero named in the URL
+    // finishes loading; the shared `inflightStart` promise is what guarantees the paid call
+    // itself still happens only once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, draft.worldId, retryToken]);
+  }, [hydrated, draft.worldId, retryToken, hero.serverId, hero.name, hero.photoStored]);
 
   const coverSrc = draft.preview?.coverImageDataUrl || WORLD_COVER_ART[worldId];
   const bookTitle = draft.preview?.title || world.bookTitle(hero.name || t.common.fallbackHeroName);

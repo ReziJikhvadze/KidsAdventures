@@ -164,8 +164,9 @@ export const journey = {
     paintingCover: "ზღაპარი დაწერილია — ვხატავთ ყდას…",
     heading: " პერსონალიზებული Preview იქმნება",
     subheading: "ს პირველი გვერდი უკვე მზადდება ✨",
-    reassurance: "დარჩი ამ ჯადოსნურ მომენტში — დაახლოებით 30 წამი.",
-    atelier: "BEKI BOOK ATELIER · დაახლოებით 30 წამი",
+    /* Honest: a whole sixteen-page story plus its cover takes minutes, not seconds. */
+    reassurance: "დარჩი ამ ჯადოსნურ მომენტში — ჩვეულებრივ 2–4 წუთი სჭირდება.",
+    atelier: "BEKI BOOK ATELIER · 2–4 წუთი",
     ariaLabel: (hero: string) => `ნახე ${hero}ს ამბავი უფასოდ`,
     stages: [
       "გმირებისა და მათი დეტალების მომზადება",
@@ -184,6 +185,8 @@ export const journey = {
     tookTooLong:
       "ზღაპარი მოსალოდნელზე დიდხანს გრძელდება. სცადე თავიდან — შენი მონაცემები შენახულია.",
     tryAgain: "თავიდან ცდა",
+    /* The server's own rate limit, said as what it is — a busy moment, not a fault of the parent. */
+    tooBusy: "ამ წუთას ძალიან ბევრი ზღაპარი იწერება. სცადე რამდენიმე წუთში — შენი მონაცემები შენახულია.",
     eyebrow: " პერსონალიზებული Preview მზადაა",
     titlePrefix: "აი, როგორ იწყება ",
     titleSuffix: "ს ამბავი",
@@ -295,14 +298,20 @@ export const journey = {
     companionPrefix: "რექსმა ",
     companionSuffix: "ს ახალი სამყაროს კარი გაიღო",
     leaveNote: "შეგიძლია თავისუფლად გახვიდე — წიგნის მზადებისას ელფოსტასაც გამოგიგზავნით.",
-    softTime: "დაახლოებით ერთი წუთი",
+    /* A Beki book is nine paintings and a print-ready file; a minute was never true. */
+    softTime: "ჩვეულებრივ 5–10 წუთი",
     stageLabel: "ნაბიჯი ",
+    orderMissing: "შეკვეთა ვერ მოიძებნა.",
+    toDashboard: "დაფაზე გადასვლა",
+    pagesDrawn: "დახატული გვერდები",
+    pageAlt: (spread: number) => `გვერდი ${spread}`,
+    spreadsDrawn: (done: number, total: number) => `დაიხატა ${done} / ${total} ილუსტრაცია`,
     ariaLabel: (hero: string) => `${hero}ს ამბავი იბადება`,
     stages: [
       "გმირის სახეს ვამზადებთ",
       "ისტორიის გზას ვწერთ",
       "ილუსტრაციებს ვაცოცხლებთ",
-      "შვიდ გვერდს ერთ წიგნად ვკრავთ",
+      "თექვსმეტ გვერდს ერთ წიგნად ვკრავთ",
     ],
     /*
       Where the job actually is, keyed by the book's own status.
@@ -327,7 +336,7 @@ export const journey = {
     languageNote: "წიგნის ენა: ",
     deliveryNote:
       "ბეჭდურ წიგნს მიიღებ მითითებულ მისამართზე — თბილისში 4–5 დღეში, საქართველოს სხვა რეგიონებში 5–8 დღეში.",
-    pageBadge: " 7 გვერდი",
+    pageBadge: " 16 გვერდი",
     fullBookAria: (hero: string) => `${hero}ს სრული წიგნი`,
     downloadPdf: "PDF-ის ჩამოტვირთვა",
     openWorld: "ს სამყარო ",

@@ -60,13 +60,37 @@ export function useJourneyStage(): [JourneyStage, (next: JourneyStage) => void] 
         The journey is one route with one address bar entry; moving between its steps is not
         moving between pages, and the header's own back control is what walks the flow.
       */
-      void router.navigate({ to: "/create", hash: next, replace: true });
+      /*
+        The world and the child stay in the address.
+
+        Omitting `search` cleared it, so a reload on #preview or #checkout came back to a
+        journey that had forgotten which world and which child — and the run in progress could
+        not be rejoined, because the stored run is keyed to both. `new` is deliberately not
+        carried: the provider treats it as "start blank" on every navigation it sees it on.
+      */
+      void router.navigate({
+        to: "/create",
+        hash: next,
+        replace: true,
+        search: (prev: Record<string, unknown>) => keepJourneySearch(prev),
+      });
       window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     },
     [router],
   );
 
   return [stage, goToStage];
+}
+
+/** The query keys that describe the book being made, and nothing that means "start over". */
+const JOURNEY_SEARCH_KEYS = ["world", "worldId", "characterId", "characterIds", "mode", "orderId"];
+
+function keepJourneySearch(prev: Record<string, unknown>): Record<string, unknown> {
+  const kept: Record<string, unknown> = {};
+  for (const key of JOURNEY_SEARCH_KEYS) {
+    if (prev[key] !== undefined && prev[key] !== null && prev[key] !== "") kept[key] = prev[key];
+  }
+  return kept;
 }
 
 /** Accepts a hash with or without its leading '#', plus the demo's legacy aliases. */

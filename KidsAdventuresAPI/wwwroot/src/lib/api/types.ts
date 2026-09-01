@@ -415,6 +415,20 @@ export type OrderStatusResponse = {
   parentMessage?: string | null;
   progressMessage?: string | null;
   failureReason?: string | null;
+  /** 0–100 while the book is being made, when the job reports one. */
+  progressPercent?: number | null;
+  /** The pack's own status (Pending, GeneratingStory, StoryReady, GeneratingPdf, Completed, Failed). */
+  packStatus?: string | null;
+  /** When the job last wrote to the row; a stale one is a job that stopped. */
+  heartbeatUtc?: string | null;
+  /**
+   * What the book is, for a screen that only has the order id — a parent coming back from the
+   * bank on a hard page load has no draft left to describe the book they just paid for.
+   */
+  title?: string | null;
+  worldId?: string | null;
+  childName?: string | null;
+  coverImageUrl?: string | null;
 };
 
 export type PrintOrderStatus = "AwaitingPrint" | "Printing" | "Shipped" | "Delivered" | "Cancelled";

@@ -80,7 +80,8 @@ public sealed class AdventurePacksController(
           a parent who changed the picture meant to.
         */
         Character? knownHero = null;
-        if (Guid.TryParse(characterId, out var heroId) && TryGetSignedInUserId(out var ownerId))
+        var signedIn = TryGetSignedInUserId(out var ownerId);
+        if (signedIn && Guid.TryParse(characterId, out var heroId))
         {
             knownHero = await characterRepository.GetByIdAsync(heroId, ownerId, cancellationToken);
         }
@@ -109,7 +110,10 @@ public sealed class AdventurePacksController(
             return BadRequest(new { message = "Please choose a valid theme." });
         }
 
-        if (!guestRateLimiter.TryAcquire(GetClientKey()))
+        // The ceiling is for anonymous scripts. A signed-in parent is a known account, and one
+        // behind an office or carrier-grade NAT used to be told to "sign in" by a limit keyed on
+        // an address forty strangers share.
+        if (!signedIn && !guestRateLimiter.TryAcquire(GetClientKey()))
         {
             return StatusCode(
                 StatusCodes.Status429TooManyRequests,

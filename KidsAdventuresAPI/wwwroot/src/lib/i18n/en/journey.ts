@@ -148,8 +148,8 @@ export const journey = {
     paintingCover: "The story is written — painting the cover…",
     heading: " Your personalised preview is being made",
     subheading: "'s first page is already being made ✨",
-    reassurance: "Stay for this bit of magic — it takes about 30 seconds.",
-    atelier: "BEKI BOOK ATELIER · about 30 seconds",
+    reassurance: "Stay for this bit of magic — it usually takes 2–4 minutes.",
+    atelier: "BEKI BOOK ATELIER · 2–4 minutes",
     ariaLabel: (hero: string) => `See ${hero}'s story for free`,
     stages: [
       "Preparing the characters and their details",
@@ -169,6 +169,8 @@ export const journey = {
     tookTooLong:
       "This is taking longer than it should. Try again — nothing you entered has been lost.",
     tryAgain: "Try again",
+    tooBusy:
+      "A lot of stories are being written right now. Try again in a few minutes — nothing you entered has been lost.",
     eyebrow: " Your personalised preview is ready",
     titlePrefix: "Here's how ",
     titleSuffix: "'s story begins",
@@ -281,14 +283,19 @@ export const journey = {
     companionPrefix: "Rex opened the door to ",
     companionSuffix: "'s new world",
     leaveNote: "Feel free to leave — we will email you as soon as the book is ready.",
-    softTime: "About a minute",
+    softTime: "Usually 5–10 minutes",
     stageLabel: "Step ",
+    orderMissing: "The order could not be found.",
+    toDashboard: "Go to the dashboard",
+    pagesDrawn: "Pages drawn so far",
+    pageAlt: (spread: number) => `Page ${spread}`,
+    spreadsDrawn: (done: number, total: number) => `${done} / ${total} illustrations painted`,
     ariaLabel: (hero: string) => `${hero}'s story is being born`,
     stages: [
       "Preparing the hero's face",
       "Writing the story's path",
       "Bringing the illustrations to life",
-      "Binding seven pages into one book",
+      "Binding sixteen pages into one book",
     ],
     statusLine: {
       Pending: "Order received — starting",
@@ -306,7 +313,7 @@ export const journey = {
     languageNote: "Book language: ",
     deliveryNote:
       "Your printed book will arrive at the address you gave — 4–5 days in Tbilisi, 5–8 days elsewhere in Georgia.",
-    pageBadge: " 7 pages",
+    pageBadge: " 16 pages",
     fullBookAria: (hero: string) => `${hero}'s complete book`,
     downloadPdf: "Download PDF",
     openWorld: "'s world ",

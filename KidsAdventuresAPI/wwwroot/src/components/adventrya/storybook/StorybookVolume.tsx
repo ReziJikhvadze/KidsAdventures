@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 
 import { preloadIllustration, useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { useT } from "@/lib/i18n";
 import { WORLD_COVER_ART, type WorldId, isWorldId } from "@/lib/worlds";
 import type { StoryPageContent } from "@/lib/api/types";
+import { NewBookCharacterContext } from "@/lib/story/newBookCharacter";
 
 export type StorybookLeaf =
   | { kind: "cover" }
@@ -214,6 +216,7 @@ function StoryFace({
   isSpreadBook?: boolean;
 }) {
   const t = useT();
+  const newBookCharacterId = useContext(NewBookCharacterContext);
   const artUrl = useIllustrationUrl(leaf.kind === "story" ? leaf.page.illustrationUrl : null);
   const locked = leaf.kind === "locked";
   const pageNumber =
@@ -240,9 +243,17 @@ function StoryFace({
         <div className="storybook-back-copy">
           <strong>{t.story.storybook.qrTitle}</strong>
           <p>{t.story.storybook.backTap(heroName)}</p>
-          <a className="storybook-back-cta" href="/create">
+          {/*
+            Client-side, to the world picker, for this child. The old hard link to /create
+            reloaded the app into a blank form with no world and no child.
+          */}
+          <Link
+            className="storybook-back-cta"
+            to="/themes"
+            search={newBookCharacterId ? { characterId: newBookCharacterId } : {}}
+          >
             {t.story.storybook.backCta}
-          </a>
+          </Link>
         </div>
       </article>
     );

@@ -448,12 +448,16 @@ export function DashboardScreen() {
             </Link>
           ) : null}
 
-          {/* Adding a child is a different intention, and must begin genuinely blank. */}
+          {/*
+            Adding a child is a different intention, and must begin genuinely blank — and it
+            begins where every book begins, at the world. Sent to the form first, the parent
+            filled it in, was bounced to /themes, and came back to a form whose consent box had
+            forgotten them.
+          */}
           <Link
             className="add-child"
-            to="/create"
+            to="/themes"
             search={{ new: "1" }}
-            hash="profile"
             aria-label={t.dashboard.sidebar.addChild}
           >
             <Plus aria-hidden="true" />

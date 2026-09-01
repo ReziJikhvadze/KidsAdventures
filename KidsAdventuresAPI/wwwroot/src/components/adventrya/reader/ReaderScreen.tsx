@@ -15,7 +15,9 @@ import {
 import type { AdventurePackDetailResponse } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { rememberReadLocally } from "@/lib/books-read";
+import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { useT } from "@/lib/i18n";
+import { NewBookCharacterContext } from "@/lib/story/newBookCharacter";
 import { useWorldById, isWorldId } from "@/lib/worlds";
 
 export function ReaderScreen() {
@@ -122,6 +124,10 @@ export function ReaderScreen() {
   }, [bookId, isIllustrating, isPending]);
 
   const heroName = pack?.childName?.trim() || t.common.fallbackHeroName;
+  // Through the authenticated fetch, like every other picture on this page: the cover is an
+  // `/api/...` path, and handed straight to a background-image it answered 401 and the two
+  // waiting panels showed a blank frame where the child's book should have been.
+  const atelierCover = useIllustrationUrl(pack?.coverImageUrl);
   const worldId = pack?.worldId && isWorldId(pack.worldId) ? pack.worldId : null;
   const world = worldId ? WORLD_BY_ID[worldId] : null;
   const title =
@@ -238,11 +244,7 @@ export function ReaderScreen() {
             <div className="preview-atelier-book" aria-hidden="true">
               <div
                 className="preview-atelier-art"
-                style={
-                  pack?.coverImageUrl
-                    ? { backgroundImage: `url("${pack.coverImageUrl}")` }
-                    : undefined
-                }
+                style={atelierCover ? { backgroundImage: `url("${atelierCover}")` } : undefined}
               />
               <div className="preview-atelier-cover-lines" />
               <span className="preview-atelier-spine" />
@@ -279,11 +281,7 @@ export function ReaderScreen() {
             <div className="preview-atelier-book" aria-hidden="true">
               <div
                 className="preview-atelier-art"
-                style={
-                  pack?.coverImageUrl
-                    ? { backgroundImage: `url("${pack.coverImageUrl}")` }
-                    : undefined
-                }
+                style={atelierCover ? { backgroundImage: `url("${atelierCover}")` } : undefined}
               />
               <div className="preview-atelier-cover-lines" />
               <span className="preview-atelier-spine" />
@@ -377,19 +375,21 @@ export function ReaderScreen() {
             isSpreadBook as well, but its demo art is drawn one portrait per page, and halving
             those would give a visitor their first look at a book of cropped fragments.
           */
-          <StorybookVolume
-            className="storybook storybook-full"
-            heroName={heroName}
-            title={title}
-            coverImageUrl={pack.coverImageUrl}
-            worldId={pack.worldId}
-            pages={pages}
-            lockedPageCount={lockedPageCount}
-            isUnlocked={isUnlocked}
-            isSpreadBook={pack.isSpreadBook}
-            fullBleedSpreads={pack.isSpreadBook}
-            interactive
-          />
+          <NewBookCharacterContext.Provider value={pack.primaryCharacterId ?? null}>
+            <StorybookVolume
+              className="storybook storybook-full"
+              heroName={heroName}
+              title={title}
+              coverImageUrl={pack.coverImageUrl}
+              worldId={pack.worldId}
+              pages={pages}
+              lockedPageCount={lockedPageCount}
+              isUnlocked={isUnlocked}
+              isSpreadBook={pack.isSpreadBook}
+              fullBleedSpreads={pack.isSpreadBook}
+              interactive
+            />
+          </NewBookCharacterContext.Provider>
         ) : null}
       </main>
 

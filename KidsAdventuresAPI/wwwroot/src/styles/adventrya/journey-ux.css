@@ -2448,3 +2448,21 @@
 .ux-summary-avatar {
   overflow: hidden;
 }
+
+/* The real progress of a book being made: a bar that moves when the job does. */
+.generation-progress {
+  margin-top: 16px;
+  max-width: 420px;
+}
+.generation-progress-line {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #f8f2e5c7;
+}
+.generation-progress-line strong {
+  font-size: 18px;
+  color: var(--story-gold);
+}

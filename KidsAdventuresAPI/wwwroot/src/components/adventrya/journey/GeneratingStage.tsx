@@ -3,18 +3,21 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
-import { ApiError } from "@/lib/api/client";
 import * as ordersApi from "@/lib/api/orders";
 import { BookFailedError, OrderStillWorkingError } from "@/lib/api/orders";
 import type { OrderStatusResponse } from "@/lib/api/types";
+import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { useT } from "@/lib/i18n";
 import { primaryCharacter, type JourneyDraft } from "@/lib/journey/draft";
-import { useWorldById, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
+import { useWorldById, WORLD_COVER_ART, isWorldId, type WorldId } from "@/lib/worlds";
 
 type Props = {
   draft: JourneyDraft;
   onChange: (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => void;
 };
+
+/** A Beki book: eight painted spreads. What "N of 8" counts. */
+const SPREAD_COUNT = 8;
 
 /**
  * Which of the four stage lines a book's status is standing on.
@@ -32,29 +35,50 @@ const STATUS_STEP: Record<string, number> = {
   Completed: 3,
 };
 
+/**
+ * How often the order is asked whether the book is ready.
+ *
+ * Five seconds, and one asker. The order was polled every two and a half seconds and the book's
+ * own progress every five, by two loops that did not know about each other; the book's row is
+ * the one that changes, so it is asked at its own pace and the order slightly less often.
+ */
+const ORDER_POLL_MS = 5000;
+
+/** One window of order polling before the "still working" notice goes up: fifteen minutes. */
+const ORDER_POLL_ATTEMPTS = 180;
+
 export function GeneratingStage({ draft, onChange }: Props) {
   const WORLD_BY_ID = useWorldById();
   const t = useT();
   const navigate = useNavigate();
   const hero = primaryCharacter(draft);
-  const worldId = (draft.worldId ?? "dinosaurs") as WorldId;
+
+  // The order's own description of the book, for a screen that arrived with nothing else. A
+  // parent coming back from the bank lands on a hard page load: the draft is gone, and until the
+  // first poll answers, this screen only knows an order id.
+  const [known, setKnown] = useState<OrderStatusResponse | null>(null);
+
+  const heroName = hero.name.trim() || known?.childName?.trim() || t.common.fallbackHeroName;
+  const worldId: WorldId =
+    draft.worldId ?? (known?.worldId && isWorldId(known.worldId) ? known.worldId : "dinosaurs");
   const world = WORLD_BY_ID[worldId];
-  const coverSrc = draft.preview?.coverImageDataUrl || WORLD_COVER_ART[worldId];
-  const bookTitle = draft.preview?.title || world.bookTitle(hero.name || t.common.fallbackHeroName);
+  const storedCover = useIllustrationUrl(draft.preview ? null : known?.coverImageUrl);
+  const coverSrc = draft.preview?.coverImageDataUrl || storedCover || WORLD_COVER_ART[worldId];
+  const bookTitle = draft.preview?.title || known?.title?.trim() || world.bookTitle(heroName);
 
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   // The polling window ran out but the book is fine — a calm notice, never an error. A Beki
-  // book is nine reviewed illustrations; taking longer than the poll is normal, not a fault.
+  // book is nine illustrations; taking longer than the poll is normal, not a fault.
   const [stillWorking, setStillWorking] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
-  // Where the job actually is, straight from the book's own row. The making-of endpoint has
-  // returned this all along and nothing read it, so this screen could only ever describe a book
-  // that was going well.
+  const [percent, setPercent] = useState<number | null>(null);
+  // Where the job actually is, straight from the book's own row.
   const [bookStatus, setBookStatus] = useState<string | null>(null);
   // The spreads drawn so far, in page order. Real pictures beat a spinner: the book takes
   // minutes, and each finished illustration appearing here is the proof something is happening.
   const [pages, setPages] = useState<{ spread: number; url: string }[]>([]);
+  const [spreadsDone, setSpreadsDone] = useState(0);
 
   // The timer only runs while nothing better is known. Once the book's status arrives the stage
   // list follows it, so the four lines stop being a clock and start being a report.
@@ -75,7 +99,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
   useEffect(() => {
     const orderId = draft.orderId;
     if (!orderId) {
-      setError("შეკვეთა ვერ მოიძებნა.");
+      setError(t.journey.generating.orderMissing);
       return;
     }
 
@@ -83,7 +107,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
 
     void (async () => {
       try {
-        // Returning from Stripe: reconcile payment before polling readiness.
+        // Returning from the bank: reconcile payment before polling readiness.
         try {
           await ordersApi.confirmOrder(orderId);
         } catch {
@@ -99,11 +123,19 @@ export function GeneratingStage({ draft, onChange }: Props) {
         while (status === null && attempts < 50) {
           attempts++;
           try {
-            status = await ordersApi.pollOrderUntilReady(orderId, (current) => {
-              if (cancelled) return;
-              setProgress(current.progressMessage ?? null);
-              if (current.bookId) onChange({ bookId: current.bookId });
-            });
+            status = await ordersApi.pollOrderUntilReady(
+              orderId,
+              (current) => {
+                if (cancelled) return;
+                setKnown(current);
+                if (current.progressMessage) setProgress(current.progressMessage);
+                if (typeof current.progressPercent === "number")
+                  setPercent(current.progressPercent);
+                if (current.packStatus) setBookStatus(current.packStatus);
+                if (current.bookId) onChange({ bookId: current.bookId });
+              },
+              { intervalMs: ORDER_POLL_MS, maxAttempts: ORDER_POLL_ATTEMPTS },
+            );
           } catch (err) {
             if (cancelled) return;
             if (err instanceof BookFailedError) {
@@ -169,6 +201,8 @@ export function GeneratingStage({ draft, onChange }: Props) {
         if (cancelled) return;
         setBookStatus(status.status);
         if (status.progressMessage) setProgress(status.progressMessage);
+        if (typeof status.progressPercent === "number") setPercent(status.progressPercent);
+        setSpreadsDone(status.spreads.length);
         for (const spread of status.spreads) {
           if (seen.has(spread)) continue;
           seen.add(spread);
@@ -214,7 +248,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
             type="button"
             onClick={() => void navigate({ to: "/dashboard" })}
           >
-            Dashboard
+            {t.journey.generating.toDashboard}
           </button>
         </header>
       </section>
@@ -224,7 +258,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
   return (
     <section
       className="journey-stage generating-stage ux-generating"
-      aria-label={t.journey.generating.ariaLabel(hero.name || t.common.fallbackHeroName)}
+      aria-label={t.journey.generating.ariaLabel(heroName)}
     >
       <div className="generation-portal">
         <div className="generation-atelier">
@@ -258,12 +292,12 @@ export function GeneratingStage({ draft, onChange }: Props) {
         </div>
 
         {pages.length > 0 ? (
-          <div className="generation-making-of" aria-label="დახატული გვერდები">
+          <div className="generation-making-of" aria-label={t.journey.generating.pagesDrawn}>
             {pages.map((page) => (
               <img
                 key={page.spread}
                 src={page.url}
-                alt={`გვერდი ${page.spread}`}
+                alt={t.journey.generating.pageAlt(page.spread)}
                 className={page.spread === newest?.spread ? "is-newest" : ""}
               />
             ))}
@@ -276,12 +310,12 @@ export function GeneratingStage({ draft, onChange }: Props) {
           <Sparkles aria-hidden="true" /> {t.journey.generating.heading}
         </p>
         <h1>
-          {hero.name || t.common.fallbackHeroName}
+          {heroName}
           {t.journey.generating.titleSuffix}
         </h1>
         <p>
           {t.journey.generating.companionPrefix}
-          {hero.name || t.common.fallbackHeroName}
+          {heroName}
           {t.journey.generating.companionSuffix}
         </p>
         <p>{t.journey.generating.leaveNote}</p>
@@ -291,6 +325,26 @@ export function GeneratingStage({ draft, onChange }: Props) {
           </span>
           {t.journey.generating.softTime}
         </div>
+
+        {/*
+          The real number, when the job reports one. A bar that fills on a timer is a promise
+          the job did not make; this one moves when the book does and says how many pictures
+          exist, which is the fact a waiting parent actually wants.
+        */}
+        {percent !== null || spreadsDone > 0 ? (
+          <div className="generation-progress" role="status" aria-live="polite">
+            <div className="preview-loader-progress" aria-hidden="true">
+              <i style={{ width: `${Math.max(2, Math.min(100, percent ?? 0))}%` }} />
+            </div>
+            <p className="generation-progress-line">
+              {percent !== null ? <strong>{percent}%</strong> : null}
+              {spreadsDone > 0 ? (
+                <span>{t.journey.generating.spreadsDrawn(spreadsDone, SPREAD_COUNT)}</span>
+              ) : null}
+            </p>
+          </div>
+        ) : null}
+
         <ul className="preview-loader-stages" style={{ marginTop: 18 }}>
           {t.journey.generating.stages.map((label, index) => (
             <li key={label} className={index <= step ? "active" : ""}>
@@ -314,7 +368,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
               type="button"
               onClick={() => void navigate({ to: "/dashboard" })}
             >
-              დაფაზე გადასვლა
+              {t.journey.generating.toDashboard}
             </button>
           </div>
         ) : null}

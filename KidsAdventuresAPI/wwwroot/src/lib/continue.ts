@@ -42,7 +42,11 @@ export function buildContinueHref(options: {
   if (options.characterIds?.length) {
     params.set("characterIds", options.characterIds.join(","));
   }
-  return `/create?${params.toString()}#preview`;
+  // The profile step, not the preview. Landing on #preview fired the paid generation the moment
+  // the page mounted — before the child named in the URL had been loaded from the account — so
+  // the story was written for "შენი გმირი", aged five, with no photograph. On the profile step
+  // the hero arrives, is shown, and the parent presses the one button that makes the book.
+  return `/create?${params.toString()}#profile`;
 }
 
 export function continueHrefFromMap(
