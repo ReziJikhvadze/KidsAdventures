@@ -32,6 +32,22 @@
    * where it was always the right answer.
    */
   --font-body: "Noto Sans Georgian", "Adventrya Sans", system-ui, sans-serif;
+
+  /*
+   * Ottia's Georgian capitals, on everywhere Ottia is.
+   *
+   * Georgian has two cases of the same alphabet — mkhedruli for reading, mtavruli for a title —
+   * and Ottia draws both: the second is reached through the OpenType `case` feature, which is
+   * where Georgian faces conventionally put it. CSS `text-transform: uppercase` is not the way
+   * in; the spec deliberately exempts Georgian from case mapping, and browsers honour that, so
+   * the transform is a no-op on every word on this site. Measured, not assumed.
+   *
+   * Declared once and read by every rule that sets `--font-display`, so the whole site's
+   * headings, titles and wordmarks change together — and `normal` here puts mkhedruli back.
+   * Only the display face is asked: body copy stays lower case, because a paragraph of Georgian
+   * capitals is a paragraph nobody reads.
+   */
+  --display-caps: "case" 1;
 }
 * {
   box-sizing: border-box;
@@ -197,6 +213,7 @@ svg {
 .hero-copy h1 {
   margin: 0;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-weight: 700;
   letter-spacing: -0.035em;
 }
@@ -611,6 +628,7 @@ svg {
   margin: 5px 0 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 30px;
 }
 .memory-note {

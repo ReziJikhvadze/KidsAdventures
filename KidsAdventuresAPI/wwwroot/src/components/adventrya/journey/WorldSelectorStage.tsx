@@ -37,6 +37,16 @@ function startableState(state: WorldNodeState | null | undefined): boolean {
  */
 const LANDING_SECTIONS = new Set(["books", "worlds", "pricing", "faq", "final", "footer"]);
 
+/**
+ * The home page itself, with no section named.
+ *
+ * The buttons at the top of the site — the hero's own call to action, "choose a world" in both
+ * headers, the sticky bar on a phone — are not standing in a section a fragment can name. They
+ * used to send nobody at all, which meant the arrow fell through to `/#worlds`: the painted map
+ * two thirds of the way down a page the reader had pressed a button at the top of.
+ */
+const LANDING_TOP = "top";
+
 function backHrefFromSearch(search: string): string {
   let params: URLSearchParams;
   try {
@@ -73,6 +83,7 @@ function backHrefFromSearch(search: string): string {
     return characterId ? `/dashboard?characterId=${encodeURIComponent(characterId)}` : "/dashboard";
   }
 
+  if (from === LANDING_TOP) return "/";
   if (from && LANDING_SECTIONS.has(from)) return `/#${from}`;
   if (params.has("world") && !from) return "/#books";
   return "/#worlds";

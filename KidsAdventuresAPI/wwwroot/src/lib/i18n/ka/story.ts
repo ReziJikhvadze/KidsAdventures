@@ -97,10 +97,6 @@ export const story = {
     lastMemory: "ბოლო მოგონება",
     lastMemoryNote: "რექსს თქვენი ბოლო თავგადასავალი ახსოვს.",
     profileLine: (age: number, stories: number) => `${age} წლის · ${stories} დასრულებული ამბავი`,
-    /* Beside each name in the list on the left: what that child has opened, not what the
-       product could offer them. */
-    worldCount: (count: number) =>
-      count === 0 ? "ჯერ არცერთი სამყარო" : `${count} სამყარო გახსნილია`,
     newWorld: "ახალი სამყარო",
     /* The rebuilt /world: a shelf of this child's books above the path of six worlds. */
     spaceOf: (name: string) => `${name}ს პერსონალური სივრცე`,

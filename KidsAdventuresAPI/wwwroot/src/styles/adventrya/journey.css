@@ -11,6 +11,33 @@
   overflow: hidden;
   isolation: isolate;
 }
+/*
+  The create journey is fluid from 1100px down, not from 780px down.
+
+  `.screen` and the shells above it carry `min-width: 1100px` from the desktop-only demo this
+  design system was ported from, and the phone rules that undo it start at 780px. Everything
+  between — an iPad in portrait is 820, an iPad mini 744 in landscape, a half-width laptop
+  window anything — got a 1100px page in a 900px viewport: a horizontal scrollbar under a form
+  a parent is filling in, with the "create the book" button off the right-hand edge.
+  `/themes` and the parent's space have each opted out already, one screen at a time; this is
+  the same opt-out for the one route that asks a parent to type.
+
+  Measured at 781, 820, 900, 1000 and 1099: no horizontal overflow, and the two columns of the
+  character card still finish level.
+
+  The reader and the shared book keep the fixed shell — they are a book at a fixed aspect ratio
+  rather than a page, and neither can be exercised without a signed-in session to check against.
+*/
+@media (max-width: 1100px) {
+  .journey-shell {
+    width: 100%;
+    min-width: 0;
+    min-height: 100svh;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+}
 .journey-art {
   background-position: 57% 52%;
   transform: scale(1.04);
@@ -43,6 +70,7 @@
   margin: 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   letter-spacing: -0.035em;
 }
 .journey-copy > p:not(.eyebrow),
@@ -588,6 +616,7 @@
   margin: 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 20px;
   line-height: 1.22;
   text-shadow: 0 3px 20px rgba(9, 5, 24, 0.75);
@@ -602,6 +631,7 @@
   border-radius: 50%;
   color: #2b1d48;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   background: var(--story-gold);
 }
 .cover-ribbon {
@@ -762,6 +792,7 @@
 .package-option h2 {
   margin: 5px 0 0;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 20px;
 }
 .package-option > strong {
@@ -1106,6 +1137,7 @@
 .summary-lines h2 {
   margin: 18px 0 12px;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 14px;
 }
 .summary-lines > span,

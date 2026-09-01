@@ -101,7 +101,10 @@ function CoverFace({
         {/* The cover said the book was the child's twice, above and below the title. Once is
             the point; twice reads as a template that forgot it had already said it. */}
         <small>{t.story.storybook.belongsTo(heroName)}</small>
-        <h2>{title}</h2>
+        {/* A book with no title is the sample on the home page: its cover is a painting, and the
+            invented title lying across the bottom of it was the one thing on that shelf a
+            visitor could not have. Every real book still names itself here. */}
+        {title ? <h2>{title}</h2> : null}
       </div>
     </article>
   );

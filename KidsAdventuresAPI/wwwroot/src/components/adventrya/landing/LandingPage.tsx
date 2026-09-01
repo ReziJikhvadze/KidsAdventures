@@ -298,7 +298,12 @@ function Footer() {
       <nav>
         <div>
           <strong>{F.product}</strong>
-          <Link to={START_JOURNEY}>{t.common.nav.createBook}</Link>
+          {/* Named like the link below it: both start in the footer, and the arrow out of the
+              picker has to bring a reader back to the foot of a seven-screen page rather than
+              the top of it. */}
+          <Link to={START_JOURNEY} search={fromSection("footer")}>
+            {t.common.nav.createBook}
+          </Link>
           <a href="#pricing">{t.common.nav.pricing}</a>
           {/* The picker's back arrow is a plain link to a fixed address — it cannot use the
               browser's history the way the pages below it do — so it is told where this reader
@@ -337,9 +342,55 @@ function Footer() {
  * until the headline's button has scrolled out of sight, which is the only moment it adds
  * anything — and the header's own button is gone on small screens.
  */
+/** The sections this bar can be standing over, top to bottom, as the picker's arrow names them. */
+const CTA_SECTIONS = ["books", "worlds", "pricing", "faq", "final", "footer"] as const;
+
+/**
+ * Which section of the page the reader is currently looking at.
+ *
+ * The bar floats over all of them, so unlike every other call to action on this page it cannot
+ * name its own section at build time — and telling the picker `from=top` sent a parent who
+ * pressed it beside the prices back to the top of a seven-screen page. Whichever section owns
+ * the middle of the viewport is the answer; before the first of them, the top still is.
+ */
+function useSectionUnderView(): string {
+  const [section, setSection] = useState("top");
+
+  useEffect(() => {
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const middle = window.innerHeight / 2;
+      let found = "top";
+      for (const id of CTA_SECTIONS) {
+        const rect = document.getElementById(id)?.getBoundingClientRect();
+        // Top-down, so the last section whose top has passed the middle wins.
+        if (rect && rect.top <= middle) found = id;
+      }
+      setSection(found);
+    };
+
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(measure);
+    };
+
+    measure();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+
+  return section;
+}
+
 function MobileCta() {
   const t = useT();
   const [visible, setVisible] = useState(false);
+  const section = useSectionUnderView();
 
   useEffect(() => {
     const anchor = document.querySelector(".landing-v3-primary");
@@ -358,7 +409,7 @@ function MobileCta() {
 
   return (
     <div className={`landing-v3-mobile-cta ${visible ? "is-visible" : ""}`} aria-hidden={!visible}>
-      <Link to={START_JOURNEY} tabIndex={visible ? undefined : -1}>
+      <Link to={START_JOURNEY} search={fromSection(section)} tabIndex={visible ? undefined : -1}>
         {t.landing.hero.primaryCta}
         <ArrowIcon />
       </Link>

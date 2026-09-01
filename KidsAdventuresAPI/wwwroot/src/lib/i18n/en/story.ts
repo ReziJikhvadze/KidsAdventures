@@ -91,8 +91,6 @@ export const story = {
     lastMemoryNote: "Rex remembers your last adventure.",
     profileLine: (age: number, stories: number) =>
       `Age ${age} · ${stories} completed ${stories === 1 ? "story" : "stories"}`,
-    worldCount: (count: number) =>
-      count === 0 ? "No worlds yet" : count === 1 ? "1 world opened" : `${count} worlds opened`,
     newWorld: "A new world",
     spaceOf: (name: string) => `${name}'s personal space`,
     shelfLead: "Every story made so far — to read, to download, and to carry on.",

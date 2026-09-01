@@ -260,6 +260,7 @@
   margin: 0;
   max-width: 748px;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(47px, 4.65vw, 72px);
   font-weight: 400;
   line-height: 1.03;
@@ -447,6 +448,7 @@
 .landing-v3-final h2 {
   margin: 0;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(40px, 4.2vw, 64px);
   font-weight: 400;
   line-height: 1.08;
@@ -796,6 +798,7 @@
 .landing-v3-preview-memory h3 {
   margin: 0;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(20px, 2.2vw, 34px);
   font-weight: 400;
   line-height: 1.13;
@@ -974,6 +977,7 @@
 .landing-v3-steps h3 {
   margin: 0;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 18px;
   line-height: 1.25;
 }
@@ -1410,6 +1414,7 @@
   cursor: pointer;
   list-style: none;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 14px;
 }
 .landing-v3-faq-list summary::-webkit-details-marker {

@@ -67,7 +67,7 @@ export function Header() {
         with the six islands at the size they were painted. The anchor dropped a visitor into a
         band of a very long page with the next section already showing underneath.
       */}
-      <Link to="/themes" onClick={() => setMenuOpen(false)}>
+      <Link to="/themes" search={{ from: "top" }} onClick={() => setMenuOpen(false)}>
         {t.common.nav.chooseWorld}
       </Link>
     </>

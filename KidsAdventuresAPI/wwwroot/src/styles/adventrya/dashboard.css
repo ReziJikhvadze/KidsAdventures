@@ -201,6 +201,7 @@
 .world-window-copy h2 {
   margin: 7px 0 15px;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 20px;
   line-height: 1.25;
 }
@@ -250,6 +251,7 @@
 .dashboard-section-heading h2 {
   margin: 0;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(20px, 1.7vw, 24px);
   font-weight: 600;
 }
@@ -836,6 +838,7 @@
 .dashboard-preview-gate h1 {
   margin: 12px 0 0;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(20px, 2.1vw, 25px);
   line-height: 1.25;
   letter-spacing: -0.02em;

@@ -3,7 +3,7 @@ export const dashboard = {
     pagingLabel: "Children pages",
     newBook: "Create a new book",
     parentLabel: "Child profiles",
-    addChild: "＋ Add a child profile",
+    addChild: "Add a child profile",
     noStoriesYet: "First adventure not started yet",
     storyCount: (count: number) =>
       count === 1 ? "1 completed adventure" : `${count} completed adventures`,

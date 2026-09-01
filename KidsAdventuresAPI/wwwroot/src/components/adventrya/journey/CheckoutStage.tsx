@@ -365,7 +365,9 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             initialIndex={0}
           />
           <div>
-            <small>{isPrint ? "Print + Digital" : "Digital"}</small>
+            <small>
+              {isPrint ? t.journey.checkout.packagePrint : t.journey.checkout.packageDigital}
+            </small>
             <strong>{bookTitle}</strong>
             <span>{formatGel(totalMinor)}</span>
           </div>
@@ -374,7 +376,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
         <div className="summary-lines">
           <h2>{t.journey.checkout.summaryHeading}</h2>
           <span>
-            {isPrint ? "Print + Digital Book" : "Digital Book"}
+            {isPrint ? t.journey.checkout.packagePrint : t.journey.checkout.packageDigital}
             <strong>{formatGel(subtotalMinor)}</strong>
           </span>
           <span>

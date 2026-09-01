@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { takeMagicReturnPath } from "@/lib/auth/magicReturn";
 import { BRAND_NAME } from "@/lib/brand";
 import { useT } from "@/lib/i18n";
 import { buildPageMeta } from "@/lib/seo";
@@ -116,18 +117,38 @@ function MagicLinkLanding() {
   );
 }
 
-/** Mirrors the server-side guard: only same-origin relative paths are followed. */
+/**
+ * Mirrors the server-side guard: only same-origin relative paths are followed.
+ *
+ * With no usable `next` in the address, the parent's own request decides — the panel wrote the
+ * return path down when it asked for the link — and the parent's space is what is left when
+ * even that is gone. It used to be the checkout for everyone, which is the wrong end of the
+ * product for somebody who pressed "my space" and asked to be let in.
+ */
 function safeNext(next: string | undefined): { to: string; hash?: string } {
+  /*
+    Spent either way.
+
+    The remembered path belongs to the link being followed right now, so following one consumes
+    it whether or not it was needed. Reading it only in the fallback left every ordinary sign-in
+    — the overwhelming majority, which carry a perfectly good `next` — with a path still in
+    storage, and the next link that arrived without one would follow a journey from weeks ago.
+  */
+  const remembered = takeMagicReturnPath();
   if (!next || !next.startsWith("/") || next.startsWith("//")) {
-    return { to: "/create", hash: "checkout" };
+    return splitPath(remembered ?? "/dashboard");
   }
 
+  return splitPath(next);
+}
+
+function splitPath(next: string): { to: string; hash?: string } {
   const hashIndex = next.indexOf("#");
   if (hashIndex === -1) {
     return { to: next };
   }
 
-  const path = next.slice(0, hashIndex) || "/create";
+  const path = next.slice(0, hashIndex) || "/dashboard";
   const hash = next.slice(hashIndex + 1) || undefined;
   return { to: path, hash };
 }

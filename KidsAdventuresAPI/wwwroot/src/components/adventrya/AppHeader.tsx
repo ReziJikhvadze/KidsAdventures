@@ -163,8 +163,14 @@ export function AppHeader({
           <a href="/#pricing">{t.common.nav.pricing}</a>
           <a href="/#faq">{t.common.nav.faq}</a>
           {/* A page, not a section: choosing a world is the whole screen at `/themes`, and a
-              router Link keeps it that way rather than reloading the app to get there. */}
-          <Link to="/themes">{t.common.nav.chooseWorld}</Link>
+              router Link keeps it that way rather than reloading the app to get there.
+
+              `from=top` is where the arrow out of the picker leads. This link is in the site's
+              navigation, not in a section of the home page, so the way back out of it is the
+              home page — not the band of it the picker otherwise falls back to. */}
+          <Link to="/themes" search={{ from: "top" }}>
+            {t.common.nav.chooseWorld}
+          </Link>
         </nav>
       ) : null}
 

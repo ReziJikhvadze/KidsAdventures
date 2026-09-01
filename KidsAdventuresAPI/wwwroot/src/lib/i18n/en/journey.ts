@@ -45,7 +45,7 @@ export const journey = {
     relationshipCustom: "Describe the relationship",
     relationshipPlaceholder: "e.g. godparent or magical friend",
     photoRequired: "A portrait is required",
-    photoReady: "Hero ready ✓",
+    photoNew: "Upload a new photo",
     photoPrompt: "Add a clear portrait",
     photoHint: "Whole face visible · good lighting · no sunglasses",
     photoUpload: "Upload a photo",
@@ -107,7 +107,7 @@ export const journey = {
     statusFlying: (world: string) => `${world} chosen. Beki's star is on its way.`,
     statusReady: (world: string) => `${world} chosen. The button to go there is ready.`,
 
-    visited: "Already visited",
+    visited: "Already created",
     tryAgain: "Try it again",
     locked: "Still locked",
     lockedNote: (world: string) =>
@@ -216,6 +216,9 @@ export const journey = {
     appleSoon: "Apple sign-in is coming soon.",
     tabEmail: "Email",
     tabPhone: "Phone number",
+    methodGroup: "Sign-in method",
+    tabMagicLink: "One-time link",
+    tabPassword: "Password",
     sendMagicLink: "Send me a Magic Link ",
     magicLinkSent: (email: string) => `Link sent — check ${email}.`,
     openMagicLink: "Open Magic Link (demo)",
@@ -255,6 +258,8 @@ export const journey = {
   },
 
   checkout: {
+    packageDigital: "Digital",
+    packagePrint: "Print + Digital",
     printTitle: "Order the printed edition",
     printLead: "Receive a book you have already created in print",
     title: "Complete your order",

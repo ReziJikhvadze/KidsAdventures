@@ -39,7 +39,9 @@ export const journey = {
     relationshipCustom: "ჩაწერე ურთიერთობა",
     relationshipPlaceholder: "მაგ. ნათლია ან ჯადოსნური მეგობარი",
     photoRequired: "პორტრეტი აუცილებელია",
-    photoReady: "გმირი მზადაა ✓",
+    /* Never "the hero is ready": every book wants a picture of the child as they are now,
+       and a saved portrait coming back with the draft must not read as a finished step. */
+    photoNew: "ატვირთე ახალი ფოტო",
     photoPrompt: "დაამატე მკაფიო პორტრეტი",
     photoHint: "სახე სრულად ჩანს · კარგი განათება · მზის სათვალის გარეშე",
     photoUpload: "ფოტოს ატვირთვა",
@@ -121,7 +123,7 @@ export const journey = {
 
     /* Shown only when the map is opened for a child who already has books: which worlds they
        have been to, and which are still shut. */
-    visited: "უკვე გავლილი",
+    visited: "უკვე შექმნილია",
     /* Pressing a world this child has already been to offers the trip again, not a new door. */
     tryAgain: "სცადე თავიდან",
     locked: "ჯერ დახურულია",
@@ -210,15 +212,15 @@ export const journey = {
 
   packages: {
     digital: {
-      title: "Digital Book",
+      title: "ციფრული წიგნი",
       features: ["PDF ჩამოტვირთვა", "Online Reader", "Adventure World"],
       upgradeNote: "ბეჭდურზე გადასვლა მოგვიანებით +65 ₾",
     },
     print: {
-      title: "პერსონალიზებული Printed Book",
+      title: "პერსონალიზებული ბეჭდური წიგნი",
       badge: "ყველაზე ემოციური არჩევანი",
       features: [
-        "ყველაფერი Digital პაკეტიდან",
+        "ყველაფერი ციფრული პაკეტიდან",
         "მიწოდება მთელ საქართველოში",
         "თბილისი 4–5 · რეგიონები 5–8 დღე",
       ],
@@ -236,6 +238,10 @@ export const journey = {
     appleSoon: "Apple-ით შესვლა მალე დაემატება.",
     tabEmail: "ელფოსტა",
     tabPhone: "ტელეფონის ნომერი",
+    /* The switcher on the panel: the two ways into an account that work today. */
+    methodGroup: "შესვლის მეთოდი",
+    tabMagicLink: "ერთჯერადი ბმულით",
+    tabPassword: "პაროლით",
     sendMagicLink: "გამომიგზავნე Magic Link ",
     magicLinkSent: (email: string) => `ბმული გაიგზავნა — შეამოწმე ${email}.`,
     openMagicLink: "გახსენი Magic Link (დემო)",
@@ -274,6 +280,10 @@ export const journey = {
   },
 
   checkout: {
+    /* The package a parent is buying, named in the language the rest of the page is in.
+       These two lines were the last English left on the order summary. */
+    packageDigital: "ციფრული",
+    packagePrint: "ბეჭდური + ციფრული",
     printTitle: "ბეჭდური ვერსიის შეკვეთა",
     printLead: "მიიღე უკვე შექმნილი წიგნი ბეჭდურად",
     title: "დაასრულე შეკვეთა",
@@ -291,7 +301,7 @@ export const journey = {
     pay: (amount: string) => `გადახდა · ${amount} ₾`,
     summaryHeading: "შეკვეთის შეჯამება",
     summaryAlt: (hero: string) => "შენი შეკვეთა",
-    alreadyOwnedDigital: "უკვე შეძენილი Digital ",
+    alreadyOwnedDigital: "უკვე შეძენილი ციფრული ",
     deliveryLine: "მიწოდება საქართველოში ",
     discountLine: "შენი ფასდაკლება ",
     total: "ჯამი ",
@@ -318,7 +328,7 @@ export const journey = {
 
   generated: {
     ready: " წიგნი მზადაა",
-    digitalNote: "ეს არის შენი Digital ვერსია",
+    digitalNote: "ეს არის შენი ციფრული ვერსია",
     languageNote: "წიგნის ენა: ",
     deliveryNote:
       "ბეჭდურ წიგნს მიიღებ მითითებულ მისამართზე — თბილისში 4–5 დღეში, საქართველოს სხვა რეგიონებში 5–8 დღეში.",

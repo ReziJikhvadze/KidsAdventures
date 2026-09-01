@@ -6,9 +6,21 @@ import * as authApi from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import type { AuthChallengeResponse } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { rememberMagicReturnPath } from "@/lib/auth/magicReturn";
 import { formatGeorgianPhone, normalizeGeorgianPhone, useT } from "@/lib/i18n";
 
 type AuthTab = "email" | "phone";
+
+/**
+ * Two doors that are not built yet, hidden until they are.
+ *
+ * Apple answers a press with "coming soon", and the phone tab sends a code no SMS gateway
+ * delivers — the panel says as much in its own small print. Offering a parent a way in that
+ * cannot let them in is worse than offering one fewer. Both are one flag away from coming back:
+ * the code behind them is untouched.
+ */
+const APPLE_SIGN_IN_READY: boolean = false;
+const PHONE_SIGN_IN_READY: boolean = false;
 
 /**
  * How a parent proves the email is theirs: a link we send them, or a password they set.
@@ -78,6 +90,19 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
     setError(null);
     try {
       const result = await authApi.requestMagicLink(email.trim(), returnPath);
+      /*
+        Remember where this parent asked from, once a link is actually on its way.
+
+        The address in the email carries `next=`, and that is still what decides where the link
+        lands. This is the second copy, for the link that arrives without it — a mail client that
+        rewrote the query, a forwarded address, a server whose base URL was configured with one.
+        Without it the landing fell back to the checkout for everybody, including the parent who
+        had pressed "my space" and only ever wanted their own shelf.
+
+        After the request, not before: a throttled or refused request sends no email, and writing
+        the path anyway would leave one behind for some later link to pick up.
+      */
+      rememberMagicReturnPath(returnPath);
       setChallenge(result);
       setMagicSent(true);
       setCooldown(result.resendAfterSeconds || 30);
@@ -206,35 +231,84 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
               onUnavailable={() => setError(t.journey.auth.googleUnavailable)}
             />
           )}
-          <button
-            className="social-auth"
-            type="button"
-            disabled={busy}
-            onClick={() => setError(t.journey.auth.appleSoon)}
-          >
-            <span>●</span>
-            {t.journey.auth.apple}
-          </button>
+          {APPLE_SIGN_IN_READY ? (
+            <button
+              className="social-auth"
+              type="button"
+              disabled={busy}
+              onClick={() => setError(t.journey.auth.appleSoon)}
+            >
+              <span>●</span>
+              {t.journey.auth.apple}
+            </button>
+          ) : null}
           <div className="auth-divider">
-            <span>ან</span>
+            <span>{t.common.labels.or}</span>
           </div>
 
-          <div className="ux-auth-switcher" role="tablist">
-            <button
-              type="button"
-              className={tab === "email" ? "selected" : ""}
-              onClick={() => setTab("email")}
-            >
-              {t.journey.auth.tabEmail}
-            </button>
-            <button
-              type="button"
-              className={tab === "phone" ? "selected" : ""}
-              onClick={() => setTab("phone")}
-            >
-              {t.journey.auth.tabPhone}
-            </button>
-          </div>
+          {/*
+            The switcher names the two ways in that actually work.
+
+            It used to choose between email and a phone number, and the choice between a link and
+            a password was a line of small print under the button — which is how a parent who
+            wanted to sign in with a password they had already set came away believing there was
+            no such thing. With the phone tab put away the row is free, and the real question
+            takes it.
+          */}
+          {/*
+            A group of two buttons, not a tablist.
+
+            It claimed `role="tablist"` and gave its buttons none of what that promises — no
+            `role="tab"`, no `aria-selected`, no arrow-key navigation and no `tabpanel` to own.
+            A screen reader was told to expect tabs and then could not say which one was chosen.
+            These are toggle buttons, so they say so: `aria-pressed` is what carries the state,
+            and it is the same state the gold fill shows.
+          */}
+          {PHONE_SIGN_IN_READY ? (
+            <div className="ux-auth-switcher" role="group" aria-label={t.journey.auth.methodGroup}>
+              <button
+                type="button"
+                aria-pressed={tab === "email"}
+                className={tab === "email" ? "selected" : ""}
+                onClick={() => setTab("email")}
+              >
+                {t.journey.auth.tabEmail}
+              </button>
+              <button
+                type="button"
+                aria-pressed={tab === "phone"}
+                className={tab === "phone" ? "selected" : ""}
+                onClick={() => setTab("phone")}
+              >
+                {t.journey.auth.tabPhone}
+              </button>
+            </div>
+          ) : (
+            <div className="ux-auth-switcher" role="group" aria-label={t.journey.auth.methodGroup}>
+              <button
+                type="button"
+                aria-pressed={emailMode === "link"}
+                className={emailMode === "link" ? "selected" : ""}
+                onClick={() => {
+                  setEmailMode("link");
+                  setError(null);
+                }}
+              >
+                {t.journey.auth.tabMagicLink}
+              </button>
+              <button
+                type="button"
+                aria-pressed={emailMode === "password"}
+                className={emailMode === "password" ? "selected" : ""}
+                onClick={() => {
+                  setEmailMode("password");
+                  setError(null);
+                }}
+              >
+                {t.journey.auth.tabPassword}
+              </button>
+            </div>
+          )}
 
           {tab === "email" ? (
             <>
@@ -334,17 +408,21 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
               )}
 
               {/* The way between the two, and it clears the error on the way: a complaint about
-                  a password is not about the link the parent just switched to. */}
-              <button
-                className="text-back"
-                type="button"
-                onClick={() => {
-                  setEmailMode(emailMode === "link" ? "password" : "link");
-                  setError(null);
-                }}
-              >
-                {emailMode === "link" ? t.journey.auth.usePassword : t.journey.auth.useMagicLink}
-              </button>
+                  a password is not about the link the parent just switched to. Only while the
+                  switcher above is showing email against phone — otherwise it is the same
+                  choice offered twice on one small panel. */}
+              {PHONE_SIGN_IN_READY ? (
+                <button
+                  className="text-back"
+                  type="button"
+                  onClick={() => {
+                    setEmailMode(emailMode === "link" ? "password" : "link");
+                    setError(null);
+                  }}
+                >
+                  {emailMode === "link" ? t.journey.auth.usePassword : t.journey.auth.useMagicLink}
+                </button>
+              ) : null}
             </>
           ) : (
             <>

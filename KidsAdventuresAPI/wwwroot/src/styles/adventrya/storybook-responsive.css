@@ -29,6 +29,9 @@
   }
   .storybook-controls button {
     width: 100%;
+    /* No cap on a phone: the row is already only as wide as the book, and the two tracks are
+       equal, so filling them keeps the pair the same size and the targets thumb-sized. */
+    max-width: none;
     min-height: 45px;
   }
   .storybook-controls button:first-child,

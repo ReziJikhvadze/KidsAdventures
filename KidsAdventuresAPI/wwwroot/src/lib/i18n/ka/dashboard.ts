@@ -3,7 +3,9 @@ export const dashboard = {
     pagingLabel: "ბავშვების გვერდები",
     newBook: "ახალი წიგნის შექმნა",
     parentLabel: "ბავშვის პროფილები",
-    addChild: "＋ დაამატე ბავშვის პროფილი",
+    /* No "＋" in the words: the button draws one beside them, and two plus signs on one
+       control pushed the last word of a long Georgian label off the end of the pill. */
+    addChild: "დაამატე ბავშვის პროფილი",
     noStoriesYet: "პირველი თავგადასავალი ჯერ არ დაწყებულა",
     storyCount: (count: number) =>
       count === 1 ? "1 დასრულებული თავგადასავალი" : `${count} დასრულებული თავგადასავალი`,

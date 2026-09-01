@@ -148,6 +148,7 @@
 .journey-welcome h1 {
   margin: 0;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(2.25rem, 4vw, 4rem);
   font-weight: 800;
   letter-spacing: -0.045em;
@@ -182,9 +183,24 @@
   height: 16px;
   flex-shrink: 0;
 }
+/*
+  A floor, not a ceiling.
+
+  Both actions were `height: 52px` with a nowrap label, so a Georgian phrase longer than the pill
+  simply ran out of it — "დაამატე ბავშვის პროფილი" lost its last word off the right-hand edge on
+  every width where the row was tight. The label wraps and centres now, and the button grows the
+  one line it needs rather than clipping.
+*/
+.journey-primary-button,
+.journey-quiet-button {
+  min-height: 52px;
+  padding-block: 8px;
+  text-align: center;
+  text-wrap: balance;
+  line-height: 1.25;
+}
 .journey-primary-button {
-  height: 52px;
-  padding: 0 24px;
+  padding-inline: 24px;
   color: #fff;
   background: var(--jw-ink);
   box-shadow: 0 12px 32px rgba(41, 35, 58, 0.14);
@@ -201,8 +217,7 @@
   reads as one line of controls, and `border` after `.journey-button`'s `border: 0` so it wins.
 */
 .journey-quiet-button {
-  height: 52px;
-  padding: 0 20px;
+  padding-inline: 20px;
   border: 1px solid var(--jw-line);
   color: var(--jw-ink);
   background: var(--jw-paper);
@@ -224,6 +239,7 @@
 .journey-section-head h2 {
   margin: 0;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 1.58rem;
   font-weight: 800;
   letter-spacing: -0.025em;
@@ -357,6 +373,7 @@
   position: relative;
   z-index: 2;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 1.08rem;
   font-weight: 800;
   line-height: 1.18;

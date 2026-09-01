@@ -312,12 +312,11 @@ export function DashboardScreen({
   }, []);
 
   /*
-    The world this child is up to, kept only for the two things left that ask about it: the count
-    beside their name, and the prior book a continuation carries. Choosing a world happens on the
-    home page now, so nothing here draws a map.
+    The world this child is up to, kept for the one thing left that asks about it: the prior book
+    a continuation carries. Choosing a world happens on the home page now, so nothing here draws
+    a map, and the switcher no longer counts worlds over the child's name.
   */
   const nextNode = map?.worlds.find((w) => w.state === "Next" || w.state === "Unlocked");
-  const completedCount = map?.completedCount ?? 0;
 
   /*
     One creation action, and it starts something new.
@@ -450,7 +449,16 @@ export function DashboardScreen({
   */
   if (!authLoading && !isAuthenticated) {
     return (
-      <div className="journey-screen">
+      <div className="journey-screen ux-auth-screen">
+        {/*
+          The world behind the door.
+
+          The shell under this dialog was a flat cream page, which is the one screen in the
+          product that looked like a form and nothing else. It is the map from the world picker
+          now, blurred out of legibility: a parent signing in is looking at the thing they are
+          signing in for, and no word of it competes with the panel in front.
+        */}
+        <div className="ux-auth-scene" aria-hidden="true" />
         <AppHeader backHref="/" />
         <PasswordlessAuthDialog
           open
@@ -517,8 +525,13 @@ export function DashboardScreen({
               <DropdownMenu>
                 <DropdownMenuTrigger className="journey-child-switch">
                   <ChildAvatar name={character.name} portraitUrl={character.heroPortraitUrl} />
+                  {/* The name, and nothing above it.
+
+                      This pill answers one question — whose space is open — and it was carrying
+                      a tally of unlocked worlds over the answer. That count belongs to the map,
+                      which is on this page and says it in pictures; on the switcher it was a
+                      second line of small grey type squeezing the name it was there to show. */}
                   <span>
-                    <small>{t.story.world.worldCount(completedCount)}</small>
                     <strong>{character.name}</strong>
                   </span>
                   <ChevronDown aria-hidden="true" />
