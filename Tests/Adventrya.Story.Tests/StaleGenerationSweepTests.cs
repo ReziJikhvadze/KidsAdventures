@@ -54,6 +54,53 @@ public class StaleGenerationSweepTests
         Assert.Equal(1, packs.Writes);
     }
 
+    /// <summary>
+    /// A burial reaches an operator, which it did not.
+    ///
+    /// The audit's word for this was admin blindness: the sweep is the only writer of a terminal
+    /// status that runs outside the job, so the one book nobody was watching was also the one nobody
+    /// was told about. It wrote a log line and stopped there. The alarm is the durable half — a row
+    /// in a list somebody works through, naming the pack and the silence — and it is a BLOCKER,
+    /// because a paid book with no process behind it is not an acceptable-and-recorded state.
+    /// </summary>
+    [Fact]
+    public async Task A_buried_book_raises_an_alarm_naming_the_pack_and_the_silence()
+    {
+        var packId = Guid.NewGuid();
+        var packs = new FakePackStore(Pack(packId, AdventurePackStatus.GeneratingStory,
+            heartbeat: Now.AddMinutes(-45)));
+
+        var alarms = new SweepAlarms();
+
+        await Sweep(packs, alarms: alarms).SweepAsync();
+
+        var raised = Assert.Single(alarms.Raised);
+        Assert.Equal(packId, raised.PackId);
+        Assert.Equal(Owner, raised.UserId);
+        Assert.Equal(GenerationBudget.StalledCode, raised.CheckId);
+        Assert.Equal(BekiReleaseSeverity.Blocker, raised.Severity);
+        Assert.Contains("45", raised.Detail);
+
+        // Keyed on the burial rather than on the wording, so a book the sweep reaches twice is one
+        // incident with two sightings rather than two rows.
+        Assert.Equal(BekiAlarmEvidence.ForAttempt("sweep-burial", packId), raised.EvidenceKey);
+    }
+
+    /// <summary>A book the sweep leaves alone raises nothing: the alarm follows the verdict.</summary>
+    [Fact]
+    public async Task A_healthy_book_raises_no_alarm()
+    {
+        var packId = Guid.NewGuid();
+        var packs = new FakePackStore(Pack(packId, AdventurePackStatus.GeneratingStory,
+            heartbeat: Now.AddMinutes(-5)));
+
+        var alarms = new SweepAlarms();
+
+        await Sweep(packs, alarms: alarms).SweepAsync();
+
+        Assert.Empty(alarms.Raised);
+    }
+
     [Fact]
     public async Task A_pack_still_being_drawn_is_left_alone()
     {
@@ -449,14 +496,40 @@ public class StaleGenerationSweepTests
         FakeRunStore? runs = null,
         int budgetMinutes = 30,
         RecordingEmailService? email = null,
-        SingleUserRepository? users = null) =>
+        SingleUserRepository? users = null,
+        SweepAlarms? alarms = null) =>
         new(packs,
             runs ?? new FakeRunStore(),
             email ?? new RecordingEmailService(),
             users ?? new SingleUserRepository(),
             Options.Create(new BekiOptions { GenerationBudgetMinutes = budgetMinutes }),
             NullLogger<StaleGenerationSweepService>.Instance,
-            new FixedTimeProvider(Now));
+            new FixedTimeProvider(Now),
+            alarms);
+
+    /// <summary>Every alarm one sweep pass raised, in order.</summary>
+    private sealed class SweepAlarms : IBekiAlarmService
+    {
+        public List<BekiAlarmRaise> Raised { get; } = [];
+
+        public Task RaiseAsync(BekiAlarmRaise raise, CancellationToken ct)
+        {
+            Raised.Add(raise);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<BekiAlarm>> ListOpenAsync(int limit, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<BekiAlarm>>([]);
+
+        public Task<IReadOnlyList<BekiAlarm>> ListForPackAsync(Guid packId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<BekiAlarm>>([]);
+
+        public Task<bool> ReviewAsync(
+            Guid alarmId, string reviewedBy, string resolution, CancellationToken ct) =>
+            Task.FromResult(false);
+
+        public Task<int> CountOpenAsync(CancellationToken ct) => Task.FromResult(Raised.Count);
+    }
 
     private static AdventurePack Pack(Guid id, AdventurePackStatus status, DateTime heartbeat) => new()
     {
@@ -597,6 +670,19 @@ public class StaleGenerationSweepTests
         public Task<bool> TryClaimPreviewIllustrationGenerationAsync(Guid id, int staleAfterMinutes, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task TouchPreviewIllustrationHeartbeatAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> UpdateGeneratedJsonAsync(Guid id, string generatedJson, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        // B5's discriminator and B7's withheld sweep. Neither is this double's subject: the pipeline
+        // stamp is recorded so a test can read it back, and no test here asks for withheld books.
+        public string? StampedPipeline { get; private set; }
+
+        public Task SetGenerationPipelineAsync(Guid id, string pipeline, CancellationToken cancellationToken)
+        {
+            StampedPipeline = pipeline;
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<AdventurePack>> ListWithheldBekiPacksAsync(int limit, BekiWithheldCursor? after, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<AdventurePack>>([]);
     }
 
     /// <summary>The same, for the two questions the sweep asks of MasterStoryRuns.</summary>

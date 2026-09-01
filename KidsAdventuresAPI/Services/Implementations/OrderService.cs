@@ -914,12 +914,37 @@ public sealed class OrderService(
             var book = await packRepository.GetByIdAsync(bookId, order.UserId, cancellationToken);
             if (book is not null)
             {
-                // Two pipelines, two finishing lines: the legacy one stops at StoryReady, the Beki
-                // one runs on to Completed. Only the first was checked, so a Beki parent's
-                // generating screen polled until it gave up on a book that was already readable.
+                /*
+                  Two pipelines, two finishing lines — and now the row says which pipeline this is.
+
+                  StoryReady is a finished book on the legacy path and a book with words and no
+                  pictures on the Beki one. Counting both as ready sent a Beki parent to a reader
+                  full of empty pages within seconds of paying, and then to a dashboard that showed
+                  the book as done and stopped polling it. The correction needed a fact nobody had:
+                  amendment B5's GenerationPipeline column, stamped by the code that chose the
+                  pipeline rather than guessed at here.
+
+                  A legacy book keeps exactly the rule it always had. There is no behaviour change
+                  for the books already in production; what changes is that a Beki book is no longer
+                  judged by a rule written for a different kind of book.
+                */
                 response.BookReady = book.IsFullyUnlocked
-                    && book.Status is AdventurePackStatus.StoryReady or AdventurePackStatus.Completed;
+                    && (book.IsBekiPipeline
+                        ? book.Status == AdventurePackStatus.Completed
+                        : book.Status is AdventurePackStatus.StoryReady
+                            or AdventurePackStatus.Completed);
+
                 response.ProgressMessage = book.ProgressMessage;
+
+                /*
+                  Nothing new goes on the wire here, deliberately.
+
+                  A Beki book that is still being drawn is now simply not ready, which is what the
+                  generating screen already polls for — BookReady false, a progress line, no failure.
+                  The screen needed no new field; it needed the field it had to stop being wrong. The
+                  per-book pipeline flag reaches the dashboard through the pack DTOs instead, where a
+                  shelf full of books is the thing being described.
+                */
 
                 /*
                   The other end of the same question, and the one nobody was asking.

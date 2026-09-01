@@ -24,15 +24,21 @@ namespace AdventurePacks.Api.Services.Pdf;
 /// language.
 ///
 /// This stage is the answer to all of that, and correction-plan amendment A10c is its contract. It
-/// does two things in one pass, in this order and no other:
+/// does three things in one pass, in this order and no other:
 ///
-/// 1. **Linearizes.** Ghostscript writes the file for screen delivery — <c>-dFastWebView=true</c> —
+/// 1. **Restamps ICC profiles Ghostscript will not write.** See
+///    <see cref="HarmonizeIccProfiles"/>: <c>pdfwrite</c> silently emits a zero-length colour-space
+///    stream for any ICC profile newer than v4.2, and Skia tags every PNG it embeds with a v4.3
+///    sRGB. The fix has to happen BEFORE the conversion, because a repair afterwards would have to
+///    rewrite the linearized file and destroy the linearization it just paid for.
+/// 2. **Linearizes.** Ghostscript writes the file for screen delivery — <c>-dFastWebView=true</c> —
 ///    with <c>ColorConversionStrategy=LeaveColorUnchanged</c> and every downsampler off. This pass
 ///    exists to reorder objects, not to touch a single colour: a reading copy that came back with
 ///    shifted colour would be a different book from the one on paper.
-/// 2. **Validates the result, not the input.** Fourteen pages, the exact trim geometry, a CropBox
+/// 3. **Validates the result, not the input.** Fourteen pages, the exact trim geometry, a CropBox
 ///    equal to the MediaBox, nothing printer-only left anywhere, every raster in a screen colour
-///    space, <c>/Lang ka-GE</c>, and the linearization the first step just claimed to perform.
+///    space, every ICC profile stream a readable profile, <c>/Lang ka-GE</c>, and the linearization
+///    the second step just claimed to perform.
 ///
 /// The composer produces the pages; this stage produces the deliverable. It refuses with the same
 /// <c>PRINT_PREFLIGHT_FAILED</c> code the press stage uses, naming the <c>DIGITAL_GEOMETRY</c> gate
@@ -71,7 +77,22 @@ public static class BekiDigitalPrep
     public static (byte[] Pdf, string ReportJson) Prepare(
         byte[] composedPdf,
         BekiPrintPrepOptions options,
-        string? baseDirectory = null)
+        string? baseDirectory = null) =>
+        Prepare(composedPdf, options, baseDirectory, harmonizeIccProfiles: true);
+
+    /// <summary>
+    /// The same stage with the ICC restamp switchable off — for the regression test that has to
+    /// prove the gate at the end of it actually refuses the shipped defect.
+    ///
+    /// A test seam and nothing else. Turning the restamp off reproduces the empty colour-space
+    /// stream exactly as pack 597344af shipped it, which is the only way to demonstrate that the
+    /// validation would have caught it; production never calls this overload.
+    /// </summary>
+    internal static (byte[] Pdf, string ReportJson) Prepare(
+        byte[] composedPdf,
+        BekiPrintPrepOptions options,
+        string? baseDirectory,
+        bool harmonizeIccProfiles)
     {
         ArgumentNullException.ThrowIfNull(composedPdf);
         ArgumentNullException.ThrowIfNull(options);
@@ -103,7 +124,14 @@ public static class BekiDigitalPrep
                 + $"{BookFormat.SpreadCount} spreads, credits, endpaper, back cover.");
         }
 
-        var (linearized, conversion) = Linearize(composedPdf, options);
+        // Before the conversion, not after: Ghostscript cannot write a post-4.2 ICC profile and
+        // does not say so, and a repair applied to its output would mean re-saving the linearized
+        // file and throwing away the linearization. See HarmonizeIccProfiles.
+        (byte[] ready, IReadOnlyList<string> restamped) = harmonizeIccProfiles
+            ? HarmonizeIccProfiles(composedPdf)
+            : (composedPdf, Array.Empty<string>());
+
+        var (linearized, conversion) = Linearize(ready, options);
 
         using var stream = new MemoryStream(linearized);
         using var document = PdfReader.Open(stream, PdfDocumentOpenMode.ReadOnly);
@@ -143,6 +171,32 @@ public static class BekiDigitalPrep
                 + $"({string.Join(", ", offColour.Select(raster => raster.ColourSpace).Distinct())}). "
                 + "The reading copy is an sRGB deliverable; a CMYK raster in it is a press master "
                 + "that escaped.");
+        }
+
+        /*
+          Every ICC profile the file points at is a profile a strict viewer can read.
+
+          The hole this closes cost a paid book. Pack 597344af shipped with two ICCBased colour
+          spaces, one valid and one `<</N 3/Length 0>>` — and the empty one was the space eleven of
+          its images were drawn in, both covers and all eight spreads among them. This report said
+          PASS, because nothing here had ever looked inside a colour-space stream. Poppler complains
+          on stderr and renders anyway, which is why every render gate passed too; a stricter viewer
+          drops the images, and the parent opened a book of flat coloured pages.
+
+          A zero-length stream and a stream that is not an ICC profile are the same defect from a
+          viewer's point of view, so both are read the same way: as bytes, against the profile
+          header the ICC specification fixes.
+        */
+        var profiles = InspectIccProfiles(document);
+        var brokenProfiles = profiles.Where(profile => profile.Problem is not null).ToList();
+        if (brokenProfiles.Count > 0)
+        {
+            throw Failure(
+                $"{DigitalGeometryGate}: {brokenProfiles.Count} ICCBased colour space(s) point at a "
+                + "profile stream that is not a readable ICC profile — "
+                + string.Join(" ", brokenProfiles.Select(profile => profile.Problem))
+                + " A strict viewer drops every image in such a colour space, which is a page of "
+                + "flat colour where the artwork should be.");
         }
 
         var language = document.Internals.Catalog.Elements.GetString("/Lang");
@@ -203,6 +257,21 @@ public static class BekiDigitalPrep
                     rasters = rasters
                         .GroupBy(raster => raster.ColourSpace)
                         .ToDictionary(group => group.Key, group => group.Count()),
+                    icc_profiles = profiles
+                        .Select(profile => new
+                        {
+                            @object = profile.ObjectNumber,
+                            bytes = profile.Length,
+                            version = profile.Version,
+                            data_colour_space = profile.DataColourSpace,
+                            components = profile.Components,
+                        })
+                        .ToList(),
+                    // What the restamp below had to touch on the way in, named so an operator can
+                    // see it happened rather than inferring it from a version number.
+                    icc_restamped_for_pdfwrite = restamped.Count == 0
+                        ? (object)"none; every embedded profile was already one Ghostscript writes"
+                        : restamped,
                 },
                 printer_only_markers = "none",
             },
@@ -541,6 +610,343 @@ public static class BekiDigitalPrep
             }
         }
     }
+
+    // ==============================================================================================
+    // ICC profiles: the empty colour space, and why it was empty
+    // ==============================================================================================
+
+    /// <summary>
+    /// The last ICC version Ghostscript's <c>pdfwrite</c> will actually write out: 4.2.0.0.
+    ///
+    /// Established by experiment on the version this project runs, and it is not a PDF-level
+    /// question the way it looks: <c>-dCompatibilityLevel=1.7</c> writes a v4.2 profile and drops a
+    /// v4.3 one, and <c>-dCompatibilityLevel=2.0</c> drops the v4.3 one too. There is no argument
+    /// that makes it write a profile newer than this.
+    /// </summary>
+    private const uint MaxVersionPdfWriteWrites = 0x04200000u;
+
+    /// <summary>One embedded ICC profile, as the finished file carries it.</summary>
+    private sealed record IccProfileRecord(
+        int ObjectNumber,
+        int Length,
+        string Version,
+        string DataColourSpace,
+        int Components,
+        string? Problem);
+
+    /// <summary>
+    /// **The fix for a customer PDF that renders as blank pages in Chrome.** Correction: the ICC
+    /// version stamp on every embedded profile is clamped to the newest one Ghostscript can write,
+    /// before Ghostscript is asked to write it.
+    ///
+    /// The defect, in full, because it is worth writing down once. A composed reading copy carries
+    /// two sRGB profiles: ImageSharp tags the JPEGs it encodes with the approved artwork's own lcms
+    /// profile, which is ICC v2.3, and Skia tags every PNG it embeds with its own compact sRGB,
+    /// which is ICC **v4.3**. Ghostscript's <c>pdfwrite</c> refuses to write a profile newer than
+    /// v4.2 — and its refusal is to emit <c>&lt;&lt;/N 3/Length 0&gt;&gt;</c>, a colour space whose
+    /// profile is nothing at all, rather than to fall back to <c>/DeviceRGB</c> or to fail.
+    ///
+    /// Poppler prints "Couldn't allocate 0 bytes for profile / read ICCBased color space profile
+    /// error", renders the page anyway and exits zero, which is exactly why every render gate in
+    /// this pipeline passed the broken book: the complaint was only ever on stderr and nobody read
+    /// it. A stricter viewer has no such generosity — pack 597344af was reported as pages of flat
+    /// colour with no artwork on them, and the empty colour space is what eleven of that book's
+    /// images were drawn in: both covers, all eight story spreads, and the credits mark. Whatever a
+    /// given viewer chooses to do with it, a colour space with no profile in it is malformed, and a
+    /// paid book must not carry one.
+    ///
+    /// **Why the version stamp and not a substitute profile.** The Skia profile is a perfectly
+    /// ordinary matrix/TRC sRGB whose tags — <c>para</c> curves, an <c>mluc</c> description — were
+    /// all introduced in ICC v4.0 and are all legal in v4.2. Nothing in it postdates 4.2 except the
+    /// four bytes at offset 8 that say so. Restamping those four bytes therefore preserves every
+    /// colour number in the profile exactly, which is the promise
+    /// <c>ColorConversionStrategy=LeaveColorUnchanged</c> makes two functions below; swapping in a
+    /// different sRGB profile would keep the promise only approximately, and dropping the profile
+    /// would keep it not at all.
+    ///
+    /// **Why before the conversion.** The empty stream does not exist until Ghostscript writes it,
+    /// so there is nothing to repair on the way in — there is only a cause to remove. Repairing the
+    /// output instead would mean re-saving a linearized file with PDFsharp, which rewrites the
+    /// object order and destroys the <c>/Linearized</c> dictionary the pass exists to produce.
+    ///
+    /// The input is returned untouched when nothing needed restamping, so the ordinary path pays for
+    /// one read and no rewrite.
+    /// </summary>
+    /// <returns>The bytes to linearize, and a line per profile that was restamped.</returns>
+    internal static (byte[] Pdf, IReadOnlyList<string> Restamped) HarmonizeIccProfiles(byte[] pdf)
+    {
+        ArgumentNullException.ThrowIfNull(pdf);
+
+        var restamped = new List<string>();
+
+        try
+        {
+            using var source = new MemoryStream(pdf);
+            using var document = PdfReader.Open(source, PdfDocumentOpenMode.Modify);
+
+            foreach (var profile in IccProfileStreams(document))
+            {
+                var bytes = ProfileBytes(profile);
+
+                if (bytes.Length < 132 || Version(bytes) <= MaxVersionPdfWriteWrites)
+                {
+                    continue;
+                }
+
+                var was = VersionText(bytes);
+
+                if (profile.Elements.ContainsKey("/Filter") && !profile.Stream!.TryUnfilter())
+                {
+                    // A profile behind a filter this build cannot decode is left exactly as it
+                    // arrived; the gate on the far side of the conversion is what catches it.
+                    continue;
+                }
+
+                var raw = profile.Stream!.Value;
+                raw[8] = 0x04;
+                raw[9] = 0x20;
+                raw[10] = 0x00;
+                raw[11] = 0x00;
+                profile.Stream.Value = raw;
+                profile.Elements.SetInteger("/Length", raw.Length);
+
+                restamped.Add(
+                    $"object {ObjectNumberOf(profile)}: ICC {was} restamped as 4.2.0.0 "
+                    + $"({raw.Length} bytes, unchanged)");
+            }
+
+            if (restamped.Count == 0)
+            {
+                return (pdf, restamped);
+            }
+
+            using var buffer = new MemoryStream();
+            document.Save(buffer);
+            return (buffer.ToArray(), restamped);
+        }
+        catch (Exception ex) when (ex is not BekiLayoutException)
+        {
+            throw Failure(
+                $"{DigitalGeometryGate}: the composed reading copy's ICC profiles could not be read "
+                + $"before linearization ({ex.GetType().Name}: {ex.Message}). Ghostscript writes a "
+                + "zero-length colour space for a profile it will not carry, and this stage will "
+                + "not hand it one it has not looked at.");
+        }
+    }
+
+    /// <summary>
+    /// The ICC integrity gate addressed on bytes — the same check <see cref="Prepare"/> runs on its
+    /// own output, reachable so that a deliberately doctored file can be shown to fail it.
+    ///
+    /// It needs its own door because Ghostscript will not produce the inputs this has to be proved
+    /// against: handed a profile it cannot parse, pdfwrite drops the colour space entirely rather
+    /// than passing the damage through, so a file carrying a truncated or non-ICC profile cannot be
+    /// made by running this stage. It has to be built, and then read.
+    /// </summary>
+    internal static IReadOnlyList<string> IccProfileProblems(byte[] pdf)
+    {
+        ArgumentNullException.ThrowIfNull(pdf);
+
+        using var stream = new MemoryStream(pdf);
+        using var document = PdfReader.Open(stream, PdfDocumentOpenMode.Import);
+
+        return InspectIccProfiles(document)
+            .Where(profile => profile.Problem is not null)
+            .Select(profile => profile.Problem!)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Every ICC profile stream the finished file points at, judged as bytes.
+    ///
+    /// Judged as bytes and not by asking a colour library, because the failures that matter here are
+    /// the ones a library would refuse to describe: a stream of length zero, and a stream that is
+    /// not a profile. The header the ICC specification fixes — a size at byte 0, the
+    /// <c>acsp</c> signature at byte 36, a version at byte 8, a data colour space at byte 16 — is
+    /// enough to tell those apart from a profile, and small enough to read without a dependency.
+    /// </summary>
+    private static List<IccProfileRecord> InspectIccProfiles(PdfDocument document)
+    {
+        var records = new List<IccProfileRecord>();
+
+        foreach (var profile in IccProfileStreams(document))
+        {
+            var number = ObjectNumberOf(profile);
+            var declared = profile.Elements.ContainsKey("/N")
+                ? profile.Elements.GetInteger("/N")
+                : 0;
+
+            var bytes = ProfileBytes(profile);
+
+            if (bytes.Length == 0)
+            {
+                records.Add(new IccProfileRecord(
+                    number, 0, "(none)", "(none)", declared,
+                    $"object {number}: the profile stream is empty (0 bytes). This is exactly the "
+                    + "defect pack 597344af shipped with."));
+                continue;
+            }
+
+            if (bytes.Length < 132)
+            {
+                records.Add(new IccProfileRecord(
+                    number, bytes.Length, "(unreadable)", "(unreadable)", declared,
+                    $"object {number}: the profile stream is {bytes.Length} bytes, shorter than an "
+                    + "ICC header and its tag count."));
+                continue;
+            }
+
+            var signature = Encoding.Latin1.GetString(bytes, 36, 4);
+            if (signature != "acsp")
+            {
+                records.Add(new IccProfileRecord(
+                    number, bytes.Length, "(unreadable)", "(unreadable)", declared,
+                    $"object {number}: the profile stream carries '{Printable(signature)}' where "
+                    + "the ICC signature 'acsp' belongs, so it is not an ICC profile."));
+                continue;
+            }
+
+            var size = (int)Math.Min(int.MaxValue, ReadUInt32(bytes, 0));
+            var space = Encoding.Latin1.GetString(bytes, 16, 4).TrimEnd();
+            var components = space switch
+            {
+                "GRAY" => 1,
+                "RGB" or "Lab" or "XYZ" or "YCbr" => 3,
+                "CMYK" => 4,
+                _ => 0,
+            };
+
+            string? problem = null;
+
+            if (size < 128 || size > bytes.Length)
+            {
+                problem =
+                    $"object {number}: the profile's own header states {size} bytes and the stream "
+                    + $"holds {bytes.Length} — it is truncated.";
+            }
+            else if (declared > 0 && components > 0 && declared != components)
+            {
+                problem =
+                    $"object {number}: the colour space declares /N {declared} and the profile is "
+                    + $"{space} ({components} component(s)).";
+            }
+
+            records.Add(new IccProfileRecord(
+                number, bytes.Length, VersionText(bytes), space, components, problem));
+        }
+
+        return records;
+    }
+
+    /// <summary>
+    /// The profile stream behind every <c>[/ICCBased …]</c> colour space in the document, once each.
+    ///
+    /// Walked over the object graph rather than over the page resources: a colour-space array is
+    /// written as an indirect object by Ghostscript and inline inside the image dictionary by Skia,
+    /// and a check that only knew one of those shapes would find nothing in half the files it was
+    /// pointed at.
+    /// </summary>
+    private static List<PdfDictionary> IccProfileStreams(PdfDocument document)
+    {
+        var found = new List<PdfDictionary>();
+        var seen = new HashSet<PdfDictionary>(ReferenceEqualityComparer.Instance);
+
+        foreach (var item in document.Internals.GetAllObjects())
+        {
+            Visit(item, 0);
+        }
+
+        return found;
+
+        void Visit(PdfItem? item, int depth)
+        {
+            // The graph is a tree in practice and cyclic in principle (a page's /Parent points back
+            // up), and references are not followed here — GetAllObjects already hands over every
+            // indirect object — so the only recursion is into direct children, which cannot be deep.
+            if (depth > 24)
+            {
+                return;
+            }
+
+            switch (item)
+            {
+                case PdfArray array:
+                    if (array.Elements.Count > 1
+                        && array.Elements[0] is PdfName { Value: "/ICCBased" }
+                        && Resolve(array.Elements[1]) is PdfDictionary profile
+                        && seen.Add(profile))
+                    {
+                        found.Add(profile);
+                    }
+
+                    foreach (var element in array.Elements)
+                    {
+                        if (element is not PdfReference) Visit(element, depth + 1);
+                    }
+
+                    break;
+
+                case PdfDictionary dictionary:
+                    foreach (var key in dictionary.Elements.Keys.ToList())
+                    {
+                        var value = dictionary.Elements[key];
+                        if (value is not PdfReference) Visit(value, depth + 1);
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    /// <summary>The profile's bytes as a viewer would read them: unfiltered, or empty if there
+    /// are none.</summary>
+    private static byte[] ProfileBytes(PdfDictionary profile)
+    {
+        try
+        {
+            if (profile.Stream is null)
+            {
+                return [];
+            }
+
+            return profile.Elements.ContainsKey("/Filter")
+                ? profile.Stream.UnfilteredValue ?? []
+                : profile.Stream.Value ?? [];
+        }
+        catch (Exception)
+        {
+            // An undecodable stream is an unreadable profile, which is what the caller is asking.
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// The object number a profile stream is stored under, for a message an operator can act on:
+    /// "object 108" is something they can find in the file, and "an ICC profile" is not. Zero for a
+    /// profile written directly inside the dictionary that uses it, which is legal and rare.
+    /// </summary>
+    private static int ObjectNumberOf(PdfDictionary profile) =>
+        profile.Reference?.ObjectNumber ?? 0;
+
+    private static uint Version(byte[] profile) => ReadUInt32(profile, 8);
+
+    /// <summary>The ICC version as its own specification writes it: 4.3.0.0, packed BCD-ish.</summary>
+    private static string VersionText(byte[] profile)
+    {
+        if (profile.Length < 12)
+        {
+            return "(unreadable)";
+        }
+
+        return $"{profile[8]}.{profile[9] >> 4}.{profile[9] & 0x0F}.{profile[10]}";
+    }
+
+    private static uint ReadUInt32(byte[] bytes, int offset) =>
+        ((uint)bytes[offset] << 24) | ((uint)bytes[offset + 1] << 16)
+        | ((uint)bytes[offset + 2] << 8) | bytes[offset + 3];
+
+    private static string Printable(string value) =>
+        new([.. value.Select(character => char.IsControl(character) ? '.' : character)]);
 
     /// <summary>
     /// Whether the file opens with a linearization dictionary. It is the first object in a

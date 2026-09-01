@@ -279,12 +279,15 @@ export async function downloadAdventurePack(
   });
 
   if (!response.ok) {
-    let message = "Could not download PDF.";
+    // The route answers with a JSON body now, in Georgian, and says whether the file is being
+    // withheld. It used to answer with a bare English string, which this forwarded to the reader
+    // verbatim — "Pack is not ready." on a page showing a parent their finished book.
+    let message = "PDF ვერ ჩამოიტვირთა.";
     try {
-      const text = await response.text();
-      if (text) message = text;
+      const body = (await response.json()) as { message?: string };
+      if (body?.message) message = body.message;
     } catch {
-      /* ignore */
+      /* a non-JSON error body is still an error; the Georgian default covers it */
     }
     throw new ApiError(message, response.status);
   }

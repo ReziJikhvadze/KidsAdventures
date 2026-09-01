@@ -174,6 +174,143 @@ public class BekiDigitalPrepTests
         Assert.Equal("none", report.RootElement.GetProperty("printer_only_markers").GetString());
     }
 
+    // ==============================================================================================
+    // The empty colour space — the customer PDF that Chrome rendered blank
+    // ==============================================================================================
+
+    /// <summary>
+    /// Every ICC profile in a prepared reading copy is a profile a strict viewer can read.
+    ///
+    /// The defect this pins shipped in pack 597344af. Skia tags every PNG it embeds with an ICC
+    /// **v4.3** sRGB, Ghostscript's pdfwrite will not write a profile newer than v4.2, and its way
+    /// of not writing one is to emit <c>&lt;&lt;/N 3/Length 0&gt;&gt;</c> — a colour space with no
+    /// profile in it. Poppler renders such a page anyway, with a complaint, which is why every
+    /// render gate in this pipeline passed the broken book; Chrome drops every image in that colour
+    /// space, and the parent opened a book of flat coloured pages.
+    ///
+    /// The premise is asserted first and on purpose. If a future Skia stopped tagging its rasters
+    /// v4.3 this test would go on passing while proving nothing, so the fixture is made to state
+    /// that it still carries the profile that provokes the bug.
+    /// </summary>
+    [Fact]
+    public void Every_icc_profile_in_a_prepared_reading_copy_is_readable()
+    {
+        var composed = BekiDigitalFixtures.ReadingCopy();
+
+        Assert.True(IccVersions(composed).Any(version => version.StartsWith("4.3", StringComparison.Ordinal)),
+            "the fixture no longer embeds an ICC v4.3 profile, so it no longer provokes the "
+            + "Ghostscript defect this test exists for. Find a raster source that does, or retire it.");
+
+        var (pdf, reportJson) = BekiDigitalPrep.Prepare(composed, new BekiPrintPrepOptions());
+
+        Assert.Empty(BekiDigitalPrep.IccProfileProblems(pdf));
+
+        // Read straight off the bytes as well, because that is the shape the shipped defect had:
+        // an object dictionary saying /N 3 with nothing behind it.
+        Assert.DoesNotContain("/N 3/Length 0", Encoding.Latin1.GetString(pdf), StringComparison.Ordinal);
+
+        using var report = JsonDocument.Parse(reportJson);
+        var colour = report.RootElement.GetProperty("colour");
+
+        var profiles = colour.GetProperty("icc_profiles");
+        Assert.NotEqual(0, profiles.GetArrayLength());
+        Assert.All(
+            profiles.EnumerateArray().ToList(),
+            profile => Assert.True(profile.GetProperty("bytes").GetInt32() > 0));
+
+        // And the report says what had to be restamped on the way in rather than leaving an
+        // operator to infer it.
+        Assert.Contains(
+            "restamped",
+            colour.GetProperty("icc_restamped_for_pdfwrite").ToString(),
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// And without the restamp, the gate refuses — which is the hole that let pack 597344af ship.
+    ///
+    /// The stage's report said PASS on a file with an empty colour space in it, because nothing had
+    /// ever looked inside one. This runs the same book through the same Ghostscript with the fix
+    /// switched off, reproduces the empty stream exactly, and requires a refusal.
+    /// </summary>
+    [Fact]
+    public void A_reading_copy_whose_icc_profile_came_back_empty_is_refused()
+    {
+        var failure = Assert.Throws<BekiLayoutException>(() =>
+            BekiDigitalPrep.Prepare(
+                BekiDigitalFixtures.ReadingCopy(),
+                new BekiPrintPrepOptions(),
+                baseDirectory: null,
+                harmonizeIccProfiles: false));
+
+        Assert.Equal("PRINT_PREFLIGHT_FAILED", failure.FailureCode);
+        Assert.Contains("DIGITAL_GEOMETRY", failure.Message);
+        Assert.Contains("empty (0 bytes)", failure.Message);
+        Assert.Contains("flat colour", failure.Message);
+    }
+
+    /// <summary>
+    /// A profile stream that is not a profile is the same defect from a viewer's point of view, and
+    /// is read the same way.
+    ///
+    /// Built rather than produced: Ghostscript drops a malformed profile instead of passing the
+    /// damage on, so there is no way to make one of these by running the stage. Three shapes — no
+    /// bytes at all, too few bytes to be a header, and enough bytes with no ICC signature in them.
+    /// </summary>
+    [Theory]
+    [InlineData(0, "empty (0 bytes)")]
+    [InlineData(40, "shorter than an ICC header")]
+    [InlineData(600, "is not an ICC profile")]
+    public void An_icc_stream_that_is_not_a_readable_profile_is_named_as_a_problem(
+        int bytes, string expected)
+    {
+        var doctored = BekiDigitalFixtures.WithDoctoredIccProfile(bytes);
+
+        var problem = Assert.Single(BekiDigitalPrep.IccProfileProblems(doctored));
+        Assert.Contains(expected, problem, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Poppler renders the prepared book with nothing to say about its colour spaces.
+    ///
+    /// The one check that would have caught the shipped book from outside. Poppler's renderer is
+    /// forgiving — it prints "read ICCBased color space profile error" and draws the page — so the
+    /// contact sheets and render gates all looked right. Its stderr did not, and nobody was reading
+    /// it. This does.
+    /// </summary>
+    [Fact]
+    public void Poppler_renders_the_prepared_copy_with_a_clean_stderr()
+    {
+        var (pdf, _) = BekiDigitalPrep.Prepare(
+            BekiDigitalFixtures.ReadingCopy(), new BekiPrintPrepOptions());
+
+        Poppler.AssertRendersCleanly(pdf);
+    }
+
+    private static IReadOnlyList<string> IccVersions(byte[] pdf)
+    {
+        using var document = PdfReader.Open(new MemoryStream(pdf), PdfDocumentOpenMode.Import);
+
+        var versions = new List<string>();
+
+        foreach (var candidate in document.Internals.GetAllObjects())
+        {
+            if (candidate is not PdfDictionary dictionary
+                || dictionary.Stream is null
+                || !dictionary.Elements.ContainsKey("/N"))
+            {
+                continue;
+            }
+
+            var bytes = dictionary.Stream.UnfilteredValue;
+            if (bytes.Length < 132 || Encoding.Latin1.GetString(bytes, 36, 4) != "acsp") continue;
+
+            versions.Add($"{bytes[8]}.{bytes[9] >> 4}.{bytes[9] & 0x0F}.{bytes[10]}");
+        }
+
+        return versions;
+    }
+
     [Fact]
     public void A_missing_ghostscript_is_refused_by_name()
     {
@@ -323,6 +460,51 @@ internal static class BekiDigitalFixtures
         }
     });
 
+    /// <summary>
+    /// A document carrying one ICCBased colour space whose profile stream is <paramref name="bytes"/>
+    /// bytes of nothing in particular.
+    ///
+    /// Deliberately not a reading copy: what the ICC gate reads is the object graph, and building
+    /// the smallest document that has the defect in it says what the defect is without fourteen
+    /// pages of unrelated correctness around it. The image is wired into the page's resources so
+    /// that saving cannot prune it as unreachable.
+    /// </summary>
+    public static byte[] WithDoctoredIccProfile(int bytes)
+    {
+        using var document = new PdfDocument();
+        var page = document.AddPage();
+
+        var profile = new PdfDictionary(document);
+        document.Internals.AddObject(profile);
+        profile.Elements.SetInteger("/N", 3);
+        profile.CreateStream(new byte[bytes]);
+
+        var space = new PdfArray(document);
+        space.Elements.Add(new PdfName("/ICCBased"));
+        space.Elements.Add(profile.Reference!);
+
+        var image = new PdfDictionary(document);
+        document.Internals.AddObject(image);
+        image.Elements.SetName("/Type", "/XObject");
+        image.Elements.SetName("/Subtype", "/Image");
+        image.Elements.SetInteger("/Width", 1);
+        image.Elements.SetInteger("/Height", 1);
+        image.Elements.SetInteger("/BitsPerComponent", 8);
+        image.Elements["/ColorSpace"] = space;
+        image.CreateStream([0x80, 0x80, 0x80]);
+
+        var xobjects = new PdfDictionary(document);
+        xobjects.Elements["/Im0"] = image.Reference!;
+
+        var resources = new PdfDictionary(document);
+        resources.Elements["/XObject"] = xobjects;
+        page.Elements["/Resources"] = resources;
+
+        using var buffer = new MemoryStream();
+        document.Save(buffer);
+        return buffer.ToArray();
+    }
+
     /// <summary>A press output intent stamped onto a reading copy — the mix-up the gate refuses.</summary>
     public static byte[] WithOutputIntent(byte[] pdf) => Cached("output-intent", () =>
     {
@@ -379,5 +561,87 @@ internal static class BekiDigitalFixtures
 
             return bytes.ToArray();
         }
+    }
+}
+
+/// <summary>
+/// A second renderer's opinion of a finished book, and — the point of it — everything that renderer
+/// muttered while forming it.
+///
+/// Poppler is where the ICC defect was visible all along. It renders a page whose colour space has
+/// no profile in it, prints "read ICCBased color space profile error" on stderr, and returns zero;
+/// so a pipeline that checks exit codes and looks at the PNGs sees a healthy book, and a parent
+/// opening the same file in Chrome sees flat colour. Reading the complaint is the whole technique.
+/// </summary>
+internal static class Poppler
+{
+    /// <summary>
+    /// Renders every page and requires that nothing was said about colour profiles or syntax while
+    /// it happened.
+    /// </summary>
+    public static void AssertRendersCleanly(byte[] pdf)
+    {
+        var work = Path.Combine(Path.GetTempPath(), $"beki-poppler-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(work);
+
+        try
+        {
+            var input = Path.Combine(work, "book.pdf");
+            File.WriteAllBytes(input, pdf);
+
+            // Small enough to be quick and large enough that every image is actually decoded, which
+            // is when a colour space gets read and a broken one gets complained about.
+            var render = Run("pdftoppm", ["-r", "18", "-png", input, Path.Combine(work, "page")]);
+            var info = Run("pdfinfo", [input]);
+
+            Assert.True(
+                render.Exit == 0,
+                $"pdftoppm exited {render.Exit}: {render.Stderr}");
+
+            foreach (var (tool, stderr) in new[] { ("pdftoppm", render.Stderr), ("pdfinfo", info.Stderr) })
+            {
+                Assert.False(
+                    stderr.Contains("profile", StringComparison.OrdinalIgnoreCase),
+                    $"{tool} complained about a colour profile: {stderr.Trim()}");
+
+                Assert.False(
+                    stderr.Contains("Syntax Error", StringComparison.OrdinalIgnoreCase),
+                    $"{tool} reported a syntax error: {stderr.Trim()}");
+            }
+
+            Assert.NotEmpty(Directory.GetFiles(work, "page-*.png"));
+        }
+        finally
+        {
+            try { Directory.Delete(work, recursive: true); } catch { /* temp only */ }
+        }
+    }
+
+    private static (int Exit, string Stdout, string Stderr) Run(string tool, string[] arguments)
+    {
+        var start = new ProcessStartInfo
+        {
+            FileName = tool,
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+        };
+
+        foreach (var argument in arguments)
+        {
+            start.ArgumentList.Add(argument);
+        }
+
+        using var process = Process.Start(start)
+            ?? throw new InvalidOperationException($"'{tool}' did not start.");
+
+        // Both pipes at once, for the reason every other process call in this repo does it: draining
+        // one to its end while the other fills is how a render hangs a test run.
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+        process.WaitForExit(180_000);
+        Task.WaitAll([stdout, stderr], TimeSpan.FromSeconds(30));
+
+        return (process.ExitCode, stdout.Result, stderr.Result);
     }
 }

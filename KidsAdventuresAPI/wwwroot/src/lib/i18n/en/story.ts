@@ -52,6 +52,12 @@ export const story = {
       title: "Preparing your printable PDF",
       lead: "We're setting the book for print — the download starts on its own.",
       email: "You can close this page. We'll email you when the PDF is ready.",
+      held: "The book is in its final check — the download opens shortly.",
+      failed: "The PDF could not be downloaded — please try again shortly.",
+    },
+    pending: {
+      title: "The book is still being drawn",
+      body: "The story is being written and the pictures are on their way. It will appear here as soon as it is ready — we'll email you too.",
     },
   },
 

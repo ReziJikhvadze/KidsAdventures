@@ -70,6 +70,28 @@ public sealed class CompositePipelineException(string failureCode, string messag
 public sealed record CompositeFailureEvidence(int Page, byte[] CompositePng, string QaJson);
 
 /// <summary>
+/// A quality refusal the release policy told this pipeline to ship anyway.
+///
+/// Amendment B3's whitelist has four members and they have one thing in common: the artwork exists.
+/// A centre-fold reading, a cover band, a reviewer's opinion, an answer that would not parse — in
+/// every one of them there is an intact composite drawn from approved bytes, and what failed is a
+/// judgement about it. The owner's ruling is that a judgement does not kill a paid book; it becomes
+/// something an operator looks at later.
+///
+/// So the page is accepted, its QA record keeps saying exactly what the reviewer said, and this
+/// carries the evidence out to the fulfilment job — the only part of the system that can write a
+/// blob. Nothing else is waivable: a provider exception, bytes that will not decode, a compositor
+/// that refused, an exact-Beki hash mismatch, the asset lock, a composition receipt, the wrap hash,
+/// the identity spec and the scenario paths all stay terminal, because there is nothing to ship.
+/// </summary>
+/// <param name="CheckId">One of <c>BekiReleaseChecks</c>' five names.</param>
+/// <param name="Page">The spread, or 0 for the cover wrap — the same numbering the evidence uses.</param>
+/// <param name="EvidencePng">The picture that was refused: a composite, or a base for the two
+/// deterministic gates, which refuse before Beki is ever pasted on.</param>
+public sealed record CompositePolicyWaiver(
+    string CheckId, int Page, string Detail, byte[] EvidencePng, string EvidenceJson);
+
+/// <summary>
 /// The four normalized inputs plus the job they belong to, handed to the illustrator by a caller
 /// that actually knows them.
 ///
@@ -127,6 +149,32 @@ public sealed record CompositeBookContext
     /// from, and this pipeline has no storage dependency on purpose.
     /// </summary>
     public Func<string, Task>? OnIdentitySpec { get; init; }
+
+    /// <summary>
+    /// The release policy this book is being drawn under, read ONCE by the fulfilment job and
+    /// carried — amendment B4.
+    ///
+    /// It rides on the context for the same reason the resume state does: only the caller that owns
+    /// the job can read a policy table, and this pipeline has no repository dependency. A snapshot
+    /// rather than a service is the load-bearing half — a pipeline that consulted a cache per spread
+    /// could ship page three and refuse page seven under two different policies, and the book's own
+    /// records would then describe a decision nobody made.
+    ///
+    /// Null means every whitelisted check blocks, which is what this pipeline did before the policy
+    /// existed. That is the honest default for a caller that has no policy to state rather than one
+    /// that has chosen leniency: nothing here quietly softens because an argument was omitted.
+    /// </summary>
+    public BekiReleasePolicySnapshot? ReleasePolicy { get; init; }
+
+    /// <summary>
+    /// Where a waived quality refusal goes, awaited before the page continues.
+    ///
+    /// Awaited, and before, for the reason the scenario callback is: the fulfilment job writes the
+    /// evidence blob and raises the alarm inside it, and a book that shipped a refused page without
+    /// the record of it having been refused would be exactly the silence this policy is meant to
+    /// replace with an alarm.
+    /// </summary>
+    public Func<CompositePolicyWaiver, Task>? OnPolicyWaiver { get; init; }
 }
 
 /// <summary>
@@ -1450,34 +1498,57 @@ public sealed class CompositeBookPipeline(
 
             if (second.Exceeded)
             {
-                logger.LogError(
-                    "Composite pipeline {JobId} cover wrap: the regenerated base still paints the "
-                    + "centre construction — {Offending}. Stopping the book; the refused wrap and "
-                    + "the numbers are stored as evidence.",
-                    context.JobId, string.Join("; ", second.Offending));
+                /*
+                  The same policy question the fold asks, about the one page a parent sees first.
 
-                throw new CompositePipelineException(
-                    CompositeFailureCodes.ImageGenerationFailed,
-                    "The cover wrap paints its own construction: both generated bases carry a "
-                    + "full-height discontinuity on the dieline boundaries "
-                    + $"{string.Join(", ", second.Offending.Select(band => band.Boundary.Name))}. "
-                    + "Hinge and spine geometry may guide placement but may not be rendered as "
-                    + "artwork, and no layout, upscale or colour conversion removes a band that is "
-                    + "in the source.")
+                  Flagged, the wrap ships with its bands measured and recorded: what the reading is
+                  about — hinge and spine geometry rendered as artwork rather than merely guiding
+                  placement — is a printing complaint, and the family's copy is a screen. Blocked, it
+                  is audit-2 P0-03 exactly as written. Either way the press files are governed
+                  separately by their own blocker-severity gates, so a wrap this measurement dislikes
+                  never reaches a printer by accident.
+                */
+                if (Waivable(context, BekiReleaseChecks.CoverBands))
                 {
-                    // No spread number: the cover is not a page of the book, and zero is the page
-                    // number no book has. The evidence blob lands under spread zero, which is
-                    // where somebody looking for a refused cover will find it.
-                    Page = 0,
-                    Evidence = new CompositeFailureEvidence(
-                        0, basePng, CoverBandEvidenceJson(bands, second)),
-                };
-            }
+                    await WaiveAsync(
+                        context, BekiReleaseChecks.CoverBands, 0,
+                        "both generated cover bases carry a full-height discontinuity on the dieline "
+                        + $"boundaries {string.Join(", ", second.Offending.Select(band => band.Boundary.Name))}",
+                        basePng, CoverBandEvidenceJson(bands, second));
+                }
+                else
+                {
+                    logger.LogError(
+                        "Composite pipeline {JobId} cover wrap: the regenerated base still paints "
+                        + "the centre construction — {Offending}. Stopping the book; the refused "
+                        + "wrap and the numbers are stored as evidence.",
+                        context.JobId, string.Join("; ", second.Offending));
 
-            logger.LogInformation(
-                "Composite pipeline {JobId} cover wrap: the regenerated base reads as one "
-                + "continuous panorama across all {Total} dieline boundaries.",
-                context.JobId, second.Bands.Count);
+                    throw new CompositePipelineException(
+                        CompositeFailureCodes.ImageGenerationFailed,
+                        "The cover wrap paints its own construction: both generated bases carry a "
+                        + "full-height discontinuity on the dieline boundaries "
+                        + $"{string.Join(", ", second.Offending.Select(band => band.Boundary.Name))}. "
+                        + "Hinge and spine geometry may guide placement but may not be rendered as "
+                        + "artwork, and no layout, upscale or colour conversion removes a band that "
+                        + "is in the source.")
+                    {
+                        // No spread number: the cover is not a page of the book, and zero is the
+                        // page number no book has. The evidence blob lands under spread zero, which
+                        // is where somebody looking for a refused cover will find it.
+                        Page = 0,
+                        Evidence = new CompositeFailureEvidence(
+                            0, basePng, CoverBandEvidenceJson(bands, second)),
+                    };
+                }
+            }
+            else
+            {
+                logger.LogInformation(
+                    "Composite pipeline {JobId} cover wrap: the regenerated base reads as one "
+                    + "continuous panorama across all {Total} dieline boundaries.",
+                    context.JobId, second.Bands.Count);
+            }
         }
 
         // The pose from the scenario's own cover sentence, composited at the locked front-panel
@@ -1973,8 +2044,21 @@ public sealed class CompositeBookPipeline(
 
             drawn[anchorSpread.Page] = anchorSpread;
 
-            // The accepted base, which on a page that spent its one regeneration is the regenerated
-            // picture and never the refused draft — DrawSpreadAsync only returns what QA passed.
+            /*
+              The base this page shipped with, which on a page that spent its one regeneration is
+              the regenerated picture and never the refused draft.
+
+              Under the release policy that base can now be one a reviewer refused, and it is still
+              the anchor — deliberately. The anchor is what stops the child changing between pages,
+              and a book whose first page was questioned is better off with seven pages that match it
+              than with seven that match nothing: the drifting-child defect passed eight independent
+              reviews precisely because each page was judged alone. The waiver is recorded, the page
+              is alarmed, and a person looking at it is looking at a consistent book.
+
+              Continuity is the other half and goes the other way — see DrawSpreadAsync, where a
+              refused page is not remembered. That reference tells a later spread to REPRODUCE a
+              particular creature, which is a stronger instruction than "this is the same child".
+            */
             anchor = anchorSpread.BasePng;
 
             logger.LogInformation(
@@ -2212,7 +2296,7 @@ public sealed class CompositeBookPipeline(
             // The refused picture is gone from here on: the reviewer judges the replacement, Beki
             // is composited onto it, and it is what a later spread may be anchored to — once it has
             // passed the same measurement, which is what the call below either grants or stops on.
-            centreField = MeasureRegeneratedBase(
+            centreField = await MeasureRegeneratedBaseAsync(
                 context, page, basePng, selection.PoseId, textSide, baseAttempts, centreField);
         }
 
@@ -2227,18 +2311,50 @@ public sealed class CompositeBookPipeline(
 
             var composite = Composite(context, page, basePng, selection.PoseId, textSide, placement);
 
-            var (verdict, reviewMs) = await ReviewAsync(
+            var review = await ReviewAsync(
                 context, page, scenario, composite, textSide, childPhoto, childPhotoContentType,
                 theme, elements, anchor, identity, cancellationToken);
 
+            var verdict = review.Verdict;
+
             attempts.Add(new CompositeAttempt(
-                generationMs, reviewMs, verdict.ToString(), verdict.Passed)
+                generationMs, review.ReviewMs, verdict.ToString(), verdict.Passed)
             {
                 Anchor = composite.Manifest.BekiLayer.NormalizedAnchor is { } placed
                     ? new BekiCompositeAnchor(
                         placed.VisibleCenterX, placed.VisibleCenterY, placed.VisibleHeight)
                     : null,
             });
+
+            /*
+              An unreadable review, shipped by policy — and it goes no further round this loop.
+
+              The ladder's three rungs all act on a recommended_action, and there is not one here:
+              nobody judged this picture. Letting it climb would buy a second base image to fix a
+              complaint that was never made, which is the exact bill the parse retry exists to avoid
+              paying. The page is accepted with the truthful NEEDS_HUMAN record ReviewAsync minted,
+              and — like the refused page below — it does not become a continuity reference, because
+              a picture nothing has approved is not a picture to tell the next spread to match.
+            */
+            if (review.Unreadable)
+            {
+                return new CompositeSpreadResult
+                {
+                    Page = page.Page,
+                    BasePng = basePng,
+                    CompositePng = composite.Png,
+                    Manifest = composite.Manifest,
+                    Prompt = prompt,
+                    PoseId = selection.PoseId,
+                    TextSide = textSide,
+                    Verdict = verdict.ToString(),
+                    BaseAttempts = baseAttempts,
+                    Attempts = attempts,
+                    PoseFallback = selection.Fallback,
+                    QaJson = CompositeSpreadQa.Write(
+                        page.Page, selection.PoseId, textSide, baseAttempts, attempts.Count, verdict),
+                };
+            }
 
             if (verdict.Passed)
             {
@@ -2324,7 +2440,7 @@ public sealed class CompositeBookPipeline(
                 // And the replacement is measured, which it was not. See MeasureRegeneratedBase:
                 // a base bought here is a base the fold gate never saw, and the whole point of
                 // P0-05's automated centerline test is that no picture reaches the book unmeasured.
-                centreField = MeasureRegeneratedBase(
+                centreField = await MeasureRegeneratedBaseAsync(
                     context, page, basePng, selection.PoseId, textSide, baseAttempts, centreField);
 
                 continue;
@@ -2416,10 +2532,56 @@ public sealed class CompositeBookPipeline(
                 baseAttempts++;
 
                 // Measured on the way in, exactly as rung one's replacement is.
-                centreField = MeasureRegeneratedBase(
+                centreField = await MeasureRegeneratedBaseAsync(
                     context, page, basePng, selection.PoseId, textSide, baseAttempts, centreField);
 
                 continue;
+            }
+
+            var exhausted = FailureEvidenceJson(
+                page.Page, selection.PoseId, textSide, baseAttempts, attempts);
+
+            /*
+              The ladder is spent, and this is where amendment B3 changes what that means.
+
+              Everything the reviewer refused is still true and still written down: the verdict below
+              goes into this page's QA record verbatim, the release gates read it and grade the book
+              NOT_RELEASABLE for the supplier, and an alarm carries the picture to somebody who can
+              look at it. What no longer happens is that a family loses a book they paid for because
+              a model disliked a picture twice — the composite exists, it was built from approved
+              bytes, and what failed is an opinion about it.
+            */
+            if (Waivable(context, BekiReleaseChecks.ImageQa))
+            {
+                await WaiveAsync(
+                    context, BekiReleaseChecks.ImageQa, page.Page,
+                    $"the reviewer refused this page after {baseAttempts} base image(s) and "
+                    + $"{attempts.Count} review(s) — {verdict}",
+                    composite.Png, exhausted);
+
+                // Deliberately NOT remembered as a continuity reference. A page the reviewer refused
+                // is precisely the one a later spread must not be told to match — shipping it is a
+                // decision about this page and must not become a decision about the next.
+                return new CompositeSpreadResult
+                {
+                    Page = page.Page,
+                    BasePng = basePng,
+                    CompositePng = composite.Png,
+                    Manifest = composite.Manifest,
+                    Prompt = prompt,
+                    PoseId = selection.PoseId,
+                    TextSide = textSide,
+                    Verdict = verdict.ToString(),
+                    BaseAttempts = baseAttempts,
+                    Attempts = attempts,
+                    PoseFallback = selection.Fallback,
+                    ShotNote = verdict.ShotNote,
+                    AgeNote = verdict.AgeNote,
+                    // The refusal, unaltered. A record that said PASS because the policy shipped the
+                    // page would be the lie this whole split exists to prevent.
+                    QaJson = CompositeSpreadQa.Write(
+                        page.Page, selection.PoseId, textSide, baseAttempts, attempts.Count, verdict),
+                };
             }
 
             logger.LogError(
@@ -2434,10 +2596,7 @@ public sealed class CompositeBookPipeline(
                 Page = page.Page,
                 // The picture and the paperwork, so that "marked for human review" leaves a human
                 // something to review.
-                Evidence = new CompositeFailureEvidence(
-                    page.Page,
-                    composite.Png,
-                    FailureEvidenceJson(page.Page, selection.PoseId, textSide, baseAttempts, attempts)),
+                Evidence = new CompositeFailureEvidence(page.Page, composite.Png, exhausted),
             };
         }
     }
@@ -2502,7 +2661,7 @@ public sealed class CompositeBookPipeline(
     /// readings — the base this page started from and the one that failed — because the pair is
     /// what tells a prompt problem from an unlucky picture.
     /// </summary>
-    private CentreFieldMeasurement MeasureRegeneratedBase(
+    private async Task<CentreFieldMeasurement> MeasureRegeneratedBaseAsync(
         CompositeBookContext context,
         VisualScenarioSpread page,
         byte[] basePng,
@@ -2519,6 +2678,30 @@ public sealed class CompositeBookPipeline(
                 "Composite pipeline {JobId} spread {Page}: the regenerated base continues across "
                 + "the centre fold — {Second}.",
                 context.JobId, page.Page, Reading(measured));
+
+            return measured;
+        }
+
+        /*
+          Two readings past the limit, and the policy decides what that costs.
+
+          The measurement's history is in the block at the top of the page and it is a history of
+          being reversed twice, in both directions, on real evidence — which is itself the argument
+          for making this an operator's switch rather than a constant. Flagged, the page keeps its
+          artwork and the numbers go to somebody who can look at the picture and decide whether the
+          instrument or the model was wrong; blocked, it does exactly what audit-2 P0-05 asked for.
+
+          The BASE is the evidence either way, and the second one: Beki was never pasted onto it — a
+          page that cannot pass this gate never reaches the compositor.
+        */
+        if (Waivable(context, BekiReleaseChecks.CentreFold))
+        {
+            await WaiveAsync(
+                context, BekiReleaseChecks.CentreFold, page.Page,
+                $"the regenerated base reads as two halves at the centre fold ({Reading(measured)}); "
+                + $"the base it replaced read {Reading(previous)}",
+                basePng,
+                CentreFoldEvidenceJson(page.Page, poseId, textSide, baseAttempts, previous, measured));
 
             return measured;
         }
@@ -2670,6 +2853,59 @@ public sealed class CompositeBookPipeline(
     /// Nothing about the child is in it. The scene, the outfit and the identity attributes stay out:
     /// this is a record of a placement decision, and the picture beside it is the thing to look at.
     /// </summary>
+    /// <summary>
+    /// Whether the policy in force lets this named check ship the page instead of killing the book.
+    ///
+    /// One place, so that "which checks are waivable" is answered by the whitelist and by nothing
+    /// else. A caller that passed no policy gets false for everything, which is this pipeline's
+    /// behaviour before the policy existed.
+    /// </summary>
+    private static bool Waivable(CompositeBookContext context, string checkId) =>
+        context.ReleasePolicy?.IsFlagged(checkId) == true;
+
+    /// <summary>
+    /// Ships a refusal, and says so — the whole of what "flag" means on this side of the system.
+    ///
+    /// The callback is awaited before the page continues so that the evidence and the alarm exist
+    /// before the artwork does anything further; a waiver nobody recorded is the silence the owner's
+    /// ruling replaced with an alarm, not the leniency it asked for.
+    ///
+    /// A callback that throws is not allowed to take the book down with it. That is not a swallow of
+    /// convenience: the alternative is that a book with perfectly good artwork dies because the
+    /// alarms table was unreachable, which is the exact fault class this campaign exists to remove.
+    /// The log line is what remains, and it is a loud one.
+    /// </summary>
+    private async Task WaiveAsync(
+        CompositeBookContext context,
+        string checkId,
+        int page,
+        string detail,
+        byte[] evidencePng,
+        string evidenceJson)
+    {
+        logger.LogWarning(
+            "Composite pipeline {JobId} {Where}: {CheckId} refused this page and the release policy "
+            + "flags it, so the artwork ships and an alarm is raised — {Detail}",
+            context.JobId, page == 0 ? "cover wrap" : $"spread {page}", checkId, detail);
+
+        if (context.OnPolicyWaiver is not { } sink)
+        {
+            return;
+        }
+
+        try
+        {
+            await sink(new CompositePolicyWaiver(checkId, page, detail, evidencePng, evidenceJson));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(
+                ex, "Composite pipeline {JobId}: the {CheckId} waiver on page {Page} could not be "
+                    + "recorded. The book is unaffected; the incident is not in the alarms table.",
+                context.JobId, checkId, page);
+        }
+    }
+
     private static string FailureEvidenceJson(
         int page,
         string poseId,
@@ -2980,8 +3216,9 @@ public sealed class CompositeBookPipeline(
     /// <see cref="CompositeFailureCodes.ImageQaFailed"/> — there is no verdict, and shipping a page
     /// because the reviewer was incoherent is the same as not reviewing it.
     /// </summary>
-    /// <returns>The verdict, and the wall clock the whole review cost including a parse retry.</returns>
-    private async Task<(CompositeQaVerdict Verdict, long ReviewMs)> ReviewAsync(
+    /// <returns>The verdict, the wall clock the whole review cost including a parse retry, and
+    /// whether that verdict is a placeholder for an answer nobody could read.</returns>
+    private async Task<CompositeReview> ReviewAsync(
         CompositeBookContext context,
         VisualScenarioSpread page,
         VisualScenarioV2 scenario,
@@ -3086,7 +3323,7 @@ public sealed class CompositeBookPipeline(
             if (parsed.IsValid)
             {
                 reviewClock.Stop();
-                return (parsed.Verdict!, reviewClock.ElapsedMilliseconds);
+                return new CompositeReview(parsed.Verdict!, reviewClock.ElapsedMilliseconds, false);
             }
 
             previous = parsed;
@@ -3096,14 +3333,86 @@ public sealed class CompositeBookPipeline(
                 context.JobId, page.Page, parsed.Summary);
         }
 
+        reviewClock.Stop();
+
+        /*
+          Two unreadable answers, and the evidence that was never attached.
+
+          The audit's finding on this path was not only that it killed a book — it was that it killed
+          one silently: the exception carried no Evidence, so the fulfilment job wrote no picture and
+          no document, and "marked for human review" left a human nothing whatever to review. That is
+          fixed for BOTH outcomes below, which is amendment B3's explicit instruction: the page and
+          the reason it could not be judged are stored whether the policy ships the book or stops it.
+        */
+        var evidenceJson = UnreadableQaEvidenceJson(page.Page, previous!.Problems);
+
+        if (Waivable(context, BekiReleaseChecks.QaUnreadable))
+        {
+            await WaiveAsync(
+                context, BekiReleaseChecks.QaUnreadable, page.Page,
+                $"no readable QA verdict after two attempts — {previous.Summary}",
+                composite.Png, evidenceJson);
+
+            /*
+              NEEDS_HUMAN, which is a status this reviewer contract cannot produce and this pipeline
+              can.
+
+              It is the honest word for what happened: nobody said the picture was wrong, and nobody
+              said it was right. Recording it as a FAIL would invent a refusal; recording it as a
+              PASS would invent a review. The release gates read this status back and route the book
+              to the human gate rather than to a failure, which is the distinction the status exists
+              to make — and the ladder above does not run, because there is nothing here to act on.
+            */
+            return new CompositeReview(
+                new CompositeQaVerdict(
+                    UnreadableStatus,
+                    ["QA_UNREADABLE"],
+                    CompositeQaVerdict.ActionHumanReview,
+                    [$"The reviewer's answer could not be read twice: {previous.Summary}"]),
+                reviewClock.ElapsedMilliseconds,
+                true);
+        }
+
         throw new CompositePipelineException(
             CompositeFailureCodes.ImageQaFailed,
             $"Spread {page.Page} has no readable QA verdict after two attempts and is marked for "
-            + $"human review: {previous!.Summary}")
+            + $"human review: {previous.Summary}")
         {
-            Page = page.Page
+            Page = page.Page,
+            Evidence = new CompositeFailureEvidence(page.Page, composite.Png, evidenceJson),
         };
     }
+
+    /// <summary>
+    /// The status a page carries when the reviewer's answer could not be read — a word this
+    /// pipeline mints and the release gates recognise.
+    /// </summary>
+    public const string UnreadableStatus = "NEEDS_HUMAN";
+
+    /// <summary>One review, and whether its verdict is a real one.</summary>
+    private sealed record CompositeReview(
+        CompositeQaVerdict Verdict, long ReviewMs, bool Unreadable);
+
+    /// <summary>
+    /// The document stored beside a page whose review would not parse — the evidence this path used
+    /// to omit entirely.
+    /// </summary>
+    private static string UnreadableQaEvidenceJson(int page, IReadOnlyList<string> problems) =>
+        JsonSerializer.Serialize(
+            new
+            {
+                page,
+                failure_code = CompositeFailureCodes.ImageQaFailed,
+                gate = BekiReleaseChecks.QaUnreadable,
+                qa_prompt_version = CompositeMinimalQa.Version,
+                image_prompt_version = CompositeIllustrationPrompt.Version,
+                review_attempts = 2,
+                status = UnreadableStatus,
+                problems,
+                note = "Two answers from the visual reviewer, neither of which could be read as a "
+                       + "verdict. The picture beside this document was never judged — not refused.",
+            },
+            CompositeJson.Readable);
 
     /// <summary>
     /// The images the generation call carries, in the order the prompt numbers them, and the one it

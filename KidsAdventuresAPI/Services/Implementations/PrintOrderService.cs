@@ -4,6 +4,7 @@ using AdventurePacks.Api.Domain.Entities;
 using AdventurePacks.Api.DTOs.Print;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
+using AdventurePacks.Api.Services.Story;
 
 namespace AdventurePacks.Api.Services.Implementations;
 
@@ -24,6 +25,7 @@ public sealed class PrintOrderService(
     IUserRepository userRepository,
     IEmailService emailService,
     IAdminNotifier adminNotifier,
+    IBekiAlarmService alarms,
     ILogger<PrintOrderService> logger) : IPrintOrderService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -350,6 +352,39 @@ public sealed class PrintOrderService(
         var user = await userRepository.GetByIdAsync(printOrder.UserId, cancellationToken);
         var order = await orderRepository.GetByIdAsync(printOrder.OrderId, cancellationToken);
 
+        /*
+          The queue is about to hand somebody the wrong file, and now it says so.
+
+          A Beki book is rendered twice on purpose and its press interior is a deliverable the
+          release gates can withhold. When that file is absent from a Beki book, this is not the
+          old "made before the split" case — it is a press file that was withheld or never written,
+          and the queue was quietly substituting the reading copy for it. That is a page count that
+          does not divide by four arriving at a binder, and until now nothing recorded that it had
+          happened. It is an alarm, at blocker severity, because the money at stake is a printer's.
+
+          Deduplicated on the book, so an operator refreshing the queue does not mint a row per
+          refresh — the alarm's own key sees the same incident and moves its last-seen stamp.
+        */
+        var readingCopyFallback =
+            string.IsNullOrWhiteSpace(book?.PrintPdfUrl) && !string.IsNullOrWhiteSpace(book?.PdfUrl);
+
+        if (readingCopyFallback && book is not null && book.IsBekiPipeline)
+        {
+            await alarms.RaiseAsync(
+                new BekiAlarmRaise(
+                    book.Id,
+                    printOrder.OrderId,
+                    printOrder.UserId,
+                    "press_file_missing",
+                    BekiReleaseSeverity.Blocker,
+                    "A print order is in the queue and this book has no press interior, so the "
+                    + "reading copy is being offered as the printable file. Its page count does "
+                    + "not divide by four and its spreads are laid out for a screen.",
+                    null,
+                    BekiAlarmEvidence.ForAttempt("press_file_missing", book.Id)),
+                cancellationToken);
+        }
+
         return new AdminPrintOrderResponse
         {
             Id = printOrder.Id,
@@ -383,6 +418,7 @@ public sealed class PrintOrderService(
               copy's name: a derived url would point at a blob that was never written.
             */
             PdfUrl = book?.PrintPdfUrl ?? book?.PdfUrl,
+            PdfIsReadingCopyFallback = readingCopyFallback,
             TotalMinor = order?.TotalMinor ?? 0,
             TotalFormatted = GelPricing.Format(order?.TotalMinor ?? 0),
             CreatedAt = printOrder.CreatedAt,

@@ -53,8 +53,40 @@ public sealed class AdminOrderRow
     /// <summary>When the parent last opened the digital book. Null means they never have.</summary>
     public DateTime? LastReadAt { get; set; }
 
-    /// <summary>True once either the reading or the print PDF has been built.</summary>
-    public bool HasPdf { get; set; }
+    /// <summary>
+    /// The two files, said separately.
+    ///
+    /// One combined <c>HasPdf</c> stood here and it lied in the direction that costs most: a book
+    /// whose press interior exists while the reading copy is withheld reported "PDF ready" to an
+    /// operator whose customer could not download anything. The row now says which file exists,
+    /// because "which" is the entire question.
+    /// </summary>
+    public bool HasReadingPdf { get; set; }
+    public bool HasPrintPdf { get; set; }
+
+    /// <summary>
+    /// Unreviewed alarms against this order's book — things the pipeline waived and shipped past
+    /// rather than died on. Read from the alarms table, which is one correlated count against an
+    /// indexed column and the only release state cheap enough to carry on every row of a list.
+    /// </summary>
+    public int OpenAlarmCount { get; set; }
+
+    /// <summary>
+    /// A finished book whose reading copy was never published: the gates or a pending human review
+    /// are holding it. WHY it is held lives on the detail response, which can afford to read the
+    /// stored verdict; that it is held at all is visible from SQL alone, and that is the half the
+    /// list needs to show without anybody expanding a row.
+    /// </summary>
+    public bool Withheld { get; set; }
+
+    /// <summary>
+    /// The one derived field, and the one the "needs attention" filter selects on: an open alarm,
+    /// a failed book, money taken with nothing delivered, or a finished book being withheld.
+    ///
+    /// Derived in SQL rather than in the browser so the filter and the chip cannot disagree — a
+    /// list that highlights different rows than it filters to is worse than neither.
+    /// </summary>
+    public bool NeedsAttention { get; set; }
 
     /// <summary>Where the parcel is, for a print order. Null for digital-only.</summary>
     public string? PrintStatus { get; set; }
@@ -75,6 +107,23 @@ public sealed class AdminOrderDetailResponse
 
     /// <summary>Null for a digital-only order.</summary>
     public AdminOrderShipment? Shipment { get; set; }
+
+    /// <summary>
+    /// A person is being waited on: the render is fine and nobody has looked at it yet.
+    ///
+    /// Read from the stored release-gates verdict, which lives in blob storage — which is exactly
+    /// why it is here and not on the row. Twenty-five rows would be twenty-five blob reads to
+    /// paint one list, so the list carries <see cref="AdminOrderRow.Withheld"/> from SQL and this
+    /// response, opened for one order somebody just clicked, says which kind of withhold it is.
+    /// </summary>
+    public bool AwaitingReview { get; set; }
+
+    /// <summary>
+    /// How many gates this book fails, from the same stored verdict. Zero alongside
+    /// <see cref="AwaitingReview"/> is the good case: nothing is broken, somebody simply has not
+    /// signed the contact sheet.
+    /// </summary>
+    public int FailingGateCount { get; set; }
 }
 
 public sealed class AdminOrderCustomer

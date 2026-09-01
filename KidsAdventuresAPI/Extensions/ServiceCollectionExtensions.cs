@@ -458,6 +458,31 @@ public static class ServiceCollectionExtensions
         */
         services.AddScoped<BekiAssetLock>();
         services.AddScoped<BekiReleaseGates>();
+
+        /*
+          The release policy, its alarms, and the two things that act on them.
+
+          Scoped, all of them, because they are repository-backed and share a request's or a job's
+          connection scope. The policy service's thirty-second cache is therefore per scope, which is
+          the correct lifetime for it: it exists to stop one request re-reading the table three
+          times, not to hold a deployment-wide view — a book's judgement comes from a snapshot taken
+          once per job (amendment B4), and a longer-lived cache would only make an operator's change
+          take longer to be noticed.
+
+          The reconciliation is registered twice against the same implementation because it answers
+          two questions with one set of dependencies: what to do about a withheld or buried book, and
+          why a parent's download is not there. Splitting it would mean two services reading the same
+          stored verdict with two copies of the code that reads it.
+        */
+        services.AddScoped<IBekiReleasePolicyRepository, BekiReleasePolicyRepository>();
+        services.AddScoped<IBekiAlarmRepository, BekiAlarmRepository>();
+        services.AddScoped<IBekiAlarmService, BekiAlarmService>();
+        services.AddScoped<BekiReleaseReconciliation>();
+        services.AddScoped<IBekiReleaseReconciliation>(provider =>
+            provider.GetRequiredService<BekiReleaseReconciliation>());
+        services.AddScoped<IBekiDownloadStatusService>(provider =>
+            provider.GetRequiredService<BekiReleaseReconciliation>());
+        services.AddScoped<IBekiReleasePolicyService, BekiReleasePolicyService>();
         services.AddSingleton<IPressUpscaler>(provider =>
             new CliPressUpscaler(provider.GetRequiredService<IOptions<BekiOptions>>().Value.PrintPrep));
 

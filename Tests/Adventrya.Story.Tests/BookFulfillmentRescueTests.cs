@@ -318,6 +318,19 @@ public class BookFulfillmentRescueTests
         public Task<bool> TryClaimPreviewIllustrationGenerationAsync(Guid id, int staleAfterMinutes, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task TouchPreviewIllustrationHeartbeatAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> UpdateGeneratedJsonAsync(Guid id, string generatedJson, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        // B5's discriminator and B7's withheld sweep. Neither is this double's subject: the pipeline
+        // stamp is recorded so a test can read it back, and no test here asks for withheld books.
+        public string? StampedPipeline { get; private set; }
+
+        public Task SetGenerationPipelineAsync(Guid id, string pipeline, CancellationToken cancellationToken)
+        {
+            StampedPipeline = pipeline;
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<AdventurePack>> ListWithheldBekiPacksAsync(int limit, BekiWithheldCursor? after, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<AdventurePack>>([]);
     }
 
     // The collaborators this path never reaches. Refusing rather than returning nothing, so a

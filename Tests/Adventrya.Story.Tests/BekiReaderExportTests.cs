@@ -116,14 +116,9 @@ public class BekiReaderExportTests
                 fromPress.Typography.Select(type => (type.Role, type.SizePt, type.Colour)),
                 fromReading.Typography.Select(type => (type.Role, type.SizePt, type.Colour)));
 
-            // The wash is the same shape on both, offset by the bleed the press page carries.
-            Assert.NotNull(fromReading.Wash);
-            Assert.NotNull(fromPress.Wash);
-            Assert.Equal(fromPress.Wash!.WidthMm, fromReading.Wash!.WidthMm, 2);
-            Assert.Equal(fromPress.Wash.HeightMm, fromReading.Wash.HeightMm, 2);
-            Assert.Equal(fromPress.Wash.XMm - 5d, fromReading.Wash.XMm, 2);
-            Assert.Equal(fromPress.Wash.FoldClearanceMm, fromReading.Wash.FoldClearanceMm, 2);
-            Assert.Equal(fromPress.Wash.TrimClearanceMm, fromReading.Wash.TrimClearanceMm, 2);
+            // And neither carries a box behind the words — owner ruling 2026-09-01, third and final.
+            Assert.Null(fromReading.Wash);
+            Assert.Null(fromPress.Wash);
         }
     }
 
@@ -240,119 +235,107 @@ public class BekiReaderExportTests
     }
 
     // ==============================================================================================
-    // The wash — P1-04, P0-07
+    // No box behind the words — owner ruling 2026-09-01, third and final
     // ==============================================================================================
 
     /// <summary>
-    /// Every page that carries copy carries a wash, and every wash obeys the three rules audit
-    /// P1-04 states: local to its page, clear of the fold, inside the trim safety margin.
+    /// Not one page of the book carries a wash, and the story copy is the cream the outline stack
+    /// fills with.
+    ///
+    /// The required assertion of the ruling, made on the receipts because the receipts are what the
+    /// gates read: a cream box drawn but not recorded would still fail
+    /// <see cref="The_copy_sits_straight_on_the_artwork_with_no_box_behind_it"/>, which looks at
+    /// pixels, and a box recorded but not drawn would fail this one. Between them there is nowhere
+    /// for a wash to hide.
     /// </summary>
     [Fact]
-    public void Every_story_wash_is_local_copy_sized_and_off_the_fold()
+    public void No_page_receipt_carries_a_wash_and_the_story_copy_is_cream()
     {
         var reading = ComposeReading();
 
-        var washed = reading.Receipts.Pages
-            .Where(page => page.Wash is not null)
-            .ToList();
+        Assert.All(reading.Receipts.Pages, page =>
+            Assert.True(page.Wash is null,
+                $"{page.Role} records a wash; the owner's ruling of 2026-09-01 — the third and "
+                + "final — is that book copy is outlined type straight on the artwork."));
 
-        // Eight spreads and the intro.
-        Assert.Equal(9, washed.Count);
+        // And the JSON a gate actually opens says so too: the block is omitted, not emitted null.
+        Assert.DoesNotContain("wash", reading.Receipts.ToJson(), StringComparison.Ordinal);
 
-        foreach (var page in washed)
+        // The eight story spreads and the intro: Georgian in the cream the outline stack fills
+        // with, English under it in the same cream held back.
+        foreach (var page in reading.Receipts.Pages
+            .Where(page => page.Role == "intro" || page.Role.StartsWith("spread-")))
         {
-            var wash = page.Wash!;
+            Assert.NotEmpty(page.Typography);
 
-            Assert.Equal("#F2FFF8EB", wash.Ink);
-            Assert.Equal(7d, wash.PaddingMm, 2);
-
-            Assert.True(wash.FoldClearanceMm >= 10d,
-                $"{page.Role}: the wash comes within {wash.FoldClearanceMm:F1} mm of the fold.");
-            Assert.True(wash.TrimClearanceMm >= 12d,
-                $"{page.Role}: the wash comes within {wash.TrimClearanceMm:F1} mm of the trim.");
-
-            // Local to one leaf, and copy-sized rather than a half-page mask: the fixture's spreads
-            // are one short sentence each.
-            var fold = SpreadWidthMm / 2d;
-            if (wash.PageSide == "left")
-            {
-                Assert.True(wash.XMm + wash.WidthMm <= fold);
-            }
-            else
-            {
-                Assert.True(wash.XMm >= fold);
-            }
-
-            Assert.True(wash.HeightMm < PageHeightMm / 2d,
-                $"{page.Role}: the wash is {wash.HeightMm:F1} mm tall — that is a panel, not a box "
-                + "around the copy.");
-
-            // A story wash lives in the third of the spread the illustrator was told to leave
-            // quiet; the intro's has the whole left leaf's text area, which is the layout the
-            // approved intro proof has.
-            var widest = page.Role == "intro" ? SpreadWidthMm / 2d : SpreadWidthMm / 3d;
-            Assert.True(wash.WidthMm <= widest,
-                $"{page.Role}: the wash is {wash.WidthMm:F1} mm wide, past the {widest:F1} mm its "
-                + "column allows.");
-        }
-
-        // Both leaves are used: the text-side rhythm alternates, so the washes must too.
-        Assert.Contains(washed, page => page.Wash!.PageSide == "left");
-        Assert.Contains(washed, page => page.Wash!.PageSide == "right");
-    }
-
-    /// <summary>
-    /// Dark ink on the cream, light cream on the dark — audit P0-07's colour rule, read off the
-    /// receipts rather than guessed at.
-    /// </summary>
-    [Fact]
-    public void The_copy_is_dark_on_its_wash_and_the_credits_stay_light_on_the_ground()
-    {
-        var reading = ComposeReading();
-
-        foreach (var page in reading.Receipts.Pages.Where(page => page.Wash is not null))
-        {
             Assert.All(page.Typography, type =>
-                Assert.Contains("241A33", type.Colour, StringComparison.OrdinalIgnoreCase));
+                Assert.True(
+                    type.Colour is "#FFF8EB" or "#D9FFF8EB",
+                    $"{page.Role}/{type.Role} is set in {type.Colour}; the book's copy is cream "
+                    + "#FFF8EB, quieted to #D9FFF8EB for the second language."));
+
+            Assert.Contains(page.Typography, type => type.Colour == "#FFF8EB");
         }
 
+        // The credits page is unchanged by the ruling: it never had a wash, because its ground is
+        // the book's own purple and plain light type on a flat colour needs no rim.
         var credits = reading.Receipts.Pages.Single(page => page.Role == "credits");
         Assert.Null(credits.Wash);
         Assert.All(credits.Typography, type => Assert.Equal("#FFF8EB", type.Colour));
     }
 
     /// <summary>
-    /// And the wash is really drawn, in cream, under the copy — not merely recorded.
+    /// And on the page itself there is no box: the copy's own column is artwork with cream glyphs
+    /// on it, not a cream rectangle with words in it.
     ///
-    /// Rendered and sampled at the millimetres the receipt claims, which is the only way a receipt
-    /// is evidence of anything: the wash's own centre must be cream, and a point beyond its right
-    /// edge, on the same row, must not be.
+    /// Measured as a proportion, which is the only honest way to ask this of a rendering. A wash
+    /// fills its column — the fixture's is 12% of a 440 mm spread, and nearly every pixel of it
+    /// would read cream. Type covers a small fraction of the box that holds it, so a column of
+    /// outlined type is mostly the picture underneath. The fixture's artwork is flat green, so
+    /// "cream" is unambiguous.
     /// </summary>
     [Fact]
-    public void The_recorded_wash_is_the_one_that_was_drawn()
+    public void The_copy_sits_straight_on_the_artwork_with_no_box_behind_it()
     {
         var reading = ComposeReading();
         var pages = RenderReading();
 
         var spread = reading.Receipts.Pages.First(page => page.Role.StartsWith("spread-"));
-        var wash = spread.Wash!;
 
         using var image = Image.Load<Rgba32>(pages[spread.Page - 1]);
         var pxPerMm = image.Width / SpreadWidthMm;
 
-        var inside = image[
-            (int)((wash.XMm + (wash.WidthMm / 2)) * pxPerMm),
-            (int)((wash.YMm + 2) * pxPerMm)];
+        // Spread 1's copy is on the left leaf, upper-left, inside the safe margin: the band below
+        // covers the column the words are set in with room to spare.
+        var left = (int)(12 * pxPerMm);
+        var right = (int)(150 * pxPerMm);
+        var top = (int)(12 * pxPerMm);
+        var bottom = (int)(70 * pxPerMm);
 
-        var beyond = image[
-            (int)((wash.XMm + wash.WidthMm + 8) * pxPerMm),
-            (int)((wash.YMm + 2) * pxPerMm)];
+        var cream = 0;
+        var total = 0;
 
-        Assert.True(inside.R > 200 && inside.G > 195 && inside.B > 170 && inside.B < inside.R,
-            $"the wash's own middle is #{inside.R:X2}{inside.G:X2}{inside.B:X2}, not cream.");
-        Assert.False(beyond.R > 200 && beyond.G > 195 && beyond.B > 170,
-            "the cream reaches well past the wash the receipt records — it is not copy-sized.");
+        for (var y = top; y < bottom; y++)
+        {
+            for (var x = left; x < right; x++)
+            {
+                total++;
+                if (IsCream(image[x, y])) cream++;
+            }
+        }
+
+        Assert.True(total > 0);
+        Assert.True(cream > 0, "no cream was found in the copy's column — the type is not there.");
+
+        var share = (double)cream / total;
+        Assert.True(share < 0.25,
+            $"{share:P0} of the copy's column is cream. A column of type is mostly the picture "
+            + "underneath; a quarter of it or more is a box behind the words, and the owner's "
+            + "ruling of 2026-09-01 — the third and final — is that there is no box.");
     }
+
+    private static bool IsCream(Rgba32 pixel)
+        => pixel.R > 200 && pixel.G > 195 && pixel.B > 170 && pixel.B < pixel.R;
 
     // ==============================================================================================
     // Receipts — A4 / D7
@@ -418,15 +401,17 @@ public class BekiReaderExportTests
     }
 
     /// <summary>
-    /// A wash that would cross the fold stops the book rather than printing.
+    /// A copy column that would cross the fold stops the book rather than printing.
     ///
     /// Story Spread 4 of the rejected release carried "a large raster rectangle crossing the fold",
-    /// and nothing in the pipeline was in a position to see it. Provoked here by widening the text
-    /// column until its wash reaches the centre — the one geometry change that can produce the
+    /// and nothing in the pipeline was in a position to see it. The rectangle is gone with the wash
+    /// (owner ruling 2026-09-01, third and final) and the rule is not: words that run into the
+    /// gutter are unreadable whether or not there is a box behind them. Provoked here by widening
+    /// the text column until it reaches the centre — the one geometry change that can produce the
     /// defect from inside the layout.
     /// </summary>
     [Fact]
-    public void A_wash_that_would_reach_the_fold_stops_the_book()
+    public void A_copy_column_that_would_reach_the_fold_stops_the_book()
     {
         var layout = ReadingLayout();
         layout.TextColumnShare = 0.7f;
@@ -452,6 +437,13 @@ public class BekiReaderExportTests
     /// composer's own beliefs: fourteen pages, the exact trim boxes, a CropBox on every page, no
     /// output intent or PDF/X claim, every raster in a screen colour space, `/Lang ka-GE`, and a
     /// linearized file — all read back out of the bytes after Ghostscript has rewritten them.
+    ///
+    /// And, since pack 597344af, one more: every ICC profile the finished file points at is a
+    /// profile a strict viewer can read. That book passed every gate there was and opened in Chrome
+    /// as fourteen pages of flat colour, because Ghostscript had written one of its two colour
+    /// spaces as `&lt;&lt;/N 3/Length 0&gt;&gt;` and nothing looked inside. The proof runs on the
+    /// real composed book here — the one whose covers and credits mark are the PNGs that carry the
+    /// profile the defect turns on.
     /// </summary>
     [Fact]
     public void The_reading_copy_passes_the_digital_preflight()
@@ -469,6 +461,15 @@ public class BekiReaderExportTests
         Assert.Equal(
             "ka-GE",
             report.RootElement.GetProperty("colour").GetProperty("document_language").GetString());
+
+        // Every colour space carries a profile, and Poppler renders the book without a word about
+        // any of them. The second half is what would have caught the shipped book: its renderer is
+        // forgiving enough to draw the pages anyway, and the complaint was only ever on stderr.
+        Assert.Empty(BekiDigitalPrep.IccProfileProblems(prepared));
+        Assert.DoesNotContain(
+            "/N 3/Length 0", Encoding.Latin1.GetString(prepared), StringComparison.Ordinal);
+
+        Poppler.AssertRendersCleanly(prepared);
     }
 
     // ==============================================================================================

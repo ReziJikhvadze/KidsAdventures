@@ -50,7 +50,36 @@ public class ParentFacingFailureTests
         codes.Add(GenerationBudget.ExceededCode);
         codes.Add(GenerationBudget.StalledCode);
         codes.Add("GENERATION_TIMED_OUT");
+
+        // The asset lock's own code, which is written by a stage that runs BEFORE any model call and
+        // was the one code with no mapping at all — it fell through to the generic arm.
+        codes.Add(BekiAssetLock.FailureCode);
         return codes;
+    }
+
+    /// <summary>
+    /// <c>ASSET_LOCK_FAILED</c> is a production fault in OUR materials, and the parent is told so —
+    /// not that their child's book failed a quality check it never reached.
+    ///
+    /// The lock runs before a single image is paid for: nothing about this book was ever drawn, let
+    /// alone refused. Reading the generic arm's "the drawing did not pass our own check" would tell a
+    /// family something untrue about their own book, which is the whole class of fault this mapping
+    /// exists to prevent.
+    /// </summary>
+    [Fact]
+    public void The_asset_lock_is_a_production_fault_rather_than_a_refused_drawing()
+    {
+        var locked = ParentFacingFailure.ToParentMessage(
+            $"{BekiAssetLock.FailureCode}: the licensed Noto face does not match its locked hash.");
+
+        Assert.Equal(
+            ParentFacingFailure.ToParentMessage(CompositeFailureCodes.LayoutFailed), locked);
+
+        Assert.NotEqual(
+            ParentFacingFailure.ToParentMessage(CompositeFailureCodes.ImageQaFailed), locked);
+
+        // And it no longer falls through to the arm that catches codes nobody has mapped.
+        Assert.NotEqual(ParentFacingFailure.ToParentMessage("SOME_UNMAPPED_CODE"), locked);
     }
 
     [Theory]
@@ -376,6 +405,19 @@ public class LegacyGenerationFailureTests
         public Task<bool> TryClaimPreviewIllustrationGenerationAsync(Guid id, int staleAfterMinutes, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task TouchPreviewIllustrationHeartbeatAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> UpdateGeneratedJsonAsync(Guid id, string generatedJson, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        // B5's discriminator and B7's withheld sweep. Neither is this double's subject: the pipeline
+        // stamp is recorded so a test can read it back, and no test here asks for withheld books.
+        public string? StampedPipeline { get; private set; }
+
+        public Task SetGenerationPipelineAsync(Guid id, string pipeline, CancellationToken cancellationToken)
+        {
+            StampedPipeline = pipeline;
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<AdventurePack>> ListWithheldBekiPacksAsync(int limit, BekiWithheldCursor? after, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<AdventurePack>>([]);
     }
 
     private sealed class CountingNotifier : IAdminNotifier
@@ -520,6 +562,82 @@ public class OrderFailureVisibilityTests
 
         Assert.True(status.BookReady);
         Assert.False(status.BookFailed);
+    }
+
+    // -- two pipelines, two finishing lines (amendment B5) ------------------
+
+    /// <summary>
+    /// A legacy book stops at StoryReady, and always has: on that path the words and the pictures
+    /// arrive together, so a book with a story is a book to read.
+    /// </summary>
+    [Fact]
+    public async Task A_legacy_book_is_ready_at_story_ready_exactly_as_it_always_was()
+    {
+        var world = new OrderWorld(AdventurePackStatus.StoryReady, OrderStatus.Fulfilled, fulfilled: true);
+        world.Book.GenerationPipeline = GenerationPipelines.Legacy;
+
+        var status = await world.Service().GetStatusAsync(
+            world.Order.UserId, world.Order.Id, CancellationToken.None);
+
+        Assert.True(status.BookReady);
+    }
+
+    /// <summary>
+    /// A Beki book at StoryReady has the words and none of the pictures — the eight spreads are what
+    /// the twenty-minute job is for.
+    ///
+    /// Reporting it ready is what sent a paying parent to a reader full of empty pages seconds after
+    /// they paid, and then to a dashboard that showed the book as finished and stopped polling it.
+    /// The correction needed a fact nobody had, which is what the pipeline column is.
+    /// </summary>
+    [Fact]
+    public async Task A_beki_book_is_not_ready_until_it_is_completed()
+    {
+        var world = new OrderWorld(AdventurePackStatus.StoryReady, OrderStatus.Fulfilled, fulfilled: true);
+        world.Book.GenerationPipeline = GenerationPipelines.Beki;
+        world.Book.ProgressMessage = "იხატება მე-2 გვერდი…";
+
+        var status = await world.Service().GetStatusAsync(
+            world.Order.UserId, world.Order.Id, CancellationToken.None);
+
+        Assert.False(status.BookReady);
+        Assert.False(status.BookFailed);
+
+        // And the screen keeps its real line, so the wait is a wait rather than a blank.
+        Assert.Equal("იხატება მე-2 გვერდი…", status.ProgressMessage);
+    }
+
+    /// <summary>The same book, finished, is ready — the finishing line moved, it did not vanish.</summary>
+    [Fact]
+    public async Task A_completed_beki_book_is_ready()
+    {
+        var world = new OrderWorld(AdventurePackStatus.Completed, OrderStatus.Fulfilled, fulfilled: true);
+        world.Book.GenerationPipeline = GenerationPipelines.Beki;
+
+        var status = await world.Service().GetStatusAsync(
+            world.Order.UserId, world.Order.Id, CancellationToken.None);
+
+        Assert.True(status.BookReady);
+    }
+
+    /// <summary>
+    /// A Completed Beki book whose download is withheld is still READY.
+    ///
+    /// The reader is the spreads and they are stored; what waits is the file the family can keep.
+    /// Reporting the book as unready because a gate is holding a PDF would put the parent back on a
+    /// spinner for a book they can already read — the same mistake in the other direction.
+    /// </summary>
+    [Fact]
+    public async Task A_completed_beki_book_with_a_withheld_download_is_still_ready()
+    {
+        var world = new OrderWorld(AdventurePackStatus.Completed, OrderStatus.Fulfilled, fulfilled: true);
+        world.Book.GenerationPipeline = GenerationPipelines.Beki;
+        world.Book.PdfUrl = null;
+
+        var status = await world.Service().GetStatusAsync(
+            world.Order.UserId, world.Order.Id, CancellationToken.None);
+
+        Assert.True(status.BookReady);
     }
 
     // -- the retry --------------------------------------------------------
@@ -787,6 +905,19 @@ public class OrderFailureVisibilityTests
         public Task<bool> TryClaimPreviewIllustrationGenerationAsync(Guid id, int staleAfterMinutes, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task TouchPreviewIllustrationHeartbeatAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> UpdateGeneratedJsonAsync(Guid id, string generatedJson, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        // B5's discriminator and B7's withheld sweep. Neither is this double's subject: the pipeline
+        // stamp is recorded so a test can read it back, and no test here asks for withheld books.
+        public string? StampedPipeline { get; private set; }
+
+        public Task SetGenerationPipelineAsync(Guid id, string pipeline, CancellationToken cancellationToken)
+        {
+            StampedPipeline = pipeline;
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<AdventurePack>> ListWithheldBekiPacksAsync(int limit, BekiWithheldCursor? after, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<AdventurePack>>([]);
     }
 
     private sealed class ThrowingPromoCodes : IPromoCodeService

@@ -6,7 +6,15 @@ import * as admin from "@/lib/api/admin";
 import { BRAND_NAME } from "@/lib/brand";
 import { buildPageMeta } from "@/lib/seo";
 
+type OrdersSearch = { q?: string };
+
 export const Route = createFileRoute("/admin/orders")({
+  // Declared rather than read off window.location, which is where it used to come from. The
+  // alert emails deep-link here with ?q={orderId} and so, now, does the alarms list — and a
+  // link inside the console has to be a real route link, not a page reload.
+  validateSearch: (search: Record<string, unknown>): OrdersSearch => ({
+    q: typeof search.q === "string" && search.q.length > 0 ? search.q : undefined,
+  }),
   head: () => {
     const { meta, links } = buildPageMeta({
       title: `შეკვეთები — ${BRAND_NAME} Admin`,
@@ -23,28 +31,40 @@ const STATUSES = ["Pending", "Paid", "Fulfilled", "Failed", "Cancelled"];
 const PAGE_SIZE = 25;
 
 function OrdersPage() {
-  // The alert emails deep-link here with ?q={orderId}, so seed the filter from it.
-  const initialSearch =
-    typeof window === "undefined"
-      ? ""
-      : (new URLSearchParams(window.location.search).get("q") ?? "");
+  const { q } = Route.useSearch();
 
-  const [search, setSearch] = useState(initialSearch);
+  const [search, setSearch] = useState(q ?? "");
   const [status, setStatus] = useState("");
   const [onlyUnfulfilled, setOnlyUnfulfilled] = useState(false);
+  // The wider filter, and the one that should normally be on: alarms, failed books, withheld
+  // files and money with nothing delivered. Every row it selects is a family waiting on somebody
+  // here to notice.
+  const [onlyAttention, setOnlyAttention] = useState(false);
   const [page, setPage] = useState(1);
   const [openId, setOpenId] = useState<string | null>(null);
+
+  // A link from the alarms list arrives with a new ?q while this component is already mounted.
+  useEffect(() => {
+    if (q) {
+      setSearch(q);
+      setPage(1);
+    }
+  }, [q]);
 
   const { data, error, busy, reload } = useAdminData(
     () =>
       admin.listOrders({
         status: status || undefined,
         search: search || undefined,
-        flag: onlyUnfulfilled ? admin.PAID_UNFULFILLED : undefined,
+        flag: onlyAttention
+          ? admin.NEEDS_ATTENTION
+          : onlyUnfulfilled
+            ? admin.PAID_UNFULFILLED
+            : undefined,
         page,
         pageSize: PAGE_SIZE,
       }),
-    [status, search, onlyUnfulfilled, page],
+    [status, search, onlyUnfulfilled, onlyAttention, page],
   );
 
   const lastPage = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE));
@@ -79,6 +99,23 @@ function OrdersPage() {
             ))}
           </select>
           {/*
+            Everything with something wrong with it. The narrower filter beside it still exists —
+            "paid and nothing delivered" is a specific question people ask — but this is the one
+            that answers "is anybody waiting on me", which is what the screen is opened for.
+          */}
+          <button
+            type="button"
+            className={`button ${onlyAttention ? "" : "button-secondary"}`}
+            aria-pressed={onlyAttention}
+            onClick={() => {
+              setOnlyAttention((on) => !on);
+              setOnlyUnfulfilled(false);
+              setPage(1);
+            }}
+          >
+            საჭიროებს ყურადღებას
+          </button>
+          {/*
             The one row that should ever interrupt someone: paid, and nothing delivered.
             It used to be a count on an overview page, where it could be read and not acted on.
           */}
@@ -88,6 +125,7 @@ function OrdersPage() {
             aria-pressed={onlyUnfulfilled}
             onClick={() => {
               setOnlyUnfulfilled((on) => !on);
+              setOnlyAttention(false);
               setPage(1);
             }}
           >
@@ -188,8 +226,9 @@ function OrderRows({
           {order.bookTitle || "—"}
           <span className="cell-subtitle">
             {order.lastReadAt ? "წაკითხულია" : "ჯერ არ გაუხსნია"}
-            {order.hasPdf ? " · PDF მზადაა" : ""}
+            {pdfSubtitle(order)}
           </span>
+          <AttentionChips order={order} />
         </td>
         <td>
           {order.package}
@@ -216,6 +255,65 @@ function OrderRows({
         </tr>
       ) : null}
     </>
+  );
+}
+
+/**
+ * Which of the two files exists, said in the row.
+ *
+ * One combined "PDF მზადაა" stood here, and it was true of a book whose press interior had been
+ * written while the reading copy was still withheld — so the row told an operator the file was
+ * ready to a customer who could download nothing.
+ */
+function pdfSubtitle(order: admin.AdminOrderRow): string {
+  if (order.hasReadingPdf && order.hasPrintPdf) return " · PDF: საკითხავი და საბეჭდი";
+  if (order.hasReadingPdf) return " · PDF: საკითხავი";
+  if (order.hasPrintPdf) return " · PDF: მხოლოდ საბეჭდი";
+  return "";
+}
+
+/**
+ * What is wrong with this order, visible without expanding it.
+ *
+ * The gate chip has always existed and has always been inside the expanded panel, which means
+ * finding a book in trouble required opening every row in turn — so nobody did, and withheld
+ * books sat unnoticed for as long as it took a parent to complain. These are the three facts
+ * SQL can answer for a whole page at once: an unreviewed alarm, a failed book, and a finished
+ * book whose file was never published. Which KIND of withhold that last one is takes reading the
+ * stored verdict, and that is what opening the row is for.
+ */
+function AttentionChips({ order }: { order: admin.AdminOrderRow }) {
+  const failed = order.bookStatus === "Failed";
+  if (!order.needsAttention && !failed) return null;
+
+  const unfulfilled = order.status === "Paid" && !order.fulfilledAt;
+
+  return (
+    <span className="attention-chips">
+      {order.openAlarmCount > 0 ? (
+        <span className="attention-chip is-alarm" title="განუხილავი შეტყობინებები ამ წიგნზე">
+          {order.openAlarmCount} შეტყობინება
+        </span>
+      ) : null}
+      {failed ? (
+        <span className="attention-chip is-failed" title="წიგნი ვერ შეიქმნა">
+          ვერ შეიქმნა
+        </span>
+      ) : null}
+      {order.withheld ? (
+        <span
+          className="attention-chip is-review"
+          title="წიგნი დასრულებულია, ფაილი კი შეჩერებული — გახსენი მწკრივი, რომ ნახო რატომ"
+        >
+          შეჩერებული ფაილი
+        </span>
+      ) : null}
+      {unfulfilled ? (
+        <span className="attention-chip is-alarm" title="გადახდილია, წიგნი არ მიუღიათ">
+          შეუსრულებელი
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -378,6 +476,35 @@ function OrderDetail({ orderId, onChanged }: { orderId: string; onChanged: () =>
                     : "ჯერ არ დაგენერირებულა"
                 }
               />
+              {/*
+                Why the file is not with the family, in the two words that decide what to do next.
+                A pending review has a button under this panel; failing gates have a package to
+                open. Read from the order detail rather than the gates request beside it, so the
+                answer still appears when the stored verdict cannot be fetched.
+              */}
+              {order.withheld ? (
+                <Field
+                  label="გამოშვება"
+                  value={
+                    detail.awaitingReview
+                      ? "შეჩერებულია — ელოდება ვიზუალურ შემოწმებას"
+                      : detail.failingGateCount > 0
+                        ? `შეჩერებულია — ${detail.failingGateCount} გეითი ვერ გავიდა`
+                        : "შეჩერებულია — მიზეზი ჩანაწერში არ არის"
+                  }
+                />
+              ) : null}
+              {/*
+                The substitution the print queue makes silently. An operator sending this to a
+                binder is sending a book whose pages do not divide by four, and the only place
+                that was ever said was the download's filename.
+              */}
+              {order.package === "Print" && !book.hasPrintPdf && book.hasReadingPdf ? (
+                <Field
+                  label="საბეჭდი ფაილი"
+                  value="არ არსებობს — ჩამოიტვირთება საკითხავი ასლი, რომელიც ბეჭდვისთვის არ არის მომზადებული"
+                />
+              ) : null}
               {book.errorMessage ? <Field label="შეცდომა" value={book.errorMessage} /> : null}
             </>
           ) : (

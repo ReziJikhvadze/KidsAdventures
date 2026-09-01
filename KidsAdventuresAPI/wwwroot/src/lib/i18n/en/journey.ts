@@ -284,6 +284,14 @@ export const journey = {
       "Bringing the illustrations to life",
       "Binding seven pages into one book",
     ],
+    statusLine: {
+      Pending: "Order received — starting",
+      Generating: "Writing the story",
+      GeneratingStory: "Writing the story",
+      StoryReady: "Painting the illustrations",
+      GeneratingPdf: "Binding the book",
+      Completed: "The book is ready",
+    } as Record<string, string>,
   },
 
   generated: {

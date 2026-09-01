@@ -12,7 +12,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         StoryPageCount, IsWelcomeGiftStory, CreatedAt,
         SeriesId, SequenceNumber, ContinuesFromBookId, AccessLevel, WorldId,
         PrimaryCharacterId, Title, CoverImageUrl, HasPrintEntitlement, LastReadAt,
-        GenerationHeartbeatUtc
+        GenerationHeartbeatUtc, GenerationPipeline
         """;
 
     /// <summary>
@@ -32,7 +32,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         StoryPageCount, IsWelcomeGiftStory, CreatedAt,
         SeriesId, SequenceNumber, ContinuesFromBookId, AccessLevel, WorldId,
         PrimaryCharacterId, Title, CoverImageUrl, HasPrintEntitlement, LastReadAt,
-        GenerationHeartbeatUtc
+        GenerationHeartbeatUtc, GenerationPipeline
         """;
 
     public async Task<Guid> CreatePendingAsync(AdventurePack pack, CancellationToken cancellationToken)
@@ -43,13 +43,13 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
                                OptionalStoryNotes, StoryLanguage, ProgressMessage, ProgressPercent, PdfCreditCharged,
                                PreviewIllustrationUrl, PreviewIllustrationStatus, StoryPageCount, IsWelcomeGiftStory, CreatedAt,
                                SeriesId, SequenceNumber, ContinuesFromBookId, AccessLevel, WorldId,
-                               PrimaryCharacterId, Title, CoverImageUrl, HasPrintEntitlement)
+                               PrimaryCharacterId, Title, CoverImageUrl, HasPrintEntitlement, GenerationPipeline)
                            VALUES (
                                @Id, @UserId, @ChildId, @Theme, @Status, @GeneratedJson, @PdfUrl, @PrintPdfUrl, @ErrorMessage,
                                @OptionalStoryNotes, @StoryLanguage, @ProgressMessage, @ProgressPercent, @PdfCreditCharged,
                                @PreviewIllustrationUrl, @PreviewIllustrationStatus, @StoryPageCount, @IsWelcomeGiftStory, @CreatedAt,
                                @SeriesId, @SequenceNumber, @ContinuesFromBookId, @AccessLevel, @WorldId,
-                               @PrimaryCharacterId, @Title, @CoverImageUrl, @HasPrintEntitlement);
+                               @PrimaryCharacterId, @Title, @CoverImageUrl, @HasPrintEntitlement, @GenerationPipeline);
                            """;
         pack.Id = pack.Id == Guid.Empty ? Guid.NewGuid() : pack.Id;
 
@@ -83,7 +83,8 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
             pack.PrimaryCharacterId,
             pack.Title,
             pack.CoverImageUrl,
-            pack.HasPrintEntitlement
+            pack.HasPrintEntitlement,
+            GenerationPipeline = GenerationPipelines.Normalize(pack.GenerationPipeline)
         }, cancellationToken: cancellationToken));
         return pack.Id;
     }
@@ -657,6 +658,92 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         }, cancellationToken: cancellationToken));
     }
 
+    /// <summary>
+    /// Stamps which pipeline is drawing this book — amendment B5.
+    ///
+    /// A write of its own rather than a parameter on the status write, because the two happen at
+    /// different moments: the pipeline is chosen when the order is fulfilled and the pack is created
+    /// or re-driven, and the status moves several times after that. Folding it into
+    /// <see cref="UpdateStatusAsync"/> would mean every later status write had to know the answer
+    /// and would silently overwrite it with a guess if it did not.
+    ///
+    /// Unconditional on purpose: the caller is the code that has just decided, and a re-drive that
+    /// chooses differently — the Beki flag turned off between attempts — must be able to say so.
+    /// </summary>
+    public async Task SetGenerationPipelineAsync(
+        Guid id, string pipeline, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE AdventurePacks
+                           SET GenerationPipeline = @GenerationPipeline
+                           WHERE Id = @Id;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new { Id = id, GenerationPipeline = GenerationPipelines.Normalize(pipeline) },
+            cancellationToken: cancellationToken));
+    }
+
+    /// <summary>
+    /// The finished Beki books with a deliverable still withheld — the set amendment B7's
+    /// reconciliation re-judges when a check moves from blocker to flag.
+    ///
+    /// Completed with a missing URL is exactly the withheld state: the reader is serving the spreads,
+    /// the library card is there, and what is being held is a FILE. A legacy book cannot be in this
+    /// state for this reason — it has no gates — so the pipeline column is part of the predicate
+    /// rather than a filter applied afterwards.
+    ///
+    /// BOTH columns, and it used to be PdfUrl alone. That asked only the parent's half of a
+    /// question amendment A5 had already split in two: a book whose reading copy published and whose
+    /// press interior was withheld by PRESS_RESOLUTION was not in this set at all, so loosening a
+    /// press gate — the one direction an operator flips it for — released nothing that already
+    /// existed. The reconciliation publishes per class and has always been able to write either
+    /// column; this is what lets it be asked. (Review finding 2.)
+    ///
+    /// GeneratedJson comes along, because publishing writes it back through the compare-and-set that
+    /// carries the whole row.
+    /// </summary>
+    public async Task<IReadOnlyList<AdventurePack>> ListWithheldBekiPacksAsync(
+        int limit, BekiWithheldCursor? after, CancellationToken cancellationToken)
+    {
+        /*
+          Keyset pagination on (CreatedAt, Id), so a scan can walk past the first batch.
+
+          An OFFSET would not survive this set: publishing a book is precisely what removes it from
+          the predicate, so page two addressed by offset would skip as many rows as page one fixed.
+          The cursor names the last row actually read instead, and the tie-break on Id keeps two
+          books created in the same millisecond from being skipped or repeated.
+        */
+        var sql = $"""
+                   SELECT TOP (@Limit) {PackColumns}
+                   FROM AdventurePacks
+                   WHERE GenerationPipeline = @Beki
+                     AND Status = @Completed
+                     AND ((PdfUrl IS NULL OR LEN(LTRIM(RTRIM(PdfUrl))) = 0)
+                          OR (PrintPdfUrl IS NULL OR LEN(LTRIM(RTRIM(PrintPdfUrl))) = 0))
+                     AND (@AfterCreatedAt IS NULL
+                          OR CreatedAt < @AfterCreatedAt
+                          OR (CreatedAt = @AfterCreatedAt AND Id < @AfterId))
+                   ORDER BY CreatedAt DESC, Id DESC;
+                   """;
+
+        using var connection = connectionFactory.CreateConnection();
+        var rows = await connection.QueryAsync<AdventurePackRow>(new CommandDefinition(
+            sql,
+            new
+            {
+                Limit = limit,
+                Beki = GenerationPipelines.Beki,
+                Completed = AdventurePackStatus.Completed.ToString(),
+                AfterCreatedAt = after?.CreatedAtUtc,
+                AfterId = after?.PackId,
+            },
+            cancellationToken: cancellationToken));
+
+        return rows.Select(Map).ToList();
+    }
+
     public async Task<bool> UpdateGeneratedJsonAsync(Guid id, string generatedJson, CancellationToken cancellationToken)
     {
         const string sql = """
@@ -707,7 +794,8 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         CoverImageUrl = row.CoverImageUrl,
         HasPrintEntitlement = row.HasPrintEntitlement,
         LastReadAt = row.LastReadAt,
-        GenerationHeartbeatUtc = row.GenerationHeartbeatUtc
+        GenerationHeartbeatUtc = row.GenerationHeartbeatUtc,
+        GenerationPipeline = GenerationPipelines.Normalize(row.GenerationPipeline)
     };
 
     private sealed class AdventurePackRow
@@ -743,6 +831,7 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         public bool HasPrintEntitlement { get; set; }
         public DateTime? LastReadAt { get; set; }
         public DateTime? GenerationHeartbeatUtc { get; set; }
+        public string? GenerationPipeline { get; set; }
     }
 
     private sealed class StaleGenerationPackRow

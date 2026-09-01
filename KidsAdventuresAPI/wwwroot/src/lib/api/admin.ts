@@ -24,7 +24,15 @@ export type AdminOrderRow = {
   providerPaymentIntentId: string | null;
   bookStatus: string | null;
   lastReadAt: string | null;
-  hasPdf: boolean;
+  /** The two files, said separately: a combined flag called a withheld book "ready". */
+  hasReadingPdf: boolean;
+  hasPrintPdf: boolean;
+  /** Unreviewed alarms against this order's book — waived incidents nobody has looked at. */
+  openAlarmCount: number;
+  /** A finished book whose reading copy was never published. The detail response says why. */
+  withheld: boolean;
+  /** Alarms, a failed book, money with nothing delivered, or a withheld file. */
+  needsAttention: boolean;
   printStatus: string | null;
 };
 
@@ -80,6 +88,10 @@ export type AdminOrderDetail = {
   customer: AdminOrderCustomer;
   book: AdminOrderBook | null;
   shipment: AdminOrderShipment | null;
+  /** A person is being waited on: the render is fine and nobody has signed it off yet. */
+  awaitingReview: boolean;
+  /** How many gates this book fails. Zero beside awaitingReview is the good case. */
+  failingGateCount: number;
 };
 
 export type AdminCustomerRow = {
@@ -98,6 +110,9 @@ type Paged<T> = { total: number; page: number; pageSize: number; items: T[] };
 
 /** The one saved view: money taken with nothing delivered. */
 export const PAID_UNFULFILLED = "paid-unfulfilled";
+
+/** The wider one: alarms, failed books, withheld files and unfulfilled money, together. */
+export const NEEDS_ATTENTION = "needs-attention";
 
 function query(params: Record<string, string | number | boolean | undefined>): string {
   const search = new URLSearchParams();
@@ -227,6 +242,92 @@ export function approveVisualReview(
   return apiRequest<AdminReleaseGates>(`/api/admin/orders/${orderId}/approve-review`, {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+/**
+ * One check's severity, keyed by check AND deliverable class: the same render validation is a
+ * blocker on press files a printer will bill for and a flag on the PDF a parent reads tonight.
+ */
+export type AdminReleaseCheckSetting = {
+  checkId: string;
+  /** "all" is the wildcard — a check whose severity does not vary by artifact. */
+  deliverableClass: string;
+  /** "blocker" | "flag". */
+  severity: string;
+  /** True while nobody has changed it, so the table can say "as shipped". */
+  isDefault: boolean;
+  updatedBy: string | null;
+  updatedAtUtc: string | null;
+};
+
+export type AdminReleasePolicy = {
+  humanReviewRequired: boolean;
+  checks: AdminReleaseCheckSetting[];
+};
+
+/** What the change actually did — how many withheld books came out, not merely that it saved. */
+export type AdminReleasePolicyUpdate = {
+  setting: AdminReleaseCheckSetting;
+  publishedPacks: number;
+  humanReviewRequired: boolean;
+};
+
+export function getReleasePolicy(): Promise<AdminReleasePolicy> {
+  return apiRequest<AdminReleasePolicy>("/api/admin/release-policy");
+}
+
+export function setReleasePolicy(body: {
+  checkId: string;
+  deliverableClass?: string;
+  severity: string;
+}): Promise<AdminReleasePolicyUpdate> {
+  return apiRequest<AdminReleasePolicyUpdate>("/api/admin/release-policy", {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+/** Something the pipeline waived and shipped past rather than died on, waiting for a look. */
+export type AdminAlarm = {
+  id: string;
+  packId: string;
+  orderId: string | null;
+  userId: string;
+  checkId: string;
+  severity: string;
+  detail: string;
+  /** A storage key, not a link. Reached through the admin download routes. */
+  evidenceBlob: string | null;
+  createdAtUtc: string;
+  /** Updated rather than duplicated when the same incident recurs. */
+  lastSeenUtc: string;
+  reviewedBy: string | null;
+  reviewedAtUtc: string | null;
+  resolution: string | null;
+};
+
+/** `openCount` is counted independently of the page, so the header badge says how many exist. */
+export type AdminAlarmList = { openCount: number; items: AdminAlarm[] };
+
+export function listAlarms(
+  params: { open?: boolean; limit?: number } = {},
+): Promise<AdminAlarmList> {
+  return apiRequest<AdminAlarmList>(`/api/admin/alarms${query(params)}`);
+}
+
+/** The four words an alarm can be closed with — the same four the store's constraint accepts. */
+export const ALARM_RESOLUTIONS = ["acknowledged", "fixed", "wont_fix", "false_alarm"] as const;
+
+export type AlarmResolution = (typeof ALARM_RESOLUTIONS)[number];
+
+export function reviewAlarm(
+  id: string,
+  resolution: AlarmResolution,
+): Promise<{ id: string; reviewedBy: string }> {
+  return apiRequest<{ id: string; reviewedBy: string }>(`/api/admin/alarms/${id}/review`, {
+    method: "POST",
+    body: JSON.stringify({ resolution }),
   });
 }
 

@@ -1,5 +1,22 @@
 ﻿namespace AdventurePacks.Api.Domain.Entities;
 
+/// <summary>
+/// The two words <see cref="AdventurePack.GenerationPipeline"/> can hold, as constants rather than
+/// as literals scattered across a service, a repository, a controller and a migration.
+/// </summary>
+public static class GenerationPipelines
+{
+    /// <summary>The composite pipeline: spreads, a wrap cover, press files, release gates.</summary>
+    public const string Beki = "beki";
+
+    /// <summary>The per-page flow. The default, and what every pre-035 row says.</summary>
+    public const string Legacy = "legacy";
+
+    /// <summary>One of the two, whatever it is handed.</summary>
+    public static string Normalize(string? value) =>
+        string.Equals(value?.Trim(), Beki, StringComparison.OrdinalIgnoreCase) ? Beki : Legacy;
+}
+
 public sealed class AdventurePack
 {
     public Guid Id { get; set; }
@@ -77,6 +94,27 @@ public sealed class AdventurePack
     /// which is the only reason it can reach the books that are already stuck.
     /// </summary>
     public DateTime? GenerationHeartbeatUtc { get; set; }
+
+    /// <summary>
+    /// Which pipeline drew this book: <c>beki</c> or <c>legacy</c> — amendment B5's discriminator.
+    ///
+    /// Nothing on a book said this, and three separate decisions were guessing. The generating
+    /// screen counted StoryReady as a finished book, which is true of a legacy book and false of a
+    /// Beki one — a Beki book at StoryReady has words and no pictures, and the parent was navigated
+    /// to it. The download refusal answered with a legacy message. And the legacy auto-illustration
+    /// trigger would happily start drawing per-page art for a Beki pack that had merely been opened.
+    ///
+    /// Written in the same statement that creates or adopts the pack, by the code that has just
+    /// chosen the pipeline (BookFulfillmentService), so it is decided once by whoever knows rather
+    /// than re-derived by everybody who cares. <c>legacy</c> for every row written before the column
+    /// existed, which is both honest and safe: those books have always been judged by the legacy
+    /// rule.
+    /// </summary>
+    public string GenerationPipeline { get; set; } = GenerationPipelines.Legacy;
+
+    /// <summary>Whether the Beki composite pipeline made this book.</summary>
+    public bool IsBekiPipeline =>
+        string.Equals(GenerationPipeline, GenerationPipelines.Beki, StringComparison.OrdinalIgnoreCase);
 
     public bool IsFullyUnlocked => AccessLevel == BookAccessLevel.Full;
 }

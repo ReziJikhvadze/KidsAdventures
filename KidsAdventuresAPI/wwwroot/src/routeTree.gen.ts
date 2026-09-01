@@ -33,6 +33,7 @@ import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as BillingSuccessRouteImport } from './routes/billing/success'
 import { Route as BillingCancelRouteImport } from './routes/billing/cancel'
 import { Route as AuthMagicRouteImport } from './routes/auth.magic'
+import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
 import { Route as AdminAdminsRouteImport } from './routes/admin/admins'
 import { Route as BlogAuthorIdRouteImport } from './routes/blog/author/$id'
@@ -158,6 +159,11 @@ const AuthMagicRoute = AuthMagicRouteImport.update({
   path: '/auth/magic',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/admin/settings',
+  path: '/admin/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminOrdersRoute = AdminOrdersRouteImport.update({
   id: '/admin/orders',
   path: '/admin/orders',
@@ -191,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/world': typeof WorldRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/orders': typeof AdminOrdersRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/auth/magic': typeof AuthMagicRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
@@ -220,6 +227,7 @@ export interface FileRoutesByTo {
   '/world': typeof WorldRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/orders': typeof AdminOrdersRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/auth/magic': typeof AuthMagicRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
@@ -250,6 +258,7 @@ export interface FileRoutesById {
   '/world': typeof WorldRoute
   '/admin/admins': typeof AdminAdminsRoute
   '/admin/orders': typeof AdminOrdersRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/auth/magic': typeof AuthMagicRoute
   '/billing/cancel': typeof BillingCancelRoute
   '/billing/success': typeof BillingSuccessRoute
@@ -281,6 +290,7 @@ export interface FileRouteTypes {
     | '/world'
     | '/admin/admins'
     | '/admin/orders'
+    | '/admin/settings'
     | '/auth/magic'
     | '/billing/cancel'
     | '/billing/success'
@@ -310,6 +320,7 @@ export interface FileRouteTypes {
     | '/world'
     | '/admin/admins'
     | '/admin/orders'
+    | '/admin/settings'
     | '/auth/magic'
     | '/billing/cancel'
     | '/billing/success'
@@ -339,6 +350,7 @@ export interface FileRouteTypes {
     | '/world'
     | '/admin/admins'
     | '/admin/orders'
+    | '/admin/settings'
     | '/auth/magic'
     | '/billing/cancel'
     | '/billing/success'
@@ -369,6 +381,7 @@ export interface RootRouteChildren {
   WorldRoute: typeof WorldRoute
   AdminAdminsRoute: typeof AdminAdminsRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
   AuthMagicRoute: typeof AuthMagicRoute
   BillingCancelRoute: typeof BillingCancelRoute
   BillingSuccessRoute: typeof BillingSuccessRoute
@@ -552,6 +565,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthMagicRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/admin/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/orders': {
       id: '/admin/orders'
       path: '/admin/orders'
@@ -593,6 +613,7 @@ const rootRouteChildren: RootRouteChildren = {
   WorldRoute: WorldRoute,
   AdminAdminsRoute: AdminAdminsRoute,
   AdminOrdersRoute: AdminOrdersRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
   AuthMagicRoute: AuthMagicRoute,
   BillingCancelRoute: BillingCancelRoute,
   BillingSuccessRoute: BillingSuccessRoute,

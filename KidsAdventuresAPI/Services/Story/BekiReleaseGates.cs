@@ -24,7 +24,39 @@ public sealed record BekiGateResult(
     [property: JsonPropertyName("status")] string Status,
     [property: JsonPropertyName("class")] string Class,
     [property: JsonPropertyName("detail")] string Detail,
-    [property: JsonPropertyName("evidence")] IReadOnlyList<string> Evidence);
+    [property: JsonPropertyName("evidence")] IReadOnlyList<string> Evidence)
+{
+    /// <summary>
+    /// What the release policy did about this gate's failure, when it did anything —
+    /// <c>WAIVED_BY_POLICY</c> and nothing else.
+    ///
+    /// Amendment B2 is explicit about the shape: a waiver is a SEPARATE field beside the status,
+    /// never a replacement for it. A gate that says PASS because an operator decided a failure was
+    /// acceptable is a gate that lies to the supplier, to the next audit and to whoever reads
+    /// release-gates.json in six months. So <see cref="Status"/> stays FAIL, or NEEDS_HUMAN, or
+    /// UNKNOWN — exactly what the stored evidence supports — and this says what was done about it.
+    ///
+    /// Null on a passing gate and on a failing gate that withheld. See
+    /// <see cref="BekiReleaseGateReport.PolicyWaivers"/> for the per-class detail: this field is the
+    /// summary a person reading one gate entry needs, and the list below is what the publish
+    /// decisions actually read.
+    /// </summary>
+    [property: JsonPropertyName("disposition")]
+    public string? Disposition { get; init; }
+}
+
+/// <summary>
+/// One failing check the policy let through, for one deliverable.
+///
+/// Per (check, class) rather than per check, because amendment B2's whole point is that the same
+/// RENDER_VALIDATION failure is a blocker about the printer's file and a flag about the reading
+/// copy. One entry here is one publication decision that went the other way, and one alarm.
+/// </summary>
+public sealed record BekiGateWaiver(
+    [property: JsonPropertyName("check_id")] string CheckId,
+    [property: JsonPropertyName("class")] string DeliverableClass,
+    [property: JsonPropertyName("status")] string Status,
+    [property: JsonPropertyName("detail")] string Detail);
 
 /// <summary>
 /// What render validation said about ONE stored final, and which deliverable that final is.
@@ -103,42 +135,106 @@ public sealed record BekiReleaseGateReport
     [JsonPropertyName("artifact_evidence")]
     public IReadOnlyList<BekiArtifactEvidence> ArtifactEvidence { get; init; } = [];
 
+    /// <summary>
+    /// Every failing check the release policy let through, and for which deliverable —
+    /// amendment B4's alarm list, and amendment B2's per-class record.
+    ///
+    /// Stored in the document rather than recomputed, so that the two property families below stay
+    /// pure functions of what is written down. A report read back by an admin endpoint months later
+    /// answers the same way it answered when it was written, under the policy that was in force
+    /// then, which is what makes "why was this published?" a question with an answer.
+    ///
+    /// Empty on a report written before the policy existed, which is the correct reading of one:
+    /// nothing was waived, so the raw and the parent answers coincide, exactly as they did.
+    /// </summary>
+    [JsonPropertyName("policy_waivers")]
+    public IReadOnlyList<BekiGateWaiver> PolicyWaivers { get; init; } = [];
+
     [JsonIgnore]
     public bool IsReleasable => Verdict == BekiReleaseGates.Releasable;
 
     /// <summary>
-    /// Whether the parent's download may be published — amendment A5's file-level rule: the customer
-    /// PDF withholds on any failing shared, digital or human gate, and press trouble never touches it.
+    /// THE SUPPLIER'S ANSWER for the reading copy: policy-blind, and the one the handback speaks in.
+    ///
+    /// Amendment B1's truth split. The parent's publication and the supplier's release used to be
+    /// one boolean, so making a book shippable to a family under a flagged policy would also have
+    /// made it shippable to the printer — and BekiPackageExport would have filed a failing PDF at
+    /// the root of the handback zip as a deliverable. These two properties are what the package and
+    /// the RELEASE_STATUS verdict read, and no policy touches them.
     /// </summary>
     [JsonIgnore]
-    public bool CustomerPdfMayPublish => MayPublish(BekiReleaseGates.DigitalClass);
+    public bool SupplierCustomerPdfReleasable => MayPublish(BekiReleaseGates.DigitalClass, false);
+
+    /// <summary>The same, raw, for the printer's two files.</summary>
+    [JsonIgnore]
+    public bool SupplierPressReleasable => MayPublish(BekiReleaseGates.PressClass, false);
+
+    /// <summary>
+    /// Whether the parent's download may be published — amendment A5's file-level rule as the
+    /// release policy amends it: the customer PDF withholds on a failing shared, digital or human
+    /// gate that the policy calls a BLOCKER, and press trouble never touches it.
+    ///
+    /// A gate the policy flagged is recorded in <see cref="PolicyWaivers"/>, alarmed, and does not
+    /// withhold. It is never recorded as a pass.
+    /// </summary>
+    [JsonIgnore]
+    public bool CustomerPdfMayPublish => MayPublish(BekiReleaseGates.DigitalClass, true);
 
     /// <summary>The same for the printer's two files: shared plus press, human review included.</summary>
     [JsonIgnore]
-    public bool PressFilesMayPublish => MayPublish(BekiReleaseGates.PressClass);
+    public bool PressFilesMayPublish => MayPublish(BekiReleaseGates.PressClass, true);
+
+    /// <summary>Whether the policy waived this check for this deliverable when the book was judged.</summary>
+    public bool IsWaived(string checkId, string deliverableClass) =>
+        PolicyWaivers.Any(waiver =>
+            string.Equals(waiver.CheckId, checkId, StringComparison.Ordinal)
+            && string.Equals(waiver.DeliverableClass, deliverableClass, StringComparison.Ordinal));
 
     /// <summary>
     /// One deliverable class's answer: its own gates, the shared ones, and — for the two gates whose
     /// evidence spans artifacts — only the slice belonging to this class.
     ///
-    /// The slice is the correction. Reading RENDER_VALIDATION's aggregate status here would do one
-    /// of two wrong things: leave the customer PDF unguarded by it (which is what happened, because
-    /// the gate is classed press), or let a press cover's refusal withhold a family's download,
-    /// which is the coupling amendment A5 exists to remove.
+    /// The slice is amendment A5's correction. Reading RENDER_VALIDATION's aggregate status here
+    /// would do one of two wrong things: leave the customer PDF unguarded by it (which is what
+    /// happened, because the gate is classed press), or let a press cover's refusal withhold a
+    /// family's download.
+    ///
+    /// <paramref name="applyPolicy"/> is amendment B1's. False is the supplier's reading and asks
+    /// only what the evidence says; true is the parent's and additionally skips whatever the policy
+    /// waived. The two run over the same gates and the same slice, which is the point — they can
+    /// only ever differ by a waiver, and every waiver is written down.
     /// </summary>
-    private bool MayPublish(string deliverableClass)
+    private bool MayPublish(string deliverableClass, bool applyPolicy)
     {
-        if (AwaitingHumanReview)
-        {
-            return false;
-        }
-
         var slice = ArtifactEvidence
             .Where(artifact => artifact.Class == deliverableClass)
             .ToList();
 
+        bool Waived(string checkId) => applyPolicy && IsWaived(checkId, deliverableClass);
+
         foreach (var gate in Gates)
         {
+            if (gate.Status == BekiReleaseGates.Pass)
+            {
+                continue;
+            }
+
+            /*
+              The human gate, which is a status rather than a gate id.
+
+              NEEDS_HUMAN can be produced by any gate — today only VISUAL_QA does — and it is what
+              AwaitingHumanReview is computed from. Handled here rather than by an early return on
+              that flag so that the waiver applies to it the way it applies to everything else: when
+              `human_review` is a flag, a book waiting on a signature publishes and alarms, and the
+              report still says AwaitingHumanReview so the console can offer the signature anyway.
+            */
+            if (gate.Status == BekiReleaseGates.NeedsHuman
+                && applyPolicy
+                && IsWaived(BekiReleaseChecks.HumanReview, deliverableClass))
+            {
+                continue;
+            }
+
             if (BekiReleaseGates.PerArtifactGates.Contains(gate.Id))
             {
                 /*
@@ -147,7 +243,7 @@ public sealed record BekiReleaseGateReport
                   aggregate answers instead, whatever class the gate is filed under: "we cannot tell
                   which file failed" must not be read as "not this one".
                 */
-                if (slice.Count == 0 && gate.Status != BekiReleaseGates.Pass)
+                if (slice.Count == 0 && !Waived(gate.Id))
                 {
                     return false;
                 }
@@ -160,14 +256,15 @@ public sealed record BekiReleaseGateReport
                 continue;
             }
 
-            if (gate.Status != BekiReleaseGates.Pass)
+            if (!Waived(gate.Id))
             {
                 return false;
             }
         }
 
         return slice.All(artifact =>
-            artifact.Render == BekiReleaseGates.Pass && artifact.Qr == BekiReleaseGates.Pass);
+            (artifact.Render == BekiReleaseGates.Pass || Waived("RENDER_VALIDATION"))
+            && (artifact.Qr == BekiReleaseGates.Pass || Waived("QR")));
     }
 
     public string ToJson() => JsonSerializer.Serialize(this, BekiReleaseGates.Json);
@@ -297,18 +394,47 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
     /// <summary>
     /// Evaluates every gate against what this pack has in storage, right now.
     /// </summary>
+    /// <param name="policy">
+    /// The release policy this evaluation is judged under, taken once by the caller and passed down
+    /// — amendment B4. Nothing about the SUPPLIER's answer depends on this argument; see
+    /// <see cref="BekiReleaseGateReport.SupplierPressReleasable"/>.
+    ///
+    /// REQUIRED, and it used to be optional with a defaults fallback. That fallback closed a review
+    /// finding by hiding it: the admin approval endpoint called this with no policy at all, so a
+    /// deployment where an operator had made a check STRICTER re-judged the book under the shipped
+    /// defaults at approval time and overwrote the stored verdict with a laxer one — and a
+    /// deployment where they had made one KINDER got the opposite. An argument that silently
+    /// substitutes a policy nobody chose is worse than a compile error, so this is a compile error
+    /// now; a caller with genuinely no table to read says
+    /// <see cref="BekiReleasePolicySnapshot.Defaults"/> or <see cref="BekiReleasePolicySnapshot.Strict"/>
+    /// out loud. (Review finding 1.)
+    /// </param>
     /// <param name="baseDirectory">Test override for locating the acceptance-gates document.</param>
     public async Task<BekiReleaseGateReport> EvaluateAsync(
         Guid userId,
         Guid packId,
         CancellationToken cancellationToken,
+        BekiReleasePolicySnapshot policy,
         string? baseDirectory = null)
     {
+        ArgumentNullException.ThrowIfNull(policy);
+
         var ids = ReadGateIds(baseDirectory ?? AppContext.BaseDirectory);
         var evidence = await GatherAsync(userId, packId, cancellationToken);
+        var inForce = policy;
 
         var results = ids
             .Select(id => Evaluate(id, evidence))
+            .ToList();
+
+        var (waivers, waivedGateIds) = Waivers(results, inForce);
+
+        // The waived gates carry their disposition, so one gate entry says both what the evidence
+        // showed and what was done about it. The status is untouched — B2's rule.
+        results = results
+            .Select(gate => waivedGateIds.Contains(gate.Id)
+                ? gate with { Disposition = WaivedByPolicy }
+                : gate)
             .ToList();
 
         var awaiting = results.Any(gate => gate.Status == NeedsHuman);
@@ -319,6 +445,10 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
 
         return new BekiReleaseGateReport
         {
+            // The handback's verdict, computed from the raw results exactly as it always was.
+            // A waiver is a decision about a family's book; it is not an opinion the supplier asked
+            // for, and a RELEASABLE stamped over a failing gate would be a false statement in a
+            // document written to be checked.
             Verdict = failing.Count == 0 ? Releasable : NotReleasable,
             EvaluatedAtUtc = DateTimeOffset.UtcNow,
             Gates = results,
@@ -326,7 +456,59 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
             ContactSheetSha256 = evidence.ContactSheetSha256,
             AwaitingHumanReview = awaiting,
             FailingGates = failing,
+            PolicyWaivers = waivers,
         };
+    }
+
+    /// <summary>The one word a waived gate's disposition carries.</summary>
+    public const string WaivedByPolicy = "WAIVED_BY_POLICY";
+
+    /// <summary>
+    /// Which failing gates the policy lets through, and for which deliverable.
+    ///
+    /// Asked per deliverable class rather than per gate, because that is the key the policy is
+    /// stored under and because the answer genuinely differs: a render report that refused the press
+    /// cover is a blocker about the press files and a flag about the reading copy, and one severity
+    /// per gate could not express it.
+    ///
+    /// The human gate is asked under its own name — <c>human_review</c> — rather than under the id
+    /// of whichever gate produced NEEDS_HUMAN. That is what makes "human review is skipped by
+    /// default" one switch in the admin table instead of a rule hidden inside VISUAL_QA.
+    /// </summary>
+    private static (IReadOnlyList<BekiGateWaiver> Waivers, IReadOnlySet<string> WaivedGateIds) Waivers(
+        IReadOnlyList<BekiGateResult> results, BekiReleasePolicySnapshot policy)
+    {
+        var waivers = new List<BekiGateWaiver>();
+        var gateIds = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var gate in results.Where(gate => gate.Status != Pass))
+        {
+            // A gate that stopped on NEEDS_HUMAN is governed by the human-review switch rather than
+            // by its own id: "human review is skipped by default" is one decision in the admin
+            // table, not a rule buried inside whichever gate happened to raise the flag.
+            var checkId = gate.Status == NeedsHuman ? BekiReleaseChecks.HumanReview : gate.Id;
+
+            foreach (var deliverable in new[] { PressClass, DigitalClass, PackageClass })
+            {
+                if (!Concerns(gate, deliverable) || !policy.IsFlagged(checkId, deliverable))
+                {
+                    continue;
+                }
+
+                waivers.Add(new BekiGateWaiver(checkId, deliverable, gate.Status, gate.Detail));
+                gateIds.Add(gate.Id);
+            }
+        }
+
+        return (waivers, gateIds);
+
+        // Whether a failing gate is one of this deliverable's problems at all. The per-artifact two
+        // concern both printed and digital files; a package gate concerns only the handback.
+        static bool Concerns(BekiGateResult gate, string deliverable) =>
+            PerArtifactGates.Contains(gate.Id)
+                ? deliverable is PressClass or DigitalClass
+                : gate.Class == deliverable
+                  || (gate.Class == SharedClass && deliverable is PressClass or DigitalClass);
     }
 
     /// <summary>
@@ -442,9 +624,22 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
                 id, "the book-level review is not stored, so the centre-field verdicts cannot be "
                     + "evidenced.", [stored.ReviewName]),
 
+        /*
+          TEXT_LAYER asks one question and has only ever asked one: is the book's copy vector type
+          that layout can account for, page by page?
+
+          It is worth saying plainly, because the wording used to promise more than the check did.
+          The pass message named "copy-sized washes" beside the type, and no clause of this gate ever
+          looked at a wash — LayoutPagesWithoutTypography is the whole of the evidence, and the
+          geometry of any cream box was the fixed-page QA record's business. Owner ruling 2026-09-01,
+          the third and final on the question, has removed the wash from the book entirely: copy is
+          outlined type drawn straight on the artwork. So the requirement is stated as what it is —
+          vector typography recorded for every page that has text — and the gate itself is unchanged,
+          because it was already right.
+        */
         "TEXT_LAYER" => stored.LayoutReceiptDocuments.Count == 0
             ? Missing(
-                id, "no post-layout receipts are stored, so no wash or type claim can be evidenced "
+                id, "no post-layout receipts are stored, so no typography claim can be evidenced "
                     + "(amendment A4).", stored.LayoutReceiptNames)
             : stored.LayoutPagesWithoutTypography.Count > 0
                 ? Failed(
@@ -455,7 +650,7 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
                 : Passed(
                     id,
                     $"{stored.LayoutReceiptDocuments.Count} layout receipt document(s) record vector "
-                    + "type and copy-sized washes for every page.",
+                    + "typography for every page that carries text.",
                     stored.LayoutReceiptNames),
 
         "FONT_INTEGRITY" => !stored.FontsLocked
@@ -473,7 +668,16 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
                     [stored.AssetLockName]),
             },
 
-        "VISUAL_QA" => stored.SpreadsWithoutQa.Count > 0
+        // A spread's record is READ, not counted — amendment B1, and it is asked FIRST. A stored
+        // refusal is the strongest thing this gate can be told, and a book whose spread three says
+        // FAIL must not be graded by whether spread seven's document happens to be missing.
+        "VISUAL_QA" => stored.SpreadsFailingQa.Count > 0
+            ? Failed(
+                id,
+                "the stored QA record for spread(s) "
+                + $"{string.Join(", ", stored.SpreadsFailingQa)} records a refusal.",
+                stored.SpreadQaNames)
+            : stored.SpreadsWithoutQa.Count > 0
             ? Missing(
                 id,
                 $"no final QA record for spread(s) {string.Join(", ", stored.SpreadsWithoutQa)}.",
@@ -493,14 +697,20 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
                     "no readable, current machine QA record for fixed page(s) "
                     + $"{string.Join(", ", stored.FixedPagesWithoutQa)}.",
                     stored.FixedQaNames)
-                : stored.NeedsHumanReading && !stored.HumanApprovalIsCurrent
+                : (stored.NeedsHumanReading || stored.SpreadsNeedingHumanQa.Count > 0)
+                  && !stored.HumanApprovalIsCurrent
                     ? NeedsAHuman(
                         id,
                         stored.HumanApprovalPresent
                             ? "the stored approval covers a different contact sheet than the one "
                               + "render validation produced; a stale approval is refused."
-                            : "the book carries an unresolved human-review flag (shot or age "
-                              + "advisory); the rendered contact sheet needs a reviewer's signature.",
+                            : stored.SpreadsNeedingHumanQa.Count > 0
+                                ? "spread(s) "
+                                  + string.Join(", ", stored.SpreadsNeedingHumanQa)
+                                  + " have no readable reviewer verdict; the rendered contact sheet "
+                                  + "needs a person to look at those pages."
+                                : "the book carries an unresolved human-review flag (shot or age "
+                                  + "advisory); the rendered contact sheet needs a reviewer's signature.",
                         [stored.ReviewName, stored.HumanApprovalName])
                     : Passed(
                         id,
@@ -712,27 +922,60 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
         evidence.CoverFrontPresent = await ExistsAsync(evidence.CoverFrontName, cancellationToken);
         evidence.ReviewPresent = await ExistsAsync(evidence.ReviewName, cancellationToken);
 
-        // Per-spread QA, read rather than counted: a document written by a superseded reviewer
-        // contract answered different questions and is not this book's evidence.
+        /*
+          Per-spread QA, and now its VERDICT rather than its existence — amendment B1.
+
+          The record was read for its version and then counted, so a stored document whose own status
+          said FAIL satisfied this gate by being present. That was survivable while the only way a
+          page got a QA record was by passing; the release policy ends that, because a spread the
+          reviewer refused now ships with its refusal written down, and a gate that counted documents
+          would grade that book PASS. A stored FAIL can never produce a PASS.
+
+          Three answers, exactly as the fixed pages have had since the audit: a current PASS is
+          evidence, a current refusal names the page, and anything else — absent, unreadable, or
+          written under a superseded reviewer contract — is no record at all.
+        */
         var spreadQaNames = new List<string>();
         var spreadsWithoutQa = new List<int>();
+        var spreadsFailingQa = new List<int>();
+        var spreadsNeedingHuman = new List<int>();
         for (var spread = 1; spread <= BookFormat.SpreadCount; spread++)
         {
             var name = BekiPackBlobs.SpreadQaName(userId, packId, spread);
             var json = await TryReadTextAsync(name, cancellationToken);
+            var record = CompositeSpreadQa.TryReadStored(json);
 
-            if (CompositeSpreadQa.TryReadStored(json) is null)
+            if (record is null)
             {
                 spreadsWithoutQa.Add(spread);
+                continue;
+            }
+
+            spreadQaNames.Add(name);
+
+            if (string.Equals(record.Status, CompositeQaVerdict.Pass, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // NEEDS_HUMAN is what the pipeline writes when the reviewer's answer could not be read
+            // at all and the policy shipped the page anyway. It is a weaker statement than FAIL —
+            // nobody said the picture was wrong — and it routes to the human gate rather than to a
+            // failure, which is the distinction the whole NEEDS_HUMAN status exists to make.
+            if (string.Equals(record.Status, NeedsHuman, StringComparison.OrdinalIgnoreCase))
+            {
+                spreadsNeedingHuman.Add(spread);
             }
             else
             {
-                spreadQaNames.Add(name);
+                spreadsFailingQa.Add(spread);
             }
         }
 
         evidence.SpreadQaNames = spreadQaNames;
         evidence.SpreadsWithoutQa = spreadsWithoutQa;
+        evidence.SpreadsFailingQa = spreadsFailingQa;
+        evidence.SpreadsNeedingHumanQa = spreadsNeedingHuman;
 
         /*
           The fixed pages, read the way the spreads above are read.
@@ -920,8 +1163,8 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
 
     private static IEnumerable<string> PagesWithoutTypography(string mode, string json)
     {
-        // A layout receipt without typography for a page that carries copy is the wash gate's
-        // blind spot in reverse: the document exists, and evidences nothing.
+        // A layout receipt without typography for a page that carries copy is TEXT_LAYER's blind
+        // spot in reverse: the document exists, and evidences nothing.
         try
         {
             using var document = JsonDocument.Parse(json);
@@ -1232,6 +1475,12 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
 
         public IReadOnlyList<int> SpreadsWithoutQa { get; set; } = [];
 
+        /// <summary>Spreads whose stored record says the reviewer refused the page.</summary>
+        public IReadOnlyList<int> SpreadsFailingQa { get; set; } = [];
+
+        /// <summary>Spreads whose stored record says there was no readable verdict to record.</summary>
+        public IReadOnlyList<int> SpreadsNeedingHumanQa { get; set; } = [];
+
         public IReadOnlyList<string> FixedQaNames { get; set; } = [];
 
         public IReadOnlyList<string> FixedPagesWithoutQa { get; set; } = [];
@@ -1299,9 +1548,10 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
 /// pages have no model verdict to write down and were therefore evidenced by nothing at all — which
 /// is how a placeholder endpaper once reached a printed book. What can be said about them is
 /// mechanical and is exactly what the audit asks for: the approved assets they placed hashed to the
-/// files the asset lock proved, the layout receipt for the page exists, and any cream wash on it is
-/// inside the fold and trim clearances the wash rule states. So the record is machine-generated
-/// from the layout receipt and the asset-lock manifest, with no model call and no judgement.
+/// files the asset lock proved, the layout receipt for the page exists, the page that set copy
+/// recorded typography for it, and any cream wash a pre-ruling receipt still carries is inside the
+/// fold and trim clearances the wash rule stated. So the record is machine-generated from the layout
+/// receipt and the asset-lock manifest, with no model call and no judgement.
 /// </summary>
 public static class BekiFixedPageQa
 {
@@ -1430,6 +1680,15 @@ public static class BekiFixedPageQa
                 + "asset lock did not prove.");
         }
 
+        /*
+          The wash clauses, kept and now vacuous.
+
+          Owner ruling 2026-09-01 — the third and final — took the cream box out of the book, so a
+          receipt written by today's composer carries no wash and this block does not run. It stays
+          because Write is also how an operator re-derives a QA record from a receipt stored before
+          the ruling, and those receipts do carry one: the clearances a wash had to keep are still
+          the right question to ask of a book that has one.
+        */
         if (page.Wash is { } wash)
         {
             if (wash.FoldClearanceMm < MinimumClearanceMm)

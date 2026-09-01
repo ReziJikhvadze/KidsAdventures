@@ -127,7 +127,7 @@ export function DashboardScreen() {
   // into a book on the shelf the moment the pipeline completes.
   useEffect(() => {
     if (!isAuthenticated) return;
-    if (!packs.some((p) => isPackGenerating(p.status) || p.status === "GeneratingPdf")) return;
+    if (!packs.some((p) => isPackGenerating(p) || p.status === "GeneratingPdf")) return;
     const timer = window.setInterval(() => {
       void listAdventurePacks()
         .then((fresh) => setPacks(fresh))
@@ -160,12 +160,12 @@ export function DashboardScreen() {
     watches it — and joins the shelf as an ordinary book when the pipeline finishes.
   */
   const drawing = useMemo(
-    () => childPacks.filter((p) => isPackGenerating(p.status) && !isPackFailed(p)),
+    () => childPacks.filter((p) => isPackGenerating(p) && !isPackFailed(p)),
     [childPacks],
   );
   const failedPacks = useMemo(() => childPacks.filter((p) => isPackFailed(p)), [childPacks]);
   const shelfPacks = useMemo(
-    () => childPacks.filter((p) => !isPackGenerating(p.status) && !isPackFailed(p)),
+    () => childPacks.filter((p) => !isPackGenerating(p) && !isPackFailed(p)),
     [childPacks],
   );
   const hasStories = childPacks.length > 0;
@@ -236,7 +236,7 @@ export function DashboardScreen() {
       const id = pack.primaryCharacterId;
       if (!id) continue;
       if (isPackFailed(pack)) continue;
-      if (isPackGenerating(pack.status)) drawing[id] = (drawing[id] ?? 0) + 1;
+      if (isPackGenerating(pack)) drawing[id] = (drawing[id] ?? 0) + 1;
       else done[id] = (done[id] ?? 0) + 1;
     }
     return [done, drawing] as const;
@@ -613,7 +613,18 @@ function isPackFailed(pack: AdventurePackResponse): boolean {
   return pack.status === "Failed" || pack.isFailed === true;
 }
 
-function isPackGenerating(status: AdventurePackResponse["status"]): boolean {
+/**
+ * Is this book still being made?
+ *
+ * It used to be a status check, and on the Beki pipeline the status lied: StoryReady means the
+ * words are written, and the illustrations, the composition and the release check all come after
+ * it — so a book minutes from existing appeared on the shelf as finished, with a cover to open
+ * and a download that could not work. `generationPending` is the server's own answer to the same
+ * question, and it knows which pipeline drew the book.
+ */
+function isPackGenerating(pack: AdventurePackResponse): boolean {
+  if (pack.generationPending === true) return true;
+  const status = pack.status;
   return status === "Pending" || status === "Generating" || status === "GeneratingStory";
 }
 
@@ -691,6 +702,20 @@ function LibraryBookCard({
   // never built showed a permanently disabled button and no reason why. Build it on demand.
   const handlePdf = async () => {
     setPdfError(null);
+
+    /*
+      The book is finished and the file is being held back on purpose.
+
+      Asking for it anyway is what produced the worst message this product has ever shown a
+      parent: the queue refuses a Completed pack with no story to build from, in English, with a
+      status code in front of it. There is nothing to ask for and nothing to wait on in this
+      browser, so the button says so and stops.
+    */
+    if (pack.downloadHeld) {
+      setPdfError(t.dashboard.library.downloadHeld);
+      return;
+    }
+
     setPdfBusy(true);
     try {
       if (!pack.pdfUrl) {
@@ -710,9 +735,9 @@ function LibraryBookCard({
       } else if (isPackFailed(pack)) {
         setPdfError(t.dashboard.library.failedTitle);
       } else {
-        setPdfError(
-          err instanceof Error && err.message ? err.message : t.dashboard.library.pdfNotReady,
-        );
+        // Whatever the server said, in Georgian. The old branch printed err.message, and the
+        // server's refusals on this path are English sentences written for an operator.
+        setPdfError(t.dashboard.library.pdfFailed);
       }
     } finally {
       setPdfBusy(false);
@@ -784,9 +809,13 @@ function LibraryBookCard({
           {promotePrint ? null : printButton}
         </div>
 
-        {pdfError ? (
-          <small className="library-error" role="alert">
-            {pdfError}
+        {/*
+          The withheld line is shown before anybody presses anything. A parent looking at a card
+          whose download will not work should learn that from the card, not from clicking it.
+        */}
+        {(pdfError ?? (pack.downloadHeld ? t.dashboard.library.downloadHeld : null)) ? (
+          <small className="library-error" role={pdfError ? "alert" : undefined}>
+            {pdfError ?? t.dashboard.library.downloadHeld}
           </small>
         ) : null}
 

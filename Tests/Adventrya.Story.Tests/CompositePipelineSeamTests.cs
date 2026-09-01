@@ -540,8 +540,12 @@ public class CompositePipelineSeamTests : CompositePipelineTestBase
     /// The rejected book's veil, applied to a synthetic canvas the way the audit measured it:
     /// lighter on the text side, alternating with the page rhythm. Built here so the constants'
     /// calibration against the stored real bases has a checked-in stand-in.
+    ///
+    /// Internal rather than private because <see cref="CompositePipelinePolicyTests"/> asks the same
+    /// gate a different question — what a flagged policy does with a base that fails it twice — and
+    /// a second copy of this arithmetic would be a second calibration to keep in step.
     /// </summary>
-    private static byte[] WithVeil(byte[] png, bool leftSide, double lift, int shoulderColumns)
+    internal static byte[] WithVeil(byte[] png, bool leftSide, double lift, int shoulderColumns)
     {
         using var image = Image.Load<Rgba32>(png);
         var half = image.Width / 2;

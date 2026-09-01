@@ -30,6 +30,7 @@ public sealed class AdventurePacksController(
     IUserContextService userContext,
     IGuestRateLimiter guestRateLimiter,
     IMasterBookService masterBookService,
+    IBekiDownloadStatusService downloadStatus,
     IOptions<ClientIpOptions> clientIpOptions,
     ILogger<AdventurePacksController> logger) : ControllerBase
 {
@@ -488,7 +489,16 @@ public sealed class AdventurePacksController(
     public async Task<ActionResult<IReadOnlyList<AdventurePackResponse>>> Get(CancellationToken cancellationToken)
     {
         var rows = await adventurePackRepository.GetByUserIdAsync(userContext.GetUserId(), cancellationToken);
-        return Ok(rows.Select(Map).ToList());
+
+        var responses = new List<AdventurePackResponse>(rows.Count);
+        foreach (var row in rows)
+        {
+            var response = Map(row);
+            response.DownloadHeld = await DownloadHeldAsync(row, cancellationToken);
+            responses.Add(response);
+        }
+
+        return Ok(responses);
     }
 
     [HttpGet("{id:guid}")]
@@ -501,7 +511,19 @@ public sealed class AdventurePacksController(
             return NotFound();
         }
 
-        if (row.Status == AdventurePackStatus.StoryReady)
+        /*
+          The legacy auto-illustration trigger, and the guard amendment B5 exists for.
+
+          Opening a book's detail page starts per-page illustration for a StoryReady pack. On the
+          legacy pipeline that is the whole point — the story is written, the pictures are drawn on
+          demand, and a parent who opens the book kicks it off. On the Beki pipeline StoryReady is
+          a stage inside a job that is still running and is going to draw eight spreads itself: a
+          second, different illustrator started here would spend money drawing per-page art nobody
+          will ever see, into columns the composite book does not read, while the real job works.
+
+          So the trigger is now the legacy branch of a decision rather than a rule about a status.
+        */
+        if (row.Status == AdventurePackStatus.StoryReady && !row.IsBekiPipeline)
         {
             await generationService.EnsurePreviewIllustrationQueuedAsync(id, cancellationToken);
             row = await adventurePackRepository.GetByIdAsync(id, userId, cancellationToken) ?? row;
@@ -602,7 +624,30 @@ public sealed class AdventurePacksController(
 
         if (row.Status != AdventurePackStatus.Completed || string.IsNullOrWhiteSpace(row.PdfUrl))
         {
-            return BadRequest("Pack is not ready.");
+            /*
+              The download lie, answered.
+
+              This returned the English string "Pack is not ready." as a bare 400 body, and the
+              reader rendered whatever came back — so a parent whose finished book was being held
+              for a review read an untranslated sentence with no subject. There are two different
+              things to say here and the book's own state decides which: a book still being made is
+              a wait with pictures behind it, and a finished book whose file is held is a wait with
+              a person behind it.
+            */
+            var held = row.Status == AdventurePackStatus.Completed
+                ? await downloadStatus.DownloadHeldReasonAsync(row.UserId, id, cancellationToken)
+                : null;
+
+            return BadRequest(new
+            {
+                message = held switch
+                {
+                    BekiDownloadHeld.Review or BekiDownloadHeld.Gates =>
+                        "წიგნი გადის ბოლო შემოწმებას — ჩამოტვირთვა მალე გაიხსნება.",
+                    _ => "წიგნი ჯერ მზადდება — ცოტა ხანში სცადე ხელახლა.",
+                },
+                downloadHeld = held,
+            });
         }
 
         try
@@ -614,7 +659,10 @@ public sealed class AdventurePacksController(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "PDF blob missing for pack {PackId}. Stored url: {PdfUrl}", id, row.PdfUrl);
-            return NotFound("PDF file was not found in storage. Please generate a new pack.");
+
+            // Georgian, and vague on purpose: the row says a file exists and storage disagrees,
+            // which is our problem and not something to describe to a parent in English.
+            return NotFound(new { message = "PDF ვერ მოიძებნა — ცოტა ხანში სცადე ხელახლა." });
         }
     }
 
@@ -660,6 +708,12 @@ public sealed class AdventurePacksController(
             ? null
             : $"/api/adventure-packs/{x.Id}/cover";
         target.Title = x.Title;
+
+        // Amendment B5. A Beki book is finished at Completed and at no earlier status; a legacy one
+        // is readable at StoryReady. Answering that here is what stops the shelf, the reader and the
+        // generating screen each having their own opinion about it.
+        target.GenerationPipeline = x.GenerationPipeline;
+        target.GenerationPending = x.IsBekiPipeline && x.Status != AdventurePackStatus.Completed;
     }
 
     private static AdventurePackResponse Map(AdventurePack x)
@@ -669,6 +723,34 @@ public sealed class AdventurePacksController(
         return response;
     }
 
+    /// <summary>
+    /// Why this book's download is not there, asked only of the books it could be true of.
+    ///
+    /// A Completed pack with no reading PDF is the withheld case and nothing else is, so the
+    /// question — which reads a stored verdict out of blob storage — is asked for those rows and
+    /// skipped for every other one. On a shelf of finished books that is zero extra reads; on the
+    /// one card that cannot download, it is the only way to say why.
+    /// </summary>
+    private async Task<string?> DownloadHeldAsync(AdventurePack pack, CancellationToken cancellationToken)
+    {
+        if (pack.Status != AdventurePackStatus.Completed || !string.IsNullOrWhiteSpace(pack.PdfUrl))
+        {
+            return null;
+        }
+
+        try
+        {
+            return await downloadStatus.DownloadHeldReasonAsync(pack.UserId, pack.Id, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A shelf that could not be drawn because a verdict could not be read would be a worse
+            // fault than the missing explanation. The card falls back to its ordinary copy.
+            logger.LogWarning(ex, "Download-held reason unavailable for pack {PackId}.", pack.Id);
+            return null;
+        }
+    }
+
     private async Task<AdventurePackDetailResponse> MapDetailAsync(
         AdventurePack pack,
         Guid userId,
@@ -676,10 +758,24 @@ public sealed class AdventurePacksController(
     {
         var detail = new AdventurePackDetailResponse();
         MapBookFields(pack, detail);
+        detail.DownloadHeld = await DownloadHeldAsync(pack, cancellationToken);
 
         if (pack.Status is not (AdventurePackStatus.StoryReady or AdventurePackStatus.GeneratingPdf
             or AdventurePackStatus.Completed) || string.IsNullOrWhiteSpace(pack.GeneratedJson))
         {
+            /*
+              A book with nothing in it yet, described rather than left blank.
+
+              This returned a detail with an empty page list, and the reader drew exactly that: a
+              cover, a back cover, and nothing between them — which reads as a book that failed
+              rather than one that has not happened yet. The pipeline's own progress line is
+              already Georgian and already says where it is; what was missing was anything at all
+              when the job has not written one, which is the whole first minute after an order.
+            */
+            detail.ProgressMessage = string.IsNullOrWhiteSpace(pack.ProgressMessage)
+                ? "წიგნი ჯერ იხატება — მალე აქვე გამოჩნდება."
+                : pack.ProgressMessage;
+
             return detail;
         }
 

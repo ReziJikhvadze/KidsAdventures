@@ -69,9 +69,18 @@ public static class ParentFacingFailure
             "წიგნის ტექსტის მომზადება ვერ დასრულდა. " + Reassurance,
 
         // The book exists as pictures and words but could not be laid out or prepared for print.
+        //
+        // ASSET_LOCK_FAILED belongs here rather than with the quality refusals, and the reason is
+        // what the parent would otherwise be told. It is a fault in OUR fixed materials — a licensed
+        // font, the approved Beki artwork, the printer's colour profile — found before a single
+        // image is paid for, so nothing about this book was ever drawn or refused. Reading the
+        // generic arm's "the drawing did not pass our own check" would tell a family their child's
+        // book failed a quality bar it never reached. It is a production fault, and the closest true
+        // sentence is the one about preparing the book.
         CompositeFailureCodes.TextOverflow
             or CompositeFailureCodes.LayoutFailed
-            or CompositeFailureCodes.PrintPreflightFailed =>
+            or CompositeFailureCodes.PrintPreflightFailed
+            or BekiAssetLock.FailureCode =>
             "წიგნის გვერდების დალაგება ვერ დასრულდა. " + Reassurance,
 
         // Not a fault in the book: the machinery was too slow or stopped answering. Worth its own

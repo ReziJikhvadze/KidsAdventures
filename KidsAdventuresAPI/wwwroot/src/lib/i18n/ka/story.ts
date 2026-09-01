@@ -57,6 +57,15 @@ export const story = {
       title: "საბეჭდ PDF-ს ვამზადებთ",
       lead: "წიგნს საბეჭდად ვაწყობთ — ჩამოტვირთვა ავტომატურად დაიწყება.",
       email: "შეგიძლია დახურო ეს გვერდი. როცა PDF მზად იქნება, მეილს მოგწერთ.",
+      /* The two sentences that replaced a raw English 400. */
+      held: "წიგნი გადის ბოლო შემოწმებას — ჩამოტვირთვა მალე გაიხსნება.",
+      failed: "PDF ვერ ჩამოიტვირთა — ცოტა ხანში სცადე ხელახლა.",
+    },
+    /* A book still being made, opened in the reader. What stood here was an empty volume: the
+       covers, and nothing between them. */
+    pending: {
+      title: "წიგნი ჯერ იხატება",
+      body: "ზღაპარი უკვე იწერება და სურათებიც მალე დაიხატება. როგორც კი მზად იქნება, აქვე გამოჩნდება — მეილსაც მოგწერთ.",
     },
   },
 

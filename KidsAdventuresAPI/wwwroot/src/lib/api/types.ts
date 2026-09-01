@@ -167,6 +167,29 @@ export type AdventurePackResponse = {
   hasPrintEntitlement?: boolean;
   /** When the book was last opened in the reader, on any device. Null until it has been read. */
   lastReadAt?: string | null;
+
+  /**
+   * Which pipeline drew this book: "beki" or "legacy". Durable on the row rather than inferred,
+   * because the two disagree about what "ready" means and guessing produced a shelf that offered
+   * a finished book minutes before one existed.
+   */
+  generationPipeline?: string | null;
+
+  /**
+   * A Beki book that has not reached Completed. StoryReady means the words are written on this
+   * pipeline, not that the book exists — the illustrations, the composition and the release check
+   * all come after it. The shelf treats this as "still being made", which is what it is.
+   */
+  generationPending?: boolean;
+
+  /**
+   * Why a finished book has no file to download: "review" while a person is being waited on,
+   * "gates" while something measurable is failing, null when nothing is holding it.
+   *
+   * Present only when it is true of this book. It exists so the download button can say something
+   * honest instead of asking for a PDF that will be refused in English.
+   */
+  downloadHeld?: "review" | "gates" | null;
 };
 
 export type AdventurePackDetailResponse = AdventurePackResponse & {

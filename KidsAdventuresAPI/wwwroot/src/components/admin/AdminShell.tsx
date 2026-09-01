@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { Icon } from "@/components/admin/Icon";
+import * as admin from "@/lib/api/admin";
 
 /**
  * The admin chrome: a sidebar, a heading, and the screen.
@@ -15,14 +16,49 @@ import { Icon } from "@/components/admin/Icon";
  * query — and the orders list has its own search field on it.
  */
 
-export type AdminNavKey = "orders" | "admins";
+export type AdminNavKey = "orders" | "admins" | "settings";
 
 type NavItem = { key: AdminNavKey; label: string; href: string; icon: string };
 
 const NAV_ITEMS: NavItem[] = [
   { key: "orders", label: "შეკვეთები", href: "/admin/orders", icon: "orders" },
+  { key: "settings", label: "გამოშვების წესები", href: "/admin/settings", icon: "settings" },
   { key: "admins", label: "ადმინისტრატორები", href: "/admin/admins", icon: "users" },
 ];
+
+/**
+ * How many waived incidents nobody has looked at yet.
+ *
+ * In the chrome rather than on one screen because that is the point of it: the whole release
+ * policy is built on shipping the book and telling somebody afterwards, and "afterwards" only
+ * happens if the number is somewhere an operator passes anyway. A failed request leaves it at
+ * zero and shows nothing — a badge that renders an error is worse than a badge that waits.
+ */
+function useOpenAlarmCount(): number {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const read = () =>
+      void admin
+        .listAlarms({ open: true, limit: 1 })
+        .then((result) => {
+          if (!cancelled) setCount(result.openCount);
+        })
+        .catch(() => {
+          /* the sidebar is not the place to report that a count could not be read */
+        });
+
+    read();
+    const timer = window.setInterval(read, 60000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  return count;
+}
 
 export type AdminShellProps = {
   active: AdminNavKey;
@@ -43,6 +79,7 @@ export function AdminShell({
   operatorName,
 }: AdminShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const openAlarms = useOpenAlarmCount();
   const initial = (operatorName ?? "ო").trim().slice(0, 1) || "ო";
 
   return (
@@ -92,6 +129,21 @@ export function AdminShell({
           >
             <Icon name="menu" />
           </button>
+
+          {/*
+            Nothing when nothing is waiting. A badge that always shows a zero is a badge people
+            stop reading, and this one has to still mean something on the day it says 14.
+          */}
+          {openAlarms > 0 ? (
+            <Link
+              className="admin-alarm-badge"
+              to="/admin/settings"
+              aria-label={`${openAlarms} განუხილავი შეტყობინება`}
+            >
+              <Icon name="bell" size={16} />
+              <span>{openAlarms}</span>
+            </Link>
+          ) : null}
         </header>
 
         <main className="main-content">

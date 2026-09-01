@@ -293,6 +293,21 @@ export const journey = {
       "ილუსტრაციებს ვაცოცხლებთ",
       "შვიდ გვერდს ერთ წიგნად ვკრავთ",
     ],
+    /*
+      Where the job actually is, keyed by the book's own status.
+
+      The list above is a timer: four lines that advance every eight seconds whether or not
+      anything happened. The server has known the real answer all along and nothing read it, so a
+      book that stalled at page three kept telling the parent it was being bound.
+    */
+    statusLine: {
+      Pending: "შეკვეთა მიღებულია — ვიწყებთ",
+      Generating: "ისტორიას ვწერთ",
+      GeneratingStory: "ისტორიას ვწერთ",
+      StoryReady: "ილუსტრაციებს ვხატავთ",
+      GeneratingPdf: "წიგნს ერთად ვკრავთ",
+      Completed: "წიგნი მზადაა",
+    } as Record<string, string>,
   },
 
   generated: {

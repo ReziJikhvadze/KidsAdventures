@@ -16,6 +16,22 @@ type Props = {
   onChange: (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => void;
 };
 
+/**
+ * Which of the four stage lines a book's status is standing on.
+ *
+ * Completed maps to the last one rather than to nothing: the navigation away happens on the order
+ * poll, and for the second or two between the pipeline finishing and the reader opening, the
+ * screen should say the book is bound, not still be painting it.
+ */
+const STATUS_STEP: Record<string, number> = {
+  Pending: 0,
+  Generating: 1,
+  GeneratingStory: 1,
+  StoryReady: 2,
+  GeneratingPdf: 3,
+  Completed: 3,
+};
+
 export function GeneratingStage({ draft, onChange }: Props) {
   const WORLD_BY_ID = useWorldById();
   const t = useT();
@@ -32,16 +48,29 @@ export function GeneratingStage({ draft, onChange }: Props) {
   // book is nine reviewed illustrations; taking longer than the poll is normal, not a fault.
   const [stillWorking, setStillWorking] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
+  // Where the job actually is, straight from the book's own row. The making-of endpoint has
+  // returned this all along and nothing read it, so this screen could only ever describe a book
+  // that was going well.
+  const [bookStatus, setBookStatus] = useState<string | null>(null);
   // The spreads drawn so far, in page order. Real pictures beat a spinner: the book takes
   // minutes, and each finished illustration appearing here is the proof something is happening.
   const [pages, setPages] = useState<{ spread: number; url: string }[]>([]);
 
+  // The timer only runs while nothing better is known. Once the book's status arrives the stage
+  // list follows it, so the four lines stop being a clock and start being a report.
+  const statusStep = STATUS_STEP[bookStatus ?? ""];
+
   useEffect(() => {
+    if (statusStep !== undefined) return;
     const timer = window.setInterval(() => {
       setStep((s) => Math.min(s + 1, t.journey.generating.stages.length - 1));
     }, 8000);
     return () => window.clearInterval(timer);
-  }, [t.journey.generating.stages.length]);
+  }, [t.journey.generating.stages.length, statusStep]);
+
+  useEffect(() => {
+    if (statusStep !== undefined) setStep(statusStep);
+  }, [statusStep]);
 
   useEffect(() => {
     const orderId = draft.orderId;
@@ -138,6 +167,8 @@ export function GeneratingStage({ draft, onChange }: Props) {
       try {
         const status = await adventurePacksApi.getMakingOf(bookId);
         if (cancelled) return;
+        setBookStatus(status.status);
+        if (status.progressMessage) setProgress(status.progressMessage);
         for (const spread of status.spreads) {
           if (seen.has(spread)) continue;
           seen.add(spread);
@@ -267,6 +298,13 @@ export function GeneratingStage({ draft, onChange }: Props) {
             </li>
           ))}
         </ul>
+        {/*
+          The real stage, then whatever the job itself is saying. Both, because they answer
+          different questions: the first is where the book is, the second is what it is doing.
+        */}
+        {bookStatus && t.journey.generating.statusLine[bookStatus] ? (
+          <p>{t.journey.generating.statusLine[bookStatus]}</p>
+        ) : null}
         {progress ? <p>{progress}</p> : null}
         {stillWorking ? (
           <div className="generation-still-working">

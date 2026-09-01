@@ -73,11 +73,24 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
         using var buffer = new MemoryStream();
         using (var archive = new ZipArchive(buffer, ZipArchiveMode.Create, leaveOpen: true))
         {
-            foreach (var (blobName, zipPath, status) in entries)
+            foreach (var (blobName, zipPath, status, optional) in entries)
             {
                 if (!await blobStorage.ExistsAsync(blobName, cancellationToken))
                 {
-                    missing.Add(zipPath);
+                    /*
+                      An OPTIONAL entry that is absent is not a gap.
+
+                      The listing exists so a recipient never has to guess whether an absent file was
+                      withheld, never produced, or lost — and that only works while everything on it
+                      is something the package was supposed to contain. The waiver evidence below is
+                      a set of forty-five names of which a healthy book has none, and putting those
+                      forty-five in `missing` would bury the two entries that actually mean something.
+                    */
+                    if (!optional)
+                    {
+                        missing.Add(zipPath);
+                    }
+
                     continue;
                 }
 
@@ -185,6 +198,16 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
         [property: JsonPropertyName("status")] string Status);
 
     /// <summary>
+    /// One blob this package may carry.
+    /// </summary>
+    /// <param name="Optional">
+    /// Whether an absence is worth reporting. False for everything a finished book owes the package;
+    /// true for the per-incident evidence a healthy book simply does not have.
+    /// </param>
+    private sealed record PackageBlob(
+        string BlobName, string ZipPath, PackageStatus Status, bool Optional = false);
+
+    /// <summary>
     /// Every blob this package may carry, with the folder it lands in.
     ///
     /// The three deliverables go to the root under the audit's own names, and go there only when the
@@ -192,71 +215,123 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
     /// still not a deliverable, so it travels under <c>diagnostic/</c> where nobody can hand it to a
     /// printer by accident.
     /// </summary>
-    private static IReadOnlyList<(string BlobName, string ZipPath, PackageStatus Status)> BlobEntries(
+    private static IReadOnlyList<PackageBlob> BlobEntries(
         Guid userId, Guid packId, BekiReleaseGateReport? release)
     {
-        var pressReleased = release?.PressFilesMayPublish == true;
-        var digitalReleased = release?.CustomerPdfMayPublish == true;
+        /*
+          THE RAW FAMILY, and only the raw family — amendment B1.
+
+          These two booleans decide what a printer may be handed, and the release policy has no
+          business in that decision. Under the owner's ruling a book whose RENDER_VALIDATION refused
+          the reading copy is still published to the family who bought it; a package that read the
+          same policy-filtered flag would then file that PDF at the root of the handback as a
+          deliverable, and the supplier would receive a failing file presented as a passing one.
+
+          So the parent's publication and the supplier's release are two questions with two answers,
+          and this asks the supplier's. A file the policy published to a family and the gates refused
+          travels under diagnostic/, and RELEASE_STATUS.json below says NOT_RELEASABLE, which is what
+          the evidence supports.
+        */
+        var pressReleased = release?.SupplierPressReleasable == true;
+        var digitalReleased = release?.SupplierCustomerPdfReleasable == true;
 
         string Deliverable(string name, bool released) =>
             released ? name : $"diagnostic/{name}";
 
-        var entries = new List<(string, string, PackageStatus)>
+        var entries = new List<PackageBlob>
         {
-            (BekiPackBlobs.CoverPdfName(userId, packId),
-             Deliverable(PressCoverFileName(packId), pressReleased),
-             pressReleased ? PackageStatus.Canonical : PackageStatus.Diagnostic),
-            (BekiPackBlobs.InteriorPdfName(userId, packId),
-             Deliverable(PressInteriorFileName(packId), pressReleased),
-             pressReleased ? PackageStatus.Canonical : PackageStatus.Diagnostic),
-            (BekiPackBlobs.ReadingPdfName(userId, packId),
-             Deliverable(DigitalReadingFileName(packId), digitalReleased),
-             digitalReleased ? PackageStatus.Canonical : PackageStatus.Diagnostic),
+            new(BekiPackBlobs.CoverPdfName(userId, packId),
+                Deliverable(PressCoverFileName(packId), pressReleased),
+                pressReleased ? PackageStatus.Canonical : PackageStatus.Diagnostic),
+            new(BekiPackBlobs.InteriorPdfName(userId, packId),
+                Deliverable(PressInteriorFileName(packId), pressReleased),
+                pressReleased ? PackageStatus.Canonical : PackageStatus.Diagnostic),
+            new(BekiPackBlobs.ReadingPdfName(userId, packId),
+                Deliverable(DigitalReadingFileName(packId), digitalReleased),
+                digitalReleased ? PackageStatus.Canonical : PackageStatus.Diagnostic),
 
-            (BekiPackBlobs.InteriorPreflightName(userId, packId), "press/interior-preflight.json", PackageStatus.Canonical),
-            (BekiPackBlobs.CoverPreflightName(userId, packId), "press/cover-preflight.json", PackageStatus.Canonical),
-            (BekiPackBlobs.PressStatusName(userId, packId), "press/press-status.json", PackageStatus.Canonical),
-            (BekiPackBlobs.DigitalReportName(userId, packId), "digital/digital-preflight.json", PackageStatus.Canonical),
+            new(BekiPackBlobs.InteriorPreflightName(userId, packId), "press/interior-preflight.json", PackageStatus.Canonical),
+            new(BekiPackBlobs.CoverPreflightName(userId, packId), "press/cover-preflight.json", PackageStatus.Canonical),
+            new(BekiPackBlobs.PressStatusName(userId, packId), "press/press-status.json", PackageStatus.Canonical),
+            new(BekiPackBlobs.DigitalReportName(userId, packId), "digital/digital-preflight.json", PackageStatus.Canonical),
 
             // The single cover master and its paperwork (audit P0-01/P0-10).
-            (BekiPackBlobs.CoverWrapCompositeName(userId, packId), "cover/cover-wrap-composite.png", PackageStatus.Canonical),
-            (BekiPackBlobs.CoverWrapBaseName(userId, packId), "cover/cover-wrap-base.png", PackageStatus.Canonical),
-            (BekiPackBlobs.CoverCompositionName(userId, packId), "cover/cover-composition.json", PackageStatus.Canonical),
-            (BekiPackBlobs.CoverFrontName(userId, packId), "cover/cover-front.png", PackageStatus.Canonical),
+            new(BekiPackBlobs.CoverWrapCompositeName(userId, packId), "cover/cover-wrap-composite.png", PackageStatus.Canonical),
+            new(BekiPackBlobs.CoverWrapBaseName(userId, packId), "cover/cover-wrap-base.png", PackageStatus.Canonical),
+            new(BekiPackBlobs.CoverCompositionName(userId, packId), "cover/cover-composition.json", PackageStatus.Canonical),
+            new(BekiPackBlobs.CoverFrontName(userId, packId), "cover/cover-front.png", PackageStatus.Canonical),
 
             // The AI redraw, which is no longer anything's cover. It travels so that the two can be
             // compared, and it travels under diagnostic/ so that it cannot be mistaken for a master.
-            (BekiPackBlobs.CoverName(userId, packId), "diagnostic/cover-redraw.png", PackageStatus.Diagnostic),
+            new(BekiPackBlobs.CoverName(userId, packId), "diagnostic/cover-redraw.png", PackageStatus.Diagnostic),
 
-            (BekiPackBlobs.StoryName(userId, packId), "plan/story.json", PackageStatus.Canonical),
-            (BekiPackBlobs.ScenarioName(userId, packId), "plan/visual-scenario.json", PackageStatus.Canonical),
-            (BekiPackBlobs.CompositeReviewName(userId, packId), "plan/composite-review.json", PackageStatus.Canonical),
-            (BekiPackBlobs.ManifestName(userId, packId), "plan/fulfilment-manifest.json", PackageStatus.Canonical),
-            (BekiPackBlobs.TelemetryName(userId, packId), "plan/telemetry.json", PackageStatus.Canonical),
+            new(BekiPackBlobs.StoryName(userId, packId), "plan/story.json", PackageStatus.Canonical),
+            new(BekiPackBlobs.ScenarioName(userId, packId), "plan/visual-scenario.json", PackageStatus.Canonical),
+            new(BekiPackBlobs.CompositeReviewName(userId, packId), "plan/composite-review.json", PackageStatus.Canonical),
+            new(BekiPackBlobs.ManifestName(userId, packId), "plan/fulfilment-manifest.json", PackageStatus.Canonical),
+            new(BekiPackBlobs.TelemetryName(userId, packId), "plan/telemetry.json", PackageStatus.Canonical),
 
-            (BekiPackBlobs.AssetLockName(userId, packId), $"lock/{BekiAssetLock.ManifestFileName}", PackageStatus.Canonical),
-            (BekiPackBlobs.ReleaseGatesName(userId, packId), "gates/release-gates.json", PackageStatus.Canonical),
-            (BekiPackBlobs.HumanApprovalName(userId, packId), "gates/human-approval.json", PackageStatus.Canonical),
+            new(BekiPackBlobs.AssetLockName(userId, packId), $"lock/{BekiAssetLock.ManifestFileName}", PackageStatus.Canonical),
+            new(BekiPackBlobs.ReleaseGatesName(userId, packId), "gates/release-gates.json", PackageStatus.Canonical),
+            new(BekiPackBlobs.HumanApprovalName(userId, packId), "gates/human-approval.json", PackageStatus.Canonical),
         };
 
         for (var spread = 1; spread <= BookFormat.SpreadCount; spread++)
         {
-            entries.Add((BekiPackBlobs.SpreadName(userId, packId, spread),
+            entries.Add(new(BekiPackBlobs.SpreadName(userId, packId, spread),
                 $"spreads/spread-{spread:00}.png", PackageStatus.Canonical));
-            entries.Add((BekiPackBlobs.SpreadBaseName(userId, packId, spread),
+            entries.Add(new(BekiPackBlobs.SpreadBaseName(userId, packId, spread),
                 $"bases/spread-{spread:00}-base.png", PackageStatus.Canonical));
-            entries.Add((BekiPackBlobs.CompositionManifestName(userId, packId, spread),
+            entries.Add(new(BekiPackBlobs.CompositionManifestName(userId, packId, spread),
                 $"receipts/spread-{spread:00}-composition.json", PackageStatus.Canonical));
-            entries.Add((BekiPackBlobs.SpreadQaName(userId, packId, spread),
+            entries.Add(new(BekiPackBlobs.SpreadQaName(userId, packId, spread),
                 $"qa/spread-{spread:00}-qa.json", PackageStatus.Canonical));
-            entries.Add((BekiPackBlobs.FailedSpreadName(userId, packId, spread),
+            entries.Add(new(BekiPackBlobs.FailedSpreadName(userId, packId, spread),
                 $"diagnostic/spread-{spread:00}-failed.png", PackageStatus.Diagnostic));
+        }
+
+        /*
+          What the release policy waived, and the pictures it waived it on — amendment B4's evidence,
+          which the package did not carry.
+
+          Every waiver raises an alarm whose EvidenceBlob names one of these files, and the console's
+          evidence button downloads THIS ZIP to satisfy it. So an operator clicking the button on the
+          most common alarm in the system got a package with no such entry in it, and the answer to
+          "show me the page we shipped anyway" was a 404 against a file that was sitting in storage
+          the whole time. (Review finding 6.)
+
+          RAW-only classification is preserved: these are diagnostics and are marked as such. They are
+          not deliverables, they never become deliverables, and a supplier reading the package can
+          tell at a glance that they are the record of a decision rather than part of the book.
+
+          Enumerated rather than listed, because a blob store answers questions about names and not
+          about prefixes. Page zero is the cover wrap; a healthy book has none of these, which is why
+          they are optional and their absence is not reported as a gap.
+        */
+        foreach (var check in BekiReleaseChecks.Pipeline)
+        {
+            for (var page = 0; page <= BookFormat.SpreadCount; page++)
+            {
+                var stem = page == 0 ? "cover" : $"spread-{page:00}";
+
+                entries.Add(new(
+                    BekiPackBlobs.PolicyWaiverName(userId, packId, check, page),
+                    $"diagnostic/waivers/{stem}-{check}.json",
+                    PackageStatus.Diagnostic,
+                    Optional: true));
+
+                entries.Add(new(
+                    BekiPackBlobs.WaivedEvidenceName(userId, packId, check, page),
+                    $"diagnostic/waivers/{stem}-{check}.png",
+                    PackageStatus.Diagnostic,
+                    Optional: true));
+            }
         }
 
         // The fixed pages' machine QA (D7): the cover boards, the endpapers, the intro, the credits.
         foreach (var role in BekiFixedPageQa.Roles)
         {
-            entries.Add((BekiPackBlobs.FixedPageQaName(userId, packId, role),
+            entries.Add(new(BekiPackBlobs.FixedPageQaName(userId, packId, role),
                 $"qa/fixed-{role}-qa.json", PackageStatus.Canonical));
         }
 
@@ -265,7 +340,7 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
         // cleared the fold.
         foreach (var mode in BekiPackBlobs.LayoutModes)
         {
-            entries.Add((BekiPackBlobs.LayoutReceiptName(userId, packId, mode),
+            entries.Add(new(BekiPackBlobs.LayoutReceiptName(userId, packId, mode),
                 $"receipts/{mode}-layout.json", PackageStatus.Canonical));
 
             // Fourteen is the longest of the three documents; a mode with fewer pages simply reports
@@ -273,7 +348,7 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
             for (var page = 1; page <= BookFormat.SpreadCount + 6; page++)
             {
                 var fileName = $"page-{page:00}-layout.json";
-                entries.Add((BekiPackBlobs.LayoutPageReceiptName(userId, packId, mode, fileName),
+                entries.Add(new(BekiPackBlobs.LayoutPageReceiptName(userId, packId, mode, fileName),
                     $"receipts/{mode}/{fileName}", PackageStatus.Canonical));
             }
         }
@@ -281,9 +356,9 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
         // The render logs and the contact sheets the human approval is about (P2-6, amendment A2).
         foreach (var artifact in BekiPackBlobs.RenderedArtifacts)
         {
-            entries.Add((BekiPackBlobs.RenderReportName(userId, packId, artifact),
+            entries.Add(new(BekiPackBlobs.RenderReportName(userId, packId, artifact),
                 $"qa/render-{artifact}.json", PackageStatus.Canonical));
-            entries.Add((BekiPackBlobs.ContactSheetName(userId, packId, artifact),
+            entries.Add(new(BekiPackBlobs.ContactSheetName(userId, packId, artifact),
                 $"qa/contact-sheet-{artifact}.png", PackageStatus.Canonical));
         }
 
@@ -388,6 +463,31 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
                 awaiting_human_review = release?.AwaitingHumanReview ?? true,
                 contact_sheet_sha256 = release?.ContactSheetSha256,
                 gates = release?.Gates,
+                /*
+                  What the supplier is being told, said in the supplier's own terms — and, separately,
+                  what the family got.
+
+                  Both are here because the honest thing to do with a divergence is to name it. A
+                  reader of this document who found a book in the customer's library and a
+                  NOT_RELEASABLE verdict in the package would otherwise be looking at what appears to
+                  be a contradiction; it is not one, and the waiver list says who decided and about
+                  which check.
+                */
+                supplier_release = new
+                {
+                    press_files = release?.SupplierPressReleasable ?? false,
+                    customer_pdf = release?.SupplierCustomerPdfReleasable ?? false,
+                    note = "Policy-blind. These are what this package's canonical/diagnostic "
+                           + "classification is computed from.",
+                },
+                parent_publication = new
+                {
+                    press_files = release?.PressFilesMayPublish ?? false,
+                    customer_pdf = release?.CustomerPdfMayPublish ?? false,
+                    waivers = release?.PolicyWaivers ?? [],
+                    note = "What this deployment's release policy allowed to reach the family who "
+                           + "bought the book. Never a claim about the gates.",
+                },
                 note = release is null
                     ? "This book was fulfilled before the release gates existed, or its evaluation "
                       + "was never stored. Nothing in this package may be treated as released."

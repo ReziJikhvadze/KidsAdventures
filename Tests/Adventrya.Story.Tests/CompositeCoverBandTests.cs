@@ -36,8 +36,12 @@ public class CompositeCoverBandTests : CompositePipelineTestBase
     ///
     /// Computed from the millimetres rather than written down, because a hard-coded column would
     /// pass a test against a measurement that was reading the wrong place.
+    ///
+    /// Internal because <see cref="CompositePipelinePolicyTests"/> paints the same boundary to ask
+    /// what a flagged policy does with it, and two copies of this arithmetic would be two places for
+    /// the dieline to drift out of.
     /// </summary>
-    private static int ColumnFor(double millimetres, int width) =>
+    internal static int ColumnFor(double millimetres, int width) =>
         (int)Math.Round(width * (millimetres / BekiCoverDieline.CanvasWidthMm));
 
     // ---------------------------------------------------------------------------------------

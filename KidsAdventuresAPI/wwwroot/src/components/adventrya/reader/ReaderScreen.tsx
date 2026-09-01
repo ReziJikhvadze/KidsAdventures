@@ -84,11 +84,25 @@ export function ReaderScreen() {
     illustrationProgress.total > 0 &&
     illustrationProgress.done < illustrationProgress.total;
 
+  /*
+    The book is not written yet.
+
+    Two ways to be here, and both used to render an empty volume — covers with nothing between
+    them, which reads as a book that failed rather than one that has not happened yet. The
+    server's own `generationPending` is the reliable half; a book with no pages and no failure is
+    the same state seen from the client, and covers anything the flag has not reached.
+  */
+  const isPending =
+    pack !== null &&
+    pack.status !== "Failed" &&
+    pack.isFailed !== true &&
+    (pack.generationPending === true || (pack.storyPages?.length ?? 0) === 0);
+
   // A book takes minutes to illustrate and the page said nothing about it, so a parent who
   // refreshed could not tell whether anything was happening. Polling while there is work left
   // means a reload — or simply leaving it open — shows the pictures as they land.
   useEffect(() => {
-    if (!isIllustrating) return;
+    if (!isIllustrating && !isPending) return;
 
     let cancelled = false;
     const timer = window.setInterval(() => {
@@ -105,7 +119,7 @@ export function ReaderScreen() {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [bookId, isIllustrating]);
+  }, [bookId, isIllustrating, isPending]);
 
   const heroName = pack?.childName?.trim() || t.common.fallbackHeroName;
   const worldId = pack?.worldId && isWorldId(pack.worldId) ? pack.worldId : null;
@@ -128,6 +142,20 @@ export function ReaderScreen() {
   // starts the job, watches it, and downloads when the file exists.
   const onDownload = async () => {
     if (!pack || downloading) return;
+
+    /*
+      A finished book whose file is deliberately being held back.
+
+      Asking for it anyway reaches a queue that refuses a Completed pack in English, and that
+      refusal was rendered here verbatim — a code and a sentence about "story must be ready" on
+      a page showing the parent their finished story. There is nothing to wait on in this
+      browser, so this says what is happening and stops.
+    */
+    if (pack.downloadHeld) {
+      setPdfError(t.story.reader.pdf.held);
+      return;
+    }
+
     setDownloading(true);
     setPdfError(null);
     try {
@@ -145,12 +173,10 @@ export function ReaderScreen() {
         setPack(ready);
       }
       await downloadAdventurePack(ready.id, `${title}.pdf`);
-    } catch (err) {
-      setPdfError(
-        err instanceof ApiError
-          ? err.message
-          : (err as Error)?.message || t.common.states.bookFailed,
-      );
+    } catch {
+      // One Georgian line, whatever happened. What stood here forwarded the server's own string,
+      // and the strings on this path are English operator messages with failure codes in them.
+      setPdfError(t.story.reader.pdf.failed);
     } finally {
       setDownloading(false);
     }
@@ -178,7 +204,7 @@ export function ReaderScreen() {
             <button
               className="button button-quiet"
               type="button"
-              disabled={!pack || downloading || isIllustrating}
+              disabled={!pack || downloading || isIllustrating || isPending}
               onClick={() => void onDownload()}
             >
               <Download aria-hidden="true" />
@@ -195,9 +221,14 @@ export function ReaderScreen() {
               {t.story.reader.library.trim()}
             </Link>
           </div>
-          {pdfError ? (
-            <p className="eyebrow" role="alert" style={{ color: "#f1c970", marginTop: 12 }}>
-              {pdfError}
+          {/* Said before anybody presses the button, not only after it fails. */}
+          {(pdfError ?? (pack?.downloadHeld ? t.story.reader.pdf.held : null)) ? (
+            <p
+              className="eyebrow"
+              role={pdfError ? "alert" : undefined}
+              style={{ color: "#f1c970", marginTop: 12 }}
+            >
+              {pdfError ?? t.story.reader.pdf.held}
             </p>
           ) : null}
         </div>
@@ -319,6 +350,25 @@ export function ReaderScreen() {
               {t.dashboard.library.failedTitle}
             </h2>
             <p>{pack.errorMessage || t.dashboard.library.failedBody}</p>
+          </div>
+        ) : isPending ? (
+          /*
+            "Being drawn", said as a book that is coming rather than a book that is missing. The
+            page polls behind this, so it becomes the real volume without anybody refreshing.
+          */
+          <div
+            style={{
+              padding: "2rem",
+              textAlign: "center",
+              background: "rgba(0,0,0,0.2)",
+              borderRadius: 16,
+            }}
+            aria-live="polite"
+          >
+            <h2 style={{ color: "#f1c970", marginBottom: "1rem" }}>
+              {t.story.reader.pending.title}
+            </h2>
+            <p>{pack?.progressMessage || t.story.reader.pending.body}</p>
           </div>
         ) : pack && !isIllustrating ? (
           /*

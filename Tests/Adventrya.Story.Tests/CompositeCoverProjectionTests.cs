@@ -183,12 +183,18 @@ public class CompositeCoverProjectionTests
     }
 
     /// <summary>
-    /// The verdict is written down and read. Under this harness the composed documents are stubs, so
-    /// print and digital preparation both refuse — which is the point: the files withhold, the pack
-    /// still completes, and the reader still has its spreads.
+    /// The verdict is written down and read — and, since the release policy, the two audiences it is
+    /// read by are told different things about the same book.
+    ///
+    /// Under this harness the composed documents are stubs, so print and digital preparation both
+    /// refuse. The supplier's verdict says so: NOT_RELEASABLE, with the gates that failed named. The
+    /// printer's file is withheld, because a press gate is a blocker by the owner's own carve-out.
+    /// The family's download is published, because the owner's ruling is that a book with artwork in
+    /// hand reaches the family and the problem becomes an alarm — and the waiver saying exactly that
+    /// is in the stored document rather than inferable from its absence.
     /// </summary>
     [Fact]
-    public async Task The_release_verdict_is_stored_and_withholds_the_files_it_should()
+    public async Task The_release_verdict_is_stored_and_withholds_the_files_the_policy_still_blocks()
     {
         var world = new PackWorld();
 
@@ -203,12 +209,20 @@ public class CompositeCoverProjectionTests
         Assert.Equal(BekiReleaseGates.NotReleasable, verdict.Verdict);
         Assert.NotEmpty(verdict.FailingGates);
 
-        // Withheld on purpose: the slot was written, and written null.
+        // Withheld on purpose: the slot was written, and written null. Press gates keep their
+        // blockers — a bad press PDF is a reprint and an invoice, not a disappointment.
         Assert.True(world.Packs.PrintPdfUrlWritten);
         Assert.Null(world.Packs.PrintPdfUrl);
+        Assert.False(verdict.PressFilesMayPublish);
+        Assert.False(verdict.SupplierPressReleasable);
 
-        // The parent's download is withheld with it — and the reader's spreads are not.
-        Assert.Null(world.Packs.PdfUrl);
+        // The parent's download is published under the shipped policy, and the divergence from the
+        // supplier's answer is written down rather than left to be worked out.
+        Assert.NotNull(world.Packs.PdfUrl);
+        Assert.True(verdict.CustomerPdfMayPublish);
+        Assert.False(verdict.SupplierCustomerPdfReleasable);
+        Assert.NotEmpty(verdict.PolicyWaivers);
+
         Assert.Equal(AdventurePackStatus.Completed, world.Packs.Status);
         Assert.Contains(
             BekiPackBlobs.SpreadName(world.UserId, world.PackId, 1), world.Blobs.Uploaded.Keys);
@@ -722,6 +736,20 @@ public class CompositeCoverProjectionTests
         public Task<bool> UpdateGeneratedJsonAsync(
             Guid id, string generatedJson, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+
+        // B5's discriminator and B7's withheld sweep. Neither is this double's subject: the pipeline
+        // stamp is recorded so a test can read it back, and no test here asks for withheld books.
+        public string? StampedPipeline { get; private set; }
+
+        public Task SetGenerationPipelineAsync(Guid id, string pipeline, CancellationToken cancellationToken)
+        {
+            StampedPipeline = pipeline;
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<AdventurePack>> ListWithheldBekiPacksAsync(
+            int limit, BekiWithheldCursor? after, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<AdventurePack>>([]);
 
         public Task TouchGenerationHeartbeatAsync(Guid id, CancellationToken cancellationToken) =>
             Task.CompletedTask;

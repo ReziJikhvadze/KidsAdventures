@@ -58,6 +58,32 @@ public static class BekiPackBlobs
         $"{userId}/{packId}/spread-{spreadNumber:00}-qa.json";
 
     /// <summary>
+    /// Where the record of a policy waiver goes: the numbers and the verdicts behind a refusal this
+    /// deployment decided to ship anyway.
+    ///
+    /// A name of its own rather than the spread's QA record, and the distinction is the point.
+    /// <see cref="SpreadQaName"/> holds what the REVIEWER said, and the whole of amendment B1 is
+    /// that nothing may overwrite that with a decision made about it afterwards. This holds what was
+    /// decided. Page zero is the cover wrap, as everywhere else in this pack's storage.
+    /// </summary>
+    public static string PolicyWaiverName(Guid userId, Guid packId, string checkId, int page) =>
+        $"{userId}/{packId}/waived-{checkId}-{page:00}.json";
+
+    /// <summary>
+    /// The PICTURE a waived check refused, named for the check as well as the page.
+    ///
+    /// It shared <see cref="FailedSpreadName"/> with the terminal-failure path, and that name knows
+    /// only the page. Two waived checks on one spread — a centre fold the measurement disliked and a
+    /// reviewer who disliked something else — therefore wrote to one blob, and the later upload
+    /// silently replaced the earlier: two alarms, one picture, and no way to tell which alarm the
+    /// surviving picture belonged to. (Review finding 5.)
+    ///
+    /// Page zero is the cover wrap, as everywhere else in this pack's storage.
+    /// </summary>
+    public static string WaivedEvidenceName(Guid userId, Guid packId, string checkId, int page) =>
+        $"{userId}/{packId}/spread-{page:00}-waived-{checkId}.png";
+
+    /// <summary>
     /// Where a resumable job's progress lives between attempts. Read and written by its bare
     /// name, the way <see cref="IBlobStorageService.ExistsAsync"/> and
     /// <see cref="IBlobStorageService.DownloadAsync"/> both address a blob — never by a stored
@@ -358,7 +384,11 @@ public sealed class BekiPackFulfillment(
     TimeProvider? timeProvider = null,
     IPressUpscaler? pressUpscaler = null,
     BekiReleaseGates? releaseGates = null,
-    BekiAssetLock? assetLock = null) : IBekiPackFulfillment
+    BekiAssetLock? assetLock = null,
+    IBekiReleasePolicyService? releasePolicy = null,
+    IBekiAlarmService? alarms = null,
+    IBekiReleaseReconciliation? reconciliation = null,
+    IOrderRepository? orders = null) : IBekiPackFulfillment
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -382,6 +412,22 @@ public sealed class BekiPackFulfillment(
     private readonly BekiReleaseGates _releaseGates = releaseGates ?? new BekiReleaseGates(blobStorage);
 
     private readonly BekiAssetLock _assetLock = assetLock ?? new BekiAssetLock();
+
+    /// <summary>
+    /// This job's one lookup of which order paid for this book, memoized for the run.
+    ///
+    /// Every alarm this job raises used to carry a null order id, and this job is the MAIN source of
+    /// alarms — the waived spreads, the waived gates, the lost completion. The console's order link
+    /// and its evidence button both key off that column, so the rows an operator most needs to act
+    /// on were exactly the rows they could not open. (Review finding 4.)
+    ///
+    /// Memoized because a book raises one alarm per waived spread and per waived gate, and a
+    /// database round trip apiece for an answer that cannot change during a job is a cost with
+    /// nothing on the other side of it. Null is a real answer and is cached as one: a Beki book can
+    /// exist without a paid order (a re-drive, a staging run), and an alarm about it is still worth
+    /// having.
+    /// </summary>
+    private (Guid PackId, Guid? OrderId)? _order;
 
     /// <summary>
     /// The statuses a pack may be picked up from.
@@ -456,6 +502,21 @@ public sealed class BekiPackFulfillment(
         IReadOnlySet<string> assetLockHashes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         /*
+          The release policy, read ONCE per job and carried — amendment B4.
+
+          This job runs for twenty minutes and makes a dozen policy-sensitive decisions in that time.
+          Reading a cached service at each of them would let an admin's flip halfway through produce
+          a book whose spread three was refused under one policy and whose spread seven shipped under
+          another, with release-gates.json describing a decision that was never made as a whole. One
+          reading, carried into the pipeline's context and down to the gate evaluation at the end.
+
+          Declared here and taken inside the guarded region below, for the reason the pack load is:
+          anything above the try has no handler, and the shipped defaults are the right value to hold
+          while it is being read.
+        */
+        var policy = BekiReleasePolicySnapshot.Defaults;
+
+        /*
           The load is inside the guarded region, which is not where it started.
 
           It ran above the try, under the budget's token, so a deadline that expired while this
@@ -512,6 +573,13 @@ public sealed class BekiPackFulfillment(
             }
 
             expectedStatus = pack.Status;
+            stage = "reading the release policy";
+
+            if (releasePolicy is not null)
+            {
+                policy = await releasePolicy.SnapshotAsync(jobToken);
+            }
+
             stage = "claiming the pack";
 
             // Claimed before any work: the stalled-order sweep re-enqueues generation for a pack
@@ -915,6 +983,21 @@ public sealed class BekiPackFulfillment(
                         AnchorBasePng = existingBases.GetValueOrDefault(
                             CompositeBookPipeline.AnchorSpreadNumber),
                     },
+                    // This job's one reading of the policy, handed down. See the declaration above.
+                    ReleasePolicy = policy,
+
+                    /*
+                      Where a waived quality refusal lands: the picture, the paperwork and the alarm.
+
+                      The pipeline cannot write a blob and has no repository, which is why this is a
+                      callback rather than a dependency of its own. What it writes is deliberately
+                      NOT the spread's QA record — that comes back on the artifact and says what the
+                      reviewer actually said — but a separate waiver document beside the refused
+                      picture, so the two can be read together without either overwriting the other.
+                    */
+                    OnPolicyWaiver = async waiver =>
+                        await RecordWaiverAsync(pack, waiver, jobToken),
+
                     OnIdentitySpec = async identityJson =>
                     {
                         // Before the first image call and awaited, exactly as the scenario is: the
@@ -1401,11 +1484,29 @@ public sealed class BekiPackFulfillment(
                     await PrivateReferencesAsync(pack, run.PhotoBlobUrl!, identitySpecUrl, jobToken)
                         with { StoryUrl = storyUrl });
 
-                release = await _releaseGates.EvaluateAsync(pack.UserId, pack.Id, jobToken);
+                // Judged under this job's own policy reading, not under whatever the table says by
+                // the time the evaluation runs — the same snapshot the spreads were drawn against.
+                release = await _releaseGates.EvaluateAsync(
+                    pack.UserId, pack.Id, jobToken, policy);
 
                 await blobStorage.UploadAsync(
                     BekiPackBlobs.ReleaseGatesName(pack.UserId, pack.Id),
                     System.Text.Encoding.UTF8.GetBytes(release.ToJson()), "application/json", jobToken);
+
+                /*
+                  One alarm per waived gate — amendment B4's second half.
+
+                  A gate that fails and does not withhold produces no exception, no failed status and
+                  no log anybody has a reason to read; without this it would be the quietest event in
+                  the system and the one most worth knowing about. The pipeline's own waivers were
+                  raised as they happened; these are the ones only the verdict can see.
+                */
+                if (reconciliation is not null)
+                {
+                    await reconciliation.RaiseWaiverAlarmsAsync(
+                        pack.Id, pack.UserId, await OrderIdAsync(pack.Id, jobToken), release,
+                        jobToken);
+                }
 
                 /*
                   And the withholding, which is the whole point of having measured any of it.
@@ -1544,6 +1645,24 @@ public sealed class BekiPackFulfillment(
                     + "first. Leaving the stored status alone; the PDF and the spreads are saved "
                     + "and the manifest can resume from them.",
                     packId, stored.Count, expectedStatus);
+
+                /*
+                  And this is where amendment B6 stops the losing side of that race from costing a
+                  family their book.
+
+                  "Leaving the stored status alone" was the honest thing to do while nothing could
+                  tell a book that had genuinely died from a book that had merely been slow. It
+                  produced a real outcome nobody wanted: a pack with eight spreads, a manifest, both
+                  press files and a reading PDF, sitting Failed with a message about a job that had
+                  gone silent — because the job had gone silent, for forty minutes, and had then
+                  finished. The sweep was right about the silence and wrong about the book.
+
+                  The reconciliation re-verifies the artifacts and reverses only the sweep's own
+                  verdict, and only for a book whose files are all there. The burial stays on the
+                  record as an alarm either way: a book that takes longer than the whole budget is a
+                  fault even when it arrives.
+                */
+                await ReconcileLostCompletionAsync(pack, expectedStatus, stored.Count);
             }
 
             // Telemetry last, and best-effort: the order is already complete, and a failed
@@ -1809,6 +1928,179 @@ public sealed class BekiPackFulfillment(
                     "Beki pack {PackId} failed in this job, but the stored pack is not Failed; "
                     + "another writer got a better outcome, so nobody is being paged.", packId);
             }
+        }
+    }
+
+    /// <summary>
+    /// Which order paid for this book, or null when nothing did.
+    ///
+    /// The cheapest lookup that already exists: the orders table carries the pack in its own
+    /// <c>BookId</c> column and this reads paid-or-fulfilled rows for it, oldest first, which is the
+    /// same query the "what does this parent already own" question uses. The first is the one the
+    /// console wants — a re-purchase of the same book is a second row about the same artifact, and
+    /// the alarm belongs on the order the book was made for.
+    ///
+    /// Never throws. An alarm is a record of something that already happened; a lookup that failed
+    /// must cost it its order link, not its existence.
+    /// </summary>
+    private async Task<Guid?> OrderIdAsync(Guid packId, CancellationToken cancellationToken)
+    {
+        if (_order is { } cached && cached.PackId == packId)
+        {
+            return cached.OrderId;
+        }
+
+        Guid? orderId = null;
+
+        if (orders is not null)
+        {
+            try
+            {
+                var paid = await orders.GetPaidForBookAsync(packId, cancellationToken);
+                orderId = paid.Count > 0 ? paid[0].Id : null;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(
+                    ex, "Beki pack {PackId}: the order behind this book could not be looked up, so "
+                        + "its alarms will not carry an order link.", packId);
+            }
+        }
+
+        _order = (packId, orderId);
+
+        return orderId;
+    }
+
+    /// <summary>
+    /// Stores one waived refusal's evidence and raises its alarm — the fulfilment half of the
+    /// pipeline's <c>OnPolicyWaiver</c> callback.
+    ///
+    /// Two blobs and a row. The picture goes where every refused picture has always gone, so that an
+    /// operator opening a pack's storage finds the waived page beside the failed ones rather than in
+    /// a new place they have to be told about; the document goes to a name of its own, because the
+    /// spread's QA record belongs to the reviewer and this is a record of what was decided about it.
+    ///
+    /// Nothing here may throw. The book is mid-flight and its artwork is good; a storage hiccup that
+    /// took it down would be the fault this whole policy exists to remove, arriving through the door
+    /// marked "recording that we removed it".
+    ///
+    /// Internal rather than private so a test can hand it two waivers and look at what is left in
+    /// storage. Reaching it through <see cref="ProcessAsync"/> would mean driving a whole book — nine
+    /// image calls' worth of doubles — to observe two uploads and one row, and the faults this method
+    /// has had (a blob name that collided, an order id that was always null) are exactly the kind a
+    /// test at that distance does not see.
+    /// </summary>
+    internal async Task RecordWaiverAsync(
+        Domain.Entities.AdventurePack pack,
+        CompositePolicyWaiver waiver,
+        CancellationToken cancellationToken)
+    {
+        var evidenceName = BekiPackBlobs.PolicyWaiverName(
+            pack.UserId, pack.Id, waiver.CheckId, waiver.Page);
+
+        try
+        {
+            /*
+              The picture, under a name that says WHICH check refused it.
+
+              It went to the plain FailedSpreadName, and two waived checks on one spread — the centre
+              fold and the reviewer's opinion, which is not a rare pair — wrote to the same blob. The
+              second upload replaced the first, so one of the two alarms pointed at a picture that
+              was no longer the picture it was about, and nothing anywhere said so. The plain name
+              stays what it has always been: where a spread that KILLED the book leaves its last
+              attempt. (Review finding 5.)
+            */
+            await blobStorage.UploadAsync(
+                BekiPackBlobs.WaivedEvidenceName(
+                    pack.UserId, pack.Id, waiver.CheckId, waiver.Page),
+                waiver.EvidencePng, "image/png", cancellationToken);
+
+            await blobStorage.UploadAsync(
+                evidenceName,
+                System.Text.Encoding.UTF8.GetBytes(waiver.EvidenceJson),
+                "application/json",
+                cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(
+                ex, "Beki pack {PackId}: the {CheckId} waiver's evidence for page {Page} could not "
+                    + "be stored. The alarm is still raised.",
+                pack.Id, waiver.CheckId, waiver.Page);
+        }
+
+        if (alarms is null)
+        {
+            return;
+        }
+
+        await alarms.RaiseAsync(
+            new BekiAlarmRaise(
+                pack.Id,
+                await OrderIdAsync(pack.Id, cancellationToken),
+                pack.UserId,
+                waiver.CheckId,
+                BekiReleaseSeverity.Flag,
+                waiver.Page == 0
+                    ? $"The cover wrap: {waiver.Detail}. The artwork shipped under the release policy."
+                    : $"Spread {waiver.Page}: {waiver.Detail}. The artwork shipped under the release policy.",
+                evidenceName,
+                // The page is part of the identity: the same check on two spreads is two incidents,
+                // and one spread refused on two attempts of the same book is one.
+                BekiAlarmEvidence.ForAttempt(waiver.CheckId, waiver.Page)),
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// The rescue for a book that finished and lost the race to say so — amendment B6.
+    ///
+    /// Best effort and entirely outside the book's own success path: by the time this runs the
+    /// spreads, the PDFs and the manifest are all in storage, so the worst case is a pack that stays
+    /// Failed and an operator who is told why. A fresh token, because the budget's may be about to
+    /// expire and this is the one piece of work that must not be cut short by it.
+    /// </summary>
+    private async Task ReconcileLostCompletionAsync(
+        Domain.Entities.AdventurePack pack, AdventurePackStatus expectedStatus, int spreads)
+    {
+        if (alarms is not null)
+        {
+            await alarms.RaiseAsync(
+                new BekiAlarmRaise(
+                    pack.Id,
+                    await OrderIdAsync(pack.Id, CancellationToken.None),
+                    pack.UserId,
+                    "fulfilment_completion_lost",
+                    BekiReleaseSeverity.Blocker,
+                    $"This book finished drawing {spreads} spread(s) and could not be marked "
+                    + $"Completed: its status was no longer {expectedStatus}. Every artifact is in "
+                    + "storage. A reconciliation was attempted; check whether the pack is Completed.",
+                    BekiPackBlobs.ManifestName(pack.UserId, pack.Id),
+                    BekiAlarmEvidence.ForAttempt("completion-lost", pack.Id)),
+                CancellationToken.None);
+        }
+
+        if (reconciliation is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var result = await reconciliation.ReconcilePackAsync(
+                pack.Id,
+                "the fulfilment job finished after the stale-generation sweep had buried the book",
+                CancellationToken.None);
+
+            logger.LogWarning(
+                "Beki pack {PackId}: reconciliation after a lost completion said {Outcome} — {Detail}",
+                pack.Id, result.Outcome, result.Detail);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex, "Beki pack {PackId}: the reconciliation after a lost completion did not run.",
+                pack.Id);
         }
     }
 

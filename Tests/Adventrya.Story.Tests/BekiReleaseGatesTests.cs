@@ -21,6 +21,13 @@ namespace Adventrya.Story.Tests;
 /// it is <c>UNKNOWN</c>, and it withholds. And the withholding is graduated by amendment A5's
 /// governance classes: a press failure must never hold back the parent's download, and no failure at
 /// all holds back the in-app reader.
+///
+/// **Every evaluation below names <see cref="BekiReleasePolicySnapshot.Strict"/>, and it is not
+/// boilerplate.** These tests are about what the stored evidence SAYS; the release policy is about
+/// what a deployment then does with a book, and the two are now separate questions (amendment B1).
+/// Under the shipped defaults most of these failures publish the parent's file and record a waiver,
+/// which is the owner's ruling and is what <see cref="BekiReleasePolicyGateTests"/> covers. Reading
+/// the strict answers here keeps this file's subject exactly what it was: the gates.
 /// </summary>
 public class BekiReleaseGatesTests
 {
@@ -34,7 +41,8 @@ public class BekiReleaseGatesTests
     public async Task A_book_with_no_evidence_passes_nothing()
     {
         var verdict = await new BekiReleaseGates(new FakeBlobs())
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         Assert.Equal(BekiReleaseGates.NotReleasable, verdict.Verdict);
         Assert.False(verdict.IsReleasable);
@@ -60,7 +68,8 @@ public class BekiReleaseGatesTests
         SeedCompleteBook(blobs);
 
         var verdict = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         Assert.Equal(
             BekiReleaseGates.Releasable,
@@ -89,7 +98,8 @@ public class BekiReleaseGatesTests
         }));
 
         var verdict = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         Assert.False(verdict.PressFilesMayPublish);
         Assert.True(verdict.CustomerPdfMayPublish);
@@ -113,7 +123,8 @@ public class BekiReleaseGatesTests
         blobs.Remove(BekiPackBlobs.DigitalReportName(UserId, PackId));
 
         var verdict = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         Assert.False(verdict.CustomerPdfMayPublish);
         Assert.True(verdict.PressFilesMayPublish);
@@ -132,7 +143,8 @@ public class BekiReleaseGatesTests
         SeedCompleteBook(blobs, needsHumanReading: true);
 
         var verdict = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         Assert.True(verdict.AwaitingHumanReview);
         Assert.False(verdict.CustomerPdfMayPublish);
@@ -157,7 +169,8 @@ public class BekiReleaseGatesTests
                 .ToJson()));
 
         var stale = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         Assert.True(stale.AwaitingHumanReview);
         Assert.Contains(stale.Gates, gate =>
@@ -170,7 +183,8 @@ public class BekiReleaseGatesTests
                 .ToJson()));
 
         var signed = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         Assert.False(signed.AwaitingHumanReview);
         Assert.True(signed.CustomerPdfMayPublish);
@@ -192,7 +206,8 @@ public class BekiReleaseGatesTests
             new BekiCoverRecord("https://blob.test/redraw", "cover-identity-redraw-v1.4", "PASS")));
 
         var verdict = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         Assert.Contains(verdict.Gates, gate =>
             gate.Id == "SINGLE_COVER_MASTER" && gate.Status == BekiReleaseGates.Fail);
@@ -212,7 +227,8 @@ public class BekiReleaseGatesTests
         blobs.Remove(BekiPackBlobs.SpreadQaName(UserId, PackId, 4));
 
         var verdict = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         Assert.Contains(verdict.Gates, gate =>
             gate.Id == "VISUAL_QA"
@@ -239,7 +255,8 @@ public class BekiReleaseGatesTests
         }));
 
         var verdict = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         Assert.Contains(verdict.Gates, gate =>
             gate.Id == "VISUAL_QA" && gate.Detail.Contains("spread(s) 2"));
@@ -260,7 +277,8 @@ public class BekiReleaseGatesTests
             RenderReport(BekiPackBlobs.CoverRenderArtifact, releasable: false, qrPage: null));
 
         var verdict = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         Assert.Contains("RENDER_VALIDATION", verdict.FailingGates);
         Assert.False(verdict.PressFilesMayPublish);
@@ -285,7 +303,8 @@ public class BekiReleaseGatesTests
             BekiPackBlobs.RenderReportName(UserId, PackId, BekiPackBlobs.CoverRenderArtifact));
 
         var verdict = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         var gate = Assert.Single(verdict.Gates, g => g.Id == "RENDER_VALIDATION");
         Assert.Equal(BekiReleaseGates.Unknown, gate.Status);
@@ -317,7 +336,8 @@ public class BekiReleaseGatesTests
             RenderReport(BekiPackBlobs.DigitalRenderArtifact, releasable: false, qrPage: 12));
 
         var verdict = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         Assert.False(verdict.CustomerPdfMayPublish);
         Assert.Contains("RENDER_VALIDATION", verdict.FailingGates);
@@ -346,7 +366,8 @@ public class BekiReleaseGatesTests
                 qrStatus: "failed"));
 
         var verdict = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         Assert.False(verdict.CustomerPdfMayPublish);
         Assert.Contains("QR", verdict.FailingGates);
@@ -367,7 +388,8 @@ public class BekiReleaseGatesTests
             FixedPageQa("endpaper-front", BekiFixedPageQa.Fail));
 
         var verdict = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         var gate = Assert.Single(verdict.Gates, g => g.Id == "VISUAL_QA");
         Assert.Equal(BekiReleaseGates.Fail, gate.Status);
@@ -393,7 +415,8 @@ public class BekiReleaseGatesTests
             FixedPageQa("credits", BekiFixedPageQa.Pass, version: "beki-fixed-page-qa-v0"));
 
         var verdict = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         Assert.Contains(verdict.Gates, gate =>
             gate.Id == "VISUAL_QA"
@@ -419,7 +442,8 @@ public class BekiReleaseGatesTests
                 "the reading copy carries printer-only structures"));
 
         var verdict = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         var gate = Assert.Single(verdict.Gates, g => g.Id == "DIGITAL_GEOMETRY");
         Assert.Equal(BekiReleaseGates.Fail, gate.Status);
@@ -442,7 +466,8 @@ public class BekiReleaseGatesTests
                 "the source art carries 143 PPI of detail at placement size"));
 
         var verdict = await new BekiReleaseGates(blobs)
-            .EvaluateAsync(UserId, PackId, CancellationToken.None);
+            .EvaluateAsync(
+                UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Strict);
 
         Assert.Contains(verdict.Gates, gate =>
             gate.Id == "PRESS_GEOMETRY" && gate.Status == BekiReleaseGates.Fail);

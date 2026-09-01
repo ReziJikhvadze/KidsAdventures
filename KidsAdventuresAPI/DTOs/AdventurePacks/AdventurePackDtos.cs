@@ -65,6 +65,35 @@ public class AdventurePackResponse
     /// generic world title with a placeholder hero name.
     /// </summary>
     public string? Title { get; set; }
+
+    /// <summary>
+    /// Which pipeline drew this book: <c>beki</c> or <c>legacy</c> (amendment B5).
+    ///
+    /// Sent because the client's own idea of "finished" depends on it, and it was guessing. The
+    /// two pipelines mean different things by <see cref="AdventurePackStatus.StoryReady"/>: on the
+    /// legacy one the book is readable, on this one the words exist and nothing has been drawn.
+    /// </summary>
+    public string? GenerationPipeline { get; set; }
+
+    /// <summary>
+    /// A Beki book that has not reached <see cref="AdventurePackStatus.Completed"/> — still being
+    /// made, whatever its status says.
+    ///
+    /// This is the field that stops the shelf offering a book minutes before one exists. It is
+    /// computed here rather than in the browser so that "is it finished" has exactly one answer,
+    /// and that answer knows which pipeline it is talking about.
+    /// </summary>
+    public bool GenerationPending { get; set; }
+
+    /// <summary>
+    /// Why a finished book has no file to download: <c>review</c> while a person is being waited
+    /// on, <c>gates</c> while a check is withholding it, null when nothing here is holding it.
+    ///
+    /// Set only when it is true — a Completed book with no reading PDF. It exists so a download
+    /// button can say something honest instead of asking for a file and rendering the refusal,
+    /// which on this path was an English sentence about a state the book was not in.
+    /// </summary>
+    public string? DownloadHeld { get; set; }
 }
 
 public sealed class AdventurePackDetailResponse : AdventurePackResponse

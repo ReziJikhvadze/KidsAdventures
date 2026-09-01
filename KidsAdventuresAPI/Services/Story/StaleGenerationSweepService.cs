@@ -54,7 +54,9 @@ public sealed class StaleGenerationSweepService(
     IUserRepository userRepository,
     IOptions<BekiOptions> bekiOptions,
     ILogger<StaleGenerationSweepService> logger,
-    TimeProvider? timeProvider = null) : IStaleGenerationSweepService
+    TimeProvider? timeProvider = null,
+    IBekiAlarmService? alarms = null,
+    IAdminNotifier? adminNotifier = null) : IStaleGenerationSweepService
 {
     /// <summary>
     /// How many rows one pass will close. A cap rather than a page: if there are ever more than
@@ -129,6 +131,11 @@ public sealed class StaleGenerationSweepService(
                     // anything at all — their screen simply stops changing. It still requeues
                     // nothing and decides nothing; it only says so.
                     await TellTheParentAsync(pack.Id, reason);
+
+                    // And the operator, which is the other half of the same gap. A buried book is a
+                    // paid book with nothing running behind it; until now it reached a log line and
+                    // stopped there, which is the audit's admin blindness in its purest form.
+                    await RaiseBurialAsync(pack.Id, reason, silence);
                 }
                 else
                 {
@@ -161,6 +168,62 @@ public sealed class StaleGenerationSweepService(
     /// parent. The same reason every method on <see cref="Services.Interfaces.IAdminNotifier"/>
     /// swallows everything.
     /// </summary>
+    /// <summary>
+    /// Records a burial where an operator will see it, and pages one.
+    ///
+    /// Both, because they answer different questions. The alarm is the durable record — it names the
+    /// pack, survives the log's retention, and sits in a list somebody works through; the page is
+    /// what makes a burial something a person hears about today. A burial is a paid book with
+    /// nothing running behind it, which is as strong a reason to wake somebody as a failed one.
+    ///
+    /// The page goes out through the alarm when there is one, and directly when there is not. A
+    /// blocker-severity alarm already notifies on its first sighting and on a reopen, and doing it
+    /// again here would send two emails about one book — while an alarm service that is absent must
+    /// not mean a burial nobody hears about.
+    ///
+    /// Wrapped whole and after the write, exactly as the letter to the parent is: a monitoring
+    /// system that is down must not cost the row its verdict, nor stop the next pack in the batch,
+    /// which belongs to a different family.
+    /// </summary>
+    private async Task RaiseBurialAsync(Guid packId, string reason, TimeSpan silence)
+    {
+        try
+        {
+            var pack = await packRepository.GetByIdNoOwnershipAsync(packId, CancellationToken.None);
+
+            if (alarms is not null && pack is not null)
+            {
+                await alarms.RaiseAsync(
+                    new BekiAlarmRaise(
+                        packId,
+                        null,
+                        pack.UserId,
+                        GenerationBudget.StalledCode,
+                        // A blocker: nothing about this is acceptable-and-recorded. A family paid
+                        // for a book and there is no process making it any more.
+                        BekiReleaseSeverity.Blocker,
+                        $"The stale-generation sweep failed this book: it was {pack.Status} and "
+                        + $"nothing had been written to it for {silence.TotalMinutes:0} minutes. "
+                        + "Nothing was requeued — a person decides whether it is retried. "
+                        + $"Stored reason: {reason}",
+                        BekiPackBlobs.ManifestName(pack.UserId, packId),
+                        BekiAlarmEvidence.ForAttempt("sweep-burial", packId)),
+                    CancellationToken.None);
+            }
+
+            if (adminNotifier is not null && (alarms is null || pack is null))
+            {
+                await adminNotifier.BookFailedAsync(packId, reason, CancellationToken.None);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex, "Stale-generation sweep buried pack {PackId} but could not raise the alarm.",
+                packId);
+        }
+    }
+
     private async Task TellTheParentAsync(Guid packId, string reason)
     {
         try

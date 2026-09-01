@@ -26,7 +26,8 @@ public sealed class AdventureGenerationService(
     IStoryRuleRepository storyRuleRepository,
     IOptions<EmailOptions> emailOptions,
     IOptions<OpenAiOptions> openAiOptions,
-    ILogger<AdventureGenerationService> logger) : IAdventureGenerationService
+    ILogger<AdventureGenerationService> logger,
+    IBekiDownloadStatusService? downloadStatus = null) : IAdventureGenerationService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
@@ -79,8 +80,11 @@ public sealed class AdventureGenerationService(
         var content = await openAiService.GenerateAdventureContentAsync(generationInput, adventureId, cancellationToken);
         NormalizeStoryPages(content, AdventureStoryConstants.LegacyPageCount);
 
+        // The guest preview's refusal, in the language the guest is reading. It reaches a browser
+        // through the preview endpoint, which is as parent-facing as a route gets.
         var firstPage = content.StoryPages.FirstOrDefault()
-                        ?? throw new InvalidOperationException("The story preview could not be generated. Please try again.");
+                        ?? throw new InvalidOperationException(
+                            "ისტორიის მომზადება ვერ მოხერხდა. სცადე ხელახლა.");
 
         var castPhotos = new List<CastPhotoReference>();
         if (input.PhotoBytes is { Length: > 0 })
@@ -143,7 +147,29 @@ public sealed class AdventureGenerationService(
     public async Task QueueIllustrationAsync(Guid userId, Guid packId, CancellationToken cancellationToken)
     {
         var pack = await adventurePackRepository.GetByIdAsync(packId, userId, cancellationToken)
-                   ?? throw new InvalidOperationException("Pack not found.");
+                   ?? throw new InvalidOperationException("წიგნი ვერ მოიძებნა.");
+
+        /*
+          A Beki book never enters the legacy illustration path — amendment B5.
+
+          This is the door the audit found standing open. A Beki pack sits at StoryReady for the
+          twenty minutes its own job is drawing eight spreads, a wrap cover and two press files; a
+          detail request in that window would trip the legacy auto-illustration trigger, which would
+          then start drawing per-page pictures for a book that is already being made, in a format it
+          does not print in, on top of the job that is making it. Nothing anywhere would notice: the
+          legacy pass writes into the same GeneratedJson.
+
+          Silently, because there is nothing wrong and nothing for anybody to do. The book is being
+          drawn by the pipeline that owns it, and the reader is already being served its spreads as
+          they land.
+        */
+        if (pack.IsBekiPipeline)
+        {
+            logger.LogInformation(
+                "Book {PackId} is a Beki book; the legacy illustration path declined it. Its own "
+                + "fulfilment job draws the spreads.", packId);
+            return;
+        }
 
         if (pack.Status != AdventurePackStatus.StoryReady || string.IsNullOrWhiteSpace(pack.GeneratedJson))
         {
@@ -177,16 +203,51 @@ public sealed class AdventureGenerationService(
     public async Task QueuePdfGenerationAsync(Guid userId, Guid packId, CancellationToken cancellationToken)
     {
         var pack = await adventurePackRepository.GetByIdAsync(packId, userId, cancellationToken)
-                   ?? throw new InvalidOperationException("Pack not found.");
+                   ?? throw new InvalidOperationException("წიგნი ვერ მოიძებნა.");
+
+        /*
+          The Beki branch, and the end of the download lie — amendments B5 and B7.
+
+          What happened here is worth stating plainly, because it is the clearest example of the
+          whole class of fault this campaign is about. A Beki book is Completed and its PDF is
+          withheld — for a signature, or for a gate — so it reaches this method with a status that is
+          not StoryReady, falls into the sentence below, and the parent who paid 79 GEL is shown, in
+          English, on a screen that had been promising them a picture book: "Story must be ready
+          before creating a PDF." Every word of it is false about their book. The story IS ready. The
+          book exists. Nobody is going to create anything, because the file is already made and is
+          being held.
+
+          So a Beki book is answered by a Beki sentence, in Georgian, that says the true thing: the
+          book is finishing its last check and the download opens shortly. There is nothing here for
+          the parent to do, and nothing to retry — which is why neither message asks them to.
+        */
+        if (pack.IsBekiPipeline)
+        {
+            var held = downloadStatus is null
+                ? null
+                : await downloadStatus.DownloadHeldReasonAsync(userId, packId, cancellationToken);
+
+            throw new InvalidOperationException(
+                pack.Status == AdventurePackStatus.Completed
+                    ? held == BekiDownloadHeld.Gates
+                        // The gates variant. Vaguer on purpose: a failing gate has no promised end,
+                        // and "shortly" would be a date nobody set.
+                        ? "წიგნის ფაილს ბოლო შემოწმება აკლია — ჩამოტვირთვა დროებით დახურულია და ჩვენ უკვე ვმუშაობთ ამაზე."
+                        : "წიგნი გადის ბოლო შემოწმებას — ჩამოტვირთვა მალე გაიხსნება."
+                    // Not Completed: the book is still being drawn, which the reader already shows
+                    // as a spinner. This is the download button pressed a moment too early.
+                    : "წიგნი ჯერ იხატება — ჩამოტვირთვა დასრულებისთანავე გაიხსნება.");
+        }
 
         if (pack.Status != AdventurePackStatus.StoryReady)
         {
-            throw new InvalidOperationException("Story must be ready before creating a PDF.");
+            throw new InvalidOperationException(
+                "წიგნი ჯერ არ არის მზად — ჩამოტვირთვა დასრულებისთანავე გაიხსნება.");
         }
 
         if (string.IsNullOrWhiteSpace(pack.GeneratedJson))
         {
-            throw new InvalidOperationException("Story content is missing.");
+            throw new InvalidOperationException("წიგნის ტექსტი ვერ მოიძებნა.");
         }
 
         if (!CanExportPdf(pack))

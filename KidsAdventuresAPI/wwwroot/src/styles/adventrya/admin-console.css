@@ -1146,3 +1146,149 @@
   margin-top: 14px;
   padding-top: 14px;
 }
+
+/*
+  Release policy, alarms, and the chips that say a row needs somebody.
+
+  Same vocabulary as everything above it — the shared soft/solid pairs, the same radii, the same
+  12px caption size — because the point of the chip is to be read at a glance in a table an
+  operator already knows how to read. A new visual language here would only slow that down.
+*/
+.admin-app .admin-alarm-badge {
+  align-items: center;
+  background: var(--danger-soft);
+  border: 1px solid rgba(190, 64, 82, 0.28);
+  border-radius: 999px;
+  color: var(--danger);
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 650;
+  gap: 6px;
+  padding: 5px 12px 5px 10px;
+  text-decoration: none;
+}
+
+.admin-app .attention-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.admin-app .attention-chip {
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 620;
+  letter-spacing: 0.01em;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.admin-app .attention-chip.is-alarm {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.admin-app .attention-chip.is-review {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.admin-app .attention-chip.is-failed {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.admin-app .policy-note {
+  background: #f7f7fa;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+}
+
+.admin-app .policy-note p {
+  margin: 0;
+}
+
+.admin-app .policy-note p + p {
+  margin-top: 9px;
+}
+
+.admin-app .policy-switch {
+  align-items: flex-start;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+}
+
+.admin-app .policy-switch h3 {
+  font-size: 15px;
+  font-weight: 660;
+  margin: 0 0 5px;
+}
+
+.admin-app .policy-switch p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+  max-width: 62ch;
+}
+
+.admin-app .policy-severity {
+  display: flex;
+  gap: 6px;
+}
+
+.admin-app .policy-severity button {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 620;
+  padding: 5px 11px;
+}
+
+.admin-app .policy-severity button[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: white;
+}
+
+.admin-app .policy-severity button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.admin-app .policy-check {
+  font-weight: 600;
+}
+
+.admin-app .alarm-detail {
+  color: var(--muted);
+  display: block;
+  font-size: 12px;
+  margin-top: 4px;
+  max-width: 70ch;
+  overflow-wrap: anywhere;
+}
+
+.admin-app .alarm-review {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.admin-app .alarm-review input {
+  min-width: 180px;
+}

@@ -25,6 +25,9 @@ public sealed class AdminOrdersController(
     IOrderService orderService,
     BekiPackageExport packageExport,
     BekiReleaseGates releaseGates,
+    IBekiReleaseReconciliation reconciliation,
+    IBekiReleasePolicyService releasePolicy,
+    IBekiAlarmService alarms,
     IUserContextService userContext,
     ILogger<AdminOrdersController> logger) : ControllerBase
 {
@@ -52,8 +55,9 @@ public sealed class AdminOrdersController(
 
         // Refused rather than ignored: a filter that silently does nothing shows a full list to
         // someone who asked for the short one, and they read it as "nothing is wrong".
-        if (!string.IsNullOrWhiteSpace(flag) &&
-            !string.Equals(flag, AdminReportingRepository.PaidUnfulfilledFlag, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(flag)
+            && !string.Equals(flag, AdminReportingRepository.PaidUnfulfilledFlag, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(flag, AdminReportingRepository.NeedsAttentionFlag, StringComparison.OrdinalIgnoreCase))
         {
             return BadRequest(new { message = "Unknown filter." });
         }
@@ -61,14 +65,40 @@ public sealed class AdminOrdersController(
         return Ok(await reporting.GetOrdersAsync(status, search, flag, page, pageSize, cancellationToken));
     }
 
-    /// <summary>One order with its customer, its book and its parcel.</summary>
+    /// <summary>
+    /// One order with its customer, its book and its parcel — plus why its book is being held,
+    /// when it is.
+    ///
+    /// The row already says THAT a finished book has no published file; only the stored verdict
+    /// says whether that is a person who has not looked yet or a gate that failed, and those two
+    /// want different things done about them. Reading it costs one blob fetch, which is why it
+    /// happens here — on one order somebody deliberately opened — and not once per row of a list.
+    /// A book with no stored evaluation simply reports neither, the same way the gates endpoint
+    /// reports a null verdict rather than an error.
+    /// </summary>
     [HttpGet("orders/{id:guid}")]
     public async Task<ActionResult<AdminOrderDetailResponse>> OrderDetail(
         Guid id,
         CancellationToken cancellationToken)
     {
         var detail = await reporting.GetOrderDetailAsync(id, cancellationToken);
-        return detail is null ? NotFound() : Ok(detail);
+        if (detail is null)
+        {
+            return NotFound();
+        }
+
+        if (detail.Book is not null)
+        {
+            var pack = await packRepository.GetByIdNoOwnershipAsync(detail.Book.Id, cancellationToken);
+            if (pack is not null)
+            {
+                var report = await ReadReleaseGatesAsync(pack.UserId, pack.Id, cancellationToken);
+                detail.AwaitingReview = report?.AwaitingHumanReview ?? false;
+                detail.FailingGateCount = report?.FailingGates.Count ?? 0;
+            }
+        }
+
+        return Ok(detail);
     }
 
     /// <summary>
@@ -248,7 +278,21 @@ public sealed class AdminOrdersController(
             "application/json",
             cancellationToken);
 
-        var revised = await releaseGates.EvaluateAsync(pack.UserId, pack.Id, cancellationToken);
+        /*
+          Under the policy that is in force NOW, read once and stated out loud.
+
+          This call used to pass no policy at all, and the evaluator's optional argument quietly
+          substituted the shipped defaults. The result was that an operator's override was ignored at
+          exactly the moment it mattered most: a check they had tightened to `blocker` was re-judged
+          as a flag and the book published; a check they had loosened to `flag` was re-judged as a
+          blocker and the signed-off book stayed withheld. Either way the stored verdict — the
+          document that answers "why was this published?" months later — was overwritten with a
+          decision nobody had made. (Review finding 1.)
+        */
+        var policy = await releasePolicy.SnapshotAsync(cancellationToken);
+
+        var revised = await releaseGates.EvaluateAsync(
+            pack.UserId, pack.Id, cancellationToken, policy);
 
         await blobStorage.UploadAsync(
             BekiPackBlobs.ReleaseGatesName(pack.UserId, pack.Id),
@@ -256,7 +300,46 @@ public sealed class AdminOrdersController(
             "application/json",
             cancellationToken);
 
-        await PublishUnlockedFilesAsync(pack, revised, cancellationToken);
+        /*
+          The publication this approval unlocked — through the shared writer rather than a copy of
+          it, because the approval endpoint, the withheld sweep and the fulfilment job's own late
+          publication all write the same two columns under the same compare-and-set, and three
+          copies of that guard would be three places for it to drift.
+
+          What is measured first is whether anything was SUPPOSED to be published: the file is
+          unlocked, the pack is still Completed, and no URL is on it yet. When that was true and
+          nothing was published, the approval reached nobody — the sweep buried the pack between
+          the read and the write, or the reading copy is not in storage — and until now that was a
+          warning in a log with a family at the other end of it waiting for a book somebody had
+          already signed off. It is an alarm.
+        */
+        var publicationExpected = revised.CustomerPdfMayPublish
+            && string.IsNullOrWhiteSpace(pack.PdfUrl)
+            && pack.Status == AdventurePackStatus.Completed;
+
+        // The PARENT's half of the answer, specifically. A press column written by the same call is
+        // not what an approval was about, and counting it would silence the alarm below on exactly
+        // the book that needs it: signed off, press file out, family still waiting.
+        var published = await reconciliation.PublishUnlockedFilesAsync(pack, revised, cancellationToken);
+
+        if (publicationExpected && !published.CustomerPdf)
+        {
+            await alarms.RaiseAsync(
+                new BekiAlarmRaise(
+                    pack.Id,
+                    id,
+                    pack.UserId,
+                    "publish_after_review",
+                    BekiReleaseSeverity.Blocker,
+                    $"{approval.ApprovedBy} approved this book and the reading copy was still not "
+                    + "published. The pack is no longer Completed, or the file is missing from "
+                    + "storage. The family is waiting on a book that has been signed off.",
+                    BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id),
+                    // Keyed on the sheet, so approving the same rendering twice is one alarm and a
+                    // re-render that fails again is a new one.
+                    BekiAlarmEvidence.ForAttempt("approve_review", pack.Id, sheet[..12])),
+                cancellationToken);
+        }
 
         logger.LogInformation(
             "Beki pack {PackId}: {Approver} signed off contact sheet {Sheet}; the verdict is now "
@@ -265,72 +348,6 @@ public sealed class AdminOrdersController(
             revised.FailingGates.Count == 0 ? "no failing gates" : string.Join(", ", revised.FailingGates));
 
         return Ok(ToResponse(revised));
-    }
-
-    /// <summary>
-    /// Writes the URL columns the new verdict unlocks, and only those.
-    ///
-    /// The compare-and-set idiom the fulfilment job's own terminal write uses, for the same reason:
-    /// this runs long after the job finished and must not resurrect a pack the stale-generation
-    /// sweep buried, or overwrite a status somebody else wrote. A pack that is not Completed keeps
-    /// its columns and the operator is told why.
-    /// </summary>
-    private async Task PublishUnlockedFilesAsync(
-        Domain.Entities.AdventurePack pack,
-        BekiReleaseGateReport verdict,
-        CancellationToken cancellationToken)
-    {
-        if (verdict.PressFilesMayPublish
-            && await blobStorage.ExistsAsync(
-                BekiPackBlobs.InteriorPdfName(pack.UserId, pack.Id), cancellationToken))
-        {
-            await packRepository.UpdatePrintPdfUrlAsync(
-                pack.Id,
-                await StoredUrlAsync(BekiPackBlobs.InteriorPdfName(pack.UserId, pack.Id)),
-                cancellationToken);
-        }
-
-        if (!verdict.CustomerPdfMayPublish
-            || !string.IsNullOrWhiteSpace(pack.PdfUrl)
-            || pack.Status != AdventurePackStatus.Completed)
-        {
-            return;
-        }
-
-        var published = await packRepository.TryUpdateStatusAsync(
-            pack.Id,
-            AdventurePackStatus.Completed,
-            AdventurePackStatus.Completed,
-            pack.GeneratedJson,
-            await StoredUrlAsync(BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id)),
-            null,
-            cancellationToken);
-
-        if (!published)
-        {
-            logger.LogWarning(
-                "Beki pack {PackId}: the customer PDF was unlocked by this approval but the pack is "
-                + "no longer Completed, so nothing was published. Whoever moved it decides next.",
-                pack.Id);
-        }
-
-        // The blob's own stored URL, which is whatever upload returned for it. Re-uploading the same
-        // bytes is the only way this account hands back that string, and it is cheap next to being
-        // wrong: a key assembled by hand reads on one storage backend and 404s on the other.
-        async Task<string?> StoredUrlAsync(string blobName)
-        {
-            if (!await blobStorage.ExistsAsync(blobName, cancellationToken))
-            {
-                return null;
-            }
-
-            await using var stream = await blobStorage.DownloadAsync(blobName, cancellationToken);
-            using var buffer = new MemoryStream();
-            await stream.CopyToAsync(buffer, cancellationToken);
-
-            return await blobStorage.UploadAsync(
-                blobName, buffer.ToArray(), "application/pdf", cancellationToken);
-        }
     }
 
     private async Task<Domain.Entities.AdventurePack?> PackForOrderAsync(

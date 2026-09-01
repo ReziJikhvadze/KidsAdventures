@@ -132,4 +132,31 @@ public interface IAdventurePackRepository
         CancellationToken cancellationToken);
     Task TouchPreviewIllustrationHeartbeatAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> UpdateGeneratedJsonAsync(Guid id, string generatedJson, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Records which pipeline is drawing this book — <c>beki</c> or <c>legacy</c>, amendment B5.
+    /// Written by whoever chose the pipeline, in the same unit of work that adopts or creates the
+    /// pack, so that nothing downstream has to re-derive it from a preview run's prompt version.
+    /// </summary>
+    Task SetGenerationPipelineAsync(Guid id, string pipeline, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Completed Beki books with a withheld DELIVERABLE — either the parent's download or the
+    /// printer's interior — which is the set a policy change re-judges (amendment B7).
+    /// </summary>
+    /// <param name="after">
+    /// Where the previous batch stopped, or null to start at the newest. Keyset rather than an
+    /// offset because the rows move underneath a scan: publishing is exactly what takes a book OUT
+    /// of this set, so a second page addressed by offset would skip whatever the first page fixed.
+    /// </param>
+    Task<IReadOnlyList<AdventurePack>> ListWithheldBekiPacksAsync(
+        int limit, BekiWithheldCursor? after, CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// Where a withheld-book scan left off: the last row it read, by the pair the ordering is on.
+///
+/// The pair rather than the timestamp alone, because two books created in the same millisecond would
+/// otherwise make a batch boundary either skip one or repeat it forever.
+/// </summary>
+public readonly record struct BekiWithheldCursor(DateTime CreatedAtUtc, Guid PackId);

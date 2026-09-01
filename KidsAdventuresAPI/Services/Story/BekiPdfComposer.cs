@@ -22,15 +22,17 @@ public sealed record BekiSpreadArtwork(int SpreadNumber, byte[] Image);
 public sealed record BekiBookPersonalization(string ChildName, int Age, DateTime Date, string Theme, string WorldName);
 
 /// <summary>
-/// The cream wash under one page's copy, as it was actually drawn.
+/// The cream wash under one page's copy — a shape this book no longer draws.
 ///
-/// Amendment A4 asks the composer for this because nothing upstream can produce it: the wash is
-/// sized to the wrapped copy, and the copy is not wrapped until layout runs. Audit P1-04 and the
-/// §11 acceptance list turn that into gate evidence — "story text wash is local, copy-sized, and
-/// outside the fold safety zone" is a claim about millimetres that only this stage knows.
+/// **Nothing produces one of these any more.** Owner ruling 2026-09-01, the third and final on the
+/// question: book copy is outlined type straight on the artwork, so there is no rectangle behind the
+/// words to describe and <see cref="BekiLayoutPageReceipt.Wash"/> is null on every page of every
+/// mode. The record is kept rather than deleted because a receipt's shape is a stored document's
+/// shape: books already in the blob store carry a <c>"wash"</c> block, and a reader that could not
+/// deserialize them would make yesterday's evidence unreadable to answer a question about today's.
 ///
-/// The rectangle is stated in millimetres from the page's TOP-LEFT corner, which is both how a
-/// layout is written and how <see cref="BekiTextProbeRect"/> is read, so a receipt can be handed
+/// The rectangle was stated in millimetres from the page's TOP-LEFT corner, which is both how a
+/// layout is written and how <see cref="BekiTextProbeRect"/> is read, so a receipt could be handed
 /// straight to the press probe without a conversion nobody would remember to make.
 /// </summary>
 /// <param name="PageSide">"left" or "right" — which leaf of the spread the wash belongs to.</param>
@@ -86,6 +88,8 @@ public sealed record BekiLayoutPageReceipt(
     [property: JsonPropertyName("page_height_mm")] double PageHeightMm,
     [property: JsonPropertyName("bleed_mm")] double BleedMm,
     [property: JsonPropertyName("image_sha256")] IReadOnlyList<string> ImageSha256,
+    // Always null since owner ruling 2026-09-01 (third and final): there is no box behind the words
+    // to describe. Kept in the shape so receipts written before the ruling still read back.
     [property: JsonPropertyName("wash")] BekiWashGeometry? Wash,
     [property: JsonPropertyName("typography")] IReadOnlyList<BekiTypographyRecord> Typography,
     [property: JsonPropertyName("text_lines")] IReadOnlyList<string> TextLines,
@@ -104,10 +108,9 @@ public sealed record BekiLayoutPageReceipt(
 /// and QA for every page".
 ///
 /// Pre-layout illustration QA cannot evidence any of this. It knows what was drawn; it does not know
-/// where the words landed on it, how they broke, what colour they ended up, or whether the cream
-/// under them stayed off the fold. The rejected book's package had eight spread QA files missing and
-/// no layout evidence at all, and the wash that crossed the fold on Story Spread 4 was invisible to
-/// every check that existed.
+/// where the words landed on it, how they broke, or what colour they ended up. The rejected book's
+/// package had eight spread QA files missing and no layout evidence at all, and the text panel that
+/// crossed the fold on Story Spread 4 was invisible to every check that existed.
 /// </summary>
 /// <param name="Mode">"press", "proof" or "reading" — which of the three outputs this describes.</param>
 public sealed record BekiLayoutReceipts(
@@ -130,9 +133,10 @@ public sealed record BekiLayoutReceipts(
 
     /// <summary>
     /// The rectangles amendment A10a's rendered-pixel probe samples: every page whose text was
-    /// authored light on a flat ground. Today that is the credits page and only the credits page —
-    /// everything else sets dark type on cream over artwork, where luminance sampling would be
-    /// measuring the illustration.
+    /// authored light on a FLAT ground. Today that is the credits page and only the credits page.
+    /// The rest of the book is light type too, but it is light type over artwork, where sampling
+    /// luminance inside a rectangle would be measuring the illustration and not the words — those
+    /// pages are judged by the content-stream half of the same gate instead.
     /// </summary>
     [JsonIgnore]
     public IReadOnlyList<BekiTextProbeRect> FlatGroundTextProbes =>
@@ -290,18 +294,23 @@ public interface IBekiPdfComposer
 /// no approved background, stops the book. The composer used to draw a dot field and a tinted
 /// ground instead, and the first anyone noticed was a printed book with a placeholder bound into it.
 ///
-/// **The story text is dark vector type on a cream wash measured to itself — again.** That sentence
-/// has been written three times in this file and this is the version that stands. The wash was
-/// built, then removed by the owner's ruling after the first live v1.5 book in favour of outlined
-/// light type straight on the artwork, and audit 1.0 reversed the ruling on evidence: P1-04 finds
-/// the text support "inconsistent" and asks for "one local soft cream wash with approximately 6–8 mm
-/// internal padding … within the selected page, outside the fold safety area and trim safety
-/// margins", and P0-07 pairs it with the colour rule — "intended dark text on localized cream story
-/// washes" and light cream only where the ground is dark. Outlined light type therefore survives in
-/// exactly two places: the cover title, which is part of a picture, and the credits page, whose
-/// ground is the book's own purple. Everything else is #241A33 on cream. If the copy will not fit at
-/// any size the age band allows, the book stops with <c>TEXT_OVERFLOW</c>; it is never set at a size
-/// that still overflows, and it is never rewritten.
+/// **The book's copy is outlined type drawn straight on the artwork. No box behind the words.**
+/// That sentence has now been written three times in this file, and this is the version that stands:
+/// owner ruling 2026-09-01, the owner's third and FINAL ruling on it. A cream wash was built, removed
+/// by the owner after the first live v1.5 book, restored by audit 1.0's P1-04 on the supplier's
+/// evidence, and removed again here — the owner's ruling overrides the audit, and the contract files
+/// are left saying what the supplier said. Every block of book copy is cream #FFF8EB with a #0D071D
+/// rim, set as vector text over the picture: the cover title, the back-cover address, the intro
+/// spread's four lines, and each story spread's Georgian paragraph with its English sibling under it.
+/// The credits page is the one page this does not describe, and it never did — its ground is the
+/// book's own purple, so its type is plain light text on a flat colour and needs no rim.
+///
+/// The layout arithmetic the wash brought with it stays, because it was never really about the wash:
+/// the copy column is still measured to the wrapped copy, and it is still refused if it would cross
+/// the centre fold or reach past the trim safety margin. What is gone is the rectangle that used to
+/// be painted at those millimetres. If the copy will not fit at any size the age band allows, the
+/// book stops with <c>TEXT_OVERFLOW</c>; it is never set at a size that still overflows, and it is
+/// never rewritten.
 ///
 /// Every picture is placed at the sheet's own proportions. A centred crop of more than
 /// <see cref="BekiPrintLayoutOptions.PrintCropTolerance"/> per axis is refused rather than performed
@@ -360,46 +369,30 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private static readonly Color TextColor = Color.FromHex(TextColorHex);
 
     /// <summary>
-    /// The story text's own ink: the page's dark, printed ON the cream wash rather than under it.
+    /// The quieter cream the second language is set in, when a book prints both.
     ///
-    /// Audit P0-07's second clause, and the half of the wash that matters most. Cream type over a
-    /// dark panel is a caption over a photograph; §6 Step 8 asks for the opposite, and dark-on-light
-    /// is also the only version that survives a printer's dot gain at 18 pt — and, as the audit
-    /// found the hard way, the only version that survives a CMYK conversion which coerces text to
-    /// black, because black on cream is still readable and black on purple is not.
+    /// Translucent rather than a second hue, so the English line reads as the same voice said more
+    /// quietly. It is held at 85% and not lower on purpose: the fill sits on top of the rim, and a
+    /// fill much thinner than this lets the #0D071D show through the middle of the glyphs and turns
+    /// cream type grey.
     /// </summary>
-    private const string StoryInkHex = "#241A33";
+    private const string EnglishTextColorHex = "#D9FFF8EB";
 
-    private static readonly Color StoryInk = Color.FromHex(StoryInkHex);
-
-    /// <summary>The quieter ink the second language is set in, when a book prints both.</summary>
-    private const string EnglishInkHex = "#B3241A33";
-
-    private static readonly Color EnglishInk = Color.FromHex(EnglishInkHex);
+    private static readonly Color EnglishTextColor = Color.FromHex(EnglishTextColorHex);
 
     /// <summary>
-    /// The wash under the words: cream, nearly opaque, and only as large as the copy.
+    /// The rim under every outlined line in the book — the page's own near-black, so the edge reads
+    /// as one soft shadow the artwork casts rather than as a second colour of type.
     ///
-    /// Nearly rather than fully, so the artwork underneath still shows as a tint at the edges and
-    /// the box reads as part of the picture rather than as a sticker on it. The size is the point —
-    /// the supplier's first audit called the old full-height version a "dark half-page text panel",
-    /// audit 1.0 called the rasterized one on Story Spread 4 "a large raster rectangle crossing the
-    /// fold", and both corrections say the same thing: a wash is a vector shape sized to the wrapped
-    /// copy, drawn in layout, never baked into an illustration and never a fixed half-page mask.
+    /// Named for a wash it once sat behind: the Continue Adventure chip shared this ink until the
+    /// Locked Print Specification §6 removed it with its QR, and the story wash borrowed the name
+    /// after that. Both are gone (owner ruling 2026-09-01, third and final); the ink stays, as the
+    /// outline it always really was.
     /// </summary>
-    private const string StoryWashHex = "#F2FFF8EB";
+    private const string TextOutlineInk = "0D071D";
 
-    private static readonly Color StoryWash = Color.FromHex(StoryWashHex);
-
-    /// <summary>
-    /// The wash ink behind the outlined cover title — one of the two places left in the book where
-    /// type is set light over artwork, because a cover title is a picture. The Continue Adventure
-    /// chip shared this ink until the Locked Print Specification §6 removed it with its QR.
-    /// </summary>
-    private const string TextWashInk = "0D071D";
-
-    /// <summary>The glyph outline in the wash's own ink, so the rim reads as one shadow.</summary>
-    private static readonly Color OutlineColor = Color.FromHex("#" + TextWashInk);
+    /// <summary>The glyph outline, so the rim reads as one shadow.</summary>
+    private static readonly Color OutlineColor = Color.FromHex("#" + TextOutlineInk);
 
     /// <summary>
     /// The blank free endpaper's paper tone. The opening spread patterns the pastedown and leaves
@@ -1063,7 +1056,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// <summary>
     /// The personalized intro spread (handoff §9): the approved theme background across the whole
     /// sheet, the exact <c>pose_07_curious_lean</c> composited onto its right half, and the child's
-    /// own lines set in vector Noto on a cream wash on the left.
+    /// own lines set in outlined vector Noto straight on the artwork on the left.
     ///
     /// Beki is placed by <see cref="BekiCompositeEngine"/> — the same engine, the same hash-verified
     /// PNG and the same arithmetic every story spread uses — at the anchor the supplier proved, with
@@ -1077,9 +1070,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// world it opens into, and the invitation — and it carries no date. A date on the intro spread
     /// makes a reprint a different book from the one that was bought.
     ///
-    /// The wash under it is audit P1-04's other half: "the intro has no controlled local support"
-    /// was a finding about this page in particular, and the answer is the same shape the story
-    /// spreads get, measured to these four lines rather than to a paragraph.
+    /// The copy is cream with its own dark rim, drawn straight on the background — owner ruling
+    /// 2026-09-01, third and final. Audit P1-04's "the intro has no controlled local support" was a
+    /// finding about this page in particular and was answered with a cream wash; the owner has
+    /// overruled it, and the support the lines have now is the rim each glyph carries.
     /// </summary>
     private void ComposeIntro(
         IDocumentContainer container,
@@ -1091,11 +1085,11 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     {
         var artwork = IntroArtwork(themeId, mode);
         var lines = IntroLines(title, personalization);
-        var washWidthMm = IntroWashWidthMm;
-        var copyWidthPt = MmToPt(washWidthMm) - (MmToPt(_layout.WashPaddingMm) * 2f);
+        var columnWidthMm = IntroColumnWidthMm;
+        var copyWidthPt = MmToPt(columnWidthMm) - (MmToPt(_layout.WashPaddingMm) * 2f);
 
-        // Measured before the page exists, for the same reason the story ladder is: the wash's
-        // height is the copy's height, and a receipt that guessed it would be evidence of nothing.
+        // Measured before the page exists, for the same reason the story ladder is: the block has to
+        // be centred on the leaf and refused if it will not fit, and both need its height first.
         var spacingPt = _layout.WashPaddingMm * PointsPerMm * 0.8f;
         var copyHeightPt = 0f;
         for (var index = 0; index < lines.Count; index++)
@@ -1104,21 +1098,21 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             copyHeightPt += MeasureBlockHeightPt(lines[index].Text, lines[index].SizePt, copyWidthPt);
         }
 
-        var washHeightMm = (copyHeightPt / PointsPerMm) + (_layout.WashPaddingMm * 2f);
+        var columnHeightMm = (copyHeightPt / PointsPerMm) + (_layout.WashPaddingMm * 2f);
         var availableHeightMm = _layout.SpreadHeightMm - (_layout.SafeMarginMm * 2f);
 
-        if (washHeightMm > availableHeightMm)
+        if (columnHeightMm > availableHeightMm)
         {
             throw new BekiLayoutException(
                 CompositeFailureCodes.TextOverflow,
-                $"The intro spread's copy needs {washHeightMm:0.#} mm of leaf and the safe area "
+                $"The intro spread's copy needs {columnHeightMm:0.#} mm of leaf and the safe area "
                 + $"holds {availableHeightMm:0.#} mm. The intro has no step-down ladder — its lines "
                 + "come from configured templates — so this is a templates change, not a layout one.");
         }
 
-        var washTopMm = Bleed(mode) + _layout.SafeMarginMm
-            + ((availableHeightMm - washHeightMm) / 2f);
-        var washLeftMm = Bleed(mode) + _layout.SafeMarginMm;
+        var columnTopMm = Bleed(mode) + _layout.SafeMarginMm
+            + ((availableHeightMm - columnHeightMm) / 2f);
+        var columnLeftMm = Bleed(mode) + _layout.SafeMarginMm;
 
         container.Page(page =>
         {
@@ -1143,9 +1137,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                         .PaddingRight(InnerPaddingMm, Unit.Millimetre)
                         .AlignMiddle()
                         .AlignLeft()
-                        .Width(washWidthMm, Unit.Millimetre)
-                        .Background(StoryWash)
-                        .CornerRadius(_layout.WashCornerRadiusMm, Unit.Millimetre)
+                        .Width(columnWidthMm, Unit.Millimetre)
+                        // No box behind the words (owner ruling 2026-09-01, third and final). The
+                        // padding stays as a plain inset, so the measure the lines are wrapped to —
+                        // and therefore every line break the receipt records — is unchanged.
                         .Padding(_layout.WashPaddingMm, Unit.Millimetre)
                         .Column(column =>
                         {
@@ -1154,9 +1149,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                             foreach (var line in lines)
                             {
                                 var text = line;
-                                column.Item().Element(item => PlainText(
+                                column.Item().Element(item => OutlinedText(
                                     item, text.Text, text.SizePt, StoryLineHeight,
-                                    StoryInk, PdfFontBootstrap.BodyFamily, centred: false));
+                                    TextColor, OutlineColor, copyWidthPt,
+                                    PdfFontBootstrap.BodyFamily, centred: false));
                             }
                         });
 
@@ -1165,17 +1161,17 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             });
         });
 
-        var wash = WashGeometry(
-            washLeftMm, washTopMm, washWidthMm, washHeightMm, "left", mode, "intro");
+        EnforceCopyColumnSafety(
+            columnLeftMm, columnTopMm, columnWidthMm, columnHeightMm, "left", mode, "intro");
 
         receipts.Add("intro", page => new BekiLayoutPageReceipt(
             page, "intro",
             _layout.SpreadWidthMm + (Bleed(mode) * 2f), _layout.SpreadHeightMm + (Bleed(mode) * 2f),
             Bleed(mode),
             [Sha256(artwork)],
-            wash,
+            Wash: null,
             lines.Select(line => new BekiTypographyRecord(
-                line.Role, PdfFontBootstrap.BodyFamily, line.SizePt, StoryLineHeight, StoryInkHex))
+                line.Role, PdfFontBootstrap.BodyFamily, line.SizePt, StoryLineHeight, TextColorHex))
                 .ToList(),
             lines.SelectMany(line =>
                 WrapLines(line.Text, line.SizePt, copyWidthPt, PdfFontBootstrap.BodyFamily)).ToList(),
@@ -1199,8 +1195,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// keeps the hyphen only for a name written in another alphabet. See
     /// <see cref="GeorgianNameSuffix.Dative"/>.
     ///
-    /// Returned as data rather than drawn, because the wash above has to know how tall they are
-    /// before any of them is set.
+    /// Returned as data rather than drawn, because the block above has to know how tall they are —
+    /// it is centred on the leaf, and it refuses a book whose lines will not fit — before any of
+    /// them is set.
     /// </summary>
     private List<IntroLine> IntroLines(string title, BekiBookPersonalization? personalization)
     {
@@ -1267,7 +1264,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// The blank-URL-drops-the-QR stance is inherited unchanged: a code that scans to nothing
     /// is worse than no code.
     ///
-    /// **The one page in the book that keeps light type, and the one that nearly lost it.** Audit
+    /// **The one page whose light type stands on a flat ground, and the one that nearly lost it.**
+    /// Every other page sets cream over artwork with a dark rim under it; this one sets plain cream
+    /// on the book's own purple, which is why it is the only page a pixel probe can judge. Audit
     /// P0-07: the CMYK conversion turned this cream into `0 g` black on the book's own purple and
     /// the credits became "nearly invisible". The colour authored here is unchanged and correct; the
     /// fix is upstream, in print prep, and the evidence it needs is the text rectangle this page
@@ -1483,15 +1482,15 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         var fitted = FitStoryText(spread, personalization, usableHeightPt);
         var placed = CropToPage(image, _layout.SpreadWidthMm, mode);
 
-        var washWidthMm = StoryColumnWidthPt / PointsPerMm;
-        var washHeightMm = (fitted.ContentHeightPt / PointsPerMm) + (_layout.WashPaddingMm * 2f);
-        var washTopMm = Bleed(mode) + outerPaddingMm;
-        var washLeftMm = Bleed(mode) + (textOnLeft
+        var columnWidthMm = StoryColumnWidthPt / PointsPerMm;
+        var columnHeightMm = (fitted.ContentHeightPt / PointsPerMm) + (_layout.WashPaddingMm * 2f);
+        var columnTopMm = Bleed(mode) + outerPaddingMm;
+        var columnLeftMm = Bleed(mode) + (textOnLeft
             ? outerPaddingMm
             : (_layout.SpreadWidthMm * (1f - _layout.TextColumnShare)) + innerPaddingMm);
 
-        var wash = WashGeometry(
-            washLeftMm, washTopMm, washWidthMm, washHeightMm,
+        EnforceCopyColumnSafety(
+            columnLeftMm, columnTopMm, columnWidthMm, columnHeightMm,
             textOnLeft ? "left" : "right", mode, $"spread {spread.Number}");
 
         container.Page(page =>
@@ -1521,26 +1520,33 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                         .PaddingLeft(textOnLeft ? outerPaddingMm : innerPaddingMm, Unit.Millimetre)
                         .PaddingRight(textOnLeft ? innerPaddingMm : outerPaddingMm, Unit.Millimetre)
                         // Upper-left, per the approved spread-1 reference: the copy starts at the
-                        // top of its column and the wash starts with it.
+                        // top of its column.
                         .AlignTop()
                         .AlignLeft()
-                        .Width(washWidthMm, Unit.Millimetre)
-                        .Background(StoryWash)
-                        .CornerRadius(_layout.WashCornerRadiusMm, Unit.Millimetre)
+                        .Width(columnWidthMm, Unit.Millimetre)
+                        // No box behind the words (owner ruling 2026-09-01, third and final): the
+                        // copy sits straight on the artwork as cream type with its own dark rim.
+                        // The padding stays as a plain inset, so the measure the ladder fitted the
+                        // copy to — and every line break it produced — is unchanged.
                         .Padding(_layout.WashPaddingMm, Unit.Millimetre)
                         .Column(column =>
                         {
                             column.Spacing(EnglishGapPt);
 
-                            column.Item().Element(item => PlainText(
+                            column.Item().Element(item => OutlinedText(
                                 item, spread.Text, fitted.FontSize, StoryLineHeight,
-                                StoryInk, PdfFontBootstrap.BodyFamily, centred: false));
+                                TextColor, OutlineColor, StoryCopyWidthPt,
+                                PdfFontBootstrap.BodyFamily, centred: false));
 
+                            // The second language follows its Georgian sibling in the same
+                            // treatment — smaller, and a quieter cream — rather than being set some
+                            // other way, which would read as a caption instead of a translation.
                             if (fitted.EnglishFontSize is { } englishSize)
                             {
-                                column.Item().Element(item => PlainText(
+                                column.Item().Element(item => OutlinedText(
                                     item, spread.TextEn!, englishSize, StoryLineHeight,
-                                    EnglishInk, PdfFontBootstrap.BodyFamily, centred: false));
+                                    EnglishTextColor, OutlineColor, StoryCopyWidthPt,
+                                    PdfFontBootstrap.BodyFamily, centred: false));
                             }
                         });
 
@@ -1552,7 +1558,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         var typography = new List<BekiTypographyRecord>
         {
             new($"spread-{spread.Number:00}-ka", PdfFontBootstrap.BodyFamily,
-                fitted.FontSize, StoryLineHeight, StoryInkHex),
+                fitted.FontSize, StoryLineHeight, TextColorHex),
         };
 
         var textLines = WrapLines(
@@ -1562,7 +1568,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         {
             typography.Add(new BekiTypographyRecord(
                 $"spread-{spread.Number:00}-en", PdfFontBootstrap.BodyFamily,
-                english, StoryLineHeight, EnglishInkHex));
+                english, StoryLineHeight, EnglishTextColorHex));
             textLines.AddRange(
                 WrapLines(spread.TextEn!, english, StoryCopyWidthPt, PdfFontBootstrap.BodyFamily));
         }
@@ -1574,7 +1580,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             _layout.SpreadWidthMm + (Bleed(mode) * 2f), _layout.SpreadHeightMm + (Bleed(mode) * 2f),
             Bleed(mode),
             [Sha256(placed)],
-            wash, typography, textLines, TextProbe: null));
+            Wash: null, typography, textLines, TextProbe: null));
     }
 
     /// <summary>The air between the Georgian block and its English sibling, in points.</summary>
@@ -1598,15 +1604,15 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// for exactly this was never reachable. Copy is never rewritten to make it fit; §6 Step 8 is
     /// explicit, and rewriting a bought book's words to save a layout is the wrong trade.
     ///
-    /// The measured height comes back with the size, because the wash is that height plus its
-    /// padding and measuring it a second time would be a second opinion about the same page.
+    /// The measured height comes back with the size, because the copy column is that height plus its
+    /// inset and measuring it a second time would be a second opinion about the same page.
     /// </summary>
     private FittedStoryText FitStoryText(
         StorySpread spread, BekiBookPersonalization? personalization, float usableHeightPt)
     {
         var printEnglish = _layout.PrintEnglishToo && !string.IsNullOrWhiteSpace(spread.TextEn);
         var columnWidthPt = StoryCopyWidthPt;
-        var washHeightPt = MmToPt(_layout.WashPaddingMm) * 2f;
+        var insetHeightPt = MmToPt(_layout.WashPaddingMm) * 2f;
 
         var ladder = StoryFontSizeLadder(personalization?.Age);
         var measured = new List<string>(ladder.Count);
@@ -1621,9 +1627,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 height += EnglishGapPt + MeasureBlockHeightPt(spread.TextEn!, english, columnWidthPt);
             }
 
-            measured.Add($"{size:0.##}pt→{height + washHeightPt:0}pt");
+            measured.Add($"{size:0.##}pt→{height + insetHeightPt:0}pt");
 
-            if (height + washHeightPt <= usableHeightPt)
+            if (height + insetHeightPt <= usableHeightPt)
             {
                 return new FittedStoryText(size, englishSize, height);
             }
@@ -1658,20 +1664,25 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     }
 
     // ==============================================================================================
-    // Wash geometry and its rules
+    // The copy column and its rules
     // ==============================================================================================
 
     /// <summary>
-    /// One wash, checked against the three rules audit P1-04 states for it, and refused if it
-    /// breaks any of them.
+    /// One block of copy, checked against the three rules its rectangle has to obey, and the book
+    /// refused if it breaks any of them.
     ///
     /// "Keep it within the selected page, outside the fold safety area and trim safety margins."
-    /// Three sentences, three assertions, and the book stops rather than printing a fourth version
-    /// of the defect the audit rejected — Story Spread 4's panel crossed the fold, and nothing in
-    /// the pipeline was in a position to notice. A refusal here is a layout bug and not a content
-    /// one: the geometry that produces these numbers is entirely ours.
+    /// Audit P1-04 wrote that about a cream wash, and the owner has since ruled the wash away
+    /// (2026-09-01, third and final) — but the sentence was never really about the wash. It is about
+    /// where a reader's eye has to go, and words that run into the gutter are unreadable whether or
+    /// not there is a box behind them. So the three assertions stay, applied to the copy column
+    /// itself: Story Spread 4's panel crossed the fold and nothing in the pipeline was in a position
+    /// to notice, and that remains the failure this guard exists to make impossible.
+    ///
+    /// A refusal here is a layout bug and not a content one: the geometry that produces these
+    /// numbers is entirely ours.
     /// </summary>
-    private BekiWashGeometry WashGeometry(
+    private void EnforceCopyColumnSafety(
         float leftMm, float topMm, float widthMm, float heightMm,
         string side, BekiRenderMode mode, string what)
     {
@@ -1702,31 +1713,26 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         {
             throw new BekiLayoutException(
                 CompositeFailureCodes.LayoutFailed,
-                $"The {what} wash crosses the centre fold: it is the {side} leaf's, and it runs from "
-                + $"{leftMm:0.#} mm to {right:0.#} mm on a page whose fold is at {fold:0.#} mm.");
+                $"The {what} copy column crosses the centre fold: it is the {side} leaf's, and it "
+                + $"runs from {leftMm:0.#} mm to {right:0.#} mm on a page whose fold is at "
+                + $"{fold:0.#} mm.");
         }
 
         if (foldClearance < _layout.FoldSafetyMm - Slack)
         {
             throw new BekiLayoutException(
                 CompositeFailureCodes.LayoutFailed,
-                $"The {what} wash comes within {foldClearance:0.#} mm of the centre fold; audit "
-                + $"P1-04 keeps it outside the {_layout.FoldSafetyMm:0.#} mm fold safety area.");
+                $"The {what} copy column comes within {foldClearance:0.#} mm of the centre fold; the "
+                + $"layout keeps it outside the {_layout.FoldSafetyMm:0.#} mm fold safety area.");
         }
 
         if (trimClearance < _layout.SafeMarginMm - Slack)
         {
             throw new BekiLayoutException(
                 CompositeFailureCodes.LayoutFailed,
-                $"The {what} wash comes within {trimClearance:0.#} mm of the trim; audit P1-04 keeps "
-                + $"it inside the {_layout.SafeMarginMm:0.#} mm trim safety margin.");
+                $"The {what} copy column comes within {trimClearance:0.#} mm of the trim; the layout "
+                + $"keeps it inside the {_layout.SafeMarginMm:0.#} mm trim safety margin.");
         }
-
-        return new BekiWashGeometry(
-            Math.Round(leftMm, 2), Math.Round(topMm, 2),
-            Math.Round(widthMm, 2), Math.Round(heightMm, 2),
-            _layout.WashPaddingMm, _layout.WashCornerRadiusMm, StoryWashHex,
-            side, Math.Round(foldClearance, 2), Math.Round(trimClearance, 2));
     }
 
     // ==============================================================================================
@@ -1796,7 +1802,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                     .FontFamily(family, PdfFontBootstrap.BodyFamily)
                     .FontSize(fontSize)
                     .LineHeight(StoryLineHeight)
-                    .FontColor(StoryInk);
+                    // Any ink: this document is measured and thrown away, never looked at.
+                    .FontColor(TextColor);
             }));
 
             var pages = block
@@ -2416,8 +2423,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private float InnerPaddingMm => MathF.Max(_layout.SafeMarginMm, _layout.GutterZoneMm / 2f);
 
     /// <summary>
-    /// The width, in points, of the wash a spread's story text sits on: the reserved column less its
-    /// two paddings, and never wider than the configured maximum.
+    /// The width, in points, of the column a spread's story text is set in: the reserved share of
+    /// the sheet less its two paddings, and never wider than the configured maximum.
     ///
     /// Written on the TRIM and not on the sheet, which is the whole of what makes the press file and
     /// the download the same layout: the bleed is a frame the press page carries and the download
@@ -2435,11 +2442,11 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             - MmToPt(InnerPaddingMm),
         MmToPt(_layout.MaxTextWidthMm));
 
-    /// <summary>The measure the copy itself is set to: the wash, less the wash's own padding.</summary>
+    /// <summary>The measure the copy itself is set to: the column, less the column's own inset.</summary>
     private float StoryCopyWidthPt => StoryColumnWidthPt - (MmToPt(_layout.WashPaddingMm) * 2f);
 
-    /// <summary>The intro wash's width: the left leaf's text area, capped at the same measure.</summary>
-    private float IntroWashWidthMm => MathF.Min(
+    /// <summary>The intro copy column's width: the left leaf's text area, capped at the same measure.</summary>
+    private float IntroColumnWidthMm => MathF.Min(
         (_layout.SpreadWidthMm / 2f) - _layout.SafeMarginMm - InnerPaddingMm,
         _layout.MaxTextWidthMm);
 
@@ -2457,10 +2464,11 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// <summary>
     /// Light type with its own dark edge, drawn entirely as vector text.
     ///
-    /// Two things come through here now, and both of them are type set over something this composer
-    /// did not draw: the cover title, and the address on the back cover. The story and intro copy
-    /// left when audit P1-04 restored the cream wash under it — dark ink on cream needs no rim, and
-    /// a rim on it would read as type printed twice.
+    /// Every word the book prints over artwork comes through here: the cover title, the back-cover
+    /// address, the intro spread's lines, and each story spread's copy in both languages. The story
+    /// and intro copy left for one campaign, when audit P1-04 put a cream wash under them and dark
+    /// ink on cream needs no rim; owner ruling 2026-09-01 — the third and final on the question —
+    /// took the wash away again, and they came back.
     ///
     /// This used to be a raster: the nine-copy stack rendered to a PNG at 300 DPI with one
     /// invisible text run over it, so that <c>pdftotext</c> said each line once. The supplier's

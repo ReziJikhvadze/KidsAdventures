@@ -137,6 +137,17 @@ public sealed class AdminPrintOrderResponse
     /// <summary>The print-ready PDF, once generation has produced one.</summary>
     public string? PdfUrl { get; set; }
 
+    /// <summary>
+    /// True when <see cref="PdfUrl"/> is the READING copy, because no press file exists.
+    ///
+    /// The substitution itself is old and deliberate — a book made before the two renders were
+    /// split has only one file, and a printer padding it as it always did beats an operator with
+    /// nothing to send. What was wrong was that the substitution was silent: the queue offered a
+    /// file labelled "print-ready" whose page count does not divide by four and whose spreads are
+    /// laid out for a screen. Whoever forwards it to a binder is entitled to know which file it is.
+    /// </summary>
+    public bool PdfIsReadingCopyFallback { get; set; }
+
     public int TotalMinor { get; set; }
     public string TotalFormatted { get; set; } = string.Empty;
 

@@ -80,48 +80,68 @@ public class BekiInteriorTypographyTests
     }
 
     /// <summary>
-    /// The wash is cream, it is at the top of its column, and it stops where the copy stops.
+    /// The copy is cream type upper-left on the artwork, and there is no panel of any colour behind
+    /// it.
     ///
-    /// The supplier's audit of the printed book called it a "dark half-page text panel". So the test
-    /// measures the panel: how far down the text side it reaches, and what colour it is.
+    /// This page has now been three things. The shipped book had a "dark half-page text panel"; audit
+    /// P1-04 replaced it with a local cream wash; owner ruling 2026-09-01 — the third and final —
+    /// removed the box altogether in favour of cream type with its own dark rim. So the test asks
+    /// what is actually on the leaf: where the cream starts, where it stops, and how much of the
+    /// column it covers. Type covers a small fraction of the space that holds it; a panel covers
+    /// nearly all of it, whichever colour it is painted.
     /// </summary>
     [Fact]
-    public void The_wash_is_a_cream_box_around_the_copy_rather_than_a_full_height_panel()
+    public void The_story_copy_is_cream_type_upper_left_with_no_panel_behind_it()
     {
         var pages = RenderFixtureBook();
 
-        // Spread 1's text side is LEFT (the rhythm's first entry), so the wash is on the left leaf.
+        // Spread 1's text side is LEFT (the rhythm's first entry), so the copy is on the left leaf.
         Assert.Equal("left", AdventurePacks.Api.Services.Story.Prompts.BekiSpreadRhythm.TextSideFor(1));
 
         using var page = Image.Load<Rgba32>(pages[FirstStorySpreadPage]);
 
+        // The proof sheet is the 440 mm spread plus 5 mm of bleed on each edge, so the copy column —
+        // 12 mm inside the trim and 118 mm wide — runs from 17 mm to about 147 mm across it.
+        var pxPerMm = page.Width / 450f;
+        var left = (int)(17 * pxPerMm);
+        var right = (int)(147 * pxPerMm);
+
         int? firstRow = null;
         int? lastRow = null;
-        var column = page.Width / 8;
+        var cream = 0;
+        var total = 0;
 
         for (var y = 0; y < page.Height; y++)
         {
-            if (!IsCream(page[column, y])) continue;
-            firstRow ??= y;
-            lastRow = y;
+            for (var x = left; x < right; x++)
+            {
+                if (!IsCream(page[x, y])) continue;
+                firstRow ??= y;
+                lastRow = y;
+                cream++;
+            }
         }
 
-        Assert.True(firstRow is not null, "No cream wash was found under the story copy.");
+        Assert.True(firstRow is not null, "No cream type was found in the story copy's column.");
 
-        // Upper-left: the box starts inside the top fifth of the sheet.
+        // Upper-left: the copy starts inside the top fifth of the sheet.
         Assert.True(firstRow!.Value < page.Height / 5,
-            $"The wash starts {firstRow.Value} rows down a {page.Height}-row page; the copy is set upper-left.");
+            $"The copy starts {firstRow.Value} rows down a {page.Height}-row page; it is set upper-left.");
 
-        // And measured to the copy: it stops well short of the bottom of the page. The fixture's
-        // spreads are one short sentence each, so a wash that reaches even half way down is a panel.
+        // And it stops where the words stop. The fixture's spreads are one short sentence each, so
+        // cream reaching even half way down the leaf would be a panel rather than a paragraph.
         Assert.True(lastRow!.Value < page.Height / 2,
-            $"The wash runs to row {lastRow.Value} of {page.Height}; it is a panel, not a box around the copy.");
+            $"Cream runs to row {lastRow.Value} of {page.Height}; that is a panel, not a paragraph.");
 
-        // The old panel was #0D071D at 45% over the artwork — dark. This one is cream, and the ink
-        // on it is dark, which is the way round §6 Step 8 asks for.
-        var inside = page[column, firstRow.Value + 2];
-        Assert.True(inside.R > 200 && inside.G > 200 && inside.B > 180,
-            $"The wash under the copy is #{inside.R:X2}{inside.G:X2}{inside.B:X2}; it should be cream.");
+        // Nothing is painted behind the words: across the whole column, from the first cream row to
+        // the last, the picture is still what most of the pixels are.
+        total = (right - left) * (lastRow.Value - firstRow.Value + 1);
+        var share = (double)cream / total;
+
+        Assert.True(share < 0.25,
+            $"{share:P0} of the copy's column is cream. Outlined type covers a small part of its "
+            + "column; a quarter or more is a box behind the words, which the owner's ruling of "
+            + "2026-09-01 — the third and final — removed.");
     }
 
     /// <summary>

@@ -68,6 +68,19 @@ public sealed class BookFulfillmentService(
         var hero = await characterRepository.GetByIdAsync(draft.PrimaryCharacterId, order.UserId, cancellationToken)
                    ?? throw new InvalidOperationException("მთავარი გმირი ვერ მოიძებნა.");
 
+        /*
+          Which pipeline this book gets, decided BEFORE the row is written — amendment B5.
+
+          The decision has always been made here; what is new is that it is written down. It used to
+          live only in which Hangfire job got enqueued at the bottom of this method, so every other
+          part of the system that needed to know — the readiness rule, the download refusal, the
+          legacy auto-illustration trigger — had to re-derive it from the preview run's prompt
+          version, and two of the three simply did not and guessed. Deriving it once, from the code
+          that is choosing, and stamping it in the same write that creates the pack is the whole of
+          the correction.
+        */
+        var bekiRunId = await BekiRunForAsync(draft, cancellationToken);
+
         // The series is the hero, so a child's books share one spine no matter which
         // world each of them visits.
         var seriesId = hero.Id;
@@ -93,7 +106,12 @@ public sealed class BookFulfillmentService(
             SequenceNumber = sequenceNumber,
             ContinuesFromBookId = draft.ContinuesFromBookId,
             ProgressMessage = "შეკვეთა მიღებულია — იწყება წიგნის შექმნა.",
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            // In the same INSERT as everything else: the pack has never existed in a state where
+            // its pipeline was unknown, and it never will.
+            GenerationPipeline = bekiRunId is null
+                ? GenerationPipelines.Legacy
+                : GenerationPipelines.Beki
         };
 
         await packRepository.CreatePendingAsync(book, cancellationToken);
@@ -114,11 +132,12 @@ public sealed class BookFulfillmentService(
         await worldProgressService.MarkCompletedAsync(
             order.UserId, hero.Id, book.WorldId!, book.Id, cancellationToken);
 
-        EnqueueGeneration(book.Id, await BekiRunForAsync(draft, cancellationToken));
+        EnqueueGeneration(book.Id, bekiRunId);
 
         logger.LogInformation(
-            "Order {OrderId} fulfilled: book {BookId} ({WorldId}, chapter {SequenceNumber}) queued for generation.",
-            order.Id, book.Id, book.WorldId, book.SequenceNumber);
+            "Order {OrderId} fulfilled: book {BookId} ({WorldId}, chapter {SequenceNumber}) queued "
+            + "for the {Pipeline} pipeline.",
+            order.Id, book.Id, book.WorldId, book.SequenceNumber, book.GenerationPipeline);
 
         return book.Id;
     }
@@ -181,6 +200,20 @@ public sealed class BookFulfillmentService(
             {
                 logger.LogWarning(ex, "Retry for book {BookId} could not read its draft; using the legacy pipeline.", bookId);
             }
+
+            /*
+              And the row is re-stamped, because a re-drive is allowed to decide differently.
+
+              It normally will not — the same draft and the same run give the same answer — but a
+              retry after the Beki flag was turned off, or after the preview run expired, genuinely
+              routes the book down the other pipeline, and a column left saying the old answer would
+              be a book judged by one pipeline's rules and drawn by the other's. Amendment B5's whole
+              value is that the column and the queued job cannot disagree.
+            */
+            await packRepository.SetGenerationPipelineAsync(
+                bookId,
+                bekiRunId is null ? GenerationPipelines.Legacy : GenerationPipelines.Beki,
+                cancellationToken);
 
             /*
               A failed book has to be revived before it can be re-queued, and revived deliberately.
