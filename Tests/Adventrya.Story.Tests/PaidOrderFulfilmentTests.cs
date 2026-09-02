@@ -500,6 +500,7 @@ public class PaidOrderFulfilmentTests
     /// <summary>One stored run; records claims, and whether the claim came before adoption read it.</summary>
     private sealed class RecordingRuns(MasterStoryRun run) : IMasterStoryRunRepository
     {
+        public Task SaveAppearanceDescriptionAsync(Guid id, string appearanceDescription, CancellationToken cancellationToken) => Task.CompletedTask;
         public List<(Guid RunId, Guid UserId, Guid? PackId)> Claims { get; } = [];
         public Exception? ThrowOnClaim { get; set; }
 

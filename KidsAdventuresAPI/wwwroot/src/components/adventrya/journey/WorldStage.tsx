@@ -131,7 +131,7 @@ export function WorldStage({ draft, onChange, header }: Props) {
         // First step now: choosing the world comes before the child's details.
         <AppHeader
           backHref="/"
-          progressLabel={progressLabelForStage("world")}
+          progressLabel={progressLabelForStage("world", t.journey.steps)}
           progressValue={STAGE_PROGRESS.world}
           minimal
         />

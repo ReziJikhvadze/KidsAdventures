@@ -124,6 +124,7 @@ public class ResumedJourneyCharacterTests : CompositePipelineTestBase
         public Task SaveStoryAsync(Guid id, string storyJson, string contentJson, int promptTokens, int completionTokens, CancellationToken cancellationToken) =>
             Task.CompletedTask;
         public Task SaveCoverAsync(Guid id, string coverImageUrl, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task SaveAppearanceDescriptionAsync(Guid id, string appearanceDescription, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task MarkReadyAsync(Guid id, string contentJson, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task MarkFailedAsync(Guid id, string error, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task ClaimAsync(Guid id, Guid userId, Guid? packId, CancellationToken cancellationToken) => Task.CompletedTask;
