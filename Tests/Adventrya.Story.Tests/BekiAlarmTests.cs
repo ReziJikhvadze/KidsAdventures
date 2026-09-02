@@ -309,9 +309,19 @@ public class BekiAlarmTests
                     .Take(limit)
                     .ToList());
 
+        public Task<IReadOnlyList<BekiAlarm>> ListRecentAsync(int limit, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<BekiAlarm>>(
+                Rows.Select(row => row.Alarm)
+                    .OrderByDescending(alarm => alarm.LastSeenUtc)
+                    .Take(limit)
+                    .ToList());
+
         public Task<IReadOnlyList<BekiAlarm>> ListForPackAsync(Guid packId, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<BekiAlarm>>(
                 Rows.Where(row => row.Alarm.PackId == packId).Select(row => row.Alarm).ToList());
+
+        public Task<BekiAlarm?> GetAsync(Guid alarmId, CancellationToken cancellationToken) =>
+            Task.FromResult(Rows.FirstOrDefault(row => row.Alarm.Id == alarmId)?.Alarm);
 
         public Task<bool> ReviewAsync(
             Guid alarmId, string reviewedBy, string resolution, CancellationToken cancellationToken)

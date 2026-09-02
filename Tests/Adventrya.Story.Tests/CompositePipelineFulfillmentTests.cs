@@ -765,6 +765,8 @@ public class CompositePipelineFulfillmentTests
 
     private sealed class RecordingAlarms : IBekiAlarmService
     {
+        public Task<IReadOnlyList<BekiAlarm>> ListRecentAsync(int limit, CancellationToken ct) => throw new NotSupportedException();
+        public Task<BekiAlarm?> GetAsync(Guid alarmId, CancellationToken ct) => throw new NotSupportedException();
         public List<BekiAlarmRaise> Raised { get; } = [];
 
         public Task RaiseAsync(BekiAlarmRaise raise, CancellationToken ct)

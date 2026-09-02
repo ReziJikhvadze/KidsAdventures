@@ -65,7 +65,19 @@ public interface IBekiAlarmService
 
     Task<IReadOnlyList<BekiAlarm>> ListOpenAsync(int limit, CancellationToken ct);
 
+    /// <summary>
+    /// The most recent alarms, reviewed or not — the console's "show the closed ones too".
+    ///
+    /// A separate method rather than a flag on <see cref="ListOpenAsync"/> because the two lists
+    /// answer different questions and only one of them is the work queue. This one exists so that
+    /// "has this happened before" can be answered without opening the book it happened to.
+    /// </summary>
+    Task<IReadOnlyList<BekiAlarm>> ListRecentAsync(int limit, CancellationToken ct);
+
     Task<IReadOnlyList<BekiAlarm>> ListForPackAsync(Guid packId, CancellationToken ct);
+
+    /// <summary>One alarm by id, reviewed or not. Null when there is no such row.</summary>
+    Task<BekiAlarm?> GetAsync(Guid alarmId, CancellationToken ct);
 
     /// <summary>Marks one alarm reviewed. False when there is no such alarm.</summary>
     Task<bool> ReviewAsync(Guid alarmId, string reviewedBy, string resolution, CancellationToken ct);
@@ -159,8 +171,14 @@ public sealed class BekiAlarmService(
     public async Task<IReadOnlyList<BekiAlarm>> ListOpenAsync(int limit, CancellationToken ct) =>
         await repository.ListOpenAsync(Math.Clamp(limit, 1, 500), ct);
 
+    public async Task<IReadOnlyList<BekiAlarm>> ListRecentAsync(int limit, CancellationToken ct) =>
+        await repository.ListRecentAsync(Math.Clamp(limit, 1, 500), ct);
+
     public async Task<IReadOnlyList<BekiAlarm>> ListForPackAsync(Guid packId, CancellationToken ct) =>
         await repository.ListForPackAsync(packId, ct);
+
+    public Task<BekiAlarm?> GetAsync(Guid alarmId, CancellationToken ct) =>
+        repository.GetAsync(alarmId, ct);
 
     public async Task<bool> ReviewAsync(
         Guid alarmId, string reviewedBy, string resolution, CancellationToken ct)

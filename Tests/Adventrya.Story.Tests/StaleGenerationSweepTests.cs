@@ -658,6 +658,9 @@ public class StaleGenerationSweepTests
         public Task<IReadOnlyList<BekiAlarm>> ListOpenAsync(int limit, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<BekiAlarm>>([]);
 
+        public Task<IReadOnlyList<BekiAlarm>> ListRecentAsync(int limit, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<BekiAlarm>>([]);
+
         /// <summary>What was raised for this pack, as stored alarms — so "once" can be tested.</summary>
         public Task<IReadOnlyList<BekiAlarm>> ListForPackAsync(Guid packId, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<BekiAlarm>>(Raised
@@ -667,6 +670,9 @@ public class StaleGenerationSweepTests
                     raise.Severity, raise.Detail, raise.EvidenceBlob,
                     DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null, null))
                 .ToList());
+
+        public Task<BekiAlarm?> GetAsync(Guid alarmId, CancellationToken ct) =>
+            Task.FromResult<BekiAlarm?>(null);
 
         public Task<bool> ReviewAsync(
             Guid alarmId, string reviewedBy, string resolution, CancellationToken ct) =>

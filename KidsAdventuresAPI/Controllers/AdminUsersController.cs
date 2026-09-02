@@ -23,7 +23,16 @@ public sealed class AdminUsersController(
 {
     private readonly AdminOptions _adminOptions = adminOptions.Value;
 
-    /// <summary>Parent accounts with their spend, book counts and role.</summary>
+    /// <summary>
+    /// Parent accounts with their spend, book counts and role.
+    ///
+    /// The role is the union of the column and the configuration, not the column alone. A
+    /// configured super-admin IS an admin — the setting exists precisely so that the console cannot
+    /// be locked shut, and <see cref="SetAdmin"/> already refuses to demote one — so a list that
+    /// showed them as an ordinary customer would be offering a "make admin" button for somebody who
+    /// already is one, and reading as though nobody holds the role on an installation whose only
+    /// admin is configured rather than stored.
+    /// </summary>
     [HttpGet("customers")]
     public async Task<ActionResult<AdminCustomerListResponse>> Customers(
         [FromQuery] string? search = null,
@@ -33,7 +42,17 @@ public sealed class AdminUsersController(
     {
         if (page < 1) page = 1;
         pageSize = Math.Clamp(pageSize, 1, 100);
-        return Ok(await reporting.GetCustomersAsync(search, page, pageSize, cancellationToken));
+
+        var response = await reporting.GetCustomersAsync(search, page, pageSize, cancellationToken);
+
+        // In the projection rather than in the SQL: the list of addresses lives in configuration,
+        // and a query that had to carry it would be a query rebuilt on every deployment.
+        foreach (var row in response.Items)
+        {
+            row.IsAdmin = row.IsAdmin || _adminOptions.IsSuperAdmin(row.Email);
+        }
+
+        return Ok(response);
     }
 
     /// <summary>

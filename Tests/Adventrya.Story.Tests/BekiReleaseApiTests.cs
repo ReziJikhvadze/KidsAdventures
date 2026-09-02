@@ -385,6 +385,7 @@ public class BekiReleaseApiTests
         FakeAlarms? alarms = null) =>
         new(policy ?? new FakePolicy(),
             alarms ?? new FakeAlarms(),
+            new FakeBlobs(),
             new FakeUserContext(),
             NullLogger<AdminReleaseController>.Instance);
 
@@ -469,8 +470,14 @@ public class BekiReleaseApiTests
         public Task<IReadOnlyList<BekiAlarm>> ListOpenAsync(int limit, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<BekiAlarm>>(Open);
 
+        public Task<IReadOnlyList<BekiAlarm>> ListRecentAsync(int limit, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<BekiAlarm>>(Open);
+
         public Task<IReadOnlyList<BekiAlarm>> ListForPackAsync(Guid packId, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<BekiAlarm>>(Open);
+
+        public Task<BekiAlarm?> GetAsync(Guid alarmId, CancellationToken ct) =>
+            Task.FromResult(Open.FirstOrDefault(alarm => alarm.Id == alarmId));
 
         public Task<bool> ReviewAsync(Guid alarmId, string reviewedBy, string resolution, CancellationToken ct)
         {

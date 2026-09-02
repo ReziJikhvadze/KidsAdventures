@@ -687,6 +687,9 @@ public class PaidOrderFulfilmentTests
 
     private sealed class RefusingPromoCodeRepository : IPromoCodeRepository
     {
+        public Task<IReadOnlyList<PromoCode>> ListAllAsync(CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> CreateAsync(PromoCode promoCode, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> UpdateAdminFieldsAsync( Guid id, bool isActive, int? maxRedemptions, DateTime? expiresAt, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<PromoCode?> GetByCodeAsync(string code, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<PromoCode?> GetByIdAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> HasUserRedeemedAsync(Guid promoCodeId, Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();

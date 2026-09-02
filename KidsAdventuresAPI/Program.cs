@@ -18,6 +18,8 @@ builder.Services
     .AddAdventurePacksApplication()
     .AddFrontendHosting(builder.Configuration);
 
+builder.Services.AddAdminOpsServices();
+
 var app = builder.Build();
 
 LogConfiguredFlags(app);
