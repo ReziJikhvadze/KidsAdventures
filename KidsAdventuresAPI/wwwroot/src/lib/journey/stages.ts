@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useRouter } from "@tanstack/react-router";
 
+import type { JourneyOrigin } from "@/lib/journey/draft";
+
 export const JOURNEY_STAGES = [
   "profile",
   "world",
@@ -105,25 +107,77 @@ function normalizeStage(rawHash: string | undefined): JourneyStage {
 /** Back-link target for each stage, mirroring the demo's navigation model. */
 export function backHrefForStage(
   stage: JourneyStage,
-  options: { mode: "first" | "continue"; isPrintUpgrade: boolean; hasWorld: boolean },
+  options: {
+    mode: "first" | "continue";
+    isPrintUpgrade: boolean;
+    hasWorld: boolean;
+    /**
+     * The child this book is for, and the book it continues, when there are any.
+     *
+     * They travel on the back link. The picker on the home page reads the address it is standing
+     * on, and without them it treats the next choice as a fresh start — `new=1`, a cleared draft
+     * and a blank form — so a parent stepping back to change the world for a child they had
+     * already named would come forward again as somebody else.
+     */
+    characterId?: string | null;
+    continuesFromBookId?: string | null;
+    /** The screen the journey was entered from; see `JourneyDraft.cameFrom`. */
+    cameFrom?: JourneyOrigin;
+  },
 ): string {
   switch (stage) {
     // World first, so it is the one that leads back out of the journey; details step back to it.
     case "world":
       return "/";
+    /*
+      One step back, to the world picker, whatever brought the parent here.
+
+      Continuing an adventure used to jump straight out to the dashboard from this step, which
+      skipped the choice the parent had just made and, from the child's own map, put them on a
+      screen they had not come from. Every route into the questions now passes through the
+      picker, so the picker is what "back" means — carrying the child and the origin, so the
+      picker's own arrow can finish the journey home.
+    */
+    /*
+      Back to the home page's worlds, with the page under it.
+
+      This used to go to `/themes` — a second, full-screen copy of the picker — so stepping back
+      from the questions landed on what looked like a different page of worlds, and stepping back
+      again threw the parent out to the top of the home page. One place chooses a world now, and
+      it is a section of a page they can carry on scrolling.
+    */
     case "profile":
-      return options.mode === "continue" ? "/dashboard" : "/themes";
+      return worldsHref(options.characterId, options.continuesFromBookId);
     case "preview":
       return "/create#profile";
     case "auth":
       return "/create#preview";
     case "checkout":
-      if (options.isPrintUpgrade) return "/dashboard";
+      if (options.isPrintUpgrade) return originHref(options.cameFrom);
       // Auth is skipped when already signed in; preview is the real prior step.
       return "/create#preview";
     default:
-      return "/dashboard";
+      return originHref(options.cameFrom);
   }
+}
+
+/**
+ * The worlds on the home page, carrying whatever the journey already knows.
+ *
+ * A query on `/` rather than on `/themes`: the picker there is a section of the page, and both it
+ * and `JourneyDraftProvider` read the address the page is standing on.
+ */
+function worldsHref(characterId?: string | null, continuesFromBookId?: string | null): string {
+  const params = new URLSearchParams();
+  if (characterId) params.set("characterId", characterId);
+  if (continuesFromBookId) params.set("continuesFromBookId", continuesFromBookId);
+  const query = params.toString();
+  return query ? `/?${query}#worlds` : "/#worlds";
+}
+
+/** Where a parent who leaves the journey lands: the screen they came in from. */
+function originHref(cameFrom: JourneyOrigin | undefined): string {
+  return cameFrom === "world" ? "/world" : "/dashboard";
 }
 
 /*

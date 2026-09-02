@@ -16,14 +16,21 @@ import {
   type PreviewTeaser,
 } from "@/lib/journey/draft";
 import { type BookPackage, PRICES } from "@/lib/pricing";
+import {
+  clearPendingRun,
+  heroKeyOf,
+  readPendingRun,
+  writePendingRun,
+} from "@/lib/journey/pendingRun";
 import { patchJourneyResume, writeJourneyResume } from "@/lib/journey/resume";
-import { SESSION_KEYS } from "@/lib/storage/session";
 import { useWorldById, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
 
 type Props = {
   draft: JourneyDraft;
   onChange: (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => void;
   onContinue: () => void;
+  /** Leaves the waiting screen for the step before it; the book keeps being written. */
+  onStopWaiting: () => void;
 };
 
 // One book is one vision call + one whole-book call + a cover image, so the paid start must
@@ -37,56 +44,17 @@ type Props = {
 let inflightStart: Promise<string> | null = null;
 
 /**
- * Which book the stored run belongs to.
+ * Discards the stored run, and the shared start that belongs to it.
  *
- * The id alone resumed the wrong book: start a book for one child, go back to the dashboard,
- * start one for another, and the loader showed the first child's story as the second's. The
- * world and the hero travel with the id, and a stored run is only rejoined when they match.
+ * The module-level promise above is the once-guarantee for one particular run; keeping it past
+ * the id would hand the next book the previous book's runId.
  */
-type PendingRun = { runId: string; worldId: string | null; heroKey: string };
-
-function heroKeyOf(hero: { serverId?: string; name: string; birthDate: string }): string {
-  return hero.serverId ?? `${hero.name.trim().toLowerCase()}|${hero.birthDate}`;
-}
-
-// Storage can throw — Safari in private mode is the usual culprit — and a book that is already
-// being written should not be lost to a failed write of its own id.
-function readPendingRun(): PendingRun | null {
-  try {
-    const raw = localStorage.getItem(SESSION_KEYS.pendingBookRunId);
-    if (!raw) return null;
-    // Earlier versions stored the bare id. It belongs to nobody in particular, so it is dropped
-    // rather than resumed into whichever book happens to be open now.
-    if (!raw.startsWith("{")) return null;
-    const parsed = JSON.parse(raw) as Partial<PendingRun>;
-    return typeof parsed.runId === "string" && typeof parsed.heroKey === "string"
-      ? { runId: parsed.runId, worldId: parsed.worldId ?? null, heroKey: parsed.heroKey }
-      : null;
-  } catch {
-    return null;
-  }
-}
-
-function writePendingRun(run: PendingRun): void {
-  try {
-    localStorage.setItem(SESSION_KEYS.pendingBookRunId, JSON.stringify(run));
-  } catch {
-    /* ignore */
-  }
-}
-
 function clearPendingRunId(): void {
-  // The shared start belongs to the run whose id is being discarded; keeping it would hand
-  // the next book the previous book's runId.
   inflightStart = null;
-  try {
-    localStorage.removeItem(SESSION_KEYS.pendingBookRunId);
-  } catch {
-    /* ignore */
-  }
+  clearPendingRun();
 }
 
-export function PreviewStage({ draft, onChange, onContinue }: Props) {
+export function PreviewStage({ draft, onChange, onContinue, onStopWaiting }: Props) {
   const WORLD_BY_ID = useWorldById();
   const t = useT();
   // The story is written in the language the site is being read in; there is no separate
@@ -121,16 +89,42 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
     // which cleared only by leaving and coming back.
     if (!hydrated) return;
 
+    /*
+      A book already being written outranks every question about which book it would be.
+
+      The world gate below is right for a book that has not started: writing one without a theme
+      produced a book about the wrong subject. It was wrong for a book already in progress. The
+      draft is deliberately never restored from storage, so a parent who left this screen and came
+      back after a real page load arrived with an empty draft — and was told to choose a world for
+      a story the server had already finished writing, with the run id sitting in localStorage the
+      whole time. The theme was settled when the run started; polling needs nothing but its id.
+
+      "A book" and not "any book", though. The stored run carries the world and the child it was
+      started for, so a run left behind by another book is dropped rather than shown as this one.
+      A blank world or a hero the draft does not know yet is not a contradiction — that is exactly
+      the empty draft of a fresh page load — so only a world or a hero that disagrees rejects it.
+    */
+    const pending = readPendingRun();
+    const heroKnown = !!hero.serverId || !!hero.name.trim();
+    const resumable =
+      pending &&
+      (!draft.worldId || pending.worldId === draft.worldId) &&
+      (!heroKnown || pending.heroKey === heroKeyOf(hero))
+        ? pending
+        : null;
+    if (pending && !resumable) clearPendingRunId();
+
     // A saved hero named in the URL is still on its way from the account. Starting now would
     // write — and bill — a book for "შენი გმირი", aged five, with no photograph, and then adopt
-    // that story into the paid book. Wait; the hero's arrival re-runs this effect.
-    if (draft.characters.some((c) => c.serverId && !c.name.trim())) return;
+    // that story into the paid book. Wait; the hero's arrival re-runs this effect. A run already
+    // in progress is exempt: there is nothing left to start, only a story to collect.
+    if (!resumable && draft.characters.some((c) => c.serverId && !c.name.trim())) return;
 
     // Once the draft is known, a missing world is real: there is no story to write.
     // Generating anyway produced a book about the wrong subject, which costs a real
     // generation and reads as a bug — so stop and send them back to choose.
     const apiTheme = draft.worldId ? THEME_ID_TO_API[draft.worldId] : undefined;
-    if (!apiTheme) {
+    if (!apiTheme && !resumable) {
       setLoading(false);
       setError(t.journey.preview.chooseWorldFirst);
       return;
@@ -292,16 +286,16 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
     void (async () => {
       try {
         // A reload used to throw away a book that was already being written and start
-        // another. The id is kept so the page comes back to the one in progress — but only
-        // the one for this child in this world; a run left behind by another book is dropped.
-        const pending = readPendingRun();
-        if (pending) {
-          if (pending.worldId === draft.worldId && pending.heroKey === heroKeyOf(hero)) {
-            poll(pending.runId);
-            return;
-          }
-          clearPendingRunId();
+        // another. The id is kept so the page comes back to the one in progress — decided
+        // above, where the world and the hero it belongs to were checked against this draft.
+        if (resumable) {
+          poll(resumable.runId);
+          return;
         }
+
+        // Only reachable with a theme: the branch above returns for every resumable run, and the
+        // gate above that refuses a start without one.
+        if (!apiTheme) return;
 
         // A saved hero's portrait is an object URL for the screen, not bytes to send: the
         // server is told which character and reads its own copy. Only a photo chosen in this
@@ -456,6 +450,22 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
                   {label}
                 </span>
               ))}
+            </div>
+
+            {/*
+              A way off this screen.
+
+              Writing a book takes minutes and there was nothing here but the wait — no button,
+              and a header arrow that is easy to miss on a screen that is plainly busy. It is not
+              a cancel and does not pretend to be: the story is already being written and the
+              request cannot be recalled. What it does is stop the waiting. The run id is kept,
+              so coming back rejoins this book instead of buying another.
+            */}
+            <div className="preview-loader-exit">
+              <p>{t.journey.previewLoader.stopWaitingNote}</p>
+              <button className="button button-quiet" type="button" onClick={onStopWaiting}>
+                {t.journey.previewLoader.stopWaiting}
+              </button>
             </div>
           </div>
         </div>

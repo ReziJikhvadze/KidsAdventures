@@ -32,6 +32,22 @@
    * where it was always the right answer.
    */
   --font-body: "Noto Sans Georgian", "Adventrya Sans", system-ui, sans-serif;
+
+  /*
+   * Ottia's Georgian capitals, on everywhere Ottia is.
+   *
+   * Georgian has two cases of the same alphabet — mkhedruli for reading, mtavruli for a title —
+   * and Ottia draws both: the second is reached through the OpenType `case` feature, which is
+   * where Georgian faces conventionally put it. CSS `text-transform: uppercase` is not the way
+   * in; the spec deliberately exempts Georgian from case mapping, and browsers honour that, so
+   * the transform is a no-op on every word on this site. Measured, not assumed.
+   *
+   * Declared once and read by every rule that sets `--font-display`, so the whole site's
+   * headings, titles and wordmarks change together — and `normal` here puts mkhedruli back.
+   * Only the display face is asked: body copy stays lower case, because a paragraph of Georgian
+   * capitals is a paragraph nobody reads.
+   */
+  --display-caps: "case" 1;
 }
 * {
   box-sizing: border-box;
@@ -77,6 +93,22 @@ svg {
   max-height: 1000px;
   overflow: hidden;
   isolation: isolate;
+}
+/*
+  The pages that are documents: about, contact, refunds, privacy, terms.
+
+  They used `.screen` above, which is why none of them scrolled. What they actually need is a
+  column that grows with its content and keeps the footer at the bottom of short ones.
+*/
+.legal-page {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+}
+.legal-page > main {
+  flex: 1;
 }
 .world-art {
   position: absolute;
@@ -181,6 +213,7 @@ svg {
 .hero-copy h1 {
   margin: 0;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-weight: 700;
   letter-spacing: -0.035em;
 }
@@ -436,6 +469,37 @@ svg {
     margin: 0;
   }
 }
+/*
+  The site's navigation in the app header.
+
+  Centred absolutely, like the step counter it shares the slot with, so it does not push the
+  back arrow and the account pill apart. It leaves at 1080px for the reason the old one was
+  taken out: below that it meets both of them at once and the three read as one run of letters.
+*/
+.app-header-nav {
+  position: absolute;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 2vw, 30px);
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.app-header-nav a {
+  color: #f8f2e5b8;
+  font-size: 13px;
+  font-weight: 600;
+  transition: color 0.16s ease;
+}
+.app-header-nav a:hover,
+.app-header-nav a:focus-visible {
+  color: var(--cream);
+}
+@media (max-width: 1080px) {
+  .app-header-nav {
+    display: none;
+  }
+}
 .step-progress {
   position: absolute;
   left: 50%;
@@ -564,6 +628,7 @@ svg {
   margin: 5px 0 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 30px;
 }
 .memory-note {
@@ -659,6 +724,78 @@ svg {
   border: 1px solid rgba(207, 227, 236, 0.56);
   background: #cfe3ec1f;
 }
+/*
+  The family, down the left of the child's map.
+
+  Sized against `.child-switch-card` in the cabinet on purpose: it is the same list of the same
+  children doing the same job, and two different-looking lists of one family is a product with
+  two ideas about who the parent is. The colours are this screen's, which is dark.
+*/
+.world-children-title {
+  margin-top: 18px;
+  color: #f8f2e58f;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.world-children {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 9px;
+}
+.world-child-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  cursor: pointer;
+  border: 1px solid rgba(229, 216, 244, 0.16);
+  border-radius: 14px;
+  background: rgba(23, 14, 54, 0.42);
+  color: inherit;
+  text-align: left;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease;
+}
+.world-child-card:hover,
+.world-child-card:focus-visible {
+  border-color: rgba(255, 227, 163, 0.42);
+  background: rgba(33, 20, 74, 0.62);
+}
+.world-child-card.selected {
+  border-color: rgba(255, 227, 163, 0.72);
+  background: rgba(41, 25, 90, 0.74);
+}
+.world-child-card > span:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.world-child-card strong {
+  overflow: hidden;
+  color: #fff6db;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.world-child-card small {
+  color: #f8f2e58f;
+  font-size: 11.5px;
+}
+.world-child-card > svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: #f8f2e561;
+}
+
 .living-map {
   position: absolute;
   z-index: 6;

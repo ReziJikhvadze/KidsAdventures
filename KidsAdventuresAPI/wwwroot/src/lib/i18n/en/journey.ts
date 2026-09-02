@@ -57,7 +57,7 @@ export const journey = {
     relationshipCustom: "Describe the relationship",
     relationshipPlaceholder: "e.g. godparent or magical friend",
     photoRequired: "A portrait is required",
-    photoReady: "Hero ready ✓",
+    photoNew: "Upload a new photo",
     photoPrompt: "Add a clear portrait",
     photoHint: "Whole face visible · good lighting · no sunglasses",
     photoUpload: "Upload a photo",
@@ -112,12 +112,19 @@ export const journey = {
     stageLabel: "Choosing a magical world",
     artLabel: "Six floating magical worlds, Beki, and a glowing book",
     brandLabel: "Beki — home",
-    backLabel: "Back to the home page",
+    backLabel: "Go back",
     create: "Create",
     continueTo: (world: string) => `Create — ${world}`,
     statusIdle: "No world chosen yet.",
     statusFlying: (world: string) => `${world} chosen. Beki's star is on its way.`,
     statusReady: (world: string) => `${world} chosen. The button to go there is ready.`,
+
+    visited: "Already created",
+    tryAgain: "Try it again",
+    locked: "Still locked",
+    lockedNote: (world: string) =>
+      `${world} is still locked — the previous adventure is not finished yet.`,
+    forChild: (name: string) => `${name}'s worlds`,
   },
 
   firstMap: {
@@ -152,6 +159,8 @@ export const journey = {
 
   previewLoader: {
     paintingCover: "The story is written — painting the cover…",
+    stopWaiting: "Stop and go back",
+    stopWaitingNote: "The story is being written. You can wait here, or go back — nothing is lost.",
     heading: " Your personalised preview is being made",
     subheading: "'s first page is already being made ✨",
     reassurance: "Stay for this bit of magic — it usually takes 2–4 minutes.",
@@ -221,12 +230,24 @@ export const journey = {
     appleSoon: "Apple sign-in is coming soon.",
     tabEmail: "Email",
     tabPhone: "Phone number",
+    methodGroup: "Sign-in method",
+    tabMagicLink: "One-time link",
+    tabPassword: "Password",
     sendMagicLink: "Send me a Magic Link ",
     magicLinkSent: (email: string) => `Link sent — check ${email}.`,
     openMagicLink: "Open Magic Link (demo)",
     phoneLabel: "Phone number",
     phoneDemoNote: "No SMS is sent",
     sendCode: "Get a code ",
+    usePassword: "Or set a password",
+    useMagicLink: "Or use a one-time link",
+    passwordLabel: "Password",
+    passwordRepeatLabel: "Repeat password",
+    passwordHint:
+      "At least 8 characters, with one uppercase letter, one lowercase letter and one digit.",
+    passwordMismatch: "The passwords do not match.",
+    passwordSubmit: "Continue ",
+    passwordFailed: "Could not sign you in.",
     otpHeading: "Enter the 6-digit confirmation code",
     otpDigitAria: (index: number) => `Digit ${index} of the code`,
     resend: "Send me a new code",
@@ -236,8 +257,6 @@ export const journey = {
     back: " Back",
     devDelivery: "Demo mode · no real message is sent.",
     devCode: (secret: string) => `Test code: ${secret}`,
-    demoLogin: "Sign in with demo account",
-    demoLoading: "Signing in…",
 
     /** The page the emailed magic link lands on. */
     landing: {
@@ -253,6 +272,8 @@ export const journey = {
   },
 
   checkout: {
+    packageDigital: "Digital",
+    packagePrint: "Print + Digital",
     printTitle: "Order the printed edition",
     printLead: "Receive a book you have already created in print",
     title: "Complete your order",

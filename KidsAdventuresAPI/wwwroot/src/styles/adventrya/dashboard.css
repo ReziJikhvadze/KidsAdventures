@@ -201,6 +201,7 @@
 .world-window-copy h2 {
   margin: 7px 0 15px;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 20px;
   line-height: 1.25;
 }
@@ -250,6 +251,7 @@
 .dashboard-section-heading h2 {
   margin: 0;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(20px, 1.7vw, 24px);
   font-weight: 600;
 }
@@ -392,6 +394,111 @@
 .library-book small {
   color: #29233a6b;
   font-size: 12px;
+}
+
+/*
+  The print-upgrade panel, in the cabinet's own colours.
+
+  It is the journey's `.ux-package-panel` reused, and the journey is a dark screen: a deep indigo
+  card, cream labels, near-black inputs and a gold error line. Dropped into the cabinet — which is
+  cream with dark ink — it arrived as a slab of another product's palette in the middle of the
+  page, and its quiet cancel button was dark text on a dark ground. Nothing here changes the
+  panel on the checkout, where those colours are the right ones; these rules only apply inside
+  `.dashboard-shell`.
+*/
+.dashboard-shell .ux-package-panel {
+  border-color: rgba(59, 42, 103, 0.14);
+  background: #ffffffd9;
+  box-shadow:
+    0 18px 44px #2c214817,
+    inset 0 1px #ffffff;
+  color: var(--ink);
+}
+.dashboard-shell .ux-package-panel .eyebrow {
+  color: #3b2a67;
+}
+.dashboard-shell .ux-package-panel .print-panel-note {
+  color: #29233a9e;
+}
+.dashboard-shell .ux-package-panel .field > span {
+  color: #29233ab5;
+}
+.dashboard-shell .ux-package-panel .field input {
+  border-color: rgba(59, 42, 103, 0.18);
+  background: #f6f2fbd6;
+  box-shadow: none;
+  color: var(--ink);
+}
+.dashboard-shell .ux-package-panel .field input::placeholder {
+  color: #29233a5c;
+}
+.dashboard-shell .ux-package-panel .field input:focus {
+  border-color: #8a6bd0a8;
+  background: #fff;
+}
+/* The panel's own validation message. Sentence case, sentence spacing, and a red that reads
+   on cream — the gold it used to wear belongs to the dark journey screens. */
+.print-panel-error {
+  margin-top: 10px;
+  color: #a3372f;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.dashboard-shell .ux-package-panel .button-quiet {
+  border-color: rgba(59, 42, 103, 0.2);
+  background: #ffffff9e;
+  color: #3b2a67cf;
+}
+.dashboard-shell .ux-package-panel .button-quiet:hover {
+  border-color: rgba(59, 42, 103, 0.34);
+  background: #fff;
+}
+
+/*
+  How far this book has got: created, downloaded, printed.
+
+  A chip rather than another line of grey text, because it is the one thing on the card that
+  differs between two books that otherwise look identical, and it has to be readable at a glance
+  down a shelf of six. `align-self: start` keeps it the width of its own words — the column is a
+  flex column, so a plain span would stretch the full width of the card.
+*/
+.library-status {
+  align-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 3px 10px;
+  border: 1px solid rgba(59, 42, 103, 0.12);
+  border-radius: 999px;
+  background: #f4efff8c;
+  color: #3b2a67b8;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.library-status i {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.library-status-downloaded {
+  border-color: rgba(58, 106, 168, 0.24);
+  background: #e8f1fd9c;
+  color: #2f5c92;
+}
+
+.library-status-printed {
+  border-color: rgba(52, 129, 92, 0.26);
+  background: #e6f5ec9c;
+  color: #2c6d4d;
 }
 
 /*
@@ -731,6 +838,7 @@
 .dashboard-preview-gate h1 {
   margin: 12px 0 0;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(20px, 2.1vw, 25px);
   line-height: 1.25;
   letter-spacing: -0.02em;

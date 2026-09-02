@@ -15,6 +15,64 @@ import { useJourneyDraft } from "@/lib/journey/draft";
 const START_JOURNEY = "/themes";
 
 /**
+ * Which section of this page a call to action was pressed in.
+ *
+ * The picker's back arrow reads it, so a parent who pressed the button at the very foot of the
+ * page is returned to the foot of the page. Without it every arrow led to the top, and the
+ * section they had been reading — the prices, the last word — was somewhere below the fold with
+ * no sign of how they got there.
+ */
+function fromSection(section: string) {
+  return { from: section } as const;
+}
+
+/**
+ * Land on the section the address bar names.
+ *
+ * The browser's own fragment scrolling does not survive this page: it is server-rendered and
+ * then hydrated, and the hydration puts the reader back at the top — so `/#books` and `/#final`
+ * both opened on the hero with the section they named several screens further down. That is why
+ * the back arrow out of the world picker appeared to do nothing useful for anyone who had
+ * started from the foot of the page.
+ *
+ * Instant, and repeated as the page settles. The sections above the target are the tall ones —
+ * the hero and the painted map — and their heights are not final until the artwork has loaded,
+ * so a single scroll on the first frame lands short of where the section ends up. Animating it
+ * would be worse than useless: this is a reader coming *back* to where they were, and five
+ * thousand pixels of scenery flying past is not a place they asked to revisit.
+ */
+function useScrollToHashSection() {
+  useEffect(() => {
+    const jump = () => {
+      const id = window.location.hash.replace(/^#/, "");
+      if (!id) return;
+      const target = document.getElementById(id);
+      if (!target) return;
+      /*
+        `instant`, not `auto`. `auto` means "whatever CSS says", and this stylesheet sets
+        `scroll-behavior: smooth` on `html` — so the jump became a five-thousand-pixel animation
+        that this effect then fought with on its second pass. scrollIntoView rather than a
+        computed offset: `body` carries `overflow-y: auto`, so which element actually scrolls is
+        not something this can assume.
+      */
+      target.scrollIntoView({ behavior: "instant", block: "start" });
+    };
+
+    const frame = window.requestAnimationFrame(jump);
+    // Once more after the hero art and the map painting have arrived and stopped moving things.
+    const settle = window.setTimeout(jump, 450);
+    window.addEventListener("hashchange", jump);
+    window.addEventListener("load", jump);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(settle);
+      window.removeEventListener("hashchange", jump);
+      window.removeEventListener("load", jump);
+    };
+  }, []);
+}
+
+/**
  * The section that says the world outlives the book — and now shows it.
  *
  * What stood here was a drawing of a map: three cards pinned to the corners of an empty box with
@@ -40,7 +98,7 @@ function Memory() {
     starts the book exactly as choosing one there does.
   */
   return (
-    <section className="landing-v3-memory">
+    <section className="landing-v3-memory" id="worlds">
       <WorldSelectorStage draft={draft} onChange={setDraft} embedded />
     </section>
   );
@@ -85,7 +143,7 @@ function Pricing() {
               </li>
             ))}
           </ul>
-          <Link to={START_JOURNEY}>
+          <Link to={START_JOURNEY} search={fromSection("pricing")}>
             {L.digital.cta}
             <ArrowIcon />
           </Link>
@@ -107,7 +165,7 @@ function Pricing() {
               </li>
             ))}
           </ul>
-          <Link to={START_JOURNEY}>
+          <Link to={START_JOURNEY} search={fromSection("pricing")}>
             {L.print.cta}
             <ArrowIcon />
           </Link>
@@ -172,13 +230,18 @@ function Faq() {
             key={item.question}
             open={openIndex === index}
             onToggle={(event) => {
-              if ((event.target as HTMLDetailsElement).open) setOpenIndex(index);
+              // Closing the open one has to clear it too: the marker is drawn from this, and
+              // leaving the index behind left a minus sign over a collapsed answer.
+              const open = (event.target as HTMLDetailsElement).open;
+              setOpenIndex((current) => (open ? index : current === index ? -1 : current));
             }}
           >
             <summary>
               <span>{String(index + 1).padStart(2, "0")}</span>
               {item.question}
-              <i aria-hidden="true">+</i>
+              {/* Plus to minus. It was a plus rotated 45°, which is a cross — and a cross reads
+                  as "close" or "wrong", not as "collapse this answer". */}
+              <i aria-hidden="true">{openIndex === index ? "−" : "+"}</i>
             </summary>
             <p>{item.answer}</p>
           </details>
@@ -192,7 +255,7 @@ function Final() {
   const t = useT();
   const L = t.landing.final;
   return (
-    <section className="landing-v3-final">
+    <section className="landing-v3-final" id="final">
       <div className="landing-v3-final-art" aria-hidden="true" />
       <div className="landing-v3-final-wash" aria-hidden="true" />
       <div className="landing-v3-final-copy">
@@ -205,11 +268,10 @@ function Final() {
           <em>{L.titleEm}</em>
         </h2>
         <span>{L.lead}</span>
-        <Link to={START_JOURNEY}>
+        <Link to={START_JOURNEY} search={fromSection("final")}>
           {t.landing.hero.primaryCta}
           <ArrowIcon />
         </Link>
-        <small>{L.note}</small>
       </div>
     </section>
   );
@@ -222,7 +284,10 @@ function Footer() {
   // actually next to when they want the top.
   const toTop = useLogoToTop();
   return (
-    <footer className="landing-v3-footer">
+    /* Named so the pages it links to can put a reader back where they were standing. The rest
+       of the page's sections carry an id for the same reason; the footer is seven screens down,
+       which makes it the one where being returned to the top is most obviously wrong. */
+    <footer className="landing-v3-footer" id="footer">
       <div>
         <Link to="/" className="landing-v3-logo" onClick={toTop}>
           {BRAND_HEADER_NAME}
@@ -233,9 +298,19 @@ function Footer() {
       <nav>
         <div>
           <strong>{F.product}</strong>
-          <Link to={START_JOURNEY}>{t.common.nav.createBook}</Link>
+          {/* Named like the link below it: both start in the footer, and the arrow out of the
+              picker has to bring a reader back to the foot of a seven-screen page rather than
+              the top of it. */}
+          <Link to={START_JOURNEY} search={fromSection("footer")}>
+            {t.common.nav.createBook}
+          </Link>
           <a href="#pricing">{t.common.nav.pricing}</a>
-          <Link to="/world">{F.myWorld}</Link>
+          {/* The picker's back arrow is a plain link to a fixed address — it cannot use the
+              browser's history the way the pages below it do — so it is told where this reader
+              came from. Without it, leaving the picker dropped them seven screens up the page. */}
+          <Link to="/themes" search={{ from: "footer" }}>
+            {F.chooseWorld}
+          </Link>
         </div>
         <div>
           <strong>{F.help}</strong>
@@ -255,7 +330,6 @@ function Footer() {
           <Link to="/terms">წესები და პირობები</Link>
         </div>
       </nav>
-      <p className="landing-v3-footer-bottom">{F.madeIn}</p>
     </footer>
   );
 }
@@ -268,9 +342,55 @@ function Footer() {
  * until the headline's button has scrolled out of sight, which is the only moment it adds
  * anything — and the header's own button is gone on small screens.
  */
+/** The sections this bar can be standing over, top to bottom, as the picker's arrow names them. */
+const CTA_SECTIONS = ["books", "worlds", "pricing", "faq", "final", "footer"] as const;
+
+/**
+ * Which section of the page the reader is currently looking at.
+ *
+ * The bar floats over all of them, so unlike every other call to action on this page it cannot
+ * name its own section at build time — and telling the picker `from=top` sent a parent who
+ * pressed it beside the prices back to the top of a seven-screen page. Whichever section owns
+ * the middle of the viewport is the answer; before the first of them, the top still is.
+ */
+function useSectionUnderView(): string {
+  const [section, setSection] = useState("top");
+
+  useEffect(() => {
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const middle = window.innerHeight / 2;
+      let found = "top";
+      for (const id of CTA_SECTIONS) {
+        const rect = document.getElementById(id)?.getBoundingClientRect();
+        // Top-down, so the last section whose top has passed the middle wins.
+        if (rect && rect.top <= middle) found = id;
+      }
+      setSection(found);
+    };
+
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(measure);
+    };
+
+    measure();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+
+  return section;
+}
+
 function MobileCta() {
   const t = useT();
   const [visible, setVisible] = useState(false);
+  const section = useSectionUnderView();
 
   useEffect(() => {
     const anchor = document.querySelector(".landing-v3-primary");
@@ -289,7 +409,7 @@ function MobileCta() {
 
   return (
     <div className={`landing-v3-mobile-cta ${visible ? "is-visible" : ""}`} aria-hidden={!visible}>
-      <Link to={START_JOURNEY} tabIndex={visible ? undefined : -1}>
+      <Link to={START_JOURNEY} search={fromSection(section)} tabIndex={visible ? undefined : -1}>
         {t.landing.hero.primaryCta}
         <ArrowIcon />
       </Link>
@@ -299,6 +419,8 @@ function MobileCta() {
 
 /** Landing markup matches Partner Demo v13 class tree (Hero/Header/Books/How modules). */
 export function LandingPage() {
+  useScrollToHashSection();
+
   return (
     <div className="landing-v3">
       <Header />

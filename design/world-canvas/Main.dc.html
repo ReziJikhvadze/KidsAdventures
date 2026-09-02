@@ -1,0 +1,331 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;500;600;700&amp;family=Noto+Serif+Georgian:wght@600;700&amp;display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #e8c98a; }
+    a:hover { color: #f5df9f; }
+    .w-root {
+      width: 1440px; height: 900px; overflow: hidden; position: relative;
+      background: #130d29;
+      color: #f8f2e5;
+      font-family: "Noto Sans Georgian", system-ui, sans-serif;
+    }
+    .w-sky { position: absolute; inset: 0; z-index: 0;
+      background:
+        radial-gradient(120% 90% at 78% 18%, #2b1d5c 0%, #1a1140 42%, #130d29 78%),
+        linear-gradient(180deg, #1c123f 0%, #130d29 100%);
+    }
+    .w-head { position: relative; z-index: 3; height: 108px; display: flex;
+      align-items: center; justify-content: space-between; padding: 0 56px;
+      background: #21183f; }
+    .w-back { width: 44px; height: 44px; display: grid; place-items: center;
+      border: 1px solid rgba(229,216,244,.22); border-radius: 50%;
+      background: #1d144257; }
+    .w-head-end { display: flex; align-items: center; gap: 12px; }
+    .w-pill { height: 44px; display: flex; align-items: center; gap: 8px;
+      padding: 0 16px; border: 1px solid rgba(229,216,244,.22); border-radius: 999px;
+      background: #1d144257; font-size: 13px; font-weight: 600; }
+    .w-cabinet { height: 52px; display: flex; align-items: center; gap: 11px;
+      padding: 0 14px 0 8px; border: 1px solid rgba(229,216,244,.22);
+      border-radius: 999px; background: #1d144257; }
+    .w-avatar { width: 36px; height: 36px; display: grid; place-items: center;
+      border-radius: 50%; background: linear-gradient(145deg,#f5df9f,#d9a654);
+      color: #2c1c49; font-weight: 700; font-size: 15px; }
+    .w-cabinet small { display: block; color: #f8f2e58f; font-size: 10.5px;
+      letter-spacing: .04em; }
+    .w-cabinet b { font-size: 13.5px; font-weight: 600; }
+    .w-body { position: relative; z-index: 2; display: grid;
+      grid-template-columns: 430px 1fr; gap: 34px; padding: 26px 56px 0; }
+
+    /* ---- left column ------------------------------------------------- */
+    .w-profile { display: flex; align-items: center; gap: 15px; }
+    .w-profile-avatar { width: 62px; height: 62px; display: grid; place-items: center;
+      border-radius: 50%; background: linear-gradient(145deg,#f5df9f,#d9a654);
+      color: #2c1c49; font-family: "Noto Serif Georgian", Georgia, serif;
+      font-size: 26px; font-weight: 700; }
+    .w-profile small { display: block; color: #f8f2e58f; font-size: 11.5px; }
+    .w-profile h1 { margin: 3px 0 0; font-family: "Noto Serif Georgian", Georgia, serif;
+      font-size: 27px; font-weight: 700; line-height: 1.15; color: #fff6db; }
+    .w-label { margin: 26px 0 9px; color: #f8f2e58f; font-size: 11px;
+      font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+    .w-kids { display: flex; flex-direction: column; gap: 7px; }
+    .w-kid { display: flex; align-items: center; gap: 11px; padding: 10px 12px;
+      border: 1px solid rgba(229,216,244,.16); border-radius: 14px;
+      background: rgba(23,14,54,.42); }
+    .w-kid.is-on { border-color: rgba(255,227,163,.72); background: rgba(41,25,90,.74); }
+    .w-kid-av { width: 34px; height: 34px; display: grid; place-items: center;
+      border-radius: 50%; background: #3b2a67; color: #f5df9f;
+      font-size: 14px; font-weight: 700; }
+    .w-kid-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+    .w-kid-txt b { font-size: 14px; font-weight: 600; color: #fff6db; }
+    .w-kid-txt small { font-size: 11.5px; color: #f8f2e58f; }
+    .w-kid-dots { display: flex; gap: 3px; }
+    .w-kid-dots i { width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(248,242,229,.22); }
+    .w-kid-dots i.on { background: #e8c98a; }
+    .w-cta { margin-top: 22px; height: 56px; display: flex; align-items: center;
+      justify-content: center; gap: 10px; border-radius: 16px;
+      background: linear-gradient(145deg,#f5df9f,#e0ac52); color: #2c1c49;
+      font-size: 15px; font-weight: 700;
+      box-shadow: 0 14px 34px rgba(233,172,91,.24); }
+    .w-note { margin: 14px 0 0; color: #f8f2e57a; font-size: 12px; line-height: 1.5; }
+
+    /* ---- map ---------------------------------------------------------- */
+    .w-map { position: relative; height: 372px; border-radius: 24px; overflow: hidden;
+      border: 1px solid rgba(244,229,203,.14);
+      box-shadow: 0 26px 60px rgba(5,2,18,.44); }
+    .w-map img { position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; }
+    .w-map-veil { position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(19,13,41,.42), rgba(19,13,41,.06) 44%, rgba(19,13,41,.66)); }
+    .w-trail { position: absolute; inset: 0; }
+    .w-pin { position: absolute; transform: translate(-50%,-50%); display: flex;
+      flex-direction: column; align-items: center; gap: 5px; }
+    .w-seal { width: 46px; height: 46px; display: grid; place-items: center;
+      border-radius: 50%; border: 1px solid rgba(255,239,202,.56);
+      background: linear-gradient(145deg,#f5df9f,#d9a654); color: #2c1c49;
+      font-family: "Noto Serif Georgian", Georgia, serif; font-size: 17px; font-weight: 700;
+      box-shadow: 0 0 0 5px rgba(236,191,105,.10), 0 0 30px rgba(241,191,91,.44); }
+    .w-seal.is-next { border-color: rgba(214,203,242,.62); color: #fff9ed;
+      background: linear-gradient(145deg,#8a6fd0,#4a3486);
+      box-shadow: 0 0 0 5px rgba(189,166,239,.12), 0 0 30px rgba(183,156,237,.34); }
+    .w-seal.is-locked { width: 32px; height: 32px; border-color: rgba(214,203,242,.30);
+      background: rgba(23,14,54,.72); box-shadow: none; }
+    .w-pin-name { padding: 3px 9px; border-radius: 999px;
+      background: rgba(12,7,39,.66); font-size: 10.5px; font-weight: 600;
+      color: #fff6db; white-space: nowrap; }
+    .w-pin.is-locked .w-pin-name { color: #efe8f27a; }
+
+    /* ---- shelf -------------------------------------------------------- */
+    .w-shelf-head { display: flex; align-items: baseline; justify-content: space-between;
+      margin: 22px 0 11px; }
+    .w-shelf-head h2 { margin: 0; font-family: "Noto Serif Georgian", Georgia, serif;
+      font-size: 19px; font-weight: 700; color: #fff6db; }
+    .w-rail { display: flex; align-items: center; gap: 10px; }
+    .w-rail-count { font-size: 12.5px; color: #f8f2e58f; }
+    .w-rail-count b { color: #e8c98a; font-size: 15px; }
+    .w-rail-pips { display: flex; gap: 4px; }
+    .w-rail-pips i { width: 22px; height: 4px; border-radius: 2px;
+      background: rgba(248,242,229,.16); }
+    .w-rail-pips i.on { background: linear-gradient(90deg,#f5df9f,#d9a654); }
+    .w-rail-pips i.now { background: #7564b5; }
+    .w-shelf { display: grid; grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 12px; }
+    .w-card { position: relative; display: grid; grid-template-columns: 46px 1fr;
+      gap: 12px; padding: 13px 14px; border-radius: 16px;
+      border: 1px solid rgba(255,255,255,.12); background: rgba(27,18,59,.72); }
+    .w-card.done { border-color: rgba(232,201,138,.48);
+      background: linear-gradient(140deg, rgba(60,42,26,.62), rgba(27,18,59,.78)); }
+    .w-card.now { border-color: rgba(117,100,181,.72);
+      background: linear-gradient(140deg, rgba(48,36,102,.78), rgba(27,18,59,.78)); }
+    .w-card.locked { opacity: .58; }
+    .w-card-seal { width: 46px; height: 46px; display: grid; place-items: center;
+      border-radius: 13px; font-family: "Noto Serif Georgian", Georgia, serif;
+      font-size: 17px; font-weight: 700; color: #2c1c49;
+      background: linear-gradient(145deg,#f5df9f,#d9a654); }
+    .w-card.now .w-card-seal { background: #7455b2; color: #fff9ed; }
+    .w-card.locked .w-card-seal { background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.16); color: #fffaeeb3; }
+    .w-card-txt { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+    .w-card-txt small { font-size: 10.5px; color: #fff8eb8c; letter-spacing: .02em; }
+    .w-card-txt b { font-size: 14.5px; font-weight: 600; color: #fff6db;
+      line-height: 1.25; }
+    .w-stamp { display: flex; align-items: center; gap: 5px; margin-top: 2px;
+      font-size: 11px; color: #e8c98ad9; }
+    .w-stamp.now { color: #c4b4f2; }
+    .w-stamp.locked { color: #efe8f26b; }
+    .w-open { margin-left: auto; font-size: 11.5px; color: #f8f2e5a1;
+      border-bottom: 1px solid rgba(248,242,229,.28); }
+  </style>
+</helmet>
+
+<div class="w-root">
+  <div class="w-sky"></div>
+
+  <header class="w-head">
+    <span class="w-back">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff3d6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg>
+    </span>
+    <div class="w-head-end">
+      <span class="w-pill">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18"></path></svg>
+        KA
+      </span>
+      <span class="w-cabinet">
+        <span class="w-avatar">R</span>
+        <span>
+          <small>მშობლის სივრცე</small>
+          <b>ჩემი კაბინეტი</b>
+        </span>
+      </span>
+    </div>
+  </header>
+
+  <div class="w-body">
+    <aside>
+      <div class="w-profile">
+        <span class="w-profile-avatar">ლ</span>
+        <div>
+          <small>6 წლის · 2 დასრულებული ამბავი</small>
+          <h1>ლილის სამყარო</h1>
+        </div>
+      </div>
+
+      <p class="w-label">ბავშვის პროფილები</p>
+      <div class="w-kids">
+        <div class="w-kid is-on">
+          <span class="w-kid-av">ლ</span>
+          <span class="w-kid-txt">
+            <b>ლილი</b>
+            <small>2 სამყარო გახსნილია</small>
+          </span>
+          <span class="w-kid-dots"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i></span>
+        </div>
+        <div class="w-kid">
+          <span class="w-kid-av">ე</span>
+          <span class="w-kid-txt">
+            <b>ელენე</b>
+            <small>ჯერ არცერთი სამყარო</small>
+          </span>
+          <span class="w-kid-dots"><i></i><i></i><i></i><i></i><i></i><i></i></span>
+        </div>
+      </div>
+
+      <div class="w-cta">
+        გახსენი შემდეგი თავგადასავალი
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"></path><path d="m13 7 5 5-5 5"></path></svg>
+      </div>
+      <p class="w-note">შემდეგი თავი საიდუმლო კუნძულზე იწყება. რექსი და ვარსკვლავური რუკა ლილს თან გაჰყვება.</p>
+    </aside>
+
+    <section>
+      <div class="w-map">
+        <img src="worldmap.jpg" alt="">
+        <div class="w-map-veil"></div>
+
+        <svg class="w-trail" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <path d="M71.5 78 C62 62 56 44 71.5 23" fill="none" stroke="#f0c86e" stroke-width="0.7" stroke-linecap="round" opacity=".92"></path>
+          <path d="M71.5 23 C78 32 82 42 84 50" fill="none" stroke="#c9b6f4" stroke-width="0.6" stroke-linecap="round" stroke-dasharray="2 2.4" opacity=".72"></path>
+        </svg>
+
+        <div class="w-pin" style="left: 71.5%; top: 78%;">
+          <span class="w-seal">I</span>
+          <span class="w-pin-name">დაკარგული ხეობა</span>
+        </div>
+        <div class="w-pin" style="left: 71.5%; top: 23%;">
+          <span class="w-seal">II</span>
+          <span class="w-pin-name">ვარსკვლავების გზა</span>
+        </div>
+        <div class="w-pin" style="left: 84%; top: 50%;">
+          <span class="w-seal is-next">III</span>
+          <span class="w-pin-name">საიდუმლო კუნძული</span>
+        </div>
+        <div class="w-pin is-locked" style="left: 16.5%; top: 48.5%;">
+          <span class="w-seal is-locked">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#efe8f2a8" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+          </span>
+          <span class="w-pin-name">მოჯადოებული ტყე</span>
+        </div>
+        <div class="w-pin is-locked" style="left: 30.5%; top: 21%;">
+          <span class="w-seal is-locked">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#efe8f2a8" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+          </span>
+          <span class="w-pin-name">ღრუბლების ქალაქი</span>
+        </div>
+        <div class="w-pin is-locked" style="left: 25%; top: 75%;">
+          <span class="w-seal is-locked">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#efe8f2a8" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+          </span>
+          <span class="w-pin-name">სინათლის კარიბჭე</span>
+        </div>
+      </div>
+
+      <div class="w-shelf-head">
+        <h2>ლილის თავები</h2>
+        <div class="w-rail">
+          <span class="w-rail-count"><b>2</b> / 6 გახსნილი</span>
+          <span class="w-rail-pips"><i class="on"></i><i class="on"></i><i class="now"></i><i></i><i></i><i></i></span>
+        </div>
+      </div>
+
+      <div class="w-shelf">
+        <div class="w-card done">
+          <span class="w-card-seal">I</span>
+          <span class="w-card-txt">
+            <small>თავი I</small>
+            <b>დაკარგული ხეობა</b>
+            <span class="w-stamp">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5 5L20 6"></path></svg>
+              დასრულდა 14 ივლისს
+              <span class="w-open">გახსნა</span>
+            </span>
+          </span>
+        </div>
+        <div class="w-card done">
+          <span class="w-card-seal">II</span>
+          <span class="w-card-txt">
+            <small>თავი II</small>
+            <b>ვარსკვლავების გზა</b>
+            <span class="w-stamp">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m4 12 5 5L20 6"></path></svg>
+              დასრულდა 21 აგვისტოს
+              <span class="w-open">გახსნა</span>
+            </span>
+          </span>
+        </div>
+        <div class="w-card now">
+          <span class="w-card-seal">III</span>
+          <span class="w-card-txt">
+            <small>თავი III</small>
+            <b>საიდუმლო კუნძული</b>
+            <span class="w-stamp now">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg>
+              მზადაა დასაწყებად
+            </span>
+          </span>
+        </div>
+        <div class="w-card locked">
+          <span class="w-card-seal">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+          </span>
+          <span class="w-card-txt">
+            <small>ჯერ დახურული</small>
+            <b>მოჯადოებული ტყე</b>
+            <span class="w-stamp locked">III თავის დასრულების შემდეგ</span>
+          </span>
+        </div>
+        <div class="w-card locked">
+          <span class="w-card-seal">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+          </span>
+          <span class="w-card-txt">
+            <small>ჯერ დახურული</small>
+            <b>ღრუბლების ქალაქი</b>
+            <span class="w-stamp locked">IV თავის დასრულების შემდეგ</span>
+          </span>
+        </div>
+        <div class="w-card locked">
+          <span class="w-card-seal">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+          </span>
+          <span class="w-card-txt">
+            <small>ჯერ დახურული</small>
+            <b>სინათლის კარიბჭე</b>
+            <span class="w-stamp locked">V თავის დასრულების შემდეგ</span>
+          </span>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

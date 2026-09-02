@@ -625,6 +625,7 @@
   margin: 9px 0 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(32px, 3vw, 45px);
   font-weight: 400;
   line-height: 1.12;

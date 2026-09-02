@@ -193,7 +193,10 @@ function CoverFace({
         {/* The cover said the book was the child's twice, above and below the title. Once is
             the point; twice reads as a template that forgot it had already said it. */}
         <small>{t.story.storybook.belongsTo(heroName)}</small>
-        <h2>{title}</h2>
+        {/* A book with no title is the sample on the home page: its cover is a painting, and the
+            invented title lying across the bottom of it was the one thing on that shelf a
+            visitor could not have. Every real book still names itself here. */}
+        {title ? <h2>{title}</h2> : null}
       </div>
     </article>
   );
@@ -243,10 +246,18 @@ function StoryFace({
         <div className="storybook-back-copy">
           <strong>{t.story.storybook.qrTitle}</strong>
           <p>{t.story.storybook.backTap(heroName)}</p>
-          {/*
-            Client-side, to the world picker, for this child. The old hard link to /create
-            reloaded the app into a blank form with no world and no child.
-          */}
+          {/* To the worlds, not to the form. `/create` opens on the questions — a name, a date
+              of birth, a photograph — which is the wrong thing to meet at the end of a story you
+              have just read. The first step is choosing where the next one happens.
+
+              `/themes` rather than the home page's own picker: this page is read inside a book,
+              often full-screen, and sending someone back to a section of the marketing page
+              means landing them halfway down it with the story still open behind. The dedicated
+              picker is the whole screen, which is what "choose the next world" should be.
+
+              A client-side `Link`, carrying this child: a hard `href` reloaded the app into a
+              blank form with no world and no child, and the picker needs to know whose next
+              book this is. */}
           <Link
             className="storybook-back-cta"
             to="/themes"
@@ -1138,7 +1149,18 @@ export function StorybookVolume({
               <ChevronLeft size={13} absoluteStrokeWidth />
               <span>{t.story.storybook.previous}</span>
             </button>
-            <span className="storybook-progress" aria-live="polite">
+            {/* No page counter on the shop window. On the home page the sample book is there to
+                be looked at, and "3 / 16" under it is bookkeeping for a reader who has not
+                bought anything yet. The reader itself keeps its counter. */}
+            {/* The middle track is still occupied when the counter is hidden: the controls are a
+                three-column grid, and dropping the element outright slid "next" into the centre
+                and both buttons out of balance. */}
+            <span
+              className={`storybook-progress${variant === "hero" ? " is-spacer" : ""}`}
+              aria-live="polite"
+              aria-hidden={variant === "hero" ? true : undefined}
+              style={variant === "hero" ? { visibility: "hidden" } : undefined}
+            >
               {progressLabel}
             </span>
             <button

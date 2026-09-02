@@ -50,6 +50,26 @@ export function Header() {
       <a href="#faq" onClick={() => setMenuOpen(false)}>
         {t.common.nav.faq}
       </a>
+      {/*
+        The child's map, reachable from the top of the page.
+
+        It was named once, in the footer, at the bottom of a page seven screens long — so the
+        one screen a returning family actually comes back for was the hardest thing here to
+        find. A router Link rather than an anchor: it is a page, not a section of this one.
+      */}
+      {/*
+        "Choose a world", and it goes to the choosing.
+
+        It read "my world" and opened the parent's own cabinet — which is books, not worlds, and
+        means nothing to somebody who has not made one yet. Nobody is asked to sign in to look.
+
+        `/themes` rather than the section of this page: the picker there is the whole screen,
+        with the six islands at the size they were painted. The anchor dropped a visitor into a
+        band of a very long page with the next section already showing underneath.
+      */}
+      <Link to="/themes" search={{ from: "top" }} onClick={() => setMenuOpen(false)}>
+        {t.common.nav.chooseWorld}
+      </Link>
     </>
   );
 

@@ -68,7 +68,9 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const discountMinor = quote?.discountMinor ?? 0;
   const totalMinor = quote?.totalMinor ?? baseMinor;
   const isFree = quote?.isFree === true || totalMinor === 0;
-  const packageLabel = isPrint ? t.journey.packages.print.title : t.journey.packages.digital.title;
+  const packageLabel = isPrint
+    ? t.journey.checkout.packagePrint
+    : t.journey.checkout.packageDigital;
 
   useEffect(() => {
     let cancelled = false;

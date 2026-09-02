@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { LegalPageShell } from "@/components/adventrya/LegalPageShell";
 import { Contact } from "@/components/site/Contact";
-import { MerchantDetails } from "@/components/site/MerchantDetails";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { BRAND_NAME } from "@/lib/brand";
 import { buildPageMeta } from "@/lib/seo";
@@ -34,7 +33,6 @@ function ContactPage() {
         ]}
       />
       <Contact />
-      <MerchantDetails />
     </LegalPageShell>
   );
 }

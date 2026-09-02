@@ -455,7 +455,15 @@
     transition: transform 180ms ease;
   }
 
-  .admin-app .menu-open .sidebar {
+  /*
+    `.admin-app.menu-open`, not `.admin-app .menu-open`.
+
+    One space, and the burger did nothing. The class is toggled onto the same element that
+    carries `admin-app`, so the descendant selector was looking for a `.menu-open` inside it —
+    which never existed. The sidebar stayed at translateX(-102%) however many times the button
+    was pressed, and the overlay appeared over a menu nobody could see.
+  */
+  .admin-app.menu-open .sidebar {
     transform: translateX(0);
   }
 

@@ -52,12 +52,15 @@ export const common = {
     faq: "FAQ",
     childWorld: "ბავშვის სამყარო",
     mySpace: "ჩემი სივრცე",
+    myWorld: "ჩემი სამყარო",
+    /* The header and footer name the act, not a possession: nobody has a world yet. */
+    chooseWorld: "სამყაროს არჩევა",
     createBook: "შექმენი წიგნი ",
     changeLanguage: "ენის შეცვლა",
     georgian: "ქართული",
     parentSpace: "მშობლის სივრცე",
     openDashboard: "მშობლის სივრცის გახსნა",
-    myFamily: "ჩემი ოჯახი",
+    myCabinet: "ჩემი კაბინეტი",
   },
 
   footer: {
@@ -68,6 +71,7 @@ export const common = {
     delivery: "მიწოდება",
     product: "პროდუქტი",
     myWorld: "ჩემი სამყარო",
+    chooseWorld: "სამყაროს არჩევა",
     reader: "Online Reader",
     adventureMap: "Adventure Map",
     legal: "კონფიდენციალურობა · წესები და პირობები",

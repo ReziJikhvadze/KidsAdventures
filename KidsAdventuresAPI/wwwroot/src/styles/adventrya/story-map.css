@@ -134,6 +134,7 @@
   margin: 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(18px, 1.55vw, 24px);
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -955,6 +956,7 @@
   margin: 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(25px, 2.2vw, 34px);
   letter-spacing: -0.025em;
 }

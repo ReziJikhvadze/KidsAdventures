@@ -9,7 +9,9 @@ export const story = {
     belongsTo: (hero: string) => `ეს ამბავი ${hero.trim()}სია`,
     nextChapter: (hero: string) => "შემდეგი თავგადასავალი",
     adventureOf: (hero: string) => `${hero}ს ამბავი`,
-    coverLabel: (total: number) => `ყდა · ${total} გვერდი`,
+    /* The count alone. The word sat on the shelf on the home page, where the picture of a
+       cover is already saying it, and this is the same counter the reader uses. */
+    coverLabel: (total: number) => `${total} გვერდი`,
     spreadLabel: (from: number, to: number, total: number) => `${from}–${to} / ${total}`,
     pageLabel: (page: number, total: number) => `${page} / ${total}`,
     pages: "წიგნის გვერდები",
@@ -104,6 +106,19 @@ export const story = {
     lastMemory: "ბოლო მოგონება",
     lastMemoryNote: "რექსს თქვენი ბოლო თავგადასავალი ახსოვს.",
     profileLine: (age: number, stories: number) => `${age} წლის · ${stories} დასრულებული ამბავი`,
+    newWorld: "ახალი სამყარო",
+    /* The rebuilt /world: a shelf of this child's books above the path of six worlds. */
+    spaceOf: (name: string) => `${name}ს პერსონალური სივრცე`,
+    shelfLead: "ყველა შექმნილი ამბავი — წასაკითხად, ჩამოსატვირთად და გასაგრძელებლად.",
+    journeySuffix: "ს მოგზაურობა",
+    nextAdventure: "შემდეგი თავგადასავალი",
+    /* When an island has been picked on the map, the button says which one it will open. */
+    startHere: (world: string) => `დაიწყე — ${world}`,
+    /* The book the parent walked away from, and the way back into it. */
+    resumeTitle: "წიგნი ჯერ კიდევ იქმნება",
+    resumeBody:
+      "დატოვე თუ არა ეს გვერდი, ისტორია სერვერზე მაინც იწერება. დაბრუნდი და ნახე, სად არის.",
+    resumeAction: "დაბრუნდი წიგნთან",
     openedStoriesSuffix: "ს უკვე აღმოჩენილი ამბები",
     archiveNote:
       "ძველი წიგნები უცვლელად ინახება; ახალი ინფორმაცია მხოლოდ მომავალ ისტორიებზე ვრცელდება.",

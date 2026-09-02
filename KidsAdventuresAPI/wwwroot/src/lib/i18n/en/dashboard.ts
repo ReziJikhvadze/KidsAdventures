@@ -3,7 +3,7 @@ export const dashboard = {
     pagingLabel: "Children pages",
     newBook: "Create a new book",
     parentLabel: "Child profiles",
-    addChild: "＋ Add a child profile",
+    addChild: "Add a child profile",
     noStoriesYet: "First adventure not started yet",
     storyCount: (count: number) =>
       count === 1 ? "1 completed adventure" : `${count} completed adventures`,
@@ -36,6 +36,11 @@ export const dashboard = {
     printDetail: (tbilisi: string, regions: string) =>
       `Hardcover. ${tbilisi} days in Tbilisi, ${regions} days elsewhere.`,
     printOrdered: "Printed book on its way ✓",
+
+    statusCreated: "Created",
+    statusDownloaded: "Downloaded",
+    statusPrinted: "Printed",
+    statusLabel: "Status",
 
     pagingLabel: "Library pages",
     pageOf: (page: number, total: number) => `Page ${page} of ${total}`,

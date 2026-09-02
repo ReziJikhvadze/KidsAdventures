@@ -555,28 +555,6 @@
   flex-shrink: 0;
 }
 
-/*
-  The wordmark, matched to `.wordmark` in base.css — same weight, spacing and gold. It was set in
-  the display serif at a lighter weight with a gradient rule under it, which made the name look
-  like a different brand on the one page a parent meets it first.
-
-  The shadow is this page's own and stays: the name sits on a painting here rather than on a bar,
-  and without it the gold disappears into a bright sky.
-*/
-.experience-header .brand {
-  display: inline-flex;
-  align-items: center;
-  color: #f2d48f;
-  font-size: 17px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  line-height: 1;
-  text-decoration: none;
-  text-shadow:
-    0 2px 20px rgba(3, 2, 23, 0.9),
-    0 0 18px rgba(255, 210, 112, 0.38);
-}
-
 .headline {
   position: absolute;
   top: calc(var(--crop-band) + 1.7%);
@@ -618,6 +596,7 @@
   margin-top: 0.18em;
   color: #fff7dc;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(15px, 1.63vw, 28px);
   font-weight: 600;
   line-height: 1.05;
@@ -843,6 +822,97 @@
   transform: translate(-50%, -50%) scale(1);
 }
 
+/*
+  Where this child has already been.
+
+  One state, and it does not shut anything: a world whose book has been made is dimmed, because
+  there is nothing new behind it — its button offers the trip again rather than a first one.
+  Everything else stays lit, locks included: turning six places to visit into four refusals was
+  the wrong shape for a picker a child is meant to want to touch.
+
+  Only drawn when the map was opened for a particular child. A visitor with no progress sees six
+  worlds, all lit.
+*/
+.world-node.is-done .world-label {
+  border-color: rgba(214, 205, 233, 0.28);
+  background: rgba(9, 6, 28, 0.62);
+}
+
+.world-node.is-done .world-label strong {
+  color: rgba(240, 234, 252, 0.66);
+}
+
+/* The island itself reads as visited rather than new. */
+.world-node.is-done .hotspot-marker {
+  opacity: 0.5;
+}
+
+/*
+  Nightfall over an island that has already been visited.
+
+  Dimming the label was not dimming the world: the six islands are one painting, so a card that
+  went quiet still sat on an island lit exactly as brightly as the five a child has never been
+  to. Which is the report — there was no way to see, from the map itself, where they had been.
+
+  A veil over the island's own box, soft-edged so it reads as evening on that island rather than
+  as a grey disc laid on top of it, and lifted almost away the moment the island is pointed at
+  or chosen: a visited world is somewhere to go again, not somewhere shut.
+*/
+.world-node::after {
+  position: absolute;
+  inset: -8%;
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(5, 3, 20, 0.66) 40%,
+    rgba(5, 3, 20, 0.4) 66%,
+    rgba(5, 3, 20, 0) 82%
+  );
+  filter: blur(6px);
+  content: "";
+  transition: opacity 200ms ease;
+}
+
+.world-node.is-done::after {
+  opacity: 1;
+}
+
+.world-node.is-done.is-previewed::after,
+.world-node.is-done.is-selected::after,
+.world-node.is-done:hover::after,
+.world-node.is-done:focus-within::after {
+  opacity: 0.22;
+}
+
+.world-node.is-done .world-finished {
+  opacity: 0.72;
+}
+
+/* Pointed at or chosen, it comes back up: it is still somewhere to go. */
+.world-node.is-done.is-previewed .world-label,
+.world-node.is-done.is-selected .world-label,
+.world-node.is-done:hover .world-label,
+.world-node.is-done:focus-within .world-label {
+  border-color: rgba(255, 235, 180, 0.6);
+  background: rgba(28, 15, 66, 0.8);
+}
+
+.world-state {
+  color: rgba(232, 226, 246, 0.6);
+  font-size: clamp(6px, 0.46vw, 8px);
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  line-height: 1.2;
+}
+
+.mobile-frame .world-state {
+  font-size: clamp(6px, 1.5vw, 9px);
+}
+
 .world-node.is-selected .world-label::after {
   position: absolute;
   top: -4px;
@@ -974,10 +1044,6 @@
   top: calc(var(--crop-band) + max(1.25%, env(safe-area-inset-top, 0px)));
   left: 4%;
   gap: 10px;
-}
-
-.mobile-frame .experience-header .brand {
-  font-size: clamp(15px, 4.2vw, 22px);
 }
 
 .mobile-frame .headline {
@@ -1132,4 +1198,51 @@
   .experience-shell .magic-flight {
     display: none;
   }
+}
+
+/*
+  A finished world, marked.
+
+  The only thing the parent's space adds to this picker: an island whose book has actually been
+  made — paid for and generated, never a preview — wears a tick. It rides the island's own marker
+  rather than the name card below it, so the mark is on the place and not on a label that only
+  appears once the island is pointed at. Nothing else about the island changes: it is still
+  chosen the same way, and still leads to a new book in the same world.
+*/
+.world-node.is-finished .world-finished {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  width: clamp(20px, 1.9vw, 30px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 239, 202, 0.66);
+  border-radius: 50%;
+  background: linear-gradient(145deg, #f7e3a8, #cf9c47);
+  box-shadow:
+    0 0 0 4px rgba(236, 191, 105, 0.14),
+    0 0 22px rgba(241, 191, 91, 0.5);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.world-node.is-finished .world-finished svg {
+  width: 62%;
+  height: 62%;
+  fill: none;
+  stroke: #2c1c49;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Its own name reads as somewhere that has been rather than somewhere to go. */
+.world-node.is-finished .world-label {
+  border-color: rgba(255, 232, 169, 0.62);
+}
+
+.mobile-frame .world-node.is-finished .world-finished {
+  width: clamp(18px, 5vw, 26px);
 }

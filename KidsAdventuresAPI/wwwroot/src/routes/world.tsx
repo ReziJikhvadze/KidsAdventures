@@ -1,34 +1,28 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { ChildWorldScreen } from "@/components/adventrya/world/ChildWorldScreen";
-import { BRAND_NAME } from "@/lib/brand";
-import { buildPageMeta } from "@/lib/seo";
-
-type WorldSearch = {
-  bookId?: string;
-};
-
+/**
+ * The child's world is part of the parent's space now.
+ *
+ * It was a screen of its own — the map of six worlds, with the books it was counting on another
+ * page entirely. Neither half was complete alone: the shelf could not say where a child was
+ * going, and the map could not open, download or print anything it named. `/dashboard` carries
+ * both, with the path as its own section.
+ *
+ * The route stays as a redirect rather than being deleted: it is linked from the footer, from
+ * anything a parent has bookmarked, and — the one that would actually break — from the reader,
+ * which sends a just-finished book here as `?bookId=` so the world it opened can be celebrated.
+ * That query is carried across.
+ */
 export const Route = createFileRoute("/world")({
-  // `bookId` is a short-lived handoff from the finished reader. It is never trusted as
-  // progress data: ChildWorldScreen only uses it after the map API confirms that this
-  // child's completed node belongs to the book.
-  validateSearch: (search: Record<string, unknown>): WorldSearch => ({
+  validateSearch: (search: Record<string, unknown>): { bookId?: string } => ({
     bookId: typeof search.bookId === "string" ? search.bookId : undefined,
   }),
-  head: () => {
-    const { meta, links } = buildPageMeta({
-      title: `ბავშვის სამყარო — ${BRAND_NAME}`,
-      description:
-        "ბავშვის თავგადასავლების ცოცხალი რუკა — ყოველი ახალი წიგნი სამყაროს კიდევ ერთ ნაწილს ხსნის.",
-      path: "/world",
-      noindex: true,
+  beforeLoad: ({ search }) => {
+    throw redirect({
+      to: "/dashboard",
+      search: search.bookId ? { bookId: search.bookId } : undefined,
+      hash: "story-path",
+      replace: true,
     });
-    return { meta, links };
   },
-  component: WorldRoute,
 });
-
-function WorldRoute() {
-  const { bookId } = Route.useSearch();
-  return <ChildWorldScreen celebrationBookId={bookId} />;
-}

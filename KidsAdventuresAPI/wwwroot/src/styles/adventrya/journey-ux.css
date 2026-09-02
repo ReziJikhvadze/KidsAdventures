@@ -19,6 +19,7 @@
   margin: 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(38px, 3.2vw, 50px);
   font-weight: 400;
   line-height: 1.12;
@@ -122,6 +123,7 @@
   margin: 3px 0 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 19px;
 }
 /*
@@ -186,44 +188,103 @@
   font-size: 13px;
 }
 
+/*
+  Head, portrait, footer — a fixed three-band grid rather than a centred stack.
+
+  The row this sits in is as tall as the questions beside it, and a centred stack simply floated
+  its three small elements in the middle of whatever that came to: a dashed rectangle mostly full
+  of nothing, with the child's own photograph in it at 72px. The middle band is the one that
+  takes the slack, so the box grows by growing the portrait — the one thing in it worth more
+  room — and the head and the footer keep their size at every height.
+*/
 .ux-photo-upload {
   min-height: 178px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 18px;
+  display: grid;
+  grid-template-rows: auto minmax(84px, 1fr) auto;
+  justify-items: center;
+  gap: 12px;
+  padding: 16px;
   text-align: center;
   border: 1px dashed rgba(238, 216, 171, 0.36);
   border-radius: 18px 18px 30px;
   background: #1a113a61;
 }
-.ux-photo-upload > span {
+.ux-photo-head,
+.ux-photo-foot {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+.ux-photo-head span {
   width: 41px;
   height: 41px;
   display: grid;
   place-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   border-radius: 14px;
   color: var(--story-gold);
   background: #e8c98a21;
 }
-.ux-photo-upload > span svg {
+.ux-photo-head span svg {
   width: 20px;
 }
 .ux-photo-upload small {
   color: var(--story-gold);
   font-size: 11px;
 }
+/*
+  The portrait, or the space kept for one.
+
+  Beside the questions the box is as tall as they are, so the frame takes its size from the band
+  it is given and `aspect-ratio` turns that into a square; `max-width` transfers back through the
+  ratio, so a narrow column shortens it rather than leaving it tall and cropping the picture.
+  `min-height: 0` lets the 1fr row shrink on a short window instead of pushing the card past the
+  fold. The stacked case is the opposite problem and is handled at the phone breakpoint below.
+*/
+.ux-photo-frame {
+  min-height: 0;
+  height: 100%;
+  aspect-ratio: 1;
+  max-width: 100%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(239, 224, 193, 0.16);
+  border-radius: 18px;
+  background: radial-gradient(120% 120% at 50% 0%, #ffffff12, #150d3352);
+}
+.ux-photo-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.ux-photo-frame-empty {
+  display: grid;
+  place-items: center;
+  color: #efe3cf3d;
+}
+.ux-photo-frame-empty svg {
+  width: clamp(22px, 34%, 38px);
+  height: auto;
+}
+.ux-photo-upload.ready .ux-photo-frame {
+  border-color: #7ad8ae5c;
+}
+.ux-photo-upload.rejected .ux-photo-frame {
+  border-color: #f0a08c5c;
+}
 .ux-photo-upload strong {
-  margin-top: 4px;
   color: #fff8eb;
   font-family: var(--font-body);
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.35;
 }
 .ux-photo-upload p {
-  max-width: 190px;
-  margin: 8px 0 12px;
+  max-width: 200px;
+  margin: 6px 0 10px;
   color: #eae3ef87;
   font-size: 11px;
   line-height: 1.55;
@@ -245,7 +306,7 @@
   border-color: #7ad8ae73;
   background: linear-gradient(145deg, #57a4842e, #1a113a61);
 }
-.ux-photo-upload.ready > span {
+.ux-photo-upload.ready .ux-photo-head span {
   color: #b9f0d0;
   background: #53bc8f30;
 }
@@ -256,7 +317,7 @@
   border-color: #f0a08c73;
   background: linear-gradient(145deg, #a4575730, #1a113a61);
 }
-.ux-photo-upload.rejected > span {
+.ux-photo-upload.rejected .ux-photo-head span {
   color: #ffc9bb;
   background: #bc635330;
 }
@@ -427,6 +488,7 @@
   margin: 3px 0 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 16px;
 }
 .ux-character-summary p {
@@ -808,6 +870,7 @@
   margin: 7px 0 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(18px, 1.5vw, 24px);
   line-height: 1.2;
   text-shadow: 0 4px 18px rgba(8, 3, 22, 0.7);
@@ -913,6 +976,7 @@
   margin: 4px 0 5px;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 19px;
 }
 .ux-package-option {
@@ -1415,8 +1479,19 @@
   .ux-character-inputs .form-grid {
     grid-template-columns: 1fr;
   }
+  /*
+    Stacked under the questions rather than beside them, so nothing is stretching this box and
+    the middle band collapses to its own floor. Sized from the width instead: the panel is the
+    full width of a phone, and a portrait shown at 84px in a 314px card is the postage stamp
+    this redesign set out to get rid of.
+  */
   .ux-photo-upload {
     min-height: 190px;
+    grid-template-rows: auto auto auto;
+  }
+  .ux-photo-frame {
+    height: auto;
+    width: min(100%, 232px);
   }
   .ux-form-actions,
   .ux-profile-footer {
@@ -1802,8 +1877,6 @@
     condition, so nothing changes on the screens that were already getting them.
   */
 
-
-
   .ux-profile-footer .privacy-inline {
     font-size: 11.5px;
     line-height: 1.4;
@@ -1952,7 +2025,6 @@
     height: clamp(36px, 5.3vh, 52px);
   }
 
-
   .ux-profile-footer .journey-primary {
     min-height: clamp(42px, 6.2vh, 58px);
   }
@@ -2008,7 +2080,6 @@
   .ux-profile-footer {
     padding-top: 6px;
   }
-
 
   /*
     And the controls grow more slowly down here. The clamps above are still what draws them —
@@ -2278,6 +2349,7 @@
   margin: 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 21px;
   font-weight: 400;
 }
@@ -2465,4 +2537,173 @@
 .generation-progress-line strong {
   font-size: 18px;
   color: var(--story-gold);
+}
+
+/*
+  The way off a screen that is busy.
+
+  Quiet and below the progress on purpose: it is not the thing to do, it is the thing that has
+  to be possible. Left-aligned with the copy beside it rather than centred, so it reads as part
+  of the paragraph explaining it rather than as a second call to action.
+*/
+.preview-loader-exit,
+.generation-exit {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.preview-loader-exit p {
+  flex: 1 1 190px;
+  min-width: 0;
+  margin: 0;
+  color: #f8f2e58f;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.preview-loader-exit .button,
+.generation-exit .button {
+  flex-shrink: 0;
+}
+
+/*
+  The sign-in, standing on the world map.
+
+  Three layers, and each is doing one job: the painting, fixed and blurred past reading; a wash
+  over it that carries the contrast the panel needs; and the dialog's own sheet, which is now
+  nearly clear because the darkening has already happened underneath. Eighty percent black used
+  to do all three at once, over a flat cream page, and the result was a form floating in nothing.
+*/
+.ux-auth-screen {
+  position: relative;
+  min-height: 100svh;
+  overflow: hidden;
+}
+.ux-auth-scene {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  background: #130d29 url("/adventrya/world-selector/world-map-desktop-master.webp") center / cover
+    no-repeat;
+  /*
+    Scaled past the edges on purpose: a blur samples outside the element it is drawn from, so an
+    unscaled layer fades to transparent along all four sides and leaves a pale rim.
+  */
+  transform: scale(1.12);
+  filter: blur(20px) saturate(1.08);
+  will-change: transform;
+}
+.ux-auth-scene::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(115% 85% at 50% 22%, #1b12402e 0%, #130d2985 58%, #0d0821b8 100%);
+}
+/*
+  The bar over the painting, not over the page.
+
+  `.journey-screen` dresses this header in white for a cabinet made of cream cards. There is no
+  cabinet here yet, and a white strip across the top of a night sky is the one seam in the
+  screen. The controls keep the dark treatment they wear on the world picker.
+*/
+/* Doubled class, because `.journey-screen .app-header` is written in a sheet imported after
+   this one and would otherwise win the tie. */
+.journey-screen.ux-auth-screen .app-header {
+  color: #fff8eb;
+  background: linear-gradient(180deg, #100a2785, #130c2d00);
+  border-bottom: none;
+  box-shadow: none;
+}
+.journey-screen.ux-auth-screen .app-header .back-button,
+.journey-screen.ux-auth-screen .app-header .header-pill,
+.journey-screen.ux-auth-screen .app-header .child-pill,
+.journey-screen.ux-auth-screen .app-header .icon-button {
+  color: #fff8eb;
+  border-color: rgba(239, 227, 207, 0.24);
+  background: #1d144270;
+}
+.journey-screen.ux-auth-screen .app-header .child-pill small {
+  color: #efe3cfa8;
+}
+.journey-screen.ux-auth-screen .app-header-nav a {
+  color: #f8f2e5c4;
+}
+.journey-screen.ux-auth-screen .app-header-nav a:hover,
+.journey-screen.ux-auth-screen .app-header-nav a:focus-visible {
+  color: var(--cream);
+}
+/*
+  The dismiss, on the cream panel rather than on the frame that used to hold it.
+
+  Not faint: it is the only way out of this screen for anyone who arrived here by accident, and
+  ink at 42% on cream is below the contrast a control owes. Quiet enough to stay out of the
+  panel's way, dark enough to be seen — and the same lift on keyboard focus as on hover, so
+  tabbing to it shows something.
+*/
+.ux-auth-dialog > button {
+  top: 13px;
+  right: 14px;
+  color: #29233a;
+  opacity: 0.72;
+}
+.ux-auth-dialog > button:hover,
+.ux-auth-dialog > button:focus-visible {
+  opacity: 1;
+}
+/* The dialog's own sheet. The scene under it is already the dimming. */
+.ux-auth-overlay {
+  background: #0d082147;
+}
+/*
+  It fits, so it does not scroll.
+
+  `overflow-y: auto` was here because the panel was taller than a phone: two social buttons, a
+  tab row, a field and a paragraph of small print. With Apple and the phone tab put away it is
+  a heading, one button, one field and one more button — and a sign-in that scrolls is a sign-in
+  whose own action can be below the fold. The cap stays as a last resort for a very short window
+  in landscape, where scrolling beats hiding the button.
+*/
+.ux-auth-dialog {
+  max-height: calc(100svh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /*
+    The panel is the dialog. The shared dialog primitive brings a bordered, padded sheet of its
+    own, which around a cream card with its own border and its own 28px corners read as a second
+    frame nobody drew — a dark rectangle with the real panel sitting inside it.
+  */
+  width: min(475px, calc(100vw - 24px));
+  max-width: none;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+.ux-auth-dialog .auth-panel {
+  padding: 28px 30px 24px;
+}
+.ux-auth-dialog .auth-panel > h1 {
+  font-size: clamp(24px, 5.4vw, 31px);
+  line-height: 1.15;
+}
+.ux-auth-dialog .auth-panel > p {
+  margin: 9px 0 16px;
+  font-size: 13px;
+}
+@media (max-width: 780px) {
+  .ux-auth-scene {
+    background-image: url("/adventrya/world-selector/world-map-mobile-master.webp");
+  }
+  .ux-auth-dialog .auth-panel {
+    padding: 22px 20px 20px;
+  }
+  .ux-auth-dialog .auth-panel > p {
+    margin: 8px 0 13px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ux-auth-scene {
+    will-change: auto;
+  }
 }

@@ -558,15 +558,21 @@ function CharacterEditor({
     })();
   };
 
-  // The upload box says one thing at a time, and the state it is in decides which.
+  /*
+    The upload box says one thing at a time, and the state it is in decides which.
+
+    An accepted portrait no longer ends the conversation. It used to show a tick over "the hero
+    is ready", which reads as a finished step — and a parent starting a second book, whose
+    saved portrait comes back with the draft, had nothing on the form inviting them to send a
+    picture of a child who is a year older. The box keeps the camera and keeps asking.
+  */
   let photoIcon = <Camera />;
   if (checking) photoIcon = <Loader2 className="ux-photo-spinner" />;
   else if (rejection) photoIcon = <TriangleAlert />;
-  else if (character.photoReady) photoIcon = <Check />;
 
   let photoLabel = copy.characterForm.photoRequired;
   if (checking) photoLabel = copy.characterForm.photoChecking;
-  else if (character.photoReady) photoLabel = copy.characterForm.photoReady;
+  else if (character.photoReady) photoLabel = copy.characterForm.photoNew;
 
   return (
     <div className={`ux-character-form ${character.isPrimary ? "" : "ux-second-character-form"}`}>
@@ -716,48 +722,68 @@ function CharacterEditor({
             rejection ? "rejected" : ""
           }`}
         >
-          <span aria-hidden="true">{photoIcon}</span>
-          <small>{photoLabel}</small>
-          {character.photoDataUrl ? (
-            <img
-              src={character.photoDataUrl}
-              alt=""
-              style={{
-                width: 72,
-                height: 72,
-                objectFit: "cover",
-                borderRadius: 16,
-                marginTop: 10,
-              }}
-            />
-          ) : null}
+          {/*
+            Three bands, in fixed order, so the box has the same shape however tall the column
+            beside it grows: who is asking, the portrait itself, and what to do next.
+
+            It used to be a flex stack centred in whatever height it was given, with a 72px
+            thumbnail bolted on afterwards. Because the questions next door decide the height of
+            the row, that left a dashed rectangle of empty violet around a camera icon — worst of
+            all in the one state that matters, where a parent had already chosen a picture of
+            their child and it was shown to them the size of a postage stamp.
+          */}
+          <div className="ux-photo-head">
+            <span aria-hidden="true">{photoIcon}</span>
+            <small>{photoLabel}</small>
+          </div>
 
           {/*
-            The examples go where the decision is made, and only while it is still open. Once a
-            portrait is accepted they are answering a question nobody is asking any more.
+            The middle band takes the slack. The frame is square whatever it is given, so the
+            portrait is never stretched and the empty state is never a hole: the same square,
+            waiting.
           */}
-          {/*
-            Shown only before a photo is accepted. It removes itself if the two files are not
-            deployed, so the worst case is two 404s and no block — not two broken frames on the
-            form that is asking a parent for a picture of their child.
-          */}
-          {character.photoReady ? null : <PhotoGuide />}
+          <div className="ux-photo-frame">
+            {character.photoDataUrl ? (
+              <img src={character.photoDataUrl} alt="" />
+            ) : (
+              <span className="ux-photo-frame-empty" aria-hidden="true">
+                <Camera />
+              </span>
+            )}
+          </div>
 
-          {/*
-            role="status" because the refusal arrives a second after the file dialog closed —
-            long after focus moved on — so a screen reader has to be told it appeared.
-          */}
-          {rejection ? (
-            <p className="ux-photo-rejection" role="status">
-              {copy.characterForm.photoRejected[rejection]}
-            </p>
-          ) : null}
+          <div className="ux-photo-foot">
+            <strong>{copy.characterForm.photoPrompt}</strong>
 
-          <button type="button" disabled={checking} onClick={() => fileRef.current?.click()}>
-            {character.photoReady
-              ? copy.characterForm.photoReplace
-              : copy.characterForm.photoUpload}
-          </button>
+            {/*
+              The examples go where the decision is made, and only while it is still open. Once a
+              portrait is accepted they are answering a question nobody is asking any more.
+            */}
+            {/*
+              Shown only before a photo is accepted. It removes itself if the two files are not
+              deployed, so the worst case is two 404s and no block — not two broken frames on the
+              form that is asking a parent for a picture of their child.
+            */}
+            {character.photoReady ? null : <PhotoGuide />}
+
+            {/*
+              role="status" because the refusal arrives a second after the file dialog closed —
+              long after focus moved on — so a screen reader has to be told it appeared.
+            */}
+            {rejection ? (
+              <p className="ux-photo-rejection" role="status">
+                {copy.characterForm.photoRejected[rejection]}
+              </p>
+            ) : (
+              <p>{copy.characterForm.photoHint}</p>
+            )}
+
+            <button type="button" disabled={checking} onClick={() => fileRef.current?.click()}>
+              {character.photoReady
+                ? copy.characterForm.photoReplace
+                : copy.characterForm.photoUpload}
+            </button>
+          </div>
           <input
             ref={fileRef}
             type="file"

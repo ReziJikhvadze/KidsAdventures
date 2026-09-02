@@ -360,6 +360,25 @@ export function GeneratingStage({ draft, onChange }: Props) {
           <p>{t.journey.generating.statusLine[bookStatus]}</p>
         ) : null}
         {progress ? <p>{progress}</p> : null}
+
+        {/*
+          Always offered, not only once the poll has run out.
+
+          A paid book takes minutes to draw and this screen had no control on it at all until
+          something went slowly or went wrong — so the ordinary case, where everything is fine,
+          was the one that trapped the parent. Leaving changes nothing about the book: it is
+          being written on the server and lands in the cabinet when it is done.
+        */}
+        <div className="generation-exit">
+          <button
+            className="button button-quiet"
+            type="button"
+            onClick={() => void navigate({ to: "/dashboard" })}
+          >
+            {t.journey.previewLoader.stopWaiting}
+          </button>
+        </div>
+
         {stillWorking ? (
           <div className="generation-still-working">
             <p>{t.journey.generating.stillWorking}</p>

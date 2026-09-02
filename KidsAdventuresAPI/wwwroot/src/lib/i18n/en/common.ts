@@ -52,12 +52,14 @@ export const common = {
     faq: "FAQ",
     childWorld: "Child's world",
     mySpace: "My space",
+    myWorld: "My world",
+    chooseWorld: "Choose a world",
     createBook: "Create a book ",
     changeLanguage: "Change language",
     georgian: "English",
     parentSpace: "Parent space",
     openDashboard: "Open the parent space",
-    myFamily: "My family",
+    myCabinet: "My cabinet",
   },
 
   footer: {
@@ -67,6 +69,7 @@ export const common = {
     delivery: "Delivery",
     product: "Product",
     myWorld: "My world",
+    chooseWorld: "Choose a world",
     reader: "Online Reader",
     adventureMap: "Adventure Map",
     legal: "Privacy · Terms and conditions",

@@ -7,7 +7,14 @@ import { heroDemoPages } from "@/lib/story/heroDemoPages";
 import { BookIcon, SparkleIcon, ArrowIcon } from "./icons";
 
 const HERO_NAME = "ზუკა";
-const HERO_TITLE = "ზუკა დაკარგულ ხეობაში";
+/*
+ * The sample book on the home page wears no title.
+ *
+ * It carried "ზუკა დაკარგულ ხეობაში" — a title invented for a demonstration — printed across
+ * the foot of a painting of the lost valley that already says where the story goes. The cover
+ * is the shop window; a made-up name on it is the one thing there that is not real.
+ */
+const HERO_TITLE = "";
 
 export function Hero() {
   const t = useT();
@@ -33,7 +40,11 @@ export function Hero() {
 
           <div className="landing-v3-hero-actions">
             <div className="landing-v3-primary-wrap">
-              <Link className="landing-v3-primary" to="/themes">
+              {/* `from=top` so the picker's back arrow returns to the page this button is at
+                  the top of. Without it the arrow fell through to `/#worlds`, which put a reader
+                  who had pressed the very first button on the site two thirds of the way down
+                  it, with no sign of how they got there. */}
+              <Link className="landing-v3-primary" to="/themes" search={{ from: "top" }}>
                 {t.landing.hero.primaryCta}
                 <ArrowIcon />
               </Link>

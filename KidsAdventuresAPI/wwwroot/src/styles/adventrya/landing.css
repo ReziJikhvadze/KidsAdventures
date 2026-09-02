@@ -260,6 +260,7 @@
   margin: 0;
   max-width: 748px;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(47px, 4.65vw, 72px);
   font-weight: 400;
   line-height: 1.03;
@@ -447,6 +448,7 @@
 .landing-v3-final h2 {
   margin: 0;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(40px, 4.2vw, 64px);
   font-weight: 400;
   line-height: 1.08;
@@ -796,6 +798,7 @@
 .landing-v3-preview-memory h3 {
   margin: 0;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: clamp(20px, 2.2vw, 34px);
   font-weight: 400;
   line-height: 1.13;
@@ -974,6 +977,7 @@
 .landing-v3-steps h3 {
   margin: 0;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 18px;
   line-height: 1.25;
 }
@@ -1145,7 +1149,17 @@
 .world-card-6 > span {
   background: #e8a2ac;
 }
+/*
+  Less air above the prices.
+
+  `.landing-v3-section` gives every band up to 142px of top padding, which is right for a section
+  you scroll into and wrong for the one the header's own link jumps to: measured at 1280×860, the
+  cards began 115px below the header and the copy 147px, leaving a stripe of empty paper across
+  the top of the screen and the section itself ending 110px short of the fold. The band keeps its
+  bottom padding; only the top comes in.
+*/
 .landing-v3-pricing {
+  padding-top: clamp(46px, 4vw, 72px);
   display: grid;
   grid-template-columns: minmax(380px, 0.8fr) minmax(620px, 1.2fr);
   align-items: center;
@@ -1400,6 +1414,7 @@
   cursor: pointer;
   list-style: none;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 14px;
 }
 .landing-v3-faq-list summary::-webkit-details-marker {
@@ -1423,8 +1438,9 @@
   font-weight: 400;
   transition: transform 0.2s ease;
 }
+/* The glyph itself changes now; rotating it made a cross of it. */
 .landing-v3-faq-list details[open] summary > i {
-  transform: rotate(45deg);
+  transform: none;
 }
 .landing-v3-faq-list details > p {
   max-width: 630px;
@@ -2107,11 +2123,14 @@
 /*
   The whole price card answers, not just its button.
 
-  Only the button moved before, which made the card a poster with a control on it. The article
-  is the thing being chosen, so the article is what lifts — and the button still carries the
-  click, because a card wrapped in an anchor around a nested anchor is two links in one place.
+  It lifted under the pointer and showed a hand, and then did nothing when pressed: the click
+  lived on the button further down, so a visitor who had already chosen with their eyes had to
+  find a second control to say so. The button's own anchor is stretched across the card instead
+  — one link, still labelled, still focusable, now the size of the thing being chosen. Wrapping
+  the card in a second anchor was the alternative and would have put two links in one place.
 */
 .landing-v3-price-cards article {
+  position: relative;
   cursor: pointer;
   transition:
     transform 0.22s cubic-bezier(0.2, 0.75, 0.2, 1),
@@ -2216,4 +2235,14 @@
   .landing-v3-menu-toggle i {
     transition-duration: 0.01ms !important;
   }
+}
+
+/* The button's anchor, spread over its card. Above the card's own background, under nothing:
+   there is no other control inside a price card to cover. */
+.landing-v3-price-cards article > a::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  content: "";
 }

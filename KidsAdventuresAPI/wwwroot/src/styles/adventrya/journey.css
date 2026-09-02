@@ -11,6 +11,33 @@
   overflow: hidden;
   isolation: isolate;
 }
+/*
+  The create journey is fluid from 1100px down, not from 780px down.
+
+  `.screen` and the shells above it carry `min-width: 1100px` from the desktop-only demo this
+  design system was ported from, and the phone rules that undo it start at 780px. Everything
+  between — an iPad in portrait is 820, an iPad mini 744 in landscape, a half-width laptop
+  window anything — got a 1100px page in a 900px viewport: a horizontal scrollbar under a form
+  a parent is filling in, with the "create the book" button off the right-hand edge.
+  `/themes` and the parent's space have each opted out already, one screen at a time; this is
+  the same opt-out for the one route that asks a parent to type.
+
+  Measured at 781, 820, 900, 1000 and 1099: no horizontal overflow, and the two columns of the
+  character card still finish level.
+
+  The reader and the shared book keep the fixed shell — they are a book at a fixed aspect ratio
+  rather than a page, and neither can be exercised without a signed-in session to check against.
+*/
+@media (max-width: 1100px) {
+  .journey-shell {
+    width: 100%;
+    min-width: 0;
+    min-height: 100svh;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+}
 .journey-art {
   background-position: 57% 52%;
   transform: scale(1.04);
@@ -43,6 +70,7 @@
   margin: 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   letter-spacing: -0.035em;
 }
 .journey-copy > p:not(.eyebrow),
@@ -185,15 +213,28 @@
   border-color: #e8c98aa8;
   background: #66497b6e;
 }
+/*
+  The swatch has to survive the word beside it.
+
+  `flex-shrink` was left at its default, so in a two-column grid the two options whose names are
+  long — ყავისფერი and ნაცრისფერი — squeezed their circle down to a four-pixel sliver while
+  ლურჯი and მწვანე, being short, kept theirs whole. Two of the four colours were simply not on
+  screen, and the two that were made it look deliberate.
+
+  The dark inner ring is thinner as well. At 3px it covered most of a 13px disc, leaving a hair
+  of colour that brown and grey — the two quietest of the four — could not carry against this
+  background.
+*/
 .eye {
-  width: 13px;
-  height: 13px;
-  border: 2px solid rgba(255, 255, 255, 0.38);
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.48);
   border-radius: 50%;
-  box-shadow: inset 0 0 0 3px #130c2a9e;
+  box-shadow: inset 0 0 0 2px #130c2a80;
 }
 .eye-0 {
-  background: #8c654b;
+  background: #a97a58;
 }
 .eye-1 {
   background: #78a5c3;
@@ -202,7 +243,7 @@
   background: #6c9674;
 }
 .eye-3 {
-  background: #a5a7ae;
+  background: #bcbec6;
 }
 .privacy-inline {
   display: flex;
@@ -575,6 +616,7 @@
   margin: 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 20px;
   line-height: 1.22;
   text-shadow: 0 3px 20px rgba(9, 5, 24, 0.75);
@@ -589,6 +631,7 @@
   border-radius: 50%;
   color: #2b1d48;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   background: var(--story-gold);
 }
 .cover-ribbon {
@@ -749,6 +792,7 @@
 .package-option h2 {
   margin: 5px 0 0;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 20px;
 }
 .package-option > strong {
@@ -1093,6 +1137,7 @@
 .summary-lines h2 {
   margin: 18px 0 12px;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 14px;
 }
 .summary-lines > span,

@@ -27,7 +27,7 @@ export function PasswordlessAuthDialog({
   const t = useT();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="ux-auth-dialog">
+      <DialogContent className="ux-auth-dialog" overlayClassName="ux-auth-overlay">
         {/* The visible heading is inside the panel; this names the dialog for screen readers. */}
         <DialogTitle className="sr-only">{t.common.nav.openDashboard}</DialogTitle>
         <PasswordlessAuthPanel

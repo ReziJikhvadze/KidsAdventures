@@ -40,6 +40,7 @@
   margin-top: 3px;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 13px;
 }
 .reader-header > div:last-child {

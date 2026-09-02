@@ -32,12 +32,21 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
+    /**
+     * A class for the sheet behind the dialog.
+     *
+     * The overlay is rendered here rather than by the caller, so without this there is no way to
+     * dress it — and the sign-in wants to be seen against the painting it is standing on rather
+     * than behind eighty percent black.
+     */
+    overlayClassName?: string;
+  }
+>(({ className, overlayClassName, children, ...props }, ref) => {
   const t = useT();
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         ref={ref}
         className={cn(

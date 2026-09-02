@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { AppHeader } from "@/components/adventrya/AppHeader";
 import { AuthStage } from "@/components/adventrya/journey/AuthStage";
@@ -33,16 +33,41 @@ export function JourneyScreen() {
   const t = useT();
   const [draft, setDraft, , hydrated] = useJourneyDraft();
   const { isAuthenticated, isLoading } = useAuth();
-  const hydratedServerIds = useRef<string>("");
 
-  // When continuing from the map, draft slots may only have serverIds — fill names/photos.
+  /*
+    The children this form is waiting to learn about, as a plain string.
+
+    This is the effect's dependency, and it is a string rather than the array it is derived from
+    on purpose. Keyed on `draft.characters`, the effect re-ran on every unrelated change to the
+    draft — and the draft changes twice on the way into this screen, because the provider merges
+    the query string in an effect of its own after the first render. Each re-run cancelled the
+    request the previous one had in flight, while a ref guard stopped the new run from asking
+    again: the answer arrived and was thrown away, and the parent met an empty form for a child
+    the cabinet had just named. A string changes only when the set of unknown children does, so
+    the request is started once and nothing interrupts it.
+  */
+  const hydrationKey = useMemo(
+    () =>
+      draft.characters
+        .filter((c) => c.serverId && !(c.name ?? "").trim())
+        .map((c) => c.serverId)
+        .join(","),
+    [draft.characters],
+  );
+
+  // Read inside the effect without being a dependency of it: the slots are looked up when the
+  // request is made, and re-reading them must not restart the request.
+  const charactersRef = useRef(draft.characters);
+  charactersRef.current = draft.characters;
+
+  // When continuing from the map — or starting a second book from the cabinet — draft slots may
+  // only have serverIds. Fill in names, dates and photos.
   useEffect(() => {
-    if (isLoading) return;
-    const needsHydration = draft.characters.filter((c) => c.serverId && !c.name.trim());
+    if (isLoading || !isAuthenticated || !hydrationKey) return;
+    const needsHydration = charactersRef.current.filter(
+      (c) => c.serverId && !(c.name ?? "").trim(),
+    );
     if (needsHydration.length === 0) return;
-    const key = needsHydration.map((c) => c.serverId).join(",");
-    if (hydratedServerIds.current === key) return;
-    hydratedServerIds.current = key;
 
     let cancelled = false;
     void (async () => {
@@ -52,8 +77,19 @@ export function JourneyScreen() {
             const remote = await getCharacter(slot.serverId!);
             const birthDate = remote.birthDate ? remote.birthDate.slice(0, 10) : "";
             const patch: Partial<DraftCharacter> = {
-              name: remote.name,
-              originalName: remote.name,
+              /*
+                Coerced, not trusted.
+
+                Everything downstream calls `.trim()` on this — including the key that decides
+                whether the slot still needs filling — so a response without a name did not
+                degrade, it threw, and the whole creation screen came back blank behind the
+                error boundary. A character with no name is a character we know nothing about,
+                which is exactly the empty string.
+              */
+              name: remote.name ?? "",
+              // The name the cabinet holds, kept beside the editable one so the order can tell
+              // a rename from a fresh child.
+              originalName: remote.name ?? "",
               birthDate,
               gender: (remote.gender as CharacterGender | null) ?? null,
               eyeColor: (remote.eyeColor as EyeColor | null) ?? null,
@@ -95,7 +131,7 @@ export function JourneyScreen() {
     return () => {
       cancelled = true;
     };
-  }, [draft.characters, isLoading, setDraft]);
+  }, [hydrationKey, isAuthenticated, isLoading, setDraft]);
 
   /*
     A journey resumed in a new tab.
@@ -214,6 +250,9 @@ export function JourneyScreen() {
     mode: draft.continuesFromBookId ? "continue" : "first",
     isPrintUpgrade: false,
     hasWorld: !!draft.worldId,
+    cameFrom: draft.cameFrom,
+    characterId: draft.characters.find((c) => c.isPrimary)?.serverId ?? null,
+    continuesFromBookId: draft.continuesFromBookId,
   });
 
   const header = (
@@ -281,7 +320,12 @@ function renderStage(
       );
     case "preview":
       return (
-        <PreviewStage draft={ctx.draft} onChange={ctx.setDraft} onContinue={ctx.goAfterPreview} />
+        <PreviewStage
+          draft={ctx.draft}
+          onChange={ctx.setDraft}
+          onContinue={ctx.goAfterPreview}
+          onStopWaiting={() => ctx.goToStage("profile")}
+        />
       );
     case "auth":
       return <AuthStage draft={ctx.draft} onAuthenticated={() => ctx.goToStage("checkout")} />;

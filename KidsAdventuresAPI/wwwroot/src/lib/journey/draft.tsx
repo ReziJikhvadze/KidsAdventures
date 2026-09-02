@@ -51,6 +51,9 @@ export type DraftCharacter = {
   portraitRunId?: string;
 };
 
+/** Where the journey was entered from. Anything else is treated as the marketing page. */
+export type JourneyOrigin = "dashboard" | "world" | null;
+
 export type PreviewTeaser = {
   guestPreviewId: string;
   storyId: string;
@@ -89,6 +92,15 @@ export type JourneyDraft = {
   bookId: string | null;
   /** Prior book when continuing an adventure from map / QR. */
   continuesFromBookId: string | null;
+  /**
+   * The screen that sent the parent into the journey, so every step can offer a way back to it.
+   *
+   * It lives on the draft rather than being read from the URL at each step because the journey
+   * replaces its own address on every stage — the query the parent arrived with is gone by the
+   * second question. Without it the back control had to guess, and guessed the same page it was
+   * already on, which is the loop a parent could not get out of.
+   */
+  cameFrom: JourneyOrigin;
   promoCode: string;
   shipping: ShippingAddressRequest;
 };
@@ -128,6 +140,7 @@ export function emptyDraft(): JourneyDraft {
     orderId: null,
     bookId: null,
     continuesFromBookId: null,
+    cameFrom: null,
     promoCode: "",
     shipping: {
       recipientName: "",
@@ -201,6 +214,11 @@ function applyDeepLink(base: JourneyDraft, search: string): JourneyDraft {
     const fromBook = params.get("continuesFromBookId");
     if (fromBook) draft.continuesFromBookId = fromBook;
 
+    // Sticky: set when the parent enters from a screen that named itself, and left alone
+    // afterwards so the later steps — whose own URLs carry nothing — still know the way out.
+    const origin = params.get("from");
+    if (origin === "dashboard" || origin === "world") draft.cameFrom = origin;
+
     // Stripe returns to /create?orderId=… . This is what resumes a paid order now that the
     // draft is not persisted: without it a parent would come back from checkout to a blank
     // form with no sign of the book they just paid for.
@@ -208,9 +226,27 @@ function applyDeepLink(base: JourneyDraft, search: string): JourneyDraft {
     if (orderId) draft.orderId = orderId;
     const characterId = params.get("characterId");
     if (characterId) {
-      draft.characters = draft.characters.map((c) =>
-        c.isPrimary ? { ...c, serverId: c.serverId || characterId } : c,
-      );
+      /*
+        A different child means a different draft.
+
+        This used to keep whichever id got here first — `c.serverId || characterId` — so a parent
+        who made a book for one child and then asked the cabinet for a book for the next was
+        carried into the form still holding the first child's id, name, birth date and
+        photograph. The journey never unmounts between the two, so nothing else was going to
+        clear them. Same child, and the slot is left exactly as it is: those details are the ones
+        the cabinet asked for.
+      */
+      const primary = draft.characters.find((c) => c.isPrimary);
+      const alreadyThisChild = primary?.serverId === characterId;
+      // An untouched slot can simply adopt the id; anything already typed into it belongs to
+      // somebody else, and so do the supporting characters entered alongside it.
+      const blankSlot = !primary?.serverId && !primary?.name.trim() && !primary?.photoDataUrl;
+
+      if (!alreadyThisChild) {
+        draft.characters = blankSlot
+          ? draft.characters.map((c) => (c.isPrimary ? { ...c, serverId: characterId } : c))
+          : [{ ...emptyCharacter(true), serverId: characterId }];
+      }
     }
 
     // Carry-forward cast from the adventure map: primary first, then up to two

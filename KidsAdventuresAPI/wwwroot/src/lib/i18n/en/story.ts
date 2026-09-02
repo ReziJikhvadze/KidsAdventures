@@ -4,7 +4,7 @@ export const story = {
     belongsTo: (hero: string) => `This story is ${hero.trim()}'s`,
     nextChapter: (hero: string) => "The next adventure",
     adventureOf: (hero: string) => `${hero}'s story`,
-    coverLabel: (total: number) => `Cover · ${total} pages`,
+    coverLabel: (total: number) => `${total} pages`,
     spreadLabel: (from: number, to: number, total: number) => `${from}–${to} / ${total}`,
     pageLabel: (page: number, total: number) => `${page} / ${total}`,
     pages: "Book pages",
@@ -97,6 +97,16 @@ export const story = {
     lastMemoryNote: "Rex remembers your last adventure.",
     profileLine: (age: number, stories: number) =>
       `Age ${age} · ${stories} completed ${stories === 1 ? "story" : "stories"}`,
+    newWorld: "A new world",
+    spaceOf: (name: string) => `${name}'s personal space`,
+    shelfLead: "Every story made so far — to read, to download, and to carry on.",
+    journeySuffix: "'s journey",
+    nextAdventure: "The next adventure",
+    startHere: (world: string) => `Start here — ${world}`,
+    resumeTitle: "A book is still being made",
+    resumeBody:
+      "Leaving this page did not stop it — the story is still being written. Come back and see where it got to.",
+    resumeAction: "Back to the book",
     openedStoriesSuffix: "'s stories discovered so far",
     archiveNote:
       "Older books stay exactly as they were; new information applies only to future stories.",

@@ -13,11 +13,47 @@ import type { WorldId } from "@/lib/worlds";
  * arrive at the profile step knowing which child. Without it the journey creates a second copy
  * of the same kid at checkout.
  */
-export function newBookHref(characterId?: string | null): string {
+export function newBookHref(
+  characterId?: string | null,
+  options?: {
+    /** Where the picker's own back arrow should return to; see `backHrefFromSearch`. */
+    from?: "dashboard" | "world";
+    /** Begin a genuinely blank draft — a new child rather than another book for this one. */
+    fresh?: boolean;
+  },
+): string {
   const params = new URLSearchParams();
   if (characterId) params.set("characterId", characterId);
+  if (options?.fresh) params.set("new", "1");
+  if (options?.from) params.set("from", options.from);
   const query = params.toString();
   return query ? `/themes?${query}` : "/themes";
+}
+
+/**
+ * Where "another world" goes: the picker, carrying the adventure it continues.
+ *
+ * Not `/create#preview`. That address mounts the stage that starts writing a book the moment it
+ * appears, so the one button on a child's map spent a generation before anybody had said which
+ * world it was for — the parent's only choice was made for them, and the screen that took it
+ * offered no way out. The prior book and the cast that carries forward travel as query
+ * parameters through the picker and land on the questions, where the parent confirms.
+ */
+export function continueViaPickerHref(options: {
+  characterId: string;
+  continuesFromBookId?: string | null;
+  characterIds?: string[];
+}): string {
+  const params = new URLSearchParams();
+  params.set("characterId", options.characterId);
+  if (options.continuesFromBookId) {
+    params.set("continuesFromBookId", options.continuesFromBookId);
+  }
+  if (options.characterIds?.length) {
+    params.set("characterIds", options.characterIds.join(","));
+  }
+  params.set("from", "world");
+  return `/themes?${params.toString()}`;
 }
 
 /** Builds the `/create` deep-link used when continuing a child's adventure. */

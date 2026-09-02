@@ -3,7 +3,9 @@ export const dashboard = {
     pagingLabel: "ბავშვების გვერდები",
     newBook: "ახალი წიგნის შექმნა",
     parentLabel: "ბავშვის პროფილები",
-    addChild: "＋ დაამატე ბავშვის პროფილი",
+    /* No "＋" in the words: the button draws one beside them, and two plus signs on one
+       control pushed the last word of a long Georgian label off the end of the pill. */
+    addChild: "დაამატე ბავშვის პროფილი",
     noStoriesYet: "პირველი თავგადასავალი ჯერ არ დაწყებულა",
     storyCount: (count: number) =>
       count === 1 ? "1 დასრულებული თავგადასავალი" : `${count} დასრულებული თავგადასავალი`,
@@ -47,6 +49,16 @@ export const dashboard = {
     printDetail: (tbilisi: string, regions: string) =>
       `მაგარყდიანი წიგნი. თბილისში ${tbilisi} დღეში, სხვა რეგიონებში ${regions} დღეში.`,
     printOrdered: "ბეჭდური წიგნი გზაშია ✓",
+
+    /*
+      What has already been done with this book, in the order the money and the effort went in:
+      a book that was printed was also downloaded, and one that was downloaded was created
+      first — so the furthest step is the one worth showing.
+    */
+    statusCreated: "შექმნილია",
+    statusDownloaded: "ჩამოტვირთულია",
+    statusPrinted: "ბეჭდური",
+    statusLabel: "სტატუსი",
 
     pagingLabel: "წიგნების გვერდები",
     pageOf: (page: number, total: number) => `გვერდი ${page} / ${total}`,
