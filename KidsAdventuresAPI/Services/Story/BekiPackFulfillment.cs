@@ -414,6 +414,40 @@ public sealed class BekiPackFulfillment(
     private readonly BekiAssetLock _assetLock = assetLock ?? new BekiAssetLock();
 
     /// <summary>
+    /// The code the press tail's own clock leaves behind — beside
+    /// <see cref="GenerationBudget.ExceededCode"/> in the same vocabulary, and deliberately not the
+    /// same word: that one fails a book, this one withholds two files from a book that shipped.
+    /// </summary>
+    public const string PressBudgetExceededCode = "PRESS_BUDGET_EXCEEDED";
+
+    /// <summary>The alarm an expired press tail raises, so a person re-drives the press stage.</summary>
+    public const string PressBudgetAlarmCheck = "press_budget_exceeded";
+
+    /// <summary>What the press tail gets when <see cref="BekiOptions.PressBudgetMinutes"/> is unset or nonsense.</summary>
+    public static readonly TimeSpan DefaultPressBudget = TimeSpan.FromMinutes(15);
+
+    public static TimeSpan PressBudgetFor(BekiOptions options) =>
+        options.PressBudgetMinutes <= 0
+            ? DefaultPressBudget
+            : TimeSpan.FromMinutes(options.PressBudgetMinutes);
+
+    public static string PressBudgetExceededReason(TimeSpan budget, string stage) =>
+        $"{PressBudgetExceededCode}: the press files were not prepared within "
+        + $"{budget.TotalMinutes:0} minutes (stopped while {stage}). They are withheld; the "
+        + "family's reading copy is unaffected.";
+
+    /// <summary>
+    /// How many press upscales, and how many render validations, run at once.
+    ///
+    /// Three rather than "all of them": each upscale is an external super-resolver process over a
+    /// multi-megapixel PNG and each render validation spawns Ghostscript and two Poppler tools, so
+    /// the limit is about not starving the host rather than about the API. Small enough to be
+    /// safe on the smallest worker; large enough that nine upscales take three rounds instead of
+    /// nine, and the three finals render back together instead of one after another.
+    /// </summary>
+    private const int PressParallelism = 3;
+
+    /// <summary>
     /// This job's one lookup of which order paid for this book, memoized for the run.
     ///
     /// Every alarm this job raises used to carry a null order id, and this job is the MAIN source of
@@ -476,8 +510,24 @@ public sealed class BekiPackFulfillment(
 
         // Where the job was when it stopped, for the one log line somebody will read afterwards.
         // A cancelled job leaves no stack worth having: the exception says only that something was
-        // cancelled, and every await in this method can raise it.
+        // cancelled, and every await in this method can raise it. Every stage change after the
+        // spreads is also written to the row as the parent's progress line — see AdvanceAsync at
+        // the bottom of this method — so the screen and the admin see the same word the log does.
         var stage = "loading the pack";
+
+        /*
+          The cover wrap, when it was started beside the spreads rather than after them.
+
+          The composite pipeline announces the moment the child appearance anchor is settled, and
+          the wrap — which needs the scenario, the identity lock and that anchor, and nothing the
+          other seven spreads produce — is started right there as a task and awaited where it used
+          to be drawn. Declared up here, outside the guarded region, so that every catch below can
+          reach it: a wrap still drawing after the spreads have failed must be stopped and its own
+          outcome observed, or it goes on spending a paid image call for a book that is already
+          over. Its token is linked to the job's, so a host shutdown or the budget stops it too.
+        */
+        Task<CompositeCoverWrap>? wrapTask = null;
+        using var wrapCts = CancellationTokenSource.CreateLinkedTokenSource(jobToken);
 
         // What this job believes the row says, and therefore what its own terminal write is allowed
         // to overwrite. It becomes the status the pack was read in, then GeneratingStory the moment
@@ -582,19 +632,41 @@ public sealed class BekiPackFulfillment(
 
             stage = "claiming the pack";
 
-            // Claimed before any work: the stalled-order sweep re-enqueues generation for a pack
-            // still Pending, and a book that costs nine images must never be drawn twice because
-            // it was slow. Same move the legacy job opens with, for the same reason.
-            //
-            // The claim is also the first heartbeat — the repository stamps one on every status
-            // write — which is what starts the clock the stale-generation sweep reads.
-            await packRepository.UpdateStatusAsync(
+            /*
+              Claimed before any work: the stalled-order sweep re-enqueues generation for a pack
+              still Pending, and a book that costs nine images must never be drawn twice because
+              it was slow. Same move the legacy job opens with, for the same reason.
+
+              Compare-and-set against the status the row was just read in, not an unconditional
+              write. The read above and this write are two round trips, and in between them the
+              sweep can bury the pack or a duplicate worker can claim it; an unconditional claim
+              overwrote either verdict — and nulled the PdfUrl and ErrorMessage columns on the way
+              — so a book the sweep had just declared lost was quietly exhumed by the very retry
+              the burial was meant to stop. A claim that loses does no work: whoever moved the row
+              owns it now, and this attempt has nothing to add.
+
+              The claim is also the first heartbeat — the repository stamps one on every status
+              write — which is what starts the clock the stale-generation sweep reads.
+            */
+            var claimed = await packRepository.TryUpdateStatusAsync(
                 packId,
+                pack.Status,
                 AdventurePackStatus.GeneratingStory,
                 pack.GeneratedJson,
                 null,
                 null,
                 jobToken);
+
+            if (!claimed)
+            {
+                logger.LogWarning(
+                    "Beki pack {PackId} was read as {Status} but another writer moved it before "
+                    + "this job could claim it; leaving it alone. Whoever moved it — the "
+                    + "stale-generation sweep or a duplicate worker — owns the row now.",
+                    packId, pack.Status);
+
+                return;
+            }
 
             expectedStatus = AdventurePackStatus.GeneratingStory;
             stage = "reading the plan";
@@ -629,9 +701,22 @@ public sealed class BekiPackFulfillment(
             var photo = await blobStorage.DownloadBytesFromStoredUrlAsync(
                 run.PhotoBlobUrl, jobToken);
 
-            // The cover the parent previewed, when it survived; drawn fresh when it did not.
+            var compositeEnabled = bekiOptions.Value.CompositePipelineEnabled;
+
+            /*
+              The cover the parent previewed, when it survived; drawn fresh when it did not — on
+              the previous path only.
+
+              The composite path does not want it. Its one cover master is the wrap, cut from the
+              accepted anchor after the spreads, and the previewed picture reached no shipped
+              artifact there — yet its absence used to be fatal: a blank CoverImageUrl or a failed
+              download left this null, the illustrator then asked the composite pipeline for a
+              reader-facing cover it cannot draw, and the book stopped with LAYOUT_FAILED before its
+              first spread. So on that path the download is skipped outright. The generator carries
+              an empty cover slot through, which is the honest description of a cover nobody drew.
+            */
             byte[]? existingCover = null;
-            if (!string.IsNullOrWhiteSpace(run.CoverImageUrl))
+            if (!compositeEnabled && !string.IsNullOrWhiteSpace(run.CoverImageUrl))
             {
                 try
                 {
@@ -657,7 +742,6 @@ public sealed class BekiPackFulfillment(
             // treated as no manifest at all; the worst that costs is redrawing spreads that were
             // already fine, and the alternative is a book drawn half under each set of rules.
             var manifestName = BekiPackBlobs.ManifestName(pack.UserId, pack.Id);
-            var compositeEnabled = bekiOptions.Value.CompositePipelineEnabled;
 
             /*
               The contract now names the pipeline as well as the page rules.
@@ -788,6 +872,21 @@ public sealed class BekiPackFulfillment(
             // it has Beki on it, and Beki is the one thing this pipeline never shows an image model.
             var existingBases = new Dictionary<int, byte[]>();
 
+            /*
+              Each adopted page's stored QA verdict, read back for the pipeline's version guard —
+              D7, amendment A4, and the half of it this job had never supplied.
+
+              The pipeline treats an EMPTY map as "this caller keeps no QA records" and adopts every
+              stored page with a warning, and a non-empty map missing page N as "page N's evidence
+              is gone" and redraws that page. Handing it nothing therefore put every resumed book on
+              the first branch: pages whose verdict had been lost, or written under a superseded
+              reviewer contract, were adopted on a record nobody could produce — the exact package
+              audit P0-09 rejected, assembled one resume at a time. Read by bare name, as every
+              artifact this job writes for itself is; a record that is absent or unreadable is
+              simply absent, and the pipeline decides what that is worth.
+            */
+            var spreadQa = new Dictionary<int, string>();
+
             if (manifest is not null)
             {
                 foreach (var entry in manifest.Entries)
@@ -811,6 +910,21 @@ public sealed class BekiPackFulfillment(
                         logger.LogWarning(
                             ex, "Beki pack {PackId}: could not adopt spread {Spread} from the manifest.",
                             packId, entry.SpreadNumber);
+                    }
+                }
+
+                if (compositeEnabled)
+                {
+                    foreach (var number in existingSpreads.Keys)
+                    {
+                        var qaJson = await TryReadOwnBlobTextAsync(
+                            BekiPackBlobs.SpreadQaName(pack.UserId, pack.Id, number),
+                            $"spread {number}'s QA record", jobToken);
+
+                        if (qaJson is { Length: > 0 })
+                        {
+                            spreadQa[number] = qaJson;
+                        }
                     }
                 }
 
@@ -945,7 +1059,12 @@ public sealed class BekiPackFulfillment(
               Null when the flag is off, and a null here is what makes the branch inside the
               generator unreachable rather than merely untaken.
             */
-            var compositeContext = compositeEnabled
+            // Declared before it is built so the anchor hook below can name it: the wrap call takes
+            // the context it is being started from, and a variable cannot appear inside its own
+            // initializer.
+            CompositeBookContext? compositeContext = null;
+
+            compositeContext = compositeEnabled
                 ? new CompositeBookContext
                 {
                     JobId = pack.Id,
@@ -982,9 +1101,32 @@ public sealed class BekiPackFulfillment(
                         // them. Absent means the pipeline redraws spread one and makes a new one.
                         AnchorBasePng = existingBases.GetValueOrDefault(
                             CompositeBookPipeline.AnchorSpreadNumber),
+                        // The adopted pages' verdicts, so the pipeline's version guard has
+                        // something to guard. See the read above.
+                        SpreadQaJson = spreadQa,
                     },
                     // This job's one reading of the policy, handed down. See the declaration above.
                     ReleasePolicy = policy,
+
+                    /*
+                      The wrap, started the moment the book has an anchor.
+
+                      Started and not awaited: the hook returns as soon as the task exists, so the
+                      pipeline goes straight on to spreads two to eight while the wrap draws beside
+                      them. It is awaited below, exactly where the wrap used to be drawn, so a wrap
+                      that fails surfaces with the same code, in the same catch, after the same
+                      spreads — only sooner. Through an async local function so that a generator
+                      that throws synchronously still hands back a faulted task rather than
+                      throwing into the pipeline's spread loop.
+
+                      `??=` because the hook is a promise made once; a pipeline that announced
+                      twice would otherwise buy two wraps.
+                    */
+                    OnAnchorAccepted = accepted =>
+                    {
+                        wrapTask ??= StartWrapAsync(accepted);
+                        return Task.CompletedTask;
+                    },
 
                     /*
                       Where a waived quality refusal lands: the picture, the paperwork and the alarm.
@@ -1032,9 +1174,39 @@ public sealed class BekiPackFulfillment(
                 }
                 : null;
 
+            // The wrap call the anchor hook starts. An async local function rather than the call
+            // itself so that a generator which throws synchronously — a test double, a refusal at
+            // the door — still hands the hook a faulted task instead of throwing into the pipeline's
+            // spread loop, where it would be reported as a spread failure.
+            async Task<CompositeCoverWrap> StartWrapAsync(CompositeAnchorAccepted accepted) =>
+                await generator.DrawCoverWrapAsync(
+                    accepted.Scenario, photo, "image/png", compositeContext!,
+                    accepted.Identity, accepted.AnchorBasePng, wrapCts.Token);
+
             stage = "drawing the spreads";
 
-            var book = await generator.IllustrateAsync(
+            BekiBookResult book;
+
+            try
+            {
+                book = await IllustrateAsync();
+            }
+            catch
+            {
+                /*
+                  The spreads failed, and the wrap started beside them is not the story.
+
+                  Stopped and observed here, before the failure travels: left alone it would keep
+                  drawing — a paid image call for a book that is already over — and its own
+                  outcome, whatever it turned out to be, would either surface later as an
+                  unobserved task or be mistaken for the reason. The reason is the spreads', exactly
+                  as it was when the wrap was only ever drawn after them.
+                */
+                await AbandonWrapAsync();
+                throw;
+            }
+
+            async Task<BekiBookResult> IllustrateAsync() => await generator.IllustrateAsync(
                 plan,
                 photo,
                 "image/png",
@@ -1072,7 +1244,10 @@ public sealed class BekiPackFulfillment(
                         uploadMs += uploadStopwatch.ElapsedMilliseconds;
                     }
 
-                    processedSpreads++;
+                    // Clamped at the book's own page count: a resumed run may redraw a page it
+                    // had also adopted — a stored verdict the pipeline could no longer stand
+                    // behind — and "9/8" on a parent's screen is a lie about a book that is fine.
+                    processedSpreads = Math.Min(processedSpreads + 1, BookFormat.SpreadCount);
                     var percent = 10 + (int)MathF.Round(processedSpreads * 70f / BookFormat.SpreadCount);
                     await packRepository.UpdateProgressAsync(
                         packId,
@@ -1303,7 +1478,7 @@ public sealed class BekiPackFulfillment(
 
             if (compositeEnabled && book.Composite is { ScenarioJson: { Length: > 0 } scenarioDocument })
             {
-                stage = "drawing the cover wrap";
+                await AdvanceAsync("drawing the cover wrap", "წიგნის ყდას ვამზადებთ…", 86, jobToken);
 
                 var scenario = VisualScenarioValidator.Validate(scenarioDocument).Scenario
                     ?? throw new BekiLayoutException(
@@ -1325,10 +1500,20 @@ public sealed class BekiPackFulfillment(
                   CompositeBookPipeline's identity adoption) and the stored spread-one base. The
                   anchor can still be null — a press rebuild whose base images are gone has none —
                   and that is exactly spread one's own condition, which the prompt is built for.
+
+                  Usually the wrap is already drawing, or drawn: the pipeline announced the anchor
+                  the moment spread one was accepted and the hook on the context started this very
+                  call beside spreads two to eight. Awaiting it here — rather than where it was
+                  started — is what keeps a failing wrap's outcome exactly what it was when the wrap
+                  was drawn after the spreads: the same code, the same catch, the same alarm. The
+                  direct call remains for a run that never announced — a generator or pipeline
+                  without the hook — and draws the wrap to the same three inputs, only later.
                 */
-                var wrap = await generator.DrawCoverWrapAsync(
-                    scenario, photo, "image/png", compositeContext!,
-                    book.Composite.Identity, book.Composite.Anchor, jobToken);
+                var wrap = wrapTask is not null
+                    ? await wrapTask
+                    : await generator.DrawCoverWrapAsync(
+                        scenario, photo, "image/png", compositeContext!,
+                        book.Composite.Identity, book.Composite.Anchor, jobToken);
 
                 /*
                   And the master is written down, then checked against its own receipt.
@@ -1398,7 +1583,8 @@ public sealed class BekiPackFulfillment(
                     packId, wrap.PoseId, wrapSha[..12]);
 
                 // ---- The parent's book -------------------------------------------------------
-                stage = "laying out the customer's book";
+                await AdvanceAsync(
+                    "laying out the customer's book", "საკითხავ PDF-ს ვაწყობთ…", 88, jobToken);
 
                 /*
                   A dedicated trim-size export, which audit P0-08 is entirely about. What shipped
@@ -1443,72 +1629,130 @@ public sealed class BekiPackFulfillment(
                     BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id),
                     readingBytes, "application/pdf", jobToken);
 
-                if (digitalReport is { Length: > 0 })
+                /*
+                  From here the book exists, and the clock changes.
+
+                  Everything above ran under the generation budget, because until the reading copy
+                  is stored a book that has not finished is a book that may be lost. Everything
+                  below is evidence and press work about a book the family can already read — the
+                  digital receipts, the printer's two files, the renders, the verdict — and it used
+                  to run under the same thirty-minute deadline. So a slow upscaler at minute
+                  twenty-eight marked a fully drawn, fully composed book Failed, paged an operator
+                  and wrote to the parent about a book that was sitting in storage. The tail gets
+                  its own clock (BekiOptions.PressBudgetMinutes), linked to the host's token and not
+                  to the job's, and when it runs out the outcome is "press files withheld": recorded
+                  in the press-status document the gates read, raised as an alarm, and the book
+                  completes with the reading copy. Nothing in this tail fails the book any more.
+                */
+                using var pressDeadline = GenerationBudget.Start(
+                    cancellationToken, PressBudgetFor(bekiOptions.Value), _timeProvider);
+                var pressToken = pressDeadline.Token;
+
+                var press = new PressWork();
+
+                try
                 {
-                    await blobStorage.UploadAsync(
-                        BekiPackBlobs.DigitalReportName(pack.UserId, pack.Id),
-                        System.Text.Encoding.UTF8.GetBytes(digitalReport), "application/json", jobToken);
+                    if (digitalReport is { Length: > 0 })
+                    {
+                        await blobStorage.UploadAsync(
+                            BekiPackBlobs.DigitalReportName(pack.UserId, pack.Id),
+                            System.Text.Encoding.UTF8.GetBytes(digitalReport), "application/json",
+                            pressToken);
+                    }
+                    else
+                    {
+                        /*
+                          And the previous attempt's report is written over, which it was not.
+
+                          The unprepared PDF has just been uploaded under the name the prepared one
+                          uses. On a RETRY, the report blob still holds the last successful run's
+                          document — about bytes that are no longer there — and the DIGITAL_GEOMETRY
+                          gate, which read presence, would find evidence for a file nothing has
+                          preflighted and publish it. Replaced with a refusal the evaluator treats
+                          as a failure.
+                        */
+                        await blobStorage.UploadAsync(
+                            BekiPackBlobs.DigitalReportName(pack.UserId, pack.Id),
+                            BekiWithheldReport.Bytes(
+                                BekiDigitalPrep.DigitalGeometryGate,
+                                "laying out the customer's book",
+                                "the customer PDF did not pass its own preflight on this run, so the "
+                                + "stored file is the unprepared composition."),
+                            "application/json", pressToken);
+                    }
+
+                    await UploadLayoutReceiptsAsync(pack, "reading", reading.Receipts, pressToken);
+
+                    // The normalized story, stored with the book rather than only on the preview
+                    // run — audit §9 takes it off the handback's excluded list, and a package that
+                    // excludes the words the pictures were planned from is a package the supplier
+                    // cannot check.
+                    storyUrl = await blobStorage.UploadAsync(
+                        BekiPackBlobs.StoryName(pack.UserId, pack.Id),
+                        System.Text.Encoding.UTF8.GetBytes(run.StoryJson!), "application/json",
+                        pressToken);
+
+                    await StoreFixedPageQaAsync(pack, reading.Receipts, assetLockHashes, pressToken);
+
+                    // ---- The printer's two files ---------------------------------------------
+                    await AdvanceAsync(
+                        "preparing the press files", "ბეჭდვისთვის ფაილებს ვამზადებთ…", 91, pressToken);
+
+                    await PreparePressAsync(
+                        pack, plan, stored, personalization, wrap.CompositePng, press, pressToken);
+
+                    // ---- Render validation on what was actually stored -----------------------
+                    await AdvanceAsync(
+                        "rendering the stored artifacts back", "დაბეჭდილ გვერდებს ვამოწმებთ…", 94,
+                        pressToken);
+
+                    await ValidateStoredRendersAsync(
+                        pack,
+                        new BekiRenderInputs(readingBytes, press.PreparedInterior, press.PreparedCover),
+                        pressToken);
                 }
-                else
+                catch (OperationCanceledException) when (pressDeadline.Expired)
                 {
                     /*
-                      And the previous attempt's report is written over, which it was not.
+                      The press tail ran out of its own time. The book is unaffected; the printer's
+                      files are withheld and somebody is told.
 
-                      The unprepared PDF has just been uploaded under the name the prepared one uses.
-                      On a RETRY, the report blob still holds the last successful run's document —
-                      about bytes that are no longer there — and the DIGITAL_GEOMETRY gate, which
-                      read presence, would find evidence for a file nothing has preflighted and
-                      publish it. Replaced with a refusal the evaluator treats as a failure.
+                      Recorded on a fresh token — the one that just fired is the one that got us
+                      here — and in the shape the gates already read: a press-status document
+                      naming the reason, and a refusal written over whichever preflight report this
+                      run did not produce, so that an earlier attempt's success cannot stand in for
+                      a file this run never prepared. Whatever WAS prepared keeps its real report.
                     */
-                    await blobStorage.UploadAsync(
-                        BekiPackBlobs.DigitalReportName(pack.UserId, pack.Id),
-                        BekiWithheldReport.Bytes(
-                            BekiDigitalPrep.DigitalGeometryGate,
-                            "laying out the customer's book",
-                            "the customer PDF did not pass its own preflight on this run, so the "
-                            + "stored file is the unprepared composition."),
-                        "application/json", jobToken);
+                    await RecordPressBudgetExpiryAsync(
+                        pack, press, PressBudgetExceededReason(pressDeadline.Budget, stage));
                 }
 
-                await UploadLayoutReceiptsAsync(pack, "reading", reading.Receipts, jobToken);
-
-                // The normalized story, stored with the book rather than only on the preview run —
-                // audit §9 takes it off the handback's excluded list, and a package that excludes
-                // the words the pictures were planned from is a package the supplier cannot check.
-                storyUrl = await blobStorage.UploadAsync(
-                    BekiPackBlobs.StoryName(pack.UserId, pack.Id),
-                    System.Text.Encoding.UTF8.GetBytes(run.StoryJson!), "application/json", jobToken);
-
-                await StoreFixedPageQaAsync(pack, reading.Receipts, assetLockHashes, jobToken);
-
-                // ---- The printer's two files -------------------------------------------------
-                stage = "preparing the press files";
-
-                var press = await PreparePressAsync(
-                    pack, plan, stored, personalization, wrap.CompositePng, jobToken);
-
-                // ---- Render validation on what was actually stored ---------------------------
-                stage = "rendering the stored artifacts back";
-
-                await ValidateStoredRendersAsync(pack, jobToken);
-
-                // ---- The verdict --------------------------------------------------------------
-                stage = "evaluating the release gates";
+                // ---- The verdict ----------------------------------------------------------------
+                //
+                // Under the host's token from here: the tail's clock may have fired, the job's
+                // certainly may have, and what remains is a handful of blob reads and row writes
+                // that decide what the finished book is allowed to publish. A verdict is owed to
+                // this book whichever clock ran out — the customer's download column is written by
+                // it, and a book that skipped the evaluation would publish by nothing having looked.
+                await AdvanceAsync(
+                    "evaluating the release gates", "საბოლოო შემოწმებას ვატარებთ…", 97, cancellationToken);
 
                 await WriteManifestAsync(
                     manifestName, storedUrls, currentContract, scenarioUrl, identitySpecUrl,
-                    coverRecord, compositions, jobToken, reviewUrl,
-                    await PrivateReferencesAsync(pack, run.PhotoBlobUrl!, identitySpecUrl, jobToken)
+                    coverRecord, compositions, cancellationToken, reviewUrl,
+                    await PrivateReferencesAsync(
+                        pack, run.PhotoBlobUrl!, photo, identitySpecUrl, cancellationToken)
                         with { StoryUrl = storyUrl });
 
                 // Judged under this job's own policy reading, not under whatever the table says by
                 // the time the evaluation runs — the same snapshot the spreads were drawn against.
                 release = await _releaseGates.EvaluateAsync(
-                    pack.UserId, pack.Id, jobToken, policy);
+                    pack.UserId, pack.Id, cancellationToken, policy);
 
                 await blobStorage.UploadAsync(
                     BekiPackBlobs.ReleaseGatesName(pack.UserId, pack.Id),
-                    System.Text.Encoding.UTF8.GetBytes(release.ToJson()), "application/json", jobToken);
+                    System.Text.Encoding.UTF8.GetBytes(release.ToJson()), "application/json",
+                    cancellationToken);
 
                 /*
                   One alarm per waived gate — amendment B4's second half.
@@ -1521,8 +1765,8 @@ public sealed class BekiPackFulfillment(
                 if (reconciliation is not null)
                 {
                     await reconciliation.RaiseWaiverAlarmsAsync(
-                        pack.Id, pack.UserId, await OrderIdAsync(pack.Id, jobToken), release,
-                        jobToken);
+                        pack.Id, pack.UserId, await OrderIdAsync(pack.Id, cancellationToken), release,
+                        cancellationToken);
                 }
 
                 /*
@@ -1538,7 +1782,7 @@ public sealed class BekiPackFulfillment(
                 await packRepository.UpdatePrintPdfUrlAsync(
                     packId,
                     release.PressFilesMayPublish ? press.InteriorUrl : null,
-                    jobToken);
+                    cancellationToken);
 
                 logger.LogInformation(
                     "Beki pack {PackId}: release verdict {Verdict}. Failing gates: {Failing}. "
@@ -1562,6 +1806,21 @@ public sealed class BekiPackFulfillment(
                   be read here, by this branch, instead of by a policy that will never run for this
                   book. See the receipt and the withholding below (review finding 1).
                 */
+
+                /*
+                  And no wrap either, which matters because this branch can be reached with one
+                  already drawing.
+
+                  The hook that starts the wrap hangs off the composite context, so ordinarily a
+                  started wrap means a composite book and a composite book takes the branch above.
+                  The one way here is a composite run that announced its anchor and then handed
+                  back no scenario to lay a cover out from — at which point the wrap is a paid call
+                  for a document this branch will never assemble. Stopped and observed, exactly as
+                  a failure path does it: an unawaited faulted task would surface much later as
+                  somebody else's crash, and the linked source is disposed when this method leaves.
+                */
+                await AbandonWrapAsync();
+
                 var composed = composer.ComposeWithReceipts(
                     plan, book.Cover.Image, stored, personalization);
 
@@ -1655,12 +1914,20 @@ public sealed class BekiPackFulfillment(
             pdfStopwatch.Stop();
             uploadMs += pdfStopwatch.ElapsedMilliseconds;
 
+            /*
+              Publishing runs under the host's token, not the budget's.
+
+              The budget exists to stop a book that is not getting drawn. By this line every
+              artifact is in storage and what remains is three row writes; a deadline that fired
+              during the press tail — which no longer runs under it — must not be discovered here
+              and turn a finished book into a Failed one at the last await.
+            */
             stage = "publishing the book";
 
             // The order record's copy of the canonical title — the same string the cover, the
             // intro and the PDF metadata carry, so an operator reading the order and a parent
             // holding the book are reading about the same object.
-            await packRepository.UpdateTitleAsync(packId, plan.Concept.Title, jobToken);
+            await packRepository.UpdateTitleAsync(packId, plan.Concept.Title, cancellationToken);
 
             var content = ProjectForReader(plan, run.ChildName, pack, storedUrls);
 
@@ -1693,12 +1960,12 @@ public sealed class BekiPackFulfillment(
                 JsonSerializer.Serialize(content, JsonOptions),
                 publishablePdfUrl,
                 null,
-                jobToken);
+                cancellationToken);
 
             if (completed)
             {
                 await packRepository.UpdateProgressAsync(
-                    packId, "მზადაა! წიგნი ბიბლიოთეკაშია.", 100, jobToken);
+                    packId, "მზადაა! წიგნი ბიბლიოთეკაშია.", 100, cancellationToken);
 
                 logger.LogInformation(
                     "Beki pack {PackId} completed from run {RunId}: \"{Title}\", {Spreads} spreads.",
@@ -1816,7 +2083,7 @@ public sealed class BekiPackFulfillment(
                     BekiPackBlobs.TelemetryName(pack.UserId, pack.Id),
                     JsonSerializer.SerializeToUtf8Bytes(telemetry, JsonOptions),
                     "application/json",
-                    jobToken);
+                    cancellationToken);
 
                 logger.LogInformation(
                     "Beki pack {PackId} telemetry: totalMs={TotalMs}, pdfBuildMs={PdfBuildMs}, "
@@ -1852,10 +2119,17 @@ public sealed class BekiPackFulfillment(
                 + "the manifest can resume from the spreads already stored.",
                 packId, stage, deadline.Cause, expectedStatus);
 
+            // The wrap's token is linked to the host's, so it is already stopping; this only makes
+            // sure its outcome is observed before the exception leaves.
+            await AbandonWrapAsync();
+
             throw;
         }
         catch (Exception ex)
         {
+            // A wrap still drawing beside a book that has just failed is a paid call for nothing.
+            await AbandonWrapAsync();
+
             /*
               The composite pipeline stops with one of eight agreed words, and the word is the
               useful half of the failure — it is what decides whether a retry could possibly help,
@@ -1994,6 +2268,62 @@ public sealed class BekiPackFulfillment(
                 logger.LogWarning(
                     "Beki pack {PackId} failed in this job, but the stored pack is not Failed; "
                     + "another writer got a better outcome, so nobody is being paged.", packId);
+            }
+        }
+
+        // ---- Local helpers ---------------------------------------------------------------------
+
+        /*
+          One stage change, written to the row as well as to the local the log lines read.
+
+          The percentages after the spreads used to jump from 85 straight to 100, and the stage
+          word lived only in this method: a parent watching the screen saw "assembling the book"
+          for the whole press tail, and an admin reading the row could not tell a job stuck in
+          render validation from one stuck in the gates. Every stage in the tail now moves the
+          number and names itself in Georgian, which is the language every other line here is in.
+        */
+        async Task AdvanceAsync(string nextStage, string message, int percent, CancellationToken token)
+        {
+            stage = nextStage;
+            await packRepository.UpdateProgressAsync(packId, message, percent, token);
+        }
+
+        /*
+          Stops the wrap that was started beside the spreads, and observes whatever it did.
+
+          Called from every failure path, and only there: on success the wrap is awaited where it
+          is used. A wrap that already finished has nothing to stop, but a faulted one that nobody
+          awaited would surface later as an unobserved-task exception — reading Exception is what
+          marks it observed. A wrap still drawing is cancelled through its own source, and its
+          outcome is logged rather than rethrown: the book failed of something else, and that is
+          the reason that gets stored.
+        */
+        async Task AbandonWrapAsync()
+        {
+            if (wrapTask is null)
+            {
+                return;
+            }
+
+            if (wrapTask.IsCompleted)
+            {
+                _ = wrapTask.Exception;
+                return;
+            }
+
+            wrapCts.Cancel();
+
+            try
+            {
+                await wrapTask;
+            }
+            catch (Exception wrapEx)
+            {
+                logger.LogWarning(
+                    wrapEx,
+                    "Beki pack {PackId}: the cover wrap drawing beside the spreads was stopped "
+                    + "({Outcome}) because the book failed first; its outcome is not the reason.",
+                    packId, wrapEx is OperationCanceledException ? "cancelled" : "faulted");
             }
         }
     }
@@ -2394,8 +2724,41 @@ public sealed class BekiPackFulfillment(
         }
     }
 
-    /// <summary>Which press files came out of preparation, and which the gates will find absent.</summary>
-    private sealed record PressOutcome(string? InteriorUrl, string? CoverUrl);
+    /// <summary>
+    /// The press stage's ledger, filled as it goes: which files came out of preparation, the bytes
+    /// that were stored (so render validation can read them without fetching them back), whether
+    /// each half's preflight report was written by THIS run, and every gate and reason recorded on
+    /// the way.
+    ///
+    /// A mutable object handed in rather than a record handed back, because the stage can now be
+    /// stopped by its own clock partway through, and the expiry handler has to know exactly how far
+    /// it got: a half whose preflight this run never wrote gets a refusal written over whatever an
+    /// earlier attempt left there, and a half that finished keeps its real report.
+    /// </summary>
+    private sealed class PressWork
+    {
+        public string? InteriorUrl { get; set; }
+
+        public string? CoverUrl { get; set; }
+
+        public byte[]? PreparedInterior { get; set; }
+
+        public byte[]? PreparedCover { get; set; }
+
+        public bool InteriorPreflightStored { get; set; }
+
+        public bool CoverPreflightStored { get; set; }
+
+        public List<string> FailedGates { get; } = [];
+
+        public List<string> Reasons { get; } = [];
+    }
+
+    /// <summary>
+    /// The bytes render validation is run against, as this run uploaded them. Null for a final this
+    /// run did not produce, which sends the stage back to storage for whatever is there.
+    /// </summary>
+    private sealed record BekiRenderInputs(byte[]? Reading, byte[]? Interior, byte[]? Cover);
 
     /// <summary>
     /// The printer's two files, with the resolution truth attached (D5c, audit P0-04/P1-01).
@@ -2410,28 +2773,44 @@ public sealed class BekiPackFulfillment(
     /// A refusal here withholds press files and nothing else. The parent's book has already shipped
     /// by the time this runs, which is the reason the order was changed.
     /// </summary>
-    private async Task<PressOutcome> PreparePressAsync(
+    private async Task PreparePressAsync(
         Domain.Entities.AdventurePack pack,
         MasterStory plan,
         IReadOnlyList<BekiSpreadArtwork> spreads,
         BekiBookPersonalization personalization,
         byte[] wrapComposite,
+        PressWork work,
         CancellationToken cancellationToken)
     {
         var options = bekiOptions.Value.PrintPrep;
-        var failedGates = new List<string>();
-        var reasons = new List<string>();
-        string? interiorUrl = null;
-        string? coverUrl = null;
+        var failedGates = work.FailedGates;
+        var reasons = work.Reasons;
+
+        /*
+          Every raster this stage will place, offered to the super-resolver together.
+
+          Nine calls, one at a time, was the shape of this loop, and each call is an external
+          process over a multi-megapixel image that the tool is allowed ten minutes for. They have
+          nothing to say to each other — each answer is a function of its own input — so they run
+          three abreast, and the answers come back in the order they were asked for, which is what
+          keeps every receipt beside the page it describes. The wrap rides in the same batch: its
+          upscale used to wait for the whole interior to be prepared first, for no reason.
+        */
+        var rasters = new List<(byte[] Png, int Width, int Height)>(spreads.Count + 1);
+        rasters.AddRange(spreads.Select(
+            spread => (spread.Image, InteriorPressWidthPx, InteriorPressHeightPx)));
+        rasters.Add((wrapComposite, CoverPressWidthPx, CoverPressHeightPx));
+
+        var upscales = await UpscaleAllAsync(rasters, cancellationToken);
 
         // ---- the interior -------------------------------------------------------------------
         var pressArt = new List<BekiSpreadArtwork>(spreads.Count);
         var sources = new List<BekiResolutionSource>(spreads.Count);
 
-        foreach (var spread in spreads)
+        for (var index = 0; index < spreads.Count; index++)
         {
-            var upscale = await _pressUpscaler.UpscaleAsync(
-                spread.Image, InteriorPressWidthPx, InteriorPressHeightPx, cancellationToken);
+            var spread = spreads[index];
+            var upscale = upscales[index];
 
             pressArt.Add(upscale is { Succeeded: true, Png: { Length: > 0 } enlarged }
                 ? new BekiSpreadArtwork(spread.SpreadNumber, enlarged)
@@ -2505,13 +2884,15 @@ public sealed class BekiPackFulfillment(
                     pack.Id, string.Join(", ", interiorGates));
             }
 
-            interiorUrl = await blobStorage.UploadAsync(
+            work.InteriorUrl = await blobStorage.UploadAsync(
                 BekiPackBlobs.InteriorPdfName(pack.UserId, pack.Id),
                 preparedInterior, "application/pdf", cancellationToken);
+            work.PreparedInterior = preparedInterior;
 
             await blobStorage.UploadAsync(
                 BekiPackBlobs.InteriorPreflightName(pack.UserId, pack.Id),
                 System.Text.Encoding.UTF8.GetBytes(preflight), "application/json", cancellationToken);
+            work.InteriorPreflightStored = true;
 
             await UploadLayoutReceiptsAsync(pack, "interior", interior.Receipts, cancellationToken);
         }
@@ -2524,7 +2905,11 @@ public sealed class BekiPackFulfillment(
             // not leave the previous attempt's preflight standing as this run's evidence.
             await OverwriteStalePreflightAsync(
                 BekiPackBlobs.InteriorPreflightName(pack.UserId, pack.Id),
-                "preparing the press interior", ex, cancellationToken);
+                "preparing the press interior",
+                GatesNamedIn(ex.Message).FirstOrDefault() ?? "PRESS_GEOMETRY",
+                ex.Message,
+                cancellationToken);
+            work.InteriorPreflightStored = true;
 
             logger.LogWarning(
                 "Beki pack {PackId}: the press interior is withheld ({Code}) — {Reason}",
@@ -2534,8 +2919,7 @@ public sealed class BekiPackFulfillment(
         // ---- the cover ----------------------------------------------------------------------
         try
         {
-            var coverUpscale = await _pressUpscaler.UpscaleAsync(
-                wrapComposite, CoverPressWidthPx, CoverPressHeightPx, cancellationToken);
+            var coverUpscale = upscales[^1];
 
             var coverArt = coverUpscale is { Succeeded: true, Png: { Length: > 0 } enlarged }
                 ? enlarged
@@ -2573,14 +2957,16 @@ public sealed class BekiPackFulfillment(
                     pack.Id, string.Join(", ", coverGates));
             }
 
-            coverUrl = await blobStorage.UploadAsync(
+            work.CoverUrl = await blobStorage.UploadAsync(
                 BekiPackBlobs.CoverPdfName(pack.UserId, pack.Id),
                 preparedCover, "application/pdf", cancellationToken);
+            work.PreparedCover = preparedCover;
 
             await blobStorage.UploadAsync(
                 BekiPackBlobs.CoverPreflightName(pack.UserId, pack.Id),
                 System.Text.Encoding.UTF8.GetBytes(coverPreflight), "application/json",
                 cancellationToken);
+            work.CoverPreflightStored = true;
 
             await UploadLayoutReceiptsAsync(pack, "cover", cover.Receipts, cancellationToken);
         }
@@ -2591,20 +2977,63 @@ public sealed class BekiPackFulfillment(
 
             await OverwriteStalePreflightAsync(
                 BekiPackBlobs.CoverPreflightName(pack.UserId, pack.Id),
-                "preparing the press cover", ex, cancellationToken);
+                "preparing the press cover",
+                GatesNamedIn(ex.Message).FirstOrDefault() ?? "PRESS_GEOMETRY",
+                ex.Message,
+                cancellationToken);
+            work.CoverPreflightStored = true;
 
             logger.LogWarning(
                 "Beki pack {PackId}: the press cover is withheld ({Code}) — {Reason}",
                 pack.Id, ex.FailureCode, ex.Message);
         }
 
-        /*
-          Why the press files are not there, in a document rather than in a log line.
+        await WritePressStatusAsync(pack, work, cancellationToken);
+    }
 
-          Print preparation refuses rather than degrades, so its success leaves a preflight report
-          that a gate can read. Its failure used to leave nothing an evaluator running hours later
-          could see, and "the report is absent" cannot tell a withheld file from an unattempted one.
-        */
+    /// <summary>
+    /// The press stage's rasters through the configured super-resolver, <see cref="PressParallelism"/>
+    /// at a time, answered in the order they were asked.
+    ///
+    /// The semaphore is not disposed: a batch that faults leaves siblings still inside it, and a
+    /// release against a disposed semaphore would turn one honest failure into a second, unobserved
+    /// one. It holds no handle — nothing here asks for its wait handle — so there is nothing to free.
+    /// </summary>
+    private async Task<PressUpscaleResult[]> UpscaleAllAsync(
+        IReadOnlyList<(byte[] Png, int Width, int Height)> rasters,
+        CancellationToken cancellationToken)
+    {
+        var slots = new SemaphoreSlim(PressParallelism, PressParallelism);
+
+        return await Task.WhenAll(rasters.Select(async raster =>
+        {
+            await slots.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                return await _pressUpscaler
+                    .UpscaleAsync(raster.Png, raster.Width, raster.Height, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            finally
+            {
+                slots.Release();
+            }
+        }));
+    }
+
+    /// <summary>
+    /// Why the press files are not there, in a document rather than in a log line.
+    ///
+    /// Print preparation refuses rather than degrades, so its success leaves a preflight report
+    /// that a gate can read. Its failure used to leave nothing an evaluator running hours later
+    /// could see, and "the report is absent" cannot tell a withheld file from an unattempted one.
+    /// Written by the stage when it finishes and by the expiry handler when it does not, from the
+    /// same ledger, so the two documents cannot disagree about their shape.
+    /// </summary>
+    private async Task WritePressStatusAsync(
+        Domain.Entities.AdventurePack pack, PressWork work, CancellationToken cancellationToken)
+    {
         await blobStorage.UploadAsync(
             BekiPackBlobs.PressStatusName(pack.UserId, pack.Id),
             JsonSerializer.SerializeToUtf8Bytes(
@@ -2612,17 +3041,83 @@ public sealed class BekiPackFulfillment(
                 {
                     stage = "beki-press-status-v1",
                     recorded_at_utc = DateTime.UtcNow,
-                    interior = interiorUrl is null ? "withheld" : "prepared",
-                    cover = coverUrl is null ? "withheld" : "prepared",
-                    failed_gates = failedGates.Distinct(StringComparer.Ordinal).ToList(),
-                    reason = reasons.Count == 0 ? null : string.Join(" ", reasons),
+                    interior = work.InteriorUrl is null ? "withheld" : "prepared",
+                    cover = work.CoverUrl is null ? "withheld" : "prepared",
+                    failed_gates = work.FailedGates.Distinct(StringComparer.Ordinal).ToList(),
+                    reason = work.Reasons.Count == 0 ? null : string.Join(" ", work.Reasons),
                     upscaler_configured = _pressUpscaler.IsConfigured,
                 },
                 JsonOptions),
             "application/json",
             cancellationToken);
+    }
 
-        return new PressOutcome(interiorUrl, coverUrl);
+    /// <summary>
+    /// What an expired press clock leaves behind: the truth about how far the stage got, in the
+    /// documents the gates read, and an alarm for the person who has to re-drive it.
+    ///
+    /// Fresh tokens throughout — the one that fired is the reason this is running. Best-effort in
+    /// every step: the book is finished and about to complete, and a storage hiccup while writing
+    /// down why the printer's files are missing must not turn a withheld file into a failed book.
+    /// </summary>
+    private async Task RecordPressBudgetExpiryAsync(
+        Domain.Entities.AdventurePack pack, PressWork work, string reason)
+    {
+        logger.LogError("Beki pack {PackId}: {Reason}", pack.Id, reason);
+
+        work.Reasons.Add(reason);
+
+        // A half whose preflight this run never wrote is a half this run did not prepare, whatever
+        // else it managed to upload: its URL is withheld and an earlier attempt's report, if one is
+        // standing under that name, is replaced by a refusal so the gates cannot read it as ours.
+        if (!work.InteriorPreflightStored)
+        {
+            work.InteriorUrl = null;
+            await OverwriteStalePreflightAsync(
+                BekiPackBlobs.InteriorPreflightName(pack.UserId, pack.Id),
+                "preparing the press interior", PressBudgetExceededCode, reason,
+                CancellationToken.None);
+        }
+
+        if (!work.CoverPreflightStored)
+        {
+            work.CoverUrl = null;
+            await OverwriteStalePreflightAsync(
+                BekiPackBlobs.CoverPreflightName(pack.UserId, pack.Id),
+                "preparing the press cover", PressBudgetExceededCode, reason,
+                CancellationToken.None);
+        }
+
+        try
+        {
+            await WritePressStatusAsync(pack, work, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex, "Beki pack {PackId}: the press-status record for the expired press clock could "
+                + "not be written; the gates will read the preflight reports instead.", pack.Id);
+        }
+
+        if (alarms is null)
+        {
+            return;
+        }
+
+        // A blocker, like every press gate: the printer cannot be sent this book until a person
+        // re-drives the press stage, and a flag would sit in the console unread.
+        await alarms.RaiseAsync(
+            new BekiAlarmRaise(
+                pack.Id,
+                await OrderIdAsync(pack.Id, CancellationToken.None),
+                pack.UserId,
+                PressBudgetAlarmCheck,
+                BekiReleaseSeverity.Blocker,
+                $"{reason} The book is Completed and the family has its copy; the press stage "
+                + "needs to be run again for the printer.",
+                BekiPackBlobs.PressStatusName(pack.UserId, pack.Id),
+                BekiAlarmEvidence.ForAttempt(PressBudgetAlarmCheck, pack.Id)),
+            CancellationToken.None);
     }
 
     /// <summary>
@@ -2636,17 +3131,15 @@ public sealed class BekiPackFulfillment(
     private async Task OverwriteStalePreflightAsync(
         string reportName,
         string stage,
-        BekiLayoutException failure,
+        string gate,
+        string reason,
         CancellationToken cancellationToken)
     {
         try
         {
             await blobStorage.UploadAsync(
                 reportName,
-                BekiWithheldReport.Bytes(
-                    GatesNamedIn(failure.Message).FirstOrDefault() ?? "PRESS_GEOMETRY",
-                    stage,
-                    failure.Message),
+                BekiWithheldReport.Bytes(gate, stage, reason),
                 "application/json",
                 cancellationToken);
         }
@@ -2697,43 +3190,83 @@ public sealed class BekiPackFulfillment(
     /// an absent report is a gate that does not pass.
     /// </summary>
     private async Task ValidateStoredRendersAsync(
-        Domain.Entities.AdventurePack pack, CancellationToken cancellationToken)
+        Domain.Entities.AdventurePack pack,
+        BekiRenderInputs inputs,
+        CancellationToken cancellationToken)
     {
         var options = bekiOptions.Value.PrintPrep;
 
         // The credits page carries the one QR the spec allows. It is the second-to-last leaf of the
         // customer's fourteen pages and of the interior's twelve; a press cover has no credits page
         // at all, and asserting a QR on it would be asserting a defect.
-        var artifacts = new (string Artifact, string Blob, int? QrPage)[]
+        var artifacts = new (string Artifact, byte[]? Stored, int? QrPage)[]
         {
-            (BekiPackBlobs.InteriorRenderArtifact,
-             BekiPackBlobs.FinalPdfName(pack.UserId, pack.Id, BekiPackBlobs.InteriorRenderArtifact),
-             BookFormat.SpreadCount + 3),
-            (BekiPackBlobs.CoverRenderArtifact,
-             BekiPackBlobs.FinalPdfName(pack.UserId, pack.Id, BekiPackBlobs.CoverRenderArtifact),
-             null),
-            (BekiPackBlobs.DigitalRenderArtifact,
-             BekiPackBlobs.FinalPdfName(pack.UserId, pack.Id, BekiPackBlobs.DigitalRenderArtifact),
-             BookFormat.SpreadCount + 4),
+            (BekiPackBlobs.InteriorRenderArtifact, inputs.Interior, BookFormat.SpreadCount + 3),
+            (BekiPackBlobs.CoverRenderArtifact, inputs.Cover, null),
+            (BekiPackBlobs.DigitalRenderArtifact, inputs.Reading, BookFormat.SpreadCount + 4),
         };
 
-        foreach (var (artifact, blobName, qrPage) in artifacts)
+        /*
+          The three renders run together, and only the renders.
+
+          Each validation writes a temp file, spawns Ghostscript and two Poppler tools and waits on
+          them — synchronous work that three of them can only overlap on their own threads, hence
+          Task.Run. The uploads that follow are done one artifact at a time, afterwards: they are
+          cheap, and a storage double that is not built for concurrent writes is the kind of
+          collaborator this job has in tests.
+
+          "Stored" still means stored. The bytes validated are the exact array this run handed to
+          the uploader for that final — what storage holds — and the round trip that fetched them
+          straight back was a download for nothing. A final this run did not produce is fetched from
+          storage as before, so an earlier attempt's file is validated rather than ignored.
+        */
+        var slots = new SemaphoreSlim(PressParallelism, PressParallelism);
+
+        var validated = await Task.WhenAll(artifacts.Select(async entry =>
         {
+            await slots.WaitAsync(cancellationToken).ConfigureAwait(false);
+
             try
             {
-                if (!await blobStorage.ExistsAsync(blobName, cancellationToken))
+                var bytes = entry.Stored
+                    ?? await ReadStoredFinalAsync(pack, entry.Artifact, cancellationToken).ConfigureAwait(false);
+
+                if (bytes is not { Length: > 0 })
                 {
-                    continue;
+                    return (entry.Artifact, Result: (BekiRenderValidationResult?)null);
                 }
 
-                await using var stream = await blobStorage.DownloadAsync(blobName, cancellationToken);
-                using var buffer = new MemoryStream();
-                await stream.CopyToAsync(buffer, cancellationToken);
+                var result = await Task.Run(
+                    () => BekiRenderValidation.Validate(
+                        bytes, entry.Artifact, options,
+                        new BekiRenderValidationRequest(QrPage: entry.QrPage)),
+                    cancellationToken).ConfigureAwait(false);
 
-                var result = BekiRenderValidation.Validate(
-                    buffer.ToArray(), artifact, options,
-                    new BekiRenderValidationRequest(QrPage: qrPage));
+                return (entry.Artifact, Result: result);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(
+                    ex, "Beki pack {PackId}: {Artifact} could not be rendered back; the gates will "
+                    + "read the absence rather than a pass.", pack.Id, entry.Artifact);
 
+                return (entry.Artifact, Result: null);
+            }
+            finally
+            {
+                slots.Release();
+            }
+        }));
+
+        foreach (var (artifact, result) in validated)
+        {
+            if (result is null)
+            {
+                continue;
+            }
+
+            try
+            {
                 await blobStorage.UploadAsync(
                     BekiPackBlobs.RenderReportName(pack.UserId, pack.Id, artifact),
                     System.Text.Encoding.UTF8.GetBytes(result.ReportJson),
@@ -2756,10 +3289,28 @@ public sealed class BekiPackFulfillment(
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 logger.LogWarning(
-                    ex, "Beki pack {PackId}: {Artifact} could not be rendered back; the gates will "
-                    + "read the absence rather than a pass.", pack.Id, artifact);
+                    ex, "Beki pack {PackId}: {Artifact}'s render report could not be stored; the "
+                    + "gates will read the absence rather than a pass.", pack.Id, artifact);
             }
         }
+    }
+
+    /// <summary>A stored final this run did not produce, or null when there is none to validate.</summary>
+    private async Task<byte[]?> ReadStoredFinalAsync(
+        Domain.Entities.AdventurePack pack, string artifact, CancellationToken cancellationToken)
+    {
+        var blobName = BekiPackBlobs.FinalPdfName(pack.UserId, pack.Id, artifact);
+
+        if (!await blobStorage.ExistsAsync(blobName, cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        await using var stream = await blobStorage.DownloadAsync(blobName, cancellationToken).ConfigureAwait(false);
+        using var buffer = new MemoryStream();
+        await stream.CopyToAsync(buffer, cancellationToken).ConfigureAwait(false);
+
+        return buffer.ToArray();
     }
 
     /// <summary>
@@ -2769,17 +3320,23 @@ public sealed class BekiPackFulfillment(
     /// book, so the manifest carries the blob reference and the SHA-256 of the bytes at it. The
     /// bytes themselves stay where they are and are excluded from the handback, as they always were.
     /// </summary>
+    /// <param name="photo">
+    /// The photograph as this job already downloaded it from <paramref name="photoBlobUrl"/> — the
+    /// same bytes a second download would return, hashed without the second download. Null sends
+    /// the reference back to storage.
+    /// </param>
     private async Task<BekiManifestPrivateRefs> PrivateReferencesAsync(
         Domain.Entities.AdventurePack pack,
         string photoBlobUrl,
+        byte[]? photo,
         string? identitySpecUrl,
         CancellationToken cancellationToken)
     {
         return new BekiManifestPrivateRefs(
-            ChildPhotograph: await ReferenceAsync(photoBlobUrl),
-            ChildIdentity: await ReferenceAsync(identitySpecUrl));
+            ChildPhotograph: await ReferenceAsync(photoBlobUrl, photo),
+            ChildIdentity: await ReferenceAsync(identitySpecUrl, null));
 
-        async Task<BekiPrivateArtifactReference?> ReferenceAsync(string? storedUrl)
+        async Task<BekiPrivateArtifactReference?> ReferenceAsync(string? storedUrl, byte[]? inHand)
         {
             if (storedUrl is not { Length: > 0 })
             {
@@ -2788,8 +3345,9 @@ public sealed class BekiPackFulfillment(
 
             try
             {
-                var bytes = await blobStorage.DownloadBytesFromStoredUrlAsync(
-                    storedUrl, cancellationToken);
+                var bytes = inHand is { Length: > 0 }
+                    ? inHand
+                    : await blobStorage.DownloadBytesFromStoredUrlAsync(storedUrl, cancellationToken);
 
                 return bytes is { Length: > 0 }
                     ? new BekiPrivateArtifactReference(storedUrl, Sha256Hex(bytes), bytes.Length)
@@ -2969,6 +3527,36 @@ public sealed class BekiPackFulfillment(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Beki pack {PackId}: could not read the stored {What}.", packId, what);
+
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// One of this job's own artifacts, read back by its bare name — the way the manifest is, and
+    /// for the same reason: it was never handed to anything outside this job as a URL. Absent,
+    /// empty and unreadable all come back null; a resumed job must not die over a record it can
+    /// only ever treat as missing.
+    /// </summary>
+    private async Task<string?> TryReadOwnBlobTextAsync(
+        string blobName, string what, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!await blobStorage.ExistsAsync(blobName, cancellationToken))
+            {
+                return null;
+            }
+
+            await using var stream = await blobStorage.DownloadAsync(blobName, cancellationToken);
+            using var reader = new StreamReader(stream, System.Text.Encoding.UTF8);
+            var text = await reader.ReadToEndAsync(cancellationToken);
+
+            return string.IsNullOrWhiteSpace(text) ? null : text;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Beki: could not read {What} back from '{Blob}'.", what, blobName);
 
             return null;
         }

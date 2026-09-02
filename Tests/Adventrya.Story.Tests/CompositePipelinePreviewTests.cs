@@ -305,26 +305,23 @@ public class CompositePipelinePreviewTests : CompositePipelineTestBase
         Assert.Null(CompositeCoverGeometryResolver.TryResolve(new BekiPrintLayoutOptions()));
     }
 
-    [Fact]
-    public async Task A_composite_book_with_no_previewed_cover_stops_rather_than_shipping_without_one()
-    {
-        var images = new StubImageService();
-        var generator = Generator(
-            images,
-            Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images),
-            compositeEnabled: true);
+    /*
+      A_composite_book_with_no_previewed_cover_stops_rather_than_shipping_without_one used to stand
+      here, and it asserted the defect rather than the rule.
 
-        var failure = await Assert.ThrowsAsync<CompositePipelineException>(() =>
-            generator.IllustrateAsync(
-                Plan(), Photo(), "image/png", existingCover: null, onImage: null,
-                cancellationToken: CancellationToken.None, existingSpreads: null,
-                composite: Context()));
+      It required the BOOK path to stop with LAYOUT_FAILED when there was no previewed cover to
+      adopt — which is what it did, by opening with the reader-facing cover call above. But that
+      cover is a stated failure on every run, and the composite book never ships it: its one cover
+      master is the wrap, cut from the accepted anchor downstream in fulfilment. So the assertion
+      described a paid book failing before its first spread over a picture nobody wanted, and the
+      rule it should have been describing is the opposite one.
 
-        Assert.Equal(CompositeFailureCodes.LayoutFailed, failure.FailureCode);
-
-        // And it stopped before spending anything on the interior.
-        Assert.Equal(0, images.ImageCalls);
-    }
+      The rule now lives in CompositeCoverWithoutPreviewTests: with or without a previewed cover,
+      the book path draws eight spreads, asks for no reader-facing cover, and carries an empty (or
+      adopted) cover slot with zero attempts. Without_cover_geometry_the_cover_stops_with_
+      LAYOUT_FAILED above is untouched — a caller that asks for that cover directly still gets the
+      refusal, which is the half of the old behaviour that was always right.
+    */
 
     // ---------------------------------------------------------------------------------------
     // Telemetry
