@@ -1791,13 +1791,14 @@ public static class BekiFixedPageQa
         }
 
         /*
-          The wash clauses, kept and now vacuous.
+          The panel clauses, live again.
 
-          Owner ruling 2026-09-01 — the third and final — took the cream box out of the book, so a
-          receipt written by today's composer carries no wash and this block does not run. It stays
-          because Write is also how an operator re-derives a QA record from a receipt stored before
-          the ruling, and those receipts do carry one: the clearances a wash had to keep are still
-          the right question to ask of a book that has one.
+          The cream box left the book on 2026-09-01 and this block sat vacuous for a day; that
+          evening the owner asked for a translucent, copy-sized panel behind the text, and the
+          composer records it in the receipt as the wash geometry. The clearances a panel has to
+          keep from the trim and the fold are the same question the box was asked, so the check
+          is the same check. The composer's own 12 mm safe margin and 10 mm fold safety already
+          keep every panel well inside the 5 mm floor; this is the receipt agreeing with itself.
         */
         if (page.Wash is { } wash)
         {
