@@ -152,8 +152,14 @@ public sealed class BekiOptions
     /// <summary>
     /// How many Beki spreads may draw at once. 1 restores strictly sequential drawing.
     /// The dependency rule (anchoring) is honoured at any setting.
+    ///
+    /// Four, which is what the deployed <c>appsettings.json</c> already asked for and the code
+    /// default had lagged behind at two. On the composite path the anchor spread draws alone and
+    /// the other seven then share this limit, so at two the image phase was the anchor plus four
+    /// rounds of pairs; at four it is the anchor plus two rounds, with the cover wrap started
+    /// beside them the moment the anchor is accepted.
     /// </summary>
-    public int SpreadConcurrency { get; set; } = 2;
+    public int SpreadConcurrency { get; set; } = 4;
 
     /// <summary>
     /// The wall clock a whole book gets, in minutes, before the job is stopped and the pack is
@@ -174,6 +180,24 @@ public sealed class BekiOptions
     /// gone.
     /// </summary>
     public int GenerationBudgetMinutes { get; set; } = 30;
+
+    /// <summary>
+    /// The wall clock the press tail gets, in minutes, once the parent's reading copy is stored:
+    /// print preparation, render validation and the release gates.
+    ///
+    /// Its own clock rather than the tail of <see cref="GenerationBudgetMinutes"/>, because the two
+    /// clocks answer different questions. The generation budget decides whether a book that has
+    /// not finished DRAWING is lost, which is terminal. The press tail starts only after every
+    /// spread, the wrap and the customer's PDF are in storage — the book exists — and a tail that
+    /// runs out of time withholds the printer's files and raises an alarm; it never fails a book
+    /// the family can already read. Sharing one deadline was how a fully drawn book got marked
+    /// Failed by a slow upscaler.
+    ///
+    /// Fifteen minutes: the configured super-resolver is allowed ten per image and the stage runs
+    /// three at once, so a healthy tail is well inside this and a stuck one is caught well before
+    /// the stale-generation sweep would look. Zero or negative falls back to the default.
+    /// </summary>
+    public int PressBudgetMinutes { get; set; } = 15;
 
     /// <summary>
     /// How many times a refused Beki illustration is redrawn with the reviewer's corrections

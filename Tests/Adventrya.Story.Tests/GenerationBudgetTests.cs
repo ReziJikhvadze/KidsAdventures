@@ -753,7 +753,14 @@ public class GenerationBudgetTests
             string? generatedJson, string? pdfUrl, string? errorMessage,
             CancellationToken cancellationToken)
         {
-            OnBeforeWrite?.Invoke();
+            // The hook stands for the sweep burying a book while the job is FINISHING it, so it
+            // fires on the terminal write only. The job's opening claim goes through this same
+            // compare-and-set now, and a sweep that beat the claim would simply be a job that
+            // declined to start — a different test's subject.
+            if (status is AdventurePackStatus.Completed or AdventurePackStatus.Failed)
+            {
+                OnBeforeWrite?.Invoke();
+            }
 
             if (_pack.Status != expectedStatus)
             {

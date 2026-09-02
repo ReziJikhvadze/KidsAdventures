@@ -248,6 +248,128 @@ public class CompositeConcurrencyTests
     }
 
     // ---------------------------------------------------------------------------------------
+    // The anchor announcement — what lets the cover wrap draw beside the spreads
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The moment spread one is accepted, the run says so — with the scenario, the identity lock
+    /// and the anchor — while spreads two to eight are still being drawn.
+    ///
+    /// That is the whole point of the hook. The cover wrap needs exactly those three things and
+    /// nothing the other seven pages produce, so a caller that waited for the run to finish before
+    /// drawing it was spending one more image call's worth of wall clock in series for no reason.
+    /// Every page but the first is held open here, so an announcement that arrived at all arrived
+    /// while they were in flight.
+    /// </summary>
+    [Fact]
+    public async Task The_anchor_is_announced_while_the_remaining_spreads_are_still_drawing()
+    {
+        var images = new GatedImageService { Gated = [2, 3, 4, 5, 6, 7, 8] };
+        var announcements = 0;
+        var announced = new TaskCompletionSource<CompositeAnchorAccepted>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+
+        var run = Pipeline(images, spreadConcurrency: 4).RunAsync(
+            Request(onAnchorAccepted: accepted =>
+            {
+                Interlocked.Increment(ref announcements);
+                announced.TrySetResult(accepted);
+                return Task.CompletedTask;
+            }),
+            CancellationToken.None);
+
+        var accepted = await announced.Task.WaitAsync(TestTimeout);
+
+        // Announced with the book still open: not one of the seven gated pages can have finished.
+        Assert.False(run.IsCompleted);
+        Assert.Equal(IdentitySpec, accepted.Identity);
+        Assert.NotEmpty(accepted.AnchorBasePng);
+
+        foreach (var page in (int[])[2, 3, 4, 5, 6, 7, 8])
+        {
+            images.Release(page);
+        }
+
+        var result = await run;
+
+        // Once, and with the very bytes the run then handed every later spread as its anchor.
+        Assert.Equal(1, announcements);
+        Assert.Equal(result.Anchor, accepted.AnchorBasePng);
+        Assert.Equal(result.Spreads[0].BasePng, accepted.AnchorBasePng);
+        Assert.All(images.Anchors.Where(pair => pair.Key != 1),
+            pair => Assert.Equal(accepted.AnchorBasePng, pair.Value));
+    }
+
+    /// <summary>
+    /// A resumed run whose anchor was adopted announces it before drawing anything at all — the
+    /// stored spread one is settled before this run's first image call, so the cover may start
+    /// beside the first page this run draws rather than after the last.
+    /// </summary>
+    [Fact]
+    public async Task An_adopted_anchor_is_announced_before_the_first_image_call()
+    {
+        var images = new GatedImageService { DelayMs = 5 };
+        var stored = new Dictionary<int, byte[]>
+        {
+            [1] = Png(1536, 717, red: 1),
+            [2] = Png(1536, 717, red: 2),
+        };
+        var anchor = Png(1536, 717, red: 77);
+
+        var imageCallsAtAnnouncement = -1;
+        byte[]? announcedAnchor = null;
+
+        await Pipeline(images, spreadConcurrency: 3).RunAsync(
+            Request(
+                resume: new CompositeResumeState(ScenarioFixture(), stored, stored)
+                {
+                    IdentitySpecJson = CompositeChildIdentity.ToStoredJson(IdentitySpec),
+                    AnchorBasePng = anchor,
+                },
+                onAnchorAccepted: accepted =>
+                {
+                    imageCallsAtAnnouncement = images.ImagePages.Count;
+                    announcedAnchor = accepted.AnchorBasePng;
+                    return Task.CompletedTask;
+                }),
+            CancellationToken.None);
+
+        Assert.Equal(0, imageCallsAtAnnouncement);
+        Assert.Equal(anchor, announcedAnchor);
+    }
+
+    /// <summary>
+    /// A fully adopted resume still announces — the caller drawing a cover for a rebuilt book needs
+    /// the stored anchor exactly as much — and a run with nothing to say says nothing.
+    /// </summary>
+    [Fact]
+    public async Task A_fully_adopted_resume_announces_the_stored_anchor_and_draws_nothing()
+    {
+        var images = new GatedImageService();
+        var stored = Enumerable.Range(1, BookFormat.SpreadCount)
+            .ToDictionary(page => page, page => Png(1536, 717, red: (byte)page));
+
+        byte[]? announcedAnchor = null;
+
+        await Pipeline(images, spreadConcurrency: 3).RunAsync(
+            Request(
+                resume: new CompositeResumeState(ScenarioFixture(), stored, stored)
+                {
+                    IdentitySpecJson = CompositeChildIdentity.ToStoredJson(IdentitySpec),
+                    AnchorBasePng = stored[1],
+                },
+                onAnchorAccepted: accepted =>
+                {
+                    announcedAnchor = accepted.AnchorBasePng;
+                    return Task.CompletedTask;
+                }),
+            CancellationToken.None);
+
+        Assert.Empty(images.ImagePages);
+        Assert.Equal(stored[1], announcedAnchor);
+    }
+
+    // ---------------------------------------------------------------------------------------
     // Resume
     // ---------------------------------------------------------------------------------------
 
@@ -344,8 +466,10 @@ public class CompositeConcurrencyTests
 
     private static CompositeBookRequest Request(
         CompositeResumeState? resume = null,
-        Func<CompositeSpreadResult, Task>? onSpread = null) => new()
+        Func<CompositeSpreadResult, Task>? onSpread = null,
+        Func<CompositeAnchorAccepted, Task>? onAnchorAccepted = null) => new()
     {
+        OnAnchorAccepted = onAnchorAccepted,
         Context = new CompositeBookContext
         {
             JobId = Guid.NewGuid(),

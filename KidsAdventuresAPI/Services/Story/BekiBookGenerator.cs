@@ -1327,26 +1327,36 @@ public sealed class BekiBookGenerator(
         CompositeBookContext composite,
         CancellationToken cancellationToken)
     {
-        // The cover first, exactly as the legacy path does it — and for the same reason: a book
-        // whose cover cannot be produced is a book that should stop before it spends eight image
-        // calls. On this path "cannot be produced" is not a possibility but a certainty whenever
-        // there is no previewed cover to adopt, because the printer-approved cover geometry the
-        // composite cover contract requires is not configured anywhere yet.
-        var cover = existingCover is null
-            ? await DrawCoverThroughCompositeAsync(
-                plan, childPhoto, childPhotoContentType, composite, cancellationToken)
-            : new BekiImageResult
-            {
-                Image = existingCover,
-                Accepted = true,
-                Verdict = "Adopted from the preview the parent chose; not drawn here.",
-                Attempts = 0,
-                Prompt = string.Empty,
-            };
+        /*
+          No cover is drawn here, whether or not the caller brought one.
 
-        // The resume state and the scenario callback come from the context, because the caller that
-        // knows what an earlier attempt left in storage is the fulfilment job and not this class —
-        // the generator has no blob dependency and is not about to grow one.
+          What stood here was the legacy path's opening move — draw the cover first, so a book
+          whose cover cannot be produced stops before spending eight image calls — carried over to
+          a path where it had become a trap. The composite reader-facing cover is a stated failure
+          (DrawCoverThroughCompositeAsync: no printer-approved geometry, LAYOUT_FAILED, always), so
+          every composite book whose preview cover was absent or could not be downloaded failed
+          here, before a single spread — over a picture this path never ships. The composite book's
+          one cover master is the wrap, made downstream in fulfilment from the accepted anchor, and
+          that is where a cover that cannot be produced stops the book.
+
+          So the cover slot carries whatever the caller came in with, or nothing. Attempts is zero
+          either way because nothing was drawn, which is what the fulfilment job's telemetry reads.
+        */
+        var cover = new BekiImageResult
+        {
+            Image = existingCover ?? [],
+            Accepted = true,
+            Verdict = existingCover is null
+                ? "No previewed cover; the composite path draws none here — the wrap is the cover master."
+                : "Adopted from the preview the parent chose; not drawn here.",
+            Attempts = 0,
+            Prompt = string.Empty,
+        };
+
+        // The resume state and the callbacks come from the context, because the caller that knows
+        // what an earlier attempt left in storage — and that holds the wrap call the anchor hook
+        // is for — is the fulfilment job and not this class. The generator has no blob dependency
+        // and is not about to grow one.
         var result = await compositePipeline!.RunAsync(
             new CompositeBookRequest
             {
@@ -1357,6 +1367,7 @@ public sealed class BekiBookGenerator(
                 Resume = composite.Resume,
                 OnScenario = composite.OnScenario,
                 OnSpread = onImage is null ? null : spread => onImage(ToImageResult(spread)),
+                OnAnchorAccepted = composite.OnAnchorAccepted,
             },
             cancellationToken);
 
@@ -1430,7 +1441,7 @@ public sealed class BekiBookGenerator(
     };
 
     /// <summary>
-    /// The composite cover, which today is a stated failure.
+    /// The composite reader-facing cover, which today is a stated failure.
     ///
     /// It reads as an odd method until the alternative is written down. The cover base contract
     /// needs seven regions off the printer-approved dieline and forbids substituting the interior
@@ -1438,6 +1449,11 @@ public sealed class BekiBookGenerator(
     /// book that stops with LAYOUT_FAILED, or a cover generated to interior geometry with the child
     /// across the spine and the title over her face. The pipeline raises the first, this method
     /// lets it through, and nothing here quietly draws the second.
+    ///
+    /// Reached only through <see cref="DrawCoverAsync"/> — a caller asking for the reader-facing
+    /// cover on its own. The book path (<see cref="IllustrateThroughCompositeAsync"/>) no longer
+    /// comes here: its cover master is the wrap, and a stated failure in front of eight spreads was
+    /// failing every composite book whose preview cover happened to be missing.
     /// </summary>
     private async Task<BekiImageResult> DrawCoverThroughCompositeAsync(
         MasterStory plan,

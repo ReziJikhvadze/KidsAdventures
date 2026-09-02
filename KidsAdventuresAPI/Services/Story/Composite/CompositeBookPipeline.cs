@@ -175,7 +175,35 @@ public sealed record CompositeBookContext
     /// replace with an alarm.
     /// </summary>
     public Func<CompositePolicyWaiver, Task>? OnPolicyWaiver { get; init; }
+
+    /// <summary>
+    /// Called once, the moment the book has a child appearance anchor — the accepted first
+    /// spread's base, drawn by this run or adopted from an earlier one — and awaited.
+    ///
+    /// It exists so the cover wrap can be drawn BESIDE spreads two to eight rather than after
+    /// them. The wrap needs exactly three things every later spread also needs: the scenario, the
+    /// identity lock and the anchor. All three are settled before the second spread starts, and a
+    /// wrap that waited for the eighth spread was one more image call's worth of wall clock on a
+    /// job a parent is watching. The fulfilment job starts the wrap inside this callback and awaits
+    /// it after the run; see <see cref="CompositeAnchorAccepted"/>.
+    /// </summary>
+    public Func<CompositeAnchorAccepted, Task>? OnAnchorAccepted { get; init; }
 }
+
+/// <summary>
+/// What a run knows the moment its child appearance anchor is settled: enough to draw the cover
+/// wrap to the same child as the pages, and nothing a cover does not need.
+///
+/// The scenario is the validated object rather than its JSON because the caller's next move is the
+/// wrap call, which takes the object; handing back the JSON would have it validated twice for no
+/// reason. The identity is the same spec every spread is drawn to, and the anchor is the same bytes
+/// spreads 2-8 attach — which is the whole of owner's rule 2 (2026-09-01): the cover is a
+/// reproduction of a child this book has already drawn.
+/// </summary>
+public sealed record CompositeAnchorAccepted(
+    VisualScenarioV2 Scenario,
+    ChildIdentitySpec Identity,
+    byte[] AnchorBasePng);
 
 /// <summary>
 /// One generate-and-review cycle, measured.
@@ -731,6 +759,13 @@ public sealed record CompositeBookRequest
     /// while page two's picture is being uploaded.
     /// </summary>
     public Func<CompositeSpreadResult, Task>? OnSpread { get; init; }
+
+    /// <summary>
+    /// Called once the anchor is settled and before any other spread is drawn, and awaited — the
+    /// request's own copy of <see cref="CompositeBookContext.OnAnchorAccepted"/>, which is the
+    /// fallback when a caller sets neither here.
+    /// </summary>
+    public Func<CompositeAnchorAccepted, Task>? OnAnchorAccepted { get; init; }
 }
 
 /// <summary>Everything one run of the pipeline produced.</summary>
@@ -1374,7 +1409,12 @@ public sealed class CompositeBookPipeline(
 
         var (drawn, bookAnchor) = await DrawSpreadsAsync(
             context, input, theme, scenario, toDraw, anchorPage, anchor, identity, continuity,
-            childPhoto, childPhotoContentType, request.OnSpread, cancellationToken);
+            childPhoto, childPhotoContentType, request.OnSpread,
+            // The request's own hook when a caller set one, the context's otherwise — the same
+            // fallback the identity callback uses, and for the same reason: the illustrator
+            // between the fulfilment job and this class builds the request from the context.
+            request.OnAnchorAccepted ?? context.OnAnchorAccepted,
+            cancellationToken);
 
         var spreads = pages
             .Select(page => adopted.TryGetValue(page.Page, out var already)
@@ -2402,12 +2442,17 @@ public sealed class CompositeBookPipeline(
         byte[] childPhoto,
         string childPhotoContentType,
         Func<CompositeSpreadResult, Task>? onSpread,
+        Func<CompositeAnchorAccepted, Task>? onAnchorAccepted,
         CancellationToken cancellationToken)
     {
         var drawn = new ConcurrentDictionary<int, CompositeSpreadResult>();
 
         if (toDraw.Count == 0)
         {
+            // A fully adopted book still has an anchor — the stored one — and the caller waiting
+            // to draw a cover against it is told so here, the same way as on every other run.
+            await AnnounceAnchorAsync(anchor);
+
             return (drawn, anchor);
         }
 
@@ -2461,9 +2506,28 @@ public sealed class CompositeBookPipeline(
                 + "appearance anchor for the remaining {Count} spread(s).",
                 context.JobId, anchorSpread.Page, toDraw.Count - 1);
 
+            /*
+              The cover's cue, before the anchor page is even handed over.
+
+              Everything the wrap needs is now settled — the scenario, the identity lock and this
+              base — and the caller that draws it is told so before the anchor's own delivery
+              (an upload and a manifest write) rather than after, because the wrap is a paid image
+              call that takes as long as a spread does, and every second it starts earlier is a
+              second off the job a parent is watching. It runs on the caller's own token, not the
+              siblings': a failed spread cancels the siblings and throws, and it is the caller that
+              decides what to do about a wrap it started.
+            */
+            await AnnounceAnchorAsync(anchor);
+
             await delivery.DeliverAsync(anchorSpread, cancellationToken);
 
             remaining = toDraw.Skip(1).ToList();
+        }
+        else
+        {
+            // The anchor was adopted from an earlier attempt: settled before this run drew
+            // anything, so the cover may start beside the very first spread this run draws.
+            await AnnounceAnchorAsync(anchor);
         }
 
         if (remaining.Count == 0)
@@ -2511,6 +2575,22 @@ public sealed class CompositeBookPipeline(
         }
 
         return (drawn, anchor);
+
+        /*
+          Once per run, and only with a real anchor. The hook is a promise that the three inputs
+          the wrap needs exist; an announcement carrying nothing would be a promise the caller
+          could not act on, and a run with no anchor at this point is a run that is about to draw
+          one — it announces when it has.
+        */
+        async Task AnnounceAnchorAsync(byte[]? settled)
+        {
+            if (onAnchorAccepted is null || settled is not { Length: > 0 })
+            {
+                return;
+            }
+
+            await onAnchorAccepted(new CompositeAnchorAccepted(scenario, identity, settled));
+        }
 
         async Task DrawOneAsync(VisualScenarioSpread page)
         {
