@@ -367,17 +367,29 @@ export function WorldSelectorStage({
       cabinet asked for a second book for *that* child, and asking their parent to type them in
       again would be the same bug pointing the other way.
     */
+    /*
+      Which picker this was, so the questions can send the parent back to it.
+
+      There are two of them — a section of the home page, and this whole page at `/themes` — and
+      the address they lead to is identical, so the step back had nothing to tell them apart and
+      sent everyone to `/#worlds`. A parent who chose a world on `/themes` was answered with a
+      different page of worlds than the one they had been looking at.
+
+      A name rather than a return address: `backHrefForStage` rebuilds `/themes` from the keys it
+      already carries, so nothing here can point the back arrow at an address of its own choosing.
+    */
     void router.navigate({
       to: "/create",
       search: {
         mode: carried.continuesFromBookId ? "continue" : "first",
         world: world.worldId,
         ...carried,
+        ...(embedded ? {} : { picker: "themes" }),
         ...(forChild ? { characterId: forChild } : { new: "1" }),
       },
       hash: "profile",
     });
-  }, [router, selected, startSearch]);
+  }, [embedded, router, selected, startSearch]);
 
   const selectedWorld = selected
     ? SELECTOR_WORLDS.find((world) => world.id === selected)
