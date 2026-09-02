@@ -7,21 +7,28 @@ import * as admin from "@/lib/api/admin";
 /**
  * The admin chrome: a sidebar, a heading, and the screen.
  *
- * It began as a port of a design handoff with eight navigation items, six of which were
- * rendered greyed out because no route existed behind them. A console that advertises six
- * screens it does not have teaches its one user to distrust the two it does, so the list is
- * now exactly what is built. Anything added later earns its place here by existing first.
- *
- * The global search box went with them: it did one thing — jump to the orders list with a
- * query — and the orders list has its own search field on it.
+ * The list is exactly what is built. Anything added later earns its place here by existing
+ * first; a console that advertises screens it does not have teaches its one user to distrust
+ * the ones it does.
  */
 
-export type AdminNavKey = "orders" | "admins" | "settings";
+export type AdminNavKey =
+  | "overview"
+  | "orders"
+  | "print"
+  | "alarms"
+  | "promo"
+  | "admins"
+  | "settings";
 
 type NavItem = { key: AdminNavKey; label: string; href: string; icon: string };
 
 const NAV_ITEMS: NavItem[] = [
+  { key: "overview", label: "მიმოხილვა", href: "/admin", icon: "grid" },
   { key: "orders", label: "შეკვეთები", href: "/admin/orders", icon: "orders" },
+  { key: "print", label: "ბეჭდვა და მიწოდება", href: "/admin/print", icon: "truck" },
+  { key: "alarms", label: "შეტყობინებები", href: "/admin/alarms", icon: "bell" },
+  { key: "promo", label: "პრომო კოდები", href: "/admin/promo", icon: "tag" },
   { key: "settings", label: "გამოშვების წესები", href: "/admin/settings", icon: "settings" },
   { key: "admins", label: "ადმინისტრატორები", href: "/admin/admins", icon: "users" },
 ];
@@ -51,13 +58,23 @@ function useOpenAlarmCount(): number {
 
     read();
     const timer = window.setInterval(read, 60000);
+    // Screens that close an alarm say so, and the badge follows without waiting a minute.
+    window.addEventListener(ALARMS_CHANGED_EVENT, read);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
+      window.removeEventListener(ALARMS_CHANGED_EVENT, read);
     };
   }, []);
 
   return count;
+}
+
+/** Fired by any screen that reviews an alarm, so the badge does not lag a minute behind. */
+export const ALARMS_CHANGED_EVENT = "beki-admin:alarms-changed";
+
+export function announceAlarmsChanged(): void {
+  window.dispatchEvent(new Event(ALARMS_CHANGED_EVENT));
 }
 
 export type AdminShellProps = {
@@ -79,8 +96,22 @@ export function AdminShell({
   operatorName,
 }: AdminShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hangfireBusy, setHangfireBusy] = useState(false);
+  const [hangfireError, setHangfireError] = useState<string | null>(null);
   const openAlarms = useOpenAlarmCount();
   const initial = (operatorName ?? "ო").trim().slice(0, 1) || "ო";
+
+  const openHangfire = async () => {
+    setHangfireBusy(true);
+    setHangfireError(null);
+    try {
+      await admin.openHangfire();
+    } catch (err) {
+      setHangfireError(err instanceof Error ? err.message : "Hangfire ვერ გაიხსნა.");
+    } finally {
+      setHangfireBusy(false);
+    }
+  };
 
   return (
     <div className={`admin-app ${menuOpen ? "menu-open" : ""}`}>
@@ -104,8 +135,28 @@ export function AdminShell({
               >
                 <Icon name={item.icon} />
                 <span>{item.label}</span>
+                {item.key === "alarms" && openAlarms > 0 ? (
+                  <em className="nav-count">{openAlarms}</em>
+                ) : null}
               </Link>
             ))}
+          </div>
+          <div className="nav-group">
+            {/*
+              The job dashboard lives on the API, not in this app, and cannot carry the session
+              token in a plain link — so this asks the API for a short-lived cookie first.
+            */}
+            <button
+              type="button"
+              className="nav-link-button"
+              disabled={hangfireBusy}
+              onClick={() => void openHangfire()}
+              title="Hangfire — ფონური სამუშაოების დაფა (ახალ ფანჯარაში)"
+            >
+              <Icon name="audit" />
+              <span>{hangfireBusy ? "იხსნება…" : "ფონური სამუშაოები"}</span>
+            </button>
+            {hangfireError ? <small className="nav-error">{hangfireError}</small> : null}
           </div>
         </nav>
 
@@ -137,7 +188,7 @@ export function AdminShell({
           {openAlarms > 0 ? (
             <Link
               className="admin-alarm-badge"
-              to="/admin/settings"
+              to="/admin/alarms"
               aria-label={`${openAlarms} განუხილავი შეტყობინება`}
             >
               <Icon name="bell" size={16} />

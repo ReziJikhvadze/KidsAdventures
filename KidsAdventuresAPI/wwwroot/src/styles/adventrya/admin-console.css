@@ -1292,3 +1292,346 @@
 .admin-app .alarm-review input {
   min-width: 180px;
 }
+
+/* ---------------------------------------------------------------------------------------------
+   Console additions, 2026-09-01: overview tiles, the detail panel that left the table, the
+   pictures an approval is about, the print queue's controls, and the smaller things around them.
+   --------------------------------------------------------------------------------------------- */
+
+.admin-app .nav-count {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-style: normal;
+  text-align: center;
+  line-height: 20px;
+}
+.admin-app .nav-link-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.admin-app .nav-link-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.06);
+}
+.admin-app .nav-error {
+  display: block;
+  padding: 4px 12px;
+  color: #f4b6bf;
+  font-size: 11px;
+}
+
+.admin-app .overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.admin-app .overview-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.admin-app .overview-tile:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(28, 31, 48, 0.08);
+}
+.admin-app .overview-tile strong {
+  font-size: 30px;
+  line-height: 1.1;
+}
+.admin-app .overview-tile span {
+  font-weight: 600;
+}
+.admin-app .overview-tile small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.admin-app .overview-tile.tone-danger strong {
+  color: var(--danger);
+}
+.admin-app .overview-tile.tone-warning strong {
+  color: var(--warning);
+}
+.admin-app .overview-tile.tone-accent strong {
+  color: var(--accent);
+}
+.admin-app .overview-tile.tone-muted strong {
+  color: var(--muted);
+}
+.admin-app .overview-stamp {
+  display: block;
+  margin: 0 0 18px;
+}
+
+.admin-app .quick-filter-row {
+  flex-wrap: wrap;
+}
+.admin-app .row-open {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.admin-app .data-table tbody tr.is-open {
+  background: var(--accent-soft);
+}
+
+.admin-app .order-detail-panel {
+  padding: 18px 20px 22px;
+  overflow: visible;
+}
+.admin-app .order-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.admin-app .order-detail-head h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+.admin-app .detail-error strong {
+  color: var(--danger);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.admin-app .detail-notice {
+  flex-basis: 100%;
+  color: var(--success);
+}
+
+.admin-app .book-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 0 6px;
+}
+.admin-app .book-strip figure {
+  margin: 0;
+  width: 200px;
+}
+.admin-app .book-strip button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #1f1a2e;
+  overflow: hidden;
+  cursor: zoom-in;
+}
+.admin-app .book-strip img {
+  display: block;
+  width: 100%;
+  height: 92px;
+  object-fit: cover;
+}
+.admin-app .book-strip figcaption {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+.admin-app .book-strip-empty {
+  display: grid;
+  place-items: center;
+  height: 92px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+}
+.admin-app .book-zoom {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  border: 0;
+  background: rgba(10, 8, 20, 0.86);
+  cursor: zoom-out;
+}
+.admin-app .book-zoom img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 6px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.admin-app .review-box {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--warning);
+  border-radius: 12px;
+  background: var(--warning-soft);
+}
+.admin-app .review-box .field {
+  display: block;
+  margin: 12px 0;
+}
+.admin-app .review-box .field span,
+.admin-app .promo-form .field span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.admin-app .contact-sheet {
+  margin: 0;
+}
+.admin-app .contact-sheet img {
+  display: block;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+.admin-app .contact-sheet figcaption {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.admin-app .regen-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+.admin-app .regen-dialog {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid var(--danger);
+  border-radius: 12px;
+  background: var(--danger-soft);
+}
+.admin-app .regen-dialog input {
+  width: 100%;
+  margin: 10px 0;
+}
+
+.admin-app .gates-box {
+  margin-top: 16px;
+}
+.admin-app .gates-toggle {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.admin-app .gates-table {
+  min-width: 0;
+  margin-top: 8px;
+}
+.admin-app .gate-detail {
+  max-width: 520px;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.admin-app .detail-alarms {
+  margin-top: 18px;
+}
+.admin-app .detail-alarms ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-app .detail-alarms li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.admin-app .detail-alarms li > .button {
+  grid-row: 1 / span 3;
+  align-self: center;
+}
+.admin-app .detail-alarms li.is-reviewed {
+  opacity: 0.65;
+}
+
+.admin-app .print-tabs {
+  flex-wrap: wrap;
+}
+.admin-app .print-tabs .button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-app .print-move {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 220px;
+}
+.admin-app .print-move-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.admin-app .print-notify {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.admin-app .print-notify input {
+  width: auto;
+}
+
+.admin-app .promo-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  align-items: end;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-app .alarm-evidence {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.admin-app .alarm-evidence img {
+  display: block;
+  max-width: 320px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}

@@ -34,7 +34,10 @@ import { Route as BillingSuccessRouteImport } from './routes/billing/success'
 import { Route as BillingCancelRouteImport } from './routes/billing/cancel'
 import { Route as AuthMagicRouteImport } from './routes/auth.magic'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
+import { Route as AdminPromoRouteImport } from './routes/admin/promo'
+import { Route as AdminPrintRouteImport } from './routes/admin/print'
 import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
+import { Route as AdminAlarmsRouteImport } from './routes/admin/alarms'
 import { Route as AdminAdminsRouteImport } from './routes/admin/admins'
 import { Route as BlogAuthorIdRouteImport } from './routes/blog/author/$id'
 
@@ -164,9 +167,24 @@ const AdminSettingsRoute = AdminSettingsRouteImport.update({
   path: '/admin/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPromoRoute = AdminPromoRouteImport.update({
+  id: '/admin/promo',
+  path: '/admin/promo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminPrintRoute = AdminPrintRouteImport.update({
+  id: '/admin/print',
+  path: '/admin/print',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminOrdersRoute = AdminOrdersRouteImport.update({
   id: '/admin/orders',
   path: '/admin/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAlarmsRoute = AdminAlarmsRouteImport.update({
+  id: '/admin/alarms',
+  path: '/admin/alarms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminAdminsRoute = AdminAdminsRouteImport.update({
@@ -196,7 +214,10 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/world': typeof WorldRoute
   '/admin/admins': typeof AdminAdminsRoute
+  '/admin/alarms': typeof AdminAlarmsRoute
   '/admin/orders': typeof AdminOrdersRoute
+  '/admin/print': typeof AdminPrintRoute
+  '/admin/promo': typeof AdminPromoRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/auth/magic': typeof AuthMagicRoute
   '/billing/cancel': typeof BillingCancelRoute
@@ -226,7 +247,10 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/world': typeof WorldRoute
   '/admin/admins': typeof AdminAdminsRoute
+  '/admin/alarms': typeof AdminAlarmsRoute
   '/admin/orders': typeof AdminOrdersRoute
+  '/admin/print': typeof AdminPrintRoute
+  '/admin/promo': typeof AdminPromoRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/auth/magic': typeof AuthMagicRoute
   '/billing/cancel': typeof BillingCancelRoute
@@ -257,7 +281,10 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/world': typeof WorldRoute
   '/admin/admins': typeof AdminAdminsRoute
+  '/admin/alarms': typeof AdminAlarmsRoute
   '/admin/orders': typeof AdminOrdersRoute
+  '/admin/print': typeof AdminPrintRoute
+  '/admin/promo': typeof AdminPromoRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/auth/magic': typeof AuthMagicRoute
   '/billing/cancel': typeof BillingCancelRoute
@@ -289,7 +316,10 @@ export interface FileRouteTypes {
     | '/terms'
     | '/world'
     | '/admin/admins'
+    | '/admin/alarms'
     | '/admin/orders'
+    | '/admin/print'
+    | '/admin/promo'
     | '/admin/settings'
     | '/auth/magic'
     | '/billing/cancel'
@@ -319,7 +349,10 @@ export interface FileRouteTypes {
     | '/terms'
     | '/world'
     | '/admin/admins'
+    | '/admin/alarms'
     | '/admin/orders'
+    | '/admin/print'
+    | '/admin/promo'
     | '/admin/settings'
     | '/auth/magic'
     | '/billing/cancel'
@@ -349,7 +382,10 @@ export interface FileRouteTypes {
     | '/terms'
     | '/world'
     | '/admin/admins'
+    | '/admin/alarms'
     | '/admin/orders'
+    | '/admin/print'
+    | '/admin/promo'
     | '/admin/settings'
     | '/auth/magic'
     | '/billing/cancel'
@@ -380,7 +416,10 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   WorldRoute: typeof WorldRoute
   AdminAdminsRoute: typeof AdminAdminsRoute
+  AdminAlarmsRoute: typeof AdminAlarmsRoute
   AdminOrdersRoute: typeof AdminOrdersRoute
+  AdminPrintRoute: typeof AdminPrintRoute
+  AdminPromoRoute: typeof AdminPromoRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AuthMagicRoute: typeof AuthMagicRoute
   BillingCancelRoute: typeof BillingCancelRoute
@@ -572,11 +611,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/promo': {
+      id: '/admin/promo'
+      path: '/admin/promo'
+      fullPath: '/admin/promo'
+      preLoaderRoute: typeof AdminPromoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/print': {
+      id: '/admin/print'
+      path: '/admin/print'
+      fullPath: '/admin/print'
+      preLoaderRoute: typeof AdminPrintRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/orders': {
       id: '/admin/orders'
       path: '/admin/orders'
       fullPath: '/admin/orders'
       preLoaderRoute: typeof AdminOrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/alarms': {
+      id: '/admin/alarms'
+      path: '/admin/alarms'
+      fullPath: '/admin/alarms'
+      preLoaderRoute: typeof AdminAlarmsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/admins': {
@@ -612,7 +672,10 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   WorldRoute: WorldRoute,
   AdminAdminsRoute: AdminAdminsRoute,
+  AdminAlarmsRoute: AdminAlarmsRoute,
   AdminOrdersRoute: AdminOrdersRoute,
+  AdminPrintRoute: AdminPrintRoute,
+  AdminPromoRoute: AdminPromoRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AuthMagicRoute: AuthMagicRoute,
   BillingCancelRoute: BillingCancelRoute,
