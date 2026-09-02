@@ -241,6 +241,58 @@ public class GeminiProviderTests
         Assert.Equal(1, openAi.TextCalls);
     }
 
+    [Fact]
+    public async Task The_router_forwards_the_caller_s_quality_to_the_illustrator()
+    {
+        var illustrations = new RecordingIllustrationClient();
+        var router = new AiServiceRouter(
+            new RecordingOpenAiService(), illustrations, NullLogger<AiServiceRouter>.Instance);
+
+        await router.GenerateStoryImageAsync("p", null, CancellationToken.None, imageQuality: "high");
+
+        Assert.Equal("high", illustrations.LastQuality);
+    }
+
+    [Fact]
+    public async Task Gemini_accepts_a_quality_it_has_no_knob_for()
+    {
+        // Gemini's knob is the resolution class in the configuration. A caller asking OpenAI's
+        // question of it gets its picture at the configured class, and nothing in the request
+        // says "quality" — a field the API does not take would be a 400.
+        var handler = new CapturingHandler(ImageResponse(Jpeg()));
+        var client = IllustrationClient(handler);
+
+        var bytes = await client.GenerateStoryImageAsync(
+            "draw a spread", null, CancellationToken.None, "1536x1024", imageQuality: "high");
+
+        Assert.NotEmpty(bytes);
+
+        using var body = JsonDocument.Parse(handler.LastBody!);
+        Assert.False(body.RootElement.TryGetProperty("quality", out _));
+        Assert.Equal(
+            new GeminiOptions().ImageSize,
+            body.RootElement.GetProperty("response_format").GetProperty("image_size").GetString());
+    }
+
+    [Theory]
+    [InlineData(6, 6)]
+    [InlineData(4, 4)]
+    [InlineData(0, 1)]
+    [InlineData(-3, 1)]
+    public void A_call_s_ceiling_is_the_configured_minutes_and_never_under_one(int configured, int expectedMinutes) =>
+        Assert.Equal(TimeSpan.FromMinutes(expectedMinutes), GeminiInteractionsClient.TimeoutFor(configured));
+
+    [Fact]
+    public void The_image_ceiling_is_shorter_than_the_text_ceiling()
+    {
+        // A book draws nine or more pictures and retries each; it writes one story. The picture
+        // ceiling is the one that decides how long a stuck slot can hold the job.
+        var options = new GeminiOptions();
+
+        Assert.Equal(4, options.ImageTimeoutMinutes);
+        Assert.True(options.ImageTimeoutMinutes < options.TimeoutMinutes);
+    }
+
     // ---- harness ---------------------------------------------------------
 
     private sealed record Plan
@@ -378,11 +430,15 @@ public class GeminiProviderTests
     {
         public int Calls { get; private set; }
 
+        public string? LastQuality { get; private set; }
+
         public Task<byte[]> GenerateStoryImageAsync(
             string imagePrompt, StoryImageReference? reference,
-            CancellationToken cancellationToken, string? imageSize = null)
+            CancellationToken cancellationToken, string? imageSize = null,
+            string? imageQuality = null)
         {
             Calls++;
+            LastQuality = imageQuality;
             return Task.FromResult<byte[]>([1]);
         }
 
@@ -419,7 +475,7 @@ public class GeminiProviderTests
         public Task<byte[]> GenerateStoryImageAsync(
             string imagePrompt, StoryImageReference? reference,
             CancellationToken cancellationToken, string? imageSize = null,
-            bool requireReferences = false)
+            bool requireReferences = false, string? imageQuality = null)
         {
             ImageCalls++;
             return Task.FromResult<byte[]>([1]);

@@ -33,12 +33,24 @@ public interface IOpenAiService
     /// With it set, a caller either gets a picture the references were actually sent for, or an
     /// exception. It never gets one and is told the other.
     /// </param>
+    /// <param name="imageQuality">
+    /// How hard the image model works on this one picture: <c>low</c>, <c>medium</c> or
+    /// <c>high</c> in gpt-image's vocabulary, or null for the configured default
+    /// (<c>OpenAI:ImageQuality</c>).
+    ///
+    /// Per call rather than per deployment because the pictures in a book are not worth the same
+    /// money: the hero anchor and the cover set the standard every other page is matched against,
+    /// and <c>BekiOptions</c> has carried separate qualities for them since the format was
+    /// designed — settings that, until this parameter existed, nothing read. A provider with no
+    /// per-call notion of quality ignores it.
+    /// </param>
     Task<byte[]> GenerateStoryImageAsync(
         string imagePrompt,
         StoryImageReference? reference,
         CancellationToken cancellationToken,
         string? imageSize = null,
-        bool requireReferences = false);
+        bool requireReferences = false,
+        string? imageQuality = null);
 
     /// <summary>
     /// Looks at a finished illustration and says whether it is usable. Returns the model's raw

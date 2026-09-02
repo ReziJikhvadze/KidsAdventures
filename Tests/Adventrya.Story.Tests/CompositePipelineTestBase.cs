@@ -648,7 +648,7 @@ public abstract class CompositePipelineTestBase
         public Task<byte[]> GenerateStoryImageAsync(
             string imagePrompt, StoryImageReference? reference,
             CancellationToken cancellationToken, string? imageSize = null,
-            bool requireReferences = false)
+            bool requireReferences = false, string? imageQuality = null)
         {
             StrictFlags.Add(requireReferences);
 
@@ -1212,6 +1212,16 @@ public abstract class CompositePipelineTestBase
         public Task SaveCoverAsync(Guid id, string coverImageUrl, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
+        /// <summary>What the job wrote down after describing the portrait, if it did.</summary>
+        public string? SavedAppearanceDescription { get; private set; }
+
+        public Task SaveAppearanceDescriptionAsync(
+            Guid id, string appearanceDescription, CancellationToken cancellationToken)
+        {
+            SavedAppearanceDescription = appearanceDescription;
+            return Task.CompletedTask;
+        }
+
         public Task MarkReadyAsync(Guid id, string contentJson, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
@@ -1260,7 +1270,8 @@ public abstract class CompositePipelineTestBase
     {
         public Task<byte[]> GenerateStoryImageAsync(
             string imagePrompt, StoryImageReference? reference,
-            CancellationToken cancellationToken, string? imageSize = null) =>
+            CancellationToken cancellationToken, string? imageSize = null,
+            string? imageQuality = null) =>
             Task.FromResult(Png(ProviderWidth, ProviderHeight));
 
         public Task<string> ReviewIllustrationAsync(

@@ -864,6 +864,10 @@ public class CompositeCoverProjectionTests
 
         public Task<int> DeleteAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken) =>
             Task.FromResult(0);
+
+        public Task SaveAppearanceDescriptionAsync(
+            Guid id, string appearanceDescription, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 
     private sealed class SilentNotifier : IAdminNotifier

@@ -22,11 +22,16 @@ namespace AdventurePacks.Api.Services.Ai;
 /// </summary>
 public interface IIllustrationClient
 {
+    /// <param name="imageQuality">
+    /// The caller's per-picture quality, in gpt-image's vocabulary, or null for the default. A
+    /// vendor with no such knob accepts it and draws at its configured resolution class.
+    /// </param>
     Task<byte[]> GenerateStoryImageAsync(
         string imagePrompt,
         StoryImageReference? reference,
         CancellationToken cancellationToken,
-        string? imageSize = null);
+        string? imageSize = null,
+        string? imageQuality = null);
 
     Task<string> ReviewIllustrationAsync(
         byte[] imageBytes,
@@ -55,7 +60,8 @@ public sealed class GeminiIllustrationClient(
         string imagePrompt,
         StoryImageReference? reference,
         CancellationToken cancellationToken,
-        string? imageSize = null)
+        string? imageSize = null,
+        string? imageQuality = null)
     {
         if (!_openAi.EnableStoryImages)
         {
@@ -64,6 +70,18 @@ public sealed class GeminiIllustrationClient(
 
         var size = string.IsNullOrWhiteSpace(imageSize) ? _openAi.ImageSize : imageSize!;
         var aspectRatio = AspectRatioFor(size);
+
+        // Gemini has no per-call quality: its knob is the resolution class in the configuration,
+        // and mapping "high" onto "4K" would quietly change what a page costs and how big it is
+        // whenever a caller asked OpenAI's question of the other vendor. Accepted, noted, and not
+        // acted on.
+        if (!string.IsNullOrWhiteSpace(imageQuality))
+        {
+            logger.LogDebug(
+                "Gemini image request asked for quality {Quality}; Gemini draws at the configured "
+                + "resolution class ({Size}) regardless.",
+                imageQuality, _gemini.ImageSize);
+        }
 
         var input = new List<GeminiInputItem> { GeminiInputItem.Text(imagePrompt) };
         input.AddRange(CollectReferences(reference));

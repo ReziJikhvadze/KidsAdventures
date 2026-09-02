@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Services.Interfaces;
 
@@ -12,12 +13,19 @@ namespace AdventurePacks.Api.Services.Implementations;
 /// there instead, and every read then looks in a container named after the account. Storing
 /// the key sidesteps that entirely, and the callers do not care either way — nothing outside
 /// the storage services inspects the stored value, they only hand it back for a download.
+///
+/// A singleton, like the Azure implementation: the root folder is created and announced once
+/// per process rather than once per request, and a folder this service has already created is
+/// not stat'ed again on every upload into it.
 /// </summary>
 public sealed class LocalFileBlobStorageService : IBlobStorageService
 {
     private readonly string _root;
     private readonly string _containerName;
     private readonly ILogger<LocalFileBlobStorageService> _logger;
+
+    /// <summary>Folders this process has already created. A set; the value is unused.</summary>
+    private readonly ConcurrentDictionary<string, byte> _knownDirectories = new(StringComparer.Ordinal);
 
     public LocalFileBlobStorageService(
         IOptions<LocalBlobOptions> localOptions,
@@ -48,9 +56,27 @@ public sealed class LocalFileBlobStorageService : IBlobStorageService
     {
         var key = $"{_containerName}/{blobName.TrimStart('/')}";
         var path = ResolvePath(key);
+        var directory = Path.GetDirectoryName(path)!;
 
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        await File.WriteAllBytesAsync(path, bytes, cancellationToken);
+        // Once per folder per process. TryAdd is the whole synchronisation: the first caller in
+        // creates the folder, and a second caller racing it is caught by the retry below if it
+        // gets to the write first.
+        if (_knownDirectories.TryAdd(directory, 0))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        try
+        {
+            await File.WriteAllBytesAsync(path, bytes, cancellationToken);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // Somebody emptied the storage folder under a running dev server, or the racing
+            // caller above has not finished creating it yet. Either way the answer is the same.
+            Directory.CreateDirectory(directory);
+            await File.WriteAllBytesAsync(path, bytes, cancellationToken);
+        }
 
         // contentType is deliberately not persisted. Every caller that serves one of these
         // back decides the type from the file extension, which the key carries.

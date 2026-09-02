@@ -74,7 +74,8 @@ public sealed class GeminiInteractionsClient(
         object? responseFormat,
         CancellationToken cancellationToken)
     {
-        using var document = await SendAsync(model, input, responseFormat, cancellationToken);
+        using var document = await SendAsync(
+            model, input, responseFormat, TimeoutFor(_options.TimeoutMinutes), cancellationToken);
         var text = ExtractText(document.RootElement);
 
         if (string.IsNullOrWhiteSpace(text))
@@ -92,7 +93,8 @@ public sealed class GeminiInteractionsClient(
         object responseFormat,
         CancellationToken cancellationToken)
     {
-        using var document = await SendAsync(model, input, responseFormat, cancellationToken);
+        using var document = await SendAsync(
+            model, input, responseFormat, TimeoutFor(_options.ImageTimeoutMinutes), cancellationToken);
         var image = ExtractImage(document.RootElement);
 
         if (image is not { Length: > 0 })
@@ -114,6 +116,7 @@ public sealed class GeminiInteractionsClient(
         string model,
         IReadOnlyList<GeminiInputItem> input,
         object? responseFormat,
+        TimeSpan timeout,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
@@ -139,7 +142,7 @@ public sealed class GeminiInteractionsClient(
         {
             try
             {
-                var body = await PostAsync(payload, cancellationToken);
+                var body = await PostAsync(payload, timeout, cancellationToken);
                 return JsonDocument.Parse(body);
             }
             catch (TransientGeminiException ex) when (attempt < attempts)
@@ -162,9 +165,9 @@ public sealed class GeminiInteractionsClient(
     }
 
     private async Task<string> PostAsync(
-        Dictionary<string, object?> payload, CancellationToken cancellationToken)
+        Dictionary<string, object?> payload, TimeSpan timeout, CancellationToken cancellationToken)
     {
-        using var client = CreateClient();
+        using var client = CreateClient(timeout);
 
         HttpResponseMessage response;
         try
@@ -201,7 +204,7 @@ public sealed class GeminiInteractionsClient(
         }
     }
 
-    private HttpClient CreateClient()
+    private HttpClient CreateClient(TimeSpan timeout)
     {
         var client = httpClientFactory.CreateClient("Gemini");
         client.BaseAddress = new Uri(_options.BaseUrl.TrimEnd('/') + "/");
@@ -211,9 +214,16 @@ public sealed class GeminiInteractionsClient(
         client.DefaultRequestHeaders.Remove("x-goog-api-key");
         client.DefaultRequestHeaders.Add("x-goog-api-key", _options.ApiKey);
 
-        client.Timeout = TimeSpan.FromMinutes(Math.Max(1, _options.TimeoutMinutes));
+        client.Timeout = timeout;
         return client;
     }
+
+    /// <summary>
+    /// The per-call ceiling for a configured number of minutes. Never under a minute: a zero in a
+    /// settings box would otherwise mean every call times out before it is sent.
+    /// </summary>
+    internal static TimeSpan TimeoutFor(int configuredMinutes) =>
+        TimeSpan.FromMinutes(Math.Max(1, configuredMinutes));
 
     /// <summary>
     /// The longest this client will sleep between attempts, however patiently it is asked to.

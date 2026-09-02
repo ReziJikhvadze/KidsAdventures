@@ -132,6 +132,24 @@ public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFac
             cancellationToken: cancellationToken));
     }
 
+    public async Task SaveAppearanceDescriptionAsync(
+        Guid id,
+        string appearanceDescription,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE dbo.MasterStoryRuns
+                           SET AppearanceDescription = @AppearanceDescription, UpdatedAt = SYSUTCDATETIME()
+                           WHERE Id = @Id;
+                           """;
+
+        using var connection = connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new { Id = id, AppearanceDescription = appearanceDescription },
+            cancellationToken: cancellationToken));
+    }
+
     public async Task SaveCoverAsync(Guid id, string coverImageUrl, CancellationToken cancellationToken)
     {
         const string sql = """

@@ -499,7 +499,7 @@ public class CompositeConcurrencyTests
         public async Task<byte[]> GenerateStoryImageAsync(
             string imagePrompt, StoryImageReference? reference,
             CancellationToken cancellationToken, string? imageSize = null,
-            bool requireReferences = false)
+            bool requireReferences = false, string? imageQuality = null)
         {
             var page = PageOf(imagePrompt);
 

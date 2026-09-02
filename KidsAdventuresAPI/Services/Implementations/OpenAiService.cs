@@ -233,7 +233,8 @@ public sealed class OpenAiService(
         StoryImageReference? reference,
         CancellationToken cancellationToken,
         string? imageSize = null,
-        bool requireReferences = false)
+        bool requireReferences = false,
+        string? imageQuality = null)
     {
         if (!_options.EnableStoryImages)
         {
@@ -243,6 +244,10 @@ public sealed class OpenAiService(
         // Null means the configured size, which is what every caller but the Beki prototype
         // passes. Resolved once here so the three routes below cannot disagree about it.
         var size = string.IsNullOrWhiteSpace(imageSize) ? _options.ImageSize : imageSize!;
+
+        // Same shape for the quality: null is the deployment's default, anything else is this
+        // one picture's own ask — the anchor and the cover are worth more than a page.
+        var quality = string.IsNullOrWhiteSpace(imageQuality) ? _options.ImageQuality : imageQuality!.Trim();
 
         var referenceImages = CollectReferenceImages(reference);
 
@@ -256,7 +261,7 @@ public sealed class OpenAiService(
                 "--- prompt ---\n{Prompt}",
                 referenceImages.Count > 0 ? _options.ImageEditModel : _options.ImageModel,
                 size,
-                _options.ImageQuality,
+                quality,
                 referenceImages.Count,
                 referenceImages.Count > 0 ? "images/edits" : "images/generations",
                 imagePrompt);
@@ -282,6 +287,7 @@ public sealed class OpenAiService(
                     imagePrompt,
                     referenceImages,
                     size,
+                    quality,
                     cancellationToken);
             }
             catch (Exception ex)
@@ -320,47 +326,70 @@ public sealed class OpenAiService(
             }
         }
 
-        return await GenerateStoryImageViaImagesApiAsync(imagePrompt, size, cancellationToken);
+        return await GenerateStoryImageViaImagesApiAsync(imagePrompt, size, quality, cancellationToken);
     }
 
     private async Task<byte[]> GenerateStoryImageViaEditApiWithRetryAsync(
         string imagePrompt,
         IReadOnlyList<(byte[] Bytes, string FileName, string ContentType)> referenceImages,
         string size,
+        string qualitySetting,
         CancellationToken cancellationToken)
     {
         var maxAttempts = Math.Clamp(_options.ImageRetryAttempts, 1, 6);
-        Exception? last = null;
 
-        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        for (var attempt = 1; ; attempt++)
         {
             try
             {
-                return await GenerateStoryImageViaEditApiAsync(imagePrompt, referenceImages, size, cancellationToken);
+                return await GenerateStoryImageViaEditApiAsync(
+                    imagePrompt, referenceImages, size, qualitySetting, cancellationToken);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (attempt < maxAttempts && IsRetryable(ex, cancellationToken))
             {
-                last = ex;
-                if (!IsRetryableOpenAiError(ex) || attempt == maxAttempts - 1)
-                {
-                    throw;
-                }
+                var asked = (ex as OpenAiTransientException)?.RetryAfter;
+                var delay = RetryDelay(asked, attempt, _options.ImageRetryBackoffSeconds);
 
-                var delaySeconds = Math.Max(1, _options.ImageRetryBackoffSeconds) * (attempt + 1);
                 logger.LogWarning(
                     ex,
-                    "Image edit attempt {Attempt} hit a retryable OpenAI error; waiting {Delay}s",
-                    attempt + 1,
-                    delaySeconds);
-                await Task.Delay(TimeSpan.FromSeconds(delaySeconds), cancellationToken);
+                    "Image edit attempt {Attempt}/{Total} hit a retryable OpenAI error; waiting {Delay}s{Capped}",
+                    attempt,
+                    maxAttempts,
+                    delay.TotalSeconds,
+                    asked is { } wanted && wanted > MaxRetryDelay
+                        ? $" (the server asked for {wanted.TotalSeconds:0}s)"
+                        : string.Empty);
+
+                // Through the seam, on the caller's token: the sleep is inside the generation
+                // budget, and a job whose deadline passes while it waits must stop waiting.
+                await Delay(delay, cancellationToken);
             }
         }
-
-        throw last ?? new InvalidOperationException("Image edit failed.");
     }
 
-    private static bool IsRetryableOpenAiError(Exception ex)
+    /// <summary>
+    /// Whether one more attempt is worth making.
+    ///
+    /// Never when the caller's own token has fired — that is the job's deadline or the host going
+    /// away, and the retry would sleep on the very token that stopped it. Otherwise yes for the
+    /// three things that mean "nothing was generated, nothing was billed": the provider saying so
+    /// with a 408, 429 or 5xx (<see cref="OpenAiTransientException"/>), a connection that never
+    /// reached it (<see cref="HttpRequestException"/>), and the client's own timeout, which .NET
+    /// reports as a cancellation that nobody asked for. The message rule from before is kept
+    /// underneath for anything that arrives some other way.
+    /// </summary>
+    private static bool IsRetryable(Exception ex, CancellationToken cancellationToken)
     {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
+
+        if (ex is OpenAiTransientException or HttpRequestException or OperationCanceledException)
+        {
+            return true;
+        }
+
         if (ex.Message.Contains("invalid_image_file", StringComparison.OrdinalIgnoreCase) ||
             ex.Message.Contains("unsupported mimetype", StringComparison.OrdinalIgnoreCase) ||
             ex.Message.Contains("image_generation_user_error", StringComparison.OrdinalIgnoreCase))
@@ -374,16 +403,86 @@ public sealed class OpenAiService(
                ex.Message.Contains("disconnect", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// The longest one retry will sleep, however long the provider asks for. The same minute the
+    /// Gemini client uses, for the same reason: a <c>Retry-After</c> obeyed without limit parked a
+    /// paid book for as long as the header said, and a book that stalls for an hour is worse than
+    /// one that fails in minutes.
+    /// </summary>
+    internal static readonly TimeSpan MaxRetryDelay = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// How long to wait before the next attempt: the server's own <c>Retry-After</c> when it sent
+    /// one, otherwise the configured backoff multiplied by the attempt just made — and never more
+    /// than <see cref="MaxRetryDelay"/>. Pure, so the rule can be tested without waiting it out.
+    /// </summary>
+    internal static TimeSpan RetryDelay(TimeSpan? retryAfter, int attempt, int backoffSeconds)
+    {
+        var requested = retryAfter is { } advice && advice > TimeSpan.Zero
+            ? advice
+            : TimeSpan.FromSeconds(Math.Max(1, backoffSeconds) * Math.Max(1, attempt));
+
+        return requested > MaxRetryDelay ? MaxRetryDelay : requested;
+    }
+
+    /// <summary>
+    /// The sleep between attempts. A property rather than a call to <see cref="Task.Delay(TimeSpan, CancellationToken)"/>
+    /// so the suite can record what the retry decided to wait instead of waiting it.
+    /// </summary>
+    internal Func<TimeSpan, CancellationToken, Task> Delay { get; set; } = Task.Delay;
+
+    private static TimeSpan? RetryAfter(HttpResponseMessage response)
+    {
+        var delta = response.Headers.RetryAfter?.Delta;
+        if (delta is { } d && d > TimeSpan.Zero)
+        {
+            return d;
+        }
+
+        if (response.Headers.RetryAfter?.Date is { } at)
+        {
+            var wait = at - DateTimeOffset.UtcNow;
+            if (wait > TimeSpan.Zero)
+            {
+                return wait;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The exception for a failed image call, typed by whether asking again is worth anything: a
+    /// 408, 429 or 5xx is the provider asking to be asked again, and carries its advice on when;
+    /// any other status is our request being wrong, which it will be just as much next time.
+    /// </summary>
+    private static InvalidOperationException FailureFor(string route, HttpResponseMessage response, string body)
+    {
+        var status = (int)response.StatusCode;
+        var message = $"{route} failed ({status}): {body}";
+
+        return status is 408 or 429 || status >= 500
+            ? new OpenAiTransientException(message, RetryAfter(response))
+            : new InvalidOperationException(message);
+    }
+
+    private sealed class OpenAiTransientException(string message, TimeSpan? retryAfter)
+        : InvalidOperationException(message)
+    {
+        public TimeSpan? RetryAfter { get; } = retryAfter;
+    }
+
     private async Task<byte[]> GenerateStoryImageViaEditApiAsync(
         string imagePrompt,
         IReadOnlyList<(byte[] Bytes, string FileName, string ContentType)> referenceImages,
         string size,
+        string qualitySetting,
         CancellationToken cancellationToken)
     {
-        var client = CreateClient();
+        var client = CreateImageClient();
         using var form = new MultipartFormDataContent();
         var model = ResolveGptImageEditModel();
-        var quality = MapGptImageQuality(_options.ImageQuality);
+        var quality = MapGptImageQuality(qualitySetting);
 
         form.Add(new StringContent(model), "model");
         form.Add(new StringContent(imagePrompt), "prompt");
@@ -438,7 +537,7 @@ public sealed class OpenAiService(
         var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            throw new InvalidOperationException($"OpenAI Images Edit API failed: {responseText}");
+            throw FailureFor("OpenAI Images Edit API", response, responseText);
         }
 
         return await ExtractImageBytesFromImagesResponseAsync(responseText, cancellationToken);
@@ -496,11 +595,11 @@ public sealed class OpenAiService(
     private async Task<byte[]> GenerateStoryImageViaImagesApiAsync(
         string imagePrompt,
         string size,
+        string qualitySetting,
         CancellationToken cancellationToken)
     {
-        var client = CreateClient();
+        var client = CreateImageClient();
         var imageModel = ResolveImagesApiModel();
-        var qualitySetting = _options.ImageQuality;
 
         var payload = new Dictionary<string, object>
         {
@@ -516,14 +615,14 @@ public sealed class OpenAiService(
         }
         else if (imageModel.Equals("dall-e-3", StringComparison.OrdinalIgnoreCase))
         {
-            payload["quality"] = MapDalleQuality(_options.ImageQuality);
+            payload["quality"] = MapDalleQuality(qualitySetting);
         }
 
         using var response = await client.PostAsJsonAsync("images/generations", payload, cancellationToken);
         var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
-            throw new InvalidOperationException($"OpenAI Images API failed: {responseText}");
+            throw FailureFor("OpenAI Images API", response, responseText);
         }
 
         return await ExtractImageBytesFromImagesResponseAsync(responseText, cancellationToken);
@@ -693,9 +792,23 @@ public sealed class OpenAiService(
         throw new InvalidOperationException("OpenAI Images API response missing image data.");
     }
 
+    /// <summary>
+    /// The named client the image routes post through. Its own registration because it has its
+    /// own timeout — see <see cref="OpenAiOptions.ImageTimeoutMinutes"/> — while the text calls
+    /// keep the longer one a reasoning model needs.
+    /// </summary>
+    public const string ImageHttpClientName = "OpenAI.Images";
+
     private HttpClient CreateClient()
     {
         var client = httpClientFactory.CreateClient("OpenAI");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
+        return client;
+    }
+
+    private HttpClient CreateImageClient()
+    {
+        var client = httpClientFactory.CreateClient(ImageHttpClientName);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
         return client;
     }

@@ -117,6 +117,68 @@ public class OpenAiImagePayloadTests
         string model, string configured, string? expected) =>
         Assert.Equal(expected, OpenAiService.ResolveImageInputFidelity(model, configured));
 
+    /// <summary>
+    /// The per-call quality. BekiOptions has carried separate qualities for the anchor, the cover
+    /// and the pages since the format was designed, and until this parameter existed nothing read
+    /// them: every composite image went out at OpenAI:ImageQuality. What matters is the field on
+    /// the wire, on both routes.
+    /// </summary>
+    [Fact]
+    public async Task A_caller_s_quality_reaches_the_edit_request()
+    {
+        var handler = new CapturingHandler();
+        var service = Service(handler);
+
+        await service.GenerateStoryImageAsync(
+            "draw the anchor", HeroPhoto(), CancellationToken.None, imageQuality: "high");
+
+        Assert.EndsWith("images/edits", handler.LastUri!.ToString(), StringComparison.Ordinal);
+        Assert.Equal("high", FormField(handler.LastBody!, "quality"));
+    }
+
+    [Fact]
+    public async Task Without_a_caller_s_quality_the_configured_one_is_sent()
+    {
+        // Null is the deployment's default, which is what every existing caller passes.
+        var handler = new CapturingHandler();
+        var service = Service(handler, options => options.ImageQuality = "medium");
+
+        await service.GenerateStoryImageAsync("draw the spread", HeroPhoto(), CancellationToken.None);
+
+        Assert.Equal("medium", FormField(handler.LastBody!, "quality"));
+    }
+
+    [Fact]
+    public async Task A_caller_s_quality_reaches_the_generations_request_too()
+    {
+        var handler = new CapturingHandler();
+        var service = Service(handler);
+
+        await service.GenerateStoryImageAsync("draw the spread", null, CancellationToken.None, imageQuality: "low");
+
+        Assert.EndsWith("images/generations", handler.LastUri!.ToString(), StringComparison.Ordinal);
+
+        using var body = JsonDocument.Parse(handler.LastBody!);
+        Assert.Equal("low", body.RootElement.GetProperty("quality").GetString());
+    }
+
+    [Theory]
+    [InlineData("hd", "high")]
+    [InlineData("HIGH", "high")]
+    [InlineData(" medium ", "medium")]
+    [InlineData("nonsense", "low")]
+    public async Task A_quality_is_mapped_into_the_model_s_own_vocabulary(string asked, string sent)
+    {
+        // The same mapping the configured value has always gone through: a value the API does
+        // not know becomes the cheapest, never a 400.
+        var handler = new CapturingHandler();
+        var service = Service(handler);
+
+        await service.GenerateStoryImageAsync("draw", HeroPhoto(), CancellationToken.None, imageQuality: asked);
+
+        Assert.Equal(sent, FormField(handler.LastBody!, "quality"));
+    }
+
     // ---- harness ---------------------------------------------------------
 
     private static OpenAiService Service(CapturingHandler handler, Action<OpenAiOptions>? configure = null)

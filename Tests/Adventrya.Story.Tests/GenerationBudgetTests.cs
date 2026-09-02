@@ -632,7 +632,7 @@ public class GenerationBudgetTests
         {
             public async Task<byte[]> GenerateStoryImageAsync(
                 string imagePrompt, StoryImageReference? reference, CancellationToken cancellationToken,
-                string? imageSize = null, bool requireReferences = false)
+                string? imageSize = null, bool requireReferences = false, string? imageQuality = null)
             {
                 world.CoverAttempts++;
                 await world.StopNowAsync(cancellationToken);
@@ -846,6 +846,7 @@ public class GenerationBudgetTests
         public Task SavePromptsAsync(Guid id, string model, string promptVersion, string systemPrompt, string userPrompt, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task SaveStoryAsync(Guid id, string storyJson, string contentJson, int promptTokens, int completionTokens, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task SaveCoverAsync(Guid id, string coverImageUrl, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task SaveAppearanceDescriptionAsync(Guid id, string appearanceDescription, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task MarkReadyAsync(Guid id, string contentJson, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task MarkFailedAsync(Guid id, string error, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task ClaimAsync(Guid id, Guid userId, Guid? packId, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -905,6 +906,7 @@ public class GenerationBudgetTests
 
         public Task CreateAsync(MasterStoryRun run, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<MasterStoryRunProgress?> GetProgressAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task SaveAppearanceDescriptionAsync(Guid id, string appearanceDescription, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task ClaimAsync(Guid id, Guid userId, Guid? packId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<ExpiredMasterStoryRun>> ListExpiredAsync(int limit, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<int> DeleteAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -964,7 +966,7 @@ public class GenerationBudgetTests
     private sealed class ThrowingImageService : IOpenAiService
     {
         public Task<AdventureContentDto> GenerateAdventureContentAsync(AdventureGenerationInput input, Guid adventureId, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<byte[]> GenerateStoryImageAsync(string imagePrompt, StoryImageReference? reference, CancellationToken cancellationToken, string? imageSize = null, bool requireReferences = false) => throw new NotSupportedException();
+        public Task<byte[]> GenerateStoryImageAsync(string imagePrompt, StoryImageReference? reference, CancellationToken cancellationToken, string? imageSize = null, bool requireReferences = false, string? imageQuality = null) => throw new NotSupportedException();
         public Task<string> ReviewIllustrationAsync(byte[] imageBytes, string reviewPrompt, IReadOnlyList<(byte[] Bytes, string ContentType, string Label)> references, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<string> DescribeCharacterFromPhotoAsync(byte[] imageBytes, string contentType, string promptText, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<string> CompleteTextAsync(string promptText, CancellationToken cancellationToken) => throw new NotSupportedException();
