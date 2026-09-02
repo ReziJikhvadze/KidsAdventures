@@ -521,8 +521,14 @@ public class StaleGenerationSweepTests
         public Task<IReadOnlyList<BekiAlarm>> ListOpenAsync(int limit, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<BekiAlarm>>([]);
 
+        public Task<IReadOnlyList<BekiAlarm>> ListRecentAsync(int limit, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<BekiAlarm>>([]);
+
         public Task<IReadOnlyList<BekiAlarm>> ListForPackAsync(Guid packId, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<BekiAlarm>>([]);
+
+        public Task<BekiAlarm?> GetAsync(Guid alarmId, CancellationToken ct) =>
+            Task.FromResult<BekiAlarm?>(null);
 
         public Task<bool> ReviewAsync(
             Guid alarmId, string reviewedBy, string resolution, CancellationToken ct) =>

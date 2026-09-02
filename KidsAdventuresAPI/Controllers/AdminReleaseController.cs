@@ -21,6 +21,7 @@ namespace AdventurePacks.Api.Controllers;
 public sealed class AdminReleaseController(
     IBekiReleasePolicyService policyService,
     IBekiAlarmService alarms,
+    IBlobStorageService blobStorage,
     IUserContextService userContext,
     ILogger<AdminReleaseController> logger) : ControllerBase
 {
@@ -140,12 +141,17 @@ public sealed class AdminReleaseController(
     }
 
     /// <summary>
-    /// The waivers nobody has looked at yet.
+    /// The waivers nobody has looked at yet — and, on request, the ones somebody already did.
     ///
-    /// <c>open=false</c> is accepted and means "the recent ones, reviewed or not" — the list is
-    /// still capped, because an alarms table that has been running for a year is not a page.
-    /// The count is taken separately from the page so the header badge says how many exist rather
-    /// than how many fitted.
+    /// <c>open=false</c> means "the recent ones, reviewed or not", and it is a real second query
+    /// rather than the old placeholder that returned the open list and hoped nobody checked. The
+    /// closed rows are the point of the toggle: an incident somebody resolved last week is exactly
+    /// what makes this week's identical one worth escalating rather than waving through again.
+    ///
+    /// Both lists are capped, because an alarms table that has been running for a year is not a
+    /// page. The count is taken separately from the page so the header badge says how many exist
+    /// rather than how many fitted — and it stays the OPEN count in both modes, because the badge
+    /// means "how much work is waiting", which showing the closed ones does not change.
     /// </summary>
     [HttpGet("alarms")]
     public async Task<ActionResult<AdminAlarmListResponse>> Alarms(
@@ -157,11 +163,82 @@ public sealed class AdminReleaseController(
 
         var openCount = await alarms.CountOpenAsync(cancellationToken);
 
-        // Only the open list exists on the service, which is the list this console is for. A
-        // request for everything gets the open ones rather than a lie about having searched.
-        var items = await alarms.ListOpenAsync(limit, cancellationToken);
+        var items = open
+            ? await alarms.ListOpenAsync(limit, cancellationToken)
+            : await alarms.ListRecentAsync(limit, cancellationToken);
 
         return Ok(new AdminAlarmListResponse(openCount, items.Select(ToRow).ToList()));
+    }
+
+    /// <summary>
+    /// The file an alarm was raised about, streamed through the API.
+    ///
+    /// It used to take the whole handback zip to look at one refused spread, which meant that in
+    /// practice nobody looked: reviewing an alarm is a ten-second decision and downloading a
+    /// hundred megabytes to make it is not. The row already carries the storage key; this hands
+    /// over the bytes behind it and nothing else — the key stays a key, never a link, because a
+    /// URL that outlives this request is a URL that leaks a child's book.
+    ///
+    /// Three 404s, all of them honest: no such alarm, an alarm with no artifact behind it (a
+    /// timing or bookkeeping incident has nothing to show), and a key whose blob has since gone.
+    /// </summary>
+    [HttpGet("alarms/{id:guid}/evidence")]
+    public async Task<IActionResult> AlarmEvidence(Guid id, CancellationToken cancellationToken)
+    {
+        var alarm = await alarms.GetAsync(id, cancellationToken);
+        if (alarm is null)
+        {
+            return NotFound(new { message = "ასეთი შეტყობინება არ არსებობს." });
+        }
+
+        if (string.IsNullOrWhiteSpace(alarm.EvidenceBlob))
+        {
+            return NotFound(new { message = "ამ შეტყობინებას მტკიცებულება არ ახლავს." });
+        }
+
+        try
+        {
+            var stream = await blobStorage.DownloadAsync(alarm.EvidenceBlob, cancellationToken);
+
+            // Inline rather than as an attachment: the console shows a PNG in the row, and a
+            // download prompt in the middle of a review is the friction this route removes.
+            return File(stream, EvidenceContentType(alarm.EvidenceBlob), FileName(alarm.EvidenceBlob));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(
+                ex, "Alarm {AlarmId} evidence {Blob} could not be read from storage.",
+                id, alarm.EvidenceBlob);
+
+            return NotFound(new { message = "მტკიცებულების ფაილი საცავში ვერ მოიძებნა." });
+        }
+    }
+
+    /// <summary>
+    /// What kind of file the evidence is, from its name.
+    ///
+    /// By extension rather than by a stored content type, because nothing stores one: the evidence
+    /// key is a blob name written by whichever stage raised the alarm. The four that actually
+    /// occur are the refused artwork, the QA document behind it, and the odd PDF; anything else is
+    /// handed over as bytes rather than mislabelled as something a browser will try to render.
+    /// </summary>
+    private static string EvidenceContentType(string blobName) =>
+        Path.GetExtension(blobName).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".jpg" or ".jpeg" => "image/jpeg",
+            ".webp" => "image/webp",
+            ".json" => "application/json",
+            ".pdf" => "application/pdf",
+            ".txt" or ".log" => "text/plain",
+            _ => "application/octet-stream",
+        };
+
+    /// <summary>The last segment of a storage key, which is the only part that reads as a file.</summary>
+    private static string FileName(string blobName)
+    {
+        var name = blobName.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
+        return string.IsNullOrWhiteSpace(name) ? "evidence" : name;
     }
 
     /// <summary>

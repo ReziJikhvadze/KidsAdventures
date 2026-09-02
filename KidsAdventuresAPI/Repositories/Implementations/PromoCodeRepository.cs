@@ -32,6 +32,82 @@ public sealed class PromoCodeRepository(ISqlConnectionFactory connectionFactory)
             new CommandDefinition(sql, new { Id = id }, cancellationToken: cancellationToken));
     }
 
+    public async Task<IReadOnlyList<PromoCode>> ListAllAsync(CancellationToken cancellationToken)
+    {
+        var sql = $"SELECT {Columns} FROM dbo.PromoCodes ORDER BY CreatedAt DESC;";
+        using var connection = connectionFactory.CreateConnection();
+        var rows = await connection.QueryAsync<PromoCode>(
+            new CommandDefinition(sql, cancellationToken: cancellationToken));
+
+        return rows.ToList();
+    }
+
+    public async Task<bool> CreateAsync(PromoCode promoCode, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(promoCode);
+
+        promoCode.Id = promoCode.Id == Guid.Empty ? Guid.NewGuid() : promoCode.Id;
+        promoCode.Code = Normalize(promoCode.Code);
+
+        const string sql = """
+                           INSERT INTO dbo.PromoCodes
+                               (Id, Code, Description, PercentOff, IsFullDiscount, MaxRedemptions,
+                                RedemptionCount, OncePerUser, StartsAt, ExpiresAt, IsActive, CreatedAt)
+                           VALUES
+                               (@Id, @Code, @Description, @PercentOff, @IsFullDiscount, @MaxRedemptions,
+                                0, @OncePerUser, @StartsAt, @ExpiresAt, @IsActive, @CreatedAt);
+                           """;
+
+        using var connection = connectionFactory.CreateConnection();
+
+        try
+        {
+            await connection.ExecuteAsync(
+                new CommandDefinition(sql, promoCode, cancellationToken: cancellationToken));
+            return true;
+        }
+        catch (SqlException ex) when (ex.Number is UniqueConstraintViolation or UniqueKeyViolation)
+        {
+            // UX_PromoCodes_Code. Caught rather than pre-checked alone: the SELECT the controller
+            // does first closes the common case with a readable message, and this closes the race
+            // between two operators typing the same campaign name into two browsers.
+            return false;
+        }
+    }
+
+    public async Task<bool> UpdateAdminFieldsAsync(
+        Guid id,
+        bool isActive,
+        int? maxRedemptions,
+        DateTime? expiresAt,
+        CancellationToken cancellationToken)
+    {
+        // Three columns named one by one rather than an UPDATE from the entity. Writing the whole
+        // row back would carry RedemptionCount with it, and a counter round-tripped through a
+        // console edit is a counter that loses whatever a checkout incremented in between.
+        const string sql = """
+                           UPDATE dbo.PromoCodes
+                           SET IsActive = @IsActive,
+                               MaxRedemptions = @MaxRedemptions,
+                               ExpiresAt = @ExpiresAt
+                           WHERE Id = @Id;
+                           """;
+
+        using var connection = connectionFactory.CreateConnection();
+        var affected = await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                Id = id,
+                IsActive = isActive,
+                MaxRedemptions = maxRedemptions,
+                ExpiresAt = expiresAt,
+            },
+            cancellationToken: cancellationToken));
+
+        return affected > 0;
+    }
+
     public async Task<bool> HasUserRedeemedAsync(
         Guid promoCodeId,
         Guid userId,

@@ -119,6 +119,44 @@ public sealed class BekiAlarmRepository(ISqlConnectionFactory connectionFactory)
         return rows.Select(Map).ToList();
     }
 
+    /// <summary>
+    /// The same page, without the <c>ReviewedAtUtc IS NULL</c> predicate.
+    ///
+    /// Ordered by LastSeenUtc rather than by CreatedAtUtc, exactly as the open list is, so that a
+    /// closed incident which has just recurred sorts where an operator expects to find it: at the
+    /// top, next to the open alarms it happened alongside.
+    /// </summary>
+    public async Task<IReadOnlyList<BekiAlarm>> ListRecentAsync(
+        int limit, CancellationToken cancellationToken)
+    {
+        var sql = $"""
+                   SELECT TOP (@Limit) {AlarmColumns}
+                   FROM dbo.BekiAlarms
+                   ORDER BY LastSeenUtc DESC;
+                   """;
+
+        using var connection = connectionFactory.CreateConnection();
+        var rows = await connection.QueryAsync<AlarmRow>(
+            new CommandDefinition(sql, new { Limit = limit }, cancellationToken: cancellationToken));
+
+        return rows.Select(Map).ToList();
+    }
+
+    public async Task<BekiAlarm?> GetAsync(Guid alarmId, CancellationToken cancellationToken)
+    {
+        var sql = $"""
+                   SELECT TOP 1 {AlarmColumns}
+                   FROM dbo.BekiAlarms
+                   WHERE Id = @Id;
+                   """;
+
+        using var connection = connectionFactory.CreateConnection();
+        var row = await connection.QueryFirstOrDefaultAsync<AlarmRow>(
+            new CommandDefinition(sql, new { Id = alarmId }, cancellationToken: cancellationToken));
+
+        return row is null ? null : Map(row);
+    }
+
     public async Task<IReadOnlyList<BekiAlarm>> ListForPackAsync(
         Guid packId, CancellationToken cancellationToken)
     {
