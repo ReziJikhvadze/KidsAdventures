@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Check } from "lucide-react";
 
-import { LEGAL_LAST_UPDATED } from "@/lib/legal";
+import { LEGAL_CHROME } from "@/lib/legal";
 
 /**
  * A numbered part inside one section.
@@ -48,14 +48,26 @@ type LegalDocumentProps = {
 };
 
 export function LegalDocument({ title, intro, sections, lang }: LegalDocumentProps) {
+  /*
+    The frame speaks the document's language, not the reader's.
+
+    It used to read the interface locale, which put a Georgian "სამართლებრივი" and a Georgian date
+    over an English privacy policy — mixed on the page, and read aloud in the wrong voice by
+    anything following the `lang` on the article around it.
+  */
+  const chrome = LEGAL_CHROME[lang === "en" ? "en" : "ka"];
   return (
     <article className="py-16 md:py-24" lang={lang}>
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
         <header className="border-b border-border pb-8">
-          <p className="text-sm font-semibold text-primary tracking-wide uppercase">Legal</p>
+          <p className="text-sm font-semibold text-primary tracking-wide uppercase">
+            {chrome.eyebrow}
+          </p>
           <h1 className="mt-3 font-display text-4xl md:text-5xl font-bold text-balance">{title}</h1>
           <p className="mt-4 text-muted-foreground">{intro}</p>
-          <p className="mt-3 text-xs text-muted-foreground">Last updated: {LEGAL_LAST_UPDATED}</p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            {chrome.lastUpdated} {chrome.date}
+          </p>
         </header>
 
         <div className="mt-10 space-y-10">
@@ -132,9 +144,9 @@ export function LegalDocument({ title, intro, sections, lang }: LegalDocumentPro
         </div>
 
         <p className="mt-12 text-sm text-muted-foreground">
-          Questions?{" "}
+          {chrome.questions}{" "}
           <Link to="/contact" className="text-primary font-semibold hover:underline">
-            Contact us
+            {chrome.contact}
           </Link>
           .
         </p>

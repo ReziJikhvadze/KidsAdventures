@@ -17,7 +17,6 @@ export const journey = {
   profile: {
     eyebrow: " First adventure",
     title: "First, let's meet the little hero",
-    lead: "We only need the details that let us match the story to your child's age and get the illustrations right.",
     primaryCharacter: "Main character",
     nthCharacter: (index: number) => `Character ${index}`,
     addCharacterTitle: "Would you like to add another character to the story?",
@@ -56,22 +55,10 @@ export const journey = {
     relationshipLegend: "Who is this character to the main hero?",
     relationshipCustom: "Describe the relationship",
     relationshipPlaceholder: "e.g. godparent or magical friend",
-    photoRequired: "A portrait is required",
-    photoNew: "Upload a new photo",
-    photoPrompt: "Add a clear portrait",
-    photoHint: "Whole face visible · good lighting · no sunglasses",
     photoUpload: "Upload a photo",
     photoReplace: "Change the photo",
     // Advice, not a rule: the check itself only asks whether a person is in the photo, so this
     // must not say "won't work" about a picture the form will happily accept.
-    photoGuide: {
-      title: "What makes the best likeness",
-      goodLabel: "Better",
-      goodReason: "The face fills the frame, lit from the front, looking at the camera.",
-      badLabel: "Still fine",
-      badReason:
-        "Far away, dark, face turned — the book still works, it just looks less like them.",
-    },
     photoChecking: "Preparing the photo…",
     photoRejected: {
       not_a_person:
@@ -99,8 +86,8 @@ export const journey = {
     genderRequired: "Choose whether the character is a girl or a boy.",
     relationshipRequired: "Add their companion",
     relationshipTextRequired: "Who are they?",
-    photoRequired: "Add a clear portrait.",
     termsRequired: "Please accept the terms and conditions to create the book.",
+    photoRequired: "Add a clear photo.",
     phoneInvalid: "Enter a valid 9-digit Georgian number.",
     otpInvalid: "That code is not correct.",
   },

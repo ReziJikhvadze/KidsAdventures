@@ -59,6 +59,14 @@ export type StorybookVolumeProps = {
    * `uses-desktop-spread` does not fight `ux-preview-product` max-height.
    */
   variant?: "full" | "hero" | "preview" | "display";
+  /**
+   * The line above the title on the cover.
+   *
+   * A real book says whose story it is — "ეს ამბავი ანასია" — which is the whole point of it and
+   * the reason a child recognises the cover across a room. The sample on the home page belongs
+   * to nobody, so it names its world instead of a child who does not exist.
+   */
+  coverCaption?: string;
 };
 
 /** Beki's canonical portrait, shown until a book carries one drawn for its own world. */
@@ -177,10 +185,12 @@ function buildLeaves(options: {
 function CoverFace({
   heroName,
   title,
+  caption,
   coverSrc,
 }: {
   heroName: string;
   title: string;
+  caption?: string;
   coverSrc: string;
 }) {
   const t = useT();
@@ -192,7 +202,7 @@ function CoverFace({
       <div className="storybook-cover-copy">
         {/* The cover said the book was the child's twice, above and below the title. Once is
             the point; twice reads as a template that forgot it had already said it. */}
-        <small>{t.story.storybook.belongsTo(heroName)}</small>
+        <small>{caption ?? t.story.storybook.belongsTo(heroName)}</small>
         {/* A book with no title is the sample on the home page: its cover is a painting, and the
             invented title lying across the bottom of it was the one thing on that shelf a
             visitor could not have. Every real book still names itself here. */}
@@ -245,7 +255,7 @@ function StoryFace({
         <img className="storybook-back-guide" src={BEKI_PORTRAIT} alt="" aria-hidden="true" />
         <div className="storybook-back-copy">
           <strong>{t.story.storybook.qrTitle}</strong>
-          <p>{t.story.storybook.backTap(heroName)}</p>
+          <p>{t.story.storybook.backTap}</p>
           {/* To the worlds, not to the form. `/create` opens on the questions — a name, a date
               of birth, a photograph — which is the wrong thing to meet at the end of a story you
               have just read. The first step is choosing where the next one happens.
@@ -366,6 +376,7 @@ function LeafView({
   leaf,
   heroName,
   title,
+  coverCaption,
   coverSrc,
   pageSide,
   totalStoryPages,
@@ -374,6 +385,7 @@ function LeafView({
   leaf: StorybookLeaf | null;
   heroName: string;
   title: string;
+  coverCaption?: string;
   coverSrc: string;
   pageSide?: "left" | "right";
   totalStoryPages: number;
@@ -383,7 +395,9 @@ function LeafView({
   // is the blank right-hand side of the last spread, and a blank page is what belongs there.
   if (!leaf) return <article className="storybook-page storybook-page-blank" aria-hidden="true" />;
   if (leaf.kind === "cover")
-    return <CoverFace heroName={heroName} title={title} coverSrc={coverSrc} />;
+    return (
+      <CoverFace heroName={heroName} title={title} caption={coverCaption} coverSrc={coverSrc} />
+    );
   return (
     <StoryFace
       leaf={leaf}
@@ -503,6 +517,7 @@ function SpreadSlot({
   pageSide,
   heroName,
   title,
+  coverCaption,
   coverSrc,
   totalStoryPages,
   isSpreadBook,
@@ -512,6 +527,7 @@ function SpreadSlot({
   pageSide?: SpreadSide;
   heroName: string;
   title: string;
+  coverCaption?: string;
   coverSrc: string;
   totalStoryPages: number;
   isSpreadBook: boolean;
@@ -533,6 +549,7 @@ function SpreadSlot({
       leaf={plan.leaf}
       heroName={heroName}
       title={title}
+      coverCaption={coverCaption}
       coverSrc={coverSrc}
       pageSide={pageSide}
       totalStoryPages={totalStoryPages}
@@ -544,6 +561,7 @@ function SpreadSlot({
 export function StorybookVolume({
   heroName,
   title,
+  coverCaption,
   coverImageUrl,
   worldId,
   pages,
@@ -848,6 +866,7 @@ export function StorybookVolume({
       pageSide={pageSide}
       heroName={heroName}
       title={title}
+      coverCaption={coverCaption}
       coverSrc={resolvedCover}
       totalStoryPages={totalStoryPages}
       isSpreadBook={isSpreadBook}
@@ -958,6 +977,23 @@ export function StorybookVolume({
         : "right"
       : null;
 
+  /*
+    The back cover, and the one real link in the whole book.
+
+    Turning a page by clicking works through two invisible halves laid over the volume, and they
+    win every click on it — `.storybook-back-cta` asks for a z-index above them and does not get
+    one, because the surface holding the pages is its own stacking context two levels below. So
+    on the last page the button that says "a new adventure" turned the book back a page instead
+    of going anywhere.
+
+    The halves come off while that page is showing. Nothing is lost: the labelled buttons under
+    the book, the arrow keys, the wheel and a swipe all still turn it, and this is the one page
+    where the thing to do is written on it.
+  */
+  const showsBackCover = desktopSpread
+    ? isBackCover(spreadPages.left) || isBackCover(rightSlotIndex)
+    : leaves[index]?.kind === "qr";
+
   return (
     <div
       ref={rootRef}
@@ -1031,6 +1067,7 @@ export function StorybookVolume({
               leaf={leaves[displayIndex] ?? null}
               heroName={heroName}
               title={title}
+              coverCaption={coverCaption}
               coverSrc={resolvedCover}
               totalStoryPages={totalStoryPages}
               isSpreadBook={isSpreadBook}
@@ -1100,6 +1137,7 @@ export function StorybookVolume({
                 leaf={leaves[turning === "next" ? index : turnTo] ?? null}
                 heroName={heroName}
                 title={title}
+                coverCaption={coverCaption}
                 coverSrc={resolvedCover}
                 totalStoryPages={totalStoryPages}
                 isSpreadBook={isSpreadBook}
@@ -1110,6 +1148,7 @@ export function StorybookVolume({
                 leaf={leaves[turning === "next" ? turnTo : index] ?? null}
                 heroName={heroName}
                 title={title}
+                coverCaption={coverCaption}
                 coverSrc={resolvedCover}
                 totalStoryPages={totalStoryPages}
                 isSpreadBook={isSpreadBook}
@@ -1119,7 +1158,7 @@ export function StorybookVolume({
           </div>
         ) : null}
 
-        {interactive && canPrev ? (
+        {interactive && canPrev && !showsBackCover ? (
           <button
             className="storybook-corner storybook-corner-previous"
             type="button"
@@ -1127,7 +1166,7 @@ export function StorybookVolume({
             aria-label={t.story.storybook.previousPage}
           />
         ) : null}
-        {interactive && canNext ? (
+        {interactive && canNext && !showsBackCover ? (
           <button
             className="storybook-corner storybook-corner-next"
             type="button"

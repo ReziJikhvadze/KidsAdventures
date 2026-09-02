@@ -27,7 +27,11 @@
   .storybook-controls {
     width: 100%;
   }
-  .storybook-controls button {
+  .storybook-controls button,
+  /* The hero's own 126px cap has to be lifted by name: it is scoped to the section, so it
+     outranks the rule beside it however narrow the screen gets. Left in place it held the two
+     buttons at 126px on a 375px phone and spent the 65px left over on the gap between them. */
+  .landing-v3-hero-product .storybook-controls button {
     width: 100%;
     /* No cap on a phone: the row is already only as wide as the book, and the two tracks are
        equal, so filling them keeps the pair the same size and the targets thumb-sized. */

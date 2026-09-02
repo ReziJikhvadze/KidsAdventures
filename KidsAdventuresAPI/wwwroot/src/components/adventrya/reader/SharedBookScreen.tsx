@@ -98,7 +98,7 @@ export function SharedBookScreen() {
             {heroName}
             {t.story.reader.flipSuffix}
           </h1>
-          <p>{t.story.storybook.backTap(heroName)}</p>
+          <p>{t.story.storybook.backTap}</p>
 
           <div className="ux-generated-actions" style={{ marginTop: 20 }}>
             {isAuthenticated ? (

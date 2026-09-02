@@ -14,6 +14,27 @@
 .ux-stage-heading {
   width: min(760px, 100%);
 }
+/*
+  The step's title, across the top of both columns.
+
+  It stood inside the left column, so it was the caption over a painting: ranged left, half the
+  page wide, with the form starting level with it. Spanning the grid and centred it is the name
+  of the screen, and the two columns underneath share what height is left rather than the form
+  being stretched to the full page and spending the surplus on gaps between its inputs.
+
+  Scoped by `>` to this stage: the preview and generated screens use the same class for a
+  heading that is right where it is.
+*/
+.ux-profile-stage > .ux-stage-heading {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  margin-inline: auto;
+  margin-bottom: clamp(10px, 2vh, 28px);
+  text-align: center;
+}
+.ux-profile-stage > .ux-stage-heading .eyebrow {
+  justify-content: center;
+}
 .ux-stage-heading h1,
 .ux-generated-header h1 {
   margin: 0;
@@ -65,15 +86,60 @@
   width: min(1320px, calc(100% - 50px));
   display: grid;
   grid-template-columns: minmax(320px, 0.82fr) minmax(560px, 1.18fr);
+  /*
+    Three rows: the title, the pair, and what closes the form.
+
+    `minmax(0, 1fr)` on the middle one so it takes whatever the other two leave and its children
+    may shrink inside it — an `auto` row would be sized by the taller column and push the step
+    past the fold it is built to fit inside. The pair is the point of the row: the painting and
+    the card are the two things on this screen that should be the same size, and sharing a row
+    is what makes them so without either being told a number.
+
+    Gaps split by axis: the columns want the wide one, and the button under the card wants to
+    stay next to the card. The title keeps its own air through a margin instead.
+  */
+  grid-template-rows: auto minmax(0, 1fr) auto;
   align-items: start;
-  gap: clamp(26px, 3vw, 44px);
+  column-gap: clamp(26px, 3vw, 44px);
+  row-gap: 9px;
   padding: clamp(16px, 2.2vh, 30px) 0 clamp(20px, 3vh, 34px);
+}
+.ux-profile-stage > .ux-profile-aside {
+  grid-column: 1;
+  grid-row: 2;
+}
+.ux-profile-stage > .ux-character-stack {
+  grid-column: 2;
+  grid-row: 2;
+}
+.ux-profile-stage > .ux-profile-footer {
+  grid-column: 2;
+  grid-row: 3;
 }
 .ux-character-stack {
   align-self: stretch;
   display: flex;
   flex-direction: column;
   gap: 11px;
+}
+/*
+  The card takes the slack, which is what everything below it already assumed.
+
+  Both columns are stretched to the same height, and the left one spends it: a heading over a
+  painting told to fill whatever is left, so it reaches the bottom of the row. The right column
+  was stretched too but nothing inside it grew, so the form stopped where its questions ran out
+  and left 118px of nothing under the footer — the picture on one side finishing that much lower
+  than the button on the other, which is the asymmetry this fixes.
+
+  It is also what `.ux-character-fields` was written for: "the stack stretches, the card takes
+  the slack, and this row grows into it". The stack stretched and the card never did.
+
+  `min-height: 0` so a card whose content is taller than the row shrinks rather than pushing the
+  column past the fold — this screen is laid out not to scroll.
+*/
+.ux-character-stack > .ux-character-form {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .ux-character-form,
 .ux-character-summary,
@@ -95,36 +161,23 @@
 .ux-form-intro {
   display: flex;
   align-items: center;
-  gap: 12px;
   margin-bottom: 13px;
 }
-.ux-step-token {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  border-radius: 14px;
-  color: #30204f;
-  background: linear-gradient(145deg, #f1d899, #dca85a);
-  font-family: var(--font-body);
-  font-size: 14px;
-}
-.ux-form-intro > div {
-  display: flex;
-  flex-direction: column;
-}
-.ux-form-intro small {
+/*
+  The card's one heading, wearing what the small gold label above it used to wear.
+
+  The numbered token and the display-face title that stood beside it are gone — for the main
+  hero the label and the title were the same three words twice over, and the number counted
+  cards in a stack that is normally one card long. Body face, not display: at 11px the capitals
+  the display face draws are a row of shapes rather than a word.
+*/
+.ux-form-intro h2 {
+  margin: 0;
   color: var(--story-gold);
+  font-family: var(--font-body);
+  font-feature-settings: normal;
   font-size: 11px;
   font-weight: 700;
-}
-.ux-form-intro h2 {
-  margin: 3px 0 0;
-  color: #fff8eb;
-  font-family: var(--font-display);
-  font-feature-settings: var(--display-caps);
-  font-size: 19px;
 }
 /*
   The form fills the column, and the photo panel fills the form.
@@ -200,7 +253,7 @@
 .ux-photo-upload {
   min-height: 178px;
   display: grid;
-  grid-template-rows: auto minmax(84px, 1fr) auto;
+  grid-template-rows: minmax(84px, 1fr) auto;
   justify-items: center;
   gap: 12px;
   padding: 16px;
@@ -209,30 +262,12 @@
   border-radius: 18px 18px 30px;
   background: #1a113a61;
 }
-.ux-photo-head,
 .ux-photo-foot {
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   min-width: 0;
-}
-.ux-photo-head span {
-  width: 41px;
-  height: 41px;
-  display: grid;
-  place-items: center;
-  margin-bottom: 8px;
-  border-radius: 14px;
-  color: var(--story-gold);
-  background: #e8c98a21;
-}
-.ux-photo-head span svg {
-  width: 20px;
-}
-.ux-photo-upload small {
-  color: var(--story-gold);
-  font-size: 11px;
 }
 /*
   The portrait, or the space kept for one.
@@ -251,9 +286,25 @@
   display: grid;
   place-items: center;
   overflow: hidden;
+  /* It is a button now, so the browser's own chrome comes off and the pointer goes on. */
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
   border: 1px solid rgba(239, 224, 193, 0.16);
   border-radius: 18px;
   background: radial-gradient(120% 120% at 50% 0%, #ffffff12, #150d3352);
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease;
+}
+.ux-photo-frame:hover:not(:disabled),
+.ux-photo-frame:focus-visible {
+  border-color: rgba(239, 215, 164, 0.5);
+  background: radial-gradient(120% 120% at 50% 0%, #ffffff1f, #150d3352);
+}
+.ux-photo-frame:disabled {
+  cursor: progress;
 }
 .ux-photo-frame img {
   width: 100%;
@@ -277,6 +328,9 @@
   border-color: #f0a08c5c;
 }
 .ux-photo-upload strong {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   color: #fff8eb;
   font-family: var(--font-body);
   font-size: 13px;
@@ -306,20 +360,12 @@
   border-color: #7ad8ae73;
   background: linear-gradient(145deg, #57a4842e, #1a113a61);
 }
-.ux-photo-upload.ready .ux-photo-head span {
-  color: #b9f0d0;
-  background: #53bc8f30;
-}
 /* A refused photo borrows the ready state's shape and inverts its colour, so the box reads as
    answered-and-wrong rather than as the untouched box it was a second ago. */
 .ux-photo-upload.rejected {
   border-style: solid;
   border-color: #f0a08c73;
   background: linear-gradient(145deg, #a4575730, #1a113a61);
-}
-.ux-photo-upload.rejected .ux-photo-head span {
-  color: #ffc9bb;
-  background: #bc635330;
 }
 .ux-photo-upload button:disabled {
   cursor: progress;
@@ -729,16 +775,17 @@
   padding-top: 10px;
   border-top: 1px solid rgba(239, 224, 193, 0.12);
 }
-.ux-profile-footer .privacy-inline {
+/*
+  The consent takes the room the padlock line used to.
+
+  It was the middle item of three in this row and the only one without a flex rule, so it was
+  the one that gave way: "ვეთანხმები წესებსა და პირობებს" broke over three lines in a footer
+  one line tall. With the padlock line gone it takes the width instead of shrinking under it.
+*/
+.ux-profile-footer .ux-terms-consent {
   flex: 1 1 auto;
   margin: 0;
-  line-height: 1.45;
   text-wrap: pretty;
-}
-.ux-profile-footer .privacy-inline svg {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
 }
 .ux-profile-footer .journey-primary {
   flex: 0 0 auto;
@@ -1401,7 +1448,23 @@
   }
   .ux-profile-stage {
     grid-template-columns: 1fr;
+    grid-template-rows: none;
     gap: 28px;
+  }
+  /*
+    One column means one column.
+
+    The three explicit placements above put the card and the footer in column 2 and both of them
+    in named rows, which is right for the two-column desktop and wrong the moment there is only
+    one track: grid answers a request for a column that does not exist by inventing it, so the
+    form sat beside the painting on every width between here and the phone breakpoint instead of
+    under it. They go back to flowing in order.
+  */
+  .ux-profile-stage > .ux-profile-aside,
+  .ux-profile-stage > .ux-character-stack,
+  .ux-profile-stage > .ux-profile-footer {
+    grid-column: 1;
+    grid-row: auto;
   }
   .ux-preview-layout {
     grid-template-columns: 1fr;
@@ -1897,14 +1960,8 @@
     gap: 14px;
   }
 
-  .ux-profile-aside .ux-stage-heading h1 {
-    font-size: clamp(29px, 2.4vw, 38px);
-  }
-
-  .ux-profile-aside .ux-stage-heading > p:not(.eyebrow) {
-    margin-top: 9px;
-    font-size: 12.5px;
-    line-height: 1.55;
+  .ux-profile-stage > .ux-stage-heading h1 {
+    font-size: clamp(24px, 1.95vw, 31px);
   }
 
   .ux-profile-aside .world-art-panel {
@@ -2059,14 +2116,8 @@
     margin-bottom: clamp(5px, 1vh, 18px);
   }
 
-  .ux-step-token {
-    width: 30px;
-    height: 30px;
-  }
-
-  .ux-form-intro h2 {
-    font-size: 17px;
-  }
+  /* The heading is an 11px label now, not a 19px display line, so it has nothing to give up
+     on a short window. The token it used to sit beside is gone. */
 
   .ux-photo-upload {
     min-height: 0;
