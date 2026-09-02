@@ -22,22 +22,37 @@ public sealed record BekiSpreadArtwork(int SpreadNumber, byte[] Image);
 public sealed record BekiBookPersonalization(string ChildName, int Age, DateTime Date, string Theme, string WorldName);
 
 /// <summary>
-/// The cream wash under one page's copy — a shape this book no longer draws.
+/// The translucent panel under one page's copy: where it is, how far it keeps from the fold and the
+/// trim, and what ink it is laid in.
 ///
-/// **Nothing produces one of these any more.** Owner ruling 2026-09-01, the third and final on the
-/// question: book copy is outlined type straight on the artwork, so there is no rectangle behind the
-/// words to describe and <see cref="BekiLayoutPageReceipt.Wash"/> is null on every page of every
-/// mode. The record is kept rather than deleted because a receipt's shape is a stored document's
-/// shape: books already in the blob store carry a <c>"wash"</c> block, and a reader that could not
-/// deserialize them would make yesterday's evidence unreadable to answer a question about today's.
+/// Written for the intro spread and every story spread since owner ruling 2026-09-01, the fourth
+/// on the question and the one that stands: "we need good background on the texts to be readable —
+/// transparent-like background, but not too transparent." The three rulings before it had taken
+/// the cream wash out, and for the campaign in between this record was kept only so that receipts
+/// written while the wash existed still read back; it now describes a shape the book draws again,
+/// in the book's own plum at sixty per cent rather than in opaque cream. A page that sets no copy
+/// over artwork — the covers, the endpapers, the credits — still carries no panel and writes null
+/// here, and a null must go on parsing, because a receipt's shape is a stored document's shape.
 ///
-/// The rectangle was stated in millimetres from the page's TOP-LEFT corner, which is both how a
-/// layout is written and how <see cref="BekiTextProbeRect"/> is read, so a receipt could be handed
-/// straight to the press probe without a conversion nobody would remember to make.
+/// The rectangle is stated in millimetres from the page's TOP-LEFT corner, which is both how a
+/// layout is written and how <see cref="BekiTextProbeRect"/> is read, so a receipt can be handed
+/// straight to the press probe without a conversion nobody would remember to make. On a press page
+/// that origin is the bled sheet's corner, so the same panel is five millimetres further in than on
+/// the download; the clearances are the same number in both.
+///
+/// **The rectangle is the copy column's, not the drawn panel's exact outline.** The panel is
+/// shrink-wrapped to the widest line the copy actually set plus the padding on each side, so it is
+/// never wider than <see cref="WidthMm"/> and is usually narrower; its height is exact, because
+/// the column's height is the measured block's plus the same padding. The composer writes the
+/// receipt from the column arithmetic it fitted the copy to and does not measure the widest line —
+/// a gate that needs the panel's true right edge should read the wrapped lines rather than this.
 /// </summary>
-/// <param name="PageSide">"left" or "right" — which leaf of the spread the wash belongs to.</param>
-/// <param name="FoldClearanceMm">Distance from the wash's inner edge to the centre fold.</param>
-/// <param name="TrimClearanceMm">Smallest distance from the wash to any trim edge.</param>
+/// <param name="WidthMm">The copy column's width — the panel's ceiling, not its measured width.</param>
+/// <param name="PaddingMm">The panel's reach past the copy on every side; also the column's inset.</param>
+/// <param name="Ink">The panel's ink as <c>#AARRGGBB</c>, the alpha being its opacity.</param>
+/// <param name="PageSide">"left" or "right" — which leaf of the spread the panel belongs to.</param>
+/// <param name="FoldClearanceMm">Distance from the column's inner edge to the centre fold.</param>
+/// <param name="TrimClearanceMm">Smallest distance from the column to any trim edge.</param>
 public sealed record BekiWashGeometry(
     [property: JsonPropertyName("x_mm")] double XMm,
     [property: JsonPropertyName("y_mm")] double YMm,
@@ -123,8 +138,10 @@ public sealed record BekiLayoutPageReceipt(
     [property: JsonPropertyName("page_height_mm")] double PageHeightMm,
     [property: JsonPropertyName("bleed_mm")] double BleedMm,
     [property: JsonPropertyName("image_sha256")] IReadOnlyList<string> ImageSha256,
-    // Always null since owner ruling 2026-09-01 (third and final): there is no box behind the words
-    // to describe. Kept in the shape so receipts written before the ruling still read back.
+    // The translucent panel under this page's copy (owner ruling 2026-09-01, fourth), on the intro
+    // and every story spread; null on a page that sets no copy over artwork, and null on every page
+    // of a book composed with StoryPanelOpacity = 0. Receipts from the campaign with no panel carry
+    // no block here at all, and still read back.
     [property: JsonPropertyName("wash")] BekiWashGeometry? Wash,
     [property: JsonPropertyName("typography")] IReadOnlyList<BekiTypographyRecord> Typography,
     [property: JsonPropertyName("text_lines")] IReadOnlyList<string> TextLines,
@@ -233,12 +250,18 @@ public sealed record BekiComposedBook(byte[] Pdf, BekiLayoutReceipts Receipts);
 /// <c>TextColor</c>, the rim is <c>OutlineColor</c>, the radius is <c>RimRadiusPt</c> and the step
 /// count is <see cref="BekiPrintLayoutOptions.TextOutlineSteps"/> — so a style the owner chooses off
 /// the proof sheet is expressible as configuration and two constants, and there is no treatment on
-/// the sheet that production could not then print. Nothing in this record can draw a shape: it is
-/// type colour, type size and rim geometry, which is the whole of what the ruling put in question.
+/// the sheet that production could not then print. The one shape it can name is the panel under the
+/// block (<see cref="PanelInkHex"/>, <see cref="PanelOpacity"/>), and it names it only in the terms
+/// <see cref="BekiPrintLayoutOptions.StoryPanelInkHex"/> and
+/// <see cref="BekiPrintLayoutOptions.StoryPanelOpacity"/> already use: the proof's panel is the
+/// production panel with a different ink or strength, drawn by the same code at the same
+/// millimetres. Nothing here can move the panel, pad it differently or round it differently — a
+/// proof that wanted those would be proving a layout the book cannot print.
 ///
 /// A null of this type — everywhere it is accepted — means "as the book ships", and the composer
 /// then evaluates every one of those expressions exactly as it did before this record existed. That
-/// is deliberate: the proof path must not be able to move the production path by a pixel.
+/// is deliberate: the proof path must not be able to move the production path by a pixel. The two
+/// panel fields carry the same meaning individually: left null, the sample's panel is the book's.
 /// </summary>
 internal sealed record BekiTextStyleProof
 {
@@ -284,6 +307,19 @@ internal sealed record BekiTextStyleProof
     /// <summary>How many offset copies make the rim. Sixteen is the shipped count.</summary>
     public int RimSteps { get; init; } = 16;
 
+    /// <summary>
+    /// The ink of the panel under the block, <c>RRGGBB</c>, or null for the book's own
+    /// (<see cref="BekiPrintLayoutOptions.StoryPanelInkHex"/>).
+    /// </summary>
+    public string? PanelInkHex { get; init; }
+
+    /// <summary>
+    /// How opaque that panel is, 0–1, or null for the book's own
+    /// (<see cref="BekiPrintLayoutOptions.StoryPanelOpacity"/>). Zero is a sample with no panel —
+    /// the pre-ruling book, which an owner comparing treatments has to be able to see beside them.
+    /// </summary>
+    public float? PanelOpacity { get; init; }
+
     /// <summary>QuestPDF's leading, which is a multiple of the size rather than a second size.</summary>
     internal float LineHeight => FontSizePt <= 0f ? 1.5f : LeadingPt / FontSizePt;
 
@@ -312,9 +348,10 @@ internal sealed record BekiTextStyleProof
 
     /// <summary>
     /// <c>#AARRGGBB</c>, which is the one form QuestPDF reads an alpha out of — and the same form the
-    /// shipped English secondary line is already written in (<c>#D9FFF8EB</c>).
+    /// shipped English secondary line is already written in (<c>#D9FFF8EB</c>). Shared with the
+    /// composer's own panel, so a proof's panel and the book's are spelled by the same hand.
     /// </summary>
-    private static string Argb(string hex, float opacity)
+    internal static string Argb(string hex, float opacity)
     {
         var rgb = hex.TrimStart('#');
         var alpha = (int)MathF.Round(Math.Clamp(opacity, 0f, 1f) * 255f);
@@ -460,23 +497,31 @@ public interface IBekiPdfComposer
 /// no approved background, stops the book. The composer used to draw a dot field and a tinted
 /// ground instead, and the first anyone noticed was a printed book with a placeholder bound into it.
 ///
-/// **The book's copy is outlined type drawn straight on the artwork. No box behind the words.**
-/// That sentence has now been written three times in this file, and this is the version that stands:
-/// owner ruling 2026-09-01, the owner's third and FINAL ruling on it. A cream wash was built, removed
-/// by the owner after the first live v1.5 book, restored by audit 1.0's P1-04 on the supplier's
-/// evidence, and removed again here — the owner's ruling overrides the audit, and the contract files
-/// are left saying what the supplier said. Every block of book copy is cream #FFF8EB with a #0D071D
-/// rim, set as vector text over the picture: the cover title, the back-cover address, the intro
-/// spread's four lines, and each story spread's Georgian paragraph with its English sibling under it.
-/// The credits page is the one page this does not describe, and it never did — its ground is the
-/// book's own purple, so its type is plain light text on a flat colour and needs no rim.
+/// **The book's copy is outlined type on a translucent, copy-sized panel.** Owner ruling
+/// 2026-09-01, the fourth on the question and the one that stands: "we need good background on the
+/// texts to be readable — transparent-like background, but not too transparent." The history is
+/// worth keeping straight, because the file has said the opposite three times. A cream wash was
+/// built, removed by the owner after the first live v1.5 book, restored by audit 1.0's P1-04 on the
+/// supplier's evidence, removed again by the owner's third ruling — and the copy was then cream
+/// #FFF8EB with a #0D071D rim straight on the artwork, which on pale artwork fails in the one way a
+/// rim cannot help: the fill vanishes into the picture and the letters are hollow outlines. The
+/// panel is what fixes that, and it is deliberately not the cream wash coming back: it is the
+/// page's own plum at sixty per cent (<see cref="BekiPrintLayoutOptions.StoryPanelInkHex"/>,
+/// <see cref="BekiPrintLayoutOptions.StoryPanelOpacity"/>), a shade the picture shows through, sized
+/// to the copy — the widest set line plus <see cref="BekiPrintLayoutOptions.WashPaddingMm"/> on each
+/// side, the block's height plus the same — and drawn inside the column the copy already had. The
+/// type on it is unchanged: every block of book copy is still cream with the #0D071D rim, set as
+/// vector text — the cover title and the back-cover address on their artwork with no panel, the
+/// intro spread's four lines and each story spread's Georgian paragraph (with its English sibling
+/// under it) on theirs. The credits page is the one page this does not describe, and it never did —
+/// its ground is the book's own purple, so its type is plain light text on a flat colour.
 ///
-/// The layout arithmetic the wash brought with it stays, because it was never really about the wash:
-/// the copy column is still measured to the wrapped copy, and it is still refused if it would cross
-/// the centre fold or reach past the trim safety margin. What is gone is the rectangle that used to
-/// be painted at those millimetres. If the copy will not fit at any size the age band allows, the
-/// book stops with <c>TEXT_OVERFLOW</c>; it is never set at a size that still overflows, and it is
-/// never rewritten.
+/// The layout arithmetic is the arithmetic the wash first brought and the rim-only campaign kept:
+/// the copy column is measured to the wrapped copy, it is refused if it would cross the centre fold
+/// or reach past the trim safety margin, and the panel is painted at exactly those millimetres —
+/// so nothing about where a line breaks, what size it is set at or where it sits moved when the
+/// panel came back. If the copy will not fit at any size the age band allows, the book stops with
+/// <c>TEXT_OVERFLOW</c>; it is never set at a size that still overflows, and it is never rewritten.
 ///
 /// Every picture is placed at the sheet's own proportions. A centred crop of more than
 /// <see cref="BekiPrintLayoutOptions.PrintCropTolerance"/> per axis is refused rather than performed
@@ -563,8 +608,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     ///
     /// Named for a wash it once sat behind: the Continue Adventure chip shared this ink until the
     /// Locked Print Specification §6 removed it with its QR, and the story wash borrowed the name
-    /// after that. Both are gone (owner ruling 2026-09-01, third and final); the ink stays, as the
-    /// outline it always really was.
+    /// after that. The chip is gone; the panel that stands under the copy today (owner ruling
+    /// 2026-09-01, fourth) is the page's plum and not this near-black, so the rim still reads as a
+    /// darker edge inside the shade rather than dissolving into it.
     /// </summary>
     private const string TextOutlineInk = "0D071D";
 
@@ -1348,10 +1394,14 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// world it opens into, and the invitation — and it carries no date. A date on the intro spread
     /// makes a reprint a different book from the one that was bought.
     ///
-    /// The copy is cream with its own dark rim, drawn straight on the background — owner ruling
-    /// 2026-09-01, third and final. Audit P1-04's "the intro has no controlled local support" was a
-    /// finding about this page in particular and was answered with a cream wash; the owner has
-    /// overruled it, and the support the lines have now is the rim each glyph carries.
+    /// The copy is cream with its own dark rim, on the same translucent plum panel the story spreads
+    /// carry — owner ruling 2026-09-01, fourth. Audit P1-04's "the intro has no controlled local
+    /// support" was a finding about this page in particular: it was answered with a cream wash, the
+    /// owner's third ruling took the wash away and left the lines with only their rim, and the
+    /// fourth put a shade under them because the approved backgrounds are pale exactly where these
+    /// four lines sit. The panel is the block's own size — its widest line plus the padding — and is
+    /// drawn inside the column the lines were already centred in, so their measure, their breaks
+    /// and their position are the numbers they were.
     /// </summary>
     private void ComposeIntro(
         IDocumentContainer container,
@@ -1392,6 +1442,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             + ((availableHeightMm - columnHeightMm) / 2f);
         var columnLeftMm = Bleed(mode) + _layout.SafeMarginMm;
 
+        // The book's own panel: the intro has no proof path, so this is never anything else.
+        var panel = StoryPanel();
+
         container.Page(page =>
         {
             ApplyGeometry(page, _layout.SpreadWidthMm, mode);
@@ -1408,17 +1461,21 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 {
                     // The left leaf carries the words; the right one is Beki's, which is where the
                     // composite engine has just put her.
-                    row.RelativeItem()
+                    var copyColumn = row.RelativeItem()
                         .PaddingTop(_layout.SafeMarginMm, Unit.Millimetre)
                         .PaddingBottom(_layout.SafeMarginMm, Unit.Millimetre)
                         .PaddingLeft(_layout.SafeMarginMm, Unit.Millimetre)
                         .PaddingRight(InnerPaddingMm, Unit.Millimetre)
                         .AlignMiddle()
                         .AlignLeft()
-                        .Width(columnWidthMm, Unit.Millimetre)
-                        // No box behind the words (owner ruling 2026-09-01, third and final). The
-                        // padding stays as a plain inset, so the measure the lines are wrapped to —
-                        // and therefore every line break the receipt records — is unchanged.
+                        .Width(columnWidthMm, Unit.Millimetre);
+
+                    // The panel goes here, inside the column and outside the inset (owner ruling
+                    // 2026-09-01, fourth): the padding is still the plain inset the lines are
+                    // wrapped to, so every line break the receipt records is unchanged, and the
+                    // panel is painted under the inset's outer edge — the same seven millimetres
+                    // past the copy on every side.
+                    StoryPanelBehind(copyColumn, panel)
                         .Padding(_layout.WashPaddingMm, Unit.Millimetre)
                         .Column(column =>
                         {
@@ -1447,7 +1504,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             _layout.SpreadWidthMm + (Bleed(mode) * 2f), _layout.SpreadHeightMm + (Bleed(mode) * 2f),
             Bleed(mode),
             [Sha256(artwork.Bytes)],
-            Wash: null,
+            PanelGeometry(
+                panel, columnLeftMm, columnTopMm, columnWidthMm, columnHeightMm, "left", mode),
             lines.Select(line => new BekiTypographyRecord(
                 line.Role, PdfFontBootstrap.BodyFamily, line.SizePt, StoryLineHeight, TextColorHex))
                 .ToList(),
@@ -1782,6 +1840,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         var rim = proof is null ? OutlineColor : proof.Rim;
         var fillHex = proof is null ? TextColorHex : proof.FillArgbHex;
 
+        // And the shade under it — the book's own unless a proof names another, or none.
+        var panel = StoryPanel(proof);
+
         var placed = CropToPage(image, _layout.SpreadWidthMm, mode);
 
         var columnWidthMm = StoryColumnWidthPt / PointsPerMm;
@@ -1816,7 +1877,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                     // that is the larger number.
                     if (!textOnLeft) row.RelativeItem(1f - _layout.TextColumnShare);
 
-                    row.RelativeItem(_layout.TextColumnShare)
+                    var copyColumn = row.RelativeItem(_layout.TextColumnShare)
                         .PaddingTop(outerPaddingMm, Unit.Millimetre)
                         .PaddingBottom(outerPaddingMm, Unit.Millimetre)
                         .PaddingLeft(textOnLeft ? outerPaddingMm : innerPaddingMm, Unit.Millimetre)
@@ -1825,11 +1886,14 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                         // top of its column.
                         .AlignTop()
                         .AlignLeft()
-                        .Width(columnWidthMm, Unit.Millimetre)
-                        // No box behind the words (owner ruling 2026-09-01, third and final): the
-                        // copy sits straight on the artwork as cream type with its own dark rim.
-                        // The padding stays as a plain inset, so the measure the ladder fitted the
-                        // copy to — and every line break it produced — is unchanged.
+                        .Width(columnWidthMm, Unit.Millimetre);
+
+                    // The panel (owner ruling 2026-09-01, fourth) goes between the column and its
+                    // inset, in this same layer: the copy is still cream type with its own dark rim,
+                    // the padding is still the plain inset the ladder fitted the copy to — so every
+                    // line break it produced is unchanged — and the shade is painted under the
+                    // inset's outer edge, seven millimetres past the copy on every side.
+                    StoryPanelBehind(copyColumn, panel)
                         .Padding(_layout.WashPaddingMm, Unit.Millimetre)
                         .Column(column =>
                         {
@@ -1882,7 +1946,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             _layout.SpreadWidthMm + (Bleed(mode) * 2f), _layout.SpreadHeightMm + (Bleed(mode) * 2f),
             Bleed(mode),
             [Sha256(placed)],
-            Wash: null, typography, textLines, TextProbe: null,
+            PanelGeometry(
+                panel, columnLeftMm, columnTopMm, columnWidthMm, columnHeightMm,
+                textOnLeft ? "left" : "right", mode),
+            typography, textLines, TextProbe: null,
             // Rule 4's disclosure, per spread: what the illustration stage delivered, what the sheet
             // took, and whether the difference was made up by a resampler.
             Rasters: [Provenance(spreadRole, image, placed)]));
@@ -1997,12 +2064,15 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// refused if it breaks any of them.
     ///
     /// "Keep it within the selected page, outside the fold safety area and trim safety margins."
-    /// Audit P1-04 wrote that about a cream wash, and the owner has since ruled the wash away
-    /// (2026-09-01, third and final) — but the sentence was never really about the wash. It is about
-    /// where a reader's eye has to go, and words that run into the gutter are unreadable whether or
-    /// not there is a box behind them. So the three assertions stay, applied to the copy column
-    /// itself: Story Spread 4's panel crossed the fold and nothing in the pipeline was in a position
-    /// to notice, and that remains the failure this guard exists to make impossible.
+    /// Audit P1-04 wrote that about a cream wash, the owner's third ruling of 2026-09-01 took the
+    /// wash away, and the fourth put a translucent panel at the same millimetres — and through all
+    /// of it the sentence was never really about what is painted. It is about where a reader's eye
+    /// has to go, and words that run into the gutter are unreadable whether or not there is a shape
+    /// behind them. So the three assertions are applied to the copy column itself, which is also
+    /// exactly the rectangle the panel is drawn inside: Story Spread 4's panel crossed the fold and
+    /// nothing in the pipeline was in a position to notice, and that remains the failure this guard
+    /// exists to make impossible. The receipt states the same two clearances
+    /// (<see cref="CopyColumnClearances"/>) so a gate can ask the question again of the stored book.
     ///
     /// A refusal here is a layout bug and not a content one: the geometry that produces these
     /// numbers is entirely ours.
@@ -2016,23 +2086,12 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         // of a float rather than on a layout anybody could see.
         const float Slack = 0.05f;
 
-        var bleed = Bleed(mode);
-        var pageWidthMm = _layout.SpreadWidthMm + (bleed * 2f);
-        var trimLeft = bleed;
-        var trimTop = bleed;
-        var trimRight = bleed + _layout.SpreadWidthMm;
-        var trimBottom = bleed + _layout.SpreadHeightMm;
-        var fold = pageWidthMm / 2f;
-
+        var fold = (_layout.SpreadWidthMm + (Bleed(mode) * 2f)) / 2f;
         var right = leftMm + widthMm;
-        var bottom = topMm + heightMm;
-
         var onLeft = side == "left";
-        var foldClearance = onLeft ? fold - right : leftMm - fold;
 
-        var trimClearance = MathF.Min(
-            MathF.Min(leftMm - trimLeft, trimRight - right),
-            MathF.Min(topMm - trimTop, trimBottom - bottom));
+        var (foldClearance, trimClearance) =
+            CopyColumnClearances(leftMm, topMm, widthMm, heightMm, side, mode);
 
         if (onLeft ? right > fold + Slack : leftMm < fold - Slack)
         {
@@ -2859,6 +2918,132 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// <summary>The measure the copy itself is set to: the column, less the column's own inset.</summary>
     private float StoryCopyWidthPt => StoryColumnWidthPt - (MmToPt(_layout.WashPaddingMm) * 2f);
 
+    // ==============================================================================================
+    // The panel under the copy
+    // ==============================================================================================
+
+    /// <summary>
+    /// The translucent panel under the story and intro copy, as QuestPDF reads it — or null when
+    /// there is to be no panel at all.
+    ///
+    /// Owner ruling 2026-09-01, the fourth on the question: "we need good background on the texts
+    /// to be readable — transparent-like background, but not too transparent." The ink and the
+    /// strength are <see cref="BekiPrintLayoutOptions.StoryPanelInkHex"/> and
+    /// <see cref="BekiPrintLayoutOptions.StoryPanelOpacity"/>, the book's plum at sixty per cent by
+    /// default, unless a proof style names its own — which is how the proof sheet shows the owner
+    /// the same panel stronger, weaker, another colour, or absent. An opacity of zero, from either
+    /// source, is no panel: the container chain is then exactly the rim-only book's.
+    ///
+    /// Carried as <c>#AARRGGBB</c> rather than as a <see cref="Color"/>, because that one string is
+    /// both what QuestPDF reads an alpha out of and what the receipt writes down, and a receipt that
+    /// re-derived the hex from the colour would be a second spelling of the same ink.
+    /// </summary>
+    private string? StoryPanel(BekiTextStyleProof? proof = null)
+    {
+        var ink = proof?.PanelInkHex ?? _layout.StoryPanelInkHex;
+        var opacity = Math.Clamp(proof?.PanelOpacity ?? _layout.StoryPanelOpacity, 0f, 1f);
+
+        if (opacity <= 0f || string.IsNullOrWhiteSpace(ink))
+        {
+            return null;
+        }
+
+        return BekiTextStyleProof.Argb(ink, opacity);
+    }
+
+    /// <summary>
+    /// The panel, put behind a copy column: the column shrink-wrapped to its widest set line, the
+    /// ink painted under it, the corners softened by
+    /// <see cref="BekiPrintLayoutOptions.WashCornerRadiusMm"/>.
+    ///
+    /// **Where in the chain this sits is the whole of the design.** The caller has already fixed
+    /// the column's width and pinned it to the top-left of its leaf; what follows this is the
+    /// column's inset and then the type. Painting the panel here — after the width, before the
+    /// inset — means the copy is still wrapped to the same measure it always was, the inset is the
+    /// panel's reach past the copy, and nothing about the fitted size or the line breaks knows the
+    /// panel exists. The extra <c>AlignLeft</c> is what makes the panel copy-sized rather than
+    /// column-sized: an aligned box is drawn at its child's measured width, and the column's
+    /// measured width is its widest line plus the inset, not the column's full measure.
+    ///
+    /// And it sits INSIDE the copy layer rather than as a layer of its own beneath it. QuestPDF's
+    /// <c>Layers</c> lets a secondary layer's content wrap onto a page that does not exist, and
+    /// then drops it without a word; a background painted by the same box that holds the type is
+    /// painted before the type, by construction, on the same page as the type.
+    ///
+    /// No panel, no change: a null <paramref name="panel"/> returns the chain untouched, so a book
+    /// composed with the panel off is the rim-only book byte for byte.
+    /// </summary>
+    private IContainer StoryPanelBehind(IContainer copyColumn, string? panel)
+    {
+        if (panel is null)
+        {
+            return copyColumn;
+        }
+
+        return copyColumn
+            .AlignLeft()
+            .Background(Color.FromHex(panel))
+            .CornerRadius(MathF.Max(0f, _layout.WashCornerRadiusMm), Unit.Millimetre);
+    }
+
+    /// <summary>
+    /// The panel's receipt: the copy column it was drawn inside, the clearances that column keeps
+    /// from the fold and the trim, and the ink it was laid in — or null when no panel was drawn.
+    ///
+    /// The rectangle is the column's inset bounding rectangle, stated from the page's top-left
+    /// corner in the same millimetres <see cref="EnforceCopyColumnSafety"/> judged; the drawn panel
+    /// is never wider than it (see <see cref="BekiWashGeometry"/> for why it may be narrower). The
+    /// clearances are computed by the same arithmetic the guard uses, so a receipt and a refusal
+    /// can never disagree about the same column.
+    /// </summary>
+    private BekiWashGeometry? PanelGeometry(
+        string? panel, float leftMm, float topMm, float widthMm, float heightMm,
+        string side, BekiRenderMode mode)
+    {
+        if (panel is null)
+        {
+            return null;
+        }
+
+        var (foldClearance, trimClearance) =
+            CopyColumnClearances(leftMm, topMm, widthMm, heightMm, side, mode);
+
+        return new BekiWashGeometry(
+            leftMm, topMm, widthMm, heightMm,
+            _layout.WashPaddingMm,
+            MathF.Max(0f, _layout.WashCornerRadiusMm),
+            panel,
+            side,
+            foldClearance,
+            trimClearance);
+    }
+
+    /// <summary>
+    /// How far a copy column keeps from the centre fold and from the nearest trim edge, in
+    /// millimetres, on a page of this mode — the two numbers the safety guard refuses on and the
+    /// receipt records, from one place so they are the same numbers.
+    /// </summary>
+    private (float Fold, float Trim) CopyColumnClearances(
+        float leftMm, float topMm, float widthMm, float heightMm,
+        string side, BekiRenderMode mode)
+    {
+        var bleed = Bleed(mode);
+        var fold = (_layout.SpreadWidthMm + (bleed * 2f)) / 2f;
+        var trimRight = bleed + _layout.SpreadWidthMm;
+        var trimBottom = bleed + _layout.SpreadHeightMm;
+
+        var right = leftMm + widthMm;
+        var bottom = topMm + heightMm;
+
+        var foldClearance = side == "left" ? fold - right : leftMm - fold;
+
+        var trimClearance = MathF.Min(
+            MathF.Min(leftMm - bleed, trimRight - right),
+            MathF.Min(topMm - bleed, trimBottom - bottom));
+
+        return (foldClearance, trimClearance);
+    }
+
     /// <summary>The intro copy column's width: the left leaf's text area, capped at the same measure.</summary>
     private float IntroColumnWidthMm => MathF.Min(
         (_layout.SpreadWidthMm / 2f) - _layout.SafeMarginMm - InnerPaddingMm,
@@ -2881,8 +3066,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// Every word the book prints over artwork comes through here: the cover title, the back-cover
     /// address, the intro spread's lines, and each story spread's copy in both languages. The story
     /// and intro copy left for one campaign, when audit P1-04 put a cream wash under them and dark
-    /// ink on cream needs no rim; owner ruling 2026-09-01 — the third and final on the question —
-    /// took the wash away again, and they came back.
+    /// ink on cream needs no rim; owner ruling 2026-09-01's third took the wash away again, and they
+    /// came back. The fourth ruling's translucent panel (<see cref="StoryPanelBehind"/>) is drawn
+    /// under the intro and story blocks by the container that holds them, not by this method, which
+    /// sets exactly the same type over the panel as it sets over bare artwork on the covers.
     ///
     /// This used to be a raster: the offset stack rendered to a PNG at 300 DPI with one
     /// invisible text run over it, so that <c>pdftotext</c> said each line once. The supplier's
@@ -2897,8 +3084,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// "text must have a STRONGER border so it is readable on all backgrounds." The radius is
     /// <see cref="RimRadiusPt"/> — a proportion of this block's size, floored at the old fixed
     /// width — so the cover title's rim grows with the cover title and the English secondary line's
-    /// with the English secondary line. It is a rim and only ever a rim: no background box, no wash,
-    /// no panel, which is the ruling before it and is not in question here.
+    /// with the English secondary line. It is a rim and only ever a rim: the panel some blocks now
+    /// sit on is a separate shape drawn by a separate container, and it did not change the rim.
     ///
     /// <paramref name="blockWidthPt"/> is kept for the callers' layout arithmetic even though no
     /// raster needs sizing any more; a box too narrow to set type in still falls back to plain.

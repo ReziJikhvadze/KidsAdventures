@@ -17,8 +17,8 @@ namespace Adventrya.Story.Tests;
 /// The interior typography contract (§6 Step 8, R4 and R10).
 ///
 /// Four things the shipped book got wrong, each with a test that would have caught it: the visible
-/// Georgian was a picture of words rather than type; the wash was a full-height dark panel rather
-/// than a cream box around the copy; an overlong paragraph was set at the smallest size on the list
+/// Georgian was a picture of words rather than type; the text panel was a full-height dark slab
+/// rather than a shape the copy's own size; an overlong paragraph was set at the smallest size on the list
 /// and printed off the page instead of stopping with <c>TEXT_OVERFLOW</c>; and the file embedded two
 /// faces — Noto Serif Georgian and QuestPDF's default Lato — that the interior is not allowed.
 /// </summary>
@@ -80,20 +80,23 @@ public class BekiInteriorTypographyTests
     }
 
     /// <summary>
-    /// The copy is cream type upper-left on the artwork, and there is no panel of any colour behind
-    /// it.
+    /// The copy is cream type upper-left on the artwork, on a translucent panel that is the copy's
+    /// own size — a shade under the words, not the slab the shipped book had.
     ///
-    /// This page has now been three things. The shipped book had a "dark half-page text panel"; audit
-    /// P1-04 replaced it with a local cream wash; owner ruling 2026-09-01 — the third and final —
-    /// removed the box altogether in favour of cream type with its own dark rim. So the test asks
-    /// what is actually on the leaf: where the cream starts, where it stops, and how much of the
-    /// column it covers. Type covers a small fraction of the space that holds it; a panel covers
-    /// nearly all of it, whichever colour it is painted.
+    /// This page has now been four things. The shipped book had a "dark half-page text panel"; audit
+    /// P1-04 replaced it with a local cream wash; owner ruling 2026-09-01's third removed the box in
+    /// favour of cream type with its own dark rim; and the fourth ruling of the same day —
+    /// "transparent-like background, but not too transparent" — put a translucent plum panel under
+    /// that type, because a rim alone cannot carry cream letters on pale artwork. So the test asks
+    /// what is actually on the leaf: where the cream starts and stops; where the shade starts and
+    /// stops around it, which has to be the padding and no more; and whether the picture still
+    /// shows through the shade, which is what makes it a shade.
     /// </summary>
     [Fact]
-    public void The_story_copy_is_cream_type_upper_left_with_no_panel_behind_it()
+    public void The_story_copy_is_cream_type_upper_left_on_a_panel_its_own_size()
     {
         var pages = RenderFixtureBook();
+        var layout = BekiLayoutFixture.ScreenProofLayout();
 
         // Spread 1's text side is LEFT (the rhythm's first entry), so the copy is on the left leaf.
         Assert.Equal("left", AdventurePacks.Api.Services.Story.Prompts.BekiSpreadRhythm.TextSideFor(1));
@@ -101,47 +104,118 @@ public class BekiInteriorTypographyTests
         using var page = Image.Load<Rgba32>(pages[FirstStorySpreadPage]);
 
         // The proof sheet is the 440 mm spread plus 5 mm of bleed on each edge, so the copy column —
-        // 12 mm inside the trim and 118 mm wide — runs from 17 mm to about 147 mm across it.
+        // 12 mm inside the trim and 118 mm wide — runs from 17 mm to about 147 mm across it, and
+        // starts 17 mm down.
         var pxPerMm = page.Width / 450f;
         var left = (int)(17 * pxPerMm);
         var right = (int)(147 * pxPerMm);
 
-        int? firstRow = null;
-        int? lastRow = null;
-        var cream = 0;
+        var cream = Bounds(page, left, right, IsCream);
+        var shade = Bounds(page, left, right, pixel => !IsArtwork(pixel));
+
+        Assert.True(cream is not null, "No cream type was found in the story copy's column.");
+        Assert.True(shade is not null, "No panel was found in the story copy's column.");
+
+        // Upper-left: the copy starts inside the top fifth of the sheet.
+        Assert.True(cream!.Value.Top < page.Height / 5,
+            $"The copy starts {cream.Value.Top} rows down a {page.Height}-row page; it is set upper-left.");
+
+        // And it stops where the words stop. The fixture's spreads are one short sentence each, so
+        // cream reaching even half way down the leaf would be a slab rather than a paragraph.
+        Assert.True(cream.Value.Bottom < page.Height / 2,
+            $"Cream runs to row {cream.Value.Bottom} of {page.Height}; that is a slab, not a paragraph.");
+
+        // The panel hugs the copy. Its top-left corner is the column's own, and measured against
+        // the cream its edges sit the padding away plus the type's own air — the ascender a little
+        // below its line box, the descender a little above the box's bottom — so between half the
+        // padding and twice it on every side. The shipped book's slab ran the height of the leaf.
+        var pad = layout.WashPaddingMm * pxPerMm;
+
+        Assert.InRange(shade!.Value.Top, left - 2, left + 2);
+        Assert.InRange(shade.Value.Left, left - 2, left + 2);
+        Assert.InRange(cream.Value.Top - shade.Value.Top, pad * 0.5, pad * 2.0);
+        Assert.InRange(shade.Value.Bottom - cream.Value.Bottom, pad * 0.5, pad * 2.0);
+        Assert.InRange(cream.Value.Left - shade.Value.Left, pad * 0.5, pad * 1.5);
+        Assert.InRange(shade.Value.Right - cream.Value.Right, pad * 0.5, pad * 2.0);
+
+        // Translucent: inside the panel, away from the type and its rim, the artwork's green is
+        // still the strongest channel and is still most of what is there. The plum at sixty per
+        // cent over (0, 200, 120) is about (24, 96, 86); an opaque plum would be (40, 27, 63), and
+        // no panel at all would leave the green at 200.
+        var panelPixels = new List<Rgba32>();
+        var creamPixels = 0;
         var total = 0;
 
-        for (var y = 0; y < page.Height; y++)
+        for (var y = shade.Value.Top; y <= shade.Value.Bottom; y++)
         {
-            for (var x = left; x < right; x++)
+            for (var x = shade.Value.Left; x <= shade.Value.Right; x++)
             {
-                if (!IsCream(page[x, y])) continue;
-                firstRow ??= y;
-                lastRow = y;
-                cream++;
+                var pixel = page[x, y];
+                total++;
+
+                if (IsCream(pixel))
+                {
+                    creamPixels++;
+                }
+                else if (pixel.G is >= 60 and <= 150)
+                {
+                    panelPixels.Add(pixel);
+                }
             }
         }
 
-        Assert.True(firstRow is not null, "No cream type was found in the story copy's column.");
+        Assert.True(panelPixels.Count > total / 2,
+            $"Only {panelPixels.Count} of the panel's {total} pixels are the shaded picture; the "
+            + "rest are type, rim, or a panel too opaque to see the artwork through.");
+        Assert.True(panelPixels.Average(pixel => pixel.G) > panelPixels.Average(pixel => pixel.B),
+            "Inside the panel blue outweighs green; the plum is covering the picture rather than shading it.");
 
-        // Upper-left: the copy starts inside the top fifth of the sheet.
-        Assert.True(firstRow!.Value < page.Height / 5,
-            $"The copy starts {firstRow.Value} rows down a {page.Height}-row page; it is set upper-left.");
-
-        // And it stops where the words stop. The fixture's spreads are one short sentence each, so
-        // cream reaching even half way down the leaf would be a panel rather than a paragraph.
-        Assert.True(lastRow!.Value < page.Height / 2,
-            $"Cream runs to row {lastRow.Value} of {page.Height}; that is a panel, not a paragraph.");
-
-        // Nothing is painted behind the words: across the whole column, from the first cream row to
-        // the last, the picture is still what most of the pixels are.
-        total = (right - left) * (lastRow.Value - firstRow.Value + 1);
-        var share = (double)cream / total;
-
+        // And type is still type: cream is a small share of the panel it sits on.
+        var share = (double)creamPixels / total;
         Assert.True(share < 0.25,
-            $"{share:P0} of the copy's column is cream. Outlined type covers a small part of its "
-            + "column; a quarter or more is a box behind the words, which the owner's ruling of "
-            + "2026-09-01 — the third and final — removed.");
+            $"{share:P0} of the panel is cream. Outlined type covers a small part of the shade it "
+            + "sits on; a quarter or more is a cream box, which is not what the ruling asked for.");
+    }
+
+    /// <summary>
+    /// And the panel is sized to the copy that was set, not to the column it was set in: a spread
+    /// with three words on it gets a panel three words wide.
+    ///
+    /// Rendered through the composer's own one-spread path with no proof style, which is the
+    /// production page pixel for pixel; the fixture book's sentences fill their column too nearly
+    /// to tell a panel wrapped to its widest line from one drawn to the column's edge.
+    /// </summary>
+    [Fact]
+    public void The_panel_is_as_wide_as_the_widest_line_and_not_as_wide_as_the_column()
+    {
+        var layout = BekiLayoutFixture.ScreenProofLayout();
+        var plan = BekiLayoutFixture.EightSpreadPlan("ნინო ჩუმად იჯდა.");
+        var spread = plan.Spreads.Single(page => page.Number == 1);
+
+        var png = new BekiPdfComposer(Options.Create(layout)).RenderStyleProofSpread(
+            spread, BekiLayoutFixture.SheetPng((0, 200, 120)), BekiLayoutFixture.Personalization(),
+            style: null, rasterDpi: 96);
+
+        using var page = Image.Load<Rgba32>(png);
+        var pxPerMm = page.Width / 450f;
+        var left = (int)(17 * pxPerMm);
+        var right = (int)(147 * pxPerMm);
+
+        var cream = Bounds(page, left, right, IsCream);
+        var shade = Bounds(page, left, right, pixel => !IsArtwork(pixel));
+
+        Assert.True(cream is not null, "No cream type was found in the story copy's column.");
+        Assert.True(shade is not null, "No panel was found in the story copy's column.");
+
+        var pad = layout.WashPaddingMm * pxPerMm;
+
+        // The panel ends the padding past the last letter…
+        Assert.InRange(shade!.Value.Right - cream!.Value.Right, pad * 0.5, pad * 2.0);
+
+        // …which on three words is nowhere near the column's far edge.
+        Assert.True(right - shade.Value.Right > 30 * pxPerMm,
+            $"The panel runs to {shade.Value.Right / pxPerMm:0.#} mm on a column that ends at 147 mm; "
+            + "that is the column's width, not the copy's.");
     }
 
     /// <summary>
@@ -305,6 +379,40 @@ public class BekiInteriorTypographyTests
 
     private static bool IsCream(Rgba32 pixel)
         => pixel.R > 200 && pixel.G > 195 && pixel.B > 170 && pixel.B < pixel.R;
+
+    /// <summary>The fixture's flat green, (0, 200, 120), with room for the rasteriser.</summary>
+    private static bool IsArtwork(Rgba32 pixel)
+        => pixel.R < 30 && Math.Abs(pixel.G - 200) < 30 && Math.Abs(pixel.B - 120) < 30;
+
+    /// <summary>The rows and columns something occupies, inclusive.</summary>
+    private readonly record struct Box(int Top, int Bottom, int Left, int Right);
+
+    /// <summary>
+    /// The bounding box of every pixel between <paramref name="left"/> and <paramref name="right"/>
+    /// that <paramref name="wanted"/> accepts, or null when there is none.
+    /// </summary>
+    private static Box? Bounds(Image<Rgba32> page, int left, int right, Func<Rgba32, bool> wanted)
+    {
+        int? top = null;
+        var bottom = 0;
+        var first = right;
+        var last = left - 1;
+
+        for (var y = 0; y < page.Height; y++)
+        {
+            for (var x = left; x < right; x++)
+            {
+                if (!wanted(page[x, y])) continue;
+
+                top ??= y;
+                bottom = y;
+                if (x < first) first = x;
+                if (x > last) last = x;
+            }
+        }
+
+        return top is { } found ? new Box(found, bottom, first, last) : null;
+    }
 
     private static PdfDocument Open(byte[] pdf)
         => PdfReader.Open(new MemoryStream(pdf), PdfDocumentOpenMode.Import);

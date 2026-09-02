@@ -10,18 +10,23 @@ namespace Adventrya.Story.Tests;
 
 /// <summary>
 /// Owner ruling 2026-09-01, rule 3, verbatim: <b>"text must have a STRONGER border so it is readable
-/// on all backgrounds."</b>
+/// on all backgrounds."</b> And the fourth ruling of the same day, on the same copy: <b>"we need
+/// good background on the texts to be readable — transparent-like background, but not too
+/// transparent."</b>
 ///
-/// "All backgrounds" is the part that decides how this is tested. The ruling before it took the cream
-/// wash away for the third and final time, so every word the book sets over artwork is cream #FFF8EB
-/// with a #0D071D rim and nothing else — no box, no wash, no panel. Which means there is a worst case,
-/// and it is not a busy picture: it is a background the EXACT colour of the fill. On that ground the
-/// fill disappears completely and the rim is the only thing drawing the letter at all. If the copy is
-/// legible there it is legible anywhere, because every other background makes the fill visible again.
+/// "All backgrounds" is the part that decides how this is tested. The worst case for cream type is
+/// not a busy picture: it is a background the EXACT colour of the fill. When the rim was the only
+/// thing under the copy, on that ground the fill disappeared completely and the rim was the only
+/// thing drawing the letter at all — and that was measured here, and the rim's strength was set by
+/// it. The fourth ruling is the owner's answer to what the measurement could not fix: a rim can make
+/// a hollow letter legible, but it cannot make a cream letter cream on a cream picture. The panel
+/// can, and so the same worst-case ground is now composed WITH the panel, and what is measured is
+/// the whole arrangement: the fill is visibly the lightest thing in the block, the panel under it
+/// is a shade the ground still shows through, and the rim is still there between the two.
 ///
 /// So these tests compose that ground — a spread whose artwork is solid #FFF8EB — render it, and
-/// count pixels. Not "does it look right": the rim was 0.6 pt of hairline for a whole campaign and it
-/// looked fine on a screen at a hundred per cent.
+/// count pixels. Not "does it look right": the rim was 0.6 pt of hairline for a whole campaign and
+/// it looked fine on a screen at a hundred per cent.
 ///
 /// The inverse is measured too, because a rim strong enough on cream could in principle have been
 /// bought by drowning the letter: on near-black artwork the cream fill still has to be what carries
@@ -49,66 +54,88 @@ public class BekiTextRimReadabilityTests(ITestOutputHelper output)
     private static readonly (byte R, byte G, byte B) NearBlack = (0x08, 0x06, 0x0C);
 
     /// <summary>
-    /// **The measurement rule 3 is settled by.** Cream copy on a cream ground, and the glyphs are
-    /// still there — as rim.
+    /// **The measurement the two rulings are settled by together.** Cream copy on a cream ground, and
+    /// the letters are cream, on a shade, with a rim between.
     ///
-    /// Measured inside the copy column's own ink box (the column's width, from its first inked row to
-    /// its last), because that is the rectangle a reader's eye is inside. Two bounds, not one:
+    /// Measured inside the copy's own tight box — from the first rim pixel to the last on both axes,
+    /// which is the rectangle the letters actually occupy and is inside the panel by construction —
+    /// and every pixel in it put in one of three classes by its luminance. The rim ink #0D071D is
+    /// about 10; the shipped panel, plum at sixty per cent over cream, is about 118; the fill is 248.
+    /// Under 64 is rim, 200 and over is fill, and the rest is the panel and the antialiasing at
+    /// each edge. Three things have to hold:
     ///
-    /// * a FLOOR, which is the readability rule — enough of that box has to be dark for the letters
-    ///   to have shape;
-    /// * a CEILING, which is the owner's other ruling — a rim thick enough to merge into a continuous
-    ///   dark field would be a panel behind the words by another name, and there is to be no panel.
+    /// * the FILL is there — with no panel this number is meaningless on a cream ground, because
+    ///   the ground itself is fill-coloured, which is exactly the fault the panel fixes; with the
+    ///   panel, a fill pixel inside the box can only be a letter;
+    /// * the PANEL is a shade and not a box — its pixels sit between the rim and the fill in
+    ///   luminance, and there are enough of them that the block is mostly shaded picture. Opaque plum
+    ///   would measure about 33 and land in the rim class; no panel would measure 248 and land in
+    ///   the fill class; either way this class would be nearly empty;
+    /// * the RIM is still there between the two — the fourth ruling added a panel and did not take
+    ///   the border away.
     ///
-    /// The numbers, measured on this fixture at this density: the pre-ruling rim (a flat 0.6 pt,
-    /// which on 20 pt copy is 0.03 of the em) leaves 5.8% of that box dark. The shipped default —
-    /// 0.09 of the em, sixteen directions — leaves 17.4%. Both are far from the ~100% a box would
-    /// give. The floor is set at 12% and the ceiling at 45%: wide enough that a font update or a
-    /// rasteriser change does not turn this red on its own, tight enough that neither the hairline
-    /// nor a panel could pass it.
+    /// The contrast is stated as a number as well: the fill is brighter than the panel by well over a
+    /// hundred luminance steps. On the rim-only book, on this ground, that number was zero.
     /// </summary>
     [Fact]
-    public void Cream_copy_on_a_cream_ground_is_still_drawn_by_its_rim()
+    public void Cream_copy_on_a_cream_ground_is_cream_on_a_shade_with_its_rim_between()
     {
-        var box = InkBox(StorySpread(Default), Dark);
+        var box = Classify(StorySpread(Default));
 
-        output.WriteLine($"story copy on cream: rim covers {box.Share:P2} of {box.Width}×{box.Height} px");
+        output.WriteLine(
+            $"story copy on cream: fill {box.FillShare:P2}, rim {box.RimShare:P2}, panel "
+            + $"{box.PanelShare:P2} of {box.Width}×{box.Height} px; fill luma {box.FillLuma:0}, "
+            + $"panel luma {box.PanelLuma:0}");
 
-        Assert.True(box.Share >= 0.12d,
-            $"Only {box.Share:P2} of the copy's ink box is rim. Cream type on a cream ground is "
-            + "drawn by its rim alone (owner ruling 2026-09-01, rule 3); this thin a rim is a "
-            + "hairline that closes up on press.");
+        Assert.True(box.FillShare >= 0.04d,
+            $"Only {box.FillShare:P2} of the copy's box is cream fill. On a cream ground the fill "
+            + "is invisible without the panel, and the panel exists so that it is not (owner ruling "
+            + "2026-09-01, fourth).");
 
-        Assert.True(box.Share <= 0.45d,
-            $"{box.Share:P2} of the copy's ink box is dark. A rim that heavy has merged into a "
-            + "continuous field, which is a panel behind the words under another name — and the "
-            + "owner has ruled three times that there is no box behind the words.");
+        Assert.True(box.PanelShare >= 0.40d,
+            $"Only {box.PanelShare:P2} of the copy's box reads as a shade between rim and fill. "
+            + "Either there is no panel or it is opaque; the ruling asks for one the picture shows "
+            + "through.");
+
+        Assert.InRange(box.PanelLuma, 90d, 150d);
+
+        Assert.True(box.RimShare >= 0.08d,
+            $"Only {box.RimShare:P2} of the copy's box is rim. The panel did not replace the border "
+            + "(owner ruling 2026-09-01, rule 3); a rim this thin is a hairline that closes on press.");
+
+        Assert.True(box.FillLuma - box.PanelLuma >= 100d,
+            $"The fill is only {box.FillLuma - box.PanelLuma:0} luminance steps brighter than the "
+            + "panel it sits on; that is not a readable letter on a shade.");
     }
 
     /// <summary>
-    /// And it is stronger than what it replaced, measured against it rather than asserted about it.
+    /// And the rim is stronger than what it replaced, measured against it rather than asserted
+    /// about it.
     ///
     /// The comparison book is the rim the code shipped before rule 3: the flat
     /// <see cref="BekiPrintLayoutOptions.TextOutlineWidth"/> with no proportion on top of it, drawn
     /// in eight directions. "Stronger" is a claim about a difference, so the test is a difference.
+    /// Both are rendered with the panel, and the rim is counted as rim ink — darker than the panel
+    /// could ever be — so the shade under both is not what is being compared.
     /// </summary>
     [Fact]
     public void The_rim_is_measurably_stronger_than_the_one_rule_3_replaced()
     {
-        var now = InkBox(StorySpread(Default), Dark).Share;
-        var before = InkBox(StorySpread(PreRuling), Dark).Share;
+        var now = Classify(StorySpread(Default)).RimShare;
+        var before = Classify(StorySpread(PreRuling)).RimShare;
 
         output.WriteLine($"rim coverage: {before:P2} before rule 3 → {now:P2} now");
 
         Assert.True(now >= before * 2d,
-            $"The rim went from {before:P2} to {now:P2} of the copy's ink box. Rule 3 asks for a "
+            $"The rim went from {before:P2} to {now:P2} of the copy's box. Rule 3 asks for a "
             + "STRONGER border; less than double is a tweak, not an answer.");
     }
 
     /// <summary>
     /// The inverse, so that "readable on all backgrounds" is proven at both ends: on artwork as dark
     /// as the rim, the cream FILL is what carries the word — and thickening the rim has not eaten
-    /// into it, because the fill is drawn last and at full size on top of the stack.
+    /// into it, because the fill is drawn last and at full size on top of the stack. The panel over
+    /// near-black is near-black still, so bright is fill and only fill.
     /// </summary>
     [Fact]
     public void Cream_copy_on_a_near_black_ground_is_carried_by_its_fill()
@@ -134,8 +161,9 @@ public class BekiTextRimReadabilityTests(ITestOutputHelper output)
     ///
     /// The cover title is set at twice story size on the busiest artwork in the book, and under the
     /// old flat 0.6 pt it carried the THINNEST rim relative to its letters of anything printed. Same
-    /// worst-case ground, same count, on the cover leaf: nothing else is drawn on it, so every dark
-    /// pixel on the page is title rim.
+    /// worst-case ground, same count, on the cover leaf: nothing else is drawn on it — the cover
+    /// carries no panel; the fourth ruling is about the story and intro copy — so every dark pixel
+    /// on the page is title rim.
     /// </summary>
     [Fact]
     public void The_cover_title_gets_the_stronger_rim_and_more_of_it()
@@ -188,24 +216,68 @@ public class BekiTextRimReadabilityTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// Zero opacity is no panel, in the receipt and on the page — the pre-ruling book, kept
+    /// reachable so that a proof can show the owner the thing the panel was ruled in against.
+    ///
+    /// On the page: with the panel off, on the cream ground, the copy's box holds rim, fill that is
+    /// indistinguishable from the ground, and the antialiasing between them — so the middle
+    /// luminance class, which the panel fills to more than forty per cent, falls to a sliver. In the
+    /// receipt: no page carries a panel block at all.
+    /// </summary>
+    [Fact]
+    public void Panel_opacity_zero_is_the_rim_only_book()
+    {
+        var box = Classify(StorySpread(PanelOff));
+
+        output.WriteLine(
+            $"story copy on cream, no panel: middle class {box.PanelShare:P2} of "
+            + $"{box.Width}×{box.Height} px");
+
+        Assert.True(box.PanelShare < 0.20d,
+            $"{box.PanelShare:P2} of the copy's box is neither rim nor cream with the panel off; "
+            + "something is still being painted under the words.");
+
+        var plan = BekiLayoutFixture.EightSpreadPlan();
+        var spreads = plan.Spreads
+            .Select(spread => new BekiSpreadArtwork(
+                spread.Number, BekiLayoutFixture.SheetPng(Cream)))
+            .ToList();
+
+        var receipts = new BekiPdfComposer(Options.Create(PanelOff()))
+            .ComposeWithReceipts(
+                plan, BekiLayoutFixture.LeafPng(Cream), spreads, BekiLayoutFixture.Personalization())
+            .Receipts;
+
+        Assert.All(receipts.Pages, page => Assert.Null(page.Wash));
+    }
+
+    /// <summary>
     /// The chosen numbers, written down where a change to them is a change somebody has to explain.
     /// The reasoning is in the options file; this is the pin.
     /// </summary>
     [Fact]
-    public void The_rim_defaults_are_the_measured_ones()
+    public void The_rim_and_panel_defaults_are_the_measured_ones()
     {
         var layout = new BekiPrintLayoutOptions();
 
         Assert.Equal(0.09f, layout.TextOutlineWidthFactor);
         Assert.Equal(16, layout.TextOutlineSteps);
         Assert.Equal(0.6f, layout.TextOutlineWidth);
+
+        // The fourth ruling's panel: the page's own plum, sixty per cent, the wash's reach and
+        // corner. "Transparent-like, but not too transparent."
+        Assert.Equal("281B3F", layout.StoryPanelInkHex);
+        Assert.Equal(0.6f, layout.StoryPanelOpacity);
+        Assert.Equal(7f, layout.WashPaddingMm);
+        Assert.Equal(4f, layout.WashCornerRadiusMm);
     }
 
     // ==============================================================================================
     // Fixtures and measurement
     // ==============================================================================================
 
-    /// <summary>The shipped rim: the measured proportion, in sixteen directions.</summary>
+    /// <summary>The shipped rim and the shipped panel: the measured proportion, in sixteen directions,
+    /// on the plum at sixty per cent.</summary>
     private static BekiPrintLayoutOptions Default() => BekiLayoutFixture.ScreenProofLayout();
 
     /// <summary>
@@ -217,6 +289,15 @@ public class BekiTextRimReadabilityTests(ITestOutputHelper output)
         var layout = BekiLayoutFixture.ScreenProofLayout();
         layout.TextOutlineWidthFactor = 0f;
         layout.TextOutlineSteps = 8;
+        return layout;
+    }
+
+    /// <summary>The shipped rim with the panel switched off: the book between the third ruling and
+    /// the fourth.</summary>
+    private static BekiPrintLayoutOptions PanelOff()
+    {
+        var layout = BekiLayoutFixture.ScreenProofLayout();
+        layout.StoryPanelOpacity = 0f;
         return layout;
     }
 
@@ -237,7 +318,8 @@ public class BekiTextRimReadabilityTests(ITestOutputHelper output)
         Func<BekiPrintLayoutOptions> layout, (byte R, byte G, byte B) ground)
     {
         var options = layout();
-        var key = $"{options.TextOutlineWidthFactor}|{options.TextOutlineSteps}|{ground}";
+        var key = $"{options.TextOutlineWidthFactor}|{options.TextOutlineSteps}|"
+            + $"{options.StoryPanelOpacity}|{ground}";
 
         lock (Rendered)
         {
@@ -266,26 +348,121 @@ public class BekiTextRimReadabilityTests(ITestOutputHelper output)
 
     private static bool Bright(Rgba32 pixel) => Luma(pixel) >= 128d;
 
+    /// <summary>
+    /// Rim ink and nothing else: #0D071D is about 10, and the shipped panel over the cream ground is
+    /// about 118. Sixty-four is between them with room on both sides for antialiasing.
+    /// </summary>
+    private static bool RimInk(Rgba32 pixel) => Luma(pixel) < 64d;
+
+    /// <summary>The fill, #FFF8EB at 248 — nothing under the copy comes near it.</summary>
+    private static bool Fill(Rgba32 pixel) => Luma(pixel) >= 200d;
+
     private static double Luma(Rgba32 pixel) =>
         (0.2126d * pixel.R) + (0.7152d * pixel.G) + (0.0722d * pixel.B);
 
     private readonly record struct Measurement(int Width, int Height, long Count, double Share);
 
     /// <summary>
+    /// The copy's tight box, classified: what share of it is fill, rim ink, and the shade between,
+    /// and how bright the fill and the shade are on average.
+    /// </summary>
+    private readonly record struct Classification(
+        int Width, int Height,
+        double FillShare, double RimShare, double PanelShare,
+        double FillLuma, double PanelLuma);
+
+    /// <summary>
+    /// The copy column's own band — 12 mm inside the trim on a 450 mm bled sheet, so 17 mm to 147 mm
+    /// across, the same rectangle <c>BekiInteriorTypographyTests</c> looks in.
+    /// </summary>
+    private static (int Left, int Right) ColumnBand(Image<Rgba32> page)
+    {
+        var pxPerMm = page.Width / 450f;
+        return ((int)(17 * pxPerMm), (int)(147 * pxPerMm));
+    }
+
+    /// <summary>
+    /// Every pixel of the copy's tight box — the rectangle from the first rim pixel to the last on
+    /// both axes, inside the column band — put in its class.
+    ///
+    /// Bounded by the rim rather than by the fill or the shade, because on the cream ground the
+    /// fill is the ground's colour outside the panel and the shade is the panel's whole rectangle;
+    /// the rim occurs only around letters, so its extent is the letters' extent.
+    /// </summary>
+    private static Classification Classify(byte[] png)
+    {
+        using var page = Image.Load<Rgba32>(png);
+        var (left, right) = ColumnBand(page);
+
+        int? top = null;
+        var bottom = 0;
+        var first = right;
+        var last = left - 1;
+
+        for (var y = 0; y < page.Height; y++)
+        {
+            for (var x = left; x < right; x++)
+            {
+                if (!RimInk(page[x, y])) continue;
+
+                top ??= y;
+                bottom = y;
+                if (x < first) first = x;
+                if (x > last) last = x;
+            }
+        }
+
+        Assert.True(top is not null, "No rim was found in the copy column at all.");
+
+        long fill = 0, rim = 0, panel = 0;
+        double fillLuma = 0, panelLuma = 0;
+
+        for (var y = top!.Value; y <= bottom; y++)
+        {
+            for (var x = first; x <= last; x++)
+            {
+                var pixel = page[x, y];
+                var luma = Luma(pixel);
+
+                if (Fill(pixel))
+                {
+                    fill++;
+                    fillLuma += luma;
+                }
+                else if (RimInk(pixel))
+                {
+                    rim++;
+                }
+                else
+                {
+                    panel++;
+                    panelLuma += luma;
+                }
+            }
+        }
+
+        var width = last - first + 1;
+        var height = bottom - top.Value + 1;
+        var total = (double)width * height;
+
+        return new Classification(
+            width, height,
+            fill / total, rim / total, panel / total,
+            fill == 0 ? 0d : fillLuma / fill,
+            panel == 0 ? 0d : panelLuma / panel);
+    }
+
+    /// <summary>
     /// What share of the copy column's own ink box the wanted pixels cover.
     ///
-    /// The box is the column — 12 mm inside the trim on a 450 mm bled sheet, so 17 mm to 147 mm
-    /// across, the same rectangle <c>BekiInteriorTypographyTests</c> looks in — from its first inked
-    /// row to its last. Bounded by the ink rather than by the leaf, because a share measured against
-    /// the whole page would be a statement about how much of the page is blank.
+    /// The box is the column band from its first wanted row to its last. Bounded by the ink rather
+    /// than by the leaf, because a share measured against the whole page would be a statement about
+    /// how much of the page is blank.
     /// </summary>
     private static Measurement InkBox(byte[] png, Func<Rgba32, bool> wanted)
     {
         using var page = Image.Load<Rgba32>(png);
-
-        var pxPerMm = page.Width / 450f;
-        var left = (int)(17 * pxPerMm);
-        var right = (int)(147 * pxPerMm);
+        var (left, right) = ColumnBand(page);
 
         int? firstRow = null;
         var lastRow = 0;
