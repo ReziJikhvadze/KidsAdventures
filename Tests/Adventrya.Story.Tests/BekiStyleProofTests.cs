@@ -607,7 +607,16 @@ public class BekiStyleProofTests(ITestOutputHelper output)
         public int RimSteps { get; init; } = 16;
 
         /// <summary>
-        /// The spec as the composer's own style, with the two sanity clamps applied and any clamp
+        /// The panel under the block, <c>RRGGBB</c>, or absent for the book's own — which is what a
+        /// sheet that does not mention the panel plainly means (owner ruling 2026-09-01, fourth).
+        /// </summary>
+        public string? PanelInkHex { get; init; }
+
+        /// <summary>The panel's strength, 0–1, or absent for the book's own. Zero is no panel.</summary>
+        public float? PanelOpacity { get; init; }
+
+        /// <summary>
+        /// The spec as the composer's own style, with the sanity clamps applied and any clamp
         /// appended to <paramref name="clamps"/> for the run's output to carry.
         /// </summary>
         public BekiTextStyleProof ToStyle(string id, List<string> clamps)
@@ -637,6 +646,12 @@ public class BekiStyleProofTests(ITestOutputHelper output)
                 clamps.Add($"{id} {Name}: rimOpacity {RimOpacity:0.##} → {rimOpacity:0.##}");
             }
 
+            float? panelOpacity = PanelOpacity is { } stated ? Math.Clamp(stated, 0f, 1f) : null;
+            if (PanelOpacity is { } asked && Math.Abs(panelOpacity!.Value - asked) > float.Epsilon)
+            {
+                clamps.Add($"{id} {Name}: panelOpacity {asked:0.##} → {panelOpacity:0.##}");
+            }
+
             return new BekiTextStyleProof
             {
                 FontSizePt = FontSizePt,
@@ -648,33 +663,41 @@ public class BekiStyleProofTests(ITestOutputHelper output)
                 RimOpacity = rimOpacity,
                 RimWidthFactor = rim,
                 RimSteps = RimSteps,
+                PanelInkHex = PanelInkHex?.TrimStart('#'),
+                PanelOpacity = panelOpacity,
             };
         }
     }
 
     // ==============================================================================================
-    // The background box audition
+    // The panel audition
     // ==============================================================================================
 
     /// <summary>
-    /// A translucent panel behind the copy, at a range of colours and strengths, for the owner to
-    /// look at.
+    /// The panel behind the copy at a range of inks and strengths, for the owner to look at.
     ///
-    /// **This is a proof and it changes nothing.** The owner has ruled three times that a Beki book
-    /// has no box behind its words, and <see cref="BekiPdfComposer"/> still has no setting that would
-    /// draw one — nothing in this section touches it. The panel is painted into the ARTWORK before
-    /// the artwork is handed to the composer, which is why the composer needs no box code and its
-    /// claim about itself stays literally true. If a box is ever chosen, that is a new ruling and a
-    /// separate piece of work in the composer; until then the only place in this repository that can
-    /// draw one is a test file that writes PNGs into somebody's Downloads folder.
+    /// **Every cell is the production panel.** Owner ruling 2026-09-01 — the fourth on the question,
+    /// and the one that stands — put a translucent panel under the story and intro copy, and
+    /// <see cref="BekiPdfComposer"/> draws it at the copy column's own millimetres from two numbers
+    /// (<see cref="BekiPrintLayoutOptions.StoryPanelInkHex"/>,
+    /// <see cref="BekiPrintLayoutOptions.StoryPanelOpacity"/>). A variant here changes those two
+    /// numbers and nothing else, through <see cref="BekiTextStyleProof.PanelInkHex"/> and
+    /// <see cref="BekiTextStyleProof.PanelOpacity"/>, so the cell the owner points at is a
+    /// configuration change and not a second drawing of the panel that production would then have to
+    /// match.
     ///
-    /// The geometry is the historical wash's: the measured text block, padded, with softened corners.
-    /// The block is measured the way the hollow samples measure it — off a coverage mask of the real
-    /// typeset copy — so the panel sits behind the actual lines rather than behind an estimate of
-    /// where they fall.
+    /// The first round of this rig painted its panels INTO the artwork before the composer saw it,
+    /// because the composer then had no panel to offer. That is retired: nothing here touches the
+    /// artwork bytes any more, and nothing should — a panel painted into a spread's PNG changes the
+    /// artwork hash every receipt and every reader copy carries.
+    ///
+    /// The padding and the corner radius are the layout's on every cell. A spec that still names its
+    /// own <c>paddingMm</c> or <c>cornerRadiusMm</c> is read, and where the number differs from the
+    /// layout's the run says so by name — a proof cannot move the column, because a column that
+    /// moved would wrap the copy differently from the book.
     /// </summary>
     [SkippableFact]
-    public void Render_a_background_box_audition_on_the_same_spread()
+    public void Render_a_panel_audition_on_the_same_spread()
     {
         Skip.If(
             string.IsNullOrWhiteSpace(Request),
@@ -699,7 +722,7 @@ public class BekiStyleProofTests(ITestOutputHelper output)
         var specPath = pair[1].Trim();
 
         Assert.True(Directory.Exists(folder), $"No stored pack at '{folder}'.");
-        Assert.True(File.Exists(specPath), $"No box spec at '{specPath}'.");
+        Assert.True(File.Exists(specPath), $"No panel spec at '{specPath}'.");
         Directory.CreateDirectory(outputFolder);
 
         var plan = JsonSerializer.Deserialize<MasterStory>(
@@ -718,19 +741,13 @@ public class BekiStyleProofTests(ITestOutputHelper output)
         Assert.NotEmpty(sheet.Boxes);
 
         output.WriteLine(
-            $"box audition on “{plan.Concept.Title}” spread {spreadNumber}, "
+            $"panel audition on “{plan.Concept.Title}” spread {spreadNumber}, "
             + $"{sheet.Boxes.Count} panels behind the same copy");
 
-        var composer = new BekiPdfComposer(Options.Create(new BekiPrintLayoutOptions()));
+        // Production's own layout: the panel's padding and corner are its, on every cell.
+        var layout = new BekiPrintLayoutOptions();
+        var composer = new BekiPdfComposer(Options.Create(layout));
         var clamps = new List<string>();
-        var masks = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-
-        // The artwork at the page's own pixel count, so the panel's edge is drawn at the density it
-        // will be looked at rather than drawn small and enlarged with the picture. Sized off a
-        // rendered page rather than arithmetic: the page's height in pixels is the rasteriser's
-        // rounding of 210 mm, and being one pixel out is exactly the kind of near-miss that makes a
-        // panel sit a hair off the copy it belongs to.
-        var scaled = new Dictionary<string, byte[]>(StringComparer.Ordinal);
 
         var written = new List<(string File, string Caption, byte[] Png)>();
 
@@ -738,45 +755,40 @@ public class BekiStyleProofTests(ITestOutputHelper output)
         {
             var box = sheet.Boxes[index];
             var number = index + 1;
+            var id = $"{stem}-{number:00}";
 
-            // A variant may replace the text wholesale — the two no-rim combinations do, because the
+            // A variant may replace the text wholesale — the no-rim combinations do, because the
             // question they ask is whether a panel makes the rim unnecessary.
-            var text = (box.TextOverride ?? sheet.Text!).ToStyle($"{stem}-{number:00}", clamps);
+            var text = (box.TextOverride ?? sheet.Text!).ToStyle(id, clamps);
 
-            var maskKey = $"{text.FontSizePt}|{text.LeadingPt}|{text.Weight}";
-
-            if (!masks.TryGetValue(maskKey, out var mask))
+            var opacity = Math.Clamp(box.BoxOpacity, 0f, 1f);
+            if (Math.Abs(opacity - box.BoxOpacity) > float.Epsilon)
             {
-                mask = composer.RenderStyleProofSpread(
-                    spread, FlatSheetLike(artwork, new Rgba32(255, 255, 255)), personalization: null,
-                    new BekiTextStyleProof
-                    {
-                        FontSizePt = text.FontSizePt,
-                        LeadingPt = text.LeadingPt,
-                        Weight = text.Weight,
-                        FillColorHex = "000000",
-                        FillOpacity = 1f,
-                        RimWidthFactor = 0f,
-                    });
-
-                masks[maskKey] = mask;
+                clamps.Add($"{id} {box.Name}: boxOpacity {box.BoxOpacity:0.##} → {opacity:0.##}");
             }
 
-            var page = Image.Identify(mask);
-            var scaleKey = $"{page.Width}x{page.Height}";
-
-            if (!scaled.TryGetValue(scaleKey, out var pageArtwork))
+            if (box.PaddingMm is { } padding && Math.Abs(padding - layout.WashPaddingMm) > 0.01f)
             {
-                pageArtwork = ArtworkAtPageScale(artwork, page.Width, page.Height);
-                scaled[scaleKey] = pageArtwork;
+                clamps.Add(
+                    $"{id} {box.Name}: paddingMm {padding:0.#} → {layout.WashPaddingMm:0.#} "
+                    + "(the layout's; a proof cannot move the column)");
             }
 
-            var boxed = PanelBehindCopy(
-                pageArtwork, mask,
-                box.PaddingMm, box.CornerRadiusMm,
-                ParseHex(box.BoxColorHex), Math.Clamp(box.BoxOpacity, 0f, 1f));
+            if (box.CornerRadiusMm is { } corner && Math.Abs(corner - layout.WashCornerRadiusMm) > 0.01f)
+            {
+                clamps.Add(
+                    $"{id} {box.Name}: cornerRadiusMm {corner:0.#} → {layout.WashCornerRadiusMm:0.#} "
+                    + "(the layout's)");
+            }
 
-            var png = composer.RenderStyleProofSpread(spread, boxed, personalization: null, text);
+            // The production panel, in this cell's ink and strength, under this cell's type.
+            var style = text with
+            {
+                PanelInkHex = box.BoxColorHex.TrimStart('#'),
+                PanelOpacity = opacity,
+            };
+
+            var png = composer.RenderStyleProofSpread(spread, artwork, personalization: null, style);
 
             Assert.True(png.Length > 100_000,
                 $"{box.Name} came back {png.Length:N0} bytes, which is not a rendered spread.");
@@ -791,8 +803,8 @@ public class BekiStyleProofTests(ITestOutputHelper output)
 
             written.Add((
                 file,
-                $"{number:00}  {box.Name}  —  box {box.BoxColorHex} @ {box.BoxOpacity:P0}, "
-                + $"pad {box.PaddingMm:0.#}mm r{box.CornerRadiusMm:0.#}mm  |  text "
+                $"{number:00}  {box.Name}  —  panel {box.BoxColorHex} @ {opacity:P0}, "
+                + $"pad {layout.WashPaddingMm:0.#}mm r{layout.WashCornerRadiusMm:0.#}mm  |  text "
                 + $"{text.FontSizePt:0.#}pt {text.Weight} {text.FillColorHex}, {rim}",
                 png));
         }
@@ -832,142 +844,81 @@ public class BekiStyleProofTests(ITestOutputHelper output)
         public List<BoxSpec> Boxes { get; init; } = [];
     }
 
+    /// <summary>
+    /// One panel to try: its ink and its strength, which are the two things the production panel is
+    /// made of. The defaults are the book's own.
+    /// </summary>
     private sealed record BoxSpec
     {
         public string Name { get; init; } = "unnamed";
 
         public string BoxColorHex { get; init; } = "#281B3F";
 
-        public float BoxOpacity { get; init; } = 0.3f;
+        public float BoxOpacity { get; init; } = 0.6f;
 
-        /// <summary>How far the panel reaches past the copy — the historical wash's 6–8 mm range.</summary>
-        public float PaddingMm { get; init; } = 7f;
+        /// <summary>
+        /// Read from the first round's sheets and reported, never honoured: the padding is the
+        /// layout's, because it is also the column's inset and moving it re-wraps the copy.
+        /// </summary>
+        public float? PaddingMm { get; init; }
 
-        /// <summary>So the panel reads as a support under the words and not as a cut rectangle.</summary>
-        public float CornerRadiusMm { get; init; } = 4f;
+        /// <summary>Likewise: the corner is the layout's.</summary>
+        public float? CornerRadiusMm { get; init; }
 
         /// <summary>A text style for this variant only, replacing the sheet's base one.</summary>
         public DesignerStyleSpec? TextOverride { get; init; }
     }
 
     /// <summary>
-    /// The spread's artwork resampled to the proof page's own pixel count.
+    /// The one check in this file that runs everywhere, because it is the promise the rig is built
+    /// on: **a proof that does not mention the panel gets the book's own, and only a proof that
+    /// mentions it can move it.**
     ///
-    /// The composer would enlarge it to exactly this anyway when it places the raster on a 450 × 210
-    /// mm page at the proof density; doing it first means the panel's rounded edge is drawn at the
-    /// density it will be judged at instead of being drawn small and enlarged with the picture.
+    /// Everything else here writes files into somebody's folder and is skipped by default, which
+    /// means the two panel fields added to <see cref="BekiTextStyleProof"/> for owner ruling
+    /// 2026-09-01 (the fourth) would otherwise be exercised by nothing a build runs. The risk they
+    /// carry is the one the whole proof path is designed against: a parameter that quietly changes
+    /// the page. So four renders of the same spread, on the fixture's flat sheet at screen density,
+    /// hashed:
     ///
-    /// The size is handed in from a page the composer actually rendered rather than worked out here,
-    /// because the rasteriser's own rounding of 210 mm is the authority on it and this arithmetic
-    /// disagreed with it by one pixel.
+    /// * a style naming the type and nothing about the panel;
+    /// * the same style naming the layout's own ink and strength explicitly — byte-identical to it,
+    ///   which is what "absent means the book's own" has to mean;
+    /// * the same style with the panel switched off, and the same again in a different ink — both
+    ///   necessarily different, because otherwise the first two agreeing would prove only that the
+    ///   panel fields do nothing at all.
+    ///
+    /// The shipped page itself is not one of the four. A null style is not a fourth variant of this
+    /// comparison but the production path exactly — <c>ComposeSpread</c> takes the ladder rather
+    /// than the proof's stated size, so its type is fitted rather than named and the pictures are
+    /// not comparable. What that path does with the panel is asserted where the book is:
+    /// <c>BekiReaderExportTests</c> on the download's pixels and receipts, and
+    /// <c>BekiTextRimReadabilityTests</c> on the worst-case ground with the panel on and off.
     /// </summary>
-    private static byte[] ArtworkAtPageScale(byte[] artwork, int width, int height)
+    [Fact]
+    public void A_proof_that_says_nothing_about_the_panel_gets_the_books_own()
     {
-        using var image = Image.Load<Rgba32>(artwork);
-        image.Mutate(context => context.Resize(width, height));
+        var layout = BekiLayoutFixture.ScreenProofLayout();
+        var composer = new BekiPdfComposer(Options.Create(layout));
+        var spread = BekiLayoutFixture.EightSpreadPlan().Spreads.Single(page => page.Number == 1);
+        var artwork = BekiLayoutFixture.SheetPng((0, 200, 120));
 
-        using var buffer = new MemoryStream();
-        image.Save(buffer, new PngEncoder());
-        return buffer.ToArray();
-    }
+        string Render(BekiTextStyleProof style) => Convert.ToHexString(SHA256.HashData(
+            composer.RenderStyleProofSpread(
+                spread, artwork, BekiLayoutFixture.Personalization(), style, rasterDpi: 96)));
 
-    /// <summary>
-    /// The panel, painted onto the artwork before the composer ever sees it.
-    ///
-    /// Its rectangle is the copy's own: the ink bounding box of a coverage mask of the real typeset
-    /// text, grown by the padding on every side. Measured rather than computed from the column's
-    /// millimetres, for the same reason the hollow letters are — the block that is actually set is
-    /// the only block worth putting a panel behind.
-    /// </summary>
-    private static byte[] PanelBehindCopy(
-        byte[] pageArtwork, byte[] maskPng,
-        float paddingMm, float cornerRadiusMm,
-        Rgba32 colour, float opacity)
-    {
-        using var image = Image.Load<Rgba32>(pageArtwork);
-        using var mask = Image.Load<Rgba32>(maskPng);
+        var silent = new BekiTextStyleProof { FontSizePt = 18f, LeadingPt = 27f };
 
-        Assert.True(
-            image.Width == mask.Width && image.Height == mask.Height,
-            "The page-scale artwork and the glyph mask are different sizes.");
-
-        var width = image.Width;
-        var height = image.Height;
-
-        int minX = width, minY = height, maxX = -1, maxY = -1;
-
-        for (var y = 0; y < height; y++)
+        var quiet = Render(silent);
+        var spelled = Render(silent with
         {
-            for (var x = 0; x < width; x++)
-            {
-                if (Luma(mask[x, y]) > 250f) continue;
+            PanelInkHex = layout.StoryPanelInkHex,
+            PanelOpacity = layout.StoryPanelOpacity,
+        });
 
-                if (x < minX) minX = x;
-                if (x > maxX) maxX = x;
-                if (y < minY) minY = y;
-                if (y > maxY) maxY = y;
-            }
-        }
-
-        Assert.True(maxX >= 0, "The glyph mask has no ink on it, so there is no copy to sit behind.");
-
-        var layout = new BekiPrintLayoutOptions();
-        var pxPerMm = width / (layout.SpreadWidthMm + (layout.BleedMm * 2f));
-
-        var pad = paddingMm * pxPerMm;
-        var radius = MathF.Max(0f, cornerRadiusMm * pxPerMm);
-
-        var left = MathF.Max(0f, minX - pad);
-        var top = MathF.Max(0f, minY - pad);
-        var right = MathF.Min(width - 1f, maxX + pad);
-        var bottom = MathF.Min(height - 1f, maxY + pad);
-
-        for (var y = (int)MathF.Floor(top); y <= (int)MathF.Ceiling(bottom); y++)
-        {
-            if (y < 0 || y >= height) continue;
-
-            for (var x = (int)MathF.Floor(left); x <= (int)MathF.Ceiling(right); x++)
-            {
-                if (x < 0 || x >= width) continue;
-
-                var cover = RoundedRectCoverage(x, y, left, top, right, bottom, radius);
-                if (cover <= 0f) continue;
-
-                image[x, y] = Blend(image[x, y], colour, cover * opacity);
-            }
-        }
-
-        using var buffer = new MemoryStream();
-        image.Save(buffer, new PngEncoder());
-        return buffer.ToArray();
-    }
-
-    /// <summary>
-    /// How much of one pixel the rounded rectangle covers, 0–1.
-    ///
-    /// Square everywhere except within a corner's radius of a corner, where the distance to the
-    /// corner's centre decides it — and the half-pixel of slope at the boundary is what keeps the
-    /// curve from reading as a staircase.
-    /// </summary>
-    private static float RoundedRectCoverage(
-        int x, int y, float left, float top, float right, float bottom, float radius)
-    {
-        if (x < left - 1f || x > right + 1f || y < top - 1f || y > bottom + 1f) return 0f;
-
-        var dx = MathF.Max(0f, MathF.Max(left + radius - x, x - (right - radius)));
-        var dy = MathF.Max(0f, MathF.Max(top + radius - y, y - (bottom - radius)));
-
-        if (dx <= 0f || dy <= 0f)
-        {
-            // Not in a corner's quarter: the straight edges decide, with the same half-pixel slope.
-            var edge = MathF.Min(
-                MathF.Min(x - left, right - x),
-                MathF.Min(y - top, bottom - y));
-
-            return Math.Clamp(edge + 0.5f, 0f, 1f);
-        }
-
-        return Math.Clamp(radius - MathF.Sqrt((dx * dx) + (dy * dy)) + 0.5f, 0f, 1f);
+        Assert.Equal(quiet, spelled);
+        Assert.NotEqual(quiet, Render(silent with { PanelOpacity = 0f }));
+        Assert.NotEqual(quiet, Render(silent with { PanelInkHex = "1B3F28" }));
     }
 
     // ==============================================================================================

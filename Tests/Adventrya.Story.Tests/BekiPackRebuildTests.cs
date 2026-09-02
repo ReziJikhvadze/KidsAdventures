@@ -106,9 +106,14 @@ public class BekiPackRebuildTests(ITestOutputHelper output)
         var composer = new BekiPdfComposer(Options.Create(new BekiPrintLayoutOptions()));
         var reading = composer.ComposeReading(plan, wrap, spreads, personalization);
 
-        // The owner's ruling of 2026-09-01, third and final, in the artefact: no box behind the
-        // words on any page of the rebuilt book.
-        Assert.All(reading.Receipts.Pages, page => Assert.Null(page.Wash));
+        // The owner's ruling of 2026-09-01 (the fourth) in the artefact: a translucent panel under
+        // the copy of the intro and of every story spread that set copy, and none anywhere else —
+        // not on the covers, not on the endpapers, not on the credits page, and not on a spread
+        // whose text went missing and printed as artwork alone.
+        Assert.All(reading.Receipts.Pages, page => Assert.Equal(
+            (page.Role == "intro" || page.Role.StartsWith("spread-", StringComparison.Ordinal))
+                && page.TextLines.Count > 0,
+            page.Wash is not null));
 
         // And it is the same book. The stored receipts are the broken run's own record of what it
         // set; if the recovered name, age or world were wrong, these lines would differ.

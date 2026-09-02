@@ -116,9 +116,25 @@ public class BekiReaderExportTests
                 fromPress.Typography.Select(type => (type.Role, type.SizePt, type.Colour)),
                 fromReading.Typography.Select(type => (type.Role, type.SizePt, type.Colour)));
 
-            // And neither carries a box behind the words — owner ruling 2026-09-01, third and final.
-            Assert.Null(fromReading.Wash);
-            Assert.Null(fromPress.Wash);
+            // And both carry the same panel under the words (owner ruling 2026-09-01, the fourth),
+            // at the same place on the TRIM: the press page's rectangle is the download's moved in
+            // by the bleed on both axes, its size and its ink are identical, and the clearances —
+            // measured to the trim and to the fold, which move with the bleed — do not move at all.
+            var readingPanel = fromReading.Wash;
+            var pressPanel = fromPress.Wash;
+
+            Assert.NotNull(readingPanel);
+            Assert.NotNull(pressPanel);
+
+            var bleedMm = (double)ReadingLayout().BleedMm;
+            Assert.Equal(readingPanel!.XMm + bleedMm, pressPanel!.XMm, 2);
+            Assert.Equal(readingPanel.YMm + bleedMm, pressPanel.YMm, 2);
+            Assert.Equal(readingPanel.WidthMm, pressPanel.WidthMm, 2);
+            Assert.Equal(readingPanel.HeightMm, pressPanel.HeightMm, 2);
+            Assert.Equal(readingPanel.Ink, pressPanel.Ink);
+            Assert.Equal(readingPanel.PageSide, pressPanel.PageSide);
+            Assert.Equal(readingPanel.FoldClearanceMm, pressPanel.FoldClearanceMm, 2);
+            Assert.Equal(readingPanel.TrimClearanceMm, pressPanel.TrimClearanceMm, 2);
         }
     }
 
@@ -239,35 +255,69 @@ public class BekiReaderExportTests
     // ==============================================================================================
 
     /// <summary>
-    /// Not one page of the book carries a wash, and the story copy is the cream the outline stack
-    /// fills with.
+    /// The intro and the eight story spreads each record the panel under their copy, no other page
+    /// records one, and the story copy is the cream the outline stack fills with.
     ///
-    /// The required assertion of the ruling, made on the receipts because the receipts are what the
-    /// gates read: a cream box drawn but not recorded would still fail
-    /// <see cref="The_copy_sits_straight_on_the_artwork_with_no_box_behind_it"/>, which looks at
-    /// pixels, and a box recorded but not drawn would fail this one. Between them there is nowhere
-    /// for a wash to hide.
+    /// The receipt half of owner ruling 2026-09-01 (the fourth: "transparent-like background, but
+    /// not too transparent"), made on the receipts because the receipts are what the gates read: a
+    /// panel drawn but not recorded would still fail
+    /// <see cref="The_copy_sits_on_a_translucent_copy_sized_panel"/>, which looks at pixels, and a
+    /// panel recorded but not drawn would fail this one. Between them there is nowhere for the
+    /// panel to be other than where the receipt says it is.
     /// </summary>
     [Fact]
-    public void No_page_receipt_carries_a_wash_and_the_story_copy_is_cream()
+    public void Every_copy_page_records_its_panel_and_the_story_copy_is_cream()
     {
         var reading = ComposeReading();
+        var layout = ReadingLayout();
 
-        Assert.All(reading.Receipts.Pages, page =>
-            Assert.True(page.Wash is null,
-                $"{page.Role} records a wash; the owner's ruling of 2026-09-01 — the third and "
-                + "final — is that book copy is outlined type straight on the artwork."));
+        // The book's plum at sixty per cent, spelled the one way QuestPDF reads an alpha out of.
+        const string PanelInk = "#99281B3F";
 
-        // And the JSON a gate actually opens says so too: the block is omitted, not emitted null.
-        Assert.DoesNotContain("wash", reading.Receipts.ToJson(), StringComparison.Ordinal);
+        var copyPages = reading.Receipts.Pages
+            .Where(page => page.Role == "intro" || page.Role.StartsWith("spread-"))
+            .ToList();
 
-        // The eight story spreads and the intro: Georgian in the cream the outline stack fills
-        // with, English under it in the same cream held back.
-        foreach (var page in reading.Receipts.Pages
-            .Where(page => page.Role == "intro" || page.Role.StartsWith("spread-")))
+        Assert.Equal(9, copyPages.Count);
+
+        foreach (var page in copyPages)
         {
+            var panel = page.Wash;
+
+            Assert.True(panel is not null,
+                $"{page.Role} records no panel; owner ruling 2026-09-01 (the fourth) puts a "
+                + "translucent panel under every block of story and intro copy.");
+
+            Assert.Equal(PanelInk, panel!.Ink);
+            Assert.Equal(layout.WashPaddingMm, panel.PaddingMm, 3);
+            Assert.Equal(layout.WashCornerRadiusMm, panel.CornerRadiusMm, 3);
+
+            // Inside the trim by the safe margin, and never within the fold safety area — the same
+            // two numbers the composer refuses a column on.
+            Assert.True(panel.TrimClearanceMm >= layout.SafeMarginMm - 0.05,
+                $"{page.Role}'s panel comes within {panel.TrimClearanceMm:0.#} mm of the trim.");
+            Assert.True(panel.FoldClearanceMm >= layout.FoldSafetyMm - 0.05,
+                $"{page.Role}'s panel comes within {panel.FoldClearanceMm:0.#} mm of the fold.");
+
+            // Stated from the download's own top-left corner, which has no bleed on it.
+            Assert.True(panel.XMm >= layout.SafeMarginMm - 0.05);
+            Assert.True(panel.YMm >= layout.SafeMarginMm - 0.05);
+            Assert.True(panel.XMm + panel.WidthMm <= SpreadWidthMm - layout.SafeMarginMm + 0.05);
+            Assert.True(panel.YMm + panel.HeightMm <= PageHeightMm - layout.SafeMarginMm + 0.05);
+
+            // Copy-sized: the column's height is the measured block plus the inset on each side, so
+            // on the fixture's one-sentence spreads and the intro's four lines it is well short of
+            // the leaf's safe area. A panel the height of the safe area is the slab the shipped
+            // book had.
+            var safeAreaMm = PageHeightMm - (2 * layout.SafeMarginMm);
+            Assert.True(panel.HeightMm < safeAreaMm / 2,
+                $"{page.Role}'s panel is {panel.HeightMm:0.#} mm tall on a leaf whose safe area is "
+                + $"{safeAreaMm:0.#} mm; that is a slab, not a shade.");
+
             Assert.NotEmpty(page.Typography);
 
+            // Georgian in the cream the outline stack fills with, English under it in the same
+            // cream held back — the type over the panel is the type the book always had.
             Assert.All(page.Typography, type =>
                 Assert.True(
                     type.Colour is "#FFF8EB" or "#D9FFF8EB",
@@ -277,65 +327,173 @@ public class BekiReaderExportTests
             Assert.Contains(page.Typography, type => type.Colour == "#FFF8EB");
         }
 
-        // The credits page is unchanged by the ruling: it never had a wash, because its ground is
-        // the book's own purple and plain light type on a flat colour needs no rim.
+        // No panel where no copy sits over artwork: the two covers, the endpapers, and the credits
+        // page, whose ground is the book's own purple and whose type needs neither rim nor shade.
+        foreach (var page in reading.Receipts.Pages
+            .Where(page => page.Role != "intro" && !page.Role.StartsWith("spread-")))
+        {
+            Assert.True(page.Wash is null,
+                $"{page.Role} records a panel, and it sets no story or intro copy over artwork.");
+        }
+
         var credits = reading.Receipts.Pages.Single(page => page.Role == "credits");
-        Assert.Null(credits.Wash);
         Assert.All(credits.Typography, type => Assert.Equal("#FFF8EB", type.Colour));
+
+        // The JSON a gate actually opens carries the block under the name receipts have always
+        // used for the shape under the copy, with the ink in it — and, read back, a page with no
+        // panel is still a page. Receipts written during the rim-only campaign carry no block at
+        // all, and they have to go on parsing.
+        var json = reading.Receipts.ToJson();
+        Assert.Contains("\"wash\"", json, StringComparison.Ordinal);
+        Assert.Contains(PanelInk, json, StringComparison.Ordinal);
+
+        var readBack = JsonSerializer.Deserialize<BekiLayoutReceipts>(json, BekiLayoutReceipts.JsonOptions);
+        Assert.NotNull(readBack);
+        Assert.Equal(PanelInk, readBack!.Pages.Single(page => page.Role == "intro").Wash!.Ink);
+        Assert.Null(readBack.Pages.Single(page => page.Role == "credits").Wash);
     }
 
     /// <summary>
-    /// And on the page itself there is no box: the copy's own column is artwork with cream glyphs
-    /// on it, not a cream rectangle with words in it.
+    /// And on the page itself the panel is there, it is translucent, and it is the copy's size —
+    /// the three clauses of "transparent-like background, but not too transparent", each measured
+    /// against the receipt's own rectangle on the fixture's flat green artwork, which is what makes
+    /// every answer unambiguous.
     ///
-    /// Measured as a proportion, which is the only honest way to ask this of a rendering. A wash
-    /// fills its column — the fixture's is 12% of a 440 mm spread, and nearly every pixel of it
-    /// would read cream. Type covers a small fraction of the box that holds it, so a column of
-    /// outlined type is mostly the picture underneath. The fixture's artwork is flat green, so
-    /// "cream" is unambiguous.
+    /// The strip between the panel's top edge and its first line is the panel with no type on it.
+    /// There the picture must be darker than the bare artwork and still green: the plum at sixty
+    /// per cent over (0, 200, 120) leaves green the strongest channel, where an opaque plum would
+    /// leave blue the strongest and no panel would leave the green untouched. Below the receipt's
+    /// rectangle the artwork must be exactly itself, because the panel stops where the copy stops.
+    /// And the panel's own edges, found on the page, must agree with the receipt: the top and the
+    /// left where the column starts, the bottom where the column's height says, the right no
+    /// further than the column's width — a panel shrink-wrapped to its widest line may stop sooner.
     /// </summary>
     [Fact]
-    public void The_copy_sits_straight_on_the_artwork_with_no_box_behind_it()
+    public void The_copy_sits_on_a_translucent_copy_sized_panel()
     {
         var reading = ComposeReading();
         var pages = RenderReading();
 
         var spread = reading.Receipts.Pages.First(page => page.Role.StartsWith("spread-"));
+        var panel = spread.Wash;
+        Assert.NotNull(panel);
 
         using var image = Image.Load<Rgba32>(pages[spread.Page - 1]);
         var pxPerMm = image.Width / SpreadWidthMm;
 
-        // Spread 1's copy is on the left leaf, upper-left, inside the safe margin: the band below
-        // covers the column the words are set in with room to spare.
-        var left = (int)(12 * pxPerMm);
-        var right = (int)(150 * pxPerMm);
-        var top = (int)(12 * pxPerMm);
-        var bottom = (int)(70 * pxPerMm);
+        int Px(double mm) => (int)Math.Round(mm * pxPerMm);
 
+        // The artwork, read off the leaf's own lower half rather than assumed.
+        var artwork = image[Px(60), Px(150)];
+        Assert.True(IsArtwork(artwork),
+            $"the leaf's ground is #{artwork.R:X2}{artwork.G:X2}{artwork.B:X2}, not the fixture's green.");
+
+        // 1. Inside, on the padding strip along the panel's top edge — from 2 mm in to 2 mm short
+        //    of the copy, and from 6 mm in on the left (clear of the 4 mm corner) to 20 mm, which
+        //    is inside the widest line of any spread the fixture sets.
+        var shaded = new List<Rgba32>();
+        for (var y = Px(panel!.YMm + 2); y < Px(panel.YMm + panel.PaddingMm - 2); y++)
+        {
+            for (var x = Px(panel.XMm + 6); x < Px(panel.XMm + 20); x++)
+            {
+                shaded.Add(image[x, y]);
+            }
+        }
+
+        Assert.True(shaded.Count >= 20, "the padding strip is too small to sample at this raster.");
+
+        var ratio = shaded.Average(Luma) / Luma(artwork);
+
+        Assert.True(ratio < 0.75,
+            $"Inside the panel the artwork is {ratio:P0} as bright as outside it; a shade that faint "
+            + "is no background for the words (owner ruling 2026-09-01: not too transparent).");
+        Assert.True(ratio > 0.35,
+            $"Inside the panel the artwork is {ratio:P0} as bright as outside it; a shade that heavy "
+            + "is an opaque box (owner ruling 2026-09-01: transparent-like).");
+        Assert.All(shaded, pixel => Assert.True(pixel.G > pixel.B && pixel.G > pixel.R,
+            $"#{pixel.R:X2}{pixel.G:X2}{pixel.B:X2} inside the panel is not green any more; the "
+            + "picture has to show through the shade."));
+
+        // 2. Below the rectangle the receipt states, the artwork is itself again: the panel stops
+        //    where the copy stops.
+        for (var y = Px(panel.YMm + panel.HeightMm + 2); y < Px(panel.YMm + panel.HeightMm + 10); y++)
+        {
+            for (var x = Px(panel.XMm + 6); x < Px(panel.XMm + 20); x++)
+            {
+                var pixel = image[x, y];
+                Assert.True(IsArtwork(pixel),
+                    $"#{pixel.R:X2}{pixel.G:X2}{pixel.B:X2} at ({x / pxPerMm:0.#}, {y / pxPerMm:0.#}) mm "
+                    + "is below the panel and is not the artwork; the panel has outgrown its copy.");
+            }
+        }
+
+        // 3. The panel's edges, found on the page, against the receipt's rectangle — scanned along
+        //    a row through the padding strip and a column through the copy, where the only thing
+        //    that is not artwork is the panel and what sits on it.
+        //
+        //    Both scans leave out the outermost millimetre of the sheet. Ghostscript paints the
+        //    page box's own edge row white where the placed raster falls a fraction of a pixel
+        //    short of it, and that white row belongs to the rasteriser rather than to the book: it
+        //    would otherwise be found as the topmost thing that is not artwork and read as a panel
+        //    starting at 0 mm. Nothing the book draws comes within a millimetre of the trim — the
+        //    safe margin is twelve — so nothing this test is about is inside the strip skipped.
+        var probeRow = Px(panel.YMm + (panel.PaddingMm / 2));
+        var probeColumn = Px(panel.XMm + 10);
+        var edge = Px(1);
+
+        var found = Enumerable.Range(edge, image.Width - (2 * edge))
+            .Where(x => !IsArtwork(image[x, probeRow])).ToList();
+        var foundRows = Enumerable.Range(edge, image.Height - (2 * edge))
+            .Where(y => !IsArtwork(image[probeColumn, y])).ToList();
+
+        Assert.NotEmpty(found);
+        Assert.NotEmpty(foundRows);
+
+        var left = found.Min() / pxPerMm;
+        var right = (found.Max() + 1) / pxPerMm;
+        var top = foundRows.Min() / pxPerMm;
+        var bottom = (foundRows.Max() + 1) / pxPerMm;
+
+        // A pixel and a half at this raster.
+        var tolerance = 1.5 / pxPerMm;
+
+        Assert.InRange(left, panel.XMm - tolerance, panel.XMm + tolerance);
+        Assert.InRange(top, panel.YMm - tolerance, panel.YMm + tolerance);
+        Assert.InRange(bottom, panel.YMm + panel.HeightMm - tolerance, panel.YMm + panel.HeightMm + tolerance);
+        Assert.True(right <= panel.XMm + panel.WidthMm + tolerance,
+            $"the panel runs to {right:0.#} mm; its column ends at {panel.XMm + panel.WidthMm:0.#} mm.");
+        Assert.True(right >= panel.XMm + 20,
+            $"the panel ends at {right:0.#} mm, inside the strip this test samples as panel.");
+
+        // 4. And type is still type: cream is a small share of the panel's own area.
         var cream = 0;
         var total = 0;
-
-        for (var y = top; y < bottom; y++)
+        for (var y = Px(panel.YMm); y < Px(panel.YMm + panel.HeightMm); y++)
         {
-            for (var x = left; x < right; x++)
+            for (var x = Px(panel.XMm); x < Px(right); x++)
             {
                 total++;
                 if (IsCream(image[x, y])) cream++;
             }
         }
 
-        Assert.True(total > 0);
-        Assert.True(cream > 0, "no cream was found in the copy's column — the type is not there.");
+        Assert.True(cream > 0, "no cream was found on the panel — the type is not there.");
 
         var share = (double)cream / total;
         Assert.True(share < 0.25,
-            $"{share:P0} of the copy's column is cream. A column of type is mostly the picture "
-            + "underneath; a quarter of it or more is a box behind the words, and the owner's "
-            + "ruling of 2026-09-01 — the third and final — is that there is no box.");
+            $"{share:P0} of the panel is cream. Outlined type covers a small part of the shade it "
+            + "sits on; a quarter or more is a cream box, which is not the panel the owner asked for.");
     }
 
     private static bool IsCream(Rgba32 pixel)
         => pixel.R > 200 && pixel.G > 195 && pixel.B > 170 && pixel.B < pixel.R;
+
+    /// <summary>The fixture's flat green, (0, 200, 120), with room for the rasteriser.</summary>
+    private static bool IsArtwork(Rgba32 pixel)
+        => pixel.R < 25 && Math.Abs(pixel.G - 200) < 25 && Math.Abs(pixel.B - 120) < 25;
+
+    private static double Luma(Rgba32 pixel)
+        => (0.2126d * pixel.R) + (0.7152d * pixel.G) + (0.0722d * pixel.B);
 
     // ==============================================================================================
     // Receipts — A4 / D7
