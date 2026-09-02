@@ -251,7 +251,13 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
                 <button
                   className="button auth-main"
                   type="button"
-                  style={{ marginTop: "0.5rem", opacity: 0.8, backgroundColor: "transparent", color: "inherit", border: "1px dashed currentColor" }}
+                  style={{
+                    marginTop: "0.5rem",
+                    opacity: 0.8,
+                    backgroundColor: "transparent",
+                    color: "inherit",
+                    border: "1px dashed currentColor",
+                  }}
                   disabled={busy}
                   onClick={() => void demoSignIn()}
                 >
