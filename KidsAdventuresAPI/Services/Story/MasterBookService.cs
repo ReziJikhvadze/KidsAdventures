@@ -388,6 +388,8 @@ public sealed class MasterBookService(
             // writes a cast list and per-spread placement is validated the same way.
             if (BookFormat.IsPrintPlan(masterStoryService.PromptVersion))
             {
+                result = RestoreChildName(result, storyInput.ChildName, runId);
+
                 var problems = PlanProblems(result.Story, storyInput, compositeStoryInput is not null);
                 if (problems.Count > 0)
                 {
@@ -418,13 +420,36 @@ public sealed class MasterBookService(
                         CompletionTokens = result.CompletionTokens + retried.CompletionTokens,
                     };
 
+                    result = RestoreChildName(result, storyInput.ChildName, runId);
+
                     var stillWrong = PlanProblems(
                         result.Story, storyInput, compositeStoryInput is not null);
                     if (stillWrong.Count > 0)
                     {
-                        throw new InvalidOperationException(
-                            $"The Beki plan for run {runId} is still invalid after a retry: "
-                            + string.Join("; ", stillWrong));
+                        /*
+                          Owner ruling 2026-09-02: every preview and every book is generated; a
+                          problem becomes a note for the operator, never a dead end for the parent.
+                          This used to throw here, and a family watching the loader got a generic
+                          apology after two paid story calls. The plan ships as the better of the
+                          two attempts, and the fulfilment job's own checks raise the alarms the
+                          console shows. The one thing that must be right — the child's name — was
+                          restored deterministically above and is never among these notes.
+
+                          The single exception is shape. A plan with the wrong number of spreads is
+                          not a book with a note in it; nothing downstream can lay it out, and
+                          shipping it would move the failure to the paid job. That one still stops.
+                        */
+                        if (result.Story.Spreads.Count != storyInput.SpreadCount)
+                        {
+                            throw new InvalidOperationException(
+                                $"The Beki plan for run {runId} is still invalid after a retry: "
+                                + string.Join("; ", stillWrong));
+                        }
+
+                        logger.LogWarning(
+                            "Run {RunId}: the Beki plan is still imperfect after its retry and ships "
+                            + "with these notes for the operator: {Problems}",
+                            runId, string.Join("; ", stillWrong));
                     }
                 }
             }
@@ -573,6 +598,28 @@ public sealed class MasterBookService(
     /// takes the child's name as an input and prints it, and a misspelled name is the first thing a
     /// parent sees whichever prompt wrote the book. See <see cref="GeorgianNameFidelity"/>.
     /// </summary>
+    /// <summary>
+    /// The child's name as typed, put back wherever the planner wrote a word one letter away from
+    /// it — before the plan is judged, so a respelled name is a line in the log rather than a paid
+    /// retry and a failed preview. See <see cref="GeorgianNameFidelity.Restore"/> for the rule.
+    /// </summary>
+    private MasterStoryResult RestoreChildName(MasterStoryResult result, string childName, Guid runId)
+    {
+        var (story, restored) = GeorgianNameFidelity.Restore(result.Story, childName);
+        if (restored.Count == 0)
+        {
+            return result;
+        }
+
+        logger.LogWarning(
+            "Run {RunId}: the planner spelled the child's name „{Name}“ wrongly in {Count} place(s) "
+            + "and the exact name was restored: {Restorations}",
+            runId, childName, restored.Count,
+            string.Join("; ", restored.Select(r => $"{r.Location}: {r.Found} → {r.Restored}")));
+
+        return result with { Story = story };
+    }
+
     private static IReadOnlyList<string> PlanProblems(
         MasterStory story, MasterStoryInput input, bool composite)
     {

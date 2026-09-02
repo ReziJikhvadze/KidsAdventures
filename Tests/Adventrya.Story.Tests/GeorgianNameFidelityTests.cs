@@ -304,23 +304,26 @@ public class GeorgianNameFidelityTests : CompositePipelineTestBase
     // ===========================================================================================
 
     /// <summary>
-    /// A blocker by default — the only one of ours that is, and the reason it is not in
-    /// <see cref="BekiReleaseChecks.Pipeline"/>, whose every member is a flag by the owner's ruling.
+    /// A flag by default since 2026-09-02: the name is restored from the input before this check
+    /// runs, so what it can still catch is a story that never names the child — worth a note for
+    /// the operator, never a dead end for the parent. It stays out of
+    /// <see cref="BekiReleaseChecks.Pipeline"/>, which is the list of waivers and toggles; this is
+    /// an identity check with its own row.
     /// </summary>
     [Fact]
-    public void The_shipped_policy_blocks_a_misspelled_name()
+    public void The_shipped_policy_flags_a_misspelled_name()
     {
         Assert.Equal(
-            BekiReleaseSeverity.Blocker,
+            BekiReleaseSeverity.Flag,
             BekiReleasePolicySnapshot.Defaults.SeverityOf(BekiReleaseChecks.NameFidelity));
 
         Assert.DoesNotContain(BekiReleaseChecks.NameFidelity, BekiReleaseChecks.Pipeline);
         Assert.Contains(BekiReleaseChecks.NameFidelity, BekiReleaseChecks.All);
 
         // An absent row — a database that has not been migrated, a row somebody deleted — answers
-        // the same way rather than falling through to the shipping default.
+        // the same way.
         Assert.Equal(
-            BekiReleaseSeverity.Blocker,
+            BekiReleaseSeverity.Flag,
             new BekiReleasePolicySnapshot([]).SeverityOf(BekiReleaseChecks.NameFidelity));
     }
 
@@ -331,18 +334,18 @@ public class GeorgianNameFidelityTests : CompositePipelineTestBase
             BekiReleasePolicySnapshot.Defaults.Settings,
             setting => setting.CheckId == BekiReleaseChecks.NameFidelity
                        && setting.DeliverableClass == BekiReleaseSeverity.AllClasses
-                       && setting.Severity == BekiReleaseSeverity.Blocker);
+                       && setting.Severity == BekiReleaseSeverity.Flag);
 
     // ===========================================================================================
     // The pipeline: its own planning call
     // ===========================================================================================
 
     /// <summary>
-    /// The fulfilment job's own planning call had no validation at all. One retry, with the two
-    /// words stated, and the corrected story is the one that gets drawn.
+    /// The fulfilment job's own planning call: a misspelled name is repaired from the input, and
+    /// the story is drawn with the name as typed — no second planning call is bought for it.
     /// </summary>
     [Fact]
-    public async Task The_pipelines_own_story_call_retries_a_misspelled_name_and_accepts_the_fix()
+    public async Task The_pipelines_own_story_call_repairs_a_misspelled_name_without_a_retry()
     {
         var planner = new ScriptedCompositeStoryService(MisspeltPlan(), NamedPlan());
 
@@ -351,36 +354,65 @@ public class GeorgianNameFidelityTests : CompositePipelineTestBase
                 masterStory: planner)
             .RunAsync(WrittenRequest(VekoContext()), CancellationToken.None);
 
-        Assert.Equal(2, planner.Calls);
-
-        // The first attempt is asked with nothing; the second carries both words.
+        Assert.Equal(1, planner.Calls);
         Assert.Empty(planner.Problems[0]);
-        Assert.Contains(planner.Problems[1], problem =>
-            problem.Contains("ველო", StringComparison.Ordinal)
-            && problem.Contains("ვეკო", StringComparison.Ordinal));
-
-        Assert.Equal(NamedPlan().Concept.Title, result.Plan.Concept.Title);
+        Assert.Equal("ვეკო და მოციმციმე ტყე", result.Plan.Concept.Title);
+        Assert.Empty(GeorgianNameFidelity.Inspect(result.Plan, "ვეკო"));
     }
 
     /// <summary>
-    /// Still wrong after the retry, and the check a blocker: the run stops with a coded failure
-    /// whose message names the word. Nothing has been drawn, so what is refused is two text calls.
+    /// A story that never names the child cannot be repaired by restoring letters. It is asked
+    /// for again once, with the rule stated, and when the second attempt is no better the book
+    /// still ships — as a flag for the operator, which is the shipped default — rather than
+    /// failing the family's order over prose.
     /// </summary>
     [Fact]
-    public async Task A_story_still_misspelling_the_child_after_its_retry_fails_the_run()
+    public async Task A_story_that_never_names_the_child_ships_with_a_flag_by_default()
     {
-        var planner = new ScriptedCompositeStoryService(MisspeltPlan());
+        var planner = new ScriptedCompositeStoryService(Plan());
+        var images = new StubImageService();
+        var waivers = new List<CompositePolicyWaiver>();
+
+        // The shipped policy, stated: the fulfilment job always hands the pipeline a snapshot, and
+        // a context without one is judged strictly.
+        var context = VekoContext() with
+        {
+            ReleasePolicy = BekiReleasePolicySnapshot.Defaults,
+            OnPolicyWaiver = waiver =>
+            {
+                waivers.Add(waiver);
+                return Task.CompletedTask;
+            },
+        };
+
+        var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images, masterStory: planner)
+            .RunAsync(WrittenRequest(context), CancellationToken.None);
+
+        // Two planning calls — the correction was tried — and then the book.
+        Assert.Equal(2, planner.Calls);
+        Assert.Equal(BookFormat.SpreadCount, result.Spreads.Count);
+
+        var waiver = Assert.Single(waivers);
+        Assert.Equal(BekiReleaseChecks.NameFidelity, waiver.CheckId);
+        Assert.Contains("never names", waiver.Detail, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// And with the check turned up to blocker by an operator, the same story stops the run with a
+    /// coded failure before anything is drawn.
+    /// </summary>
+    [Fact]
+    public async Task A_story_that_never_names_the_child_fails_the_run_when_the_check_is_a_blocker()
+    {
+        var planner = new ScriptedCompositeStoryService(Plan());
         var images = new StubImageService();
 
         var failure = await Assert.ThrowsAsync<CompositePipelineException>(() =>
             Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images, masterStory: planner)
-                .RunAsync(WrittenRequest(VekoContext()), CancellationToken.None));
+                .RunAsync(WrittenRequest(BlockingNameContext()), CancellationToken.None));
 
         Assert.Equal(CompositeFailureCodes.StoryFailed, failure.FailureCode);
-        Assert.Contains("ველო", failure.Message, StringComparison.Ordinal);
         Assert.Contains("ვეკო", failure.Message, StringComparison.Ordinal);
-
-        // Two planning calls, and not one picture.
         Assert.Equal(2, planner.Calls);
         Assert.Equal(0, images.ImageCalls);
     }
@@ -390,12 +422,12 @@ public class GeorgianNameFidelityTests : CompositePipelineTestBase
     // ===========================================================================================
 
     /// <summary>
-    /// An adopted story is otherwise never rewritten — the parent read it and bought it. The name
-    /// is the one thing that outranks that, and the repair is a fresh story rather than a dead
-    /// order, because this runs before the scenario and before the first image.
+    /// An adopted story is never rewritten over a respelled name — the parent read it and bought
+    /// it, and the name is put back as typed. No planner is reached, and the story that is drawn
+    /// is the one they previewed, with their child's name in it.
     /// </summary>
     [Fact]
-    public async Task An_adopted_story_that_misspells_the_child_is_replanned_rather_than_printed()
+    public async Task An_adopted_story_that_misspells_the_child_is_repaired_and_printed()
     {
         var planner = new ScriptedCompositeStoryService(NamedPlan());
 
@@ -406,8 +438,8 @@ public class GeorgianNameFidelityTests : CompositePipelineTestBase
                 Request(context: VekoContext()) with { ExistingPlan = MisspeltPlan() },
                 CancellationToken.None);
 
-        Assert.Equal(1, planner.Calls);
-        Assert.Equal(NamedPlan().Concept.Title, result.Plan.Concept.Title);
+        Assert.Equal(0, planner.Calls);
+        Assert.Equal("ვეკო და მოციმციმე ტყე", result.Plan.Concept.Title);
         Assert.Equal(BookFormat.SpreadCount, result.Spreads.Count);
     }
 
@@ -432,6 +464,8 @@ public class GeorgianNameFidelityTests : CompositePipelineTestBase
         // adopted scenario from a replanned one that happened to agree.
         const string storedOutfit = "a teal corduroy pinafore with a single brass button.";
 
+        // A replan happens only for a story that never names the child, under a blocker — a
+        // respelled name is repaired in place since 2026-09-02, and the shipped default is a flag.
         var planner = new ScriptedCompositeStoryService(NamedPlan());
         var storyClient = new ScriptedStoryModelClient(ScenarioFixture());
         var images = new StubImageService();
@@ -448,7 +482,7 @@ public class GeorgianNameFidelityTests : CompositePipelineTestBase
         };
 
         var result = await Pipeline(storyClient, images, masterStory: planner).RunAsync(
-            Request(context: VekoContext(), resume: resume) with { ExistingPlan = MisspeltPlan() },
+            Request(context: BlockingNameContext(), resume: resume) with { ExistingPlan = Plan() },
             CancellationToken.None);
 
         // The previewed story was replaced over the name, exactly as before.
@@ -496,18 +530,18 @@ public class GeorgianNameFidelityTests : CompositePipelineTestBase
         Assert.Equal(BookFormat.SpreadCount - 2, images.ImageCalls);
     }
 
-    /// <summary>And a replan that misspells it too stops the book rather than printing either.</summary>
+    /// <summary>And a replan that never names the child either stops the book, under a blocker.</summary>
     [Fact]
-    public async Task An_adopted_story_whose_replan_is_also_wrong_fails_the_run()
+    public async Task An_adopted_story_whose_replan_is_also_wrong_fails_the_run_under_a_blocker()
     {
-        var planner = new ScriptedCompositeStoryService(MisspeltPlan());
+        var planner = new ScriptedCompositeStoryService(Plan());
 
         var failure = await Assert.ThrowsAsync<CompositePipelineException>(() =>
             Pipeline(
                     new ScriptedStoryModelClient(ScenarioFixture()), new StubImageService(),
                     masterStory: planner)
                 .RunAsync(
-                    Request(context: VekoContext()) with { ExistingPlan = MisspeltPlan() },
+                    Request(context: BlockingNameContext()) with { ExistingPlan = Plan() },
                     CancellationToken.None));
 
         Assert.Equal(CompositeFailureCodes.StoryFailed, failure.FailureCode);
@@ -517,25 +551,20 @@ public class GeorgianNameFidelityTests : CompositePipelineTestBase
     }
 
     /// <summary>
-    /// The same adopted story with the check set to flag: the book ships as the parent previewed
-    /// it, and an alarm carries the word, the place and the expected name.
+    /// An adopted story that never names the child, under the shipped default: the book ships as
+    /// the parent previewed it, and an alarm says so with the expected name on record.
     ///
     /// No picture rides with it, and that is the point of the empty evidence — this is a refusal
     /// about prose, asked before an image exists.
     /// </summary>
     [Fact]
-    public async Task A_flagged_name_ships_the_previewed_story_and_raises_an_alarm()
+    public async Task An_unnamed_adopted_story_ships_as_previewed_and_raises_an_alarm()
     {
         var waivers = new List<CompositePolicyWaiver>();
 
         var context = VekoContext() with
         {
-            ReleasePolicy = new BekiReleasePolicySnapshot(
-            [
-                new BekiReleaseCheckSetting(
-                    BekiReleaseChecks.NameFidelity, BekiReleaseSeverity.AllClasses,
-                    BekiReleaseSeverity.Flag, "misho", null),
-            ]),
+            ReleasePolicy = BekiReleasePolicySnapshot.Defaults,
             OnPolicyWaiver = waiver =>
             {
                 waivers.Add(waiver);
@@ -545,24 +574,21 @@ public class GeorgianNameFidelityTests : CompositePipelineTestBase
 
         var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), new StubImageService())
             .RunAsync(
-                Request(context: context) with { ExistingPlan = MisspeltPlan() },
+                Request(context: context) with { ExistingPlan = Plan() },
                 CancellationToken.None);
 
         // The story the parent previewed, untouched — and no planner was reached, which the
         // throwing default stub would have made loud.
-        Assert.Equal(MisspeltPlan().Concept.Title, result.Plan.Concept.Title);
+        Assert.Equal(Plan().Concept.Title, result.Plan.Concept.Title);
         Assert.Equal(BookFormat.SpreadCount, result.Spreads.Count);
 
         var waiver = Assert.Single(waivers);
         Assert.Equal(BekiReleaseChecks.NameFidelity, waiver.CheckId);
         Assert.Empty(waiver.EvidencePng);
-        Assert.Contains("ველო", waiver.Detail, StringComparison.Ordinal);
+        Assert.Contains("never names", waiver.Detail, StringComparison.Ordinal);
 
         using var evidence = JsonDocument.Parse(waiver.EvidenceJson);
         Assert.Equal("ვეკო", evidence.RootElement.GetProperty("expected_name").GetString());
-        Assert.Contains(
-            evidence.RootElement.GetProperty("problems").EnumerateArray(),
-            problem => problem.GetProperty("found").GetString() == "ველო");
     }
 
     /// <summary>
@@ -589,9 +615,85 @@ public class GeorgianNameFidelityTests : CompositePipelineTestBase
             Input = Context().Input with { ChildName = "ვეკო" },
         };
 
+    /// <summary>The fixture retold for ვეკო, with an operator's blocker on the name check.</summary>
+    private static CompositeBookContext BlockingNameContext() =>
+        VekoContext() with
+        {
+            ReleasePolicy = new BekiReleasePolicySnapshot(
+            [
+                new BekiReleaseCheckSetting(
+                    BekiReleaseChecks.NameFidelity, BekiReleaseSeverity.AllClasses,
+                    BekiReleaseSeverity.Blocker, "misho", null),
+            ]),
+        };
+
     /// <summary>A run with no previewed story, so the pipeline writes one of its own.</summary>
     private static CompositeBookRequest WrittenRequest(CompositeBookContext context) =>
         Request(context: context) with { ExistingPlan = null };
+
+    // ===========================================================================================
+    // Restoring the name as typed
+    // ===========================================================================================
+
+    [Fact]
+    public void A_near_miss_is_put_back_as_typed_and_keeps_its_case_ending()
+    {
+        var (story, restored) = GeorgianNameFidelity.Restore(
+            Book("ველო და მოციმციმე ტყე", "ველოს ბეკი შეხვდა. ველომ გაიცინა."), "ვეკო");
+
+        Assert.Equal("ვეკო და მოციმციმე ტყე", story.Concept.Title);
+        Assert.Equal("ვეკოს ბეკი შეხვდა. ვეკომ გაიცინა.", story.Spreads[0].Text);
+        Assert.Equal(3, restored.Count);
+        Assert.Contains(restored, r => r.Location == "title" && r.Found == "ველო" && r.Restored == "ვეკო");
+        Assert.Contains(restored, r => r.Location == "spread 1" && r.Found == "ველოს" && r.Restored == "ვეკოს");
+
+        // And the check that used to refuse this book now passes it.
+        Assert.Empty(GeorgianNameFidelity.Inspect(story, "ვეკო"));
+    }
+
+    [Fact]
+    public void A_correctly_spelled_book_is_returned_untouched()
+    {
+        var book = Book("ვეკო და ტყე", "ვეკო და ბეკი ერთად მიდიან.");
+
+        var (story, restored) = GeorgianNameFidelity.Restore(book, "ვეკო");
+
+        Assert.Same(book, story);
+        Assert.Empty(restored);
+    }
+
+    [Fact]
+    public void The_companion_and_a_different_word_are_never_rewritten()
+    {
+        // ბეკი is on every page by contract and is one letter from ბეკა; „ბაფუ“ is nobody's name.
+        var (story, restored) = GeorgianNameFidelity.Restore(
+            Book("ბეკა და ბეკი", "ბეკა და ბეკი ბაფუს ეძებენ."), "ბეკა");
+
+        Assert.Empty(restored);
+        Assert.Equal("ბეკა და ბეკი ბაფუს ეძებენ.", story.Spreads[0].Text);
+    }
+
+    [Fact]
+    public void A_short_name_is_not_repaired_because_its_neighbours_are_real_words()
+    {
+        var book = Book("ანა და ტყე", "Ana and Beki walk. ანი მიდის.");
+
+        var (story, restored) = GeorgianNameFidelity.Restore(book, "ანა");
+
+        Assert.Same(book, story);
+        Assert.Empty(restored);
+    }
+
+    [Fact]
+    public void A_different_first_letter_or_alphabet_is_left_alone()
+    {
+        var book = Book("ბეკო და ტყე", "Veko goes. ბეკო goes.");
+
+        var (story, restored) = GeorgianNameFidelity.Restore(book, "ვეკო");
+
+        Assert.Same(book, story);
+        Assert.Empty(restored);
+    }
 
     /// <summary>The eight-spread fixture plan, naming ვეკო correctly, titled after the wood.</summary>
     private static MasterStory NamedPlan() => VekoPlan("მოციმციმე ტყე");

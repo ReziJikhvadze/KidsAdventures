@@ -179,7 +179,7 @@ public sealed class BekiOptions
     /// period, as the point past which a row nobody is updating must be a row whose process is
     /// gone.
     /// </summary>
-    public int GenerationBudgetMinutes { get; set; } = 30;
+    public int GenerationBudgetMinutes { get; set; } = 45;
 
     /// <summary>
     /// The wall clock the press tail gets, in minutes, once the parent's reading copy is stored:

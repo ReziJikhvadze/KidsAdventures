@@ -90,19 +90,27 @@ public sealed class AdminOverviewRepository(ISqlConnectionFactory connectionFact
                                    AND COALESCE(b.GenerationHeartbeatUtc, b.CreatedAt) < @StaleCutoffUtc
                                   THEN 1 END) AS BooksStuckCount,
                        COUNT(CASE WHEN b.Status = N'{nameof(AdventurePackStatus.Failed)}'
-                                   AND NOT EXISTS (
-                                       SELECT 1 FROM dbo.Orders o
-                                       WHERE o.BookId = b.Id
-                                         AND o.Status IN ({SettledOrderStatuses}))
+                                   AND b.OrderSettled = 0
                                   THEN 1 END) AS BooksFailedCount,
                        COUNT(CASE WHEN b.Status = N'{nameof(AdventurePackStatus.Completed)}'
                                    AND b.PdfUrl IS NULL
                                    AND b.GenerationPipeline = N'{GenerationPipelines.Beki}'
                                   THEN 1 END) AS AwaitingReviewCount
-                   FROM dbo.AdventurePacks b
-                   WHERE b.Status IN ({GeneratingStatuses})
-                      OR b.Status = N'{nameof(AdventurePackStatus.Failed)}'
-                      OR (b.Status = N'{nameof(AdventurePackStatus.Completed)}' AND b.PdfUrl IS NULL);
+                   FROM (
+                       -- SQL Server refuses a subquery inside an aggregate, so "is the order
+                       -- settled" is decided per row here and only counted above.
+                       SELECT p.Status, p.GenerationHeartbeatUtc, p.CreatedAt, p.PdfUrl,
+                              p.GenerationPipeline,
+                              CASE WHEN EXISTS (
+                                       SELECT 1 FROM dbo.Orders o
+                                       WHERE o.BookId = p.Id
+                                         AND o.Status IN ({SettledOrderStatuses}))
+                                   THEN 1 ELSE 0 END AS OrderSettled
+                       FROM dbo.AdventurePacks p
+                       WHERE p.Status IN ({GeneratingStatuses})
+                          OR p.Status = N'{nameof(AdventurePackStatus.Failed)}'
+                          OR (p.Status = N'{nameof(AdventurePackStatus.Completed)}' AND p.PdfUrl IS NULL)
+                   ) b;
 
                    SELECT
                        (SELECT COUNT(*) FROM dbo.BekiAlarms

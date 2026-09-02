@@ -1882,6 +1882,10 @@ public sealed class CompositeBookPipeline(
         MasterStory plan,
         CancellationToken cancellationToken)
     {
+        // The name as typed goes back into the story first — a one-letter respelling is repaired
+        // in place, on record, rather than rewriting a story the parent has already read.
+        plan = RestoreChildName(context, plan, input.ChildName);
+
         var problems = GeorgianNameFidelity.Inspect(plan, input.ChildName);
 
         if (problems.Count == 0)
@@ -1935,7 +1939,10 @@ public sealed class CompositeBookPipeline(
     {
         var storyInput = CompositeStoryInput.From(input);
 
-        var plan = await PlanStoryAsync(context, storyInput, [], attempt: 0, cancellationToken);
+        var plan = RestoreChildName(
+            context,
+            await PlanStoryAsync(context, storyInput, [], attempt: 0, cancellationToken),
+            input.ChildName);
 
         var problems = GeorgianNameFidelity.Inspect(plan, input.ChildName);
 
@@ -1951,10 +1958,13 @@ public sealed class CompositeBookPipeline(
             context.JobId, input.ChildName,
             string.Join(" | ", problems.Select(problem => problem.ToString())));
 
-        plan = await PlanStoryAsync(
-            context, storyInput,
-            problems.Select(problem => problem.ToString()).ToList(),
-            attempt: 1, cancellationToken);
+        plan = RestoreChildName(
+            context,
+            await PlanStoryAsync(
+                context, storyInput,
+                problems.Select(problem => problem.ToString()).ToList(),
+                attempt: 1, cancellationToken),
+            input.ChildName);
 
         var stillWrong = GeorgianNameFidelity.Inspect(plan, input.ChildName);
 
@@ -2041,6 +2051,28 @@ public sealed class CompositeBookPipeline(
             $"The story does not spell the child's name: {detail}. The name is an input, not "
             + "something the story may choose, and a book whose title carries a misspelling of it "
             + "is the first thing the family would see.");
+    }
+
+    /// <summary>
+    /// The child's name as typed, put back wherever the story wrote a word one letter away from it.
+    /// Logged, never silent: what the planner did stays on record while the book gets the name
+    /// the parent gave. See <see cref="GeorgianNameFidelity.Restore"/>.
+    /// </summary>
+    private MasterStory RestoreChildName(CompositeBookContext context, MasterStory plan, string childName)
+    {
+        var (restored, replacements) = GeorgianNameFidelity.Restore(plan, childName);
+        if (replacements.Count == 0)
+        {
+            return plan;
+        }
+
+        logger.LogWarning(
+            "Composite pipeline {JobId}: the story spelled „{Name}“ wrongly in {Count} place(s) and "
+            + "the exact name was restored: {Restorations}",
+            context.JobId, childName, replacements.Count,
+            string.Join("; ", replacements.Select(r => $"{r.Location}: {r.Found} → {r.Restored}")));
+
+        return restored;
     }
 
     /// <summary>One line for a log, an alarm and a failure message: the words, and where.</summary>

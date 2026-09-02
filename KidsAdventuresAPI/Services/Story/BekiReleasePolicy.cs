@@ -295,7 +295,16 @@ public sealed class BekiReleasePolicySnapshot
     /// <see cref="DefaultSeverityOf"/>, which reads this list. The admin table gets its row from
     /// <see cref="Defaults"/> either way, so the switch is there to be flipped.
     /// </summary>
-    private static readonly IReadOnlyList<string> BlockingCheckDefaults =
+    private static readonly IReadOnlyList<string> BlockingCheckDefaults = [];
+
+    /// <summary>
+    /// Owner ruling 2026-09-02: every book generates; a problem is a flag for the operator, never a
+    /// dead end for the parent. <c>name_fidelity</c> moved here from the blocking list on the same
+    /// day the name started being RESTORED from the input (<see cref="GeorgianNameFidelity.Restore"/>)
+    /// — a one-letter respelling is repaired before this check ever runs, so what this flag now
+    /// catches is only a story that never names the child, which is worth a note and not a refusal.
+    /// </summary>
+    private static readonly IReadOnlyList<string> FlaggedCheckDefaults =
         [BekiReleaseChecks.NameFidelity];
 
     /// <summary>
@@ -335,6 +344,11 @@ public sealed class BekiReleasePolicySnapshot
             rows.Add(new BekiReleaseCheckSetting(checkId, cls, severity, "default", null));
 
         foreach (var check in BekiReleaseChecks.Pipeline)
+        {
+            Add(check, BekiReleaseSeverity.AllClasses, BekiReleaseSeverity.Flag);
+        }
+
+        foreach (var check in FlaggedCheckDefaults)
         {
             Add(check, BekiReleaseSeverity.AllClasses, BekiReleaseSeverity.Flag);
         }

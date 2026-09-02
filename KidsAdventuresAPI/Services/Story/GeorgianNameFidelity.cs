@@ -316,6 +316,156 @@ public static class GeorgianNameFidelity
         Inspect(story, childName).Select(problem => problem.ToString()).ToList();
 
     /// <summary>
+    /// One word the book spelled one letter away from the child's name, put back as the parent
+    /// typed it — where it was and what it said.
+    /// </summary>
+    public sealed record NameRestoration(string Location, string Found, string Restored);
+
+    /// <summary>
+    /// The book with every near miss of the child's name replaced by the name as typed.
+    ///
+    /// **The observed defect, again, 2026-09-02.** A live preview for ვეკო came back with ველო in
+    /// the title and on all eight spreads; the corrective retry, told eleven times which letters
+    /// the name has, wrote ველო again; and the run failed — a parent on the preview screen, a
+    /// generic apology, two paid story calls with nothing to show. The planner and the polish
+    /// pass between them will not spell a name they have never met, and no amount of asking makes
+    /// the second attempt more likely than the first.
+    ///
+    /// The doc comment on this class says it never repairs, and the reasoning there was sound
+    /// for the day it was written: silently fixing a spelling would hide from everybody that the
+    /// planner cannot spell. It is now the owner's rule that decides — the name as written is the
+    /// name, letter for letter, and the way to get it into the book is by INPUT, not by a judge
+    /// that asks a model again. So this repairs, in the narrowest way there is: exactly the tokens
+    /// <see cref="Inspect"/> would have reported as near misses, with the same guards (length,
+    /// script, first letter, exemptions), and only their leading len(name) characters, so a
+    /// declined ველოს becomes ვეკოს and keeps its ending. Nothing else in the sentence moves.
+    /// The caller logs every replacement, so what the planner did is still on record.
+    ///
+    /// A word one letter from the name that the book meant as a different word is the one thing
+    /// this could get wrong, and <see cref="Inspect"/> has always drawn that line the same way:
+    /// a book whose hero is ვეკო and whose fox is ველო is a book no child could follow either.
+    /// </summary>
+    public static (MasterStory Story, IReadOnlyList<NameRestoration> Restored) Restore(
+        MasterStory story, string? childName)
+    {
+        ArgumentNullException.ThrowIfNull(story);
+
+        var typed = (childName ?? string.Empty).Trim();
+        var replacement = GivenNameAsTyped(typed);
+        var name = GivenName(Fold(typed));
+
+        if (name.Length < ShortestNearMissName || replacement.Length == 0)
+        {
+            return (story, []);
+        }
+
+        var exempt = Exemptions(story, name);
+        var restored = new List<NameRestoration>();
+
+        string? Fix(string? text, string location)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return text;
+            }
+
+            var builder = new StringBuilder(text.Length);
+            var changed = false;
+            var index = 0;
+
+            while (index < text.Length)
+            {
+                if (!char.IsLetterOrDigit(text[index]))
+                {
+                    builder.Append(text[index]);
+                    index++;
+                    continue;
+                }
+
+                var start = index;
+                while (index < text.Length && char.IsLetterOrDigit(text[index]))
+                {
+                    index++;
+                }
+
+                var token = text[start..index];
+                var folded = Fold(token);
+
+                // Folding must not have moved the letters about, or the prefix being replaced
+                // would not be the prefix that was compared. Georgian never does; a token that
+                // does is left alone and Inspect reports it as before.
+                if (folded.Length != token.Length || !IsNearMiss(folded, name, exempt))
+                {
+                    builder.Append(token);
+                    continue;
+                }
+
+                var fixedToken = replacement + token[name.Length..];
+                builder.Append(fixedToken);
+                changed = true;
+                restored.Add(new NameRestoration(location, token, fixedToken));
+            }
+
+            return changed ? builder.ToString() : text;
+        }
+
+        var title = Fix(story.Concept.Title, "title");
+        var titleEn = Fix(story.TitleEn, "English title");
+        var spreads = story.Spreads
+            .Select(spread => spread with
+            {
+                Text = Fix(spread.Text, $"spread {spread.Number}") ?? spread.Text,
+                TextEn = Fix(spread.TextEn, $"spread {spread.Number} (English)"),
+            })
+            .ToList();
+
+        if (restored.Count == 0)
+        {
+            return (story, []);
+        }
+
+        return (story with
+        {
+            Concept = story.Concept with { Title = title ?? story.Concept.Title },
+            TitleEn = titleEn,
+            Spreads = spreads,
+        }, restored);
+    }
+
+    /// <summary>The near-miss decision of <see cref="Inspect"/>, on one folded token.</summary>
+    private static bool IsNearMiss(string foldedToken, string name, HashSet<string> exempt)
+    {
+        var prefix = Prefix(foldedToken, name.Length);
+        if (Distance(prefix, name) != 1)
+        {
+            return false;
+        }
+
+        if (!string.Equals(ScriptOf(prefix), ScriptOf(name), StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (prefix.Length == 0 || prefix[0] != name[0])
+        {
+            return false;
+        }
+
+        return !exempt.Any(other => foldedToken.StartsWith(other, StringComparison.Ordinal));
+    }
+
+    /// <summary>The first word of the name exactly as the parent typed it, letters intact.</summary>
+    private static string GivenNameAsTyped(string typed)
+    {
+        foreach (var token in Tokens(typed))
+        {
+            return token;
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>
     /// The words this book has declared to be somebody else's name, plus the companion's.
     ///
     /// A cast member or a story object whose name happens to sit one letter from the child's is NOT
