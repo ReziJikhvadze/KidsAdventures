@@ -208,6 +208,25 @@ public sealed class MasterStoryRunStatusDto
     [JsonPropertyName("firstPageText")]
     public string? FirstPageText { get; set; }
 
+    /// <summary>
+    /// The inputs the run was written from, for a journey resumed in a new tab (an emailed
+    /// sign-in link opens one, and the draft the parent typed does not follow it). Sent only
+    /// once the story is Ready. The photograph itself never travels: <see cref="HasPortrait"/>
+    /// says the server holds one, and a new character can be given it at order time by naming
+    /// this run.
+    /// </summary>
+    [JsonPropertyName("birthDate")]
+    public string? BirthDate { get; set; }
+
+    [JsonPropertyName("gender")]
+    public string? Gender { get; set; }
+
+    [JsonPropertyName("eyeColor")]
+    public string? EyeColor { get; set; }
+
+    [JsonPropertyName("hasPortrait")]
+    public bool HasPortrait { get; set; }
+
     /// <summary>Sixteen, for a book of eight spreads.</summary>
     [JsonPropertyName("pageCount")]
     public int PageCount { get; set; }

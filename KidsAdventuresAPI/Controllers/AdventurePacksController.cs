@@ -259,6 +259,13 @@ public sealed class AdventurePacksController(
         dto.FirstPageText = content.StoryPages.Skip(1).FirstOrDefault()?.Content;
         dto.PageCount = content.StoryPages.Count;
 
+        // What the parent typed, so a journey resumed in another tab does not ask again. The
+        // name comes from the story (the run's own, unchanged); the rest from the row.
+        dto.BirthDate = run.BirthDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+        dto.Gender = string.IsNullOrWhiteSpace(run.Gender) ? null : run.Gender;
+        dto.EyeColor = run.EyeColor;
+        dto.HasPortrait = !string.IsNullOrWhiteSpace(run.PhotoBlobUrl);
+
         return Ok(dto);
     }
 

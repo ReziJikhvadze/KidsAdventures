@@ -121,6 +121,15 @@ export type MasterStoryRunStatus = {
   firstPageText?: string | null;
   /** Sixteen, for a book of eight spreads. */
   pageCount?: number;
+  /**
+   * The inputs the run was written from, for a journey resumed in a new tab. Present only once
+   * the story is Ready; the child's photograph itself never travels — `hasPortrait` says the
+   * server holds one that a new character can be given at order time.
+   */
+  birthDate?: string | null;
+  gender?: string | null;
+  eyeColor?: string | null;
+  hasPortrait?: boolean;
 };
 
 export type StoryPageContent = {
@@ -257,6 +266,11 @@ export type SaveCharacterInput = {
   isPrimary: boolean;
   removePhoto?: boolean;
   photo?: File;
+  /**
+   * A preview run whose parked portrait becomes this character's photo. Used when a journey is
+   * resumed in a new tab and the photograph the parent chose only exists on the server.
+   */
+  portraitRunId?: string;
 };
 
 export type WorldResponse = {

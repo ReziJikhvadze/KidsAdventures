@@ -11,6 +11,7 @@ import {
 import { useLocation } from "@tanstack/react-router";
 
 import type { BookPackage } from "@/lib/pricing";
+import { clearJourneyResume } from "@/lib/journey/resume";
 import { SESSION_CLEARED_EVENT, SESSION_KEYS } from "@/lib/storage/session";
 import { isWorldId, type WorldId } from "@/lib/worlds";
 import type {
@@ -42,6 +43,12 @@ export type DraftCharacter = {
    * character and the server reads its own copy. A newly chosen file turns this off.
    */
   photoStored: boolean;
+  /**
+   * The preview run holding this child's parked portrait, for a journey resumed in a new tab.
+   * The character is created on the server from that run's photo rather than from bytes the
+   * browser no longer has.
+   */
+  portraitRunId?: string;
 };
 
 export type PreviewTeaser = {
@@ -185,6 +192,8 @@ function applyDeepLink(base: JourneyDraft, search: string): JourneyDraft {
   const draft: JourneyDraft = params.has("new")
     ? emptyDraft()
     : { ...base, characters: [...base.characters] };
+  // "Begin a new story" also forgets the pointer to the previous one.
+  if (params.has("new")) clearJourneyResume();
 
   try {
     const world = params.get("worldId") || params.get("world");

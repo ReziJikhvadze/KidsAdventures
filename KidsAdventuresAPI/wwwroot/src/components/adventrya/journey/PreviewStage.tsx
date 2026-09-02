@@ -16,6 +16,7 @@ import {
   type PreviewTeaser,
 } from "@/lib/journey/draft";
 import { type BookPackage, PRICES } from "@/lib/pricing";
+import { patchJourneyResume, writeJourneyResume } from "@/lib/journey/resume";
 import { SESSION_KEYS } from "@/lib/storage/session";
 import { useWorldById, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
 
@@ -198,6 +199,16 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
       clearPendingRunId();
       onChange({ preview: teaser });
       setLoading(false);
+
+      // The pointer an emailed sign-in link needs to find this book again in a new tab. No
+      // child data: the run row holds it, and the signed-in parent reads it back.
+      writeJourneyResume({
+        runId: status.runId,
+        worldId: draft.worldId,
+        bookPackage: draft.bookPackage,
+        characterId: hero.serverId,
+        storyNotes: draft.storyNotes || undefined,
+      });
 
       // Only reached when the grace period ran out, so the cover is late rather than coming.
       // Keep looking a little longer: it can still arrive while they read page one.
@@ -536,7 +547,10 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
 
         <PackagePanel
           selected={draft.bookPackage}
-          onSelect={(bookPackage) => onChange({ bookPackage })}
+          onSelect={(bookPackage) => {
+            onChange({ bookPackage });
+            patchJourneyResume({ bookPackage });
+          }}
           onContinue={onContinue}
         />
       </div>

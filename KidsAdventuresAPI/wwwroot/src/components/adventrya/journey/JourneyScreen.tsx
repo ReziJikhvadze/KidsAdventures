@@ -6,12 +6,20 @@ import { CheckoutStage } from "@/components/adventrya/journey/CheckoutStage";
 import { GeneratingStage } from "@/components/adventrya/journey/GeneratingStage";
 import { PreviewStage } from "@/components/adventrya/journey/PreviewStage";
 import { ProfileStage } from "@/components/adventrya/journey/ProfileStage";
+import { getGuestPreviewStatus } from "@/lib/api/adventure-packs";
 import { getCharacter, fetchCharacterPhotoObjectUrl } from "@/lib/api/characters";
-import { getToken } from "@/lib/api/client";
+import { getToken, resolveApiUrl } from "@/lib/api/client";
 import type { CharacterGender, CharacterType, EyeColor } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useT } from "@/lib/i18n";
-import { useJourneyDraft, type DraftCharacter } from "@/lib/journey/draft";
+import {
+  emptyCharacter,
+  useJourneyDraft,
+  type DraftCharacter,
+  type PreviewTeaser,
+} from "@/lib/journey/draft";
+import { readJourneyResume } from "@/lib/journey/resume";
+import { isWorldId } from "@/lib/worlds";
 import {
   STAGE_PROGRESS,
   backHrefForStage,
@@ -23,7 +31,7 @@ import {
 export function JourneyScreen() {
   const [stage, goToStage] = useJourneyStage();
   const t = useT();
-  const [draft, setDraft] = useJourneyDraft();
+  const [draft, setDraft, , hydrated] = useJourneyDraft();
   const { isAuthenticated, isLoading } = useAuth();
   const hydratedServerIds = useRef<string>("");
 
@@ -88,6 +96,67 @@ export function JourneyScreen() {
       cancelled = true;
     };
   }, [draft.characters, isLoading, setDraft]);
+
+  /*
+    A journey resumed in a new tab.
+
+    An emailed sign-in link opens a fresh document, and a fresh document has a blank draft by
+    design. If a finished preview was left behind — its pointer in storage, its story on the
+    server — the book is rebuilt from the server before the checkout can auto-place an order for
+    nothing: the world and package from the pointer, the story and cover from the run, and the
+    child either as the saved character (loaded by the hydration above) or as the run's own
+    details with the portrait to be copied from the run at order time.
+  */
+  const resumeAttempted = useRef(false);
+  useEffect(() => {
+    if (!hydrated || resumeAttempted.current) return;
+    if (stage !== "auth" && stage !== "checkout" && stage !== "preview") return;
+    if (draft.preview || draft.orderId) return;
+    const resume = readJourneyResume();
+    if (!resume) return;
+    resumeAttempted.current = true;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const status = await getGuestPreviewStatus(resume.runId);
+        if (cancelled || status.status !== "Ready") return;
+        const teaser: PreviewTeaser = {
+          guestPreviewId: status.runId,
+          storyId: status.runId,
+          title: status.title || "",
+          firstPageTitle: status.firstPageTitle || "",
+          firstPageText: status.firstPageText || "",
+          coverImageDataUrl: status.coverImageUrl ? resolveApiUrl(status.coverImageUrl) : "",
+          pageCount: status.pageCount,
+        };
+        const child: DraftCharacter = resume.characterId
+          ? { ...emptyCharacter(true), serverId: resume.characterId }
+          : {
+              ...emptyCharacter(true),
+              name: status.childName ?? "",
+              birthDate: status.birthDate ?? "",
+              gender: (status.gender as CharacterGender | null) ?? null,
+              eyeColor: (status.eyeColor as EyeColor | null) ?? null,
+              photoReady: status.hasPortrait === true,
+              portraitRunId: status.hasPortrait ? status.runId : undefined,
+            };
+        setDraft((prev) => ({
+          ...prev,
+          worldId: resume.worldId && isWorldId(resume.worldId) ? resume.worldId : prev.worldId,
+          bookPackage: resume.bookPackage,
+          storyNotes: resume.storyNotes ?? prev.storyNotes,
+          preview: teaser,
+          characters: [child, ...prev.characters.filter((c) => !c.isPrimary)],
+        }));
+      } catch {
+        /* an expired run is a journey that starts over; nothing to resume */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, stage, draft.preview, draft.orderId, setDraft]);
 
   const goAfterProfile = useCallback(() => {
     // The world is chosen before the details now, so this normally goes straight to the preview.
@@ -158,11 +227,14 @@ export function JourneyScreen() {
     />
   );
 
-  // Legacy hash from older rebuild — send users to the real demo /themes route.
+  // Legacy hash from older rebuild — send users to the real /themes route. In an effect, not
+  // in render: a navigation started while rendering ran twice under StrictMode and is a side
+  // effect the render phase is not allowed to have.
+  useEffect(() => {
+    if (stage === "world") goToStage("world");
+  }, [stage, goToStage]);
+
   if (stage === "world") {
-    if (typeof window !== "undefined") {
-      goToStage("world");
-    }
     return null;
   }
 

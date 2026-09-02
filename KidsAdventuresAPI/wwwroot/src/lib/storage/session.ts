@@ -25,6 +25,12 @@ export const SESSION_KEYS = {
    * it points at a row holding a named child's story.
    */
   pendingBookRunId: "ka_pending_book_run_id",
+  /**
+   * A pointer to a finished preview — run id, world, package, saved-character id — so an
+   * emailed sign-in link that opens in a new tab can find the book the parent was buying. It
+   * holds no name, date or photo; those are read back from the server by the signed-in parent.
+   */
+  journeyResume: "ka_journey_resume",
 } as const;
 
 /**

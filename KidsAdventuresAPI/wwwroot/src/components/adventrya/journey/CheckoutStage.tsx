@@ -15,6 +15,7 @@ import {
   useT,
 } from "@/lib/i18n";
 import { primaryCharacter, type JourneyDraft } from "@/lib/journey/draft";
+import { clearJourneyResume } from "@/lib/journey/resume";
 import { ensureServerCharacters } from "@/lib/journey/syncCharacters";
 import { PRICES } from "@/lib/pricing";
 import { heroDemoPages } from "@/lib/story/heroDemoPages";
@@ -167,6 +168,8 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
       });
 
       onChange({ orderId: checkout.orderId, bookId: checkout.bookId ?? null });
+      // The book is bought; the pointer that let a new tab find it has done its job.
+      clearJourneyResume();
 
       // Nobody is on this screen any more.
       //

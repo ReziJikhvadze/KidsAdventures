@@ -30,6 +30,8 @@ export async function ensureServerCharacters(
       relationship: character.isPrimary ? undefined : resolvedRelationship(character) || undefined,
       isPrimary: character.isPrimary,
       photo,
+      // A resumed journey has no bytes for the face; the server copies them from the preview run.
+      portraitRunId: !photo && !character.photoStored ? character.portraitRunId : undefined,
     };
 
     let serverId = character.serverId;

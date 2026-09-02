@@ -9,7 +9,8 @@ namespace AdventurePacks.Api.Services.Implementations;
 public sealed class CharacterService(
     ICharacterRepository characterRepository,
     IBlobStorageService blobStorageService,
-    IReferenceImageNormalizer referenceImageNormalizer) : ICharacterService
+    IReferenceImageNormalizer referenceImageNormalizer,
+    IMasterStoryRunRepository? masterStoryRuns = null) : ICharacterService
 {
     private const long MaxPhotoBytes = 5 * 1024 * 1024;
 
@@ -80,6 +81,17 @@ public sealed class CharacterService(
         var characterId = Guid.NewGuid();
         var photoUrl = await UploadPhotoAsync(userId, characterId, photo, cancellationToken);
 
+        // A journey resumed in another tab has no file for the face: the photograph the parent
+        // chose is parked on the preview run. Copy it from there, with the description the run
+        // already paid for, so the child's book is drawn from the same portrait they picked.
+        string? appearance = null;
+        if (photoUrl is null && request.PortraitRunId is { } runId)
+        {
+            var parked = await CopyParkedPortraitAsync(userId, characterId, runId, cancellationToken);
+            photoUrl = parked.PhotoUrl;
+            appearance = parked.Appearance;
+        }
+
         var character = new Character
         {
             Id = characterId,
@@ -92,12 +104,66 @@ public sealed class CharacterService(
             Relationship = normalized.Relationship,
             IsPrimary = request.IsPrimary,
             PhotoUrl = photoUrl,
+            AppearanceDescription = appearance,
+            AppearancePhotoUrl = appearance is null ? null : photoUrl,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
 
         await characterRepository.CreateAsync(character, cancellationToken);
         return Map(character, canDelete: true);
+    }
+
+    /// <summary>
+    /// The portrait parked on a preview run, stored again under this character.
+    ///
+    /// Only a run nobody else has claimed, or one this parent already claimed, is a run the
+    /// caller may take a photograph from — a guest run is anonymous, and its id is the only
+    /// thing standing between a stranger and a child's face. A missing or refused run is not
+    /// an error: the character is created without a photo, exactly as it would be for a parent
+    /// who skipped the upload, and the illustrator falls back to the written description.
+    /// </summary>
+    private async Task<(string? PhotoUrl, string? Appearance)> CopyParkedPortraitAsync(
+        Guid userId,
+        Guid characterId,
+        Guid runId,
+        CancellationToken cancellationToken)
+    {
+        if (masterStoryRuns is null)
+        {
+            return (null, null);
+        }
+
+        try
+        {
+            var run = await masterStoryRuns.GetByIdAsync(runId, cancellationToken);
+            if (run is null || string.IsNullOrWhiteSpace(run.PhotoBlobUrl))
+            {
+                return (null, null);
+            }
+
+            if (run.UserId is { } owner && owner != userId)
+            {
+                return (null, null);
+            }
+
+            var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(run.PhotoBlobUrl, cancellationToken);
+            if (bytes.Length == 0)
+            {
+                return (null, null);
+            }
+
+            var normalized = referenceImageNormalizer.NormalizeForOpenAi(bytes, "image/png");
+            var blobName = $"{userId}/characters/{characterId}/portrait-{Guid.NewGuid()}.png";
+            var url = await blobStorageService.UploadAsync(
+                blobName, normalized.Bytes, normalized.ContentType, cancellationToken);
+
+            return (url, string.IsNullOrWhiteSpace(run.AppearanceDescription) ? null : run.AppearanceDescription);
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            return (null, null);
+        }
     }
 
     public async Task<CharacterResponse> UpdateAsync(

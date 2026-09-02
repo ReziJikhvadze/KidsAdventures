@@ -33,6 +33,13 @@ public sealed class SaveCharacterRequest
 
     /// <summary>Set on update to drop the stored portrait without uploading a replacement.</summary>
     public bool RemovePhoto { get; set; }
+
+    /// <summary>
+    /// A preview run whose parked portrait becomes this character's photo, for a journey resumed
+    /// in a new tab where the browser no longer has the file. Honoured on create only, only when
+    /// no photo is uploaded, and only for a run the caller may claim.
+    /// </summary>
+    public Guid? PortraitRunId { get; set; }
 }
 
 public sealed class CharacterResponse

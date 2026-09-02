@@ -12,6 +12,7 @@ function toFormData(input: SaveCharacterInput): FormData {
   if (input.relationship) form.append("relationship", input.relationship);
   if (input.removePhoto) form.append("removePhoto", "true");
   if (input.photo) form.append("photo", input.photo);
+  if (input.portraitRunId) form.append("portraitRunId", input.portraitRunId);
   return form;
 }
 
