@@ -11,7 +11,11 @@ export const PRICES = {
     that leaves their account. Back to 1400 when the test passes.
   */
   digital: 100,
-  print: 7900,
+  /*
+    TEMPORARY — 1 GEL, matching GelPricing.PrintMinor while the printed book is put through the
+    live gateway too. Back to 7900 with the digital one when the test passes.
+  */
+  print: 100,
   /** Difference charged when a customer upgrades an existing digital book. */
   printUpgrade: 6500,
 } as const;
