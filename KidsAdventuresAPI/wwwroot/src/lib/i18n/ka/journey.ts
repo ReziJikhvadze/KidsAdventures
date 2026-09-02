@@ -3,7 +3,7 @@ export const journey = {
     one: "ნაბიჯი 1 / 3",
     two: "ნაბიჯი 2 / 3",
     three: "ნაბიჯი 3 / 3 · Preview",
-    order: "შეკვეთა · პროფილი",
+    order: "შეკვეთა",
     payment: "შეკვეთა · გადახდა",
     creating: "წიგნის შექმნა",
   },
@@ -33,6 +33,15 @@ export const journey = {
       begin with the same questions as the first — name, date, eyes, photo — for a child the
       account already knew.
     */
+    /* The card of a supporting character, above their name. */
+    additionalLabel: "დამატებითი",
+    /* The banner over a saved hero's form: whose book this is, and the way out for another child. */
+    knownHero: {
+      newBook: (name: string) =>
+        `ქმნი ახალ წიგნს ${/[აეიოუ]$/.test(name) ? `${name}სთვის` : `${name}ისთვის`}`,
+      newHero: (name: string) => `შეიქმნება ახალი გმირი: ${name}`,
+      otherChild: "სხვა ბავშვისთვის? დაიწყე ახალი გმირით",
+    },
     heroPicker: {
       title: "ვისთვის ვქმნით წიგნს?",
       hint: "შენახული გმირის მონაცემები და ფოტო ავტომატურად შეივსება.",
@@ -186,7 +195,8 @@ export const journey = {
       "ზღაპარი მოსალოდნელზე დიდხანს გრძელდება. სცადე თავიდან — შენი მონაცემები შენახულია.",
     tryAgain: "თავიდან ცდა",
     /* The server's own rate limit, said as what it is — a busy moment, not a fault of the parent. */
-    tooBusy: "ამ წუთას ძალიან ბევრი ზღაპარი იწერება. სცადე რამდენიმე წუთში — შენი მონაცემები შენახულია.",
+    tooBusy:
+      "ამ წუთას ძალიან ბევრი ზღაპარი იწერება. სცადე რამდენიმე წუთში — შენი მონაცემები შენახულია.",
     eyebrow: " პერსონალიზებული Preview მზადაა",
     titlePrefix: "აი, როგორ იწყება ",
     titleSuffix: "ს ამბავი",
@@ -284,6 +294,7 @@ export const journey = {
     discountLine: "შენი ფასდაკლება ",
     total: "ჯამი ",
     printReuseNote: "უკვე შექმნილი წიგნი დაიბეჭდება — ისტორია ხელახლა არ გენერირდება.",
+    bookLanguage: "წიგნის ენა",
     payFirstNote: "სრული წიგნი მხოლოდ წარმატებული გადახდის შემდეგ შეიქმნება.",
   },
 

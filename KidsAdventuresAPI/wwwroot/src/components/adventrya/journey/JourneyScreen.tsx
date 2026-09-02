@@ -222,7 +222,7 @@ export function JourneyScreen() {
       // The journey's stages share one history entry, so its own step-by-step back target is
       // the only one that can walk the parent back through the questions they answered.
       explicitBack
-      progressLabel={progressLabelForStage(stage)}
+      progressLabel={progressLabelForStage(stage, t.journey.steps)}
       progressValue={STAGE_PROGRESS[stage]}
     />
   );

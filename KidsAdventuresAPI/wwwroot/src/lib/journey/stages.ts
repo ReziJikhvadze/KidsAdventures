@@ -143,19 +143,23 @@ export const STAGE_PROGRESS: Record<JourneyStage, number> = {
   generated: 100,
 };
 
-export function progressLabelForStage(stage: JourneyStage): string {
+/** The step label in the header, from the catalogue: an English visitor used to read Georgian here. */
+export function progressLabelForStage(
+  stage: JourneyStage,
+  steps: { one: string; two: string; three: string; order: string; creating: string },
+): string {
   switch (stage) {
     case "world":
-      return "ნაბიჯი 1 / 3";
+      return steps.one;
     case "profile":
-      return "ნაბიჯი 2 / 3";
+      return steps.two;
     case "preview":
-      return "ნაბიჯი 3 / 3 · Preview";
+      return steps.three;
     case "auth":
     case "checkout":
-      return "შეკვეთა";
+      return steps.order;
     case "generating":
     case "generated":
-      return "წიგნის შექმნა";
+      return steps.creating;
   }
 }

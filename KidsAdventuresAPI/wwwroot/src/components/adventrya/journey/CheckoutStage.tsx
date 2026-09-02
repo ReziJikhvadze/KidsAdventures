@@ -345,7 +345,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
         </button>
 
         <Link className="text-back" to="/create" hash="preview">
-          <ArrowLeft aria-hidden="true" size={13} /> უკან
+          <ArrowLeft aria-hidden="true" size={13} /> {t.common.actions.back}
         </Link>
       </div>
 
@@ -368,7 +368,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             initialIndex={0}
           />
           <div>
-            <small>{isPrint ? "Print + Digital" : "Digital"}</small>
+            <small>{packageLabel}</small>
             <strong>{bookTitle}</strong>
             <span>{formatGel(totalMinor)}</span>
           </div>
@@ -377,11 +377,11 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
         <div className="summary-lines">
           <h2>{t.journey.checkout.summaryHeading}</h2>
           <span>
-            {isPrint ? "Print + Digital Book" : "Digital Book"}
+            {packageLabel}
             <strong>{formatGel(subtotalMinor)}</strong>
           </span>
           <span>
-            წიგნის ენა <strong>{langLabel}</strong>
+            {t.journey.checkout.bookLanguage} <strong>{langLabel}</strong>
           </span>
           {isPrint ? (
             <span>

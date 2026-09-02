@@ -573,7 +573,9 @@ function CharacterEditor({
       <div className="ux-form-intro">
         <span className="ux-step-token">{String(index + 1).padStart(2, "0")}</span>
         <div>
-          <small>{character.isPrimary ? copy.profile.primaryCharacter : "დამატებითი"}</small>
+          <small>
+            {character.isPrimary ? copy.profile.primaryCharacter : copy.profile.additionalLabel}
+          </small>
           <h2>{title}</h2>
         </div>
       </div>
@@ -595,8 +597,8 @@ function CharacterEditor({
         >
           <strong style={{ fontSize: "0.9rem", color: "var(--text-main, #111)" }}>
             {character.name.trim() !== character.originalName.trim() && character.name.trim() !== ""
-              ? `შეიქმნება ახალი გმირი: ${character.name.trim()}`
-              : `ქმნი ახალ წიგნს ${benefactive(character.originalName)}`}
+              ? copy.profile.knownHero.newHero(character.name.trim())
+              : copy.profile.knownHero.newBook(character.originalName.trim())}
           </strong>
           <button
             type="button"
@@ -604,7 +606,7 @@ function CharacterEditor({
             style={{ fontSize: "0.85rem" }}
             onClick={onClearToNew}
           >
-            სხვა ბავშვისთვის? დაიწყე ახალი გმირით
+            {copy.profile.knownHero.otherChild}
           </button>
         </div>
       ) : null}

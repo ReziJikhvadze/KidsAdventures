@@ -9,7 +9,7 @@ export const journey = {
     one: "Step 1 / 3",
     two: "Step 2 / 3",
     three: "Step 3 / 3 · Preview",
-    order: "Order · profile",
+    order: "Order",
     payment: "Order · payment",
     creating: "Creating the book",
   },
@@ -34,6 +34,12 @@ export const journey = {
     saveChanges: " Save changes",
     /* The heading of the dialog that says what the form is still waiting for. */
     missingTitle: "One moment",
+    additionalLabel: "Supporting",
+    knownHero: {
+      newBook: (name: string) => `You're making a new book for ${name}`,
+      newHero: (name: string) => `A new hero will be created: ${name}`,
+      otherChild: "Another child? Start with a new hero",
+    },
     heroPicker: {
       title: "Who is this book for?",
       hint: "A saved hero's details and photo are filled in for you.",
@@ -269,6 +275,7 @@ export const journey = {
     total: "Total ",
     printReuseNote:
       "The book you already created will be printed — the story is not generated again.",
+    bookLanguage: "Book language",
     payFirstNote: "The full book is created only after a successful payment.",
   },
 
