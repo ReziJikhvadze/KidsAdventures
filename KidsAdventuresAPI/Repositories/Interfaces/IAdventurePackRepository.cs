@@ -22,6 +22,29 @@ public sealed record StaleGenerationPack(
 public interface IAdventurePackRepository
 {
     Task<Guid> CreatePendingAsync(AdventurePack pack, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Creates the pack <em>and</em> writes its id onto the order that bought it, in one
+    /// transaction — so an order can never be Paid with a book that exists but is not linked.
+    ///
+    /// Those used to be two statements. Fulfilment ran under the HTTP request's token, and a
+    /// parent who navigated away between them left a pack with no order pointing at it; the
+    /// stalled-order sweep then saw a paid order with no BookId and made a second book. The
+    /// link is fulfilment's idempotency marker, so it has to land in the same write as the row
+    /// it marks.
+    ///
+    /// The UPDATE is guarded on <c>BookId IS NULL</c> and the whole transaction is rolled back
+    /// when it matches nothing: two fulfilments racing for one order cannot both succeed, and the
+    /// loser leaves nothing behind.
+    ///
+    /// A default that refuses rather than an abstract member, so the many test doubles of this
+    /// interface that never create a pack do not each have to say so. The real repository
+    /// implements it; a double that exercises fulfilment's create path must too.
+    /// </summary>
+    Task<Guid> CreatePendingForOrderAsync(AdventurePack pack, Guid orderId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException(
+            $"{nameof(CreatePendingForOrderAsync)} is not implemented by this {GetType().Name}.");
+
     Task<AdventurePack?> GetByIdAsync(Guid id, Guid userId, CancellationToken cancellationToken);
     Task<AdventurePack?> GetByIdNoOwnershipAsync(Guid id, CancellationToken cancellationToken);
     Task<IReadOnlyList<AdventurePack>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken);
@@ -73,6 +96,25 @@ public interface IAdventurePackRepository
         DateTime cutoffUtc,
         int limit,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Packs a generation job should have claimed by now and has not: any pack still Pending,
+    /// and a Beki pack still at StoryReady, whose last signal is older than
+    /// <paramref name="cutoffUtc"/>.
+    ///
+    /// Distinct from <see cref="ListStaleGenerationAsync"/> on purpose. Those are books a job was
+    /// drawing when it stopped; these are books no job has touched — the status fulfilment left
+    /// them in, with nothing running behind it. A legacy pack at StoryReady is not in this set,
+    /// because on that pipeline StoryReady is a finished book.
+    ///
+    /// Empty by default: only the real repository and the sweep's own doubles answer it, and every
+    /// other double of this wide interface should not have to.
+    /// </summary>
+    Task<IReadOnlyList<StaleGenerationPack>> ListUnclaimedGenerationAsync(
+        DateTime cutoffUtc,
+        int limit,
+        CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<StaleGenerationPack>>([]);
 
     /// <summary>
     /// Fails one stalled pack if it is still in <paramref name="expectedStatus"/> <em>and</em> its

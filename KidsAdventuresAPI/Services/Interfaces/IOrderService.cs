@@ -80,4 +80,13 @@ public interface IOrderService
     /// quietly decide to do nothing.
     /// </summary>
     Task<bool> RequeueFulfilmentAsync(Guid orderId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether <see cref="RequeueFulfilmentAsync"/> would accept this order right now — the same
+    /// rule, asked without acting on it, so the console can decide whether to show a retry
+    /// button rather than offer one that answers "no".
+    ///
+    /// False for an order that does not exist.
+    /// </summary>
+    Task<bool> CanRedriveAsync(Guid orderId, CancellationToken cancellationToken);
 }

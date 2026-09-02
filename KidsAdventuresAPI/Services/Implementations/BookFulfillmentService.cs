@@ -114,8 +114,23 @@ public sealed class BookFulfillmentService(
                 : GenerationPipelines.Beki
         };
 
-        await packRepository.CreatePendingAsync(book, cancellationToken);
-        await orderRepository.SetBookIdAsync(order.Id, book.Id, cancellationToken);
+        /*
+          One write, not two.
+
+          The pack and the order's pointer to it used to be separate statements, and the pointer is
+          fulfilment's idempotency marker: everything that asks "does this order have a book yet"
+          reads it. Split, a fulfilment that died between them — a request the browser dropped, a
+          process that restarted — left a real pack with no order pointing at it, and the next
+          retry made a second book for the same payment. The repository commits both together.
+        */
+        await packRepository.CreatePendingForOrderAsync(book, order.Id, cancellationToken);
+
+        // The preview run is claimed the moment the paid book exists — before adoption, and
+        // whether or not adoption then succeeds. Claiming clears the run's expiry; left to the
+        // adoption path it was skipped whenever that path failed, and the guest-run purge then
+        // deleted the portrait and the plan a retry needed, quietly re-routing a paid Beki book
+        // down the legacy pipeline.
+        await ClaimPreviewRunAsync(draft, book, cancellationToken);
 
         // The parent already read a story and chose to buy it. Keep that one rather than
         // writing a new one, and reuse its cover as page one so only the pages they have
@@ -187,7 +202,22 @@ public sealed class BookFulfillmentService(
                 order.UserId, heroId, worldId, bookId, cancellationToken);
         }
 
-        if (book.Status == AdventurePackStatus.Pending || book.Status == AdventurePackStatus.Failed)
+        /*
+          A Beki pack at StoryReady is a pack with no job, and it is re-driven as one.
+
+          Adoption writes StoryReady before generation is enqueued, and everything between the two
+          — the cast, the map, the enqueue itself — can still throw. The re-drive used to look only
+          at Pending and Failed, so a paid Beki book stranded at StoryReady was skipped: nothing
+          queued, the order stamped Fulfilled anyway, and a parent polling "შეკვეთა მიღებულია…"
+          for good. The Beki job claims StoryReady, so queuing it is exactly the first attempt's
+          missing last step.
+
+          Legacy StoryReady is not in the set, and must not be: on that pipeline it is the
+          finished book.
+        */
+        var unclaimedBeki = book.IsBekiPipeline && book.Status == AdventurePackStatus.StoryReady;
+
+        if (book.Status is AdventurePackStatus.Pending or AdventurePackStatus.Failed || unclaimedBeki)
         {
             // Same decision the first attempt made. A retry that fell back to the legacy
             // pipeline would give the parent a different kind of book than the one that failed.
@@ -278,10 +308,10 @@ public sealed class BookFulfillmentService(
                     /*
                       Put it back, or the rescue is worse than the failure.
 
-                      Only Pending and Failed reach this branch at all, so a book left revived with
-                      no job behind it would be outside the set a later re-drive looks at — stuck in
-                      StoryReady with nothing running and nothing that would ever notice. Failed is
-                      the status that keeps it rescuable.
+                      A legacy book left revived to StoryReady with no job behind it would read as
+                      finished to everything that looks at it — outside the set a later re-drive
+                      considers, and outside the sweep's. Failed is the status that keeps it
+                      rescuable on both pipelines, and it is the verdict this row already carried.
                     */
                     await packRepository.TryUpdateStatusAsync(
                         bookId,
@@ -357,6 +387,34 @@ public sealed class BookFulfillmentService(
 
         return JsonSerializer.Deserialize<BookDraftRequest>(order.DraftJson, JsonOptions)
                ?? throw new InvalidOperationException("შეკვეთის მონაცემები დაზიანებულია.");
+    }
+
+    /// <summary>
+    /// Marks the preview run as belonging to this paid book, so the guest-run purge leaves it
+    /// alone from here on.
+    ///
+    /// Best effort and logged, never fatal: the claim is what keeps the run's portrait and plan
+    /// on disk for a re-drive, and a paid order must not fail because that bookkeeping did. It
+    /// runs before adoption on purpose — the row it protects is exactly the one adoption is about
+    /// to read, and a retry after a failed adoption needs it just as much as the first attempt.
+    /// </summary>
+    private async Task ClaimPreviewRunAsync(BookDraftRequest draft, AdventurePack book, CancellationToken cancellationToken)
+    {
+        if (draft.PreviewBookId is not { } runId)
+        {
+            return;
+        }
+
+        try
+        {
+            await masterStoryRunRepository.ClaimAsync(runId, book.UserId, book.Id, cancellationToken);
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning(
+                ex, "Could not claim preview run {RunId} for book {BookId}; its purge is not deferred.",
+                runId, book.Id);
+        }
     }
 
     /// <summary>
@@ -443,11 +501,6 @@ public sealed class BookFulfillmentService(
                 null,
                 null,
                 cancellationToken);
-
-            if (storedRun is not null)
-            {
-                await masterStoryRunRepository.ClaimAsync(storedRun.Id, book.UserId, book.Id, cancellationToken);
-            }
 
             logger.LogInformation(
                 "Book {BookId} adopted its preview story ({PageCount} pages){CoverNote}.",

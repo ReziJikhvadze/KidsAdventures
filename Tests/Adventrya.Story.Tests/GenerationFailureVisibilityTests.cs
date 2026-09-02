@@ -772,6 +772,199 @@ public class OrderFailureVisibilityTests
         Assert.False(await world.Service().RequeueFulfilmentAsync(Guid.NewGuid(), CancellationToken.None));
     }
 
+    // -- the retry, for a book no job ever claimed ------------------------
+
+    [Fact]
+    public async Task A_fulfilled_beki_order_whose_book_no_job_ever_claimed_can_be_re_driven()
+    {
+        /*
+          The second hole, beside the Failed one.
+
+          Fulfilment adopts the story into StoryReady, then enqueues; the order is stamped
+          Fulfilled the moment the enqueue returns. A job that was never posted, or that died
+          before its claim, leaves a paid Beki book resting at StoryReady: not Failed, so the
+          button refused it; not a working status, so the sweep never buried it. The parent
+          polled forever. The console, the button and the job now all accept it — once it has
+          waited longer than a fulfilment is allowed to before being called stalled.
+        */
+        var world = new OrderWorld(AdventurePackStatus.StoryReady, OrderStatus.Fulfilled, fulfilled: true);
+        world.Book.GenerationPipeline = GenerationPipelines.Beki;
+        world.Book.GenerationHeartbeatUtc = DateTime.UtcNow.AddMinutes(-20);
+
+        Assert.True(await world.Service().CanRedriveAsync(world.Order.Id, CancellationToken.None));
+        Assert.True(await world.Service().RequeueFulfilmentAsync(world.Order.Id, CancellationToken.None));
+        Assert.Equal(1, world.Jobs.Enqueued);
+
+        await world.Service().FulfilOrderAsync(world.Order.Id);
+        Assert.Equal(1, world.Fulfilment.Calls);
+    }
+
+    [Theory]
+    [InlineData(GenerationPipelines.Beki)]
+    [InlineData(GenerationPipelines.Legacy)]
+    public async Task A_fulfilled_order_whose_book_is_still_pending_can_be_re_driven_once_it_has_waited(string pipeline)
+    {
+        // Pending is the status fulfilment creates a pack in, on either pipeline, and nothing
+        // rests there: a book still Pending after the allowance has no job behind it.
+        var world = new OrderWorld(AdventurePackStatus.Pending, OrderStatus.Fulfilled, fulfilled: true);
+        world.Book.GenerationPipeline = pipeline;
+        world.Book.GenerationHeartbeatUtc = null;
+        world.Book.CreatedAt = DateTime.UtcNow.AddMinutes(-20);
+
+        Assert.True(await world.Service().CanRedriveAsync(world.Order.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task A_book_that_may_only_be_queued_is_not_offered_for_retry_yet()
+    {
+        // A queued job and a lost one look the same until the claim, so the rule waits. Offering
+        // the button at once would have an operator re-queue books that are merely behind others.
+        var world = new OrderWorld(AdventurePackStatus.StoryReady, OrderStatus.Fulfilled, fulfilled: true);
+        world.Book.GenerationPipeline = GenerationPipelines.Beki;
+        world.Book.GenerationHeartbeatUtc = DateTime.UtcNow.AddMinutes(-1);
+
+        Assert.False(await world.Service().CanRedriveAsync(world.Order.Id, CancellationToken.None));
+        Assert.False(await world.Service().RequeueFulfilmentAsync(world.Order.Id, CancellationToken.None));
+        Assert.Equal(0, world.Jobs.Enqueued);
+    }
+
+    [Fact]
+    public async Task A_legacy_book_at_story_ready_is_finished_and_is_never_offered_for_retry()
+    {
+        // However long it has rested there: on the legacy pipeline StoryReady is the book the
+        // parent already reads, and re-driving it would redraw what they have read.
+        var world = new OrderWorld(AdventurePackStatus.StoryReady, OrderStatus.Fulfilled, fulfilled: true);
+        world.Book.GenerationPipeline = GenerationPipelines.Legacy;
+        world.Book.GenerationHeartbeatUtc = DateTime.UtcNow.AddHours(-3);
+
+        Assert.False(await world.Service().CanRedriveAsync(world.Order.Id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task The_console_asks_the_same_rule_the_button_applies()
+    {
+        // One predicate behind both, so the console cannot show a button the button will refuse.
+        var failed = new OrderWorld(AdventurePackStatus.Failed, OrderStatus.Fulfilled, fulfilled: true);
+        Assert.True(await failed.Service().CanRedriveAsync(failed.Order.Id, CancellationToken.None));
+
+        var fine = new OrderWorld(AdventurePackStatus.Completed, OrderStatus.Fulfilled, fulfilled: true);
+        Assert.False(await fine.Service().CanRedriveAsync(fine.Order.Id, CancellationToken.None));
+
+        Assert.False(await fine.Service().CanRedriveAsync(Guid.NewGuid(), CancellationToken.None));
+    }
+
+    // -- the wait, described --------------------------------------------
+
+    [Fact]
+    public async Task The_wait_is_described_rather_than_only_asserted()
+    {
+        // Readiness alone told the generating screen to keep spinning. A reload from the bank has
+        // nothing but an order id, and showed a generic book for "შენი გმირი"; each of these is the
+        // pack's own column, copied as stored.
+        var heartbeat = new DateTime(2026, 8, 31, 10, 0, 0, DateTimeKind.Utc);
+        var world = new OrderWorld(AdventurePackStatus.GeneratingStory, OrderStatus.Fulfilled, fulfilled: true);
+        world.Book.GenerationPipeline = GenerationPipelines.Beki;
+        world.Book.ProgressMessage = "იხატება მე-2 გვერდი…";
+        world.Book.ProgressPercent = 18;
+        world.Book.GenerationHeartbeatUtc = heartbeat;
+        world.Book.WorldId = "dinosaurs";
+        world.Book.CoverImageUrl = "covers/abc.webp";
+
+        var status = await world.Service().GetStatusAsync(world.Order.UserId, world.Order.Id, CancellationToken.None);
+
+        Assert.Equal(18, status.ProgressPercent);
+        Assert.Equal("GeneratingStory", status.PackStatus);
+        Assert.Equal(heartbeat, status.HeartbeatUtc);
+        Assert.Equal("ბექა და ცისარტყელას ხიდი", status.Title);
+        Assert.Equal("dinosaurs", status.WorldId);
+        Assert.Equal("covers/abc.webp", status.CoverImageUrl);
+
+        // No hero on this book, so no name — and no exception either.
+        Assert.Null(status.ChildName);
+
+        // The old fields are exactly what they were.
+        Assert.False(status.BookReady);
+        Assert.False(status.BookFailed);
+        Assert.Equal("იხატება მე-2 გვერდი…", status.ProgressMessage);
+    }
+
+    [Fact]
+    public async Task The_hero_is_named_from_the_character_the_book_is_about()
+    {
+        var hero = Guid.NewGuid();
+        var world = new OrderWorld(
+            AdventurePackStatus.GeneratingStory, OrderStatus.Fulfilled, fulfilled: true,
+            characters: new NamedCharacters(hero, " ბექა "));
+        world.Book.PrimaryCharacterId = hero;
+
+        var status = await world.Service().GetStatusAsync(world.Order.UserId, world.Order.Id, CancellationToken.None);
+
+        Assert.Equal("ბექა", status.ChildName);
+    }
+
+    [Fact]
+    public async Task A_name_lookup_that_fails_does_not_fail_the_poll()
+    {
+        // The default double refuses every character read. A poll that answers "is my book
+        // ready" must not fall over because a name could not be fetched.
+        var world = new OrderWorld(AdventurePackStatus.GeneratingStory, OrderStatus.Fulfilled, fulfilled: true);
+        world.Book.PrimaryCharacterId = Guid.NewGuid();
+
+        var status = await world.Service().GetStatusAsync(world.Order.UserId, world.Order.Id, CancellationToken.None);
+
+        Assert.Null(status.ChildName);
+        Assert.Equal("GeneratingStory", status.PackStatus);
+    }
+
+    [Fact]
+    public async Task A_paid_order_whose_book_row_does_not_exist_yet_still_describes_the_book()
+    {
+        /*
+          The window between the payment landing and the pack being written — seconds inline, or
+          a sweep's interval after a fulfilment that died. The screen used to get nothing at all
+          here. It gets the line the pack will open with, and what the frozen draft already knows.
+        */
+        var hero = Guid.NewGuid();
+        var world = new OrderWorld(
+            AdventurePackStatus.Pending, OrderStatus.Paid, fulfilled: false,
+            characters: new NamedCharacters(hero, "ბექა"));
+        world.Order.BookId = null;
+        world.Order.DraftJson = System.Text.Json.JsonSerializer.Serialize(
+            new BookDraftRequest { PrimaryCharacterId = hero, WorldId = "Dinosaurs" },
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+
+        var status = await world.Service().GetStatusAsync(world.Order.UserId, world.Order.Id, CancellationToken.None);
+
+        Assert.False(status.BookReady);
+        Assert.False(status.BookFailed);
+        Assert.Null(status.BookId);
+        Assert.False(string.IsNullOrWhiteSpace(status.ProgressMessage));
+        Assert.Equal("dinosaurs", status.WorldId);
+        Assert.Equal("ბექა", status.ChildName);
+
+        // Nothing is invented about a row that does not exist.
+        Assert.Null(status.PackStatus);
+        Assert.Null(status.ProgressPercent);
+        Assert.Null(status.HeartbeatUtc);
+        Assert.Null(status.Title);
+    }
+
+    [Fact]
+    public async Task An_unpaid_order_with_no_book_carries_no_progress_line()
+    {
+        // Nothing is being made, so nothing says it is. A draft that will not parse is simply
+        // not read.
+        var world = new OrderWorld(AdventurePackStatus.Pending, OrderStatus.Pending, fulfilled: false);
+        world.Order.BookId = null;
+        world.Order.DraftJson = "{not json";
+
+        var status = await world.Service().GetStatusAsync(world.Order.UserId, world.Order.Id, CancellationToken.None);
+
+        Assert.Null(status.ProgressMessage);
+        Assert.Null(status.WorldId);
+        Assert.Null(status.ChildName);
+    }
+
     // -- harness ---------------------------------------------------------
 
     /// <summary>
@@ -786,8 +979,16 @@ public class OrderFailureVisibilityTests
         public FakeJobs Jobs { get; } = new();
         public FakeFulfilment Fulfilment { get; } = new();
 
-        public OrderWorld(AdventurePackStatus bookStatus, OrderStatus orderStatus, bool fulfilled)
+        private readonly ICharacterRepository _characters;
+
+        public OrderWorld(
+            AdventurePackStatus bookStatus,
+            OrderStatus orderStatus,
+            bool fulfilled,
+            ICharacterRepository? characters = null)
         {
+            _characters = characters ?? new ThrowingCharacters();
+
             var userId = Guid.NewGuid();
             var bookId = Guid.NewGuid();
 
@@ -818,7 +1019,7 @@ public class OrderFailureVisibilityTests
                 new ThrowingPromoCodes(),
                 Fulfilment,
                 new FakePacks(Book),
-                new ThrowingCharacters(),
+                _characters,
                 new ThrowingWorldProgress(),
                 new ThrowingPromoCodeRepository(),
                 new ThrowingUsers(),
@@ -976,6 +1177,27 @@ public class OrderFailureVisibilityTests
         public Task<IReadOnlyList<Character>> GetHeroesAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyDictionary<Guid, string>> GetHeroPortraitUrlsAsync(Guid userId, IReadOnlyCollection<Guid> characterIds, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<Character?> GetByIdAsync(Guid id, Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<Character>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<int> CountByUserIdAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<Guid> CreateAsync(Character character, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> UpdateAsync(Character character, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task UpdateAppearanceCacheAsync(Guid id, Guid userId, string? appearanceDescription, string? appearancePhotoUrl, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> DeleteAsync(Guid id, Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> IsCastInAnyBookAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlySet<Guid>> GetCastCharacterIdsAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<Character>> GetByBookIdAsync(Guid bookId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task SetBookCastAsync(Guid bookId, IReadOnlyList<Guid> characterIds, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    /// <summary>One hero with a name; every other read is refused, as the default double's are.</summary>
+    private sealed class NamedCharacters(Guid heroId, string name) : ICharacterRepository
+    {
+        public Task<Character?> GetByIdAsync(Guid id, Guid userId, CancellationToken cancellationToken) =>
+            Task.FromResult<Character?>(id == heroId ? new Character { Id = heroId, UserId = userId, Name = name } : null);
+
+        public Task<IReadOnlyList<Character>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<Character>> GetHeroesAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyDictionary<Guid, string>> GetHeroPortraitUrlsAsync(Guid userId, IReadOnlyCollection<Guid> characterIds, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<Character>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<int> CountByUserIdAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<Guid> CreateAsync(Character character, CancellationToken cancellationToken) => throw new NotSupportedException();

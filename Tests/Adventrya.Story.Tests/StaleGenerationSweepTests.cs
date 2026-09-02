@@ -489,6 +489,143 @@ public class StaleGenerationSweepTests
         Assert.Equal(AdventurePackStatus.Failed, packs.StatusOf(packId));
     }
 
+    // -- books no job has claimed -------------------------------------------
+
+    /// <summary>
+    /// A Beki book resting at StoryReady past the silence limit has no job, and the sweep says
+    /// so — without burying it. StoryReady is where a Beki pack waits for the queue, and the
+    /// queue is allowed to be slow; what is not allowed is nobody knowing.
+    /// </summary>
+    [Fact]
+    public async Task A_beki_book_no_job_has_claimed_is_reported_but_not_buried()
+    {
+        var packId = Guid.NewGuid();
+        var packs = new FakePackStore(Pack(packId, AdventurePackStatus.StoryReady,
+            heartbeat: Now.AddMinutes(-45), pipeline: GenerationPipelines.Beki));
+        var alarms = new SweepAlarms();
+
+        await Sweep(packs, alarms: alarms).SweepAsync();
+
+        // The row is untouched: not Failed, no message, nothing written.
+        Assert.Equal(AdventurePackStatus.StoryReady, packs.StatusOf(packId));
+        Assert.Null(packs.ErrorOf(packId));
+        Assert.Equal(0, packs.Writes);
+
+        // But an operator has been told, as a flag rather than a blocker.
+        var alarm = Assert.Single(alarms.Raised);
+        Assert.Equal(packId, alarm.PackId);
+        Assert.Equal(Owner, alarm.UserId);
+        Assert.Equal(StaleGenerationSweepService.UnclaimedCode, alarm.CheckId);
+        Assert.Equal(BekiReleaseSeverity.Flag, alarm.Severity);
+        Assert.Contains("45", alarm.Detail);
+    }
+
+    [Fact]
+    public async Task A_legacy_book_resting_at_story_ready_is_a_finished_book_and_raises_nothing()
+    {
+        // On the legacy pipeline StoryReady is the book the parent already reads. However long
+        // it has rested there, it is not waiting for anything.
+        var packId = Guid.NewGuid();
+        var packs = new FakePackStore(Pack(packId, AdventurePackStatus.StoryReady,
+            heartbeat: Now.AddHours(-3), pipeline: GenerationPipelines.Legacy));
+        var alarms = new SweepAlarms();
+
+        await Sweep(packs, alarms: alarms).SweepAsync();
+
+        Assert.Empty(alarms.Raised);
+        Assert.Equal(0, packs.Writes);
+        Assert.Equal(AdventurePackStatus.StoryReady, packs.StatusOf(packId));
+    }
+
+    [Theory]
+    [InlineData(GenerationPipelines.Beki)]
+    [InlineData(GenerationPipelines.Legacy)]
+    public async Task A_pending_book_nothing_has_claimed_is_reported_on_either_pipeline(string pipeline)
+    {
+        // Pending is where fulfilment creates a pack, on both pipelines, and nothing rests there.
+        var packId = Guid.NewGuid();
+        var packs = new FakePackStore(Pack(packId, AdventurePackStatus.Pending,
+            heartbeat: Now.AddMinutes(-45), pipeline: pipeline));
+        var alarms = new SweepAlarms();
+
+        await Sweep(packs, alarms: alarms).SweepAsync();
+
+        Assert.Single(alarms.Raised);
+        Assert.Equal(AdventurePackStatus.Pending, packs.StatusOf(packId));
+        Assert.Equal(0, packs.Writes);
+    }
+
+    [Fact]
+    public async Task A_book_that_may_only_be_queued_is_not_reported_yet()
+    {
+        // Five minutes at StoryReady is a queue, not a loss. The silence limit is the budget plus
+        // its grace, the same line the burial pass draws.
+        var packId = Guid.NewGuid();
+        var packs = new FakePackStore(Pack(packId, AdventurePackStatus.StoryReady,
+            heartbeat: Now.AddMinutes(-5), pipeline: GenerationPipelines.Beki));
+        var alarms = new SweepAlarms();
+
+        await Sweep(packs, alarms: alarms).SweepAsync();
+
+        Assert.Empty(alarms.Raised);
+    }
+
+    [Fact]
+    public async Task An_unclaimed_book_is_reported_once_not_every_pass()
+    {
+        // A reviewed alarm that is raised again reopens, and the sweep runs every five minutes.
+        // An operator who looked and chose to wait for the queue is not re-paged for the same
+        // book on every pass.
+        var packId = Guid.NewGuid();
+        var packs = new FakePackStore(Pack(packId, AdventurePackStatus.StoryReady,
+            heartbeat: Now.AddMinutes(-45), pipeline: GenerationPipelines.Beki));
+        var alarms = new SweepAlarms();
+
+        await Sweep(packs, alarms: alarms).SweepAsync();
+        await Sweep(packs, alarms: alarms).SweepAsync();
+        await Sweep(packs, alarms: alarms).SweepAsync();
+
+        Assert.Single(alarms.Raised);
+    }
+
+    [Fact]
+    public async Task Nobody_is_written_to_about_a_book_that_is_only_unclaimed()
+    {
+        // The letter is for a book that was lost. This one may still be drawn, and telling a
+        // family it failed when it is merely behind other books would be its own kind of untrue.
+        var packId = Guid.NewGuid();
+        var packs = new FakePackStore(Pack(packId, AdventurePackStatus.StoryReady,
+            heartbeat: Now.AddMinutes(-45), pipeline: GenerationPipelines.Beki));
+        var email = new RecordingEmailService();
+
+        await Sweep(packs, email: email, alarms: new SweepAlarms()).SweepAsync();
+
+        Assert.Empty(email.Failures);
+    }
+
+    [Fact]
+    public async Task An_unclaimed_report_never_touches_the_burial_pass()
+    {
+        // Both kinds in one batch: the silent working book is buried, the unclaimed one is only
+        // reported, and neither pass changes what the other did.
+        var buried = Guid.NewGuid();
+        var unclaimed = Guid.NewGuid();
+        var packs = new FakePackStore(
+            Pack(buried, AdventurePackStatus.GeneratingStory, heartbeat: Now.AddMinutes(-45)),
+            Pack(unclaimed, AdventurePackStatus.StoryReady, heartbeat: Now.AddMinutes(-45),
+                pipeline: GenerationPipelines.Beki));
+        var alarms = new SweepAlarms();
+
+        await Sweep(packs, alarms: alarms).SweepAsync();
+
+        Assert.Equal(AdventurePackStatus.Failed, packs.StatusOf(buried));
+        Assert.Equal(AdventurePackStatus.StoryReady, packs.StatusOf(unclaimed));
+        Assert.Equal(1, packs.Writes);
+        Assert.Equal(2, alarms.Raised.Count);
+        Assert.Contains(alarms.Raised, alarm => alarm.PackId == buried && alarm.CheckId == GenerationBudget.StalledCode);
+        Assert.Contains(alarms.Raised, alarm => alarm.PackId == unclaimed && alarm.CheckId == StaleGenerationSweepService.UnclaimedCode);
+    }
+
     // -- harness ---------------------------------------------------------
 
     private static StaleGenerationSweepService Sweep(
@@ -521,8 +658,15 @@ public class StaleGenerationSweepTests
         public Task<IReadOnlyList<BekiAlarm>> ListOpenAsync(int limit, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<BekiAlarm>>([]);
 
+        /// <summary>What was raised for this pack, as stored alarms — so "once" can be tested.</summary>
         public Task<IReadOnlyList<BekiAlarm>> ListForPackAsync(Guid packId, CancellationToken ct) =>
-            Task.FromResult<IReadOnlyList<BekiAlarm>>([]);
+            Task.FromResult<IReadOnlyList<BekiAlarm>>(Raised
+                .Where(raise => raise.PackId == packId)
+                .Select(raise => new BekiAlarm(
+                    Guid.NewGuid(), raise.PackId, raise.OrderId, raise.UserId, raise.CheckId,
+                    raise.Severity, raise.Detail, raise.EvidenceBlob,
+                    DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, null, null))
+                .ToList());
 
         public Task<bool> ReviewAsync(
             Guid alarmId, string reviewedBy, string resolution, CancellationToken ct) =>
@@ -531,12 +675,17 @@ public class StaleGenerationSweepTests
         public Task<int> CountOpenAsync(CancellationToken ct) => Task.FromResult(Raised.Count);
     }
 
-    private static AdventurePack Pack(Guid id, AdventurePackStatus status, DateTime heartbeat) => new()
+    private static AdventurePack Pack(
+        Guid id,
+        AdventurePackStatus status,
+        DateTime heartbeat,
+        string pipeline = GenerationPipelines.Legacy) => new()
     {
         Id = id,
         UserId = Owner,
         Title = "ბექა და ცისარტყელას ხიდი",
         Status = status,
+        GenerationPipeline = pipeline,
         CreatedAt = heartbeat.AddMinutes(-5),
         GenerationHeartbeatUtc = heartbeat
     };
@@ -585,6 +734,26 @@ public class StaleGenerationSweepTests
                 .ToList();
 
             return Task.FromResult(stale);
+        }
+
+        /// <summary>
+        /// The unclaimed listing, with the SQL's predicate: Pending on either pipeline, StoryReady
+        /// only on the Beki one, and the same NULL-heartbeat fallback.
+        /// </summary>
+        public Task<IReadOnlyList<StaleGenerationPack>> ListUnclaimedGenerationAsync(
+            DateTime cutoffUtc, int limit, CancellationToken cancellationToken)
+        {
+            IReadOnlyList<StaleGenerationPack> unclaimed = _packs.Values
+                .Where(pack => pack.Status == AdventurePackStatus.Pending
+                               || (pack.Status == AdventurePackStatus.StoryReady && pack.IsBekiPipeline))
+                .Where(pack => (pack.GenerationHeartbeatUtc ?? pack.CreatedAt) < cutoffUtc)
+                .OrderBy(pack => pack.GenerationHeartbeatUtc ?? pack.CreatedAt)
+                .Take(limit)
+                .Select(pack => new StaleGenerationPack(
+                    pack.Id, pack.Status, pack.CreatedAt, pack.GenerationHeartbeatUtc))
+                .ToList();
+
+            return Task.FromResult(unclaimed);
         }
 
         /// <summary>

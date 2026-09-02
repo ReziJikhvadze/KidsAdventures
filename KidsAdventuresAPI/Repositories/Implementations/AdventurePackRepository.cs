@@ -35,59 +35,110 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
         GenerationHeartbeatUtc, GenerationPipeline
         """;
 
+    private const string InsertPackSql = """
+        INSERT INTO AdventurePacks (
+            Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, PrintPdfUrl, ErrorMessage,
+            OptionalStoryNotes, StoryLanguage, ProgressMessage, ProgressPercent, PdfCreditCharged,
+            PreviewIllustrationUrl, PreviewIllustrationStatus, StoryPageCount, IsWelcomeGiftStory, CreatedAt,
+            SeriesId, SequenceNumber, ContinuesFromBookId, AccessLevel, WorldId,
+            PrimaryCharacterId, Title, CoverImageUrl, HasPrintEntitlement, GenerationPipeline)
+        VALUES (
+            @Id, @UserId, @ChildId, @Theme, @Status, @GeneratedJson, @PdfUrl, @PrintPdfUrl, @ErrorMessage,
+            @OptionalStoryNotes, @StoryLanguage, @ProgressMessage, @ProgressPercent, @PdfCreditCharged,
+            @PreviewIllustrationUrl, @PreviewIllustrationStatus, @StoryPageCount, @IsWelcomeGiftStory, @CreatedAt,
+            @SeriesId, @SequenceNumber, @ContinuesFromBookId, @AccessLevel, @WorldId,
+            @PrimaryCharacterId, @Title, @CoverImageUrl, @HasPrintEntitlement, @GenerationPipeline);
+        """;
+
     public async Task<Guid> CreatePendingAsync(AdventurePack pack, CancellationToken cancellationToken)
     {
-        const string sql = """
-                           INSERT INTO AdventurePacks (
-                               Id, UserId, ChildId, Theme, Status, GeneratedJson, PdfUrl, PrintPdfUrl, ErrorMessage,
-                               OptionalStoryNotes, StoryLanguage, ProgressMessage, ProgressPercent, PdfCreditCharged,
-                               PreviewIllustrationUrl, PreviewIllustrationStatus, StoryPageCount, IsWelcomeGiftStory, CreatedAt,
-                               SeriesId, SequenceNumber, ContinuesFromBookId, AccessLevel, WorldId,
-                               PrimaryCharacterId, Title, CoverImageUrl, HasPrintEntitlement, GenerationPipeline)
-                           VALUES (
-                               @Id, @UserId, @ChildId, @Theme, @Status, @GeneratedJson, @PdfUrl, @PrintPdfUrl, @ErrorMessage,
-                               @OptionalStoryNotes, @StoryLanguage, @ProgressMessage, @ProgressPercent, @PdfCreditCharged,
-                               @PreviewIllustrationUrl, @PreviewIllustrationStatus, @StoryPageCount, @IsWelcomeGiftStory, @CreatedAt,
-                               @SeriesId, @SequenceNumber, @ContinuesFromBookId, @AccessLevel, @WorldId,
-                               @PrimaryCharacterId, @Title, @CoverImageUrl, @HasPrintEntitlement, @GenerationPipeline);
-                           """;
         pack.Id = pack.Id == Guid.Empty ? Guid.NewGuid() : pack.Id;
 
         using var connection = connectionFactory.CreateConnection();
-        await connection.ExecuteAsync(new CommandDefinition(sql, new
-        {
-            pack.Id,
-            pack.UserId,
-            pack.ChildId,
-            Theme = pack.Theme.ToString(),
-            Status = pack.Status.ToString(),
-            pack.GeneratedJson,
-            pack.PdfUrl,
-            pack.PrintPdfUrl,
-            pack.ErrorMessage,
-            pack.OptionalStoryNotes,
-            pack.StoryLanguage,
-            pack.ProgressMessage,
-            pack.ProgressPercent,
-            pack.PdfCreditCharged,
-            pack.PreviewIllustrationUrl,
-            PreviewIllustrationStatus = pack.PreviewIllustrationStatus.ToString(),
-            pack.StoryPageCount,
-            pack.IsWelcomeGiftStory,
-            pack.CreatedAt,
-            pack.SeriesId,
-            pack.SequenceNumber,
-            pack.ContinuesFromBookId,
-            AccessLevel = pack.AccessLevel.ToString(),
-            pack.WorldId,
-            pack.PrimaryCharacterId,
-            pack.Title,
-            pack.CoverImageUrl,
-            pack.HasPrintEntitlement,
-            GenerationPipeline = GenerationPipelines.Normalize(pack.GenerationPipeline)
-        }, cancellationToken: cancellationToken));
+        await connection.ExecuteAsync(new CommandDefinition(
+            InsertPackSql, InsertParameters(pack), cancellationToken: cancellationToken));
         return pack.Id;
     }
+
+    /// <summary>
+    /// The pack row and the order's pointer to it, committed together or not at all.
+    ///
+    /// The order's BookId is what every later caller — a replayed webhook, the stalled-order
+    /// sweep, the console's retry — reads to decide whether a book already exists. Written as a
+    /// second statement it could be missed: the pack committed, the process (or the request
+    /// driving it) went away, and the next retry made a second book for the same payment. One
+    /// transaction means the pointer exists exactly when the pack does.
+    ///
+    /// <c>BookId IS NULL</c> on the UPDATE is the last line of defence against two fulfilments
+    /// of one order. The lock and the paid-once guard upstream make that race unlikely; this
+    /// makes it impossible to survive silently — the loser's INSERT is rolled back with it.
+    /// </summary>
+    public async Task<Guid> CreatePendingForOrderAsync(AdventurePack pack, Guid orderId, CancellationToken cancellationToken)
+    {
+        const string linkSql = """
+                               UPDATE dbo.Orders
+                               SET BookId = @BookId
+                               WHERE Id = @OrderId AND BookId IS NULL;
+                               """;
+
+        pack.Id = pack.Id == Guid.Empty ? Guid.NewGuid() : pack.Id;
+
+        using var connection = connectionFactory.CreateConnection();
+        connection.Open();
+
+        // Disposed uncommitted — on any exception below — the transaction rolls back, which is
+        // the whole point: a failed link takes the INSERT with it.
+        using var transaction = connection.BeginTransaction();
+
+        await connection.ExecuteAsync(new CommandDefinition(
+            InsertPackSql, InsertParameters(pack), transaction, cancellationToken: cancellationToken));
+
+        var linked = await connection.ExecuteAsync(new CommandDefinition(
+            linkSql, new { BookId = pack.Id, OrderId = orderId }, transaction, cancellationToken: cancellationToken));
+
+        if (linked == 0)
+        {
+            transaction.Rollback();
+            throw new InvalidOperationException(
+                $"Order {orderId} already has a book, or does not exist; pack {pack.Id} was not created.");
+        }
+
+        transaction.Commit();
+        return pack.Id;
+    }
+
+    private static object InsertParameters(AdventurePack pack) => new
+    {
+        pack.Id,
+        pack.UserId,
+        pack.ChildId,
+        Theme = pack.Theme.ToString(),
+        Status = pack.Status.ToString(),
+        pack.GeneratedJson,
+        pack.PdfUrl,
+        pack.PrintPdfUrl,
+        pack.ErrorMessage,
+        pack.OptionalStoryNotes,
+        pack.StoryLanguage,
+        pack.ProgressMessage,
+        pack.ProgressPercent,
+        pack.PdfCreditCharged,
+        pack.PreviewIllustrationUrl,
+        PreviewIllustrationStatus = pack.PreviewIllustrationStatus.ToString(),
+        pack.StoryPageCount,
+        pack.IsWelcomeGiftStory,
+        pack.CreatedAt,
+        pack.SeriesId,
+        pack.SequenceNumber,
+        pack.ContinuesFromBookId,
+        AccessLevel = pack.AccessLevel.ToString(),
+        pack.WorldId,
+        pack.PrimaryCharacterId,
+        pack.Title,
+        pack.CoverImageUrl,
+        pack.HasPrintEntitlement,
+        GenerationPipeline = GenerationPipelines.Normalize(pack.GenerationPipeline)
+    };
 
     public async Task<IReadOnlyList<AdventurePack>> GetByCharacterIdAsync(
         Guid characterId,
@@ -368,6 +419,58 @@ public sealed class AdventurePackRepository(ISqlConnectionFactory connectionFact
                 Limit = limit,
                 CutoffUtc = cutoffUtc,
                 Statuses = StaleGenerationStatuses.Select(status => status.ToString()).ToArray()
+            },
+            cancellationToken: cancellationToken));
+
+        return rows
+            .Select(row => new StaleGenerationPack(
+                row.Id,
+                Enum.Parse<AdventurePackStatus>(row.Status),
+                row.CreatedAt,
+                row.GenerationHeartbeatUtc))
+            .ToList();
+    }
+
+    /// <summary>
+    /// The other half of the sweep's question: books no job has claimed at all.
+    ///
+    /// Pending on either pipeline, and StoryReady on the Beki one — the statuses fulfilment leaves
+    /// a pack in before it enqueues the job, and the ones a pack keeps forever when that job is
+    /// never posted or never survives to its claim. Legacy StoryReady is deliberately absent: on
+    /// that pipeline it is a finished book resting where it should.
+    ///
+    /// Read only, and judged by the same last-signal rule as the stale listing. What the sweep
+    /// does with a row from here is nothing to the row: it tells an operator, who has a retry
+    /// button that now accepts exactly this state.
+    /// </summary>
+    public async Task<IReadOnlyList<StaleGenerationPack>> ListUnclaimedGenerationAsync(
+        DateTime cutoffUtc,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           SELECT TOP (@Limit)
+                                  Id,
+                                  Status,
+                                  CreatedAt,
+                                  GenerationHeartbeatUtc
+                           FROM AdventurePacks
+                           WHERE (Status = @Pending
+                                  OR (Status = @StoryReady AND GenerationPipeline = @Beki))
+                             AND COALESCE(GenerationHeartbeatUtc, CreatedAt) < @CutoffUtc
+                           ORDER BY COALESCE(GenerationHeartbeatUtc, CreatedAt);
+                           """;
+
+        using var connection = connectionFactory.CreateConnection();
+        var rows = await connection.QueryAsync<StaleGenerationPackRow>(new CommandDefinition(
+            sql,
+            new
+            {
+                Limit = limit,
+                CutoffUtc = cutoffUtc,
+                Pending = AdventurePackStatus.Pending.ToString(),
+                StoryReady = AdventurePackStatus.StoryReady.ToString(),
+                Beki = GenerationPipelines.Beki
             },
             cancellationToken: cancellationToken));
 

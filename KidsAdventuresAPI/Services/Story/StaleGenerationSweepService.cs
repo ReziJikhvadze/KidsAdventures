@@ -75,14 +75,120 @@ public sealed class StaleGenerationSweepService(
 
         var packs = await SweepPacksAsync(cutoffUtc, now);
         var runs = await SweepRunsAsync(cutoffUtc, now);
+        var unclaimed = await ReportUnclaimedAsync(cutoffUtc, now);
 
-        if (packs > 0 || runs > 0)
+        if (packs > 0 || runs > 0 || unclaimed > 0)
         {
             logger.LogWarning(
                 "Stale-generation sweep: failed {Packs} pack(s) and {Runs} preview run(s) that had "
-                + "been silent for more than {Minutes} minutes. Nothing was requeued.",
-                packs, runs, silenceLimit.TotalMinutes);
+                + "been silent for more than {Minutes} minutes, and reported {Unclaimed} pack(s) no "
+                + "job has claimed in that time. Nothing was requeued.",
+                packs, runs, silenceLimit.TotalMinutes, unclaimed);
         }
+    }
+
+    /// <summary>The alarm a book raises for having no job, as opposed to a job that died.</summary>
+    public const string UnclaimedCode = "GENERATION_UNCLAIMED";
+
+    /// <summary>
+    /// The books nothing has claimed: still Pending, or a Beki pack still at StoryReady, past the
+    /// same silence limit — and this pass writes nothing to them.
+    ///
+    /// Not buried, deliberately, and the reason is the queue. Those two statuses are where a pack
+    /// waits for Hangfire to reach it, and that wait is unbounded by design: eight paid books
+    /// drawing at eleven minutes each put the ninth well past any silence limit while it is
+    /// perfectly healthy. Failing it would tell a family their book broke because other families'
+    /// books were ahead of it. But a job that was never posted, or that died before its claim,
+    /// leaves exactly the same row — and until now that row was invisible to everything: not
+    /// Failed, so the console's retry refused it; not a working status, so the pass above never
+    /// saw it; and the order already said Fulfilled. A paid book, silently lost.
+    ///
+    /// So the sweep says so, once. It raises a flag-severity alarm naming the pack, which puts it
+    /// on the list an operator works through, and the console's retry accepts precisely this
+    /// state now. Once rather than every pass, because a reviewed alarm that is raised again
+    /// reopens — and an operator who looked and chose to wait for the queue should not be
+    /// re-paged every five minutes for the same book. A person decides; the row is untouched.
+    /// </summary>
+    private async Task<int> ReportUnclaimedAsync(DateTime cutoffUtc, DateTime now)
+    {
+        IReadOnlyList<StaleGenerationPack> unclaimed;
+        try
+        {
+            unclaimed = await packRepository.ListUnclaimedGenerationAsync(
+                cutoffUtc, BatchLimit, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Stale-generation sweep could not read the unclaimed packs.");
+            return 0;
+        }
+
+        var reported = 0;
+        foreach (var pack in unclaimed)
+        {
+            var silence = now - pack.LastSignalUtc;
+
+            try
+            {
+                logger.LogWarning(
+                    "Stale-generation sweep: pack {PackId} has sat {Status} for {Minutes:0} minutes "
+                    + "with no generation job claiming it. It is not failed — it may only be queued — "
+                    + "but a paid book with no job needs a person to look; the retry button accepts it.",
+                    pack.Id, pack.Status, silence.TotalMinutes);
+
+                if (await RaiseUnclaimedOnceAsync(pack, silence))
+                {
+                    reported++;
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(
+                    ex, "Stale-generation sweep could not report unclaimed pack {PackId}.", pack.Id);
+            }
+        }
+
+        return reported;
+    }
+
+    private async Task<bool> RaiseUnclaimedOnceAsync(StaleGenerationPack pack, TimeSpan silence)
+    {
+        if (alarms is null)
+        {
+            return false;
+        }
+
+        var existing = await alarms.ListForPackAsync(pack.Id, CancellationToken.None);
+        if (existing.Any(alarm => string.Equals(alarm.CheckId, UnclaimedCode, StringComparison.Ordinal)))
+        {
+            return false;
+        }
+
+        var row = await packRepository.GetByIdNoOwnershipAsync(pack.Id, CancellationToken.None);
+        if (row is null)
+        {
+            return false;
+        }
+
+        await alarms.RaiseAsync(
+            new BekiAlarmRaise(
+                pack.Id,
+                null,
+                row.UserId,
+                UnclaimedCode,
+                // A flag, not a blocker: nothing about the book is wrong, and it may yet be drawn
+                // by a job that is merely behind others. What is wrong is that nobody would know
+                // if it were not.
+                BekiReleaseSeverity.Flag,
+                $"No generation job has claimed this book: it has been {pack.Status} for "
+                + $"{silence.TotalMinutes:0} minutes. Nothing was written to it and nothing was "
+                + "requeued — it may still be queued behind other books, or the job may be gone. "
+                + "The order's retry re-queues it if a person decides it should be.",
+                BekiPackBlobs.ManifestName(row.UserId, pack.Id),
+                BekiAlarmEvidence.ForAttempt("sweep-unclaimed", pack.Id)),
+            CancellationToken.None);
+
+        return true;
     }
 
     private async Task<int> SweepPacksAsync(DateTime cutoffUtc, DateTime now)
