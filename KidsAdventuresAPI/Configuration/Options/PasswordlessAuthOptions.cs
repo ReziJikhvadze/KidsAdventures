@@ -6,8 +6,13 @@ public sealed class PasswordlessAuthOptions
 
     public bool Enabled { get; set; } = true;
 
-    /// <summary>Six digits is what the sign-in panel is laid out for.</summary>
-    public int OtpLength { get; set; } = 6;
+    /// <summary>
+    /// Four digits, which is what the SMS says and what the panel lays itself out for — it reads
+    /// this number back off the config endpoint rather than hard-coding a box count.
+    ///
+    /// Only the phone flow uses this; e-mail sign-in is a link or a password, never a code.
+    /// </summary>
+    public int OtpLength { get; set; } = 4;
 
     public int OtpLifetimeMinutes { get; set; } = 10;
 

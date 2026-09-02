@@ -161,7 +161,10 @@ public sealed class PasswordlessAuthService(
             TimeSpan.FromMinutes(_options.OtpLifetimeMinutes),
             cancellationToken);
 
-        var message = $"Adventrya: თქვენი კოდია {code}. მოქმედებს {_options.OtpLifetimeMinutes} წუთი.";
+        // Kept to one line on purpose. Georgian is UCS-2 to a gateway, so an SMS turns into a
+        // second charged segment after 70 characters; this is about 20, and the sender name
+        // already says who it is from.
+        var message = $"ერთჯერადი კოდი : {code}";
         await smsSender.SendAsync(phone, message, cancellationToken);
 
         logger.LogInformation(
@@ -312,6 +315,7 @@ public sealed class PasswordlessAuthService(
             ExpiresInSeconds = expiresIn,
             ResendAfterSeconds = _options.ResendCooldownSeconds,
             DeliveryLive = deliveryLive,
+            OtpLength = _options.OtpLength,
             DevSecret = exposeSecret ? secret : null,
             DevUrl = exposeSecret ? url : null
         };
