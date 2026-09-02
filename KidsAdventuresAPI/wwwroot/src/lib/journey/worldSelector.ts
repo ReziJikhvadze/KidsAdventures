@@ -130,6 +130,31 @@ export type IslandSpot = {
   readonly h: number;
 };
 
+/**
+ * Where each island is painted, for cropping a portrait of it.
+ *
+ * Deliberately not `ISLAND_SPOTS`. Those boxes are tap targets on the map: they are tuned so a
+ * finger aimed at one island cannot land on its neighbour, which makes them tighter than the
+ * painting and centred on the pin rather than on the picture. Cropping to them framed the
+ * dinosaur with its head cut off, the observatory with the ocean island leaning into the corner,
+ * and the forest sitting in the top-left with a quarter of the frame empty.
+ *
+ * These are the pictures instead: measured off the master by mask, then corrected by eye until
+ * each island sits in the middle of a panel the shape of the one on the details step, with sky
+ * around it and no neighbour in the frame. Only `WorldArtPanel` reads them, so the map's
+ * hotspots and the star's flight are untouched.
+ *
+ * Measured against `world-map-desktop-master.webp`. Repaint the master and measure again.
+ */
+export const ISLAND_FRAMES: Record<SelectorWorldId, IslandSpot> = {
+  clouds: { cx: 27.6, cy: 16, w: 24, h: 24 },
+  space: { cx: 70.1, cy: 15.3, w: 22, h: 22 },
+  animals: { cx: 17.4, cy: 36, w: 25.5, h: 26 },
+  ocean: { cx: 78.1, cy: 43.5, w: 25.2, h: 26 },
+  kingdom: { cx: 21.3, cy: 73.4, w: 28.8, h: 28 },
+  dinosaurs: { cx: 76.5, cy: 71.5, w: 28, h: 28 },
+};
+
 export const ISLAND_SPOTS: Record<"desktop" | "mobile", Record<SelectorWorldId, IslandSpot>> = {
   desktop: {
     clouds: { cx: 30.5, cy: 21, w: 23, h: 23 },

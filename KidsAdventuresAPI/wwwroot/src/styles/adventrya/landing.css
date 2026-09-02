@@ -1379,14 +1379,30 @@
   gap: clamp(50px, 8vw, 130px);
   background: var(--lv3-paper);
 }
+/*
+  Sized by its own column, and allowed to be narrower than its longest word.
+
+  A grid item's `min-width` is `auto`, which means it may not shrink below its own min-content —
+  and the min-content of this heading is one word. In Georgian capitals "თავგადასავლამდე" is
+  483px at 46px, against a 388px track, so the box grew past its column; being right-aligned, it
+  grew leftwards, off the side of the screen. That is the cut-off first word.
+
+  `min-width: 0` lets the box keep to its track, `width: 100%` makes the width the track's rather
+  than the content's, and the font is then measured against that box instead of the viewport —
+  1/10.7 of it, which is what the longest word costs in this face. The viewport was never the
+  right ruler here: the column is 0.75fr of a grid whose share changes at every breakpoint.
+*/
 .landing-v3-faq-heading {
   position: sticky;
   top: 50px;
+  min-width: 0;
+  width: 100%;
   max-width: 560px;
   justify-self: end;
+  container-type: inline-size;
 }
 .landing-v3-faq-heading h2 {
-  font-size: clamp(39px, 3.6vw, 56px);
+  font-size: clamp(26px, 9.3cqi, 56px);
 }
 .landing-v3-faq-heading > span {
   margin-left: 0;

@@ -1,4 +1,4 @@
-import { Camera, Check, Loader2, Lock, Pencil, Plus, Trash2, TriangleAlert, X } from "lucide-react";
+import { Camera, Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BirthDateField } from "@/components/adventrya/journey/BirthDateField";
@@ -152,22 +152,35 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
   return (
     <section className="ux-profile-stage">
       {/*
-        The left column is the world the parent just chose, under the heading.
+        The title of the step, across the top of it.
+
+        It used to be the first thing in the left column, which made it the caption over a
+        painting rather than the name of the screen — ranged left, half the page wide, with the
+        form starting level with it on the right. Spanning both columns and centred, it reads as
+        the heading it is, and everything the step actually asks for begins underneath.
+
+        The row below then has the page's height minus this, which is the point: the form was
+        being stretched to a height it did not need and was spending the surplus on gaps between
+        the inputs.
+      */}
+      <header className="ux-stage-heading">
+        <p className="eyebrow">
+          <SparkleIcon />
+          {copy.profile.eyebrow}
+        </p>
+        <h1>{copy.profile.title}</h1>
+        {/* The paragraph that stood here explained which details we ask for. The form below it
+            is four labelled questions long and answers that by being read. */}
+      </header>
+
+      {/*
+        The left column is the world the parent just chose.
 
         It held a heading and then nothing — a third of the page of empty space beside the form,
         and no sign of the island that had been picked one screen earlier. The painting is the
         same one the map is made of, framed on that island.
       */}
       <div className="ux-profile-aside">
-        <header className="ux-stage-heading">
-          <p className="eyebrow">
-            <SparkleIcon />
-            {copy.profile.eyebrow}
-          </p>
-          <h1>{copy.profile.title}</h1>
-          <p>{copy.profile.lead}</p>
-        </header>
-
         {draft.worldId ? <WorldArtPanel worldId={draft.worldId} /> : null}
       </div>
 
@@ -246,34 +259,40 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
             </button>
           </DialogContent>
         </Dialog>
+      </div>
 
-        <div className="ux-profile-footer">
-          <p className="privacy-inline">
-            <Lock aria-hidden="true" />
-            {copy.profile.privacyNote}
-          </p>
+      {/*
+        The consent and the button are a row of the page, not the last item in the card column.
 
-          <label className="ux-terms-consent">
-            <input
-              type="checkbox"
-              checked={acceptedTerms}
-              onChange={(event) => {
-                setAcceptedTerms(event.target.checked);
-                if (event.target.checked) setError(null);
-              }}
-            />
-            <span>
-              {copy.profile.termsPrefix}
-              <a href="/terms" target="_blank" rel="noreferrer">
-                {copy.profile.termsLink}
-              </a>
-            </span>
-          </label>
+        Inside the column they counted toward its height, so the painting beside it — stretched
+        to the same column — finished level with the button rather than with the card, and stood
+        79px taller than the thing it is paired with. Out here it has a grid row of its own under
+        the right-hand column, which leaves the card and the picture sharing one row and one
+        height.
+      */}
+      <div className="ux-profile-footer">
+        {/* The padlock line saying the data is only used to make the book has gone. The consent
+            beside it links the terms, which is where that promise is actually made and kept. */}
+        <label className="ux-terms-consent">
+          <input
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(event) => {
+              setAcceptedTerms(event.target.checked);
+              if (event.target.checked) setError(null);
+            }}
+          />
+          <span>
+            {copy.profile.termsPrefix}
+            <a href="/terms" target="_blank" rel="noreferrer">
+              {copy.profile.termsLink}
+            </a>
+          </span>
+        </label>
 
-          <button className="button journey-primary" type="button" onClick={handleContinue}>
-            {copy.profile.continue}
-          </button>
-        </div>
+        <button className="button journey-primary" type="button" onClick={handleContinue}>
+          {copy.profile.continue}
+        </button>
       </div>
     </section>
   );
@@ -367,29 +386,30 @@ function CharacterEditor({
   };
 
   /*
-    The upload box says one thing at a time, and the state it is in decides which.
+    The panel says one thing, and it is written on the button.
 
-    An accepted portrait no longer ends the conversation. It used to show a tick over "the hero
-    is ready", which reads as a finished step — and a parent starting a second book, whose
-    saved portrait comes back with the draft, had nothing on the form inviting them to send a
-    picture of a child who is a year older. The box keeps the camera and keeps asking.
+    It used to carry an icon in a gold chip, a status line, a prompt, a two-line list of tips and
+    a pair of example photographs — five pieces of chrome around one square and one control. The
+    square shows what has been chosen and the button says what to do; the only words left are the
+    ones that cannot be inferred from those two: that a check is running, or why a photo was
+    refused.
   */
-  let photoIcon = <Camera />;
-  if (checking) photoIcon = <Loader2 className="ux-photo-spinner" />;
-  else if (rejection) photoIcon = <TriangleAlert />;
-
-  let photoLabel = copy.characterForm.photoRequired;
-  if (checking) photoLabel = copy.characterForm.photoChecking;
-  else if (character.photoReady) photoLabel = copy.characterForm.photoNew;
+  let photoAction = copy.characterForm.photoUpload;
+  if (checking) photoAction = copy.characterForm.photoChecking;
+  else if (character.photoReady) photoAction = copy.characterForm.photoReplace;
 
   return (
     <div className={`ux-character-form ${character.isPrimary ? "" : "ux-second-character-form"}`}>
+      {/*
+        One line, and it is the heading.
+
+        This was a numbered token, a small gold label and a display-face title — and for the main
+        hero the label and the title were the same three words, printed twice, one above the
+        other. The number counted cards in a stack that is usually one card long. What is left is
+        the label, promoted to the heading it always was in the reading order.
+      */}
       <div className="ux-form-intro">
-        <span className="ux-step-token">{String(index + 1).padStart(2, "0")}</span>
-        <div>
-          <small>{character.isPrimary ? copy.profile.primaryCharacter : "დამატებითი"}</small>
-          <h2>{title}</h2>
-        </div>
+        <h2>{character.isPrimary ? copy.profile.primaryCharacter : title}</h2>
       </div>
 
       <div className="ux-character-fields">
@@ -498,26 +518,26 @@ function CharacterEditor({
           }`}
         >
           {/*
-            Three bands, in fixed order, so the box has the same shape however tall the column
-            beside it grows: who is asking, the portrait itself, and what to do next.
+            Two bands: the picture, and what to do about it.
 
-            It used to be a flex stack centred in whatever height it was given, with a 72px
-            thumbnail bolted on afterwards. Because the questions next door decide the height of
-            the row, that left a dashed rectangle of empty violet around a camera icon — worst of
-            all in the one state that matters, where a parent had already chosen a picture of
-            their child and it was shown to them the size of a postage stamp.
+            The frame takes the slack, so the box has the same shape however tall the column
+            beside it grows — square whatever it is given, so the photo is never stretched and
+            the empty state is never a hole: the same square, waiting.
           */}
-          <div className="ux-photo-head">
-            <span aria-hidden="true">{photoIcon}</span>
-            <small>{photoLabel}</small>
-          </div>
-
           {/*
-            The middle band takes the slack. The frame is square whatever it is given, so the
-            portrait is never stretched and the empty state is never a hole: the same square,
-            waiting.
+            The square is the target, not a picture of one.
+
+            It is the largest thing in the panel and it is exactly where a parent points when
+            they mean "put the photo here", so it opens the file dialog like the button below it
+            does. The button stays: it is what says out loud what the square is for.
           */}
-          <div className="ux-photo-frame">
+          <button
+            type="button"
+            className="ux-photo-frame"
+            disabled={checking}
+            aria-label={photoAction}
+            onClick={() => fileRef.current?.click()}
+          >
             {character.photoDataUrl ? (
               <img src={character.photoDataUrl} alt="" />
             ) : (
@@ -525,38 +545,24 @@ function CharacterEditor({
                 <Camera />
               </span>
             )}
-          </div>
+          </button>
 
           <div className="ux-photo-foot">
-            <strong>{copy.characterForm.photoPrompt}</strong>
-
-            {/*
-              The examples go where the decision is made, and only while it is still open. Once a
-              portrait is accepted they are answering a question nobody is asking any more.
-            */}
-            {/*
-              Shown only before a photo is accepted. It removes itself if the two files are not
-              deployed, so the worst case is two 404s and no block — not two broken frames on the
-              form that is asking a parent for a picture of their child.
-            */}
-            {character.photoReady ? null : <PhotoGuide />}
-
             {/*
               role="status" because the refusal arrives a second after the file dialog closed —
-              long after focus moved on — so a screen reader has to be told it appeared.
+              long after focus moved on — so a screen reader has to be told it appeared. It is
+              the one message this panel keeps: a photo can be refused for a reason the parent
+              cannot guess from looking at the square.
             */}
             {rejection ? (
               <p className="ux-photo-rejection" role="status">
                 {copy.characterForm.photoRejected[rejection]}
               </p>
-            ) : (
-              <p>{copy.characterForm.photoHint}</p>
-            )}
+            ) : null}
 
             <button type="button" disabled={checking} onClick={() => fileRef.current?.click()}>
-              {character.photoReady
-                ? copy.characterForm.photoReplace
-                : copy.characterForm.photoUpload}
+              {checking ? <Loader2 className="ux-photo-spinner" aria-hidden="true" /> : null}
+              {photoAction}
             </button>
           </div>
           <input
@@ -605,85 +611,6 @@ function CharacterEditor({
         </div>
       ) : null}
     </div>
-  );
-}
-
-/**
- * Two real photographs, side by side, of what is wanted and what is not.
- *
- * The upload box used to describe a good portrait in words, which is the one thing a photo is
- * better at than a sentence: "the face fills the frame" is abstract until it is shown next to a
- * child standing across a dark room.
- *
- * The files live in `public/adventrya/photo-guide/`, and until both are there this renders
- * nothing at all.
- *
- * It used to render the pair and drop it when an image reported an error, which is not the same
- * thing. An <img> whose source is missing still takes its full square — `aspect-ratio: 1` is
- * honoured whether or not anything decodes — so between paint and the failed request the form
- * carried two broken frames, sitting over the upload box on the screen that is asking a parent
- * for a picture of their child. Both are probed first, and nothing is drawn until both answered.
- */
-const PHOTO_GUIDE_SHOTS = {
-  good: "/adventrya/photo-guide/good.jpg",
-  bad: "/adventrya/photo-guide/bad.jpg",
-};
-
-function PhotoGuide() {
-  const guide = useT().journey.characterForm.photoGuide;
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    // Both, not either: half a comparison teaches nothing, and one broken frame beside one good
-    // one reads as a fault in the form rather than a missing asset.
-    void Promise.all(
-      Object.values(PHOTO_GUIDE_SHOTS).map(
-        (src) =>
-          new Promise<boolean>((resolve) => {
-            const probe = new Image();
-            probe.onload = () => resolve(true);
-            probe.onerror = () => resolve(false);
-            probe.src = src;
-          }),
-      ),
-    ).then((loaded) => {
-      if (!cancelled) setReady(loaded.every(Boolean));
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // The probe warms the browser cache, so the images below are already decoded by the time
-  // they are asked for and the block appears in one piece rather than filling in.
-  if (!ready) return null;
-
-  return (
-    <figure className="ux-photo-guide">
-      <figcaption>{guide.title}</figcaption>
-      <div className="ux-photo-guide-pair">
-        <div className="ux-photo-guide-shot good">
-          {/* The label and the reason beside it carry the meaning, so the image is decorative. */}
-          <img src={PHOTO_GUIDE_SHOTS.good} alt="" />
-          <span>
-            <Check aria-hidden="true" />
-            {guide.goodLabel}
-          </span>
-          <small>{guide.goodReason}</small>
-        </div>
-        <div className="ux-photo-guide-shot bad">
-          <img src={PHOTO_GUIDE_SHOTS.bad} alt="" />
-          <span>
-            <X aria-hidden="true" />
-            {guide.badLabel}
-          </span>
-          <small>{guide.badReason}</small>
-        </div>
-      </div>
-    </figure>
   );
 }
 

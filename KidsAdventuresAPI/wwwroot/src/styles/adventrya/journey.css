@@ -193,14 +193,33 @@
   gap: 8px;
   margin-top: 8px;
 }
+/*
+  All four swatches on one vertical line.
+
+  The cells are the same width, but the contents were centred inside them — so a two-by-two grid
+  of four names of four different lengths put its four coloured discs at four different distances
+  from the left edge, and the labels started in four different places too. Nothing was misaligned
+  by the grid; it was the centring that made a tidy grid look crooked. Ranged left from a common
+  inset, the discs stack in a column and the words start together.
+*/
 .eye-options button {
-  height: 44px;
+  /*
+    A floor, so the longest of the four names can never be the one that breaks.
+
+    "ნაცრისფერი" is ten letters against "ლურჯი"'s five, and at `height: 44px` a label that ran
+    out of room had nowhere to go but over the edge of its own button. With a minimum instead,
+    a squeezed label wraps and the button grows — and because the grid stretches its row, the
+    other three grow with it and the four stay one shape.
+  */
+  min-height: 44px;
   min-width: 0;
-  padding: 0 10px;
+  padding: 8px 12px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 7px;
+  justify-content: flex-start;
+  gap: 8px;
+  text-align: left;
+  line-height: 1.25;
   border: 1px solid rgba(239, 227, 207, 0.15);
   border-radius: 13px;
   cursor: pointer;

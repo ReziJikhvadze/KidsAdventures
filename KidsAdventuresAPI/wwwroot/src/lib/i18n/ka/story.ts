@@ -25,7 +25,9 @@ export const story = {
     qrTitle: "ეს მხოლოდ დასაწყისია",
     /* Print gets a QR; a screen gets a button, so the two ask for different verbs. */
     backScan: (hero: string) => `დაასკანერე. გააგრძელე. ${hero}ს მოგზაურობა სხვა სამყაროში.`,
-    backTap: (hero: string) => `გააგრძელე ${hero}ს მოგზაურობა სხვა სამყაროში.`,
+    /* No name. The back cover is the last thing a child looks at, and by then the book has
+       said whose it is on the front and on every page inside it. */
+    backTap: "გააგრძელე მოგზაურობა სხვა სამყაროში.",
     backCta: "ახალი თავგადასავალი",
 
     lockedNote: "გააგრძელე სრული წიგნით",

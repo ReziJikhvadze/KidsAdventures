@@ -190,6 +190,19 @@
   font-size: clamp(6px, 0.65vw, 8px);
   font-weight: 700;
 }
+/*
+  Bigger only on the sample.
+
+  This line is set for a cover that also carries a title under it, and at 8px it holds its place
+  without competing. The sample on the home page has no title, so the line is alone at the foot
+  of a 400px cover and reads as an afterthought — and it is the one place a visitor is being
+  shown what a cover looks like. The other books, the reader, and the 82px thumbnails in the
+  order summary keep the size the layout was drawn for.
+*/
+.storybook-hero .storybook-cover-copy small {
+  font-size: clamp(9px, 0.95vw, 12px);
+  line-height: 1.35;
+}
 .storybook-cover-copy h2 {
   max-width: 95%;
   margin: 8px 0 0;
@@ -560,6 +573,21 @@
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
 }
+/*
+  The box shrinks, the words do not.
+
+  The label stays at its size and the padding around it goes: 98px is measured — "შემდეგი" is
+  50px of text beside a 14px chevron, so the cap sits four pixels clear of the longest of the two
+  and both buttons take it, since the tracks either side are equal. Under a book that fills half
+  the first screen these are a footnote, not a call to action.
+*/
+.landing-v3-hero-product .storybook-controls button {
+  min-height: 36px;
+  max-width: 98px;
+  gap: 6px;
+  padding: 0 11px;
+  border-radius: 11px;
+}
 .storybook-controls button:first-child {
   justify-self: end;
 }
@@ -581,6 +609,8 @@
   color: #fff8ebb8;
   font-size: 11px;
 }
+/* The hidden spacer's own width is set at the foot of this file, where it can outrank the
+   hero's `min-width` in the 1181px block. */
 /*
   Sixteen page buttons and a cover. On a phone that row is wider than the screen, and because it
   refused to wrap it set a min-content the whole hero grid had to honour — which is how a page
@@ -1028,26 +1058,28 @@
     --book-width: min(470px, calc((100svh - 275px) / 1.38));
   }
   /*
-    The way to turn a page, at a size that says so. These were 11px labels and a 13px chevron
-    drawn at 0.79 — about 9px on screen — under a book that is the whole point of the section.
+    The way to turn a page, at a size that says so — but no larger than it needs to be.
+
+    These were 11px labels and a 13px chevron drawn at 0.79, about 9px on screen, under a book
+    that is the whole point of the section; they were raised to 13px and 50px tall to fix that.
+    That overshot. Every number in this block is now 15% off those, which still reads clearly
+    under the book and stops two page turns from being the loudest pair of buttons on the first
+    screen of the site.
   */
   .landing-v3-hero-product .storybook-controls {
-    gap: 12px;
+    gap: 10px;
     margin-top: 18px;
   }
   .landing-v3-hero-product .storybook-controls button {
-    min-height: 50px;
-    padding: 0 18px;
-    border-radius: 15px;
-    font-size: 13px;
+    font-size: 11px;
   }
   .landing-v3-hero-product .storybook-controls svg {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
   }
   .landing-v3-hero-product .storybook-progress {
-    min-width: 132px;
-    font-size: 13px;
+    min-width: 112px;
+    font-size: 11px;
   }
   .landing-v3-hero-product .storybook-gesture-hint {
     margin-top: 10px;
@@ -1127,13 +1159,13 @@
     out and still measured, and a minimum could never shrink the column below the width of a
     sentence nobody can see.
   */
-  width: 26px;
+  width: 14px;
   min-width: 0;
   overflow: hidden;
 }
 @media (min-width: 1181px) {
   .storybook-progress.is-spacer {
-    width: 34px;
+    width: 16px;
   }
 }
 @media (max-width: 430px) {

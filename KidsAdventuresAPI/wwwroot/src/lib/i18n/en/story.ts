@@ -18,7 +18,7 @@ export const story = {
     qrTitle: "This is only the beginning",
     /* Print gets a QR; a screen gets a button, so the two ask for different verbs. */
     backScan: (hero: string) => `Scan. Continue. ${hero}'s journey in another world.`,
-    backTap: (hero: string) => `Continue ${hero}'s journey in another world.`,
+    backTap: "Continue the journey in another world.",
     backCta: "A new adventure",
 
     lockedNote: "Continue with the full book",

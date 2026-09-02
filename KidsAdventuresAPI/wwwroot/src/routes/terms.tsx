@@ -21,14 +21,9 @@ export const Route = createFileRoute("/terms")({
 function TermsPage() {
   return (
     <LegalPageShell>
-      {/* English, apart from the refund guarantee, which names its own language. The app's
-          `<html lang="ka">` would otherwise have a Georgian voice read all of this aloud. */}
-      <LegalDocument
-        lang="en"
-        title="Terms & Conditions"
-        intro={termsIntro}
-        sections={termsSections}
-      />
+      {/* Georgian throughout now, so it inherits the app's own `<html lang="ka">` and needs no
+          `lang` of its own. */}
+      <LegalDocument title="წესები და პირობები" intro={termsIntro} sections={termsSections} />
     </LegalPageShell>
   );
 }

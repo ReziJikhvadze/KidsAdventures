@@ -709,13 +709,8 @@
     nothing: the page is as tall as its taller half. The heading gives up the most for the least,
     because at 50px the title was sized for a landing page rather than for the top of a form.
   */
-  .ux-profile-aside .ux-stage-heading h1 {
-    font-size: clamp(29px, 2.4vw, 38px);
-  }
-  .ux-profile-aside .ux-stage-heading > p:not(.eyebrow) {
-    margin-top: 9px;
-    font-size: 12.5px;
-    line-height: 1.55;
+  .ux-profile-stage > .ux-stage-heading h1 {
+    font-size: clamp(24px, 1.95vw, 31px);
   }
   .ux-profile-aside {
     gap: 14px;
@@ -855,24 +850,35 @@
   }
 }
 /*
-  Sized to the line it refuses to break.
+  Sized by its own column, and able to wrap when even that is not enough.
 
-  `> span` below is `white-space: nowrap`, so this box is not a limit the first line obeys — it
-  is a limit the first line ignores, and at 4.2vw that line ran 77px past the edge of its own
-  column. Nothing caught it while the book beside it was drawn at 0.79 and sat well clear; now
-  that the book fills its column, the same overflow lands on the cover. The line measures about
-  12.2x its font size in this face, and the column is about 0.47 of the viewport, so 3.75vw is
-  the size at which it fits on its own — which is also a headline that no longer reads as
-  zoomed-in at 100%.
+  This used to be `3.75vw` with `white-space: nowrap` on the first line, calibrated by hand: the
+  line measured about 12.2x its font size, the column about 0.47 of the viewport, and 3.75vw was
+  the size at which the two met. Two things were wrong with tuning it that way. The ratio is a
+  property of the face, and it changed the day the headings went into Georgian capitals — the
+  same line now measures about 14x its font size, so the number that used to just fit overflowed
+  by 146px and finished on top of the book. And the column is only 0.47 of the viewport at some
+  widths; the grid hands it a different share either side of every breakpoint, so a viewport
+  measurement can only ever be right in one band.
+
+  A container query removes both mistakes at once. The line is sized as a fraction of the box it
+  actually has to fit inside, so it cannot outgrow it whatever the grid does, and 1/14.6 leaves
+  a few percent over the measured ratio rather than sitting exactly on it.
+
+  `nowrap` is gone as well, so the floor cannot spill either: below about 500px of column the
+  clamp stops shrinking, and there the line wraps — onto two balanced lines inside the column —
+  instead of running out of it onto the cover.
 */
+.landing-v3-hero-copy {
+  container-type: inline-size;
+}
 .landing-v3-hero h1 {
-  max-width: 700px;
-  font-size: clamp(40px, 3.75vw, 56px);
+  max-width: 100%;
+  font-size: clamp(32px, 6.85cqi, 56px);
   line-height: 1.06;
 }
 .landing-v3-hero h1 > span {
   display: block;
-  white-space: nowrap;
 }
 .landing-v3-hero h1 em {
   margin-top: 5px;

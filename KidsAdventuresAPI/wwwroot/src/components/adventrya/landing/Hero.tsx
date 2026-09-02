@@ -15,6 +15,14 @@ const HERO_NAME = "ზუკა";
  * is the shop window; a made-up name on it is the one thing there that is not real.
  */
 const HERO_TITLE = "";
+/*
+ * What the sample book's cover says instead.
+ *
+ * A real book's cover reads "ეს ამბავი ანასია" — whose story this is, which is the whole point
+ * of the product. The sample belongs to nobody, so it names the world it is set in rather than
+ * a child who does not exist.
+ */
+const HERO_COVER_CAPTION = "დინოზავრების დაკარგული ხეობა.";
 
 export function Hero() {
   const t = useT();
@@ -66,6 +74,7 @@ export function Hero() {
             variant="hero"
             heroName={HERO_NAME}
             title={HERO_TITLE}
+            coverCaption={HERO_COVER_CAPTION}
             worldId="dinosaurs"
             pages={pages}
             lockedPageCount={0}

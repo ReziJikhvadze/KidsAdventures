@@ -11,7 +11,6 @@ export const journey = {
   profile: {
     eyebrow: " პირველი თავგადასავალი",
     title: "ჯერ გავიცნოთ პატარა გმირი",
-    lead: "მხოლოდ ის დეტალები გვჭირდება, რომლებიც ბავშვის ასაკსა და ილუსტრაციებს ბუნებრივად მოარგებს.",
     primaryCharacter: "მთავარი გმირი",
     nthCharacter: (index: number) => `გმირი ${index}`,
     addCharacterTitle: "ხომ არ გინდა ზღაპარში კიდევ ერთი პერსონაჟი დაამატო?",
@@ -38,24 +37,8 @@ export const journey = {
     relationshipLegend: "ვინ არის ეს პერსონაჟი მთავარი გმირისთვის?",
     relationshipCustom: "ჩაწერე ურთიერთობა",
     relationshipPlaceholder: "მაგ. ნათლია ან ჯადოსნური მეგობარი",
-    photoRequired: "პორტრეტი აუცილებელია",
-    /* Never "the hero is ready": every book wants a picture of the child as they are now,
-       and a saved portrait coming back with the draft must not read as a finished step. */
-    photoNew: "ატვირთე ახალი ფოტო",
-    photoPrompt: "დაამატე მკაფიო პორტრეტი",
-    photoHint: "სახე სრულად ჩანს · კარგი განათება · მზის სათვალის გარეშე",
     photoUpload: "ფოტოს ატვირთვა",
     photoReplace: "შეცვალე ფოტო",
-    /* The two examples. A parent sees what is wanted before choosing, not after being refused. */
-    // Advice, not a rule: the check itself only asks whether a person is in the photo, so this
-    // must not say "won't work" about a picture the form will happily accept.
-    photoGuide: {
-      title: "როგორი ფოტო მოგცემს საუკეთესო შედეგს",
-      goodLabel: "ასეთი სჯობს",
-      goodReason: "სახე კადრს ავსებს, წინიდან განათებულია და კამერას უყურებს.",
-      badLabel: "ასეთიც გამოდგება",
-      badReason: "შორია, ბნელია და სახე გვერდზეა — წიგნიც გამოვა, ოღონდ ნაკლებად მსგავსი.",
-    },
     photoChecking: "ფოტო მზადდება…",
     /*
       Keyed by the code the server returns, so each refusal says what to do differently.
@@ -86,13 +69,13 @@ export const journey = {
     genderRequired: "აირჩიე, პერსონაჟი გოგოა თუ ბიჭი.",
     relationshipRequired: "დაამატე მისი თანამგზავრი",
     relationshipTextRequired: "ვინ არის ის?",
-    photoRequired: "დაამატე მკაფიო პორტრეტი.",
     termsRequired: "წიგნის შესაქმნელად საჭიროა წესებსა და პირობებზე დათანხმება.",
     /*
       It said "the ADDITIONAL character" even when the open form was the main hero's, so the
       message named something that was not on the screen. It is about whichever character is
       open, which is the only one it can be.
     */
+    photoRequired: "დაამატე მკაფიო ფოტო.",
     phoneInvalid: "შეიყვანე სწორი 9-ნიშნა ქართული ნომერი.",
     otpInvalid: "კოდი არასწორია.",
   },

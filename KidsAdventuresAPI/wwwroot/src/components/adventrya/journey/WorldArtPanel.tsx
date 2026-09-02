@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useT } from "@/lib/i18n";
-import { ISLAND_SPOTS, SELECTOR_ART, SELECTOR_WORLDS } from "@/lib/journey/worldSelector";
+import { ISLAND_FRAMES, SELECTOR_ART, SELECTOR_WORLDS } from "@/lib/journey/worldSelector";
 import { useWorldById, type WorldId } from "@/lib/worlds";
 
 type Props = {
   worldId: WorldId;
   /**
    * How much room to leave around the island, as a multiple of its own size. 1 would crop to its
-   * exact edges; 1.35 leaves the sky and cloud it stands in without letting the island shrink
-   * into the middle of the frame.
+   * exact edges; 1.1 leaves a little of the sky it stands in. It was 1.35, which on boxes drawn
+   * around the picture rather than around the pin pulled a neighbouring island into every frame.
    */
   margin?: number;
   className?: string;
@@ -25,10 +25,12 @@ type Props = {
  * chose so it fills the room the form leaves.
  *
  * It is a crop of the master rather than a second asset, so there is nothing new to keep in step
- * with the map, and a repainted master arrives here on the same deploy. The island's own
- * coordinates come from ISLAND_SPOTS — the same numbers the hotspots and the star's flight use.
+ * with the map, and a repainted master arrives here on the same deploy. The coordinates come from
+ * ISLAND_FRAMES, which is the painting's own bounds — not ISLAND_SPOTS, which are tap targets on
+ * the map: tighter than the picture and centred on the pin, so cropping to them took the head off
+ * the dinosaur and left the forest in a corner.
  */
-export function WorldArtPanel({ worldId, margin = 1.35, className }: Props) {
+export function WorldArtPanel({ worldId, margin = 1.1, className }: Props) {
   const t = useT();
   const worldById = useWorldById();
   const place = worldById[worldId];
@@ -49,7 +51,7 @@ export function WorldArtPanel({ worldId, margin = 1.35, className }: Props) {
     every world; the decision not to draw is taken at the end, where returning early costs
     nothing.
   */
-  const spot = selectorId ? ISLAND_SPOTS.desktop[selectorId] : ISLAND_SPOTS.desktop.animals;
+  const spot = selectorId ? ISLAND_FRAMES[selectorId] : ISLAND_FRAMES.animals;
 
   /*
     Framing, measured.
