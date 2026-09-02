@@ -1,4 +1,5 @@
 using AdventurePacks.Api.Domain.Entities;
+using AdventurePacks.Api.DTOs.Print;
 
 namespace AdventurePacks.Api.Repositories.Interfaces;
 
@@ -23,11 +24,25 @@ public interface IPrintOrderRepository
         Guid userId,
         CancellationToken cancellationToken);
 
-    /// <summary>The operations queue. <paramref name="status"/> null means every open parcel.</summary>
-    Task<IReadOnlyList<PrintOrder>> GetForAdminAsync(
+    /// <summary>
+    /// The operations queue, with the book, the hero, the buyer and the order's total already
+    /// joined on. <paramref name="status"/> null means every parcel, newest first.
+    ///
+    /// One statement, deliberately, and it replaces a bare parcel listing. The console's queue
+    /// used to be assembled by loading each parcel and then asking for its book, its user and its
+    /// order in three more round trips — so a fifty-row page was two hundred queries, and it grew
+    /// with the business. Nothing here is unavailable to the parcel row; it is all one join away.
+    /// </summary>
+    Task<IReadOnlyList<AdminPrintQueueRow>> GetAdminQueueAsync(
         PrintOrderStatus? status,
         int limit,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// One parcel in the queue's own shape, so the row a status change hands back is built from
+    /// the same projection as the row it replaces. Null when the parcel is gone.
+    /// </summary>
+    Task<AdminPrintQueueRow?> GetAdminQueueRowAsync(Guid id, CancellationToken cancellationToken);
 
     Task<IReadOnlyDictionary<PrintOrderStatus, int>> GetAdminCountsAsync(CancellationToken cancellationToken);
 

@@ -16,6 +16,7 @@ builder.Services
     .AddAdventurePacksAuth(builder.Configuration)
     .AddAdventurePacksInfrastructure(builder.Configuration)
     .AddAdventurePacksApplication()
+    .AddAdminServices()
     .AddFrontendHosting(builder.Configuration);
 
 builder.Services.AddAdminOpsServices();
