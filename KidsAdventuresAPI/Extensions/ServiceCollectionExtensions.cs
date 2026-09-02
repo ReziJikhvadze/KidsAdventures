@@ -12,7 +12,10 @@ using AdventurePacks.Api.Services.Story;
 using AdventurePacks.Api.Services.Story.Composite;
 using AdventurePacks.Api.Services.Interfaces;
 using Hangfire;
+using Hangfire.Common;
 using Hangfire.SqlServer;
+using Hangfire.States;
+using Hangfire.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -228,6 +231,8 @@ public static class ServiceCollectionExtensions
         var connectionString = configuration.GetConnectionString("DefaultConnection")
                                ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is missing.");
 
+        ConfigureHangfireRetryPolicy();
+
         services.AddHangfire(config =>
             config.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
                 .UseSimpleAssemblyNameTypeSerializer()
@@ -259,11 +264,26 @@ public static class ServiceCollectionExtensions
 
         services.AddStoryEngine();
 
+        // Two OpenAI clients against one base address, differing only in how long they wait.
+        //
+        // The text client is what the story, the polish pass and the vision calls post through,
+        // and a reasoning model writing a whole book is legitimately slow. The image client is
+        // what every illustration posts through, and it is budgeted differently: nine or more
+        // calls a book, each retried up to three times, inside a thirty-minute job. The old
+        // single six-minute ceiling let one stuck image slot eat eighteen minutes of that on its
+        // own. Both numbers are settings, so a slower model is a configuration change.
         services.AddHttpClient("OpenAI", (sp, client) =>
         {
             var openAi = sp.GetRequiredService<IOptions<OpenAiOptions>>().Value;
             client.BaseAddress = new Uri(openAi.BaseUrl.TrimEnd('/') + "/");
-            client.Timeout = TimeSpan.FromMinutes(6);
+            client.Timeout = TimeSpan.FromMinutes(Math.Max(1, openAi.TimeoutMinutes));
+        });
+
+        services.AddHttpClient(OpenAiService.ImageHttpClientName, (sp, client) =>
+        {
+            var openAi = sp.GetRequiredService<IOptions<OpenAiOptions>>().Value;
+            client.BaseAddress = new Uri(openAi.BaseUrl.TrimEnd('/') + "/");
+            client.Timeout = TimeSpan.FromMinutes(Math.Max(1, openAi.ImageTimeoutMinutes));
         });
 
         // A parent is waiting on the redirect while this call is out, so the gateway gets
@@ -398,9 +418,16 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IAdventurePdfService, AdventurePdfService>();
         // Azure unless a machine has explicitly asked for the local folder. The choice is made
-        // per resolution rather than at startup so the registration needs no IConfiguration,
-        // and LocalBlobOptions.Enabled is false in every committed settings file.
-        services.AddScoped<IBlobStorageService>(sp =>
+        // on first resolution rather than at registration so it needs no IConfiguration, and
+        // LocalBlobOptions.Enabled is false in every committed settings file.
+        //
+        // A singleton, and that is the fix for a real cost: the Azure implementation caches one
+        // container client per container and creates each container once, and that cache is only
+        // worth anything if the instance outlives the request. Scoped, every request and every
+        // Hangfire job started cold and paid a CreateIfNotExists round trip on every blob
+        // operation — a composite book makes a couple of hundred of them. Neither implementation
+        // holds per-request state, and both depend only on singletons.
+        services.AddSingleton<IBlobStorageService>(sp =>
             sp.GetRequiredService<IOptions<LocalBlobOptions>>().Value.Enabled
                 ? ActivatorUtilities.CreateInstance<LocalFileBlobStorageService>(sp)
                 : ActivatorUtilities.CreateInstance<AzureBlobStorageService>(sp));
@@ -491,5 +518,90 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPortraitGate, PortraitGate>();
 
         return services;
+    }
+
+    /// <summary>
+    /// How many times Hangfire re-runs a job that threw before giving up on it.
+    ///
+    /// Hangfire's own default is ten. Every long job in this product already writes its own
+    /// terminal verdict — a run is marked Failed, a pack is marked Failed and somebody is paged —
+    /// and swallows the exception, so a throw that reaches Hangfire is one of two things: the host
+    /// going away, which one retry answers, or something the job could not classify, which ten
+    /// retries of a thirty-minute book will not answer either. Two is one honest requeue and one
+    /// for luck.
+    /// </summary>
+    internal const int HangfireRetryAttempts = 2;
+
+    /// <summary>
+    /// The global retry policy: the attempt count above, and no retry at all for a job that lost
+    /// the race for its own lock.
+    ///
+    /// Hangfire registers a ten-attempt <see cref="AutomaticRetryAttribute"/> of its own in a
+    /// static constructor. Adding a second one beside it would leave both electing a state for the
+    /// same failure in an order nothing promises, so the default is removed rather than shadowed.
+    /// Idempotent: a host that builds its container twice — the test suite does — ends up with
+    /// exactly one of each filter.
+    /// </summary>
+    internal static void ConfigureHangfireRetryPolicy()
+    {
+        foreach (var filter in GlobalJobFilters.Filters
+                     .Where(f => f.Instance is AutomaticRetryAttribute or LockTimeoutIsNotRetriedFilter)
+                     .ToList())
+        {
+            GlobalJobFilters.Filters.Remove(filter.Instance);
+        }
+
+        GlobalJobFilters.Filters.Add(new LockTimeoutIsNotRetriedFilter());
+        GlobalJobFilters.Filters.Add(new AutomaticRetryAttribute
+        {
+            Attempts = HangfireRetryAttempts,
+
+            // Elected after the lock filter, whatever order the collection is in: that filter has
+            // to have replaced the candidate state before this one decides whether to reschedule
+            // it. Filters run in ascending Order, and the lock filter keeps the default.
+            Order = 10,
+        });
+    }
+}
+
+/// <summary>
+/// A job that timed out waiting for its own <see cref="DisableConcurrentExecutionAttribute"/> lock
+/// is not retried.
+///
+/// The lock exists so that two enqueues of the same pack or order run once, and a job that could
+/// not take it in its allotted wait is, in every case this product has, the duplicate: another
+/// worker holds the lock because it is doing the work. Hangfire's default answer was to fail the
+/// duplicate and retry it — ten times, each attempt holding a worker for the full wait (sixty
+/// seconds for a Beki pack, half an hour for an order) before failing again. Instead the duplicate
+/// is deleted with a reason that says so, and the worker that holds the lock finishes the book.
+///
+/// It runs before the retry filter and swaps the candidate state, which is the mechanism Hangfire
+/// provides for this: the retry filter only reschedules a <see cref="FailedState"/>, and by the
+/// time it looks there is none. The decision itself is a pure function so the suite can assert
+/// it without standing up a job storage.
+/// </summary>
+internal sealed class LockTimeoutIsNotRetriedFilter : JobFilterAttribute, IElectStateFilter
+{
+    public void OnStateElection(ElectStateContext context)
+    {
+        if (Replacement(context.CandidateState) is { } replacement)
+        {
+            context.CandidateState = replacement;
+        }
+    }
+
+    /// <summary>The state to elect instead, or null to leave the candidate alone.</summary>
+    internal static IState? Replacement(IState candidate)
+    {
+        if (candidate is not FailedState { Exception: DistributedLockTimeoutException lockTimeout })
+        {
+            return null;
+        }
+
+        return new DeletedState
+        {
+            Reason = "Not retried: another worker holds this job's lock, and is doing the work. "
+                     + $"({lockTimeout.Message})",
+        };
     }
 }

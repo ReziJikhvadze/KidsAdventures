@@ -695,7 +695,7 @@ public class CompositeIdentityTests
         public Task<byte[]> GenerateStoryImageAsync(
             string imagePrompt, StoryImageReference? reference,
             CancellationToken cancellationToken, string? imageSize = null,
-            bool requireReferences = false)
+            bool requireReferences = false, string? imageQuality = null)
         {
             if (ImageCalls == 0)
             {

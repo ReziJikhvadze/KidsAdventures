@@ -40,7 +40,8 @@ public sealed class AiServiceRouter(
         StoryImageReference? reference,
         CancellationToken cancellationToken,
         string? imageSize = null,
-        bool requireReferences = false)
+        bool requireReferences = false,
+        string? imageQuality = null)
     {
         if (requireReferences
             && reference?.CharacterAnchorBytes is not { Length: > 0 }
@@ -53,7 +54,7 @@ public sealed class AiServiceRouter(
         }
 
         return illustrations.GenerateStoryImageAsync(
-            imagePrompt, reference, cancellationToken, imageSize);
+            imagePrompt, reference, cancellationToken, imageSize, imageQuality);
     }
 
     public Task<string> ReviewIllustrationAsync(

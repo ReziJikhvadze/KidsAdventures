@@ -157,8 +157,19 @@ public sealed class GeminiOptions
     /// </summary>
     public string ImageSize { get; set; } = "2K";
 
-    /// <summary>Mirrors the OpenAI client: reasoning-heavy calls are legitimately slow.</summary>
-    public int TimeoutMinutes { get; set; } = 12;
+    /// <summary>
+    /// Minutes one text call may take. Mirrors the OpenAI text client's ceiling rather than
+    /// doubling it: it was twelve, and twelve minutes times <see cref="RetryAttempts"/> is more
+    /// than a whole thirty-minute generation budget spent on one call that is not answering.
+    /// </summary>
+    public int TimeoutMinutes { get; set; } = 6;
+
+    /// <summary>
+    /// Minutes one image call may take. Shorter than the text ceiling for the same reason the
+    /// OpenAI side splits them: a book draws nine or more pictures and retries each, so this is
+    /// the number that decides how long one bad slot can hold the whole job.
+    /// </summary>
+    public int ImageTimeoutMinutes { get; set; } = 4;
 
     /// <summary>Transient failures are retried the same way the OpenAI story client retries.</summary>
     public int RetryAttempts { get; set; } = 3;

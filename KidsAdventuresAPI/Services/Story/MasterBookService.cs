@@ -15,7 +15,7 @@ public interface IMasterBookService
 {
     /// <summary>
     /// Accepts the request and hands back an id to watch. Returns in about as long as it takes
-    /// to describe the photograph; the book itself is written by <see cref="WriteBookAsync"/>.
+    /// to park the photograph; the book itself is written by <see cref="WriteBookAsync"/>.
     /// </summary>
     Task<Guid> StartAsync(GuestPreviewInput input, CancellationToken cancellationToken);
 
@@ -36,8 +36,8 @@ public interface IMasterBookService
 /// that writes a book inside the request that asked for it fails in production and works
 /// everywhere else, which is the worst way for it to fail.
 ///
-/// So the request does only what is quick — describe the photograph, park it, record the ask —
-/// and a job does the rest, reporting progress into the same row the client polls.
+/// So the request does only what is quick — park the photograph, record the ask — and a job
+/// does the rest, reporting progress into the same row the client polls.
 /// </summary>
 public sealed class MasterBookService(
     IMasterStoryRunRepository runRepository,
@@ -69,10 +69,15 @@ public sealed class MasterBookService(
         var language = string.IsNullOrWhiteSpace(input.StoryLanguage) ? "ka" : input.StoryLanguage.Trim();
         var runId = Guid.NewGuid();
 
-        // Describing the photo is a short call and its answer is text, so it happens here where
-        // the parent is still watching. The portrait itself is parked for the illustration step,
-        // which runs later and draws a better likeness from the face than from a paragraph
-        // about it.
+        // The portrait is parked here, where the parent is still watching, because it is one
+        // upload and the illustrator needs it later. It is no longer described here. That was a
+        // vision call of five to twenty seconds inside the request the parent was waiting on, and
+        // the composite pipeline — which draws the child from the photograph, not from a paragraph
+        // about it — never reads the answer. The job describes the portrait, once, for the one
+        // planner that does; see WriteBookAsync.
+        //
+        // A saved hero arrives with the description their earlier book already paid for, and that
+        // is kept as given: it is the same face, and asking again is the same paragraph for money.
         string? appearance = string.IsNullOrWhiteSpace(input.AppearanceDescription)
             ? null
             : input.AppearanceDescription.Trim();
@@ -80,24 +85,6 @@ public sealed class MasterBookService(
 
         if (input.PhotoBytes is { Length: > 0 })
         {
-            // A saved hero arrives with the description their earlier book already paid for; only
-            // a portrait nobody has described yet goes to the model.
-            if (appearance is null)
-            {
-                try
-                {
-                    appearance = await openAiService.DescribeCharacterFromPhotoAsync(
-                        input.PhotoBytes,
-                        input.PhotoContentType,
-                        MasterStoryPrompt.PhotoDescribe,
-                        cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Photo description failed for run {RunId}; continuing without it.", runId);
-                }
-            }
-
             try
             {
                 photoBlobUrl = await blobStorageService.UploadAsync(
@@ -307,6 +294,38 @@ public sealed class MasterBookService(
                     + "only one whose plan carries an appearance description and a character lock "
                     + "to draw a child from without a photograph.",
                     runId);
+            }
+
+            /*
+              The portrait is described here, in the job, and only for the planner that reads it.
+
+              It used to be described in StartAsync, inside the HTTP request the parent was waiting
+              on: a five-to-twenty-second vision call in front of a response that is otherwise an
+              upload and an insert. And the composite planner never reads the answer — its plan
+              carries no appearance description by design, because the child's likeness reaches the
+              illustrator as the photograph itself. So the call lives in the one place and on the
+              one path where its answer is used: the legacy planner, whose identity chain starts
+              from this paragraph. A composite run skips it entirely.
+
+              A run that already has one — a saved hero, or a requeued job that paid for it on its
+              first attempt — keeps it. The answer is written to the row before the story call for
+              exactly that second case, and so that the cover fallback of a resumed run can read it
+              back.
+            */
+            if (compositeStoryInput is null
+                && string.IsNullOrWhiteSpace(run.AppearanceDescription)
+                && portraitParked)
+            {
+                stage = "describing the portrait";
+
+                var appearance = await DescribePortraitAsync(run, jobToken);
+                if (appearance is not null)
+                {
+                    run.AppearanceDescription = appearance;
+                    storyInput = storyInput with { AppearanceDescription = appearance };
+                }
+
+                stage = "writing the story";
             }
 
             // The prompts are stored before the call rather than after, so that a call which
@@ -635,6 +654,48 @@ public sealed class MasterBookService(
             // permanently. Passed up, the caller can tell a deploy (requeue, and this very branch
             // redraws it next time) from a budget that ran out (keep the story, keep the run Ready).
             logger.LogWarning(ex, "Could not finish the cover for resumed run {RunId}.", run.Id);
+        }
+    }
+
+    /// <summary>
+    /// The written appearance, read off the parked portrait by the vision model and saved to the
+    /// row — or null when it could not be had. Not fatal: the very first version of this flow
+    /// drew the hero from whatever the parent typed, and a book with a plainer hero beats no book.
+    /// A cancellation is not one of those failures and is passed up, because only the caller
+    /// knows whether it is the budget or the host.
+    /// </summary>
+    private async Task<string?> DescribePortraitAsync(MasterStoryRun run, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var photo = await blobStorageService.DownloadBytesFromStoredUrlAsync(run.PhotoBlobUrl!, cancellationToken);
+            if (photo is not { Length: > 0 })
+            {
+                logger.LogWarning(
+                    "Run {RunId}: the parked portrait is empty; writing without an appearance description.",
+                    run.Id);
+                return null;
+            }
+
+            // "image/png" whatever the portrait was uploaded as, for the same reason the Beki
+            // cover path says it: the normalizer reads the bytes rather than trusting the label,
+            // and the download does not hand the original content type back.
+            var appearance = await openAiService.DescribeCharacterFromPhotoAsync(
+                photo, "image/png", MasterStoryPrompt.PhotoDescribe, cancellationToken);
+
+            if (string.IsNullOrWhiteSpace(appearance))
+            {
+                return null;
+            }
+
+            appearance = appearance.Trim();
+            await runRepository.SaveAppearanceDescriptionAsync(run.Id, appearance, cancellationToken);
+            return appearance;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Photo description failed for run {RunId}; continuing without it.", run.Id);
+            return null;
         }
     }
 

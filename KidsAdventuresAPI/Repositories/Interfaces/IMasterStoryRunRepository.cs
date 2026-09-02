@@ -41,6 +41,13 @@ public interface IMasterStoryRunRepository
         int completionTokens,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Records the written appearance the job derived from the parked portrait. Its own write
+    /// rather than a field on another, because it happens before anything else the job saves and
+    /// a requeued job must find it there rather than pay the vision model for it a second time.
+    /// </summary>
+    Task SaveAppearanceDescriptionAsync(Guid id, string appearanceDescription, CancellationToken cancellationToken);
+
     Task SaveCoverAsync(Guid id, string coverImageUrl, CancellationToken cancellationToken);
 
     Task MarkReadyAsync(Guid id, string contentJson, CancellationToken cancellationToken);

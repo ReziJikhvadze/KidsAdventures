@@ -443,7 +443,7 @@ public class LegacyGenerationFailureTests
     private sealed class ThrowingOpenAi : IOpenAiService
     {
         public Task<AdventureContentDto> GenerateAdventureContentAsync(AdventureGenerationInput input, Guid adventureId, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<byte[]> GenerateStoryImageAsync(string imagePrompt, StoryImageReference? reference, CancellationToken cancellationToken, string? imageSize = null, bool requireReferences = false) => throw new NotSupportedException();
+        public Task<byte[]> GenerateStoryImageAsync(string imagePrompt, StoryImageReference? reference, CancellationToken cancellationToken, string? imageSize = null, bool requireReferences = false, string? imageQuality = null) => throw new NotSupportedException();
         public Task<string> ReviewIllustrationAsync(byte[] imageBytes, string reviewPrompt, IReadOnlyList<(byte[] Bytes, string ContentType, string Label)> references, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<string> DescribeCharacterFromPhotoAsync(byte[] imageBytes, string contentType, string promptText, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<string> CompleteTextAsync(string promptText, CancellationToken cancellationToken) => throw new NotSupportedException();

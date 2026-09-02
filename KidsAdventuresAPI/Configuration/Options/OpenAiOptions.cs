@@ -122,6 +122,22 @@ public sealed class OpenAiOptions
     public int ImageRetryBackoffSeconds { get; set; } = 3;
 
     /// <summary>
+    /// Minutes one text call may take before the HTTP client gives up on it. Six, because a
+    /// reasoning model writing a whole book is legitimately slow, and this is the ceiling on the
+    /// story, the polish pass and the vision calls alike.
+    /// </summary>
+    public int TimeoutMinutes { get; set; } = 6;
+
+    /// <summary>
+    /// Minutes one image call may take. Separate from <see cref="TimeoutMinutes"/> and shorter,
+    /// because the two are budgeted differently: a book makes one or two text calls and nine or
+    /// more image calls, each of which may be retried <see cref="ImageRetryAttempts"/> times. At
+    /// the old six minutes a single stuck image slot could hold eighteen of a thirty-minute
+    /// generation budget on its own. gpt-image answers a 1024x1536 edit in well under three.
+    /// </summary>
+    public int ImageTimeoutMinutes { get; set; } = 3;
+
+    /// <summary>
     /// Attempts at the story call before giving up. It had none: a single 520 from the provider's
     /// edge — which is what actually happened — threw away a run that takes minutes, and the
     /// parent watching it was told the story could not be written.

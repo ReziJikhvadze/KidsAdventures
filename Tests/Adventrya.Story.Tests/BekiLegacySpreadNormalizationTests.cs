@@ -174,7 +174,7 @@ public class BekiLegacySpreadNormalizationTests
     {
         public Task<byte[]> GenerateStoryImageAsync(
             string imagePrompt, StoryImageReference? reference, CancellationToken cancellationToken,
-            string? imageSize = null, bool requireReferences = false)
+            string? imageSize = null, bool requireReferences = false, string? imageQuality = null)
         {
             Assert.Equal(BekiBookGenerator.SpreadImageSize, imageSize);
             return Task.FromResult(RawFrame());
