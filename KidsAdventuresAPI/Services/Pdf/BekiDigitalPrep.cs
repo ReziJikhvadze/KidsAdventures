@@ -107,8 +107,10 @@ public static class BekiDigitalPrep
         int expectedPages;
         try
         {
+            // See the note in BekiPrintPrep: InformationOnly is obsolete as never implemented and
+            // promised only the Info dictionary; the count needs the pages.
             using var composed = PdfReader.Open(
-                new MemoryStream(composedPdf), PdfDocumentOpenMode.InformationOnly);
+                new MemoryStream(composedPdf), PdfDocumentOpenMode.Import);
             expectedPages = composed.PageCount;
         }
         catch (Exception ex) when (ex is not BekiLayoutException)
@@ -133,8 +135,11 @@ public static class BekiDigitalPrep
 
         var (linearized, conversion) = Linearize(ready, options);
 
+        // Import, because ReadOnly is obsolete in PDFsharp 6.2 as never implemented. Every gate
+        // below walks the object graph rather than editing it, and Import carries the whole graph —
+        // IccProfileProblems already reads profile streams out of a document opened this way.
         using var stream = new MemoryStream(linearized);
-        using var document = PdfReader.Open(stream, PdfDocumentOpenMode.ReadOnly);
+        using var document = PdfReader.Open(stream, PdfDocumentOpenMode.Import);
 
         if (document.PageCount != expectedPages)
         {
@@ -695,19 +700,30 @@ public static class BekiDigitalPrep
 
                 var was = VersionText(bytes);
 
-                if (profile.Elements.ContainsKey("/Filter") && !profile.Stream!.TryUnfilter())
-                {
-                    // A profile behind a filter this build cannot decode is left exactly as it
-                    // arrived; the gate on the far side of the conversion is what catches it.
-                    continue;
-                }
-
-                var raw = profile.Stream!.Value;
+                // ProfileBytes above has already decoded this stream — through UnfilteredValue
+                // whenever it carries a filter — so the plain bytes are in hand and there is
+                // nothing left to unfilter.
+                //
+                // Deliberately not PdfStream.TryUncompress, which PDFsharp 6.2 offers as the
+                // replacement for the obsolete TryUnfilter. It recognises /Filter only as a direct
+                // name and answers false for the equally valid array form, /Filter [/FlateDecode];
+                // a profile written that way would be passed over instead of restamped, and the
+                // gate on the far side of the conversion would then refuse the book. UnfilteredValue
+                // reads both forms, which is why the decode already done is the one to trust.
+                //
+                // A profile this build genuinely cannot decode never reaches here: ProfileBytes
+                // returns nothing for it and the length guard above lets it through untouched.
+                var raw = bytes.ToArray();
                 raw[8] = 0x04;
                 raw[9] = 0x20;
                 raw[10] = 0x00;
                 raw[11] = 0x00;
-                profile.Stream.Value = raw;
+
+                // The bytes going back are decoded, so the filter that described them no longer
+                // describes them. Leaving it in place would declare compression over plain bytes.
+                profile.Stream!.Value = raw;
+                profile.Elements.Remove("/Filter");
+                profile.Elements.Remove("/DecodeParms");
                 profile.Elements.SetInteger("/Length", raw.Length);
 
                 restamped.Add(
