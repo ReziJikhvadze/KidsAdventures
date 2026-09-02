@@ -40,10 +40,18 @@
 }
 .ux-language-switcher,
 .world-language-switcher,
+/*
+  As many equal columns as there are buttons.
+
+  It was fixed at two, which was every case until the sign-in panel offered a link, a password
+  and a phone number on one row — a third button in a two-column grid wraps onto a second line
+  and leaves half a row of empty rail beside it.
+*/
 .ux-auth-switcher,
 .ux-segmented-control {
   display: inline-grid;
-  grid-template-columns: 1fr 1fr;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   padding: 3px;
   border: 1px solid rgba(238, 221, 187, 0.2);
   border-radius: 13px;

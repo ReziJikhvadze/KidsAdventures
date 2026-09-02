@@ -244,10 +244,13 @@ export const journey = {
     googleUnavailable: "Google შესვლა ამ გარემოში მიუწვდომელია.",
     appleSoon: "Apple-ით შესვლა მალე დაემატება.",
     tabEmail: "ელფოსტა",
-    tabPhone: "ტელეფონის ნომერი",
+    /* One word each. Three of these share a row on a 375px phone, which leaves about 100px
+       apiece — "ტელეფონის ნომერი" wrapped to two lines and pushed the row out of shape. The
+       field below each one says the long version. */
+    tabPhone: "ნომრით",
     /* The switcher on the panel: the two ways into an account that work today. */
     methodGroup: "შესვლის მეთოდი",
-    tabMagicLink: "ერთჯერადი ბმულით",
+    tabMagicLink: "ბმულით",
     /* The one line that says an account can be made here at all. */
     needAccount: "ანგარიში არ გაქვს? დარეგისტრირდი",
     haveAccount: "უკვე გაქვს ანგარიში? შესვლა",

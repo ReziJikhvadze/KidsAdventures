@@ -20,7 +20,7 @@ type AuthTab = "email" | "phone";
  * the code behind them is untouched.
  */
 const APPLE_SIGN_IN_READY: boolean = false;
-const PHONE_SIGN_IN_READY: boolean = false;
+const PHONE_SIGN_IN_READY: boolean = true;
 
 /**
  * How a parent proves the email is theirs: a link we send them, a password they already have, or
@@ -275,62 +275,61 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
             takes it.
           */}
           {/*
-            A group of two buttons, not a tablist.
+            Every way in, on one row.
 
-            It claimed `role="tablist"` and gave its buttons none of what that promises — no
-            `role="tab"`, no `aria-selected`, no arrow-key navigation and no `tabpanel` to own.
-            A screen reader was told to expect tabs and then could not say which one was chosen.
-            These are toggle buttons, so they say so: `aria-pressed` is what carries the state,
-            and it is the same state the gold fill shows.
+            It used to be two switchers stacked: email against phone, and then — only if you
+            found the line of small print under the form — a link against a password. So the two
+            things a parent actually chooses between were a level apart, and the password was the
+            one nobody found. Three ways exist, so the row is three wide and each is one tap.
+
+            Registration is not a fourth: it is the same password form with a second box, reached
+            from the line under it, and the password side stays lit while it is open.
+
+            A group of buttons, not a tablist. It once claimed `role="tablist"` and gave its
+            buttons none of what that promises — no `role="tab"`, no `aria-selected`, no arrow-key
+            navigation, no `tabpanel` to own — so a screen reader was told to expect tabs and then
+            could not say which one was chosen. `aria-pressed` carries the state instead, which is
+            the same state the gold fill shows.
           */}
-          {PHONE_SIGN_IN_READY ? (
-            <div className="ux-auth-switcher" role="group" aria-label={t.journey.auth.methodGroup}>
-              <button
-                type="button"
-                aria-pressed={tab === "email"}
-                className={tab === "email" ? "selected" : ""}
-                onClick={() => setTab("email")}
-              >
-                {t.journey.auth.tabEmail}
-              </button>
+          <div className="ux-auth-switcher" role="group" aria-label={t.journey.auth.methodGroup}>
+            <button
+              type="button"
+              aria-pressed={tab === "email" && emailMode === "link"}
+              className={tab === "email" && emailMode === "link" ? "selected" : ""}
+              onClick={() => {
+                setTab("email");
+                setEmailMode("link");
+                setError(null);
+              }}
+            >
+              {t.journey.auth.tabMagicLink}
+            </button>
+            <button
+              type="button"
+              aria-pressed={tab === "email" && emailMode !== "link"}
+              className={tab === "email" && emailMode !== "link" ? "selected" : ""}
+              onClick={() => {
+                setTab("email");
+                setEmailMode("password");
+                setError(null);
+              }}
+            >
+              {t.journey.auth.tabPassword}
+            </button>
+            {PHONE_SIGN_IN_READY ? (
               <button
                 type="button"
                 aria-pressed={tab === "phone"}
                 className={tab === "phone" ? "selected" : ""}
-                onClick={() => setTab("phone")}
+                onClick={() => {
+                  setTab("phone");
+                  setError(null);
+                }}
               >
                 {t.journey.auth.tabPhone}
               </button>
-            </div>
-          ) : (
-            <div className="ux-auth-switcher" role="group" aria-label={t.journey.auth.methodGroup}>
-              <button
-                type="button"
-                aria-pressed={emailMode === "link"}
-                className={emailMode === "link" ? "selected" : ""}
-                onClick={() => {
-                  setEmailMode("link");
-                  setError(null);
-                }}
-              >
-                {t.journey.auth.tabMagicLink}
-              </button>
-              {/* Registering is a password too, so the switcher stays two wide and this side
-                  stays lit while an account is being made. The way between the two is the line
-                  under the form. */}
-              <button
-                type="button"
-                aria-pressed={emailMode !== "link"}
-                className={emailMode !== "link" ? "selected" : ""}
-                onClick={() => {
-                  setEmailMode("password");
-                  setError(null);
-                }}
-              >
-                {t.journey.auth.tabPassword}
-              </button>
-            </div>
-          )}
+            ) : null}
+          </div>
 
           {tab === "email" ? (
             <>
@@ -442,23 +441,6 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
                   </button>
                 </>
               )}
-
-              {/* The way between the two, and it clears the error on the way: a complaint about
-                  a password is not about the link the parent just switched to. Only while the
-                  switcher above is showing email against phone — otherwise it is the same
-                  choice offered twice on one small panel. */}
-              {PHONE_SIGN_IN_READY ? (
-                <button
-                  className="text-back"
-                  type="button"
-                  onClick={() => {
-                    setEmailMode(emailMode === "link" ? "password" : "link");
-                    setError(null);
-                  }}
-                >
-                  {emailMode === "link" ? t.journey.auth.usePassword : t.journey.auth.useMagicLink}
-                </button>
-              ) : null}
 
               {/*
                 The way to an account, on the page that otherwise only lets you back into one.
