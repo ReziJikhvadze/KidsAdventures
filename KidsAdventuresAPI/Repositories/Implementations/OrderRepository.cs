@@ -188,6 +188,44 @@ public sealed class OrderRepository(ISqlConnectionFactory connectionFactory) : I
         return rows.Select(Map).ToList();
     }
 
+    public async Task<bool> TrySetAdminStatusAsync(
+        Guid id,
+        OrderStatus status,
+        IReadOnlyCollection<OrderStatus> allowedFrom,
+        string? failureReason,
+        CancellationToken cancellationToken)
+    {
+        if (allowedFrom.Count == 0)
+        {
+            return false;
+        }
+
+        // Compare-and-set on the whole allowed set, in one statement. The console has already
+        // checked the transition and told the operator why it would be refused; this is the check
+        // that survives two admins clicking at the same moment, and a webhook landing between the
+        // read and the write.
+        const string sql = """
+                           UPDATE dbo.Orders
+                           SET Status = @Status,
+                               FailureReason = COALESCE(@Reason, FailureReason)
+                           WHERE Id = @Id AND Status IN @AllowedFrom;
+                           """;
+
+        using var connection = connectionFactory.CreateConnection();
+        var affected = await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                Id = id,
+                Status = status.ToString(),
+                AllowedFrom = allowedFrom.Select(allowed => allowed.ToString()).ToArray(),
+                Reason = failureReason is null ? null : Truncate(failureReason, 512),
+            },
+            cancellationToken: cancellationToken));
+
+        return affected > 0;
+    }
+
     private static object ToParameters(Order order) => new
     {
         order.Id,

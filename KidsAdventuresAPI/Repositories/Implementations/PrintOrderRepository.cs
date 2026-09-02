@@ -1,3 +1,4 @@
+using AdventurePacks.Api.DTOs.Print;
 using AdventurePacks.Api.Repositories.Interfaces;
 
 namespace AdventurePacks.Api.Repositories.Implementations;
@@ -96,7 +97,14 @@ public sealed class PrintOrderRepository(ISqlConnectionFactory connectionFactory
         return rows.Select(Map).ToList();
     }
 
-    public async Task<IReadOnlyList<PrintOrder>> GetForAdminAsync(
+    /// <summary>
+    /// The operations queue with everything the console shows on a row, in one statement.
+    ///
+    /// LEFT JOIN throughout: a parcel whose book row has gone, or whose order was archived, is
+    /// still a parcel somebody has to post, and dropping it from the queue would be the worst
+    /// possible way to report that.
+    /// </summary>
+    public async Task<IReadOnlyList<AdminPrintQueueRow>> GetAdminQueueAsync(
         PrintOrderStatus? status,
         int limit,
         CancellationToken cancellationToken)
@@ -104,25 +112,51 @@ public sealed class PrintOrderRepository(ISqlConnectionFactory connectionFactory
         // Oldest first when filtering: the print queue is worked front to back. Newest
         // first for the unfiltered view, which is a browse rather than a work list.
         var sql = status is null
-            ? $"""
-               SELECT TOP (@Limit) {Columns}
-               FROM dbo.PrintOrders
-               ORDER BY CreatedAt DESC;
-               """
-            : $"""
-               SELECT TOP (@Limit) {Columns}
-               FROM dbo.PrintOrders
-               WHERE Status = @Status
-               ORDER BY CreatedAt ASC;
-               """;
+            ? $"{AdminQueueProjection} ORDER BY p.CreatedAt DESC;"
+            : $"{AdminQueueProjection} WHERE p.Status = @Status ORDER BY p.CreatedAt ASC;";
 
         using var connection = connectionFactory.CreateConnection();
-        var rows = await connection.QueryAsync<PrintOrderRow>(new CommandDefinition(
+        var rows = await connection.QueryAsync<AdminPrintQueueRow>(new CommandDefinition(
             sql,
             new { Status = status?.ToString(), Limit = limit },
             cancellationToken: cancellationToken));
-        return rows.Select(Map).ToList();
+
+        return rows.ToList();
     }
+
+    /// <summary>
+    /// One parcel in the queue's own shape — what the status-change route answers with, so the row
+    /// the console puts back is built from the same projection as the row it replaces.
+    /// </summary>
+    public async Task<AdminPrintQueueRow?> GetAdminQueueRowAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var sql = $"{AdminQueueProjection} WHERE p.Id = @Id;";
+
+        using var connection = connectionFactory.CreateConnection();
+        return await connection.QueryFirstOrDefaultAsync<AdminPrintQueueRow>(new CommandDefinition(
+            sql, new { Id = id, Limit = 1 }, cancellationToken: cancellationToken));
+    }
+
+    private const string AdminQueueProjection = """
+            SELECT TOP (@Limit)
+                   p.Id, p.OrderId, p.BookId, p.UserId, p.Status,
+                   p.RecipientName, p.RecipientPhone, p.City, p.Region,
+                   p.AddressLine1, p.AddressLine2, p.PostalCode, p.Notes, p.TrackingCode,
+                   p.CreatedAt, p.ShippedAt, p.DeliveredAt,
+                   b.Title AS BookTitle, b.Status AS BookStatus,
+                   b.GenerationPipeline AS BookPipeline,
+                   CAST(CASE WHEN b.PrintPdfUrl IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS HasPrintPdf,
+                   CAST(CASE WHEN b.PrintPdfUrl IS NULL AND b.PdfUrl IS NOT NULL
+                             THEN 1 ELSE 0 END AS BIT) AS PdfIsReadingCopyFallback,
+                   c.Name AS HeroName,
+                   u.Email AS CustomerEmail, u.PhoneNumber AS CustomerPhone,
+                   ISNULL(o.TotalMinor, 0) AS TotalMinor
+            FROM dbo.PrintOrders p
+            LEFT JOIN dbo.AdventurePacks b ON b.Id = p.BookId
+            LEFT JOIN dbo.Characters c ON c.Id = b.PrimaryCharacterId
+            LEFT JOIN dbo.Users u ON u.Id = p.UserId
+            LEFT JOIN dbo.Orders o ON o.Id = p.OrderId
+            """;
 
     public async Task<IReadOnlyDictionary<PrintOrderStatus, int>> GetAdminCountsAsync(
         CancellationToken cancellationToken)

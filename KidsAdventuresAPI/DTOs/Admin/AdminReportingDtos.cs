@@ -43,15 +43,24 @@ public sealed class AdminOrderRow
     /// </summary>
     public string? ProviderPaymentIntentId { get; set; }
 
-    public DateTime CreatedAt { get; set; }
-    public DateTime? PaidAt { get; set; }
-    public DateTime? FulfilledAt { get; set; }
+    /*
+      Offsets, not bare DateTimes, and that is a bug fix rather than a preference.
+
+      Dapper hands back a DateTime with Kind=Unspecified for a datetime2 column, System.Text.Json
+      serializes that WITHOUT a zone, and a browser reads a zoneless timestamp as local — so every
+      time in this console was rendered four hours early in Tbilisi. The repository stamps
+      DateTimeKind.Utc on the way out (as BekiAlarmRepository already does) and these carry the
+      offset with them, which is the only version of the value a client cannot misread.
+    */
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? PaidAt { get; set; }
+    public DateTimeOffset? FulfilledAt { get; set; }
 
     /// <summary>Where the book itself got to — Completed, Failed, still generating.</summary>
     public string? BookStatus { get; set; }
 
     /// <summary>When the parent last opened the digital book. Null means they never have.</summary>
-    public DateTime? LastReadAt { get; set; }
+    public DateTimeOffset? LastReadAt { get; set; }
 
     /// <summary>
     /// The two files, said separately.
@@ -90,6 +99,41 @@ public sealed class AdminOrderRow
 
     /// <summary>Where the parcel is, for a print order. Null for digital-only.</summary>
     public string? PrintStatus { get; set; }
+
+    /// <summary>The parcel itself, so the row can link to the print queue without a second query.</summary>
+    public Guid? PrintOrderId { get; set; }
+
+    /// <summary>
+    /// Who and where the book is about.
+    ///
+    /// On the row because the list is now searched by both, and a search that matches a column the
+    /// row does not show is a result an operator cannot explain to themselves.
+    /// </summary>
+    public string? HeroName { get; set; }
+    public string? WorldId { get; set; }
+
+    /// <summary><c>beki</c> or <c>legacy</c> — which pipeline drew, or is drawing, this book.</summary>
+    public string? GenerationPipeline { get; set; }
+
+    /// <summary>
+    /// Where the job has got to, for a row that is still being made. Both halves, because a
+    /// percentage with no sentence and a sentence with no percentage each leave an operator
+    /// guessing whether anything is happening.
+    /// </summary>
+    public int? ProgressPercent { get; set; }
+    public string? ProgressMessage { get; set; }
+
+    /// <summary>The last thing the generation job said about this book. Null if it never has.</summary>
+    public DateTimeOffset? HeartbeatUtc { get; set; }
+
+    /// <summary>
+    /// Generating, and silent for longer than the stale-generation sweep tolerates.
+    ///
+    /// The same silence limit the sweep judges by, computed in the same SQL as the flag that
+    /// filters on it — a list that highlights different rows than it filters to is worse than
+    /// neither. A stale row is one the sweep is about to fail, or has failed to reach.
+    /// </summary>
+    public bool IsStale { get; set; }
 }
 
 /// <summary>
@@ -124,6 +168,30 @@ public sealed class AdminOrderDetailResponse
     /// signed the contact sheet.
     /// </summary>
     public int FailingGateCount { get; set; }
+
+    /// <summary>
+    /// Whether this order may be driven through fulfilment again.
+    ///
+    /// Answered by the server so the console never guesses. A retry button that is enabled by a
+    /// rule the browser invented is a button that reports "queued" and is then silently declined
+    /// by the job it queued — which is exactly what the operator cannot see.
+    /// </summary>
+    public bool CanRetry { get; set; }
+
+    /// <summary>
+    /// A finished or failed Beki book with no live job: part or all of it can be drawn again.
+    ///
+    /// Distinct from <see cref="CanRetry"/>, which re-drives the ORDER. A redraw spends money on
+    /// images for a book that already exists, so it is offered only where it would actually work.
+    /// </summary>
+    public bool CanRegenerate { get; set; }
+
+    /// <summary>
+    /// Every alarm ever raised against this book, newest first, reviewed ones included — the
+    /// history behind the chip on the row, for somebody who has opened the order and wants to
+    /// know whether this has happened before.
+    /// </summary>
+    public IReadOnlyList<AdminAlarmRow> Alarms { get; set; } = [];
 }
 
 public sealed class AdminOrderCustomer
@@ -134,7 +202,7 @@ public sealed class AdminOrderCustomer
     public string? DisplayName { get; set; }
     public string? PreferredLanguage { get; set; }
     public bool IsAdmin { get; set; }
-    public DateTime CreatedAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
 
     /// <summary>How many books and orders this parent has in total, this one included.</summary>
     public int BookCount { get; set; }
@@ -154,8 +222,8 @@ public sealed class AdminOrderBook
     public string? CoverImageUrl { get; set; }
     public string? ProgressMessage { get; set; }
     public string? ErrorMessage { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime? LastReadAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? LastReadAt { get; set; }
 
     /// <summary>
     /// Whether a PDF exists to download. The URLs themselves are not returned: they are blob
@@ -164,12 +232,61 @@ public sealed class AdminOrderBook
     /// </summary>
     public bool HasReadingPdf { get; set; }
     public bool HasPrintPdf { get; set; }
+
+    /// <summary>Which pipeline drew this book, and how far its job has got.</summary>
+    public string? GenerationPipeline { get; set; }
+    public int? ProgressPercent { get; set; }
+    public DateTimeOffset? HeartbeatUtc { get; set; }
+
+    /// <summary>Generating, and silent for longer than the sweep tolerates.</summary>
+    public bool IsStale { get; set; }
+
+    /// <summary>The hero, so the console can link the book to the child it is about.</summary>
+    public Guid? PrimaryCharacterId { get; set; }
+
+    /// <summary>
+    /// Which spreads exist in storage, by number.
+    ///
+    /// Probed rather than inferred from the status: a book that stopped on spread five has four
+    /// pictures an operator can look at, and "Failed" says nothing about which. Eight cheap
+    /// existence checks, on one order somebody deliberately opened — never per row of a list.
+    /// </summary>
+    public IReadOnlyList<int> SpreadsAvailable { get; set; } = [];
+
+    /// <summary>Whether there is a cover image to show — the cropped front board, or the pack's own.</summary>
+    public bool HasCoverImage { get; set; }
+
+    /// <summary>Whether any contact sheet was rendered, which is what a reviewer signs.</summary>
+    public bool HasContactSheet { get; set; }
+
+    /// <summary>
+    /// The machine code at the front of the stored error message, when it looks like one.
+    ///
+    /// The pipeline's failures are written as <c>CODE the rest of the sentence</c>, and the code is
+    /// the half that groups incidents and matches a runbook. The whole message stays on
+    /// <see cref="ErrorMessage"/>; this is only the handle.
+    /// </summary>
+    public string? FailureCode { get; set; }
 }
 
 public sealed class AdminOrderShipment
 {
     public Guid Id { get; set; }
     public string Status { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The Georgian word for <see cref="Status"/>, from the same table the parcel emails use, so
+    /// the console and the letter the parent received say the same thing.
+    /// </summary>
+    public string? StatusLabel { get; set; }
+
+    /// <summary>
+    /// The parcel's id, said again under its own name. It is <see cref="Id"/>, and the console
+    /// deep-links to the print queue with it — a field called <c>id</c> inside a shipment object
+    /// is exactly the one somebody eventually passes the order id to.
+    /// </summary>
+    public Guid PrintOrderId { get; set; }
+
     public string RecipientName { get; set; } = string.Empty;
     public string RecipientPhone { get; set; } = string.Empty;
     public string City { get; set; } = string.Empty;
@@ -179,9 +296,9 @@ public sealed class AdminOrderShipment
     public string? PostalCode { get; set; }
     public string? Notes { get; set; }
     public string? TrackingCode { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime? ShippedAt { get; set; }
-    public DateTime? DeliveredAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? ShippedAt { get; set; }
+    public DateTimeOffset? DeliveredAt { get; set; }
 }
 
 public sealed class AdminCustomerListResponse
@@ -250,4 +367,48 @@ public sealed class AdminApproveReviewRequest
     /// A mismatch is a 409: the reviewer looked at a different rendering than the one on file.
     /// </summary>
     public string? ContactSheetSha256 { get; set; }
+}
+
+/// <summary>
+/// Body of <c>POST /api/admin/orders/{id}/status</c> — the two marks an operator may put on an
+/// order by hand.
+///
+/// Deliberately not a general status setter. Everything else about an order's state is written by
+/// the machinery that knows: the gateway marks it Paid, fulfilment marks it Fulfilled. What a
+/// person genuinely decides is that the money went back, or that this is never going to ship, and
+/// those are the only two words this accepts.
+/// </summary>
+public sealed class AdminSetOrderStatusRequest
+{
+    /// <summary><c>Refunded</c> or <c>Cancelled</c>. Anything else is a 400.</summary>
+    [Required, MaxLength(24)]
+    public string Status { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Why, for the record. Stored on the order's failure reason behind an <c>admin:</c> prefix,
+    /// so a line a person typed is never mistaken for one the pipeline wrote.
+    /// </summary>
+    [MaxLength(500)]
+    public string? Note { get; set; }
+}
+
+/// <summary>
+/// Body of <c>POST /api/admin/books/{id}/regenerate</c>.
+///
+/// Every field is load-bearing. The scope decides how many paid image calls this costs — one
+/// spread, the cover, or the whole book — and the reason is required because a redraw with no
+/// stated cause is a bill nobody can account for afterwards.
+/// </summary>
+public sealed class AdminRegenerateBookRequest
+{
+    /// <summary><c>book</c>, <c>spread</c> or <c>cover</c>.</summary>
+    [Required, MaxLength(16)]
+    public string Scope { get; set; } = string.Empty;
+
+    /// <summary>Which spread, 1–8. Required for the <c>spread</c> scope and ignored by the others.</summary>
+    public int? Spread { get; set; }
+
+    /// <summary>What is wrong with the current pictures. Kept on an alarm as the audit trail.</summary>
+    [Required, MaxLength(500)]
+    public string Reason { get; set; } = string.Empty;
 }

@@ -157,18 +157,22 @@ public class BekiReleaseGatesApprovalTests
             NullLogger<BekiReleaseReconciliation>.Instance, new FixedPolicy(policy));
 
         /*
-          The three collaborators this action never touches are null on purpose.
+          The collaborators this action never touches are null on purpose.
 
           ApproveReview reads the order, the pack, storage, the gates, the policy and the alarms;
-          the PDF builder, the package export and the order service belong to other routes on the
-          same controller. Standing up doubles for them would say this action might use them.
+          the PDF builder, the package export, the order service and repository, the print queue
+          and the redraw belong to other routes on the same controller. Standing up doubles for
+          them would say this action might use them.
         */
         var controller = new AdminOrdersController(
             new FakeReporting(),
             packs,
+            orderRepository: null!,
+            printOrders: null!,
             blobs,
             generationService: null!,
             orderService: null!,
+            regeneration: null!,
             packageExport: null!,
             gates,
             reconciliation,

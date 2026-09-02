@@ -49,4 +49,18 @@ public interface IPrintOrderService
         Guid printOrderId,
         UpdatePrintOrderStatusRequest request,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Cancels the parcel behind a cancelled order, unless it has already shipped. False when
+    /// there is no parcel or it is past the point where cancelling it would be true.
+    ///
+    /// Called by the console when an operator cancels the order. Without it, a cancelled order
+    /// leaves its parcel in the print queue and a book is printed and posted to somebody who is
+    /// not being charged for it.
+    ///
+    /// A default of "nothing to cancel" rather than an abstract member: the fulfilment tests double
+    /// this interface for the one method they exercise, and none of them has a parcel.
+    /// </summary>
+    Task<bool> TryCancelForOrderAsync(Guid orderId, CancellationToken cancellationToken) =>
+        Task.FromResult(false);
 }

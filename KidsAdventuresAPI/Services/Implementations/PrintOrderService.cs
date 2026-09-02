@@ -21,7 +21,6 @@ public sealed class PrintOrderService(
     IPrintOrderRepository printOrderRepository,
     IUserAddressRepository addressRepository,
     IAdventurePackRepository packRepository,
-    IOrderRepository orderRepository,
     IUserRepository userRepository,
     IEmailService emailService,
     IAdminNotifier adminNotifier,
@@ -200,28 +199,70 @@ public sealed class PrintOrderService(
 
     // -- operations console -------------------------------------------------
 
+    /// <summary>
+    /// The operations queue.
+    ///
+    /// Two things about this method are deliberate and were both faults.
+    ///
+    /// It is ONE query. It used to load each parcel and then ask for its book, its buyer and its
+    /// order one at a time — a fifty-row page was two hundred round trips, and the screen got
+    /// slower every week the business grew.
+    ///
+    /// And it WRITES NOTHING. Painting the queue used to raise an alarm for every book with no
+    /// press file, so an operator refreshing the screen was minting audit rows about books they
+    /// were only looking at; the deduplication kept the count down and the last-seen stamps still
+    /// moved, which made "when did this start" unanswerable. The alarm belongs where the
+    /// substitution is acted on — the status move below, and the fulfilment job that failed to
+    /// prepare the file — not where it is displayed.
+    /// </summary>
     public async Task<AdminPrintQueueResponse> GetAdminQueueAsync(
         string? status,
         int limit,
         CancellationToken cancellationToken)
     {
         var filter = ParseStatusFilter(status);
-        var printOrders = await printOrderRepository.GetForAdminAsync(
+        var rows = await printOrderRepository.GetAdminQueueAsync(
             filter, Math.Clamp(limit, 1, MaxAdminPageSize), cancellationToken);
 
         var counts = await printOrderRepository.GetAdminCountsAsync(cancellationToken);
 
-        var response = new AdminPrintQueueResponse
+        return new AdminPrintQueueResponse
         {
-            Counts = counts.ToDictionary(entry => entry.Key.ToString(), entry => entry.Value)
+            Counts = counts.ToDictionary(entry => entry.Key.ToString(), entry => entry.Value),
+            Orders = rows.Select(ToAdminResponse).ToList(),
         };
+    }
 
-        foreach (var printOrder in printOrders)
+    /// <summary>
+    /// Cancels the parcel behind a cancelled order, unless it has already gone.
+    ///
+    /// Called when an operator cancels the order itself. Without it, a cancelled order leaves its
+    /// parcel sitting in the print queue and a book gets printed and posted to somebody who is not
+    /// being charged for it. Once the parcel has shipped the row is a record of where it went
+    /// rather than an instruction, and rewriting it would be a lie about a delivery that happened.
+    /// </summary>
+    public async Task<bool> TryCancelForOrderAsync(Guid orderId, CancellationToken cancellationToken)
+    {
+        var printOrder = await printOrderRepository.GetByOrderIdAsync(orderId, cancellationToken);
+
+        if (printOrder is null
+            || printOrder.Status is PrintOrderStatus.Shipped
+                or PrintOrderStatus.Delivered
+                or PrintOrderStatus.Cancelled)
         {
-            response.Orders.Add(await ToAdminResponseAsync(printOrder, cancellationToken));
+            return false;
         }
 
-        return response;
+        await printOrderRepository.UpdateStatusAsync(
+            printOrder.Id, PrintOrderStatus.Cancelled, null, cancellationToken);
+
+        // No email. The parent is being told about the ORDER by whoever cancelled it, and a second
+        // letter about the parcel would read as two things having gone wrong.
+        logger.LogInformation(
+            "Print order {PrintOrderId} was cancelled because order {OrderId} was.",
+            printOrder.Id, orderId);
+
+        return true;
     }
 
     public async Task<AdminPrintOrderResponse?> UpdateStatusAsync(
@@ -258,7 +299,57 @@ public sealed class PrintOrderService(
             await NotifyStatusAsync(refreshed, cancellationToken);
         }
 
-        return await ToAdminResponseAsync(refreshed, cancellationToken);
+        var row = await printOrderRepository.GetAdminQueueRowAsync(printOrderId, cancellationToken);
+        if (row is null)
+        {
+            return null;
+        }
+
+        await RaiseMissingPressFileAsync(row, status, cancellationToken);
+
+        return ToAdminResponse(row);
+    }
+
+    /// <summary>
+    /// The queue is about to send somebody the wrong file, and this is where it says so.
+    ///
+    /// A Beki book is rendered twice on purpose and its press interior is a deliverable the release
+    /// gates can withhold. When that file is absent from a Beki book, this is not the old "made
+    /// before the split" case — it is a press file that was withheld or never written, and the
+    /// reading copy is being offered in its place: a page count that does not divide by four
+    /// arriving at a binder.
+    ///
+    /// Raised when the parcel is MOVED, not when the queue is painted. It used to fire on every
+    /// row of every listing, so an operator refreshing the screen minted audit rows about books
+    /// they were only looking at, and the last-seen stamps moved with each refresh until "when did
+    /// this start" had no answer. A status change is somebody acting on the parcel, which is the
+    /// moment the substitution actually matters.
+    ///
+    /// Deduplicated on the book, so correcting a tracking code twice is one incident.
+    /// </summary>
+    private async Task RaiseMissingPressFileAsync(
+        AdminPrintQueueRow row, PrintOrderStatus status, CancellationToken cancellationToken)
+    {
+        if (!row.PdfIsReadingCopyFallback
+            || status is PrintOrderStatus.Cancelled
+            || !GenerationPipelines.Beki.Equals(row.BookPipeline, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        await alarms.RaiseAsync(
+            new BekiAlarmRaise(
+                row.BookId,
+                row.OrderId,
+                row.UserId,
+                "press_file_missing",
+                BekiReleaseSeverity.Blocker,
+                "A print order is being moved through the queue and this book has no press "
+                + "interior, so the reading copy is the only printable file. Its page count does "
+                + "not divide by four and its spreads are laid out for a screen.",
+                null,
+                BekiAlarmEvidence.ForAttempt("press_file_missing", row.BookId)),
+            cancellationToken);
     }
 
     // -- notifications ------------------------------------------------------
@@ -344,88 +435,55 @@ public sealed class PrintOrderService(
 
     // -- mapping ------------------------------------------------------------
 
-    private async Task<AdminPrintOrderResponse> ToAdminResponseAsync(
-        PrintOrder printOrder,
-        CancellationToken cancellationToken)
+    /// <summary>
+    /// One joined queue row as the console shows it. No I/O: everything on the row came out of the
+    /// one statement that produced it.
+    /// </summary>
+    private static AdminPrintOrderResponse ToAdminResponse(AdminPrintQueueRow row) => new()
     {
-        var book = await packRepository.GetByIdAsync(printOrder.BookId, printOrder.UserId, cancellationToken);
-        var user = await userRepository.GetByIdAsync(printOrder.UserId, cancellationToken);
-        var order = await orderRepository.GetByIdAsync(printOrder.OrderId, cancellationToken);
+        Id = row.Id,
+        OrderId = row.OrderId,
+        BookId = row.BookId,
+        BookTitle = row.BookTitle,
+        HeroName = row.HeroName,
+        BookStatus = row.BookStatus,
+        CustomerEmail = row.CustomerEmail,
+        CustomerPhone = row.CustomerPhone,
+        Status = Enum.TryParse<PrintOrderStatus>(row.Status, out var status)
+            ? status
+            : PrintOrderStatus.AwaitingPrint,
+        StatusLabel = Enum.TryParse<PrintOrderStatus>(row.Status, out var labelled)
+            ? PrintOrderStatusText.Label(labelled)
+            : row.Status,
+        RecipientName = row.RecipientName,
+        RecipientPhone = row.RecipientPhone,
+        City = row.City,
+        Region = row.Region,
+        AddressLine1 = row.AddressLine1,
+        AddressLine2 = row.AddressLine2,
+        PostalCode = row.PostalCode,
+        Notes = row.Notes,
+        TrackingCode = row.TrackingCode,
+        HasPrintPdf = row.HasPrintPdf,
+        PdfIsReadingCopyFallback = row.PdfIsReadingCopyFallback,
+        TotalMinor = row.TotalMinor,
+        TotalFormatted = GelPricing.Format(row.TotalMinor),
+        CreatedAt = Utc(row.CreatedAt),
+        ShippedAt = Utc(row.ShippedAt),
+        DeliveredAt = Utc(row.DeliveredAt),
+    };
 
-        /*
-          The queue is about to hand somebody the wrong file, and now it says so.
+    /// <summary>
+    /// A stored UTC timestamp, said with its zone.
+    ///
+    /// SQL hands back Kind=Unspecified and the serializer writes it without an offset, so the
+    /// console rendered every parcel four hours early in Tbilisi. Stamped here, where the value
+    /// leaves the database, exactly as the alarms repository does it.
+    /// </summary>
+    private static DateTimeOffset Utc(DateTime value) =>
+        new(DateTime.SpecifyKind(value, DateTimeKind.Utc));
 
-          A Beki book is rendered twice on purpose and its press interior is a deliverable the
-          release gates can withhold. When that file is absent from a Beki book, this is not the
-          old "made before the split" case — it is a press file that was withheld or never written,
-          and the queue was quietly substituting the reading copy for it. That is a page count that
-          does not divide by four arriving at a binder, and until now nothing recorded that it had
-          happened. It is an alarm, at blocker severity, because the money at stake is a printer's.
-
-          Deduplicated on the book, so an operator refreshing the queue does not mint a row per
-          refresh — the alarm's own key sees the same incident and moves its last-seen stamp.
-        */
-        var readingCopyFallback =
-            string.IsNullOrWhiteSpace(book?.PrintPdfUrl) && !string.IsNullOrWhiteSpace(book?.PdfUrl);
-
-        if (readingCopyFallback && book is not null && book.IsBekiPipeline)
-        {
-            await alarms.RaiseAsync(
-                new BekiAlarmRaise(
-                    book.Id,
-                    printOrder.OrderId,
-                    printOrder.UserId,
-                    "press_file_missing",
-                    BekiReleaseSeverity.Blocker,
-                    "A print order is in the queue and this book has no press interior, so the "
-                    + "reading copy is being offered as the printable file. Its page count does "
-                    + "not divide by four and its spreads are laid out for a screen.",
-                    null,
-                    BekiAlarmEvidence.ForAttempt("press_file_missing", book.Id)),
-                cancellationToken);
-        }
-
-        return new AdminPrintOrderResponse
-        {
-            Id = printOrder.Id,
-            OrderId = printOrder.OrderId,
-            BookId = printOrder.BookId,
-            BookTitle = book?.Title,
-            CustomerEmail = user?.Email,
-            CustomerPhone = user?.PhoneNumber,
-            Status = printOrder.Status,
-            StatusLabel = PrintOrderStatusText.Label(printOrder.Status),
-            RecipientName = printOrder.RecipientName,
-            RecipientPhone = printOrder.RecipientPhone,
-            City = printOrder.City,
-            Region = printOrder.Region,
-            AddressLine1 = printOrder.AddressLine1,
-            AddressLine2 = printOrder.AddressLine2,
-            PostalCode = printOrder.PostalCode,
-            Notes = printOrder.Notes,
-            TrackingCode = printOrder.TrackingCode,
-            /*
-              The printable file, not the reading copy.
-
-              Books are rendered twice and stored side by side — the reading copy for the parent
-              and a print copy with the blank leaves saddle-stitch needs. This is the only place
-              that wants the second one, and sending the first would mean a page count that does
-              not divide by four arriving at the binder.
-
-              Books made before the split have no print file and no url recorded for one, so they
-              fall back to what exists and the printer pads them as it always did. That fallback
-              is the reason this reads a stored url rather than deriving one from the reading
-              copy's name: a derived url would point at a blob that was never written.
-            */
-            PdfUrl = book?.PrintPdfUrl ?? book?.PdfUrl,
-            PdfIsReadingCopyFallback = readingCopyFallback,
-            TotalMinor = order?.TotalMinor ?? 0,
-            TotalFormatted = GelPricing.Format(order?.TotalMinor ?? 0),
-            CreatedAt = printOrder.CreatedAt,
-            ShippedAt = printOrder.ShippedAt,
-            DeliveredAt = printOrder.DeliveredAt
-        };
-    }
+    private static DateTimeOffset? Utc(DateTime? value) => value is { } moment ? Utc(moment) : null;
 
     private static PrintOrderResponse ToResponse(PrintOrder printOrder, string? bookTitle) => new()
     {
