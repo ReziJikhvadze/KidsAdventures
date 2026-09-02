@@ -1169,6 +1169,7 @@ public class AdminConsoleApiTests
 
     private sealed class FakeRuns(MasterStoryRun? run) : IMasterStoryRunRepository
     {
+        public Task SaveAppearanceDescriptionAsync(Guid id, string appearanceDescription, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<MasterStoryRun?> GetByIdAsync(Guid id, CancellationToken ct) =>
             Task.FromResult(run is not null && run.Id == id ? run : null);
 
@@ -1224,6 +1225,8 @@ public class AdminConsoleApiTests
 
     private sealed class RecordingRaises : IBekiAlarmService
     {
+        public Task<IReadOnlyList<BekiAlarm>> ListRecentAsync(int limit, CancellationToken ct) => throw new NotSupportedException();
+        public Task<BekiAlarm?> GetAsync(Guid alarmId, CancellationToken ct) => throw new NotSupportedException();
         public List<BekiAlarmRaise> Raised { get; } = [];
 
         /// <summary>Deliberately unsorted: ordering is the controller's job, so it is asserted.</summary>
