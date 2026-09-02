@@ -202,7 +202,7 @@ public static class BekiPrintPrep
         try
         {
             using var laidOut = PdfReader.Open(
-                new MemoryStream(laidOutPdf), PdfDocumentOpenMode.InformationOnly);
+                new MemoryStream(laidOutPdf), PdfDocumentOpenMode.Import);
             expectedPages = laidOut.PageCount;
         }
         catch (Exception ex) when (ex is not BekiLayoutException)
@@ -1070,7 +1070,12 @@ public static class BekiPrintPrep
         intent.Elements["/DestOutputProfile"] = profile.Reference;
 
         var intents = new PdfArray(document);
-        intents.Elements.Add(intent.Reference);
+        intents.Elements.Add(
+            intent.Reference
+            ?? throw new InvalidOperationException(
+                "the output intent dictionary was added to the document but carries no indirect "
+                + "reference — /OutputIntents must point at an object, and a PDF/X claim with a "
+                + "direct dictionary in that array is not one a press will read."));
         document.Internals.Catalog.Elements["/OutputIntents"] = intents;
     }
 

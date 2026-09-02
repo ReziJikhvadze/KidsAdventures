@@ -108,7 +108,7 @@ public static class BekiDigitalPrep
         try
         {
             using var composed = PdfReader.Open(
-                new MemoryStream(composedPdf), PdfDocumentOpenMode.InformationOnly);
+                new MemoryStream(composedPdf), PdfDocumentOpenMode.Import);
             expectedPages = composed.PageCount;
         }
         catch (Exception ex) when (ex is not BekiLayoutException)
@@ -134,7 +134,7 @@ public static class BekiDigitalPrep
         var (linearized, conversion) = Linearize(ready, options);
 
         using var stream = new MemoryStream(linearized);
-        using var document = PdfReader.Open(stream, PdfDocumentOpenMode.ReadOnly);
+        using var document = PdfReader.Open(stream, PdfDocumentOpenMode.Import);
 
         if (document.PageCount != expectedPages)
         {
@@ -695,7 +695,7 @@ public static class BekiDigitalPrep
 
                 var was = VersionText(bytes);
 
-                if (profile.Elements.ContainsKey("/Filter") && !profile.Stream!.TryUnfilter())
+                if (profile.Elements.ContainsKey("/Filter") && !profile.Stream!.TryUncompress())
                 {
                     // A profile behind a filter this build cannot decode is left exactly as it
                     // arrived; the gate on the far side of the conversion is what catches it.

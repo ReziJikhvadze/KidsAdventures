@@ -115,6 +115,11 @@ jobs:
           ASPNETCORE_ENVIRONMENT: Development
           ASPNETCORE_URLS: http://localhost:5000
           ConnectionStrings__DefaultConnection: "Server=localhost,1433;Database=CiVerify;User Id=sa;Password=Local_CI_Password_1;TrustServerCertificate=True;Encrypt=False;"
+          # appsettings.json selects Gemini for stories, and ServiceCollectionExtensions refuses
+          # to boot without a key for it — "Gemini is selected in Providers but Gemini:ApiKey is
+          # empty." This step only proves the migrations apply; it never calls a model, so a
+          # placeholder is the honest value to hand it.
+          Gemini__ApiKey: "ci-boot-placeholder"
         run: |
           /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P Local_CI_Password_1 \
             -Q "CREATE DATABASE CiVerify" 2>/dev/null || \
