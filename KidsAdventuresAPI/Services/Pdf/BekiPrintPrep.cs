@@ -201,6 +201,9 @@ public static class BekiPrintPrep
         int expectedPages;
         try
         {
+            // Import rather than InformationOnly: PDFsharp 6.2 marks that mode obsolete as never
+            // implemented, and even as documented it only ever promised the Info dictionary. A page
+            // count needs the pages.
             using var laidOut = PdfReader.Open(
                 new MemoryStream(laidOutPdf), PdfDocumentOpenMode.Import);
             expectedPages = laidOut.PageCount;
@@ -1070,12 +1073,14 @@ public static class BekiPrintPrep
         intent.Elements["/DestOutputProfile"] = profile.Reference;
 
         var intents = new PdfArray(document);
+
+        // AddObject above is what gives the dictionary its reference; PDFsharp types the property
+        // nullable because a dictionary never added to a document has none. Say so rather than
+        // suppressing it, so that a future reordering of these two lines fails loudly.
         intents.Elements.Add(
             intent.Reference
             ?? throw new InvalidOperationException(
-                "the output intent dictionary was added to the document but carries no indirect "
-                + "reference — /OutputIntents must point at an object, and a PDF/X claim with a "
-                + "direct dictionary in that array is not one a press will read."));
+                "the output intent was not registered with the document."));
         document.Internals.Catalog.Elements["/OutputIntents"] = intents;
     }
 

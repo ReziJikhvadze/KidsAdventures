@@ -36,7 +36,12 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (credential: { idToken?: string; accessToken?: string }) => Promise<void>;
   register: (email: string, password: string, recaptchaToken?: string) => Promise<void>;
-  continueWith: (email: string, password: string, recaptchaToken?: string) => Promise<void>;
+  continueWith: (
+    email: string,
+    password: string,
+    intent?: authApi.AuthIntent,
+    recaptchaToken?: string,
+  ) => Promise<void>;
   signInWithMagicLink: (token: string) => Promise<void>;
   signInWithPhoneCode: (phoneNumber: string, code: string) => Promise<void>;
   logout: () => void;
@@ -231,8 +236,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const continueWith = useCallback(
-    async (email: string, password: string, recaptchaToken?: string) => {
-      const session = await authApi.continueAuth(email, password, recaptchaToken);
+    async (
+      email: string,
+      password: string,
+      intent?: authApi.AuthIntent,
+      recaptchaToken?: string,
+    ) => {
+      const session = await authApi.continueAuth(email, password, intent, recaptchaToken);
       applySession(session);
     },
     [applySession],

@@ -73,6 +73,14 @@ public sealed class AuthService(
             return await sessionFactory.CreateAsync(existing, cancellationToken);
         }
 
+        // The caller said it was signing in, and there is nothing here to sign in to. Creating one
+        // silently is how a typo in an email address becomes an empty account with a password the
+        // parent believes belongs to their real one.
+        if (string.Equals(request.Intent, "signin", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new UnauthorizedAccessException("ამ ელფოსტაზე ანგარიში არ არსებობს. შეამოწმე მისამართი ან დარეგისტრირდი.");
+        }
+
         // New account → verify reCAPTCHA, then create and sign in immediately (no email confirmation).
         if (!await recaptchaVerifier.VerifyAsync(request.RecaptchaToken, cancellationToken))
         {

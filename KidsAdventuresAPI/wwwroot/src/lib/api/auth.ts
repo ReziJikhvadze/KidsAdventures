@@ -92,15 +92,26 @@ export async function register(
 }
 
 /** One-step auth: signs in if the email exists, otherwise creates the account (reCAPTCHA only on new accounts). */
+/** What the caller believes it is doing. Omitted means "either", which is the old behaviour. */
+export type AuthIntent = "signin" | "register";
+
+/**
+ * Sign in, or create an account, over one endpoint.
+ *
+ * `intent` is not decoration: the endpoint creates an account for any email it does not know, so
+ * without it a mistyped address on the sign-in form is answered with a new empty account rather
+ * than "no such address". The server refuses to create anything when the intent is `signin`.
+ */
 export async function continueAuth(
   email: string,
   password: string,
+  intent?: AuthIntent,
   recaptchaToken?: string,
 ): Promise<AuthResponse> {
   const result = await apiRequest<AuthResponse>("/api/auth/continue", {
     method: "POST",
     auth: false,
-    body: JSON.stringify({ email, password, recaptchaToken, ...guestPreviewAuthFields() }),
+    body: JSON.stringify({ email, password, intent, recaptchaToken, ...guestPreviewAuthFields() }),
   });
   setToken(result.token);
   return result;

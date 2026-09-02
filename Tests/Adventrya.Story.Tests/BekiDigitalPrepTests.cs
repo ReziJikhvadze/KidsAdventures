@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using AdventurePacks.Api.Configuration.Options;
@@ -287,6 +288,37 @@ public class BekiDigitalPrepTests
         Poppler.AssertRendersCleanly(pdf);
     }
 
+    /// <summary>
+    /// A profile is restamped on the strength of its bytes, whichever way its producer chose to
+    /// spell the filter that compressed it.
+    ///
+    /// <c>/Filter /FlateDecode</c> and <c>/Filter [/FlateDecode]</c> are the same instruction in
+    /// PDF, and a book is not allowed to depend on which one it met.
+    ///
+    /// Pinned because the obvious replacement for the obsolete <c>PdfStream.TryUnfilter</c> — which
+    /// is <c>PdfStream.TryUncompress</c>, and which PDFsharp names in the obsoletion message — reads
+    /// only the direct name and answers false for the array. Reaching for it passed over exactly
+    /// these profiles: they would go into the conversion still stamped v4.3, Ghostscript would drop
+    /// the colour space it could not write, and the gate on the far side would refuse a book that
+    /// was fine. Nothing in the pipeline chooses the spelling, so nothing may assume it.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void An_icc_profile_is_restamped_whichever_way_its_filter_is_spelled(bool filterAsArray)
+    {
+        var pdf = BekiDigitalFixtures.WithCompressedIccProfile(filterAsArray);
+
+        // The premise: the fixture really does carry the version that provokes the restamp.
+        Assert.Equal(["4.3.0.0"], IccVersions(pdf));
+
+        var (harmonized, restamped) = BekiDigitalPrep.HarmonizeIccProfiles(pdf);
+
+        var line = Assert.Single(restamped);
+        Assert.Contains("ICC 4.3.0.0 restamped as 4.2.0.0", line);
+        Assert.Equal(["4.2.0.0"], IccVersions(harmonized));
+    }
+
     private static IReadOnlyList<string> IccVersions(byte[] pdf)
     {
         using var document = PdfReader.Open(new MemoryStream(pdf), PdfDocumentOpenMode.Import);
@@ -503,6 +535,87 @@ internal static class BekiDigitalFixtures
         using var buffer = new MemoryStream();
         document.Save(buffer);
         return buffer.ToArray();
+    }
+
+    /// <summary>
+    /// One ICCBased colour space carrying a v4.3 profile — the version Ghostscript refuses to write
+    /// — compressed, with <c>/Filter</c> written either as a bare name or as the single-element
+    /// array that means exactly the same thing.
+    /// </summary>
+    public static byte[] WithCompressedIccProfile(bool filterAsArray)
+    {
+        // The header the ICC specification fixes, which is all the gate reads: a size at byte 0, a
+        // version at 8, a data colour space at 16 and the acsp signature at 36.
+        var icc = new byte[200];
+        WriteUInt32(icc, 0, (uint)icc.Length);
+        WriteUInt32(icc, 8, 0x04300000u);
+        Encoding.Latin1.GetBytes("RGB ").CopyTo(icc, 16);
+        Encoding.Latin1.GetBytes("acsp").CopyTo(icc, 36);
+
+        using var document = new PdfDocument();
+        var page = document.AddPage();
+
+        var profile = new PdfDictionary(document);
+        document.Internals.AddObject(profile);
+        profile.Elements.SetInteger("/N", 3);
+        profile.CreateStream(Deflate(icc));
+
+        if (filterAsArray)
+        {
+            var filter = new PdfArray(document);
+            filter.Elements.Add(new PdfName("/FlateDecode"));
+            profile.Elements["/Filter"] = filter;
+        }
+        else
+        {
+            profile.Elements.SetName("/Filter", "/FlateDecode");
+        }
+
+        var space = new PdfArray(document);
+        space.Elements.Add(new PdfName("/ICCBased"));
+        space.Elements.Add(profile.Reference!);
+
+        // Wired into the page's resources so that saving cannot prune it as unreachable.
+        var image = new PdfDictionary(document);
+        document.Internals.AddObject(image);
+        image.Elements.SetName("/Type", "/XObject");
+        image.Elements.SetName("/Subtype", "/Image");
+        image.Elements.SetInteger("/Width", 1);
+        image.Elements.SetInteger("/Height", 1);
+        image.Elements.SetInteger("/BitsPerComponent", 8);
+        image.Elements["/ColorSpace"] = space;
+        image.CreateStream([0x80, 0x80, 0x80]);
+
+        var xobjects = new PdfDictionary(document);
+        xobjects.Elements["/Im0"] = image.Reference!;
+
+        var resources = new PdfDictionary(document);
+        resources.Elements["/XObject"] = xobjects;
+        page.Elements["/Resources"] = resources;
+
+        using var buffer = new MemoryStream();
+        document.Save(buffer);
+        return buffer.ToArray();
+    }
+
+    /// <summary>zlib, which is what PDF means by FlateDecode.</summary>
+    private static byte[] Deflate(byte[] raw)
+    {
+        using var output = new MemoryStream();
+        using (var zlib = new ZLibStream(output, CompressionLevel.Optimal, leaveOpen: true))
+        {
+            zlib.Write(raw, 0, raw.Length);
+        }
+
+        return output.ToArray();
+    }
+
+    private static void WriteUInt32(byte[] target, int offset, uint value)
+    {
+        target[offset] = (byte)(value >> 24);
+        target[offset + 1] = (byte)(value >> 16);
+        target[offset + 2] = (byte)(value >> 8);
+        target[offset + 3] = (byte)value;
     }
 
     /// <summary>A press output intent stamped onto a reading copy — the mix-up the gate refuses.</summary>

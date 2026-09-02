@@ -114,7 +114,14 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
     if (!password || busy) return;
     setBusy(true);
     try {
-      await continueWith(email.trim(), password, recaptchaToken ?? undefined);
+      /* `unknown` is this dialog's "we have not asked yet" step, where either outcome is
+         intended — so it sends no intent and keeps the endpoint's original behaviour. */
+      await continueWith(
+        email.trim(),
+        password,
+        mode === "signin" ? "signin" : mode === "signup" ? "register" : undefined,
+        recaptchaToken ?? undefined,
+      );
       finish(mode === "signin" ? "Welcome back." : "Your account is ready.");
     } catch (err) {
       // A mismatched password on a known account is the most common case — keep it friendly.
