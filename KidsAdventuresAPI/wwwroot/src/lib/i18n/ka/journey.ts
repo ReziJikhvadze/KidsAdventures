@@ -248,6 +248,10 @@ export const journey = {
     /* The switcher on the panel: the two ways into an account that work today. */
     methodGroup: "შესვლის მეთოდი",
     tabMagicLink: "ერთჯერადი ბმულით",
+    /* The one line that says an account can be made here at all. */
+    needAccount: "ანგარიში არ გაქვს? დარეგისტრირდი",
+    haveAccount: "უკვე გაქვს ანგარიში? შესვლა",
+    registerSubmit: "რეგისტრაცია ",
     tabPassword: "პაროლით",
     sendMagicLink: "გამომიგზავნე Magic Link ",
     magicLinkSent: (email: string) => `ბმული გაიგზავნა — შეამოწმე ${email}.`,

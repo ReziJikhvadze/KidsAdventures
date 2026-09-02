@@ -8,6 +8,17 @@ public sealed class RegisterRequest
     [Required, MinLength(8), MaxLength(128)]
     public string Password { get; set; } = string.Empty;
 
+    /// <summary>
+    /// What the caller believes it is doing: <c>signin</c> or <c>register</c>.
+    ///
+    /// <c>/auth/continue</c> signs in a known email and creates an unknown one, which is right when
+    /// the form asks no question — but the sign-in form does ask, and a parent who mistypes their
+    /// address there would otherwise be handed a brand-new empty account instead of being told the
+    /// address is wrong. Null keeps the old behaviour for any caller that has no opinion.
+    /// </summary>
+    [MaxLength(16)]
+    public string? Intent { get; set; }
+
     /// <summary>Optional reCAPTCHA token; required only when reCAPTCHA is enabled server-side.</summary>
     [MaxLength(4096)]
     public string? RecaptchaToken { get; set; }

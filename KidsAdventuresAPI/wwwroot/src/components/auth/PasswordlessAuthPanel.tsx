@@ -23,14 +23,22 @@ const APPLE_SIGN_IN_READY: boolean = false;
 const PHONE_SIGN_IN_READY: boolean = false;
 
 /**
- * How a parent proves the email is theirs: a link we send them, or a password they set.
+ * How a parent proves the email is theirs: a link we send them, a password they already have, or
+ * a password they are setting for the first time.
  *
- * The link is still the default — it is one tap and there is nothing to remember. The password
- * is here because a link that has to survive a mail client, a spam filter and a browser switch
- * does not always arrive, and a parent halfway through paying for a book should not be stuck
- * waiting on one.
+ * The link is still the default — it is one tap and there is nothing to remember. The password is
+ * here because a link that has to survive a mail client, a spam filter and a browser switch does
+ * not always arrive, and a parent halfway through paying for a book should not be stuck waiting
+ * on one.
+ *
+ * `register` is a separate mode rather than a separate endpoint. `/api/auth/continue` signs in a
+ * known email and creates an unknown one, so one form could do both — and did, which is why
+ * signing in asked for the password twice. Typing it twice is a guard on the one occasion it is
+ * worth guarding: the moment a password is being chosen, when a typo would lock a parent out of
+ * an account that did not exist a second ago. Signing in needs no such guard; the server either
+ * knows the password or does not.
  */
-type EmailMode = "link" | "password";
+type EmailMode = "link" | "password" | "register";
 
 /**
  * Mirrors `PasswordValidator.ValidateOrThrow` on the server, so a password the API will refuse
@@ -114,27 +122,38 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
   };
 
   /*
-    One call for both halves of it.
+    One endpoint, two intentions, and the server is told which.
 
-    `continueAuth` signs the parent in when the email is already known and creates the account
-    when it is not, so this is a sign-in form and a registration form at once and nobody has to
-    be asked which one they are. The repeated field is checked here and never sent: it exists to
-    catch a typo in a password that is about to become the only way back into an account.
+    `continueAuth` signs a known email in and creates an unknown one. That is right for a form
+    that asks no question, and this form asks: pressing "sign in" with a mistyped address would
+    otherwise be answered with a new empty account carrying the password the parent believes
+    belongs to their real one. The intent goes with the request and the server refuses to create
+    anything under `signin`.
+
+    The repeated field is checked here and never sent. It guards the one moment worth guarding —
+    a password being chosen, where a typo locks a parent out of an account a second old.
   */
   const submitPassword = async () => {
-    if (password !== passwordRepeat) {
-      setError(t.journey.auth.passwordMismatch);
-      return;
-    }
-    if (!passwordMeetsPolicy(password)) {
-      setError(t.journey.auth.passwordHint);
-      return;
+    /*
+      Both checks belong to registration only. On the way in, the password either matches what the
+      server has or it does not, and refusing it here for being short would refuse a parent their
+      own account because the rules changed after they made it.
+    */
+    if (emailMode === "register") {
+      if (password !== passwordRepeat) {
+        setError(t.journey.auth.passwordMismatch);
+        return;
+      }
+      if (!passwordMeetsPolicy(password)) {
+        setError(t.journey.auth.passwordHint);
+        return;
+      }
     }
 
     setBusy(true);
     setError(null);
     try {
-      await continueWith(email.trim(), password);
+      await continueWith(email.trim(), password, emailMode === "register" ? "register" : "signin");
       onAuthenticated();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t.journey.auth.passwordFailed);
@@ -296,10 +315,13 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
               >
                 {t.journey.auth.tabMagicLink}
               </button>
+              {/* Registering is a password too, so the switcher stays two wide and this side
+                  stays lit while an account is being made. The way between the two is the line
+                  under the form. */}
               <button
                 type="button"
-                aria-pressed={emailMode === "password"}
-                className={emailMode === "password" ? "selected" : ""}
+                aria-pressed={emailMode !== "link"}
+                className={emailMode !== "link" ? "selected" : ""}
                 onClick={() => {
                   setEmailMode("password");
                   setError(null);
@@ -376,32 +398,46 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
                       />
                     </div>
                   </label>
-                  <label className="field auth-email" htmlFor="journey-auth-password-repeat">
-                    <span>{t.journey.auth.passwordRepeatLabel}</span>
-                    <div>
-                      <KeyRound aria-hidden="true" />
-                      <input
-                        id="journey-auth-password-repeat"
-                        name="confirm-password"
-                        type="password"
-                        value={passwordRepeat}
-                        autoComplete="new-password"
-                        aria-label={t.journey.auth.passwordRepeatLabel}
-                        onChange={(e) => setPasswordRepeat(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") void submitPassword();
-                        }}
-                      />
-                    </div>
-                  </label>
-                  <p className="ux-mock-note">{t.journey.auth.passwordHint}</p>
+                  {/* Only while a password is being chosen. Signing in, the second box asked a
+                      parent to prove they could type twice something the server was about to
+                      check anyway — and made the panel tall enough to need a scrollbar. */}
+                  {emailMode === "register" ? (
+                    <>
+                      <label className="field auth-email" htmlFor="journey-auth-password-repeat">
+                        <span>{t.journey.auth.passwordRepeatLabel}</span>
+                        <div>
+                          <KeyRound aria-hidden="true" />
+                          <input
+                            id="journey-auth-password-repeat"
+                            name="confirm-password"
+                            type="password"
+                            value={passwordRepeat}
+                            autoComplete="new-password"
+                            aria-label={t.journey.auth.passwordRepeatLabel}
+                            onChange={(e) => setPasswordRepeat(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") void submitPassword();
+                            }}
+                          />
+                        </div>
+                      </label>
+                      <p className="ux-mock-note">{t.journey.auth.passwordHint}</p>
+                    </>
+                  ) : null}
                   <button
                     className="button button-primary auth-main"
                     type="button"
-                    disabled={busy || !email.trim() || !password || !passwordRepeat}
+                    disabled={
+                      busy ||
+                      !email.trim() ||
+                      !password ||
+                      (emailMode === "register" && !passwordRepeat)
+                    }
                     onClick={() => void submitPassword()}
                   >
-                    {t.journey.auth.passwordSubmit}
+                    {emailMode === "register"
+                      ? t.journey.auth.registerSubmit
+                      : t.journey.auth.passwordSubmit}
                     <ArrowRight aria-hidden="true" size={16} />
                   </button>
                 </>
@@ -421,6 +457,34 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
                   }}
                 >
                   {emailMode === "link" ? t.journey.auth.usePassword : t.journey.auth.useMagicLink}
+                </button>
+              ) : null}
+
+              {/*
+                The way to an account, on the page that otherwise only lets you back into one.
+
+                This is a sign-in panel: a parent with no account had nothing here to press. The
+                endpoint behind it has always created accounts — that is what made the second
+                password box necessary on every sign-in — so what was missing was never the
+                ability, only the words for it.
+              */}
+              {emailMode !== "link" ? (
+                <button
+                  className="text-back"
+                  type="button"
+                  onClick={() => {
+                    setEmailMode(emailMode === "register" ? "password" : "register");
+                    /* Both boxes, not just the repeat: a secret typed to sign in is not a secret
+                       chosen for a new account, and leaving it loaded lets one be submitted as
+                       the other by a press of the button below. */
+                    setPassword("");
+                    setPasswordRepeat("");
+                    setError(null);
+                  }}
+                >
+                  {emailMode === "register"
+                    ? t.journey.auth.haveAccount
+                    : t.journey.auth.needAccount}
                 </button>
               ) : null}
             </>
