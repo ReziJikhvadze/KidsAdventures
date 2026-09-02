@@ -107,23 +107,17 @@ public class AdminConsoleApiTests
     // -- what the detail panel knows ----------------------------------------------------------
 
     [Theory]
-    [InlineData(OrderStatus.Pending, null, null, null, false)]
-    [InlineData(OrderStatus.Paid, null, null, null, true)]
-    [InlineData(OrderStatus.Fulfilled, "2026-09-01T00:00:00Z", "Failed", "NewBook", true)]
-    [InlineData(OrderStatus.Fulfilled, "2026-09-01T00:00:00Z", "Completed", "NewBook", false)]
-    [InlineData(OrderStatus.Fulfilled, "2026-09-01T00:00:00Z", "Failed", "PrintUpgrade", false)]
-    [InlineData(OrderStatus.Cancelled, null, "Failed", "NewBook", false)]
-    public async Task The_retry_button_is_offered_only_where_a_re_drive_would_actually_run(
-        OrderStatus status, string? fulfilledAt, string? bookStatus, string? type, bool expected)
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_retry_button_follows_the_services_own_answer(bool canRedrive)
     {
         /*
-          The server answers this, never the browser. A retry button enabled by a rule the client
-          invented is a button that reports "queued" and is then silently declined by the job it
-          queued — and the operator's only evidence is a book that never arrives.
-
-          The fulfilled-and-Failed case is the one that matters most: an order is marked fulfilled
-          the moment generation is ENQUEUED, so every generation failure happens to an order that
-          already says Fulfilled.
+          The server answers this, never the browser — and the console asks the service rather
+          than keeping a copy of its rule. A retry button enabled by a rule the client invented is
+          a button that reports "queued" and is then silently declined by the job it queued; the
+          fulfilled-and-Failed case (every generation failure happens to an order that already says
+          Fulfilled) is exactly the one a copied rule got wrong. The rule itself is pinned where it
+          lives, in PaidOrderFulfilmentTests; here only the wiring is under test.
         */
         var reporting = new FakeReporting
         {
@@ -132,19 +126,19 @@ public class AdminConsoleApiTests
                 Order = new AdminOrderRow
                 {
                     Id = OrderId,
-                    Status = status.ToString(),
-                    FulfilledAt = fulfilledAt is null ? null : DateTimeOffset.Parse(fulfilledAt),
-                    BookStatus = bookStatus,
-                    BookId = type is null ? null : PackId,
-                    Type = type ?? nameof(OrderType.NewBook),
+                    Status = nameof(OrderStatus.Fulfilled),
+                    FulfilledAt = DateTimeOffset.Parse("2026-09-01T00:00:00Z"),
+                    BookStatus = "Failed",
+                    BookId = PackId,
+                    Type = nameof(OrderType.NewBook),
                     Package = nameof(OrderPackage.Digital),
                 },
             },
         };
 
-        var detail = await Detail(Controller(reporting));
+        var detail = await Detail(Controller(reporting, canRedrive: canRedrive));
 
-        Assert.Equal(expected, detail.CanRetry);
+        Assert.Equal(canRedrive, detail.CanRetry);
     }
 
     [Fact]
@@ -919,6 +913,24 @@ public class AdminConsoleApiTests
         PromptVersion = "v6",
     };
 
+    /// <summary>The service's own retry rule, answered by a switch: the console asks, it does not mirror.</summary>
+    private sealed class FakeOrderService(bool canRedrive) : IOrderService
+    {
+        public Task<bool> CanRedriveAsync(Guid orderId, CancellationToken cancellationToken) => Task.FromResult(canRedrive);
+        public Task<QuoteResponse> QuoteAsync(Guid userId, QuoteRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<CheckoutResponse> CreateBookOrderAsync(Guid userId, CreateOrderRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<CheckoutResponse> CreatePrintUpgradeOrderAsync(Guid userId, CreatePrintUpgradeOrderRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<OrderResponse>> ListAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<OrderStatusResponse> GetStatusAsync(Guid userId, Guid orderId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<OrderStatusResponse> ConfirmAsync(Guid userId, Guid orderId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> CancelAsync(Guid userId, Guid orderId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task HandleStripeWebhookAsync(string jsonPayload, string stripeSignature, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> HandleBogWebhookAsync(byte[] payload, string? signature, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task RetryStalledFulfilmentAsync() => throw new NotSupportedException();
+        public Task FulfilOrderAsync(Guid orderId) => throw new NotSupportedException();
+        public Task<bool> RequeueFulfilmentAsync(Guid orderId, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
     private static AdminOrdersController Controller(
         FakeReporting? reporting = null,
         FakeOrders? orders = null,
@@ -926,14 +938,15 @@ public class AdminConsoleApiTests
         FakeBlobs? blobs = null,
         FakeRegeneration? regeneration = null,
         FakePacks? packs = null,
-        RecordingRaises? alarms = null) =>
+        RecordingRaises? alarms = null,
+        bool canRedrive = false) =>
         new(reporting ?? new FakeReporting(),
             packs ?? new FakePacks(null),
             orders ?? new FakeOrders(null),
             printOrders ?? new FakePrintOrders(),
             blobs ?? new FakeBlobs([]),
             generationService: null!,
-            orderService: null!,
+            orderService: new FakeOrderService(canRedrive),
             regeneration ?? new FakeRegeneration(
                 new BekiRegenerationResult(BekiRegenerationStatus.Queued, "ok")),
             packageExport: null!,

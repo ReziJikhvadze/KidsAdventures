@@ -90,7 +90,9 @@ public sealed class AdminOrdersController(
             return NotFound();
         }
 
-        detail.CanRetry = CanRedrive(detail.Order);
+        // The service's own rule, asked rather than mirrored: the console greys the button out on
+        // this answer and RequeueFulfilmentAsync refuses on the same method, so they cannot drift.
+        detail.CanRetry = await orderService.CanRedriveAsync(id, cancellationToken);
 
         if (detail.Book is not null)
         {
@@ -770,52 +772,6 @@ public sealed class AdminOrdersController(
     /// </summary>
     private string OperatorName() =>
         userContext.GetEmail() is { Length: > 0 } email ? email : userContext.GetUserId().ToString();
-
-    /// <summary>
-    /// Whether this order may be driven through fulfilment again.
-    ///
-    /// A MIRROR of <c>OrderService.CanRedriveAsync</c>, which is private and not on
-    /// <see cref="IOrderService"/>. The rule is stated in one place that can be called
-    /// (<c>RequeueFulfilmentAsync</c>) and in one place that can be asked (here), and they must
-    /// agree: the console greys out the button on this answer and the service refuses on its own.
-    /// If they ever disagree the visible symptom is a retry button that reports "queued" and is
-    /// silently declined, which is the fault this endpoint exists to prevent — so the day
-    /// <c>CanRedriveAsync</c> reaches the interface, this method should be deleted for it.
-    ///
-    /// Every clause is answered from the detail row, which already carries the order's status, its
-    /// fulfilment stamp, its type and its book's status. No second query.
-    /// </summary>
-    private static bool CanRedrive(AdminOrderRow order)
-    {
-        var paid = string.Equals(order.Status, nameof(OrderStatus.Paid), StringComparison.OrdinalIgnoreCase)
-                   || string.Equals(order.Status, nameof(OrderStatus.Fulfilled), StringComparison.OrdinalIgnoreCase);
-
-        if (!paid)
-        {
-            return false;
-        }
-
-        // Paid and never fulfilled is the ordinary retry; the job re-reads under its lock, so a
-        // duplicate is idempotent rather than a second book.
-        if (order.FulfilledAt is null)
-        {
-            return true;
-        }
-
-        // A fulfilled order passes only when its book is really there and really Failed. An order
-        // is marked fulfilled the moment generation is ENQUEUED, so every generation failure
-        // happens to an order that already says Fulfilled — refusing those would mean the one
-        // failure that always needs an operator is the one with no working button. A fulfilled
-        // order whose book is fine still cannot be re-driven: redrawing a finished book is how a
-        // parent ends up with a different one from the one they read.
-        //
-        // NewBook only. A fulfilled PrintUpgrade dispatches the entitlement grant, never touches
-        // generation, and would answer "queued" for a job that changes nothing.
-        return order.BookId is not null
-               && string.Equals(order.Type, nameof(OrderType.NewBook), StringComparison.OrdinalIgnoreCase)
-               && string.Equals(
-                   order.BookStatus, nameof(AdventurePackStatus.Failed), StringComparison.OrdinalIgnoreCase);
-    }
 
     /// <summary>
     /// One stored PNG, or a 404. Never a storage URL, and never an exception on the way out: a
