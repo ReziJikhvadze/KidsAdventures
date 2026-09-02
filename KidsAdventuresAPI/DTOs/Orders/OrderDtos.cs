@@ -181,6 +181,46 @@ public sealed class OrderStatusResponse
     public string? ProgressMessage { get; set; }
 
     /// <summary>
+    /// How far the running job has got, 0–100, or null when nothing is running — the pack's own
+    /// number, so a bar and its caption never disagree. Null before the book row exists.
+    /// </summary>
+    public int? ProgressPercent { get; set; }
+
+    /// <summary>
+    /// The pack's status as stored ("Pending", "StoryReady", "GeneratingStory", …), for a screen
+    /// that wants to know <em>which</em> wait this is rather than only that it is waiting. Null
+    /// before the book row exists.
+    /// </summary>
+    public string? PackStatus { get; set; }
+
+    /// <summary>
+    /// When the generation job last wrote anything to the book. Null for a pack that has never
+    /// been claimed, and before the book row exists. The same column the stale-generation sweep
+    /// judges by, so a screen can tell a slow book from a silent one.
+    /// </summary>
+    public DateTime? HeartbeatUtc { get; set; }
+
+    /// <summary>The book's title once it has one; null until the pipeline writes it.</summary>
+    public string? Title { get; set; }
+
+    /// <summary>
+    /// The world slug the book is set in. From the pack once it exists, from the order's frozen
+    /// draft before then — so a generating screen reloaded with nothing but an order id still
+    /// knows which world it is showing.
+    /// </summary>
+    public string? WorldId { get; set; }
+
+    /// <summary>
+    /// The hero's name — the child the book is about. Resolved from the hero character rather
+    /// than copied from anywhere, and null when it cannot be: a status poll never fails over a
+    /// name.
+    /// </summary>
+    public string? ChildName { get; set; }
+
+    /// <summary>The pack's cover image URL as stored; null until the cover is adopted or drawn.</summary>
+    public string? CoverImageUrl { get; set; }
+
+    /// <summary>
     /// True when the book this order paid for could not be made.
     ///
     /// Distinct from <see cref="Status"/>, which is the <em>order's</em> status and stays

@@ -475,14 +475,20 @@ public sealed class OrderService(
     /// that always needs an operator was the one the operator had no working button for. Pack
     /// 7fc8faf4 is that case: paid, fulfilled, and a book that stopped on spread one.
     ///
-    /// Narrow on purpose. A fulfilled order passes only when its book is really there and really
-    /// Failed, which is a state nothing else produces by accident: the sweep writes it from
-    /// outside, the job writes it about itself, and both mean a person should decide. A fulfilled
-    /// order whose book is fine still cannot be re-driven, because redrawing a finished book is
-    /// how a parent ends up with a different one from the one they read.
+    /// Narrow on purpose. A fulfilled order passes only when its book is really there and in one
+    /// of two states nothing produces by accident: Failed — the sweep writes it from outside, the
+    /// job writes it about itself, and both mean a person should decide — or unclaimed past the
+    /// stalled allowance, which is a job that was never posted or never reached its claim. A
+    /// fulfilled order whose book is fine or in flight still cannot be re-driven, because
+    /// redrawing a finished book is how a parent ends up with a different one from the one they
+    /// read.
     ///
     /// <see cref="BookFulfillmentService"/> does the rest: its revival branch moves the pack out
-    /// of Failed — deliberately, and with a compare-and-set — before anything is enqueued.
+    /// of Failed — deliberately, and with a compare-and-set — before anything is enqueued, and its
+    /// re-drive queues the job an unclaimed pack never got.
+    ///
+    /// The public overload on <see cref="IOrderService"/> is this same method behind a lookup,
+    /// so the console and the job cannot drift apart.
     /// </summary>
     private async Task<bool> CanRedriveAsync(Order order, CancellationToken cancellationToken)
     {
@@ -516,7 +522,51 @@ public sealed class OrderService(
         }
 
         var book = await packRepository.GetByIdAsync(bookId, order.UserId, cancellationToken);
-        return book?.Status == AdventurePackStatus.Failed;
+        if (book is null)
+        {
+            return false;
+        }
+
+        if (book.Status == AdventurePackStatus.Failed)
+        {
+            return true;
+        }
+
+        /*
+          And a book no job ever claimed — the second state nothing else recovers.
+
+          Fulfilment writes the pack, adopts the story into StoryReady, and only then enqueues the
+          job; an order is stamped Fulfilled the moment that enqueue returns. A job that was never
+          posted, or that died before its claim, leaves a paid book resting in the status
+          fulfilment gave it: Pending on either pipeline, StoryReady on the Beki one. Neither is
+          Failed, so the button refused them; neither is a working status, so the sweep never
+          buried them; the parent polled forever.
+
+          Legacy StoryReady is excluded because on that pipeline it is the finished book, and
+          re-driving it would redraw what the parent has already read.
+
+          "No live job" cannot be read off the row — a queued job and a lost one look the same
+          until the claim — so it is judged by time, with the same allowance the stalled-order
+          sweep gives a fulfilment before calling it stalled. A book unclaimed for longer than that
+          is offered to a person; if the job was merely queued, both generation jobs refuse a pack
+          another has already moved on, so the second is harmless.
+        */
+        var unclaimed = book.Status == AdventurePackStatus.Pending
+                        || (book.IsBekiPipeline && book.Status == AdventurePackStatus.StoryReady);
+
+        if (!unclaimed)
+        {
+            return false;
+        }
+
+        var lastSignalUtc = book.GenerationHeartbeatUtc ?? book.CreatedAt;
+        return lastSignalUtc < DateTime.UtcNow - StalledAfter;
+    }
+
+    public async Task<bool> CanRedriveAsync(Guid orderId, CancellationToken cancellationToken)
+    {
+        var order = await orderRepository.GetByIdAsync(orderId, cancellationToken);
+        return order is not null && await CanRedriveAsync(order, cancellationToken);
     }
 
     // -- checkout -----------------------------------------------------------
@@ -542,9 +592,13 @@ public sealed class OrderService(
 
             // Nothing to collect. Mark it paid ourselves and fulfil inline, so the parent
             // goes straight from "GIFT100 applied" to a book being written.
+            //
+            // Once the order says Paid, the request token no longer applies — see
+            // ApplyPaymentAsync. A free order is paid the moment that write lands, and a browser
+            // that leaves during the seconds of fulfilment must not leave it half-made.
             await orderRepository.TryMarkPaidAsync(order.Id, null, cancellationToken);
-            var refreshed = await orderRepository.GetByIdAsync(order.Id, cancellationToken) ?? order;
-            var bookId = await FulfillPaidOrderAsync(refreshed, cancellationToken);
+            var refreshed = await orderRepository.GetByIdAsync(order.Id, CancellationToken.None) ?? order;
+            var bookId = await FulfillPaidOrderAsync(refreshed, CancellationToken.None);
 
             return new CheckoutResponse
             {
@@ -817,14 +871,25 @@ public sealed class OrderService(
             return;
         }
 
-        var refreshed = await orderRepository.GetByIdAsync(order.Id, cancellationToken) ?? order;
+        /*
+          From here on, nothing is allowed to be cancelled by the caller.
+
+          The token handed in belongs to an HTTP request — the success page's confirm, or a
+          webhook delivery — and the browser behind the first of those can navigate away at any
+          moment. The money is already taken; a fulfilment that stopped because the parent closed
+          a tab left a paid order half-made, and half-made in the one shape the retry sweep could
+          not tell from unfulfilled: a pack written, the order not yet pointing at it, a second
+          book five minutes later. A paid order's fulfilment runs to its own end, or to its own
+          exception, whatever the request does.
+        */
+        var refreshed = await orderRepository.GetByIdAsync(order.Id, CancellationToken.None) ?? order;
 
         // Behind the exactly-once guard, so the alert cannot double-send however many callers
         // race to record the same payment. Before fulfilment rather than after: the point of
         // the mail is that money arrived, which is true whether or not the book then builds.
-        await adminNotifier.OrderPaidAsync(refreshed, cancellationToken);
+        await adminNotifier.OrderPaidAsync(refreshed, CancellationToken.None);
 
-        await FulfillPaidOrderAsync(refreshed, cancellationToken);
+        await FulfillPaidOrderAsync(refreshed, CancellationToken.None);
     }
 
     private async Task<Guid?> FulfillPaidOrderAsync(Order order, CancellationToken cancellationToken)
@@ -937,14 +1002,22 @@ public sealed class OrderService(
                 response.ProgressMessage = book.ProgressMessage;
 
                 /*
-                  Nothing new goes on the wire here, deliberately.
+                  The wait, described rather than only asserted.
 
-                  A Beki book that is still being drawn is now simply not ready, which is what the
-                  generating screen already polls for — BookReady false, a progress line, no failure.
-                  The screen needed no new field; it needed the field it had to stop being wrong. The
-                  per-book pipeline flag reaches the dashboard through the pack DTOs instead, where a
-                  shelf full of books is the thing being described.
+                  Readiness alone told the generating screen to keep spinning and nothing else: no
+                  percentage for a bar, no stage for a caption, no heartbeat to tell a slow book
+                  from a silent one — and, after a hard reload from the bank with nothing but an
+                  order id, no title, no world and no child's name, so the screen showed a generic
+                  book for "შენი გმირი". Each of these is the pack's own column, copied as stored;
+                  the hero's name is the one lookup, and it is best-effort below.
                 */
+                response.ProgressPercent = book.ProgressPercent;
+                response.PackStatus = book.Status.ToString();
+                response.HeartbeatUtc = book.GenerationHeartbeatUtc;
+                response.Title = NullIfBlank(book.Title);
+                response.WorldId = NullIfBlank(book.WorldId);
+                response.CoverImageUrl = NullIfBlank(book.CoverImageUrl);
+                response.ChildName = await HeroNameAsync(book.PrimaryCharacterId, order.UserId, cancellationToken);
 
                 /*
                   The other end of the same question, and the one nobody was asking.
@@ -973,7 +1046,72 @@ public sealed class OrderService(
             }
         }
 
+        if (order.BookId is null && order.Type == OrderType.NewBook)
+        {
+            /*
+              Paid, and the book row not there yet.
+
+              This is the window between the payment landing and fulfilment writing the pack —
+              seconds inline, or up to a sweep's interval after a fulfilment that died. The screen
+              polling it used to get nothing at all: no line, no world, no name. It gets the same
+              Georgian line the pack will open with, and what the frozen draft already knows about
+              the book, so a reload from the bank shows the right child in the right world before
+              the first row exists.
+            */
+            if (order.IsPaid)
+            {
+                response.ProgressMessage = "გადახდა მიღებულია — იწყება წიგნის შექმნა.";
+            }
+
+            if (TryReadDraft(order) is { } draft)
+            {
+                response.WorldId = NullIfBlank(draft.WorldId)?.Trim().ToLowerInvariant();
+                response.ChildName = await HeroNameAsync(draft.PrimaryCharacterId, order.UserId, cancellationToken);
+            }
+        }
+
         return response;
+    }
+
+    /// <summary>
+    /// The hero's name for the status screen. Null on any failure: a poll that answers "is my
+    /// book ready" must not fail because a name lookup did.
+    /// </summary>
+    private async Task<string?> HeroNameAsync(Guid? characterId, Guid userId, CancellationToken cancellationToken)
+    {
+        if (characterId is not { } heroId)
+        {
+            return null;
+        }
+
+        try
+        {
+            var hero = await characterRepository.GetByIdAsync(heroId, userId, cancellationToken);
+            return NullIfBlank(hero?.Name)?.Trim();
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogDebug(ex, "Could not resolve hero {CharacterId} for an order status; leaving the name blank.", heroId);
+            return null;
+        }
+    }
+
+    /// <summary>The frozen checkout draft, or null when the order has none or it will not parse.</summary>
+    private static BookDraftRequest? TryReadDraft(Order order)
+    {
+        if (string.IsNullOrWhiteSpace(order.DraftJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<BookDraftRequest>(order.DraftJson, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private static OrderResponse ToResponse(Order order, string? promoCode) => new()

@@ -168,6 +168,60 @@ public class BookFulfillmentRescueTests
         Assert.Equal(0, world.Jobs.Enqueued);
     }
 
+    // -- a Beki book with no job ----------------------------------------------
+
+    [Fact]
+    public async Task A_beki_book_left_at_story_ready_with_no_job_is_requeued()
+    {
+        /*
+          The second state a paid book can be stranded in, and until now the invisible one.
+
+          Adoption writes StoryReady before generation is enqueued, and the cast, the map and the
+          enqueue itself can all still throw. The re-drive looked only at Pending and Failed, so a
+          Beki book left here was skipped: nothing queued, the order stamped Fulfilled, and a
+          parent polling "შეკვეთა მიღებულია…" for good. The Beki job claims StoryReady, so queuing
+          it is the first attempt's missing last step — and the row itself is not touched.
+        */
+        var world = new RescueWorld(AdventurePackStatus.StoryReady, "{\"pages\":[]}", GenerationPipelines.Beki);
+
+        await world.Service().FulfillAsync(world.Order, CancellationToken.None);
+
+        Assert.Equal(1, world.Jobs.Enqueued);
+        Assert.Equal(AdventurePackStatus.StoryReady, world.Packs.Status);
+        Assert.Equal(0, world.Packs.Transitions);
+        Assert.Equal("{\"pages\":[]}", world.Packs.GeneratedJson);
+    }
+
+    [Fact]
+    public async Task A_legacy_book_at_story_ready_is_a_finished_book_and_is_left_alone()
+    {
+        // On the legacy pipeline the words and the pictures arrive together, so StoryReady is the
+        // book the parent already reads. Re-driving it would hand them a different one.
+        var world = new RescueWorld(AdventurePackStatus.StoryReady, "{\"pages\":[]}", GenerationPipelines.Legacy);
+
+        await world.Service().FulfillAsync(world.Order, CancellationToken.None);
+
+        Assert.Equal(0, world.Jobs.Enqueued);
+        Assert.Equal(0, world.Packs.Transitions);
+        Assert.Equal(AdventurePackStatus.StoryReady, world.Packs.Status);
+    }
+
+    [Fact]
+    public async Task A_beki_book_whose_queue_refuses_stays_where_the_next_retry_will_find_it()
+    {
+        // Nothing to put back: StoryReady on the Beki pipeline is now inside the set a re-drive
+        // looks at, so the row is left exactly as it was and the failure surfaces to the caller —
+        // which leaves the order Paid, for the sweep.
+        var world = new RescueWorld(AdventurePackStatus.StoryReady, "{\"pages\":[]}", GenerationPipelines.Beki);
+        world.Jobs.ThrowOnEnqueue = new InvalidOperationException("the queue is down");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => world.Service().FulfillAsync(world.Order, CancellationToken.None));
+
+        Assert.Equal(AdventurePackStatus.StoryReady, world.Packs.Status);
+        Assert.Equal(0, world.Packs.Transitions);
+    }
+
     // -- harness ---------------------------------------------------------
 
     /// <summary>
@@ -183,7 +237,10 @@ public class BookFulfillmentRescueTests
         public FakePacks Packs { get; }
         public FakeJobs Jobs { get; } = new();
 
-        public RescueWorld(AdventurePackStatus status, string? generatedJson)
+        public RescueWorld(
+            AdventurePackStatus status,
+            string? generatedJson,
+            string pipeline = GenerationPipelines.Legacy)
         {
             var userId = Guid.NewGuid();
 
@@ -193,6 +250,7 @@ public class BookFulfillmentRescueTests
                 UserId = userId,
                 Status = status,
                 GeneratedJson = generatedJson,
+                GenerationPipeline = pipeline,
                 ErrorMessage = status == AdventurePackStatus.Failed
                     ? "GENERATION_STALLED: nothing has been written to this book for 45 minutes."
                     : null,
