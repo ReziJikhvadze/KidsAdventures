@@ -379,3 +379,6 @@ FodyWeavers.xsd
 # Local .NET CLI home (created when DOTNET_CLI_HOME points into the repo). Generated cache, never committed.
 .dotnet_home/
 .DS_Store
+
+# Claude Code agent worktrees (local only)
+.claude/worktrees/
