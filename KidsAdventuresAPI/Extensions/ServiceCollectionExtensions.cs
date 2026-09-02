@@ -146,8 +146,10 @@ public static class ServiceCollectionExtensions
                        || (!string.IsNullOrWhiteSpace(sms.ApiKey)
                            && !string.IsNullOrWhiteSpace(sms.Sender)),
                 $"{WifisherSmsOptions.SectionName}: Enabled is true but ApiKey or Sender is empty. "
-                + "Set both — user-secrets locally, app settings in Azure — or set Enabled to "
-                + "false to fall back to the logging sender on purpose.")
+                + "The key comes from user-secrets locally and from app settings in Azure; the "
+                + $"sender defaults to {WifisherSmsOptions.DefaultSender} and is empty only if "
+                + "something set it so. Supply them, or set Enabled to false to fall back to the "
+                + "logging sender on purpose.")
             .ValidateOnStart();
         services.Configure<ClientIpOptions>(configuration.GetSection(ClientIpOptions.SectionName));
         services.Configure<AdminOptions>(configuration.GetSection(AdminOptions.SectionName));
