@@ -1012,6 +1012,7 @@ public class CompositePipelineFulfillmentTests
 
     private sealed class FakeRuns(Guid runId) : IMasterStoryRunRepository
     {
+        public Task SaveAppearanceDescriptionAsync(Guid id, string appearanceDescription, CancellationToken cancellationToken) => Task.CompletedTask;
         private readonly MasterStoryRun _run = new()
         {
             Id = runId,

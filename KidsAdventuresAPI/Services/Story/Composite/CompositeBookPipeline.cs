@@ -3498,6 +3498,21 @@ public sealed class CompositeBookPipeline(
     /// only wrong once it has been cropped for print.
     /// </summary>
     /// <returns>The picture, and how long it took — the latter for this page's attempt record.</returns>
+    /// <summary>
+    /// Which of the configured qualities a picture is bought at.
+    ///
+    /// The anchor (spread 1) and the cover set the standard every other page is matched against,
+    /// so they are worth the expensive setting; the remaining spreads follow the page setting.
+    /// <c>BekiOptions</c> has carried these three since the format was designed, and until the
+    /// provider took a per-call quality nothing read them.
+    /// </summary>
+    private string ImageQualityFor(int? page) => page switch
+    {
+        null => _options.CoverImageQuality,
+        1 => _options.AnchorImageQuality,
+        _ => _options.PageImageQuality,
+    };
+
     private async Task<(byte[] Png, long GenerationMs)> GenerateBaseImageAsync(
         CompositeBookContext context,
         int? page,
@@ -3525,7 +3540,8 @@ public sealed class CompositeBookPipeline(
             // and this pipeline would then composite the approved Beki onto it, review it, store
             // it and print it. Better a stopped book with a named failure code.
             image = await openAi.GenerateStoryImageAsync(
-                prompt, references, cancellationToken, SpreadImageSize, requireReferences: true);
+                prompt, references, cancellationToken, SpreadImageSize, requireReferences: true,
+                imageQuality: ImageQualityFor(page));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

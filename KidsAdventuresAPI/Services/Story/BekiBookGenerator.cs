@@ -959,9 +959,19 @@ public sealed class BekiBookGenerator(
         var reviewRatio = spreadNumber is null ? CoverCropRatio : SpreadCropRatio;
         var attemptDetails = new List<BekiImageAttempt>();
 
+        // The first spread is the anchor every later page is matched against, so it is bought at
+        // the anchor quality; the preview cover keeps the provider default — it is a free taste,
+        // and the book's real cover is the composite wrap drawn at cover quality elsewhere.
+        var imageQuality = spreadNumber switch
+        {
+            null => null,
+            1 => bekiOptions.Value.AnchorImageQuality,
+            _ => bekiOptions.Value.PageImageQuality,
+        };
+
         var genSw = System.Diagnostics.Stopwatch.StartNew();
         var image = await openAi.GenerateStoryImageAsync(
-            prompt, reference, cancellationToken, SpreadImageSize);
+            prompt, reference, cancellationToken, SpreadImageSize, imageQuality: imageQuality);
         genSw.Stop();
 
         // The sheet's shape, before anything downstream keeps this picture — the reviewer's copy,
@@ -1013,7 +1023,7 @@ public sealed class BekiBookGenerator(
             var corrected = $"{prompt}\n\n{Corrections(verdict)}";
             genSw.Restart();
             image = await openAi.GenerateStoryImageAsync(
-                corrected, reference, cancellationToken, SpreadImageSize);
+                corrected, reference, cancellationToken, SpreadImageSize, imageQuality: imageQuality);
             genSw.Stop();
 
             if (spreadNumber is { } redrawnSpread)
