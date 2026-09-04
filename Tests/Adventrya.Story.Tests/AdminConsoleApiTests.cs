@@ -190,44 +190,45 @@ public class AdminConsoleApiTests
         var file = Assert.IsType<FileContentResult>(await controller.OrderPdf(OrderId, null));
 
         Assert.Equal("reading-bytes", Encoding.UTF8.GetString(file.FileContents));
-        Assert.EndsWith("-book.pdf", file.FileDownloadName);
+        Assert.EndsWith("-READING-COPY-not-print.pdf", file.FileDownloadName);
     }
 
     [Fact]
     public async Task A_print_order_downloads_the_press_file_when_no_kind_is_asked_for()
     {
-        // Print, reader and download now consume the same canonical PDF bytes.
+        // Default print-order downloads require the approved manufacturing slot.
         var (controller, _) = PdfController(package: OrderPackage.Print, reading: true, print: true);
 
         var file = Assert.IsType<FileContentResult>(await controller.OrderPdf(OrderId, null));
 
-        Assert.Equal("reading-bytes", Encoding.UTF8.GetString(file.FileContents));
+        Assert.Equal("print-bytes", Encoding.UTF8.GetString(file.FileContents));
         Assert.EndsWith("-book.pdf", file.FileDownloadName);
     }
 
     [Fact]
     public async Task The_kind_overrides_the_package_in_both_directions()
     {
-        // The legacy selector is accepted for compatible URLs but cannot select different bytes.
+        // The selector enforces independent customer and manufacturing permissions.
         var (digital, _) = PdfController(package: OrderPackage.Digital, reading: true, print: true);
         var (print, _) = PdfController(package: OrderPackage.Print, reading: true, print: true);
 
         var asPrint = Assert.IsType<FileContentResult>(await digital.OrderPdf(OrderId, "print"));
         var asReading = Assert.IsType<FileContentResult>(await print.OrderPdf(OrderId, "reading"));
 
-        Assert.Equal("reading-bytes", Encoding.UTF8.GetString(asPrint.FileContents));
+        Assert.Equal("print-bytes", Encoding.UTF8.GetString(asPrint.FileContents));
         Assert.Equal("reading-bytes", Encoding.UTF8.GetString(asReading.FileContents));
     }
 
     [Fact]
-    public async Task Asking_for_the_legacy_print_kind_still_returns_the_canonical_book()
+    public async Task A_held_print_download_never_substitutes_the_customer_pdf()
     {
         var (controller, _) = PdfController(package: OrderPackage.Print, reading: true, print: false);
 
-        var file = Assert.IsType<FileContentResult>(await controller.OrderPdf(OrderId, "print"));
-
-        Assert.Equal("reading-bytes", Encoding.UTF8.GetString(file.FileContents));
-        Assert.EndsWith("-book.pdf", file.FileDownloadName);
+        Assert.IsType<ConflictObjectResult>(await controller.OrderPdf(OrderId, "print"));
+        Assert.IsType<ConflictObjectResult>(await controller.OrderPdf(OrderId, null));
+        var reading = Assert.IsType<FileContentResult>(await controller.OrderPdf(OrderId, "reading"));
+        Assert.Equal("reading-bytes", Encoding.UTF8.GetString(reading.FileContents));
+        Assert.EndsWith("-READING-COPY-not-print.pdf", reading.FileDownloadName);
     }
 
     [Fact]

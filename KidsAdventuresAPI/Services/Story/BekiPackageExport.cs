@@ -473,7 +473,7 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
                 },
                 parent_publication = new
                 {
-                    press_files = release?.PressFilesMayPublish ?? false,
+                    press_files = release?.PrintReady ?? false,
                     customer_pdf = release?.CustomerPdfMayPublish ?? false,
                     waivers = release?.PolicyWaivers ?? [],
                     note = "What this deployment's release policy allowed to reach the family who "

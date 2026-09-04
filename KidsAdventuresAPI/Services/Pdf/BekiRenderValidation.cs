@@ -78,7 +78,9 @@ public sealed record BekiRenderValidationRequest(
     int? QrPage = null,
     int? ContactSheetColumns = null,
     int? ThumbnailWidthPx = null,
-    string? ExpectedQrDestination = null);
+    string? ExpectedQrDestination = null,
+    bool CustomerDeliveryOnly = false,
+    int? ExpectedPages = null);
 
 /// <summary>
 /// Everything the render stage found, in a shape the caller can serialize, upload and gate on.
@@ -191,6 +193,13 @@ public static class BekiRenderValidation
             var pdffonts = RunPoppler(
                 options.PopplerPdffontsPath, "pdffonts", [input], work);
 
+            // When printing is already withheld, a broken press renderer must not also
+            // withhold a customer PDF that Poppler can render, inspect and QR-scan correctly.
+            // Keep the failed Ghostscript run in the report; it never becomes print approval.
+            if (request?.CustomerDeliveryOnly == true && pages.Count == 0
+                && pdftoppm.Status == BekiRendererRun.Ok)
+                pages = ReadRenderedPages(work, "poppler-page-");
+
             foreach (var run in new[] { pdftoppm, pdffonts })
             {
                 if (run.Status != BekiRendererRun.Ok)
@@ -215,8 +224,9 @@ public static class BekiRenderValidation
             var fonts = ScanFonts(pdffonts);
             problems.AddRange(fonts.Problems);
 
-            if (ghostscript.Status != BekiRendererRun.Ok
+            if ((ghostscript.Status != BekiRendererRun.Ok && request?.CustomerDeliveryOnly != true)
                 || pages.Count == 0
+                || (request?.ExpectedPages is { } count && pages.Count != count)
                 || pdftoppm.Status != BekiRendererRun.Ok
                 || pdffonts.Status != BekiRendererRun.Ok
                 || fonts.Status != BekiRendererRun.Ok
@@ -260,6 +270,7 @@ public static class BekiRenderValidation
                     stage = "beki-render-validation-v1",
                     contract = AcceptanceGatesFile,
                     artifact,
+                    validation_scope = request?.CustomerDeliveryOnly == true ? "customer-only-print-withheld" : "customer-and-print",
                     validated_at_utc = DateTime.UtcNow,
                     verdict,
                     failed_gates = failedGates,

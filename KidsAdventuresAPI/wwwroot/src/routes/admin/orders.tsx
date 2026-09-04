@@ -630,6 +630,29 @@ function OrderDetail({
         {book && gates ? <GatesTable gates={gates} /> : null}
 
         <div className="order-detail-actions">
+          {book &&
+          !isLegacy &&
+          book.status === "Failed" &&
+          book.errorMessage?.startsWith("PRINT_PREFLIGHT_FAILED") ? (
+            <button
+              type="button"
+              className="button"
+              disabled={action !== null}
+              onClick={() =>
+                void run("recover-pdf", async () => {
+                  await admin.recoverCustomerPdf(book.id);
+                  return "საკითხავი PDF აღდგენილია. ბეჭდვა შეჩერებულია შესამოწმებლად. ახალი სურათები არ დაგენერირებულა.";
+                })
+              }
+            >
+              {action === "recover-pdf" ? "PDF მოწმდება…" : "PDF-ის აღდგენა — ახალი ხატვის გარეშე"}
+            </button>
+          ) : null}
+          {book?.hasReadingPdf && !book.hasPrintPdf && !isLegacy ? (
+            <span className="attention-chip is-failed">
+              მომხმარებლის წიგნი მზადაა · ბეჭდვა შეჩერებულია — შეამოწმეთ შეცდომები
+            </span>
+          ) : null}
           {book?.hasReadingPdf ? (
             <button
               type="button"

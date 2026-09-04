@@ -280,6 +280,14 @@ public sealed class PrintOrderService(
 
         var trackingCode = Clean(request.TrackingCode);
 
+        if (status is PrintOrderStatus.Printing or PrintOrderStatus.Shipped or PrintOrderStatus.Delivered)
+        {
+            var pack = await packRepository.GetByIdNoOwnershipAsync(printOrder.BookId, cancellationToken);
+            if (pack is null || string.IsNullOrWhiteSpace(pack.PrintPdfUrl))
+                throw new InvalidOperationException(
+                    "ბეჭდვა შეჩერებულია: ბეჭდვისთვის დამტკიცებული PDF არ არის მზად. შეამოწმეთ ადმინისტრატორის შეცდომები.");
+        }
+
         // A "shipped" email with no way to follow the parcel is worse than no email, so
         // the code is required at that transition rather than optional everywhere.
         if (status == PrintOrderStatus.Shipped &&

@@ -173,6 +173,10 @@ public sealed record BekiReleaseGateReport
     [JsonIgnore]
     public bool SupplierPressReleasable => MayPublish(BekiReleaseGates.PressClass, false);
 
+    /// <summary>A customer-delivery waiver is never permission to manufacture a failing book.</summary>
+    [JsonIgnore]
+    public bool PrintReady => PressFilesMayPublish && SupplierPressReleasable;
+
     /// <summary>
     /// Whether the parent's download may be published — amendment A5's file-level rule as the
     /// release policy amends it: the customer PDF withholds on a failing shared, digital or human
@@ -864,8 +868,7 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
                 [stored.DigitalReportName])
             : stored.DigitalReportPresent
                 ? Passed(
-                    id, "the customer PDF passed its own preflight: 14 trim-size pages, CropBox "
-                        + "present, no press structures, sRGB rasters, /Lang ka-GE, linearized.",
+                    id, "the customer PDF passed its stored geometry check; print approval is evaluated independently.",
                     [stored.DigitalReportName])
                 : Missing(
                     id, "the customer PDF was withheld or never preflighted.",

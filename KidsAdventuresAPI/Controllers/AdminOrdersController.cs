@@ -195,15 +195,21 @@ public sealed class AdminOrdersController(
 
         var pack = await packRepository.GetByIdNoOwnershipAsync(detail.Book.Id, cancellationToken);
 
-        // `kind` remains accepted for backwards-compatible admin links, but both database columns
-        // must point to the same canonical storage object in the final pipeline.
-        var url = pack?.PdfUrl ?? pack?.PrintPdfUrl;
+        if (kind is not null && kind != ReadingKind && kind != PrintKind)
+            return BadRequest(new { message = "Unknown PDF kind." });
+        var wantsPrint = kind == PrintKind || (kind is null
+            && string.Equals(detail.Order.Package, nameof(OrderPackage.Print), StringComparison.OrdinalIgnoreCase));
+        // A customer-visible PDF is not manufacturing approval. Never substitute it for a
+        // withheld print file, even though both columns share one artifact after print passes.
+        var url = wantsPrint ? pack?.PrintPdfUrl : pack?.PdfUrl;
 
         // 409 rather than 404: the book exists and the file does not exist *yet*, which is a
         // different thing to tell an operator — one of them has a button next to it.
         if (string.IsNullOrWhiteSpace(url))
         {
-            return Conflict(new { message = "PDF ჯერ არ დაგენერირებულა." });
+            return Conflict(new { message = wantsPrint
+                ? "ბეჭდვა შეჩერებულია: შეამოწმეთ ბეჭდვის შეცდომები. მკითხველის PDF ხელმისაწვდომია ცალკე."
+                : "PDF ჯერ არ დაგენერირებულა." });
         }
 
         try
@@ -219,7 +225,8 @@ public sealed class AdminOrdersController(
               The READING-COPY-not-print spelling is kept exactly as it was for the fallback,
               because that string is what an operator forwarding to a binder is meant to notice.
             */
-            var name = $"beki-{detail.Book.Id}-book.pdf";
+            var name = wantsPrint ? $"beki-{detail.Book.Id}-book.pdf"
+                : $"beki-{detail.Book.Id}-READING-COPY-not-print.pdf";
 
             return File(bytes, "application/pdf", name);
         }
@@ -231,6 +238,22 @@ public sealed class AdminOrdersController(
     }
 
     private const string ReadingKind = "reading";
+
+    /// <summary>Rebuilds a customer PDF from paid, stored artwork; no image/model calls.</summary>
+    [HttpPost("books/{id:guid}/recover-customer-pdf")]
+    public async Task<IActionResult> RecoverCustomerPdf(Guid id,
+        [FromServices] IBekiPackFulfillment fulfillment, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await fulfillment.RecoverCustomerPdfAsync(id, cancellationToken);
+            return Ok(new { message = "Customer PDF ready. Printing remains held for review." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
 
     private const string PrintKind = "print";
 
@@ -467,7 +490,7 @@ public sealed class AdminOrdersController(
         report?.AwaitingHumanReview ?? false,
         report?.ContactSheetSha256,
         report?.CustomerPdfMayPublish ?? false,
-        report?.PressFilesMayPublish ?? false,
+        report?.PrintReady ?? false,
         report?.Gates
             .Select(gate => new AdminReleaseGate(gate.Id, gate.Status, gate.Class, gate.Detail))
             .ToList() ?? []);

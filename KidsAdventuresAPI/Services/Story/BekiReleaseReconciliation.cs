@@ -208,11 +208,11 @@ public sealed class BekiReleaseReconciliation(
         }
 
         var report = await ReadReportAsync(pack.UserId, pack.Id, ct);
-        var pdfUrl = report is { CustomerPdfMayPublish: true, PressFilesMayPublish: true }
+        var pdfUrl = report is { CustomerPdfMayPublish: true }
             ? await StoredUrlAsync(BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id), ct)
             : null;
 
-        if (string.IsNullOrWhiteSpace(pdfUrl) || report is { PressFilesMayPublish: false })
+        if (string.IsNullOrWhiteSpace(pdfUrl))
         {
             return BekiReconcileResult.No(BekiReconcileOutcomes.Incomplete,
                 "the canonical PDF is withheld; reconciliation cannot mark the book Completed.");
@@ -395,7 +395,13 @@ public sealed class BekiReleaseReconciliation(
 
         var press = false;
 
-        if (report.PressFilesMayPublish && report.CustomerPdfMayPublish
+        if (!report.PrintReady && !string.IsNullOrWhiteSpace(pack.PrintPdfUrl))
+        {
+            await packRepository.UpdatePrintPdfUrlAsync(pack.Id, null, ct);
+            pack.PrintPdfUrl = null;
+        }
+
+        if (report.PrintReady && report.CustomerPdfMayPublish
             && string.IsNullOrWhiteSpace(pack.PrintPdfUrl)
             && await blobStorage.ExistsAsync(
                 BekiPackBlobs.InteriorPdfName(pack.UserId, pack.Id), ct)
@@ -411,7 +417,7 @@ public sealed class BekiReleaseReconciliation(
             press = true;
         }
 
-        if (!report.CustomerPdfMayPublish || !report.PressFilesMayPublish
+        if (!report.CustomerPdfMayPublish
             || !string.IsNullOrWhiteSpace(pack.PdfUrl)
             || pack.Status != AdventurePackStatus.Completed)
         {

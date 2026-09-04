@@ -27,6 +27,29 @@ public class BekiRenderValidationTests
     private const string LockedDestination = "https://beki.ge";
 
     [Fact]
+    public void A_missing_press_renderer_does_not_block_a_valid_customer_render_and_qr()
+    {
+        var result = BekiRenderValidation.Validate(BekiRenderFixtures.WithQrCodes(LockedDestination),
+            "canonical-book", new BekiPrintPrepOptions { GhostscriptPath = "/missing-test-ghostscript" },
+            new BekiRenderValidationRequest(QrPage: 1, CustomerDeliveryOnly: true, ExpectedPages: 1));
+        Assert.Equal(BekiRendererRun.Skipped, result.Ghostscript.Status);
+        Assert.Equal(BekiRendererRun.Ok, result.PopplerPdftoppm.Status);
+        Assert.Equal(BekiRendererRun.Ok, result.Fonts.Status);
+        Assert.Equal(BekiRendererRun.Ok, result.Qr.Status);
+        Assert.True(result.IsReleasable);
+        Assert.Single(result.Pages);
+    }
+
+    [Fact]
+    public void Customer_rendering_still_requires_the_complete_page_count()
+    {
+        var result = BekiRenderValidation.Validate(BekiRenderFixtures.Pages(1), "canonical-book",
+            new BekiPrintPrepOptions(), new BekiRenderValidationRequest(CustomerDeliveryOnly: true, ExpectedPages: 12));
+        Assert.False(result.IsReleasable);
+        Assert.Contains(BekiRenderValidation.RenderValidationGate, result.FailedGates);
+    }
+
+    [Fact]
     public void Ghostscript_renders_every_page_and_the_contact_sheet_carries_them_all()
     {
         var result = BekiRenderValidation.Validate(

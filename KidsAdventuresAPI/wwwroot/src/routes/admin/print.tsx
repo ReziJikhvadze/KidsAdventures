@@ -182,8 +182,10 @@ function PrintRow({ row, onChanged }: { row: admin.AdminPrintOrder; onChanged: (
         {row.notes ? <span className="cell-subtitle">შენიშვნა: {row.notes}</span> : null}
       </td>
       <td>
-        {row.hasPrintPdf === false && !row.pdfIsReadingCopyFallback ? (
-          <span className="attention-chip is-failed">საბეჭდი ფაილი არ არის</span>
+        {row.hasPrintPdf === false ? (
+          <span className="attention-chip is-failed">
+            ბეჭდვა შეჩერებულია — საბეჭდი ფაილი არ არის
+          </span>
         ) : (
           <button
             type="button"
@@ -219,7 +221,7 @@ function PrintRow({ row, onChanged }: { row: admin.AdminPrintOrder; onChanged: (
                 key={next}
                 type="button"
                 className={`button ${next === "Cancelled" ? "button-secondary" : ""}`}
-                disabled={busy !== null}
+                disabled={busy !== null || (row.hasPrintPdf === false && next !== "Cancelled")}
                 onClick={() => void move(next)}
               >
                 {busy === next ? "…" : `→ ${PRINT_STATUS_TEXT[next]}`}

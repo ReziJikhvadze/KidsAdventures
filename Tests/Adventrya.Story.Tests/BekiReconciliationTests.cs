@@ -31,6 +31,32 @@ public class BekiReconciliationTests
     private static readonly Guid UserId = Guid.NewGuid();
     private static readonly Guid PackId = Guid.NewGuid();
 
+    [Fact]
+    public async Task Print_only_failure_publishes_customer_pdf_and_revokes_stale_print_permission()
+    {
+        var blobs = new PolicyFakeBlobs();
+        SeedFinishedBook(blobs);
+        BekiReleasePolicyGateTests.Seed(blobs, UserId, PackId);
+        blobs.Seed(BekiPackBlobs.PressStatusName(UserId, PackId),
+            BekiReleasePolicyGateTests.Json(new
+            {
+                failed_gates = new[] { "PRESS_COLOR", "PRESS_RESOLUTION" },
+                reason = "Print conversion failed; original customer PDF validated."
+            }));
+        var pack = CompletedPack();
+        pack.PdfUrl = null;
+        pack.PrintPdfUrl = "https://blob.test/stale-print-permission.pdf";
+        var packs = new ReconcilePacks(pack) { Withheld = [pack] };
+
+        var published = await Reconciliation(packs, blobs, new RecordingAlarms())
+            .ReconcileWithheldAsync(CancellationToken.None);
+
+        Assert.Equal(1, published);
+        Assert.NotNull(pack.PdfUrl);
+        Assert.Null(pack.PrintPdfUrl);
+        Assert.Equal(AdventurePackStatus.Completed, pack.Status);
+    }
+
     /// <summary>
     /// The case B6 exists for: the sweep was right about the silence and wrong about the book.
     /// </summary>
@@ -258,7 +284,7 @@ public class BekiReconciliationTests
     /// them separately; what was missing was being asked.
     /// </summary>
     [Fact]
-    public async Task Loosening_a_press_gate_publishes_the_interior_of_an_already_downloaded_book()
+    public async Task Loosening_a_press_gate_does_not_authorize_manufacturing_a_failed_pdf()
     {
         var blobs = new PolicyFakeBlobs();
         SeedFinishedBook(blobs);
@@ -290,11 +316,10 @@ public class BekiReconciliationTests
         var published = await Reconciliation(packs, blobs, new RecordingAlarms(), flagged)
             .ReconcileWithheldAsync(CancellationToken.None);
 
-        Assert.False(string.IsNullOrWhiteSpace(packs.Pack.PrintPdfUrl));
+        Assert.Null(packs.Pack.PrintPdfUrl);
 
-        // And it counts. A scan that released a printer's file and reported "nothing was published"
-        // tells the operator their switch reached nobody.
-        Assert.Equal(1, published);
+        // No manufacturing release is counted for a waived-but-failing print gate.
+        Assert.Equal(0, published);
     }
 
     /// <summary>

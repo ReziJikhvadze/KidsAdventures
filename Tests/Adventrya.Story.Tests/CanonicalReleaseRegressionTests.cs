@@ -10,6 +10,17 @@ namespace Adventrya.Story.Tests;
 public class CanonicalReleaseRegressionTests : CompositePipelineTestBase
 {
     [Fact]
+    public void Customer_pdf_validation_rejects_truncated_and_empty_pdfs_even_when_print_is_optional()
+    {
+        Assert.Throws<BekiLayoutException>(() => BekiCustomerPdfValidation.Validate([0x25, 0x50, 0x44, 0x46]));
+        using var document = new PdfDocument();
+        document.AddPage();
+        using var bytes = new MemoryStream();
+        document.Save(bytes);
+        Assert.Throws<BekiLayoutException>(() => BekiCustomerPdfValidation.Validate(bytes.ToArray()));
+    }
+
+    [Fact]
     public async Task Invalid_adopted_story_stops_before_any_image_or_scenario_call()
     {
         var images = new StubImageService();

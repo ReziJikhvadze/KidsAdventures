@@ -104,6 +104,10 @@ export function GeneratingStage({ draft, onChange }: Props) {
     }
 
     let cancelled = false;
+    // Draft hydration can supply the order after the initial render. Do not retain the
+    // earlier missing-order error while polling a now-valid order.
+    setError(null);
+    setStillWorking(false);
 
     void (async () => {
       try {

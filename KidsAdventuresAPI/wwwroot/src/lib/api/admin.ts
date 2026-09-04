@@ -302,6 +302,13 @@ export function regenerateBook(
 
 // -- release gates and review ---------------------------------------------------
 
+/** Rebuild from stored artwork only: no new image-generation charges. */
+export function recoverCustomerPdf(bookId: string): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>(`/api/admin/books/${bookId}/recover-customer-pdf`, {
+    method: "POST",
+  });
+}
+
 /** One of the sixteen hard gates from BEKI_Acceptance_Gates_v1.json, as the console shows it. */
 export type AdminReleaseGate = {
   id: string;

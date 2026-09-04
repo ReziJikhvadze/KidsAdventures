@@ -44,6 +44,8 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
             plan, WrapPng(), spreads, personalization);
 
         Assert.Equal(12, CountPages(composed.Pdf));
+        using var customerReport = JsonDocument.Parse(BekiCustomerPdfValidation.Validate(composed.Pdf));
+        Assert.Equal("PASS", customerReport.RootElement.GetProperty("verdict").GetString());
         Assert.Equal(12, composed.Receipts.Pages.Count);
         Assert.Equal("cover-wrap", composed.Receipts.Pages[0].Role);
         Assert.Equal("spread-08", composed.Receipts.Pages[10].Role);

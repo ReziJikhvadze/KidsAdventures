@@ -152,8 +152,8 @@ public class CompositePipelineFulfillmentTests
 
         var percents = world.Packs.Progress.Select(step => step.Percent ?? -1).ToList();
 
-        // Never backwards. The harness has no production upscaler, so the mandatory canonical
-        // stage stops before publishing a PDF.
+        // Never backwards. This harness returns a deliberately corrupt PDF, so customer
+        // validation must still stop publication even though print preparation is optional.
         Assert.Equal(percents.OrderBy(percent => percent), percents);
         Assert.Contains(85, percents);
         Assert.DoesNotContain(100, percents);
@@ -181,13 +181,13 @@ public class CompositePipelineFulfillmentTests
     /// judge the book, and nothing after the reading copy runs under the job's clock at all.
     /// </summary>
     [Fact]
-    public async Task A_canonical_tail_that_runs_out_of_time_fails_without_publishing_a_pdf()
+    public async Task A_print_timeout_reaches_customer_validation_without_publishing_corrupt_stub_bytes()
     {
         var world = new PackWorld { PressStalls = true };
 
         await world.Job().ProcessAsync(world.PackId, world.RunId, CancellationToken.None);
 
-        Assert.StartsWith("GENERATION_BUDGET_EXCEEDED", world.Packs.FailureReason);
+        Assert.StartsWith("PRINT_PREFLIGHT_FAILED: CUSTOMER_PDF_INVALID", world.Packs.FailureReason);
         Assert.Equal(AdventurePackStatus.Failed, world.Packs.Status);
         Assert.Null(world.Packs.PrintPdfUrl);
         Assert.Null(world.Packs.PdfUrl);
@@ -199,13 +199,14 @@ public class CompositePipelineFulfillmentTests
     /// running under it, and the finish line is not either.
     /// </summary>
     [Fact]
-    public async Task The_jobs_clock_expiring_during_the_canonical_tail_fails_the_book()
+    public async Task The_drawing_clock_expiring_during_print_does_not_skip_customer_validation()
     {
         var world = new PackWorld { JobClockFiresDuringPress = true };
 
         await world.Job().ProcessAsync(world.PackId, world.RunId, CancellationToken.None);
 
         Assert.NotNull(world.Packs.FailureReason);
+        Assert.StartsWith("PRINT_PREFLIGHT_FAILED: CUSTOMER_PDF_INVALID", world.Packs.FailureReason);
         Assert.Equal(AdventurePackStatus.Failed, world.Packs.Status);
         Assert.Empty(world.Alarms.Raised);
         Assert.Equal(1, world.Notifier.Notifications);
@@ -318,7 +319,7 @@ public class CompositePipelineFulfillmentTests
         // Once, for the illustrator. The manifest's private reference hashes the same array.
         Assert.Equal(1, downloads.Count(url => url == PackWorld.PhotoUrl));
 
-        // No lower-quality reading copy is composed or stored when canonical preflight fails.
+        // Corrupt customer bytes are never stored or published by the fallback.
         var readingPdf = BekiPackBlobs.ReadingPdfName(world.UserId, world.PackId);
         Assert.DoesNotContain(readingPdf, world.Blobs.Uploaded.Keys);
         Assert.DoesNotContain(readingPdf, downloads);
@@ -733,6 +734,13 @@ public class CompositePipelineFulfillmentTests
     private sealed class RecordingComposer : IBekiPdfComposer
     {
         public byte[]? ReadingWrap { get; private set; }
+
+        // Deliberately corrupt PDF: print trouble must reach customer validation, which must
+        // still refuse invalid bytes instead of marking this stubbed book Completed.
+        public BekiComposedBook ComposeCanonicalWithReceipts(
+            MasterStory plan, byte[] wrapComposite, IReadOnlyList<BekiSpreadArtwork> spreads,
+            BekiBookPersonalization? personalization = null) =>
+            new([0x25, 0x50, 0x44, 0x46], Receipts("canonical"));
 
         public BekiComposedBook ComposeWithReceipts(
             MasterStory plan, byte[] coverImage, IReadOnlyList<BekiSpreadArtwork> spreads,

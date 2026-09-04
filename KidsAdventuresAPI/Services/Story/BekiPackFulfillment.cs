@@ -40,6 +40,11 @@ public interface IBekiPackFulfillment
     /// </summary>
     [DisableConcurrentExecution("beki-pack:{0}", 60)]
     Task ProcessAsync(Guid packId, Guid runId, CancellationToken cancellationToken);
+
+    /// <summary>Admin-only recovery from stored artwork. Never invokes generation or upscaling.</summary>
+    [DisableConcurrentExecution("beki-pack:{0}", 60)]
+    Task RecoverCustomerPdfAsync(Guid packId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException("Stored-art recovery is unavailable.");
 }
 
 /// <summary>
@@ -398,6 +403,114 @@ public sealed class BekiPackFulfillment(
     IOrderRepository? orders = null) : IBekiPackFulfillment
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    [DisableConcurrentExecution("beki-pack:{0}", 60)]
+    public async Task RecoverCustomerPdfAsync(Guid packId, CancellationToken cancellationToken)
+    {
+        var pack = await packRepository.GetByIdNoOwnershipAsync(packId, cancellationToken)
+            ?? throw new InvalidOperationException("Book not found.");
+        if (pack.Status == AdventurePackStatus.Completed && !string.IsNullOrWhiteSpace(pack.PdfUrl))
+            return;
+        if (!bekiOptions.Value.CompositePipelineEnabled || orders is null
+            || pack.Status != AdventurePackStatus.Failed
+            || pack.ErrorMessage?.StartsWith(CompositeFailureCodes.PrintPreflightFailed, StringComparison.Ordinal) != true)
+            throw new InvalidOperationException("Recovery requires a failed canonical book with a print-preflight error and no active generation.");
+
+        MasterStoryRun? run = null;
+        foreach (var order in await orders.GetPaidForBookAsync(packId, cancellationToken))
+        {
+            var draft = JsonSerializer.Deserialize<DTOs.Orders.BookDraftRequest>(order.DraftJson ?? "{}", JsonOptions);
+            if (draft?.PreviewBookId is { } runId)
+            {
+                var candidate = await masterStoryRunRepository.GetByIdAsync(runId, cancellationToken);
+                if (candidate?.UserId == pack.UserId && !string.IsNullOrWhiteSpace(candidate.StoryJson))
+                {
+                    run = candidate;
+                    break;
+                }
+            }
+        }
+        if (run is null) throw new InvalidOperationException("Paid preview plan not found; no generation was attempted.");
+        var plan = JsonSerializer.Deserialize<MasterStory>(run.StoryJson!, JsonOptions)
+            ?? throw new InvalidOperationException("Stored plan is unreadable.");
+        var manifestName = BekiPackBlobs.ManifestName(pack.UserId, pack.Id);
+        var manifest = await TryReadManifestAsync(manifestName, cancellationToken)
+            ?? throw new InvalidOperationException("Stored fulfilment manifest is missing.");
+        var theme = InputNormalization.CanonicalThemeId(pack.Theme.ToString())
+            ?? throw new InvalidOperationException("Unknown book world.");
+        if (!manifest.IllustrationContract.SequenceEqual(BekiFulfillmentManifest.CurrentContract(
+                BookFormat.SpreadCount, BekiCompositeContractTerms.Current(theme)))
+            || !manifest.Entries.Select(e => e.SpreadNumber).Order().SequenceEqual(Enumerable.Range(1, 8)))
+            throw new InvalidOperationException("Stored artwork contract is incomplete or incompatible; no redraw was attempted.");
+
+        var claimed = await packRepository.TryUpdateStatusAsync(pack.Id, AdventurePackStatus.Failed,
+            AdventurePackStatus.GeneratingPdf, pack.GeneratedJson, null, null, cancellationToken);
+        if (!claimed) throw new InvalidOperationException("Book state changed; recovery was not started.");
+        try
+        {
+            var hashes = await VerifyAssetLockAsync(pack, cancellationToken);
+            var stored = new List<BekiSpreadArtwork>();
+            foreach (var entry in manifest.Entries.OrderBy(e => e.SpreadNumber))
+                stored.Add(new BekiSpreadArtwork(entry.SpreadNumber,
+                    await blobStorage.DownloadBytesFromStoredUrlAsync(entry.StoredUrl, cancellationToken)));
+            var wrap = await ReadRequiredBlobAsync(BekiPackBlobs.CoverWrapCompositeName(pack.UserId, pack.Id), cancellationToken);
+            var receipt = System.Text.Encoding.UTF8.GetString(await ReadRequiredBlobAsync(
+                BekiPackBlobs.CoverCompositionName(pack.UserId, pack.Id), cancellationToken));
+            var continuationBase = bekiOptions.Value.ContinuationBaseUrl?.Trim().TrimEnd('/');
+            if (!Uri.TryCreate(continuationBase, UriKind.Absolute, out _))
+                throw new InvalidOperationException("Beki:ContinuationBaseUrl must be configured.");
+            var personalization = new BekiBookPersonalization(run.ChildName, run.Age, pack.CreatedAt,
+                pack.Theme.ToString(), StoryWorlds.For(pack.Theme).Place)
+                { ContinuationUrl = $"{continuationBase}/{pack.Id:D}" };
+            var work = new PressWork();
+            await PreparePressAsync(pack, plan, stored, personalization, wrap, hashes, work,
+                cancellationToken, storedArtworkOnly: true);
+            await ValidateStoredRendersAsync(pack, new BekiRenderInputs(work.PreparedInterior),
+                cancellationToken, customerDeliveryOnly: true);
+            var storyUrl = await blobStorage.UploadAsync(BekiPackBlobs.StoryName(pack.UserId, pack.Id),
+                System.Text.Encoding.UTF8.GetBytes(run.StoryJson!), "application/json", cancellationToken);
+            var wrapUrl = await blobStorage.UploadAsync(BekiPackBlobs.CoverWrapCompositeName(pack.UserId, pack.Id),
+                wrap, "image/png", cancellationToken);
+            manifest = manifest with
+            {
+                StoryUrl = storyUrl,
+                Cover = new BekiCoverRecord(wrapUrl, BekiCoverRecord.WrapMaster, "Recovered from verified stored artwork")
+                {
+                    CompositeSha256 = Sha256Hex(wrap), PoseId = ReceiptValue(receipt, "beki_layer", "pose_id"),
+                    Anchor = ReceiptAnchor(receipt)
+                }
+            };
+            await blobStorage.UploadAsync(manifestName, JsonSerializer.SerializeToUtf8Bytes(manifest, JsonOptions),
+                "application/json", cancellationToken);
+            var policy = releasePolicy is null ? BekiReleasePolicySnapshot.Defaults
+                : await releasePolicy.SnapshotAsync(cancellationToken);
+            var release = await _releaseGates.EvaluateAsync(pack.UserId, pack.Id, cancellationToken, policy);
+            await blobStorage.UploadAsync(BekiPackBlobs.ReleaseGatesName(pack.UserId, pack.Id),
+                System.Text.Encoding.UTF8.GetBytes(release.ToJson()), "application/json", cancellationToken);
+            if (!release.CustomerPdfMayPublish)
+                throw new BekiLayoutException(CompositeFailureCodes.PrintPreflightFailed,
+                    "Customer validation still withholds this book. Inspect release-gates.json; no images were regenerated.");
+            await packRepository.UpdatePrintPdfUrlAsync(pack.Id, null, cancellationToken);
+            var frontUrl = await blobStorage.UploadAsync(BekiPackBlobs.CoverFrontName(pack.UserId, pack.Id),
+                composer.CropFrontBoard(wrap), "image/png", cancellationToken);
+            await packRepository.UpdateBookPresentationAsync(pack.Id, plan.Concept.Title, frontUrl, cancellationToken);
+            var content = ProjectForReader(plan, run.ChildName, pack,
+                manifest.Entries.ToDictionary(e => e.SpreadNumber, e => e.StoredUrl));
+            if (!await packRepository.TryUpdateStatusAsync(pack.Id, AdventurePackStatus.GeneratingPdf,
+                    AdventurePackStatus.Completed, JsonSerializer.Serialize(content, JsonOptions), work.InteriorUrl,
+                    null, cancellationToken))
+                throw new InvalidOperationException("Book state changed before recovery completed.");
+            await packRepository.UpdateProgressAsync(pack.Id, "მზადაა! წიგნი ბიბლიოთეკაშია.", 100, cancellationToken);
+            logger.LogInformation("Recovered customer PDF for {PackId} using stored artwork only; printing remains held.", pack.Id);
+        }
+        catch (Exception ex)
+        {
+            await packRepository.TryUpdateStatusAsync(pack.Id, AdventurePackStatus.GeneratingPdf,
+                AdventurePackStatus.Failed, pack.GeneratedJson, null,
+                $"{CompositeFailureCodes.PrintPreflightFailed}: Stored-art recovery failed: {ex.Message}", CancellationToken.None);
+            throw;
+        }
+    }
 
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
@@ -1603,16 +1716,15 @@ public sealed class BekiPackFulfillment(
                     ContinuationUrl = $"{continuationBase}/{pack.Id:D}",
                 };
 
-                // One mixed-size, PDF/X-4 artifact is the product. It is not published before
-                // composition, print preparation, page-box validation and render-back validation
-                // have all succeeded; a failure keeps the pack out of Ready/Completed.
+                // Drawing has finished. Print preparation gets its own bounded clock, so a
+                // print-only timeout cannot consume the customer's completed artwork.
                 await AdvanceAsync(
-                    "preparing the canonical book", "საბოლოო წიგნს ვამზადებთ…", 91, jobToken);
+                    "preparing the canonical book", "საბოლოო წიგნს ვამზადებთ…", 91, cancellationToken);
 
                 var press = new PressWork();
                 await PreparePressAsync(
                     pack, plan, stored, personalization, wrap.CompositePng, assetLockHashes, press,
-                    jobToken);
+                    cancellationToken);
 
                 if (press.PreparedInterior is not { Length: > 0 } canonicalBytes
                     || string.IsNullOrWhiteSpace(press.InteriorUrl))
@@ -1627,13 +1739,14 @@ public sealed class BekiPackFulfillment(
                 storyUrl = await blobStorage.UploadAsync(
                     BekiPackBlobs.StoryName(pack.UserId, pack.Id),
                     System.Text.Encoding.UTF8.GetBytes(run.StoryJson!), "application/json",
-                    jobToken);
+                    cancellationToken);
 
                 await AdvanceAsync(
-                    "rendering the canonical artifact back", "დაბეჭდილ გვერდებს ვამოწმებთ…", 94,
-                    jobToken);
+                    "rendering the canonical artifact back", "წიგნის გვერდებს ვამოწმებთ…", 94,
+                    cancellationToken);
                 await ValidateStoredRendersAsync(
-                    pack, new BekiRenderInputs(canonicalBytes), jobToken);
+                    pack, new BekiRenderInputs(canonicalBytes), cancellationToken,
+                    customerDeliveryOnly: press.FailedGates.Count > 0);
 
                 // ---- The verdict ----------------------------------------------------------------
                 //
@@ -1689,7 +1802,7 @@ public sealed class BekiPackFulfillment(
                 */
                 await packRepository.UpdatePrintPdfUrlAsync(
                     packId,
-                    release.PressFilesMayPublish && release.CustomerPdfMayPublish ? pdfUrl : null,
+                    release.PrintReady && release.CustomerPdfMayPublish ? pdfUrl : null,
                     cancellationToken);
 
                 logger.LogInformation(
@@ -1698,7 +1811,7 @@ public sealed class BekiPackFulfillment(
                     packId, release.Verdict,
                     release.FailingGates.Count == 0 ? "(none)" : string.Join(", ", release.FailingGates),
                     release.CustomerPdfMayPublish ? "published" : "withheld",
-                    release.PressFilesMayPublish && release.CustomerPdfMayPublish && pdfUrl is not null
+                    release.PrintReady && release.CustomerPdfMayPublish && pdfUrl is not null
                         ? "published" : "withheld");
             }
             else
@@ -1850,10 +1963,10 @@ public sealed class BekiPackFulfillment(
               already stored either way, so the losing side of this race costs nobody a book: it
               costs a status, and the sweep's is the one with a reason attached.
             */
-            // One canonical artifact means one release decision: both customer and print gates
-            // must allow it, and an absent/held PDF cannot produce a Completed book.
+            // Customer delivery and permission to manufacture are independent. Print-only
+            // failures must not hide a valid book from the family (owner ruling 2026-09-05).
             var publishablePdfUrl = release is null
-                || (release.CustomerPdfMayPublish && release.PressFilesMayPublish) ? pdfUrl : null;
+                || release.CustomerPdfMayPublish ? pdfUrl : null;
 
             if (string.IsNullOrWhiteSpace(publishablePdfUrl))
             {
@@ -2511,7 +2624,6 @@ public sealed class BekiPackFulfillment(
         Domain.Entities.AdventurePack pack, CancellationToken cancellationToken)
     {
         var options = bekiOptions.Value.PrintPrep;
-
         var manifest = _assetLock.Verify(new BekiAssetLockInputs
         {
             OutputIntentIccPath = options.OutputIntentIccPath,
@@ -2671,8 +2783,9 @@ public sealed class BekiPackFulfillment(
 
     /// <summary>
     /// The single canonical PDF, with native-detail and exact-Beki provenance. Backgrounds are
-    /// enlarged before the approved poses are reapplied. A missing upscaler, failing preflight,
-    /// or storage mismatch stops the whole release; no alternate reader PDF is published.
+    /// enlarged before approved poses are reapplied. Print-only failures retain the original
+    /// artwork for customer delivery and withhold manufacturing; corrupt storage/layout still
+    /// fails closed. Reader and download continue to consume one canonical artifact.
     /// </summary>
     private async Task PreparePressAsync(
         Domain.Entities.AdventurePack pack,
@@ -2682,9 +2795,12 @@ public sealed class BekiPackFulfillment(
         byte[] wrapComposite,
         IReadOnlySet<string> assetLockHashes,
         PressWork work,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool storedArtworkOnly = false)
     {
         var options = bekiOptions.Value.PrintPrep;
+        // A rebuild overwrites the canonical blob. Revoke older manufacturing permission first.
+        await packRepository.UpdatePrintPdfUrlAsync(pack.Id, null, cancellationToken);
         // Only the child/world base can enter a detail-producing (possibly AI) upscaler.
         // The approved Beki layer is re-applied afterwards from its hash-verified asset.
         var bases = new List<(byte[] Png, BekiCompositionManifest Manifest)>(spreads.Count + 1);
@@ -2704,7 +2820,30 @@ public sealed class BekiPackFulfillment(
             index == spreads.Count ? CoverPressWidthPx : InteriorPressWidthPx,
             index == spreads.Count ? CoverPressHeightPx : InteriorPressHeightPx)).ToList();
 
-        var upscales = await UpscaleAllAsync(rasters, cancellationToken);
+        PressUpscaleResult[] upscales;
+        using (var pressDeadline = GenerationBudget.Start(
+            cancellationToken, PressBudgetFor(bekiOptions.Value), _timeProvider))
+        {
+            try
+            {
+                upscales = storedArtworkOnly
+                    ? OriginalRasters("Stored-art recovery: no generation or upscaler calls allowed.")
+                    : await UpscaleAllAsync(rasters, pressDeadline.Token);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                upscales = OriginalRasters("Print upscaler exceeded its time budget; customer artwork retained.");
+            }
+        }
+
+        PressUpscaleResult[] OriginalRasters(string reason) => rasters.Select(raster =>
+        {
+            SixLabors.ImageSharp.ImageInfo? size = null;
+            try { size = SixLabors.ImageSharp.Image.Identify(raster.Png); }
+            catch (SixLabors.ImageSharp.UnknownImageFormatException) { /* Customer validation still rejects corrupt inputs. */ }
+            return new PressUpscaleResult(false, null, "none", 1d,
+                size?.Width ?? 0, size?.Height ?? 0, size?.Width ?? 0, size?.Height ?? 0, reason);
+        }).ToArray();
         var pressArt = new List<BekiSpreadArtwork>(spreads.Count);
         var sources = new List<BekiResolutionSource>(spreads.Count + 1);
 
@@ -2717,11 +2856,13 @@ public sealed class BekiPackFulfillment(
 
             if (!upscale.Succeeded)
             {
-                throw new BekiLayoutException(
-                    CompositeFailureCodes.PrintPreflightFailed,
+                work.FailedGates.Add(BekiPrintPrep.PressResolutionGate);
+                work.Reasons.Add(
                     $"{BekiPrintPrep.PressResolutionGate}: spread {spread.SpreadNumber} was not "
                     + $"delivered at {InteriorPressWidthPx}×{InteriorPressHeightPx} by an approved "
                     + $"detail-producing upscaler ({upscale.Reason ?? "no reason returned"}).");
+                pressArt.Add(spread);
+                continue;
             }
             var recomposited = await StorePressCompositeAsync(
                 pack, $"spread-{spread.SpreadNumber:00}", upscale.Png!, bases[index].Manifest,
@@ -2732,40 +2873,68 @@ public sealed class BekiPackFulfillment(
         var coverUpscale = upscales[^1];
         if (!coverUpscale.Succeeded)
         {
-            throw new BekiLayoutException(
-                CompositeFailureCodes.PrintPreflightFailed,
+            work.FailedGates.Add(BekiPrintPrep.PressResolutionGate);
+            work.Reasons.Add(
                 $"{BekiPrintPrep.PressResolutionGate}: the cover wrap was not delivered at "
                 + $"{CoverPressWidthPx}×{CoverPressHeightPx} by an approved detail-producing "
                 + $"upscaler ({coverUpscale.Reason ?? "no reason returned"}).");
         }
 
-        var coverArt = await StorePressCompositeAsync(
-            pack, "cover-wrap", coverUpscale.Png!, bases[^1].Manifest, cancellationToken);
+        var coverArt = coverUpscale.Succeeded
+            ? await StorePressCompositeAsync(
+                pack, "cover-wrap", coverUpscale.Png!, bases[^1].Manifest, cancellationToken)
+            : wrapComposite;
         sources.Add(coverUpscale.ToReceiptSource("cover-wrap"));
 
         var canonical = composer.ComposeCanonicalWithReceipts(
             plan, coverArt, pressArt, personalization);
 
-        var (prepared, preflight, failedGates) = BekiPrintPrep.PrepareWithGates(
-            canonical.Pdf,
-            plan.Concept.Title,
-            options,
-            trimInsetMm: 5f,
-            probe: new BekiPrintProbe(
-                canonical.Receipts.LightTextPages,
-                canonical.Receipts.FlatGroundTextProbes,
-                canonical.Receipts.MaximumVisibleTextDrawsByPage),
-            resolutionReceipt: new BekiResolutionReceipt(
-                [.. sources, .. canonical.Receipts.RasterSources]),
-            canonicalMixedGeometry: true,
-            requirePressResolution: true);
-
-        if (failedGates.Count > 0)
+        var prepared = canonical.Pdf;
+        var preflight = System.Text.Encoding.UTF8.GetString(BekiWithheldReport.Bytes(
+            BekiPrintPrep.PressResolutionGate, "print preparation", string.Join(" ", work.Reasons)));
+        if (work.FailedGates.Count == 0)
         {
-            throw new BekiLayoutException(
-                CompositeFailureCodes.PrintPreflightFailed,
-                "The canonical PDF failed mandatory gate(s): " + string.Join(", ", failedGates));
+            try
+            {
+                var result = BekiPrintPrep.PrepareWithGates(
+                    canonical.Pdf,
+                    plan.Concept.Title,
+                    options,
+                    trimInsetMm: 5f,
+                    probe: new BekiPrintProbe(
+                        canonical.Receipts.LightTextPages,
+                        canonical.Receipts.FlatGroundTextProbes,
+                        canonical.Receipts.MaximumVisibleTextDrawsByPage),
+                    resolutionReceipt: new BekiResolutionReceipt(
+                        [.. sources, .. canonical.Receipts.RasterSources]),
+                    canonicalMixedGeometry: true,
+                    requirePressResolution: true);
+                preflight = result.ReportJson;
+                work.FailedGates.AddRange(result.FailedGates);
+                if (result.FailedGates.Count == 0)
+                {
+                    prepared = result.Pdf;
+                }
+                else
+                {
+                    work.Reasons.Add("Print preflight failed: " + string.Join(", ", result.FailedGates));
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Only the optional print transform is caught. Composition, source provenance,
+                // storage readback and customer render validation remain mandatory below.
+                var namedGates = GatesNamedIn(ex.Message).ToList();
+                if (namedGates.Count == 0) namedGates.Add("PRESS_COLOR");
+                work.FailedGates.AddRange(namedGates);
+                work.Reasons.Add(ex.Message);
+                preflight = System.Text.Encoding.UTF8.GetString(BekiWithheldReport.Bytes(
+                    namedGates[0], "print preparation", ex.Message));
+                logger.LogError(ex, "Print preparation held for pack {PackId}; validating the customer PDF.", pack.Id);
+            }
         }
+
+        var digitalReport = BekiCustomerPdfValidation.Validate(prepared);
 
         work.InteriorUrl = await blobStorage.UploadAsync(
             BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id),
@@ -2797,11 +2966,12 @@ public sealed class BekiPackFulfillment(
             BekiPackBlobs.CanonicalPreflightName(pack.UserId, pack.Id),
             BekiPackBlobs.InteriorPreflightName(pack.UserId, pack.Id),
             BekiPackBlobs.CoverPreflightName(pack.UserId, pack.Id),
-            BekiPackBlobs.DigitalReportName(pack.UserId, pack.Id),
         })
         {
             await blobStorage.UploadAsync(name, preflightBytes, "application/json", cancellationToken);
         }
+        await blobStorage.UploadAsync(BekiPackBlobs.DigitalReportName(pack.UserId, pack.Id),
+            digitalReport, "application/json", cancellationToken);
 
         work.InteriorPreflightStored = true;
         work.CoverPreflightStored = true;
@@ -2810,6 +2980,15 @@ public sealed class BekiPackFulfillment(
         await StoreFixedPageQaAsync(pack, canonical.Receipts, assetLockHashes, cancellationToken);
 
         await WritePressStatusAsync(pack, work, cancellationToken);
+        if (work.FailedGates.Count > 0 && alarms is not null)
+        {
+            await alarms.RaiseAsync(new BekiAlarmRaise(pack.Id,
+                await OrderIdAsync(pack.Id, cancellationToken), pack.UserId,
+                "PRINT_PREPARATION_HELD", BekiReleaseSeverity.Blocker,
+                "Printing is blocked. Customer delivery is evaluated independently. "
+                + string.Join(" ", work.Reasons), BekiPackBlobs.PressStatusName(pack.UserId, pack.Id),
+                BekiAlarmEvidence.ForAttempt("PRINT_PREPARATION_HELD", pack.Id)), cancellationToken);
+        }
     }
 
     private async Task<byte[]> ReadRequiredBlobAsync(string name, CancellationToken cancellationToken)
@@ -2905,6 +3084,13 @@ public sealed class BekiPackFulfillment(
                     .UpscaleAsync(raster.Png, raster.Width, raster.Height, cancellationToken)
                     .ConfigureAwait(false);
             }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogError(ex, "Print upscaler failed; retaining original artwork for customer delivery.");
+                return new PressUpscaleResult(false, null, "none", 1d,
+                    nativeSize?.Width ?? 0, nativeSize?.Height ?? 0,
+                    nativeSize?.Width ?? 0, nativeSize?.Height ?? 0, ex.Message);
+            }
             finally
             {
                 slots.Release();
@@ -2931,8 +3117,8 @@ public sealed class BekiPackFulfillment(
                 {
                     stage = "beki-press-status-v1",
                     recorded_at_utc = DateTime.UtcNow,
-                    interior = work.InteriorUrl is null ? "withheld" : "prepared",
-                    cover = work.CoverUrl is null ? "withheld" : "prepared",
+                    interior = work.InteriorUrl is null || work.FailedGates.Count > 0 ? "withheld" : "prepared",
+                    cover = work.CoverUrl is null || work.FailedGates.Count > 0 ? "withheld" : "prepared",
                     failed_gates = work.FailedGates.Distinct(StringComparer.Ordinal).ToList(),
                     reason = work.Reasons.Count == 0 ? null : string.Join(" ", work.Reasons),
                     upscaler_configured = _pressUpscaler.IsConfigured,
@@ -3082,7 +3268,8 @@ public sealed class BekiPackFulfillment(
     private async Task ValidateStoredRendersAsync(
         Domain.Entities.AdventurePack pack,
         BekiRenderInputs inputs,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool customerDeliveryOnly = false)
     {
         var options = bekiOptions.Value.PrintPrep;
 
@@ -3130,7 +3317,8 @@ public sealed class BekiPackFulfillment(
                         bytes, entry.Artifact, options,
                         new BekiRenderValidationRequest(
                             QrPage: entry.QrPage,
-                            ExpectedQrDestination: continuationUrl)),
+                            ExpectedQrDestination: continuationUrl,
+                            CustomerDeliveryOnly: customerDeliveryOnly, ExpectedPages: 12)),
                     cancellationToken).ConfigureAwait(false);
 
                 return (entry.Artifact, Result: result);

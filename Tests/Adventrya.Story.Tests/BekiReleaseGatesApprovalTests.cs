@@ -86,7 +86,7 @@ public class BekiReleaseGatesApprovalTests
     /// happens to point.
     /// </summary>
     [Fact]
-    public async Task An_approval_honours_a_check_the_operator_loosened()
+    public async Task Customer_approval_does_not_waive_a_manufacturing_failure()
     {
         var blobs = new PolicyFakeBlobs();
         BekiReleasePolicyGateTests.Seed(blobs, UserId, PackId, needsHumanReading: true);
@@ -104,8 +104,8 @@ public class BekiReleaseGatesApprovalTests
         var packs = new ReconcilePacks(WithheldPack());
         var response = await Approve(packs, blobs, policy, sheet);
 
-        Assert.True(response.PressFilesPublished);
-        Assert.False(string.IsNullOrWhiteSpace(packs.Pack.PrintPdfUrl));
+        Assert.False(response.PressFilesPublished);
+        Assert.Null(packs.Pack.PrintPdfUrl);
 
         // The waiver is written down, because a press gate that was let through is exactly the kind
         // of decision that has to be answerable later.
