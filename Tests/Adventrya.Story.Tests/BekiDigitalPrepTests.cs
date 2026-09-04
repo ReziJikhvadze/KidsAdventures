@@ -228,21 +228,17 @@ public class BekiDigitalPrepTests
     }
 
     /// <summary>
-    /// And without the restamp, the gate refuses — which is the hole that let pack 597344af ship.
-    ///
-    /// The stage's report said PASS on a file with an empty colour space in it, because nothing had
-    /// ever looked inside one. This runs the same book through the same Ghostscript with the fix
-    /// switched off, reproduces the empty stream exactly, and requires a refusal.
+    /// An empty profile is refused by the same gate used after conversion. Construct the actual
+    /// damaged PDF explicitly: whether a particular Ghostscript version emits this defect from a
+    /// v4.3 input is platform/version dependent, but rejecting an empty output profile is not.
     /// </summary>
     [Fact]
     public void A_reading_copy_whose_icc_profile_came_back_empty_is_refused()
     {
+        var damaged = BekiDigitalFixtures.WithDoctoredIccProfile(0);
+        var problems = BekiDigitalPrep.IccProfileProblems(damaged);
         var failure = Assert.Throws<BekiLayoutException>(() =>
-            BekiDigitalPrep.Prepare(
-                BekiDigitalFixtures.ReadingCopy(),
-                new BekiPrintPrepOptions(),
-                baseDirectory: null,
-                harmonizeIccProfiles: false));
+            BekiDigitalPrep.RequireReadableIccProfiles(problems));
 
         Assert.Equal("PRINT_PREFLIGHT_FAILED", failure.FailureCode);
         Assert.Contains("DIGITAL_GEOMETRY", failure.Message);

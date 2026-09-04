@@ -193,16 +193,8 @@ public static class BekiDigitalPrep
           header the ICC specification fixes.
         */
         var profiles = InspectIccProfiles(document);
-        var brokenProfiles = profiles.Where(profile => profile.Problem is not null).ToList();
-        if (brokenProfiles.Count > 0)
-        {
-            throw Failure(
-                $"{DigitalGeometryGate}: {brokenProfiles.Count} ICCBased colour space(s) point at a "
-                + "profile stream that is not a readable ICC profile — "
-                + string.Join(" ", brokenProfiles.Select(profile => profile.Problem))
-                + " A strict viewer drops every image in such a colour space, which is a page of "
-                + "flat colour where the artwork should be.");
-        }
+        RequireReadableIccProfiles(profiles.Where(profile => profile.Problem is not null)
+            .Select(profile => profile.Problem!).ToList());
 
         var language = document.Internals.Catalog.Elements.GetString("/Lang");
         if (!string.Equals(language, DocumentLanguage, StringComparison.Ordinal))
@@ -750,14 +742,22 @@ public static class BekiDigitalPrep
         }
     }
 
+    /// <summary>The same rejection boundary for converter output and deterministic damaged fixtures.</summary>
+    internal static void RequireReadableIccProfiles(IReadOnlyList<string> problems)
+    {
+        if (problems.Count == 0) return;
+        throw Failure(
+            $"{DigitalGeometryGate}: {problems.Count} ICCBased colour space(s) point at a "
+            + "profile stream that is not a readable ICC profile — "
+            + string.Join(" ", problems)
+            + " A strict viewer drops every image in such a colour space, which is a page of "
+            + "flat colour where the artwork should be.");
+    }
+
     /// <summary>
-    /// The ICC integrity gate addressed on bytes — the same check <see cref="Prepare"/> runs on its
-    /// own output, reachable so that a deliberately doctored file can be shown to fail it.
-    ///
-    /// It needs its own door because Ghostscript will not produce the inputs this has to be proved
-    /// against: handed a profile it cannot parse, pdfwrite drops the colour space entirely rather
-    /// than passing the damage through, so a file carrying a truncated or non-ICC profile cannot be
-    /// made by running this stage. It has to be built, and then read.
+    /// The ICC integrity inspection addressed on bytes — the same check <see cref="Prepare"/>
+    /// runs on its own output. Damaged fixtures are built explicitly because converter versions
+    /// differ in whether they emit, repair or drop a malformed profile.
     /// </summary>
     internal static IReadOnlyList<string> IccProfileProblems(byte[] pdf)
     {
