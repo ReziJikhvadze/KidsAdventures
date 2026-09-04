@@ -4,7 +4,12 @@ public sealed class EmailOptions
 {
     public const string SectionName = "Email";
     public bool Enabled { get; set; } = true;
-    public string FromAddress { get; set; } = "rezijikhvadze@gmail.com";
+    /// <summary>
+    /// The address the letters come from, and — through the fallback chain on
+    /// <see cref="ContactToAddress"/> and <see cref="AdminNotificationAddress"/> — the one they
+    /// arrive at as well. Production overrides it; this is what an unconfigured deployment uses.
+    /// </summary>
+    public string FromAddress { get; set; } = "info@beki.ge";
     /// <summary>
     /// The name on the envelope, and the name the letters sign themselves with — the email
     /// templates read it from here rather than repeating it. Production overrides it, so this is
@@ -13,7 +18,8 @@ public sealed class EmailOptions
     public string FromName { get; set; } = "Beki";
     public string SmtpHost { get; set; } = "smtp.gmail.com";
     public int SmtpPort { get; set; } = 587;
-    public string SmtpUser { get; set; } = "rezijikhvadze@gmail.com";
+    /// <summary>The Google Workspace mailbox that authenticates the send.</summary>
+    public string SmtpUser { get; set; } = "info@beki.ge";
     public string SmtpPassword { get; set; } = string.Empty;
     public string BaseUrl { get; set; } = "http://localhost:5173";
     /// <summary>API origin used in email links (confirm-email hits the API, then redirects to BaseUrl).</summary>

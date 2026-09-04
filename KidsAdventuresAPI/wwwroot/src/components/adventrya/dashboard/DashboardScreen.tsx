@@ -45,6 +45,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { continueViaPickerHref, newBookHref } from "@/lib/continue";
 import { formatGel, formatGelAmount, normalizeGeorgianPhone, useT } from "@/lib/i18n";
+import { MERCHANT } from "@/lib/merchant";
 import { DELIVERY_DAYS, PRICES } from "@/lib/pricing";
 import { readPendingRun, savedCharacterIdOf, type PendingRun } from "@/lib/journey/pendingRun";
 import { useWorldById, WORLD_COVER_ART, WORLD_IDS, isWorldId, type WorldId } from "@/lib/worlds";
@@ -1145,7 +1146,9 @@ function FailedBookCard({ pack, heroName }: { pack: AdventurePackResponse; heroN
         <div className="journey-book-actions">
           <a
             className="journey-button journey-small-button journey-gold-button"
-            href="mailto:hello@beki.ge"
+            // The merchant's address, so a parent whose book failed writes to the inbox that is
+            // actually answered rather than to a third address this button used to own.
+            href={`mailto:${MERCHANT.email}`}
           >
             {t.dashboard.library.failedCta}
           </a>
