@@ -13,16 +13,17 @@ import {
   primaryCharacter,
   useJourneyDraft,
   type JourneyDraft,
-  type PreviewTeaser,
 } from "@/lib/journey/draft";
 import { type BookPackage, PRICES } from "@/lib/pricing";
 import {
   clearPendingRun,
   heroKeyOf,
   readPendingRun,
+  savedCharacterIdOf,
   writePendingRun,
 } from "@/lib/journey/pendingRun";
 import { patchJourneyResume, writeJourneyResume } from "@/lib/journey/resume";
+import { readyPreviewPatch } from "@/lib/journey/previewRecovery";
 import { useWorldById, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
 
 type Props = {
@@ -179,28 +180,30 @@ export function PreviewStage({ draft, onChange, onContinue, onStopWaiting }: Pro
     };
 
     const finish = (status: MasterStoryRunStatus) => {
-      const teaser: PreviewTeaser = {
-        guestPreviewId: status.runId,
-        storyId: status.runId,
-        title: status.title || "",
-        firstPageTitle: status.firstPageTitle || "",
-        firstPageText: status.firstPageText || "",
-        coverImageDataUrl: status.coverImageUrl ? resolveApiUrl(status.coverImageUrl) : "",
-        pageCount: status.pageCount,
-      };
+      const restored = readyPreviewPatch(
+        draft,
+        {
+          ...status,
+          coverImageUrl: status.coverImageUrl ? resolveApiUrl(status.coverImageUrl) : "",
+        },
+        {
+          worldId: resumable?.worldId,
+          characterId: resumable ? savedCharacterIdOf(resumable) : undefined,
+        },
+      );
 
       storeGuestPreviewIds(status.runId, status.runId);
       clearPendingRunId();
-      onChange({ preview: teaser });
+      onChange(restored);
       setLoading(false);
 
       // The pointer an emailed sign-in link needs to find this book again in a new tab. No
       // child data: the run row holds it, and the signed-in parent reads it back.
       writeJourneyResume({
         runId: status.runId,
-        worldId: draft.worldId,
+        worldId: restored.worldId,
         bookPackage: draft.bookPackage,
-        characterId: hero.serverId,
+        characterId: restored.characters.find((child) => child.isPrimary)?.serverId,
         storyNotes: draft.storyNotes || undefined,
       });
 

@@ -12,6 +12,7 @@ using AdventurePacks.Api.Services.Interfaces;
 using AdventurePacks.Api.Services.Pdf;
 using AdventurePacks.Api.Services.Story;
 using AdventurePacks.Api.Services.Story.Composite;
+using AdventurePacks.Api.Services.Story.Composite.Poses;
 using AdventurePacks.Api.Services.Story.Prompts;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -435,7 +436,7 @@ public class CompositePipelineFulfillmentTests
 
                 Blobs.Seed(spreadName, [(byte)page]);
                 Blobs.Seed(baseName, [(byte)page, 0]);
-                Blobs.Seed(receiptName, "{}"u8.ToArray());
+                Blobs.Seed(receiptName, Encoding.UTF8.GetBytes(PressReceipt([(byte)page, 0], [(byte)page])));
 
                 entries.Add(new BekiFulfillmentManifestEntry(page, $"https://blob.test/{spreadName}"));
                 compositions.Add(new BekiCompositionManifestEntry(
@@ -539,20 +540,7 @@ public class CompositePipelineFulfillmentTests
                     "the cover wrap could not be drawn in this deployment.");
             }
 
-            var receipt = JsonSerializer.Serialize(new
-            {
-                composition_version = "beki-exact-composite-v1",
-                beki_layer = new
-                {
-                    pose_id = "pose_01_neutral_hover",
-                    normalized_anchor = new { visible_center_x = 0.87, visible_center_y = 0.64, visible_height = 0.30 },
-                },
-                output = new
-                {
-                    file = "cover-wrap-composite.png",
-                    sha256 = Convert.ToHexString(SHA256.HashData(WrapComposite)).ToLowerInvariant(),
-                },
-            });
+            var receipt = PressReceipt([0x89, (byte)'P', (byte)'N', (byte)'G', 1], WrapComposite);
 
             return new CompositeCoverWrap(
                 [0x89, (byte)'P', (byte)'N', (byte)'G', 1], WrapComposite, receipt,
@@ -627,8 +615,9 @@ public class CompositePipelineFulfillmentTests
                     Anchor = [1, 2, 3, 4],
                     Spreads = spreads
                         .Select(spread => new CompositeSpreadArtifact(
-                            spread.SpreadNumber!.Value, "pose_01_neutral_hover", "{}",
-                            new string('0', 64), BasePng: [])
+                            spread.SpreadNumber!.Value, "pose_01_neutral_hover",
+                            PressReceipt([(byte)spread.SpreadNumber.Value, 0], spread.Image),
+                            new string('0', 64), BasePng: [(byte)spread.SpreadNumber.Value, 0])
                         {
                             QaJson = PackWorld.StoredQa(spread.SpreadNumber!.Value),
                         })
@@ -1013,6 +1002,23 @@ public class CompositePipelineFulfillmentTests
 
         public Task PrintOrderPlacedAsync(PrintOrder printOrder, string? bookTitle, CancellationToken cancellationToken) =>
             Task.CompletedTask;
+    }
+
+    private static string PressReceipt(byte[] basePng, byte[] composite)
+    {
+        var fixture = JsonSerializer.Deserialize<BekiCompositionManifest>(File.ReadAllText(
+            Path.Combine(AppContext.BaseDirectory, "Fixtures", "nina_dinosaurs", "spread_01_composition_manifest.json")))!;
+        return (fixture with
+        {
+            BaseImage = new BekiCompositionFile
+            {
+                File = "base.png", Sha256 = Convert.ToHexString(SHA256.HashData(basePng)).ToLowerInvariant(),
+            },
+            Output = new BekiCompositionFile
+            {
+                File = "composite.png", Sha256 = Convert.ToHexString(SHA256.HashData(composite)).ToLowerInvariant(),
+            },
+        }).ToJson();
     }
 
     private static MasterStory Plan() => new()

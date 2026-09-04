@@ -156,7 +156,7 @@ public class BekiReconciliationTests
     /// file is what the gates are about.
     /// </summary>
     [Fact]
-    public async Task A_restored_book_whose_gates_withhold_keeps_its_reader_and_not_its_download()
+    public async Task A_book_whose_canonical_pdf_is_withheld_cannot_be_restored_to_completed()
     {
         var blobs = new PolicyFakeBlobs();
         SeedFinishedBook(blobs);
@@ -175,8 +175,8 @@ public class BekiReconciliationTests
         var result = await Reconciliation(packs, blobs, new RecordingAlarms())
             .ReconcilePackAsync(PackId, "a retry", CancellationToken.None);
 
-        Assert.True(result.Restored);
-        Assert.Equal(AdventurePackStatus.Completed, packs.Pack.Status);
+        Assert.False(result.Restored);
+        Assert.Equal(AdventurePackStatus.Failed, packs.Pack.Status);
         Assert.True(string.IsNullOrWhiteSpace(packs.Pack.PdfUrl));
     }
 
@@ -475,6 +475,13 @@ public class BekiReconciliationTests
 
         blobs.Seed(BekiPackBlobs.ReadingPdfName(UserId, id), [9]);
         blobs.Seed(BekiPackBlobs.InteriorPdfName(UserId, id), [8]);
+        blobs.Seed(BekiPackBlobs.ReleaseGatesName(UserId, id),
+            Encoding.UTF8.GetBytes(new BekiReleaseGateReport
+            {
+                Verdict = BekiReleaseGates.Releasable,
+                EvaluatedAtUtc = DateTimeOffset.UtcNow,
+                Gates = [], FailingGates = [], AwaitingHumanReview = false,
+            }.ToJson()));
     }
 }
 

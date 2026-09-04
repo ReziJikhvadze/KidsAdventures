@@ -180,6 +180,10 @@ public sealed class MasterStoryRunStartedDto
 /// </summary>
 public sealed class MasterStoryRunStatusDto
 {
+    /// <summary>The authoritative world of the stored preview, used to restore checkout.</summary>
+    [JsonPropertyName("worldId")]
+    public string? WorldId { get; set; }
+
     [JsonPropertyName("runId")]
     public Guid RunId { get; set; }
 

@@ -57,6 +57,7 @@ export type JourneyOrigin = "dashboard" | "world" | null;
 export type PreviewTeaser = {
   guestPreviewId: string;
   storyId: string;
+  worldId?: WorldId;
   title: string;
   firstPageTitle: string;
   firstPageText: string;

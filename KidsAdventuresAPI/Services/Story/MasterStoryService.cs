@@ -31,6 +31,9 @@ public interface IMasterStoryService
     /// <summary>The model this service will use. Exposed so callers can record it before the call.</summary>
     string ModelName { get; }
 
+    /// <summary>The actual client provider, not the product configuration's display label.</summary>
+    string ProviderName => "unknown";
+
     /// <summary>Which prompt variant is in force. Recorded on the run so books can be compared.</summary>
     string PromptVersion { get; }
 
@@ -107,6 +110,13 @@ public sealed class MasterStoryService(
 {
     private readonly OpenAiOptions _options = options.Value;
     private readonly BekiOptions _bekiOptions = bekiOptions.Value;
+
+    public string ProviderName => modelClient switch
+    {
+        AdventurePacks.Api.Services.Ai.GeminiStoryModelClient => "Gemini",
+        StoryModelClient => "OpenAI",
+        _ => modelClient.GetType().Name,
+    };
 
     /// <summary>Marks the two halves apart in the stored prompt columns.</summary>
     private const string StepSeparator = "\n\n===== STEP 2 =====\n\n";

@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
-import { ApiError } from "@/lib/api/client";
+import { ApiError, resolveApiUrl } from "@/lib/api/client";
 import * as ordersApi from "@/lib/api/orders";
 import type { OrderPackage, QuoteResponse, ShippingAddressRequest } from "@/lib/api/types";
 import {
@@ -16,6 +16,8 @@ import {
 } from "@/lib/i18n";
 import { primaryCharacter, type JourneyDraft } from "@/lib/journey/draft";
 import { clearJourneyResume } from "@/lib/journey/resume";
+import { readyPreviewPatch } from "@/lib/journey/previewRecovery";
+import { getGuestPreviewStatus } from "@/lib/api/adventure-packs";
 import { ensureServerCharacters } from "@/lib/journey/syncCharacters";
 import { PRICES } from "@/lib/pricing";
 import { heroDemoPages } from "@/lib/story/heroDemoPages";
@@ -119,7 +121,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
       setError(shippingError);
       return;
     }
-    if (!draft.worldId) {
+    if (!draft.worldId && !draft.preview?.storyId) {
       setError("აირჩიე სამყარო.");
       return;
     }
@@ -127,7 +129,21 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     setBusy(true);
     setError(null);
     try {
-      const { primaryId, supportingIds, updated } = await ensureServerCharacters(draft.characters);
+      let orderDraft = draft;
+      // Repair already-open/stale checkouts from the authoritative preview without generating
+      // another story or selecting a different world on the parent's behalf.
+      if (!orderDraft.worldId && orderDraft.preview?.storyId) {
+        const status = await getGuestPreviewStatus(orderDraft.preview.storyId);
+        const restored = readyPreviewPatch(orderDraft, {
+          ...status,
+          coverImageUrl: status.coverImageUrl ? resolveApiUrl(status.coverImageUrl) : "",
+        });
+        orderDraft = { ...orderDraft, ...restored };
+        onChange(restored);
+      }
+      const { primaryId, supportingIds, updated } = await ensureServerCharacters(
+        orderDraft.characters,
+      );
       onChange({ characters: updated });
 
       const phone = draft.shipping.recipientPhone.trim();
@@ -139,7 +155,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
         draft: {
           primaryCharacterId: primaryId,
           supportingCharacterIds: supportingIds,
-          worldId: draft.worldId,
+          worldId: orderDraft.worldId!,
           bookLanguage: locale,
           storyNotes: draft.storyNotes || undefined,
           continuesFromBookId: draft.continuesFromBookId || undefined,

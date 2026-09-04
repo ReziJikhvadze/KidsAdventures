@@ -113,6 +113,7 @@ export type PreviewIllustrationStatus = "None" | "Generating" | "Ready" | "Faile
 /** Where a book is in being written. Polled while the loader is on screen. */
 export type MasterStoryRunStatus = {
   runId: string;
+  worldId?: string | null;
   status: "Pending" | "Writing" | "Illustrating" | "Ready" | "Failed";
   progressMessage?: string | null;
   errorMessage?: string | null;

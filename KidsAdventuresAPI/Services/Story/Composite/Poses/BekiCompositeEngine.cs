@@ -329,7 +329,7 @@ public sealed class BekiCompositeEngine
     private static int RoundHalfToEven(double value)
         => (int)Math.Round(value, MidpointRounding.ToEven);
 
-    private static string Sha256Hex(byte[] bytes)
+    internal static string Sha256Hex(byte[] bytes)
         => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
 }
 

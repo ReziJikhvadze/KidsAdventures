@@ -252,6 +252,9 @@ public static class BekiPrintPrep
 
         if (options.RequireAllCmyk)
         {
+            if (canonicalMixedGeometry)
+                pdf = BekiVectorLogo.PrepareForCmyk(pdf,
+                    samples => ConvertToCmyk(samples, iccPath, options).Pdf);
             (pdf, conversion) = ConvertToCmyk(pdf, iccPath, options);
         }
 

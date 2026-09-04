@@ -363,6 +363,31 @@ public class BekiReleaseApiTests
         Assert.Contains("მზადდება", message);
     }
 
+    [Theory]
+    [InlineData("Space", "space")]
+    [InlineData("Dinosaurs", "dinosaurs")]
+    [InlineData("Pirates", "pirates")]
+    [InlineData("Animals", "animals")]
+    [InlineData("Airplanes", "airplanes")]
+    [InlineData("Magic", "magic")]
+    [InlineData("unknown-world", null)]
+    public async Task A_ready_preview_restores_its_own_world_for_checkout(string theme, string? expected)
+    {
+        var run = new MasterStoryRun
+        {
+            Id = Guid.NewGuid(), Status = MasterStoryRunStatus.Ready, Theme = theme,
+            ContentJson = """{"title":"Test book","childName":"Test child","storyPages":[]}""",
+        };
+        var controller = PacksController(Pack(AdventurePackStatus.StoryReady, GenerationPipelines.Beki),
+            masterBooks: new FakeMasterBooks { Run = run });
+
+        var result = await Ok<MasterStoryRunStatusDto>(controller.GetGuestPreview(run.Id, default));
+
+        Assert.Equal(expected, result.WorldId);
+        Assert.Equal(run.Id, result.RunId);
+        Assert.Equal("Test child", result.ChildName);
+    }
+
     // -- fixtures ------------------------------------------------------------
 
     private static AdventurePack Pack(AdventurePackStatus status, string pipeline) => new()
@@ -393,14 +418,15 @@ public class BekiReleaseApiTests
         AdventurePack pack,
         FakeGeneration? generation = null,
         string? held = null,
-        FakeDownloadStatus? downloadStatus = null) =>
+        FakeDownloadStatus? downloadStatus = null,
+        FakeMasterBooks? masterBooks = null) =>
         new(generation ?? new FakeGeneration(),
             new FakePackReads(pack),
             new FakeCast(),
             new FakeBlobs(),
             new FakeUserContext(),
             new FakeRateLimiter(),
-            new FakeMasterBooks(),
+            masterBooks ?? new FakeMasterBooks(),
             downloadStatus ?? new FakeDownloadStatus { Held = held },
             Options.Create(new ClientIpOptions()),
             new FakeCharacters(),
@@ -660,16 +686,21 @@ public class BekiReleaseApiTests
 
     private sealed class FakeMasterBooks : IMasterBookService
     {
+        public MasterStoryRun? Run { get; init; }
+
         public Task<Guid> StartAsync(GuestPreviewInput input, CancellationToken ct) =>
             throw new NotSupportedException();
 
         public Task WriteBookAsync(Guid runId, CancellationToken ct) => throw new NotSupportedException();
 
         public Task<MasterStoryRun?> GetAsync(Guid runId, CancellationToken ct) =>
-            throw new NotSupportedException();
+            Task.FromResult(Run?.Id == runId ? Run : null);
 
         public Task<MasterStoryRunProgress?> GetProgressAsync(Guid runId, CancellationToken ct) =>
-            throw new NotSupportedException();
+            Task.FromResult(Run?.Id == runId ? new MasterStoryRunProgress
+            {
+                Id = Run.Id, Status = Run.Status,
+            } : null);
     }
 
     /// <summary>None of these routes touches a character; the saved-hero lookup is on the preview start.</summary>

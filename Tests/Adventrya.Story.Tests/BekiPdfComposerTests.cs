@@ -65,6 +65,15 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
         Assert.Equal(12, pdf.PageCount);
 
         AssertPageMillimetres(pdf.Pages[0], 512, 245, 512, 245);
+
+        // Exercise the actual ICC conversion too: an RGB axial shading is vector before
+        // Ghostscript but would otherwise be rasterized by ColorConversionStrategy=CMYK.
+        var (prepared, _, _) = BekiPrintPrep.PrepareWithGates(
+            composed.Pdf, plan.Concept.Title, new BekiPrintPrepOptions(),
+            canonicalMixedGeometry: true);
+        using var preparedStream = new MemoryStream(prepared);
+        using var preparedPdf = PdfReader.Open(preparedStream, PdfDocumentOpenMode.Import);
+        Assert.Single(BekiContentWalker.Walk(preparedPdf.Pages[0], 1).Images);
         for (var index = 1; index < pdf.PageCount; index++)
         {
             AssertPageMillimetres(pdf.Pages[index], 450, 210, 440, 200);

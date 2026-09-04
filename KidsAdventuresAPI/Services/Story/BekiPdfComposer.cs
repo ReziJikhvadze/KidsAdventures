@@ -890,7 +890,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             .WithMetadata(new DocumentMetadata { Title = title, Language = PdfReaderBoxes.DocumentLanguage })
             .GeneratePdf();
 
-        return new BekiComposedBook(pdf, receipts.Build());
+        return new BekiComposedBook(BekiVectorLogo.Apply(pdf, _assets.CoverLogoBytes()), receipts.Build());
     }
 
     public BekiComposedBook ComposeCanonicalWithReceipts(
@@ -946,7 +946,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         }).GeneratePdf();
 
         return new BekiComposedBook(
-            PdfPrintBoxes.ApplyCanonical(pdf, _layout.BleedMm),
+            PdfPrintBoxes.ApplyCanonical(BekiVectorLogo.Apply(pdf, _assets.CoverLogoBytes()), _layout.BleedMm),
             receipts.Build());
     }
 
@@ -958,7 +958,6 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     {
         var titleWidthPt = MmToPt(BekiCoverDieline.TitleSafeWidthMm);
         var titleSize = _layout.StoryFontSize * 2f;
-        var logo = VectorLogoSvg(_assets.CoverLogoBytes());
 
         document.Page(page =>
         {
@@ -985,14 +984,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                         TextColor, OutlineColor, titleWidthPt,
                         PdfFontBootstrap.TitleFamily, centred: true));
 
-                layers.Layer()
-                    .PaddingLeft(BekiCoverDieline.LogoLeftMm, Unit.Millimetre)
-                    .PaddingTop(BekiCoverDieline.LogoTopMm, Unit.Millimetre)
-                    .AlignLeft()
-                    .AlignTop()
-                    .Width(BekiCoverDieline.LogoWidthMm, Unit.Millimetre)
-                    .Svg(logo)
-                    .FitWidth();
+                // The approved logo is appended as exact native paths and axial shading after
+                // QuestPDF finishes, avoiding its SVG gradient rasterization.
             });
         });
 
@@ -1783,81 +1776,6 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         || value.Contains("}}", StringComparison.Ordinal)
         || value.Contains('{')
         || value.Contains('}');
-
-    /// <summary>
-    /// QuestPDF rasterizes an SVG linear-gradient fill even though the surrounding logo paths stay
-    /// vector. The locked mark has one narrow cream-to-yellow gradient, so expand that fill into
-    /// clipped, sub-point solid vector bands at composition time. The approved source bytes remain
-    /// untouched and hash-verified by <see cref="BekiLayoutAssets"/>; only their PDF representation
-    /// changes, preserving the official geometry and endpoint colours without adding a logo raster.
-    /// </summary>
-    private static string VectorLogoSvg(byte[] approvedSvg)
-    {
-        var source = Encoding.UTF8.GetString(approvedSvg);
-        const string firstPath = "<path d=\"";
-        var pathStart = source.IndexOf(firstPath, StringComparison.Ordinal);
-        var dataStart = pathStart + firstPath.Length;
-        var dataEnd = source.IndexOf("\" style=\"fill:url(#_Linear1);\"/>", dataStart, StringComparison.Ordinal);
-        if (pathStart < 0 || dataEnd < 0)
-        {
-            throw new BekiLayoutException(
-                CompositeFailureCodes.LayoutFailed,
-                "The approved HiResLight.svg no longer has its locked gradient path shape.");
-        }
-
-        var elementEnd = dataEnd + "\" style=\"fill:url(#_Linear1);\"/>".Length;
-        var pathData = source[dataStart..dataEnd];
-
-        var replacement = new StringBuilder();
-        replacement.Append("<defs><clipPath id=\"_BekiVectorGradientClip\"><path d=\"")
-            .Append(pathData)
-            .Append("\"/></clipPath></defs><g clip-path=\"url(#_BekiVectorGradientClip)\">");
-
-        // The supplied gradient transform changes from #FABB01 to #FBF7EE over y≈751..788 in the
-        // 2000-unit viewBox. Ninety-six bands make each step under 0.008 mm at the 36 mm placement.
-        const double top = 750.5;
-        const double bottom = 788.5;
-        const int bands = 96;
-        replacement.Append("<rect x=\"0\" y=\"0\" width=\"2000\" height=\"")
-            .Append(top.ToString(System.Globalization.CultureInfo.InvariantCulture))
-            .Append("\" fill=\"#fabb01\"/>");
-
-        for (var index = 0; index < bands; index++)
-        {
-            var y = top + ((bottom - top) * index / bands);
-            var next = top + ((bottom - top) * (index + 1) / bands);
-            var t = (double)index / (bands - 1);
-            var r = (int)Math.Round(250 + ((251 - 250) * t));
-            var g = (int)Math.Round(187 + ((247 - 187) * t));
-            var b = (int)Math.Round(1 + ((238 - 1) * t));
-            replacement.Append("<rect x=\"0\" y=\"")
-                .Append(y.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))
-                .Append("\" width=\"2000\" height=\"")
-                .Append((next - y + 0.01).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))
-                .Append("\" fill=\"#")
-                .Append(r.ToString("x2")).Append(g.ToString("x2")).Append(b.ToString("x2"))
-                .Append("\"/>");
-        }
-
-        replacement.Append("<rect x=\"0\" y=\"")
-            .Append(bottom.ToString(System.Globalization.CultureInfo.InvariantCulture))
-            .Append("\" width=\"2000\" height=\"")
-            .Append((2000d - bottom).ToString(System.Globalization.CultureInfo.InvariantCulture))
-            .Append("\" fill=\"#fbf7ee\"/></g>");
-
-        var vector = source[..pathStart] + replacement + source[elementEnd..];
-        var gradientDefsStart = vector.IndexOf("<defs><linearGradient id=\"_Linear1\"", StringComparison.Ordinal);
-        if (gradientDefsStart >= 0)
-        {
-            var gradientDefsEnd = vector.IndexOf("</defs>", gradientDefsStart, StringComparison.Ordinal);
-            if (gradientDefsEnd >= 0)
-            {
-                vector = vector.Remove(gradientDefsStart, gradientDefsEnd + "</defs>".Length - gradientDefsStart);
-            }
-        }
-
-        return vector;
-    }
 
     // ==============================================================================================
     // Story spreads

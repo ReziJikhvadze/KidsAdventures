@@ -9,6 +9,7 @@ using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
 using AdventurePacks.Api.Services.Pdf;
 using AdventurePacks.Api.Services.Story.Composite;
+using AdventurePacks.Api.Services.Story.Composite.Poses;
 using Hangfire;
 
 namespace AdventurePacks.Api.Services.Story;
@@ -1849,16 +1850,17 @@ public sealed class BekiPackFulfillment(
               already stored either way, so the losing side of this race costs nobody a book: it
               costs a status, and the sweep's is the one with a reason attached.
             */
-            /*
-              The download column is where the customer-file gate lands.
+            // One canonical artifact means one release decision: both customer and print gates
+            // must allow it, and an absent/held PDF cannot produce a Completed book.
+            var publishablePdfUrl = release is null
+                || (release.CustomerPdfMayPublish && release.PressFilesMayPublish) ? pdfUrl : null;
 
-              Null is not "no book": the pack completes, the reader serves the spreads, and the
-              parent's library card is there. It is the downloadable PDF that waits — for a human's
-              signature on the rendered contact sheet, or for whichever digital gate is still
-              refusing. The file itself is already in storage under its own name, so publishing it
-              later is one column write and not a re-run.
-            */
-            var publishablePdfUrl = release is null || release.CustomerPdfMayPublish ? pdfUrl : null;
+            if (string.IsNullOrWhiteSpace(publishablePdfUrl))
+            {
+                throw new BekiLayoutException(
+                    CompositeFailureCodes.PrintPreflightFailed,
+                    "The canonical PDF is withheld; the book cannot be marked Completed.");
+            }
 
             var completed = await packRepository.TryUpdateStatusAsync(
                 packId,
@@ -2668,17 +2670,9 @@ public sealed class BekiPackFulfillment(
     private sealed record BekiRenderInputs(byte[]? Canonical);
 
     /// <summary>
-    /// The printer's two files, with the resolution truth attached (D5c, audit P0-04/P1-01).
-    ///
-    /// The art is offered to the configured super-resolver first, and the receipt records what
-    /// actually happened rather than what was wanted: a deployment with no upscaler — the shipped
-    /// default — sends the raw art through with a receipt that says so, and print prep refuses the
-    /// file on PRESS_RESOLUTION. That refusal is the correct outcome and the audit's own ruling:
-    /// 2528×1180 art Lanczos-stretched to 5315×2480 measures 300 PPI and carries 143 PPI of detail,
-    /// and passing it was the defect.
-    ///
-    /// A refusal here withholds press files and nothing else. The parent's book has already shipped
-    /// by the time this runs, which is the reason the order was changed.
+    /// The single canonical PDF, with native-detail and exact-Beki provenance. Backgrounds are
+    /// enlarged before the approved poses are reapplied. A missing upscaler, failing preflight,
+    /// or storage mismatch stops the whole release; no alternate reader PDF is published.
     /// </summary>
     private async Task PreparePressAsync(
         Domain.Entities.AdventurePack pack,
@@ -2691,10 +2685,24 @@ public sealed class BekiPackFulfillment(
         CancellationToken cancellationToken)
     {
         var options = bekiOptions.Value.PrintPrep;
-        var rasters = new List<(byte[] Png, int Width, int Height)>(spreads.Count + 1);
-        rasters.AddRange(spreads.Select(
-            spread => (spread.Image, InteriorPressWidthPx, InteriorPressHeightPx)));
-        rasters.Add((wrapComposite, CoverPressWidthPx, CoverPressHeightPx));
+        // Only the child/world base can enter a detail-producing (possibly AI) upscaler.
+        // The approved Beki layer is re-applied afterwards from its hash-verified asset.
+        var bases = new List<(byte[] Png, BekiCompositionManifest Manifest)>(spreads.Count + 1);
+        foreach (var spread in spreads)
+        {
+            bases.Add(await ReadPressBaseAsync(
+                BekiPackBlobs.SpreadBaseName(pack.UserId, pack.Id, spread.SpreadNumber),
+                BekiPackBlobs.CompositionManifestName(pack.UserId, pack.Id, spread.SpreadNumber),
+                spread.Image, cancellationToken));
+        }
+        bases.Add(await ReadPressBaseAsync(
+            BekiPackBlobs.CoverWrapBaseName(pack.UserId, pack.Id),
+            BekiPackBlobs.CoverCompositionName(pack.UserId, pack.Id),
+            wrapComposite, cancellationToken));
+        var rasters = bases.Select((source, index) => (
+            source.Png,
+            index == spreads.Count ? CoverPressWidthPx : InteriorPressWidthPx,
+            index == spreads.Count ? CoverPressHeightPx : InteriorPressHeightPx)).ToList();
 
         var upscales = await UpscaleAllAsync(rasters, cancellationToken);
         var pressArt = new List<BekiSpreadArtwork>(spreads.Count);
@@ -2704,10 +2712,6 @@ public sealed class BekiPackFulfillment(
         {
             var spread = spreads[index];
             var upscale = upscales[index];
-
-            pressArt.Add(upscale is { Succeeded: true, Png: { Length: > 0 } enlarged }
-                ? new BekiSpreadArtwork(spread.SpreadNumber, enlarged)
-                : spread);
 
             sources.Add(upscale.ToReceiptSource($"spread-{spread.SpreadNumber:00}"));
 
@@ -2719,6 +2723,10 @@ public sealed class BekiPackFulfillment(
                     + $"delivered at {InteriorPressWidthPx}×{InteriorPressHeightPx} by an approved "
                     + $"detail-producing upscaler ({upscale.Reason ?? "no reason returned"}).");
             }
+            var recomposited = await StorePressCompositeAsync(
+                pack, $"spread-{spread.SpreadNumber:00}", upscale.Png!, bases[index].Manifest,
+                cancellationToken);
+            pressArt.Add(new BekiSpreadArtwork(spread.SpreadNumber, recomposited));
         }
 
         var coverUpscale = upscales[^1];
@@ -2731,7 +2739,8 @@ public sealed class BekiPackFulfillment(
                 + $"upscaler ({coverUpscale.Reason ?? "no reason returned"}).");
         }
 
-        var coverArt = coverUpscale.Png!;
+        var coverArt = await StorePressCompositeAsync(
+            pack, "cover-wrap", coverUpscale.Png!, bases[^1].Manifest, cancellationToken);
         sources.Add(coverUpscale.ToReceiptSource("cover-wrap"));
 
         var canonical = composer.ComposeCanonicalWithReceipts(
@@ -2761,6 +2770,23 @@ public sealed class BekiPackFulfillment(
         work.InteriorUrl = await blobStorage.UploadAsync(
             BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id),
             prepared, "application/pdf", cancellationToken);
+        var storedPdf = await ReadRequiredBlobAsync(
+            BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id), cancellationToken);
+        if (!storedPdf.AsSpan().SequenceEqual(prepared))
+        {
+            throw new BekiLayoutException(CompositeFailureCodes.PrintPreflightFailed,
+                "CANONICAL_STORAGE: stored PDF bytes differ from the preflighted artifact.");
+        }
+        await blobStorage.UploadAsync(
+            $"{pack.UserId}/{pack.Id}/canonical-integrity.json",
+            JsonSerializer.SerializeToUtf8Bytes(new
+            {
+                sha256 = BekiCompositeEngine.Sha256Hex(storedPdf),
+                byte_length = storedPdf.Length,
+                blob = BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id),
+                consumers = new[] { "reader", "download", "admin", "print" },
+                storage_readback_verified = true,
+            }), "application/json", cancellationToken);
         work.CoverUrl = work.InteriorUrl;
         work.PreparedInterior = prepared;
         work.PreparedCover = prepared;
@@ -2784,6 +2810,46 @@ public sealed class BekiPackFulfillment(
         await StoreFixedPageQaAsync(pack, canonical.Receipts, assetLockHashes, cancellationToken);
 
         await WritePressStatusAsync(pack, work, cancellationToken);
+    }
+
+    private async Task<byte[]> ReadRequiredBlobAsync(string name, CancellationToken cancellationToken)
+    {
+        await using var stream = await blobStorage.DownloadAsync(name, cancellationToken);
+        using var buffer = new MemoryStream();
+        await stream.CopyToAsync(buffer, cancellationToken);
+        return buffer.ToArray();
+    }
+
+    private async Task<(byte[] Png, BekiCompositionManifest Manifest)> ReadPressBaseAsync(
+        string baseName, string receiptName, byte[] composite, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var png = await ReadRequiredBlobAsync(baseName, cancellationToken);
+            var receipt = JsonSerializer.Deserialize<BekiCompositionManifest>(
+                await ReadRequiredBlobAsync(receiptName, cancellationToken))
+                ?? throw new InvalidOperationException("The source composition receipt is empty.");
+            BekiPressComposite.ValidateSource(png, composite, receipt);
+            return (png, receipt);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not BekiLayoutException)
+        {
+            throw new BekiLayoutException(CompositeFailureCodes.PrintPreflightFailed,
+                $"EXACT_BEKI: cannot verify the stored background and receipt ({ex.Message}).");
+        }
+    }
+
+    private async Task<byte[]> StorePressCompositeAsync(
+        Domain.Entities.AdventurePack pack, string role, byte[] enlargedBase,
+        BekiCompositionManifest receipt, CancellationToken cancellationToken)
+    {
+        var prefix = $"{pack.UserId}/{pack.Id}/print/{role}";
+        var result = BekiPressComposite.Compose(enlargedBase, receipt, prefix);
+        await blobStorage.UploadAsync(prefix + "-base.png", enlargedBase, "image/png", cancellationToken);
+        await blobStorage.UploadAsync(prefix + "-composite.png", result.Png, "image/png", cancellationToken);
+        await blobStorage.UploadAsync(prefix + "-composition.json",
+            System.Text.Encoding.UTF8.GetBytes(result.Manifest.ToJson()), "application/json", cancellationToken);
+        return result.Png;
     }
 
     /// <summary>

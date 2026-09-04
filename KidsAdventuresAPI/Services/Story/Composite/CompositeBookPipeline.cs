@@ -1048,6 +1048,18 @@ public sealed class CompositeBookPipeline(
             }
         }
 
+        // September 4 overrides the former ship-with-notes policy. This also guards adopted
+        // previews and name-repair results before scenario, portrait or illustration calls.
+        var structuralProblems = CompositePlanRules.Problems(plan, BookFormat.SpreadCount, input.AgeBand)
+            .Concat(StoryBoundary.From(plan).Problems).ToList();
+        if (structuralProblems.Count > 0)
+        {
+            throw new CompositePipelineException(
+                CompositeFailureCodes.StoryFailed,
+                "The composite story failed structural validation before illustration: "
+                + string.Join("; ", structuralProblems));
+        }
+
         var boundaryResult = StoryBoundary.From(plan);
         if (!boundaryResult.IsValid)
         {
@@ -1057,6 +1069,7 @@ public sealed class CompositeBookPipeline(
         }
 
         var boundary = boundaryResult.Boundary!;
+        logger.LogInformation("Composite story final validation {JobId}: accepted", context.JobId);
 
         /*
           The deterministic Georgian read, on the copy that will actually be printed.
@@ -1916,25 +1929,9 @@ public sealed class CompositeBookPipeline(
     }
 
     /// <summary>
-    /// The story, and the one thing about it this pipeline checks before a single image is bought:
-    /// that the book spells the child's name the way the parent typed it.
-    ///
-    /// **The observed defect, 2026-09-01.** A live run for a child called ვეკო came back titled
-    /// „ველო და მოციმციმე ტყე“ — one Georgian letter, კ for ლ, in the child's own name, in the
-    /// title. Nothing validated it. The title is canonical: it goes onto the cover, into the pack
-    /// row and into the PDF's metadata, so a family paying to have their child in a book would have
-    /// opened it to somebody else's name.
-    ///
-    /// This path had no plan validation at all. The preview's planner has had a
-    /// one-retry-with-problems ladder since the composite prompt existed, and the fulfilment job's
-    /// own planning call — the one that runs when there is no previewed story to adopt — went
-    /// straight from the model to the boundary. So the ladder is here now, holding one rule: the
-    /// name. Not the whole plan validator, deliberately — the spread count and the cast are already
-    /// answered by <see cref="StoryBoundary"/> immediately below, and widening this seam is a
-    /// separate decision about what a fulfilment run is allowed to reject.
-    ///
-    /// One retry, then the release policy, and see <see cref="SettleNameFidelityAsync"/> for what
-    /// each answer means.
+    /// Writes and structurally validates the story before any visual call. One corrective retry
+    /// uses the same frozen planner; structural defects then fail closed. The existing name repair
+    /// remains separate from these non-waivable count, content, cast and layout-length checks.
     /// </summary>
     private async Task<MasterStory> WriteStoryAsync(
         CompositeBookContext context, NormalizedBookInput input, CancellationToken cancellationToken)
@@ -1946,7 +1943,10 @@ public sealed class CompositeBookPipeline(
             await PlanStoryAsync(context, storyInput, [], attempt: 0, cancellationToken),
             input.ChildName);
 
-        var problems = GeorgianNameFidelity.Inspect(plan, input.ChildName);
+        var problems = GeorgianNameFidelity.Inspect(plan, input.ChildName)
+            .Select(problem => problem.ToString())
+            .Concat(CompositePlanRules.Problems(plan, BookFormat.SpreadCount, input.AgeBand))
+            .Concat(StoryBoundary.From(plan).Problems).ToList();
 
         if (problems.Count == 0)
         {
@@ -1954,8 +1954,8 @@ public sealed class CompositeBookPipeline(
         }
 
         logger.LogWarning(
-            "Composite pipeline {JobId}: the story the planner wrote does not spell "
-            + "\"{ChildName}\" the way the parent typed it — {Problems}. Asking again, once, with "
+            "Composite pipeline {JobId}: the story for {ChildName} failed validation — "
+            + "{Problems}. Asking again, once, with "
             + "the correction; nothing has been drawn yet, so this costs one text call.",
             context.JobId, input.ChildName,
             string.Join(" | ", problems.Select(problem => problem.ToString())));
@@ -1967,6 +1967,16 @@ public sealed class CompositeBookPipeline(
                 problems.Select(problem => problem.ToString()).ToList(),
                 attempt: 1, cancellationToken),
             input.ChildName);
+
+        var structuralProblems = CompositePlanRules.Problems(plan, BookFormat.SpreadCount, input.AgeBand)
+            .Concat(StoryBoundary.From(plan).Problems).ToList();
+        if (structuralProblems.Count > 0)
+        {
+            throw new CompositePipelineException(
+                CompositeFailureCodes.StoryFailed,
+                "The composite story is still structurally invalid after one retry: "
+                + string.Join("; ", structuralProblems));
+        }
 
         var stillWrong = GeorgianNameFidelity.Inspect(plan, input.ChildName);
 
@@ -1994,7 +2004,8 @@ public sealed class CompositeBookPipeline(
 
         try
         {
-            var result = await masterStory.WriteCompositePlanAsync(input, problems, cancellationToken);
+            var result = await CompositeStoryProvenance.WriteAsync(masterStory, logger,
+                context.JobId.ToString(), input, problems, attempt, cancellationToken);
 
             started.Stop();
             var completedAt = DateTimeOffset.UtcNow;
@@ -2002,14 +2013,14 @@ public sealed class CompositeBookPipeline(
                 result.SystemPrompt + "\n---\n" + result.UserPrompt))).ToLowerInvariant();
             LogModelCall(
                 context, "story", result.Model, MasterStoryPromptComposite.Version,
-                started.ElapsedMilliseconds, retryCount: attempt, validation: "accepted");
+                started.ElapsedMilliseconds, retryCount: attempt, validation: "received-pending-validation");
             logger.LogInformation(
                 "Composite story provenance {JobId}: providerModel={ProviderModel} "
                 + "promptVersion={PromptVersion} promptSha256={PromptSha256} "
                 + "schemaVersion={SchemaVersion} startedAtUtc={StartedAtUtc:o} "
                 + "completedAtUtc={CompletedAtUtc:o} retry={Retry} finalOutcome={FinalOutcome}",
                 context.JobId, result.Model, MasterStoryPromptComposite.Version, promptHash,
-                CompositeStorySchema.Version, startedAt, completedAt, attempt, "accepted");
+                CompositeStorySchema.Version, startedAt, completedAt, attempt, "received-pending-validation");
 
             return result.Story;
         }

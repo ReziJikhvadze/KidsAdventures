@@ -594,7 +594,11 @@ public class CompositePipelineTests : CompositePipelineTestBase
         var images = new StubImageService();
         var generator = Generator(images, spy, compositeEnabled: false);
 
-        var plan = Plan();
+        // This characterization deliberately exercises the legacy, non-reference image door.
+        var plan = Plan() with
+        {
+            Spreads = Plan().Spreads.Select(s => s with { Characters = ["child"] }).ToList(),
+        };
 
         var cover = await generator.DrawCoverAsync(
             plan, Photo(), "image/png", CancellationToken.None, Context());

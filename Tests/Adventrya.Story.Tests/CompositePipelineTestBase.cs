@@ -387,9 +387,7 @@ public abstract class CompositePipelineTestBase
                 Title = string.Empty,
                 Caption = string.Empty,
                 Text = page.GetProperty("story_text").GetString()!,
-                // No Beki in the cast: on the legacy path that is what keeps the characterization
-                // test off the master-reference branch, which is a different rule under test.
-                Characters = ["child"],
+                Characters = ["child", "beki"],
                 Objects = [],
                 Illustration = new IllustrationBrief { Scene = "The child in the valley." },
             })

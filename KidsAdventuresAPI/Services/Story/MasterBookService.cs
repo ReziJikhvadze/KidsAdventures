@@ -363,8 +363,8 @@ public sealed class MasterBookService(
 
             var result = compositeStoryInput is null
                 ? await masterStoryService.WriteAsync(storyInput, jobToken)
-                : await masterStoryService.WriteCompositePlanAsync(
-                    compositeStoryInput, [], jobToken);
+                : await CompositeStoryProvenance.WriteAsync(masterStoryService, logger,
+                    runId.ToString(), compositeStoryInput, [], 0, jobToken);
 
             logger.LogInformation(
                 compositeStoryInput is not null
@@ -386,7 +386,7 @@ public sealed class MasterBookService(
             //
             // The gate is the printing book format, not a version equality: every version that
             // writes a cast list and per-spread placement is validated the same way.
-            if (BookFormat.IsPrintPlan(masterStoryService.PromptVersion))
+            if (compositeStoryInput is not null || BookFormat.IsPrintPlan(masterStoryService.PromptVersion))
             {
                 result = RestoreChildName(result, storyInput.ChildName, runId);
 
@@ -404,8 +404,8 @@ public sealed class MasterBookService(
                     var retried = compositeStoryInput is null
                         ? await masterStoryService.RetryPlanWithCorrectionsAsync(
                             storyInput, problems, jobToken)
-                        : await masterStoryService.WriteCompositePlanAsync(
-                            compositeStoryInput, problems, jobToken);
+                        : await CompositeStoryProvenance.WriteAsync(masterStoryService, logger,
+                            runId.ToString(), compositeStoryInput, problems, 1, jobToken);
 
                     // Both attempts were paid for; the run's token accounting AND its stored
                     // prompts report both, not just the attempt that happened to survive. The
@@ -426,20 +426,10 @@ public sealed class MasterBookService(
                         result.Story, storyInput, compositeStoryInput is not null);
                     if (stillWrong.Count > 0)
                     {
-                        /*
-                          Owner ruling 2026-09-02: every preview and every book is generated; a
-                          problem becomes a note for the operator, never a dead end for the parent.
-                          This used to throw here, and a family watching the loader got a generic
-                          apology after two paid story calls. The plan ships as the better of the
-                          two attempts, and the fulfilment job's own checks raise the alarms the
-                          console shows. The one thing that must be right — the child's name — was
-                          restored deterministically above and is never among these notes.
-
-                          The single exception is shape. A plan with the wrong number of spreads is
-                          not a book with a note in it; nothing downstream can lay it out, and
-                          shipping it would move the failure to the paid job. That one still stops.
-                        */
-                        if (result.Story.Spreads.Count != storyInput.SpreadCount)
+                        // September 4 makes structural rejection mandatory for the composite
+                        // product. Only legacy, non-composite books retain the older notes policy.
+                        if (compositeStoryInput is not null
+                            || result.Story.Spreads.Count != storyInput.SpreadCount)
                         {
                             throw new InvalidOperationException(
                                 $"The Beki plan for run {runId} is still invalid after a retry: "
@@ -453,6 +443,9 @@ public sealed class MasterBookService(
                     }
                 }
             }
+
+            if (compositeStoryInput is not null)
+                logger.LogInformation("Composite story final validation {JobId}: accepted", runId);
 
             // Saved again now that `result` is final, because the prompts stored before the call
             // are only the first half of what was actually asked. A version that writes in two

@@ -254,6 +254,9 @@ public sealed class AdventurePacksController(
         // our own row now — which also stops nine illustration prompts being published to anyone
         // who asks for a preview.
         dto.Title = content.Title;
+        dto.WorldId = AdventurePacks.Api.Domain.WorldThemes.TryGetTheme(run.Theme, out var previewTheme)
+            ? AdventurePacks.Api.Domain.WorldThemes.WorldIdFor(previewTheme)
+            : null;
         dto.ChildName = content.ChildName;
         dto.FirstPageTitle = content.StoryPages.FirstOrDefault()?.Title;
         dto.FirstPageText = content.StoryPages.Skip(1).FirstOrDefault()?.Content;

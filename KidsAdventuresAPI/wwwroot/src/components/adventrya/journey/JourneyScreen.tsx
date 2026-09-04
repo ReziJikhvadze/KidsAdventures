@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AppHeader } from "@/components/adventrya/AppHeader";
 import { AuthStage } from "@/components/adventrya/journey/AuthStage";
@@ -12,14 +12,9 @@ import { getToken, resolveApiUrl } from "@/lib/api/client";
 import type { CharacterGender, CharacterType, EyeColor } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useT } from "@/lib/i18n";
-import {
-  emptyCharacter,
-  useJourneyDraft,
-  type DraftCharacter,
-  type PreviewTeaser,
-} from "@/lib/journey/draft";
+import { useJourneyDraft, type DraftCharacter } from "@/lib/journey/draft";
 import { readJourneyResume } from "@/lib/journey/resume";
-import { isWorldId } from "@/lib/worlds";
+import { readyPreviewPatch } from "@/lib/journey/previewRecovery";
 import {
   STAGE_PROGRESS,
   backHrefForStage,
@@ -143,56 +138,54 @@ export function JourneyScreen() {
     child either as the saved character (loaded by the hydration above) or as the run's own
     details with the portrait to be copied from the run at order time.
   */
-  const resumeAttempted = useRef(false);
+  const [resumeError, setResumeError] = useState(false);
+  const [resumeRetry, setResumeRetry] = useState(0);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const resumeStage = stage === "auth" || stage === "checkout" || stage === "preview";
+  const resumePointer =
+    hydrated && resumeStage && !draft.preview && !draft.orderId ? readJourneyResume() : null;
+  const resumeRunId = resumePointer?.runId;
+  const restoringPreview = !!resumeRunId && !resumeError;
   useEffect(() => {
-    if (!hydrated || resumeAttempted.current) return;
-    if (stage !== "auth" && stage !== "checkout" && stage !== "preview") return;
-    if (draft.preview || draft.orderId) return;
+    if (!resumeRunId) return;
     const resume = readJourneyResume();
     if (!resume) return;
-    resumeAttempted.current = true;
+    setResumeError(false);
 
     let cancelled = false;
     void (async () => {
       try {
         const status = await getGuestPreviewStatus(resume.runId);
-        if (cancelled || status.status !== "Ready") return;
-        const teaser: PreviewTeaser = {
-          guestPreviewId: status.runId,
-          storyId: status.runId,
-          title: status.title || "",
-          firstPageTitle: status.firstPageTitle || "",
-          firstPageText: status.firstPageText || "",
-          coverImageDataUrl: status.coverImageUrl ? resolveApiUrl(status.coverImageUrl) : "",
-          pageCount: status.pageCount,
-        };
-        const child: DraftCharacter = resume.characterId
-          ? { ...emptyCharacter(true), serverId: resume.characterId }
-          : {
-              ...emptyCharacter(true),
-              name: status.childName ?? "",
-              birthDate: status.birthDate ?? "",
-              gender: (status.gender as CharacterGender | null) ?? null,
-              eyeColor: (status.eyeColor as EyeColor | null) ?? null,
-              photoReady: status.hasPortrait === true,
-              portraitRunId: status.hasPortrait ? status.runId : undefined,
-            };
+        if (cancelled) return;
+        if (status.status !== "Ready") {
+          setResumeError(true);
+          return;
+        }
+        const restored = readyPreviewPatch(
+          draftRef.current,
+          {
+            ...status,
+            coverImageUrl: status.coverImageUrl ? resolveApiUrl(status.coverImageUrl) : "",
+          },
+          resume,
+        );
         setDraft((prev) => ({
           ...prev,
-          worldId: resume.worldId && isWorldId(resume.worldId) ? resume.worldId : prev.worldId,
+          ...restored,
           bookPackage: resume.bookPackage,
           storyNotes: resume.storyNotes ?? prev.storyNotes,
-          preview: teaser,
-          characters: [child, ...prev.characters.filter((c) => !c.isPrimary)],
         }));
       } catch {
-        /* an expired run is a journey that starts over; nothing to resume */
+        if (!cancelled) setResumeError(true);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [hydrated, stage, draft.preview, draft.orderId, setDraft]);
+    // The run ID, not the current stage: auth -> checkout must not cancel the read and
+    // permanently suppress its retry. StrictMode can safely restart this read-only request.
+  }, [resumeRunId, resumeRetry, setDraft]);
 
   const goAfterProfile = useCallback(() => {
     // The world is chosen before the details now, so this normally goes straight to the preview.
@@ -286,15 +279,40 @@ export function JourneyScreen() {
 
       {header}
 
-      {renderStage(stage, {
-        draft,
-        setDraft,
-        goToStage,
-        goAfterProfile,
-        goAfterPreview,
-        onPaid,
-        t,
-      })}
+      {stage === "checkout" && (!hydrated || isLoading || restoringPreview) ? (
+        <section className="journey-stage" role="status" aria-live="polite">
+          {t.common.states.loading}
+        </section>
+      ) : stage === "checkout" && !draft.preview && !draft.orderId ? (
+        <section className="journey-stage">
+          <p role="alert">{t.common.states.bookFailed}</p>
+          {resumeError ? (
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={() => {
+                setResumeError(false);
+                setResumeRetry((value) => value + 1);
+              }}
+            >
+              {t.journey.preview.tryAgain}
+            </button>
+          ) : null}
+          <button type="button" className="text-back" onClick={() => goToStage("preview")}>
+            {t.common.actions.back}
+          </button>
+        </section>
+      ) : (
+        renderStage(stage, {
+          draft,
+          setDraft,
+          goToStage,
+          goAfterProfile,
+          goAfterPreview,
+          onPaid,
+          t,
+        })
+      )}
     </div>
   );
 }

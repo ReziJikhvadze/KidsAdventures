@@ -186,7 +186,7 @@ export function ReaderScreen() {
       a page showing the parent their finished story. There is nothing to wait on in this
       browser, so this says what is happening and stops.
     */
-    if (pack.downloadHeld) {
+    if (pack.downloadHeld || (pack.generationPipeline === "beki" && !pack.pdfUrl)) {
       setPdfError(t.story.reader.pdf.held);
       return;
     }
@@ -405,6 +405,8 @@ export function ReaderScreen() {
               allow="fullscreen"
             />
           </div>
+        ) : pack && !isIllustrating && !pack.pdfUrl && pack.generationPipeline === "beki" ? (
+          <p role="status">{t.story.reader.pdf.held}</p>
         ) : pack && !isIllustrating && !pack.pdfUrl ? (
           <NewBookCharacterContext.Provider value={pack.primaryCharacterId ?? null}>
             <StorybookVolume
