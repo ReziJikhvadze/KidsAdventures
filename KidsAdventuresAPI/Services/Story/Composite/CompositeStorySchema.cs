@@ -94,6 +94,8 @@ public static class CompositePlanRules
 
 public static class CompositeStorySchema
 {
+    public const string Version = "composite-story-schema-v1";
+
     public const string Name = "composite_book_plan";
 
     public static JsonElement Build(int spreadCount = BookFormat.SpreadCount)

@@ -316,6 +316,24 @@ export async function downloadAdventurePack(
   }
 }
 
+/**
+ * Loads the authenticated canonical PDF for the online reader. The returned object URL represents
+ * the exact response bytes used by the download route; callers must revoke it when replaced.
+ */
+export async function fetchAdventurePackPdfObjectUrl(packId: string): Promise<string> {
+  const token = getToken();
+  const response = await fetch(getDownloadUrl(packId), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!response.ok) {
+    throw new ApiError("PDF ვერ გაიხსნა.", response.status);
+  }
+
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+}
+
 /** Reads ~NN% from server progress messages when present. */
 export function parseProgressPercent(message: string | null | undefined): number | null {
   if (!message) return null;

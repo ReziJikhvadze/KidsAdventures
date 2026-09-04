@@ -7,6 +7,7 @@ import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolum
 import { ApiError } from "@/lib/api/client";
 import {
   downloadAdventurePack,
+  fetchAdventurePackPdfObjectUrl,
   generatePackPdf,
   getAdventurePack,
   markPackRead,
@@ -32,6 +33,7 @@ export function ReaderScreen() {
   // Kept apart from `error`, which replaces the whole book with a message. A PDF that failed
   // is no reason to stop showing the story.
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -67,6 +69,33 @@ export function ReaderScreen() {
       cancelled = true;
     };
   }, [bookId, isAuthenticated, authLoading]);
+
+  useEffect(() => {
+    if (!pack?.pdfUrl || pack.status !== "Completed") return;
+
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    setPdfError(null);
+
+    void fetchAdventurePackPdfObjectUrl(pack.id)
+      .then((url) => {
+        objectUrl = url;
+        if (cancelled) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        setPdfObjectUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setPdfError(t.story.reader.pdf.failed);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setPdfObjectUrl(null);
+    };
+  }, [pack?.id, pack?.pdfUrl, pack?.status]);
 
   // How far the illustrations have got. Only pages meant to carry a picture count: half of a
   // spread book is prose, and counting those would make a finished book look half done.
@@ -368,13 +397,15 @@ export function ReaderScreen() {
             </h2>
             <p>{pack?.progressMessage || t.story.reader.pending.body}</p>
           </div>
-        ) : pack && !isIllustrating ? (
-          /*
-            A real book's illustration is one painting across the open spread, so the reader shows
-            it whole. Here and on the shared-book screen only: the landing hero passes
-            isSpreadBook as well, but its demo art is drawn one portrait per page, and halving
-            those would give a visitor their first look at a book of cropped fragments.
-          */
+        ) : pack && !isIllustrating && pdfObjectUrl ? (
+          <div className="reader-canonical-pdf">
+            <iframe
+              title={title}
+              src={`${pdfObjectUrl}#view=FitH&toolbar=1&navpanes=0`}
+              allow="fullscreen"
+            />
+          </div>
+        ) : pack && !isIllustrating && !pack.pdfUrl ? (
           <NewBookCharacterContext.Provider value={pack.primaryCharacterId ?? null}>
             <StorybookVolume
               className="storybook storybook-full"

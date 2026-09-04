@@ -34,6 +34,36 @@ public static class PdfPrintBoxes
         document.Save(outStream);
         return outStream.ToArray();
     }
+
+    /// <summary>
+    /// Applies the final single-artifact boxes: page 1 is the 512x245 mm cover wrap with all boxes
+    /// equal; pages 2-12 are 450x210 mm interior sheets with a centred 440x200 mm TrimBox.
+    /// </summary>
+    public static byte[] ApplyCanonical(byte[] pdf, float interiorBleedMm)
+    {
+        var bleedPt = interiorBleedMm / 25.4f * 72f;
+        using var stream = new MemoryStream(pdf);
+        using var document = PdfReader.Open(stream, PdfDocumentOpenMode.Modify);
+
+        for (var index = 0; index < document.Pages.Count; index++)
+        {
+            var page = document.Pages[index];
+            var media = page.MediaBox;
+            page.CropBox = media;
+            page.BleedBox = media;
+            page.TrimBox = index == 0
+                ? media
+                : new PdfRectangle(new PdfSharp.Drawing.XRect(
+                    media.X1 + bleedPt,
+                    media.Y1 + bleedPt,
+                    media.Width - (2f * bleedPt),
+                    media.Height - (2f * bleedPt)));
+        }
+
+        using var outStream = new MemoryStream();
+        document.Save(outStream);
+        return outStream.ToArray();
+    }
 }
 
 /// <summary>

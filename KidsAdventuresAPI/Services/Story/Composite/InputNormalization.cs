@@ -85,7 +85,7 @@ internal static class CompositeAssets
     private static readonly string Root =
         Path.Combine(AppContext.BaseDirectory, "Assets", "BekiComposite");
 
-    public static string PipelineConfigPath => Path.Combine(Root, "pipeline_config_v1.json");
+    public static string PipelineConfigPath => Path.Combine(Root, "pipeline_config_v2.json");
 
     public static string ThemeRegistryPath => Path.Combine(Root, "theme_reference_registry_v1.json");
 
@@ -514,7 +514,7 @@ public static class InputNormalization
             .EnumerateArray()
             .Select(group => new AgeBand(
                 group.GetProperty("id").GetString()
-                    ?? throw new InvalidOperationException("An age group in pipeline_config_v1.json has no id."),
+                    ?? throw new InvalidOperationException("An age group in pipeline_config_v2.json has no id."),
                 group.GetProperty("min_age").GetInt32(),
                 group.GetProperty("max_age").ValueKind == JsonValueKind.Null
                     ? null

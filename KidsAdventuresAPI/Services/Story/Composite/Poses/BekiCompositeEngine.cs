@@ -472,7 +472,7 @@ public sealed record BekiCompositeResult(byte[] Png, BekiCompositionManifest Man
 public sealed class BekiCompositeConfig
 {
     /// <summary>Resolved against <see cref="AppContext.BaseDirectory"/>, beside the pose registry.</summary>
-    public const string ConfigAssetPath = "Assets/BekiComposite/pipeline_config_v1.json";
+    public const string ConfigAssetPath = "Assets/BekiComposite/pipeline_config_v2.json";
 
     private readonly IReadOnlyDictionary<BekiTextSide, BekiCompositeAnchor> _storyDefaults;
 

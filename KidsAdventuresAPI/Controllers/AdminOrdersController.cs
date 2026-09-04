@@ -195,26 +195,9 @@ public sealed class AdminOrdersController(
 
         var pack = await packRepository.GetByIdNoOwnershipAsync(detail.Book.Id, cancellationToken);
 
-        // A print order gets the print file. The two are not the same PDF: the print copy carries
-        // the blank leaves saddle-stitch needs, and handing the binder the reading copy produces
-        // a book with its pages in the wrong places. Whichever is asked for, the other is the
-        // fallback — a file an operator can open beats a 409 they cannot act on.
-        var wantsPrint = kind?.Trim().ToLowerInvariant() switch
-        {
-            PrintKind => true,
-            ReadingKind => false,
-            _ => string.Equals(
-                detail.Order.Package, nameof(OrderPackage.Print), StringComparison.OrdinalIgnoreCase),
-        };
-
-        var url = wantsPrint
-            ? pack?.PrintPdfUrl ?? pack?.PdfUrl
-            : pack?.PdfUrl ?? pack?.PrintPdfUrl;
-
-        // The fallback stays, but it stops being silent: a reading copy handed to an operator
-        // who asked for the print file is how the unprepped hybrid reached a printer's reviewer.
-        // The filename now says what the file is, so the substitution travels with the download.
-        var printFallback = wantsPrint && string.IsNullOrWhiteSpace(pack?.PrintPdfUrl);
+        // `kind` remains accepted for backwards-compatible admin links, but both database columns
+        // must point to the same canonical storage object in the final pipeline.
+        var url = pack?.PdfUrl ?? pack?.PrintPdfUrl;
 
         // 409 rather than 404: the book exists and the file does not exist *yet*, which is a
         // different thing to tell an operator — one of them has a button next to it.
@@ -236,9 +219,7 @@ public sealed class AdminOrdersController(
               The READING-COPY-not-print spelling is kept exactly as it was for the fallback,
               because that string is what an operator forwarding to a binder is meant to notice.
             */
-            var name = printFallback
-                ? $"beki-{detail.Book.Id}-READING-COPY-not-print.pdf"
-                : $"beki-{detail.Book.Id}-{(wantsPrint ? PrintKind : ReadingKind)}.pdf";
+            var name = $"beki-{detail.Book.Id}-book.pdf";
 
             return File(bytes, "application/pdf", name);
         }
@@ -703,8 +684,8 @@ public sealed class AdminOrdersController(
     /// on one image.
     /// </summary>
     /// <param name="artifact">
-    /// <c>digital</c>, <c>press</c> or <c>cover</c>. The console's three words for the three
-    /// rendered finals; the storage names are the pipeline's own and are not exposed.
+    /// <c>canonical</c>, or one of the former UI aliases. Every accepted value resolves to the one
+    /// canonical book's contact sheet.
     /// </param>
     [HttpGet("books/{bookId:guid}/contact-sheet")]
     public async Task<IActionResult> BookContactSheet(
@@ -712,9 +693,7 @@ public sealed class AdminOrdersController(
     {
         var name = artifact?.Trim().ToLowerInvariant() switch
         {
-            "digital" => BekiPackBlobs.DigitalRenderArtifact,
-            "press" => BekiPackBlobs.InteriorRenderArtifact,
-            "cover" => BekiPackBlobs.CoverRenderArtifact,
+            "canonical" or "digital" or "press" or "cover" => BekiPackBlobs.CanonicalRenderArtifact,
             _ => null,
         };
 

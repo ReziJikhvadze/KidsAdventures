@@ -66,6 +66,7 @@ public sealed class BekiLayoutAssets
     private readonly string _endpaperDirectory;
     private readonly string _introBackgroundDirectory;
     private readonly string _fontDirectory;
+    private readonly string _logoDirectory;
     private readonly IReadOnlyDictionary<string, BekiLayoutAsset> _introBackgrounds;
     private readonly IReadOnlyDictionary<string, BekiLayoutAsset> _fonts;
 
@@ -76,8 +77,10 @@ public sealed class BekiLayoutAssets
         string endpaperDirectory,
         string introBackgroundDirectory,
         string fontDirectory,
+        string logoDirectory,
         string bekiMarkPoseId,
         BekiLayoutAsset endpaperPattern,
+        BekiLayoutAsset coverLogo,
         IReadOnlyDictionary<string, BekiLayoutAsset> introBackgrounds,
         IReadOnlyDictionary<string, BekiLayoutAsset> fonts,
         IReadOnlyList<string> forbiddenFontFiles)
@@ -88,8 +91,10 @@ public sealed class BekiLayoutAssets
         _endpaperDirectory = endpaperDirectory;
         _introBackgroundDirectory = introBackgroundDirectory;
         _fontDirectory = fontDirectory;
+        _logoDirectory = logoDirectory;
         BekiMarkPoseId = bekiMarkPoseId;
         EndpaperPattern = endpaperPattern;
+        CoverLogo = coverLogo;
         _introBackgrounds = introBackgrounds;
         _fonts = fonts;
         ForbiddenFontFiles = forbiddenFontFiles;
@@ -124,6 +129,9 @@ public sealed class BekiLayoutAssets
 
     /// <summary>The approved endpaper pattern — one file, both endpaper spreads.</summary>
     public BekiLayoutAsset EndpaperPattern { get; }
+
+    /// <summary>The approved unchanged vector logo used on dark cover artwork.</summary>
+    public BekiLayoutAsset CoverLogo { get; }
 
     /// <summary>The canonical theme ids that have an approved intro background, in registry order.</summary>
     public IReadOnlyList<string> CanonicalThemeIds { get; }
@@ -219,6 +227,10 @@ public sealed class BekiLayoutAssets
             throw Failure($"Beki layout asset registry at '{path}' lists no fonts.");
         }
 
+        var logo = document.CoverLogo is { } suppliedLogo
+            ? ToAsset(suppliedLogo.Filename, suppliedLogo.Sha256, "cover logo", path, suppliedLogo.Role)
+            : throw Failure($"Beki layout asset registry at '{path}' has no cover_logo block.");
+
         var fonts = new Dictionary<string, BekiLayoutAsset>(StringComparer.Ordinal);
         foreach (var font in document.Fonts)
         {
@@ -242,8 +254,10 @@ public sealed class BekiLayoutAssets
             Require(document.EndpaperDirectory, path, "endpaper_directory"),
             Require(document.IntroBackgroundDirectory, path, "intro_background_directory"),
             Require(document.FontDirectory, path, "font_directory"),
+            Require(document.LogoDirectory, path, "logo_directory"),
             Require(document.BekiMarkPoseId, path, "beki_mark_pose_id"),
             endpaper,
+            logo,
             introBackgrounds,
             fonts,
             document.ForbiddenFontFiles ?? []);
@@ -251,6 +265,9 @@ public sealed class BekiLayoutAssets
 
     /// <summary>The approved endpaper pattern's bytes, hash-verified on first use.</summary>
     public byte[] EndpaperPatternBytes() => VerifiedAssetBytes(EndpaperPattern, _endpaperDirectory);
+
+    /// <summary>Approved logo SVG bytes, hash-verified before cover composition.</summary>
+    public byte[] CoverLogoBytes() => VerifiedAssetBytes(CoverLogo, _logoDirectory);
 
     /// <summary>
     /// The approved intro background for one canonical theme id.
@@ -347,6 +364,7 @@ public sealed class BekiLayoutAssets
         VerifyFonts();
         _ = EndpaperPatternBytes();
         _ = IntroBackgroundBytes(canonicalThemeId);
+        _ = CoverLogoBytes();
     }
 
     /// <summary>
@@ -359,6 +377,7 @@ public sealed class BekiLayoutAssets
         VerifyFonts();
 
         _ = EndpaperPatternBytes();
+        _ = CoverLogoBytes();
 
         foreach (var themeId in _introBackgrounds.Keys)
         {
@@ -507,12 +526,22 @@ public sealed class BekiLayoutAssets
         [JsonPropertyName("endpaper_directory")] public string? EndpaperDirectory { get; init; }
         [JsonPropertyName("intro_background_directory")] public string? IntroBackgroundDirectory { get; init; }
         [JsonPropertyName("font_directory")] public string? FontDirectory { get; init; }
+        [JsonPropertyName("logo_directory")] public string? LogoDirectory { get; init; }
+        [JsonPropertyName("cover_logo")] public LogoDocument? CoverLogo { get; init; }
         [JsonPropertyName("beki_mark_pose_id")] public string? BekiMarkPoseId { get; init; }
         [JsonPropertyName("fonts")] public List<FontDocument>? Fonts { get; init; }
         [JsonPropertyName("forbidden_font_files")] public List<string>? ForbiddenFontFiles { get; init; }
     }
 
     private sealed record FontDocument
+    {
+        [JsonPropertyName("id")] public string? Id { get; init; }
+        [JsonPropertyName("role")] public string? Role { get; init; }
+        [JsonPropertyName("filename")] public string? Filename { get; init; }
+        [JsonPropertyName("sha256")] public string? Sha256 { get; init; }
+    }
+
+    private sealed record LogoDocument
     {
         [JsonPropertyName("id")] public string? Id { get; init; }
         [JsonPropertyName("role")] public string? Role { get; init; }

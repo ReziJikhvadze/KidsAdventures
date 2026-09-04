@@ -32,8 +32,7 @@ public class BekiPackageExportTests
     public async Task The_package_carries_what_exists_and_names_what_does_not()
     {
         var blobs = new FakeBlobs();
-        blobs.Seed(BekiPackBlobs.InteriorPdfName(UserId, PackId), [1, 2, 3]);
-        blobs.Seed(BekiPackBlobs.InteriorPreflightName(UserId, PackId), "{}"u8.ToArray());
+        blobs.Seed(BekiPackBlobs.CanonicalPreflightName(UserId, PackId), "{}"u8.ToArray());
         blobs.Seed(BekiPackBlobs.ReadingPdfName(UserId, PackId), [4, 5, 6]);
         blobs.Seed(BekiPackBlobs.StoryName(UserId, PackId), """{"title":"x"}"""u8.ToArray());
         blobs.Seed(BekiPackBlobs.ScenarioName(UserId, PackId), "{}"u8.ToArray());
@@ -41,7 +40,7 @@ public class BekiPackageExportTests
         blobs.Seed(BekiPackBlobs.SpreadName(UserId, PackId, 1), [7]);
         blobs.Seed(BekiPackBlobs.SpreadBaseName(UserId, PackId, 1), [8]);
         blobs.Seed(BekiPackBlobs.CompositionManifestName(UserId, PackId, 1), "{}"u8.ToArray());
-        blobs.Seed(BekiPackBlobs.LayoutReceiptName(UserId, PackId, "reading"), "{}"u8.ToArray());
+        blobs.Seed(BekiPackBlobs.LayoutReceiptName(UserId, PackId, "canonical"), "{}"u8.ToArray());
         blobs.Seed(BekiPackBlobs.FixedPageQaName(UserId, PackId, "credits"), "{}"u8.ToArray());
 
         // Stored, and deliberately not packaged: the child's own artifacts.
@@ -53,14 +52,14 @@ public class BekiPackageExportTests
         using var archive = new ZipArchive(new MemoryStream(zip), ZipArchiveMode.Read);
         var paths = archive.Entries.Select(entry => entry.FullName).ToList();
 
-        Assert.Contains("press/interior-preflight.json", paths);
+        Assert.Contains("press/canonical-preflight.json", paths);
         Assert.Contains("plan/story.json", paths);
         Assert.Contains("plan/visual-scenario.json", paths);
         Assert.Contains("lock/asset-lock-manifest.json", paths);
         Assert.Contains("spreads/spread-01.png", paths);
         Assert.Contains("bases/spread-01-base.png", paths);
         Assert.Contains("receipts/spread-01-composition.json", paths);
-        Assert.Contains("receipts/reading-layout.json", paths);
+        Assert.Contains("receipts/canonical-layout.json", paths);
         Assert.Contains("qa/fixed-credits-qa.json", paths);
         Assert.Contains("PACKAGE_CONTENTS.json", paths);
         Assert.Contains("RELEASE_STATUS.json", paths);
@@ -77,11 +76,11 @@ public class BekiPackageExportTests
 
         var contents = await ContentsOf(archive);
 
-        // The listing tells the recipient what was withheld or never produced — the press cover
-        // here — instead of leaving an absence to be misread as an oversight.
+        // The listing tells the recipient what was never produced instead of leaving an absence
+        // to be misread as an oversight.
         var missing = contents.RootElement.GetProperty("missing")
             .EnumerateArray().Select(element => element.GetString()).ToList();
-        Assert.Contains("press/cover-preflight.json", missing);
+        Assert.Contains("press/press-status.json", missing);
         Assert.Contains("cover/cover-wrap-composite.png", missing);
 
         Assert.Equal("beki-package-contents-v2", contents.RootElement.GetProperty("schema").GetString());
@@ -140,9 +139,10 @@ public class BekiPackageExportTests
             ZipArchiveMode.Read);
 
         var releasedPaths = releasedZip.Entries.Select(entry => entry.FullName).ToList();
-        Assert.Contains(BekiPackageExport.PressCoverFileName(PackId), releasedPaths);
-        Assert.Contains(BekiPackageExport.PressInteriorFileName(PackId), releasedPaths);
-        Assert.Contains(BekiPackageExport.DigitalReadingFileName(PackId), releasedPaths);
+        Assert.Contains(BekiPackageExport.CanonicalBookFileName(PackId), releasedPaths);
+        Assert.DoesNotContain(BekiPackageExport.PressCoverFileName(PackId), releasedPaths);
+        Assert.DoesNotContain(BekiPackageExport.PressInteriorFileName(PackId), releasedPaths);
+        Assert.DoesNotContain(BekiPackageExport.DigitalReadingFileName(PackId), releasedPaths);
 
         var refused = new FakeBlobs();
         SeedThreeDeliverables(refused);
@@ -153,15 +153,14 @@ public class BekiPackageExportTests
             ZipArchiveMode.Read);
 
         var refusedPaths = refusedZip.Entries.Select(entry => entry.FullName).ToList();
-        Assert.Contains($"diagnostic/{BekiPackageExport.PressCoverFileName(PackId)}", refusedPaths);
-        Assert.Contains($"diagnostic/{BekiPackageExport.DigitalReadingFileName(PackId)}", refusedPaths);
-        Assert.DoesNotContain(BekiPackageExport.PressCoverFileName(PackId), refusedPaths);
+        Assert.Contains($"diagnostic/{BekiPackageExport.CanonicalBookFileName(PackId)}", refusedPaths);
+        Assert.DoesNotContain(BekiPackageExport.CanonicalBookFileName(PackId), refusedPaths);
 
         var contents = await ContentsOf(refusedZip);
         var entry = contents.RootElement.GetProperty("entries")
             .EnumerateArray()
             .Single(item => item.GetProperty("path").GetString()
-                            == $"diagnostic/{BekiPackageExport.PressCoverFileName(PackId)}");
+                            == $"diagnostic/{BekiPackageExport.CanonicalBookFileName(PackId)}");
 
         Assert.Equal("diagnostic", entry.GetProperty("status").GetString());
     }
@@ -190,14 +189,14 @@ public class BekiPackageExportTests
         var paths = archive.Entries.Select(entry => entry.FullName).ToList();
 
         // The parent has this file. The supplier is not being handed it as a deliverable.
-        Assert.Contains($"diagnostic/{BekiPackageExport.DigitalReadingFileName(PackId)}", paths);
-        Assert.DoesNotContain(BekiPackageExport.DigitalReadingFileName(PackId), paths);
+        Assert.Contains($"diagnostic/{BekiPackageExport.CanonicalBookFileName(PackId)}", paths);
+        Assert.DoesNotContain(BekiPackageExport.CanonicalBookFileName(PackId), paths);
 
         var contents = await ContentsOf(archive);
         var entry = contents.RootElement.GetProperty("entries")
             .EnumerateArray()
             .Single(item => item.GetProperty("path").GetString()
-                            == $"diagnostic/{BekiPackageExport.DigitalReadingFileName(PackId)}");
+                            == $"diagnostic/{BekiPackageExport.CanonicalBookFileName(PackId)}");
 
         Assert.Equal("diagnostic", entry.GetProperty("status").GetString());
 
@@ -366,8 +365,6 @@ public class BekiPackageExportTests
 
     private static void SeedThreeDeliverables(FakeBlobs blobs)
     {
-        blobs.Seed(BekiPackBlobs.CoverPdfName(UserId, PackId), [1]);
-        blobs.Seed(BekiPackBlobs.InteriorPdfName(UserId, PackId), [2]);
         blobs.Seed(BekiPackBlobs.ReadingPdfName(UserId, PackId), [3]);
     }
 

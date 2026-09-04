@@ -225,6 +225,7 @@ public sealed class BekiAssetLock
             Attempt(failures, () => layout.VerifyAll());
 
             AppendEndpaper(layout, entries, failures);
+            AppendLogo(layout, entries, failures);
             AppendIntroBackgrounds(layout, entries, failures);
             AppendFonts(layout, entries, failures);
         }
@@ -303,6 +304,30 @@ public sealed class BekiAssetLock
             layout.EndpaperPatternBytes,
             entries,
             failures);
+
+    private static void AppendLogo(
+        BekiLayoutAssets layout,
+        List<BekiAssetLockEntry> entries,
+        List<string> failures)
+    {
+        try
+        {
+            _ = layout.CoverLogoBytes();
+            entries.Add(new BekiAssetLockEntry
+            {
+                Role = "approved_cover_logo",
+                File = layout.CoverLogo.FileName,
+                Version = layout.RegistryVersion,
+                Sha256 = layout.CoverLogo.Sha256,
+                Usage = layout.CoverLogo.Role,
+                ApprovalStatus = Approved
+            });
+        }
+        catch (BekiLayoutException ex)
+        {
+            failures.Add($"Cover logo '{layout.CoverLogo.FileName}' is not the approved file: {ex.Message}");
+        }
+    }
 
     private static void AppendIntroBackgrounds(
         BekiLayoutAssets layout,

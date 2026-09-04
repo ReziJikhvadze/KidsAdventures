@@ -7,6 +7,12 @@ namespace AdventurePacks.Api.Services.Story;
 public interface IStoryModelClient
 {
     /// <summary>
+    /// Resolves the provider model id that will actually receive a request. The default preserves
+    /// clients whose requested and effective ids are identical; provider routers override it.
+    /// </summary>
+    string EffectiveModel(string requestedModel) => requestedModel;
+
+    /// <summary>
     /// One structured completion, answered against a schema. Returns the parsed value and what
     /// it cost, so analytics can attribute spend to the stage that incurred it.
     /// </summary>
@@ -36,6 +42,8 @@ public sealed class StoryModelClient(
     ILogger<StoryModelClient> logger) : IStoryModelClient
 {
     private readonly OpenAiOptions _options = options.Value;
+
+    public string EffectiveModel(string requestedModel) => requestedModel;
 
     public async Task<ModelResult<T>> CompleteAsync<T>(
         string model,

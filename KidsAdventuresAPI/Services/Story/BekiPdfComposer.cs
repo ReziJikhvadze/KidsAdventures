@@ -19,7 +19,13 @@ namespace AdventurePacks.Api.Services.Story;
 /// <summary>One finished spread: the picture, and the words that go over it.</summary>
 public sealed record BekiSpreadArtwork(int SpreadNumber, byte[] Image);
 
-public sealed record BekiBookPersonalization(string ChildName, int Age, DateTime Date, string Theme, string WorldName);
+public sealed record BekiBookPersonalization(
+    string ChildName,
+    int Age,
+    DateTime Date,
+    string Theme,
+    string WorldName,
+    string? ContinuationUrl = null);
 
 /// <summary>
 /// The translucent panel under one page's copy: where it is, how far it keeps from the fold and the
@@ -226,7 +232,12 @@ public sealed record BekiLayoutReceipts(
     /// <summary>The 1-based page numbers whose type was authored light, for the same probe.</summary>
     [JsonIgnore]
     public IReadOnlyList<int> LightTextPages =>
-        Pages.Where(page => page.Typography.Any(type => IsLight(type.Colour)))
+        // Only plain light type on a flat ground is eligible for the content/pixel colour gate.
+        // Story and cover text deliberately includes dark vector outline runs; classifying the
+        // whole page as light makes those intentional rims indistinguishable from converted-black
+        // glyphs and falsely refuses every outlined page.
+        Pages.Where(page => page.TextProbe is not null
+                            && page.Typography.Any(type => IsLight(type.Colour)))
              .Select(page => page.Page)
              .ToList();
 
@@ -438,6 +449,16 @@ public interface IBekiPdfComposer
         throw new BekiLayoutException(
             CompositeFailureCodes.LayoutFailed,
             "This composer does not produce layout receipts.");
+
+    /// <summary>The one canonical 12-page mixed-size production artifact.</summary>
+    BekiComposedBook ComposeCanonicalWithReceipts(
+        MasterStory plan,
+        byte[] wrapComposite,
+        IReadOnlyList<BekiSpreadArtwork> spreads,
+        BekiBookPersonalization personalization) =>
+        throw new BekiLayoutException(
+            CompositeFailureCodes.LayoutFailed,
+            "This composer does not produce canonical books.");
 
     /// <summary>
     /// The canonical wrap's front board, cropped for a 220 × 200 mm page — the same bytes the
@@ -877,43 +898,121 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         _assets.VerifyFonts();
         PdfFontBootstrap.EnsureRegistered();
 
-        var titleWidthPt = MmToPt(BekiCoverDieline.TitleSafeWidthMm);
-        var titleSize = _layout.StoryFontSize * 2f;
+        var receipts = new ReceiptBook(BekiRenderMode.Press);
+        var pdf = Document.Create(document => ComposeCoverWrapPage(
+                document, title, wrapComposite, receipts))
+            .WithMetadata(new DocumentMetadata { Title = title, Language = PdfReaderBoxes.DocumentLanguage })
+            .GeneratePdf();
+
+        return new BekiComposedBook(pdf, receipts.Build());
+    }
+
+    public BekiComposedBook ComposeCanonicalWithReceipts(
+        MasterStory plan,
+        byte[] wrapComposite,
+        IReadOnlyList<BekiSpreadArtwork> spreads,
+        BekiBookPersonalization personalization)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(wrapComposite);
+        ArgumentNullException.ThrowIfNull(spreads);
+        ArgumentNullException.ThrowIfNull(personalization);
+
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        if (spreads.Count != BookFormat.SpreadCount)
+        {
+            throw new BekiLayoutException(
+                CompositeFailureCodes.LayoutFailed,
+                $"Canonical BEKI PDF requires exactly {BookFormat.SpreadCount} story spreads; got {spreads.Count}.");
+        }
+
+        var themeId = CanonicalThemeId(personalization);
+        _assets.VerifyForBook(themeId);
+        PdfFontBootstrap.EnsureRegistered();
+
+        var receipts = new ReceiptBook(BekiRenderMode.Press);
+        var bySpread = plan.Spreads.ToDictionary(spread => spread.Number);
 
         var pdf = Document.Create(document =>
         {
-            document.Page(page =>
+            ComposeCoverWrapPage(document, plan.Concept.Title, wrapComposite, receipts);
+            ComposeEndpaper(document, rear: false, BekiRenderMode.Press, receipts);
+            ComposeIntro(document, themeId, plan.Concept.Title, personalization, BekiRenderMode.Press, receipts);
+
+            foreach (var artwork in spreads.OrderBy(spread => spread.SpreadNumber))
             {
-                page.Size(new PageSize(
-                    BekiCoverDieline.CanvasWidthMm, BekiCoverDieline.CanvasHeightMm,
-                    Unit.Millimetre));
-                page.Margin(0);
-
-                page.Content().Layers(layers =>
+                if (!bySpread.TryGetValue(artwork.SpreadNumber, out var spread))
                 {
-                    layers.PrimaryLayer().Image(wrapComposite)
-                        .FitUnproportionally().UseOriginalImage();
+                    throw new BekiLayoutException(
+                        CompositeFailureCodes.LayoutFailed,
+                        $"Canonical BEKI PDF has artwork without story text for spread {artwork.SpreadNumber}.");
+                }
 
-                    layers.Layer()
-                        .PaddingLeft(BekiCoverDieline.TitleSafeLeftMm, Unit.Millimetre)
-                        .PaddingTop(BekiCoverDieline.TitleSafeTopMm, Unit.Millimetre)
-                        .AlignLeft()
-                        .AlignTop()
-                        .Width(BekiCoverDieline.TitleSafeWidthMm, Unit.Millimetre)
-                        .Height(BekiCoverDieline.TitleSafeHeightMm, Unit.Millimetre)
-                        .AlignMiddle()
-                        .Element(item => OutlinedText(
-                            item, title, titleSize, 1.25f,
-                            TextColor, OutlineColor, titleWidthPt,
-                            PdfFontBootstrap.TitleFamily, centred: true));
-                });
+                ComposeSpread(document, artwork.Image, spread, personalization, BekiRenderMode.Press, receipts);
+            }
+
+            ComposeCredits(document, personalization, BekiRenderMode.Press, receipts);
+        }).WithMetadata(new DocumentMetadata
+        {
+            Title = plan.Concept.Title,
+            Language = PdfReaderBoxes.DocumentLanguage,
+        }).GeneratePdf();
+
+        return new BekiComposedBook(
+            PdfPrintBoxes.ApplyCanonical(pdf, _layout.BleedMm),
+            receipts.Build());
+    }
+
+    private void ComposeCoverWrapPage(
+        IDocumentContainer document,
+        string title,
+        byte[] wrapComposite,
+        ReceiptBook receipts)
+    {
+        var titleWidthPt = MmToPt(BekiCoverDieline.TitleSafeWidthMm);
+        var titleSize = _layout.StoryFontSize * 2f;
+        var logo = System.Text.Encoding.UTF8.GetString(_assets.CoverLogoBytes());
+
+        document.Page(page =>
+        {
+            page.Size(new PageSize(
+                BekiCoverDieline.CanvasWidthMm, BekiCoverDieline.CanvasHeightMm,
+                Unit.Millimetre));
+            page.Margin(0);
+
+            page.Content().Layers(layers =>
+            {
+                layers.PrimaryLayer().Image(wrapComposite)
+                    .FitUnproportionally().UseOriginalImage();
+
+                layers.Layer()
+                    .PaddingLeft(BekiCoverDieline.TitleSafeLeftMm, Unit.Millimetre)
+                    .PaddingTop(BekiCoverDieline.TitleSafeTopMm, Unit.Millimetre)
+                    .AlignLeft()
+                    .AlignTop()
+                    .Width(BekiCoverDieline.TitleSafeWidthMm, Unit.Millimetre)
+                    .Height(BekiCoverDieline.TitleSafeHeightMm, Unit.Millimetre)
+                    .AlignMiddle()
+                    .Element(item => OutlinedText(
+                        item, title, titleSize, 1.25f,
+                        TextColor, OutlineColor, titleWidthPt,
+                        PdfFontBootstrap.TitleFamily, centred: true));
+
+                layers.Layer()
+                    .PaddingLeft(BekiCoverDieline.LogoLeftMm, Unit.Millimetre)
+                    .PaddingTop(BekiCoverDieline.LogoTopMm, Unit.Millimetre)
+                    .AlignLeft()
+                    .AlignTop()
+                    .Width(BekiCoverDieline.LogoWidthMm, Unit.Millimetre)
+                    .Svg(logo)
+                    .FitWidth();
             });
-        }).WithMetadata(new DocumentMetadata { Title = title }).GeneratePdf();
+        });
 
-        var receipts = new ReceiptBook(BekiRenderMode.Press);
-        receipts.Add("cover-press-wrap", page => new BekiLayoutPageReceipt(
+        receipts.Add("cover-wrap", page => new BekiLayoutPageReceipt(
             page,
-            "cover-press-wrap",
+            "cover-wrap",
             BekiCoverDieline.CanvasWidthMm,
             BekiCoverDieline.CanvasHeightMm,
             0d,
@@ -923,12 +1022,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 "cover-title", PdfFontBootstrap.TitleFamily, titleSize, 1.25d, TextColorHex)],
             WrapLines(title, titleSize, titleWidthPt, PdfFontBootstrap.TitleFamily),
             TextProbe: null,
-            // The wrap arrives composited and is placed as it arrived — this page resizes nothing.
-            // Whether the wrap itself carries the dieline's 6047 × 2894 is the upscaler's receipt to
-            // answer, and it is a separate line in the same preflight.
-            Rasters: [Provenance("cover-press-wrap", wrapComposite, wrapComposite)]));
-
-        return new BekiComposedBook(pdf, receipts.Build());
+            SourceSha256: [_assets.CoverLogo.Sha256],
+            Rasters: [Provenance("cover-wrap", wrapComposite, wrapComposite)]));
     }
 
     // ==============================================================================================
@@ -1018,7 +1113,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 ComposeSpread(document, artwork.Image, spread, personalization, mode, receipts);
             }
 
-            ComposeCredits(document, mode, receipts);
+            ComposeCredits(document, personalization, mode, receipts);
             ComposeEndpaper(document, rear: true, mode, receipts);
 
             if (mode == BekiRenderMode.Reading)
@@ -1594,12 +1689,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     }
 
     /// <summary>
-    /// The credits spread — spec v2's replacement for the standalone closing leaf: the left
-    /// half deliberately blank, the right half carrying the Beki mark, the sign-off line, the
-    /// rate-us QR and the credits line, all reusable across every order. One combined
-    /// credits-and-review page, exactly one — the deprecated P18 must not come back beside it.
-    /// The blank-URL-drops-the-QR stance is inherited unchanged: a code that scans to nothing
-    /// is worse than no code.
+    /// The final credits spread: five exact personalized lines on the dark left leaf and the
+    /// approved endpaper pattern on the right. It intentionally carries no QR or review CTA.
     ///
     /// **The one page whose light type stands on a flat ground, and the one that nearly lost it.**
     /// Every other page sets cream over artwork with a dark rim under it; this one sets plain cream
@@ -1616,60 +1707,57 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// in it that was never short of pixels.
     /// </summary>
     private void ComposeCredits(
-        IDocumentContainer container, BekiRenderMode mode, ReceiptBook receipts)
+        IDocumentContainer container,
+        BekiBookPersonalization? personalization,
+        BekiRenderMode mode,
+        ReceiptBook receipts)
     {
-        var mark = BekiMark();
-        var endingSize = _layout.StoryFontSize * 1.05f;
-        var captionSize = _layout.StoryFontSize * 0.7f;
+        if (personalization is null)
+        {
+            throw new BekiLayoutException(
+                CompositeFailureCodes.LayoutFailed,
+                "The final credits spread needs the book personalization.");
+        }
+
+        var pattern = EndpaperArtwork(mode);
         var creditsSize = _layout.StoryFontSize * 0.85f;
-        var hasQr = !string.IsNullOrWhiteSpace(_layout.ReviewQrUrl);
+        var lines = new[]
+        {
+            $"{personalization.ChildName}-სთვის შექმნილი წიგნი",
+            $"ისტორია და სამყარო: {personalization.WorldName}",
+            $"მთავარი გმირი: {personalization.ChildName}",
+            "გზამკვლევი: ბეკი",
+            _layout.CreditsLine,
+        };
 
         container.Page(page =>
         {
             ApplyGeometry(page, _layout.SpreadWidthMm, mode);
 
-            page.Content().Padding(Bleed(mode), Unit.Millimetre).Row(row =>
+            page.Content().Layers(layers =>
             {
-                row.RelativeItem().Background(PageInk);
+                layers.PrimaryLayer().Image(pattern.Bytes)
+                    .FitUnproportionally().UseOriginalImage();
 
-                row.RelativeItem().Element(right =>
+                layers.Layer().Row(row =>
                 {
-                    right.Background(PageInk)
-                         .Padding(_layout.SafeMarginMm, Unit.Millimetre)
-                         .AlignMiddle()
-                         .Column(column =>
-                         {
-                             column.Spacing(14);
-
-                             column.Item().AlignCenter().Width(CreditsMarkWidthMm, Unit.Millimetre)
-                                 .Image(mark).FitWidth().UseOriginalImage();
-
-                             column.Item().AlignCenter().Text(_layout.EndingLine)
-                                 .FontFamily(PdfFontBootstrap.BodyFamily)
-                                 .FontSize(endingSize)
-                                 .LineHeight(1.5f)
-                                 .FontColor(TextColor);
-
-                             if (hasQr)
-                             {
-                                 column.Item().AlignCenter()
-                                     .Width(46, Unit.Millimetre)
-                                     .Background(Colors.White)
-                                     .Padding(4, Unit.Millimetre)
-                                     .Svg(QrSvg(_layout.ReviewQrUrl))
-                                     .FitWidth();
-
-                                 column.Item().AlignCenter().Text(_layout.EndingQrCaption)
-                                     .FontFamily(PdfFontBootstrap.BodyFamily)
-                                     .FontSize(captionSize)
-                                     .FontColor(TextColor);
-                             }
-
-                             column.Item().AlignCenter().Text(_layout.CreditsLine)
+                    row.RelativeItem()
+                        .Background(PageInk)
+                        .Padding(Bleed(mode) + _layout.SafeMarginMm, Unit.Millimetre)
+                        .AlignMiddle()
+                        .Column(column =>
+                        {
+                            column.Spacing(12);
+                            foreach (var line in lines)
+                            {
+                                column.Item().AlignCenter().Text(line)
                                  .FontFamily(PdfFontBootstrap.BodyFamily)
                                  .FontSize(creditsSize)
                                  .FontColor(TextColor);
-                         });
+                            }
+                        });
+
+                    row.RelativeItem();
                 });
             });
         });
@@ -1678,102 +1766,26 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             page, "credits",
             _layout.SpreadWidthMm + (Bleed(mode) * 2f), _layout.SpreadHeightMm + (Bleed(mode) * 2f),
             Bleed(mode),
-            [Sha256(mark)],
+            [Sha256(pattern.Bytes)],
             Wash: null,
-            [
-                new BekiTypographyRecord(
-                    "credits-ending", PdfFontBootstrap.BodyFamily, endingSize, 1.5d, TextColorHex),
-                new BekiTypographyRecord(
-                    "credits-line", PdfFontBootstrap.BodyFamily, creditsSize, 1.0d, TextColorHex),
-            ],
-            WrapLines(_layout.EndingLine, endingSize, CreditsColumnWidthPt, PdfFontBootstrap.BodyFamily),
-            CreditsTextProbe(page, mode, endingSize, captionSize, creditsSize, hasQr),
-            // The mark is placed verbatim, so the two hashes agree here — stated anyway, because a
-            // provenance the gate has to infer from a coincidence is not a provenance.
-            SourceSha256: [Engine.Value.Registry.Pose(_assets.BekiMarkPoseId).Sha256],
-            // Placed verbatim at the approved pose's own pixels: nothing resampled it, and the
-            // receipt says so rather than leaving the one page that was never short of pixels
-            // looking like the one page nobody measured.
-            Rasters: [Provenance("credits", mark, mark)]));
-    }
-
-    /// <summary>
-    /// Where the credits column's own type sits, in millimetres from the page's top-left — the
-    /// rectangle amendment A10a's rendered-pixel probe samples.
-    ///
-    /// Computed rather than eyeballed: the column is vertically centred in the right leaf's safe
-    /// area, so its top follows from the total height of what is in it, and each item's height is
-    /// either a known millimetre width times the mark's own aspect or a measured block. The
-    /// rectangle returned is the sign-off line's band, widened to the column, because that is the
-    /// largest continuous run of cream glyphs on the page and therefore the easiest thing on it to
-    /// measure the luminance of.
-    /// </summary>
-    private BekiTextProbeRect? CreditsTextProbe(
-        int page, BekiRenderMode mode, float endingSize, float captionSize, float creditsSize,
-        bool hasQr)
-    {
-        try
-        {
-            const float spacingPt = 14f;
-            var columnWidthPt = CreditsColumnWidthPt;
-
-            var markHeightPt = MmToPt(CreditsMarkWidthMm) / MarkAspect();
-            var endingHeightPt = MeasureBlockHeightPt(_layout.EndingLine, endingSize, columnWidthPt);
-            var qrHeightPt = hasQr ? MmToPt(46f) : 0f;
-            var captionHeightPt = hasQr
-                ? MeasureBlockHeightPt(_layout.EndingQrCaption, captionSize, columnWidthPt)
-                : 0f;
-            var creditsHeightPt = MeasureBlockHeightPt(_layout.CreditsLine, creditsSize, columnWidthPt);
-
-            var items = hasQr ? 5 : 3;
-            var totalPt = markHeightPt + endingHeightPt + qrHeightPt + captionHeightPt
-                + creditsHeightPt + (spacingPt * (items - 1));
-
-            var availablePt = MmToPt(_layout.SpreadHeightMm - (_layout.SafeMarginMm * 2f));
-            var topPt = MmToPt(Bleed(mode) + _layout.SafeMarginMm)
-                + MathF.Max(0f, (availablePt - totalPt) / 2f);
-
-            var endingTopPt = topPt + markHeightPt + spacingPt;
-
-            var leftMm = Bleed(mode) + (_layout.SpreadWidthMm / 2f) + _layout.SafeMarginMm;
-
-            return new BekiTextProbeRect(
+            [new BekiTypographyRecord(
+                "credits", PdfFontBootstrap.BodyFamily, creditsSize, 1.0d, TextColorHex)],
+            lines.SelectMany(line =>
+                WrapLines(line, creditsSize, CreditsColumnWidthPt, PdfFontBootstrap.BodyFamily)).ToList(),
+            TextProbe: new BekiTextProbeRect(
                 page,
-                Math.Round(leftMm, 2),
-                Math.Round(endingTopPt / PointsPerMm, 2),
-                Math.Round(columnWidthPt / PointsPerMm, 2),
-                Math.Round(endingHeightPt / PointsPerMm, 2),
-                "credits-text");
-        }
-        catch (BekiLayoutException)
-        {
-            // A probe rectangle is evidence, not a gate. If the credits line cannot be measured the
-            // page is still correct and the press probe simply has nothing to sample here; failing
-            // a paid book over a missing measurement would be the wrong trade in the wrong place.
-            return null;
-        }
-    }
-
-    /// <summary>The credits mark's own width-to-height ratio, so its placed height is known.</summary>
-    private float MarkAspect()
-    {
-        try
-        {
-            var info = SixLabors.ImageSharp.Image.Identify(BekiMark());
-            return info.Height <= 0 ? 1f : (float)info.Width / info.Height;
-        }
-        catch (Exception)
-        {
-            return 1f;
-        }
+                Bleed(mode) + _layout.SafeMarginMm,
+                Bleed(mode) + _layout.SafeMarginMm,
+                (_layout.SpreadWidthMm / 2f) - (_layout.SafeMarginMm * 2f),
+                _layout.SpreadHeightMm - (_layout.SafeMarginMm * 2f),
+                "credits-text"),
+            SourceSha256: [_assets.EndpaperPattern.Sha256],
+            Rasters: [pattern.Provenance with { Role = "credits-pattern" }]));
     }
 
     /// <summary>The credits column's measure: the right leaf between its safe margins.</summary>
     private float CreditsColumnWidthPt =>
         MmToPt((_layout.SpreadWidthMm / 2f) - (_layout.SafeMarginMm * 2f));
-
-    /// <summary>The Beki mark's placed width on the credits spread, in millimetres.</summary>
-    private const float CreditsMarkWidthMm = 32f;
 
     // ==============================================================================================
     // Story spreads
@@ -1818,14 +1830,13 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         var textSide = Prompts.BekiSpreadRhythm.TextSideFor(spread.Number);
         var textOnLeft = textSide.Equals("left", StringComparison.OrdinalIgnoreCase);
 
-        // Spread 8 is an ordinary spread. It carried a Continue Adventure chip with a second QR
-        // until the Locked Print Specification §6 ruled: exactly one QR in the book, on the
-        // credits spread — the chip and its zone reservation are gone, and the last story page
-        // got its full text column back.
+        var hasContinuationQr = spread.Number == BookFormat.SpreadCount
+            && !string.IsNullOrWhiteSpace(personalization?.ContinuationUrl);
         var outerPaddingMm = _layout.SafeMarginMm;
         var innerPaddingMm = InnerPaddingMm;
 
-        var usableHeightPt = MmToPt(_layout.SpreadHeightMm - (outerPaddingMm * 2f));
+        var qrReservePt = hasContinuationQr ? MmToPt(ContinuationQrSizeMm + 8f) : 0f;
+        var usableHeightPt = MmToPt(_layout.SpreadHeightMm - (outerPaddingMm * 2f)) - qrReservePt;
 
         // Decided before the page is laid out, because the ladder is allowed to fail the book and a
         // failure has to happen before any of it is drawn.
@@ -1914,6 +1925,22 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                                     EnglishTextColor, rim, StoryCopyWidthPt,
                                     PdfFontBootstrap.BodyFamily, centred: false, proof));
                             }
+
+                            if (hasContinuationQr)
+                            {
+                                column.Item()
+                                    .PaddingTop(4, Unit.Millimetre)
+                                    .Width(ContinuationQrSizeMm, Unit.Millimetre)
+                                    .Background(Colors.White)
+                                    .Padding(3, Unit.Millimetre)
+                                    .Svg(QrSvg(personalization!.ContinuationUrl!))
+                                    .FitWidth();
+
+                                column.Item().Text(_layout.ContinuationQrCaption)
+                                    .FontFamily(PdfFontBootstrap.BodyFamily)
+                                    .FontSize(MathF.Max(10f, fitted.FontSize * 0.65f))
+                                    .FontColor(fill);
+                            }
                         });
 
                     if (textOnLeft) row.RelativeItem(1f - _layout.TextColumnShare);
@@ -1957,6 +1984,11 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
     /// <summary>The air between the Georgian block and its English sibling, in points.</summary>
     private const float EnglishGapPt = 10f;
+
+    // The continuation URL includes a UUID and produces a denser symbol than the former homepage
+    // QR. At 46 mm its modules remain comfortably resolvable in the mandatory 120 DPI rendered
+    // scan as well as on phone cameras, while still fitting inside the story column's safe area.
+    private const float ContinuationQrSizeMm = 46f;
 
     /// <summary>The type size a spread's copy is set at, the English size if it prints too, and
     /// the measured height of the two together.</summary>

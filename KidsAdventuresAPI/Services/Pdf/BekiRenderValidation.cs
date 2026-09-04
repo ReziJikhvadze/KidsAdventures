@@ -64,21 +64,21 @@ public sealed record BekiFontScan(
     string Table);
 
 /// <summary>
-/// The QR gate's answer: "Exactly one vector QR appears on credits and scans from the rendered
-/// stored artifact to https://beki.ge."
+/// The QR gate's answer: exactly one vector continuation QR appears below Story spread 8's text
+/// and scans from the rendered stored artifact to this book's configured continuation URL.
 /// </summary>
 public sealed record BekiQrScan(
     string Status, int Count, IReadOnlyList<string> Payloads, string? Problem);
 
 /// <summary>What the caller wants looked at, beyond the renders every artifact gets.</summary>
 /// <param name="QrPage">
-/// 1-based page carrying the credits QR, or null for an artifact that has none — a press cover, for
-/// instance, where asserting a QR would be asserting a defect.
+/// 1-based page carrying the Story spread 8 continuation QR, or null for an artifact that has none.
 /// </param>
 public sealed record BekiRenderValidationRequest(
     int? QrPage = null,
     int? ContactSheetColumns = null,
-    int? ThumbnailWidthPx = null);
+    int? ThumbnailWidthPx = null,
+    string? ExpectedQrDestination = null);
 
 /// <summary>
 /// Everything the render stage found, in a shape the caller can serialize, upload and gate on.
@@ -139,7 +139,7 @@ public static class BekiRenderValidation
     /// Renders, reads and scans one stored artifact.
     /// </summary>
     /// <param name="storedPdf">The bytes as they were stored, not as they were composed.</param>
-    /// <param name="artifact">A name for the report — <c>press-interior</c>, <c>press-cover</c>.</param>
+    /// <param name="artifact">A name for the report — normally <c>canonical-book</c>.</param>
     /// <param name="options">Renderer paths and the validation density.</param>
     /// <param name="request">What to look for beyond the renders themselves.</param>
     /// <param name="baseDirectory">Test override for locating the acceptance-gates document.</param>
@@ -225,7 +225,12 @@ public static class BekiRenderValidation
                 failedGates.Add(RenderValidationGate);
             }
 
-            var qr = ScanQr(pages, request?.QrPage, expectedQrCount, expectedQrDestination);
+            var qr = ScanQr(
+                pages,
+                request?.QrPage,
+                expectedQrCount,
+                request?.ExpectedQrDestination ?? expectedQrDestination);
+            var effectiveQrDestination = request?.ExpectedQrDestination ?? expectedQrDestination;
             if (qr.Status != BekiRendererRun.Ok)
             {
                 if (qr.Problem is not null)
@@ -295,7 +300,7 @@ public static class BekiRenderValidation
                         gate = QrGate,
                         status = qr.Status,
                         expected_count = expectedQrCount,
-                        expected_destination = expectedQrDestination,
+                        expected_destination = effectiveQrDestination,
                         found_count = qr.Count,
                         payloads = qr.Payloads,
                         problem = qr.Problem,
@@ -641,10 +646,9 @@ public static class BekiRenderValidation
     /// <summary>
     /// The QR gate, decoded off the rendered pixels.
     ///
-    /// "Exactly one" is checked as exactly one SYMBOL, on the page the caller names, and the payload must
-    /// be the locked destination character for character — a code that scans to
-    /// <c>https://beki.ge/</c> with a trailing slash is a different URL and the gate says which one
-    /// it wants. An artifact with no QR page named passes by not being asked.
+    /// "Exactly one" is checked as exactly one SYMBOL, on the page the caller names, and the payload
+    /// must be the per-book continuation destination character for character. An artifact with no
+    /// QR page named passes by not being asked.
     /// </summary>
     private static BekiQrScan ScanQr(
         IReadOnlyList<BekiRenderedPage> pages, int? qrPage, int expectedCount, string expectedDestination)
@@ -703,9 +707,9 @@ public static class BekiRenderValidation
     /// Every QR ZXing can find in one rendered page — one entry per SYMBOL, not per payload.
     ///
     /// The distinction is the review's finding. The payloads used to be deduplicated before they
-    /// were counted, so a credits page carrying the deprecated second code beside the current one —
+    /// were counted, so a story page carrying a second code beside the current one —
     /// two symbols, one string — counted as one and walked through a gate whose entire content is
-    /// "exactly one vector QR appears on credits". Two codes that agree about where they point are
+    /// "exactly one vector QR appears on Story spread 8". Two codes that agree about where they point are
     /// still two codes on the page, and the spec allows one.
     ///
     /// The luminance source is built by hand over ImageSharp's pixels rather than through a binding
@@ -716,6 +720,65 @@ public static class BekiRenderValidation
     {
         using var image = Image.Load<Rgb24>(png);
 
+        var reader = new BarcodeReaderGeneric
+        {
+            AutoRotate = true,
+            Options = new ZXing.Common.DecodingOptions
+            {
+                PossibleFormats = [BarcodeFormat.QR_CODE],
+                TryHarder = true,
+            },
+        };
+
+        var source = Luminance(image);
+
+        var results = reader.DecodeMultiple(source);
+        if (results is { Length: > 0 })
+        {
+            return results
+                .Where(result => result?.Text is not null)
+                .Select(result => result.Text)
+                .ToList();
+        }
+
+        // ZXing's multi-symbol detector can return no candidates for a page containing one small
+        // code even when its single-symbol detector resolves it cleanly. Falling back only after
+        // the multi pass found nothing preserves duplicate detection while avoiding a false QR
+        // refusal for the overwhelmingly common one-code page.
+        var single = reader.Decode(source);
+        if (single?.Text is not null)
+        {
+            return [single.Text];
+        }
+
+        // A book spread is much wider than its QR. Some decoder versions fail to form a finder
+        // pattern from the full photographic page even though the symbol itself is sharp. Retry
+        // overlapping tiles so the vector QR occupies a useful share of the luminance matrix.
+        var halfWidth = image.Width / 2;
+        var halfHeight = image.Height / 2;
+        var tiles = new[]
+        {
+            new Rectangle(0, 0, halfWidth, halfHeight),
+            new Rectangle(image.Width - halfWidth, 0, halfWidth, halfHeight),
+            new Rectangle(0, image.Height - halfHeight, halfWidth, halfHeight),
+            new Rectangle(image.Width - halfWidth, image.Height - halfHeight, halfWidth, halfHeight),
+        };
+
+        foreach (var tile in tiles)
+        {
+            using var crop = image.Clone(context => context.Crop(tile));
+            single = reader.Decode(Luminance(crop));
+            if (single?.Text is not null)
+            {
+                return [single.Text];
+            }
+        }
+
+        return [];
+    }
+
+    private static RGBLuminanceSource Luminance(Image<Rgb24> image)
+    {
         var raw = new byte[image.Width * image.Height * 3];
         var index = 0;
         for (var y = 0; y < image.Height; y++)
@@ -729,26 +792,8 @@ public static class BekiRenderValidation
             }
         }
 
-        var reader = new BarcodeReaderGeneric
-        {
-            Options = new ZXing.Common.DecodingOptions
-            {
-                PossibleFormats = [BarcodeFormat.QR_CODE],
-                TryHarder = true,
-            },
-        };
-
-        var source = new RGBLuminanceSource(
+        return new RGBLuminanceSource(
             raw, image.Width, image.Height, RGBLuminanceSource.BitmapFormat.RGB24);
-
-        var results = reader.DecodeMultiple(source);
-
-        return results is null
-            ? []
-            : results
-                .Where(result => result?.Text is not null)
-                .Select(result => result.Text)
-                .ToList();
     }
 
     private static int DefaultColumns(int pageCount) =>

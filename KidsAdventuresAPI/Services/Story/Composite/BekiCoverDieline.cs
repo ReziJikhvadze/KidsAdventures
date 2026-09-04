@@ -159,6 +159,11 @@ public static class BekiCoverDieline
     public const float TitleSafeTopMm = 34f;
     public const float TitleSafeHeightMm = 46f;
 
+    /// <summary>Approved light vector logo on the dark front board, above the bottom safe edge.</summary>
+    public const float LogoWidthMm = 36f;
+    public const float LogoLeftMm = FrontBoardLeftMm + 16f;
+    public const float LogoTopMm = BoardBottomMm - 22f;
+
     /// <summary>
     /// Where the approved pose lands on the wrap, normalized over the full 512 × 245 canvas the
     /// way every engine anchor is.

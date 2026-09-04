@@ -184,7 +184,9 @@ public static class BekiPrintPrep
         float trimInsetMm = 5f,
         string? baseDirectory = null,
         BekiPrintProbe? probe = null,
-        BekiResolutionReceipt? resolutionReceipt = null)
+        BekiResolutionReceipt? resolutionReceipt = null,
+        bool canonicalMixedGeometry = false,
+        bool requirePressResolution = false)
     {
         ArgumentNullException.ThrowIfNull(laidOutPdf);
         ArgumentNullException.ThrowIfNull(options);
@@ -218,6 +220,12 @@ public static class BekiPrintPrep
             throw Failure("the laid-out document has no pages.");
         }
 
+        if (canonicalMixedGeometry && expectedPages != 12)
+        {
+            throw Failure(
+                $"the canonical BEKI document must contain exactly 12 PDF pages; layout returned {expectedPages}.");
+        }
+
         string? conversion = null;
         var pdf = laidOutPdf;
 
@@ -241,7 +249,11 @@ public static class BekiPrintPrep
         document.Info.Title = title;
         document.Info.Elements["/Trapped"] = new PdfName("/False");
 
-        ApplyBoxes(document, trimInsetMm);
+        ApplyBoxes(document, trimInsetMm, canonicalMixedGeometry);
+        if (canonicalMixedGeometry)
+        {
+            ValidateCanonicalGeometry(document);
+        }
         WriteOutputIntent(document, iccBytes, options);
         WriteXmpMetadata(document, title);
 
@@ -293,6 +305,12 @@ public static class BekiPrintPrep
 
         var (resolution, resolutionProblems) =
             MeasurePressResolution(contents, requiredPpi, resolutionReceipt);
+
+        if (requirePressResolution && resolutionProblems.Count > 0)
+        {
+            throw Failure(
+                $"{PressResolutionGate}: " + string.Join(" ", resolutionProblems));
+        }
         var textColour = EnforceTextColourIntegrity(contents, probe);
 
         // The one gate this stage measures and does not act on. Everything else in here still
@@ -319,7 +337,7 @@ public static class BekiPrintPrep
         var report = JsonSerializer.Serialize(
             new
             {
-                stage = "beki-print-prep-v2",
+                stage = canonicalMixedGeometry ? "beki-canonical-print-prep-v3" : "beki-print-prep-v2",
                 spec = "BEKI_Print_Production_Locked_Spec_v1",
                 prepared_at_utc = DateTime.UtcNow,
                 // The gates that failed and did not stop the file being written. Empty on a clean
@@ -374,8 +392,8 @@ public static class BekiPrintPrep
                         : "interpreted the full document during colour conversion",
                     poppler = "not run in this stage; BekiRenderValidation runs pdftoppm and "
                               + "pdffonts on the stored artifact",
-                    qr_scan = "not run in this stage; BekiRenderValidation decodes the rendered "
-                              + "credits page",
+                    qr_scan = "not run in this stage; BekiRenderValidation decodes story spread "
+                              + "8 on PDF page 11",
                 },
             },
             new JsonSerializerOptions { WriteIndented = true });
@@ -1040,20 +1058,86 @@ public static class BekiPrintPrep
     /// </summary>
     private static void ApplyBoxes(PdfDocument document, float trimInsetMm)
     {
+        ApplyBoxes(document, trimInsetMm, canonicalMixedGeometry: false);
+    }
+
+    private static void ApplyBoxes(
+        PdfDocument document, float trimInsetMm, bool canonicalMixedGeometry)
+    {
         var insetPt = trimInsetMm / 25.4f * 72f;
 
-        foreach (var page in document.Pages)
+        for (var index = 0; index < document.Pages.Count; index++)
         {
+            var page = document.Pages[index];
             var media = page.MediaBox;
             page.CropBox = media;
             page.BleedBox = media;
+            var pageInsetPt = canonicalMixedGeometry && index == 0 ? 0f : insetPt;
             page.TrimBox = new PdfRectangle(new PdfSharp.Drawing.XRect(
-                media.X1 + insetPt,
-                media.Y1 + insetPt,
-                media.Width - (2f * insetPt),
-                media.Height - (2f * insetPt)));
+                media.X1 + pageInsetPt,
+                media.Y1 + pageInsetPt,
+                media.Width - (2f * pageInsetPt),
+                media.Height - (2f * pageInsetPt)));
         }
     }
+
+    /// <summary>
+    /// Refuses any drift from the final mixed-geometry contract after Ghostscript conversion and
+    /// box reapplication. Merely checking that TrimBox is inside MediaBox is not enough here: a
+    /// perfectly nested 451 mm sheet is still the wrong book.
+    /// </summary>
+    private static void ValidateCanonicalGeometry(PdfDocument document)
+    {
+        const double toleranceMm = 0.25d;
+
+        for (var index = 0; index < document.Pages.Count; index++)
+        {
+            var page = document.Pages[index];
+            var cover = index == 0;
+            var mediaWidthMm = cover ? 512d : 450d;
+            var mediaHeightMm = cover ? 245d : 210d;
+            var trimWidthMm = cover ? 512d : 440d;
+            var trimHeightMm = cover ? 245d : 200d;
+
+            RequireSize(page.MediaBox, mediaWidthMm, mediaHeightMm, index + 1, "MediaBox", toleranceMm);
+            RequireSize(page.CropBox, mediaWidthMm, mediaHeightMm, index + 1, "CropBox", toleranceMm);
+            RequireSize(page.BleedBox, mediaWidthMm, mediaHeightMm, index + 1, "BleedBox", toleranceMm);
+            RequireSize(page.TrimBox, trimWidthMm, trimHeightMm, index + 1, "TrimBox", toleranceMm);
+
+            var expectedInsetMm = cover ? 0d : 5d;
+            var leftInsetMm = PointsToMillimetres(page.TrimBox.X1 - page.MediaBox.X1);
+            var bottomInsetMm = PointsToMillimetres(page.TrimBox.Y1 - page.MediaBox.Y1);
+            if (Math.Abs(leftInsetMm - expectedInsetMm) > toleranceMm
+                || Math.Abs(bottomInsetMm - expectedInsetMm) > toleranceMm)
+            {
+                throw Failure(
+                    $"canonical geometry: page {index + 1} TrimBox is offset "
+                    + $"{leftInsetMm:F2}×{bottomInsetMm:F2} mm; expected "
+                    + $"{expectedInsetMm:F2} mm on every edge.");
+            }
+        }
+    }
+
+    private static void RequireSize(
+        PdfRectangle box,
+        double expectedWidthMm,
+        double expectedHeightMm,
+        int page,
+        string name,
+        double toleranceMm)
+    {
+        var widthMm = PointsToMillimetres(box.Width);
+        var heightMm = PointsToMillimetres(box.Height);
+        if (Math.Abs(widthMm - expectedWidthMm) > toleranceMm
+            || Math.Abs(heightMm - expectedHeightMm) > toleranceMm)
+        {
+            throw Failure(
+                $"canonical geometry: page {page} {name} is {widthMm:F2}×{heightMm:F2} mm; "
+                + $"expected {expectedWidthMm:F2}×{expectedHeightMm:F2} mm.");
+        }
+    }
+
+    private static double PointsToMillimetres(double points) => points / 72d * 25.4d;
 
     private static void WriteOutputIntent(
         PdfDocument document, byte[] iccBytes, BekiPrintPrepOptions options)

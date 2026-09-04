@@ -841,15 +841,14 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
                         + "both Ghostscript and Poppler.",
                         stored.RenderReportNames),
 
-        // Asked of each artifact that carries a credits page, and answered by the strictest of
-        // them: one clean scan does not cover for a refusal on another file.
+        // Asked of the one canonical artifact on Story spread 8's page.
         "QR" => stored.QrStatus switch
         {
             null => Missing(
-                id, "no rendered artifact was scanned for the credits QR.", stored.RenderReportNames),
+                id, "the canonical artifact was not scanned for the Story spread 8 QR.", stored.RenderReportNames),
             "ok" => Passed(
-                id, "exactly one QR was decoded off the rendered credits page and resolves to the "
-                    + "locked destination.", stored.RenderReportNames),
+                id, "exactly one QR was decoded off rendered Story spread 8 and resolves to the "
+                    + "per-book continuation destination.", stored.RenderReportNames),
             var status => Failed(id, $"the QR scan came back '{status}'.", stored.RenderReportNames),
         },
 
@@ -1249,9 +1248,9 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
         if (manifest?.ScenarioUrl is not { Length: > 0 }) gaps.Add(BekiPackBlobs.ScenarioName(userId, packId));
         if (manifest?.StoryUrl is not { Length: > 0 }) gaps.Add(BekiPackBlobs.StoryName(userId, packId));
         if (!evidence.ReviewPresent) gaps.Add(evidence.ReviewName);
-        if (evidence.LayoutReceiptDocuments.Count == 0) gaps.Add(BekiPackBlobs.LayoutReceiptName(userId, packId, "reading"));
+        if (evidence.LayoutReceiptDocuments.Count == 0) gaps.Add(BekiPackBlobs.LayoutReceiptName(userId, packId, "canonical"));
         if (evidence.SpreadsWithoutQa.Count > 0) gaps.Add(BekiPackBlobs.SpreadQaName(userId, packId, evidence.SpreadsWithoutQa[0]));
-        if (evidence.RenderReports.Count == 0) gaps.Add(BekiPackBlobs.RenderReportName(userId, packId, BekiPackBlobs.InteriorRenderArtifact));
+        if (evidence.RenderReports.Count == 0) gaps.Add(BekiPackBlobs.RenderReportName(userId, packId, BekiPackBlobs.CanonicalRenderArtifact));
 
         // Build provenance is not on this list because it is not a blob: the export assembles it at
         // download time from the assembly's own informational version, the preflight reports and
@@ -1354,15 +1353,14 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
                 evidence.QrStatus = evidence.QrStatus is null or "ok" ? status : evidence.QrStatus;
             }
 
-            if (artifact == BekiPackBlobs.DigitalRenderArtifact
+            if (artifact == BekiPackBlobs.CanonicalRenderArtifact
                 && root.TryGetProperty("contact_sheet", out var contactSheet)
                 && contactSheet.ValueKind == JsonValueKind.Object
                 && contactSheet.TryGetProperty("sha256", out var sheet)
                 && sheet.ValueKind == JsonValueKind.String
                 && sheet.GetString() is { Length: > 0 } sha)
             {
-                // The customer's fourteen pages are what a human reviews — cover included, which is
-                // what makes the identity and age review of amendment A7 possible at all.
+                // The canonical twelve pages are what a human reviews — cover included.
                 evidence.ContactSheetSha256 = sha;
             }
 
@@ -1651,8 +1649,7 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
 }
 
 /// <summary>
-/// The QA record for a page nobody generated: the cover boards, the two endpaper spreads, the
-/// intro and the credits.
+/// The QA record for a page nobody generated: the cover wrap, opening endpaper, intro and credits.
 ///
 /// D7's other half. The eight story spreads are judged by a model that looked at them; these six
 /// pages have no model verdict to write down and were therefore evidenced by nothing at all — which
@@ -1665,7 +1662,7 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
 /// </summary>
 public static class BekiFixedPageQa
 {
-    public const string Version = "beki-fixed-page-qa-v1";
+    public const string Version = "beki-fixed-page-qa-v2";
 
     public const string Pass = "PASS";
 
@@ -1716,11 +1713,11 @@ public static class BekiFixedPageQa
     }
 
     /// <summary>
-    /// The six pages this record covers, named as the composer's layout receipts name them, so a
+    /// The four fixed pages this record covers, named as the composer's layout receipts name them, so a
     /// reader can put the QA file and the receipt side by side without a translation table.
     /// </summary>
     public static readonly IReadOnlyList<string> Roles =
-        ["cover-front", "endpaper-front", "intro", "credits", "endpaper-rear", "cover-back"];
+        ["cover-wrap", "endpaper-front", "intro", "credits"];
 
     /// <summary>
     /// The minimum a wash must keep clear of the centre fold and of any trim edge, in millimetres.
@@ -1765,7 +1762,7 @@ public static class BekiFixedPageQa
           held a correct book. The receipt now carries the provenance separately, and this reads
           that.
         */
-        var placementIsFixedArt = role is "endpaper-front" or "endpaper-rear" or "intro" or "credits";
+        var placementIsFixedArt = role is "cover-wrap" or "endpaper-front" or "intro" or "credits";
         var sources = page.SourceSha256 ?? [];
         var unlocked = placementIsFixedArt
             ? sources.Where(sha => !lockedAssetHashes.Contains(sha)).ToList()

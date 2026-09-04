@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.ExceptionServices;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Models;
@@ -1987,6 +1989,7 @@ public sealed class CompositeBookPipeline(
         int attempt,
         CancellationToken cancellationToken)
     {
+        var startedAt = DateTimeOffset.UtcNow;
         var started = Stopwatch.StartNew();
 
         try
@@ -1994,18 +1997,37 @@ public sealed class CompositeBookPipeline(
             var result = await masterStory.WriteCompositePlanAsync(input, problems, cancellationToken);
 
             started.Stop();
+            var completedAt = DateTimeOffset.UtcNow;
+            var promptHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+                result.SystemPrompt + "\n---\n" + result.UserPrompt))).ToLowerInvariant();
             LogModelCall(
                 context, "story", result.Model, MasterStoryPromptComposite.Version,
                 started.ElapsedMilliseconds, retryCount: attempt, validation: "accepted");
+            logger.LogInformation(
+                "Composite story provenance {JobId}: providerModel={ProviderModel} "
+                + "promptVersion={PromptVersion} promptSha256={PromptSha256} "
+                + "schemaVersion={SchemaVersion} startedAtUtc={StartedAtUtc:o} "
+                + "completedAtUtc={CompletedAtUtc:o} retry={Retry} finalOutcome={FinalOutcome}",
+                context.JobId, result.Model, MasterStoryPromptComposite.Version, promptHash,
+                CompositeStorySchema.Version, startedAt, completedAt, attempt, "accepted");
 
             return result.Story;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             started.Stop();
+            var completedAt = DateTimeOffset.UtcNow;
             LogModelCall(
                 context, "story", masterStory.ModelName, MasterStoryPromptComposite.Version,
                 started.ElapsedMilliseconds, retryCount: attempt, validation: "failed");
+            logger.LogWarning(
+                "Composite story provenance {JobId}: providerModel={ProviderModel} "
+                + "promptVersion={PromptVersion} promptSha256={PromptSha256} "
+                + "schemaVersion={SchemaVersion} startedAtUtc={StartedAtUtc:o} "
+                + "completedAtUtc={CompletedAtUtc:o} retry={Retry} finalOutcome={FinalOutcome}",
+                context.JobId, masterStory.ModelName, MasterStoryPromptComposite.Version,
+                "unavailable-call-failed-before-result", CompositeStorySchema.Version,
+                startedAt, completedAt, attempt, "failed");
 
             throw new CompositePipelineException(
                 CompositeFailureCodes.StoryFailed, "The composite story call failed.", ex);

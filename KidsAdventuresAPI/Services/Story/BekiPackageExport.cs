@@ -42,18 +42,16 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
     };
 
     /// <summary>
-    /// The audit's own file names for the three deliverables, at the root of the zip.
-    ///
-    /// Section 6 names them and the rejected package did not use them: `interior.pdf` under a
-    /// `press/` folder is a file an operator has to translate before they can talk to the printer
-    /// about it. The <c>v001</c> is the revision of the deliverable, which is what the supplier
-    /// increments when a book is re-cut.
+    /// Historical file-name helpers remain for reading older handback packages. New packages expose
+    /// only <see cref="CanonicalBookFileName"/>.
     /// </summary>
     public static string PressCoverFileName(Guid packId) => $"BEKI_{packId}_PRESS_COVER_v001.pdf";
 
     public static string PressInteriorFileName(Guid packId) => $"BEKI_{packId}_PRESS_INTERIOR_v001.pdf";
 
     public static string DigitalReadingFileName(Guid packId) => $"BEKI_{packId}_DIGITAL_READING_v001.pdf";
+
+    public static string CanonicalBookFileName(Guid packId) => $"BEKI_{packId}_BOOK_v002.pdf";
 
     /// <summary>The zip an operator downloads, named for the book it is about.</summary>
     public static string PackageFileName(Guid packId) => $"BEKI_{packId}_HANDBACK_v002.zip";
@@ -210,8 +208,8 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
     /// <summary>
     /// Every blob this package may carry, with the folder it lands in.
     ///
-    /// The three deliverables go to the root under the audit's own names, and go there only when the
-    /// gates released them: a press PDF that failed PRESS_RESOLUTION is still worth having and is
+    /// The canonical deliverable goes to the root only when the gates released it: a PDF that failed
+    /// PRESS_RESOLUTION is still worth having and is
     /// still not a deliverable, so it travels under <c>diagnostic/</c> where nobody can hand it to a
     /// printer by accident.
     /// </summary>
@@ -232,28 +230,20 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
           travels under diagnostic/, and RELEASE_STATUS.json below says NOT_RELEASABLE, which is what
           the evidence supports.
         */
-        var pressReleased = release?.SupplierPressReleasable == true;
-        var digitalReleased = release?.SupplierCustomerPdfReleasable == true;
+        var canonicalReleased = release?.SupplierPressReleasable == true
+            && release.SupplierCustomerPdfReleasable;
 
         string Deliverable(string name, bool released) =>
             released ? name : $"diagnostic/{name}";
 
         var entries = new List<PackageBlob>
         {
-            new(BekiPackBlobs.CoverPdfName(userId, packId),
-                Deliverable(PressCoverFileName(packId), pressReleased),
-                pressReleased ? PackageStatus.Canonical : PackageStatus.Diagnostic),
-            new(BekiPackBlobs.InteriorPdfName(userId, packId),
-                Deliverable(PressInteriorFileName(packId), pressReleased),
-                pressReleased ? PackageStatus.Canonical : PackageStatus.Diagnostic),
             new(BekiPackBlobs.ReadingPdfName(userId, packId),
-                Deliverable(DigitalReadingFileName(packId), digitalReleased),
-                digitalReleased ? PackageStatus.Canonical : PackageStatus.Diagnostic),
+                Deliverable(CanonicalBookFileName(packId), canonicalReleased),
+                canonicalReleased ? PackageStatus.Canonical : PackageStatus.Diagnostic),
 
-            new(BekiPackBlobs.InteriorPreflightName(userId, packId), "press/interior-preflight.json", PackageStatus.Canonical),
-            new(BekiPackBlobs.CoverPreflightName(userId, packId), "press/cover-preflight.json", PackageStatus.Canonical),
+            new(BekiPackBlobs.CanonicalPreflightName(userId, packId), "press/canonical-preflight.json", PackageStatus.Canonical),
             new(BekiPackBlobs.PressStatusName(userId, packId), "press/press-status.json", PackageStatus.Canonical),
-            new(BekiPackBlobs.DigitalReportName(userId, packId), "digital/digital-preflight.json", PackageStatus.Canonical),
 
             // The single cover master and its paperwork (audit P0-01/P0-10).
             new(BekiPackBlobs.CoverWrapCompositeName(userId, packId), "cover/cover-wrap-composite.png", PackageStatus.Canonical),
@@ -346,9 +336,7 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
             entries.Add(new(BekiPackBlobs.LayoutReceiptName(userId, packId, mode),
                 $"receipts/{mode}-layout.json", PackageStatus.Canonical));
 
-            // Fourteen is the longest of the three documents; a mode with fewer pages simply reports
-            // the rest as missing, which is what the listing is for.
-            for (var page = 1; page <= BookFormat.SpreadCount + 6; page++)
+            for (var page = 1; page <= 12; page++)
             {
                 var fileName = $"page-{page:00}-layout.json";
                 entries.Add(new(BekiPackBlobs.LayoutPageReceiptName(userId, packId, mode, fileName),
@@ -578,9 +566,7 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
             .Select(artifact => (artifact, name: BekiPackBlobs.RenderReportName(userId, packId, artifact)))
             .Concat(
             [
-                ("press-interior-preflight", BekiPackBlobs.InteriorPreflightName(userId, packId)),
-                ("press-cover-preflight", BekiPackBlobs.CoverPreflightName(userId, packId)),
-                ("digital-preflight", BekiPackBlobs.DigitalReportName(userId, packId)),
+                ("canonical-preflight", BekiPackBlobs.CanonicalPreflightName(userId, packId)),
             ]);
 
         foreach (var (artifact, name) in reports)

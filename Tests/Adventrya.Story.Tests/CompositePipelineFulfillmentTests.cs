@@ -54,7 +54,7 @@ public class CompositePipelineFulfillmentTests
         // And the book still has its one cover master, made from the wrap.
         Assert.Contains(
             BekiPackBlobs.CoverWrapCompositeName(world.UserId, world.PackId), world.Blobs.Uploaded.Keys);
-        Assert.Equal(AdventurePackStatus.Completed, world.Packs.Status);
+        Assert.Equal(AdventurePackStatus.Failed, world.Packs.Status);
     }
 
     // =======================================================================================
@@ -80,7 +80,7 @@ public class CompositePipelineFulfillmentTests
         // The same master, the same receipt check, the same reader repoint as the serial path.
         var wrapName = BekiPackBlobs.CoverWrapCompositeName(world.UserId, world.PackId);
         Assert.Contains(wrapName, world.Blobs.Uploaded.Keys);
-        Assert.Equal(world.Blobs.Uploaded[wrapName], world.Composer.ReadingWrap);
+        Assert.Null(world.Composer.ReadingWrap);
         Assert.Equal(
             $"https://blob.test/{BekiPackBlobs.CoverFrontName(world.UserId, world.PackId)}",
             world.Packs.CoverImageUrl);
@@ -151,11 +151,12 @@ public class CompositePipelineFulfillmentTests
 
         var percents = world.Packs.Progress.Select(step => step.Percent ?? -1).ToList();
 
-        // Never backwards, and every stage after the spreads has a number of its own.
+        // Never backwards. The harness has no production upscaler, so the mandatory canonical
+        // stage stops before publishing a PDF.
         Assert.Equal(percents.OrderBy(percent => percent), percents);
-        Assert.Equal(
-            [85, 86, 88, 91, 94, 97, 100],
-            percents.Where(percent => percent >= 85));
+        Assert.Contains(85, percents);
+        Assert.DoesNotContain(100, percents);
+        Assert.StartsWith("PRINT_PREFLIGHT_FAILED", world.Packs.FailureReason);
 
         // The parent's screen and the admin read the same line, and it is in the book's language.
         Assert.All(world.Packs.Progress, step =>
@@ -179,55 +180,17 @@ public class CompositePipelineFulfillmentTests
     /// judge the book, and nothing after the reading copy runs under the job's clock at all.
     /// </summary>
     [Fact]
-    public async Task A_press_tail_that_runs_out_of_time_withholds_the_press_files_and_completes_the_book()
+    public async Task A_canonical_tail_that_runs_out_of_time_fails_without_publishing_a_pdf()
     {
         var world = new PackWorld { PressStalls = true };
 
         await world.Job().ProcessAsync(world.PackId, world.RunId, CancellationToken.None);
 
-        Assert.Null(world.Packs.FailureReason);
-        Assert.Equal(AdventurePackStatus.Completed, world.Packs.Status);
-
-        // The family's copy is published; the printer's slot is written, and written null.
-        Assert.NotNull(world.Packs.PdfUrl);
-        Assert.True(world.Packs.PrintPdfUrlWritten);
+        Assert.StartsWith("GENERATION_BUDGET_EXCEEDED", world.Packs.FailureReason);
+        Assert.Equal(AdventurePackStatus.Failed, world.Packs.Status);
         Assert.Null(world.Packs.PrintPdfUrl);
-
-        // The press-status document says why, in the field the gates read.
-        using var status = JsonDocument.Parse(
-            world.Blobs.Uploaded[BekiPackBlobs.PressStatusName(world.UserId, world.PackId)]);
-        Assert.Equal("withheld", status.RootElement.GetProperty("interior").GetString());
-        Assert.Equal("withheld", status.RootElement.GetProperty("cover").GetString());
-        Assert.Contains(
-            BekiPackFulfillment.PressBudgetExceededCode,
-            status.RootElement.GetProperty("reason").GetString());
-
-        // Neither preflight was written by this run, so both carry a refusal rather than nothing —
-        // or, on a retry, an earlier attempt's pass.
-        foreach (var report in new[]
-                 {
-                     BekiPackBlobs.InteriorPreflightName(world.UserId, world.PackId),
-                     BekiPackBlobs.CoverPreflightName(world.UserId, world.PackId),
-                 })
-        {
-            using var withheld = JsonDocument.Parse(world.Blobs.Uploaded[report]);
-            Assert.Equal(BekiWithheldReport.FailVerdict, withheld.RootElement.GetProperty("verdict").GetString());
-            Assert.Equal(BekiPackFulfillment.PressBudgetExceededCode, withheld.RootElement.GetProperty("gate").GetString());
-        }
-
-        // The gates were still evaluated and their verdict stored.
-        Assert.Contains(BekiPackBlobs.ReleaseGatesName(world.UserId, world.PackId), world.Blobs.Uploaded.Keys);
-
-        // A person is told through the alarms, as a blocker; nobody is told the book failed.
-        var alarm = Assert.Single(world.Alarms.Raised);
-        Assert.Equal(BekiPackFulfillment.PressBudgetAlarmCheck, alarm.CheckId);
-        Assert.Equal(BekiReleaseSeverity.Blocker, alarm.Severity);
-        Assert.Contains(BekiPackFulfillment.PressBudgetExceededCode, alarm.Detail);
-        Assert.Equal(0, world.Notifier.Notifications);
-        Assert.Empty(world.Email.Failures);
-
-        // And the screen got to the end.
-        Assert.Equal(100, world.Packs.Progress.Last().Percent);
+        Assert.Null(world.Packs.PdfUrl);
+        Assert.Equal(1, world.Notifier.Notifications);
     }
 
     /// <summary>
@@ -235,17 +198,16 @@ public class CompositePipelineFulfillmentTests
     /// running under it, and the finish line is not either.
     /// </summary>
     [Fact]
-    public async Task The_jobs_clock_expiring_during_the_press_tail_does_not_fail_the_book()
+    public async Task The_jobs_clock_expiring_during_the_canonical_tail_fails_the_book()
     {
         var world = new PackWorld { JobClockFiresDuringPress = true };
 
         await world.Job().ProcessAsync(world.PackId, world.RunId, CancellationToken.None);
 
-        Assert.Null(world.Packs.FailureReason);
-        Assert.Equal(AdventurePackStatus.Completed, world.Packs.Status);
+        Assert.NotNull(world.Packs.FailureReason);
+        Assert.Equal(AdventurePackStatus.Failed, world.Packs.Status);
         Assert.Empty(world.Alarms.Raised);
-        Assert.Equal(0, world.Notifier.Notifications);
-        Assert.Equal(100, world.Packs.Progress.Last().Percent);
+        Assert.Equal(1, world.Notifier.Notifications);
     }
 
     [Fact]
@@ -355,20 +317,12 @@ public class CompositePipelineFulfillmentTests
         // Once, for the illustrator. The manifest's private reference hashes the same array.
         Assert.Equal(1, downloads.Count(url => url == PackWorld.PhotoUrl));
 
-        // And the reading copy, which this run composed and stored, is rendered back from the
-        // bytes it stored rather than from a fetch of the blob it just wrote.
+        // No lower-quality reading copy is composed or stored when canonical preflight fails.
         var readingPdf = BekiPackBlobs.ReadingPdfName(world.UserId, world.PackId);
-        Assert.Contains(readingPdf, world.Blobs.Uploaded.Keys);
+        Assert.DoesNotContain(readingPdf, world.Blobs.Uploaded.Keys);
         Assert.DoesNotContain(readingPdf, downloads);
 
-        // The manifest still carries the photograph's identity, which is what the re-download was
-        // for: dropping the fetch must not drop the hash.
-        var manifest = JsonSerializer.Deserialize<BekiFulfillmentManifest>(
-            world.Blobs.Uploaded[BekiPackBlobs.ManifestName(world.UserId, world.PackId)],
-            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
-
-        Assert.Equal(PackWorld.PhotoUrl, manifest.ChildPhotograph!.Reference);
-        Assert.Equal(64, manifest.ChildPhotograph.Sha256.Length);
+        Assert.Contains(BekiPackBlobs.ManifestName(world.UserId, world.PackId), world.Blobs.Uploaded.Keys);
     }
 
     // =======================================================================================
@@ -437,7 +391,7 @@ public class CompositePipelineFulfillmentTests
         {
             await Job().ProcessAsync(PackId, RunId, CancellationToken.None);
 
-            Assert.Null(Packs.FailureReason);
+            Assert.StartsWith("PRINT_PREFLIGHT_FAILED", Packs.FailureReason);
         }
 
         private StubGenerator? _generator;

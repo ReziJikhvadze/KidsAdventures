@@ -192,13 +192,13 @@ public static class BekiPackBlobs
         $"{userId}/{packId}/human-approval.json";
 
     /// <summary>
-    /// One fixed page's machine QA record: the cover boards, the endpapers, the intro, the credits.
+    /// One fixed page's machine QA record: cover wrap, opening endpaper, intro, or credits.
     /// </summary>
     public static string FixedPageQaName(Guid userId, Guid packId, string role) =>
         $"{userId}/{packId}/fixed-{role}-qa.json";
 
-    /// <summary>The three composed documents that carry post-layout receipts.</summary>
-    public static readonly IReadOnlyList<string> LayoutModes = ["reading", "interior", "cover"];
+    /// <summary>The one composed document that carries post-layout receipts.</summary>
+    public static readonly IReadOnlyList<string> LayoutModes = ["canonical"];
 
     /// <summary>One composed document's whole receipt set (amendment A4).</summary>
     public static string LayoutReceiptName(Guid userId, Guid packId, string mode) =>
@@ -208,16 +208,21 @@ public static class BekiPackBlobs
     public static string LayoutPageReceiptName(Guid userId, Guid packId, string mode, string fileName) =>
         $"{userId}/{packId}/receipts/{mode}-{fileName}";
 
-    /// <summary>The reading copy, as it is scanned and rendered back for the QR and human gates.</summary>
-    public const string DigitalRenderArtifact = "digital-reading";
+    /// <summary>The one stored PDF used by the reader, download, admin and print paths.</summary>
+    public const string CanonicalRenderArtifact = "canonical-book";
 
-    public const string InteriorRenderArtifact = "press-interior";
+    [Obsolete("The final pipeline has one canonical artifact.")]
+    public const string DigitalRenderArtifact = CanonicalRenderArtifact;
 
-    public const string CoverRenderArtifact = "press-cover";
+    [Obsolete("The final pipeline has one canonical artifact.")]
+    public const string InteriorRenderArtifact = CanonicalRenderArtifact;
+
+    [Obsolete("The final pipeline has one canonical artifact.")]
+    public const string CoverRenderArtifact = CanonicalRenderArtifact;
 
     /// <summary>Every stored final that render validation is run against (amendment A8).</summary>
     public static readonly IReadOnlyList<string> RenderedArtifacts =
-        [InteriorRenderArtifact, CoverRenderArtifact, DigitalRenderArtifact];
+        [CanonicalRenderArtifact];
 
     /// <summary>
     /// The stored final one render artifact is the validation OF — the pairing that makes
@@ -231,9 +236,7 @@ public static class BekiPackBlobs
     /// </summary>
     public static string FinalPdfName(Guid userId, Guid packId, string artifact) => artifact switch
     {
-        InteriorRenderArtifact => InteriorPdfName(userId, packId),
-        CoverRenderArtifact => CoverPdfName(userId, packId),
-        DigitalRenderArtifact => ReadingPdfName(userId, packId),
+        CanonicalRenderArtifact => ReadingPdfName(userId, packId),
         _ => throw new ArgumentOutOfRangeException(
             nameof(artifact), artifact, "not a render-validated artifact."),
     };
@@ -248,9 +251,9 @@ public static class BekiPackBlobs
     /// failure still leaves the parent's book alone.
     /// </summary>
     public static string RenderArtifactClass(string artifact) =>
-        artifact == DigitalRenderArtifact
-            ? BekiReleaseGates.DigitalClass
-            : BekiReleaseGates.PressClass;
+        artifact == CanonicalRenderArtifact
+            ? BekiReleaseGates.SharedClass
+            : throw new ArgumentOutOfRangeException(nameof(artifact), artifact, "not a canonical artifact");
 
     public static string RenderReportName(Guid userId, Guid packId, string artifact) =>
         $"{userId}/{packId}/render-{artifact}.json";
@@ -281,6 +284,9 @@ public static class BekiPackBlobs
 
     /// <summary>The customer PDF and its own preflight (amendment A10c).</summary>
     public static string ReadingPdfName(Guid userId, Guid packId) => $"{userId}/{packId}.pdf";
+
+    public static string CanonicalPreflightName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}-preflight.json";
 
     public static string DigitalReportName(Guid userId, Guid packId) =>
         $"{userId}/{packId}-digital-report.json";
@@ -1582,150 +1588,51 @@ public sealed class BekiPackFulfillment(
                     + "sha {Sha}), with the reader pointed at its front-board crop.",
                     packId, wrap.PoseId, wrapSha[..12]);
 
-                // ---- The parent's book -------------------------------------------------------
+                var continuationBase = bekiOptions.Value.ContinuationBaseUrl?.Trim().TrimEnd('/');
+                if (string.IsNullOrWhiteSpace(continuationBase)
+                    || !Uri.TryCreate(continuationBase, UriKind.Absolute, out _))
+                {
+                    throw new BekiLayoutException(
+                        CompositeFailureCodes.LayoutFailed,
+                        "Beki:ContinuationBaseUrl must be an absolute public book route; the spread-8 QR cannot use a fallback.");
+                }
+
+                personalization = personalization with
+                {
+                    ContinuationUrl = $"{continuationBase}/{pack.Id:D}",
+                };
+
+                // One mixed-size, PDF/X-4 artifact is the product. It is not published before
+                // composition, print preparation, page-box validation and render-back validation
+                // have all succeeded; a failure keeps the pack out of Ready/Completed.
                 await AdvanceAsync(
-                    "laying out the customer's book", "საკითხავ PDF-ს ვაწყობთ…", 88, jobToken);
-
-                /*
-                  A dedicated trim-size export, which audit P0-08 is entirely about. What shipped
-                  before was the press document with a different file name: bleed-inflated pages, no
-                  CropBox, every raster stretched to a 300-PPI target nothing on a screen can use.
-                  This is fourteen pages at the finished size, in sRGB, linearized, with the wrap's
-                  own boards as its covers — and it goes through its own preflight (amendment A10c)
-                  rather than through the press one.
-                */
-                var reading = composer.ComposeReading(plan, wrap.CompositePng, stored, personalization);
-
-                /*
-                  A refused digital preflight withholds the download; it does not fail the book.
-
-                  The distinction is the one amendment A5 draws everywhere: the in-app reader is the
-                  spread PNGs and is already serving, so a family whose file will not pass its own
-                  geometry check still has the book they paid for on screen. What they do not get is
-                  a download, and the DIGITAL_GEOMETRY gate says so by finding no report. The
-                  composed bytes are still stored, under the same name, so an operator can open what
-                  was actually made rather than reasoning about a file nobody kept.
-                */
-                byte[] readingBytes;
-                string? digitalReport = null;
-
-                try
-                {
-                    (readingBytes, digitalReport) = BekiDigitalPrep.Prepare(
-                        reading.Pdf, bekiOptions.Value.PrintPrep);
-                }
-                catch (BekiLayoutException ex)
-                    when (ex.FailureCode == CompositeFailureCodes.PrintPreflightFailed)
-                {
-                    readingBytes = reading.Pdf;
-
-                    logger.LogWarning(
-                        "Beki pack {PackId}: the customer PDF is withheld ({Code}) — {Reason} The "
-                        + "in-app reader is unaffected.",
-                        packId, ex.FailureCode, ex.Message);
-                }
-
-                pdfUrl = await blobStorage.UploadAsync(
-                    BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id),
-                    readingBytes, "application/pdf", jobToken);
-
-                /*
-                  From here the book exists, and the clock changes.
-
-                  Everything above ran under the generation budget, because until the reading copy
-                  is stored a book that has not finished is a book that may be lost. Everything
-                  below is evidence and press work about a book the family can already read — the
-                  digital receipts, the printer's two files, the renders, the verdict — and it used
-                  to run under the same thirty-minute deadline. So a slow upscaler at minute
-                  twenty-eight marked a fully drawn, fully composed book Failed, paged an operator
-                  and wrote to the parent about a book that was sitting in storage. The tail gets
-                  its own clock (BekiOptions.PressBudgetMinutes), linked to the host's token and not
-                  to the job's, and when it runs out the outcome is "press files withheld": recorded
-                  in the press-status document the gates read, raised as an alarm, and the book
-                  completes with the reading copy. Nothing in this tail fails the book any more.
-                */
-                using var pressDeadline = GenerationBudget.Start(
-                    cancellationToken, PressBudgetFor(bekiOptions.Value), _timeProvider);
-                var pressToken = pressDeadline.Token;
+                    "preparing the canonical book", "საბოლოო წიგნს ვამზადებთ…", 91, jobToken);
 
                 var press = new PressWork();
+                await PreparePressAsync(
+                    pack, plan, stored, personalization, wrap.CompositePng, assetLockHashes, press,
+                    jobToken);
 
-                try
+                if (press.PreparedInterior is not { Length: > 0 } canonicalBytes
+                    || string.IsNullOrWhiteSpace(press.InteriorUrl))
                 {
-                    if (digitalReport is { Length: > 0 })
-                    {
-                        await blobStorage.UploadAsync(
-                            BekiPackBlobs.DigitalReportName(pack.UserId, pack.Id),
-                            System.Text.Encoding.UTF8.GetBytes(digitalReport), "application/json",
-                            pressToken);
-                    }
-                    else
-                    {
-                        /*
-                          And the previous attempt's report is written over, which it was not.
-
-                          The unprepared PDF has just been uploaded under the name the prepared one
-                          uses. On a RETRY, the report blob still holds the last successful run's
-                          document — about bytes that are no longer there — and the DIGITAL_GEOMETRY
-                          gate, which read presence, would find evidence for a file nothing has
-                          preflighted and publish it. Replaced with a refusal the evaluator treats
-                          as a failure.
-                        */
-                        await blobStorage.UploadAsync(
-                            BekiPackBlobs.DigitalReportName(pack.UserId, pack.Id),
-                            BekiWithheldReport.Bytes(
-                                BekiDigitalPrep.DigitalGeometryGate,
-                                "laying out the customer's book",
-                                "the customer PDF did not pass its own preflight on this run, so the "
-                                + "stored file is the unprepared composition."),
-                            "application/json", pressToken);
-                    }
-
-                    await UploadLayoutReceiptsAsync(pack, "reading", reading.Receipts, pressToken);
-
-                    // The normalized story, stored with the book rather than only on the preview
-                    // run — audit §9 takes it off the handback's excluded list, and a package that
-                    // excludes the words the pictures were planned from is a package the supplier
-                    // cannot check.
-                    storyUrl = await blobStorage.UploadAsync(
-                        BekiPackBlobs.StoryName(pack.UserId, pack.Id),
-                        System.Text.Encoding.UTF8.GetBytes(run.StoryJson!), "application/json",
-                        pressToken);
-
-                    await StoreFixedPageQaAsync(pack, reading.Receipts, assetLockHashes, pressToken);
-
-                    // ---- The printer's two files ---------------------------------------------
-                    await AdvanceAsync(
-                        "preparing the press files", "ბეჭდვისთვის ფაილებს ვამზადებთ…", 91, pressToken);
-
-                    await PreparePressAsync(
-                        pack, plan, stored, personalization, wrap.CompositePng, press, pressToken);
-
-                    // ---- Render validation on what was actually stored -----------------------
-                    await AdvanceAsync(
-                        "rendering the stored artifacts back", "დაბეჭდილ გვერდებს ვამოწმებთ…", 94,
-                        pressToken);
-
-                    await ValidateStoredRendersAsync(
-                        pack,
-                        new BekiRenderInputs(readingBytes, press.PreparedInterior, press.PreparedCover),
-                        pressToken);
+                    throw new BekiLayoutException(
+                        CompositeFailureCodes.PrintPreflightFailed,
+                        "The canonical PDF did not pass the mandatory production preflight.");
                 }
-                catch (OperationCanceledException) when (pressDeadline.Expired)
-                {
-                    /*
-                      The press tail ran out of its own time. The book is unaffected; the printer's
-                      files are withheld and somebody is told.
 
-                      Recorded on a fresh token — the one that just fired is the one that got us
-                      here — and in the shape the gates already read: a press-status document
-                      naming the reason, and a refusal written over whichever preflight report this
-                      run did not produce, so that an earlier attempt's success cannot stand in for
-                      a file this run never prepared. Whatever WAS prepared keeps its real report.
-                    */
-                    await RecordPressBudgetExpiryAsync(
-                        pack, press, PressBudgetExceededReason(pressDeadline.Budget, stage));
-                }
+                pdfUrl = press.InteriorUrl;
+
+                storyUrl = await blobStorage.UploadAsync(
+                    BekiPackBlobs.StoryName(pack.UserId, pack.Id),
+                    System.Text.Encoding.UTF8.GetBytes(run.StoryJson!), "application/json",
+                    jobToken);
+
+                await AdvanceAsync(
+                    "rendering the canonical artifact back", "დაბეჭდილ გვერდებს ვამოწმებთ…", 94,
+                    jobToken);
+                await ValidateStoredRendersAsync(
+                    pack, new BekiRenderInputs(canonicalBytes), jobToken);
 
                 // ---- The verdict ----------------------------------------------------------------
                 //
@@ -1781,7 +1688,7 @@ public sealed class BekiPackFulfillment(
                 */
                 await packRepository.UpdatePrintPdfUrlAsync(
                     packId,
-                    release.PressFilesMayPublish ? press.InteriorUrl : null,
+                    release.PressFilesMayPublish && release.CustomerPdfMayPublish ? pdfUrl : null,
                     cancellationToken);
 
                 logger.LogInformation(
@@ -1790,7 +1697,7 @@ public sealed class BekiPackFulfillment(
                     packId, release.Verdict,
                     release.FailingGates.Count == 0 ? "(none)" : string.Join(", ", release.FailingGates),
                     release.CustomerPdfMayPublish ? "published" : "withheld",
-                    release.PressFilesMayPublish && press.InteriorUrl is not null
+                    release.PressFilesMayPublish && release.CustomerPdfMayPublish && pdfUrl is not null
                         ? "published" : "withheld");
             }
             else
@@ -2758,7 +2665,7 @@ public sealed class BekiPackFulfillment(
     /// The bytes render validation is run against, as this run uploaded them. Null for a final this
     /// run did not produce, which sends the stage back to storage for whatever is there.
     /// </summary>
-    private sealed record BekiRenderInputs(byte[]? Reading, byte[]? Interior, byte[]? Cover);
+    private sealed record BekiRenderInputs(byte[]? Canonical);
 
     /// <summary>
     /// The printer's two files, with the resolution truth attached (D5c, audit P0-04/P1-01).
@@ -2779,33 +2686,19 @@ public sealed class BekiPackFulfillment(
         IReadOnlyList<BekiSpreadArtwork> spreads,
         BekiBookPersonalization personalization,
         byte[] wrapComposite,
+        IReadOnlySet<string> assetLockHashes,
         PressWork work,
         CancellationToken cancellationToken)
     {
         var options = bekiOptions.Value.PrintPrep;
-        var failedGates = work.FailedGates;
-        var reasons = work.Reasons;
-
-        /*
-          Every raster this stage will place, offered to the super-resolver together.
-
-          Nine calls, one at a time, was the shape of this loop, and each call is an external
-          process over a multi-megapixel image that the tool is allowed ten minutes for. They have
-          nothing to say to each other — each answer is a function of its own input — so they run
-          three abreast, and the answers come back in the order they were asked for, which is what
-          keeps every receipt beside the page it describes. The wrap rides in the same batch: its
-          upscale used to wait for the whole interior to be prepared first, for no reason.
-        */
         var rasters = new List<(byte[] Png, int Width, int Height)>(spreads.Count + 1);
         rasters.AddRange(spreads.Select(
             spread => (spread.Image, InteriorPressWidthPx, InteriorPressHeightPx)));
         rasters.Add((wrapComposite, CoverPressWidthPx, CoverPressHeightPx));
 
         var upscales = await UpscaleAllAsync(rasters, cancellationToken);
-
-        // ---- the interior -------------------------------------------------------------------
         var pressArt = new List<BekiSpreadArtwork>(spreads.Count);
-        var sources = new List<BekiResolutionSource>(spreads.Count);
+        var sources = new List<BekiResolutionSource>(spreads.Count + 1);
 
         for (var index = 0; index < spreads.Count; index++)
         {
@@ -2818,175 +2711,75 @@ public sealed class BekiPackFulfillment(
 
             sources.Add(upscale.ToReceiptSource($"spread-{spread.SpreadNumber:00}"));
 
-            if (!upscale.Succeeded && upscale.Reason is { Length: > 0 } why)
+            if (!upscale.Succeeded)
             {
-                logger.LogInformation(
-                    "Beki pack {PackId}: spread {Spread} goes to press preparation at its own "
-                    + "{Width}×{Height} — {Reason}",
-                    pack.Id, spread.SpreadNumber, upscale.SourceWidthPx, upscale.SourceHeightPx, why);
+                throw new BekiLayoutException(
+                    CompositeFailureCodes.PrintPreflightFailed,
+                    $"{BekiPrintPrep.PressResolutionGate}: spread {spread.SpreadNumber} was not "
+                    + $"delivered at {InteriorPressWidthPx}×{InteriorPressHeightPx} by an approved "
+                    + $"detail-producing upscaler ({upscale.Reason ?? "no reason returned"}).");
             }
         }
 
-        try
+        var coverUpscale = upscales[^1];
+        if (!coverUpscale.Succeeded)
         {
-            var interior = composer.ComposeInteriorWithReceipts(plan, pressArt, personalization);
-
-            /*
-              The whole provenance of every raster, from BOTH stages that touch it.
-
-              The upscaler reports on its own attempt — which tool, which factor, and whether it
-              declined — and it is blind to what the composer then does to place a sheet on the
-              page. Layout is the stage that enlarges a short raster onto the stated trim, and it is
-              the only one that knows. A receipt built from the upscaler alone therefore hands the
-              resolution gate a book with the stretch missing from it, and the gate reads PASS on an
-              interpolated page: the exact failure amendment A1 exists to catch, arriving through
-              the receipt rather than through the pixels.
-
-              So the two lists are concatenated rather than chosen between. Duplicate roles are not
-              a problem for the gate — it fails if ANY source was interpolation-only — and a role
-              appearing twice, once from each stage, is a truthful description of a raster that two
-              stages resized.
-            */
-            var (preparedInterior, preflight, interiorGates) = BekiPrintPrep.PrepareWithGates(
-                interior.Pdf,
-                plan.Concept.Title,
-                options,
-                probe: new BekiPrintProbe(
-                    interior.Receipts.LightTextPages, interior.Receipts.FlatGroundTextProbes),
-                resolutionReceipt: new BekiResolutionReceipt(
-                    [.. sources, .. interior.Receipts.RasterSources]));
-
-            /*
-              The gates that failed WITHOUT withholding the file — owner's rule 4, 2026-09-01: the
-              sizes we indicated for printing are correct.
-
-              Print preparation used to answer this stage's questions by throwing, so the ledger
-              below was built in a catch block from the exception's message. PRESS_RESOLUTION no
-              longer throws, and a ledger read out of an exception that no longer happens is a clean
-              press-status document on a book whose resolution gate failed — the machinery telling
-              the supplier something better than the truth, which is the one thing this campaign
-              does not permit. The returned list is recorded exactly as a thrown one would have
-              been; the release policy is where it is weighed, and by default it publishes.
-            */
-            failedGates.AddRange(interiorGates);
-
-            if (interiorGates.Count > 0)
-            {
-                reasons.Add(
-                    "interior: prepared, and "
-                    + string.Join(", ", interiorGates)
-                    + " failed on the stored file — see the preflight report.");
-
-                logger.LogWarning(
-                    "Beki pack {PackId}: the press interior was prepared with {Gates} failing. The "
-                    + "file is stored and the gate result is recorded truthfully; whether it "
-                    + "publishes is the release policy's decision.",
-                    pack.Id, string.Join(", ", interiorGates));
-            }
-
-            work.InteriorUrl = await blobStorage.UploadAsync(
-                BekiPackBlobs.InteriorPdfName(pack.UserId, pack.Id),
-                preparedInterior, "application/pdf", cancellationToken);
-            work.PreparedInterior = preparedInterior;
-
-            await blobStorage.UploadAsync(
-                BekiPackBlobs.InteriorPreflightName(pack.UserId, pack.Id),
-                System.Text.Encoding.UTF8.GetBytes(preflight), "application/json", cancellationToken);
-            work.InteriorPreflightStored = true;
-
-            await UploadLayoutReceiptsAsync(pack, "interior", interior.Receipts, cancellationToken);
-        }
-        catch (BekiLayoutException ex)
-        {
-            failedGates.AddRange(GatesNamedIn(ex.Message));
-            reasons.Add($"interior: {ex.Message}");
-
-            // Symmetrically with the customer PDF above: a retry whose interior now refuses must
-            // not leave the previous attempt's preflight standing as this run's evidence.
-            await OverwriteStalePreflightAsync(
-                BekiPackBlobs.InteriorPreflightName(pack.UserId, pack.Id),
-                "preparing the press interior",
-                GatesNamedIn(ex.Message).FirstOrDefault() ?? "PRESS_GEOMETRY",
-                ex.Message,
-                cancellationToken);
-            work.InteriorPreflightStored = true;
-
-            logger.LogWarning(
-                "Beki pack {PackId}: the press interior is withheld ({Code}) — {Reason}",
-                pack.Id, ex.FailureCode, ex.Message);
+            throw new BekiLayoutException(
+                CompositeFailureCodes.PrintPreflightFailed,
+                $"{BekiPrintPrep.PressResolutionGate}: the cover wrap was not delivered at "
+                + $"{CoverPressWidthPx}×{CoverPressHeightPx} by an approved detail-producing "
+                + $"upscaler ({coverUpscale.Reason ?? "no reason returned"}).");
         }
 
-        // ---- the cover ----------------------------------------------------------------------
-        try
+        var coverArt = coverUpscale.Png!;
+        sources.Add(coverUpscale.ToReceiptSource("cover-wrap"));
+
+        var canonical = composer.ComposeCanonicalWithReceipts(
+            plan, coverArt, pressArt, personalization);
+
+        var (prepared, preflight, failedGates) = BekiPrintPrep.PrepareWithGates(
+            canonical.Pdf,
+            plan.Concept.Title,
+            options,
+            trimInsetMm: 5f,
+            probe: new BekiPrintProbe(
+                canonical.Receipts.LightTextPages, canonical.Receipts.FlatGroundTextProbes),
+            resolutionReceipt: new BekiResolutionReceipt(
+                [.. sources, .. canonical.Receipts.RasterSources]),
+            canonicalMixedGeometry: true,
+            requirePressResolution: true);
+
+        if (failedGates.Count > 0)
         {
-            var coverUpscale = upscales[^1];
-
-            var coverArt = coverUpscale is { Succeeded: true, Png: { Length: > 0 } enlarged }
-                ? enlarged
-                : wrapComposite;
-
-            var cover = composer.ComposeCoverPressWithReceipts(plan.Concept.Title, coverArt);
-
-            var (preparedCover, coverPreflight, coverGates) = BekiPrintPrep.PrepareWithGates(
-                cover.Pdf,
-                plan.Concept.Title,
-                options,
-                // The locked spec sets every box equal to the 512 × 245 canvas: the turn-ins ARE
-                // the overrun, so there is no inset to state.
-                trimInsetMm: 0f,
-                probe: new BekiPrintProbe(
-                    cover.Receipts.LightTextPages, cover.Receipts.FlatGroundTextProbes),
-                // Both stages again — see the interior. The wrap is placed at its native pixels
-                // today, so the composer's list is what says so.
-                resolutionReceipt: new BekiResolutionReceipt(
-                    [coverUpscale.ToReceiptSource("cover-wrap"), .. cover.Receipts.RasterSources]));
-
-            failedGates.AddRange(coverGates);
-
-            if (coverGates.Count > 0)
-            {
-                reasons.Add(
-                    "cover: prepared, and "
-                    + string.Join(", ", coverGates)
-                    + " failed on the stored file — see the preflight report.");
-
-                logger.LogWarning(
-                    "Beki pack {PackId}: the press cover was prepared with {Gates} failing. The "
-                    + "file is stored and the gate result is recorded truthfully; whether it "
-                    + "publishes is the release policy's decision.",
-                    pack.Id, string.Join(", ", coverGates));
-            }
-
-            work.CoverUrl = await blobStorage.UploadAsync(
-                BekiPackBlobs.CoverPdfName(pack.UserId, pack.Id),
-                preparedCover, "application/pdf", cancellationToken);
-            work.PreparedCover = preparedCover;
-
-            await blobStorage.UploadAsync(
-                BekiPackBlobs.CoverPreflightName(pack.UserId, pack.Id),
-                System.Text.Encoding.UTF8.GetBytes(coverPreflight), "application/json",
-                cancellationToken);
-            work.CoverPreflightStored = true;
-
-            await UploadLayoutReceiptsAsync(pack, "cover", cover.Receipts, cancellationToken);
+            throw new BekiLayoutException(
+                CompositeFailureCodes.PrintPreflightFailed,
+                "The canonical PDF failed mandatory gate(s): " + string.Join(", ", failedGates));
         }
-        catch (BekiLayoutException ex)
+
+        work.InteriorUrl = await blobStorage.UploadAsync(
+            BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id),
+            prepared, "application/pdf", cancellationToken);
+        work.CoverUrl = work.InteriorUrl;
+        work.PreparedInterior = prepared;
+        work.PreparedCover = prepared;
+
+        var preflightBytes = System.Text.Encoding.UTF8.GetBytes(preflight);
+        foreach (var name in new[]
         {
-            failedGates.AddRange(GatesNamedIn(ex.Message));
-            reasons.Add($"cover: {ex.Message}");
-
-            await OverwriteStalePreflightAsync(
-                BekiPackBlobs.CoverPreflightName(pack.UserId, pack.Id),
-                "preparing the press cover",
-                GatesNamedIn(ex.Message).FirstOrDefault() ?? "PRESS_GEOMETRY",
-                ex.Message,
-                cancellationToken);
-            work.CoverPreflightStored = true;
-
-            logger.LogWarning(
-                "Beki pack {PackId}: the press cover is withheld ({Code}) — {Reason}",
-                pack.Id, ex.FailureCode, ex.Message);
+            BekiPackBlobs.CanonicalPreflightName(pack.UserId, pack.Id),
+            BekiPackBlobs.InteriorPreflightName(pack.UserId, pack.Id),
+            BekiPackBlobs.CoverPreflightName(pack.UserId, pack.Id),
+            BekiPackBlobs.DigitalReportName(pack.UserId, pack.Id),
+        })
+        {
+            await blobStorage.UploadAsync(name, preflightBytes, "application/json", cancellationToken);
         }
+
+        work.InteriorPreflightStored = true;
+        work.CoverPreflightStored = true;
+
+        await UploadLayoutReceiptsAsync(pack, "canonical", canonical.Receipts, cancellationToken);
+        await StoreFixedPageQaAsync(pack, canonical.Receipts, assetLockHashes, cancellationToken);
 
         await WritePressStatusAsync(pack, work, cancellationToken);
     }
@@ -3007,6 +2800,35 @@ public sealed class BekiPackFulfillment(
 
         return await Task.WhenAll(rasters.Select(async raster =>
         {
+            (int Width, int Height)? nativeSize = null;
+            try
+            {
+                var identified = SixLabors.ImageSharp.Image.Identify(raster.Png);
+                nativeSize = (identified.Width, identified.Height);
+            }
+            catch (SixLabors.ImageSharp.UnknownImageFormatException)
+            {
+                // Test doubles and a configured external resolver may intentionally accept opaque
+                // bytes. Native adoption is only an optimization; unreadable input still follows
+                // the normal resolver path and is judged by its result.
+            }
+
+            if (nativeSize is { } native
+                && native.Width >= raster.Width
+                && native.Height >= raster.Height)
+            {
+                return new PressUpscaleResult(
+                    true,
+                    raster.Png,
+                    "native-source",
+                    1d,
+                    native.Width,
+                    native.Height,
+                    native.Width,
+                    native.Height,
+                    null);
+            }
+
             await slots.WaitAsync(cancellationToken).ConfigureAwait(false);
 
             try
@@ -3179,7 +3001,7 @@ public sealed class BekiPackFulfillment(
     ///
     /// Stored is the word that matters. Everything upstream reasons about a document it built
     /// itself; this takes the bytes out of storage, hands them to two independent interpreters and
-    /// scans the credits QR off the rendered page, which is the only way the defect the QR gate
+    /// scans Story spread 8's continuation QR off the rendered page, which is the only way the defect the QR gate
     /// exists for — a code that draws perfectly and resolves to nothing — can be caught at all.
     ///
     /// It also produces the contact sheet the human approval signs, which is why the reading copy is
@@ -3196,14 +3018,13 @@ public sealed class BekiPackFulfillment(
     {
         var options = bekiOptions.Value.PrintPrep;
 
-        // The credits page carries the one QR the spec allows. It is the second-to-last leaf of the
-        // customer's fourteen pages and of the interior's twelve; a press cover has no credits page
-        // at all, and asserting a QR on it would be asserting a defect.
+        var continuationUrl = $"{bekiOptions.Value.ContinuationBaseUrl.Trim().TrimEnd('/')}/{pack.Id:D}";
+
+        // PDF page 11 is story spread 8: cover wrap + opening + intro + eight story spreads.
+        // The final credits spread is page 12 and intentionally carries no QR.
         var artifacts = new (string Artifact, byte[]? Stored, int? QrPage)[]
         {
-            (BekiPackBlobs.InteriorRenderArtifact, inputs.Interior, BookFormat.SpreadCount + 3),
-            (BekiPackBlobs.CoverRenderArtifact, inputs.Cover, null),
-            (BekiPackBlobs.DigitalRenderArtifact, inputs.Reading, BookFormat.SpreadCount + 4),
+            (BekiPackBlobs.CanonicalRenderArtifact, inputs.Canonical, 11),
         };
 
         /*
@@ -3239,7 +3060,9 @@ public sealed class BekiPackFulfillment(
                 var result = await Task.Run(
                     () => BekiRenderValidation.Validate(
                         bytes, entry.Artifact, options,
-                        new BekiRenderValidationRequest(QrPage: entry.QrPage)),
+                        new BekiRenderValidationRequest(
+                            QrPage: entry.QrPage,
+                            ExpectedQrDestination: continuationUrl)),
                     cancellationToken).ConfigureAwait(false);
 
                 return (entry.Artifact, Result: result);
@@ -3262,7 +3085,9 @@ public sealed class BekiPackFulfillment(
         {
             if (result is null)
             {
-                continue;
+                throw new BekiLayoutException(
+                    CompositeFailureCodes.PrintPreflightFailed,
+                    "RENDER_VALIDATION: the canonical PDF could not be rendered and scanned.");
             }
 
             try
@@ -3285,12 +3110,20 @@ public sealed class BekiPackFulfillment(
                     result.FailedGates.Count == 0
                         ? string.Empty
                         : $" — {string.Join(", ", result.FailedGates)}");
+
+                if (!result.IsReleasable)
+                {
+                    throw new BekiLayoutException(
+                        CompositeFailureCodes.PrintPreflightFailed,
+                        "The canonical PDF failed render-back validation: "
+                        + string.Join(" ", result.Problems));
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                logger.LogWarning(
-                    ex, "Beki pack {PackId}: {Artifact}'s render report could not be stored; the "
-                    + "gates will read the absence rather than a pass.", pack.Id, artifact);
+                throw new BekiLayoutException(
+                    CompositeFailureCodes.PrintPreflightFailed,
+                    $"RENDER_VALIDATION: {artifact}'s evidence could not be stored ({ex.Message}).");
             }
         }
     }

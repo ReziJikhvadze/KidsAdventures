@@ -30,6 +30,8 @@ public sealed class GeminiStoryModelClient(
     private readonly GeminiOptions _gemini = geminiOptions.Value;
     private readonly OpenAiOptions _openAi = openAiOptions.Value;
 
+    public string EffectiveModel(string requestedModel) => ModelFor(requestedModel);
+
     public async Task<ModelResult<T>> CompleteAsync<T>(
         string model,
         string systemPrompt,

@@ -137,7 +137,7 @@ public sealed class GeminiOptions
     /// high demand" while 3.6 answered every time. A book that fails because the fashionable model
     /// is busy is a worse book than one written by last month's.
     /// </summary>
-    public string StoryModel { get; set; } = "gemini-3.6-flash";
+    public string StoryModel { get; set; } = "gemini-3.1-pro-preview";
 
     /// <summary>Draws the illustrations. The image-capable models are a separate family.</summary>
     public string ImageModel { get; set; } = "gemini-3.1-flash-image";

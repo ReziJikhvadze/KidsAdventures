@@ -741,7 +741,7 @@ public sealed class AdventurePacksController(
         try
         {
             var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(row.PdfUrl, cancellationToken);
-            var fileName = $"adventure-pack-{row.Id}.pdf";
+            var fileName = $"beki-{row.Id}-book.pdf";
             return File(bytes, "application/pdf", fileName);
         }
         catch (Exception ex)

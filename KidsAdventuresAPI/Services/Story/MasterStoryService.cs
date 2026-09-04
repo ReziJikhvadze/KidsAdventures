@@ -125,8 +125,8 @@ public sealed class MasterStoryService(
     /// </summary>
     private bool _loggedBookFormatOverride;
 
-    public string ModelName =>
-        string.IsNullOrWhiteSpace(_options.MasterStoryModel) ? _options.Model : _options.MasterStoryModel;
+    public string ModelName => modelClient.EffectiveModel(
+        string.IsNullOrWhiteSpace(_options.MasterStoryModel) ? _options.Model : _options.MasterStoryModel);
 
     /// <summary>
     /// Which variant is in force.

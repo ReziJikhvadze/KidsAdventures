@@ -36,7 +36,7 @@ public class BekiAssetLockTests
 
         // All three approval documents are named by their own version — the audit's "governance
         // split across three registries" turned into a record of which document approved what.
-        Assert.Equal("beki-layout-assets-v1.2", manifest.SourceRegistries["layout"]);
+        Assert.Equal("beki-layout-assets-v2.0", manifest.SourceRegistries["layout"]);
         Assert.Equal("beki-theme-references-v1", manifest.SourceRegistries["theme_reference"]);
         Assert.Equal("beki-pose-registry-v1", manifest.SourceRegistries["pose"]);
 

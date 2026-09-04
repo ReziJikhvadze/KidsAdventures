@@ -278,20 +278,18 @@ public sealed class BekiPrintLayoutOptions
     /// </summary>
     public float PrintCropTolerance { get; set; } = 0.04f;
 
-    /// <summary>
-    /// Where the book's one QR code — on the credits spread — sends the reader.
-    ///
-    /// One code by ruling, not by accident: the Locked Print Specification §6 places exactly one
-    /// QR in the book, on the credits/closing spread, and removed spread 8's Continue Adventure
-    /// chip with its second code. The destination stays configurable for v0.
-    /// </summary>
-    public string ReviewQrUrl { get; set; } = "https://beki.ge";
+    /// <summary>Printed under the continuation QR on Story spread 8.</summary>
+    public string ContinuationQrCaption { get; set; } = "ამბავი გრძელდება";
 
-    /// <summary>The credits page's sign-off line. Reusable across every order.</summary>
-    public string EndingLine { get; set; } = "ამბავი აქ მთავრდება — თავგადასავალი კი გრძელდება.";
+    /// <summary>Legacy values are read only for migration and are never rendered.</summary>
+    [Obsolete("QR moved to Story spread 8 in the 2026-09-04 product configuration.")]
+    public string ReviewQrUrl { get; set; } = string.Empty;
 
-    /// <summary>Printed under the QR code, saying what scanning it is for.</summary>
-    public string EndingQrCaption { get; set; } = "შეაფასე ბეკის წიგნი";
+    [Obsolete("The final spread is credits-left/pattern-right with no closing CTA.")]
+    public string EndingLine { get; set; } = string.Empty;
+
+    [Obsolete("The final spread has no QR caption.")]
+    public string EndingQrCaption { get; set; } = string.Empty;
 
     /// <summary>
     /// The intro spread's dedication.
@@ -320,8 +318,8 @@ public sealed class BekiPrintLayoutOptions
     public string IntroInviteTemplate { get; set; } =
         "{name}, ერთად გავუყვებით ამ ბილიკს. დროა, დაიწყოს ჩვენი თავგადასავალი!";
 
-    /// <summary>The credits page's own line, under the review QR.</summary>
-    public string CreditsLine { get; set; } = "Beki • beki.ge";
+    /// <summary>The final line in the fixed left-page credits block.</summary>
+    public string CreditsLine { get; set; } = "BEKI · beki.ge";
 
     /// <summary>
     /// The spec's starting type targets by reader age (§20): generous for the youngest readers,

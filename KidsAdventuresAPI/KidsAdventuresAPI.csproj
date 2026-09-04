@@ -61,6 +61,7 @@
     <Content Update="Prompts\Beki\schemas\*.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\Beki\*.png" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\BekiComposite\**\*.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\BekiComposite\**\*.svg" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Assets\BekiComposite\**\*.icc" CopyToOutputDirectory="PreserveNewest" />
     <Content Update="Assets\BekiComposite\**\*.json" CopyToOutputDirectory="PreserveNewest" />
     <!-- The supplier's contract documents, shipped to the published output for the same reason the

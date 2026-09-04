@@ -1,8 +1,8 @@
 {
-  "status": "superseded",
-  "superseded_by": "pipeline_config_v2.json",
-  "superseded_on": "2026-09-04",
-  "config_version": "beki-pipeline-v1.1",
+  "status": "active",
+  "config_version": "beki-pipeline-v2.0",
+  "effective_date": "2026-09-04",
+  "source_precedence": "02_PRODUCT_OWNER_OVERRIDES_2026-09-04",
   "story": {
     "language": "ka",
     "input_fields": ["child_name", "child_age", "child_gender", "theme_id"],
@@ -13,9 +13,14 @@
       {"id": "6+", "min_age": 6, "max_age": null}
     ],
     "spread_count": 8,
-    "model_slot": "story_model",
-    "working_model": "Gemini 3.1 Pro",
-    "model_id_must_be_configurable": true
+    "provider": "Gemini",
+    "model_id_setting": "Gemini:StoryModel",
+    "prompt_version": "composite-v1.2",
+    "prompt_source": "Services/Story/Composite/MasterStoryPromptComposite.cs",
+    "prompt_source_sha256": "5bd49eb25bbf17b7353a5e270396ec2a30dbac83fc32aae66b85ab773ea97952",
+    "schema_version": "composite-story-schema-v1",
+    "schema_source": "Services/Story/Composite/CompositeStorySchema.cs",
+    "schema_source_sha256": "c7cfdcb6c51dc88602164519a7ae3086d7d8183b392b9cf5a800b30a3da5bfce"
   },
   "visual_scenario": {
     "prompt_version": "visual-scenario-v2",
@@ -30,7 +35,7 @@
     {"page": 5, "text_side": "LEFT", "shot_instruction": "Use a wide travelling view. Show the child actively choosing or following the route through the environment."},
     {"page": 6, "text_side": "RIGHT", "shot_instruction": "Use a medium-wide major-reveal or problem-solving view. Keep the child's action and the obstacle/reveal legible in one frame."},
     {"page": 7, "text_side": "LEFT", "shot_instruction": "Use a close emotional view. Prioritize the child's face, the emotional exchange, and the story-relevant object, keeping every face and key object away from the middle of the canvas."},
-    {"page": 8, "text_side": "RIGHT", "shot_instruction": "Use a cinematic wide continuation view. Resolve the current beat and make the new path or continuation cue clearly visible."}
+    {"page": 8, "text_side": "RIGHT", "shot_instruction": "Use a cinematic wide continuation view. Resolve the current beat and keep a safe right-side text area with room for the continuation QR below it."}
   ],
   "image_generation": {
     "prompt_version": "child-world-image-v1.1",
@@ -58,50 +63,57 @@
       "pose_id": "pose_07_curious_lean",
       "visible_center_x": 0.77885,
       "visible_center_y": 0.48095,
-      "visible_height": 0.78095,
-      "source_proof_position_mm": {"visible_left": 292, "visible_bottom": 19, "visible_height": 164}
+      "visible_height": 0.78095
     }
   },
-  "visual_qa": {
-    "prompt_version": "minimal-visual-qa-v1.1",
-    "model_slot": "multimodal_qa_model",
-    "max_qa_parse_retries": 1,
-    "max_base_regenerations": 1,
-    "max_beki_recomposites": 1
+  "assets": {
+    "pose_registry_version": "beki-pose-registry-v1",
+    "logo_asset_id": "beki_logo_hires_light",
+    "logo_file": "Assets/BekiComposite/logo/HiResLight.svg",
+    "logo_sha256": "e78bb168c316f9ce52c94f7741fba9fed8f59b7a5b8013821fe6dd673521db08"
   },
-  "interior": {
-    "spread_count": 12,
-    "media_width_mm": 450,
-    "media_height_mm": 210,
-    "trim_width_mm": 440,
-    "trim_height_mm": 200,
-    "bleed_mm_each_outer_edge": 5,
-    "working_raster_width_px": 5315,
-    "working_raster_height_px": 2480,
-    "working_raster_ppi": 300,
-    "working_color_space": "sRGB",
-    "body_font": "Noto Sans Georgian",
-    "body_font_default_pt": 18,
-    "body_leading_default_pt": 27,
-    "text_max_width_default_mm": 170,
-    "text_layer": "vector",
-    "qr_layer": "vector"
+  "output": {
+    "artifact_count": 1,
+    "canonical_pdf": true,
+    "storage_name": "{user_id}/{book_id}.pdf",
+    "consumers": ["online_reader", "customer_download", "admin_preview", "print_fulfillment"],
+    "pdf_page_count": 12,
+    "cover_wrap_pages": 1,
+    "interior_spread_count": 11,
+    "story_spread_count": 8,
+    "continuation_qr": {
+      "interior_spread": 10,
+      "story_spread": 8,
+      "placement": "below_story_text",
+      "url_base_setting": "Beki:ContinuationBaseUrl"
+    },
+    "credits": {
+      "interior_spread": 11,
+      "left": "credits",
+      "right": "approved_endpaper_pattern",
+      "qr": false
+    }
   },
-  "cover": {
-    "base_prompt_version": "cover-child-world-v1",
-    "title_font": "Ottia",
-    "geometry_source": "printer_approved_dieline",
-    "use_interior_bleed_geometry": false,
-    "required_configured_regions": ["back_panel", "spine", "front_panel", "front_title_safe", "front_child_action", "front_beki_integration", "outer_wrap_or_bleed"],
-    "mvp_spot_varnish": false,
-    "mvp_spine_title": false
-  },
-  "print_prep": {
-    "format": "PDF/X-4",
-    "output_intent": "Coated FOGRA39",
-    "require_all_cmyk_is_printer_configurable": true,
-    "required_renderers": ["Poppler", "Ghostscript"],
-    "scan_final_qr": true
+  "geometry": {
+    "cover_wrap": {
+      "media_width_mm": 512,
+      "media_height_mm": 245,
+      "profile": "BEKI-cover-wrap-512x245-v1"
+    },
+    "interior": {
+      "media_width_mm": 450,
+      "media_height_mm": 210,
+      "trim_width_mm": 440,
+      "trim_height_mm": 200,
+      "bleed_mm": 5,
+      "spread_count": 11,
+      "profile": "BEKI-interior-450x210-trim440x200-v1"
+    },
+    "print": {
+      "format": "PDF/X-4",
+      "output_intent": "FOGRA39L Coated",
+      "icc_sha256": "b35713ef7eff09349d4c3249e5f377736d06d8a2671c54712971a3546bf17c57"
+    }
   },
   "failure_codes": [
     "INVALID_BOOK_INPUT",

@@ -190,52 +190,44 @@ public class AdminConsoleApiTests
         var file = Assert.IsType<FileContentResult>(await controller.OrderPdf(OrderId, null));
 
         Assert.Equal("reading-bytes", Encoding.UTF8.GetString(file.FileContents));
-        Assert.EndsWith("-reading.pdf", file.FileDownloadName);
+        Assert.EndsWith("-book.pdf", file.FileDownloadName);
     }
 
     [Fact]
     public async Task A_print_order_downloads_the_press_file_when_no_kind_is_asked_for()
     {
-        // The two are not the same PDF: the print copy carries the blank leaves saddle-stitch
-        // needs, and handing the binder the reading copy produces a book with its pages wrong.
+        // Print, reader and download now consume the same canonical PDF bytes.
         var (controller, _) = PdfController(package: OrderPackage.Print, reading: true, print: true);
 
         var file = Assert.IsType<FileContentResult>(await controller.OrderPdf(OrderId, null));
 
-        Assert.Equal("print-bytes", Encoding.UTF8.GetString(file.FileContents));
-        Assert.EndsWith("-print.pdf", file.FileDownloadName);
+        Assert.Equal("reading-bytes", Encoding.UTF8.GetString(file.FileContents));
+        Assert.EndsWith("-book.pdf", file.FileDownloadName);
     }
 
     [Fact]
     public async Task The_kind_overrides_the_package_in_both_directions()
     {
-        // A digital order's book still has a press interior worth sending to a supplier, and a
-        // print order's operator sometimes wants to see exactly what the PARENT can open.
+        // The legacy selector is accepted for compatible URLs but cannot select different bytes.
         var (digital, _) = PdfController(package: OrderPackage.Digital, reading: true, print: true);
         var (print, _) = PdfController(package: OrderPackage.Print, reading: true, print: true);
 
         var asPrint = Assert.IsType<FileContentResult>(await digital.OrderPdf(OrderId, "print"));
         var asReading = Assert.IsType<FileContentResult>(await print.OrderPdf(OrderId, "reading"));
 
-        Assert.Equal("print-bytes", Encoding.UTF8.GetString(asPrint.FileContents));
+        Assert.Equal("reading-bytes", Encoding.UTF8.GetString(asPrint.FileContents));
         Assert.Equal("reading-bytes", Encoding.UTF8.GetString(asReading.FileContents));
     }
 
     [Fact]
-    public async Task Asking_for_the_press_file_of_a_book_that_has_none_says_so_in_the_filename()
+    public async Task Asking_for_the_legacy_print_kind_still_returns_the_canonical_book()
     {
-        /*
-          The substitution is old and deliberate — a book made before the two renders were split
-          has one file, and a printer padding it as it always did beats an operator with nothing to
-          send. What was wrong was that it was silent: a file labelled print-ready whose page count
-          does not divide by four is how an unprepped hybrid reached a printer's reviewer.
-        */
         var (controller, _) = PdfController(package: OrderPackage.Print, reading: true, print: false);
 
         var file = Assert.IsType<FileContentResult>(await controller.OrderPdf(OrderId, "print"));
 
         Assert.Equal("reading-bytes", Encoding.UTF8.GetString(file.FileContents));
-        Assert.Contains("READING-COPY-not-print", file.FileDownloadName);
+        Assert.EndsWith("-book.pdf", file.FileDownloadName);
     }
 
     [Fact]

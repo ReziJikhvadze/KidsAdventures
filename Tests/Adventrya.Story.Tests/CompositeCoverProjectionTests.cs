@@ -52,16 +52,13 @@ public class CompositeCoverProjectionTests
         Assert.Equal($"https://blob.test/{frontName}", world.Packs.CoverImageUrl);
         Assert.NotEqual(PackWorld.PreviewCoverUrl, world.Packs.CoverImageUrl);
 
-        // And the customer's book was laid out from the same bytes the printer's cover is made of.
-        Assert.Equal(world.Blobs.Uploaded[wrapName], world.Composer.ReadingWrap);
+        // No independent reading-cover composition is permitted; the canonical stage consumes the
+        // same stored wrap only after its mandatory resolution gate passes.
+        Assert.Null(world.Composer.ReadingWrap);
 
-        // The manifest names the master rather than a redraw version.
-        var manifest = world.StoredManifest();
-        Assert.Equal(BekiCoverRecord.WrapMaster, manifest.Cover!.PromptVersion);
-        Assert.True(manifest.Cover.IsWrapMaster);
-        Assert.False(manifest.Cover.IsRedraw);
-        Assert.Equal("pose_01_neutral_hover", manifest.Cover.PoseId);
-        Assert.Equal(64, manifest.Cover.CompositeSha256!.Length);
+        // The wrap's own stored composition receipt remains the provenance evidence when the later
+        // canonical-resolution stage refuses the book.
+        Assert.Contains(BekiPackBlobs.CoverCompositionName(world.UserId, world.PackId), world.Blobs.Uploaded.Keys);
     }
 
     /// <summary>
@@ -206,49 +203,20 @@ public class CompositeCoverProjectionTests
     }
 
     /// <summary>
-    /// The verdict is written down and read — and, since the release policy, the two audiences it is
-    /// read by are told different things about the same book.
-    ///
-    /// Under this harness the composed documents are stubs, so print and digital preparation both
-    /// refuse. The supplier's verdict says so: NOT_RELEASABLE, with the gates that failed named. The
-    /// printer's file is withheld, because a press gate is a blocker by the owner's own carve-out.
-    /// The family's download is published, because the owner's ruling is that a book with artwork in
-    /// hand reaches the family and the problem becomes an alarm — and the waiver saying exactly that
-    /// is in the stored document rather than inferable from its absence.
+    /// A failed mandatory resolution stage hard-stops the single canonical artifact; there is no
+    /// lower-quality reading PDF to publish as a fallback.
     /// </summary>
     [Fact]
-    public async Task The_release_verdict_is_stored_and_withholds_the_files_the_policy_still_blocks()
+    public async Task A_failed_canonical_preflight_withholds_the_one_pdf()
     {
         var world = new PackWorld();
 
         await world.Run();
 
-        var gatesName = BekiPackBlobs.ReleaseGatesName(world.UserId, world.PackId);
-        Assert.Contains(gatesName, world.Blobs.Uploaded.Keys);
-
-        var verdict = BekiReleaseGateReport.TryParse(
-            System.Text.Encoding.UTF8.GetString(world.Blobs.Uploaded[gatesName]))!;
-
-        Assert.Equal(BekiReleaseGates.NotReleasable, verdict.Verdict);
-        Assert.NotEmpty(verdict.FailingGates);
-
-        // Withheld on purpose: the slot was written, and written null. Press gates keep their
-        // blockers — a bad press PDF is a reprint and an invoice, not a disappointment.
-        Assert.True(world.Packs.PrintPdfUrlWritten);
+        Assert.StartsWith("PRINT_PREFLIGHT_FAILED", world.Packs.FailureReason);
         Assert.Null(world.Packs.PrintPdfUrl);
-        Assert.False(verdict.PressFilesMayPublish);
-        Assert.False(verdict.SupplierPressReleasable);
-
-        // The parent's download is published under the shipped policy, and the divergence from the
-        // supplier's answer is written down rather than left to be worked out.
-        Assert.NotNull(world.Packs.PdfUrl);
-        Assert.True(verdict.CustomerPdfMayPublish);
-        Assert.False(verdict.SupplierCustomerPdfReleasable);
-        Assert.NotEmpty(verdict.PolicyWaivers);
-
-        Assert.Equal(AdventurePackStatus.Completed, world.Packs.Status);
-        Assert.Contains(
-            BekiPackBlobs.SpreadName(world.UserId, world.PackId, 1), world.Blobs.Uploaded.Keys);
+        Assert.Null(world.Packs.PdfUrl);
+        Assert.Equal(AdventurePackStatus.Failed, world.Packs.Status);
     }
 
     /// <summary>
@@ -347,7 +315,7 @@ public class CompositeCoverProjectionTests
         {
             await Job().ProcessAsync(PackId, RunId, CancellationToken.None);
 
-            Assert.Null(Packs.FailureReason);
+            Assert.StartsWith("PRINT_PREFLIGHT_FAILED", Packs.FailureReason);
         }
 
         private StubGenerator? _generator;

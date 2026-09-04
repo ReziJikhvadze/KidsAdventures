@@ -534,9 +534,9 @@ public class BekiReaderExportTests
         var probe = Assert.Single(receipts.FlatGroundTextProbes);
         Assert.Equal("credits-text", probe.Role);
         Assert.Equal(12, probe.Page);
-        Assert.True(probe.XMm >= SpreadWidthMm / 2d,
-            $"the credits text probe starts at {probe.XMm:F1} mm — it must be on the right leaf.");
-        Assert.True(probe.XMm + probe.WidthMm <= SpreadWidthMm);
+        Assert.True(probe.XMm < SpreadWidthMm / 2d,
+            $"the credits text probe starts at {probe.XMm:F1} mm — it must be on the left leaf.");
+        Assert.True(probe.XMm + probe.WidthMm <= SpreadWidthMm / 2d);
         Assert.True(probe.HeightMm > 0 && probe.YMm > 0);
 
         // It is the shape print prep takes, so an integrator hands it over rather than converting.

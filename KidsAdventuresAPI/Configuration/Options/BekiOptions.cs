@@ -12,6 +12,13 @@ public sealed class BekiOptions
 {
     public const string SectionName = "Beki";
 
+    /// <summary>
+    /// Public route used by the single continuation QR on story spread 8. Fulfilment appends the
+    /// pack id; blank is a configuration error because a QR may never silently fall back to a
+    /// homepage or a non-book destination.
+    /// </summary>
+    public string ContinuationBaseUrl { get; set; } = "https://beki.ge/book";
+
     /// <summary>Master switch. The previous illustration flow stays available until this is on.</summary>
     public bool Enabled { get; set; }
 

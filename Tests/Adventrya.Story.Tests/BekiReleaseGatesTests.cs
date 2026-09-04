@@ -283,8 +283,8 @@ public class BekiReleaseGatesTests
         Assert.Contains("RENDER_VALIDATION", verdict.FailingGates);
         Assert.False(verdict.PressFilesMayPublish);
 
-        // Shared gates are untouched, so the parent's book is still publishable.
-        Assert.True(verdict.CustomerPdfMayPublish);
+        // One canonical artifact serves both audiences, so neither may publish failed bytes.
+        Assert.False(verdict.CustomerPdfMayPublish);
     }
 
     /// <summary>
@@ -308,12 +308,11 @@ public class BekiReleaseGatesTests
 
         var gate = Assert.Single(verdict.Gates, g => g.Id == "RENDER_VALIDATION");
         Assert.Equal(BekiReleaseGates.Unknown, gate.Status);
-        Assert.Contains(BekiPackBlobs.CoverRenderArtifact, gate.Detail);
+        Assert.Contains(BekiPackBlobs.CanonicalRenderArtifact, gate.Detail);
 
-        // The press cover is a press file, so the press slot withholds and the parent's book does
-        // not — the file-level rule, not a book-level one.
+        // The one canonical PDF is both the press and parent artifact.
         Assert.False(verdict.PressFilesMayPublish);
-        Assert.True(verdict.CustomerPdfMayPublish);
+        Assert.False(verdict.CustomerPdfMayPublish);
         Assert.Equal(BekiReleaseGates.NotReleasable, verdict.Verdict);
     }
 
@@ -342,13 +341,12 @@ public class BekiReleaseGatesTests
         Assert.False(verdict.CustomerPdfMayPublish);
         Assert.Contains("RENDER_VALIDATION", verdict.FailingGates);
 
-        // And the printer's files, which this says nothing about, are unaffected.
-        Assert.True(verdict.PressFilesMayPublish);
+        Assert.False(verdict.PressFilesMayPublish);
 
         var slice = Assert.Single(
             verdict.ArtifactEvidence,
             artifact => artifact.Artifact == BekiPackBlobs.DigitalRenderArtifact);
-        Assert.Equal(BekiReleaseGates.DigitalClass, slice.Class);
+        Assert.Equal(BekiReleaseGates.SharedClass, slice.Class);
         Assert.Equal(BekiReleaseGates.Fail, slice.Render);
     }
 

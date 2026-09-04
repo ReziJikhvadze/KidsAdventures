@@ -26,7 +26,7 @@ public class BekiLayoutAssetTests
         // Fonts, the approved endpaper pattern and all six intro backgrounds, in one pass.
         BekiLayoutAssets.Current.VerifyAll();
 
-        Assert.Equal("beki-layout-assets-v1.2", BekiLayoutAssets.Current.RegistryVersion);
+        Assert.Equal("beki-layout-assets-v2.0", BekiLayoutAssets.Current.RegistryVersion);
         Assert.Equal("beki-theme-references-v1", BekiLayoutAssets.Current.ThemeRegistryVersion);
         Assert.Equal(6, BekiLayoutAssets.Current.CanonicalThemeIds.Count);
 

@@ -4,7 +4,9 @@ using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.Services.Story;
 using AdventurePacks.Api.Services.Story.Prompts;
+using AdventurePacks.Api.Services.Pdf;
 using Microsoft.Extensions.Options;
+using PdfSharp.Pdf.IO;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using Xunit.Abstractions;
@@ -23,6 +25,51 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
 {
     /// <summary>A folder written by LiveBekiBookTests: nine PNGs and a book-plan.json.</summary>
     private static string? BookDirectory => Environment.GetEnvironmentVariable("ADVENTRYA_BEKI_BOOK");
+
+    [Fact]
+    public void Canonical_book_is_one_12_page_mixed_geometry_artifact()
+    {
+        var layout = BekiLayoutFixture.ScreenProofLayout();
+        var plan = BekiLayoutFixture.EightSpreadPlan();
+        var spreads = plan.Spreads
+            .Select(spread => new BekiSpreadArtwork(
+                spread.Number, BekiLayoutFixture.SheetPng((30, 90, 120))))
+            .ToList();
+        var personalization = BekiLayoutFixture.Personalization() with
+        {
+            ContinuationUrl = "https://beki.ge/book/11111111-1111-1111-1111-111111111111",
+        };
+
+        var composed = Compose(layout).ComposeCanonicalWithReceipts(
+            plan, WrapPng(), spreads, personalization);
+
+        Assert.Equal(12, CountPages(composed.Pdf));
+        Assert.Equal(12, composed.Receipts.Pages.Count);
+        Assert.Equal("cover-wrap", composed.Receipts.Pages[0].Role);
+        Assert.Equal("spread-08", composed.Receipts.Pages[10].Role);
+        Assert.Equal("credits", composed.Receipts.Pages[11].Role);
+        Assert.DoesNotContain(composed.Receipts.Pages, page => page.Role.Contains("rear", StringComparison.Ordinal));
+
+        Assert.Equal(
+            [
+                $"{BekiLayoutFixture.ChildName}-სთვის შექმნილი წიგნი",
+                $"ისტორია და სამყარო: {BekiLayoutFixture.WorldName}",
+                $"მთავარი გმირი: {BekiLayoutFixture.ChildName}",
+                "გზამკვლევი: ბეკი",
+                "BEKI · beki.ge",
+            ],
+            composed.Receipts.Pages[11].TextLines);
+
+        using var stream = new MemoryStream(composed.Pdf);
+        using var pdf = PdfReader.Open(stream, PdfDocumentOpenMode.Import);
+        Assert.Equal(12, pdf.PageCount);
+
+        AssertPageMillimetres(pdf.Pages[0], 512, 245, 512, 245);
+        for (var index = 1; index < pdf.PageCount; index++)
+        {
+            AssertPageMillimetres(pdf.Pages[index], 450, 210, 440, 200);
+        }
+    }
 
     [Fact]
     public void Every_spread_the_cover_and_the_ending_reach_the_pdf()
@@ -166,6 +213,69 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
         output.WriteLine($"{plan.Concept.Title}: {CountPages(pdf)} pages → {outputPath}");
         output.WriteLine($"page images → {pageDirectory}");
         Assert.Equal(spreads.Count + 6, CountPages(pdf));
+    }
+
+    [SkippableFact]
+    public async Task Export_a_stored_composite_book_as_the_canonical_pdf_for_inspection()
+    {
+        var source = Environment.GetEnvironmentVariable("BEKI_CANONICAL_SOURCE");
+        var wrapPath = Environment.GetEnvironmentVariable("BEKI_CANONICAL_WRAP");
+        var outputPath = Environment.GetEnvironmentVariable("BEKI_CANONICAL_OUTPUT");
+        Skip.If(
+            string.IsNullOrWhiteSpace(source)
+            || string.IsNullOrWhiteSpace(wrapPath)
+            || string.IsNullOrWhiteSpace(outputPath),
+            "Set BEKI_CANONICAL_SOURCE, BEKI_CANONICAL_WRAP and BEKI_CANONICAL_OUTPUT.");
+
+        var plan = JsonSerializer.Deserialize<MasterStory>(
+            await File.ReadAllTextAsync(Path.Combine(source!, "story.json")),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+        var spreads = await Task.WhenAll(Enumerable.Range(1, BookFormat.SpreadCount).Select(
+            async number => new BekiSpreadArtwork(
+                number, await File.ReadAllBytesAsync(Path.Combine(source, $"spread-{number:00}.png")))));
+        var wrap = await File.ReadAllBytesAsync(wrapPath!);
+        var personalization = new BekiBookPersonalization(
+            "ვეკო", 5, DateTime.UtcNow, "Dinosaurs", "დინოზავრების კუნძული",
+            "https://beki.ge/book/59a29e69-1bbe-4efd-8478-cf894b88fb59");
+
+        var canonical = new BekiPdfComposer(Options.Create(new BekiPrintLayoutOptions()))
+            .ComposeCanonicalWithReceipts(plan, wrap, spreads, personalization);
+        var (prepared, report, failedGates) = BekiPrintPrep.PrepareWithGates(
+            canonical.Pdf,
+            plan.Concept.Title,
+            new BekiPrintPrepOptions(),
+            probe: new BekiPrintProbe(
+                canonical.Receipts.LightTextPages, canonical.Receipts.FlatGroundTextProbes),
+            resolutionReceipt: new BekiResolutionReceipt(canonical.Receipts.RasterSources),
+            canonicalMixedGeometry: true);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(outputPath!)!);
+        await File.WriteAllBytesAsync(outputPath!, prepared);
+        await File.WriteAllTextAsync(Path.ChangeExtension(outputPath, ".preflight.json"), report);
+
+        var rendered = BekiRenderValidation.Validate(
+            prepared,
+            BekiPackBlobs.CanonicalRenderArtifact,
+            new BekiPrintPrepOptions(),
+            new BekiRenderValidationRequest(
+                QrPage: 11,
+                ContactSheetColumns: 3,
+                ExpectedQrDestination: personalization.ContinuationUrl));
+        await File.WriteAllTextAsync(
+            Path.ChangeExtension(outputPath, ".render.json"), rendered.ReportJson);
+        if (rendered.ContactSheetPng is { Length: > 0 } contactSheet)
+        {
+            await File.WriteAllBytesAsync(
+                Path.ChangeExtension(outputPath, ".contact-sheet.png"), contactSheet);
+        }
+
+        output.WriteLine($"{outputPath} ({prepared.Length:N0} bytes)");
+        output.WriteLine("failed gates: " + (failedGates.Count == 0 ? "none" : string.Join(", ", failedGates)));
+        output.WriteLine($"render validation: {rendered.Verdict}; QR: {rendered.Qr.Status}");
+        Assert.Equal(12, CountPages(prepared));
+        Assert.Equal(BekiRenderValidation.Releasable, rendered.Verdict);
+        Assert.Equal(BekiRendererRun.Ok, rendered.Qr.Status);
+        Assert.Equal([personalization.ContinuationUrl], rendered.Qr.Payloads);
     }
 
     /// <summary>
@@ -351,6 +461,23 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
     /// <summary>Smallest valid PNG: the layout is what is being tested, not the artwork.</summary>
     private static byte[] PixelPng() => Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+
+    private static byte[] WrapPng() =>
+        SyntheticImages.SolidPng(1600, 766, (50, 70, 110));
+
+    private static void AssertPageMillimetres(
+        PdfSharp.Pdf.PdfPage page,
+        double mediaWidth,
+        double mediaHeight,
+        double trimWidth,
+        double trimHeight)
+    {
+        static double Mm(double points) => points / 72d * 25.4d;
+        Assert.InRange(Mm(page.MediaBox.Width), mediaWidth - 0.1, mediaWidth + 0.1);
+        Assert.InRange(Mm(page.MediaBox.Height), mediaHeight - 0.1, mediaHeight + 0.1);
+        Assert.InRange(Mm(page.TrimBox.Width), trimWidth - 0.1, trimWidth + 0.1);
+        Assert.InRange(Mm(page.TrimBox.Height), trimHeight - 0.1, trimHeight + 0.1);
+    }
 
     private static int CountPages(byte[] pdf)
     {

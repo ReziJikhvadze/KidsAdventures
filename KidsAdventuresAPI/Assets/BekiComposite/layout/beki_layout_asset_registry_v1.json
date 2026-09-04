@@ -1,5 +1,5 @@
 {
-  "registry_version": "beki-layout-assets-v1.2",
+  "registry_version": "beki-layout-assets-v2.0",
   "source_manifest": "BEKI_Developer_Production_Assets_v1/APPROVED_ASSET_MANIFEST_v1.csv",
   "amendment_v1_2": "Audit P1-02: PdfFontBootstrap embedded five font files and this registry named only three of them, so NotoSansGeorgian-SemiBold and NotoSerifGeorgian-SemiBold reached printed pages with no hash to prove them. Both are listed below with their real sha256 and every registered file is now hash-checked at registration. Adding entries changes no artwork, so nothing that pins the pose registry or the print spec is affected.",
   "note": "Paths are relative to the published output folder. The endpaper pattern and the six intro backgrounds are NOT re-stated here: their filenames and hashes live in the supplier's own theme_reference_registry_v1.json, which this registry reads, so there is exactly one hash per asset in the tree.",
@@ -7,6 +7,14 @@
   "endpaper_directory": "Assets/BekiComposite/layout",
   "intro_background_directory": "Assets/BekiComposite/theme_references",
   "font_directory": "Assets/Fonts",
+  "logo_directory": "Assets/BekiComposite/logo",
+  "cover_logo": {
+    "id": "beki_logo_hires_light",
+    "role": "cover_logo_dark_background",
+    "filename": "HiResLight.svg",
+    "sha256": "e78bb168c316f9ce52c94f7741fba9fed8f59b7a5b8013821fe6dd673521db08",
+    "minimum_print_width_mm": 25
+  },
   "beki_mark_pose_id": "pose_01_neutral_hover",
   "beki_mark_note": "The Beki mark printed on the credits spread and the back cover resolves through the pose registry by this id - approved transparent artwork, hash-verified there, never the legacy opaque raster. v1.1, against the supplier audit's P0-F: the composer used to load Assets/Beki/beki-canonical-v2.png from a hardcoded path with a silent null fallback.",
   "fonts": [

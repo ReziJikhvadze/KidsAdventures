@@ -323,14 +323,11 @@ public class BekiSpecV2PrintTests
     }
 
     /// <summary>
-    /// Spread 8 carries no QR and no Continue Adventure chip — the opposite of what this test
-    /// used to prove. The Locked Print Specification §6 places exactly ONE code in the book, on
-    /// the credits spread, and removed the chip from the final story spread. Probed the same way
-    /// the old assertion found the tile: the tile's quiet zone was white by construction and
-    /// nothing else on a pure-green spread is, so any white patch here is the chip come back.
+    /// The final override moves the one continuation QR to Story spread 8 below its text. Its white
+    /// quiet zone is probed against the same spread rendered without a continuation destination.
     /// </summary>
     [Fact]
-    public void Spread_8_carries_no_qr_chip_and_the_credits_page_carries_the_only_code()
+    public void Spread_8_carries_the_continuation_qr_below_its_text()
     {
         var layout = BekiLayoutFixture.ScreenProofLayout();
         var plan = BekiLayoutFixture.EightSpreadPlan();
@@ -338,8 +335,13 @@ public class BekiSpecV2PrintTests
             .Select(s => new BekiSpreadArtwork(s.Number, BekiLayoutFixture.SheetPng((0, 255, 0))))
             .ToList();
 
-        var pages = new BekiPdfComposer(Options.Create(layout)).RenderPages(
-            plan, BekiLayoutFixture.LeafPng((255, 0, 0)), spreads, BekiLayoutFixture.Personalization());
+        var composer = new BekiPdfComposer(Options.Create(layout));
+        var personalization = BekiLayoutFixture.Personalization() with
+        {
+            ContinuationUrl = "https://beki.ge/book/11111111-1111-1111-1111-111111111111",
+        };
+        var pages = composer.RenderPages(
+            plan, BekiLayoutFixture.LeafPng((255, 0, 0)), spreads, personalization);
 
         // Cover, front endpapers, intro, then the eight spreads: the final spread is index 10.
         using var page = Image.Load<Rgba32>(pages[10]);
@@ -360,26 +362,21 @@ public class BekiSpecV2PrintTests
             }
         }
 
-        Assert.True(white < 500, $"Spread 8 shows a white tile again ({white} white pixels) — the chip is back.");
+        Assert.True(white > 500, $"Story spread 8's continuation QR tile was not found ({white} white pixels).");
 
-        // The one code the book has left, on the credits spread (index 11), on its right leaf.
-        using var credits = Image.Load<Rgba32>(pages[11]);
-
-        int minX = credits.Width, creditsWhite = 0;
-        for (var x = 0; x < credits.Width; x++)
+        var noContinuation = personalization with { ContinuationUrl = null };
+        using var withoutQr = Image.Load<Rgba32>(composer.RenderPages(
+            plan, BekiLayoutFixture.LeafPng((255, 0, 0)), spreads, noContinuation)[10]);
+        var withoutWhite = 0;
+        for (var x = 0; x < withoutQr.Width; x++)
+        for (var y = 0; y < withoutQr.Height; y++)
         {
-            for (var y = 0; y < credits.Height; y++)
-            {
-                var pixel = credits[x, y];
-                if (pixel.R < 250 || pixel.G < 250 || pixel.B < 250) continue;
-
-                creditsWhite++;
-                if (x < minX) minX = x;
-            }
+            var pixel = withoutQr[x, y];
+            if (pixel.R >= 250 && pixel.G >= 250 && pixel.B >= 250) withoutWhite++;
         }
 
-        Assert.True(creditsWhite > 500, $"The credits QR tile was not found ({creditsWhite} white pixels).");
-        Assert.True(minX > credits.Width / 2, $"The credits QR must sit on the right leaf; it starts at x={minX}.");
+        Assert.True(withoutWhite * 4 < white,
+            $"Removing the continuation URL must remove the QR tile; white pixels went {white} → {withoutWhite}.");
     }
 
     /// <summary>
