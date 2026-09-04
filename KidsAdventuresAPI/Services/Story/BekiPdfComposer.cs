@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AdventurePacks.Api.Configuration.Options;
@@ -31,14 +32,9 @@ public sealed record BekiBookPersonalization(
 /// The translucent panel under one page's copy: where it is, how far it keeps from the fold and the
 /// trim, and what ink it is laid in.
 ///
-/// Written for the intro spread and every story spread since owner ruling 2026-09-01, the fourth
-/// on the question and the one that stands: "we need good background on the texts to be readable —
-/// transparent-like background, but not too transparent." The three rulings before it had taken
-/// the cream wash out, and for the campaign in between this record was kept only so that receipts
-/// written while the wash existed still read back; it now describes a shape the book draws again,
-/// in the book's own plum at sixty per cent rather than in opaque cream. A page that sets no copy
-/// over artwork — the covers, the endpapers, the credits — still carries no panel and writes null
-/// here, and a null must go on parsing, because a receipt's shape is a stored document's shape.
+/// The 2026-09-04 product-owner override makes this a soft warm-cream wash, local to the intro or
+/// story text block. A page that sets no copy over artwork — the covers, endpapers and credits —
+/// carries no wash and writes null here. Null remains accepted for older stored receipts.
 ///
 /// The rectangle is stated in millimetres from the page's TOP-LEFT corner, which is both how a
 /// layout is written and how <see cref="BekiTextProbeRect"/> is read, so a receipt can be handed
@@ -144,10 +140,8 @@ public sealed record BekiLayoutPageReceipt(
     [property: JsonPropertyName("page_height_mm")] double PageHeightMm,
     [property: JsonPropertyName("bleed_mm")] double BleedMm,
     [property: JsonPropertyName("image_sha256")] IReadOnlyList<string> ImageSha256,
-    // The translucent panel under this page's copy (owner ruling 2026-09-01, fourth), on the intro
-    // and every story spread; null on a page that sets no copy over artwork, and null on every page
-    // of a book composed with StoryPanelOpacity = 0. Receipts from the campaign with no panel carry
-    // no block here at all, and still read back.
+    // The local cream wash under intro/story copy. It is null where no copy sits over artwork and
+    // for legacy books composed with StoryPanelOpacity = 0.
     [property: JsonPropertyName("wash")] BekiWashGeometry? Wash,
     [property: JsonPropertyName("typography")] IReadOnlyList<BekiTypographyRecord> Typography,
     [property: JsonPropertyName("text_lines")] IReadOnlyList<string> TextLines,
@@ -240,6 +234,16 @@ public sealed record BekiLayoutReceipts(
                             && page.Typography.Any(type => IsLight(type.Colour)))
              .Select(page => page.Page)
              .ToList();
+
+    /// <summary>
+    /// A generous operator budget derived from the lines the layout actually measured. A normal
+    /// subset-font line may be split into a few text-show operators; the removed 17-copy outline
+    /// exceeds three operators per line by an order of magnitude.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyDictionary<int, int> MaximumVisibleTextDrawsByPage => Pages
+        .Where(page => page.TextLines.Count > 0)
+        .ToDictionary(page => page.Page, page => Math.Max(3, page.TextLines.Count * 3));
 
     private static bool IsLight(string hex) =>
         hex.Equals("#FFF8EB", StringComparison.OrdinalIgnoreCase);
@@ -518,30 +522,18 @@ public interface IBekiPdfComposer
 /// no approved background, stops the book. The composer used to draw a dot field and a tinted
 /// ground instead, and the first anyone noticed was a printed book with a placeholder bound into it.
 ///
-/// **The book's copy is outlined type on a translucent, copy-sized panel.** Owner ruling
-/// 2026-09-01, the fourth on the question and the one that stands: "we need good background on the
-/// texts to be readable — transparent-like background, but not too transparent." The history is
-/// worth keeping straight, because the file has said the opposite three times. A cream wash was
-/// built, removed by the owner after the first live v1.5 book, restored by audit 1.0's P1-04 on the
-/// supplier's evidence, removed again by the owner's third ruling — and the copy was then cream
-/// #FFF8EB with a #0D071D rim straight on the artwork, which on pale artwork fails in the one way a
-/// rim cannot help: the fill vanishes into the picture and the letters are hollow outlines. The
-/// panel is what fixes that, and it is deliberately not the cream wash coming back: it is the
-/// page's own plum at sixty per cent (<see cref="BekiPrintLayoutOptions.StoryPanelInkHex"/>,
-/// <see cref="BekiPrintLayoutOptions.StoryPanelOpacity"/>), a shade the picture shows through, sized
-/// to the copy — the widest set line plus <see cref="BekiPrintLayoutOptions.WashPaddingMm"/> on each
-/// side, the block's height plus the same — and drawn inside the column the copy already had. The
-/// type on it is unchanged: every block of book copy is still cream with the #0D071D rim, set as
-/// vector text — the cover title and the back-cover address on their artwork with no panel, the
-/// intro spread's four lines and each story spread's Georgian paragraph (with its English sibling
-/// under it) on theirs. The credits page is the one page this does not describe, and it never did —
-/// its ground is the book's own purple, so its type is plain light text on a flat colour.
+/// **Story and intro copy is one dark vector text layer on a translucent, copy-sized cream wash.**
+/// This is the 2026-09-04 product-owner override: no repeated offset copies and no large dark panel.
+/// The wash uses <see cref="BekiPrintLayoutOptions.StoryPanelInkHex"/> and
+/// <see cref="BekiPrintLayoutOptions.StoryPanelOpacity"/>, reaches only the widest set line plus
+/// <see cref="BekiPrintLayoutOptions.WashPaddingMm"/> on each side, and stays outside the fold and
+/// trim safety areas. The credits page remains plain light text on the book's purple left leaf.
 ///
 /// The layout arithmetic is the arithmetic the wash first brought and the rim-only campaign kept:
 /// the copy column is measured to the wrapped copy, it is refused if it would cross the centre fold
 /// or reach past the trim safety margin, and the panel is painted at exactly those millimetres —
 /// so nothing about where a line breaks, what size it is set at or where it sits moved when the
-/// panel came back. If the copy will not fit at any size the age band allows, the book stops with
+/// wash is applied. If the copy will not fit at any size the age band allows, the book stops with
 /// <c>TEXT_OVERFLOW</c>; it is never set at a size that still overflows, and it is never rewritten.
 ///
 /// Every picture is placed at the sheet's own proportions. A centred crop of more than
@@ -611,27 +603,21 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
     private static readonly Color TextColor = Color.FromHex(TextColorHex);
 
+    /// <summary>Dark story ink used on the September 4 soft-cream local wash.</summary>
+    private const string StoryTextColorHex = "#281B3F";
+
+    private static readonly Color StoryTextColor = Color.FromHex(StoryTextColorHex);
+
     /// <summary>
-    /// The quieter cream the second language is set in, when a book prints both.
-    ///
-    /// Translucent rather than a second hue, so the English line reads as the same voice said more
-    /// quietly. It is held at 85% and not lower on purpose: the fill sits on top of the rim, and a
-    /// fill much thinner than this lets the #0D071D show through the middle of the glyphs and turns
-    /// cream type grey.
+    /// The second language uses the same dark ink so the single-layer accessibility contract also
+    /// holds when bilingual printing is enabled.
     /// </summary>
-    private const string EnglishTextColorHex = "#D9FFF8EB";
+    private const string EnglishTextColorHex = StoryTextColorHex;
 
     private static readonly Color EnglishTextColor = Color.FromHex(EnglishTextColorHex);
 
     /// <summary>
-    /// The rim under every outlined line in the book — the page's own near-black, so the edge reads
-    /// as one soft shadow the artwork casts rather than as a second colour of type.
-    ///
-    /// Named for a wash it once sat behind: the Continue Adventure chip shared this ink until the
-    /// Locked Print Specification §6 removed it with its QR, and the story wash borrowed the name
-    /// after that. The chip is gone; the panel that stands under the copy today (owner ruling
-    /// 2026-09-01, fourth) is the page's plum and not this near-black, so the rim still reads as a
-    /// darker edge inside the shade rather than dissolving into it.
+    /// Legacy proof-only rim ink. Production always emits one plain vector text layer.
     /// </summary>
     private const string TextOutlineInk = "0D071D";
 
@@ -972,7 +958,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     {
         var titleWidthPt = MmToPt(BekiCoverDieline.TitleSafeWidthMm);
         var titleSize = _layout.StoryFontSize * 2f;
-        var logo = System.Text.Encoding.UTF8.GetString(_assets.CoverLogoBytes());
+        var logo = VectorLogoSvg(_assets.CoverLogoBytes());
 
         document.Page(page =>
         {
@@ -1489,14 +1475,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// world it opens into, and the invitation — and it carries no date. A date on the intro spread
     /// makes a reprint a different book from the one that was bought.
     ///
-    /// The copy is cream with its own dark rim, on the same translucent plum panel the story spreads
-    /// carry — owner ruling 2026-09-01, fourth. Audit P1-04's "the intro has no controlled local
-    /// support" was a finding about this page in particular: it was answered with a cream wash, the
-    /// owner's third ruling took the wash away and left the lines with only their rim, and the
-    /// fourth put a shade under them because the approved backgrounds are pale exactly where these
-    /// four lines sit. The panel is the block's own size — its widest line plus the padding — and is
-    /// drawn inside the column the lines were already centred in, so their measure, their breaks
-    /// and their position are the numbers they were.
+    /// The copy is dark single-layer vector type on the same local cream wash as story copy. The
+    /// wash is the block's own size — its widest line plus the padding — and is drawn inside the
+    /// column, so its measure, breaks and position remain deterministic.
     /// </summary>
     private void ComposeIntro(
         IDocumentContainer container,
@@ -1581,7 +1562,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                                 var text = line;
                                 column.Item().Element(item => OutlinedText(
                                     item, text.Text, text.SizePt, StoryLineHeight,
-                                    TextColor, OutlineColor, copyWidthPt,
+                                    StoryTextColor, StoryTextColor, copyWidthPt,
                                     PdfFontBootstrap.BodyFamily, centred: false));
                             }
                         });
@@ -1602,7 +1583,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             PanelGeometry(
                 panel, columnLeftMm, columnTopMm, columnWidthMm, columnHeightMm, "left", mode),
             lines.Select(line => new BekiTypographyRecord(
-                line.Role, PdfFontBootstrap.BodyFamily, line.SizePt, StoryLineHeight, TextColorHex))
+                line.Role, PdfFontBootstrap.BodyFamily, line.SizePt, StoryLineHeight, StoryTextColorHex))
                 .ToList(),
             lines.SelectMany(line =>
                 WrapLines(line.Text, line.SizePt, copyWidthPt, PdfFontBootstrap.BodyFamily)).ToList(),
@@ -1719,6 +1700,16 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 "The final credits spread needs the book personalization.");
         }
 
+        if (string.IsNullOrWhiteSpace(personalization.ChildName)
+            || string.IsNullOrWhiteSpace(personalization.WorldName)
+            || HasTemplateToken(personalization.ChildName)
+            || HasTemplateToken(personalization.WorldName))
+        {
+            throw new BekiLayoutException(
+                CompositeFailureCodes.LayoutFailed,
+                "The final credits spread contains blank or unresolved personalization variables.");
+        }
+
         var pattern = EndpaperArtwork(mode);
         var creditsSize = _layout.StoryFontSize * 0.85f;
         var lines = new[]
@@ -1787,6 +1778,87 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private float CreditsColumnWidthPt =>
         MmToPt((_layout.SpreadWidthMm / 2f) - (_layout.SafeMarginMm * 2f));
 
+    private static bool HasTemplateToken(string value) =>
+        value.Contains("{{", StringComparison.Ordinal)
+        || value.Contains("}}", StringComparison.Ordinal)
+        || value.Contains('{')
+        || value.Contains('}');
+
+    /// <summary>
+    /// QuestPDF rasterizes an SVG linear-gradient fill even though the surrounding logo paths stay
+    /// vector. The locked mark has one narrow cream-to-yellow gradient, so expand that fill into
+    /// clipped, sub-point solid vector bands at composition time. The approved source bytes remain
+    /// untouched and hash-verified by <see cref="BekiLayoutAssets"/>; only their PDF representation
+    /// changes, preserving the official geometry and endpoint colours without adding a logo raster.
+    /// </summary>
+    private static string VectorLogoSvg(byte[] approvedSvg)
+    {
+        var source = Encoding.UTF8.GetString(approvedSvg);
+        const string firstPath = "<path d=\"";
+        var pathStart = source.IndexOf(firstPath, StringComparison.Ordinal);
+        var dataStart = pathStart + firstPath.Length;
+        var dataEnd = source.IndexOf("\" style=\"fill:url(#_Linear1);\"/>", dataStart, StringComparison.Ordinal);
+        if (pathStart < 0 || dataEnd < 0)
+        {
+            throw new BekiLayoutException(
+                CompositeFailureCodes.LayoutFailed,
+                "The approved HiResLight.svg no longer has its locked gradient path shape.");
+        }
+
+        var elementEnd = dataEnd + "\" style=\"fill:url(#_Linear1);\"/>".Length;
+        var pathData = source[dataStart..dataEnd];
+
+        var replacement = new StringBuilder();
+        replacement.Append("<defs><clipPath id=\"_BekiVectorGradientClip\"><path d=\"")
+            .Append(pathData)
+            .Append("\"/></clipPath></defs><g clip-path=\"url(#_BekiVectorGradientClip)\">");
+
+        // The supplied gradient transform changes from #FABB01 to #FBF7EE over y≈751..788 in the
+        // 2000-unit viewBox. Ninety-six bands make each step under 0.008 mm at the 36 mm placement.
+        const double top = 750.5;
+        const double bottom = 788.5;
+        const int bands = 96;
+        replacement.Append("<rect x=\"0\" y=\"0\" width=\"2000\" height=\"")
+            .Append(top.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .Append("\" fill=\"#fabb01\"/>");
+
+        for (var index = 0; index < bands; index++)
+        {
+            var y = top + ((bottom - top) * index / bands);
+            var next = top + ((bottom - top) * (index + 1) / bands);
+            var t = (double)index / (bands - 1);
+            var r = (int)Math.Round(250 + ((251 - 250) * t));
+            var g = (int)Math.Round(187 + ((247 - 187) * t));
+            var b = (int)Math.Round(1 + ((238 - 1) * t));
+            replacement.Append("<rect x=\"0\" y=\"")
+                .Append(y.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))
+                .Append("\" width=\"2000\" height=\"")
+                .Append((next - y + 0.01).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))
+                .Append("\" fill=\"#")
+                .Append(r.ToString("x2")).Append(g.ToString("x2")).Append(b.ToString("x2"))
+                .Append("\"/>");
+        }
+
+        replacement.Append("<rect x=\"0\" y=\"")
+            .Append(bottom.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .Append("\" width=\"2000\" height=\"")
+            .Append((2000d - bottom).ToString(System.Globalization.CultureInfo.InvariantCulture))
+            .Append("\" fill=\"#fbf7ee\"/></g>");
+
+        var vector = source[..pathStart] + replacement + source[elementEnd..];
+        var gradientDefsStart = vector.IndexOf("<defs><linearGradient id=\"_Linear1\"", StringComparison.Ordinal);
+        if (gradientDefsStart >= 0)
+        {
+            var gradientDefsEnd = vector.IndexOf("</defs>", gradientDefsStart, StringComparison.Ordinal);
+            if (gradientDefsEnd >= 0)
+            {
+                vector = vector.Remove(gradientDefsStart, gradientDefsEnd + "</defs>".Length - gradientDefsStart);
+            }
+        }
+
+        return vector;
+    }
+
     // ==============================================================================================
     // Story spreads
     // ==============================================================================================
@@ -1847,9 +1919,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         // The type the copy is actually set in. Read off the layout when nothing is being proofed,
         // which is every book this composer has ever produced.
         var lineHeight = proof?.LineHeight ?? StoryLineHeight;
-        var fill = proof is null ? TextColor : proof.Fill;
-        var rim = proof is null ? OutlineColor : proof.Rim;
-        var fillHex = proof is null ? TextColorHex : proof.FillArgbHex;
+        var fill = proof is null ? StoryTextColor : proof.Fill;
+        var rim = proof is null ? StoryTextColor : proof.Rim;
+        var fillHex = proof is null ? StoryTextColorHex : proof.FillArgbHex;
 
         // And the shade under it — the book's own unless a proof names another, or none.
         var panel = StoryPanel(proof);
@@ -1899,11 +1971,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                         .AlignLeft()
                         .Width(columnWidthMm, Unit.Millimetre);
 
-                    // The panel (owner ruling 2026-09-01, fourth) goes between the column and its
-                    // inset, in this same layer: the copy is still cream type with its own dark rim,
-                    // the padding is still the plain inset the ladder fitted the copy to — so every
-                    // line break it produced is unchanged — and the shade is painted under the
-                    // inset's outer edge, seven millimetres past the copy on every side.
+                    // The local cream wash sits between the artwork and the single dark text layer.
+                    // Its padding is the same inset used while fitting, so wrapping does not change.
                     StoryPanelBehind(copyColumn, panel)
                         .Padding(_layout.WashPaddingMm, Unit.Millimetre)
                         .Column(column =>
@@ -1915,9 +1984,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                                 fill, rim, StoryCopyWidthPt,
                                 PdfFontBootstrap.BodyFamily, centred: false, proof));
 
-                            // The second language follows its Georgian sibling in the same
-                            // treatment — smaller, and a quieter cream — rather than being set some
-                            // other way, which would read as a caption instead of a translation.
+                            // The second language follows its Georgian sibling in the same dark,
+                            // single-layer treatment, at the smaller configured size.
                             if (fitted.EnglishFontSize is { } englishSize)
                             {
                                 column.Item().Element(item => OutlinedText(
@@ -1964,6 +2032,11 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 english, lineHeight, EnglishTextColorHex));
             textLines.AddRange(
                 WrapLines(spread.TextEn!, english, StoryCopyWidthPt, PdfFontBootstrap.BodyFamily));
+        }
+
+        if (hasContinuationQr)
+        {
+            textLines.Add(_layout.ContinuationQrCaption);
         }
 
         var spreadRole = $"spread-{spread.Number:00}";
@@ -3093,7 +3166,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     // ==============================================================================================
 
     /// <summary>
-    /// Light type with its own dark edge, drawn entirely as vector text.
+    /// One vector text layer. The superseded faux outline drew each glyph sixteen times plus the
+    /// foreground, duplicated extracted text, and is forbidden by the 2026-09-04 owner override.
     ///
     /// Every word the book prints over artwork comes through here: the cover title, the back-cover
     /// address, the intro spread's lines, and each story spread's copy in both languages. The story
@@ -3138,23 +3212,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         bool centred = false,
         BekiTextStyleProof? proof = null)
     {
-        // Two ways to have no rim, and they are not the same switch. The book's is
-        // TextOutlineWidth = 0 — the floor taken away, which is how a caller asks for plain type. A
-        // proof's is a factor of zero, which is the contrast sample the owner asked for: dark ink
-        // straight on the artwork with nothing under it.
-        var rimOff = proof is null ? _layout.TextOutlineWidth <= 0f : proof.RimRadiusPt <= 0f;
-
-        // No outline asked for, nothing to outline, or a box too narrow: plain text, which is a
-        // single run and needs no rim.
-        if (rimOff || string.IsNullOrWhiteSpace(text) || blockWidthPt <= 1f)
-        {
-            PlainText(
-                container, text, fontSize, lineHeight, fill, fontFamily, centred, proof?.WeightValue);
-            return;
-        }
-
-        DrawOutlineStack(
-            container, text, fontSize, lineHeight, fill, outline, fontFamily, centred, proof);
+        PlainText(
+            container, text, fontSize, lineHeight, fill, fontFamily, centred, proof?.WeightValue);
     }
 
     /// <summary>

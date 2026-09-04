@@ -631,7 +631,8 @@ public sealed class MasterBookService(
 
         if (composite)
         {
-            problems.AddRange(CompositePlanRules.Problems(story, input.SpreadCount));
+            var ageBand = input.Age <= 2 ? "1-2" : input.Age <= 5 ? "3-5" : "6+";
+            problems.AddRange(CompositePlanRules.Problems(story, input.SpreadCount, ageBand));
         }
 
         return problems;

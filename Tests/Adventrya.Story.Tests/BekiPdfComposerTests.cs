@@ -245,7 +245,9 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
             plan.Concept.Title,
             new BekiPrintPrepOptions(),
             probe: new BekiPrintProbe(
-                canonical.Receipts.LightTextPages, canonical.Receipts.FlatGroundTextProbes),
+                canonical.Receipts.LightTextPages,
+                canonical.Receipts.FlatGroundTextProbes,
+                canonical.Receipts.MaximumVisibleTextDrawsByPage),
             resolutionReceipt: new BekiResolutionReceipt(canonical.Receipts.RasterSources),
             canonicalMixedGeometry: true);
 
@@ -279,17 +281,11 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// The outlined blocks are vector text again — nine real runs, not a picture of them.
-    ///
-    /// This asserts the OPPOSITE of what it used to. The nine-copy stack was once rastered to a
-    /// PNG with one invisible run over it, so <c>pdftotext</c> said each line once; the
-    /// supplier's preflight then rejected exactly that raster ("a raster title-effect image is
-    /// placed underneath" the vector title), because a printed glyph should be the RIP's own
-    /// edge. So the stack ships as text runs, the operator count rises with the outline on, and
-    /// the nine-fold extraction of the two outlined lines is the recorded, accepted cost.
+    /// The September 4 override requires one visible vector text layer. Legacy outline settings
+    /// must not bring the repeated offset-copy treatment back.
     /// </summary>
     [Fact]
-    public void The_outline_is_vector_text_runs_not_a_raster()
+    public void Text_is_one_vector_layer_even_when_legacy_outline_options_are_set()
     {
         var plan = SyntheticPlan();
         var spreads = plan.Spreads
@@ -307,11 +303,7 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
         // to count, and a test that silently compares zero to zero is worse than no test.
         Assert.True(floor > 0, "No readable text operators were found; the counter needs revisiting.");
 
-        // Strictly more operators with the outline on: the rim is drawn as text. If this ever
-        // equals the floor again, the visible glyphs have gone back to being pixels somewhere.
-        Assert.True(
-            TextShowOperators(withOutline) > floor,
-            "The outlined blocks drew no extra text runs — the outline is a raster again.");
+        Assert.Equal(floor, TextShowOperators(withOutline));
     }
 
     /// <summary>

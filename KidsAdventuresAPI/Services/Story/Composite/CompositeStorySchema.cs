@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.Services.Story.Prompts;
@@ -67,14 +68,59 @@ public static class CompositePlanRules
     /// Every reason a composite plan cannot be drawn, in the words the corrective retry is sent.
     /// Empty means the plan is usable.
     /// </summary>
-    public static IReadOnlyList<string> Problems(MasterStory plan, int spreadCount = BookFormat.SpreadCount)
+    public static IReadOnlyList<string> Problems(
+        MasterStory plan,
+        int spreadCount = BookFormat.SpreadCount,
+        string? ageBand = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
 
         var problems = new List<string>();
 
+        var outline = plan.Concept?.Outline ?? [];
+        if (outline.Count != spreadCount)
+        {
+            problems.Add(
+                $"The story outline must contain exactly {spreadCount} ordered narrative beats "
+                + $"(beginning, development and ending); it contains {outline.Count}.");
+        }
+
+        for (var index = 0; index < outline.Count; index++)
+        {
+            if (string.IsNullOrWhiteSpace(outline[index]))
+            {
+                problems.Add($"Story outline beat {index + 1} is empty.");
+            }
+        }
+
+        AddDuplicateProblems(
+            outline.Select((text, index) => (Number: index + 1, Text: text)),
+            "Story outline beats", problems);
+
+        AddDuplicateProblems(
+            (plan.Spreads ?? []).Select(spread => (spread.Number, spread.Text)),
+            "Story spreads", problems);
+
+        var maxWords = ageBand switch
+        {
+            null => (int?)null,
+            "1-2" => 25,
+            "3-5" => 35,
+            "6+" => 45,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(ageBand), ageBand, "Expected one of the locked age bands: 1-2, 3-5, 6+.")
+        };
+
         foreach (var spread in (plan.Spreads ?? []).OrderBy(spread => spread.Number))
         {
+            var characters = spread.Characters ?? [];
+            if (!characters.Any(id => id.Equals("child", StringComparison.OrdinalIgnoreCase)))
+            {
+                problems.Add(
+                    $"Spread {spread.Number} does not list \"child\" in its characters; the child "
+                    + "must remain the visible main hero throughout the eight-spread story.");
+            }
+
             var present = (spread.Characters ?? [])
                 .Any(id => id.Equals(BekiId, StringComparison.OrdinalIgnoreCase));
 
@@ -86,9 +132,67 @@ public static class CompositePlanRules
                     + "Visual Scenario contract has no way to describe a spread without her, so a "
                     + "spread planned without Beki would be printed with her.");
             }
+
+            if (!string.IsNullOrEmpty(spread.Title) || !string.IsNullOrEmpty(spread.Caption))
+            {
+                problems.Add(
+                    $"Spread {spread.Number} must have empty title and caption fields; the canonical "
+                    + "interior prints story copy only.");
+            }
+
+            if (maxWords is { } limit && WordCount(spread.Text) > limit)
+            {
+                problems.Add(
+                    $"Spread {spread.Number} has {WordCount(spread.Text)} Georgian words; the maximum "
+                    + $"for age band {ageBand} is {limit}, before illustration generation.");
+            }
         }
 
         return problems;
+    }
+
+    private static void AddDuplicateProblems(
+        IEnumerable<(int Number, string Text)> values,
+        string label,
+        List<string> problems)
+    {
+        var duplicates = values
+            .Where(value => !string.IsNullOrWhiteSpace(value.Text))
+            .GroupBy(value => Normalize(value.Text), StringComparer.Ordinal)
+            .Where(group => group.Key.Length > 0 && group.Count() > 1)
+            .Select(group => string.Join(", ", group.Select(value => value.Number).Order()))
+            .ToList();
+
+        foreach (var numbers in duplicates)
+        {
+            problems.Add($"{label} {numbers} duplicate the same text.");
+        }
+    }
+
+    private static string Normalize(string? text) => string.Concat(
+        (text ?? string.Empty)
+            .Normalize(NormalizationForm.FormC)
+            .Where(character => char.IsLetterOrDigit(character)))
+        .ToLowerInvariant();
+
+    private static int WordCount(string? text)
+    {
+        var count = 0;
+        var insideWord = false;
+        foreach (var character in text ?? string.Empty)
+        {
+            if (char.IsLetterOrDigit(character))
+            {
+                if (!insideWord) count++;
+                insideWord = true;
+            }
+            else
+            {
+                insideWord = false;
+            }
+        }
+
+        return count;
     }
 }
 

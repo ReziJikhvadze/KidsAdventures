@@ -696,6 +696,54 @@ public class CompositePipelinePreviewTests : CompositePipelineTestBase
     }
 
     [Fact]
+    public void Duplicate_composite_spreads_and_outline_beats_are_rejected_before_images()
+    {
+        var original = Plan();
+        var duplicate = original with
+        {
+            Concept = original.Concept with
+            {
+                Outline = original.Concept.Outline
+                    .Select((beat, index) => index == 1 ? original.Concept.Outline[0] : beat)
+                    .ToList(),
+            },
+            Spreads = original.Spreads
+                .Select(spread => spread.Number == 2
+                    ? spread with { Text = original.Spreads[0].Text }
+                    : spread)
+                .ToList(),
+        };
+
+        var problems = CompositePlanRules.Problems(duplicate, BookFormat.SpreadCount, "3-5");
+
+        Assert.Contains(problems, problem => problem.Contains("outline beats", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(problems, problem => problem.Contains("Story spreads", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Composite_age_band_word_limits_and_child_hero_are_structural_rules()
+    {
+        var original = Plan();
+        var invalid = original with
+        {
+            Spreads = original.Spreads
+                .Select(spread => spread.Number == 3
+                    ? spread with
+                    {
+                        Characters = ["beki"],
+                        Text = string.Join(' ', Enumerable.Repeat("სიტყვა", 26)),
+                    }
+                    : spread)
+                .ToList(),
+        };
+
+        var problems = CompositePlanRules.Problems(invalid, BookFormat.SpreadCount, "1-2");
+
+        Assert.Contains(problems, problem => problem.Contains("main hero", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(problems, problem => problem.Contains("maximum for age band 1-2", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task A_composite_plan_missing_Beki_on_a_spread_gets_the_corrective_retry()
     {
         var story = new RecordingMasterStoryService { FirstPlanDropsBekiFromSpreadFour = true };

@@ -973,7 +973,7 @@ public sealed class MasterStoryService(
     private static IReadOnlyList<string> CompositeProblems(MasterStory plan, CompositeStoryInput input) =>
     [
         .. BekiPlanValidator.Validate(plan, input.SpreadCount),
-        .. CompositePlanRules.Problems(plan, input.SpreadCount),
+        .. CompositePlanRules.Problems(plan, input.SpreadCount, input.AgeBand),
     ];
 
     /// <summary>

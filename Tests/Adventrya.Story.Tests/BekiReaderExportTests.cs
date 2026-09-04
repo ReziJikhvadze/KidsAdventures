@@ -266,13 +266,13 @@ public class BekiReaderExportTests
     /// panel to be other than where the receipt says it is.
     /// </summary>
     [Fact]
-    public void Every_copy_page_records_its_panel_and_the_story_copy_is_cream()
+    public void Every_copy_page_records_its_cream_wash_and_dark_story_copy()
     {
         var reading = ComposeReading();
         var layout = ReadingLayout();
 
-        // The book's plum at sixty per cent, spelled the one way QuestPDF reads an alpha out of.
-        const string PanelInk = "#99281B3F";
+        // The September 4 local cream wash at 86%, spelled as QuestPDF's ARGB value.
+        const string PanelInk = "#DBFFF8EB";
 
         var copyPages = reading.Receipts.Pages
             .Where(page => page.Role == "intro" || page.Role.StartsWith("spread-"))
@@ -316,15 +316,11 @@ public class BekiReaderExportTests
 
             Assert.NotEmpty(page.Typography);
 
-            // Georgian in the cream the outline stack fills with, English under it in the same
-            // cream held back — the type over the panel is the type the book always had.
+            // The override sets one dark vector layer over the cream wash.
             Assert.All(page.Typography, type =>
-                Assert.True(
-                    type.Colour is "#FFF8EB" or "#D9FFF8EB",
-                    $"{page.Role}/{type.Role} is set in {type.Colour}; the book's copy is cream "
-                    + "#FFF8EB, quieted to #D9FFF8EB for the second language."));
+                Assert.Equal("#281B3F", type.Colour));
 
-            Assert.Contains(page.Typography, type => type.Colour == "#FFF8EB");
+            Assert.Contains(page.Typography, type => type.Colour == "#281B3F");
         }
 
         // No panel where no copy sits over artwork: the two covers, the endpapers, and the credits
@@ -404,12 +400,12 @@ public class BekiReaderExportTests
 
         var ratio = shaded.Average(Luma) / Luma(artwork);
 
-        Assert.True(ratio < 0.75,
-            $"Inside the panel the artwork is {ratio:P0} as bright as outside it; a shade that faint "
-            + "is no background for the words (owner ruling 2026-09-01: not too transparent).");
-        Assert.True(ratio > 0.35,
-            $"Inside the panel the artwork is {ratio:P0} as bright as outside it; a shade that heavy "
-            + "is an opaque box (owner ruling 2026-09-01: transparent-like).");
+        Assert.True(ratio > 1.2,
+            $"Inside the wash the artwork is only {ratio:P0} as bright as outside it; the cream "
+            + "contrast support is missing or too transparent.");
+        Assert.True(ratio < 1.8,
+            $"Inside the wash the artwork is {ratio:P0} as bright as outside it; the illustration "
+            + "no longer shows through the local cream wash.");
         Assert.All(shaded, pixel => Assert.True(pixel.G > pixel.B && pixel.G > pixel.R,
             $"#{pixel.R:X2}{pixel.G:X2}{pixel.B:X2} inside the panel is not green any more; the "
             + "picture has to show through the shade."));
@@ -465,28 +461,30 @@ public class BekiReaderExportTests
         Assert.True(right >= panel.XMm + 20,
             $"the panel ends at {right:0.#} mm, inside the strip this test samples as panel.");
 
-        // 4. And type is still type: cream is a small share of the panel's own area.
-        var cream = 0;
+        // 4. And type is still type: dark ink is a small share of the wash's own area.
+        var ink = 0;
         var total = 0;
         for (var y = Px(panel.YMm); y < Px(panel.YMm + panel.HeightMm); y++)
         {
             for (var x = Px(panel.XMm); x < Px(right); x++)
             {
                 total++;
-                if (IsCream(image[x, y])) cream++;
+                if (IsStoryInk(image[x, y])) ink++;
             }
         }
 
-        Assert.True(cream > 0, "no cream was found on the panel — the type is not there.");
+        Assert.True(ink > 0, "no dark story ink was found on the cream wash.");
 
-        var share = (double)cream / total;
+        var share = (double)ink / total;
         Assert.True(share < 0.25,
-            $"{share:P0} of the panel is cream. Outlined type covers a small part of the shade it "
-            + "sits on; a quarter or more is a cream box, which is not the panel the owner asked for.");
+            $"{share:P0} of the wash is dark ink; a quarter or more is not a text-sized treatment.");
     }
 
     private static bool IsCream(Rgba32 pixel)
         => pixel.R > 200 && pixel.G > 195 && pixel.B > 170 && pixel.B < pixel.R;
+
+    private static bool IsStoryInk(Rgba32 pixel)
+        => pixel.R < 90 && pixel.G < 80 && pixel.B < 120;
 
     /// <summary>The fixture's flat green, (0, 200, 120), with room for the rasteriser.</summary>
     private static bool IsArtwork(Rgba32 pixel)

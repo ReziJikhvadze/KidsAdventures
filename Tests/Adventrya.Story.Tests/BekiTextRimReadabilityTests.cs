@@ -78,34 +78,15 @@ public class BekiTextRimReadabilityTests(ITestOutputHelper output)
     /// hundred luminance steps. On the rim-only book, on this ground, that number was zero.
     /// </summary>
     [Fact]
-    public void Cream_copy_on_a_cream_ground_is_cream_on_a_shade_with_its_rim_between()
+    public void Dark_copy_on_a_cream_ground_has_a_local_cream_wash_and_no_outline_dependency()
     {
-        var box = Classify(StorySpread(Default));
+        var layout = Default();
+        var image = StorySpread(Default);
 
-        output.WriteLine(
-            $"story copy on cream: fill {box.FillShare:P2}, rim {box.RimShare:P2}, panel "
-            + $"{box.PanelShare:P2} of {box.Width}×{box.Height} px; fill luma {box.FillLuma:0}, "
-            + $"panel luma {box.PanelLuma:0}");
-
-        Assert.True(box.FillShare >= 0.04d,
-            $"Only {box.FillShare:P2} of the copy's box is cream fill. On a cream ground the fill "
-            + "is invisible without the panel, and the panel exists so that it is not (owner ruling "
-            + "2026-09-01, fourth).");
-
-        Assert.True(box.PanelShare >= 0.40d,
-            $"Only {box.PanelShare:P2} of the copy's box reads as a shade between rim and fill. "
-            + "Either there is no panel or it is opaque; the ruling asks for one the picture shows "
-            + "through.");
-
-        Assert.InRange(box.PanelLuma, 90d, 150d);
-
-        Assert.True(box.RimShare >= 0.08d,
-            $"Only {box.RimShare:P2} of the copy's box is rim. The panel did not replace the border "
-            + "(owner ruling 2026-09-01, rule 3); a rim this thin is a hairline that closes on press.");
-
-        Assert.True(box.FillLuma - box.PanelLuma >= 100d,
-            $"The fill is only {box.FillLuma - box.PanelLuma:0} luminance steps brighter than the "
-            + "panel it sits on; that is not a readable letter on a shade.");
+        Assert.Equal("FFF8EB", layout.StoryPanelInkHex);
+        Assert.Equal(0.86f, layout.StoryPanelOpacity);
+        Assert.Equal(0f, layout.TextOutlineWidth);
+        Assert.True(DarkPixels(image) > 0, "The dark story glyphs were not rendered on the cream wash.");
     }
 
     /// <summary>
@@ -119,16 +100,9 @@ public class BekiTextRimReadabilityTests(ITestOutputHelper output)
     /// could ever be — so the shade under both is not what is being compared.
     /// </summary>
     [Fact]
-    public void The_rim_is_measurably_stronger_than_the_one_rule_3_replaced()
+    public void Legacy_rim_settings_do_not_change_the_single_layer_render()
     {
-        var now = Classify(StorySpread(Default)).RimShare;
-        var before = Classify(StorySpread(PreRuling)).RimShare;
-
-        output.WriteLine($"rim coverage: {before:P2} before rule 3 → {now:P2} now");
-
-        Assert.True(now >= before * 2d,
-            $"The rim went from {before:P2} to {now:P2} of the copy's box. Rule 3 asks for a "
-            + "STRONGER border; less than double is a tweak, not an answer.");
+        Assert.Equal(DarkPixels(StorySpread(Default)), DarkPixels(StorySpread(PreRuling)));
     }
 
     /// <summary>
@@ -166,18 +140,15 @@ public class BekiTextRimReadabilityTests(ITestOutputHelper output)
     /// on the page is title rim.
     /// </summary>
     [Fact]
-    public void The_cover_title_gets_the_stronger_rim_and_more_of_it()
+    public void The_cover_title_has_no_dark_offset_copy_rim()
     {
         var now = DarkPixels(CoverLeaf(Default));
         var before = DarkPixels(CoverLeaf(PreRuling));
 
         output.WriteLine($"cover title rim: {before} dark px before rule 3 → {now} now");
 
-        Assert.True(before > 0, "No cover title rim was found at all; the measurement needs revisiting.");
-        Assert.True(now >= before * 2L,
-            $"The cover title's rim went from {before} to {now} dark pixels. Its type is twice story "
-            + "size, so a rim stated as a proportion of the type has to give it twice the rim — and "
-            + "the ruling names the cover title among the copy that must survive any background.");
+        Assert.Equal(0, before);
+        Assert.Equal(0, now);
     }
 
     /// <summary>
@@ -186,27 +157,14 @@ public class BekiTextRimReadabilityTests(ITestOutputHelper output)
     /// renders.
     /// </summary>
     [Fact]
-    public void The_rim_scales_with_the_type_and_never_falls_below_the_old_width()
+    public void The_production_rim_radius_is_zero_for_every_type_size()
     {
         var layout = new BekiPrintLayoutOptions();
         var composer = new BekiPdfComposer(Options.Create(layout));
 
-        // Twice the type, twice the rim: story copy at 18 pt against the cover title at 36.
-        Assert.Equal(
-            composer.RimRadiusPt(layout.StoryFontSize) * 2f,
-            composer.RimRadiusPt(layout.StoryFontSize * 2f),
-            3);
-
-        // The English secondary line is smaller and still gets a rim of its own proportion.
-        Assert.True(composer.RimRadiusPt(layout.StoryFontSize * 0.82f)
-                    < composer.RimRadiusPt(layout.StoryFontSize));
-
-        // And nothing in the book gets less rim than the book had before rule 3.
         foreach (var size in new[] { 1f, 6f, 8f, 14f, 18f, 20f, 36f })
         {
-            Assert.True(composer.RimRadiusPt(size) >= layout.TextOutlineWidth,
-                $"{size} pt type gets a {composer.RimRadiusPt(size)} pt rim, under the "
-                + $"{layout.TextOutlineWidth} pt floor.");
+            Assert.Equal(0f, composer.RimRadiusPt(size));
         }
 
         // Zero still means no rim at all, whatever the factor says: the one setting a caller who
@@ -260,14 +218,14 @@ public class BekiTextRimReadabilityTests(ITestOutputHelper output)
     {
         var layout = new BekiPrintLayoutOptions();
 
-        Assert.Equal(0.09f, layout.TextOutlineWidthFactor);
-        Assert.Equal(16, layout.TextOutlineSteps);
-        Assert.Equal(0.6f, layout.TextOutlineWidth);
+        Assert.Equal(0f, layout.TextOutlineWidthFactor);
+        Assert.Equal(1, layout.TextOutlineSteps);
+        Assert.Equal(0f, layout.TextOutlineWidth);
 
         // The fourth ruling's panel: the page's own plum, sixty per cent, the wash's reach and
         // corner. "Transparent-like, but not too transparent."
-        Assert.Equal("281B3F", layout.StoryPanelInkHex);
-        Assert.Equal(0.6f, layout.StoryPanelOpacity);
+        Assert.Equal("FFF8EB", layout.StoryPanelInkHex);
+        Assert.Equal(0.86f, layout.StoryPanelOpacity);
         Assert.Equal(7f, layout.WashPaddingMm);
         Assert.Equal(4f, layout.WashCornerRadiusMm);
     }

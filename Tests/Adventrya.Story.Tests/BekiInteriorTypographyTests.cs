@@ -93,7 +93,7 @@ public class BekiInteriorTypographyTests
     /// shows through the shade, which is what makes it a shade.
     /// </summary>
     [Fact]
-    public void The_story_copy_is_cream_type_upper_left_on_a_panel_its_own_size()
+    public void The_story_copy_is_dark_type_upper_left_on_a_cream_wash_its_own_size()
     {
         var pages = RenderFixtureBook();
         var layout = BekiLayoutFixture.ScreenProofLayout();
@@ -110,20 +110,20 @@ public class BekiInteriorTypographyTests
         var left = (int)(17 * pxPerMm);
         var right = (int)(147 * pxPerMm);
 
-        var cream = Bounds(page, left, right, IsCream);
-        var shade = Bounds(page, left, right, pixel => !IsArtwork(pixel));
+        var ink = Bounds(page, left, right, IsStoryInk);
+        var shade = Bounds(page, left, right, IsCream);
 
-        Assert.True(cream is not null, "No cream type was found in the story copy's column.");
-        Assert.True(shade is not null, "No panel was found in the story copy's column.");
+        Assert.True(ink is not null, "No dark type was found in the story copy's column.");
+        Assert.True(shade is not null, "No cream wash was found in the story copy's column.");
 
         // Upper-left: the copy starts inside the top fifth of the sheet.
-        Assert.True(cream!.Value.Top < page.Height / 5,
-            $"The copy starts {cream.Value.Top} rows down a {page.Height}-row page; it is set upper-left.");
+        Assert.True(ink!.Value.Top < page.Height / 5,
+            $"The copy starts {ink.Value.Top} rows down a {page.Height}-row page; it is set upper-left.");
 
         // And it stops where the words stop. The fixture's spreads are one short sentence each, so
         // cream reaching even half way down the leaf would be a slab rather than a paragraph.
-        Assert.True(cream.Value.Bottom < page.Height / 2,
-            $"Cream runs to row {cream.Value.Bottom} of {page.Height}; that is a slab, not a paragraph.");
+        Assert.True(ink.Value.Bottom < page.Height / 2,
+            $"Ink runs to row {ink.Value.Bottom} of {page.Height}; that is a slab, not a paragraph.");
 
         // The panel hugs the copy. Its top-left corner is the column's own, and measured against
         // the cream its edges sit the padding away plus the type's own air — the ascender a little
@@ -133,17 +133,17 @@ public class BekiInteriorTypographyTests
 
         Assert.InRange(shade!.Value.Top, left - 2, left + 2);
         Assert.InRange(shade.Value.Left, left - 2, left + 2);
-        Assert.InRange(cream.Value.Top - shade.Value.Top, pad * 0.5, pad * 2.0);
-        Assert.InRange(shade.Value.Bottom - cream.Value.Bottom, pad * 0.5, pad * 2.0);
-        Assert.InRange(cream.Value.Left - shade.Value.Left, pad * 0.5, pad * 1.5);
-        Assert.InRange(shade.Value.Right - cream.Value.Right, pad * 0.5, pad * 2.0);
+        Assert.InRange(ink.Value.Top - shade.Value.Top, pad * 0.5, pad * 2.0);
+        Assert.InRange(shade.Value.Bottom - ink.Value.Bottom, pad * 0.5, pad * 2.0);
+        Assert.InRange(ink.Value.Left - shade.Value.Left, pad * 0.5, pad * 1.5);
+        Assert.InRange(shade.Value.Right - ink.Value.Right, pad * 0.5, pad * 2.0);
 
         // Translucent: inside the panel, away from the type and its rim, the artwork's green is
         // still the strongest channel and is still most of what is there. The plum at sixty per
         // cent over (0, 200, 120) is about (24, 96, 86); an opaque plum would be (40, 27, 63), and
         // no panel at all would leave the green at 200.
         var panelPixels = new List<Rgba32>();
-        var creamPixels = 0;
+        var inkPixels = 0;
         var total = 0;
 
         for (var y = shade.Value.Top; y <= shade.Value.Bottom; y++)
@@ -153,11 +153,11 @@ public class BekiInteriorTypographyTests
                 var pixel = page[x, y];
                 total++;
 
-                if (IsCream(pixel))
+                if (IsStoryInk(pixel))
                 {
-                    creamPixels++;
+                    inkPixels++;
                 }
-                else if (pixel.G is >= 60 and <= 150)
+                else if (IsCream(pixel))
                 {
                     panelPixels.Add(pixel);
                 }
@@ -171,9 +171,9 @@ public class BekiInteriorTypographyTests
             "Inside the panel blue outweighs green; the plum is covering the picture rather than shading it.");
 
         // And type is still type: cream is a small share of the panel it sits on.
-        var share = (double)creamPixels / total;
+        var share = (double)inkPixels / total;
         Assert.True(share < 0.25,
-            $"{share:P0} of the panel is cream. Outlined type covers a small part of the shade it "
+            $"{share:P0} of the wash is dark ink. Type covers a small part of the wash it "
             + "sits on; a quarter or more is a cream box, which is not what the ruling asked for.");
     }
 
@@ -201,16 +201,16 @@ public class BekiInteriorTypographyTests
         var left = (int)(17 * pxPerMm);
         var right = (int)(147 * pxPerMm);
 
-        var cream = Bounds(page, left, right, IsCream);
-        var shade = Bounds(page, left, right, pixel => !IsArtwork(pixel));
+        var ink = Bounds(page, left, right, IsStoryInk);
+        var shade = Bounds(page, left, right, IsCream);
 
-        Assert.True(cream is not null, "No cream type was found in the story copy's column.");
-        Assert.True(shade is not null, "No panel was found in the story copy's column.");
+        Assert.True(ink is not null, "No dark type was found in the story copy's column.");
+        Assert.True(shade is not null, "No cream wash was found in the story copy's column.");
 
         var pad = layout.WashPaddingMm * pxPerMm;
 
         // The panel ends the padding past the last letter…
-        Assert.InRange(shade!.Value.Right - cream!.Value.Right, pad * 0.5, pad * 2.0);
+        Assert.InRange(shade!.Value.Right - ink!.Value.Right, pad * 0.5, pad * 2.0);
 
         // …which on three words is nowhere near the column's far edge.
         Assert.True(right - shade.Value.Right > 30 * pxPerMm,
@@ -378,7 +378,10 @@ public class BekiInteriorTypographyTests
     private static IReadOnlyList<byte[]> RenderFixtureBook() => BekiLayoutFixture.ScreenProofPages();
 
     private static bool IsCream(Rgba32 pixel)
-        => pixel.R > 200 && pixel.G > 195 && pixel.B > 170 && pixel.B < pixel.R;
+        => pixel.R > 180 && pixel.G > 190 && pixel.B > 160;
+
+    private static bool IsStoryInk(Rgba32 pixel)
+        => pixel.R < 90 && pixel.G < 80 && pixel.B < 120;
 
     /// <summary>The fixture's flat green, (0, 200, 120), with room for the rasteriser.</summary>
     private static bool IsArtwork(Rgba32 pixel)

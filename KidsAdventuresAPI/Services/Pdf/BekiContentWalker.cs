@@ -70,12 +70,20 @@ internal static class BekiContentWalker
             : $"{Space} {string.Join(" ", Components.Select(value => value.ToString("0.###", CultureInfo.InvariantCulture)))}";
     }
 
+    /// <summary>
+    /// An opaque signature of the encoded glyph sequence passed to a visible text-show operator.
+    /// It deliberately records bytes, not decoded Unicode: duplicate painting is a PDF content
+    /// problem and must be detectable even when a subset font has no usable ToUnicode map.
+    /// </summary>
+    internal sealed record TextDraw(string Signature, int Occurrences);
+
     /// <summary>Everything one page's content stream had to say.</summary>
     internal sealed record PageContent(
         int Page,
         IReadOnlyList<PlacedImage> Images,
         IReadOnlyList<UnresolvedPlacement> Unresolved,
         IReadOnlyList<TextFill> TextFills,
+        IReadOnlyList<TextDraw> TextDraws,
         IReadOnlyList<string> ImagesNeverPlaced);
 
     /// <summary>
@@ -123,7 +131,11 @@ internal static class BekiContentWalker
                 pageNumber, pair.Key.Space, pair.Key.Components, pair.Key.IsDeviceBlack, pair.Value))
             .ToList();
 
-        return new PageContent(pageNumber, state.Images, state.Unresolved, fills, declared);
+        var draws = state.TextDraws
+            .Select(pair => new TextDraw(pair.Key, pair.Value))
+            .ToList();
+
+        return new PageContent(pageNumber, state.Images, state.Unresolved, fills, draws, declared);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -138,6 +150,8 @@ internal static class BekiContentWalker
         public List<UnresolvedPlacement> Unresolved { get; } = [];
 
         public Dictionary<FillKey, int> TextFills { get; } = [];
+
+        public Dictionary<string, int> TextDraws { get; } = new(StringComparer.Ordinal);
     }
 
     /// <summary>A fill colour, compared by space and components so occurrences can be counted.</summary>
@@ -256,6 +270,7 @@ internal static class BekiContentWalker
                     if (current.TextRenderMode != 3)
                     {
                         RecordFill(state, current);
+                        RecordTextDraw(state, operands);
                     }
 
                     break;
@@ -423,6 +438,38 @@ internal static class BekiContentWalker
             IsDeviceBlack(current.FillSpace, current.FillComponents));
 
         state.TextFills[key] = state.TextFills.TryGetValue(key, out var count) ? count + 1 : 1;
+    }
+
+    private static void RecordTextDraw(WalkState state, IReadOnlyList<object?> operands)
+    {
+        var encoded = new StringBuilder();
+        foreach (var operand in operands)
+        {
+            switch (operand)
+            {
+                case string text:
+                    encoded.Append(text).Append('\u001f');
+                    break;
+                case IEnumerable<object?> array:
+                    foreach (var item in array.OfType<string>())
+                    {
+                        encoded.Append(item).Append('\u001f');
+                    }
+                    break;
+            }
+        }
+
+        if (encoded.Length == 0)
+        {
+            return;
+        }
+
+        var signature = Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(Encoding.Latin1.GetBytes(encoded.ToString())))
+            .ToLowerInvariant();
+        state.TextDraws[signature] = state.TextDraws.TryGetValue(signature, out var count)
+            ? count + 1
+            : 1;
     }
 
     /// <summary>

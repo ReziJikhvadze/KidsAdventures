@@ -2743,7 +2743,9 @@ public sealed class BekiPackFulfillment(
             options,
             trimInsetMm: 5f,
             probe: new BekiPrintProbe(
-                canonical.Receipts.LightTextPages, canonical.Receipts.FlatGroundTextProbes),
+                canonical.Receipts.LightTextPages,
+                canonical.Receipts.FlatGroundTextProbes,
+                canonical.Receipts.MaximumVisibleTextDrawsByPage),
             resolutionReceipt: new BekiResolutionReceipt(
                 [.. sources, .. canonical.Receipts.RasterSources]),
             canonicalMixedGeometry: true,

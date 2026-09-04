@@ -514,6 +514,20 @@ public class BekiPrintPrepTests
             fill => fill.GetProperty("device_black").GetBoolean());
     }
 
+    [Fact]
+    public void Repeated_offset_copy_text_fails_the_single_text_layer_gate()
+    {
+        var failure = Assert.Throws<BekiLayoutException>(() =>
+            BekiPrintPrep.Prepare(
+                BekiPressPrepFixtures.DuplicateTextOnInk(), "ტესტი", new BekiPrintPrepOptions(),
+                probe: new BekiPrintProbe([], MaximumVisibleTextDrawsByPage:
+                    new Dictionary<int, int> { [1] = 0 })));
+
+        Assert.Equal("PRINT_PREFLIGHT_FAILED", failure.FailureCode);
+        Assert.Contains(BekiPrintPrep.SingleTextLayerGate, failure.Message, StringComparison.Ordinal);
+        Assert.Contains("visible text draws exceed", failure.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>
     /// Cream on dark purple, converted through FOGRA39, still reads as light text — asserted twice
     /// over: no device-black fill in the content stream, and a bright glyph mode over a dark ground
@@ -769,6 +783,33 @@ internal static class BekiPressPrepFixtures
 
     /// <summary>The same page with its type authored black — P0-07's end state, manufactured.</summary>
     public static byte[] BlackTextOnInk(int pages = 1) => Build($"black-{pages}", pages, Black);
+
+    /// <summary>The old faux-outline signature: one glyph sequence painted four times.</summary>
+    public static byte[] DuplicateTextOnInk() => Cached("duplicate-text", () =>
+    {
+        QuestPDF.Settings.License = LicenseType.Community;
+        var art = Raster(Pixels(PageWidthMm, 360), Pixels(ArtHeightMm, 360));
+
+        return Document.Create(document =>
+        {
+            document.Page(page =>
+            {
+                page.Size(PageWidthMm, PageHeightMm, Unit.Millimetre);
+                page.Margin(0);
+                page.PageColor(Ink);
+                page.Content().Layers(layers =>
+                {
+                    layers.PrimaryLayer().Height(ArtHeightMm, Unit.Millimetre)
+                        .Image(art).FitUnproportionally().UseOriginalImage();
+                    for (var index = 0; index < 4; index++)
+                    {
+                        layers.Layer().PaddingTop(26, Unit.Millimetre).PaddingLeft(4, Unit.Millimetre)
+                            .Text("DUPLICATE").FontSize(22).FontColor(Cream);
+                    }
+                });
+            });
+        }).GeneratePdf();
+    });
 
     /// <summary>The mark on its own, for the upscaler tests.</summary>
     public static byte[] MarkPng() => Cached("mark-png", () => Raster(300, 300));

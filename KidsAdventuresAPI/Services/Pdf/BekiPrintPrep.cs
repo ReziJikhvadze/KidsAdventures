@@ -33,7 +33,8 @@ namespace AdventurePacks.Api.Services.Pdf;
 /// <param name="FlatGroundRects">Where to sample, on the pages whose ground is a flat colour.</param>
 public sealed record BekiPrintProbe(
     IReadOnlyList<int> LightTextPages,
-    IReadOnlyList<BekiTextProbeRect>? FlatGroundRects = null);
+    IReadOnlyList<BekiTextProbeRect>? FlatGroundRects = null,
+    IReadOnlyDictionary<int, int>? MaximumVisibleTextDrawsByPage = null);
 
 /// <summary>
 /// One rectangle to sample, in millimetres from the page's top-left corner — the same corner a
@@ -128,6 +129,12 @@ public static class BekiPrintPrep
 
     /// <inheritdoc cref="PressResolutionGate"/>
     public const string TextColorIntegrityGate = "TEXT_COLOR_INTEGRITY";
+
+    /// <summary>Rejects the superseded multi-copy faux-outline text treatment.</summary>
+    public const string SingleTextLayerGate = "SINGLE_TEXT_LAYER";
+
+    /// <summary>The canonical cover permits its artwork raster and no rasterized logo.</summary>
+    public const string VectorLogoGate = "VECTOR_LOGO";
 
     /// <summary>The supplied gates document, read at runtime rather than transcribed into C#.</summary>
     private const string AcceptanceGatesFile = "BEKI_Acceptance_Gates_v1.json";
@@ -226,6 +233,20 @@ public static class BekiPrintPrep
                 $"the canonical BEKI document must contain exactly 12 PDF pages; layout returned {expectedPages}.");
         }
 
+        // Ghostscript is allowed to rewrite or merge text-show operators during colour conversion,
+        // so inspect the authored layout as well as the prepared bytes. The defect is the composer
+        // painting the same glyphs repeatedly; a converter hiding that signature does not make the
+        // source layout compliant.
+        object authoredTextLayers;
+        using (var authored = PdfReader.Open(
+                   new MemoryStream(laidOutPdf), PdfDocumentOpenMode.Import))
+        {
+            authoredTextLayers = EnforceSingleTextLayer(
+                authored.Pages.OfType<PdfPage>()
+                    .Select((page, index) => BekiContentWalker.Walk(page, index + 1))
+                    .ToList(), probe);
+        }
+
         string? conversion = null;
         var pdf = laidOutPdf;
 
@@ -312,6 +333,8 @@ public static class BekiPrintPrep
                 $"{PressResolutionGate}: " + string.Join(" ", resolutionProblems));
         }
         var textColour = EnforceTextColourIntegrity(contents, probe);
+        var textLayers = EnforceSingleTextLayer(contents, probe);
+        var vectorLogo = canonicalMixedGeometry ? EnforceVectorCoverLogo(contents) : null;
 
         // The one gate this stage measures and does not act on. Everything else in here still
         // refuses outright: a missing ICC profile, an unembedded face, a wrong page box, a dropped
@@ -369,6 +392,8 @@ public static class BekiPrintPrep
                 // P0-07, answered the same way: what colour every text-showing operator was
                 // painted with once Ghostscript had finished with the document.
                 text_colour = textColour,
+                text_layers = new { authored = authoredTextLayers, prepared = textLayers },
+                vector_logo = vectorLogo,
                 text_pixel_probes = pixelProbes,
                 fonts = fonts
                     .Select(font => new { name = font.Name, embedded = font.Embedded })
@@ -705,6 +730,74 @@ public static class BekiPrintPrep
                 })
                 .ToList(),
         };
+    }
+
+    /// <summary>
+    /// Rejects a glyph sequence painted four or more times on one page. Ordinary repeated prose
+    /// can legitimately say the same short line twice; the superseded outline paints every line
+    /// 17 times at tiny offsets. Four is therefore a conservative, deterministic signature of the
+    /// forbidden treatment without attempting to decode subset-font glyphs.
+    /// </summary>
+    private static object EnforceSingleTextLayer(
+        IReadOnlyList<BekiContentWalker.PageContent> contents,
+        BekiPrintProbe? probe)
+    {
+        var repeated = contents
+            .SelectMany(page => page.TextDraws
+                .Where(draw => draw.Occurrences >= 4)
+                .Select(draw => new { page.Page, draw.Signature, draw.Occurrences }))
+            .ToList();
+
+        var overBudget = contents
+            .Select(page => new
+            {
+                page.Page,
+                Actual = page.TextFills.Sum(fill => fill.Occurrences),
+                Maximum = probe?.MaximumVisibleTextDrawsByPage is { } limits
+                          && limits.TryGetValue(page.Page, out var maximum)
+                    ? maximum
+                    : (int?)null,
+            })
+            .Where(item => item.Maximum.HasValue && item.Actual > item.Maximum.Value)
+            .ToList();
+
+        if (repeated.Count > 0 || overBudget.Count > 0)
+        {
+            throw Failure(
+                $"{SingleTextLayerGate}: repeated text drawing detected. "
+                + string.Join(" ", repeated.Take(8).Select(draw =>
+                    $"page {draw.Page}: encoded glyph sequence {draw.Signature[..12]} was painted "
+                    + $"{draw.Occurrences} times."))
+                + string.Join(" ", overBudget.Take(8).Select(item =>
+                    $"page {item.Page}: {item.Actual} visible text draws exceed the layout budget "
+                    + $"of {item.Maximum}."))
+                + " The canonical book requires one visible vector text layer, not an offset-copy outline.");
+        }
+
+        return new
+        {
+            gate = SingleTextLayerGate,
+            verdict = "PASS",
+            maximum_identical_draws_on_one_page = contents
+                .SelectMany(page => page.TextDraws)
+                .Select(draw => draw.Occurrences)
+                .DefaultIfEmpty(0)
+                .Max(),
+        };
+    }
+
+    private static object EnforceVectorCoverLogo(IReadOnlyList<BekiContentWalker.PageContent> contents)
+    {
+        var cover = contents.Single(page => page.Page == 1);
+        var rasterCount = cover.Images.Count(image => !image.IsStencilMask);
+        if (rasterCount != 1)
+        {
+            throw Failure(
+                $"{VectorLogoGate}: canonical cover contains {rasterCount} placed raster image "
+                + "objects; exactly one cover-art raster is allowed and the approved logo must remain vector.");
+        }
+
+        return new { gate = VectorLogoGate, verdict = "PASS", cover_raster_count = rasterCount };
     }
 
     /// <summary>

@@ -95,35 +95,20 @@ public sealed class BekiPrintLayoutOptions
     public float WashCornerRadiusMm { get; set; } = 4f;
 
     /// <summary>
-    /// The ink of the translucent panel behind the story and intro copy, <c>RRGGBB</c> with or
-    /// without its hash.
-    ///
-    /// **Owner ruling 2026-09-01, the fourth on the question and the one that stands:** "we need
-    /// good background on the texts to be readable — transparent-like background, but not too
-    /// transparent." The three rulings before it took the cream wash out and left the copy as cream
-    /// type with a dark rim straight on the artwork, and on pale artwork that copy fails in a way no
-    /// rim can fix: cream letters on a cream-ish picture are hollow outlines, the fill is
-    /// indistinguishable from the ground, and the word is drawn by its edge alone. A dark translucent
-    /// shade under the block gives the cream fill something to be lighter than on every picture,
-    /// and lets the picture stay visible through it.
-    ///
-    /// The page's own plum, <c>#281B3F</c>, so the shade reads as the book's ink and not as a second
-    /// colour on the spread. The type on top of it is unchanged — the same cream, the same rim, the
-    /// same offset stack — and so is every millimetre of the layout: the panel is drawn inside the
-    /// column the copy already had, at the column's own inset, and moves nothing.
+    /// The ink of the local translucent wash behind story and intro copy, <c>RRGGBB</c> with or
+    /// without its hash. The 2026-09-04 product-owner override supersedes the earlier dark-panel
+    /// treatment: this is a soft warm cream, sized only to the text block.
     /// </summary>
-    public string StoryPanelInkHex { get; set; } = "281B3F";
+    public string StoryPanelInkHex { get; set; } = "FFF8EB";
 
     /// <summary>
     /// How opaque that panel is, 0–1. Zero draws no panel at all and is the pre-ruling book; one is
     /// an opaque box, which the ruling equally does not want ("transparent-like").
     ///
-    /// 0.6 is the ruling's "not too transparent" made a number: at 60% the plum darkens a cream
-    /// ground to about a third of its brightness, so the cream fill is plainly the lightest thing
-    /// inside the block, while enough of the illustration comes through that the panel reads as a
-    /// shade on the picture rather than a card laid over it. Clamped to 0–1 wherever it is read.
+    /// 0.86 keeps the wash visibly cream on both light and dark art while allowing the illustration
+    /// to remain present. Clamped to 0–1 wherever it is read.
     /// </summary>
-    public float StoryPanelOpacity { get; set; } = 0.6f;
+    public float StoryPanelOpacity { get; set; } = 0.86f;
 
     /// <summary>
     /// The largest linear resize <see cref="Services.Story.BekiPdfComposer"/> may perform on its way
@@ -195,75 +180,24 @@ public sealed class BekiPrintLayoutOptions
     public bool PrintEnglishToo { get; set; }
 
     /// <summary>
-    /// The smallest rim any outlined glyph may carry, in points — and the switch that turns the rim
-    /// off altogether.
-    ///
-    /// A floor rather than the width itself since owner ruling 2026-09-01 (rule 3): "text must have
-    /// a STRONGER border so it is readable on all backgrounds." A fixed 0.6 pt was the whole rim on
-    /// every block in the book, which meant an 18 pt story line and a 36 pt cover title carried the
-    /// same edge — a thirtieth of the em on one and a sixtieth on the other. The rim is now a
-    /// proportion of the type it surrounds (<see cref="TextOutlineWidthFactor"/>) and this is the
-    /// floor under it, so a very small size still gets an edge a press can hold.
-    ///
-    /// Zero still means no rim at all, on any block, whatever the factor says — the one setting a
-    /// caller who wants plain type reaches for.
+    /// Legacy proof setting retained for stored configuration compatibility. Production text is
+    /// emitted once as vector type, so this value is intentionally zero and is never used to draw
+    /// offset copies.
     /// </summary>
-    public float TextOutlineWidth { get; set; } = 0.6f;
+    public float TextOutlineWidth { get; set; } = 0f;
 
     /// <summary>
-    /// The rim around every outlined glyph, as a fraction of that block's own type size.
-    ///
-    /// **0.09 — nine per cent of the em, chosen by measurement and not by eye.** Owner ruling
-    /// 2026-09-01, rule 3, is that book copy has to survive ANY background. When the number was
-    /// chosen the ruling before it had taken away the cream wash, so every word over artwork was
-    /// cream #FFF8EB with a #0D071D rim and nothing else, and the worst case was a background the
-    /// exact colour of the fill, where the rim is the only thing drawing the glyph at all.
-    ///
-    /// <c>BekiTextRimReadabilityTests</c> composed that worst case — a spread whose artwork is solid
-    /// #FFF8EB — rendered it at 220 PPI, and measured the rim's dark coverage inside the copy
-    /// column's own ink box. The old flat 0.6 pt rim on 20 pt type (0.03 of the em) leaves 5.8% of
-    /// that box dark: a hairline, and one that closes up the moment a press dot-gains. At 0.09 the
-    /// same measurement is 17.4% — three times the rim, and a glyph you can read as a shape. The
-    /// cover title, being twice story size, goes from 14,518 rim pixels to 73,235.
-    ///
-    /// Deliberately not "as thick as possible". At 0.12 the measurement is 21.3% and the counters of
-    /// the round Georgian letters — the bowl of ო, the eye of ფ — are visibly narrowing; past that
-    /// the rim starts eating the letterform it exists to describe, and a rim heavy enough to merge
-    /// between letters would be a panel made of rim, which is not what a panel is for. 0.09 is the
-    /// far side of legible-at-a-glance and the near side of that.
-    ///
-    /// It applies to every outlined block equally: story copy in both languages, the intro spread's
-    /// four lines, the back-cover address and the cover title — which, being twice story size, gets
-    /// twice the rim out of the same number.
-    ///
-    /// This is a RIM, and it is the same rim since the panel came back. The fourth ruling of
-    /// 2026-09-01 (<see cref="StoryPanelOpacity"/>) put a translucent shade under the story and
-    /// intro blocks because the rim alone could not make cream letters read on pale artwork; it did
-    /// not replace the rim, which is still what separates the fill from whatever is behind it, on
-    /// the cover title and the back-cover address as much as over the panel.
+    /// Legacy proportional-outline setting retained for stored configuration compatibility.
+    /// The 2026-09-04 override supersedes the repeated-offset outline treatment; zero is the only
+    /// production default and the compositor's production path always renders one text layer.
     /// </summary>
-    public float TextOutlineWidthFactor { get; set; } = 0.09f;
+    public float TextOutlineWidthFactor { get; set; } = 0f;
 
     /// <summary>
-    /// How many offset copies of a glyph make up its rim — the number of directions on the circle.
-    ///
-    /// Sixteen, up from the eight this started at, and the reason is arithmetic rather than taste.
-    /// QuestPDF has no glyph stroke, so the rim is the text drawn again and again around a circle of
-    /// radius r. The result is not a circle: between two neighbouring directions the rim's outer edge
-    /// falls short of one by <c>r·(1 − cos(π/steps))</c> — 7.6% of the radius at eight directions,
-    /// 1.9% at sixteen — and it falls short exactly on the diagonals, where a round Georgian letter
-    /// is at its widest curvature.
-    ///
-    /// At the old hairline that flat spot was 0.6 pt × 7.6% = 0.05 pt, which no press can resolve. At
-    /// this rim it would be 1.8 pt × 7.6% = 0.14 pt, or well over half a pixel at 300 PPI, and a
-    /// rim that reads as an octagon on every letter is not the border the ruling asked for. Sixteen
-    /// puts it back to 0.03 pt, under a tenth of a press pixel.
-    ///
-    /// The cost is honest and recorded: every outlined line is that many more vector text runs in
-    /// the file, and a text extractor reads it that many times. The supplier's preflight requires
-    /// real vector glyphs rather than a raster of them, which is the trade being made.
+    /// Legacy outline-step count. One records the current single-layer contract and prevents old
+    /// configuration defaults from describing sixteen repeated copies as acceptable output.
     /// </summary>
-    public int TextOutlineSteps { get; set; } = 16;
+    public int TextOutlineSteps { get; set; } = 1;
 
     /// <summary>
     /// How much of an illustration a centred crop to the sheet may remove, per axis, before the

@@ -20,7 +20,7 @@
     "prompt_source_sha256": "5bd49eb25bbf17b7353a5e270396ec2a30dbac83fc32aae66b85ab773ea97952",
     "schema_version": "composite-story-schema-v1",
     "schema_source": "Services/Story/Composite/CompositeStorySchema.cs",
-    "schema_source_sha256": "c7cfdcb6c51dc88602164519a7ae3086d7d8183b392b9cf5a800b30a3da5bfce"
+    "schema_source_sha256": "ed7913f3d35e45243ad8ecca48a15fca0b4b36ed0e17e8ec4a4ab9fdbc7672e1"
   },
   "visual_scenario": {
     "prompt_version": "visual-scenario-v2",
@@ -71,6 +71,16 @@
     "logo_asset_id": "beki_logo_hires_light",
     "logo_file": "Assets/BekiComposite/logo/HiResLight.svg",
     "logo_sha256": "e78bb168c316f9ce52c94f7741fba9fed8f59b7a5b8013821fe6dd673521db08"
+  },
+  "layout": {
+    "interior_body_font": "Noto Sans Georgian",
+    "visible_text_layers": 1,
+    "faux_outline_copies": 0,
+    "story_text_ink": "#281B3F",
+    "contrast_support": "text-sized soft cream wash",
+    "wash_ink": "#FFF8EB",
+    "wash_opacity": 0.86,
+    "critical_center_exclusion_mm": 30
   },
   "output": {
     "artifact_count": 1,
