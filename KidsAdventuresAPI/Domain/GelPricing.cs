@@ -26,8 +26,19 @@ public static class GelPricing
     */
     public const int DigitalMinor = 100;
 
-    /// <summary>Printed hardback plus digital: 79 GEL.</summary>
-    public const int PrintMinor = 7900;
+    /*
+      TEMPORARY — 1 GEL, and for the same reason as the digital price above: the printed book is
+      the other thing a parent can buy, and it goes through the gateway on its own path, so
+      proving the digital one proves only half of it.
+
+      **The live price is 7900** — 79 GEL, printed hardback plus digital — and this goes back to
+      it the moment the test passes. Both numbers are temporary now, so put both back together.
+
+      Note that the refunds policy at `wwwroot/src/content/legal/refunds.ts` still quotes the real
+      79 and 14, deliberately: it describes the product, not this week's test, and rewriting a
+      published policy to say 1 GEL would be worse than the mismatch it avoids.
+    */
+    public const int PrintMinor = 100;
 
     /// <summary>Adding print to a book already bought digitally: 65 GEL.</summary>
     public const int PrintUpgradeMinor = 6500;

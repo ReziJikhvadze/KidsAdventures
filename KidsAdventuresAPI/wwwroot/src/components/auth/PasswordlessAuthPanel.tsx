@@ -12,24 +12,45 @@ import { formatGeorgianPhone, normalizeGeorgianPhone, useT } from "@/lib/i18n";
 type AuthTab = "email" | "phone";
 
 /**
- * Two doors that are not built yet, hidden until they are.
+ * Which doors the panel offers, and why one of them closed.
  *
- * Apple answers a press with "coming soon", and the phone tab sends a code no SMS gateway
- * delivers — the panel says as much in its own small print. Offering a parent a way in that
- * cannot let them in is worse than offering one fewer. Both are one flag away from coming back:
- * the code behind them is untouched.
+ * Apple still answers a press with "coming soon", so it stays hidden until it does not.
+ *
+ * The one-time link is hidden for the opposite reason: not because it is unfinished, but because
+ * it is no longer wanted. A parent can sign in with a password or with their phone number, and a
+ * third way that costs a trip to a mail client — which a spam filter, a webmail login or a
+ * different browser can each break — earns less than the room it takes on a phone-sized panel.
+ *
+ * Hidden here rather than deleted, on purpose. `/auth/magic` still trades a token for a session
+ * and the server still knows how to send one, so a link posted minutes before this shipped still
+ * works when it is opened; only the way of asking for a new one is gone. Flip this back and the
+ * button returns with nothing else to change.
  */
 const APPLE_SIGN_IN_READY: boolean = false;
 const PHONE_SIGN_IN_READY: boolean = true;
+const MAGIC_LINK_SIGN_IN_READY: boolean = false;
+
+/**
+ * How many boxes to draw before the server has said how many it wants.
+ *
+ * The length is the server's `PasswordlessAuth:OtpLength`, and every challenge response carries
+ * it, so the boxes on screen are always the ones the code will fit. This is only the value used
+ * to build the array before the first request — no boxes are drawn until a challenge exists, so
+ * it is never what a parent types into. It matches the server default so the two agree even if
+ * an older API answers without the field.
+ */
+const OTP_FALLBACK_LENGTH = 4;
+
+const emptyOtp = (length: number) =>
+  Array.from({ length: Math.max(1, length) || OTP_FALLBACK_LENGTH }, () => "");
 
 /**
  * How a parent proves the email is theirs: a link we send them, a password they already have, or
  * a password they are setting for the first time.
  *
- * The link is still the default — it is one tap and there is nothing to remember. The password is
- * here because a link that has to survive a mail client, a spam filter and a browser switch does
- * not always arrive, and a parent halfway through paying for a book should not be stuck waiting
- * on one.
+ * The password is the default now that the link is hidden — see MAGIC_LINK_SIGN_IN_READY. The
+ * `link` mode is kept whole rather than torn out, because the flag is meant to be flippable and
+ * because a token already in someone's inbox is still honoured on the way in.
  *
  * `register` is a separate mode rather than a separate endpoint. `/api/auth/continue` signs in a
  * known email and creates an unknown one, so one form could do both — and did, which is why
@@ -72,12 +93,16 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
   const { loginWithGoogle, signInWithPhoneCode, continueWith } = useAuth();
 
   const [tab, setTab] = useState<AuthTab>("email");
-  const [emailMode, setEmailMode] = useState<EmailMode>("link");
+  // Whichever way in the switcher shows first: the link when it is offered, the password when
+  // it is not. Starting on a mode with no button to leave it would strand the parent.
+  const [emailMode, setEmailMode] = useState<EmailMode>(
+    MAGIC_LINK_SIGN_IN_READY ? "link" : "password",
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordRepeat, setPasswordRepeat] = useState("");
   const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [otp, setOtp] = useState(() => emptyOtp(OTP_FALLBACK_LENGTH));
   const [challenge, setChallenge] = useState<AuthChallengeResponse | null>(null);
   const [otpMode, setOtpMode] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -175,7 +200,9 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
       setChallenge(result);
       setOtpMode(true);
       setCooldown(result.resendAfterSeconds || 30);
-      setOtp(["", "", "", "", "", ""]);
+      // Sized by the answer, not by an assumption: the server says how long the code it just
+      // generated is, and the boxes are drawn to match.
+      setOtp(emptyOtp(result.otpLength || OTP_FALLBACK_LENGTH));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "კოდი ვერ გაიგზავნა.");
     } finally {
@@ -185,7 +212,9 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
 
   const verifyOtp = async (digits = otp) => {
     const code = digits.join("");
-    if (code.length !== 6) {
+
+    // Every box filled — join() drops the empty ones, so a shorter string means a gap.
+    if (code.length !== digits.length) {
       setError(t.journey.validation.otpInvalid);
       return;
     }
@@ -207,10 +236,10 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
   };
 
   const fillOtp = (value: string) => {
-    const digits = value.replace(/\D/g, "").slice(0, 6).split("");
-    const next = Array.from({ length: 6 }, (_, i) => digits[i] ?? "");
+    const digits = value.replace(/\D/g, "").slice(0, otp.length).split("");
+    const next = Array.from({ length: otp.length }, (_, i) => digits[i] ?? "");
     setOtp(next);
-    if (digits.length === 6) void verifyOtp(next);
+    if (digits.length === otp.length) void verifyOtp(next);
   };
 
   const onGoogleSuccess = async (credential: { idToken?: string; accessToken?: string }) => {
@@ -292,18 +321,20 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
             the same state the gold fill shows.
           */}
           <div className="ux-auth-switcher" role="group" aria-label={t.journey.auth.methodGroup}>
-            <button
-              type="button"
-              aria-pressed={tab === "email" && emailMode === "link"}
-              className={tab === "email" && emailMode === "link" ? "selected" : ""}
-              onClick={() => {
-                setTab("email");
-                setEmailMode("link");
-                setError(null);
-              }}
-            >
-              {t.journey.auth.tabMagicLink}
-            </button>
+            {MAGIC_LINK_SIGN_IN_READY ? (
+              <button
+                type="button"
+                aria-pressed={tab === "email" && emailMode === "link"}
+                className={tab === "email" && emailMode === "link" ? "selected" : ""}
+                onClick={() => {
+                  setTab("email");
+                  setEmailMode("link");
+                  setError(null);
+                }}
+              >
+                {t.journey.auth.tabMagicLink}
+              </button>
+            ) : null}
             <button
               type="button"
               aria-pressed={tab === "email" && emailMode !== "link"}
@@ -530,7 +561,7 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
                   const next = [...otp];
                   next[index] = value;
                   setOtp(next);
-                  if (value && index < 5) otpRefs.current[index + 1]?.focus();
+                  if (value && index < otp.length - 1) otpRefs.current[index + 1]?.focus();
                   if (next.every((d) => d)) void verifyOtp(next);
                 }}
                 onKeyDown={(e) => {
@@ -569,7 +600,7 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
           <button
             className="button button-primary auth-main"
             type="button"
-            disabled={busy || otp.join("").length !== 6}
+            disabled={busy || otp.join("").length !== otp.length}
             onClick={() => void verifyOtp()}
           >
             {t.journey.auth.verify}

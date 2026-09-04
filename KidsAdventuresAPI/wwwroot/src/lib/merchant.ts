@@ -37,8 +37,9 @@ export const MERCHANT: MerchantDetails = {
   /** Identification number (საიდენტიფიკაციო კოდი), from the BOG merchant registration. */
   taxId: "402377110",
 
-  /** Answered mailbox. Support and legal notices both arrive here. */
-  email: "support@adventrya.com",
+  /** Answered mailbox. Support and legal notices both arrive here, and it is what the site
+      sends from — see EmailOptions.FromAddress. */
+  email: "info@beki.ge",
 
   /** In international form, e.g. "+995 5XX XX XX XX". */
   phone: "+995 550 50 15 95",

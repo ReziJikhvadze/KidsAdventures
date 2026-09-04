@@ -1,4 +1,5 @@
 import { BRAND_NAME } from "@/lib/brand";
+import { MERCHANT } from "@/lib/merchant";
 
 /**
  * The frame around a legal document, in each language one is written in.
@@ -24,7 +25,15 @@ export const LEGAL_CHROME = {
   },
 } as const;
 
-export const LEGAL_CONTACT_EMAILS = ["support@adventrya.com", "info@adventrya.com"] as const;
+/*
+  The merchant's address, not a copy of it.
+
+  This used to name two of its own — a pair left from the Adventrya name — so the policies, the
+  footer and the contact page could each quote something different, and for a while they did.
+  `merchant.ts` already says it is the one place these facts live; this reads from there so there
+  is nothing left to drift.
+*/
+export const LEGAL_CONTACT_EMAILS = [MERCHANT.email] as const;
 
 /** Shown on Terms, Privacy, and legal footers. */
 export const LEGAL_CONTACT_EMAIL = LEGAL_CONTACT_EMAILS.join(" or ");

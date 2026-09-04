@@ -91,6 +91,8 @@ export type AuthChallengeResponse = {
   expiresInSeconds: number;
   resendAfterSeconds: number;
   deliveryLive: boolean;
+  /** How many digits the code has, so the panel draws exactly that many boxes. */
+  otpLength: number;
   /** Present only in development, when nothing was actually delivered. */
   devSecret?: string | null;
   /** Full magic-link URL in development when email delivery is not live. */

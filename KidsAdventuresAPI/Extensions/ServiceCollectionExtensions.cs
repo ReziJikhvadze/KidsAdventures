@@ -135,6 +135,22 @@ public static class ServiceCollectionExtensions
         services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.SectionName));
         services.Configure<RecaptchaOptions>(configuration.GetSection(RecaptchaOptions.SectionName));
         services.Configure<PasswordlessAuthOptions>(configuration.GetSection(PasswordlessAuthOptions.SectionName));
+        // Enabled with nothing behind it is the shape that must never reach production: the flow
+        // would answer "code sent", no SMS would leave the building, and the code would go to the
+        // application log instead of to the parent. Refused at startup rather than discovered by
+        // the first person trying to sign in.
+        services.AddOptions<WifisherSmsOptions>()
+            .Bind(configuration.GetSection(WifisherSmsOptions.SectionName))
+            .Validate(
+                sms => !sms.Enabled
+                       || (!string.IsNullOrWhiteSpace(sms.ApiKey)
+                           && !string.IsNullOrWhiteSpace(sms.Sender)),
+                $"{WifisherSmsOptions.SectionName}: Enabled is true but ApiKey or Sender is empty. "
+                + "The key comes from user-secrets locally and from app settings in Azure; the "
+                + $"sender defaults to {WifisherSmsOptions.DefaultSender} and is empty only if "
+                + "something set it so. Supply them, or set Enabled to false to fall back to the "
+                + "logging sender on purpose.")
+            .ValidateOnStart();
         services.Configure<ClientIpOptions>(configuration.GetSection(ClientIpOptions.SectionName));
         services.Configure<AdminOptions>(configuration.GetSection(AdminOptions.SectionName));
         return services;
@@ -291,6 +307,16 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient(BogPaymentClient.HttpClientName, client =>
             client.Timeout = TimeSpan.FromSeconds(30));
 
+        var wifisher =
+            configuration.GetSection(WifisherSmsOptions.SectionName).Get<WifisherSmsOptions>()
+            ?? new WifisherSmsOptions();
+
+        services.AddHttpClient(WifisherSmsSender.HttpClientName, client =>
+        {
+            client.BaseAddress = new Uri(wifisher.BaseUrl.TrimEnd('/') + "/");
+            client.Timeout = TimeSpan.FromSeconds(Math.Clamp(wifisher.TimeoutSeconds, 5, 60));
+        });
+
         var permitLimit = configuration.GetValue("RateLimiting:PermitLimitPerMinute", 500);
         var disableForLocalhost = configuration.GetValue("RateLimiting:DisableForLocalhost", true);
 
@@ -347,9 +373,22 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserContextService, UserContextService>();
         services.AddScoped<IAuthChallengeCleanupService, AuthChallengeCleanupService>();
 
-        // Swap this for a Georgian gateway client when one is contracted; nothing in the
-        // auth flow knows the difference.
-        services.AddScoped<ISmsSender, LoggingSmsSender>();
+        // The gateway is contracted, so the seam has a live implementation behind it at last.
+        // Which one answers depends on whether credentials are actually present: a deployment
+        // without them logs its codes, which is what development wants and what stops a missing
+        // app setting from turning every phone sign-in into a failure.
+        //
+        // Decided here rather than at wiring time so that the answer comes from the options as
+        // bound — the key and the sender name live in Azure's app settings, not in any file in
+        // this repository, and this reads whatever they turned out to be.
+        services.AddScoped<ISmsSender>(serviceProvider =>
+        {
+            var sms = serviceProvider.GetRequiredService<IOptions<WifisherSmsOptions>>().Value;
+
+            return sms.IsConfigured
+                ? ActivatorUtilities.CreateInstance<WifisherSmsSender>(serviceProvider)
+                : ActivatorUtilities.CreateInstance<LoggingSmsSender>(serviceProvider);
+        });
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IAuthChallengeRepository, AuthChallengeRepository>();

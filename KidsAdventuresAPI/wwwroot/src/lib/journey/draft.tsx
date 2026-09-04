@@ -101,9 +101,37 @@ export type JourneyDraft = {
    * already on, which is the loop a parent could not get out of.
    */
   cameFrom: JourneyOrigin;
+  /**
+   * The picker to step back to, when it was one that names itself.
+   *
+   * Null means the worlds on the home page, which is where the journey is entered from most of
+   * the time and what `backHrefForStage` falls back to. `/themes` is the case this exists for:
+   * it is a page of its own, and a parent who chose a world there and pressed back was being
+   * handed the home page's copy of the same picker instead of the page they were standing on.
+   *
+   * Held here for the same reason as `cameFrom` — the journey replaces its own address at every
+   * stage, so by the second question the query it arrived with is gone.
+   */
+  pickerHref: string | null;
   promoCode: string;
   shipping: ShippingAddressRequest;
 };
+
+/**
+ * The `/themes` address to return to, built from an allowlist of what the journey carries.
+ *
+ * Never from a caller-supplied path: the only thing the query decides is the values of these four
+ * keys, so the result is always this one route.
+ */
+function themesHrefFrom(params: URLSearchParams): string {
+  const back = new URLSearchParams();
+  for (const key of ["from", "characterId", "continuesFromBookId", "characterIds"]) {
+    const value = params.get(key);
+    if (value) back.set(key, value);
+  }
+  const query = back.toString();
+  return query ? `/themes?${query}` : "/themes";
+}
 
 export function newLocalId(): string {
   return `local-${crypto.randomUUID()}`;
@@ -141,6 +169,7 @@ export function emptyDraft(): JourneyDraft {
     bookId: null,
     continuesFromBookId: null,
     cameFrom: null,
+    pickerHref: null,
     promoCode: "",
     shipping: {
       recipientName: "",
@@ -218,6 +247,23 @@ function applyDeepLink(base: JourneyDraft, search: string): JourneyDraft {
     // afterwards so the later steps — whose own URLs carry nothing — still know the way out.
     const origin = params.get("from");
     if (origin === "dashboard" || origin === "world") draft.cameFrom = origin;
+
+    /*
+      The same, for which picker chose the world.
+
+      Rebuilt from named keys rather than carried as a ready-made address, so the back arrow can
+      only ever point at `/themes` with the things the journey already knows. Read after the `new`
+      reset above on purpose: beginning a fresh story forgets the child, not the way back.
+
+      Decided only on an arrival that came through a picker, which is what naming a world means.
+      This runs on every navigation, and the later stages carry no query at all — so an absent
+      `picker` cannot mean "clear it" without wiping the answer at the second question. Keying on
+      the world instead gives both halves: a journey entered from the other picker, or straight
+      from the cabinet, sets it back to null rather than inheriting `/themes` from the last one.
+    */
+    if (world) {
+      draft.pickerHref = params.get("picker") === "themes" ? themesHrefFrom(params) : null;
+    }
 
     // Stripe returns to /create?orderId=… . This is what resumes a paid order now that the
     // draft is not persisted: without it a parent would come back from checkout to a blank

@@ -58,6 +58,15 @@ public sealed class AuthChallengeResponse
     /// <summary>False when the dev/log sender handled it, so the UI can say no real SMS was sent.</summary>
     public bool DeliveryLive { get; set; }
 
+    /// <summary>
+    /// How many digits the code has, so the panel draws exactly that many boxes.
+    ///
+    /// Sent rather than agreed in advance, because the length is configuration and a deployment
+    /// can raise it. A panel assuming four against a server generating six would let a parent
+    /// finish typing a code that could never be right.
+    /// </summary>
+    public int OtpLength { get; set; }
+
     /// <summary>The code or link token, echoed only in development. Null otherwise.</summary>
     public string? DevSecret { get; set; }
 

@@ -123,6 +123,8 @@ export function backHrefForStage(
     continuesFromBookId?: string | null;
     /** The screen the journey was entered from; see `JourneyDraft.cameFrom`. */
     cameFrom?: JourneyOrigin;
+    /** The picker that chose the world, when it was one with a page of its own. */
+    pickerHref?: string | null;
   },
 ): string {
   switch (stage) {
@@ -147,7 +149,9 @@ export function backHrefForStage(
       it is a section of a page they can carry on scrolling.
     */
     case "profile":
-      return worldsHref(options.characterId, options.continuesFromBookId);
+      // The picker the parent actually used, when it was `/themes`; otherwise the home page's,
+      // which is where the great majority of this journey begins.
+      return options.pickerHref ?? worldsHref(options.characterId, options.continuesFromBookId);
     case "preview":
       return "/create#profile";
     case "auth":
