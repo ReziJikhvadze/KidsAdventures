@@ -1,6 +1,7 @@
 import { Camera, Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import photoGuide from "@/assets/photo-guide.webp";
 import { BirthDateField } from "@/components/adventrya/journey/BirthDateField";
 import { WorldArtPanel } from "@/components/adventrya/journey/WorldArtPanel";
 import { SparkleIcon } from "@/components/adventrya/landing/icons";
@@ -150,6 +151,26 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
     reload is a tick nobody gave.
   */
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  /*
+    Whether the dialog is standing in for the consent, rather than only reporting on it.
+
+    Every other thing this form can refuse over is a field on the page: the dialog names it, the
+    parent closes the dialog and fixes it where it lives. The consent is the exception — it is a
+    single tick, and making somebody dismiss a box in order to reach it is three actions for one
+    omission, on the one control most likely to be below the fold.
+  */
+  const [blockedOnTerms, setBlockedOnTerms] = useState(false);
+
+  /** Refuse, and say whether the consent is what did it. */
+  const fail = (message: string, onConsent = false) => {
+    setBlockedOnTerms(onConsent);
+    setError(message);
+  };
+
+  const dismiss = () => {
+    setBlockedOnTerms(false);
+    setError(null);
+  };
 
   // The draft is only read from localStorage after the first render (SSR safety),
   // and that swap hands every character a brand-new localId. Without re-applying
@@ -231,30 +252,58 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
     */
     const primary = draft.characters.find((c) => c.isPrimary);
     if (!primary) {
-      setError(copy.validation.nameRequired);
+      fail(copy.validation.nameRequired);
       return;
     }
     const message = validateCharacter(primary);
     if (message) {
-      setError(message);
+      fail(message);
       setEditingId(primary.localId);
       return;
     }
     for (const supporting of draft.characters.filter((c) => !c.isPrimary)) {
       const supportingError = validateCharacter(supporting);
       if (supportingError) {
-        setError(supportingError);
+        fail(supportingError);
         setEditingId(supporting.localId);
         return;
       }
     }
     if (!acceptedTerms) {
-      setError(copy.validation.termsRequired);
+      fail(copy.validation.termsRequired, true);
       return;
     }
     setError(null);
     onContinue();
   };
+
+  const consent = (
+    <label className="ux-terms-consent">
+      <input
+        type="checkbox"
+        checked={acceptedTerms}
+        onChange={(event) => {
+          setAcceptedTerms(event.target.checked);
+          /*
+            Ticking clears the complaint — unless the complaint is the thing holding the tick.
+
+            The dialog is open exactly while `error` is set, so clearing it here shut the dialog
+            the instant the box was ticked, half a second before the parent could reach the button
+            beside it. They were left back on the form, consented, with nothing having happened
+            and the same press to make again. In the dialog the tick is half the answer; the
+            button is the other half, and it clears the error itself.
+          */
+          if (event.target.checked && !blockedOnTerms) setError(null);
+        }}
+      />
+      <span>
+        {copy.profile.termsPrefix}
+        <a href="/terms" target="_blank" rel="noreferrer">
+          {copy.profile.termsLink}
+        </a>
+      </span>
+    </label>
+  );
 
   return (
     <section className="ux-profile-stage">
@@ -378,13 +427,37 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
           amount of interruption for "this cannot go on without an answer", and it can say which
           answer without competing for space the form needs.
         */}
-        <Dialog open={error !== null} onOpenChange={(open) => (open ? null : setError(null))}>
+        <Dialog open={error !== null} onOpenChange={(open) => (open ? null : dismiss())}>
           <DialogContent className="ux-form-error-dialog">
             <DialogTitle>{copy.profile.missingTitle}</DialogTitle>
             <p>{error}</p>
-            <button className="button journey-primary" type="button" onClick={() => setError(null)}>
-              {t.common.actions.close}
-            </button>
+            {blockedOnTerms ? (
+              <>
+                {consent}
+                {/*
+                  Continue, not close. The parent came here by pressing "create the book" and
+                  nothing about that intention changed; handing back a dismissed dialog and
+                  asking them to press it again is a step that exists only because the tick was
+                  somewhere else. It re-runs the same checks, so nothing is skipped by taking
+                  the short way.
+                */}
+                <button
+                  className="button journey-primary"
+                  type="button"
+                  disabled={!acceptedTerms}
+                  onClick={() => {
+                    dismiss();
+                    handleContinue();
+                  }}
+                >
+                  {copy.profile.continue}
+                </button>
+              </>
+            ) : (
+              <button className="button journey-primary" type="button" onClick={dismiss}>
+                {t.common.actions.close}
+              </button>
+            )}
           </DialogContent>
         </Dialog>
       </div>
@@ -401,22 +474,7 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
       <div className="ux-profile-footer">
         {/* The padlock line saying the data is only used to make the book has gone. The consent
             beside it links the terms, which is where that promise is actually made and kept. */}
-        <label className="ux-terms-consent">
-          <input
-            type="checkbox"
-            checked={acceptedTerms}
-            onChange={(event) => {
-              setAcceptedTerms(event.target.checked);
-              if (event.target.checked) setError(null);
-            }}
-          />
-          <span>
-            {copy.profile.termsPrefix}
-            <a href="/terms" target="_blank" rel="noreferrer">
-              {copy.profile.termsLink}
-            </a>
-          </span>
-        </label>
+        {consent}
 
         <button className="button journey-primary" type="button" onClick={handleContinue}>
           {copy.profile.continue}
@@ -736,10 +794,28 @@ function CharacterEditor({
         </div>
 
         <div
-          className={`ux-photo-upload ${character.photoReady ? "ready" : ""} ${
-            rejection ? "rejected" : ""
-          }`}
+          className={`ux-photo-upload ${character.photoDataUrl ? "" : "guided"} ${
+            character.photoReady ? "ready" : ""
+          } ${rejection ? "rejected" : ""}`}
         >
+          {/*
+            What a usable photo looks like, shown rather than described.
+
+            The paragraph that used to stand here listed the rules in words — face the camera,
+            come close, good light — which is three sentences to read before a parent can do the
+            one thing this panel is for. Two pictures and a tick say it at a glance, and the
+            panel stays as quiet as it was asked to be.
+
+            Only while there is no photo. Once one is chosen it has been judged already, and
+            advice about a decision already made is just something else in the way.
+          */}
+          {!character.photoDataUrl ? (
+            <img
+              className="ux-photo-guide"
+              src={photoGuide}
+              alt={copy.characterForm.photoGuideAlt}
+            />
+          ) : null}
           {/*
             Two bands: the picture, and what to do about it.
 

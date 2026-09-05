@@ -57,6 +57,8 @@ export const journey = {
     relationshipLegend: "ვინ არის ეს პერსონაჟი მთავარი გმირისთვის?",
     relationshipCustom: "ჩაწერე ურთიერთობა",
     relationshipPlaceholder: "მაგ. ნათლია ან ჯადოსნური მეგობარი",
+    photoGuideAlt:
+      "მარცხნივ სწორი ფოტო — ბავშვის სახე ახლოდან და პირდაპირ; მარჯვნივ არასწორი — შორიდან და გვერდულად.",
     photoUpload: "ფოტოს ატვირთვა",
     photoReplace: "შეცვალე ფოტო",
     photoChecking: "ფოტო მზადდება…",

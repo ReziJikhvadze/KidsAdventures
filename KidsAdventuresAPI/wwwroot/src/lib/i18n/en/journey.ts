@@ -55,6 +55,8 @@ export const journey = {
     relationshipLegend: "Who is this character to the main hero?",
     relationshipCustom: "Describe the relationship",
     relationshipPlaceholder: "e.g. godparent or magical friend",
+    photoGuideAlt:
+      "On the left a good photo — the child's face close up, facing the camera; on the right a poor one, far away and in profile.",
     photoUpload: "Upload a photo",
     photoReplace: "Change the photo",
     // Advice, not a rule: the check itself only asks whether a person is in the photo, so this

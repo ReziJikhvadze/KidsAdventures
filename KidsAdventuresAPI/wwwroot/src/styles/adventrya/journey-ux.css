@@ -262,6 +262,23 @@
   border-radius: 18px 18px 30px;
   background: #1a113a61;
 }
+/*
+  A third band while the guide is up, and it has to be named rather than left to the implicit
+  row: the two rows above are the frame and the foot, so an extra child without this would take
+  the frame's `minmax(84px, 1fr)` for itself and push the square into the `auto` meant for the
+  button — the picture would grow and the target it is explaining would collapse.
+*/
+.ux-photo-upload.guided {
+  grid-template-rows: auto minmax(84px, 1fr) auto;
+}
+.ux-photo-guide {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  /* It explains the square below it; at full strength it competes with it for the eye. */
+  opacity: 0.92;
+}
 .ux-photo-foot {
   width: 100%;
   display: flex;
