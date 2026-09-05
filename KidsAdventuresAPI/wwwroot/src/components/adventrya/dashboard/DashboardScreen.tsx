@@ -1106,13 +1106,19 @@ function PrintUpgradePanel({
     mode === "edit"
       ? "მიწოდების მისამართის განახლება"
       : `${t.dashboard.library.printEdition} · ${formatGel(PRICES.printUpgrade)}`;
+  /*
+    A label that stays a label, and a mark that does the waiting.
+
+    Both of these collapsed to "…" while the request was out. On the pay button that is the worst
+    moment on the page to go vague: the press has just sent an order to the bank, it takes seconds
+    on a phone, and three dots where a price used to be reads as the button having lost its place
+    rather than as work in progress.
+  */
   const submitLabel =
     mode === "edit"
-      ? busy
-        ? "…"
-        : "მისამართის შენახვა"
+      ? "მისამართის შენახვა"
       : busy
-        ? "…"
+        ? t.journey.checkout.placingOrder
         : t.journey.checkout.pay(formatGelAmount(PRICES.printUpgrade));
 
   return (
@@ -1180,7 +1186,9 @@ function PrintUpgradePanel({
           type="button"
           onClick={onSubmit}
           disabled={busy}
+          aria-busy={busy}
         >
+          {busy ? <BekiLoader size={16} /> : null}
           {submitLabel}
         </button>
       </div>

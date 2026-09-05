@@ -878,6 +878,18 @@
   gap: 8px;
   margin-top: 16px;
 }
+/*
+  The paying button keeps one width whether it is asking or working.
+
+  Its two labels are different lengths and the busy one also carries a mark, and these buttons are
+  `nowrap` and sized by their content in a row anchored to the right — so without this the whole
+  row slides left the instant the order goes to the bank, which is the last moment a parent should
+  see the page move. Wide enough for the longer of the two, so the shorter one simply sits in it.
+*/
+.journey-print-actions .journey-gold-button {
+  /* 11.5rem measured at 1280: the working state renders 183px, the asking state 117px. */
+  min-width: 11.5rem;
+}
 .journey-delivery-edit {
   margin-left: auto;
   border: 0;
