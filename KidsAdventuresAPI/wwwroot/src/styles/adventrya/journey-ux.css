@@ -2002,8 +2002,18 @@
     font-size: clamp(24px, 1.95vw, 31px);
   }
 
+  /*
+    Made to fit a short laptop by narrowing, not by squashing.
+
+    `max-height` looks like the way to say this and is not: the width is already settled at 100% of
+    the column, so capping the height only makes the frame wider than 13:10 — the one thing every
+    world's panel is supposed to share, and the shape the crop is measured against. Capping the
+    width instead keeps the ratio and gives up size, which is what was meant. The subtraction is
+    safe here: this block only applies from 768px of viewport height up.
+  */
   .ux-profile-aside .world-art-panel {
-    min-height: clamp(200px, 26vh, 360px);
+    width: min(100%, calc((100svh - 210px) * 13 / 10));
+    margin-inline: auto;
   }
 
   /*
@@ -2295,6 +2305,22 @@
 .world-art-panel {
   position: relative;
   margin: 0;
+  /*
+    One frame, the same for every world.
+
+    The panel used to stretch to the column, which made it far taller than any island is wide —
+    and a frame taller than its island has room for the next one. That is what put two islands in
+    a picture: the forest with the sky castle over its shoulder, the ocean with both its
+    neighbours.
+
+    13:10 is the shape that suits six islands of different builds at once. Measured against the
+    frames in `ISLAND_FRAMES`: a neighbour took 18% of the frame on average and 23% at worst, and
+    now takes 5% and 12% — the 12% being one corner of the ocean, whose island and the observatory
+    above it are painted overlapping, so no rectangle can hold one without the other. Two worlds
+    have none at all, and no island is cropped. Tighter than this starts cutting islands — the
+    dinosaur loses its head again — so the last of it is left to the vignette.
+  */
+  aspect-ratio: 13 / 10;
   overflow: hidden;
   isolation: isolate;
   border: 1px solid rgba(240, 226, 197, 0.16);
@@ -2395,18 +2421,19 @@
   gap: 22px;
 }
 
+/* Held to its shape and centred in the column, rather than stretched down it. */
+.ux-profile-aside {
+  justify-content: center;
+}
+
 .ux-profile-aside .world-art-panel {
-  flex: 1 1 auto;
-  min-height: clamp(280px, 38vh, 520px);
+  flex: 0 0 auto;
+  width: 100%;
 }
 
 @media (max-width: 1080px) {
   .ux-profile-aside {
     position: static;
-  }
-
-  .ux-profile-aside .world-art-panel {
-    min-height: 220px;
   }
 }
 

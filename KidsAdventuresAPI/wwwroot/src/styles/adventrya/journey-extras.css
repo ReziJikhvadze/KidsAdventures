@@ -744,8 +744,10 @@
   .ux-profile-aside {
     gap: 14px;
   }
+  /* See the note beside the same selector in journey-ux.css: cap the width, never the height. */
   .ux-profile-aside .world-art-panel {
-    min-height: clamp(200px, 26vh, 360px);
+    width: min(100%, calc((100svh - 210px) * 13 / 10));
+    margin-inline: auto;
   }
   /*
     The right column is what the page's height is actually measured by — the left one is told to

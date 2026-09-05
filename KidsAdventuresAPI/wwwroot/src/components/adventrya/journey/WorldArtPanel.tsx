@@ -7,9 +7,10 @@ import { useWorldById, type WorldId } from "@/lib/worlds";
 type Props = {
   worldId: WorldId;
   /**
-   * How much room to leave around the island, as a multiple of its own size. 1 would crop to its
-   * exact edges; 1.1 leaves a little of the sky it stands in. It was 1.35, which on boxes drawn
-   * around the picture rather than around the pin pulled a neighbouring island into every frame.
+   * How much room to leave around the island, as a multiple of its own size. 1 crops to its exact
+   * edges; this leaves a breath of the sky it stands in and no more. It was 1.35, then 1.1, and
+   * every tenth of it is sky on one axis and the island next door on the other — the frames are
+   * drawn around the whole island now, so the air that was needed to hold it is not.
    */
   margin?: number;
   className?: string;
@@ -30,7 +31,7 @@ type Props = {
  * the map: tighter than the picture and centred on the pin, so cropping to them took the head off
  * the dinosaur and left the forest in a corner.
  */
-export function WorldArtPanel({ worldId, margin = 1.1, className }: Props) {
+export function WorldArtPanel({ worldId, margin = 1.02, className }: Props) {
   const t = useT();
   const worldById = useWorldById();
   const place = worldById[worldId];

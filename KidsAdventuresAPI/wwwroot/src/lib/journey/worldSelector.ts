@@ -139,20 +139,25 @@ export type IslandSpot = {
  * dinosaur with its head cut off, the observatory with the ocean island leaning into the corner,
  * and the forest sitting in the top-left with a quarter of the frame empty.
  *
- * These are the pictures instead: measured off the master by mask, then corrected by eye until
- * each island sits in the middle of a panel the shape of the one on the details step, with sky
- * around it and no neighbour in the frame. Only `WorldArtPanel` reads them, so the map's
- * hotspots and the star's flight are untouched.
+ * These are the pictures instead: each island drawn round on the master itself, edge to edge,
+ * waterfalls and hanging roots included. The set before this one was estimated from the map's
+ * hotspots and was wrong in both ways the owner reported — the forest and the ocean sat off to
+ * one side of their panels, and half the frames carried a corner of the island next door.
+ *
+ * The numbers are read as: `cx`/`cy` the centre and `w`/`h` the size, each as a percentage of the
+ * master — so `w` is of 1672 and `h` of 941, and the two are not the same unit. An island's shape
+ * on screen is `w / h * 1672 / 941`, which is what the panel is sized by. Only `WorldArtPanel`
+ * reads them, so the map's hotspots and the star's flight are untouched.
  *
  * Measured against `world-map-desktop-master.webp`. Repaint the master and measure again.
  */
 export const ISLAND_FRAMES: Record<SelectorWorldId, IslandSpot> = {
-  clouds: { cx: 27.6, cy: 16, w: 24, h: 24 },
-  space: { cx: 70.1, cy: 15.3, w: 22, h: 22 },
-  animals: { cx: 17.4, cy: 36, w: 25.5, h: 26 },
-  ocean: { cx: 78.1, cy: 43.5, w: 25.2, h: 26 },
-  kingdom: { cx: 21.3, cy: 73.4, w: 28.8, h: 28 },
-  dinosaurs: { cx: 76.5, cy: 71.5, w: 28, h: 28 },
+  clouds: { cx: 30.9, cy: 21.8, w: 19.1, h: 23.6 },
+  space: { cx: 69.1, cy: 21.9, w: 20.3, h: 35.7 },
+  animals: { cx: 14.9, cy: 42.4, w: 21.1, h: 28.7 },
+  ocean: { cx: 84.1, cy: 43.5, w: 24.9, h: 18.5 },
+  kingdom: { cx: 24.7, cy: 77.2, w: 20.6, h: 29 },
+  dinosaurs: { cx: 71.8, cy: 71.3, w: 18.8, h: 36.4 },
 };
 
 export const ISLAND_SPOTS: Record<"desktop" | "mobile", Record<SelectorWorldId, IslandSpot>> = {
