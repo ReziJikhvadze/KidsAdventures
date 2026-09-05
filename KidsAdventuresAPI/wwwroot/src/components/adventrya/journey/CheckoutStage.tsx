@@ -242,7 +242,20 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPrint]);
 
-  const handingOver = !isPrint && !error;
+  /*
+    The whole screen waits, whichever way the order was placed.
+
+    A digital order has nothing to collect, so this screen is a handover from the moment it opens
+    and has always been covered. A print order asks for an address first — and once its button is
+    pressed it does exactly the same thing: saves the characters, creates the order, then hands
+    the browser to the bank. That is seconds on a phone, and all it showed was a 16px mark inside
+    a button on an otherwise unchanged form, which reads as the press not having landed.
+
+    `busy` rather than a state of its own, because `busy` is already held deliberately across
+    `location.assign` — see the note there — so the cover stays up for the second or two the old
+    page is still on screen, instead of blinking off just as the parent is being taken away.
+  */
+  const handingOver = (!isPrint || busy) && !error;
 
   const thumbPages = heroDemoPages(heroName, worldId).slice(0, 1);
 
