@@ -14,7 +14,8 @@ public sealed class AuthController(
     IUserRepository userRepository,
     IOptions<EmailOptions> emailOptions,
     IOptions<GoogleAuthOptions> googleAuthOptions,
-    IOptions<RecaptchaOptions> recaptchaOptions) : ControllerBase
+    IOptions<RecaptchaOptions> recaptchaOptions,
+    IOptions<GoogleMapsOptions> googleMapsOptions) : ControllerBase
 {
     [HttpGet("config")]
     [AllowAnonymous]
@@ -26,12 +27,16 @@ public sealed class AuthController(
         var recaptcha = recaptchaOptions.Value;
         var recaptchaEnabled = recaptcha.Enabled && !string.IsNullOrWhiteSpace(recaptcha.SiteKey);
 
+        var maps = googleMapsOptions.Value;
+        var mapsEnabled = maps.Enabled && !string.IsNullOrWhiteSpace(maps.ApiKey);
+
         return Ok(new AuthConfigResponse
         {
             GoogleEnabled = enabled,
             GoogleClientId = enabled ? google.ClientId : null,
             RecaptchaEnabled = recaptchaEnabled,
             RecaptchaSiteKey = recaptchaEnabled ? recaptcha.SiteKey : null,
+            GoogleMapsApiKey = mapsEnabled ? maps.ApiKey : null,
             Passwordless = passwordlessAuthService.GetConfig()
         });
     }

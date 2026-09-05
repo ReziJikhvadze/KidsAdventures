@@ -118,6 +118,7 @@ public static class ServiceCollectionExtensions
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
         services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.SectionName));
+        services.Configure<GoogleMapsOptions>(configuration.GetSection(GoogleMapsOptions.SectionName));
         services.Configure<RecaptchaOptions>(configuration.GetSection(RecaptchaOptions.SectionName));
         services.Configure<PasswordlessAuthOptions>(configuration.GetSection(PasswordlessAuthOptions.SectionName));
         // Enabled with nothing behind it is the shape that must never reach production: the flow
