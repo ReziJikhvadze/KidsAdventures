@@ -1048,8 +1048,11 @@
   one into a circle is how a cover stops being recognisable.
 */
 .journey-child-menu[role="menu"] .journey-child-cover {
-  width: 44px;
-  height: 58px;
+  /* 50x66, up 14% from 44x58: a cover in a menu is a thumbnail of a thing the parent has
+     actually held, and at 44 wide the title on it was a texture rather than a picture. The row
+     grows to 84px and the menu keeps its 268px floor, so nothing else has to move. */
+  width: 50px;
+  height: 66px;
   flex-shrink: 0;
   border-radius: 12px 6px 6px 12px;
   background-color: #150d33;

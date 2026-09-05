@@ -1,5 +1,5 @@
 /**
- * Google Tag Manager, Google Analytics, AdSense and the Pinterest pixel.
+ * Google Tag Manager, Google Analytics, AdSense, the Pinterest pixel and the Meta pixel.
  *
  * These used to be <script> tags in the shell's <head>, which is the placement every one of
  * these vendors documents. It does not survive hydration. Each snippet runs while the browser
@@ -19,6 +19,7 @@ const GA_MEASUREMENT_ID = "G-7ZL6C5SB29";
 const GTM_ID = "GTM-K9Q596H3";
 const PINTEREST_TAG_ID = "2614019108945";
 const ADSENSE_CLIENT = "ca-pub-9730875401500289";
+const META_PIXEL_ID = "931422879431654";
 
 let mounted = false;
 
@@ -64,6 +65,26 @@ window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var
 pintrk('load', '${PINTEREST_TAG_ID}');
 pintrk('page');`);
 
+  /*
+    Meta pixel.
+
+    Meta's own instructions say to paste this between the header tags on every page. That is the
+    placement this whole module exists to avoid: the snippet ends in the same
+    `parentNode.insertBefore` Pinterest's does, which is what put nodes into <head> that React had
+    not rendered and made it re-run every inline tag after hydration. Installed here it fires
+    once, a few hundred milliseconds later than Meta intends and exactly one time.
+  */
+  inline(`!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window,document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '${META_PIXEL_ID}');
+fbq('track', 'PageView');`);
+
   // AdSense.
   external(
     `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`,
@@ -71,4 +92,4 @@ pintrk('page');`);
   );
 }
 
-export { GTM_ID, PINTEREST_TAG_ID };
+export { GTM_ID, META_PIXEL_ID, PINTEREST_TAG_ID };

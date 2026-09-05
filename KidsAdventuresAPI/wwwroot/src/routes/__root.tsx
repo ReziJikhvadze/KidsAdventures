@@ -13,7 +13,12 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { setPinterestEnhancedMatch } from "@/lib/analytics/pinterest";
-import { GTM_ID, PINTEREST_TAG_ID, mountMarketingTags } from "@/lib/analytics/marketingTags";
+import {
+  GTM_ID,
+  META_PIXEL_ID,
+  PINTEREST_TAG_ID,
+  mountMarketingTags,
+} from "@/lib/analytics/marketingTags";
 import { AuthProvider, useAuth } from "@/lib/auth/AuthContext";
 import { GoogleAuthProvider } from "@/lib/auth/GoogleAuthProvider";
 import { BRAND_LOGO_URL } from "@/lib/brand";
@@ -157,6 +162,17 @@ function RootShell({ children }: { children: ReactNode }) {
           />
         </noscript>
         {/* End Pinterest Tag (noscript) */}
+        {/* Meta Pixel (noscript) */}
+        <noscript>
+          <img
+            height="1"
+            width="1"
+            style={{ display: "none" }}
+            alt=""
+            src={`https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`}
+          />
+        </noscript>
+        {/* End Meta Pixel (noscript) */}
         {children}
         <Scripts />
       </body>
