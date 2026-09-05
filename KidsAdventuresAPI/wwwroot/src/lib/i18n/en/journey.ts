@@ -46,6 +46,8 @@ export const journey = {
       loading: "Loading your heroes…",
       scrollBack: "Earlier children",
       scrollOn: "More children",
+      /* While the chosen child's details and photo are being brought back from the account. */
+      fetching: "Bringing your hero back…",
     },
   },
 

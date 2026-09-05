@@ -48,6 +48,8 @@ export const journey = {
       loading: "გმირები იტვირთება…",
       scrollBack: "წინა ბავშვები",
       scrollOn: "შემდეგი ბავშვები",
+      /* While the chosen child's details and photo are being brought back from the account. */
+      fetching: "გმირი მოაქვს…",
     },
   },
 

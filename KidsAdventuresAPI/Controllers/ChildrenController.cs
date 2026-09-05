@@ -71,6 +71,12 @@ public sealed class ChildrenController(
         return updated ? NoContent() : NotFound();
     }
 
+    /// <summary>
+    /// Sized for a screen, and tagged so that reusing it costs a question rather than a picture.
+    /// Same reasoning, and the same measurements, as <see cref="CharactersController.GetPhoto"/>:
+    /// the stored file is a lossless PNG for the image model, and it was being sent whole to draw
+    /// an avatar.
+    /// </summary>
     [HttpGet("{id:guid}/photo")]
     public async Task<IActionResult> GetPhoto(Guid id, CancellationToken cancellationToken)
     {
@@ -81,6 +87,14 @@ public sealed class ChildrenController(
             return NotFound();
         }
 
+        var etag = CharactersController.PortraitETag(child.PhotoUrl);
+        Response.Headers.CacheControl = "private, no-cache";
+        Response.Headers.ETag = etag.ToString();
+        if (CharactersController.MatchesPortraitETag(Request, etag))
+        {
+            return StatusCode(StatusCodes.Status304NotModified);
+        }
+
         try
         {
             var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(child.PhotoUrl, cancellationToken);
@@ -89,7 +103,8 @@ public sealed class ChildrenController(
                 : child.PhotoUrl.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)
                     ? "image/webp"
                     : "image/jpeg";
-            return File(bytes, contentType);
+            var display = referenceImageNormalizer.NormalizeForStorageWebp(bytes, contentType);
+            return File(display.Bytes, display.ContentType);
         }
         catch
         {

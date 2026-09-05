@@ -19,6 +19,18 @@ import { emptyCharacter, type DraftCharacter, type JourneyDraft } from "@/lib/jo
 // being derived from a catalogue that now changes with the interface language.
 const EYE_COLORS: EyeColor[] = ["brown", "blue", "green", "grey"];
 
+/*
+  Long enough that a quick answer is never announced.
+
+  With the portrait no longer in the way, the account replies in about a tenth of a second on a
+  good connection — a spinner drawn and removed inside that is a flicker, not a message. Slower
+  than this and the parent is genuinely waiting, and should be told so.
+*/
+const HERO_FETCH_QUIET_MS = 140;
+
+/* How long a chosen child may be "on the way" before the form is offered instead. */
+const HERO_FETCH_PATIENCE_MS = 10000;
+
 type Props = {
   draft: JourneyDraft;
   onChange: (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => void;
@@ -137,6 +149,31 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
     // chooseHero closes over onChange, which is stable; primary is read once when the list lands.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [heroes, primary]);
+
+  /*
+    The gap between choosing a child and having them.
+
+    Picking writes the id and nothing else — the details, the date and the photo are fetched, and
+    the form stands empty until they land. Empty fields under a name the parent has just tapped
+    read as the child being lost rather than fetched, and on a slow connection they are tempting
+    to start typing into. So the card waits out loud instead.
+
+    Capped, because a fetch that fails leaves the slot exactly as it is: the loader would spin for
+    the rest of the visit. After this the empty form comes back, which at least can be filled in.
+  */
+  const awaitingHero = !!primary?.serverId && !primary.name.trim();
+  const [heroWait, setHeroWait] = useState<"quiet" | "showing" | "lapsed">("quiet");
+  useEffect(() => {
+    // Reset on the way out as well as in: a state left standing is one the next child inherits.
+    setHeroWait("quiet");
+    if (!awaitingHero) return;
+    const show = setTimeout(() => setHeroWait("showing"), HERO_FETCH_QUIET_MS);
+    const lapse = setTimeout(() => setHeroWait("lapsed"), HERO_FETCH_PATIENCE_MS);
+    return () => {
+      clearTimeout(show);
+      clearTimeout(lapse);
+    };
+  }, [awaitingHero, primary?.serverId]);
 
   // The form opened for a saved hero closes to a summary card once the account has filled it.
   useEffect(() => {
@@ -358,6 +395,24 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
         ) : null}
 
         {draft.characters.map((character, index) => {
+          if (character.isPrimary && awaitingHero && heroWait === "showing") {
+            return (
+              <article
+                key={character.localId}
+                className="ux-character-summary ux-character-waiting"
+                aria-busy="true"
+              >
+                <span className="ux-summary-avatar">
+                  <BekiLoader size={30} />
+                </span>
+                <div>
+                  <small>{copy.profile.primaryCharacter}</small>
+                  <p role="status">{copy.profile.heroPicker.fetching}</p>
+                </div>
+              </article>
+            );
+          }
+
           if (editingId === character.localId) {
             return (
               <CharacterEditor
