@@ -1,4 +1,4 @@
-import { Camera, Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Camera, Check, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BekiLoader } from "@/components/adventrya/BekiLoader";
@@ -498,6 +498,12 @@ function benefactive(name: string): string {
  * Chips rather than a dropdown: a family has a handful of children, and the names are the whole
  * of what a parent needs to see to choose. The selected one is the child in the hero slot below;
  * "a new child" empties that slot for someone the account has not met.
+ *
+ * One line, always. Wrapping was the honest thing to do for three names and the wrong thing for
+ * twelve: the row grew down the page, pushed the form off the screen, and left the questions and
+ * the create button fighting for the same space. A row that scrolls sideways costs the layout the
+ * same height whatever the family size, and the arrows say there is more without a parent having
+ * to guess that the strip moves.
  */
 function HeroPicker({
   heroes,
@@ -512,34 +518,126 @@ function HeroPicker({
 }) {
   const copy = useT().journey.profile.heroPicker;
   const isNew = selectedId === null;
+  const rail = useRef<HTMLDivElement | null>(null);
+  /* Both false while the strip fits, which is what hides the arrows for a family of two. */
+  const [reach, setReach] = useState({ back: false, on: false });
+
+  /*
+    Where the strip stands: at the start, at the end, or between.
+
+    Read from the element rather than counted from the chips, because what matters is how much is
+    off-screen, and that depends on the names — a Georgian name is not a fixed number of pixels.
+    Recomputed on scroll, on resize, and whenever the family changes.
+  */
+  useEffect(() => {
+    const strip = rail.current;
+    if (!strip) return;
+
+    const measure = () => {
+      // A pixel of slack: browsers land fractionally short of the end after a smooth scroll.
+      const max = strip.scrollWidth - strip.clientWidth;
+      setReach({ back: strip.scrollLeft > 1, on: strip.scrollLeft < max - 1 });
+    };
+
+    measure();
+    strip.addEventListener("scroll", measure, { passive: true });
+    const observer = new ResizeObserver(measure);
+    observer.observe(strip);
+    return () => {
+      strip.removeEventListener("scroll", measure);
+      observer.disconnect();
+    };
+  }, [heroes]);
+
+  /*
+    The chosen child, brought into view.
+
+    A parent returning to this step with their fourth child selected would otherwise find the
+    strip at its start and the selection nowhere on it, which reads as nothing being selected.
+
+    On the family too, not only the selection: the list is fetched, so the first run of this
+    happens while the strip still holds nothing but "a new child". The chip to scroll to appears
+    later, and without `heroes` here nothing would go looking for it.
+  */
+  useEffect(() => {
+    const strip = rail.current;
+    if (!strip) return;
+    const chip = strip.querySelector(".selected");
+    chip?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [selectedId, heroes]);
+
+  /* Either end reachable means there is something off-screen, whichever way it sits. */
+  const scrolls = reach.back || reach.on;
+
+  const nudge = (direction: -1 | 1) => {
+    const strip = rail.current;
+    if (!strip) return;
+    if (direction < 0 ? !reach.back : !reach.on) return;
+    // Most of a screenful, not all of it: the chip at the edge stays visible as a landmark.
+    strip.scrollBy({
+      left: direction * strip.clientWidth * 0.8,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
+  };
 
   return (
     <fieldset className="choice-fieldset ux-hero-picker">
       <legend>{copy.title}</legend>
-      <div className="ux-choice-chips">
-        {heroes.map((hero) => (
-          <button
-            key={hero.id}
-            type="button"
-            className={hero.id === selectedId ? "selected" : ""}
-            aria-pressed={hero.id === selectedId}
-            onClick={() => {
-              if (hero.id !== selectedId) onPick(hero);
-            }}
-          >
-            {hero.name}
-          </button>
-        ))}
+      <div className="ux-hero-picker-rail">
+        {/*
+          Present whenever the strip moves at all, greyed at the end rather than taken away.
+          Removing the arrow you just pressed drops the keyboard focus to the top of the document,
+          so a parent tabbing through the names would be thrown out of the picker by reaching the
+          end of it. `disabled` does the same thing — a focused control that becomes disabled is
+          blurred — so the end of the row is said with `aria-disabled` and a press that does
+          nothing, which keeps the button where the parent left their focus. Both arrows go only
+          when there is nothing to scroll.
+        */}
         <button
           type="button"
-          className={isNew ? "selected" : ""}
-          aria-pressed={isNew}
-          onClick={() => {
-            if (!isNew) onNew();
-          }}
+          className="ux-hero-picker-arrow"
+          aria-label={copy.scrollBack}
+          hidden={!scrolls}
+          aria-disabled={!reach.back}
+          onClick={() => nudge(-1)}
         >
-          <Plus aria-hidden="true" size={14} />
-          {copy.newChild}
+          <ChevronLeft aria-hidden="true" size={16} />
+        </button>
+        <div className="ux-choice-chips" ref={rail}>
+          {heroes.map((hero) => (
+            <button
+              key={hero.id}
+              type="button"
+              className={hero.id === selectedId ? "selected" : ""}
+              aria-pressed={hero.id === selectedId}
+              onClick={() => {
+                if (hero.id !== selectedId) onPick(hero);
+              }}
+            >
+              {hero.name}
+            </button>
+          ))}
+          <button
+            type="button"
+            className={isNew ? "selected" : ""}
+            aria-pressed={isNew}
+            onClick={() => {
+              if (!isNew) onNew();
+            }}
+          >
+            <Plus aria-hidden="true" size={14} />
+            {copy.newChild}
+          </button>
+        </div>
+        <button
+          type="button"
+          className="ux-hero-picker-arrow"
+          aria-label={copy.scrollOn}
+          hidden={!scrolls}
+          aria-disabled={!reach.on}
+          onClick={() => nudge(1)}
+        >
+          <ChevronRight aria-hidden="true" size={16} />
         </button>
       </div>
       <p className="ux-hero-picker-hint">{copy.hint}</p>

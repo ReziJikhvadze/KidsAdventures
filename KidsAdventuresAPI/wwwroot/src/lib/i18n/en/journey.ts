@@ -44,6 +44,8 @@ export const journey = {
       hint: "A saved hero's details and photo are filled in for you.",
       newChild: "A new child",
       loading: "Loading your heroes…",
+      scrollBack: "Earlier children",
+      scrollOn: "More children",
     },
   },
 

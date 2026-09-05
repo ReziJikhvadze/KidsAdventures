@@ -77,10 +77,9 @@
   the left column widens into the room the narrower gap frees.
 */
 /*
-  Wider than the preview and generated stages it shares a width with. Those scroll if they must;
-  this one is clipped to the viewport, so every pixel taken by a side margin is a pixel the form
-  has to find somewhere else — and it was finding it by squeezing the eye-colour swatches until
-  their labels no longer fitted.
+  Wider than the preview and generated stages it shares a width with. This one is laid out to fit
+  one screen, so every pixel taken by a side margin is a pixel the form has to find somewhere else
+  — and it was finding it by squeezing the eye-colour swatches until their labels no longer fitted.
 */
 .ux-profile-stage {
   width: min(1320px, calc(100% - 50px));
@@ -89,16 +88,22 @@
   /*
     Three rows: the title, the pair, and what closes the form.
 
-    `minmax(0, 1fr)` on the middle one so it takes whatever the other two leave and its children
-    may shrink inside it — an `auto` row would be sized by the taller column and push the step
-    past the fold it is built to fit inside. The pair is the point of the row: the painting and
-    the card are the two things on this screen that should be the same size, and sharing a row
-    is what makes them so without either being told a number.
+    The middle one takes whatever the other two leave, so the painting and the card come out the
+    same size without either being told a number — that is the point of sharing a row.
+
+    It was written `minmax(0, 1fr)`, and the zero is what broke: a floor of zero lets a row be
+    shorter than its own content, and grid does not clip an overflowing item, it draws it over
+    whatever comes next. A family with a dozen saved children, whose picker wraps onto two lines,
+    had the consent line and the create button painted across the eye-colour questions.
+
+    Plain `1fr` is the same track with the floor grid would have chosen: it still spends every
+    spare pixel on the pair, and it will not go under what is actually in the row. Past that the
+    step is taller than the window and the shell scrolls, which is the honest answer.
 
     Gaps split by axis: the columns want the wide one, and the button under the card wants to
     stay next to the card. The title keeps its own air through a margin instead.
   */
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto 1fr auto;
   align-items: start;
   column-gap: clamp(26px, 3vw, 44px);
   row-gap: 9px;
@@ -2571,14 +2576,78 @@
 */
 .ux-hero-picker {
   margin-bottom: 18px;
+  /*
+    A fieldset's inline size floors at `min-content` unless it is told otherwise — a rule of its
+    own, not the one every other box follows. Left alone it widens to hold the whole strip, so the
+    strip never overflows, never scrolls, and pushes the card off the side of the page instead.
+  */
+  min-width: 0;
+}
+/*
+  One row that slides, with the arrows outside it.
+
+  The chips class is shared with the relationship and eye-colour questions, where wrapping is
+  right — those are a fixed handful and every one of them should be in sight. Here the count is
+  the family's, so the strip is told not to wrap and given the scroll instead; the rules below
+  are scoped to this picker for exactly that reason.
+*/
+.ux-hero-picker-rail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ux-hero-picker .ux-choice-chips {
+  flex: 1;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  /* The arrows are the affordance; a scrollbar under one row of chips is just a second one. */
+  scrollbar-width: none;
+  /* Room for the selected chip's ring, which a scroll container would otherwise cut. */
+  padding: 3px 1px;
+}
+.ux-hero-picker .ux-choice-chips::-webkit-scrollbar {
+  display: none;
 }
 .ux-hero-picker .ux-choice-chips button {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 6px;
   font-size: 13px;
   min-height: 42px;
   padding: 0 16px;
+  /* A name is one chip, never two lines of one. */
+  white-space: nowrap;
+}
+.ux-hero-picker-arrow {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid rgba(238, 226, 205, 0.18);
+  border-radius: 999px;
+  cursor: pointer;
+  color: #f8f2e5cc;
+  background: #26194b7a;
+}
+/* Said out loud: an author `display` outranks the browser's own rule for the hidden attribute,
+   so without this the arrows for a family that fits on one line would still be drawn. */
+.ux-hero-picker-arrow[hidden] {
+  display: none;
+}
+.ux-hero-picker-arrow:hover:not([aria-disabled="true"]) {
+  color: #2c1c49;
+  border-color: var(--story-gold);
+  background: var(--story-gold);
+}
+/* Still there, still focusable, plainly at the end of the row. */
+.ux-hero-picker-arrow[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.35;
 }
 .ux-hero-picker-hint {
   margin: 8px 0 0;

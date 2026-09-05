@@ -648,7 +648,19 @@
   justify-self: center;
 }
 @media (min-width: 1024px) and (min-height: 768px) {
-  .journey-profile.ux1-shell,
+  /*
+    The steps that are exactly one screen tall, and are cut off if they are not.
+
+    The details step used to be in this list. It is the only step here whose height depends on the
+    family rather than on the design: the picker carries one card per saved child, so a parent with
+    a dozen children gets a row the layout was never measured against. Told to be 100svh and clipped,
+    that step had nowhere to put the excess and drew it over itself — the consent line and the create
+    button landed across the eye-colour questions.
+
+    So it keeps the base shell instead: 100svh as a floor, and a scrollbar in the rare case it is
+    not enough. The others stay as they are, because nothing in them grows — a preview holds one
+    book, checkout one order.
+  */
   .journey-preview.ux1-shell,
   .journey-auth.ux1-shell,
   .journey-checkout.ux1-shell,
@@ -658,14 +670,18 @@
     height: 100svh;
     min-height: 0;
   }
-  .journey-profile.ux1-shell,
   .journey-preview.ux1-shell,
   .journey-auth.ux1-shell,
   .journey-checkout.ux1-shell,
   .journey-generating.ux1-shell {
     overflow-y: clip;
   }
-  .ux-profile-stage,
+  /* A floor, not a ceiling — see the note above. The middle row still spends the slack. */
+  .ux-profile-stage {
+    min-height: calc(100svh - 96px);
+    padding-top: clamp(20px, 3.3vh, 34px);
+    padding-bottom: 20px;
+  }
   .ux-preview-stage,
   .ux-generated-stage {
     min-height: calc(100svh - 96px);
@@ -684,7 +700,12 @@
     the cards absorbs the difference.
   */
   .ux-character-stack {
-    max-height: calc(100svh - 126px);
+    /*
+      No ceiling. A capped box with visible overflow does not shorten what is inside it, it only
+      stops the page being told how tall the column really is — which is how the closing lines came
+      to be drawn over the questions. The column is as tall as the form; when the form is short,
+      that is under one screen anyway.
+    */
     overflow: visible;
     display: flex;
     flex-direction: column;
