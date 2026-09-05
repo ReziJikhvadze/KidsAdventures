@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
+import { NewBookReturnContext } from "@/lib/story/newBookCharacter";
 import { useT } from "@/lib/i18n";
 import { heroDemoPages } from "@/lib/story/heroDemoPages";
 
@@ -68,28 +69,34 @@ export function Hero() {
         </div>
 
         <div className="landing-v3-hero-product" aria-label={t.landing.hero.bookExample}>
-          {/* Demo uses interactive Ot storybook (variant=hero), not a static cover stack. */}
-          <StorybookVolume
-            className="storybook storybook-hero theme-dinosaurs"
-            variant="hero"
-            heroName={HERO_NAME}
-            title={HERO_TITLE}
-            coverCaption={HERO_COVER_CAPTION}
-            worldId="dinosaurs"
-            pages={pages}
-            lockedPageCount={0}
-            isUnlocked
-            isSpreadBook
-            interactive
-            /*
+          {/* Demo uses interactive Ot storybook (variant=hero), not a static cover stack.
+
+              `from=top` because this book is held in the hero: a parent who opens the back cover,
+              takes its invitation and then turns back should find the page they left, not a
+              different section of it. Same marker the hero's own button carries. */}
+          <NewBookReturnContext.Provider value="top">
+            <StorybookVolume
+              className="storybook storybook-hero theme-dinosaurs"
+              variant="hero"
+              heroName={HERO_NAME}
+              title={HERO_TITLE}
+              coverCaption={HERO_COVER_CAPTION}
+              worldId="dinosaurs"
+              pages={pages}
+              lockedPageCount={0}
+              isUnlocked
+              isSpreadBook
+              interactive
+              /*
               The book waits to be opened rather than turning itself.
 
               It used to advance every two seconds, on the reasoning that a shop window should
               move. In practice it took the page out from under anyone who had started reading,
               and a visitor who wanted a second look at a picture had to race it.
             */
-            initialIndex={0}
-          />
+              initialIndex={0}
+            />
+          </NewBookReturnContext.Provider>
         </div>
 
         {/*

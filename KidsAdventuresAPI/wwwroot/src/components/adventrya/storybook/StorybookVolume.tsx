@@ -7,7 +7,7 @@ import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { useT } from "@/lib/i18n";
 import { WORLD_COVER_ART, type WorldId, isWorldId } from "@/lib/worlds";
 import type { StoryPageContent } from "@/lib/api/types";
-import { NewBookCharacterContext } from "@/lib/story/newBookCharacter";
+import { NewBookCharacterContext, NewBookReturnContext } from "@/lib/story/newBookCharacter";
 
 export type StorybookLeaf =
   | { kind: "cover" }
@@ -70,7 +70,19 @@ export type StorybookVolumeProps = {
 };
 
 /** Beki's canonical portrait, shown until a book carries one drawn for its own world. */
-const BEKI_PORTRAIT = "/adventrya/beki.webp";
+/*
+  Beki, and not the lamb that used to stand here.
+
+  `beki.webp` is a different character altogether — an early one, kept on the site long after the
+  book, the world map and the print assets had all moved to the canonical Beki. So the back cover
+  of the sample book introduced a creature the parent would never meet again.
+
+  Cropped from `Assets/Beki/beki-canonical-v2.png`, the same file the printed book is built from,
+  to the 2:3 this frame has always used. Its own dark violet ground is kept rather than cut out:
+  the frame masks its edges away radially, and the approved cutout is only 320px wide, which is
+  softer than this slot on any modern screen.
+*/
+const BEKI_PORTRAIT = "/adventrya/beki-canonical.webp";
 
 /*
   Is this picture a spread, or a page?
@@ -230,6 +242,7 @@ function StoryFace({
 }) {
   const t = useT();
   const newBookCharacterId = useContext(NewBookCharacterContext);
+  const newBookReturnTo = useContext(NewBookReturnContext);
   const artUrl = useIllustrationUrl(leaf.kind === "story" ? leaf.page.illustrationUrl : null);
   const locked = leaf.kind === "locked";
   const pageNumber =
@@ -271,7 +284,11 @@ function StoryFace({
           <Link
             className="storybook-back-cta"
             to="/themes"
-            search={newBookCharacterId ? { characterId: newBookCharacterId } : {}}
+            search={{
+              ...(newBookCharacterId ? { characterId: newBookCharacterId } : {}),
+              // Where "back" means, once the parent is standing in the picker.
+              ...(newBookReturnTo ? { from: newBookReturnTo } : {}),
+            }}
           >
             {t.story.storybook.backCta}
           </Link>
