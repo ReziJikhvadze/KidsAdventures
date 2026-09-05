@@ -77,10 +77,10 @@ export type StorybookVolumeProps = {
   book, the world map and the print assets had all moved to the canonical Beki. So the back cover
   of the sample book introduced a creature the parent would never meet again.
 
-  Cropped from `Assets/Beki/beki-canonical-v2.png`, the same file the printed book is built from,
-  to the 2:3 this frame has always used. Its own dark violet ground is kept rather than cut out:
-  the frame masks its edges away radially, and the approved cutout is only 320px wide, which is
-  softer than this slot on any modern screen.
+  Trimmed from `BEKI_RASTER_Character_Hero_FRONT_3Q_2048x2048_FINAL_v01.png`, the approved plate
+  the printed book uses, cut to the drawing's own edges so the element's box is Beki himself and
+  the panel can centre him without knowing where he sat inside a mostly empty square. It keeps its
+  alpha, which is what let the mask over this frame go — see `.storybook-back-guide`.
 */
 const BEKI_PORTRAIT = "/adventrya/beki-canonical.webp";
 

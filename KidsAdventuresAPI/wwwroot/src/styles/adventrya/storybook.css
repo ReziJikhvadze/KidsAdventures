@@ -313,16 +313,27 @@
     radial-gradient(120% 90% at 50% 0%, #4a3459 0%, transparent 62%),
     linear-gradient(180deg, #2f2140 0%, #241a33 100%);
 }
+/*
+  The warm light belongs behind Beki, not above him.
+
+  It used to sit at `top: -18%`, mostly off the cover — light spilling in from over the top edge,
+  from a time when nothing in particular stood underneath it. With Beki whole in the panel, the
+  glow centred at 8% while he centres at 30%, so the brightest part of the cover was empty sky
+  and the character stood in the dim below it.
+
+  Centred on him now, and a little wider than he is, so it reads as his own light rather than a
+  spotlight he has wandered out of.
+*/
 .storybook-back-glow {
   position: absolute;
   z-index: 0;
-  top: -18%;
+  top: 2%;
   left: 50%;
-  width: 78%;
-  height: 52%;
+  width: 82%;
+  height: 56%;
   transform: translateX(-50%);
   border-radius: 50%;
-  background: radial-gradient(closest-side, #f1c97033, transparent 72%);
+  background: radial-gradient(closest-side, #f1c97038, transparent 74%);
 }
 .storybook-back .storybook-brand {
   z-index: 1;
@@ -335,17 +346,28 @@
   The canonical portrait carries its own dark backdrop, so it is faded into the page with a mask
   rather than dropped on it as a rectangle with visible edges.
 */
+/*
+  Beki stands here whole, and no longer behind a hole cut in a fog.
+
+  The portrait used to be a rectangle on its own near-black violet, which does not match this
+  cover's #2f2140, so a radial mask faded the mismatch out. The mask was smaller than the drawing,
+  which meant the fix for the background was also eating the character: his robe dissolved below
+  the waist and the part left showing sat off-centre inside the ellipse rather than in the panel.
+
+  The art is transparent now — trimmed to its own edges from the approved 2048px plate — so there
+  is no ground to hide and nothing to mask. Sizing him by height alone keeps him centred by the
+  same `translateX` that has always been here, whatever the cover's proportions do.
+*/
 .storybook-back-guide {
   position: absolute;
   z-index: 0;
-  top: 9%;
+  top: 7%;
   left: 50%;
-  width: 60%;
-  max-height: 52%;
+  width: auto;
+  max-width: 62%;
+  height: 46%;
   transform: translateX(-50%);
   object-fit: contain;
-  -webkit-mask-image: radial-gradient(ellipse 58% 56% at 50% 44%, #000 44%, transparent 80%);
-  mask-image: radial-gradient(ellipse 58% 56% at 50% 44%, #000 44%, transparent 80%);
   pointer-events: none;
 }
 .storybook-back-copy {
