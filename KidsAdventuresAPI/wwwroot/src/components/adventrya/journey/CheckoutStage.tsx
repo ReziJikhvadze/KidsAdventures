@@ -1,7 +1,8 @@
-import { ArrowLeft, ArrowRight, Check, Loader2, Lock, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Lock, Sparkles } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
+import { BekiLoader } from "@/components/adventrya/BekiLoader";
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
 import { ApiError, resolveApiUrl } from "@/lib/api/client";
 import * as ordersApi from "@/lib/api/orders";
@@ -265,7 +266,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
       aria-live="polite"
       aria-label={t.common.states.loading}
     >
-      <Loader2 className="checkout-spinner" aria-hidden="true" size={30} />
+      <BekiLoader size={44} />
     </div>
   ) : null;
 
@@ -349,7 +350,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
         >
           {busy ? (
             <>
-              <Loader2 className="checkout-spinner" aria-hidden="true" size={16} />
+              <BekiLoader size={16} />
               {t.journey.checkout.placingOrder}
             </>
           ) : (

@@ -79,3 +79,109 @@
 .ux-auth-landing-secondary:hover {
   color: var(--cream);
 }
+
+/*
+  Beki's spark — the one loader the site waits with.
+
+  Three places had grown their own: `.ux-photo-spinner`, `.dashboard-spinner` and
+  `.checkout-spinner`, each a copy of the same rotating lucide ring at 0.9s, and half the
+  waits — signing in, the parent's own shelf arriving — had nothing at all but a line of
+  text. This is the lit pendant on Beki's chest, on its own, and it is the same object at
+  16px in a button as at 84px in the middle of a page.
+
+  Deliberately NOT used for the preview or while a book is being written: those two show
+  the real thing being made — spreads as they are drawn — and a mascot spinning over them
+  would be a worse answer than the work itself.
+*/
+.beki-loader {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  width: var(--beki-loader-size, 28px);
+  height: var(--beki-loader-size, 28px);
+}
+.beki-loader-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34%;
+  height: 34%;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: radial-gradient(circle at 42% 38%, #fff6dd, #e9b95f 62%, #c98f2e);
+  box-shadow: 0 0 calc(var(--beki-loader-size, 28px) * 0.22) rgba(233, 185, 95, 0.75);
+  animation: beki-loader-breathe 1.8s ease-in-out infinite;
+}
+.beki-loader-mote {
+  position: absolute;
+  inset: 0;
+  animation: beki-loader-orbit 1.5s linear infinite;
+}
+.beki-loader-mote::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 15%;
+  height: 15%;
+  margin-left: -7.5%;
+  border-radius: 999px;
+  background: #ffe8a9;
+}
+/* Three motes, a third of a turn apart, fading behind the leader so the orbit reads as one
+   travelling light rather than three separate dots. */
+.beki-loader-mote:nth-child(2) {
+  animation-delay: -0.5s;
+}
+.beki-loader-mote:nth-child(3) {
+  animation-delay: -1s;
+}
+.beki-loader-mote:nth-child(2)::before {
+  opacity: 0.72;
+}
+.beki-loader-mote:nth-child(3)::before {
+  opacity: 0.46;
+}
+@keyframes beki-loader-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes beki-loader-breathe {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.16);
+  }
+}
+/*
+  Reduced motion: the orbit goes, the glow stays.
+
+  The spinners this replaces only slowed down — one ring at 2.4s — and that reasoning still
+  holds for them: a completely still loader reads as a frozen page. But this one moves three
+  times as much, and travel across the screen is exactly the motion the setting is asking about.
+  So the motes are removed outright and the pendant keeps a slow breath: less movement than the
+  single ring it replaces, and still visibly alive.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .beki-loader-mote {
+    display: none;
+  }
+  .beki-loader-core {
+    /* Larger with the orbit gone, so the mark keeps its weight at every size. */
+    width: 46%;
+    height: 46%;
+    animation-duration: 3.2s;
+  }
+}
+/* Waiting in the middle of a page rather than inside a control. */
+.beki-loader-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px 20px;
+  text-align: center;
+}

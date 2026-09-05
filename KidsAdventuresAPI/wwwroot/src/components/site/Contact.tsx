@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Loader2, Mail, Send } from "lucide-react";
+import { Mail, Send } from "lucide-react";
 
+import { BekiLoader } from "@/components/adventrya/BekiLoader";
 import { submitContactForm } from "@/lib/api/contact";
 import { notify } from "@/lib/ui/notify";
 import { BRAND_NAME } from "@/lib/brand";
@@ -159,7 +160,7 @@ export function Contact() {
                 >
                   {sending ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <BekiLoader size={16} />
                       {c.sending}
                     </>
                   ) : (

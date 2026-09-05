@@ -1039,6 +1039,26 @@
   margin: 5px 8px;
   background-color: #e9e1d7;
 }
+/*
+  A child's book, where their initial used to be.
+
+  Shaped like the shelf's covers — the spine on the left, the corners rounded away from it — so
+  the same object is recognisable at 44px in a menu and at full size on the shelf. Taller than
+  the disc it replaces, which is what makes the row grow: a book is not a circle, and squeezing
+  one into a circle is how a cover stops being recognisable.
+*/
+.journey-child-menu[role="menu"] .journey-child-cover {
+  width: 44px;
+  height: 58px;
+  flex-shrink: 0;
+  border-radius: 12px 6px 6px 12px;
+  background-color: #150d33;
+  background-position: center;
+  background-size: cover;
+  box-shadow:
+    4px 4px 10px rgba(19, 13, 41, 0.18),
+    inset 3px 0 rgba(255, 255, 255, 0.22);
+}
 /* The avatar and the add-a-child disc travel into the portal too. */
 .journey-child-menu[role="menu"] .journey-child-avatar {
   color: #29233a;

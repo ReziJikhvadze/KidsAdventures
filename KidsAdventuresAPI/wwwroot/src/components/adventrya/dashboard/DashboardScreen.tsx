@@ -14,6 +14,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useCanGoBack, useNavigate, useRouter } from "@tanstack/react-router";
 import { AppHeader } from "@/components/adventrya/AppHeader";
+import { BekiLoader } from "@/components/adventrya/BekiLoader";
 import { PasswordlessAuthDialog } from "@/components/auth/PasswordlessAuthDialog";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -130,6 +131,22 @@ export function DashboardScreen({
   const initialPreferredCharacterId = useRef(preferredCharacterId);
   const consumedCelebrationBookId = useRef<string | null>(null);
   const WORLD_BY_ID = useWorldById();
+  /*
+    The book that stands for each child in the switcher: their newest one.
+
+    Failed books are skipped — a row is a way of recognising a child, and the cover of a book
+    that never finished is a poor likeness of them. A book still being drawn is kept: it has a
+    world, so it has a cover, and it is the truest answer to "what is this child reading".
+  */
+  const newestPackByCharacter = useMemo(() => {
+    const byChild: Record<string, AdventurePackResponse> = {};
+    for (const pack of [...packs].sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
+      const child = pack.primaryCharacterId;
+      if (!child || byChild[child] || isPackFailed(pack)) continue;
+      byChild[child] = pack;
+    }
+    return byChild;
+  }, [packs]);
   /*
     Signing in closes the dialog too, and a close is otherwise read as "no thanks, take me back".
     Without this flag a parent who signed in with Google was returned to the home page by the
@@ -520,9 +537,15 @@ export function DashboardScreen({
       <div className="journey-screen">
         <AppHeader backHref="/" />
         <div className="journey-wrap">
-          <p className="journey-empty" role="status" aria-live="polite">
-            {t.common.states.loading}
-          </p>
+          {/* The wait a parent meets most often, and until now the only one with nothing in
+              it: a line of grey text on an empty page, which reads the same as a page that
+              has finished loading and found nothing. */}
+          <div className="beki-loader-block">
+            <BekiLoader size={56} />
+            <p className="journey-empty" role="status" aria-live="polite">
+              {t.common.states.loading}
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -572,14 +595,32 @@ export function DashboardScreen({
                       onSelect={() => setCharacterId(c.id)}
                       data-on={c.id === characterId ? "" : undefined}
                     >
-                      <ChildAvatar name={c.name} portraitUrl={c.heroPortraitUrl} />
+                      {/*
+                        The child's own book, standing where a letter used to.
+
+                        This list is how a family with three children says which one they mean,
+                        and it was three identical gold discs with a name and a tally of worlds
+                        beside them — a count that belongs to the map, on a row whose only job is
+                        recognition. The cover is what a parent actually remembers, so it is what
+                        the row leads with, and the line under the name is the book's title.
+
+                        A child with no book keeps the disc: an empty frame would say a book
+                        exists and is missing, which is worse than saying nothing.
+                      */}
+                      {newestPackByCharacter[c.id] ? (
+                        <ChildBookCover pack={newestPackByCharacter[c.id]} />
+                      ) : (
+                        <ChildAvatar name={c.name} portraitUrl={c.heroPortraitUrl} />
+                      )}
                       <span>
                         <strong>{c.name}</strong>
                         <small>
-                          {t.story.map.progress(
-                            mapsByCharacter[c.id]?.completedCount ?? 0,
-                            mapsByCharacter[c.id]?.totalWorlds || WORLD_IDS.length,
-                          )}
+                          {newestPackByCharacter[c.id]
+                            ? bookTitleOf(newestPackByCharacter[c.id], c.name, WORLD_BY_ID)
+                            : t.story.map.progress(
+                                mapsByCharacter[c.id]?.completedCount ?? 0,
+                                mapsByCharacter[c.id]?.totalWorlds || WORLD_IDS.length,
+                              )}
                         </small>
                       </span>
                       {c.id === characterId ? <Check aria-hidden="true" /> : null}
@@ -984,6 +1025,47 @@ function BookCard({
  * a non-null URL, and rendering that alone leaves an empty tile — worse than the letter it
  * replaced, on the one control whose job is telling several children apart at a glance.
  */
+/** A book's own title, or the world's name for it when the pipeline never set one. */
+function bookTitleOf(
+  pack: AdventurePackResponse,
+  heroName: string,
+  worldById: ReturnType<typeof useWorldById>,
+): string {
+  const worldId = pack.worldId && isWorldId(pack.worldId) ? pack.worldId : "dinosaurs";
+  return pack.title?.trim() || worldById[worldId].bookTitle(heroName);
+}
+
+/**
+ * A child's newest cover, at the size of the disc it replaces.
+ *
+ * Its own component because the illustration hook is one per component, and this one is drawn
+ * once per child in the switcher. Same fallback the shelf uses: the world's art when the book
+ * has no cover of its own yet.
+ */
+function ChildBookCover({ pack }: { pack: AdventurePackResponse }) {
+  const worldId = pack.worldId && isWorldId(pack.worldId) ? pack.worldId : "dinosaurs";
+  const cover = useIllustrationUrl(pack.coverImageUrl);
+  const world = WORLD_COVER_ART[worldId];
+
+  /*
+    The world's art underneath, always — not only when the hook comes back empty.
+
+    `?? WORLD_COVER_ART[...]` covers the case where no cover could be resolved at all, and stops
+    there: once the hook hands back a URL, a 404 or a decode failure on that URL leaves a dark
+    rectangle with nothing behind it. Stacking them makes the fallback a property of the paint
+    rather than of the lookup, so the row still shows a book whichever way the cover fails.
+  */
+  const layers = cover ? [`url("${cover}")`, `url("${world}")`] : [`url("${world}")`];
+
+  return (
+    <span
+      className="journey-child-cover"
+      aria-hidden="true"
+      style={{ backgroundImage: layers.join(", ") }}
+    />
+  );
+}
+
 function ChildAvatar({ name, portraitUrl }: { name: string; portraitUrl?: string | null }) {
   /* Through the same hook every other picture here uses: a portrait is stored as an `/api/…`
      path, and that endpoint wants the session token. */

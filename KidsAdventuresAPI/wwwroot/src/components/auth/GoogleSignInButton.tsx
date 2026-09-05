@@ -1,6 +1,6 @@
 import { GoogleLogin, useGoogleLogin, type CredentialResponse } from "@react-oauth/google";
-import { Loader2 } from "lucide-react";
 
+import { BekiLoader } from "@/components/adventrya/BekiLoader";
 import { useGoogleAuthConfig } from "@/lib/auth/GoogleAuthProvider";
 import { useT } from "@/lib/i18n";
 
@@ -41,7 +41,7 @@ export function GoogleSignInButton({
       </button>
     ) : (
       <div className="flex h-10 w-full items-center justify-center rounded-md border border-input bg-muted/40 text-sm text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        <BekiLoader size={16} className="mr-2" />
         Loading Google…
       </div>
     );
@@ -216,7 +216,7 @@ export function GoogleSignInBusyButton({
 
   return (
     <div className="flex h-10 w-full items-center justify-center rounded-full border border-input bg-background text-sm text-muted-foreground">
-      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      <BekiLoader size={16} className="mr-2" />
       Signing in with Google…
     </div>
   );

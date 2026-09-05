@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, Loader2, Mail, ShieldCheck, Sparkles, Wand2 } from "lucide-react";
+import { ArrowLeft, Mail, ShieldCheck, Sparkles, Wand2 } from "lucide-react";
+import { BekiLoader } from "@/components/adventrya/BekiLoader";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { notify } from "@/lib/ui/notify";
 import {
@@ -253,7 +254,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
                 className="w-full h-11 font-semibold"
                 disabled={!emailValid || checking}
               >
-                {checking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {checking && <BekiLoader size={16} className="mr-2" />}
                 Continue
               </Button>
             </form>
@@ -312,7 +313,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
               )}
 
               <Button type="submit" className="w-full h-11 font-semibold" disabled={busy}>
-                {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {busy && <BekiLoader size={16} className="mr-2" />}
                 {mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Continue"}
               </Button>
             </form>

@@ -1,6 +1,7 @@
-import { Camera, Check, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Camera, Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { BekiLoader } from "@/components/adventrya/BekiLoader";
 import photoGuide from "@/assets/photo-guide.webp";
 import { BirthDateField } from "@/components/adventrya/journey/BirthDateField";
 import { WorldArtPanel } from "@/components/adventrya/journey/WorldArtPanel";
@@ -860,7 +861,7 @@ function CharacterEditor({
             ) : null}
 
             <button type="button" disabled={checking} onClick={() => fileRef.current?.click()}>
-              {checking ? <Loader2 className="ux-photo-spinner" aria-hidden="true" /> : null}
+              {checking ? <BekiLoader size={16} /> : null}
               {photoAction}
             </button>
           </div>

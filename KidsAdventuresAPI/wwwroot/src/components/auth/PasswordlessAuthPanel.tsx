@@ -1,6 +1,7 @@
 import { ArrowRight, KeyRound, Mail } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
+import { BekiLoader } from "@/components/adventrya/BekiLoader";
 import { GoogleSignInButton, GoogleSignInBusyButton } from "@/components/auth/GoogleSignInButton";
 import * as authApi from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
@@ -88,6 +89,18 @@ type Props = {
  * fix when it changes. Markup and class names are untouched so the existing journey CSS still
  * styles it wherever it is mounted.
  */
+/*
+  Every primary button here waits in the same place: where its arrow is.
+
+  The panel already knew it was busy — every one of these is disabled while a request is out —
+  but a disabled button and a button that did nothing look identical, and signing in is the one
+  moment a parent is most willing to believe the site is broken. The arrow says "next"; while
+  there is no next yet, the loader stands in its place, so nothing moves and nothing resizes.
+
+  `aria-busy` alongside it, because the swap is silent: both the arrow and the loader are hidden
+  from a screen reader, the label does not change, and the button goes disabled — which on its
+  own is indistinguishable from a button that simply refused the press.
+*/
 export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: Props) {
   const t = useT();
   const { loginWithGoogle, signInWithPhoneCode, continueWith } = useAuth();
@@ -399,12 +412,13 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
                   <button
                     className="button button-primary auth-main"
                     type="button"
+                    aria-busy={busy}
                     disabled={busy || !email.trim() || cooldown > 0}
                     onClick={() => void sendMagicLink()}
                   >
                     {t.journey.auth.sendMagicLink}
                     {cooldown > 0 ? t.journey.auth.resendIn(cooldown) : ""}
-                    <ArrowRight aria-hidden="true" size={16} />
+                    {busy ? <BekiLoader size={16} /> : <ArrowRight aria-hidden="true" size={16} />}
                   </button>
                 </>
               ) : (
@@ -457,6 +471,7 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
                   <button
                     className="button button-primary auth-main"
                     type="button"
+                    aria-busy={busy}
                     disabled={
                       busy ||
                       !email.trim() ||
@@ -468,7 +483,7 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
                     {emailMode === "register"
                       ? t.journey.auth.registerSubmit
                       : t.journey.auth.passwordSubmit}
-                    <ArrowRight aria-hidden="true" size={16} />
+                    {busy ? <BekiLoader size={16} /> : <ArrowRight aria-hidden="true" size={16} />}
                   </button>
                 </>
               )}
@@ -522,12 +537,13 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
               <button
                 className="button button-primary auth-main"
                 type="button"
+                aria-busy={busy}
                 disabled={busy || cooldown > 0}
                 onClick={() => void sendPhoneCode()}
               >
                 {t.journey.auth.sendCode}
                 {cooldown > 0 ? t.journey.auth.resendIn(cooldown) : ""}
-                <ArrowRight aria-hidden="true" size={16} />
+                {busy ? <BekiLoader size={16} /> : <ArrowRight aria-hidden="true" size={16} />}
               </button>
             </>
           )}
@@ -600,11 +616,12 @@ export function PasswordlessAuthPanel({ returnPath, onAuthenticated, header }: P
           <button
             className="button button-primary auth-main"
             type="button"
+            aria-busy={busy}
             disabled={busy || otp.join("").length !== otp.length}
             onClick={() => void verifyOtp()}
           >
             {t.journey.auth.verify}
-            <ArrowRight aria-hidden="true" size={16} />
+            {busy ? <BekiLoader size={16} /> : <ArrowRight aria-hidden="true" size={16} />}
           </button>
         </div>
       )}
