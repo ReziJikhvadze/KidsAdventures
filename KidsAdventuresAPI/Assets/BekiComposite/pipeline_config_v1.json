@@ -18,7 +18,7 @@
     "model_id_must_be_configurable": true
   },
   "visual_scenario": {
-    "prompt_version": "visual-scenario-v2",
+    "prompt_version": "visual-scenario-v2.4",
     "model_slot": "visual_scenario_model",
     "max_validation_retries": 1
   },
@@ -88,7 +88,7 @@
     "qr_layer": "vector"
   },
   "cover": {
-    "base_prompt_version": "cover-child-world-v1",
+    "base_prompt_version": "cover-child-world-v1.3",
     "title_font": "Ottia",
     "geometry_source": "printer_approved_dieline",
     "use_interior_bleed_geometry": false,

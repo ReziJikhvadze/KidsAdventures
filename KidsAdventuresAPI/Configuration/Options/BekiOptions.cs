@@ -17,7 +17,10 @@ public sealed class BekiOptions
     /// pack id; blank is a configuration error because a QR may never silently fall back to a
     /// homepage or a non-book destination.
     /// </summary>
-    public string ContinuationBaseUrl { get; set; } = "https://beki.ge/book";
+    public string ContinuationBaseUrl { get; set; } = "https://beki.ge";
+
+    /// <summary>September 5 phase: website QR, even on workers retaining an older route setting.</summary>
+    public const string WebsiteQrDestination = "https://beki.ge";
 
     /// <summary>Master switch. The previous illustration flow stays available until this is on.</summary>
     public bool Enabled { get; set; }

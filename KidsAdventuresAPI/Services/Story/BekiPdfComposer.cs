@@ -26,7 +26,11 @@ public sealed record BekiBookPersonalization(
     DateTime Date,
     string Theme,
     string WorldName,
-    string? ContinuationUrl = null);
+    string? ContinuationUrl = null)
+{
+    /// <summary>Verified observations tied to this cover's source by fulfillment, if available.</summary>
+    public IReadOnlyList<BekiCoverProtectedArea>? CoverProtectedAreas { get; init; }
+}
 
 /// <summary>
 /// The translucent panel under one page's copy: where it is, how far it keeps from the fold and the
@@ -236,9 +240,9 @@ public sealed record BekiLayoutReceipts(
              .ToList();
 
     /// <summary>
-    /// A generous operator budget derived from the lines the layout actually measured. A normal
-    /// subset-font line may be split into a few text-show operators; the removed 17-copy outline
-    /// exceeds three operators per line by an order of magnitude.
+    /// A generous text-run budget derived from the lines the layout actually measured. The walker
+    /// coalesces per-glyph horizontal positioning, so Georgian shaping is not mistaken for many
+    /// layers. The removed 17-copy outline exceeds three text runs per line.
     /// </summary>
     [JsonIgnore]
     public IReadOnlyDictionary<int, int> MaximumVisibleTextDrawsByPage => Pages
@@ -903,6 +907,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         ArgumentNullException.ThrowIfNull(wrapComposite);
         ArgumentNullException.ThrowIfNull(spreads);
         ArgumentNullException.ThrowIfNull(personalization);
+
+        BekiCoverLayoutSafety.EnsureClear(personalization.CoverProtectedAreas);
 
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -1707,7 +1713,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         var creditsSize = _layout.StoryFontSize * 0.85f;
         var lines = new[]
         {
-            $"{personalization.ChildName}-სთვის შექმნილი წიგნი",
+            $"{personalization.ChildName}სთვის შექმნილი წიგნი",
             $"ისტორია და სამყარო: {personalization.WorldName}",
             $"მთავარი გმირი: {personalization.ChildName}",
             "გზამკვლევი: ბეკი",
@@ -1726,7 +1732,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 layers.Layer().Row(row =>
                 {
                     row.RelativeItem()
-                        .Background(PageInk)
+                        // Owner clarification: reuse the opening blank leaf's existing cream.
+                        .Background(EndpaperPaper)
                         .Padding(Bleed(mode) + _layout.SafeMarginMm, Unit.Millimetre)
                         .AlignMiddle()
                         .Column(column =>
@@ -1737,7 +1744,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                                 column.Item().AlignCenter().Text(line)
                                  .FontFamily(PdfFontBootstrap.BodyFamily)
                                  .FontSize(creditsSize)
-                                 .FontColor(TextColor);
+                                 .FontColor(StoryTextColor);
                             }
                         });
 
@@ -1753,16 +1760,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             [Sha256(pattern.Bytes)],
             Wash: null,
             [new BekiTypographyRecord(
-                "credits", PdfFontBootstrap.BodyFamily, creditsSize, 1.0d, TextColorHex)],
+                "credits", PdfFontBootstrap.BodyFamily, creditsSize, 1.0d, StoryTextColorHex)],
             lines.SelectMany(line =>
                 WrapLines(line, creditsSize, CreditsColumnWidthPt, PdfFontBootstrap.BodyFamily)).ToList(),
-            TextProbe: new BekiTextProbeRect(
-                page,
-                Bleed(mode) + _layout.SafeMarginMm,
-                Bleed(mode) + _layout.SafeMarginMm,
-                (_layout.SpreadWidthMm / 2f) - (_layout.SafeMarginMm * 2f),
-                _layout.SpreadHeightMm - (_layout.SafeMarginMm * 2f),
-                "credits-text"),
+            TextProbe: null, // Dark type on cream is not eligible for the light-on-dark conversion probe.
             SourceSha256: [_assets.EndpaperPattern.Sha256],
             Rasters: [pattern.Provenance with { Role = "credits-pattern" }]));
     }

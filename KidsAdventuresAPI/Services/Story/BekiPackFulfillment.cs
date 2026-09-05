@@ -54,6 +54,12 @@ public interface IBekiPackFulfillment
 /// </summary>
 public static class BekiPackBlobs
 {
+    public static string CoverLayoutReviewName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}/cover-layout-review.json";
+
+    public static string CoverLayoutSafetyName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}/cover-layout-safety.json";
+
     public static string SpreadName(Guid userId, Guid packId, int spreadNumber) =>
         $"{userId}/{packId}/spread-{spreadNumber:00}.png";
 
@@ -456,12 +462,9 @@ public sealed class BekiPackFulfillment(
             var wrap = await ReadRequiredBlobAsync(BekiPackBlobs.CoverWrapCompositeName(pack.UserId, pack.Id), cancellationToken);
             var receipt = System.Text.Encoding.UTF8.GetString(await ReadRequiredBlobAsync(
                 BekiPackBlobs.CoverCompositionName(pack.UserId, pack.Id), cancellationToken));
-            var continuationBase = bekiOptions.Value.ContinuationBaseUrl?.Trim().TrimEnd('/');
-            if (!Uri.TryCreate(continuationBase, UriKind.Absolute, out _))
-                throw new InvalidOperationException("Beki:ContinuationBaseUrl must be configured.");
             var personalization = new BekiBookPersonalization(run.ChildName, run.Age, pack.CreatedAt,
                 pack.Theme.ToString(), StoryWorlds.For(pack.Theme).Place)
-                { ContinuationUrl = $"{continuationBase}/{pack.Id:D}" };
+                { ContinuationUrl = BekiOptions.WebsiteQrDestination };
             var work = new PressWork();
             await PreparePressAsync(pack, plan, stored, personalization, wrap, hashes, work,
                 cancellationToken, storedArtworkOnly: true);
@@ -1702,18 +1705,9 @@ public sealed class BekiPackFulfillment(
                     + "sha {Sha}), with the reader pointed at its front-board crop.",
                     packId, wrap.PoseId, wrapSha[..12]);
 
-                var continuationBase = bekiOptions.Value.ContinuationBaseUrl?.Trim().TrimEnd('/');
-                if (string.IsNullOrWhiteSpace(continuationBase)
-                    || !Uri.TryCreate(continuationBase, UriKind.Absolute, out _))
-                {
-                    throw new BekiLayoutException(
-                        CompositeFailureCodes.LayoutFailed,
-                        "Beki:ContinuationBaseUrl must be an absolute public book route; the spread-8 QR cannot use a fallback.");
-                }
-
                 personalization = personalization with
                 {
-                    ContinuationUrl = $"{continuationBase}/{pack.Id:D}",
+                    ContinuationUrl = BekiOptions.WebsiteQrDestination,
                 };
 
                 // Drawing has finished. Print preparation gets its own bounded clock, so a
@@ -2626,6 +2620,7 @@ public sealed class BekiPackFulfillment(
         var options = bekiOptions.Value.PrintPrep;
         var manifest = _assetLock.Verify(new BekiAssetLockInputs
         {
+            RequireOutputIntent = false, // Current canonical release is RGB; no ICC transform is used.
             OutputIntentIccPath = options.OutputIntentIccPath,
             OutputIntentIccSha256 = options.OutputIntentIccSha256,
         });
@@ -2815,6 +2810,32 @@ public sealed class BekiPackFulfillment(
             BekiPackBlobs.CoverWrapBaseName(pack.UserId, pack.Id),
             BekiPackBlobs.CoverCompositionName(pack.UserId, pack.Id),
             wrapComposite, cancellationToken));
+
+        // Inspect stored, pixel-bound observations before any (possibly billable) upscaler call.
+        // Resampling changes resolution, not full-wrap physical coordinates.
+        var reviewName = BekiPackBlobs.CoverLayoutReviewName(pack.UserId, pack.Id);
+        BekiCoverLayoutReview? coverReview = null;
+        if (await blobStorage.ExistsAsync(reviewName, cancellationToken))
+        {
+            coverReview = JsonSerializer.Deserialize<BekiCoverLayoutReview>(
+                await ReadRequiredBlobAsync(reviewName, cancellationToken))
+                ?? throw new BekiLayoutException(CompositeFailureCodes.PrintPreflightFailed,
+                    "COVER_LAYOUT_SAFETY: stored review is empty.");
+            BekiCoverLayoutSafety.VerifySource(coverReview, bases[^1].Png);
+        }
+        var coverConflicts = coverReview is null ? [] : BekiCoverLayoutSafety.Conflicts(coverReview.Areas);
+        await blobStorage.UploadAsync(BekiPackBlobs.CoverLayoutSafetyName(pack.UserId, pack.Id),
+            JsonSerializer.SerializeToUtf8Bytes(new
+            {
+                gate = BekiCoverLayoutSafety.Gate,
+                verdict = coverReview is null ? "NOT_REVIEWED" : coverConflicts.Count == 0 ? "PASS" : "FAIL",
+                method = "human-recorded bounds; no automatic face detector or added paid vision call",
+                review = coverReview,
+                conflicts = coverConflicts,
+            }), "application/json", cancellationToken);
+        personalization = personalization with { CoverProtectedAreas = coverReview?.Areas };
+        BekiCoverLayoutSafety.EnsureClear(personalization.CoverProtectedAreas);
+
         var rasters = bases.Select((source, index) => (
             source.Png,
             index == spreads.Count ? CoverPressWidthPx : InteriorPressWidthPx,
@@ -2852,7 +2873,11 @@ public sealed class BekiPackFulfillment(
             var spread = spreads[index];
             var upscale = upscales[index];
 
-            sources.Add(upscale.ToReceiptSource($"spread-{spread.SpreadNumber:00}"));
+            sources.Add(upscale.ToReceiptSource($"spread-{spread.SpreadNumber:00}") with
+            {
+                DeliveredWidthPx = upscale.Succeeded ? InteriorPressWidthPx : upscale.DeliveredWidthPx,
+                DeliveredHeightPx = upscale.Succeeded ? InteriorPressHeightPx : upscale.DeliveredHeightPx,
+            });
 
             if (!upscale.Succeeded)
             {
@@ -2884,7 +2909,11 @@ public sealed class BekiPackFulfillment(
             ? await StorePressCompositeAsync(
                 pack, "cover-wrap", coverUpscale.Png!, bases[^1].Manifest, cancellationToken)
             : wrapComposite;
-        sources.Add(coverUpscale.ToReceiptSource("cover-wrap"));
+        sources.Add(coverUpscale.ToReceiptSource("cover-wrap") with
+        {
+            DeliveredWidthPx = coverUpscale.Succeeded ? CoverPressWidthPx : coverUpscale.DeliveredWidthPx,
+            DeliveredHeightPx = coverUpscale.Succeeded ? CoverPressHeightPx : coverUpscale.DeliveredHeightPx,
+        });
 
         var canonical = composer.ComposeCanonicalWithReceipts(
             plan, coverArt, pressArt, personalization);
@@ -2908,7 +2937,7 @@ public sealed class BekiPackFulfillment(
                     resolutionReceipt: new BekiResolutionReceipt(
                         [.. sources, .. canonical.Receipts.RasterSources]),
                     canonicalMixedGeometry: true,
-                    requirePressResolution: true);
+                    requirePressResolution: true, acceptRgbForScopedDelivery: true);
                 preflight = result.ReportJson;
                 work.FailedGates.AddRange(result.FailedGates);
                 if (result.FailedGates.Count == 0)
@@ -3023,6 +3052,12 @@ public sealed class BekiPackFulfillment(
         BekiCompositionManifest receipt, CancellationToken cancellationToken)
     {
         var prefix = $"{pack.UserId}/{pack.Id}/print/{role}";
+        // A super-resolver may return a larger trained-factor canvas. Only downsample its
+        // child/world base to the final dimensions, then apply the unchanged approved Beki PNG.
+        var cover = role == "cover-wrap";
+        enlargedBase = BekiPressRaster.FinalSize(enlargedBase,
+            cover ? CoverPressWidthPx : InteriorPressWidthPx,
+            cover ? CoverPressHeightPx : InteriorPressHeightPx);
         var result = BekiPressComposite.Compose(enlargedBase, receipt, prefix);
         await blobStorage.UploadAsync(prefix + "-base.png", enlargedBase, "image/png", cancellationToken);
         await blobStorage.UploadAsync(prefix + "-composite.png", result.Png, "image/png", cancellationToken);
@@ -3273,7 +3308,7 @@ public sealed class BekiPackFulfillment(
     {
         var options = bekiOptions.Value.PrintPrep;
 
-        var continuationUrl = $"{bekiOptions.Value.ContinuationBaseUrl.Trim().TrimEnd('/')}/{pack.Id:D}";
+        var continuationUrl = BekiOptions.WebsiteQrDestination;
 
         // PDF page 11 is story spread 8: cover wrap + opening + intro + eight story spreads.
         // The final credits spread is page 12 and intentionally carries no QR.

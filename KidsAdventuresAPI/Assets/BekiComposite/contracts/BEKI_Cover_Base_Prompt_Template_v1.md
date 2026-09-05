@@ -1,6 +1,8 @@
-# BEKI Cover Base Prompt Template v1.2
+# BEKI Cover Base Prompt Template v1.3
 
-**Prompt version:** `cover-child-world-v1.2`  
+September 5 scoped override: runtime `CompositeIllustrationPrompt.ForCover` adds COVER IMPACT AND SELECTIVE-VARNISH CANDIDATES, executing normally two or three prominent story-grounded details at readable scale, with clear silhouettes and materials. No invented plot, no varnish mask, no Beki or lettering in the base. `BekiCoverDieline.Geometry` resolves the actual title/colored-logo rectangles and clear space. Keep the child face/head and important accents out of both. These reservations supersede the historical prohibition on numeric cover safe zones below; never draw zones or their boundaries.
+
+**Prompt version:** `cover-child-world-v1.3`
 **Status:** Implementation source with printer-geometry placeholders  
 **Purpose:** Generate one continuous cover base without Beki, title text, spine text, QR, or other typography.
 

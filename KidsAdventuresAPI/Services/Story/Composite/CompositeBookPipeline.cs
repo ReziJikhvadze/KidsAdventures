@@ -1679,6 +1679,16 @@ public sealed class CompositeBookPipeline(
             context.JobId, CompositeIllustrationPrompt.CoverVersion,
             anchored ? "attached" : "not available — the lock and the photograph carry it");
 
+        logger.LogInformation(
+            "Cover prompt provenance {JobId}: promptVersion={PromptVersion} promptSha256={PromptSha256}; "
+            + "titleSafeMm={TitleLeft},{TitleTop},{TitleWidth},{TitleHeight}; logoVisibleMm={LogoLeft},{LogoTop},{LogoWidth},{LogoHeight}",
+            context.JobId, CompositeIllustrationPrompt.CoverVersion,
+            BekiCompositeEngine.Sha256Hex(Encoding.UTF8.GetBytes(prompt)),
+            BekiCoverDieline.TitleSafeLeftMm, BekiCoverDieline.TitleSafeTopMm,
+            BekiCoverDieline.TitleSafeWidthMm, BekiCoverDieline.TitleSafeHeightMm,
+            BekiCoverDieline.LogoLeftMm, BekiCoverDieline.LogoTopMm,
+            BekiCoverDieline.LogoWidthMm, BekiCoverDieline.LogoHeightMm);
+
         var (raw, _) = await GenerateBaseImageAsync(
             context, page: null, prompt,
             References(childPhoto, childPhotoContentType, theme, childAnchor, continuityImage: null),
@@ -2195,6 +2205,12 @@ public sealed class CompositeBookPipeline(
             var user = attempt == 0
                 ? CompositeVisualScenarioPrompt.User(inputJson)
                 : CompositeVisualScenarioPrompt.RetryUser(inputJson, previous!.Problems);
+
+            logger.LogInformation(
+                "Visual scenario prompt provenance {JobId}: version={PromptVersion} systemSha256={SystemSha256} userSha256={UserSha256} attempt={Attempt}",
+                context.JobId, CompositeVisualScenarioPrompt.Version,
+                BekiCompositeEngine.Sha256Hex(Encoding.UTF8.GetBytes(CompositeVisualScenarioPrompt.SystemInstruction)),
+                BekiCompositeEngine.Sha256Hex(Encoding.UTF8.GetBytes(user)), attempt);
 
             var started = Stopwatch.StartNew();
             string? answer = null;

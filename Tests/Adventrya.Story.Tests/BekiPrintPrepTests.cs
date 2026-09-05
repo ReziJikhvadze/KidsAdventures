@@ -590,13 +590,12 @@ public class BekiPrintPrepTests
     // Options validation (correction plan D4, amendment A6)
 
     /// <summary>
-    /// P1-02: "empty OutputIntentIccSha256 disables the ICC check". A deployment that unsets it now
-    /// refuses to come up, which is the one moment somebody is watching.
+    /// September 5 supersedes the global ICC startup requirement for RGB delivery.
     /// </summary>
     [Theory]
-    [InlineData("Beki:PrintPrep:OutputIntentIccSha256", "OutputIntentIccSha256")]
-    [InlineData("Beki:PrintPrep:OutputIntentIccPath", "OutputIntentIccPath")]
-    public void A_blank_output_intent_setting_fails_startup(string key, string named)
+    [InlineData("Beki:PrintPrep:OutputIntentIccSha256")]
+    [InlineData("Beki:PrintPrep:OutputIntentIccPath")]
+    public void A_blank_output_intent_setting_does_not_block_RGB_startup(string key)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { [key] = string.Empty })
@@ -606,10 +605,7 @@ public class BekiPrintPrepTests
             .AddAdventurePacksOptions(configuration)
             .BuildServiceProvider();
 
-        var failure = Assert.Throws<OptionsValidationException>(
-            () => provider.GetRequiredService<IOptions<BekiOptions>>().Value);
-
-        Assert.Contains(named, failure.Message);
+        Assert.NotNull(provider.GetRequiredService<IOptions<BekiOptions>>().Value);
     }
 
     [Fact]

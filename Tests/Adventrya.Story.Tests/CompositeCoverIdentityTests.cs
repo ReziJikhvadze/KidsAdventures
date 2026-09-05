@@ -151,7 +151,8 @@ public class CompositeCoverIdentityTests : CompositePipelineTestBase
 
         foreach (var anchored in (bool[])[false, true])
         {
-            var cover = CoverPrompt(scenario, anchored);
+            // September 5 adds composition reservations to COVER, not to identity.
+            var cover = CompositeChildIdentity.LockBlock(IdentityFixture, 1, anchored ? 2 : 1);
 
             Assert.DoesNotContain("%", cover, StringComparison.Ordinal);
 

@@ -71,7 +71,8 @@ internal static class BekiContentWalker
     }
 
     /// <summary>
-    /// An opaque signature of the encoded glyph sequence passed to a visible text-show operator.
+    /// An opaque signature of the encoded glyph sequence in a visible text run. Consecutive
+    /// horizontal glyph-positioning operators are coalesced until a text-object/baseline reset.
     /// It deliberately records bytes, not decoded Unicode: duplicate painting is a PDF content
     /// problem and must be detectable even when a subset font has no usable ToUnicode map.
     /// </summary>
@@ -186,6 +187,14 @@ internal static class BekiContentWalker
         var stack = new Stack<GraphicsState>();
         var current = new GraphicsState(initial, "/DeviceGray", [0d], 0);
         var operands = new List<object?>();
+        var textRun = new StringBuilder();
+
+        void FlushTextRun()
+        {
+            if (textRun.Length == 0) return;
+            RecordTextDraw(state, [textRun.ToString()]);
+            textRun.Clear();
+        }
 
         while (lexer.TryReadToken(out var token))
         {
@@ -206,6 +215,22 @@ internal static class BekiContentWalker
 
             switch (op)
             {
+                case "BT":
+                case "ET":
+                case "Tm":
+                case "T*":
+                case "Tf":
+                    FlushTextRun();
+                    break;
+
+                case "Td":
+                case "TD":
+                    // Skia positions Georgian glyphs individually using horizontal Td/Tj pairs.
+                    // Only a baseline change begins a new run; repeated letters are not layers.
+                    if (operands.Count >= 2 && operands[^1] is double dy && Math.Abs(dy) > 0.0001d)
+                        FlushTextRun();
+                    break;
+
                 case "q":
                     stack.Push(current);
                     break;
@@ -265,12 +290,13 @@ internal static class BekiContentWalker
                 case "TJ":
                 case "'":
                 case "\"":
+                    if (op is "'" or "\"") FlushTextRun();
                     // Rendering mode 3 is invisible text; it carries no colour anybody can read,
                     // so counting it would only add noise to the colour-integrity evidence.
                     if (current.TextRenderMode != 3)
                     {
                         RecordFill(state, current);
-                        RecordTextDraw(state, operands);
+                        AppendEncodedText(textRun, operands);
                     }
 
                     break;
@@ -304,6 +330,7 @@ internal static class BekiContentWalker
 
             operands.Clear();
         }
+        FlushTextRun();
     }
 
     private static void Paint(
@@ -443,26 +470,9 @@ internal static class BekiContentWalker
     private static void RecordTextDraw(WalkState state, IReadOnlyList<object?> operands)
     {
         var encoded = new StringBuilder();
-        foreach (var operand in operands)
-        {
-            switch (operand)
-            {
-                case string text:
-                    encoded.Append(text).Append('\u001f');
-                    break;
-                case IEnumerable<object?> array:
-                    foreach (var item in array.OfType<string>())
-                    {
-                        encoded.Append(item).Append('\u001f');
-                    }
-                    break;
-            }
-        }
+        AppendEncodedText(encoded, operands);
 
-        if (encoded.Length == 0)
-        {
-            return;
-        }
+        if (encoded.Length == 0) return;
 
         var signature = Convert.ToHexString(
             System.Security.Cryptography.SHA256.HashData(Encoding.Latin1.GetBytes(encoded.ToString())))
@@ -470,6 +480,26 @@ internal static class BekiContentWalker
         state.TextDraws[signature] = state.TextDraws.TryGetValue(signature, out var count)
             ? count + 1
             : 1;
+    }
+
+    private static void AppendEncodedText(StringBuilder encoded, IReadOnlyList<object?> operands)
+    {
+        foreach (var operand in operands)
+        {
+            switch (operand)
+            {
+                case string text:
+                    encoded.Append(text);
+                    break;
+                case IEnumerable<object?> array:
+                    foreach (var item in array.OfType<string>())
+                    {
+                        encoded.Append(item);
+                    }
+                    break;
+            }
+        }
+
     }
 
     /// <summary>

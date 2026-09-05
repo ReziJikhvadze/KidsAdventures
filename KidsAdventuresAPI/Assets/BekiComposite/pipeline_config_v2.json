@@ -1,8 +1,8 @@
 {
   "status": "active",
-  "config_version": "beki-pipeline-v2.0",
-  "effective_date": "2026-09-04",
-  "source_precedence": "02_PRODUCT_OWNER_OVERRIDES_2026-09-04",
+  "config_version": "beki-pipeline-v2.1",
+  "effective_date": "2026-09-05",
+  "source_precedence": "BEKI_FINAL_SCOPE_2026-09-05",
   "story": {
     "language": "ka",
     "input_fields": ["child_name", "child_age", "child_gender", "theme_id"],
@@ -23,10 +23,11 @@
     "schema_source_sha256": "ed7913f3d35e45243ad8ecca48a15fca0b4b36ed0e17e8ec4a4ab9fdbc7672e1"
   },
   "visual_scenario": {
-    "prompt_version": "visual-scenario-v2",
+    "prompt_version": "visual-scenario-v2.4",
     "model_slot": "visual_scenario_model",
     "max_validation_retries": 1
   },
+  "cover": { "base_prompt_version": "cover-child-world-v1.3", "runtime_source": "Services/Story/Composite/CompositeIllustrationPrompt.cs" },
   "spread_rhythm": [
     {"page": 1, "text_side": "LEFT", "shot_instruction": "Use a wide establishing view. The environment is dominant and the child is relatively small within it."},
     {"page": 2, "text_side": "RIGHT", "shot_instruction": "Use a medium view for the first clear discovery. Make the child, the discovered subject, and their relationship immediately readable."},
@@ -68,9 +69,9 @@
   },
   "assets": {
     "pose_registry_version": "beki-pose-registry-v1",
-    "logo_asset_id": "beki_logo_hires_light",
-    "logo_file": "Assets/BekiComposite/logo/HiResLight.svg",
-    "logo_sha256": "e78bb168c316f9ce52c94f7741fba9fed8f59b7a5b8013821fe6dd673521db08"
+    "logo_asset_id": "beki_logo_hires_color",
+    "logo_file": "Assets/BekiComposite/logo/HiResColor.svg",
+    "logo_sha256": "da8f2fdedfeb203f5dbcc8911f94747713c843ee58f1155b252a219f5ce6a43f"
   },
   "layout": {
     "interior_body_font": "Noto Sans Georgian",
@@ -95,7 +96,7 @@
       "interior_spread": 10,
       "story_spread": 8,
       "placement": "below_story_text",
-      "url_base_setting": "Beki:ContinuationBaseUrl"
+      "destination": "https://beki.ge"
     },
     "credits": {
       "interior_spread": 11,
@@ -120,9 +121,9 @@
       "profile": "BEKI-interior-450x210-trim440x200-v1"
     },
     "print": {
-      "format": "PDF/X-4",
-      "output_intent": "FOGRA39L Coated",
-      "icc_sha256": "b35713ef7eff09349d4c3249e5f377736d06d8a2671c54712971a3546bf17c57"
+      "format": "RGB PDF",
+      "printer_handles_cmyk": true,
+      "pdfx_required": false
     }
   },
   "failure_codes": [

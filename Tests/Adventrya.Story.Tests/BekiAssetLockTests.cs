@@ -20,6 +20,17 @@ namespace Adventrya.Story.Tests;
 /// </summary>
 public class BekiAssetLockTests
 {
+    [Fact]
+    public void Scoped_RGB_asset_lock_does_not_require_an_unused_ICC_profile()
+    {
+        var manifest = new BekiAssetLock().Verify(LockedInputs() with
+        {
+            RequireOutputIntent = false, OutputIntentIccPath = "missing.icc", OutputIntentIccSha256 = ""
+        });
+        Assert.NotEmpty(manifest.Assets);
+        Assert.DoesNotContain(manifest.Assets, entry => entry.Role == BekiAssetLock.OutputIntentRole);
+    }
+
     /// <summary>The production ICC inputs, read from the options the print stage actually runs with.</summary>
     private static BekiAssetLockInputs LockedInputs() => new()
     {
@@ -36,7 +47,7 @@ public class BekiAssetLockTests
 
         // All three approval documents are named by their own version — the audit's "governance
         // split across three registries" turned into a record of which document approved what.
-        Assert.Equal("beki-layout-assets-v2.0", manifest.SourceRegistries["layout"]);
+        Assert.Equal("beki-layout-assets-v2.1", manifest.SourceRegistries["layout"]);
         Assert.Equal("beki-theme-references-v1", manifest.SourceRegistries["theme_reference"]);
         Assert.Equal("beki-pose-registry-v1", manifest.SourceRegistries["pose"]);
 

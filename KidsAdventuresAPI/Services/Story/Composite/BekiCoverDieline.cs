@@ -155,14 +155,17 @@ public static class BekiCoverDieline
     /// typeset at layout time.
     /// </summary>
     public const float TitleSafeLeftMm = FrontBoardLeftMm + 16f;
-    public const float TitleSafeWidthMm = BoardWidthMm - 32f;
+    public const float TitleSafeWidthMm = 136f;
     public const float TitleSafeTopMm = 34f;
     public const float TitleSafeHeightMm = 46f;
 
-    /// <summary>Approved light vector logo on the dark front board, above the bottom safe edge.</summary>
+    /// <summary>Visible artwork bounds, 20 mm inward from the physical top/right folds.</summary>
     public const float LogoWidthMm = 36f;
-    public const float LogoLeftMm = FrontBoardLeftMm + 16f;
-    public const float LogoTopMm = BoardBottomMm - 22f;
+    public const float LogoRightMm = FrontBoardRightMm - 20f;
+    public const float LogoLeftMm = LogoRightMm - LogoWidthMm;
+    public const float LogoTopMm = BoardTopMm + 20f;
+    public const float LogoHeightMm = (float)(LogoWidthMm * Pdf.BekiVectorLogo.VisibleHeight / Pdf.BekiVectorLogo.VisibleWidth);
+    public const float LogoClearSpaceMm = 8f;
 
     /// <summary>
     /// Where the approved pose lands on the wrap, normalized over the full 512 × 245 canvas the
@@ -220,5 +223,14 @@ public static class BekiCoverDieline
         + "well away from those edges.";
 
     /// <summary>The locked wrap, in the shape the cover prompt template takes.</summary>
-    public static readonly CompositeCoverGeometry Geometry = new(PanelInstructions, FrontBekiAnchor);
+    public static string ReservedArtworkInstructions => FormattableString.Invariant($"""
+        COMPOSITION RESERVATIONS ONLY; never paint these rectangles or their edges. Coordinates are millimetres from the top-left of the continuous 512 x 245 canvas.
+        TITLE: x={TitleSafeLeftMm}..{TitleSafeLeftMm + TitleSafeWidthMm}, y={TitleSafeTopMm}..{TitleSafeTopMm + TitleSafeHeightMm}.
+        Keep the child's entire face, head, hairline, eyes and expression, other characters and prominent accent details outside this area. Use only naturally calm low-detail atmosphere behind the future title.
+        LOGO: visible artwork x={LogoLeftMm}..{LogoRightMm}, y={LogoTopMm}..{LogoTopMm + LogoHeightMm}; reserve {LogoClearSpaceMm} mm additional clear space around it.
+        Keep this upper-right area calm and light enough for the official violet/yellow logo. Do not draw the logo or any lettering. Do not draw borders, bands, blank panels or fold marks.
+        """);
+
+    public static readonly CompositeCoverGeometry Geometry = new(
+        PanelInstructions + "\n" + ReservedArtworkInstructions, FrontBekiAnchor);
 }

@@ -76,7 +76,7 @@ public class CanonicalReleaseRegressionTests : CompositePipelineTestBase
         using var input = new MemoryStream();
         document.Save(input);
         var logo = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory,
-            "Assets", "BekiComposite", "logo", "HiResLight.svg"));
+            "Assets", "BekiComposite", "logo", "HiResColor.svg"));
         var pdf = BekiVectorLogo.Apply(input.ToArray(), logo);
         using var output = new MemoryStream(pdf);
         using var read = PdfReader.Open(output, PdfDocumentOpenMode.Modify);
@@ -86,10 +86,10 @@ public class CanonicalReleaseRegressionTests : CompositePipelineTestBase
             .Elements.GetDictionary("/BekiApprovedLogo")!;
         Assert.Equal(2, shading.Elements.GetInteger("/ShadingType"));
         var coords = shading.Elements.GetArray("/Coords")!;
-        Assert.Equal(227.126551, coords.Elements.GetReal(0), 6);
-        Assert.Equal(791.611139, coords.Elements.GetReal(1), 6);
-        Assert.Equal(225.321884, coords.Elements.GetReal(2), 6);
-        Assert.Equal(754.987243, coords.Elements.GetReal(3), 6);
+        Assert.Equal(233.463459, coords.Elements.GetReal(0), 6);
+        Assert.Equal(794.347666, coords.Elements.GetReal(1), 6);
+        Assert.Equal(232.148174, coords.Elements.GetReal(2), 6);
+        Assert.Equal(765.176513, coords.Elements.GetReal(3), 6);
         Assert.Throws<InvalidOperationException>(() => BekiVectorLogo.Apply(pdf, [1, 2, 3]));
     }
 }

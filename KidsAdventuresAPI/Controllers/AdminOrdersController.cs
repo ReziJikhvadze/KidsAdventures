@@ -3,6 +3,7 @@ using AdventurePacks.Api.Repositories.Implementations;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
 using AdventurePacks.Api.Services.Story;
+using AdventurePacks.Api.Services.Story.Composite;
 
 namespace AdventurePacks.Api.Controllers;
 
@@ -34,6 +35,74 @@ public sealed class AdminOrdersController(
     IUserContextService userContext,
     ILogger<AdminOrdersController> logger) : ControllerBase
 {
+    /// <summary>Pixel-bound cover observations. Reading/recording them never regenerates or republishes a book.</summary>
+    [HttpGet("orders/{id:guid}/cover-layout")]
+    public async Task<IActionResult> CoverLayout(Guid id, CancellationToken cancellationToken)
+    {
+        var pack = await PackForOrderAsync(id, cancellationToken);
+        if (pack is null) return NotFound();
+        var name = BekiPackBlobs.CoverWrapBaseName(pack.UserId, pack.Id);
+        if (!await blobStorage.ExistsAsync(name, cancellationToken)) return NotFound();
+        var png = await ReadCoverBlobAsync(name, cancellationToken);
+        var reviewName = BekiPackBlobs.CoverLayoutReviewName(pack.UserId, pack.Id);
+        BekiCoverLayoutReview? review = null;
+        if (await blobStorage.ExistsAsync(reviewName, cancellationToken))
+            review = System.Text.Json.JsonSerializer.Deserialize<BekiCoverLayoutReview>(
+                await ReadCoverBlobAsync(reviewName, cancellationToken));
+        var sha = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(png)).ToLowerInvariant();
+        var current = review?.BaseSha256.Equals(sha, StringComparison.OrdinalIgnoreCase) == true;
+        return Ok(new
+        {
+            baseSha256 = sha, canvasWidthMm = 512, canvasHeightMm = 245,
+            imageUrl = $"/api/admin/orders/{id}/cover-layout/base",
+            title = new { x = BekiCoverDieline.TitleSafeLeftMm, y = BekiCoverDieline.TitleSafeTopMm,
+                width = BekiCoverDieline.TitleSafeWidthMm, height = BekiCoverDieline.TitleSafeHeightMm },
+            review,
+            status = review is null ? "NOT_REVIEWED" : !current ? "STALE" :
+                BekiCoverLayoutSafety.Conflicts(review.Areas).Count == 0 ? "PASS" : "FAIL",
+        });
+    }
+
+    [HttpGet("orders/{id:guid}/cover-layout/base")]
+    public async Task<IActionResult> CoverLayoutBase(Guid id, CancellationToken cancellationToken)
+    {
+        var pack = await PackForOrderAsync(id, cancellationToken);
+        if (pack is null) return NotFound();
+        var name = BekiPackBlobs.CoverWrapBaseName(pack.UserId, pack.Id);
+        if (!await blobStorage.ExistsAsync(name, cancellationToken)) return NotFound();
+        return File(await ReadCoverBlobAsync(name, cancellationToken), "image/png");
+    }
+
+    [HttpPost("orders/{id:guid}/cover-layout")]
+    public async Task<IActionResult> RecordCoverLayout(Guid id,
+        [FromBody] AdminCoverLayoutRequest request, CancellationToken cancellationToken)
+    {
+        var pack = await PackForOrderAsync(id, cancellationToken);
+        if (pack is null) return NotFound();
+        var name = BekiPackBlobs.CoverWrapBaseName(pack.UserId, pack.Id);
+        if (!await blobStorage.ExistsAsync(name, cancellationToken)) return NotFound();
+        var png = await ReadCoverBlobAsync(name, cancellationToken);
+        var review = new BekiCoverLayoutReview(request.BaseSha256 ?? "",
+            userContext.GetEmail() is { Length: > 0 } email ? email : userContext.GetUserId().ToString(),
+            DateTimeOffset.UtcNow, request.Areas ?? []);
+        try { BekiCoverLayoutSafety.VerifySource(review, png); }
+        catch (BekiLayoutException ex) { return Conflict(new { message = ex.Message }); }
+        var conflicts = BekiCoverLayoutSafety.Conflicts(review.Areas);
+        // Preserve negative observations too: the next explicit preparation must refuse them.
+        // This endpoint does not alter old customer PDFs, print URLs or payment/order state.
+        await blobStorage.UploadAsync(BekiPackBlobs.CoverLayoutReviewName(pack.UserId, pack.Id),
+            System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(review), "application/json", cancellationToken);
+        return Ok(new { status = conflicts.Count == 0 ? "PASS" : "FAIL", conflicts, review });
+    }
+
+    private async Task<byte[]> ReadCoverBlobAsync(string name, CancellationToken cancellationToken)
+    {
+        await using var stream = await blobStorage.DownloadAsync(name, cancellationToken);
+        using var copy = new MemoryStream();
+        await stream.CopyToAsync(copy, cancellationToken);
+        return copy.ToArray();
+    }
+
     /// <summary>
     /// Order list across all customers. Paged rather than unbounded — an admin list that
     /// selects every row is fine on day one and a timeout by year two.

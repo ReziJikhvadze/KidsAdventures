@@ -45,6 +45,9 @@ public sealed class BekiAssetLockException : InvalidOperationException
 /// </remarks>
 public sealed record BekiAssetLockInputs
 {
+    /// <summary>False for the September 5 RGB canonical delivery, which does not consume an ICC profile.</summary>
+    public bool RequireOutputIntent { get; init; } = true;
+
     /// <summary>The locked FOGRA39 profile, absolute or relative to the app base directory.</summary>
     public required string OutputIntentIccPath { get; init; }
 
@@ -237,7 +240,8 @@ public sealed class BekiAssetLock
         }
 
         CheckFontRegistration(inputs, failures);
-        AppendOutputIntent(inputs, root, entries, failures);
+        if (inputs.RequireOutputIntent)
+            AppendOutputIntent(inputs, root, entries, failures);
 
         if (failures.Count > 0)
         {

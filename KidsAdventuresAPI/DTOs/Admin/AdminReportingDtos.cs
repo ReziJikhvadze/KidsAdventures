@@ -369,6 +369,12 @@ public sealed class AdminApproveReviewRequest
     public string? ContactSheetSha256 { get; set; }
 }
 
+public sealed class AdminCoverLayoutRequest
+{
+    public string? BaseSha256 { get; set; }
+    public IReadOnlyList<global::AdventurePacks.Api.Services.Story.Composite.BekiCoverProtectedArea>? Areas { get; set; }
+}
+
 /// <summary>
 /// Body of <c>POST /api/admin/orders/{id}/status</c> — the two marks an operator may put on an
 /// order by hand.

@@ -36,13 +36,16 @@ public class BekiCreditsLayoutTests
 
         var half = page.Width / 2;
 
-        // The credits text is on the dark left leaf.
+        // The credits text is dark violet on the same cream used by the opening blank leaf.
+        using var opening = Image.Load<Rgba32>(pages[1]);
+        Assert.Equal(opening[opening.Width * 3 / 4, 10], page[10, 10]);
+        Assert.Equal(new Rgba32(0xF3, 0xE7, 0xD2), page[10, 10]);
         var leftInk = 0;
         for (var x = 2; x < half - 2; x++)
         {
             for (var y = 2; y < page.Height - 2; y += 3)
             {
-                if (!IsPageGround(page[x, y])) leftInk++;
+                if (page[x, y] is { R: 0x28, G: 0x1B, B: 0x3F }) leftInk++;
             }
         }
 
@@ -78,7 +81,7 @@ public class BekiCreditsLayoutTests
 
     /// <summary>The composer's own page ground, and the only thing the left leaf may show.</summary>
     private static bool IsPageGround(Rgba32 pixel) =>
-        pixel is { R: 0x28, G: 0x1B, B: 0x3F };
+        pixel is { R: 0xF3, G: 0xE7, B: 0xD2 };
 
     /// <summary>How much white the page carries, and how far left and right it reaches.</summary>
     private static (int Count, int MinX, int MaxX) WhiteRun(Image<Rgba32> page)

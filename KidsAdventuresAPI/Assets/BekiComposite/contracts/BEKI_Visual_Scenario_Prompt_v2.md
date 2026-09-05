@@ -1,6 +1,8 @@
-# BEKI Visual Scenario Prompt v2.3
+# BEKI Visual Scenario Prompt v2.4
 
-**Prompt version:** `visual-scenario-v2.3`  
+**Prompt version:** `visual-scenario-v2.4`
+
+September 5 COVER-only override (runtime: `CompositeVisualScenarioPrompt.System`): describe normally two or three substantial, recognizable theme/story-grounded accents in `front_child_world_scene`, suitable for later selective varnish. Keep one action, the child as hero, Beki separate, a continuous back environment, no invented plot or ending reveal. Reserve a calm upper title area free of the child's face/head/hairline/eyes, important expression and prominent accents. No coordinates or print settings in the scenario. Frozen STORY and eight-spread scene planning are unchanged.
 **Status:** Implementation source  
 **Calls:** One normal text-model call per complete book; one validation retry maximum  
 **Purpose:** Convert one approved eight-spread Georgian story into one cover plan, one book-level visual lock, and eight machine-safe child/world scenes with separate Beki actions and per-spread prop states.

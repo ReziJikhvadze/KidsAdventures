@@ -36,6 +36,33 @@ namespace Adventrya.Story.Tests;
 /// </summary>
 public class AdminConsoleApiTests
 {
+    [Fact]
+    public async Task Cover_bounds_are_operator_signed_and_do_not_republish_existing_books()
+    {
+        var pack = Pack(GenerationPipelines.Beki, AdventurePackStatus.Completed, DateTime.UtcNow);
+        pack.PdfUrl = "existing.pdf";
+        var name = BekiPackBlobs.CoverWrapBaseName(pack.UserId, pack.Id);
+        var blobs = new FakeBlobs([]);
+        blobs.Bytes[name] = [1, 2, 3];
+        var controller = Controller(blobs: blobs, packs: new FakePacks(pack));
+        var request = new AdminCoverLayoutRequest
+        {
+            BaseSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(blobs.Bytes[name])),
+            Areas = [new("head", "Observed head", 350, 50, 60, 70)]
+        };
+        Assert.IsType<OkObjectResult>(await controller.RecordCoverLayout(OrderId, request, default));
+        var recorded = JsonSerializer.Deserialize<AdventurePacks.Api.Services.Story.Composite.BekiCoverLayoutReview>(
+            blobs.Bytes[BekiPackBlobs.CoverLayoutReviewName(pack.UserId, pack.Id)])!;
+        Assert.Equal("operator@beki.ge", recorded.Reviewer);
+        Assert.Equal("existing.pdf", pack.PdfUrl);
+        Assert.Empty(blobs.Deleted);
+
+        var count = blobs.Bytes.Count;
+        request.BaseSha256 = new string('0', 64);
+        Assert.IsType<ConflictObjectResult>(await controller.RecordCoverLayout(OrderId, request, default));
+        Assert.Equal(count, blobs.Bytes.Count);
+    }
+
     private static readonly Guid Owner = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private static readonly Guid PackId = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static readonly Guid OrderId = Guid.Parse("44444444-4444-4444-4444-444444444444");
@@ -1126,10 +1153,14 @@ public class AdminConsoleApiTests
                 ? Task.FromResult(bytes)
                 : throw new FileNotFoundException(storedUrl);
 
-        public Task<string> UploadAsync(string blobName, byte[] bytes, string contentType, CancellationToken ct) =>
-            throw new NotSupportedException();
+        public Task<string> UploadAsync(string blobName, byte[] bytes, string contentType, CancellationToken ct)
+        {
+            Bytes[blobName] = bytes;
+            return Task.FromResult(blobName);
+        }
 
-        public Task<Stream> DownloadAsync(string blobName, CancellationToken ct) => throw new NotSupportedException();
+        public Task<Stream> DownloadAsync(string blobName, CancellationToken ct) =>
+            Task.FromResult<Stream>(new MemoryStream(Bytes[blobName]));
     }
 
     private sealed class FakeOrders(Order? order) : IOrderRepository

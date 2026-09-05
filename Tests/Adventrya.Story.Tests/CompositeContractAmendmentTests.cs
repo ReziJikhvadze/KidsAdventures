@@ -77,23 +77,14 @@ public class CompositeContractAmendmentTests : CompositePipelineTestBase
     /// printer's own millimetres. The model paints what it is told is there.
     /// </summary>
     [Fact]
-    public void The_cover_prompt_names_no_percentage_and_no_region()
+    public void The_cover_prompt_preserves_unmarked_art_but_reserves_the_scoped_title_and_logo()
     {
-        var prompt = CoverPrompt(DezonedPanelInstructions);
-
-        Assert.DoesNotContain("%", prompt, StringComparison.Ordinal);
-
-        // Every noun the old prompt used to point at a place on the canvas. "Panel" and
-        // "rectangle" survive only inside the negatives — "readable without a blank panel,
-        // artificial blur, dark rectangle" forbids a thing rather than locating one — which is why
-        // the list names the phrases that located something.
-        foreach (var word in (string[])
-                 ["spine", "hinge", "fold", "gutter", "zone", "construction", "title-safe",
-                  "integration", "back panel", "front panel", "safe area", "bleed",
-                  "canvas width", "canvas height"])
-        {
-            Assert.DoesNotContain(word, prompt, StringComparison.OrdinalIgnoreCase);
-        }
+        var prompt = CoverPrompt(BekiCoverDieline.Geometry.PanelInstructions);
+        Assert.Contains("never paint these rectangles", prompt);
+        Assert.Contains("TITLE:", prompt);
+        Assert.Contains("LOGO:", prompt);
+        Assert.Contains("Do not draw borders, bands, blank panels or fold marks", prompt);
+        Assert.Contains("selective", prompt, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -169,7 +160,7 @@ public class CompositeContractAmendmentTests : CompositePipelineTestBase
     /// </remarks>
     [Fact]
     public void The_cover_prompt_version_is_bumped_for_the_amendment() =>
-        Assert.Equal("cover-child-world-v1.2", CompositeIllustrationPrompt.CoverVersion);
+        Assert.Equal("cover-child-world-v1.3", CompositeIllustrationPrompt.CoverVersion);
 
     // ===========================================================================================
     // D10 / P1-08 — the scenario's text quality bar
@@ -288,7 +279,7 @@ public class CompositeContractAmendmentTests : CompositePipelineTestBase
 
     [Fact]
     public void The_scenario_prompt_version_is_bumped_for_the_amendment() =>
-        Assert.Equal("visual-scenario-v2.3", CompositeVisualScenarioPrompt.Version);
+        Assert.Equal("visual-scenario-v2.4", CompositeVisualScenarioPrompt.Version);
 
     /// <summary>
     /// The request schema carries the same rule the supplied file states as a pattern — in words,

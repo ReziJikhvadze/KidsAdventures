@@ -193,13 +193,15 @@ public static class BekiPrintPrep
         BekiPrintProbe? probe = null,
         BekiResolutionReceipt? resolutionReceipt = null,
         bool canonicalMixedGeometry = false,
-        bool requirePressResolution = false)
+        bool requirePressResolution = false,
+        bool acceptRgbForScopedDelivery = false)
     {
         ArgumentNullException.ThrowIfNull(laidOutPdf);
         ArgumentNullException.ThrowIfNull(options);
 
         var root = baseDirectory ?? AppContext.BaseDirectory;
-        var (iccPath, iccBytes) = ReadOutputIntentProfile(options, root);
+        var (iccPath, iccBytes) = acceptRgbForScopedDelivery
+            ? (string.Empty, Array.Empty<byte>()) : ReadOutputIntentProfile(options, root);
         var requiredPpi = ReadRequiredPressRasterPpi(root);
 
         // The input is proven before anything expensive touches it, and its page count becomes
@@ -242,15 +244,15 @@ public static class BekiPrintPrep
                    new MemoryStream(laidOutPdf), PdfDocumentOpenMode.Import))
         {
             authoredTextLayers = EnforceSingleTextLayer(
-                authored.Pages.OfType<PdfPage>()
-                    .Select((page, index) => BekiContentWalker.Walk(page, index + 1))
+                Enumerable.Range(0, authored.PageCount)
+                    .Select(index => BekiContentWalker.Walk(authored.Pages[index], index + 1))
                     .ToList(), probe);
         }
 
         string? conversion = null;
         var pdf = laidOutPdf;
 
-        if (options.RequireAllCmyk)
+        if (options.RequireAllCmyk && !acceptRgbForScopedDelivery)
         {
             if (canonicalMixedGeometry)
                 pdf = BekiVectorLogo.PrepareForCmyk(pdf,
@@ -278,8 +280,11 @@ public static class BekiPrintPrep
         {
             ValidateCanonicalGeometry(document);
         }
-        WriteOutputIntent(document, iccBytes, options);
-        WriteXmpMetadata(document, title);
+        if (!acceptRgbForScopedDelivery)
+        {
+            WriteOutputIntent(document, iccBytes, options);
+            WriteXmpMetadata(document, title);
+        }
 
         var fonts = InspectFonts(document);
         var images = InspectImages(document);
@@ -305,7 +310,7 @@ public static class BekiPrintPrep
         // image object remains RGB" — and the RGB object in the old benchmark is named there as a
         // defect, not a precedent. Grey soft masks are transparency, not colour content, and CMYK
         // has no alpha; they stay grey by design.
-        if (options.RequireAllCmyk)
+        if (options.RequireAllCmyk && !acceptRgbForScopedDelivery)
         {
             var rgb = images.Where(image => image.IsRgb && !image.IsMask).ToList();
             if (rgb.Count > 0)
@@ -347,9 +352,8 @@ public static class BekiPrintPrep
         // Page heights are read before the save, while the document is unambiguously ours: the
         // probe rectangles arrive measured from the top-left corner, and turning that into a
         // renderer's coordinates needs the page's own height.
-        var pageHeightsMm = document.Pages
-            .OfType<PdfPage>()
-            .Select(page => page.MediaBox.Height / 72d * 25.4d)
+        var pageHeightsMm = Enumerable.Range(0, document.PageCount)
+            .Select(index => document.Pages[index].MediaBox.Height / 72d * 25.4d)
             .ToList();
 
         using var output = new MemoryStream();
@@ -358,13 +362,15 @@ public static class BekiPrintPrep
 
         // The rendered-pixel half of A10a runs on the bytes that ship, not on an ancestor of them:
         // the whole point is to look at what a press would look at.
-        var pixelProbes = RunTextPixelProbes(prepared, pageHeightsMm, options, probe);
+        var pixelProbes = acceptRgbForScopedDelivery
+            ? (object)new { status = "not_applicable", reason = "No colour conversion; customer render validation checks the unchanged RGB PDF." }
+            : RunTextPixelProbes(prepared, pageHeightsMm, options, probe);
 
         var report = JsonSerializer.Serialize(
             new
             {
                 stage = canonicalMixedGeometry ? "beki-canonical-print-prep-v3" : "beki-print-prep-v2",
-                spec = "BEKI_Print_Production_Locked_Spec_v1",
+                spec = acceptRgbForScopedDelivery ? "BEKI_FINAL_SCOPE_2026-09-05" : "BEKI_Print_Production_Locked_Spec_v1",
                 prepared_at_utc = DateTime.UtcNow,
                 // The gates that failed and did not stop the file being written. Empty on a clean
                 // artifact. This exists because owner ruling 2026-09-01 rule 4 moved the decision on
@@ -373,16 +379,16 @@ public static class BekiPrintPrep
                 failed_gates = failedGates,
                 pdfx = new
                 {
-                    version = PdfxVersion,
-                    output_condition_identifier = options.OutputConditionIdentifier,
-                    output_condition_info = options.OutputConditionInfo,
-                    registry_name = options.RegistryName,
+                    version = acceptRgbForScopedDelivery ? "not_certified" : PdfxVersion,
+                    output_condition_identifier = acceptRgbForScopedDelivery ? null : options.OutputConditionIdentifier,
+                    output_condition_info = acceptRgbForScopedDelivery ? null : options.OutputConditionInfo,
+                    registry_name = acceptRgbForScopedDelivery ? null : options.RegistryName,
                     icc_profile_bytes = iccBytes.Length,
-                    icc_profile_sha256 = Convert.ToHexString(SHA256.HashData(iccBytes)).ToLowerInvariant(),
+                    icc_profile_sha256 = acceptRgbForScopedDelivery ? null : Convert.ToHexString(SHA256.HashData(iccBytes)).ToLowerInvariant(),
                 },
                 colour = new
                 {
-                    require_all_cmyk = options.RequireAllCmyk,
+                    require_all_cmyk = options.RequireAllCmyk && !acceptRgbForScopedDelivery,
                     conversion = conversion ?? "not required by configuration",
                     image_colour_spaces = images
                         .GroupBy(image => image.ColourSpace + (image.IsMask ? " (soft mask)" : string.Empty))
@@ -755,7 +761,7 @@ public static class BekiPrintPrep
             .Select(page => new
             {
                 page.Page,
-                Actual = page.TextFills.Sum(fill => fill.Occurrences),
+                Actual = page.TextDraws.Sum(draw => draw.Occurrences),
                 Maximum = probe?.MaximumVisibleTextDrawsByPage is { } limits
                           && limits.TryGetValue(page.Page, out var maximum)
                     ? maximum

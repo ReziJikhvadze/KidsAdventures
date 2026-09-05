@@ -430,7 +430,7 @@ public static class CompositeIllustrationPrompt
     /// same <see cref="CompositeChildIdentity.LockBlock"/>, numbered against the references the
     /// request actually carries, so the two pictures cannot describe two children.
     /// </summary>
-    public const string CoverVersion = "cover-child-world-v1.2";
+    public const string CoverVersion = "cover-child-world-v1.3";
 
     /// <summary>
     /// <remarks>
@@ -554,6 +554,9 @@ public static class CompositeIllustrationPrompt
 
             RECURRING ELEMENTS REQUIRED ON THE FRONT
             {RecurringBlock(input.RecurringElements)}
+
+            COVER IMPACT AND SELECTIVE-VARNISH CANDIDATES
+            Execute the prominent theme/story accent details named in the cover scene at a readable visual scale. Give them clear silhouettes, differentiated materials, and convincing light so they can later be selected as individual varnish areas. Compose a striking, coherent front cover with the child as hero, a naturally integrated clear space for the approved Beki PNG, and meaningful world details beyond the two characters. Use foreground, midground, and background depth. Keep the accents away from the reserved title/logo regions and physical folds/turn-ins. Avoid flat empty scenery, uniformly scattered glitter, and indiscriminate glossy treatment. Do not simulate a varnish mask, print marks, or a varnish plate in the illustration. Do not draw Beki, the logo, or any lettering.
 
             PRINTER-SPECIFIC COMPOSITION
             {input.Geometry.PanelInstructions.Trim()}
@@ -1091,7 +1094,7 @@ public static class CompositeVisualScenarioPrompt
     /// existing PROP_STATE reviewer reads — no new enum, no new field, nothing downstream to
     /// migrate.
     /// </summary>
-    public const string Version = "visual-scenario-v2.3";
+    public const string Version = "visual-scenario-v2.4";
 
     /// <summary>The schema name recorded against the call. The file itself is the response schema.</summary>
     public const string SchemaName = "visual_scenario_v2";
@@ -1237,6 +1240,8 @@ public static class CompositeVisualScenarioPrompt
         - cover.beki_action gives Beki one inviting supporting action.
         - back_environment is a natural continuation of the same world, atmosphere, lighting, and terrain.
         - back_environment contains neither the child nor Beki.
+        - Make the front cover visually arresting and appropriate for a premium personalized children's book. In addition to the child's inviting action and the space reserved for later Beki compositing, describe a small number of prominent, concrete theme- or story-grounded accent details, normally two or three where appropriate. These details must be recognizable subjects suitable for later selective varnish, not merely tiny glitter or distant background texture. Name and describe them within front_child_world_scene. Keep the child the active hero, preserve one coherent cover moment, and do not reveal the ending or invent a new plot. Do not describe Beki inside front_child_world_scene. Do not specify coordinates, print settings, or typography; the cover image prompt and composer supply those.
+        - Plan the front cover with a clean, calm upper title area. The child's face, head, hairline, eyes, and important expression details must not be placed inside or behind the title area. Compose the child's pose and gaze so the child remains the hero while leaving enough negative space for a readable title above. Keep prominent accent details out of the title area unless they are faint, low-detail background elements that will not interfere with typography.
 
         STORY SPREADS
 

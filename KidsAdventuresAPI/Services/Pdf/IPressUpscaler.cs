@@ -158,7 +158,7 @@ public sealed class CliPressUpscaler(BekiPrintPrepOptions options) : IPressUpsca
             }
 
             var stderr = process.StandardError.ReadToEndAsync(cancellationToken);
-            _ = process.StandardOutput.ReadToEndAsync(cancellationToken);
+            var stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
 
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             deadline.CancelAfter(Timeout);
@@ -167,13 +167,17 @@ public sealed class CliPressUpscaler(BekiPrintPrepOptions options) : IPressUpsca
             {
                 await process.WaitForExitAsync(deadline.Token).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException)
             {
                 try { process.Kill(entireProcessTree: true); } catch { /* already gone */ }
+                cancellationToken.ThrowIfCancellationRequested();
                 return Failed(
                     sourceWidth, sourceHeight,
                     $"'{_options.UpscalerPath}' did not finish within {Timeout.TotalMinutes:F0} minutes.");
             }
+
+            // Drain both pipes before accepting output; cancellation must not leave a resolver running.
+            await stdout.ConfigureAwait(false);
 
             if (process.ExitCode != 0 || !File.Exists(output))
             {

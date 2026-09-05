@@ -324,7 +324,7 @@ public class BekiReaderExportTests
         }
 
         // No panel where no copy sits over artwork: the two covers, the endpapers, and the credits
-        // page, whose ground is the book's own purple and whose type needs neither rim nor shade.
+        // page, whose ground is now the opening cream and whose type needs neither rim nor shade.
         foreach (var page in reading.Receipts.Pages
             .Where(page => page.Role != "intro" && !page.Role.StartsWith("spread-")))
         {
@@ -333,7 +333,7 @@ public class BekiReaderExportTests
         }
 
         var credits = reading.Receipts.Pages.Single(page => page.Role == "credits");
-        Assert.All(credits.Typography, type => Assert.Equal("#FFF8EB", type.Colour));
+        Assert.All(credits.Typography, type => Assert.Equal("#281B3F", type.Colour));
 
         // The JSON a gate actually opens carries the block under the name receipts have always
         // used for the shape under the copy, with the ink in it — and, read back, a page with no
@@ -503,7 +503,7 @@ public class BekiReaderExportTests
     /// for the credits page — a rectangle the press probe can sample.
     /// </summary>
     [Fact]
-    public void The_layout_receipts_describe_every_page_and_name_the_credits_probe()
+    public void The_layout_receipts_describe_every_page_and_dark_credits_need_no_light_probe()
     {
         var reading = ComposeReading();
         var receipts = reading.Receipts;
@@ -527,19 +527,12 @@ public class BekiReaderExportTests
             Assert.All(page.ImageSha256, hash => Assert.Matches("^[0-9a-f]{64}$", hash));
         }
 
-        // The credits probe: the one page in the book whose ground is flat and whose type is light,
-        // which is the page audit P0-07 found unreadable after CMYK conversion.
-        var probe = Assert.Single(receipts.FlatGroundTextProbes);
-        Assert.Equal("credits-text", probe.Role);
-        Assert.Equal(12, probe.Page);
-        Assert.True(probe.XMm < SpreadWidthMm / 2d,
-            $"the credits text probe starts at {probe.XMm:F1} mm — it must be on the left leaf.");
-        Assert.True(probe.XMm + probe.WidthMm <= SpreadWidthMm / 2d);
-        Assert.True(probe.HeightMm > 0 && probe.YMm > 0);
+        // September 5 credits are dark-on-cream, not a light-on-dark conversion probe.
+        Assert.Empty(receipts.FlatGroundTextProbes);
 
         // It is the shape print prep takes, so an integrator hands it over rather than converting.
         BekiPrintProbe handover = new(receipts.LightTextPages, receipts.FlatGroundTextProbes);
-        Assert.Contains(12, handover.LightTextPages);
+        Assert.DoesNotContain(12, handover.LightTextPages);
 
         // And the per-page JSON is what fulfillment stores.
         var creditsPage = receipts.Pages[11];
@@ -547,10 +540,7 @@ public class BekiReaderExportTests
 
         using var json = JsonDocument.Parse(creditsPage.ToJson());
         Assert.Equal("credits", json.RootElement.GetProperty("role").GetString());
-        Assert.Equal(
-            "credits-text",
-            json.RootElement.GetProperty("text_probe").GetProperty("role").GetString());
-        Assert.Equal(12, json.RootElement.GetProperty("text_probe").GetProperty("page").GetInt32());
+        Assert.False(json.RootElement.TryGetProperty("text_probe", out _));
 
         using var whole = JsonDocument.Parse(receipts.ToJson());
         Assert.Equal(14, whole.RootElement.GetProperty("pages").GetArrayLength());

@@ -54,7 +54,7 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
 
         Assert.Equal(
             [
-                $"{BekiLayoutFixture.ChildName}-სთვის შექმნილი წიგნი",
+                $"{BekiLayoutFixture.ChildName}სთვის შექმნილი წიგნი",
                 $"ისტორია და სამყარო: {BekiLayoutFixture.WorldName}",
                 $"მთავარი გმირი: {BekiLayoutFixture.ChildName}",
                 "გზამკვლევი: ბეკი",

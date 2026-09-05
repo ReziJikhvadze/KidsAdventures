@@ -18,6 +18,12 @@ namespace AdventurePacks.Api.Services.Pdf;
 /// </summary>
 public static class BekiVectorLogo
 {
+    // Exact cubic-Bezier extrema of the hash-locked colored asset; not its padded viewBox.
+    public const double VisibleMinX = 0.0010303793911205644;
+    public const double VisibleMinY = 644.6859999999998;
+    public const double VisibleWidth = 1999.999969620609;
+    public const double VisibleHeight = 710.628556858726;
+    public const string ApprovedSha256 = "da8f2fdedfeb203f5dbcc8911f94747713c843ee58f1155b252a219f5ce6a43f";
     /// <summary>
     /// Ghostscript rasterizes RGB shadings when converting them to a different process colour
     /// space. Convert the gradient's colour function through the very same ICC pipeline first,
@@ -90,8 +96,8 @@ public static class BekiVectorLogo
     public static byte[] Apply(byte[] pdf, byte[] approvedSvg)
     {
         if (Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(approvedSvg))
-            != "E78BB168C316F9CE52C94F7741FBA9FED8F59B7A5B8013821FE6DD673521DB08")
-            throw new InvalidOperationException("The cover logo is not the approved HiResLight.svg.");
+            != ApprovedSha256.ToUpperInvariant())
+            throw new InvalidOperationException("The cover logo is not the approved HiResColor.svg.");
 
         using var svgStream = new MemoryStream(approvedSvg);
         using var reader = XmlReader.Create(svgStream, new XmlReaderSettings
@@ -132,9 +138,9 @@ public static class BekiVectorLogo
         }
         shadings.Elements["/BekiApprovedLogo"] = shading.Reference!;
 
-        var scale = BekiCoverDieline.LogoWidthMm / 25.4d * 72d / 2000d;
-        var x = BekiCoverDieline.LogoLeftMm / 25.4d * 72d;
-        var y = page.Height.Point - BekiCoverDieline.LogoTopMm / 25.4d * 72d;
+        var scale = BekiCoverDieline.LogoWidthMm / 25.4d * 72d / VisibleWidth;
+        var x = BekiCoverDieline.LogoLeftMm / 25.4d * 72d - VisibleMinX * scale;
+        var y = page.Height.Point - BekiCoverDieline.LogoTopMm / 25.4d * 72d + VisibleMinY * scale;
         var content = new StringBuilder("Q\nq\n");
         content.AppendLine($"{F(scale)} 0 0 {F(-scale)} {F(x)} {F(y)} cm");
         foreach (var path in svg.Descendants(ns + "path"))

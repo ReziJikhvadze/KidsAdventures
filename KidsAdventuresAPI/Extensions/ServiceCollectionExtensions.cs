@@ -40,23 +40,8 @@ public static class ServiceCollectionExtensions
         // somebody is watching. The message .NET gives names the exact key.
         services.AddOptions<BekiOptions>()
             .Bind(configuration.GetSection(BekiOptions.SectionName))
-            // Two rules on top of the binding check, both from the deliverables audit.
-            //
-            // P1-02 found that "empty OutputIntentIccSha256 disables the ICC check" — a deployment
-            // could unset one string and the press stage would stop verifying that the profile it
-            // was building a colour transform on was the profile the printer approved. The check
-            // was skippable by configuration, and nothing said so. Correction plan D4 makes it a
-            // startup error instead: an unset profile path or an unset hash is a deployment that
-            // cannot produce a press file, and that is worth finding out at the deploy rather than
-            // in the middle of a paid book — or, worse, on paper.
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.PrintPrep.OutputIntentIccPath),
-                "Beki:PrintPrep:OutputIntentIccPath is empty. The locked print specification ships "
-                + "a FOGRA39 profile and press preparation cannot run without one.")
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.PrintPrep.OutputIntentIccSha256),
-                "Beki:PrintPrep:OutputIntentIccSha256 is empty, which silently disables the check "
-                + "that the output intent profile is the one the printer approved (audit P1-02).")
+            // September 5 accepts RGB: a missing print-only ICC setting must not stop the
+            // application. Legacy CMYK preparation still validates its profile when invoked.
             .ValidateOnStart();
         // OpenAI carries one rule of its own on top of the binding check. A zero story backoff
         // is a value with a meaning — retry immediately, which the retry tests run with so the
