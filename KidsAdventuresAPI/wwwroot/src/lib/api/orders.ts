@@ -15,6 +15,8 @@ export async function quoteOrder(request: QuoteRequest): Promise<QuoteResponse> 
       type: request.type ?? "NewBook",
       package: request.package,
       promoCode: request.promoCode || undefined,
+      giftWrap: request.giftWrap ?? false,
+      quantity: request.quantity ?? 1,
     }),
   });
 }

@@ -7,7 +7,7 @@ import { MERCHANT } from "@/lib/merchant";
   and a Georgian acquirer both read before they trust the site with a card.
 
   Every number here is the number the software actually uses — 14/79/65 GEL from GelPricing,
-  4-5 and 5-8 working days from GeorgianDelivery. A policy that promises a window the shipping
+  2-3 and 5-7 working days from GeorgianDelivery. A policy that promises a window the shipping
   email contradicts is worse than no policy, so when those change, this changes with them.
 */
 
@@ -60,7 +60,7 @@ export const refundsSections: LegalSection[] = [
       // would be inventing a stage of the process.
       "ნაბეჭდი წიგნი ბეჭდვაში გადადის მას შემდეგ, რაც ციფრული ვერსია დასრულდება. ციფრულ წიგნს დაუყოვნებლივ იღებთ თქვენს სივრცეში, ასე რომ ბეჭდვამდე ნახავთ, როგორი გამოვიდა.",
     ],
-    bullets: ["თბილისი — 4-5 სამუშაო დღე.", "საქართველოს დანარჩენი რეგიონები — 5-8 სამუშაო დღე."],
+    bullets: ["თბილისი — 2-3 სამუშაო დღე.", "საქართველოს დანარჩენი რეგიონები — 5-7 სამუშაო დღე."],
     afterBullets: [
       "მიწოდება ხდება შეკვეთისას მითითებულ მისამართზე, კურიერით. მიწოდების ღირებულება წიგნის ფასშია ჩართული — დამატებით არაფერს იხდით.",
       "თუ მისამართი ან ტელეფონი არასწორია და კურიერი ვერ დაგიკავშირდათ, დაგვირეკავთ. თუ ორი მცდელობის შემდეგაც ვერ მოხერხდა ჩაბარება, შეკვეთა ბრუნდება ჩვენთან და ხელახალ გაგზავნას შევათანხმებთ.",

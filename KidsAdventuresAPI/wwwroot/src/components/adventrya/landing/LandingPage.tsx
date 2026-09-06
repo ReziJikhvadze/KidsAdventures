@@ -109,23 +109,15 @@ function Pricing() {
   const L = t.landing.pricing;
   return (
     <section id="pricing" className="landing-v3-section landing-v3-pricing">
+      {/*
+        The heading, and nothing else. The eyebrow, the lead sentence and the three ticks
+        under it all said again what the two cards beside them say in their own words, so the
+        column was three paragraphs of preamble in front of the prices.
+      */}
       <div className="landing-v3-pricing-copy">
-        <p>
-          <span aria-hidden="true" />
-          {L.eyebrow}
-        </p>
         <h2>
           {L.titleLine1} <em>{L.titleEm}</em>
         </h2>
-        <span>{L.lead}</span>
-        <ul>
-          {t.landing.benefits.items.map((item) => (
-            <li key={item.title}>
-              <CheckIcon />
-              {item.title}
-            </li>
-          ))}
-        </ul>
       </div>
 
       <div className="landing-v3-price-cards">

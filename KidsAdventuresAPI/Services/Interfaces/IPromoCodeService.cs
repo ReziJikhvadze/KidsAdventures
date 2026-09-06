@@ -8,9 +8,14 @@ public sealed record PricedOrder(
     int DiscountMinor,
     int TotalMinor,
     PromoCode? Promo,
-    PromoQuote? Quote)
+    PromoQuote? Quote,
+    int GiftWrapMinor = 0,
+    int Quantity = 1)
 {
     public bool IsFree => TotalMinor == 0;
+
+    /// <summary>Whether wrapping was actually charged — the request asked and the package allowed it.</summary>
+    public bool GiftWrap => GiftWrapMinor > 0;
 }
 
 public interface IPromoCodeService
@@ -25,6 +30,8 @@ public interface IPromoCodeService
         OrderType type,
         OrderPackage package,
         string? promoCode,
+        bool giftWrap,
+        int quantity,
         CancellationToken cancellationToken);
 
     Task<QuoteResponse> QuoteAsync(
@@ -32,6 +39,8 @@ public interface IPromoCodeService
         OrderType type,
         OrderPackage package,
         string? promoCode,
+        bool giftWrap,
+        int quantity,
         CancellationToken cancellationToken);
 
     /// <summary>

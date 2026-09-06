@@ -480,6 +480,190 @@
   color: #def4e88f;
   font-size: 11px;
 }
+/*
+  Minus, number, plus — the stepper every food app has already taught this parent to read.
+
+  Same panel as the wrapping row below it so the two optional things on this screen are plainly
+  a pair. The number is fixed-width by its own min-width rather than by a monospace font, so the
+  buttons do not shuffle sideways between 1 and 5.
+*/
+.ux-copies {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 11px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid rgba(239, 227, 207, 0.15);
+  border-radius: 15px;
+  background: #2d1f5459;
+}
+.ux-copies > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ux-copies strong {
+  color: #f8f2e5;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ux-copies small {
+  color: #f8f2e58f;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.ux-copies-stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid rgba(232, 201, 138, 0.28);
+  border-radius: 999px;
+  background: #e8c98a12;
+}
+.ux-copies-stepper button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #2c1c49;
+  background: var(--story-gold);
+  transition:
+    opacity 0.16s ease,
+    background 0.16s ease;
+}
+/*
+  The end of the range, said by going quiet rather than by disappearing.
+
+  A button that vanishes at one takes the other one with it sideways, and the row the parent was
+  aiming at moves under their finger.
+*/
+.ux-copies-stepper button:disabled {
+  cursor: default;
+  color: #f8f2e561;
+  background: #f8f2e514;
+}
+.ux-copies-stepper b {
+  min-width: 26px;
+  color: #f8f2e5;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/*
+  A tick, a line about what it is, and what it costs — in that order, because that is the order
+  the question is asked in.
+
+  The same panel as the promo box below it, so the two optional things on this screen look like
+  a pair rather than one being a form and the other an afterthought. The price sits at the end
+  of the row, where the eye already goes for a number.
+*/
+.ux-gift-wrap {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 11px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid rgba(239, 227, 207, 0.15);
+  border-radius: 15px;
+  cursor: pointer;
+  background: #2d1f5459;
+}
+.ux-gift-wrap input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--story-gold);
+  cursor: pointer;
+}
+.ux-gift-wrap span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ux-gift-wrap strong {
+  color: #f8f2e5;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ux-gift-wrap small {
+  color: #f8f2e58f;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.ux-gift-wrap b {
+  color: var(--story-gold);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ux-gift-wrap:has(input:checked) {
+  border-color: rgba(232, 201, 138, 0.42);
+  background: #3a2a5e7a;
+}
+
+/*
+  The promo box, back where it was. Same panel it was removed from — a labelled field with the
+  apply button on its own column, and the verdict under it rather than in a toast that a parent
+  reading the total would never see.
+*/
+.ux-promo-panel {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid rgba(239, 227, 207, 0.15);
+  border-radius: 15px;
+  background: #2d1f5459;
+}
+.ux-promo-panel .field > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+.ux-promo-panel input {
+  min-width: 0;
+}
+.ux-promo-panel button {
+  min-height: 42px;
+  padding: 0 13px;
+  border: 1px solid rgba(232, 201, 138, 0.28);
+  border-radius: 11px;
+  cursor: pointer;
+  color: #f2d99c;
+  background: #e8c98a14;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+}
+.ux-promo-panel button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.ux-promo-panel > p {
+  margin: 8px 0 0;
+  font-size: 11px;
+}
+.ux-promo-panel > p.valid {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #a9e4c4;
+}
+.ux-promo-panel > p.valid svg {
+  width: 11px;
+}
+.ux-promo-panel > p.invalid {
+  color: #ffd0cb;
+}
 .ux-discount-line {
   color: #a9e4c4 !important;
 }

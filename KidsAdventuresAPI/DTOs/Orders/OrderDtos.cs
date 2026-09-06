@@ -57,6 +57,15 @@ public sealed class CreateOrderRequest
     [MaxLength(64)]
     public string? PromoCode { get; set; }
 
+    /// <summary>Gift wrapping, +5 GEL. Only the Print package can be wrapped; ignored for Digital.</summary>
+    public bool GiftWrap { get; set; }
+
+    /// <summary>
+    /// How many printed copies, 1..5. Ignored for Digital, which is a file and has no copies.
+    /// Out-of-range values are brought back inside it rather than refused.
+    /// </summary>
+    public int Quantity { get; set; } = 1;
+
     /// <summary>Required for a new book; omitted for a print upgrade.</summary>
     public BookDraftRequest? Draft { get; set; }
 
@@ -95,6 +104,12 @@ public sealed class QuoteRequest
 
     [MaxLength(64)]
     public string? PromoCode { get; set; }
+
+    /// <summary>Gift wrapping, +5 GEL. Only the Print package can be wrapped.</summary>
+    public bool GiftWrap { get; set; }
+
+    /// <summary>How many printed copies, 1..5. Ignored for Digital.</summary>
+    public int Quantity { get; set; } = 1;
 }
 
 public sealed class QuoteResponse
@@ -103,6 +118,16 @@ public sealed class QuoteResponse
     public int SubtotalMinor { get; set; }
     public int DiscountMinor { get; set; }
     public int TotalMinor { get; set; }
+
+    /// <summary>
+    /// How much of the subtotal is wrapping, so the checkout can show it as its own line
+    /// rather than the client adding five lari of its own and hoping the server agrees.
+    /// Zero when it was not asked for, or was asked for on a package that cannot be wrapped.
+    /// </summary>
+    public int GiftWrapMinor { get; set; }
+
+    /// <summary>The number of copies this quote was actually priced for, after clamping.</summary>
+    public int Quantity { get; set; } = 1;
 
     /// <summary>True when a full-discount code brought the total to zero.</summary>
     public bool IsFree { get; set; }

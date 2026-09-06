@@ -180,6 +180,17 @@ function PrintRow({ row, onChanged }: { row: admin.AdminPrintOrder; onChanged: (
         {[row.city, row.addressLine1, row.addressLine2].filter(Boolean).join(", ")}
         {row.postalCode ? <span className="cell-subtitle">{row.postalCode}</span> : null}
         {row.notes ? <span className="cell-subtitle">შენიშვნა: {row.notes}</span> : null}
+        {/* In the address cell, because that is the cell read by the person with the parcel in
+            their hands — a paid-for wrapping that is only visible on the order screen is a
+            wrapping that does not happen. */}
+        {row.giftWrap ? (
+          <span className="cell-subtitle attention-chip is-review">🎁 სასაჩუქრე შეფუთვა</span>
+        ) : null}
+        {(row.quantity ?? 1) > 1 ? (
+          <span className="cell-subtitle attention-chip is-review">
+            📚 {row.quantity} ეგზემპლარი
+          </span>
+        ) : null}
       </td>
       <td>
         {row.hasPrintPdf === false ? (

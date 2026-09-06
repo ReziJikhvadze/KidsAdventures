@@ -87,6 +87,16 @@
 .art-stage {
   position: relative;
   display: grid;
+  /*
+    One column, the width of the stage, whatever the frame in it measures.
+
+    Without this the single auto column grew to the frame — so a frame wider than the window sat
+    at the track's start and spilled the whole difference off the right-hand edge, taking the
+    ocean island 286px past it on a 1024x768 window. The row never did this, because the stage's
+    height is definite; the column is now definite too, and an oversized frame overflows the way
+    place-items already promised: half at each end.
+  */
+  grid-template-columns: minmax(0, 1fr);
   height: 100svh;
   max-height: 100svh;
   place-items: center;
@@ -175,21 +185,76 @@
   What the crop does take is handled where it lands: the wordmark, the headline and the back
   arrow add the hidden band to their own offset, and so does the bottom row of cards.
 */
+/*
+  The cap is not "how tall may the frame get", it is "how much of the painting may be thrown
+  away" — and the painting itself says how much that is.
+
+  A frame one and a half times the window kept the islands' *buttons* on screen, which is what
+  it was written for, and let the crop run to eight percent of the master at either end. The art
+  has nothing like that to spare: measured on the master, the observatory's planets start four
+  percent from the top and the ocean island stops three and a half from the right edge. So on
+  every ordinary widescreen laptop — 1366x657 crops 7.2%, 1920x950 crops 6% — the top of the
+  space island was being cut off, which is the report this answers.
+
+  Four percent a side vertically, three and a half horizontally: the painting's own margins, and
+  band of the blurred copy of the painting down the sides of a wide window (about 52px at 1920,
+  24px at 1536) instead of a covered edge — the ambient layer exists for exactly this, and it is
+  what already fills the shape of a window the map cannot cover.
+*/
 .desktop-frame {
-  width: min(max(100vw, calc(100svh * 1.776833)), calc(100svh * 1.45 * 1.776833));
+  width: min(
+    max(100vw, calc(100svh * 1.776833)),
+    calc(100svh * 1.075 * 1.776833),
+    calc(100vw * 1.0638)
+  );
   aspect-ratio: 1672 / 941;
   /* The same expression as the width, read as a height and measured against the window: the
-     landscape master's own ratio, its own cap, its own hidden band. */
-  --crop-band: max(0px, calc((min(max(100vw / 1.776833, 100svh), 100svh * 1.45) - 100svh) / 2));
+     landscape master's own ratio, its own caps, its own hidden band. */
+  --crop-band: max(
+    0px,
+    calc(
+      (
+          min(
+              max(100vw / 1.776833, 100svh),
+              calc(100svh * 1.075),
+              calc(100vw * 1.0638 / 1.776833)
+            ) -
+            100svh
+        ) /
+        2
+    )
+  );
 }
 
+/*
+  The portrait master is more than twice as tall as it is wide, so on anything approaching a
+  square window its hidden band is the larger of the two by far — and it is nothing like the
+  landscape master's, which is why each frame works out its own.
+
+  Same rule, worse symptom. A tablet held upright — 768x1024, 820x1180 — covered with the tall
+  master hid fifteen and a half percent at each end, which did not merely crop the art: the top
+  two islands, clouds and space, were *entirely above the screen*, so two of the six worlds could
+  not be tapped at all. Six percent a side keeps every island's target on screen with room over,
+  and a phone, whose shape is the master's shape to within a fraction of a percent, never reaches
+  the cap and is untouched.
+*/
 .mobile-frame {
-  width: min(max(100vw, calc(100svh * 0.462581)), calc(100svh * 1.45 * 0.462581));
+  width: min(
+    max(100vw, calc(100svh * 0.462581)),
+    calc(100svh * 1.136 * 0.462581),
+    calc(100vw * 1.087)
+  );
   aspect-ratio: 853 / 1844;
-  /* The portrait master is more than twice as tall as it is wide, so on anything approaching a
-     square window its hidden band is the larger of the two by far — and it is nothing like the
-     landscape master's, which is why each frame works out its own. */
-  --crop-band: max(0px, calc((min(max(100vw / 0.462581, 100svh), 100svh * 1.45) - 100svh) / 2));
+  --crop-band: max(
+    0px,
+    calc(
+      (
+          min(max(100vw / 0.462581, 100svh), calc(100svh * 1.136), calc(100vw * 1.087 / 0.462581)) -
+            100svh
+        ) /
+        2
+    )
+  );
 }
 
 /*
@@ -201,11 +266,19 @@
   exactly where the section does, which is what filling a page to its edge actually requires.
 */
 .experience-shell-embedded .desktop-frame {
-  width: min(max(100%, calc(100svh * 1.776833)), calc(100svh * 1.45 * 1.776833));
+  width: min(
+    max(100%, calc(100svh * 1.776833)),
+    calc(100svh * 1.075 * 1.776833),
+    calc(100% * 1.0638)
+  );
 }
 
 .experience-shell-embedded .mobile-frame {
-  width: min(max(100%, calc(100svh * 0.462581)), calc(100svh * 1.45 * 0.462581));
+  width: min(
+    max(100%, calc(100svh * 0.462581)),
+    calc(100svh * 1.136 * 0.462581),
+    calc(100% * 1.087)
+  );
 }
 
 .master-art {

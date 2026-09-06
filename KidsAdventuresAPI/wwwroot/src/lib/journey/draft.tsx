@@ -115,6 +115,10 @@ export type JourneyDraft = {
    */
   pickerHref: string | null;
   promoCode: string;
+  /** Wrap the parcel as a gift, +5 GEL. Only ever true alongside the print package. */
+  giftWrap: boolean;
+  /** Printed copies, 1..5. Only ever more than one alongside the print package. */
+  quantity: number;
   shipping: ShippingAddressRequest;
 };
 
@@ -172,6 +176,8 @@ export function emptyDraft(): JourneyDraft {
     cameFrom: null,
     pickerHref: null,
     promoCode: "",
+    giftWrap: false,
+    quantity: 1,
     shipping: {
       recipientName: "",
       recipientPhone: "",

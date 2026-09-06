@@ -46,7 +46,7 @@ public sealed class AddressResponse
     public string? PostalCode { get; set; }
     public bool IsDefault { get; set; }
 
-    /// <summary>Georgian delivery estimate for this city, e.g. "მიწოდება 4-5 სამუშაო დღეში".</summary>
+    /// <summary>Georgian delivery estimate for this city, e.g. "მიწოდება 2-3 სამუშაო დღეში".</summary>
     public string DeliveryEstimate { get; set; } = string.Empty;
 }
 
@@ -169,6 +169,12 @@ public sealed class AdminPrintOrderResponse
     public bool PdfIsReadingCopyFallback { get; set; }
 
     public int TotalMinor { get; set; }
+
+    /// <summary>The parcel is to be wrapped as a gift. Five lari of the total is for that.</summary>
+    public bool GiftWrap { get; set; }
+
+    /// <summary>How many copies of the book go in this parcel. One unless the parent asked for more.</summary>
+    public int Quantity { get; set; } = 1;
     public string TotalFormatted { get; set; } = string.Empty;
 
     public DateTimeOffset CreatedAt { get; set; }
@@ -231,6 +237,12 @@ public sealed class AdminPrintQueueRow
     public string? TrackingCode { get; set; }
 
     public int TotalMinor { get; set; }
+
+    /// <summary>The parcel is to be wrapped as a gift. Five lari of the total is for that.</summary>
+    public bool GiftWrap { get; set; }
+
+    /// <summary>How many copies of the book go in this parcel. One unless the parent asked for more.</summary>
+    public int Quantity { get; set; } = 1;
 
     public DateTime CreatedAt { get; set; }
     public DateTime? ShippedAt { get; set; }

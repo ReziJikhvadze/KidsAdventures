@@ -27,26 +27,42 @@ public sealed class PromoCodeService(
         OrderType type,
         OrderPackage package,
         string? promoCode,
+        bool giftWrap,
+        int quantity,
         CancellationToken cancellationToken)
     {
-        var subtotal = GelPricing.SubtotalFor(type, GelPricing.PackageFor(type, package));
+        var effectivePackage = GelPricing.PackageFor(type, package);
+        /* Clamped once, here, and carried on the result: everything downstream — the order row,
+           the print queue, the line the parent reads — has to mean the same number. */
+        var copies = GelPricing.QuantityFor(type, effectivePackage, quantity);
+        /*
+          Wrapping is part of the subtotal, not a surcharge bolted on after the discount.
+
+          A percentage code therefore takes its cut of the wrapping too, and a full-discount
+          code makes the whole order free rather than leaving five lari to collect. Either of
+          those is defensible; what is not is a total the parent cannot arrive at themselves
+          from the lines they were shown.
+        */
+        var wrapping = GelPricing.GiftWrapFor(effectivePackage, giftWrap);
+        var subtotal = GelPricing.SubtotalFor(type, effectivePackage, giftWrap, copies);
 
         if (string.IsNullOrWhiteSpace(promoCode))
         {
-            return new PricedOrder(subtotal, 0, subtotal, null, null);
+            return new PricedOrder(subtotal, 0, subtotal, null, null, wrapping, copies);
         }
 
         var trimmed = promoCode.Trim();
         var code = await promoCodeRepository.GetByCodeAsync(trimmed, cancellationToken);
         if (code is null)
         {
-            return new PricedOrder(subtotal, 0, subtotal, null, Invalid(trimmed, Messages.Unknown));
+            return new PricedOrder(subtotal, 0, subtotal, null, Invalid(trimmed, Messages.Unknown), wrapping, copies);
         }
 
         var rejection = await RejectionReasonAsync(code, userId, cancellationToken);
         if (rejection is not null)
         {
-            return new PricedOrder(subtotal, 0, subtotal, null, Invalid(code.Code, rejection, code));
+            return new PricedOrder(
+                subtotal, 0, subtotal, null, Invalid(code.Code, rejection, code), wrapping, copies);
         }
 
         var discount = code.DiscountFor(subtotal);
@@ -61,7 +77,7 @@ public sealed class PromoCodeService(
             Message = code.Description
         };
 
-        return new PricedOrder(subtotal, discount, subtotal - discount, code, quote);
+        return new PricedOrder(subtotal, discount, subtotal - discount, code, quote, wrapping, copies);
     }
 
     public async Task<QuoteResponse> QuoteAsync(
@@ -69,15 +85,20 @@ public sealed class PromoCodeService(
         OrderType type,
         OrderPackage package,
         string? promoCode,
+        bool giftWrap,
+        int quantity,
         CancellationToken cancellationToken)
     {
-        var priced = await PriceAsync(userId, type, package, promoCode, cancellationToken);
+        var priced = await PriceAsync(
+            userId, type, package, promoCode, giftWrap, quantity, cancellationToken);
         return new QuoteResponse
         {
             Currency = GelPricing.Currency,
             SubtotalMinor = priced.SubtotalMinor,
             DiscountMinor = priced.DiscountMinor,
             TotalMinor = priced.TotalMinor,
+            GiftWrapMinor = priced.GiftWrapMinor,
+            Quantity = priced.Quantity,
             // While payment is bypassed the quote reports free, so the checkout screen
             // stops asking for a card it will never charge. The prices themselves are
             // untouched — only the collection step is skipped.

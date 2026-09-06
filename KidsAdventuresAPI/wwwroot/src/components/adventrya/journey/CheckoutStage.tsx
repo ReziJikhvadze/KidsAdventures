@@ -1,4 +1,4 @@
-import { ArrowRight, Check, Lock, MapPin, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Lock, MapPin, Minus, Plus, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { BekiLoader } from "@/components/adventrya/BekiLoader";
@@ -20,7 +20,7 @@ import { clearJourneyResume } from "@/lib/journey/resume";
 import { readyPreviewPatch } from "@/lib/journey/previewRecovery";
 import { getGuestPreviewStatus } from "@/lib/api/adventure-packs";
 import { ensureServerCharacters } from "@/lib/journey/syncCharacters";
-import { PRICES } from "@/lib/pricing";
+import { MAX_PRINT_QUANTITY, PRICES } from "@/lib/pricing";
 import { heroDemoPages } from "@/lib/story/heroDemoPages";
 import { useWorldById, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
 
@@ -48,6 +48,18 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const bookTitle = draft.preview?.title?.trim() || world.bookTitle(heroName);
   const orderPackage: OrderPackage = draft.bookPackage === "print" ? "Print" : "Digital";
   const isPrint = orderPackage === "Print";
+  /*
+    Asked for, and possible. There is no parcel on a digital order, so the box is neither shown
+    nor sent — a draft that still carries `giftWrap` from a print package the parent then swapped
+    away from must not quietly add five lari to a file they download.
+  */
+  const wantsGiftWrap = isPrint && draft.giftWrap;
+  /*
+    Copies, and only where there are copies to make. A digital book is one file however many
+    times the stepper was pressed before the parent swapped packages, so the number is read
+    through the package rather than straight off the draft.
+  */
+  const copies = isPrint ? Math.min(Math.max(draft.quantity || 1, 1), MAX_PRINT_QUANTITY) : 1;
   const [pickingLocation, setPickingLocation] = useState(false);
   // The book is written in whatever language the parent is reading the site in — there is no
   // separate choice to make, so there is nothing to remember and nothing to get out of step.
@@ -55,6 +67,19 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const langLabel = bookLanguageLabel(locale);
 
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
+  /*
+    How many pricing requests are in flight, rather than a boolean.
+
+    Applying a code and changing the copy count can overlap, and with a flag the first one to
+    finish would unlock the button while the second was still on its way. A count only reaches
+    zero when every price the screen has asked for has come back.
+  */
+  const [inFlight, setInFlight] = useState(0);
+  const pricing = inFlight > 0;
+  /** Why a code was refused, kept here rather than read off a quote this screen no longer owns. */
+  const [promoMessage, setPromoMessage] = useState<string | null>(null);
+  const [promoInput, setPromoInput] = useState(draft.promoCode);
+  const [promoState, setPromoState] = useState<"idle" | "applying" | "applied" | "invalid">("idle");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,9 +92,17 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     };
   }, []);
 
-  const baseMinor = isPrint ? PRICES.print : PRICES.digital;
+  const baseMinor =
+    (isPrint ? PRICES.print * copies : PRICES.digital) + (wantsGiftWrap ? PRICES.giftWrap : 0);
   const subtotalMinor = quote?.subtotalMinor ?? baseMinor;
   const discountMinor = quote?.discountMinor ?? 0;
+  /*
+    The server's figure while it has one, and the local price only until the first quote lands,
+    so the summary never shows a wrapping line the order will not carry.
+  */
+  const giftWrapMinor = quote?.giftWrapMinor ?? (wantsGiftWrap ? PRICES.giftWrap : 0);
+  /** The copies the price on screen is actually for — the server's count once it has answered. */
+  const quotedCopies = quote?.quantity ?? copies;
   const totalMinor = quote?.totalMinor ?? baseMinor;
   const isFree = quote?.isFree === true || totalMinor === 0;
   const packageLabel = isPrint
@@ -78,23 +111,82 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    /*
+      The old price goes before the new one is asked for.
+
+      Wrapping and the copy count are both priced by the server, and leaving the previous
+      quote up while the replacement is in flight meant the button could carry the total for
+      one set of options while `createOrder` sent another — a parent shown 79 and charged 89.
+      Dropping it falls the screen back to the local arithmetic for the options actually
+      selected, and the button waits until the server has confirmed that figure.
+    */
+    setQuote(null);
+    setInFlight((n) => n + 1);
     void (async () => {
       try {
         const result = await ordersApi.quoteOrder({
           type: "NewBook",
           package: orderPackage,
           promoCode: draft.promoCode || undefined,
+          giftWrap: wantsGiftWrap,
+          quantity: copies,
         });
         if (cancelled) return;
         setQuote(result);
+        /* A code carried in on the draft is quoted with this first request, so its verdict is
+           the panel's opening state rather than something the parent has to press for. */
+        if (draft.promoCode) {
+          setPromoState(result.promo?.isValid ? "applied" : "invalid");
+        }
       } catch {
         if (!cancelled) setQuote(null);
+      } finally {
+        setInFlight((n) => n - 1);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [orderPackage, draft.promoCode]);
+  }, [orderPackage, draft.promoCode, wantsGiftWrap, copies]);
+
+  /*
+    Asks whether the code is any good. It does not price the order.
+
+    This used to install its own answer, and that answer was for whatever the options were when
+    it was sent — so a code checked over a slow connection could land after the parent had added
+    a copy and overwrite the newer, correct total with an older one. The effect above is now the
+    only thing that ever writes a quote, keyed on every input that changes a price; all this does
+    is put a valid code on the draft, which the effect then reads and prices properly.
+  */
+  const applyPromo = async () => {
+    const code = promoInput.trim().toUpperCase();
+    if (!code) return;
+    setPromoState("applying");
+    setPromoMessage(null);
+    setError(null);
+    setInFlight((n) => n + 1);
+    try {
+      const result = await ordersApi.quoteOrder({
+        type: "NewBook",
+        package: orderPackage,
+        promoCode: code,
+        giftWrap: wantsGiftWrap,
+        quantity: copies,
+      });
+      if (result.promo?.isValid) {
+        setPromoState("applied");
+        onChange({ promoCode: code });
+      } else {
+        setPromoState("invalid");
+        setPromoMessage(result.promo?.message ?? null);
+      }
+    } catch (err) {
+      setPromoState("invalid");
+      setError(err instanceof ApiError ? err.message : t.journey.checkout.promoInvalid);
+    } finally {
+      setInFlight((n) => n - 1);
+    }
+  };
 
   const updateShipping = (patch: Partial<ShippingAddressRequest>) => {
     onChange((prev) => ({ ...prev, shipping: { ...prev.shipping, ...patch } }));
@@ -154,6 +246,8 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
       const checkout = await ordersApi.createOrder({
         package: orderPackage,
         promoCode: draft.promoCode || undefined,
+        giftWrap: wantsGiftWrap,
+        quantity: copies,
         draft: {
           primaryCharacterId: primaryId,
           supportingCharacterIds: supportingIds,
@@ -175,7 +269,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
               /*
                 The form asks for the address once, but the server still keeps a City of its
                 own: it is required, it is what the shipping email names as the destination,
-                and GeorgianDelivery reads it to decide whether to quote 4-5 days or 5-8.
+                and GeorgianDelivery reads it to decide whether to quote 2-3 days or 5-7.
                 Sending the whole line keeps all three working — the Tbilisi check is a
                 substring match, so "თბილისი, გროზნოს 11ა" still resolves to the city window,
                 and anything unrecognised falls to the regional one, which is the safe
@@ -221,27 +315,17 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   };
 
   /*
-    A digital order goes straight to the bank.
+    Both packages stop here now, because both have something to answer.
 
-    There is nothing on this screen for it to collect. The print order asks who the parcel is
-    for, where it goes and on what number to ring the door; the digital one asks nothing at all,
-    so what was left was a heading, a price the parent has just read on the package panel, and a
-    button whose only job was to be pressed. A screen that exists to be clicked through is a step.
+    A digital order used to place itself the moment this screen mounted: it collected nothing, so
+    a screen that exists to be clicked through is a step, and it was skipped. The promo field is
+    back, and it is the only place in the product where a code can be typed — so skipping the
+    screen for digital would mean a digital buyer holding a code with nowhere to enter it, and
+    the field being dead markup behind the handover cover for half the orders taken.
 
-    A print order still gets the screen, because it still has questions.
-
-    The ref, not `busy`: React can mount an effect twice before any state it sets is visible, and
-    two runs here are two orders and two payment pages. On failure the form is revealed instead —
-    a parent who cannot be sent to the bank needs somewhere to read why and press again.
+    A print order always stopped here. It still does; it simply no longer has the screen to
+    itself.
   */
-  const autoStarted = useRef(false);
-  useEffect(() => {
-    if (isPrint || autoStarted.current) return;
-    autoStarted.current = true;
-    void placeOrder();
-    // placeOrder closes over this render's draft, which is what it must send.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPrint]);
 
   /*
     The whole screen waits, whichever way the order was placed.
@@ -256,7 +340,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     `location.assign` — see the note there — so the cover stays up for the second or two the old
     page is still on screen, instead of blinking off just as the parent is being taken away.
   */
-  const handingOver = (!isPrint || busy) && !error;
+  const handingOver = busy && !error;
 
   const thumbPages = heroDemoPages(heroName, worldId).slice(0, 1);
 
@@ -392,6 +476,133 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
           </div>
         ) : null}
 
+        {/*
+          Five lari, and only where there is a parcel to put it on.
+
+          Under the address rather than beside the price: it is a thing being done to the thing
+          being posted, so it belongs with where it is going. The total it changes is on the
+          right, and it changes as soon as this is ticked — the quote is re-fetched, so the
+          figure the button carries is the server's, not five lari the browser added itself.
+        */}
+        {/*
+          Minus, the number, plus — the control every delivery app in the country has taught a
+          Georgian parent to read, so it needs no label explaining what it does. One by default,
+          because one is what almost everybody wants and a stepper that starts anywhere else is
+          a trap. The ends stop rather than wrap: at one there is nothing to take away, and five
+          is as many copies as this checkout will take.
+        */}
+        {isPrint ? (
+          <div className="ux-copies">
+            <span>
+              <strong>{t.journey.checkout.copies}</strong>
+              <small>{t.journey.checkout.copiesNote}</small>
+            </span>
+            <div className="ux-copies-stepper">
+              <button
+                type="button"
+                aria-label={t.journey.checkout.copiesFewer}
+                disabled={copies <= 1}
+                onClick={() => onChange({ quantity: Math.max(1, copies - 1) })}
+              >
+                <Minus aria-hidden="true" size={16} />
+              </button>
+              <b aria-live="polite">{copies}</b>
+              <button
+                type="button"
+                aria-label={t.journey.checkout.copiesMore}
+                disabled={copies >= MAX_PRINT_QUANTITY}
+                onClick={() => onChange({ quantity: Math.min(MAX_PRINT_QUANTITY, copies + 1) })}
+              >
+                <Plus aria-hidden="true" size={16} />
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {isPrint ? (
+          <label className="ux-gift-wrap">
+            <input
+              type="checkbox"
+              name="giftWrap"
+              checked={draft.giftWrap}
+              onChange={(e) => onChange({ giftWrap: e.target.checked })}
+            />
+            <span>
+              <strong>{t.journey.checkout.giftWrap}</strong>
+              <small>{t.journey.checkout.giftWrapNote}</small>
+            </span>
+            <b>+{formatGel(PRICES.giftWrap)}</b>
+          </label>
+        ) : null}
+
+        {/*
+          Back, as asked. It went when this screen was cut to one page, and a code on the draft
+          still discounted — but only if something else had already put it there, which left a
+          parent holding a code with nowhere to type it.
+        */}
+        <div className="ux-promo-panel">
+          <label className="field" htmlFor="checkout-promo">
+            <span>{t.journey.checkout.promoLabel}</span>
+            <div>
+              <input
+                id="checkout-promo"
+                name="promoCode"
+                value={promoInput}
+                disabled={promoState === "applied"}
+                placeholder={t.journey.checkout.promoPlaceholder}
+                onChange={(e) => {
+                  setPromoInput(e.target.value);
+                  if (promoState === "invalid") {
+                    setPromoState("idle");
+                    setPromoMessage(null);
+                  }
+                }}
+              />
+              {promoState === "applied" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPromoInput("");
+                    onChange({ promoCode: "" });
+                    setPromoState("idle");
+                    setPromoMessage(null);
+                    /*
+                      The discount goes with the code, in the same tick.
+
+                      Clearing only the code left the discounted quote on screen until the
+                      re-quote came back — a window in which the button said one total and
+                      `createOrder`, sending no promo, would have charged the other. Dropping
+                      the quote falls the summary back to the undiscounted price, which is what
+                      is about to be charged.
+                    */
+                    setQuote(null);
+                  }}
+                >
+                  {t.journey.checkout.promoRemove}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={busy || promoState === "applying" || !promoInput.trim()}
+                  onClick={() => void applyPromo()}
+                >
+                  {promoState === "applying" ? t.common.actions.checking : t.common.actions.apply}
+                </button>
+              )}
+            </div>
+          </label>
+          {promoState === "applied" ? (
+            <p className="valid">
+              <Check aria-hidden="true" /> {t.journey.checkout.promoApplied}
+            </p>
+          ) : null}
+          {promoState === "invalid" ? (
+            <p className="invalid" role="alert">
+              {promoMessage || t.journey.checkout.promoInvalid}
+            </p>
+          ) : null}
+        </div>
+
         {error ? <p className="ux-form-error">{error}</p> : null}
 
         {/*
@@ -403,8 +614,9 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
         <button
           className="button button-primary checkout-pay"
           type="button"
-          disabled={busy}
-          aria-busy={busy}
+          /* Not while the price on it is still the browser's guess — see the quote effect. */
+          disabled={busy || pricing}
+          aria-busy={busy || pricing}
           onClick={() => void placeOrder()}
         >
           {busy ? (
@@ -458,9 +670,13 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
 
         <div className="summary-lines">
           <h2>{t.journey.checkout.summaryHeading}</h2>
+          {/* The book on its own. Wrapping is inside `subtotalMinor` — the server prices it as
+              part of the subtotal so a promo can reach it — so printing the subtotal here and
+              the wrapping again below made the lines add up to more than the total under them. */}
           <span>
             {packageLabel}
-            <strong>{formatGel(subtotalMinor)}</strong>
+            {quotedCopies > 1 ? ` × ${quotedCopies}` : ""}
+            <strong>{formatGel(subtotalMinor - giftWrapMinor)}</strong>
           </span>
           <span>
             {t.journey.checkout.bookLanguage} <strong>{langLabel}</strong>
@@ -469,6 +685,11 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             <span>
               {t.journey.checkout.deliveryLine}
               <strong>0 ₾</strong>
+            </span>
+          ) : null}
+          {giftWrapMinor > 0 ? (
+            <span>
+              {t.journey.checkout.giftWrap} <strong>{formatGel(giftWrapMinor)}</strong>
             </span>
           ) : null}
           {discountMinor > 0 ? (

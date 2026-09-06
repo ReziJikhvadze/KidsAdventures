@@ -80,7 +80,17 @@ public sealed class OrderService(
             ? OrderPackage.Print
             : ParsePackage(request.Package);
 
-        return await promoCodeService.QuoteAsync(userId, type, package, request.PromoCode, cancellationToken);
+        /*
+          Only a new printed book can be wrapped.
+
+          The upgrade's checkout has no wrapping field and its creation path never sets one, so
+          quoting wrapping here would have answered one total and then charged another — the
+          quote promising a service the order behind it cannot carry.
+        */
+        var giftWrap = type == OrderType.NewBook && request.GiftWrap;
+
+        return await promoCodeService.QuoteAsync(
+            userId, type, package, request.PromoCode, giftWrap, request.Quantity, cancellationToken);
     }
 
     public async Task<CheckoutResponse> CreateBookOrderAsync(
@@ -102,7 +112,13 @@ public sealed class OrderService(
             : null;
 
         var priced = await promoCodeService.PriceAsync(
-            userId, OrderType.NewBook, package, request.PromoCode, cancellationToken);
+            userId,
+            OrderType.NewBook,
+            package,
+            request.PromoCode,
+            request.GiftWrap,
+            request.Quantity,
+            cancellationToken);
 
         var order = new Order
         {
@@ -114,6 +130,11 @@ public sealed class OrderService(
             DiscountMinor = priced.DiscountMinor,
             TotalMinor = priced.TotalMinor,
             PromoCodeId = priced.Promo?.Id,
+            /* What was charged, not what was asked for: a Digital order that arrived with the
+               flag set is not wrapped and was not billed for wrapping, and the row says so. */
+            GiftWrap = priced.GiftWrap,
+            /* What was priced, not what was asked for — the same reason as the wrapping above. */
+            Quantity = priced.Quantity,
             Status = OrderStatus.Pending,
             Provider = priced.IsFree ? OrderProviders.Promo : PaymentProvider,
             DraftJson = JsonSerializer.Serialize(draft, JsonOptions),
@@ -146,7 +167,13 @@ public sealed class OrderService(
         var shipping = RequireShippingAddress(request.ShippingAddress);
 
         var priced = await promoCodeService.PriceAsync(
-            userId, OrderType.PrintUpgrade, OrderPackage.Print, request.PromoCode, cancellationToken);
+            userId,
+            OrderType.PrintUpgrade,
+            OrderPackage.Print,
+            request.PromoCode,
+            giftWrap: false,
+            quantity: 1,
+            cancellationToken);
 
         var order = new Order
         {
@@ -743,19 +770,34 @@ public sealed class OrderService(
 
     private SessionLineItemOptions BuildLineItem(Order order, string lineDescription)
     {
-        // A discounted order is billed as an ad-hoc amount: our promo maths, not Stripe's
-        // coupons, is the source of truth, and charging the catalogue Price would ignore
-        // the discount entirely.
+        /*
+          A discounted order is billed as an ad-hoc amount: our promo maths, not Stripe's
+          coupons, is the source of truth, and charging the catalogue Price would ignore
+          the discount entirely.
+
+          Wrapping is the same problem in the other direction. The catalogue Price is the price
+          of the book, so an undiscounted order that carries five lari of gift wrapping would be
+          charged the book alone — the parent ticks the box, is shown 84, and 79 leaves their
+          account while the parcel is still marked for wrapping. Anything that moves the total
+          away from the catalogue figure has to go through the ad-hoc line.
+        */
         var priceId = ResolvePriceId(order);
-        if (order.DiscountMinor == 0 && !string.IsNullOrWhiteSpace(priceId))
+        if (order.DiscountMinor == 0
+            && !order.GiftWrap
+            && order.Quantity <= 1
+            && !string.IsNullOrWhiteSpace(priceId))
         {
             return new SessionLineItemOptions { Price = priceId, Quantity = 1 };
         }
 
         if (!_stripe.AllowAdHocAmounts)
         {
-            throw new InvalidOperationException(
-                "ფასდაკლებული შეკვეთის დამუშავება ვერ მოხერხდა. სცადე პრომოკოდის გარეშე.");
+            throw new InvalidOperationException(order switch
+            {
+                { Quantity: > 1 } => "რამდენიმე ეგზემპლარის დამუშავება ვერ მოხერხდა. სცადე ერთი ეგზემპლარით.",
+                { GiftWrap: true } => "სასაჩუქრე შეფუთვით შეკვეთის დამუშავება ვერ მოხერხდა. სცადე შეფუთვის გარეშე.",
+                _ => "ფასდაკლებული შეკვეთის დამუშავება ვერ მოხერხდა. სცადე პრომოკოდის გარეშე."
+            });
         }
 
         return new SessionLineItemOptions
