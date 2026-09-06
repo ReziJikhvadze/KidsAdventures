@@ -31,6 +31,16 @@ const HERO_FETCH_QUIET_MS = 140;
 /* How long a chosen child may be "on the way" before the form is offered instead. */
 const HERO_FETCH_PATIENCE_MS = 10000;
 
+/*
+  How long the avatar waits for a portrait before showing the initial instead.
+
+  The picture is fetched apart from the details and measured at about 1.7s, so the wait is real
+  and worth covering. It is not unbounded: the fetch can fail silently — the catch beside it
+  says the child is here either way — and a circle that spun for the rest of the visit would be
+  a worse answer than the letter it replaced.
+*/
+const PORTRAIT_PATIENCE_MS = 8000;
+
 type Props = {
   draft: JourneyDraft;
   onChange: (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => void;
@@ -1102,19 +1112,70 @@ function CharacterSummary({
     ? t.journey.profile.primaryCharacter
     : t.journey.profile.nthCharacter(index + 1);
 
+  /*
+    A portrait the server has but the browser does not yet.
+
+    The details arrive in about a tenth of a second and the picture in nearly two, and the card
+    is deliberately not made to wait for the second one — the name should appear as soon as it
+    is known. What the avatar showed in that gap was the child's initial, so a parent tapping a
+    saved name watched a letter appear and then be replaced by a face, which reads as the wrong
+    child having been fetched. The circle waits instead; everything around it does not.
+
+    Only where a picture is actually coming: a child with no portrait on the account shows their
+    initial immediately, as before, because for them the letter is the answer and not a stand-in.
+  */
+  const portraitPending =
+    !character.photoDataUrl && (character.photoStored || character.photoReady);
+  const [portraitLapsed, setPortraitLapsed] = useState(false);
+  useEffect(() => {
+    setPortraitLapsed(false);
+    if (!portraitPending) return;
+    const lapse = setTimeout(() => setPortraitLapsed(true), PORTRAIT_PATIENCE_MS);
+    return () => clearTimeout(lapse);
+  }, [portraitPending, character.serverId]);
+
+  /*
+    And once the bytes are here, the decode.
+
+    `photoDataUrl` being set is not the picture being drawn: the img still has to load, and
+    revealing it before that put an empty gold square where the letter had been. `onError` ends
+    the wait too — a broken portrait must not hold the circle open.
+  */
+  const [portraitShown, setPortraitShown] = useState(false);
+  useEffect(() => {
+    setPortraitShown(false);
+  }, [character.photoDataUrl]);
+
+  const waitingOnPortrait =
+    (portraitPending && !portraitLapsed) || (!!character.photoDataUrl && !portraitShown);
+
   return (
     <article className="ux-character-summary">
       <span className="ux-ready-check" aria-hidden="true">
         <Check />
       </span>
-      <span className="ux-summary-avatar">
+      <span className="ux-summary-avatar" aria-busy={waitingOnPortrait || undefined}>
         {character.photoDataUrl ? (
           <img
             src={character.photoDataUrl}
             alt=""
-            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "inherit" }}
+            onLoad={() => setPortraitShown(true)}
+            onError={() => setPortraitShown(true)}
+            style={{
+              gridArea: "1 / 1",
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              borderRadius: "inherit",
+              opacity: portraitShown ? 1 : 0,
+            }}
           />
-        ) : (
+        ) : null}
+        {waitingOnPortrait ? (
+          <span style={{ gridArea: "1 / 1", display: "grid", placeItems: "center" }}>
+            <BekiLoader size={24} />
+          </span>
+        ) : character.photoDataUrl ? null : (
           character.name.trim().slice(0, 1) || "A"
         )}
       </span>

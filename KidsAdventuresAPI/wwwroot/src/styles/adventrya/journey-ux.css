@@ -534,7 +534,16 @@
   border-color: rgba(239, 224, 193, 0.2);
   background: linear-gradient(135deg, #f8f2e51c, #2c1d5280);
 }
-.ux-character-waiting .ux-summary-avatar {
+/*
+  The same circle in both waits.
+
+  `.ux-character-waiting` is the card shown while the child's details are being fetched;
+  `[aria-busy]` is the avatar alone, still waiting for the portrait after the details have
+  landed. They are the same moment to the parent, so they look the same — and the mark inside
+  is cream, which on the gold the avatar wears the rest of the time would barely be there.
+*/
+.ux-character-waiting .ux-summary-avatar,
+.ux-summary-avatar[aria-busy="true"] {
   color: #f8f2e5;
   background: #2b1e5299;
 }
