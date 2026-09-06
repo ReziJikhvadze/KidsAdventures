@@ -11,6 +11,7 @@ public sealed class ChildrenController(
     IChildRepository childRepository,
     IBlobStorageService blobStorageService,
     IReferenceImageNormalizer referenceImageNormalizer,
+    IPortraitRenditionService portraitRenditions,
     IUserContextService userContext) : ControllerBase
 {
     private const long MaxFileSizeBytes = 5 * 1024 * 1024;
@@ -89,22 +90,27 @@ public sealed class ChildrenController(
 
         var etag = CharactersController.PortraitETag(child.PhotoUrl);
         Response.Headers.CacheControl = "private, no-cache";
-        Response.Headers.ETag = etag.ToString();
         if (CharactersController.MatchesPortraitETag(Request, etag))
         {
+            Response.Headers.ETag = etag.ToString();
             return StatusCode(StatusCodes.Status304NotModified);
         }
 
         try
         {
-            var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(child.PhotoUrl, cancellationToken);
-            var contentType = child.PhotoUrl.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
-                ? "image/png"
-                : child.PhotoUrl.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)
-                    ? "image/webp"
-                    : "image/jpeg";
-            var display = referenceImageNormalizer.NormalizeForStorageWebp(bytes, contentType);
+            var display = await portraitRenditions.GetAsync(child.PhotoUrl, cancellationToken);
+            // See CharactersController: only the rendition's own bytes carry the tag.
+            if (display.IsRendition)
+            {
+                Response.Headers.ETag = etag.ToString();
+            }
+
             return File(display.Bytes, display.ContentType);
+        }
+        // See the same guard in CharactersController: a cancelled request is not a missing photo.
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch
         {
@@ -141,11 +147,16 @@ public sealed class ChildrenController(
         await stream.CopyToAsync(ms, cancellationToken);
         var normalized = referenceImageNormalizer.NormalizeForOpenAi(ms.ToArray(), photo.ContentType);
         var blobName = $"{userId}/children/{childId}/hero-{Guid.NewGuid()}.png";
-        return await blobStorageService.UploadAsync(
+        var storedUrl = await blobStorageService.UploadAsync(
             blobName,
             normalized.Bytes,
             normalized.ContentType,
             cancellationToken);
+
+        // Made now, while the bytes are in hand, so the first parent to open the list is not the
+        // one who pays for it.
+        await portraitRenditions.WarmAsync(storedUrl, normalized.Bytes, cancellationToken);
+        return storedUrl;
     }
 
     private static ChildResponse Map(Child child) => new()

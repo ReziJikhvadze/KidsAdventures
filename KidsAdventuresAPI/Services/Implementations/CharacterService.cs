@@ -10,6 +10,7 @@ public sealed class CharacterService(
     ICharacterRepository characterRepository,
     IBlobStorageService blobStorageService,
     IReferenceImageNormalizer referenceImageNormalizer,
+    IPortraitRenditionService portraitRenditions,
     IMasterStoryRunRepository? masterStoryRuns = null) : ICharacterService
 {
     private const long MaxPhotoBytes = 5 * 1024 * 1024;
@@ -157,6 +158,8 @@ public sealed class CharacterService(
             var blobName = $"{userId}/characters/{characterId}/portrait-{Guid.NewGuid()}.png";
             var url = await blobStorageService.UploadAsync(
                 blobName, normalized.Bytes, normalized.ContentType, cancellationToken);
+
+            await portraitRenditions.WarmAsync(url, normalized.Bytes, cancellationToken);
 
             return (url, string.IsNullOrWhiteSpace(run.AppearanceDescription) ? null : run.AppearanceDescription);
         }
@@ -363,11 +366,22 @@ public sealed class CharacterService(
 
         var normalized = referenceImageNormalizer.NormalizeForOpenAi(buffer.ToArray(), photo.ContentType);
         var blobName = $"{userId}/characters/{characterId}/portrait-{Guid.NewGuid()}.png";
-        return await blobStorageService.UploadAsync(
+        var storedUrl = await blobStorageService.UploadAsync(
             blobName,
             normalized.Bytes,
             normalized.ContentType,
             cancellationToken);
+
+        /*
+          The screen's copy, made here rather than the first time anybody looks.
+
+          What is stored is a lossless PNG for the image model, and turning one into a thumbnail
+          at that size took twenty seconds on the API. At 512px it is a fraction of a second, and
+          the bytes are already in hand — so it is paid once, by the parent who is already waiting
+          for an upload, rather than by whoever opens the list next.
+        */
+        await portraitRenditions.WarmAsync(storedUrl, normalized.Bytes, cancellationToken);
+        return storedUrl;
     }
 
     /// <summary>

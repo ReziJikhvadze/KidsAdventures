@@ -695,7 +695,6 @@ function HeroPicker({
           <ChevronRight aria-hidden="true" size={16} />
         </button>
       </div>
-      <p className="ux-hero-picker-hint">{copy.hint}</p>
     </fieldset>
   );
 }

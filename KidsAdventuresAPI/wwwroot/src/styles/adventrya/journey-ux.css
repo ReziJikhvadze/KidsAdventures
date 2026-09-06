@@ -2421,9 +2421,16 @@
   gap: 22px;
 }
 
-/* Held to its shape and centred in the column, rather than stretched down it. */
+/*
+  Held to its shape, and stood on the same line as the form.
+
+  Centring it in the column left it floating between the top of the form and the bottom of it,
+  lining up with neither. The bottom is the edge to share: the form ends where the column does
+  whatever is above it, so the two finish together with or without the picker over the card, and
+  the picture sits down on the page instead of hovering half way up it.
+*/
 .ux-profile-aside {
-  justify-content: center;
+  justify-content: flex-end;
 }
 
 .ux-profile-aside .world-art-panel {
@@ -2637,7 +2644,7 @@
 .ux-hero-picker-rail {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 9px;
 }
 .ux-hero-picker .ux-choice-chips {
   flex: 1;
@@ -2663,19 +2670,31 @@
   /* A name is one chip, never two lines of one. */
   white-space: nowrap;
 }
+/*
+  A round button, not a rounded one.
+
+  It was 30 wide and 42 tall with a pill radius, which is a capsule standing on its end beside a
+  row of capsules lying down — the one shape on this row that reads as a mistake. Square and fully
+  rounded it is a circle, and a circle beside a row of pills is plainly a control rather than
+  another name. It sits outside the strip, so it never covers a name.
+*/
 .ux-hero-picker-arrow {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   padding: 0;
-  border: 1px solid rgba(238, 226, 205, 0.18);
-  border-radius: 999px;
+  border: 1px solid rgba(238, 226, 205, 0.22);
+  border-radius: 50%;
   cursor: pointer;
   color: #f8f2e5cc;
-  background: #26194b7a;
+  background: #2a1d5299;
+  transition:
+    color 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease;
 }
 /* Said out loud: an author `display` outranks the browser's own rule for the hidden attribute,
    so without this the arrows for a family that fits on one line would still be drawn. */
@@ -2691,11 +2710,6 @@
 .ux-hero-picker-arrow[aria-disabled="true"] {
   cursor: default;
   opacity: 0.35;
-}
-.ux-hero-picker-hint {
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: #f8f2e5a6;
 }
 .ux-summary-avatar {
   overflow: hidden;

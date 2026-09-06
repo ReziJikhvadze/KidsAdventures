@@ -13,8 +13,7 @@ namespace AdventurePacks.Api.Controllers;
 public sealed class CharactersController(
     ICharacterService characterService,
     ICharacterRepository characterRepository,
-    IBlobStorageService blobStorageService,
-    IReferenceImageNormalizer referenceImageNormalizer,
+    IPortraitRenditionService portraitRenditions,
     IUserContextService userContext) : ControllerBase
 {
     private const long MaxFileSizeBytes = 5 * 1024 * 1024;
@@ -76,8 +75,9 @@ public sealed class CharactersController(
     /// Not the stored file. What is kept is a lossless PNG sized for the image model — 2.3 MB was
     /// measured on a real child — and it was being sent whole to draw an avatar the size of a
     /// thumbnail: 1.74 seconds on the parent's connection against 132 milliseconds for everything
-    /// else about that child. This answers with the same picture as lossy WebP, which is what a
-    /// screen needs and a fraction of the bytes; the model keeps reading the PNG server-side.
+    /// else about that child. This answers with the screen-sized copy kept beside it; the model
+    /// keeps reading the PNG server-side. See <see cref="IPortraitRenditionService"/> for why the
+    /// copy is kept rather than made per request.
     ///
     /// It is also told to revalidate rather than to expire. A portrait changes rarely but visibly,
     /// so a browser that keeps one for an hour is showing the wrong face after a parent replaces
@@ -95,17 +95,29 @@ public sealed class CharactersController(
 
         var etag = PortraitETag(character.PhotoUrl);
         Response.Headers.CacheControl = "private, no-cache";
-        Response.Headers.ETag = etag.ToString();
         if (MatchesPortraitETag(Request, etag))
         {
+            Response.Headers.ETag = etag.ToString();
             return StatusCode(StatusCodes.Status304NotModified);
         }
 
         try
         {
-            var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(character.PhotoUrl, cancellationToken);
-            var display = referenceImageNormalizer.NormalizeForStorageWebp(bytes, ContentTypeFor(character.PhotoUrl));
+            var display = await portraitRenditions.GetAsync(character.PhotoUrl, cancellationToken);
+            // Tagged only when these are the rendition's own bytes. A fallback carrying the tag
+            // would be answered 304 forever after, leaving the browser on the wrong picture.
+            if (display.IsRendition)
+            {
+                Response.Headers.ETag = etag.ToString();
+            }
+
             return File(display.Bytes, display.ContentType);
+        }
+        // A parent who navigated away is not a missing photograph, and answering 404 to their own
+        // cancellation is how a retry gets told the child has no picture.
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch
         {
@@ -114,19 +126,14 @@ public sealed class CharactersController(
     }
 
     /// <summary>
-    /// Bumped whenever what this endpoint sends back changes shape — a different encoder, quality
-    /// or size. The tag below is a promise that the bytes are unchanged, and the stored blob is not
-    /// the bytes: browsers holding last year's rendition would keep it forever on a 304 otherwise.
-    /// </summary>
-    private const string PortraitRenditionVersion = "webp1";
-
-    /// <summary>
     /// The stored blob's name and the rendition, hashed. Every upload writes a new name, so the tag
     /// changes exactly when the picture does — and hashing keeps the storage layout out of a header.
+    /// The rendition half comes from <see cref="PortraitRendition"/>, the same constant that names
+    /// the file, so the two can never disagree about which picture this tag stands for.
     /// </summary>
     internal static EntityTagHeaderValue PortraitETag(string photoUrl) =>
         new($"\"{Convert.ToHexString(
-            SHA256.HashData(Encoding.UTF8.GetBytes($"{PortraitRenditionVersion}:{photoUrl}")))[..32]}\"");
+            SHA256.HashData(Encoding.UTF8.GetBytes($"{PortraitRendition.Version}:{photoUrl}")))[..32]}\"");
 
     /// <summary>
     /// Whether the caller already holds this picture.
@@ -142,11 +149,4 @@ public sealed class CharactersController(
             && offered.Any(one => one.Equals(EntityTagHeaderValue.Any)
                 || etag.Compare(one, useStrongComparison: false));
     }
-
-    private static string ContentTypeFor(string url) => url switch
-    {
-        _ when url.EndsWith(".png", StringComparison.OrdinalIgnoreCase) => "image/png",
-        _ when url.EndsWith(".webp", StringComparison.OrdinalIgnoreCase) => "image/webp",
-        _ => "image/jpeg"
-    };
 }

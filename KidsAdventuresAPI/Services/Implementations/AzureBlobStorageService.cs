@@ -92,6 +92,42 @@ public sealed class AzureBlobStorageService : IBlobStorageService
         return await container.GetBlobClient(blobName).ExistsAsync(cancellationToken);
     }
 
+    public async Task<byte[]?> TryDownloadBesideAsync(
+        string storedUrl, string suffix, CancellationToken cancellationToken)
+    {
+        var (containerName, blobName) = ResolveBlobLocation(storedUrl);
+        var container = await GetContainerAsync(containerName, cancellationToken);
+        var blobClient = container.GetBlobClient(blobName + suffix);
+
+        if (!await blobClient.ExistsAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        var response = await blobClient.DownloadStreamingAsync(cancellationToken: cancellationToken);
+        await using var stream = response.Value.Content;
+        using var memory = new MemoryStream();
+        await stream.CopyToAsync(memory, cancellationToken);
+        return memory.ToArray();
+    }
+
+    public async Task UploadBesideAsync(
+        string storedUrl, string suffix, byte[] bytes, string contentType, CancellationToken cancellationToken)
+    {
+        var (containerName, blobName) = ResolveBlobLocation(storedUrl);
+        var container = await GetContainerAsync(containerName, cancellationToken);
+        var blobClient = container.GetBlobClient(blobName + suffix);
+        using var stream = new MemoryStream(bytes);
+
+        await blobClient.UploadAsync(
+            stream,
+            new BlobUploadOptions
+            {
+                HttpHeaders = new BlobHttpHeaders { ContentType = contentType }
+            },
+            cancellationToken);
+    }
+
     public async Task<byte[]> DownloadBytesFromStoredUrlAsync(string storedUrl, CancellationToken cancellationToken)
     {
         var (containerName, blobName) = ResolveBlobLocation(storedUrl);

@@ -424,6 +424,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPrintOrderService, PrintOrderService>();
 
         services.AddScoped<IReferenceImageNormalizer, ReferenceImageNormalizer>();
+        services.AddScoped<IPortraitRenditionService, PortraitRenditionService>();
 
         // Which vendor answers which half of the book. Both halves default to OpenAI, and the
         // choice is made per resolution rather than at startup so that flipping the setting is a
