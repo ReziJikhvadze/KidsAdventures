@@ -145,8 +145,8 @@ public sealed class ChildrenController(
         await using var stream = photo.OpenReadStream();
         using var ms = new MemoryStream();
         await stream.CopyToAsync(ms, cancellationToken);
-        var normalized = referenceImageNormalizer.NormalizeForOpenAi(ms.ToArray(), photo.ContentType);
-        var blobName = $"{userId}/children/{childId}/hero-{Guid.NewGuid()}.png";
+        var normalized = referenceImageNormalizer.NormalizeForPortraitStorage(ms.ToArray(), photo.ContentType);
+        var blobName = $"{userId}/children/{childId}/hero-{Guid.NewGuid()}.webp";
         var storedUrl = await blobStorageService.UploadAsync(
             blobName,
             normalized.Bytes,
