@@ -2279,6 +2279,19 @@
     margin-bottom: 8px;
   }
 
+  /*
+    And the two example photographs, which are an illustration of a rule rather than the rule.
+
+    The picture grew taller when the "good" example was replaced — the new artwork hangs its
+    tick below the ring, where the old one tucked it inside — and eight of those pixels landed
+    on the one window that had none to spare. Contain rather than crop: a guide to what a good
+    photograph looks like must not itself be badly cropped.
+  */
+  .ux-character-stack:has(> .ux-hero-picker) .ux-photo-guide {
+    max-height: 104px;
+    object-fit: contain;
+  }
+
   .ux-profile-stage:has(.ux-hero-picker) > .ux-stage-heading .eyebrow {
     margin-bottom: 4px;
   }
