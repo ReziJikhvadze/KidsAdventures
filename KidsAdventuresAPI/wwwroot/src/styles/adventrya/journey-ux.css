@@ -888,11 +888,31 @@
 .ux-preview-heading h1 {
   font-size: clamp(34px, 2.8vw, 46px);
 }
+/*
+  Two columns that share the row, with no floor under either.
+
+  They were `minmax(560px, 1.08fr)` and `minmax(390px, 0.92fr)`. Those floors are a width the
+  window has to supply: 950px of track plus the gap, inside a stage that is `100% - 96px` — so
+  the pair did not actually fit until the window was about 1102px wide. The one-column fallback
+  below starts at 980. Everything between was a 1001px layout in a 928px stage, and `.ux1-shell`
+  carries `overflow-x: hidden`, so nothing scrolled: the package panel — the price, the two
+  options and "continue" — was simply cut off at the right edge of a 1024px laptop. That is the
+  screen a parent is deciding to buy on.
+
+  Floors of zero let the same two columns compress instead. Neither column has anything fixed in
+  it: the book is `--book-width` clamped against the viewport and the panel is a stack of
+  full-width rows, so both are as happy at 450px as at 560. `min-width: 0` on the children is
+  the other half of it — a grid item's automatic minimum is its min-content, which would have
+  put the floor straight back.
+*/
 .ux-preview-layout {
   display: grid;
-  grid-template-columns: minmax(560px, 1.08fr) minmax(390px, 0.92fr);
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
   align-items: start;
   gap: clamp(38px, 5vw, 75px);
+}
+.ux-preview-layout > * {
+  min-width: 0;
 }
 .ux-book-preview {
   display: grid;

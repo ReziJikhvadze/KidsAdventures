@@ -1,4 +1,5 @@
 import { apiRequest, getToken, resolveApiUrl } from "./client";
+import { filenameFromContentDisposition } from "./utils";
 
 export type AdminOrderRow = {
   id: string;
@@ -183,10 +184,7 @@ async function fetchFile(
     throw new Error(message);
   }
 
-  const disposition = response.headers.get("content-disposition") ?? "";
-  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
-  const plain = /filename="?([^";]+)"?/i.exec(disposition);
-  const filename = utf8 ? decodeURIComponent(utf8[1]) : (plain?.[1] ?? null);
+  const filename = filenameFromContentDisposition(response.headers.get("content-disposition"));
 
   return { blob: await response.blob(), filename };
 }

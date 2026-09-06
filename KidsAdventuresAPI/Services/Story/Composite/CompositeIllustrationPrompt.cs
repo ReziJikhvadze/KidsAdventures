@@ -248,6 +248,17 @@ public sealed record CompositeSpreadPromptInput
     /// is told to take the child's stylization from a picture of a dinosaur.
     /// </summary>
     public bool AnchorAttached { get; init; }
+
+    /// <summary>
+    /// The anchor the approved Beki PNG will actually be composited at on this page — the story
+    /// default for this spread's text side, from <c>pipeline_config_v2.json</c>.
+    ///
+    /// Passed in rather than looked up so that the area the prompt asks to be kept clear and the
+    /// area the compositor later pastes into are the same three numbers rather than two files
+    /// agreeing by good intentions. Null falls back to the same config the engine reads, which is
+    /// what keeps every caller that predates the reserve compiling and correct.
+    /// </summary>
+    public BekiCompositeAnchor? BekiAnchor { get; init; }
 }
 
 /// <summary>
@@ -403,8 +414,23 @@ public static class CompositeIllustrationPrompt
     /// rule that says outright it is never a shape to draw, and the negatives ban translucent
     /// panels of any size. The matching QA amendment (v1.6) makes a painted panel a
     /// GENERATED_TEXT failure, which is the category whose job is "furniture that is not scene".
+    ///
+    /// v1.7 is the owner's finding of 2026-09-06, on the book drawn under v1.6: Beki was
+    /// composited over the hero child on three of its eight spreads — an ear and half a head of
+    /// hair on one, an arm and a hand on two more. Nothing was wrong with the compositing. She is
+    /// pasted at a fixed anchor just off the middle of the picture on the art side, which is
+    /// precisely where a model that has been told "put the child in the outer area" still likes to
+    /// put the child's head, and no version of this template had ever mentioned that the area was
+    /// spoken for. So the composition block now carries one more sentence about one more part of
+    /// the picture — the area just off the middle at mid-height, about a third of the picture tall
+    /// — asked for as calm continuous scenery with the child's head, hands and every other
+    /// character kept clearly outside it and placed further toward the outer edge. It is written
+    /// under the same law the last three amendments were: painter's language about a real part of
+    /// a real picture, no coordinates, no percentages, and it says outright that it is never a
+    /// shape to draw. The prompt is the whole of the change: no detector, no review, no redraw —
+    /// the owner asked for the simplest instruction that moves the hero out of Beki's spot.
     /// </summary>
-    public const string Version = "child-world-image-v1.6";
+    public const string Version = "child-world-image-v1.7";
 
     /// <summary>
     /// The cover base template's version. A different document, a different version.
@@ -491,6 +517,9 @@ public static class CompositeIllustrationPrompt
             Obey that camera distance and framing exactly; do not default to a medium shot, and keep the page's main story subject fully inside the frame.
             Create one continuous very wide panoramic painting designed for a final 15:7 crop.
             {CompositionBlockFor(textSide)}
+            {BekiReserveBlock(
+                input.BekiAnchor ?? CompositeConfig.Value.StoryDefaultFor(
+                    BekiCompositeConfig.ParseTextSide(textSide)))}
             {CentralZoneRule}
             Keep all important content in the central horizontal band so modest top-and-bottom crop normalization is safe.
 
@@ -592,11 +621,7 @@ public static class CompositeIllustrationPrompt
               + "where it begins, no flat field of colour, no visible edge between it and the rest "
               + "of the picture, and no change of tone marking where it begins or ends. No "
               + "character, face, hand, foreground object, or key action may enter this area. "
-              + "Place the child and the main action in the outer-right area. Keep the area "
-              + "around 59.4% of the canvas width and 45.8% of the canvas height naturally lit, "
-              + "calm, and free of characters, faces, hands, hard edges, foreground objects, and "
-              + "story-critical details — it is ordinary continuous environment exactly like its "
-              + "surroundings, never a zone, shape, panel, or region to mark or draw in any way."
+              + "Place the child and the main action in the outer-right area."
             : "Keep the full right third quiet enough to set story text over: continue the same "
               + "scene through it as calm open environment — sky, far foliage, open ground — "
               + "painted at exactly the same colour depth, saturation, contrast, exposure, and "
@@ -607,11 +632,85 @@ public static class CompositeIllustrationPrompt
               + "where it begins, no flat field of colour, no visible edge between it and the rest "
               + "of the picture, and no change of tone marking where it begins or ends. No "
               + "character, face, hand, foreground object, or key action may enter this area. "
-              + "Place the child and the main action in the outer-left area. Keep the area "
-              + "around 40.6% of the canvas width and 45.8% of the canvas height naturally lit, "
-              + "calm, and free of characters, faces, hands, hard edges, foreground objects, and "
-              + "story-critical details — it is ordinary continuous environment exactly like its "
-              + "surroundings, never a zone, shape, panel, or region to mark or draw in any way.";
+              + "Place the child and the main action in the outer-left area.";
+
+    /// <summary>
+    /// The story defaults, for the callers that do not carry an anchor of their own.
+    ///
+    /// Lazy and shared, exactly as <see cref="CompositeSpreadRhythm"/>'s table is: the file is the
+    /// same file, and reading it once per process is what keeps a prompt builder from doing I/O per
+    /// spread.
+    /// </summary>
+    private static readonly Lazy<BekiCompositeConfig> CompositeConfig = new(() => BekiCompositeConfig.Load());
+
+    /// <summary>
+    /// The Beki reserve — v1.7, and the owner's finding of 2026-09-06 answered in the one place it
+    /// can be: the order for the picture.
+    ///
+    /// Three of eight spreads came back with Beki pasted over the hero child, and the pipeline did
+    /// nothing wrong to produce them. She goes at a fixed anchor per text side, just off the middle
+    /// of the picture on the art side, at a third of the page's height — and "just off the middle
+    /// on the art side" is where a model asked to keep the outer third calm still puts the child's
+    /// head. The template had never said the area was spoken for, so this says it.
+    ///
+    /// Written under the law the last three amendments were measured into, which this file records
+    /// three times over: name a region and the model draws it. So there are no coordinates and no
+    /// percentages here, the area is described the way a painter would point at it — just to one
+    /// side of the middle, at mid-height, about a third of the picture tall — the ask is for
+    /// ordinary continuous scenery rather than for empty space, and the last sentence says outright
+    /// that it is never a shape. What is new against <see cref="CentralZoneRule"/>, which keeps
+    /// faces off the fold, is that this one also says where the child goes instead: further toward
+    /// the outer edge, which is the only instruction that actually moves a hero.
+    ///
+    /// Every word of the geometry is derived from the anchor the compositor will use rather than
+    /// stated, so a moved anchor moves the sentence with it and the two cannot drift.
+    /// </summary>
+    public static string BekiReserveBlock(BekiCompositeAnchor anchor)
+    {
+        ArgumentNullException.ThrowIfNull(anchor);
+
+        var rightOfMiddle = anchor.VisibleCenterX > 0.5;
+        var sideOfMiddle = rightOfMiddle ? "right" : "left";
+        var outerEdge = rightOfMiddle ? "outer right edge" : "outer left edge";
+
+        var block =
+            $"Leave the area just to the {sideOfMiddle} of the picture's middle, "
+            + $"{HeightOfPicture(anchor.VisibleCenterY)}, {TallnessOfPicture(anchor.VisibleHeight)}, "
+            + "as calm continuous scenery: the same sky, far landscape, water, or open ground that "
+            + "surrounds it, painted with the same light, the same colour, and the same level of "
+            + "detail as everything around it. The child's whole head, face, hair, hands, and arms "
+            + "must stay clearly outside that area, and so must every other character, animal, "
+            + "vehicle, and key story object; place the child and the main action further toward "
+            + $"the {outerEdge} of the picture, with ordinary scenery between the child and that "
+            + "area. It is not a zone, panel, frame, window, or shape of any kind: give it no "
+            + "outline, no edge, no tint, no lightening, and no change of treatment whatever.";
+
+        return block;
+    }
+
+    /// <summary>
+    /// Where the anchor sits down the page, as a painter would say it rather than as a fraction.
+    /// </summary>
+    private static string HeightOfPicture(double visibleCenterY) => visibleCenterY switch
+    {
+        < 0.4 => "in its upper half",
+        > 0.6 => "in its lower half",
+        _ => "at mid-height",
+    };
+
+    /// <summary>
+    /// How much of the page's height the anchor asks for, in the nearest thing a picture has to a
+    /// size — the configured 0.333 is "about a third", and the buckets exist so that an anchor
+    /// adjusted in the config still produces an honest sentence rather than a stale one.
+    /// </summary>
+    private static string TallnessOfPicture(double visibleHeight) => visibleHeight switch
+    {
+        < 0.2 => "no taller than a sixth of the picture",
+        < 0.29 => "about a quarter of the picture tall",
+        < 0.42 => "about a third of the picture tall",
+        < 0.6 => "about half the picture tall",
+        _ => "most of the picture tall",
+    };
 
     /// <summary>
     /// The centre of the canvas, described as ordinary painting with a content rule, not as a place.

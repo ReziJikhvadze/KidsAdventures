@@ -459,7 +459,9 @@ function OrderDetail({
       async () => {
         const { blob, filename } = await admin.downloadOrderPdf(orderId, kind);
         admin.saveBlob(blob, filename ?? `beki-${orderId}-${kind}.pdf`);
-        return filename?.includes("READING-COPY")
+        // Both spellings: the file is named after the book now, and only the ASCII fallback
+        // parameter still carries the shouted READING-COPY form.
+        return /READING-COPY|reading copy/i.test(filename ?? "")
           ? "ჩამოიტვირთა საკითხავი ასლი — საბეჭდი ფაილი არ არსებობს."
           : "PDF ჩამოიტვირთა.";
       },

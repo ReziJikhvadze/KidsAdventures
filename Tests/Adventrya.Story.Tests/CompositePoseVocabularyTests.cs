@@ -894,7 +894,7 @@ public class CompositeGeorgianAndShotNoteTests
             + "for a final 15:7 crop.", prompt);
         Assert.DoesNotContain("two-page", prompt);
 
-        Assert.Equal("child-world-image-v1.6", CompositeIllustrationPrompt.Version);
+        Assert.Equal("child-world-image-v1.7", CompositeIllustrationPrompt.Version);
     }
 
     /// <summary>

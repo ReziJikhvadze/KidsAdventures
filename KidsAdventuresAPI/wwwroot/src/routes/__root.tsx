@@ -259,7 +259,17 @@ function RootComponent() {
               <MarketingTags />
               <PinterestEnhancedMatch />
               <LocalizedDocumentTitle />
-              <Outlet />
+              {/*
+                One box around every route, so that a page which turns out to be wider than the
+                window is trimmed here rather than reaching the document. See `.app-root` in
+                base.css for what it does and what it deliberately does not do.
+
+                The toaster stays outside it: its notifications are fixed to the viewport and
+                belong to the window, not to the page underneath.
+              */}
+              <div className="app-root">
+                <Outlet />
+              </div>
               <Toaster />
             </JourneyDraftProvider>
           </AuthProvider>

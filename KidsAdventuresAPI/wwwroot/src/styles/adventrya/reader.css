@@ -6,11 +6,20 @@
     radial-gradient(circle at 50% 45%, rgba(117, 100, 181, 0.2), transparent 42%),
     linear-gradient(145deg, #17102f, #261947 55%, #130d29);
 }
+/*
+  The warm halo behind the book. Decorative, and until now 900px wide whatever it was sitting in.
+
+  Absolute positioning keeps it out of the layout but not out of the page's scrollable area: on a
+  375px phone a 900px circle centred on the shell reached 262px past the right edge, and the
+  document was that much wider than the window on every reader screen. It never showed as a
+  scrollbar — `body` clips horizontally — it showed as the page being cut off. Capped at the
+  width of what it glows behind, which is all it was ever meant to be.
+*/
 .reader-glow {
   position: absolute;
   left: 50%;
   top: 52%;
-  width: 900px;
+  width: min(900px, 100%);
   height: 650px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
@@ -20,7 +29,12 @@
 .reader-canonical-pdf {
   position: relative;
   z-index: 3;
-  width: min(1180px, 94vw);
+  /*
+    94% of its own column, not of the window. It sits in the right-hand track of
+    `.reader-shared-stage`, and `94vw` is a measurement of something else entirely — at 1024 that
+    was a 962px frame in a 655px column, so the PDF ran 246px past the right of the page.
+  */
+  width: min(1180px, 100%);
   height: min(78svh, 860px);
   min-height: 560px;
   margin: 24px auto 0;

@@ -10,9 +10,11 @@ using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
 using AdventurePacks.Api.Services.Story;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Net.Http.Headers;
 
 namespace Adventrya.Story.Tests;
 
@@ -363,6 +365,51 @@ public class BekiReleaseApiTests
         Assert.Contains("მზადდება", message);
     }
 
+    [Fact]
+    public async Task A_downloaded_book_arrives_under_its_own_title()
+    {
+        /*
+          The file a parent keeps is called what the book is called.
+
+          This handed the browser beki-<guid>-book.pdf, so a second book downloaded to a second
+          guid and neither name said whose story it was. The Georgian title cannot survive the
+          plain filename parameter — ASP.NET's own builder replaces every non-ASCII letter with an
+          underscore — so it travels in filename*, and the ASCII parameter carries a
+          transliteration rather than a row of underscores.
+        */
+        var pack = Pack(AdventurePackStatus.Completed, GenerationPipelines.Beki);
+        pack.PdfUrl = "packs/book.pdf";
+        var blobs = new FakeBlobs();
+        blobs.Bytes[pack.PdfUrl] = [1, 2, 3];
+        var controller = PacksController(pack, blobs: blobs);
+
+        Assert.IsType<FileContentResult>(await controller.Download(pack.Id, default));
+
+        var disposition = ContentDispositionHeaderValue.Parse(
+            controller.Response.Headers.ContentDisposition.ToString());
+        Assert.Equal("ზუკა და დინოზავრები.pdf", disposition.FileNameStar.Value);
+        Assert.Equal("zuka-da-dinozavrebi.pdf", disposition.FileName.Value?.Trim('"'));
+        Assert.DoesNotContain(pack.Id.ToString(), disposition.ToString());
+    }
+
+    [Fact]
+    public async Task A_book_with_no_title_still_downloads_under_the_name_it_always_had()
+    {
+        var pack = Pack(AdventurePackStatus.Completed, GenerationPipelines.Beki);
+        pack.Title = "   ";
+        pack.PdfUrl = "packs/book.pdf";
+        var blobs = new FakeBlobs();
+        blobs.Bytes[pack.PdfUrl] = [1, 2, 3];
+        var controller = PacksController(pack, blobs: blobs);
+
+        Assert.IsType<FileContentResult>(await controller.Download(pack.Id, default));
+
+        var disposition = ContentDispositionHeaderValue.Parse(
+            controller.Response.Headers.ContentDisposition.ToString());
+        Assert.Equal($"beki-{pack.Id}-book.pdf", disposition.FileName.Value?.Trim('"'));
+        Assert.Equal($"beki-{pack.Id}-book.pdf", disposition.FileNameStar.Value);
+    }
+
     [Theory]
     [InlineData("Space", "space")]
     [InlineData("Dinosaurs", "dinosaurs")]
@@ -419,18 +466,23 @@ public class BekiReleaseApiTests
         FakeGeneration? generation = null,
         string? held = null,
         FakeDownloadStatus? downloadStatus = null,
-        FakeMasterBooks? masterBooks = null) =>
+        FakeMasterBooks? masterBooks = null,
+        FakeBlobs? blobs = null) =>
         new(generation ?? new FakeGeneration(),
             new FakePackReads(pack),
             new FakeCast(),
-            new FakeBlobs(),
+            blobs ?? new FakeBlobs(),
             new FakeUserContext(),
             new FakeRateLimiter(),
             masterBooks ?? new FakeMasterBooks(),
             downloadStatus ?? new FakeDownloadStatus { Held = held },
             Options.Create(new ClientIpOptions()),
             new FakeCharacters(),
-            NullLogger<AdventurePacksController>.Instance);
+            NullLogger<AdventurePacksController>.Instance)
+        {
+            // The download and illustration routes write response headers, which need a context.
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
+        };
 
     private static async Task<T> Ok<T>(Task<ActionResult<T>> action)
     {
@@ -672,8 +724,12 @@ public class BekiReleaseApiTests
 
         public Task<bool> ExistsAsync(string blobName, CancellationToken ct) => Task.FromResult(false);
 
+        public Dictionary<string, byte[]> Bytes { get; } = [];
+
         public Task<byte[]> DownloadBytesFromStoredUrlAsync(string storedUrl, CancellationToken ct) =>
-            throw new NotSupportedException();
+            Bytes.TryGetValue(storedUrl, out var bytes)
+                ? Task.FromResult(bytes)
+                : throw new NotSupportedException();
 
         public Task<bool> DeleteByStoredUrlAsync(string storedUrl, CancellationToken ct) =>
             throw new NotSupportedException();

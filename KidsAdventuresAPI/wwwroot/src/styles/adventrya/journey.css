@@ -25,11 +25,17 @@
   Measured at 781, 820, 900, 1000 and 1099: no horizontal overflow, and the two columns of the
   character card still finish level.
 
-  The reader and the shared book keep the fixed shell — they are a book at a fixed aspect ratio
-  rather than a page, and neither can be exercised without a signed-in session to check against.
+  The reader and the shared book have now been exercised against a signed-in session, which is
+  what the note here used to say was missing, and they had the same fault: a 1100px shell in a
+  1024px window put the header's sign-out and language controls, and the right-hand edge of the
+  open book, past the screen. Nothing scrolled to them either — `body` carries `overflow-x:
+  hidden` — so they were simply gone. They join the opt-out; the book itself keeps its aspect
+  ratio from `--book-width`, which is measured against the viewport rather than against this
+  shell, so it shrinks with the window instead of hanging off it.
 */
 @media (max-width: 1100px) {
-  .journey-shell {
+  .journey-shell,
+  .reader-shell {
     width: 100%;
     min-width: 0;
     min-height: 100svh;
@@ -1203,15 +1209,27 @@
 .order-summary .storybook-thumbnail {
   width: 82px;
 }
+/*
+  The same floors, and the same arithmetic, as the preview step next door.
+
+  520 + 390 of track plus the gap is 961px at a 1024px window, and this element is a
+  `.journey-stage`, which spends up to 160px of its own width on side padding — so the portal and
+  the words beside it needed about 1064px before they fitted, and the one-column fallback for this
+  step is at 780. The floors go; the portal is `max-width: 720px` on a full-width base and the
+  copy column wraps, so both follow the track down.
+*/
 .generating-stage {
   display: grid;
-  grid-template-columns: minmax(520px, 1.08fr) minmax(390px, 0.82fr);
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.82fr);
   align-items: center;
   gap: clamp(46px, 5vw, 78px);
   width: min(1360px, 100%);
   min-height: calc(100svh - 96px);
   height: auto;
   margin: 0 auto;
+}
+.generating-stage > * {
+  min-width: 0;
 }
 .generation-portal {
   position: relative;

@@ -509,9 +509,10 @@ public class CompositePipelineCoverTests : CompositePipelineTestBase
             Assert.Contains("same colour depth, saturation, contrast, exposure, and finish", block);
         }
 
-        // The geometry did not move: it is the same third and the same two anchors.
-        Assert.Contains("59.4% of the canvas width", CompositeIllustrationPrompt.CompositionBlockFor("LEFT"));
-        Assert.Contains("40.6% of the canvas width", CompositeIllustrationPrompt.CompositionBlockFor("RIGHT"));
-        Assert.Contains("45.8% of the canvas height", CompositeIllustrationPrompt.CompositionBlockFor("LEFT"));
+        // The geometry did not move: it is the same third, and Beki's spot is now described in
+        // painter's language by the reserve paragraph (v1.7) rather than as canvas percentages.
+        Assert.Contains("Place the child and the main action in the outer-right area.", CompositeIllustrationPrompt.CompositionBlockFor("LEFT"));
+        Assert.Contains("Place the child and the main action in the outer-left area.", CompositeIllustrationPrompt.CompositionBlockFor("RIGHT"));
+        Assert.DoesNotContain("% of the canvas", CompositeIllustrationPrompt.CompositionBlockFor("LEFT"));
     }
 }

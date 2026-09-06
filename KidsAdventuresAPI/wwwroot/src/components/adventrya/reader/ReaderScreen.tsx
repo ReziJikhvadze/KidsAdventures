@@ -207,7 +207,7 @@ export function ReaderScreen() {
         });
         setPack(ready);
       }
-      await downloadAdventurePack(ready.id, `${title}.pdf`);
+      await downloadAdventurePack(ready.id, `${title}.pdf`, title);
     } catch {
       // One Georgian line, whatever happened. What stood here forwarded the server's own string,
       // and the strings on this path are English operator messages with failure codes in them.

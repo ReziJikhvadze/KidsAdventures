@@ -1,4 +1,5 @@
 import { ApiError, apiRequest, getApiBaseUrl, getToken } from "./client";
+import { filenameFromContentDisposition, safeFileName } from "./utils";
 import type {
   AdventurePackDetailResponse,
   AdventurePackResponse,
@@ -279,9 +280,18 @@ export async function fetchIllustrationObjectUrl(illustrationPath: string): Prom
   return URL.createObjectURL(blob);
 }
 
+/**
+ * Saves a book's PDF under the name the server gave it.
+ *
+ * The server names the file after the book, so its `Content-Disposition` leads: it is the one
+ * name that is right even when this screen's copy of the title is stale. `title` covers the
+ * case where the header never arrives (a proxy that strips it), and `fileName` is the last
+ * resort — before this, it was the only name, and the server's was a row id.
+ */
 export async function downloadAdventurePack(
   packId: string,
   fileName = "storybook.pdf",
+  title?: string,
 ): Promise<void> {
   const token = getToken();
   const response = await fetch(getDownloadUrl(packId), {
@@ -302,12 +312,17 @@ export async function downloadAdventurePack(
     throw new ApiError(message, response.status);
   }
 
+  const named = filenameFromContentDisposition(response.headers.get("content-disposition"));
+  const fromTitle = title ? safeFileName(title) : "";
+  const downloadName =
+    named || (fromTitle ? `${fromTitle}.pdf` : "") || safeFileName(fileName) || "storybook.pdf";
+
   const blob = await response.blob();
   const objectUrl = URL.createObjectURL(blob);
   try {
     const anchor = document.createElement("a");
     anchor.href = objectUrl;
-    anchor.download = fileName;
+    anchor.download = downloadName;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();

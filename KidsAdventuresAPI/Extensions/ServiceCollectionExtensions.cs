@@ -211,6 +211,10 @@ public static class ServiceCollectionExtensions
                 policy.WithOrigins(distinctOrigins)
                     .AllowAnyHeader()
                     .AllowAnyMethod()
+                    // The download name travels in Content-Disposition (filename* carries the
+                    // book's Georgian title). A cross-origin SPA cannot read it unless it is
+                    // exposed, and would fall back to a generic name for every download.
+                    .WithExposedHeaders(Microsoft.Net.Http.Headers.HeaderNames.ContentDisposition)
                     /*
                       The browser asks permission before every authorised request, because a
                       Bearer header is not a simple one. Unanswered, that question is asked again

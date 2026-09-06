@@ -22,6 +22,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Net.Http.Headers;
 
 namespace Adventrya.Story.Tests;
 
@@ -67,6 +68,9 @@ public class AdminConsoleApiTests
     private static readonly Guid PackId = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static readonly Guid OrderId = Guid.Parse("44444444-4444-4444-4444-444444444444");
     private static readonly Guid RunId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+
+    /// <summary>All-Georgian on purpose: it is the case an ASCII-only file name cannot carry.</summary>
+    private const string BookTitle = "ვერიკო და ღრუბლების ქალაქი";
 
     // -- the saved views -------------------------------------------------------------------
 
@@ -217,7 +221,7 @@ public class AdminConsoleApiTests
         var file = Assert.IsType<FileContentResult>(await controller.OrderPdf(OrderId, null));
 
         Assert.Equal("reading-bytes", Encoding.UTF8.GetString(file.FileContents));
-        Assert.EndsWith("-READING-COPY-not-print.pdf", file.FileDownloadName);
+        Assert.EndsWith("-READING-COPY-not-print.pdf", Names(controller).Ascii);
     }
 
     [Fact]
@@ -229,7 +233,7 @@ public class AdminConsoleApiTests
         var file = Assert.IsType<FileContentResult>(await controller.OrderPdf(OrderId, null));
 
         Assert.Equal("print-bytes", Encoding.UTF8.GetString(file.FileContents));
-        Assert.EndsWith("-book.pdf", file.FileDownloadName);
+        Assert.EndsWith("-book.pdf", Names(controller).Ascii);
     }
 
     [Fact]
@@ -247,6 +251,42 @@ public class AdminConsoleApiTests
     }
 
     [Fact]
+    public async Task Both_console_files_are_named_after_the_book_and_stay_telling_apart()
+    {
+        /*
+          The name an operator sees is the book's, not the row's primary key — a support ticket
+          names a child's story, never a guid. What the id spelling was carrying is kept twice
+          over: in the suffix on the readable name, and whole in the ASCII parameter, which is
+          the one an ancient client falls back to. Both files land in one folder; both must still
+          be distinguishable there.
+        */
+        var (controller, _) = PdfController(package: OrderPackage.Print, reading: true, print: true);
+
+        Assert.IsType<FileContentResult>(await controller.OrderPdf(OrderId, "print"));
+        var print = Names(controller);
+        Assert.IsType<FileContentResult>(await controller.OrderPdf(OrderId, "reading"));
+        var reading = Names(controller);
+
+        Assert.Equal($"{BookTitle} — print.pdf", print.Utf8);
+        Assert.Equal($"{BookTitle} — reading copy (not print).pdf", reading.Utf8);
+        Assert.Equal($"beki-{PackId}-book.pdf", print.Ascii);
+        Assert.Equal($"beki-{PackId}-READING-COPY-not-print.pdf", reading.Ascii);
+    }
+
+    [Fact]
+    public async Task A_book_with_no_title_keeps_the_name_the_console_always_had()
+    {
+        var (controller, _) = PdfController(
+            package: OrderPackage.Print, reading: true, print: true, title: null);
+
+        Assert.IsType<FileContentResult>(await controller.OrderPdf(OrderId, "reading"));
+
+        var names = Names(controller);
+        Assert.Equal($"beki-{PackId}-READING-COPY-not-print.pdf", names.Ascii);
+        Assert.Equal(names.Ascii, names.Utf8);
+    }
+
+    [Fact]
     public async Task A_held_print_download_never_substitutes_the_customer_pdf()
     {
         var (controller, _) = PdfController(package: OrderPackage.Print, reading: true, print: false);
@@ -255,7 +295,7 @@ public class AdminConsoleApiTests
         Assert.IsType<ConflictObjectResult>(await controller.OrderPdf(OrderId, null));
         var reading = Assert.IsType<FileContentResult>(await controller.OrderPdf(OrderId, "reading"));
         Assert.Equal("reading-bytes", Encoding.UTF8.GetString(reading.FileContents));
-        Assert.EndsWith("-READING-COPY-not-print.pdf", reading.FileDownloadName);
+        Assert.EndsWith("-READING-COPY-not-print.pdf", Names(controller).Ascii);
     }
 
     [Fact]
@@ -1019,11 +1059,24 @@ public class AdminConsoleApiTests
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() },
         };
 
+    /// <summary>
+    /// The two names the download route wrote into Content-Disposition: the readable one, which
+    /// carries the Georgian title, and the ASCII parameter a client without RFC 5987 falls back to.
+    /// </summary>
+    private static (string Ascii, string Utf8) Names(AdminOrdersController controller)
+    {
+        var disposition = ContentDispositionHeaderValue.Parse(
+            controller.Response.Headers.ContentDisposition.ToString());
+        return (disposition.FileName.Value?.Trim('"') ?? string.Empty,
+            disposition.FileNameStar.Value ?? string.Empty);
+    }
+
     /// <summary>A controller wired for the download route only: one order, one book, one store.</summary>
     private static (AdminOrdersController Controller, FakeBlobs Blobs) PdfController(
-        OrderPackage package, bool reading, bool print)
+        OrderPackage package, bool reading, bool print, string? title = BookTitle)
     {
         var pack = Pack(GenerationPipelines.Beki, AdventurePackStatus.Completed, DateTime.UtcNow);
+        pack.Title = title;
         pack.PdfUrl = reading ? "packs/reading.pdf" : null;
         pack.PrintPdfUrl = print ? "packs/press.pdf" : null;
 

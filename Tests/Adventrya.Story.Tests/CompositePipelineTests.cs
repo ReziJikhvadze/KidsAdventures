@@ -76,9 +76,12 @@ public class CompositePipelineTests : CompositePipelineTestBase
         Assert.Equal(0.406, config.StoryDefaultFor(BekiTextSide.Right).VisibleCenterX, 3);
         Assert.Equal(0.458, config.StoryDefaultFor(BekiTextSide.Left).VisibleCenterY, 3);
 
-        Assert.Contains("59.4% of the canvas width", CompositeIllustrationPrompt.CompositionBlockFor("LEFT"));
-        Assert.Contains("45.8% of the canvas height", CompositeIllustrationPrompt.CompositionBlockFor("LEFT"));
-        Assert.Contains("40.6% of the canvas width", CompositeIllustrationPrompt.CompositionBlockFor("RIGHT"));
+        // v1.7: the reserve paragraph is derived from the same config anchor the compositor uses,
+        // so the words and the paste position cannot drift apart.
+        var left = CompositeIllustrationPrompt.BekiReserveBlock(config.StoryDefaultFor(BekiTextSide.Left));
+        var right = CompositeIllustrationPrompt.BekiReserveBlock(config.StoryDefaultFor(BekiTextSide.Right));
+        Assert.Contains("just to the right of the picture's middle, at mid-height, about a third of the picture tall", left);
+        Assert.Contains("just to the left of the picture's middle, at mid-height, about a third of the picture tall", right);
     }
 
     // ---------------------------------------------------------------------------------------

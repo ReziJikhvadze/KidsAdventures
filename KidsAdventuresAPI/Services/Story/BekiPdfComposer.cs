@@ -122,7 +122,12 @@ public sealed record BekiTypographyRecord(
     [property: JsonPropertyName("family")] string Family,
     [property: JsonPropertyName("size_pt")] double SizePt,
     [property: JsonPropertyName("line_height")] double LineHeight,
-    [property: JsonPropertyName("colour")] string Colour);
+    [property: JsonPropertyName("colour")] string Colour,
+    // The pen this block's glyphs are stroked with, in points on the finished page — the cover
+    // title's rim (BekiTitleOutline), and null on every block that carries none. Owner ruling
+    // 2026-09-01 rule 3 asked for a border strong enough to read on any background, and a receipt
+    // that says the type's colour without saying how it was rimmed describes half the treatment.
+    [property: JsonPropertyName("title_outline_width_pt")] double? TitleOutlineWidthPt = null);
 
 /// <summary>
 /// Everything a gate needs to know about one finished page that only layout can answer.
@@ -632,7 +637,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private static readonly Color EnglishTextColor = Color.FromHex(EnglishTextColorHex);
 
     /// <summary>
-    /// Legacy proof-only rim ink. Production always emits one plain vector text layer.
+    /// The rim ink. The interior's copy sits on its own cream panel and is set without a border;
+    /// the cover title has no panel and is stroked in this, as one text layer, by
+    /// <see cref="BekiTitleOutline"/> — see <see cref="RimCoverTitle"/>.
     /// </summary>
     private const string TextOutlineInk = "0D071D";
 
@@ -785,8 +792,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
         var receipts = new ReceiptBook(BekiRenderMode.Reading);
         var pdf = PdfReaderBoxes.Apply(
-            Build(plan, null, wrapComposite, spreads, personalization, BekiRenderMode.Reading, receipts)
-                .GeneratePdf());
+            RimCoverTitle(
+                Build(plan, null, wrapComposite, spreads, personalization, BekiRenderMode.Reading, receipts)
+                    .GeneratePdf(),
+                ReadingCoverTitleOutlineWidthPt));
 
         return new BekiComposedBook(pdf, receipts.Build());
     }
@@ -905,7 +914,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             .WithMetadata(new DocumentMetadata { Title = title, Language = PdfReaderBoxes.DocumentLanguage })
             .GeneratePdf();
 
-        return new BekiComposedBook(BekiVectorLogo.Apply(pdf, _assets.CoverLogoBytes()), receipts.Build());
+        return new BekiComposedBook(
+            BekiVectorLogo.Apply(RimCoverTitle(pdf, CoverTitleOutlineWidthPt), _assets.CoverLogoBytes()),
+            receipts.Build());
     }
 
     public BekiComposedBook ComposeCanonicalWithReceipts(
@@ -963,9 +974,39 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         }).GeneratePdf();
 
         return new BekiComposedBook(
-            PdfPrintBoxes.ApplyCanonical(BekiVectorLogo.Apply(pdf, _assets.CoverLogoBytes()), _layout.BleedMm),
+            PdfPrintBoxes.ApplyCanonical(
+                BekiVectorLogo.Apply(
+                    RimCoverTitle(pdf, CoverTitleOutlineWidthPt), _assets.CoverLogoBytes()),
+                _layout.BleedMm),
             receipts.Build());
     }
+
+    /// <summary>
+    /// The cover title's rim, stroked onto the finished page — and the one place the order of that
+    /// step is decided.
+    ///
+    /// It runs BEFORE <see cref="BekiVectorLogo.Apply"/>, on the content stream exactly as QuestPDF
+    /// wrote it, for a reason worth stating: the logo step prepends and appends whole content
+    /// streams around what it finds, and a rim applied afterwards would be reading a page whose
+    /// graphics state is deliberately left open across the join. Neither step can see the other's
+    /// operators this way, and both remain what they claim to be — native vector work on a finished
+    /// document, not a second render.
+    /// </summary>
+    private static byte[] RimCoverTitle(byte[] pdf, double widthPt) =>
+        widthPt > 0d ? BekiTitleOutline.Apply(pdf, TextOutlineInk, widthPt) : pdf;
+
+    /// <summary>The pen the press cover's title is stroked with, in points.</summary>
+    private double CoverTitleOutlineWidthPt => _layout.CoverTitleOutlineWidthPt;
+
+    /// <summary>
+    /// The same rim on the customer's download, scaled with the type it surrounds. The reading
+    /// cover's title is set at <see cref="BekiCoverDieline.DigitalScale"/> of the press size
+    /// (<see cref="ComposeReadingFrontCover"/>), and a rim that did not follow it would be a
+    /// fractionally heavier border on a fractionally smaller letter — the same design, drawn
+    /// differently, which is what audit P0-01 objected to about the two covers in the first place.
+    /// </summary>
+    private double ReadingCoverTitleOutlineWidthPt =>
+        CoverTitleOutlineWidthPt * BekiCoverDieline.DigitalScale;
 
     private void ComposeCoverWrapPage(
         IDocumentContainer document,
@@ -1016,7 +1057,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             [Sha256(placed)],
             Wash: null,
             [new BekiTypographyRecord(
-                "cover-title", PdfFontBootstrap.TitleFamily, titleSize, 1.25d, TextColorHex)],
+                "cover-title", PdfFontBootstrap.TitleFamily, titleSize, 1.25d, TextColorHex,
+                CoverTitleOutlineWidthPt)],
             WrapLines(title, titleSize, titleWidthPt, PdfFontBootstrap.TitleFamily),
             TextProbe: null,
             SourceSha256: [_assets.CoverLogo.Sha256],
@@ -1304,7 +1346,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             [Sha256(board)],
             Wash: null,
             [new BekiTypographyRecord(
-                "cover-title", PdfFontBootstrap.TitleFamily, titleSize, 1.25d, TextColorHex)],
+                "cover-title", PdfFontBootstrap.TitleFamily, titleSize, 1.25d, TextColorHex,
+                ReadingCoverTitleOutlineWidthPt)],
             WrapLines(title, titleSize, MmToPt(titleWidthMm), PdfFontBootstrap.TitleFamily),
             TextProbe: null,
             // The board crop is the source: the wrap is a different picture, and a factor measured

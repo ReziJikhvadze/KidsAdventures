@@ -9,6 +9,7 @@ using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.Services.Interfaces;
+using AdventurePacks.Api.Services.Pdf;
 using AdventurePacks.Api.Services.Story;
 using Microsoft.Net.Http.Headers;
 
@@ -744,8 +745,19 @@ public sealed class AdventurePacksController(
         try
         {
             var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(row.PdfUrl, cancellationToken);
-            var fileName = $"beki-{row.Id}-book.pdf";
-            return File(bytes, "application/pdf", fileName);
+
+            // The book arrives under its own name. What stood here handed the browser the row's
+            // primary key, so a parent saving a second book got a second beki-<guid>-book.pdf and
+            // no way to tell which child's story was in which. The old spelling is kept as the
+            // fallback for a book that somehow has no title.
+            var fallbackName = $"beki-{row.Id}-book.pdf";
+            Response.Headers.ContentDisposition = PdfFileNames.Attachment(
+                PdfFileNames.ForBook(row.Title, suffix: null, fallbackName),
+                PdfFileNames.AsciiForBook(row.Title, suffix: null, fallbackName)).ToString();
+
+            // No download name on the result: ASP.NET would rebuild Content-Disposition from it
+            // and blank every Georgian letter out of the ASCII parameter.
+            return File(bytes, "application/pdf");
         }
         catch (Exception ex)
         {

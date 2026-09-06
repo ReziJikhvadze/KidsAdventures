@@ -619,15 +619,29 @@
   height: auto;
   padding-bottom: 34px;
 }
+/*
+  No floors under the two tracks.
+
+  `minmax(240px, …)` and `minmax(620px, …)` add up to 895px of track that has to exist before the
+  gap is paid for, and this stage is `100% - 64px`. It never showed while the shell underneath was
+  1100px wide whatever the window was — the stage was always 1036px and the floors always fitted.
+  Now that the shell follows the window (see journey.css), they would be the thing hanging off the
+  right at every width between the phone rules and 959px. The book in the right-hand track sizes
+  itself from `--book-width`, which is already clamped against the viewport, so the track only has
+  to be allowed to follow it down.
+*/
 .reader-shared-stage {
   position: relative;
   z-index: 2;
   width: min(1180px, calc(100% - 64px));
   display: grid;
-  grid-template-columns: minmax(240px, 0.48fr) minmax(620px, 1.52fr);
+  grid-template-columns: minmax(0, 0.48fr) minmax(0, 1.52fr);
   align-items: center;
   gap: 35px;
   margin: 38px auto 0;
+}
+.reader-shared-stage > * {
+  min-width: 0;
 }
 .reader-shared-heading h1 {
   margin: 9px 0 0;

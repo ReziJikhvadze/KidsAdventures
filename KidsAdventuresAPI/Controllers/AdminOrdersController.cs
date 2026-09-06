@@ -2,6 +2,7 @@ using AdventurePacks.Api.DTOs.Admin;
 using AdventurePacks.Api.Repositories.Implementations;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
+using AdventurePacks.Api.Services.Pdf;
 using AdventurePacks.Api.Services.Story;
 using AdventurePacks.Api.Services.Story.Composite;
 
@@ -291,13 +292,22 @@ public sealed class AdminOrdersController(
 
               An operator downloads both from one panel and ends up with them in one folder, and
               two files called beki-<id>.pdf are two files nobody can tell apart an hour later.
-              The READING-COPY-not-print spelling is kept exactly as it was for the fallback,
-              because that string is what an operator forwarding to a binder is meant to notice.
+              The book's own title leads now — an operator working a support ticket knows the book
+              by its name, not by its id — but the distinction the id spelling carried is kept in
+              the suffix, and the whole beki-<id> spelling remains as the ASCII parameter and as
+              the fallback for a book with no title. The READING-COPY-not-print string is kept
+              exactly as it was, because that is what an operator forwarding to a binder notices.
             */
-            var name = wantsPrint ? $"beki-{detail.Book.Id}-book.pdf"
+            var fallbackName = wantsPrint ? $"beki-{detail.Book.Id}-book.pdf"
                 : $"beki-{detail.Book.Id}-READING-COPY-not-print.pdf";
+            var suffix = wantsPrint ? " — print" : " — reading copy (not print)";
 
-            return File(bytes, "application/pdf", name);
+            // Set directly rather than through a download name on the result: ASP.NET rebuilds
+            // Content-Disposition from that, replacing every Georgian letter with an underscore.
+            Response.Headers.ContentDisposition = PdfFileNames.Attachment(
+                PdfFileNames.ForBook(pack?.Title, suffix, fallbackName), fallbackName).ToString();
+
+            return File(bytes, "application/pdf");
         }
         catch (Exception ex)
         {

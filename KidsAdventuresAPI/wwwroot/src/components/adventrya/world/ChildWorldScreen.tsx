@@ -533,7 +533,7 @@ function JourneyBookCard({
         if (pack.status !== "GeneratingPdf") await generatePackPdf(pack.id);
         await pollAdventurePack(pack.id, undefined, { untilPdfReady: true, maxAttempts: 90 });
       }
-      await downloadAdventurePack(pack.id, `${title}.pdf`);
+      await downloadAdventurePack(pack.id, `${title}.pdf`, title);
     } catch (err) {
       setPdfError(
         err instanceof ApiError ? err.message : (err as Error)?.message || "PDF ვერ მომზადდა.",

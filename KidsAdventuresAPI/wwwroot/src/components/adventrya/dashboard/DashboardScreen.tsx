@@ -879,7 +879,7 @@ function BookCard({
           { untilPdfReady: true, maxAttempts: 90 },
         );
       }
-      await downloadAdventurePack(pack.id, `${title}.pdf`);
+      await downloadAdventurePack(pack.id, `${title}.pdf`, title);
     } catch (err) {
       // A book that is merely still composing its PDF must never wear the failed-book copy —
       // that exact mix-up sent the owner hunting a phantom failure on a healthy book.

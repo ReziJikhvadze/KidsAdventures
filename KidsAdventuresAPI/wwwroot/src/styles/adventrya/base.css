@@ -63,6 +63,33 @@ body {
   font-family: var(--font-body);
   overflow-x: hidden;
 }
+/*
+  The one box every route is drawn inside, and the last line against sideways overflow.
+
+  Not on `html` or `body`. The note at the foot of world-selector.css explains why the
+  `html, body { overflow-x: hidden }` that once lived in a media query there was removed rather
+  than scoped: a stylesheet cannot say "only while this route is on screen" about the document
+  itself, so that rule was overriding every other page's overflow whether the map was mounted or
+  not. This is an element, mounted and unmounted with nothing, and it says the same thing without
+  reaching past itself.
+
+  `clip`, not `hidden`, and only on one axis. `hidden` would make this a scroll container: the
+  page's own vertical scrolling would move inside it, `position: sticky` would start measuring
+  against it, and anchor jumps would land in the wrong place. `overflow-x: clip` leaves
+  `overflow-y` at `visible`, so the document scrolls vertically exactly as it did.
+
+  It does not fight the world selector. That screen's map is deliberately wider than the window —
+  `.desktop-frame` is up to `100svh * 1.45 * 1.776833` — and it is already clipped by the
+  `.art-stage` it sits in, well below this, so nothing here changes what it draws. What this
+  catches is the other kind: a decorative circle or a grid track that turns out wider than the
+  page on some window nobody measured. Trimming it is a backstop and not a fix — an element that
+  reaches this rule is still content the reader cannot see — so the layouts underneath are sized
+  to fit, and this is only what stops the next one being a page cut off at the right edge.
+*/
+.app-root {
+  max-width: 100%;
+  overflow-x: clip;
+}
 button,
 a {
   -webkit-tap-highlight-color: transparent;

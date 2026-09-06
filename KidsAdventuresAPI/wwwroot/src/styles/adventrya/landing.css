@@ -1653,9 +1653,26 @@
     transform: scale(0.9);
     transform-origin: right center;
   }
+  /*
+    The same treatment as the hero above, for the same reason and the three bands that still had
+    floors under them.
+
+    `.landing-v3-section` spends up to 156px on its own side padding, so a pair of tracks with a
+    combined floor of 940 or 1000 does not fit a 1024px laptop — measured there, the pricing cards
+    ran 99px past the right edge and the FAQ column 49px, and `.landing-v3 { overflow: clip }` cut
+    both off rather than scrolling to them. The one-column fallback is at 900, which is far too
+    late to catch it. The proportions are unchanged; only the floors go, so the two halves shrink
+    together down to the point where they stack.
+  */
   .landing-v3-preview {
-    grid-template-columns: minmax(330px, 0.72fr) minmax(500px, 1.28fr);
+    grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
     gap: 45px;
+  }
+  .landing-v3-pricing {
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  }
+  .landing-v3-faq {
+    grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
   }
 }
 @media (max-width: 900px) {
