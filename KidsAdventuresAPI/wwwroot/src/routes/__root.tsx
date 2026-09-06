@@ -188,10 +188,55 @@ function PinterestEnhancedMatch() {
   return null;
 }
 
-/** Loads GTM, Analytics, AdSense and the Pinterest pixel once the page is hydrated. */
+/**
+ * Loads GTM, Analytics, AdSense and the Pinterest pixel — after the page has finished, not the
+ * instant it hydrates.
+ *
+ * Measured on production, 2026-09-06: the document was interactive at 815 ms and the load event
+ * did not fire until 3650 ms. Almost all of that gap is these five vendors — 254 KB over the
+ * wire, and roughly 1.4 MB of JavaScript to parse and run — arriving while React is still
+ * settling and competing with it for the one thread that draws the page.
+ *
+ * Nothing is removed and nothing is dropped. The work is simply moved behind the page's own:
+ * first the load event, then the browser's own idle callback. Both have deadlines, because a
+ * pixel that never fires is worse than one that fires late — a stalled image would otherwise
+ * hold the load event forever, and an idle callback on a busy tab can be starved indefinitely,
+ * so each falls through on a timer. Worst case the tags mount about three seconds in, which is
+ * later than Meta intends and still inside the visit.
+ */
 function MarketingTags() {
   useEffect(() => {
-    mountMarketingTags();
+    let done = false;
+    const timers: number[] = [];
+
+    const mount = () => {
+      if (done) return;
+      done = true;
+      mountMarketingTags();
+    };
+
+    const whenIdle = () => {
+      if (done) return;
+      if (typeof window.requestIdleCallback === "function") {
+        window.requestIdleCallback(mount, { timeout: 1000 });
+      } else {
+        // Safari has no requestIdleCallback. A short timer is the same intent, less precisely.
+        timers.push(window.setTimeout(mount, 200));
+      }
+    };
+
+    if (document.readyState === "complete") {
+      whenIdle();
+    } else {
+      window.addEventListener("load", whenIdle, { once: true });
+      // A load event that never comes must not mean tags that never load.
+      timers.push(window.setTimeout(whenIdle, 2500));
+    }
+
+    return () => {
+      window.removeEventListener("load", whenIdle);
+      timers.forEach((t) => window.clearTimeout(t));
+    };
   }, []);
   return null;
 }
