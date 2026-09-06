@@ -361,6 +361,10 @@ export type BookDraftRequest = {
 export type CreateOrderRequest = {
   package: OrderPackage;
   promoCode?: string;
+  /** Gift wrapping, +5 GEL. The server ignores it on a Digital order — there is nothing to wrap. */
+  giftWrap?: boolean;
+  /** Printed copies, 1..5. Ignored for Digital, which has no copies. */
+  quantity?: number;
   draft?: BookDraftRequest;
   shippingAddress?: ShippingAddressRequest;
   returnPath?: string;
@@ -377,6 +381,8 @@ export type QuoteRequest = {
   type?: OrderType | string;
   package: OrderPackage | string;
   promoCode?: string;
+  giftWrap?: boolean;
+  quantity?: number;
 };
 
 export type PromoQuote = {
@@ -394,6 +400,10 @@ export type QuoteResponse = {
   subtotalMinor: number;
   discountMinor: number;
   totalMinor: number;
+  /** How much of the subtotal is gift wrapping. Zero unless it was asked for and allowed. */
+  giftWrapMinor: number;
+  /** Copies this quote was priced for, after the server clamped it. */
+  quantity: number;
   isFree: boolean;
   promo?: PromoQuote | null;
 };

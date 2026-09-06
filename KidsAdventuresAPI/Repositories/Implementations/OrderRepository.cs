@@ -6,7 +6,7 @@ public sealed class OrderRepository(ISqlConnectionFactory connectionFactory) : I
 {
     private const string Columns = """
         Id, UserId, BookId, Type, Package, Currency, SubtotalMinor, DiscountMinor, TotalMinor,
-        PromoCodeId, Status, Provider, ProviderSessionId, ProviderPaymentIntentId, DraftJson,
+        PromoCodeId, GiftWrap, Quantity, Status, Provider, ProviderSessionId, ProviderPaymentIntentId, DraftJson,
         ShippingJson, FailureReason, CreatedAt, PaidAt, FulfilledAt
         """;
 
@@ -15,11 +15,11 @@ public sealed class OrderRepository(ISqlConnectionFactory connectionFactory) : I
         const string sql = """
                            INSERT INTO dbo.Orders (
                                Id, UserId, BookId, Type, Package, Currency, SubtotalMinor, DiscountMinor, TotalMinor,
-                               PromoCodeId, Status, Provider, ProviderSessionId, ProviderPaymentIntentId, DraftJson,
+                               PromoCodeId, GiftWrap, Quantity, Status, Provider, ProviderSessionId, ProviderPaymentIntentId, DraftJson,
                                ShippingJson, FailureReason, CreatedAt, PaidAt, FulfilledAt)
                            VALUES (
                                @Id, @UserId, @BookId, @Type, @Package, @Currency, @SubtotalMinor, @DiscountMinor, @TotalMinor,
-                               @PromoCodeId, @Status, @Provider, @ProviderSessionId, @ProviderPaymentIntentId, @DraftJson,
+                               @PromoCodeId, @GiftWrap, @Quantity, @Status, @Provider, @ProviderSessionId, @ProviderPaymentIntentId, @DraftJson,
                                @ShippingJson, @FailureReason, @CreatedAt, @PaidAt, @FulfilledAt);
                            """;
         order.Id = order.Id == Guid.Empty ? Guid.NewGuid() : order.Id;
@@ -238,6 +238,8 @@ public sealed class OrderRepository(ISqlConnectionFactory connectionFactory) : I
         order.DiscountMinor,
         order.TotalMinor,
         order.PromoCodeId,
+        order.GiftWrap,
+        order.Quantity,
         Status = order.Status.ToString(),
         order.Provider,
         order.ProviderSessionId,
@@ -262,6 +264,8 @@ public sealed class OrderRepository(ISqlConnectionFactory connectionFactory) : I
         DiscountMinor = row.DiscountMinor,
         TotalMinor = row.TotalMinor,
         PromoCodeId = row.PromoCodeId,
+        GiftWrap = row.GiftWrap,
+        Quantity = row.Quantity,
         Status = Enum.Parse<OrderStatus>(row.Status),
         Provider = row.Provider,
         ProviderSessionId = row.ProviderSessionId,
@@ -289,6 +293,8 @@ public sealed class OrderRepository(ISqlConnectionFactory connectionFactory) : I
         public int DiscountMinor { get; set; }
         public int TotalMinor { get; set; }
         public Guid? PromoCodeId { get; set; }
+        public bool GiftWrap { get; set; }
+        public int Quantity { get; set; } = 1;
         public string Status { get; set; } = string.Empty;
         public string Provider { get; set; } = OrderProviders.Stripe;
         public string? ProviderSessionId { get; set; }

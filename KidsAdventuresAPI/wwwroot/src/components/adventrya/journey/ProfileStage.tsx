@@ -636,8 +636,12 @@ function HeroPicker({
   };
 
   return (
-    <fieldset className="choice-fieldset ux-hero-picker">
-      <legend>{copy.title}</legend>
+    /*
+      The question is carried as a label rather than drawn as one. It named a row of the
+      family's own names, which the names already say; the fieldset keeps the wording for a
+      screen reader, where the group does still need announcing.
+    */
+    <fieldset className="choice-fieldset ux-hero-picker" aria-label={copy.title}>
       <div className="ux-hero-picker-rail">
         {/*
           Present whenever the strip moves at all, greyed at the end rather than taken away.
@@ -672,17 +676,6 @@ function HeroPicker({
               {hero.name}
             </button>
           ))}
-          <button
-            type="button"
-            className={isNew ? "selected" : ""}
-            aria-pressed={isNew}
-            onClick={() => {
-              if (!isNew) onNew();
-            }}
-          >
-            <Plus aria-hidden="true" size={14} />
-            {copy.newChild}
-          </button>
         </div>
         <button
           type="button"
@@ -693,6 +686,25 @@ function HeroPicker({
           onClick={() => nudge(1)}
         >
           <ChevronRight aria-hidden="true" size={16} />
+        </button>
+        {/*
+          Beside the strip, not in it.
+
+          "A new child" is not one of the family's names, and standing in the row it was: it
+          scrolled away with them, and on a family of six it was the one chip you had to go
+          looking for. Out here it holds still at the end of the row, and the strip that scrolls
+          holds only the children who exist.
+        */}
+        <button
+          type="button"
+          className={`ux-hero-picker-new${isNew ? " selected" : ""}`}
+          aria-pressed={isNew}
+          onClick={() => {
+            if (!isNew) onNew();
+          }}
+        >
+          <Plus aria-hidden="true" size={14} />
+          {copy.newChild}
         </button>
       </div>
     </fieldset>

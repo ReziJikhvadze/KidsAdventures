@@ -150,7 +150,9 @@ public sealed class PrintOrderRepository(ISqlConnectionFactory connectionFactory
                              THEN 1 ELSE 0 END AS BIT) AS PdfIsReadingCopyFallback,
                    c.Name AS HeroName,
                    u.Email AS CustomerEmail, u.PhoneNumber AS CustomerPhone,
-                   ISNULL(o.TotalMinor, 0) AS TotalMinor
+                   ISNULL(o.TotalMinor, 0) AS TotalMinor,
+                   ISNULL(o.GiftWrap, CAST(0 AS BIT)) AS GiftWrap,
+                   ISNULL(o.Quantity, 1) AS Quantity
             FROM dbo.PrintOrders p
             LEFT JOIN dbo.AdventurePacks b ON b.Id = p.BookId
             LEFT JOIN dbo.Characters c ON c.Id = b.PrimaryCharacterId

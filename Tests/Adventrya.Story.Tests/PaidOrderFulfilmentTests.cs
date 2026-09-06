@@ -374,8 +374,8 @@ public class PaidOrderFulfilmentTests
     private sealed class QuietPromoCodes : IPromoCodeService
     {
         public Task<bool> TryRedeemAsync(Order order, CancellationToken cancellationToken) => Task.FromResult(false);
-        public Task<PricedOrder> PriceAsync(Guid userId, OrderType type, OrderPackage package, string? promoCode, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<QuoteResponse> QuoteAsync(Guid userId, OrderType type, OrderPackage package, string? promoCode, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PricedOrder> PriceAsync(Guid userId, OrderType type, OrderPackage package, string? promoCode, bool giftWrap, int quantity, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<QuoteResponse> QuoteAsync(Guid userId, OrderType type, OrderPackage package, string? promoCode, bool giftWrap, int quantity, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     // -- harness: the create path ---------------------------------------------

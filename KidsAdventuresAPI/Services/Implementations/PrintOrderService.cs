@@ -475,6 +475,8 @@ public sealed class PrintOrderService(
         HasPrintPdf = row.HasPrintPdf,
         PdfIsReadingCopyFallback = row.PdfIsReadingCopyFallback,
         TotalMinor = row.TotalMinor,
+        GiftWrap = row.GiftWrap,
+        Quantity = row.Quantity,
         TotalFormatted = GelPricing.Format(row.TotalMinor),
         CreatedAt = Utc(row.CreatedAt),
         ShippedAt = Utc(row.ShippedAt),

@@ -205,7 +205,7 @@ export const journey = {
       features: [
         "Everything in the Digital package",
         "Delivery across Georgia",
-        "Tbilisi 4–5 · regions 5–8 days",
+        "Tbilisi 2–3 · regions 5–7 days",
       ],
     },
   },
@@ -267,6 +267,17 @@ export const journey = {
   },
 
   checkout: {
+    copies: "Number of copies",
+    copiesNote: "One address, one parcel",
+    copiesFewer: "One fewer",
+    copiesMore: "One more",
+    giftWrap: "Gift wrapping",
+    giftWrapNote: "The book arrives wrapped in gift paper and ribbon",
+    promoLabel: "Have a promo code?",
+    promoPlaceholder: "Enter your promo code",
+    promoRemove: "Remove promo code",
+    promoApplied: "Promo code applied",
+    promoInvalid: "This promo code is invalid or has expired.",
     packageDigital: "Digital",
     packagePrint: "Print + Digital",
     printTitle: "Order the printed edition",
@@ -342,7 +353,7 @@ export const journey = {
     digitalNote: "This is your Digital edition",
     languageNote: "Book language: ",
     deliveryNote:
-      "Your printed book will arrive at the address you gave — 4–5 days in Tbilisi, 5–8 days elsewhere in Georgia.",
+      "Your printed book will arrive at the address you gave — 2–3 days in Tbilisi, 5–7 days elsewhere in Georgia.",
     pageBadge: " 16 pages",
     fullBookAria: (hero: string) => `${hero}'s complete book`,
     downloadPdf: "Download PDF",

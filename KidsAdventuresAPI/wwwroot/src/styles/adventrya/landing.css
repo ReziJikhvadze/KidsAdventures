@@ -474,8 +474,13 @@
     radial-gradient(circle at 12% 44%, rgba(231, 190, 119, 0.13), transparent 20%),
     linear-gradient(180deg, #fcf8ef, #f7efe2);
 }
+/*
+  Ten percent off the row's own width, on both branches of the min() — the cap and the
+  fluid one — so the three covers shrink by the same tenth whether the viewport is wide
+  enough to hit 1188px or not.
+*/
 .landing-v3-book-gallery {
-  width: min(100%, 1320px);
+  width: min(90%, 1188px);
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   align-items: end;
@@ -1184,13 +1189,22 @@
   flex-direction: column;
   gap: 11px;
 }
+/*
+  The tick sits beside the line, not inside it.
+
+  align-items: center hung it against the middle of a three-line feature, and — worse — the
+  svg was a shrinkable flex item with only a width, so a feature long enough to wrap squeezed
+  it from 15px down to 6, which is the "you cannot see the tick" report. flex: none holds its
+  size and flex-start puts it on the first line where the eye looks for it.
+*/
 .landing-v3-pricing-copy li,
 .landing-v3-price-cards li {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 9px;
   color: var(--lv3-muted);
   font-size: 12px;
+  line-height: 1.5;
 }
 .landing-v3-pricing-copy li svg {
   width: 15px;
@@ -1267,8 +1281,13 @@
   margin-bottom: 30px;
 }
 .landing-v3-price-cards li svg {
+  flex: none;
   width: 15px;
-  color: #5b9d86;
+  height: 15px;
+  /* Half the difference between the 18px line box and the icon, so it reads as centred on the
+     first line however many lines follow it. */
+  margin-top: 1.5px;
+  color: #3f8168;
 }
 .featured .landing-v3-price-cards li,
 .featured li {

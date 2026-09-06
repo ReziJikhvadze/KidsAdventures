@@ -43,17 +43,69 @@ public static class GelPricing
     /// <summary>Adding print to a book already bought digitally: 65 GEL.</summary>
     public const int PrintUpgradeMinor = 6500;
 
-    public static int SubtotalFor(OrderType type, OrderPackage package) => type switch
+    /// <summary>
+    /// Gift wrapping, 5 GEL, and only on something that is posted.
+    ///
+    /// There is nothing to wrap on a digital book, so the flag is dropped rather than
+    /// charged for when the package is Digital — a client that sends it anyway is asking
+    /// for something that does not exist, and the safe answer to that is the ordinary
+    /// price rather than five lari the parent did not agree to.
+    /// </summary>
+    public const int GiftWrapMinor = 500;
+
+    /// <summary>Whether wrapping can be added to this order at all — a posted parcel, not a file.</summary>
+    public static bool SupportsGiftWrap(OrderPackage package) => package == OrderPackage.Print;
+
+    public static int GiftWrapFor(OrderPackage package, bool giftWrap) =>
+        giftWrap && SupportsGiftWrap(package) ? GiftWrapMinor : 0;
+
+    /// <summary>
+    /// The most printed copies of one book we will take in a single order.
+    ///
+    /// Five is a family and its grandparents, which is what the copies are for. Past that it is
+    /// a wholesale order and wants a conversation, not a checkbox — and an unbounded number in
+    /// a request body is an unbounded charge.
+    /// </summary>
+    public const int MaxPrintQuantity = 5;
+
+    /// <summary>
+    /// How many copies this order is actually for.
+    ///
+    /// Only a printed book has copies: a digital one is a file, and sending "3" with it would
+    /// charge three times for the same download. Anything outside 1..<see cref="MaxPrintQuantity"/>
+    /// is brought back inside it rather than rejected, so a stale client cannot fail a checkout.
+    /// </summary>
+    public static int QuantityFor(OrderType type, OrderPackage package, int quantity) =>
+        type == OrderType.NewBook && package == OrderPackage.Print
+            ? Math.Clamp(quantity, 1, MaxPrintQuantity)
+            : 1;
+
+    public static int SubtotalFor(
+        OrderType type,
+        OrderPackage package,
+        bool giftWrap = false,
+        int quantity = 1)
     {
-        OrderType.PrintUpgrade => PrintUpgradeMinor,
-        OrderType.NewBook => package switch
+        /*
+          Copies multiply the book; wrapping does not multiply with them.
+
+          Three copies is three books in one parcel to one address, and the parcel is wrapped
+          once. Charging the five lari per copy would be charging for wrapping that nobody does.
+        */
+        var copies = QuantityFor(type, package, quantity);
+
+        return type switch
         {
-            OrderPackage.Digital => DigitalMinor,
-            OrderPackage.Print => PrintMinor,
-            _ => throw new InvalidOperationException("პაკეტი არასწორია.")
-        },
-        _ => throw new InvalidOperationException("შეკვეთის ტიპი არასწორია.")
-    };
+            OrderType.PrintUpgrade => PrintUpgradeMinor + GiftWrapFor(OrderPackage.Print, giftWrap),
+            OrderType.NewBook => package switch
+            {
+                OrderPackage.Digital => DigitalMinor,
+                OrderPackage.Print => (PrintMinor * copies) + GiftWrapFor(package, giftWrap),
+                _ => throw new InvalidOperationException("პაკეტი არასწორია.")
+            },
+            _ => throw new InvalidOperationException("შეკვეთის ტიპი არასწორია.")
+        };
+    }
 
     /// <summary>A print upgrade is always the print package; it has no digital variant.</summary>
     public static OrderPackage PackageFor(OrderType type, OrderPackage requested) =>

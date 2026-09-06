@@ -18,7 +18,20 @@ export const PRICES = {
   print: 100,
   /** Difference charged when a customer upgrades an existing digital book. */
   printUpgrade: 6500,
+  /*
+    Gift wrapping, 5 GEL, and only on the printed book — a digital one has no parcel. Matches
+    GelPricing.GiftWrapMinor; the server is what actually adds it to a total, and this is here
+    so the checkbox can say what it costs before the quote comes back.
+  */
+  giftWrap: 500,
 } as const;
+
+/**
+ * The most printed copies one order may carry, matching GelPricing.MaxPrintQuantity. The stepper
+ * stops here; the server clamps to the same number, so a client that asks for more is priced for
+ * five rather than refused.
+ */
+export const MAX_PRINT_QUANTITY = 5;
 
 export type BookPackage = "digital" | "print";
 
@@ -49,6 +62,6 @@ export function totalMinor(base: number, promo: PromoDiscount | null): number {
 }
 
 export const DELIVERY_DAYS = {
-  tbilisi: "4–5",
-  regions: "5–8",
+  tbilisi: "2–3",
+  regions: "5–7",
 } as const;

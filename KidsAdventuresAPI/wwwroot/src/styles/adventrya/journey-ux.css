@@ -2144,6 +2144,118 @@
 }
 
 /*
+  The row of names has to be paid for, and the page had no change in its pocket.
+
+  This step is laid out to fit one screen exactly — at 1366x657 the baseline overflow is zero,
+  not "nearly zero" — so a family with a saved child, who gets a row of their names above the
+  card, pushed the consent tick and the create button under the fold. The two things the screen
+  exists to collect.
+
+  Everything below is scoped to `:has(.ux-hero-picker)`, so a parent with no saved children sees
+  the sizes the page already had. Where the money comes from, in order of how little it is
+  missed: the page's own top and bottom margins, the card's padding, the gaps between questions,
+  and last the controls' floors — a few pixels each, and none of them below the size a finger
+  can hit.
+*/
+@media (min-width: 900px) {
+  .ux-profile-stage:has(.ux-hero-picker) {
+    padding-top: clamp(8px, 1.2vh, 22px);
+    padding-bottom: clamp(8px, 1.2vh, 22px);
+  }
+
+  .ux-character-stack:has(> .ux-hero-picker) {
+    gap: 6px;
+  }
+
+  .ux-character-stack:has(> .ux-hero-picker) .ux-hero-picker {
+    margin-bottom: 2px;
+  }
+
+  .ux-character-stack:has(> .ux-hero-picker) > .ux-character-form {
+    padding-top: clamp(8px, 1.1vh, 20px);
+    padding-bottom: clamp(8px, 1.1vh, 20px);
+  }
+
+  .ux-character-stack:has(> .ux-hero-picker) .ux-character-inputs {
+    gap: clamp(6px, 1.2vh, 18px);
+  }
+
+  .ux-character-stack:has(> .ux-hero-picker) .ux-character-form .field input {
+    height: clamp(34px, 5.4vh, 58px);
+  }
+
+  .ux-character-stack:has(> .ux-hero-picker) .ux-character-form .ux-birthdate-row select {
+    min-height: clamp(32px, 5vh, 54px);
+  }
+
+  .ux-character-stack:has(> .ux-hero-picker) .ux-character-form .eye-options button {
+    height: clamp(31px, 4.6vh, 50px);
+  }
+
+  .ux-character-stack:has(> .ux-hero-picker) .ux-character-form .ux-segmented-control button {
+    min-height: clamp(28px, 4.2vh, 44px);
+  }
+
+  .ux-profile-stage:has(.ux-hero-picker) .ux-profile-footer .journey-primary {
+    min-height: clamp(38px, 5.4vh, 56px);
+  }
+}
+
+/*
+  The same purse, on a window that was already spending everything in it.
+
+  A 1366x768 laptop — the commonest screen this site meets after 1920 — has about 657px of page
+  once the browser's own chrome is off it, and the tier above leaves 25px of the picker's row
+  still hanging past the bottom. These are the last few pixels the layout has: the floors, not
+  the growth. Only with the picker present, and only under 700px tall.
+*/
+@media (min-width: 900px) and (max-height: 700px) {
+  .ux-profile-stage:has(.ux-hero-picker) {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .ux-character-stack:has(> .ux-hero-picker) > .ux-character-form {
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+
+  .ux-character-stack:has(> .ux-hero-picker) .ux-character-inputs {
+    gap: 5px;
+  }
+
+  .ux-character-stack:has(> .ux-hero-picker) .ux-character-form .field input {
+    height: clamp(30px, 5.4vh, 58px);
+  }
+
+  .ux-character-stack:has(> .ux-hero-picker) .ux-character-form .ux-birthdate-row select {
+    min-height: clamp(29px, 5vh, 54px);
+  }
+
+  .ux-character-stack:has(> .ux-hero-picker) .ux-character-form .eye-options button {
+    height: clamp(28px, 4.6vh, 50px);
+  }
+
+  .ux-character-stack:has(> .ux-hero-picker) .ux-character-form .ux-segmented-control button {
+    min-height: clamp(26px, 4.2vh, 44px);
+  }
+
+  .ux-profile-stage:has(.ux-hero-picker) .ux-profile-footer .journey-primary {
+    min-height: clamp(36px, 5.4vh, 56px);
+  }
+
+  /* The air around the title, which is the one thing on this screen that loses nothing by
+     having less of it. */
+  .ux-profile-stage:has(.ux-hero-picker) > .ux-stage-heading {
+    margin-bottom: 8px;
+  }
+
+  .ux-profile-stage:has(.ux-hero-picker) > .ux-stage-heading .eyebrow {
+    margin-bottom: 4px;
+  }
+}
+
+/*
   Below about 700px the controls are already at their smallest and the page is still a little
   taller than the window, so the last of it comes from the labels and the margins around them —
   the parts that can lose a pixel or two without anyone reaching for a control they cannot hit.
@@ -2619,7 +2731,9 @@
   is added is only the spacing that puts a question above a form rather than inside one.
 */
 .ux-hero-picker {
-  margin-bottom: 18px;
+  /* The legend above it is gone, so the row sits where the question used to and needs less
+     air under it than a labelled block did. */
+  margin-bottom: 6px;
   /*
     A fieldset's inline size floors at `min-content` unless it is told otherwise — a rule of its
     own, not the one every other box follows. Left alone it widens to hold the whole strip, so the
@@ -2638,10 +2752,18 @@
 .ux-hero-picker-rail {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 9px;
 }
+/*
+  Centred, and only as wide as the family.
+
+  `flex: 1` stretched the strip across the card whatever was in it, so two names sat hard against
+  the left edge under a form that is centred everywhere else. Growing is what it must not do; the
+  shrink is kept, and with it the scroll for a family that outgrows the row.
+*/
 .ux-hero-picker .ux-choice-chips {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   flex-wrap: nowrap;
   overflow-x: auto;
@@ -2659,7 +2781,9 @@
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  min-height: 42px;
+  /* The height of every other chip on the page. It was 42 while it stood under a legend of its
+     own; level with the form it is one of them. */
+  min-height: 38px;
   padding: 0 16px;
   /* A name is one chip, never two lines of one. */
   white-space: nowrap;
@@ -2704,6 +2828,34 @@
 .ux-hero-picker-arrow[aria-disabled="true"] {
   cursor: default;
   opacity: 0.35;
+}
+/*
+  The same chip, standing on its own.
+
+  It used to draw its shape from `.ux-choice-chips button`; out of the strip it has to say it
+  itself. Kept to the letter so the row reads as one row — same height as a name, same pill, and
+  the same gold when it is the one chosen.
+*/
+.ux-hero-picker-new {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid rgba(238, 226, 205, 0.18);
+  border-radius: 999px;
+  cursor: pointer;
+  color: #f8f2e5b3;
+  background: #26194b7a;
+  font-family: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.ux-hero-picker-new.selected {
+  color: #2c1c49;
+  border-color: var(--story-gold);
+  background: var(--story-gold);
 }
 .ux-summary-avatar {
   overflow: hidden;

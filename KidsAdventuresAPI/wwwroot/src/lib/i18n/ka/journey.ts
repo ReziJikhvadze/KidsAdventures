@@ -234,7 +234,7 @@ export const journey = {
       features: [
         "ყველაფერი ციფრული პაკეტიდან",
         "მიწოდება მთელ საქართველოში",
-        "თბილისი 4–5 · რეგიონები 5–8 დღე",
+        "თბილისი 2–3 · რეგიონები 5–7 დღე",
       ],
     },
   },
@@ -301,6 +301,17 @@ export const journey = {
   checkout: {
     /* The package a parent is buying, named in the language the rest of the page is in.
        These two lines were the last English left on the order summary. */
+    copies: "ეგზემპლარების რაოდენობა",
+    copiesNote: "ერთ მისამართზე, ერთ ამანათში",
+    copiesFewer: "ერთით ნაკლები",
+    copiesMore: "ერთით მეტი",
+    giftWrap: "სასაჩუქრე შეფუთვა",
+    giftWrapNote: "წიგნი ლენტით და სასაჩუქრე ქაღალდით შეიფუთება",
+    promoLabel: "პრომოკოდი გაქვს?",
+    promoPlaceholder: "შეიყვანე პრომოკოდი",
+    promoRemove: "პრომოკოდის გაუქმება",
+    promoApplied: "პრომოკოდი გამოყენებულია",
+    promoInvalid: "ეს პრომოკოდი არასწორია ან ვადა გაუვიდა.",
     packageDigital: "ციფრული",
     packagePrint: "ბეჭდური + ციფრული",
     printTitle: "ბეჭდური ვერსიის შეკვეთა",
@@ -384,7 +395,7 @@ export const journey = {
     digitalNote: "ეს არის შენი ციფრული ვერსია",
     languageNote: "წიგნის ენა: ",
     deliveryNote:
-      "ბეჭდურ წიგნს მიიღებ მითითებულ მისამართზე — თბილისში 4–5 დღეში, საქართველოს სხვა რეგიონებში 5–8 დღეში.",
+      "ბეჭდურ წიგნს მიიღებ მითითებულ მისამართზე — თბილისში 2–3 დღეში, საქართველოს სხვა რეგიონებში 5–7 დღეში.",
     pageBadge: " 16 გვერდი",
     fullBookAria: (hero: string) => `${hero}ს სრული წიგნი`,
     downloadPdf: "PDF-ის ჩამოტვირთვა",

@@ -21,6 +21,19 @@ public sealed class Order
     public int TotalMinor { get; set; }
 
     public Guid? PromoCodeId { get; set; }
+
+    /// <summary>
+    /// Whether the parcel is to be wrapped, and therefore whether the five lari in
+    /// <see cref="SubtotalMinor"/> was for that. Kept on the order rather than only in the
+    /// total because the print queue has to know what to do with the parcel weeks later.
+    /// </summary>
+    public bool GiftWrap { get; set; }
+
+    /// <summary>
+    /// How many printed copies were bought. Always 1 for a digital order and for a print
+    /// upgrade. The print queue reads it: one parcel, this many books in it.
+    /// </summary>
+    public int Quantity { get; set; } = 1;
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
 
     /// <summary>

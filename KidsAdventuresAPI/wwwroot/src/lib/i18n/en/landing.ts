@@ -106,11 +106,8 @@ export const landing = {
       name: "Digital",
       note: "Ready to read online",
       features: [
-        " Personalised first page free",
-        " 16 personalised pages",
-        " QR code for the next adventure",
+        " An illustrated digital story shaped personally around your child",
         " PDF download",
-        " Upgrade to Printed later",
       ],
       cta: "Choose Digital ",
       upgrade: "Upgrade to Printed later: +65 ₾",
@@ -119,12 +116,13 @@ export const landing = {
       name: "Printed + Digital",
       note: "A keepsake you can hold",
       features: [
-        " Everything in the Digital package",
+        " An illustrated digital story shaped personally around your child",
+        " PDF download",
         " High-quality printed book",
         " Delivery across Georgia",
       ],
       cta: "Choose Printed ",
-      upgrade: "Tbilisi 4–5 days · other cities 5–8 days",
+      upgrade: "Tbilisi 2–3 days · other cities 5–7 days",
     },
     assurance: [
       {
@@ -140,7 +138,7 @@ export const landing = {
       {
         title: "Delivery in Georgia",
         heading: "Already included in the price",
-        body: "Tbilisi 4–5 days · elsewhere in Georgia 5–8 days.",
+        body: "Tbilisi 2–3 days · elsewhere in Georgia 5–7 days.",
       },
     ],
   },

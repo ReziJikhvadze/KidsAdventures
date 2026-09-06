@@ -461,6 +461,10 @@ export type AdminPrintOrder = {
   pdfIsReadingCopyFallback: boolean;
   totalMinor: number;
   totalFormatted: string;
+  /** The parcel was paid to be wrapped as a gift. Five lari of the total is for that. */
+  giftWrap?: boolean;
+  /** How many copies of the book go in this parcel. */
+  quantity?: number;
   createdAt: string;
   shippedAt: string | null;
   deliveredAt: string | null;

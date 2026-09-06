@@ -1,16 +1,17 @@
 namespace AdventurePacks.Api.Domain;
 
 /// <summary>
-/// Delivery windows we quote inside Georgia: Tbilisi in 4-5 working days, the regions
-/// in 5-8. The server owns these numbers so the estimate on the checkout screen and
-/// the one in the shipping email can never disagree.
+/// Delivery windows we quote inside Georgia: Tbilisi in 2-3 working days, the regions
+/// in 5-7. The server owns these numbers so the estimate on the checkout screen and
+/// the one in the shipping email can never disagree — and `wwwroot/src/lib/pricing.ts`
+/// and the refunds policy carry the same pair for the pages the client renders alone.
 /// </summary>
 public static class GeorgianDelivery
 {
-    public const int TbilisiMinDays = 4;
-    public const int TbilisiMaxDays = 5;
+    public const int TbilisiMinDays = 2;
+    public const int TbilisiMaxDays = 3;
     public const int RegionsMinDays = 5;
-    public const int RegionsMaxDays = 8;
+    public const int RegionsMaxDays = 7;
 
     /// <summary>
     /// Tbilisi spelled every way a parent might type it. Anything unrecognised falls to
@@ -31,7 +32,7 @@ public static class GeorgianDelivery
         ? (TbilisiMinDays, TbilisiMaxDays)
         : (RegionsMinDays, RegionsMaxDays);
 
-    /// <summary>Georgian text ready to render, e.g. "მიწოდება 4-5 სამუშაო დღეში".</summary>
+    /// <summary>Georgian text ready to render, e.g. "მიწოდება 2-3 სამუშაო დღეში".</summary>
     public static string DescribeFor(string? city)
     {
         var (min, max) = WindowFor(city);
