@@ -2553,9 +2553,6 @@
     margin-top: 10px;
     gap: 7px 10px;
   }
-  .ux-checkout-stage .text-back {
-    margin-top: 8px;
-  }
 }
 
 /*
@@ -2591,9 +2588,6 @@
   .ux-ship-fields {
     margin-top: 8px;
     gap: 6px 10px;
-  }
-  .ux-checkout-stage .text-back {
-    margin-top: 6px;
   }
 }
 

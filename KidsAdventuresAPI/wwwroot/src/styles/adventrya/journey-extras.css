@@ -801,12 +801,43 @@
     padding-top: 20px;
     padding-bottom: 20px;
   }
-  .auth-panel,
-  .checkout-form,
-  .order-summary {
+  .auth-panel {
     max-height: calc(100svh - 126px);
     overflow-y: auto;
     scrollbar-width: thin;
+  }
+  /*
+    The checkout is made to fit rather than allowed to scroll.
+
+    Both columns carried a cap and a scrollbar as an escape hatch, and the form used it: on a
+    1536x779 window — a 1080p screen at Windows' 125% — it came to seventeen pixels more than
+    the cap, and those seventeen pixels bought a full-height track down the middle of the last
+    screen before the bank. A scrollbar beside a payment form reads as "there is more of this
+    than we can show you", which is the opposite of what the screen is for.
+
+    Two things were taking the room. The back link under the pay button is gone — it is the one
+    control on this screen that is not the order. And the courier-directions box is now the two
+    rows it asks for instead of the 128px the shared field style hands every textarea; on this
+    form that was the largest single thing on the page and all of it was empty.
+
+    The print form now measures 583px against the 634px a 768px-tall window gives it — the
+    shortest this block applies to — and 625px with a validation error showing. The cap stays as
+    a last resort, sized to the stage's own box rather than ten pixels past it, so that a rare
+    tall variant (a promo that zeroes the total adds a banner) scrolls instead of hiding the pay
+    button off the bottom edge. In the ordinary case there is nothing to scroll and no track.
+
+    `100%` is the grid area, which is definite only because `.ux-checkout-stage` above is given
+    an explicit height. If that ever becomes intrinsic the cap silently stops applying, and the
+    column would grow past the stage and be clipped by the shell's `overflow-y: clip`.
+  */
+  .checkout-form,
+  .order-summary {
+    max-height: 100%;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  .ux-ship-fields textarea {
+    min-height: 76px;
   }
   .ux-generated-stage > .storybook-full {
     --book-width: clamp(280px, 24vw, 350px);

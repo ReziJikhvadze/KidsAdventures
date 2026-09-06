@@ -213,6 +213,11 @@
   overflow: hidden;
   background: #1a113a;
 }
+/* The element Google fills. It is empty as far as React is concerned — see the dialog. */
+.ux-location-canvas {
+  position: absolute;
+  inset: 0;
+}
 .ux-location-map-wait {
   position: absolute;
   inset: 0;
