@@ -534,6 +534,86 @@ public class BekiReconciliationTests
         Assert.False(string.IsNullOrWhiteSpace(packs.Pack.PdfUrl));
     }
 
+    // ==============================================================================================
+    // Which file is the printer's file — the canonical publish fault, 2026-09-06
+    //
+    // Since the canonical unification a composite book has ONE stored PDF, and the reader, the
+    // download, the admin console and the press all point at it. This writer went on looking for the
+    // legacy `-interior.pdf` and nothing else, so on every book this deployment now makes it wrote
+    // nothing at all: an operator's approval left PrintPdfUrl null, the admin print download
+    // answered 409, and the order detail showed no press file — while the response, which read the
+    // verdict rather than the column, said the press files were out.
+    // ==============================================================================================
+
+    /// <summary>
+    /// A canonical book's press file is the canonical PDF, and there is no legacy interior to find.
+    /// </summary>
+    [Fact]
+    public async Task A_canonical_books_press_file_is_the_canonical_pdf()
+    {
+        var blobs = new PolicyFakeBlobs();
+        SeedCanonicalBook(blobs);
+
+        var packs = new ReconcilePacks(CompletedPack());
+        var reconciliation = Reconciliation(packs, blobs, new RecordingAlarms());
+
+        var outcome = await reconciliation.PublishUnlockedFilesLockedAsync(
+            packs.Pack, Unlocked(), CancellationToken.None);
+
+        Assert.True(outcome.PressFiles);
+        Assert.Equal(
+            $"https://blob.test/{BekiPackBlobs.ReadingPdfName(UserId, PackId)}",
+            packs.Pack.PrintPdfUrl);
+
+        // Not because the interior happened to be there under another name: it is not there at all.
+        Assert.False(blobs.Has(BekiPackBlobs.InteriorPdfName(UserId, PackId)));
+    }
+
+    /// <summary>
+    /// A legacy book keeps the answer it always had. Nothing writes the separate press interior any
+    /// more, but the books that already have one are still in storage and still get printed.
+    /// </summary>
+    [Fact]
+    public async Task A_legacy_books_press_file_is_still_the_interior()
+    {
+        var blobs = new PolicyFakeBlobs();
+        blobs.Seed(BekiPackBlobs.ReadingPdfName(UserId, PackId), [9]);
+        blobs.Seed(BekiPackBlobs.InteriorPdfName(UserId, PackId), [8]);
+
+        var packs = new ReconcilePacks(CompletedPack());
+        var reconciliation = Reconciliation(packs, blobs, new RecordingAlarms());
+
+        var outcome = await reconciliation.PublishUnlockedFilesLockedAsync(
+            packs.Pack, Unlocked(), CancellationToken.None);
+
+        Assert.True(outcome.PressFiles);
+        Assert.Equal(
+            $"https://blob.test/{BekiPackBlobs.InteriorPdfName(UserId, PackId)}",
+            packs.Pack.PrintPdfUrl);
+    }
+
+    /// <summary>
+    /// And a canonical book whose PDF is not in storage publishes nothing rather than throwing or
+    /// writing a URL to a file nobody can fetch. The column stays empty, which is what the print
+    /// download's refusal is reading.
+    /// </summary>
+    [Fact]
+    public async Task A_canonical_book_with_no_pdf_publishes_nothing()
+    {
+        var blobs = new PolicyFakeBlobs();
+        blobs.Seed(BekiPackBlobs.CanonicalIntegrityName(UserId, PackId), "{}"u8.ToArray());
+
+        var packs = new ReconcilePacks(CompletedPack());
+        var reconciliation = Reconciliation(packs, blobs, new RecordingAlarms());
+
+        var outcome = await reconciliation.PublishUnlockedFilesLockedAsync(
+            packs.Pack, Unlocked(), CancellationToken.None);
+
+        Assert.False(outcome.PressFiles);
+        Assert.False(outcome.CustomerPdf);
+        Assert.Null(packs.Pack.PrintPdfUrl);
+    }
+
     /// <summary>
     /// The download refusal's own question, and the end of the lie the audit found: a Completed book
     /// with no PDF answers "review" or "gates" rather than "story must be ready".
@@ -665,14 +745,29 @@ public class BekiReconciliationTests
 
         blobs.Seed(BekiPackBlobs.ReadingPdfName(UserId, id), [9]);
         blobs.Seed(BekiPackBlobs.InteriorPdfName(UserId, id), [8]);
-        blobs.Seed(BekiPackBlobs.ReleaseGatesName(UserId, id),
-            Encoding.UTF8.GetBytes(new BekiReleaseGateReport
-            {
-                Verdict = BekiReleaseGates.Releasable,
-                EvaluatedAtUtc = DateTimeOffset.UtcNow,
-                Gates = [], FailingGates = [], AwaitingHumanReview = false,
-            }.ToJson()));
+        blobs.Seed(BekiPackBlobs.ReleaseGatesName(UserId, id), Encoding.UTF8.GetBytes(Unlocked().ToJson()));
     }
+
+    /// <summary>
+    /// The book this deployment now makes: one PDF, the integrity record that says so, and no
+    /// legacy press interior anywhere.
+    /// </summary>
+    private static void SeedCanonicalBook(PolicyFakeBlobs blobs)
+    {
+        blobs.Seed(BekiPackBlobs.ReadingPdfName(UserId, PackId), [9]);
+        blobs.Seed(BekiPackBlobs.CanonicalIntegrityName(UserId, PackId), "{}"u8.ToArray());
+    }
+
+    /// <summary>
+    /// A verdict with nothing failing — both deliverables unlocked, which is the state a signed-off
+    /// book is in when the approval endpoint publishes through the shared writer.
+    /// </summary>
+    private static BekiReleaseGateReport Unlocked() => new()
+    {
+        Verdict = BekiReleaseGates.Releasable,
+        EvaluatedAtUtc = DateTimeOffset.UtcNow,
+        Gates = [], FailingGates = [], AwaitingHumanReview = false,
+    };
 }
 
 // ==================================================================================================

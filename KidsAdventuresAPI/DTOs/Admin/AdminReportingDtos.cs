@@ -343,11 +343,18 @@ public sealed class UpdateUserAdminRequest
 /// The rendering the human approval is about (amendment A2). The console sends it back with the
 /// approval so that a reviewer signing a stale sheet is refused rather than recorded.
 /// </param>
+/// <param name="PrintAwaitingHumanApproval">
+/// The other book that needs the same signature, and the reason this field exists separately.
+/// <c>AwaitingHumanReview</c> is a NEEDS_HUMAN status; a book whose per-spread review was skipped by
+/// policy produces none, so the console never offered the reviewer anything — while the skip kept
+/// the printer's files withheld. Both flags open the same contact sheet and the same button.
+/// </param>
 public sealed record AdminReleaseGatesResponse(
     string? Verdict,
     DateTimeOffset? EvaluatedAtUtc,
     IReadOnlyList<string> FailingGates,
     bool AwaitingHumanReview,
+    bool PrintAwaitingHumanApproval,
     string? ContactSheetSha256,
     bool CustomerPdfPublished,
     bool PressFilesPublished,

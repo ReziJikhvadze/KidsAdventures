@@ -125,6 +125,28 @@ public sealed record BekiReleaseGateReport
     [JsonPropertyName("awaiting_human_review")]
     public required bool AwaitingHumanReview { get; init; }
 
+    /// <summary>
+    /// Whether the printer's files are waiting on a signature that nobody has been offered.
+    ///
+    /// Its own flag rather than a widening of <see cref="AwaitingHumanReview"/>, which is deliberate:
+    /// that one is computed from a NEEDS_HUMAN status, and it drives the reason a held download
+    /// gives and what the handback package says about the book. A review-skipped book has no
+    /// NEEDS_HUMAN status — nothing refused it and nobody is in a queue — and saying it did would
+    /// put a wrong sentence in two documents to fix a missing button in one.
+    ///
+    /// So this says the narrower true thing: the visual gate stopped at REVIEW_SKIPPED_BY_POLICY,
+    /// no current approval covers the sheet, and there IS a rendered contact sheet to look at. That
+    /// is exactly the book whose press files <see cref="PrintReady"/> holds and whose only route out
+    /// is the approval endpoint — so the console offers the contact sheet and the signature on this
+    /// flag as well, and an operator is no longer left with a permanently withheld print file and
+    /// nothing to click.
+    ///
+    /// False on a report written before the flag existed, which reads correctly: such a report was
+    /// written under the old evaluation where the signature closed nothing anyway.
+    /// </summary>
+    [JsonPropertyName("print_awaiting_human_approval")]
+    public bool PrintAwaitingHumanApproval { get; init; }
+
     [JsonPropertyName("failing_gates")]
     public required IReadOnlyList<string> FailingGates { get; init; }
 
@@ -458,6 +480,25 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
             .ToList();
 
         var awaiting = results.Any(gate => gate.Status == NeedsHuman);
+
+        /*
+          The other book a person is being waited on for, which nothing was asking anybody about.
+
+          A review-skipped book produces no NEEDS_HUMAN anywhere, so `awaiting` is false and the
+          console — which offered the contact sheet on that flag alone — showed no signature button.
+          Meanwhile the skip kept VISUAL_QA off PASS, SupplierPressReleasable requires every gate to
+          pass, and PrintReady requires that, so the printer's files were held with no route open.
+          The route exists; it just had no door on it.
+
+          Asked of the gate result rather than of the policy, for this class's usual reason: the
+          document decides. And guarded on a contact sheet actually existing, because a signature is
+          on pixels — with no sheet rendered there is nothing to sign and the honest answer is the
+          failing render gate, not a button that would 409.
+        */
+        var printAwaiting = results.Any(gate => gate.Status == ReviewSkipped)
+            && !evidence.HumanApprovalIsCurrent
+            && evidence.ContactSheetSha256 is { Length: > 0 };
+
         var failing = results
             .Where(gate => gate.Status != Pass)
             .Select(gate => gate.Id)
@@ -475,6 +516,7 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
             ArtifactEvidence = evidence.Artifacts,
             ContactSheetSha256 = evidence.ContactSheetSha256,
             AwaitingHumanReview = awaiting,
+            PrintAwaitingHumanApproval = printAwaiting,
             FailingGates = failing,
             PolicyWaivers = waivers,
         };
@@ -766,26 +808,50 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
                                 : Array.Empty<string>()),
                         ])
                 /*
-                  Nobody reviewed these pages, and the supplier is told exactly that.
+                  Nobody reviewed these pages — and then either a person did, or nobody has yet.
 
                   Owner's rule 5, 2026-09-01: "we don't need additional reviews for images". That is
                   a decision about what this deployment buys, and it is a legitimate one — but it is
                   not a claim about the artwork, and this gate exists to make claims about artwork.
-                  So the answer is its own word rather than a PASS: RELEASABLE would tell a supplier
-                  reading the handback that eight pages were visually checked when none were, which
-                  is the precise species of lie amendment B1's truth split was built to prevent.
+                  So a book nobody has looked at is its own word rather than a PASS: RELEASABLE would
+                  tell a supplier reading the handback that eight pages were visually checked when
+                  none were, which is the precise species of lie amendment B1's truth split was built
+                  to prevent.
 
                   It is also not a FAIL and not NEEDS_HUMAN. Nothing refused these pages, and the
-                  ruling is that nobody has to look at them — a status meaning "somebody must" would
+                  ruling is that no MODEL has to look at them — a status meaning "somebody must" would
                   put a queue in front of a decision that was taken to remove one. Which is exactly
                   why it may only be said of a book that has no such queue outstanding, above.
 
-                  The family's copy is unaffected, and by the ordinary route rather than a special
-                  one: VISUAL_QA is a shared gate that the policy flags by default, so the waiver
-                  step below records this and publishes, exactly as it does for any other non-PASS
-                  shared gate. An operator who sets VISUAL_QA to blocker gets the other behaviour,
-                  and an operator who sets image_review to blocker never gets here at all.
+                  What closes it is the human signature on the rendered contact sheet, and this is
+                  the correction: REVIEW_SKIPPED_BY_POLICY used to be the final word, so a book under
+                  the shipped policy could never reach PASS, SupplierPressReleasable is policy-blind,
+                  and PrintReady is gated on it — the printer's files were unreachable for every book
+                  this deployment produces, approval or no approval. But the approval is not a waiver
+                  of the check; it IS the check. A person opened the contact sheet render validation
+                  produced, looked at every page of this specific rendering (amendment A2 binds the
+                  signature to those pixels), and signed. That is a visual review, performed by the
+                  only reviewer this deployment employs, and a gate about whether the artwork was
+                  looked at must say PASS when it was — naming who looked, at which sheet, and when,
+                  so the handback states the provenance rather than an unqualified pass.
+
+                  Without that signature the clause below is exactly what it always was. The family's
+                  copy is unaffected either way, and by the ordinary route rather than a special one:
+                  VISUAL_QA is a shared gate that the policy flags by default, so the waiver step
+                  records the skip and publishes, exactly as it does for any other non-PASS shared
+                  gate. An operator who sets VISUAL_QA to blocker gets the other behaviour, and an
+                  operator who sets image_review to blocker never gets here at all.
                 */
+                    : stored.SpreadsWithReviewSkipped.Count > 0 && stored.HumanApprovalIsCurrent
+                    ? Passed(
+                        id,
+                        "no model judged spread(s) "
+                        + string.Join(", ", stored.SpreadsWithReviewSkipped)
+                        + $": the stored record for each says {CompositeBookPipeline.ReviewSkippedStatus} "
+                        + "(release policy check 'image_review'); the deterministic checks passed and "
+                        + $"{stored.HumanApprover} signed off the rendered contact sheet "
+                        + $"{stored.HumanApprovalSheetPrefix} on {stored.HumanApprovalAtUtc:u}.",
+                        [.. stored.SpreadQaNames, stored.HumanApprovalName])
                     : stored.SpreadsWithReviewSkipped.Count > 0
                     ? new BekiGateResult(
                         id,
@@ -1444,6 +1510,10 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
         var approval = BekiHumanApproval.TryParse(approvalJson);
         evidence.HumanApprovalPresent = approval is not null;
         evidence.HumanApprover = approval?.ApprovedBy ?? "a reviewer";
+        evidence.HumanApprovalAtUtc = approval?.ApprovedAtUtc;
+        evidence.HumanApprovalSheetPrefix = approval?.ContactSheetSha256 is { Length: >= 12 } signed
+            ? signed[..12]
+            : approval?.ContactSheetSha256 ?? "no sheet";
 
         // Current means: it approves the contact sheet that render validation actually produced.
         // Amendment A2 — approval of a stale sheet is not approval of this book.
@@ -1646,6 +1716,19 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
         public bool HumanApprovalIsCurrent { get; set; }
 
         public string HumanApprover { get; set; } = "a reviewer";
+
+        /// <summary>
+        /// When the signature was given, for a gate detail that says which sitting it came from.
+        /// Null until one is stored; only ever read alongside <see cref="HumanApprovalIsCurrent"/>.
+        /// </summary>
+        public DateTimeOffset? HumanApprovalAtUtc { get; set; }
+
+        /// <summary>
+        /// The first twelve hex characters of the sheet that was signed — the same short form the
+        /// approval endpoint logs and the alarms key on, so the gate detail, the log line and the
+        /// alarm all name one rendering in one notation.
+        /// </summary>
+        public string HumanApprovalSheetPrefix { get; set; } = "no sheet";
 
         public IReadOnlyList<string> HandbackGaps { get; set; } = [];
     }

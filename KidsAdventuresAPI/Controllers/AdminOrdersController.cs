@@ -588,13 +588,38 @@ public sealed class AdminOrdersController(
                 cancellationToken);
         }
 
+        /*
+          What the PRINT column actually says now, rather than what the verdict says it should say.
+
+          The response used to answer `pressFilesPublished` from the report's PrintReady, which is a
+          statement about permission and not about publication. So an approval that released the
+          printer's files on paper and wrote nothing to the row — the press file is not in storage
+          under the name this book keeps it under — told the operator the files were out while the
+          print download went on answering 409. Re-read rather than trusted: the publish above takes
+          the book's lock and may adopt a newer row than the one this request started with.
+        */
+        var afterPublish = await packRepository.GetByIdNoOwnershipAsync(pack.Id, cancellationToken);
+        var pressPublished = published.PressFiles
+            || !string.IsNullOrWhiteSpace((afterPublish ?? pack).PrintPdfUrl);
+
+        if (revised.PrintReady && !pressPublished)
+        {
+            logger.LogWarning(
+                "Beki pack {PackId}: the verdict releases the printer's files and the column is "
+                + "still empty — the press PDF is missing from storage (canonical {Canonical}, "
+                + "legacy {Legacy}), so the print download stays held.",
+                pack.Id,
+                BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id),
+                BekiPackBlobs.InteriorPdfName(pack.UserId, pack.Id));
+        }
+
         logger.LogInformation(
             "Beki pack {PackId}: {Approver} signed off contact sheet {Sheet}; the verdict is now "
             + "{Verdict} ({Failing}).",
             pack.Id, approval.ApprovedBy, sheet[..12], revised.Verdict,
             revised.FailingGates.Count == 0 ? "no failing gates" : string.Join(", ", revised.FailingGates));
 
-        return Ok(ToResponse(revised));
+        return Ok(ToResponse(revised, pressPublished));
     }
 
     private async Task<Domain.Entities.AdventurePack?> PackForOrderAsync(
@@ -631,14 +656,18 @@ public sealed class AdminOrdersController(
         }
     }
 
-    private static AdminReleaseGatesResponse ToResponse(BekiReleaseGateReport? report) => new(
+    // pressFilesPublished: what the print column says, for a caller that has just written it. Null
+    // — the reading view — falls back to the verdict's permission, which is all a GET has to go on.
+    private static AdminReleaseGatesResponse ToResponse(
+        BekiReleaseGateReport? report, bool? pressFilesPublished = null) => new(
         report?.Verdict,
         report?.EvaluatedAtUtc,
         report?.FailingGates ?? [],
         report?.AwaitingHumanReview ?? false,
+        report?.PrintAwaitingHumanApproval ?? false,
         report?.ContactSheetSha256,
         report?.CustomerPdfMayPublish ?? false,
-        report?.PrintReady ?? false,
+        pressFilesPublished ?? report?.PrintReady ?? false,
         report?.Gates
             .Select(gate => new AdminReleaseGate(gate.Id, gate.Status, gate.Class, gate.Detail))
             .ToList() ?? []);

@@ -338,6 +338,12 @@ export type AdminReleaseGates = {
   evaluatedAtUtc: string | null;
   failingGates: string[];
   awaitingHumanReview: boolean;
+  /**
+   * The same signature, wanted by a book that never raised NEEDS_HUMAN: the per-spread model review
+   * was skipped by policy, which holds the printer's files and puts nobody in a queue. The console
+   * offers the contact sheet on this flag too, or the print file is withheld with nothing to click.
+   */
+  printAwaitingHumanApproval: boolean;
   /** The rendering a reviewer signs. Sent back with the approval so a stale sheet is refused. */
   contactSheetSha256: string | null;
   customerPdfPublished: boolean;

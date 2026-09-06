@@ -380,6 +380,7 @@ function AttentionChips({ order }: { order: admin.AdminOrderRow }) {
 function gateLabel(gates: admin.AdminReleaseGates | null): string {
   if (!gates || !gates.verdict) return "შემოწმება არ ჩატარებულა";
   if (gates.awaitingHumanReview) return "ელოდება ვიზუალურ შემოწმებას";
+  if (gates.printAwaitingHumanApproval) return "ბეჭდვა ელოდება ვიზუალურ დადასტურებას";
   if (gates.verdict === "RELEASABLE") return "გამოსაშვებად მზადაა";
   return `${gates.failingGates.length} გეითი ვერ გავიდა`;
 }
@@ -835,8 +836,15 @@ function OrderDetail({
           The human half of VISUAL_QA. It appears only when a person is actually being waited on,
           under the pictures that person is being asked to look at, and it sends the contact-sheet
           hash so approving a stale rendering is refused by the API rather than recorded here.
+
+          Two flags open it, not one. `awaitingHumanReview` is a NEEDS_HUMAN gate; the second is the
+          book whose per-spread model review the policy skipped, which raises no NEEDS_HUMAN and so
+          showed nobody this box — while the skip held the printer's files. Same sheet, same button,
+          same endpoint: it is one signature and there was only ever one way to give it.
         */}
-        {book && gates?.awaitingHumanReview && gates.contactSheetSha256 ? (
+        {book &&
+        (gates?.awaitingHumanReview || gates?.printAwaitingHumanApproval) &&
+        gates.contactSheetSha256 ? (
           <div className="review-box">
             <ContactSheet bookId={book.id} />
             <label className="field">

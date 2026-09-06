@@ -330,6 +330,18 @@ public static class BekiPackBlobs
     public static string CanonicalPreflightName(Guid userId, Guid packId) =>
         $"{userId}/{packId}-preflight.json";
 
+    /// <summary>
+    /// The readback record that proves the stored PDF is the one that was measured — and, because
+    /// only the canonical pipeline writes it, the mark that says WHICH KIND OF BOOK this is.
+    ///
+    /// It lives here rather than beside its writer because a second caller needs the same answer:
+    /// the release reconciliation has to know whether the printer's file is the one canonical PDF
+    /// or the legacy <see cref="InteriorPdfName"/>, and it publishes nothing for a book whose press
+    /// file it looked for under the wrong name.
+    /// </summary>
+    public static string CanonicalIntegrityName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}/canonical-integrity.json";
+
     public static string DigitalReportName(Guid userId, Guid packId) =>
         $"{userId}/{packId}-digital-report.json";
 
@@ -3418,7 +3430,7 @@ public sealed class BekiPackFulfillment(
                 "CANONICAL_STORAGE: stored PDF bytes differ from the preflighted artifact.");
         }
         await blobStorage.UploadAsync(
-            CanonicalIntegrityName(pack.UserId, pack.Id),
+            BekiPackBlobs.CanonicalIntegrityName(pack.UserId, pack.Id),
             JsonSerializer.SerializeToUtf8Bytes(new
             {
                 sha256 = BekiCompositeEngine.Sha256Hex(storedPdf),
@@ -3466,10 +3478,6 @@ public sealed class BekiPackFulfillment(
         }
     }
 
-    /// <summary>The readback record that proves the stored PDF is the one that was measured.</summary>
-    private static string CanonicalIntegrityName(Guid userId, Guid packId) =>
-        $"{userId}/{packId}/canonical-integrity.json";
-
     /// <summary>
     /// Every document <see cref="PublishPressCandidateAsync"/> and the evidence steps beside it
     /// write under a name somebody serves or judges, with the content type each is served as.
@@ -3505,7 +3513,7 @@ public sealed class BekiPackFulfillment(
         var names = new List<(string Name, string ContentType)>
         {
             (BekiPackBlobs.ReadingPdfName(userId, packId), "application/pdf"),
-            (CanonicalIntegrityName(userId, packId), "application/json"),
+            (BekiPackBlobs.CanonicalIntegrityName(userId, packId), "application/json"),
             (BekiPackBlobs.CanonicalPreflightName(userId, packId), "application/json"),
             (BekiPackBlobs.InteriorPreflightName(userId, packId), "application/json"),
             (BekiPackBlobs.CoverPreflightName(userId, packId), "application/json"),
