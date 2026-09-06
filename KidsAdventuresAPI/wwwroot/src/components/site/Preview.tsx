@@ -8,21 +8,21 @@ const demoPages = [
     content:
       "When Leo looked out the window, the clouds had shaped themselves into airplanes — and one of them had his name painted on the side in golden letters.",
     isIllustrated: true,
-    illustrationUrl: "/demo/demo-page-1.png",
+    illustrationUrl: "/demo/demo-page-1.webp",
   },
   {
     title: "Through the Cloud Kingdom",
     content:
       "The friendly captain handed Leo a map made of starlight. Every page of your book can look like this — with a unique illustration starring your child.",
     isIllustrated: true,
-    illustrationUrl: "/demo/demo-page-2.png",
+    illustrationUrl: "/demo/demo-page-2.webp",
   },
   {
     title: "A Hero's Landing",
     content:
       "Leo landed softly on a runway of rainbow light. Mom and Dad cheered from the observation deck as the adventure came to a happy end.",
     isIllustrated: true,
-    illustrationUrl: "/demo/demo-page-3.png",
+    illustrationUrl: "/demo/demo-page-3.webp",
   },
 ];
 
