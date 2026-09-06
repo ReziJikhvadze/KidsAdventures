@@ -31,6 +31,34 @@ const nitro = {
     The SSR document is not a built file and is not covered here; `src/server.ts` gzips that.
   */
   compressPublicAssets: { gzip: true, brotli: true },
+  /*
+    How long the browser may keep a file in `public/` before asking about it again.
+
+    Everything under `/assets/` already answers `immutable` for a year, because Vite puts a
+    content hash in those filenames and a changed file is a changed name. Nothing in `public/`
+    is hashed, so those files went out carrying an ETag and no lifetime at all — which means a
+    conditional request, and a round trip to Poland, for every one of them on every visit. The
+    picture usually comes back 304 and costs nothing but the wait.
+
+    The two folders are given different lifetimes because the risk of being wrong is different.
+
+    A font file's bytes never change: a new weight is a new filename, and nobody redraws
+    `NotoSansGeorgian-Regular.ttf` in place. `immutable` says exactly that, and says it for a
+    year.
+
+    The art does change in place, and did on this very branch — the world map was re-encoded
+    without its name moving. So a year would have been a year of returning visitors holding a
+    2 MB painting we had already replaced. A week is the compromise: no round trips for anyone
+    who comes back inside it, and a repaint reaches everybody within one. If art ever needs to
+    change faster than that, put a hash in the filename rather than shortening this.
+  */
+  routeRules: {
+    "/fonts/**": { headers: { "cache-control": "public, max-age=31536000, immutable" } },
+    "/adventrya/**": { headers: { "cache-control": "public, max-age=604800" } },
+    "/demo/**": { headers: { "cache-control": "public, max-age=604800" } },
+    "/og-default.jpg": { headers: { "cache-control": "public, max-age=604800" } },
+    "/adventrya-favicon.svg": { headers: { "cache-control": "public, max-age=604800" } },
+  },
   output: {
     // Outside wwwroot so ASP.NET Static Web Assets does not track build output
     dir: "../frontend-dist",
