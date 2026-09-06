@@ -304,6 +304,94 @@ public sealed record BekiFulfillmentManifest
     }
 
     /// <summary>
+    /// Whether artwork stored under <paramref name="storedContract"/> may be re-composited and
+    /// re-exported as it stands, without drawing anything again.
+    ///
+    /// A narrower question than the one the resume contract asks, and it has to be. Resuming a
+    /// half-drawn book DRAWS its remaining spreads, so every term that changes how a picture is
+    /// made is decisive there: a prompt version, an anchor table, a keyword revision. Print
+    /// re-preparation and stored-art recovery draw nothing at all. They re-composite bases that are
+    /// already on disk and hash-verified with the same approved pose PNG the composition receipt
+    /// names, and lay the result out again. A deployment that revised its image prompt cannot
+    /// retroactively change the pixels those bases contain, so refusing the operation over it locks
+    /// a finished book out of its own press files for a reason that is not about the book.
+    ///
+    /// What still decides is what identifies the ARTWORK rather than the recipe: the pose registry,
+    /// because it names the nine approved PNGs and their hashes and a revised registry is a
+    /// different character; and the world — its canonical id and the SHA-256 of its approved
+    /// reference — because the reference is only ever read while drawing, but it is the thing the
+    /// stored bases are pictures of, and a book whose world was re-art-directed is a book whose
+    /// stored pages belong to a world this deployment no longer has.
+    /// </summary>
+    /// <param name="drift">
+    /// What differs and was tolerated, as one short human-readable line, or null when the two
+    /// contracts are identical. On a refusal it carries the difference that caused it instead, so
+    /// the operator's message can say which one it was.
+    /// </param>
+    public static bool StoredArtworkIsReusable(
+        IReadOnlyList<string> storedContract, IReadOnlyList<string> currentContract, out string? drift)
+    {
+        drift = null;
+
+        if (storedContract.Count != currentContract.Count)
+        {
+            drift = $"the stored contract has {storedContract.Count} lines where this book has "
+                + $"{currentContract.Count}";
+            return false;
+        }
+
+        if (storedContract.Count == 0
+            || !BekiCompositeContractTerms.TryParse(storedContract[0], out var stored)
+            || !BekiCompositeContractTerms.TryParse(currentContract[0], out var current))
+        {
+            drift = "the stored contract does not begin with composite pipeline terms";
+            return false;
+        }
+
+        if (!string.Equals(stored.PoseRegistryVersion, current.PoseRegistryVersion, StringComparison.Ordinal))
+        {
+            drift = $"pose registry {stored.PoseRegistryVersion} → {current.PoseRegistryVersion}";
+            return false;
+        }
+
+        if (!string.Equals(stored.ThemeId, current.ThemeId, StringComparison.Ordinal))
+        {
+            drift = $"world {stored.ThemeId} → {current.ThemeId}";
+            return false;
+        }
+
+        if (!string.Equals(stored.ThemeReferenceSha256, current.ThemeReferenceSha256, StringComparison.Ordinal))
+        {
+            drift = $"world reference {ShortHash(stored.ThemeReferenceSha256)} → "
+                + ShortHash(current.ThemeReferenceSha256);
+            return false;
+        }
+
+        var differences = new List<string>();
+        Note(differences, "pipeline config", stored.PipelineConfigVersion, current.PipelineConfigVersion);
+        Note(differences, "story prompt", stored.StoryPromptVersion, current.StoryPromptVersion);
+        Note(differences, "image prompt", stored.ImagePromptVersion, current.ImagePromptVersion);
+        Note(differences, "identity prompt", stored.IdentityPromptVersion, current.IdentityPromptVersion);
+        Note(differences, "pose keywords", stored.PoseKeywordRevision, current.PoseKeywordRevision);
+
+        var shots = Enumerable.Range(1, storedContract.Count - 1).Count(
+            line => !string.Equals(storedContract[line], currentContract[line], StringComparison.Ordinal));
+        if (shots > 0)
+            differences.Add($"{shots} spread line{(shots == 1 ? string.Empty : "s")} differ");
+
+        drift = differences.Count == 0 ? null : string.Join("; ", differences);
+        return true;
+
+        static void Note(List<string> into, string term, string stored, string current)
+        {
+            if (!string.Equals(stored, current, StringComparison.Ordinal))
+                into.Add($"{term} {stored} → {current}");
+        }
+
+        static string ShortHash(string sha) => sha.Length <= 12 ? sha : sha[..12];
+    }
+
+    /// <summary>
     /// Text side, shot and Beki's version, joined by a character none of the three contains. The
     /// shot goes in verbatim rather than as an index: the rhythm's wording is what reaches the
     /// image model, so a reworded shot is a differently drawn spread even when its position in the
@@ -354,9 +442,12 @@ public sealed record BekiFulfillmentManifest
 /// passing its own review. The hash is the only term that catches that, which is why it is the
 /// file's hash and not the registry's version.
 ///
-/// Opaque, like the per-spread lines it sits beside: nothing reads the parts back out, it is only
-/// ever compared whole, and a format nobody parses is a format that can gain a term without anyone
-/// having to update a reader.
+/// Compared whole by the resume contract, which is the only comparison that decides whether
+/// anything is DRAWN. The stored-art paths, which draw nothing, read the terms back out through
+/// <see cref="TryParse"/> to ask the narrower question in
+/// <see cref="BekiFulfillmentManifest.StoredArtworkIsReusable"/> — so a new term added here is
+/// still safe by default: an unknown field changes the line, the resume contract stops matching and
+/// redraws, and the reader below refuses a line whose shape it does not recognise.
 /// </summary>
 public sealed record BekiCompositeContractTerms(
     string PoseRegistryVersion,
@@ -397,9 +488,34 @@ public sealed record BekiCompositeContractTerms(
             Composite.Poses.BekiPoseRegistry.Load().KeywordRevision);
     }
 
+    /// <summary>
+    /// Reads one contract line back into its terms, or refuses it.
+    ///
+    /// Refuses rather than guesses: a line that is not a composite line, or that carries a
+    /// different number of fields from the one <see cref="ToString"/> writes, is a line this
+    /// deployment cannot claim to understand — and the callers of this method are deciding whether
+    /// a finished book may go to press, which is not a decision to make from a half-read record.
+    /// </summary>
+    public static bool TryParse(
+        string? line, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out BekiCompositeContractTerms? terms)
+    {
+        terms = null;
+        if (string.IsNullOrEmpty(line)) return false;
+
+        var fields = line.Split('|');
+        if (fields.Length != 9 || !string.Equals(fields[0], Marker, StringComparison.Ordinal)) return false;
+
+        terms = new BekiCompositeContractTerms(
+            fields[1], fields[2], fields[3], fields[4], fields[5], fields[6], fields[7], fields[8]);
+        return true;
+    }
+
+    /// <summary>What says this line is the composite pipeline's, rather than a spread's.</summary>
+    private const string Marker = "composite";
+
     public override string ToString() => string.Join(
         '|',
-        "composite",
+        Marker,
         PoseRegistryVersion,
         PipelineConfigVersion,
         StoryPromptVersion,

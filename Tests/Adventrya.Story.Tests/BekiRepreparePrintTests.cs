@@ -666,6 +666,125 @@ public class BekiRepreparePrintTests
         Assert.Contains("canonical", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    // ==============================================================================================
+    // What a changed contract means to a stage that draws nothing
+    // ==============================================================================================
+
+    /// <summary>
+    /// A book stored under an older pipeline config is re-prepared, and the difference is written
+    /// down rather than used as a refusal.
+    ///
+    /// This is the deployment's own case. The stage used to demand that the stored contract equal
+    /// this deployment's exactly — a rule written for RESUME, where a changed term means the
+    /// remaining spreads would be drawn differently. Re-preparation draws nothing: it re-composites
+    /// bases that are already on disk and hash-verified, with the pose the composition receipt
+    /// names, and exports the PDF again. A config version that moved after the artwork was finished
+    /// cannot have changed the artwork, so refusing over it locked a finished book out of its own
+    /// press files.
+    ///
+    /// What replaces the refusal is a record: <c>press-status.json</c> says which terms drifted, so
+    /// an operator holding a re-prepared book can see the answer without correlating a log line
+    /// with a deploy time.
+    /// </summary>
+    [Fact]
+    public async Task A_book_stored_under_an_older_pipeline_config_is_re_prepared_and_the_drift_is_recorded()
+    {
+        var world = await HeldBookAsync();
+        world.Composer.CanonicalPdf = BekiCanonicalBookFixtures.CanonicalPressBook();
+
+        var current = BekiCompositeContractTerms.Current("dinosaurs").PipelineConfigVersion;
+        RewriteStoredTerms(world, terms => terms with { PipelineConfigVersion = "beki-pipeline-v1.0" });
+
+        await world.Job().RepreparePrintAsync(world.PackId, CancellationToken.None);
+
+        using var status = JsonDocument.Parse(Encoding.UTF8.GetString(
+            world.Blobs.Uploaded[BekiPackBlobs.PressStatusName(world.UserId, world.PackId)]));
+        var drift = status.RootElement.GetProperty("artwork_contract_drift").GetString();
+
+        Assert.NotNull(drift);
+        Assert.Contains("pipeline config", drift, StringComparison.Ordinal);
+        Assert.Contains("beki-pipeline-v1.0", drift, StringComparison.Ordinal);
+        Assert.Contains(current, drift, StringComparison.Ordinal);
+
+        // And it really was prepared, not merely attempted: the press stage measured a clean
+        // document and the book is still the family's own.
+        Assert.Empty(status.RootElement.GetProperty("failed_gates").EnumerateArray());
+        Assert.Equal("prepared", status.RootElement.GetProperty("interior").GetString());
+        Assert.Equal(AdventurePackStatus.Completed, world.Packs.Status);
+
+        // Nothing was drawn to get there — the single illustrate call is the original run's.
+        Assert.Equal(1, world.Generator.IllustrateCalls);
+    }
+
+    /// <summary>
+    /// A book stored against a different pose registry is still refused, and the refusal says which
+    /// registry rather than "incomplete or incompatible".
+    ///
+    /// The registry is not a recipe: it names the nine approved PNGs and their hashes, so a revised
+    /// one is a different character, and the pose this stage would composite onto the cover is not
+    /// the pose that is on the stored pages. That is the case the old exact-match rule was really
+    /// protecting, and it survives.
+    ///
+    /// Thrown as an <see cref="InvalidOperationException"/>, which is what the admin endpoint turns
+    /// into a 409 carrying the message — and thrown from the loader, before the stage has taken a
+    /// snapshot or written a byte.
+    /// </summary>
+    [Fact]
+    public async Task A_book_stored_against_a_different_pose_registry_is_refused_and_writes_nothing()
+    {
+        var world = await HeldBookAsync();
+        world.Composer.CanonicalPdf = BekiCanonicalBookFixtures.CanonicalPressBook();
+
+        var livePdf = world.Blobs.Uploaded[BekiPackBlobs.ReadingPdfName(world.UserId, world.PackId)];
+        var livePressStatus = world.Blobs.Uploaded[BekiPackBlobs.PressStatusName(world.UserId, world.PackId)];
+
+        RewriteStoredTerms(world, terms => terms with { PoseRegistryVersion = "beki-pose-registry-v0" });
+        world.Blobs.UploadOrder.Clear();
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => world.Job().RepreparePrintAsync(world.PackId, CancellationToken.None));
+
+        Assert.Contains("different pose registry or world", error.Message, StringComparison.Ordinal);
+        Assert.Contains("beki-pose-registry-v0", error.Message, StringComparison.Ordinal);
+        Assert.Contains("without a redraw", error.Message, StringComparison.Ordinal);
+
+        // Refused before it touched anything: no upload of any kind, the book's files as they were,
+        // and no snapshot folder from a promotion that never started.
+        Assert.Empty(world.Blobs.UploadOrder);
+        Assert.Equal(livePdf, world.Blobs.Uploaded[BekiPackBlobs.ReadingPdfName(world.UserId, world.PackId)]);
+        Assert.Equal(livePressStatus,
+            world.Blobs.Uploaded[BekiPackBlobs.PressStatusName(world.UserId, world.PackId)]);
+        Assert.Equal(AdventurePackStatus.Completed, world.Packs.Status);
+        Assert.DoesNotContain(world.Blobs.Uploaded.Keys,
+            key => key.StartsWith($"{world.UserId}/{world.PackId}/previous/", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Rewrites the composite line of the manifest a real run wrote, leaving the eight spread lines
+    /// and every stored picture exactly as they are.
+    ///
+    /// Through the parsed terms rather than by string surgery, so a test asking for "a different
+    /// pose registry" cannot silently be editing the field beside it when the contract's shape
+    /// changes.
+    /// </summary>
+    private static void RewriteStoredTerms(
+        CompositePipelineFulfillmentTests.PackWorld world,
+        Func<BekiCompositeContractTerms, BekiCompositeContractTerms> change)
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var name = BekiPackBlobs.ManifestName(world.UserId, world.PackId);
+        var manifest = JsonSerializer.Deserialize<BekiFulfillmentManifest>(
+            world.Blobs.Uploaded[name], options)!;
+
+        Assert.True(BekiCompositeContractTerms.TryParse(manifest.IllustrationContract[0], out var terms));
+
+        var lines = manifest.IllustrationContract.ToArray();
+        lines[0] = change(terms!).ToString();
+
+        world.Blobs.Seed(name, JsonSerializer.SerializeToUtf8Bytes(
+            manifest with { IllustrationContract = lines }, options));
+    }
+
     /// <summary>
     /// The alarm service's side of the closure: the right book, the right check, and one of the four
     /// words the alarms table's CHECK constraint permits.

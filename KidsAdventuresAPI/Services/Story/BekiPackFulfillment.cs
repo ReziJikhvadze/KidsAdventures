@@ -502,7 +502,7 @@ public sealed class BekiPackFulfillment(
         try
         {
             var hashes = await VerifyAssetLockAsync(pack, cancellationToken);
-            var work = new PressWork();
+            var work = new PressWork { ArtworkContractDrift = book.ContractDrift };
             /*
               Build, look at it, then publish — amendment A5.
 
@@ -611,7 +611,7 @@ public sealed class BekiPackFulfillment(
 
         var book = await LoadStoredBookAsync(pack, cancellationToken);
         var hashes = await VerifyAssetLockAsync(pack, cancellationToken);
-        var work = new PressWork();
+        var work = new PressWork { ArtworkContractDrift = book.ContractDrift };
 
         // Everything up to here writes only additive print/* evidence: the customer's PDF, its
         // reports and the print slot are exactly as they were, so a failure, a refusal or a
@@ -698,10 +698,23 @@ public sealed class BekiPackFulfillment(
             ?? throw new InvalidOperationException("Stored fulfilment manifest is missing.");
         var theme = InputNormalization.CanonicalThemeId(pack.Theme.ToString())
             ?? throw new InvalidOperationException("Unknown book world.");
-        if (!manifest.IllustrationContract.SequenceEqual(BekiFulfillmentManifest.CurrentContract(
-                BookFormat.SpreadCount, BekiCompositeContractTerms.Current(theme)))
-            || !manifest.Entries.Select(e => e.SpreadNumber).Order().SequenceEqual(Enumerable.Range(1, 8)))
+        if (!manifest.Entries.Select(e => e.SpreadNumber).Order().SequenceEqual(Enumerable.Range(1, 8)))
             throw new InvalidOperationException("Stored artwork contract is incomplete or incompatible; no redraw was attempted.");
+        if (!BekiFulfillmentManifest.StoredArtworkIsReusable(
+                manifest.IllustrationContract,
+                BekiFulfillmentManifest.CurrentContract(
+                    BookFormat.SpreadCount, BekiCompositeContractTerms.Current(theme)),
+                out var drift))
+            throw new InvalidOperationException(
+                $"Stored artwork was drawn for a different pose registry or world ({drift}); it "
+                + "cannot be re-composited without a redraw.");
+        if (drift is not null)
+        {
+            logger.LogInformation(
+                "Beki pack {PackId}: the stored artwork's contract has drifted from this "
+                + "deployment's ({Drift}), which cannot change pixels that are already drawn; "
+                + "re-compositing the stored bases as they are.", pack.Id, drift);
+        }
 
         var stored = new List<BekiSpreadArtwork>();
         foreach (var entry in manifest.Entries.OrderBy(e => e.SpreadNumber))
@@ -715,10 +728,17 @@ public sealed class BekiPackFulfillment(
             pack.Theme.ToString(), StoryWorlds.For(pack.Theme).Place)
             { ContinuationUrl = BekiOptions.WebsiteQrDestination };
 
-        return new StoredBook(plan, run, manifest, manifestName, stored, wrap, receipt, personalization);
+        return new StoredBook(plan, run, manifest, manifestName, stored, wrap, receipt, personalization, drift);
     }
 
     /// <summary>Everything a stored book is, to a stage that may not draw anything.</summary>
+    /// <param name="ContractDrift">
+    /// How the terms this artwork was drawn under differ from this deployment's, when the
+    /// difference is one that cannot reach the pixels — or null when there is none. Carried out of
+    /// the loader so that both stored-art stages write the same sentence into
+    /// <c>press-status.json</c>: a book re-prepared under drifted terms should not have to be
+    /// explained by cross-referencing a log line with a deploy time.
+    /// </param>
     private sealed record StoredBook(
         MasterStory Plan,
         MasterStoryRun Run,
@@ -727,7 +747,8 @@ public sealed class BekiPackFulfillment(
         IReadOnlyList<BekiSpreadArtwork> Spreads,
         byte[] WrapComposite,
         string CoverReceiptJson,
-        BekiBookPersonalization Personalization);
+        BekiBookPersonalization Personalization,
+        string? ContractDrift);
 
     /// <summary>
     /// The sixteen-gate verdict under this deployment's current policy, written down where every
@@ -3081,6 +3102,14 @@ public sealed class BekiPackFulfillment(
         /// </summary>
         public string? Normalizer { get; set; }
 
+        /// <summary>
+        /// How the stored artwork's contract differs from this deployment's, for the stages that
+        /// re-composite artwork instead of drawing it. Null on every other path, including a first
+        /// run, where the book is drawn under the terms in force and there is nothing to say.
+        /// Written to <c>press-status.json</c> as <c>artwork_contract_drift</c>.
+        /// </summary>
+        public string? ArtworkContractDrift { get; set; }
+
         public List<string> Reasons { get; } = [];
     }
 
@@ -3894,6 +3923,11 @@ public sealed class BekiPackFulfillment(
                         bekiOptions.Value.PrintPrep.ResolvedMode == BekiPrintPrepMode.ExternalSuperResolution
                         && _pressUpscaler.IsConfigured,
                     preparation_problems = work.PreparationProblems,
+                    // How the stored artwork's contract differed from this deployment's, on the
+                    // two stages that re-composite rather than draw. Null everywhere else, and
+                    // null there too when nothing drifted — which is the difference between "the
+                    // terms moved and could not have changed these pixels" and "nobody asked".
+                    artwork_contract_drift = work.ArtworkContractDrift,
                 },
                 JsonOptions),
             "application/json",
