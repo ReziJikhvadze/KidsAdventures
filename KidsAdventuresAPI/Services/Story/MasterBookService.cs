@@ -5,7 +5,9 @@ using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
+using AdventurePacks.Api.Services.Pdf;
 using AdventurePacks.Api.Services.Story.Composite;
+using AdventurePacks.Api.Services.Story.Composite.Poses;
 using AdventurePacks.Api.Services.Story.Prompts;
 using Hangfire;
 
@@ -49,7 +51,9 @@ public sealed class MasterBookService(
     IBekiBookGenerator bekiBookGenerator,
     IOptions<BekiOptions> bekiOptions,
     ILogger<MasterBookService> logger,
-    TimeProvider? timeProvider = null) : IMasterBookService
+    TimeProvider? timeProvider = null,
+    ICompositeBookPipeline? compositePipeline = null,
+    IBekiPdfComposer? bekiComposer = null) : IMasterBookService
 {
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
@@ -773,6 +777,47 @@ public sealed class MasterBookService(
         // log line and as the switch onto the child-only prompt below.
         string? bekiFailure = null;
 
+        /*
+          The REAL cover, drawn here, first — owner, 2026-09-06.
+
+          What used to happen: the preview drew a "Beki cover" from the legacy prompt, the parent
+          chose the book by looking at it, and then the fulfilment job drew a completely different
+          picture — the press wrap, the book's one cover master — from a scenario and an identity
+          spec the preview had never seen. Two covers for one book, and the one the parent picked
+          was the one that was thrown away.
+
+          So the preview now buys exactly what the book will ship: the child identity spec, the
+          Visual Scenario for all nine pictures, and the wrap itself. All three are stored under the
+          run, and the fulfilment job adopts them rather than paying for them again — the preview
+          takes on three calls and the purchased book gives up the same three, which is why this is
+          a reordering rather than an expense.
+
+          The child anchor is null and honestly so: nothing of this book has been drawn yet. That is
+          the cover's own turn to be first, and the anchor now flows the other way — the wrap's base
+          becomes the appearance anchor spread one is drawn against.
+        */
+        if (bekiOptions.Value.BookFormatEnabled
+            && bekiOptions.Value.CompositePipelineEnabled
+            && BookFormat.IsPrintPlan(run.PromptVersion)
+            && compositePipeline is not null
+            && bekiComposer is not null)
+        {
+            var (wrapCover, wrapFailure) = await TryDrawPreviewWrapAsync(run, story, cancellationToken);
+            if (wrapCover is not null)
+            {
+                return wrapCover;
+            }
+
+            // Not fatal, and deliberately not the end of the ladder: the parent's first sight of the
+            // book must not be an empty frame because an identity call, a scenario call or one image
+            // call went wrong. The book they buy will then draw its own wrap, exactly as it did
+            // before any of this existed.
+            logger.LogWarning(
+                "Run {RunId}: the real cover wrap could not be drawn ({Reason}); falling back to "
+                + "the legacy preview cover. The purchased book will draw its own wrap.",
+                run.Id, wrapFailure);
+        }
+
         // The gate is the printing book format, not a version equality: a plan gets the Beki cover
         // because it carries the cast list and the placement that cover needs, whichever version
         // of the printing flow wrote it.
@@ -836,7 +881,7 @@ public sealed class MasterBookService(
 
             var stored = referenceImageNormalizer.NormalizeForStorageWebp(imageBytes);
             return await blobStorageService.UploadAsync(
-                $"master-runs/{run.Id:N}/cover",
+                BekiRunBlobs.CoverName(run.Id),
                 stored.Bytes,
                 stored.ContentType,
                 cancellationToken);
@@ -852,6 +897,173 @@ public sealed class MasterBookService(
             // and the difference is whether Hangfire gets to try again or the run stops here.
             logger.LogWarning(ex, "Cover illustration failed for run {RunId}; the story stands without it.", run.Id);
             return null;
+        }
+    }
+
+    /// <summary>
+    /// The book's REAL cover, drawn at preview time and stored where the fulfilment job can find it.
+    ///
+    /// Three paid calls in sequence, and each one is a thing the purchased book would otherwise buy
+    /// for itself: the child identity spec read off the photograph, the Visual Scenario for the whole
+    /// book planned off the story, and the 512 × 245 mm press wrap with the approved Beki composited
+    /// onto its front board. What the parent then sees is the wrap's front board, cropped — the same
+    /// rectangle the printed book's cover is, and the same one the customer PDF's first page is built
+    /// from.
+    ///
+    /// Everything is stored under the run rather than recorded on it. Six blobs, named by
+    /// <see cref="BekiRunBlobs"/>, are the entire contract with <c>BekiPackFulfillment</c>: no
+    /// column, no migration, and nothing that can say one thing while storage says another.
+    ///
+    /// The wrap is verified against its own composition receipt before any of it is stored. A wrap
+    /// whose bytes do not hash to what its receipt declares is not a cover master — it is the exact
+    /// state audit P0-10 found — and this returns it as a failure so the preview falls back rather
+    /// than handing the fulfilment job artifacts it will refuse to adopt.
+    ///
+    /// A null url on any failure, with the reason beside it. A preview never dies over its cover.
+    /// A cancellation is not one of those failures and is passed up: only the caller knows whether
+    /// it is the budget or the host, and the difference is whether Hangfire tries again.
+    /// </summary>
+    private async Task<(string? Url, string? Failure)> TryDrawPreviewWrapAsync(
+        MasterStoryRun run, MasterStory story, CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(run.PhotoBlobUrl))
+            {
+                return (null, "the run has no parked portrait");
+            }
+
+            var photo = await blobStorageService.DownloadBytesFromStoredUrlAsync(
+                run.PhotoBlobUrl, cancellationToken);
+
+            if (photo is not { Length: > 0 })
+            {
+                return (null, "the parked portrait could not be downloaded");
+            }
+
+            // The job id is the run's own, which is what puts every model call this cover costs
+            // under the same identifier the preview is logged and polled by.
+            var context = new CompositeBookContext
+            {
+                JobId = run.Id,
+                Input = BekiCompositeInputs.For(run, run.Theme),
+            };
+
+            /*
+              Both boundaries first, because neither costs anything and the first paid call is next.
+
+              A run reaches here with the composite flag on and a parked portrait, which is not the
+              same as a run the composite pipeline can draw: a gender spelling nothing maps, or a
+              story written by the legacy planner because the mapping failed earlier, both arrive
+              here looking fine and are refused by the pipeline — after the identity call has been
+              bought. Refusing here costs nothing and the preview falls back to the cover it has
+              always had.
+            */
+            var normalized = InputNormalization.Normalize(context.Input, photo);
+            if (!normalized.IsValid)
+            {
+                return (null, $"this run cannot be mapped to the composite boundary: "
+                              + string.Join(" ", normalized.Problems));
+            }
+
+            var boundary = StoryBoundary.From(story);
+            if (!boundary.IsValid)
+            {
+                return (null, "this run's story cannot be mapped to the composite boundary: "
+                              + string.Join(" ", boundary.Problems));
+            }
+
+            var started = System.Diagnostics.Stopwatch.StartNew();
+
+            // The spec first, because the cover prompt quotes it: the CHILD IDENTITY LOCK is what
+            // owner's rule 2 is enforced by, and it has to exist before the cover asks for a child.
+            var identity = await compositePipeline!.DeriveIdentityAsync(
+                context, photo, cancellationToken);
+
+            // Then the scenario for all nine pictures — the same planner, validator and single
+            // corrective retry the purchased book uses, because this document IS the purchased
+            // book's: the outfit it fixes dresses the child on every spread the parent has not
+            // seen yet.
+            var plan = await compositePipeline.PlanScenarioAsync(
+                context, story, photo, cancellationToken);
+
+            var wrap = await compositePipeline.DrawCoverWrapAsync(
+                context, plan.Scenario, photo, "image/png", identity,
+                // Nothing of this book has been drawn. The cover is first now, and the lock and the
+                // photograph are what carry the child — which is exactly spread one's own condition.
+                childAnchor: null,
+                cancellationToken);
+
+            // Verified before it is stored, and before it is shown. See the summary: a master that
+            // does not match its own receipt is not a master, and the fulfilment job re-checks this
+            // before it will adopt anything.
+            var receipt = JsonSerializer.Deserialize<BekiCompositionManifest>(wrap.ManifestJson)
+                ?? throw new InvalidOperationException("the wrap's composition receipt is empty.");
+
+            BekiPressComposite.ValidateSource(wrap.BasePng, wrap.CompositePng, receipt);
+
+            await blobStorageService.UploadAsync(
+                BekiRunBlobs.CoverWrapBaseName(run.Id), wrap.BasePng, "image/png", cancellationToken);
+            await blobStorageService.UploadAsync(
+                BekiRunBlobs.CoverWrapCompositeName(run.Id), wrap.CompositePng, "image/png",
+                cancellationToken);
+            await blobStorageService.UploadAsync(
+                BekiRunBlobs.CoverCompositionName(run.Id),
+                System.Text.Encoding.UTF8.GetBytes(wrap.ManifestJson), "application/json",
+                cancellationToken);
+
+            // The generation receipt cannot be recomputed from anything — if it is not written at
+            // the moment of the call it is gone — and the fulfilment job requires all six before it
+            // will adopt, so a wrap that came back without one is not adoptable and says so here
+            // rather than being discovered missing at purchase time.
+            if (wrap.GenerationReceiptJson is not { Length: > 0 } generation)
+            {
+                return (null, "the cover wrap came back without its generation receipt");
+            }
+
+            await blobStorageService.UploadAsync(
+                BekiRunBlobs.CoverWrapGenerationName(run.Id),
+                System.Text.Encoding.UTF8.GetBytes(generation), "application/json", cancellationToken);
+
+            await blobStorageService.UploadAsync(
+                BekiRunBlobs.ScenarioName(run.Id),
+                System.Text.Encoding.UTF8.GetBytes(plan.Json), "application/json", cancellationToken);
+
+            // Under the run's own prefix, beside the photograph it was read from, because that is
+            // the privacy domain it belongs to: it describes a real child's hair, eyes and skin, and
+            // the guest run's expiry sweep deletes it with everything else that run holds.
+            await blobStorageService.UploadAsync(
+                BekiRunBlobs.IdentitySpecName(run.Id),
+                System.Text.Encoding.UTF8.GetBytes(CompositeChildIdentity.ToStoredJson(identity)),
+                "application/json", cancellationToken);
+
+            /*
+              And the picture the parent actually sees: the wrap's front board, cropped, normalized
+              to the storage webp every other preview cover is stored as.
+
+              Stored under the name the legacy cover has always used, so run.CoverImageUrl, the
+              journey's preview stage and the guest-preview cover endpoint all keep working without
+              knowing anything changed. What changed is only that this rectangle is now cut from the
+              book's one cover master instead of being a second design nobody would ever print.
+            */
+            var frontBoard = bekiComposer!.CropFrontBoard(wrap.CompositePng);
+            var stored = referenceImageNormalizer.NormalizeForStorageWebp(frontBoard);
+
+            var url = await blobStorageService.UploadAsync(
+                BekiRunBlobs.CoverName(run.Id), stored.Bytes, stored.ContentType, cancellationToken);
+
+            logger.LogInformation(
+                "Run {RunId}: the real cover wrap is drawn and stored in {Seconds:F1}s (pose {Pose}); "
+                + "the purchased book will adopt it, its scenario and its identity spec rather than "
+                + "paying for them again.",
+                run.Id, started.ElapsedMilliseconds / 1000.0, wrap.PoseId);
+
+            return (url, null);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "The real cover wrap failed for run {RunId}.", run.Id);
+            return (null, $"the cover wrap threw: {ex.Message}");
         }
     }
 
@@ -909,7 +1121,7 @@ public sealed class MasterBookService(
 
             var stored = referenceImageNormalizer.NormalizeForStorageWebp(cover.Image);
             var url = await blobStorageService.UploadAsync(
-                $"master-runs/{run.Id:N}/cover", stored.Bytes, stored.ContentType, cancellationToken);
+                BekiRunBlobs.CoverName(run.Id), stored.Bytes, stored.ContentType, cancellationToken);
 
             return (url, null);
         }

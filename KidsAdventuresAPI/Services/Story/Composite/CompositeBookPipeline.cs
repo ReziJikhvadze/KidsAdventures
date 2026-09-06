@@ -190,7 +190,36 @@ public sealed record CompositeBookContext
     /// it after the run; see <see cref="CompositeAnchorAccepted"/>.
     /// </summary>
     public Func<CompositeAnchorAccepted, Task>? OnAnchorAccepted { get; init; }
+
+    /// <summary>
+    /// The base of a cover wrap this book ALREADY has — the preview run's, adopted rather than
+    /// redrawn — attached as the child appearance anchor when spread one is drawn.
+    ///
+    /// It exists because the order of the two pictures is now reversed for a bought book. The cover
+    /// is drawn first, at preview time, and the parent chose the book by looking at it; the spreads
+    /// come afterwards. Spread one is the page that makes the anchor every later page is matched to,
+    /// so without this it would be a fresh stylization of the photograph and the book would drift
+    /// away from its own cover — the defect owner's rule 2 names, with the arrow pointing the other
+    /// way.
+    ///
+    /// The BASE, never the composite: the composite has the approved Beki pasted onto it, and the
+    /// one thing this pipeline never shows an image model is Beki.
+    ///
+    /// It seeds the anchor page's own draw and nothing else. Spreads two to eight keep being matched
+    /// to spread one's accepted base exactly as they always were, because that is the picture drawn
+    /// at the interior's own shape and reviewed as an interior page.
+    /// </summary>
+    public byte[]? CoverAnchorBasePng { get; init; }
 }
+
+/// <summary>
+/// A validated Visual Scenario and the exact document it was validated from.
+///
+/// The JSON travels with the object because the caller's next move is to store it: a scenario
+/// re-serialized from the record is a different set of bytes from the one the planner returned and
+/// the one every later attempt will adopt.
+/// </summary>
+public sealed record CompositeScenarioPlan(VisualScenarioV2 Scenario, string Json);
 
 /// <summary>
 /// What a run knows the moment its child appearance anchor is settled: enough to draw the cover
@@ -915,6 +944,43 @@ public interface ICompositeBookPipeline
         ChildIdentitySpec identity,
         byte[]? childAnchor,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The four identity attributes this book's child is drawn to, read once from the photograph —
+    /// step 2b of <see cref="RunAsync"/>, on its own, for a caller that needs the spec before it has
+    /// a book.
+    ///
+    /// The preview is that caller. It draws the REAL cover now, and the cover carries the same
+    /// CHILD IDENTITY LOCK every spread will carry — so the spec has to exist before the first
+    /// picture of the book is bought, and the run stores it for the fulfilment job to adopt rather
+    /// than deriving a second opinion about the same child.
+    ///
+    /// Defaulted to a refusal rather than declared abstract: a great many hand-written test doubles
+    /// implement this interface, and none of them should have to grow a member to say it never
+    /// derives anything.
+    /// </summary>
+    Task<ChildIdentitySpec> DeriveIdentityAsync(
+        CompositeBookContext context,
+        byte[] childPhoto,
+        CancellationToken cancellationToken) =>
+        throw new NotSupportedException("This pipeline does not derive a child identity spec.");
+
+    /// <summary>
+    /// The Visual Scenario for the whole book, planned from the story — step 2 of
+    /// <see cref="RunAsync"/>, on its own, and by the same planner with the same validation and the
+    /// same single corrective retry.
+    ///
+    /// The cover is one of the nine pictures the scenario fixes: the outfit, the recurring elements
+    /// and the cover's own front-board scene all come out of this document. A preview that planned
+    /// its cover from anything else would hand the fulfilment job a cover the book's own scenario
+    /// does not describe.
+    /// </summary>
+    Task<CompositeScenarioPlan> PlanScenarioAsync(
+        CompositeBookContext context,
+        MasterStory story,
+        byte[] childPhoto,
+        CancellationToken cancellationToken) =>
+        throw new NotSupportedException("This pipeline does not plan a Visual Scenario.");
 }
 
 /// <summary>
@@ -1666,6 +1732,68 @@ public sealed class CompositeBookPipeline(
     /// (<see cref="BekiCoverDieline"/>), and the press cover is generated, cropped and
     /// Beki-composited against it.
     /// </summary>
+    /// <summary>
+    /// Step 2b, reachable on its own. Exactly the call <see cref="RunAsync"/> makes — the same
+    /// prompt, the same one retry, the same refusal to soft-degrade — with the boundary in front of
+    /// it, because a caller reaching straight for this has not been through step 0.
+    /// </summary>
+    public async Task<ChildIdentitySpec> DeriveIdentityAsync(
+        CompositeBookContext context, byte[] childPhoto, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+
+        var normalized = InputNormalization.Normalize(context.Input, childPhoto);
+        if (!normalized.IsValid)
+        {
+            throw new CompositePipelineException(
+                CompositeFailureCodes.InvalidBookInput,
+                $"The book input cannot be used: {string.Join(" ", normalized.Problems)}");
+        }
+
+        return await DeriveIdentityAsync(context, request: null, childPhoto, cancellationToken);
+    }
+
+    /// <summary>
+    /// Step 2, reachable on its own — the same planner, validator and single corrective retry
+    /// <see cref="RunAsync"/> uses, over the same boundary the story is mapped to there.
+    ///
+    /// The pose audit and the retry flag are deliberately not returned. They are facts about the
+    /// BOOK's record, written when the book is drawn; a preview that reported them would be writing
+    /// a book review for a book that does not exist yet, and the fulfilment job replays the audit
+    /// over whatever scenario it ends up holding anyway.
+    /// </summary>
+    public async Task<CompositeScenarioPlan> PlanScenarioAsync(
+        CompositeBookContext context, MasterStory story, byte[] childPhoto,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(story);
+
+        var normalized = InputNormalization.Normalize(context.Input, childPhoto);
+        if (!normalized.IsValid)
+        {
+            throw new CompositePipelineException(
+                CompositeFailureCodes.InvalidBookInput,
+                $"The book input cannot be used: {string.Join(" ", normalized.Problems)}");
+        }
+
+        var input = normalized.Story!;
+        var theme = CompositeThemeReferences.For(input.ThemeId);
+
+        var boundaryResult = StoryBoundary.From(story);
+        if (!boundaryResult.IsValid)
+        {
+            throw new CompositePipelineException(
+                CompositeFailureCodes.StoryFailed,
+                $"The story cannot be mapped to the boundary: {string.Join(" ", boundaryResult.Problems)}");
+        }
+
+        var planned = await PlanVisualScenarioAsync(
+            context, input, theme, boundaryResult.Boundary!, cancellationToken);
+
+        return new CompositeScenarioPlan(planned.Scenario, planned.Json);
+    }
+
     public async Task<CompositeCoverWrap> DrawCoverWrapAsync(
         CompositeBookContext context,
         VisualScenarioV2 scenario,
@@ -2430,9 +2558,15 @@ public sealed class CompositeBookPipeline(
     /// the normalizer behind it decodes by sniffing rather than by what it is told — a JPEG and a
     /// PNG reach the model as the same normalized picture either way.
     /// </param>
+    /// <param name="request">
+    /// The run this derivation belongs to, or null when a caller reached the step directly through
+    /// <see cref="DeriveIdentityAsync(CompositeBookContext, byte[], CancellationToken)"/> and has no
+    /// run — the preview, which derives the spec to draw the cover with. Only the persistence
+    /// callback is read from it, and the context carries the fallback.
+    /// </param>
     private async Task<ChildIdentitySpec> DeriveIdentityAsync(
         CompositeBookContext context,
-        CompositeBookRequest request,
+        CompositeBookRequest? request,
         byte[] childPhoto,
         CancellationToken cancellationToken)
     {
@@ -2522,7 +2656,7 @@ public sealed class CompositeBookPipeline(
             // fallback is what lets the fulfilment job persist the spec without the illustrator in
             // between having to learn about it: that class builds this request from the context and
             // copies the callbacks it knows about, and this campaign did not touch it.
-            var persist = request.OnIdentitySpec ?? context.OnIdentitySpec;
+            var persist = request?.OnIdentitySpec ?? context.OnIdentitySpec;
 
             if (persist is not null)
             {
@@ -2618,9 +2752,28 @@ public sealed class CompositeBookPipeline(
                     + "page to be drawn, so this run has no child appearance anchor.");
             }
 
+            /*
+              The anchor page's own anchor: the cover this book already has, when it has one.
+
+              Null on every run that draws its cover afterwards, which is what spread one has always
+              had and what its prompt is built for. Non-null when the preview drew the REAL cover
+              first and the fulfilment job adopted it — and then spread one is a reproduction of the
+              child on that cover rather than a ninth independent reading of the photograph, which
+              is the only way the cover and the pages can be one book when the cover came first.
+            */
+            var coverAnchor = context.CoverAnchorBasePng is { Length: > 0 } fromCover ? fromCover : null;
+
+            if (coverAnchor is not null)
+            {
+                logger.LogInformation(
+                    "Composite pipeline {JobId}: spread {Page} is being drawn against the adopted "
+                    + "cover wrap's base, so the book's child is the child on its own cover.",
+                    context.JobId, first.Page);
+            }
+
             var anchorSpread = await DrawSpreadAsync(
                 context, input, theme, scenario, first, continuity, childPhoto,
-                childPhotoContentType, identity, anchor: null, cancellationToken);
+                childPhotoContentType, identity, anchor: coverAnchor, cancellationToken);
 
             drawn[anchorSpread.Page] = anchorSpread;
 

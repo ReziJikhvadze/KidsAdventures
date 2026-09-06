@@ -781,6 +781,197 @@ public class CompositePipelinePreviewTests : CompositePipelineTestBase
         Assert.DoesNotContain("at least three other spreads", system);
     }
 
+    // ---------------------------------------------------------------------------------------
+    // The preview draws the REAL cover (owner, 2026-09-06)
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// A print-format preview buys the child identity spec, the Visual Scenario and the press cover
+    /// wrap — the same three the purchased book used to buy for itself — and stores all of them
+    /// under the run.
+    ///
+    /// The defect it closes was a whole picture. The preview drew a legacy "Beki cover", the parent
+    /// chose the book by looking at it, and the fulfilment job then drew the wrap from a scenario and
+    /// an identity spec the preview had never seen: two covers for one book, and the one the parent
+    /// picked was the one thrown away. The owner's words for it were "it is not proper".
+    ///
+    /// The anchor is null and that is the assertion, not an omission: nothing of this book has been
+    /// drawn yet. The cover is first now, and it is spread one that will later be matched to the
+    /// cover rather than the other way round.
+    /// </summary>
+    [Fact]
+    public async Task A_print_format_preview_draws_the_real_cover_and_stores_it_under_the_run()
+    {
+        var story = new RecordingMasterStoryService();
+        var runs = new CoverRecordingRuns(new RecordingRunRepository());
+        // A real JPEG, because the preview's own boundary reads the pixels before it spends
+        // anything — the same check the composite pipeline makes at its door.
+        var blobs = new RecordingPreviewBlobs { Photo = Photo() };
+        var pipeline = new FakeCoverPipeline();
+        var runId = (await runs.GetByIdAsync(Guid.Empty, CancellationToken.None))!.Id;
+
+        await CoverPreviewService(story, runs, blobs, pipeline)
+            .WriteBookAsync(runId, CancellationToken.None);
+
+        // Three calls, once each, in the only order that works: the lock, then the plan the cover's
+        // scene comes out of, then the picture.
+        Assert.Equal(1, pipeline.IdentityCalls);
+        Assert.Equal(1, pipeline.ScenarioCalls);
+        Assert.Equal(1, pipeline.WrapCalls);
+        Assert.Null(pipeline.WrapAnchor);
+
+        // The scenario was planned from the story this preview just wrote, not from something else.
+        Assert.Equal(story.LastStory!.Concept.Title, pipeline.PlannedFrom!.Concept.Title);
+
+        // Every model call this cover costs is logged under the run the parent is polling.
+        Assert.Equal(runId, pipeline.LastContext!.JobId);
+        Assert.Equal("ნინა", pipeline.LastContext.Input.ChildName);
+
+        // The six artifacts the fulfilment job will adopt.
+        PreviewCoverAssertions.RunHoldsTheCover(blobs, runId);
+
+        // And what the parent actually sees: the wrap's front board, cropped by the composer and
+        // stored as the same webp every preview cover has always been stored as.
+        var coverName = BekiRunBlobs.CoverName(runId);
+        Assert.Equal($"https://blob.test/{coverName}", runs.SavedCoverUrl);
+        Assert.Equal("image/webp", blobs.ContentTypes[coverName]);
+        Assert.Equal(
+            new CompositePipelineFulfillmentTests.RecordingComposer()
+                .CropFrontBoard(PreviewWrapFixture.CompositePng),
+            blobs.Uploaded[coverName]);
+    }
+
+    /// <summary>
+    /// A wrap that cannot be drawn costs the preview its wrap and nothing else: the legacy cover is
+    /// drawn instead, the run is Ready with a picture on it, and nothing half-written is left behind
+    /// for the fulfilment job to adopt.
+    ///
+    /// The preview is the parent's first sight of the book. It has never been allowed to die over
+    /// its cover and it still is not — the purchased book simply draws its own wrap, exactly as it
+    /// did before any of this existed.
+    /// </summary>
+    [Fact]
+    public async Task A_failing_wrap_falls_back_to_the_legacy_preview_cover()
+    {
+        var story = new RecordingMasterStoryService();
+        var runs = new CoverRecordingRuns(new RecordingRunRepository());
+        // A real JPEG, because the preview's own boundary reads the pixels before it spends
+        // anything — the same check the composite pipeline makes at its door.
+        var blobs = new RecordingPreviewBlobs { Photo = Photo() };
+        var legacy = new LegacyCoverGenerator();
+        var pipeline = new FakeCoverPipeline
+        {
+            WrapFails = new InvalidOperationException("the image provider refused the wrap."),
+        };
+
+        var runId = (await runs.GetByIdAsync(Guid.Empty, CancellationToken.None))!.Id;
+
+        await CoverPreviewService(story, runs, blobs, pipeline, generator: legacy)
+            .WriteBookAsync(runId, CancellationToken.None);
+
+        Assert.Equal(1, pipeline.WrapCalls);
+        Assert.Equal(1, legacy.CoverCalls);
+
+        // Nothing partial was stored: a run holding some of the six would be a run the fulfilment
+        // job has to reason about, and it is not allowed to have to.
+        foreach (var name in BekiRunBlobs.CoverArtifacts(runId))
+        {
+            Assert.DoesNotContain(name, blobs.Uploaded.Keys);
+        }
+
+        // And the preview still has its cover, which is the whole point of falling back.
+        var coverName = BekiRunBlobs.CoverName(runId);
+        Assert.Equal($"https://blob.test/{coverName}", runs.SavedCoverUrl);
+        Assert.Equal(LegacyCoverGenerator.CoverPng, blobs.Uploaded[coverName]);
+    }
+
+    /// <summary>
+    /// A wrap that came back without its generation receipt is not adoptable, so it is not stored as
+    /// though it were: the preview falls back rather than leaving the fulfilment job five of six
+    /// artifacts and a book it cannot explain.
+    /// </summary>
+    [Fact]
+    public async Task A_wrap_with_no_generation_receipt_is_not_stored_as_an_adoptable_cover()
+    {
+        var story = new RecordingMasterStoryService();
+        var runs = new CoverRecordingRuns(new RecordingRunRepository());
+        // A real JPEG, because the preview's own boundary reads the pixels before it spends
+        // anything — the same check the composite pipeline makes at its door.
+        var blobs = new RecordingPreviewBlobs { Photo = Photo() };
+        var legacy = new LegacyCoverGenerator();
+        var pipeline = new FakeCoverPipeline { WrapHasNoGenerationReceipt = true };
+
+        var runId = (await runs.GetByIdAsync(Guid.Empty, CancellationToken.None))!.Id;
+
+        await CoverPreviewService(story, runs, blobs, pipeline, generator: legacy)
+            .WriteBookAsync(runId, CancellationToken.None);
+
+        Assert.DoesNotContain(BekiRunBlobs.CoverWrapGenerationName(runId), blobs.Uploaded.Keys);
+        Assert.Equal(1, legacy.CoverCalls);
+        Assert.Equal(LegacyCoverGenerator.CoverPng, blobs.Uploaded[BekiRunBlobs.CoverName(runId)]);
+    }
+
+    /// <summary>
+    /// With the composite pipeline off, a printing preview draws the cover it always drew and stores
+    /// none of the six — the whole feature is behind the same flag every other composite behaviour
+    /// is behind.
+    /// </summary>
+    [Fact]
+    public async Task With_the_composite_flag_off_the_preview_cover_is_the_one_it_always_was()
+    {
+        var story = new RecordingMasterStoryService();
+        var runs = new CoverRecordingRuns(new RecordingRunRepository());
+        // A real JPEG, because the preview's own boundary reads the pixels before it spends
+        // anything — the same check the composite pipeline makes at its door.
+        var blobs = new RecordingPreviewBlobs { Photo = Photo() };
+        var legacy = new LegacyCoverGenerator();
+        var pipeline = new FakeCoverPipeline();
+
+        var runId = (await runs.GetByIdAsync(Guid.Empty, CancellationToken.None))!.Id;
+
+        await CoverPreviewService(story, runs, blobs, pipeline, generator: legacy, compositeEnabled: false)
+            .WriteBookAsync(runId, CancellationToken.None);
+
+        Assert.Equal(0, pipeline.IdentityCalls);
+        Assert.Equal(0, pipeline.ScenarioCalls);
+        Assert.Equal(0, pipeline.WrapCalls);
+        Assert.Equal(1, legacy.CoverCalls);
+        Assert.Empty(BekiRunBlobs.CoverArtifacts(runId).Where(blobs.Uploaded.ContainsKey));
+    }
+
+    /// <summary>
+    /// The preview service with the two dependencies this campaign added — the composite pipeline
+    /// and the PDF composer, which crops the wrap's front board.
+    ///
+    /// Its own builder rather than the shared <c>PreviewService</c> helper, because every other
+    /// preview test is about the planner and should not have to state a cover pipeline it never
+    /// exercises. Both new parameters are optional on the service for exactly that reason: a caller
+    /// that has neither keeps the cover path it has always had.
+    /// </summary>
+    private static MasterBookService CoverPreviewService(
+        RecordingMasterStoryService story,
+        CoverRecordingRuns runs,
+        RecordingPreviewBlobs blobs,
+        FakeCoverPipeline pipeline,
+        IBekiBookGenerator? generator = null,
+        bool compositeEnabled = true) =>
+        new(runs,
+            story,
+            new StubImageService(),
+            blobs,
+            new PassThroughNormalizer(),
+            new StubBackgroundJobClient(),
+            generator ?? new SpyBekiBookGenerator(),
+            Options.Create(new BekiOptions
+            {
+                CompositePipelineEnabled = compositeEnabled,
+                BookFormatEnabled = true,
+            }),
+            NullLogger<MasterBookService>.Instance,
+            timeProvider: null,
+            compositePipeline: pipeline,
+            bekiComposer: new CompositePipelineFulfillmentTests.RecordingComposer());
+
     [Fact]
     public async Task With_the_flag_off_a_preview_is_written_exactly_as_it_always_was()
     {

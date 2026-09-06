@@ -280,6 +280,175 @@ public class CompositePipelineFulfillmentTests
     }
 
     // =======================================================================================
+    // The cover the parent previewed is the cover they get (owner, 2026-09-06)
+    // =======================================================================================
+
+    /// <summary>
+    /// A book whose preview run drew the REAL cover adopts it whole — the wrap, the Visual Scenario
+    /// it was planned from, and the child identity spec it was drawn to — and buys none of the three
+    /// again.
+    ///
+    /// This is the owner's ask, stated as behaviour: "create the cover first — the REAL cover — and
+    /// when we proceed to the book, reuse it." What made the old arrangement improper was not the
+    /// cost but the identity of the picture: the preview drew one cover and the purchased book drew
+    /// a different one, so the book that arrived was not the book that was chosen.
+    /// </summary>
+    [Fact]
+    public async Task A_run_that_already_holds_the_real_cover_has_it_adopted_rather_than_redrawn()
+    {
+        var world = new PackWorld { AnnounceAnchor = true };
+        world.SeedPreviewCover();
+
+        await world.Run();
+
+        // Not one wrap call. The anchor hook was never even wired up, so there was nothing to start
+        // beside the spreads and nothing to await after them.
+        Assert.Equal(0, world.Generator.WrapCalls);
+        Assert.False(world.Generator.WrapStartedDuringIllustrate);
+
+        // And the two documents reached the pipeline as things to adopt, so neither the identity
+        // call nor the scenario call is bought a second time for this book.
+        var resume = world.Generator.Resume!;
+        Assert.Equal(PreviewWrapFixture.ScenarioJson, resume.ScenarioJson);
+        Assert.Equal(PreviewWrapFixture.IdentityJson, resume.IdentitySpecJson);
+
+        // Spread one is drawn against the cover's own base — child and world, no Beki on it — which
+        // is what makes the book's child the child on its own cover.
+        Assert.Equal(PreviewWrapFixture.BasePng, world.Generator.Context!.CoverAnchorBasePng);
+
+        // The pack's cover blobs ARE the run's, file for file.
+        Assert.Equal(
+            PreviewWrapFixture.CompositePng,
+            world.Blobs.Uploaded[BekiPackBlobs.CoverWrapCompositeName(world.UserId, world.PackId)]);
+        Assert.Equal(
+            PreviewWrapFixture.BasePng,
+            world.Blobs.Uploaded[BekiPackBlobs.CoverWrapBaseName(world.UserId, world.PackId)]);
+        Assert.Equal(
+            PreviewWrapFixture.ReceiptJson,
+            Encoding.UTF8.GetString(
+                world.Blobs.Uploaded[BekiPackBlobs.CoverCompositionName(world.UserId, world.PackId)]));
+        Assert.Equal(
+            PreviewWrapFixture.GenerationJson,
+            Encoding.UTF8.GetString(
+                world.Blobs.Uploaded[BekiPackBlobs.CoverWrapGenerationName(world.UserId, world.PackId)]));
+        Assert.Equal(
+            PreviewWrapFixture.IdentityJson,
+            Encoding.UTF8.GetString(
+                world.Blobs.Uploaded[BekiPackBlobs.IdentitySpecName(world.UserId, world.PackId)]));
+
+        // The reader's cover is cut from those same bytes, as it is on every composite book.
+        Assert.Equal(
+            $"https://blob.test/{BekiPackBlobs.CoverFrontName(world.UserId, world.PackId)}",
+            world.Packs.CoverImageUrl);
+
+        // The provenance is still the wrap master — it IS one — and the verdict names the preview it
+        // came from, so an operator holding the book can find the screen the parent chose it on.
+        var cover = Manifest(world).Cover!;
+        Assert.Equal(BekiCoverRecord.WrapMaster, cover.PromptVersion);
+        Assert.Equal($"adopted from preview run {world.RunId}", cover.Verdict);
+
+        // And the run's own copies are untouched: the pack got a copy, not a move.
+        foreach (var name in BekiRunBlobs.CoverArtifacts(world.RunId))
+        {
+            Assert.Contains(name, world.Blobs.Uploaded.Keys);
+        }
+    }
+
+    /// <summary>
+    /// A run with no stored cover — every book drawn before this existed, and every one whose
+    /// preview wrap failed — is fulfilled exactly as it was: the wrap is drawn beside the spreads and
+    /// the scenario and the identity spec are planned and derived by the pipeline.
+    /// </summary>
+    [Fact]
+    public async Task A_run_with_no_previewed_cover_draws_its_own_exactly_as_before()
+    {
+        var world = new PackWorld { AnnounceAnchor = true };
+
+        await world.Run();
+
+        Assert.Equal(1, world.Generator.WrapCalls);
+        Assert.True(world.Generator.WrapStartedDuringIllustrate);
+
+        // Nothing to adopt, so the pipeline plans and derives its own — and spread one draws from
+        // the lock and the photograph, which is the condition its prompt is written for.
+        Assert.Null(world.Generator.Resume!.ScenarioJson);
+        Assert.Null(world.Generator.Resume.IdentitySpecJson);
+        Assert.Null(world.Generator.Context!.CoverAnchorBasePng);
+
+        Assert.Equal(
+            StubGenerator.WrapComposite,
+            world.Blobs.Uploaded[BekiPackBlobs.CoverWrapCompositeName(world.UserId, world.PackId)]);
+
+        Assert.DoesNotContain("adopted", Manifest(world).Cover!.Verdict, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// An operator's "redraw the cover" still redraws it. The redraw deletes the pack's wrap and
+    /// leaves the manifest — cover record and all — so the requeued job finds a book that has had a
+    /// cover of its own and draws the new one that was asked for, instead of quietly restoring the
+    /// previewed picture the operator was trying to replace.
+    ///
+    /// And the run's copies survive the deletion, which is what makes the redraw reversible by
+    /// nothing worse than a whole-book redraw.
+    /// </summary>
+    [Fact]
+    public async Task An_operators_cover_redraw_is_not_undone_by_the_previewed_cover()
+    {
+        var world = new PackWorld { AnnounceAnchor = true };
+        world.SeedPreviewCover();
+
+        await world.Run();
+        Assert.Equal(0, world.Generator.WrapCalls);
+
+        var redraw = await world.Redraw().RequestAsync(
+            new BekiRegenerationRequest(
+                world.PackId, BekiRegenerationScopes.Cover, null, "the wrap is wrong", "an operator"),
+            CancellationToken.None);
+
+        Assert.True(redraw.Queued, redraw.Message);
+        Assert.Equal(1, world.Jobs.Enqueued);
+
+        // The pack's whole cover master and every derivation of it are gone…
+        foreach (var name in (string[])
+                 [
+                     BekiPackBlobs.CoverWrapCompositeName(world.UserId, world.PackId),
+                     BekiPackBlobs.CoverWrapBaseName(world.UserId, world.PackId),
+                     BekiPackBlobs.CoverCompositionName(world.UserId, world.PackId),
+                     BekiPackBlobs.CoverWrapGenerationName(world.UserId, world.PackId),
+                     BekiPackBlobs.CoverFrontName(world.UserId, world.PackId),
+                 ])
+        {
+            Assert.DoesNotContain(name, world.Blobs.Uploaded.Keys);
+        }
+
+        // …and the run's copies are not: the redraw deletes the pack's names, and the preview's live
+        // under the run's own prefix. A parent's preview screen keeps working through a redraw.
+        foreach (var name in BekiRunBlobs.CoverArtifacts(world.RunId))
+        {
+            Assert.Contains(name, world.Blobs.Uploaded.Keys);
+        }
+
+        /*
+          And the manifest survives with its cover record, which is what makes the redraw stick.
+
+          The requeued job reads that record, sees a book that has had a cover of its own, and does
+          not adopt — so it draws the new wrap the operator asked for instead of quietly restoring
+          the previewed picture they were trying to replace. A cover-scope redraw deliberately
+          leaves the manifest alone; the whole-book scope deletes it, and adopting there is right,
+          because "redraw the book" is about the pages.
+        */
+        Assert.Contains(
+            BekiPackBlobs.ManifestName(world.UserId, world.PackId), world.Blobs.Uploaded.Keys);
+        Assert.Equal(BekiCoverRecord.WrapMaster, Manifest(world).Cover!.PromptVersion);
+    }
+
+    /// <summary>The pack's fulfilment manifest as this run left it.</summary>
+    private static BekiFulfillmentManifest Manifest(PackWorld world) =>
+        JsonSerializer.Deserialize<BekiFulfillmentManifest>(
+            world.Blobs.Uploaded[BekiPackBlobs.ManifestName(world.UserId, world.PackId)],
+            new JsonSerializerOptions(JsonSerializerDefaults.Web))!;
+
+    // =======================================================================================
     // F7 — the tail is visible
     // =======================================================================================
 
@@ -607,6 +776,32 @@ public class CompositePipelineFulfillmentTests
             """;
 
         /// <summary>
+        /// The cover the parent previewed, in storage under the preview run: the six artifacts a
+        /// print-format preview leaves behind when it draws the REAL cover.
+        ///
+        /// Not part of the default world, deliberately. A run stored before this feature existed has
+        /// none of them, and every other test in this file is about the book that draws its own
+        /// wrap — which must go on behaving exactly as it did.
+        /// </summary>
+        public void SeedPreviewCover()
+        {
+            Blobs.Seed(BekiRunBlobs.CoverWrapBaseName(RunId), PreviewWrapFixture.BasePng);
+            Blobs.Seed(BekiRunBlobs.CoverWrapCompositeName(RunId), PreviewWrapFixture.CompositePng);
+            Blobs.Seed(
+                BekiRunBlobs.CoverCompositionName(RunId),
+                Encoding.UTF8.GetBytes(PreviewWrapFixture.ReceiptJson));
+            Blobs.Seed(
+                BekiRunBlobs.CoverWrapGenerationName(RunId),
+                Encoding.UTF8.GetBytes(PreviewWrapFixture.GenerationJson));
+            Blobs.Seed(
+                BekiRunBlobs.ScenarioName(RunId),
+                Encoding.UTF8.GetBytes(PreviewWrapFixture.ScenarioJson));
+            Blobs.Seed(
+                BekiRunBlobs.IdentitySpecName(RunId),
+                Encoding.UTF8.GetBytes(PreviewWrapFixture.IdentityJson));
+        }
+
+        /// <summary>
         /// A whole earlier attempt in storage: eight spreads with their bases and receipts, the
         /// scenario, the identity spec, and a QA record for the pages asked for.
         /// </summary>
@@ -688,6 +883,15 @@ public class CompositePipelineFulfillmentTests
         /// <summary>What the job handed this run to resume from.</summary>
         public CompositeResumeState? Resume { get; private set; }
 
+        /// <summary>
+        /// The whole context the job built for this book.
+        ///
+        /// Recorded because the adoption of a previewed cover is visible here and nowhere else: the
+        /// wrap's base arrives as the anchor spread's own appearance reference, and the two adopted
+        /// documents arrive on the resume state.
+        /// </summary>
+        public CompositeBookContext? Context { get; private set; }
+
         public Task<BekiBookResult> GenerateAsync(
             MasterStoryInput input, byte[] childPhoto, string childPhotoContentType,
             CancellationToken cancellationToken) => throw new NotSupportedException();
@@ -742,6 +946,7 @@ public class CompositePipelineFulfillmentTests
         {
             IllustrateCalls++;
             Resume = composite?.Resume;
+            Context = composite;
 
             if (world.AnnounceAnchor && composite?.OnAnchorAccepted is { } announce)
             {

@@ -394,6 +394,103 @@ public static class BekiPackBlobs
 }
 
 /// <summary>
+/// The one place a PREVIEW RUN's cover artifacts are named — the other half of
+/// <see cref="BekiPackBlobs"/>, and the whole contract between the two jobs.
+///
+/// The owner's ask of 2026-09-06 was "create the cover first — the REAL cover — and when we proceed
+/// to the book, reuse it." What makes that reuse possible without a schema change is these six
+/// names: the preview writes them under its run's own prefix, and the fulfilment job looks for them
+/// there. Nothing about the arrangement is recorded on a row, so there is no migration and no column
+/// that can disagree with storage — the blobs are the record.
+///
+/// They mirror <see cref="BekiPackBlobs"/>' cover names deliberately, file for file, because a
+/// blob that is going to be copied to a pack's name should be recognisable as the same artifact
+/// before and after. They live beside the run's portrait and its cover image, under
+/// <c>master-runs/{runId:N}/</c>, so a guest run's expiry sweep takes them with everything else it
+/// takes.
+/// </summary>
+public static class BekiRunBlobs
+{
+    /// <summary>Everything one run stores lives under this, including the portrait it started with.</summary>
+    public static string Prefix(Guid runId) => $"master-runs/{runId:N}/";
+
+    /// <summary>The reader's cover image — the wrap's front board, cropped and stored as webp.</summary>
+    /// <remarks>
+    /// Unchanged from the legacy Beki cover's name on purpose. <c>MasterStoryRun.CoverImageUrl</c>
+    /// points here, the journey's preview stage and the guest-preview cover endpoint read it, and
+    /// none of them should have to learn that the picture behind it is now cut from a press wrap.
+    /// </remarks>
+    public static string CoverName(Guid runId) => Prefix(runId) + "cover";
+
+    /// <summary>The wrap before Beki was composited onto it — and the anchor the book is drawn to.</summary>
+    public static string CoverWrapBaseName(Guid runId) => Prefix(runId) + "cover-wrap-base.png";
+
+    /// <summary>The canonical cover: the full wrap with the approved Beki already on the front board.</summary>
+    public static string CoverWrapCompositeName(Guid runId) => Prefix(runId) + "cover-wrap-composite.png";
+
+    /// <summary>The wrap's exact-Beki receipt: pose, source hash, anchor, output hash.</summary>
+    public static string CoverCompositionName(Guid runId) => Prefix(runId) + "cover-composition.json";
+
+    /// <summary>What the image provider was asked for the wrap, and what it returned.</summary>
+    public static string CoverWrapGenerationName(Guid runId) => Prefix(runId) + "cover-wrap-generation.json";
+
+    /// <summary>The Visual Scenario the cover was planned from — and the book will be drawn from.</summary>
+    public static string ScenarioName(Guid runId) => Prefix(runId) + "visual-scenario.json";
+
+    /// <summary>The four identity attributes the cover's child was drawn to.</summary>
+    public static string IdentitySpecName(Guid runId) => Prefix(runId) + "child-identity.json";
+
+    /// <summary>
+    /// The six a run must hold before the fulfilment job may adopt its cover instead of drawing one.
+    ///
+    /// All six or none: a wrap with no receipt cannot be verified, a wrap with no scenario describes
+    /// a book nothing else was planned from, and a wrap with no identity spec would leave the
+    /// spreads to be drawn to a second reading of the same photograph. Any hole and the book is
+    /// drawn exactly as it was before this existed.
+    /// </summary>
+    public static IReadOnlyList<string> CoverArtifacts(Guid runId) =>
+    [
+        CoverWrapBaseName(runId),
+        CoverWrapCompositeName(runId),
+        CoverCompositionName(runId),
+        CoverWrapGenerationName(runId),
+        ScenarioName(runId),
+        IdentitySpecName(runId),
+    ];
+}
+
+/// <summary>
+/// The purchase as the composite pipeline's boundary wants it, assembled from a preview run.
+///
+/// One builder rather than two, because there are now two callers — the fulfilment job, which has
+/// always built it, and the preview, which builds it to draw the real cover — and the fields are not
+/// interchangeable guesses. The gender is the journey's own spelling (InputNormalization maps it and
+/// refuses what it cannot map), the photo reference is a reference and never the bytes, and the eye
+/// colour is the parent's own answer, which reaches the identity spec and nothing else.
+/// </summary>
+public static class BekiCompositeInputs
+{
+    /// <param name="themeId">
+    /// The pack's theme where there is a pack, and the run's own where there is not. They are the
+    /// same value in every case that reaches the composite pipeline — the pack is created from the
+    /// run — and it is a parameter rather than a read so the fulfilment job keeps stating which of
+    /// the two rows it is trusting.
+    /// </param>
+    public static BookGenerationInput For(MasterStoryRun run, string themeId) => new()
+    {
+        ChildName = run.ChildName,
+        ChildAge = run.Age,
+        ChildGender = run.Gender,
+        ThemeId = themeId,
+        // The reference, never the bytes. The bytes travel as an argument; this field exists so a
+        // failure can say which blob could not be read without the photograph itself ending up
+        // anywhere near a log line.
+        ChildPhotoRef = run.PhotoBlobUrl ?? string.Empty,
+        LegacyEyeColor = run.EyeColor,
+    };
+}
+
+/// <summary>
 /// The document written OVER a preflight report whose stage has just refused — the answer to a
 /// review finding about retries.
 ///
@@ -1479,6 +1576,64 @@ public sealed class BekiPackFulfillment(
             }
 
             /*
+              The cover the parent previewed — the REAL one — adopted whole. Owner, 2026-09-06:
+              "create the cover first, and when we proceed to the book, reuse it."
+
+              The preview now draws the press wrap itself, and stores it under its run with the two
+              documents it was drawn from: the Visual Scenario for all nine pictures and the child
+              identity spec. This job adopts all three rather than buying them again, which is what
+              makes the cover on the parent's screen and the cover on the printed book one picture
+              instead of two designs for one book.
+
+              Gated on this pack never having had a cover of its own (`coverRecord is null`). That is
+              what keeps an operator's "redraw cover" working: it deletes the pack's wrap and leaves
+              the manifest — including its cover record — so the next run finds a record here, does
+              not adopt, and draws the fresh wrap that was asked for. A whole-book redraw deletes the
+              manifest, and adopting again there is correct: the customer's cover is the cover they
+              previewed and bought, and "redraw the book" is about the pages.
+
+              Null on everything else — an older run with no stored wrap, a run whose wrap cannot be
+              verified, a resume that already has one — and then every line below runs exactly as it
+              did before this existed.
+            */
+            AdoptedPreviewCover? adoptedCover = null;
+
+            if (compositeEnabled && coverRecord is null)
+            {
+                adoptedCover = await TryAdoptPreviewCoverAsync(pack, run, jobToken);
+            }
+
+            if (adoptedCover is not null)
+            {
+                // The two documents go in as though an earlier attempt at this pack had written
+                // them: the pipeline's existing adoption seam then adopts the scenario and the
+                // identity spec, and neither is planned or derived a second time. The stored values
+                // win where a resume already has them — those belong to pages already drawn.
+                storedScenario ??= adoptedCover.ScenarioJson;
+                storedIdentitySpec ??= adoptedCover.IdentityJson;
+
+                // And they are copied to this pack's own names, because from here on this book's
+                // artifacts are the pack's. The scenario is rewritten by the pipeline's callback
+                // moments later with the identical bytes; the identity spec has no callback on the
+                // adoption path, which is exactly why it is written here.
+                scenarioUrl = await blobStorage.UploadAsync(
+                    BekiPackBlobs.ScenarioName(pack.UserId, pack.Id),
+                    System.Text.Encoding.UTF8.GetBytes(adoptedCover.ScenarioJson),
+                    "application/json", jobToken);
+
+                identitySpecUrl = await blobStorage.UploadAsync(
+                    BekiPackBlobs.IdentitySpecName(pack.UserId, pack.Id),
+                    System.Text.Encoding.UTF8.GetBytes(adoptedCover.IdentityJson),
+                    "application/json", jobToken);
+
+                logger.LogInformation(
+                    "Beki pack {PackId}: adopting the cover wrap the parent previewed on run "
+                    + "{RunId}, with its Visual Scenario and child identity spec. No wrap, scenario "
+                    + "or identity call is bought for this book.",
+                    packId, run.Id);
+            }
+
+            /*
               The four normalized inputs, assembled only when the composite flag is on.
 
               This job is the only place in the application that holds all of them: the run carries
@@ -1500,24 +1655,20 @@ public sealed class BekiPackFulfillment(
                 ? new CompositeBookContext
                 {
                     JobId = pack.Id,
-                    Input = new BookGenerationInput
-                    {
-                        ChildName = run.ChildName,
-                        ChildAge = run.Age,
-                        // The journey's own spelling, whatever it was when this run was written.
-                        // InputNormalization maps it and refuses what it cannot map, which is the
-                        // correct outcome for a row nobody can write a book from.
-                        ChildGender = run.Gender,
-                        ThemeId = pack.Theme.ToString(),
-                        // The reference, never the bytes. The bytes travel as an argument; this
-                        // field exists so a failure can say which blob could not be read without
-                        // the photograph itself ending up anywhere near a log line.
-                        ChildPhotoRef = run.PhotoBlobUrl!,
-                        // The parent's own answer, where the run has one. It overrides the model's
-                        // reading of the photograph for that single attribute and reaches nothing
-                        // else: the normalized story input has nowhere to put it.
-                        LegacyEyeColor = run.EyeColor,
-                    },
+                    // The pack's theme rather than the run's: they are the same value — the pack was
+                    // created from the run — and the pack is the row this job is fulfilling.
+                    Input = BekiCompositeInputs.For(run, pack.Theme.ToString()),
+                    /*
+                      The adopted cover's base, attached as the appearance anchor when spread one is
+                      drawn — so the child in the book is the child on the book's own cover.
+
+                      Null when nothing was adopted, which is every book drawn before this existed:
+                      spread one then draws from the lock and the photograph as it always has, and
+                      its accepted base becomes the anchor for everything after it. That second half
+                      is unchanged either way — spreads two to eight are matched to spread one, not
+                      to the cover.
+                    */
+                    CoverAnchorBasePng = adoptedCover?.BasePng,
                     // Whether this pack's cover has already been through the redraw. The
                     // illustrator cannot know it — the manifest is this job's — and a resumed
                     // attempt that redrew it again would replace a reviewed cover with one that
@@ -1553,12 +1704,18 @@ public sealed class BekiPackFulfillment(
 
                       `??=` because the hook is a promise made once; a pipeline that announced
                       twice would otherwise buy two wraps.
+
+                      Not hooked up at all when this book adopted the previewed cover: there is
+                      nothing to start, and a hook that started one would buy the very image call
+                      the adoption exists to save.
                     */
-                    OnAnchorAccepted = accepted =>
-                    {
-                        wrapTask ??= StartWrapAsync(accepted);
-                        return Task.CompletedTask;
-                    },
+                    OnAnchorAccepted = adoptedCover is not null
+                        ? null
+                        : accepted =>
+                        {
+                            wrapTask ??= StartWrapAsync(accepted);
+                            return Task.CompletedTask;
+                        },
 
                     /*
                       Where a waived quality refusal lands: the picture, the paperwork and the alarm.
@@ -1941,11 +2098,37 @@ public sealed class BekiPackFulfillment(
                   direct call remains for a run that never announced — a generator or pipeline
                   without the hook — and draws the wrap to the same three inputs, only later.
                 */
-                var wrap = wrapTask is not null
-                    ? await wrapTask
-                    : await generator.DrawCoverWrapAsync(
-                        scenario, photo, "image/png", compositeContext!,
-                        book.Composite.Identity, book.Composite.Anchor, jobToken);
+                /*
+                  Adopted first of the three, when the parent's previewed cover survived this far.
+
+                  The scenario check is not ceremony. A previewed story whose child's name was
+                  respelled is REPLANNED inside the pipeline, and a replanned story throws away the
+                  scenario it came with — so the book being laid out here would be drawn from a
+                  scenario the adopted cover was never planned against, and the cover would describe
+                  a book that is no longer being printed. Comparing the documents is the cheapest
+                  honest way to notice, and the answer is to draw the wrap the book actually needs.
+                */
+                var adoptedWrap = adoptedCover is null
+                    ? null
+                    : string.Equals(adoptedCover.ScenarioJson, scenarioDocument, StringComparison.Ordinal)
+                        ? adoptedCover.Wrap
+                        : null;
+
+                if (adoptedCover is not null && adoptedWrap is null)
+                {
+                    logger.LogWarning(
+                        "Beki pack {PackId}: the previewed cover was planned from a different "
+                        + "Visual Scenario than the book this run drew, so it cannot be this book's "
+                        + "cover. Drawing the wrap from the scenario the pages were drawn against.",
+                        packId);
+                }
+
+                var wrap = adoptedWrap
+                    ?? (wrapTask is not null
+                        ? await wrapTask
+                        : await generator.DrawCoverWrapAsync(
+                            scenario, photo, "image/png", compositeContext!,
+                            book.Composite.Identity, book.Composite.Anchor, jobToken));
 
                 /*
                   And the master is written down, then checked against its own receipt.
@@ -1994,10 +2177,21 @@ public sealed class BekiPackFulfillment(
                         "application/json", jobToken);
                 }
 
+                /*
+                  The provenance stays WrapMaster either way, and it is not a shortcut.
+
+                  An adopted wrap IS a wrap master: it was generated by this same pipeline, against
+                  this same dieline, with the approved Beki composited by the same engine, and it has
+                  just been re-verified against its own receipt three lines above. What changed is
+                  only WHEN it was bought — which is what the verdict says, naming the run, so that
+                  an operator holding a book can find the preview it was chosen from.
+                */
                 coverRecord = new BekiCoverRecord(
                     wrapUrl,
                     BekiCoverRecord.WrapMaster,
-                    $"exact-Beki composite verified against its receipt ({wrapSha[..12]}…)")
+                    adoptedWrap is not null
+                        ? $"adopted from preview run {run.Id}"
+                        : $"exact-Beki composite verified against its receipt ({wrapSha[..12]}…)")
                 {
                     PoseId = wrap.PoseId,
                     CompositeSha256 = wrapSha,
@@ -2018,6 +2212,24 @@ public sealed class BekiPackFulfillment(
 
                 await packRepository.UpdateBookPresentationAsync(
                     packId, title: null, coverImageUrl: frontBoardUrl, jobToken);
+
+                /*
+                  The cover record, written the moment the cover master exists — not at the end.
+
+                  The same rule the spreads have followed since this job became resumable: a job that
+                  dies later must not lose the record of what it already paid for. Until now the
+                  cover's record was written only after the whole press tail, so a book that died in
+                  print preparation came back with a manifest saying it had no cover — and the next
+                  attempt drew a second wrap over the one already in storage.
+
+                  It matters more now than it did. `coverRecord is null` is what decides whether this
+                  book may adopt the cover the parent previewed, so a resumed attempt at a book that
+                  DREW its own wrap must be able to see that it did; otherwise it would quietly
+                  replace a wrap somebody paid for with the previewed one.
+                */
+                await WriteManifestAsync(
+                    manifestName, storedUrls, currentContract, scenarioUrl, identitySpecUrl,
+                    coverRecord, compositions, jobToken, reviewUrl);
 
                 logger.LogInformation(
                     "Beki pack {PackId}: cover master stored — the composited wrap (pose {PoseId}, "
@@ -3784,6 +3996,126 @@ public sealed class BekiPackFulfillment(
         using var buffer = new MemoryStream();
         await stream.CopyToAsync(buffer, cancellationToken);
         return buffer.ToArray();
+    }
+
+    /// <summary>
+    /// The cover the parent previewed, ready to become this book's cover master — or null, which
+    /// means this book draws its own exactly as it always did.
+    /// </summary>
+    /// <param name="Wrap">
+    /// The wrap as the pipeline would have handed it back, rebuilt from the stored bytes: the same
+    /// record type, so the delivery half of the job below cannot tell an adopted cover from a drawn
+    /// one and does not have to.
+    /// </param>
+    /// <param name="BasePng">
+    /// The wrap's pre-composite base — the child and the world with no Beki on it. It is the
+    /// appearance anchor spread one is drawn against, which is what makes the book's child the child
+    /// on its own cover. Never the composite: the one thing this pipeline never shows an image model
+    /// is Beki.
+    /// </param>
+    private sealed record AdoptedPreviewCover(
+        CompositeCoverWrap Wrap, byte[] BasePng, string ScenarioJson, string IdentityJson);
+
+    /// <summary>
+    /// Reads the six artifacts a preview run stores when it draws the real cover, and hands them
+    /// back only if all six are there and the wrap verifies against its own composition receipt.
+    ///
+    /// Never throws, and that is the whole shape of it. Adoption is an optimisation over a correct
+    /// path that still exists: every reason this can fail — an older run that predates the preview
+    /// wrap, a blob that has expired with its guest run, a receipt that does not match its bytes, an
+    /// identity spec written by a derivation prompt this deployment no longer uses — has the same
+    /// right answer, which is to draw the book's cover the way it was drawn before any of this
+    /// existed. A refusal here costs three model calls; a throw here would cost somebody's book.
+    ///
+    /// The verification is <see cref="BekiPressComposite.ValidateSource"/>, the same check the press
+    /// stage makes of the pack's own stored wrap: the base hashes to what the receipt declares, the
+    /// composite hashes to what it declares, and the approved layer was not mirrored, rotated,
+    /// warped, redrawn or faded. Bytes that fail it are not a cover master, wherever they came from.
+    /// </summary>
+    private async Task<AdoptedPreviewCover?> TryAdoptPreviewCoverAsync(
+        Domain.Entities.AdventurePack pack, MasterStoryRun run, CancellationToken cancellationToken)
+    {
+        try
+        {
+            foreach (var name in BekiRunBlobs.CoverArtifacts(run.Id))
+            {
+                if (!await blobStorage.ExistsAsync(name, cancellationToken))
+                {
+                    logger.LogInformation(
+                        "Beki pack {PackId}: preview run {RunId} has no stored cover wrap ({Missing} "
+                        + "is absent), so this book draws its own.", pack.Id, run.Id, name);
+
+                    return null;
+                }
+            }
+
+            var basePng = await ReadRequiredBlobAsync(
+                BekiRunBlobs.CoverWrapBaseName(run.Id), cancellationToken);
+            var composite = await ReadRequiredBlobAsync(
+                BekiRunBlobs.CoverWrapCompositeName(run.Id), cancellationToken);
+            var receiptJson = System.Text.Encoding.UTF8.GetString(await ReadRequiredBlobAsync(
+                BekiRunBlobs.CoverCompositionName(run.Id), cancellationToken));
+            var generationJson = System.Text.Encoding.UTF8.GetString(await ReadRequiredBlobAsync(
+                BekiRunBlobs.CoverWrapGenerationName(run.Id), cancellationToken));
+            var scenarioJson = System.Text.Encoding.UTF8.GetString(await ReadRequiredBlobAsync(
+                BekiRunBlobs.ScenarioName(run.Id), cancellationToken));
+            var identityJson = System.Text.Encoding.UTF8.GetString(await ReadRequiredBlobAsync(
+                BekiRunBlobs.IdentitySpecName(run.Id), cancellationToken));
+
+            var receipt = JsonSerializer.Deserialize<BekiCompositionManifest>(receiptJson)
+                ?? throw new InvalidOperationException("the stored composition receipt is empty.");
+
+            BekiPressComposite.ValidateSource(basePng, composite, receipt);
+
+            // A scenario the validator refuses is a scenario the pipeline would refuse to adopt a
+            // page against, and an identity spec from a superseded derivation prompt is treated by
+            // the pipeline as no spec at all — which would leave the book drawn to a fresh reading
+            // of the photograph while its cover kept the old one. Both are checked here so that the
+            // three adoptions stand or fall together.
+            if (VisualScenarioValidator.Validate(scenarioJson).Scenario is null)
+            {
+                logger.LogWarning(
+                    "Beki pack {PackId}: preview run {RunId} stored a Visual Scenario this "
+                    + "deployment cannot validate; drawing this book's own cover.", pack.Id, run.Id);
+
+                return null;
+            }
+
+            if (CompositeChildIdentity.TryReadStored(identityJson) is null)
+            {
+                logger.LogWarning(
+                    "Beki pack {PackId}: preview run {RunId} stored a child identity spec from a "
+                    + "different derivation prompt version; drawing this book's own cover.",
+                    pack.Id, run.Id);
+
+                return null;
+            }
+
+            var poseId = ReceiptValue(receiptJson, "beki_layer", "pose_id") ?? receipt.BekiLayer.PoseId;
+
+            return new AdoptedPreviewCover(
+                new CompositeCoverWrap(
+                    basePng, composite, receiptJson, poseId,
+                    // The prompt the wrap was drawn from lives inside the generation receipt, which
+                    // travels whole. The record's own Prompt field is the pipeline's in-memory
+                    // convenience and nothing downstream of here reads it.
+                    Prompt: string.Empty)
+                {
+                    GenerationReceiptJson = generationJson,
+                },
+                basePng,
+                scenarioJson,
+                identityJson);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(
+                ex,
+                "Beki pack {PackId}: the cover wrap stored by preview run {RunId} could not be "
+                + "adopted, so this book draws its own.", pack.Id, run.Id);
+
+            return null;
+        }
     }
 
     private async Task<(byte[] Png, BekiCompositionManifest Manifest)> ReadPressBaseAsync(
