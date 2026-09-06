@@ -183,14 +183,27 @@ public class BekiFixedPageLayoutTests
         return image;
     }
 
-    /// <summary>A 5315 × 2480 ground, the working raster the intro anchors are stated against.</summary>
-    private static byte[] Canvas()
+    /// <summary>
+    /// A 5315 × 2480 ground, the working raster the intro anchors are stated against.
+    ///
+    /// Built once and handed out as a copy: it is thirteen megapixels, two tests want the same one,
+    /// and it is flat colour, so nothing about it depends on which test asked. Written at the
+    /// encoder's fastest setting for the same reason <c>BekiDeterministicNormalizationTests</c>
+    /// does — PNG is lossless at every level, so the pixels are identical and only the deflating
+    /// costs less.
+    /// </summary>
+    private static byte[] Canvas() => CanvasPng.Value.ToArray();
+
+    private static readonly Lazy<byte[]> CanvasPng = new(() =>
     {
         using var image = new Image<Rgba32>(5315, 2480, new Rgba32(200, 200, 210, 255));
         using var buffer = new MemoryStream();
-        image.Save(buffer, new SixLabors.ImageSharp.Formats.Png.PngEncoder());
+        image.Save(buffer, new SixLabors.ImageSharp.Formats.Png.PngEncoder
+        {
+            CompressionLevel = SixLabors.ImageSharp.Formats.Png.PngCompressionLevel.BestSpeed,
+        });
         return buffer.ToArray();
-    }
+    });
 
     /// <summary>The approved pattern as the per-half centre-crop path would have laid it down.</summary>
     private static Image<Rgba32> Sliced(int width, int height)

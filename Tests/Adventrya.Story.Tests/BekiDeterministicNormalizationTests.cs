@@ -438,7 +438,20 @@ public class BekiDeterministicNormalizationTests
     /// A raster with variation in it: a flat fill is something a PDF writer may legitimately turn
     /// into a shape rather than an image, and then the gate would have nothing to measure.
     /// </summary>
-    private static byte[] Png(int width, int height, bool tagged300Dpi = false)
+    /// <remarks>
+    /// Remembered per size, because the press-sized ones are thirteen and seventeen megapixels and
+    /// the same handful of sizes is asked for over and over — the exact interior raster alone is
+    /// wanted by three tests and by both canonical books. Handed out as copies, so a caller still
+    /// owns what it receives.
+    /// </remarks>
+    private static byte[] Png(int width, int height, bool tagged300Dpi = false) =>
+        Rasters.GetOrAdd((width, height, tagged300Dpi), key => Draw(key.Width, key.Height, key.Tagged))
+            .ToArray();
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<
+        (int Width, int Height, bool Tagged), byte[]> Rasters = new();
+
+    private static byte[] Draw(int width, int height, bool tagged300Dpi)
     {
         using var image = new Image<Rgb24>(width, height);
 

@@ -68,6 +68,25 @@ public class BekiPressJpegEncodingTests
     private static BekiPdfComposer.PrintRasterTarget InteriorTarget =>
         new(InteriorWidthPx, InteriorHeightPx, 300, PressQuality);
 
+    private static BekiPdfComposer.PrintRasterTarget CoverTarget =>
+        new(CoverWidthPx, CoverHeightPx, 300, PressQuality);
+
+    /// <summary>
+    /// <see cref="BekiPdfComposer.NormalizeForPrint"/> on the fixture artwork, encoded once.
+    ///
+    /// The encoder is a pure function of its two arguments, and two tests here ask it for the SAME
+    /// press raster — a thirteen-megapixel decode and a quality-95 4:4:4 encode, done twice for one
+    /// answer. Remembering it changes nothing about what is asserted: the byte equality below still
+    /// holds the composed page against what the composer's own encoder produces from the untouched
+    /// artwork, and this IS that output.
+    /// </summary>
+    private static byte[] PressEncoded(int width, int height, BekiPdfComposer.PrintRasterTarget target) =>
+        EncodedCache.GetOrAdd((width, height, target), key =>
+            BekiPdfComposer.NormalizeForPrint(Structured(key.Width, key.Height), key.Target));
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<
+        (int Width, int Height, BekiPdfComposer.PrintRasterTarget Target), byte[]> EncodedCache = new();
+
     // ==============================================================================================
     // The encode itself
     // ==============================================================================================
@@ -81,7 +100,7 @@ public class BekiPressJpegEncodingTests
     [Fact]
     public void A_press_raster_is_one_jpeg_at_quality_95_with_no_chroma_subsampling()
     {
-        var normalized = BekiPdfComposer.NormalizeForPrint(Structured(1536, 717), InteriorTarget);
+        var normalized = PressEncoded(1536, 717, InteriorTarget);
 
         var frame = ReadJpegFrame(normalized);
         Assert.Equal(InteriorWidthPx, frame.Width);
@@ -112,7 +131,7 @@ public class BekiPressJpegEncodingTests
     {
         var source = Structured(InteriorWidthPx, InteriorHeightPx);
 
-        var normalized = BekiPdfComposer.NormalizeForPrint(source, InteriorTarget);
+        var normalized = PressEncoded(InteriorWidthPx, InteriorHeightPx, InteriorTarget);
 
         var identified = Image.Identify(normalized);
         Assert.Equal(InteriorWidthPx, identified.Width);
@@ -222,11 +241,7 @@ public class BekiPressJpegEncodingTests
         Assert.Equal("/DCTDecode", Filters(cover));
         Assert.Equal(CoverWidthPx, cover.Elements.GetInteger("/Width"));
         Assert.Equal(CoverHeightPx, cover.Elements.GetInteger("/Height"));
-        Assert.Equal(
-            BekiPdfComposer.NormalizeForPrint(
-                wrap, new BekiPdfComposer.PrintRasterTarget(
-                    CoverWidthPx, CoverHeightPx, 300, PressQuality)),
-            cover.Stream.Value);
+        Assert.Equal(PressEncoded(CoverWidthPx, CoverHeightPx, CoverTarget), cover.Stream.Value);
 
         var spreadRole = book.Receipts.Pages[3].Role;
         Assert.Equal("spread-01", spreadRole);
@@ -246,7 +261,7 @@ public class BekiPressJpegEncodingTests
         // here and the file touched it. A pixel tolerance would not have caught the crop — the
         // measured difference from a 5314-column round trip is under a level.
         var embedded = placed.Stream.Value;
-        Assert.Equal(BekiPdfComposer.NormalizeForPrint(artwork, InteriorTarget), embedded);
+        Assert.Equal(PressEncoded(InteriorWidthPx, InteriorHeightPx, InteriorTarget), embedded);
 
         var frame = ReadJpegFrame(embedded);
         Assert.Equal(InteriorWidthPx, frame.Width);
@@ -461,7 +476,10 @@ public class BekiPressJpegEncodingTests
             });
 
             using var buffer = new MemoryStream();
-            image.Save(buffer, new PngEncoder());
+            // Speed over bytes: PNG is lossless at every level, so the pixels the encoder under
+            // test receives are the same either way, and deflating a thirteen-megapixel gradient
+            // hard costs seconds for a file that is decoded again immediately.
+            image.Save(buffer, new PngEncoder { CompressionLevel = PngCompressionLevel.BestSpeed });
             return buffer.ToArray();
         }).ToArray();
 
@@ -479,15 +497,23 @@ public class BekiPressJpegEncodingTests
 
         var total = 0L;
 
-        for (var y = 0; y < left.Height; y++)
+        // A row at a time. Thirteen megapixels through the two-dimensional indexer re-resolves the
+        // row on every one of them; the sum is over the same pixels either way.
+        left.ProcessPixelRows(right, (first, second) =>
         {
-            for (var x = 0; x < left.Width; x++)
+            for (var y = 0; y < first.Height; y++)
             {
-                var a = left[x, y];
-                var b = right[x, y];
-                total += Math.Abs(a.R - b.R) + Math.Abs(a.G - b.G) + Math.Abs(a.B - b.B);
+                var top = first.GetRowSpan(y);
+                var bottom = second.GetRowSpan(y);
+
+                for (var x = 0; x < top.Length; x++)
+                {
+                    var a = top[x];
+                    var b = bottom[x];
+                    total += Math.Abs(a.R - b.R) + Math.Abs(a.G - b.G) + Math.Abs(a.B - b.B);
+                }
             }
-        }
+        });
 
         return (double)total / ((long)left.Width * left.Height * 3);
     }

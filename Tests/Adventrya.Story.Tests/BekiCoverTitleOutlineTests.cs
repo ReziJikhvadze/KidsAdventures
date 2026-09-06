@@ -325,15 +325,19 @@ public class BekiCoverTitleOutlineTests
             var cream = new List<(int X, int Y)>();
             var rim = new HashSet<(int X, int Y)>();
 
-            for (var y = 0; y < image.Height; y++)
+            image.ProcessPixelRows(accessor =>
             {
-                for (var x = 0; x < image.Width; x++)
+                for (var y = 0; y < accessor.Height; y++)
                 {
-                    var pixel = image[x, y];
-                    if (pixel is { R: 255, G: 248, B: 235}) cream.Add((x, y));
-                    else if (pixel is { R: 13, G: 7, B: 29 }) rim.Add((x, y));
+                    var row = accessor.GetRowSpan(y);
+                    for (var x = 0; x < row.Length; x++)
+                    {
+                        var pixel = row[x];
+                        if (pixel is { R: 255, G: 248, B: 235}) cream.Add((x, y));
+                        else if (pixel is { R: 13, G: 7, B: 29 }) rim.Add((x, y));
+                    }
                 }
-            }
+            });
 
             var rimmed = cream.Count == 0
                 ? 0d
