@@ -438,6 +438,31 @@ internal static class BekiRenderFixtures
 
     private static readonly object Gate = new();
 
+    // Synthetic, offline book: production geometry and QR position, no generated artwork.
+    public static byte[] CanonicalTestBook() => Cached("canonical-test-book", () =>
+    {
+        QuestPDF.Settings.License = LicenseType.Community;
+        return Document.Create(document =>
+        {
+            for (var number = 1; number <= 12; number++)
+            {
+                var page = number;
+                document.Page(descriptor =>
+                {
+                    descriptor.Size(page == 1 ? 512f : 450f, page == 1 ? 245f : 210f, Unit.Millimetre);
+                    descriptor.Margin(10, Unit.Millimetre);
+                    descriptor.Content().Column(column =>
+                    {
+                        column.Item().Text($"Offline fixture page {page}").FontSize(20);
+                        if (page == 11)
+                            column.Item().Width(40, Unit.Millimetre).Height(40, Unit.Millimetre)
+                                .Svg(QrSvg("https://beki.ge"));
+                    });
+                });
+            }
+        }).GeneratePdf();
+    });
+
     public static byte[] Pages(int count) => Cached($"pages-{count}", () =>
     {
         QuestPDF.Settings.License = LicenseType.Community;

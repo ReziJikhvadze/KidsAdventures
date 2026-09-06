@@ -39,6 +39,62 @@ namespace Adventrya.Story.Tests;
 /// </summary>
 public class CompositePipelineFulfillmentTests
 {
+    [Fact]
+    public async Task Print_artwork_fallback_does_not_bypass_corrupt_customer_pdf_validation()
+    {
+        var world = new PackWorld { MalformedUpscale = true };
+        await world.Job().ProcessAsync(world.PackId, world.RunId, CancellationToken.None);
+        Assert.StartsWith("PRINT_PREFLIGHT_FAILED: CUSTOMER_PDF_INVALID", world.Packs.FailureReason);
+        Assert.Equal(AdventurePackStatus.Failed, world.Packs.Status);
+        Assert.Null(world.Packs.PdfUrl);
+        Assert.Null(world.Packs.PrintPdfUrl);
+    }
+
+    [Theory]
+    [InlineData("missing-upscaler")]
+    [InlineData("malformed-upscaler-output")]
+    [InlineData("alarm-unavailable")]
+    [InlineData("print-status-unavailable")]
+    [InlineData("waiver-alarm-unavailable")]
+    public async Task Print_only_failures_complete_the_customer_book_with_a_download(string failure)
+    {
+        var world = new PackWorld
+        {
+            MalformedUpscale = failure == "malformed-upscaler-output",
+            WaiverAlarmFails = failure == "waiver-alarm-unavailable",
+            NeedsHumanReview = true,
+        };
+        world.Composer.CanonicalPdf = BekiRenderFixtures.CanonicalTestBook();
+        world.Alarms.ThrowOnRaise = failure == "alarm-unavailable";
+        world.Blobs.FailPrintStatus = failure == "print-status-unavailable";
+
+        await world.Job().ProcessAsync(world.PackId, world.RunId, CancellationToken.None);
+
+        Assert.Null(world.Packs.FailureReason);
+        Assert.Equal(AdventurePackStatus.Completed, world.Packs.Status);
+        Assert.Equal($"https://blob.test/{BekiPackBlobs.ReadingPdfName(world.UserId, world.PackId)}",
+            world.Packs.PdfUrl);
+        Assert.Null(world.Packs.PrintPdfUrl);
+        Assert.Equal(world.Composer.CanonicalPdf,
+            world.Blobs.Uploaded[BekiPackBlobs.ReadingPdfName(world.UserId, world.PackId)]);
+        var release = BekiReleaseGateReport.TryParse(Encoding.UTF8.GetString(
+            world.Blobs.Uploaded[BekiPackBlobs.ReleaseGatesName(world.UserId, world.PackId)]))!;
+        Assert.True(release.CustomerPdfMayPublish);
+        Assert.False(release.PrintReady);
+        Assert.True(release.IsWaived(BekiReleaseChecks.HumanReview, BekiReleaseGates.DigitalClass));
+        Assert.Contains("PRESS_RESOLUTION", release.FailingGates);
+        Assert.Contains(world.Alarms.Raised, alarm => alarm.CheckId == "PRINT_PREPARATION_HELD");
+        if (failure == "print-status-unavailable")
+        {
+            Assert.Equal(1, world.Blobs.PrintStatusFailures);
+            Assert.DoesNotContain(BekiPackBlobs.PressStatusName(world.UserId, world.PackId),
+                world.Blobs.Uploaded.Keys);
+        }
+        if (failure == "malformed-upscaler-output")
+            Assert.Contains("Print artwork preparation failed", Encoding.UTF8.GetString(
+                world.Blobs.Uploaded[BekiPackBlobs.CanonicalPreflightName(world.UserId, world.PackId)]));
+    }
+
     // =======================================================================================
     // F1 — the preview cover is not fetched on the composite path
     // =======================================================================================
@@ -378,6 +434,12 @@ public class CompositePipelineFulfillmentTests
         /// <summary>The upscaler fires the JOB's clock alone and answers normally.</summary>
         public bool JobClockFiresDuringPress { get; init; }
 
+        public bool MalformedUpscale { get; init; }
+
+        public bool WaiverAlarmFails { get; init; }
+
+        public bool NeedsHumanReview { get; init; }
+
         public PackWorld() =>
             Packs = new FakePacks(new AdventurePack
             {
@@ -413,7 +475,8 @@ public class CompositePipelineFulfillmentTests
                 NullLogger<BekiPackFulfillment>.Instance,
                 Clock,
                 pressUpscaler: new ScriptedUpscaler(this),
-                alarms: Alarms);
+                alarms: Alarms,
+                reconciliation: WaiverAlarmFails ? new BrokenWaiverAlarms() : null);
 
         public static string StoredQa(int page) => $$"""
             {"page": {{page}}, "qa_prompt_version": "{{CompositeMinimalQa.Version}}",
@@ -611,7 +674,8 @@ public class CompositePipelineFulfillmentTests
                 Composite = new CompositeBookArtifacts
                 {
                     ScenarioJson = ScenarioJson,
-                    ReviewJson = """{"needs_human_reading": false}""",
+                    ReviewJson = world.NeedsHumanReview
+                        ? """{"needs_human_reading": true}""" : """{"needs_human_reading": false}""",
                     Identity = CompositePipelineTestBase.IdentityFixture,
                     Anchor = [1, 2, 3, 4],
                     Spreads = spreads
@@ -649,6 +713,10 @@ public class CompositePipelineFulfillmentTests
             {
                 world.Clock.FireFirst();
             }
+
+            if (world.MalformedUpscale)
+                return new PressUpscaleResult(true, [1, 2, 3], "broken-test-upscaler", 4d,
+                    1, 1, targetWidth, targetHeight, null);
 
             return PressUpscaleResult.NotConfigured(1, 1);
         }
@@ -707,8 +775,22 @@ public class CompositePipelineFulfillmentTests
         }
     }
 
+    private sealed class BrokenWaiverAlarms : IBekiReleaseReconciliation
+    {
+        public Task RaiseWaiverAlarmsAsync(Guid packId, Guid userId, Guid? orderId,
+            BekiReleaseGateReport report, CancellationToken ct) =>
+            throw new IOException("Test waiver alarm service unavailable");
+        public Task<BekiReconcileResult> ReconcilePackAsync(Guid packId, string reason, CancellationToken ct) =>
+            throw new NotSupportedException();
+        public Task<int> ReconcileWithheldAsync(CancellationToken ct) => throw new NotSupportedException();
+        public Task<BekiPublishOutcome> PublishUnlockedFilesAsync(
+            AdventurePack pack, BekiReleaseGateReport report, CancellationToken ct) =>
+            throw new NotSupportedException();
+    }
+
     private sealed class RecordingAlarms : IBekiAlarmService
     {
+        public bool ThrowOnRaise { get; set; }
         public Task<IReadOnlyList<BekiAlarm>> ListRecentAsync(int limit, CancellationToken ct) => throw new NotSupportedException();
         public Task<BekiAlarm?> GetAsync(Guid alarmId, CancellationToken ct) => throw new NotSupportedException();
         public List<BekiAlarmRaise> Raised { get; } = [];
@@ -716,6 +798,7 @@ public class CompositePipelineFulfillmentTests
         public Task RaiseAsync(BekiAlarmRaise raise, CancellationToken ct)
         {
             Raised.Add(raise);
+            if (ThrowOnRaise) throw new IOException("Test alarm service unavailable");
             return Task.CompletedTask;
         }
 
@@ -733,6 +816,7 @@ public class CompositePipelineFulfillmentTests
 
     private sealed class RecordingComposer : IBekiPdfComposer
     {
+        public byte[] CanonicalPdf { get; set; } = [0x25, 0x50, 0x44, 0x46];
         public byte[]? ReadingWrap { get; private set; }
 
         // Deliberately corrupt PDF: print trouble must reach customer validation, which must
@@ -740,7 +824,7 @@ public class CompositePipelineFulfillmentTests
         public BekiComposedBook ComposeCanonicalWithReceipts(
             MasterStory plan, byte[] wrapComposite, IReadOnlyList<BekiSpreadArtwork> spreads,
             BekiBookPersonalization? personalization = null) =>
-            new([0x25, 0x50, 0x44, 0x46], Receipts("canonical"));
+            new(CanonicalPdf, Receipts("canonical"));
 
         public BekiComposedBook ComposeWithReceipts(
             MasterStory plan, byte[] coverImage, IReadOnlyList<BekiSpreadArtwork> spreads,
@@ -787,6 +871,8 @@ public class CompositePipelineFulfillmentTests
     /// <summary>A blob store that remembers what it was given, and what it was asked for.</summary>
     private sealed class FakeBlobs : IBlobStorageService
     {
+        public bool FailPrintStatus { get; set; }
+        public int PrintStatusFailures { get; private set; }
         public ConcurrentDictionary<string, byte[]> Uploaded { get; } = new(StringComparer.Ordinal);
 
         public ConcurrentBag<string> Downloaded { get; } = [];
@@ -796,6 +882,11 @@ public class CompositePipelineFulfillmentTests
         public Task<string> UploadAsync(
             string blobName, byte[] bytes, string contentType, CancellationToken cancellationToken)
         {
+            if (FailPrintStatus && blobName.EndsWith("-press-status.json", StringComparison.Ordinal))
+            {
+                PrintStatusFailures++;
+                throw new IOException("Test print status storage unavailable");
+            }
             Uploaded[blobName] = bytes;
             return Task.FromResult($"https://blob.test/{blobName}");
         }
