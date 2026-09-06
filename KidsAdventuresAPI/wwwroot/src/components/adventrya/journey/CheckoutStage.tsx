@@ -1,5 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, Lock, MapPin, Sparkles } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { ArrowRight, Check, Lock, MapPin, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { BekiLoader } from "@/components/adventrya/BekiLoader";
@@ -422,10 +421,14 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             </>
           )}
         </button>
+        {/*
+          No way back from here.
 
-        <Link className="text-back" to="/create" hash="preview">
-          <ArrowLeft aria-hidden="true" size={13} /> {t.common.actions.back}
-        </Link>
+          The button under the pay button was a link to the preview, and it is the one thing on
+          this screen that is not the order: a parent one press from the bank was being offered
+          somewhere else to go. The browser's own back button still does it for anyone who wants
+          it, and losing the link is what lets the column fit a screen without a scrollbar.
+        */}
       </div>
 
       <aside className="order-summary ux-order-summary">

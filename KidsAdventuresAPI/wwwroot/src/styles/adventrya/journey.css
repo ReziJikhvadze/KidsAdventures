@@ -1097,17 +1097,18 @@
   width: 100%;
   margin-top: 18px;
 }
-.checkout-form .text-back {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 14px;
-  color: #f8f2e57a;
-  text-decoration: none;
-  font-size: 11px;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
+/*
+  No halo under the pay button.
+
+  The primary button carries an amber drop shadow set 16px below itself, which on a small gold
+  pill on a dark page reads as warmth. Stretched the full width of the checkout column it stops
+  being a glow and becomes a second, blurred edge under the button — and the hover state, which
+  only deepens that shadow, made the button look like it was going dark rather than lighting up.
+  The inset highlight along the top stays: it is the bevel, not the halo.
+*/
+.checkout-pay,
+.checkout-pay:hover {
+  box-shadow: inset 0 1px #ffffffa6;
 }
 .checkout-form .card-input {
   /* Keep the shared field chrome + flex row for icon/number/badge. */

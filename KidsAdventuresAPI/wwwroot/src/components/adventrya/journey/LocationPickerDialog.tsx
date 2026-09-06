@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { BekiLoader } from "@/components/adventrya/BekiLoader";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useT } from "@/lib/i18n";
 import {
   cityOf,
@@ -149,20 +149,40 @@ export function LocationPickerDialog({ open, onOpenChange, onChoose }: Props) {
         {state === "unavailable" ? (
           /* Said plainly rather than shown as a broken map: the address typed by hand is a
              complete answer, and this dialog is a convenience over it, not a gate in front. */
-          <p className="ux-form-error">{t.journey.checkout.pickLocationUnavailable}</p>
+          <DialogDescription className="ux-form-error">
+            {t.journey.checkout.pickLocationUnavailable}
+          </DialogDescription>
         ) : (
           <>
             <div className="ux-location-search" ref={searchHost} />
-            <div className="ux-location-map" ref={mapHost}>
+            {/*
+              Google gets a box of its own, with nothing of React's inside it.
+
+              The loader used to be a child of the element handed to `maps.Map`, and Google
+              empties that element and fills it with its own tiles. React was still holding the
+              loader as a child of it, so the moment the state turned to "ready" the removal
+              threw `NotFoundError: Failed to execute 'removeChild'` — during a commit, which
+              takes the whole dialog down with it. That is what "the map does not open" was.
+
+              So the node Google owns is now a bare div React never puts children into, and the
+              loader is a sibling laid over it. Neither one touches the other's DOM.
+            */}
+            <div className="ux-location-map">
+              <div className="ux-location-canvas" ref={mapHost} />
               {state === "loading" ? (
                 <div className="ux-location-map-wait">
                   <BekiLoader size={44} />
                 </div>
               ) : null}
             </div>
-            <p className="ux-location-chosen" role="status" aria-live="polite">
+            {/*
+              The line under the map is the dialog's description: before a pick it says what to
+              do, after one it says which address is held. A dialog with no description at all is
+              one a screen reader announces by its title alone — and the primitive says so.
+            */}
+            <DialogDescription className="ux-location-chosen" role="status" aria-live="polite">
               {chosen?.address ?? t.journey.checkout.pickLocationHint}
-            </p>
+            </DialogDescription>
           </>
         )}
 
