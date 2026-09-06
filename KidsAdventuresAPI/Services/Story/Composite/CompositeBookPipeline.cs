@@ -272,6 +272,16 @@ public sealed record CompositeSpreadResult
     public bool Adopted { get; init; }
 
     /// <summary>
+    /// What the accepted base actually cost and came from, as JSON — see
+    /// <see cref="CompositeSpreadArtifact.GenerationReceiptJson"/>.
+    ///
+    /// The ACCEPTED base's, not the first one's: a page that bought a regeneration carries the
+    /// receipt of the picture that shipped, because that is the picture the printed sheet is made
+    /// of. Null on an adopted page, which this run drew nothing for.
+    /// </summary>
+    public string? GenerationReceiptJson { get; init; }
+
+    /// <summary>
     /// True when no registry keyword matched this page's Beki sentence and the neutral hover was
     /// used instead. Carried out of the pipeline rather than only logged: a book quietly composited
     /// from eight fallbacks is a scenario-prompt problem, and it is only visible if it is counted.
@@ -604,6 +614,24 @@ public sealed record CompositeSpreadArtifact(
     /// attempt's real one belongs.
     /// </summary>
     public bool Adopted { get; init; }
+
+    /// <summary>
+    /// What this page's base was actually bought with, as JSON, for the fulfilment layer to store
+    /// beside the base itself.
+    ///
+    /// The gap it fills: nothing anywhere recorded what an illustration was requested at. The
+    /// pipeline logged <c>Beki:ImageModel</c> — a setting the image routes need not send — and no
+    /// stored document named the size, the quality, the route or the pixels that came back, so
+    /// "what was this book drawn at?" could only be answered by measuring the stored PNG and
+    /// guessing at the rest. With the frame now a setting, that guess would be wrong as soon as
+    /// anybody changed it.
+    ///
+    /// A string rather than a typed record because it crosses into the fulfilment layer only to be
+    /// uploaded verbatim; the shape is documented at
+    /// <c>CompositeBookPipeline.GenerationReceiptJson</c>. Null for an adopted page, whose receipt
+    /// belongs to the run that drew it.
+    /// </summary>
+    public string? GenerationReceiptJson { get; init; }
 }
 
 /// <summary>
@@ -613,7 +641,18 @@ public sealed record CompositeSpreadArtifact(
 /// prompt the base was generated from.
 /// </summary>
 public sealed record CompositeCoverWrap(
-    byte[] BasePng, byte[] CompositePng, string ManifestJson, string PoseId, string Prompt);
+    byte[] BasePng, byte[] CompositePng, string ManifestJson, string PoseId, string Prompt)
+{
+    /// <summary>
+    /// What the KEPT wrap base was bought with, as JSON — the same document a spread carries, see
+    /// <see cref="CompositeSpreadArtifact.GenerationReceiptJson"/>.
+    ///
+    /// The kept one matters here more than anywhere: the wrap gets exactly one regeneration, and
+    /// when it is spent the picture that ships is the second. A receipt describing the refused
+    /// first base would be a receipt for a picture nobody printed.
+    /// </summary>
+    public string? GenerationReceiptJson { get; init; }
+}
 
 /// <summary>
 /// What an earlier attempt at this same book left behind, and what this attempt may therefore
@@ -922,6 +961,10 @@ public sealed class CompositeBookPipeline(
     /// that survives normalization with the least thrown away. <see
     /// cref="CompositeDeterministicChecks"/> is what actually enforces that the render can become a
     /// printed spread.
+    ///
+    /// No longer what the requests read: this is the DEFAULT of
+    /// <see cref="BekiOptions.SpreadImageSize"/> — see <see cref="ImageSizeFor"/> — and it stays
+    /// here as the name of the proven frame rather than as the frame in force.
     /// </summary>
     public const string SpreadImageSize = BekiBookGenerator.SpreadImageSize;
 
@@ -1556,6 +1599,7 @@ public sealed class CompositeBookPipeline(
                             spread.BasePng)
                         {
                             QaJson = spread.QaJson,
+                            GenerationReceiptJson = spread.GenerationReceiptJson,
                         })
                     .ToList()
             }
@@ -1689,13 +1733,19 @@ public sealed class CompositeBookPipeline(
             BekiCoverDieline.LogoLeftMm, BekiCoverDieline.LogoTopMm,
             BekiCoverDieline.LogoWidthMm, BekiCoverDieline.LogoHeightMm);
 
-        var (raw, _) = await GenerateBaseImageAsync(
+        var (raw, coverMs, coverGenerated) = await GenerateBaseImageAsync(
             context, page: null, prompt,
             References(childPhoto, childPhotoContentType, theme, childAnchor, continuityImage: null),
             cancellationToken);
 
         // To the wrap's own shape — 512:245 — not the interior's 15:7.
         var basePng = SpreadArtCrop.CropToRatio(raw, BekiCoverDieline.AspectRatio);
+
+        // The receipt for the base that is kept, which is this one until a regeneration replaces
+        // it below. Written after the crop because the crop is half of what it records.
+        var receiptJson = GenerationReceiptJson(
+            coverGenerated, coverMs, CompositeIllustrationPrompt.CoverVersion,
+            basePng, CoverWrapCropRatio);
 
         /*
           The construction bands, measured — audit-2 P0-03, amendment A2.
@@ -1736,7 +1786,7 @@ public sealed class CompositeBookPipeline(
                 "Composite pipeline {JobId} cover wrap: buying a new base image — the centre "
                 + "construction is painted into the artwork.", context.JobId);
 
-            var (retry, _) = await GenerateBaseImageAsync(
+            var (retry, retryMs, retryGenerated) = await GenerateBaseImageAsync(
                 context, page: null, prompt,
                 // The same references as the first attempt, anchor included: the regeneration is
                 // buying a different painting of the same child, not a different child.
@@ -1746,6 +1796,12 @@ public sealed class CompositeBookPipeline(
                 cancellationToken);
 
             basePng = SpreadArtCrop.CropToRatio(retry, BekiCoverDieline.AspectRatio);
+
+            // The second picture is the one that ships from here on — whether it passes the bands
+            // or is waived — so the receipt moves with it.
+            receiptJson = GenerationReceiptJson(
+                retryGenerated, retryMs, CompositeIllustrationPrompt.CoverVersion,
+                basePng, CoverWrapCropRatio);
 
             var second = CompositeSeamRepair.MeasureConstructionBands(basePng);
 
@@ -1824,7 +1880,10 @@ public sealed class CompositeBookPipeline(
             "cover-wrap-composite.png");
 
         return new CompositeCoverWrap(
-            basePng, composite.Png, composite.Manifest.ToJson(), selection.PoseId, prompt);
+            basePng, composite.Png, composite.Manifest.ToJson(), selection.PoseId, prompt)
+        {
+            GenerationReceiptJson = receiptJson,
+        };
     }
 
     /// <summary>
@@ -2781,12 +2840,18 @@ public sealed class CompositeBookPipeline(
                 context.JobId, page.Page, page.BekiAction, selection.PoseId);
         }
 
-        var (rawPng, generationMs) = await GenerateBaseImageAsync(
+        var (rawPng, generationMs, generated) = await GenerateBaseImageAsync(
             context, page.Page, prompt,
             References(childPhoto, childPhotoContentType, theme, anchor, reference?.Image),
             cancellationToken);
 
         var basePng = NormalizeToSpread(context, page.Page, rawPng);
+
+        // Written here and reassigned wherever a new base replaces this one, so that the page's
+        // receipt always describes the picture the page actually kept.
+        var receiptJson = GenerationReceiptJson(
+            generated, generationMs, CompositeIllustrationPrompt.Version,
+            basePng, SpreadCropRatio);
 
         var baseAttempts = 1;
         var recomposited = false;
@@ -2840,7 +2905,7 @@ public sealed class CompositeBookPipeline(
                 centreField.Severe ? " — SEVERE tier" : string.Empty,
                 CompositeSeamRepair.EdgeCoverageLimit, CompositeSeamRepair.FieldCoverageLimit);
 
-            (basePng, generationMs, placement) = await RegenerateBaseAsync(
+            (basePng, generationMs, placement, receiptJson) = await RegenerateBaseAsync(
                 context, page, prompt,
                 $"the base does not continue across the centre fold ({Reading(centreField)})",
                 childPhoto, childPhotoContentType, theme, anchor, reference?.Image,
@@ -2928,6 +2993,7 @@ public sealed class CompositeBookPipeline(
                 BaseAttempts = baseAttempts,
                 Attempts = attempts,
                 PoseFallback = selection.Fallback,
+                GenerationReceiptJson = receiptJson,
                 QaJson = CompositeSpreadQa.WriteSkipped(
                     page.Page, selection.PoseId, textSide, baseAttempts, severity),
             };
@@ -2979,6 +3045,7 @@ public sealed class CompositeBookPipeline(
                     BaseAttempts = baseAttempts,
                     Attempts = attempts,
                     PoseFallback = selection.Fallback,
+                    GenerationReceiptJson = receiptJson,
                     QaJson = CompositeSpreadQa.Write(
                         page.Page, selection.PoseId, textSide, baseAttempts, attempts.Count, verdict),
                 };
@@ -3034,6 +3101,7 @@ public sealed class CompositeBookPipeline(
                     BaseAttempts = baseAttempts,
                     Attempts = attempts,
                     PoseFallback = selection.Fallback,
+                    GenerationReceiptJson = receiptJson,
                     ShotNote = verdict.ShotNote,
                     AgeNote = verdict.AgeNote,
                     // The verdict that accepted this page, written down rather than dropped —
@@ -3058,7 +3126,7 @@ public sealed class CompositeBookPipeline(
             // Rung one: the world is wrong, and there is a second picture in the budget.
             if (verdict.RecommendedAction == CompositeQaVerdict.ActionRegenerateBase && !regenerated)
             {
-                (basePng, generationMs, placement) = await RegenerateBaseAsync(
+                (basePng, generationMs, placement, receiptJson) = await RegenerateBaseAsync(
                     context, page, prompt, verdict.ToString(), childPhoto, childPhotoContentType,
                     theme, anchor, reference?.Image, cancellationToken);
 
@@ -3152,7 +3220,7 @@ public sealed class CompositeBookPipeline(
             */
             if (recomposited && !regenerated)
             {
-                (basePng, generationMs, placement) = await RegenerateBaseAsync(
+                (basePng, generationMs, placement, receiptJson) = await RegenerateBaseAsync(
                     context, page, prompt, verdict.ToString(), childPhoto, childPhotoContentType,
                     theme, anchor, reference?.Image, cancellationToken);
 
@@ -3203,6 +3271,7 @@ public sealed class CompositeBookPipeline(
                     BaseAttempts = baseAttempts,
                     Attempts = attempts,
                     PoseFallback = selection.Fallback,
+                    GenerationReceiptJson = receiptJson,
                     ShotNote = verdict.ShotNote,
                     AgeNote = verdict.AgeNote,
                     // The refusal, unaltered. A record that said PASS because the policy shipped the
@@ -3237,7 +3306,8 @@ public sealed class CompositeBookPipeline(
     /// thing that must be identical either way is what happens to the placement: it goes back to
     /// the approved anchor, because the nudge belonged to the picture being thrown away.
     /// </summary>
-    private async Task<(byte[] BasePng, long GenerationMs, BekiCompositeAnchor? Placement)>
+    private async Task<(byte[] BasePng, long GenerationMs, BekiCompositeAnchor? Placement,
+            string ReceiptJson)>
         RegenerateBaseAsync(
             CompositeBookContext context,
             VisualScenarioSpread page,
@@ -3254,7 +3324,7 @@ public sealed class CompositeBookPipeline(
             "Composite pipeline {JobId} spread {Page}: buying a new base image — {Reason}",
             context.JobId, page.Page, reason);
 
-        var (rawPng, generationMs) = await GenerateBaseImageAsync(
+        var (rawPng, generationMs, generated) = await GenerateBaseImageAsync(
             context, page.Page, prompt,
             References(childPhoto, childPhotoContentType, theme, anchor, continuityImage),
             cancellationToken);
@@ -3270,7 +3340,15 @@ public sealed class CompositeBookPipeline(
           by being asked for a redraw. It is not the caller's judgement whether the new picture is
           measured — only which reading it is compared against.
         */
-        return (NormalizeToSpread(context, page.Page, rawPng), generationMs, null);
+        var normalized = NormalizeToSpread(context, page.Page, rawPng);
+
+        return (
+            normalized,
+            generationMs,
+            null,
+            GenerationReceiptJson(
+                generated, generationMs, CompositeIllustrationPrompt.Version,
+                normalized, SpreadCropRatio));
     }
 
     /// <summary>
@@ -3594,7 +3672,20 @@ public sealed class CompositeBookPipeline(
         _ => _options.PageImageQuality,
     };
 
-    private async Task<(byte[] Png, long GenerationMs)> GenerateBaseImageAsync(
+    /// <summary>
+    /// Which configured frame a picture is bought at: the cover wrap has its own, every spread
+    /// shares one.
+    ///
+    /// Two keys rather than one because the two are cropped to different shapes — 512:245 and 15:7
+    /// — and the wrap is a single picture per book, so raising it is a decision that can be taken
+    /// on its own. Both default to the frame this product has always asked for; see
+    /// <see cref="BekiOptions.SpreadImageSize"/> for why that default did not move.
+    /// </summary>
+    private string ImageSizeFor(int? page) =>
+        page is null ? _options.CoverWrapImageSize : _options.SpreadImageSize;
+
+    private async Task<(byte[] Png, long GenerationMs, GeneratedStoryImage Provenance)>
+        GenerateBaseImageAsync(
         CompositeBookContext context,
         int? page,
         string prompt,
@@ -3608,7 +3699,7 @@ public sealed class CompositeBookPipeline(
         cancellationToken.ThrowIfCancellationRequested();
 
         var started = Stopwatch.StartNew();
-        byte[] image;
+        GeneratedStoryImage generated;
 
         try
         {
@@ -3620,8 +3711,12 @@ public sealed class CompositeBookPipeline(
             // images/generations would return a picture of a different child in a generic world,
             // and this pipeline would then composite the approved Beki onto it, review it, store
             // it and print it. Better a stopped book with a named failure code.
-            image = await openAi.GenerateStoryImageAsync(
-                prompt, references, cancellationToken, SpreadImageSize, requireReferences: true,
+            // The provenance-carrying member, and not for the telemetry alone: the model, route,
+            // requested size and quality and the pixels that came back are what the book's own
+            // evidence has to be able to state, and a provider that quietly answered at a
+            // different frame than the one asked for is only visible if both are written down.
+            generated = await openAi.GenerateStoryImageWithProvenanceAsync(
+                prompt, references, cancellationToken, ImageSizeFor(page), requireReferences: true,
                 imageQuality: ImageQualityFor(page));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -3641,12 +3736,25 @@ public sealed class CompositeBookPipeline(
 
         started.Stop();
 
+        var image = generated.Png;
         var problems = CompositeDeterministicChecks.BaseImageProblems(image);
 
+        /*
+          The model that was SENT, not the one that was configured.
+
+          `Beki:ImageModel` was what this line logged, and on the composite path nothing reads that
+          setting: the request goes out with OpenAI:ImageEditModel — or with gpt-image-1-mini when
+          neither configured model is a gpt-image model — or to Gemini entirely. So the one place a
+          finished book recorded which model drew it was reliably able to be wrong, and the route,
+          the size and the quality were not recorded anywhere at all.
+        */
         LogModelCall(
-            context, "image_generation", _options.ImageModel, CompositeIllustrationPrompt.Version,
+            context, "image_generation", generated.Model, CompositeIllustrationPrompt.Version,
             started.ElapsedMilliseconds, retryCount: 0,
-            validation: problems.Count == 0 ? "accepted" : string.Join("; ", problems), page: page);
+            validation: problems.Count == 0 ? "accepted" : string.Join("; ", problems), page: page,
+            endpoint: $"{generated.Provider}:{generated.Endpoint}",
+            request: $"{generated.RequestedSize}/{generated.RequestedQuality}"
+                     + $" → {generated.ReturnedWidthPx}x{generated.ReturnedHeightPx}");
 
         if (problems.Count > 0)
         {
@@ -3659,8 +3767,61 @@ public sealed class CompositeBookPipeline(
             };
         }
 
-        return (image, started.ElapsedMilliseconds);
+        return (image, started.ElapsedMilliseconds, generated);
     }
+
+    /// <summary>
+    /// One picture's receipt, as the JSON the fulfilment layer stores beside the base it describes.
+    ///
+    /// snake_case names and a flat shape on purpose: this is read by whoever is holding a printed
+    /// sheet and asking what it was drawn at, so it matches the vocabulary of the other stored
+    /// documents (<c>press-status.json</c>, the composition manifests) rather than the C# record's.
+    ///
+    /// The crop is in it because the requested frame is not the frame that got printed: the
+    /// provider's landscape is centre-cropped to the page's ratio, and how much was thrown away is
+    /// the difference between a 3:2 render (30% of the height) and a 16:9 one (17%). Without both
+    /// numbers a stored base's dimensions cannot be checked against the size that was asked for.
+    /// </summary>
+    /// <param name="cropRatio">The printed shape the base was cropped to — "15:7" or "512:245".</param>
+    private static string GenerationReceiptJson(
+        GeneratedStoryImage generated,
+        long elapsedMs,
+        string promptVersion,
+        byte[] croppedPng,
+        string cropRatio)
+    {
+        var (afterWidth, afterHeight) = GeneratedStoryImage.MeasurePixels(croppedPng);
+
+        return JsonSerializer.Serialize(
+            new
+            {
+                provider = generated.Provider,
+                model = generated.Model,
+                endpoint = generated.Endpoint,
+                requested_size = generated.RequestedSize,
+                requested_quality = generated.RequestedQuality,
+                returned_px = new[] { generated.ReturnedWidthPx, generated.ReturnedHeightPx },
+                response_size = generated.ResponseSize,
+                response_quality = generated.ResponseQuality,
+                output_format = generated.OutputFormat,
+                prompt_version = promptVersion,
+                generated_at_utc = DateTimeOffset.UtcNow,
+                elapsed_ms = elapsedMs,
+                crop = new
+                {
+                    before_px = new[] { generated.ReturnedWidthPx, generated.ReturnedHeightPx },
+                    after_px = new[] { afterWidth, afterHeight },
+                    ratio = cropRatio,
+                },
+            },
+            CompositeJson.Readable);
+    }
+
+    /// <summary>The printed shapes a base is cropped to, as they appear in a receipt.</summary>
+    private const string SpreadCropRatio = "15:7";
+
+    /// <inheritdoc cref="SpreadCropRatio"/>
+    private const string CoverWrapCropRatio = "512:245";
 
     /// <summary>
     /// Brings the provider's frame to the printed spread's shape, before anything else sees it.
@@ -4173,6 +4334,21 @@ public sealed class CompositeBookPipeline(
     /// used; recording a guess here as though it were the real one would be worse than recording
     /// what was configured.
     /// </summary>
+    /// <param name="model">
+    /// The model that was actually sent, wherever the caller can know it. The image stage can: it
+    /// reads it off the provider's own receipt. The story stage already did. The one case that
+    /// cannot is an image call that threw before there was a receipt, which passes the configured
+    /// name and is marked <c>validation=failed</c> beside it.
+    /// </param>
+    /// <param name="endpoint">
+    /// <c>provider:route</c> for the calls that have one — a book drawn by Gemini and a book drawn
+    /// through images/edits are different facts and used to log identically.
+    /// </param>
+    /// <param name="request">
+    /// What was asked for and what came back, for the stages where those can differ:
+    /// <c>size/quality → WxH</c>. The frame is a setting now, so "the log says 1536x1024" has to
+    /// mean the request rather than a constant somebody read once.
+    /// </param>
     private void LogModelCall(
         CompositeBookContext context,
         string stage,
@@ -4181,12 +4357,15 @@ public sealed class CompositeBookPipeline(
         long latencyMs,
         int retryCount,
         string validation,
-        int? page = null) =>
+        int? page = null,
+        string? endpoint = null,
+        string? request = null) =>
         logger.LogInformation(
-            "Composite AI call {JobId}: stage={Stage} page={Page} model={Model} "
-            + "promptVersion={PromptVersion} latencyMs={LatencyMs} retry={Retry} validation={Validation}",
-            context.JobId, stage, page?.ToString() ?? "-", model, promptVersion, latencyMs,
-            retryCount, validation);
+            "Composite AI call {JobId}: stage={Stage} page={Page} model={Model} endpoint={Endpoint} "
+            + "request={Request} promptVersion={PromptVersion} latencyMs={LatencyMs} retry={Retry} "
+            + "validation={Validation}",
+            context.JobId, stage, page?.ToString() ?? "-", model, endpoint ?? "-", request ?? "-",
+            promptVersion, latencyMs, retryCount, validation);
 
     /// <summary>
     /// The continuity reference mechanism, reused rather than rebuilt (handoff §6 Step 4: "do not

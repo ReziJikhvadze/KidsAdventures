@@ -309,6 +309,19 @@ export function recoverCustomerPdf(bookId: string): Promise<{ message: string }>
   });
 }
 
+/**
+ * Prepare the printer's files again for a finished book, from the artwork it already has.
+ *
+ * The counterpart of {@link recoverCustomerPdf} for a book that completed and had printing held:
+ * same promise, same no-charge guarantee, and the message says whether the press files were
+ * published this time or what is still holding them.
+ */
+export function repreparePrint(bookId: string): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>(`/api/admin/books/${bookId}/reprepare-print`, {
+    method: "POST",
+  });
+}
+
 /** One of the sixteen hard gates from BEKI_Acceptance_Gates_v1.json, as the console shows it. */
 export type AdminReleaseGate = {
   id: string;

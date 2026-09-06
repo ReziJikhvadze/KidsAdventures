@@ -668,6 +668,44 @@ public class AdminConsoleApiTests
         Assert.Contains("beki is the wrong colour", alarm.Detail);
     }
 
+    /// <summary>
+    /// A book somebody else is already operating on is refused, and nothing is deleted.
+    ///
+    /// The status checks above cannot answer this one. Print re-preparation and stored-art recovery
+    /// run inline from this same controller and leave the pack reading <c>Completed</c> for their
+    /// whole duration, so a redraw arriving in that window passes every state check it has and then
+    /// deletes the artwork the other stage is laying out. The book's lock is the only thing that
+    /// knows, which is why the refusal is asserted here with the lock simply held by somebody else.
+    /// </summary>
+    [Fact]
+    public async Task A_book_another_operation_is_already_holding_is_refused_before_anything_is_deleted()
+    {
+        var world = World();
+        var somebodyElse = await new InProcessBekiPackLock()
+            .TryAcquireAsync(PackId, TimeSpan.Zero, CancellationToken.None);
+        Assert.NotNull(somebodyElse);
+
+        try
+        {
+            var result = await world.Regeneration.RequestAsync(Request(BekiRegenerationScopes.Book), default);
+
+            Assert.Equal(BekiRegenerationStatus.Refused, result.Status);
+            Assert.Equal(BekiRegeneration.BusyRefusal, result.Message);
+            Assert.Empty(world.Blobs.Deleted);
+            Assert.Equal(0, world.Jobs.Enqueued);
+            Assert.Equal(AdventurePackStatus.Completed, world.Packs.Status);
+        }
+        finally
+        {
+            await somebodyElse.DisposeAsync();
+        }
+
+        // Released, and the same request goes through.
+        Assert.Equal(
+            BekiRegenerationStatus.Queued,
+            (await world.Regeneration.RequestAsync(Request(BekiRegenerationScopes.Book), default)).Status);
+    }
+
     [Fact]
     public async Task Two_redraws_of_one_book_are_two_rows_rather_than_one_that_moved()
     {

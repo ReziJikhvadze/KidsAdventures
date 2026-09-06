@@ -16,6 +16,11 @@ using AdventurePacks.Api.Services.Story.Composite.Poses;
 using AdventurePacks.Api.Services.Story.Prompts;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using QuestPDF.Fluent;
+using QuestPDF.Infrastructure;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Formats.Png;
+using SixLabors.ImageSharp.PixelFormats;
 using Xunit;
 
 namespace Adventrya.Story.Tests;
@@ -50,9 +55,18 @@ public class CompositePipelineFulfillmentTests
         Assert.Null(world.Packs.PrintPdfUrl);
     }
 
+    /// <summary>
+    /// A press gate the MEASUREMENT failed still ships the family's book, and the four ways the
+    /// diagnostics around it can themselves break do not change that.
+    ///
+    /// The fixture is a real twelve-page canonical document with no artwork on it, so
+    /// PRESS_RESOLUTION fails for the honest reason — every page owes a full-sheet raster and none
+    /// carries one — rather than because a tool was missing. That state no longer exists: there is
+    /// nothing to configure and nothing to forget to install, so the old "missing-upscaler" theory
+    /// case is gone with it.
+    /// </summary>
     [Theory]
-    [InlineData("missing-upscaler")]
-    [InlineData("malformed-upscaler-output")]
+    [InlineData("normalizer-output-undecodable")]
     [InlineData("alarm-unavailable")]
     [InlineData("print-status-unavailable")]
     [InlineData("waiver-alarm-unavailable")]
@@ -60,10 +74,10 @@ public class CompositePipelineFulfillmentTests
     {
         var world = new PackWorld
         {
-            MalformedUpscale = failure == "malformed-upscaler-output",
+            MalformedUpscale = failure == "normalizer-output-undecodable",
             WaiverAlarmFails = failure == "waiver-alarm-unavailable",
         };
-        world.Composer.CanonicalPdf = BekiRenderFixtures.CanonicalTestBook();
+        world.Composer.CanonicalPdf = BekiCanonicalBookFixtures.CanonicalScreenBook();
         world.Alarms.ThrowOnRaise = failure == "alarm-unavailable";
         world.Blobs.FailPrintStatus = failure == "print-status-unavailable";
 
@@ -80,17 +94,89 @@ public class CompositePipelineFulfillmentTests
             world.Blobs.Uploaded[BekiPackBlobs.ReleaseGatesName(world.UserId, world.PackId)]))!;
         Assert.True(release.CustomerPdfMayPublish);
         Assert.False(release.PrintReady);
-        Assert.Contains("PRESS_RESOLUTION", release.FailingGates);
         Assert.Contains(world.Alarms.Raised, alarm => alarm.CheckId == "PRINT_PREPARATION_HELD");
+
+        // The preflight is a real measurement of the real document, not a sentence about a raster:
+        // the gate names the pages, and nothing in it blames a tool that was never involved.
+        var preflight = Encoding.UTF8.GetString(
+            world.Blobs.Uploaded[BekiPackBlobs.CanonicalPreflightName(world.UserId, world.PackId)]);
+        Assert.Contains("where the locked canonical size is", preflight, StringComparison.Ordinal);
+        Assert.DoesNotContain("upscaler", preflight, StringComparison.OrdinalIgnoreCase);
+
         if (failure == "print-status-unavailable")
         {
+            // No press-status document, so the gates have nothing of this stage's to read — the
+            // book still ships and the alarm above is still raised. (The release evaluator reads
+            // the press verdict from that document alone; that is its own long-standing rule.)
             Assert.Equal(1, world.Blobs.PrintStatusFailures);
             Assert.DoesNotContain(BekiPackBlobs.PressStatusName(world.UserId, world.PackId),
                 world.Blobs.Uploaded.Keys);
+            return;
         }
-        if (failure == "malformed-upscaler-output")
-            Assert.Contains("Print artwork preparation failed", Encoding.UTF8.GetString(
-                world.Blobs.Uploaded[BekiPackBlobs.CanonicalPreflightName(world.UserId, world.PackId)]));
+
+        Assert.Contains("PRESS_RESOLUTION", release.FailingGates);
+
+        // The press-status record answers the two questions separately: which gates the output
+        // failed, and what went wrong on the way to producing it.
+        var pressStatus = Encoding.UTF8.GetString(
+            world.Blobs.Uploaded[BekiPackBlobs.PressStatusName(world.UserId, world.PackId)]);
+        Assert.DoesNotContain("\"upscaler_configured\"", pressStatus, StringComparison.Ordinal);
+        Assert.Contains("\"print_prep_mode\":\"deterministic_lanczos\"", pressStatus, StringComparison.Ordinal);
+
+        using var status = JsonDocument.Parse(pressStatus);
+        var problems = status.RootElement.GetProperty("preparation_problems")
+            .EnumerateArray().Select(problem => problem.GetString()!).ToList();
+
+        if (failure == "normalizer-output-undecodable")
+        {
+            // Undecodable normalizer output is an operational problem, recorded as one. It is not
+            // in failed_gates, and the book the family paid for is still finished and published.
+            Assert.Contains(problems, problem => problem.Contains("could not be normalized to 5315×2480 px", StringComparison.Ordinal));
+            Assert.Contains(problems, problem => problem.Contains("Print artwork preparation failed", StringComparison.Ordinal));
+            Assert.Equal(["PRESS_RESOLUTION"], status.RootElement.GetProperty("failed_gates")
+                .EnumerateArray().Select(gate => gate.GetString()).ToList());
+        }
+        else
+        {
+            // The stub bases are marker bytes rather than images, so the normalizer refuses them —
+            // again as a preparation problem, and again without touching the gate list.
+            Assert.All(problems, problem =>
+                Assert.Contains("could not be decoded as an image", problem, StringComparison.Ordinal));
+        }
+    }
+
+    /// <summary>
+    /// A raster whose normalization failed and whose composed output measures correctly is not a
+    /// failed gate and not a hold — amendment A2's whole point.
+    ///
+    /// The composer here hands back a document that satisfies every locked size, exactly as the
+    /// real one does when the original artwork was already the right shape. The press stage's own
+    /// trouble is recorded, and the file that comes out is judged on what it is.
+    /// </summary>
+    [Fact]
+    public async Task A_normalization_failure_whose_output_measures_correctly_holds_nothing()
+    {
+        var world = new PackWorld { MalformedUpscale = true };
+        world.Composer.CanonicalPdf = BekiCanonicalBookFixtures.CanonicalPressBook();
+
+        await world.Job().ProcessAsync(world.PackId, world.RunId, CancellationToken.None);
+
+        Assert.Null(world.Packs.FailureReason);
+        Assert.Equal(AdventurePackStatus.Completed, world.Packs.Status);
+
+        // No gate failed and nothing was held, even though a raster's preparation did fail.
+        Assert.DoesNotContain(world.Alarms.Raised, alarm => alarm.CheckId == "PRINT_PREPARATION_HELD");
+
+        using var status = JsonDocument.Parse(Encoding.UTF8.GetString(
+            world.Blobs.Uploaded[BekiPackBlobs.PressStatusName(world.UserId, world.PackId)]));
+        Assert.Empty(status.RootElement.GetProperty("failed_gates").EnumerateArray());
+        Assert.Equal("prepared", status.RootElement.GetProperty("interior").GetString());
+        Assert.NotEmpty(status.RootElement.GetProperty("preparation_problems").EnumerateArray());
+
+        var release = BekiReleaseGateReport.TryParse(Encoding.UTF8.GetString(
+            world.Blobs.Uploaded[BekiPackBlobs.ReleaseGatesName(world.UserId, world.PackId)]))!;
+        Assert.DoesNotContain(release.FailingGates,
+            gate => gate.StartsWith("PRESS_", StringComparison.Ordinal));
     }
 
     // =======================================================================================
@@ -385,7 +471,7 @@ public class CompositePipelineFulfillmentTests
     // Harness
     // =======================================================================================
 
-    private sealed class PackWorld
+    internal sealed class PackWorld
     {
         public const string PreviewCoverUrl = "https://blob.test/master-runs/preview/cover";
 
@@ -415,6 +501,12 @@ public class CompositePipelineFulfillmentTests
 
         public ManualTimeProvider Clock { get; } = new();
 
+        /// <summary>The paid order behind this book — what the stored-art paths read the plan from.</summary>
+        public FakeOrders Orders { get; }
+
+        /// <summary>The queue a redraw hands the fulfilment job back to.</summary>
+        public RecordingJobs Jobs { get; } = new();
+
         /// <summary>Whether the stubbed illustrator announces an anchor the way the real pipeline does.</summary>
         public bool AnnounceAnchor { get; init; }
 
@@ -436,7 +528,8 @@ public class CompositePipelineFulfillmentTests
 
         public bool WaiverAlarmFails { get; init; }
 
-        public PackWorld() =>
+        public PackWorld()
+        {
             Packs = new FakePacks(new AdventurePack
             {
                 Id = PackId,
@@ -445,7 +538,13 @@ public class CompositePipelineFulfillmentTests
                 Status = AdventurePackStatus.StoryReady,
                 CoverImageUrl = PreviewCoverUrl,
                 CreatedAt = DateTime.UtcNow,
+                // What this book actually is. It was left at the default, which made the row say
+                // "legacy" about a pack the composite job draws — invisible until something asked
+                // the pack which pipeline it belonged to, as an operator's redraw does.
+                GenerationPipeline = GenerationPipelines.Beki,
             });
+            Orders = new FakeOrders(PackId, RunId);
+        }
 
         public async Task Run()
         {
@@ -458,21 +557,49 @@ public class CompositePipelineFulfillmentTests
 
         public StubGenerator Generator => _generator ??= new StubGenerator(this);
 
-        public BekiPackFulfillment Job() =>
+        /// <param name="strictPolicy">
+        /// Judge under <see cref="BekiReleasePolicySnapshot.Strict"/> instead of the shipped
+        /// defaults — every check a blocker, which is the cheapest way to reach a verdict that
+        /// withholds the customer PDF.
+        /// </param>
+        /// <param name="compositePipeline">Off is a book from the previous pipeline.</param>
+        public BekiPackFulfillment Job(bool strictPolicy = false, bool compositePipeline = true) =>
             new(Packs,
-                new FakeRuns(RunId),
+                new FakeRuns(RunId, UserId),
                 Blobs,
                 Generator,
                 Composer,
                 Notifier,
                 Email,
                 new SingleUserRepository(),
-                Options.Create(new BekiOptions { CompositePipelineEnabled = true }),
+                Options.Create(new BekiOptions { CompositePipelineEnabled = compositePipeline }),
                 NullLogger<BekiPackFulfillment>.Instance,
                 Clock,
                 pressUpscaler: new ScriptedUpscaler(this),
+                releasePolicy: strictPolicy ? new StrictPolicy() : null,
                 alarms: Alarms,
-                reconciliation: WaiverAlarmFails ? new BrokenWaiverAlarms() : null);
+                reconciliation: WaiverAlarmFails ? new BrokenWaiverAlarms() : null,
+                orders: Orders);
+
+        /// <summary>
+        /// An operator's redraw of THIS book, over the same storage and the same pack row.
+        ///
+        /// No lock is passed on purpose: both services fall back to
+        /// <see cref="InProcessBekiPackLock"/>, whose dictionary is static, so a redraw and a
+        /// re-preparation of the same book meet on one semaphore exactly as they meet on one
+        /// Hangfire lock in the deployment. Wiring a lock in here would prove only that a lock
+        /// somebody passed works.
+        /// </summary>
+        public BekiRegeneration Redraw() =>
+            new(Packs,
+                Orders,
+                new FakeRuns(RunId, UserId),
+                Blobs,
+                Alarms,
+                Jobs,
+                Options.Create(new BekiOptions()),
+                NullLogger<BekiRegeneration>.Instance,
+                Clock);
 
         public static string StoredQa(int page) => $$"""
             {"page": {{page}}, "qa_prompt_version": "{{CompositeMinimalQa.Version}}",
@@ -536,7 +663,7 @@ public class CompositePipelineFulfillmentTests
     /// The illustrator, stubbed at the two seams under test: what it announces, and what the job
     /// handed it to resume from.
     /// </summary>
-    private sealed class StubGenerator(PackWorld world) : IBekiBookGenerator
+    internal sealed class StubGenerator(PackWorld world) : IBekiBookGenerator
     {
         public static readonly byte[] WrapComposite = [0x89, (byte)'P', (byte)'N', (byte)'G', 7, 7];
 
@@ -688,12 +815,18 @@ public class CompositePipelineFulfillmentTests
     }
 
     /// <summary>
-    /// The super-resolver, scripted to fire whichever clock a test names. Unconfigured otherwise,
-    /// which is the shipped state and makes print preparation refuse on stub bytes as it should.
+    /// The shipped preparer, with a clock hook in front of it.
+    ///
+    /// It used to be an unconfigured external super-resolver, which is no longer a state this
+    /// product has: the deterministic normalizer is always available and always runs. So this
+    /// delegates to the real one and keeps only what the tests actually script — a stage that
+    /// stalls until a clock fires, and a stage that returns bytes nothing can decode.
     /// </summary>
-    private sealed class ScriptedUpscaler(PackWorld world) : IPressUpscaler
+    internal sealed class ScriptedUpscaler(PackWorld world) : IPressUpscaler
     {
-        public bool IsConfigured => false;
+        public bool IsConfigured => true;
+
+        private readonly DeterministicLanczosNormalizer _real = new();
 
         public async Task<PressUpscaleResult> UpscaleAsync(
             byte[] png, int targetWidth, int targetHeight, CancellationToken cancellationToken)
@@ -710,15 +843,15 @@ public class CompositePipelineFulfillmentTests
             }
 
             if (world.MalformedUpscale)
-                return new PressUpscaleResult(true, [1, 2, 3], "broken-test-upscaler", 4d,
+                return new PressUpscaleResult(true, [1, 2, 3], "broken-test-normalizer", 4d,
                     1, 1, targetWidth, targetHeight, null);
 
-            return PressUpscaleResult.NotConfigured(1, 1);
+            return await _real.UpscaleAsync(png, targetWidth, targetHeight, cancellationToken);
         }
     }
 
     /// <summary>A timer nobody has to wait for — see GenerationBudgetTests for the original.</summary>
-    private sealed class ManualTimeProvider : TimeProvider
+    internal sealed class ManualTimeProvider : TimeProvider
     {
         private readonly List<ManualTimer> _timers = [];
 
@@ -770,7 +903,7 @@ public class CompositePipelineFulfillmentTests
         }
     }
 
-    private sealed class BrokenWaiverAlarms : IBekiReleaseReconciliation
+    internal sealed class BrokenWaiverAlarms : IBekiReleaseReconciliation
     {
         public Task RaiseWaiverAlarmsAsync(Guid packId, Guid userId, Guid? orderId,
             BekiReleaseGateReport report, CancellationToken ct) =>
@@ -783,7 +916,21 @@ public class CompositePipelineFulfillmentTests
             throw new NotSupportedException();
     }
 
-    private sealed class RecordingAlarms : IBekiAlarmService
+    /// <summary>The background queue, counted rather than run — nothing here draws anything.</summary>
+    internal sealed class RecordingJobs : Hangfire.IBackgroundJobClient
+    {
+        public int Enqueued { get; private set; }
+
+        public string Create(Hangfire.Common.Job job, Hangfire.States.IState state)
+        {
+            Enqueued++;
+            return Guid.NewGuid().ToString();
+        }
+
+        public bool ChangeState(string jobId, Hangfire.States.IState state, string? expectedState) => true;
+    }
+
+    internal sealed class RecordingAlarms : IBekiAlarmService
     {
         public bool ThrowOnRaise { get; set; }
         public Task<IReadOnlyList<BekiAlarm>> ListRecentAsync(int limit, CancellationToken ct) => throw new NotSupportedException();
@@ -806,20 +953,38 @@ public class CompositePipelineFulfillmentTests
         public Task<bool> ReviewAsync(Guid alarmId, string reviewedBy, string resolution, CancellationToken ct) =>
             throw new NotSupportedException();
 
+        /// <summary>Every automatic closure this run asked for: which book, which check, and why.</summary>
+        public List<(Guid PackId, string CheckId, string Resolution)> Resolved { get; } = [];
+
+        public Task ResolveForPackAsync(Guid packId, string checkId, string resolution, CancellationToken ct)
+        {
+            Resolved.Add((packId, checkId, resolution));
+            return Task.CompletedTask;
+        }
+
         public Task<int> CountOpenAsync(CancellationToken ct) => Task.FromResult(Raised.Count);
     }
 
-    private sealed class RecordingComposer : IBekiPdfComposer
+    internal sealed class RecordingComposer : IBekiPdfComposer
     {
         public byte[] CanonicalPdf { get; set; } = [0x25, 0x50, 0x44, 0x46];
         public byte[]? ReadingWrap { get; private set; }
+
+        /// <summary>
+        /// Runs inside composition, which is the one place a test can stand while the press stage
+        /// is between "started" and "has written anything" — where the concurrency guard lives.
+        /// </summary>
+        public Action? OnCompose { get; set; }
 
         // Deliberately corrupt PDF: print trouble must reach customer validation, which must
         // still refuse invalid bytes instead of marking this stubbed book Completed.
         public BekiComposedBook ComposeCanonicalWithReceipts(
             MasterStory plan, byte[] wrapComposite, IReadOnlyList<BekiSpreadArtwork> spreads,
-            BekiBookPersonalization? personalization = null) =>
-            new(CanonicalPdf, Receipts("canonical"));
+            BekiBookPersonalization? personalization = null)
+        {
+            OnCompose?.Invoke();
+            return new BekiComposedBook(CanonicalPdf, Receipts("canonical"));
+        }
 
         public BekiComposedBook ComposeWithReceipts(
             MasterStory plan, byte[] coverImage, IReadOnlyList<BekiSpreadArtwork> spreads,
@@ -850,7 +1015,12 @@ public class CompositePipelineFulfillmentTests
             MasterStory plan, byte[] coverImage, IReadOnlyList<BekiSpreadArtwork> spreads,
             BekiBookPersonalization? personalization = null) => throw new NotSupportedException();
 
-        private static BekiLayoutReceipts Receipts(string mode) => new(
+        /// <summary>
+        /// The receipts this composer returns for every mode — internal because the rollback list
+        /// is built from a candidate's receipts, so a test asking "is every published name covered"
+        /// has to be able to build the same ones.
+        /// </summary>
+        internal static BekiLayoutReceipts Receipts(string mode) => new(
             mode,
             new[] { "cover-front", "endpaper-front", "intro", "credits", "endpaper-rear", "cover-back" }
                 .Select((role, index) => new BekiLayoutPageReceipt(
@@ -864,13 +1034,34 @@ public class CompositePipelineFulfillmentTests
     }
 
     /// <summary>A blob store that remembers what it was given, and what it was asked for.</summary>
-    private sealed class FakeBlobs : IBlobStorageService
+    internal sealed class FakeBlobs : IBlobStorageService
     {
         public bool FailPrintStatus { get; set; }
         public int PrintStatusFailures { get; private set; }
+
+        /// <summary>
+        /// Storage that refuses a named blob, armed by the test whenever it likes.
+        ///
+        /// A predicate rather than a set of names because the interesting failures are ordered:
+        /// "this upload works, and the SAME name fails when the rollback comes back to it" is the
+        /// only way to reach a book whose canonical PDF has been replaced by a candidate that then
+        /// could not be undone.
+        /// </summary>
+        public Func<string, bool>? FailUpload { get; set; }
         public ConcurrentDictionary<string, byte[]> Uploaded { get; } = new(StringComparer.Ordinal);
 
         public ConcurrentBag<string> Downloaded { get; } = [];
+
+        /// <summary>
+        /// Every upload in the order it happened, which the dictionary cannot say. What it is for
+        /// is asking a finished operation "which names did you write?" — the question behind the
+        /// rollback list, where a document the publish step writes and the snapshot does not know
+        /// about is the whole defect.
+        /// </summary>
+        public ConcurrentQueue<string> UploadOrder { get; } = new();
+
+        /// <summary>What was deleted, in order. Seeded blobs really do disappear.</summary>
+        public ConcurrentQueue<string> Deleted { get; } = new();
 
         public void Seed(string blobName, byte[] bytes) => Uploaded[blobName] = bytes;
 
@@ -882,7 +1073,12 @@ public class CompositePipelineFulfillmentTests
                 PrintStatusFailures++;
                 throw new IOException("Test print status storage unavailable");
             }
+            if (FailUpload?.Invoke(blobName) == true)
+            {
+                throw new IOException("Test blob storage unavailable for " + blobName);
+            }
             Uploaded[blobName] = bytes;
+            UploadOrder.Enqueue(blobName);
             return Task.FromResult($"https://blob.test/{blobName}");
         }
 
@@ -906,8 +1102,17 @@ public class CompositePipelineFulfillmentTests
             return Task.FromResult(Uploaded.TryGetValue(name, out var bytes) ? bytes : [1, 1, 1, 1]);
         }
 
-        public Task<bool> DeleteByStoredUrlAsync(string storedUrl, CancellationToken cancellationToken) =>
-            Task.FromResult(true);
+        /// <summary>
+        /// A delete that really deletes. It used to answer true and keep the bytes, which made
+        /// every "and then it was gone" assertion unfalsifiable — including the rollback's removal
+        /// of a receipt the book never had.
+        /// </summary>
+        public Task<bool> DeleteByStoredUrlAsync(string storedUrl, CancellationToken cancellationToken)
+        {
+            var name = storedUrl.Replace("https://blob.test/", string.Empty, StringComparison.Ordinal);
+            Deleted.Enqueue(name);
+            return Task.FromResult(Uploaded.TryRemove(name, out _));
+        }
 
         // No companion kept: the rendition is an optimisation, and its absence is the
         // ordinary answer the first time anybody asks.
@@ -921,7 +1126,7 @@ public class CompositePipelineFulfillmentTests
     }
 
     /// <summary>The pack row: compare-and-set the way the real one is, remembering its progress line.</summary>
-    private sealed class FakePacks(AdventurePack seed) : IAdventurePackRepository
+    internal sealed class FakePacks(AdventurePack seed) : IAdventurePackRepository
     {
         private readonly AdventurePack _pack = seed;
         private readonly object _gate = new();
@@ -1059,12 +1264,15 @@ public class CompositePipelineFulfillmentTests
         public Task<bool> UpdateGeneratedJsonAsync(Guid id, string generatedJson, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
-    private sealed class FakeRuns(Guid runId) : IMasterStoryRunRepository
+    internal sealed class FakeRuns(Guid runId, Guid userId) : IMasterStoryRunRepository
     {
         public Task SaveAppearanceDescriptionAsync(Guid id, string appearanceDescription, CancellationToken cancellationToken) => Task.CompletedTask;
         private readonly MasterStoryRun _run = new()
         {
             Id = runId,
+            // The owner, which is what makes the run the one this pack's paid order bought: the
+            // stored-art paths refuse a plan that belongs to somebody else.
+            UserId = userId,
             ChildName = "ნინა",
             Age = 5,
             Gender = "girl",
@@ -1074,6 +1282,9 @@ public class CompositePipelineFulfillmentTests
             PhotoBlobUrl = PackWorld.PhotoUrl,
             CoverImageUrl = PackWorld.PreviewCoverUrl,
             StoryJson = JsonSerializer.Serialize(Plan(), StoryJson.Options),
+            // A printing plan, which is what the composite job is given. Stated because a redraw
+            // asks the run this question before it will queue anything.
+            PromptVersion = "v5",
         };
 
         public Task<MasterStoryRun?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
@@ -1092,7 +1303,58 @@ public class CompositePipelineFulfillmentTests
         public Task<int> DeleteAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken) => Task.FromResult(0);
     }
 
-    private sealed class CountingNotifier : IAdminNotifier
+    /// <summary>
+    /// The one paid order behind this book, pointing at the preview run whose plan it bought.
+    ///
+    /// It exists because the stored-art paths (recovery and print re-preparation) find the plan the
+    /// same way the real system does — through the order's draft — rather than through a shortcut
+    /// that would not exist in production.
+    /// </summary>
+    internal sealed class FakeOrders(Guid packId, Guid runId) : IOrderRepository
+    {
+        public Guid OrderId { get; } = Guid.NewGuid();
+
+        public Task<IReadOnlyList<Order>> GetPaidForBookAsync(Guid bookId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<Order>>(bookId == packId
+                ? [new Order
+                    {
+                        Id = OrderId,
+                        BookId = packId,
+                        Status = OrderStatus.Paid,
+                        DraftJson = JsonSerializer.Serialize(
+                            new { previewBookId = runId }, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+                    }]
+                : []);
+
+        public Task<Guid> CreateAsync(Order order, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<Order?> GetByIdAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<Order?> GetByIdForUserAsync(Guid id, Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<Order?> GetByProviderSessionIdAsync(string providerSessionId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<Order>> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task AttachProviderSessionAsync(Guid id, string providerSessionId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task SetBookIdAsync(Guid id, Guid bookId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> TryMarkPaidAsync(Guid id, string? providerPaymentIntentId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> TryMarkFulfilledAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task MarkFailedAsync(Guid id, string reason, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<bool> TryCancelAsync(Guid id, Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<Order>> GetStalledPaidAsync(DateTime paidBeforeUtc, int limit, CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
+    /// <summary>Every check a blocker — the shipped Strict board, read as a policy service.</summary>
+    internal sealed class StrictPolicy : IBekiReleasePolicyService
+    {
+        public Task<BekiReleasePolicySnapshot> SnapshotAsync(CancellationToken ct) =>
+            Task.FromResult(BekiReleasePolicySnapshot.Strict);
+
+        public Task<IReadOnlyList<BekiReleaseCheckSetting>> ListAsync(CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<BekiReleaseCheckSetting>>([]);
+
+        public Task<int> SetAsync(
+            string checkId, string deliverableClass, string severity, string updatedBy, CancellationToken ct) =>
+            throw new NotSupportedException();
+    }
+
+    internal sealed class CountingNotifier : IAdminNotifier
     {
         public int Notifications { get; private set; }
 
@@ -1108,7 +1370,7 @@ public class CompositePipelineFulfillmentTests
             Task.CompletedTask;
     }
 
-    private static string PressReceipt(byte[] basePng, byte[] composite)
+    internal static string PressReceipt(byte[] basePng, byte[] composite)
     {
         var fixture = JsonSerializer.Deserialize<BekiCompositionManifest>(File.ReadAllText(
             Path.Combine(AppContext.BaseDirectory, "Fixtures", "nina_dinosaurs", "spread_01_composition_manifest.json")))!;
@@ -1148,4 +1410,119 @@ public class CompositePipelineFulfillmentTests
         Cast = [],
         Objects = [],
     };
+}
+
+
+/// <summary>
+/// Canonical twelve-page books built offline, in the two states the press stage moves between.
+///
+/// Shared by the fulfilment suite and the re-preparation suite because they are two halves of one
+/// story: a book whose rasters are the generated frames has printing held, and the same book with
+/// its rasters normalized does not. Two suites building that from two fixtures would be two suites
+/// that can drift apart about what "the same book" means.
+/// </summary>
+internal static class BekiCanonicalBookFixtures
+{
+    private static readonly Dictionary<string, byte[]> CanonicalBooks = new(StringComparer.Ordinal);
+
+    private static readonly object CanonicalBooksGate = new();
+
+    /// <summary>
+    /// The twelve-page canonical book as it comes out of the composer BEFORE anything normalizes
+    /// its rasters: the generated frames, 1536 × 735 px on the cover wrap and 1536 × 717 px on each
+    /// spread, which are the exact sizes the stored bases of a real book have.
+    ///
+    /// Placed on the locked sheets they are the defect PRESS_RESOLUTION exists to name — 87 PPI
+    /// where 300 is owed, and a pixel count nowhere near the locked one — and they are the right
+    /// shape, so nothing else fires and the gate list says exactly one thing.
+    /// </summary>
+    internal static byte[] CanonicalScreenBook() => CanonicalBook(1536, 735, 1536, 717);
+
+    /// <summary>
+    /// The same book after normalization: every page carries its locked full-sheet raster, 6047 ×
+    /// 2894 px on the 512 × 245 mm wrap and 5315 × 2480 px on each 450 × 210 mm spread.
+    ///
+    /// It exists for one question: when the press stage's own preparation goes wrong but the
+    /// document that comes out is nevertheless correct, does anything get held?
+    /// </summary>
+    internal static byte[] CanonicalPressBook() => CanonicalBook(
+        BekiPressRaster.CoverWidthPx, BekiPressRaster.CoverHeightPx,
+        BekiPressRaster.InteriorWidthPx, BekiPressRaster.InteriorHeightPx);
+
+    /// <summary>
+    /// A canonical twelve-page document with one full-sheet raster per page at the sizes asked for,
+    /// the credits QR on page 11, and nothing else the gates care about.
+    ///
+    /// Cached, because the press-sized variant embeds two thirteen-megapixel rasters and they are
+    /// the same two every time. One raster per page and no second image object, because the vector
+    /// logo check counts them: the cover owes exactly one.
+    /// </summary>
+    /// <summary>The press book with the credits QR left off — a document that renders and fails.</summary>
+    internal static byte[] CanonicalPressBookWithoutQr() => CanonicalBook(
+        BekiPressRaster.CoverWidthPx, BekiPressRaster.CoverHeightPx,
+        BekiPressRaster.InteriorWidthPx, BekiPressRaster.InteriorHeightPx, withQr: false);
+
+    private static byte[] CanonicalBook(
+        int coverWidthPx, int coverHeightPx, int spreadWidthPx, int spreadHeightPx, bool withQr = true)
+    {
+        var key = $"{coverWidthPx}x{coverHeightPx}/{spreadWidthPx}x{spreadHeightPx}/{withQr}";
+
+        lock (CanonicalBooksGate)
+        {
+            if (CanonicalBooks.TryGetValue(key, out var cached)) return cached.ToArray();
+
+            QuestPDF.Settings.License = LicenseType.Community;
+
+            // Flat colour on purpose: the gate measures pixel counts and placement, never content,
+            // and a gradient at press size costs seconds of encoding for nothing.
+            var wrap = QuestPDF.Infrastructure.Image.FromBinaryData(Flat(coverWidthPx, coverHeightPx));
+            var spread = QuestPDF.Infrastructure.Image.FromBinaryData(Flat(spreadWidthPx, spreadHeightPx));
+
+            var pdf = Document.Create(document =>
+            {
+                for (var number = 1; number <= 12; number++)
+                {
+                    var page = number;
+                    document.Page(descriptor =>
+                    {
+                        descriptor.Size(page == 1 ? 512f : 450f, page == 1 ? 245f : 210f, Unit.Millimetre);
+                        descriptor.Margin(0);
+                        descriptor.Content().Layers(layers =>
+                        {
+                            layers.PrimaryLayer()
+                                .Image(page == 1 ? wrap : spread).FitUnproportionally().UseOriginalImage();
+                            layers.Layer().PaddingTop(10, Unit.Millimetre).PaddingLeft(10, Unit.Millimetre)
+                                .Text($"Offline fixture page {page}").FontSize(20);
+                            if (page == 11 && withQr)
+                            {
+                                layers.Layer().PaddingTop(40, Unit.Millimetre).PaddingLeft(10, Unit.Millimetre)
+                                    .Width(40, Unit.Millimetre).Height(40, Unit.Millimetre)
+                                    .Svg(QrSvg("https://beki.ge"));
+                            }
+                        });
+                    });
+                }
+            }).GeneratePdf();
+
+            CanonicalBooks[key] = pdf;
+            return pdf.ToArray();
+        }
+    }
+
+    private static byte[] Flat(int width, int height)
+    {
+        using var image = new SixLabors.ImageSharp.Image<Rgb24>(width, height, new Rgb24(214, 205, 188));
+        using var buffer = new MemoryStream();
+        image.Save(buffer, new PngEncoder());
+        return buffer.ToArray();
+    }
+
+    /// <summary>The credits page's own QR generator, at its own settings.</summary>
+    private static string QrSvg(string url)
+    {
+        using var generator = new QRCoder.QRCodeGenerator();
+        using var data = generator.CreateQrCode(url.Trim(), QRCoder.QRCodeGenerator.ECCLevel.Q);
+        return new QRCoder.SvgQRCode(data).GetGraphic(
+            pixelsPerModule: 16, darkColorHex: "#000000", lightColorHex: "#FFFFFF", drawQuietZones: true);
+    }
 }

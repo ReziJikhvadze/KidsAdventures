@@ -82,6 +82,19 @@ public interface IBekiAlarmService
     /// <summary>Marks one alarm reviewed. False when there is no such alarm.</summary>
     Task<bool> ReviewAsync(Guid alarmId, string reviewedBy, string resolution, CancellationToken ct);
 
+    /// <summary>
+    /// Closes this book's open alarms for one check, because the condition they describe is over.
+    ///
+    /// The counterpart of <see cref="RaiseAsync"/> and, like it, never throws: a stage calling this
+    /// has just finished a book successfully, and an alarms table that could not be updated must
+    /// not turn that into a failure. What it costs when it fails is a stale open row, which is the
+    /// state the whole system was in before this existed.
+    ///
+    /// Defaulted to a no-op so every existing implementation compiles unchanged.
+    /// </summary>
+    Task ResolveForPackAsync(Guid packId, string checkId, string resolution, CancellationToken ct) =>
+        Task.CompletedTask;
+
     Task<int> CountOpenAsync(CancellationToken ct);
 }
 
@@ -196,6 +209,44 @@ public sealed class BekiAlarmService(
 
         return reviewed;
     }
+
+    /// <summary>
+    /// Closes what a stage has just fixed, under a reviewer name that says a machine did it.
+    ///
+    /// <c>system:print-reprepare</c> rather than an operator's address, because the row is read
+    /// later by somebody asking who decided this was fine — and "the stage that re-prepared the
+    /// press files and measured them passing" is a better answer than a name that was never at the
+    /// keyboard. The four permitted resolutions are a CHECK constraint in the database, so the
+    /// sentence explaining what happened goes in the log and <c>fixed</c> goes in the column.
+    /// </summary>
+    public async Task ResolveForPackAsync(
+        Guid packId, string checkId, string resolution, CancellationToken ct)
+    {
+        try
+        {
+            var closed = await repository.ResolveOpenForPackAsync(
+                packId, checkId, ReprepareReviewer, BekiAlarmResolutions.Fixed, ct);
+
+            if (closed > 0)
+            {
+                logger.LogInformation(
+                    "Beki alarm(s) for pack {PackId} {CheckId} closed automatically ({Closed}): {Resolution}",
+                    packId, checkId, closed, resolution);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Swallowed for the reason RaiseAsync's failure is: the book is finished and correct,
+            // and an alarms table that would not take the update leaves a stale open row rather
+            // than a failed book.
+            logger.LogError(
+                ex, "Beki alarm for pack {PackId} ({CheckId}) could not be closed. The book is "
+                    + "unaffected; the row stays open in the console.", packId, checkId);
+        }
+    }
+
+    /// <summary>Who the alarms table records as having closed an automatically resolved row.</summary>
+    public const string ReprepareReviewer = "system:print-reprepare";
 
     public Task<int> CountOpenAsync(CancellationToken ct) => repository.CountOpenAsync(ct);
 }

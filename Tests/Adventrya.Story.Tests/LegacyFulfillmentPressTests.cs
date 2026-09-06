@@ -39,44 +39,56 @@ namespace Adventrya.Story.Tests;
 /// These tests drive the real print-preparation stage over the real Ghostscript binary, on the small
 /// fixture page <see cref="BekiPressPrepFixtures"/> builds for exactly that: everything except the
 /// receipt is genuinely clean, so the only thing that can move the verdict is the receipt.
+///
+/// **The 2026-09-06 decision record.** What the gate does with that receipt has since changed: it
+/// records the provenance and judges the MEASUREMENT. A composer enlargement onto the stated trim
+/// is a deterministic normalization, the same operation the press path performs deliberately, and a
+/// raster that measures correctly reaches the print slot however it came to be that size. The
+/// receipt still travels — that half of the fix stands, and is what makes the report worth reading
+/// beside a physical proof — but "these pixels were interpolated" is no longer a refusal.
 /// </summary>
 public class LegacyFulfillmentPressTests
 {
     /// <summary>
-    /// The defect itself. A book whose artwork was interpolated up to press size is withheld from
-    /// the print slot — and the file and its report are still stored, so the evidence names the gate
-    /// rather than disappearing with the URL.
+    /// The rule that used to withhold this book, reversed by the decision record of 2026-09-06.
+    ///
+    /// The composer's Lanczos3 enlargement onto the stated trim is a lawful deterministic
+    /// normalization — the same operation the press path's own normalizer performs — and the gate
+    /// no longer asks the NAME of the tool that produced a pixel. It asks whether the placed raster
+    /// measures what the sheet needs, which this one does, so the printer's file reaches the print
+    /// slot and its report says so.
+    ///
+    /// The receipt still reaches the stage and is still written down: what changed is what is done
+    /// with it. The provenance is evidence for a person inspecting a physical proof, not a verdict.
     /// </summary>
     [Fact]
-    public async Task An_interpolated_interior_is_withheld_from_the_print_slot()
+    public async Task A_composer_enlarged_interior_reaches_the_print_slot_when_it_measures_correctly()
     {
         var world = new LegacyWorld { Interpolated = true };
 
         await world.Run();
 
         Assert.True(world.Packs.PrintPdfUrlWritten);
-        Assert.Null(world.Packs.PrintPdfUrl);
+        Assert.Equal(
+            $"https://blob.test/{BekiPackBlobs.InteriorPdfName(world.UserId, world.PackId)}",
+            world.Packs.PrintPdfUrl);
 
-        // Stored, not vanished: the printer's file and the report that refuses it are both on the
-        // record, and the report names the gate.
         var reportName = BekiPackBlobs.InteriorPreflightName(world.UserId, world.PackId);
         Assert.Contains(BekiPackBlobs.InteriorPdfName(world.UserId, world.PackId), world.Blobs.Uploaded.Keys);
         Assert.Contains(reportName, world.Blobs.Uploaded.Keys);
 
-        using var report = JsonDocument.Parse(
-            System.Text.Encoding.UTF8.GetString(world.Blobs.Uploaded[reportName]));
+        var reportJson = System.Text.Encoding.UTF8.GetString(world.Blobs.Uploaded[reportName]);
+        using var report = JsonDocument.Parse(reportJson);
 
-        Assert.Contains(
-            report.RootElement.GetProperty("failed_gates").EnumerateArray(),
-            gate => gate.GetString() == BekiPrintPrep.PressResolutionGate);
+        Assert.Empty(report.RootElement.GetProperty("failed_gates").EnumerateArray());
+        Assert.Empty(report.RootElement.GetProperty("resolution").GetProperty("problems").EnumerateArray());
 
-        // The receipt reached the stage at all, which is the half of the fix that is not about
-        // withholding: the report can only say "interpolation alone" because it was handed the
-        // composer's provenance.
-        Assert.Contains(
-            "interpolation alone",
-            report.RootElement.GetProperty("resolution").GetProperty("problems")[0].GetString()!,
-            StringComparison.Ordinal);
+        // And no sentence anywhere in the stored evidence rests on how the pixels were made.
+        Assert.DoesNotContain("interpolation", reportJson, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("upscaler", reportJson, StringComparison.OrdinalIgnoreCase);
+
+        // The receipt still reached the stage and still names the resampler and the factor.
+        Assert.Contains("lanczos3", reportJson, StringComparison.Ordinal);
 
         // And the parent is untouched by any of it — the reading copy is published as always.
         Assert.NotNull(world.Packs.PdfUrl);

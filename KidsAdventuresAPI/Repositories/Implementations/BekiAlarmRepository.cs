@@ -199,6 +199,38 @@ public sealed class BekiAlarmRepository(ISqlConnectionFactory connectionFactory)
         return affected > 0;
     }
 
+    /// <summary>
+    /// Closes this book's open alarms for one check. Reviewed rows are left exactly as they are —
+    /// the same rule <see cref="ReviewAsync"/> follows, and for the same reason: a resolution with a
+    /// person's reasoning behind it is not overwritten by an automatic one.
+    /// </summary>
+    public async Task<int> ResolveOpenForPackAsync(
+        Guid packId, string checkId, string reviewedBy, string resolution,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE dbo.BekiAlarms
+                           SET ReviewedBy = @ReviewedBy,
+                               ReviewedAtUtc = SYSUTCDATETIME(),
+                               Resolution = @Resolution
+                           WHERE PackId = @PackId
+                             AND CheckId = @CheckId
+                             AND ReviewedAtUtc IS NULL;
+                           """;
+
+        using var connection = connectionFactory.CreateConnection();
+        return await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new
+            {
+                PackId = packId,
+                CheckId = checkId,
+                ReviewedBy = reviewedBy,
+                Resolution = resolution,
+            },
+            cancellationToken: cancellationToken));
+    }
+
     public async Task<int> CountOpenAsync(CancellationToken cancellationToken)
     {
         const string sql = """

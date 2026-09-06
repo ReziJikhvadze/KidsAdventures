@@ -124,9 +124,11 @@ public sealed class BekiPrintLayoutOptions
     ///
     /// What the audit was actually right about is kept, and kept where it belongs — in the evidence.
     /// A resize above this factor is delivered AND marked: the page's layout receipt carries the
-    /// source pixels, the delivered pixels and <c>interpolated: true</c>, print prep's
-    /// <c>PRESS_RESOLUTION</c> gate still fails on it in the preflight report, and the release policy
-    /// decides what a failed gate is worth. Nothing here tells a printer 300 PPI of detail arrived
+    /// source pixels, the delivered pixels and <c>interpolated: true</c>, and print prep's
+    /// <c>PRESS_RESOLUTION</c> gate records it in the preflight report. It is a threshold for a
+    /// receipt, not a gate: since the 2026-09-06 decision record the gate measures the output — the
+    /// exact pixels, the placed millimetres and the effective PPI — and the name of the tool that
+    /// produced them decides nothing. Nothing here tells a printer 300 PPI of detail arrived
     /// when it did not; it stops pretending that refusing to build the file is the same as fixing it.
     ///
     /// 1.05 — five per cent, a rounding difference rather than a claim, so a source that is already
@@ -284,8 +286,22 @@ public sealed class BekiPrintLayoutOptions
     /// <summary>
     /// The JPEG quality of normalized print artwork. JPEG rather than PNG is what keeps a
     /// 300-PPI book tens of megabytes instead of hundreds.
+    ///
+    /// 95, and 95 for a reason a printer can check: ImageSharp picks 4:2:0 chroma subsampling below
+    /// 91, which throws away three quarters of the colour resolution on a file whose whole purpose
+    /// is to be enlarged onto paper — visible on outlined type and on any hard colour edge. At 95
+    /// the composer asks for 4:4:4 explicitly (<c>JpegEncodingColor.YCbCrRatio444</c>) rather than
+    /// relying on that threshold, so the chroma is full even if the encoder's defaults move.
+    ///
+    /// The press path encodes exactly once, here: the canonical PDF skips Ghostscript, QuestPDF
+    /// embeds the bytes verbatim, and the stage in front hands over a lossless PNG already at the
+    /// exact raster. Two lossy passes over the same picture is the artefact this number exists to
+    /// prevent. Decision record: <c>BEKI_Print_Prep_Deterministic_Normalization_v1.md</c> (2026-09-06).
+    ///
+    /// It costs size — a local canonical book measured 35.75 MiB at this setting against 74 MiB
+    /// lossless — which is why the reading copy has its own number below and does not follow this one.
     /// </summary>
-    public int PrintAssetJpegQuality { get; set; } = 90;
+    public int PrintAssetJpegQuality { get; set; } = 95;
 
     /// <summary>
     /// The ceiling, in pixels per inch of finished page, on what the customer's download carries.
@@ -301,6 +317,17 @@ public sealed class BekiPrintLayoutOptions
     /// Zero disables the reduction and embeds every raster at its own resolution.
     /// </summary>
     public int ScreenTargetPpi { get; set; } = 150;
+
+    /// <summary>
+    /// The JPEG quality of the customer's reading copy — the download, not the press file.
+    ///
+    /// Its own number rather than <see cref="PrintAssetJpegQuality"/>, because the two answer
+    /// opposite questions. The press raster is encoded once and then enlarged onto paper, so it is
+    /// worth chroma nobody will ever compress again; the download is looked at on a screen at a
+    /// sixth of the area, and audit P2-1 rejected the previous reading copy for being 34 MB. 90 is
+    /// what that copy ships at today, and raising the press number must not quietly grow it.
+    /// </summary>
+    public int ScreenAssetJpegQuality { get; set; } = 90;
 
     /// <summary>The story type size a book starts its step-down ladder at, for this reader's age.</summary>
     internal static float StoryFontSizeFor(int? age, BekiPrintLayoutOptions layout) =>

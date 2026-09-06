@@ -146,6 +146,57 @@ public sealed class BekiOptions
     public string InteriorImageSize { get; set; } = "1024x1536";
     public string CoverImageSize { get; set; } = "1024x1536";
 
+    /// <summary>
+    /// The frame every printed spread is bought at, as <c>WxH</c>.
+    ///
+    /// 1536×1024 — today's request, unchanged. Every stored book was drawn at it, its 15:7 crop
+    /// and its 300 PPI normalization are what the accepted physical proof was made from, and a
+    /// default that quietly moved would change what every future order costs and looks like
+    /// without anyone deciding to.
+    ///
+    /// <para>
+    /// It is a setting because the frame is the one lever on printed sharpness that costs money:
+    /// the same book at a bigger frame needs less enlargement to reach 5315×2480. What this build
+    /// accepts is NOT the same list as the API's — see
+    /// <see cref="BekiImageRequestValidation"/> — because the allowlist is about what this book
+    /// has a reason to buy. On the gpt-image-2 family that is 1536×1024 and 2048×1152, plus
+    /// 3840×2160 only with <see cref="AllowExperimentalImageSizes"/>; on the gpt-image-1 family it
+    /// is 1536×1024 alone, since the rest of that family's list is square or portrait.
+    /// </para>
+    ///
+    /// <para>
+    /// The recommended opt-in is <c>2048x1152</c>: the largest frame OpenAI does not label
+    /// experimental, and a better shape as well — 16:9 loses 17% of its height to the 15:7 crop
+    /// where the current 3:2 loses 30%. It has not been drawn on a real book here (nothing in this
+    /// change spends money), so it is a change for the owner to make and watch, together with
+    /// <c>Beki:PageImageQuality</c> and a raised <c>OpenAI:ImageTimeoutMinutes</c>. Rolling back is
+    /// these keys and nothing else.
+    /// </para>
+    ///
+    /// Validated at startup against the model that will actually be sent, because a size the model
+    /// refuses is otherwise a 400 in the middle of a paid book rather than a boot failure.
+    /// </summary>
+    public string SpreadImageSize { get; set; } = Services.Story.BekiBookGenerator.SpreadImageSize;
+
+    /// <summary>
+    /// The frame the press cover wrap is bought at. Its own key rather than the spread's, because
+    /// the wrap is cropped to 512:245 rather than 15:7 and is one picture per book: it is the page
+    /// a parent sees first and the one place where paying more for one picture is a defensible
+    /// trade on its own. Same allowlist, same default, same rollback.
+    /// </summary>
+    public string CoverWrapImageSize { get; set; } = "1536x1024";
+
+    /// <summary>
+    /// Whether this deployment may ask for an output OpenAI documents as experimental — anything
+    /// above 3,686,400 pixels, which in the landscape list means 3840×2160.
+    ///
+    /// False, and it is a switch rather than an allowlist entry so that opting in is a deliberate
+    /// act with a name. An experimental output is one the provider reserves the right to change
+    /// the behaviour of; a book is printed once, and finding out that a size behaves differently
+    /// this week is not something to discover from a shipped order.
+    /// </summary>
+    public bool AllowExperimentalImageSizes { get; set; }
+
     /// <summary>The hero anchor and cover set the standard every page is matched against.</summary>
     public string AnchorImageQuality { get; set; } = "high";
     public string CoverImageQuality { get; set; } = "high";

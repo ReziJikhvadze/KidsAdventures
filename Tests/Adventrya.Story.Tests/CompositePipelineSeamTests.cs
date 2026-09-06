@@ -354,6 +354,161 @@ public class CompositePipelineSeamTests : CompositePipelineTestBase
     }
 
     // ---------------------------------------------------------------------------------------
+    // The same instrument on a bigger canvas — plan amendment A8
+    // ---------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// At the width every threshold was tuned at, nothing moves.
+    ///
+    /// This is the assertion that makes the rest of the change safe to make: the frame is a
+    /// setting now, so the readings scale with the canvas — and at 1536 the scale factor is
+    /// exactly one, so every number in the logs, every calibration taken from the thirty-nine
+    /// stored bases, and every test in this file mean precisely what they meant before.
+    /// </summary>
+    [Fact]
+    public void At_the_reference_width_every_threshold_is_the_number_it_always_was()
+    {
+        Assert.Equal(1536, CompositeSeamRepair.ReferenceCanvasWidthPx);
+
+        foreach (var tuned in new[]
+                 {
+                     CompositeSeamRepair.MaxRepairColumns,
+                     CompositeSeamRepair.EdgeStripColumns,
+                     CompositeSeamRepair.FieldGapColumns,
+                     CompositeSeamRepair.FieldStripColumns,
+                     CompositeSeamRepair.CoverFieldGapColumns,
+                 })
+        {
+            Assert.Equal(
+                tuned,
+                CompositeSeamRepair.ScaleToCanvas(
+                    tuned, CompositeSeamRepair.ReferenceCanvasWidthPx));
+        }
+
+        Assert.Same(
+            FieldReadingGeometry.Spread,
+            FieldReadingGeometry.Spread.ScaledTo(CompositeSeamRepair.ReferenceCanvasWidthPx));
+
+        // And on a wider canvas the strips cover the same VISUAL width: eight columns of 1536 is
+        // eleven of 2048, not eight.
+        var wider = FieldReadingGeometry.Spread.ScaledTo(2048);
+        Assert.Equal(11, wider.EdgeStripColumns);
+        Assert.Equal(16, wider.FieldGapColumns);
+        Assert.Equal(64, wider.FieldStripColumns);
+        Assert.Equal(FieldReadingGeometry.Spread.BandFraction, wider.BandFraction);
+    }
+
+    /// <summary>
+    /// Clean art, a narrow painted seam and a half-canvas veil are judged the same way at 1536 and
+    /// at 2048.
+    ///
+    /// Which is the whole point of scaling the thresholds rather than leaving them in raw pixels.
+    /// A book drawn at an opted-in larger frame is the same book: a seam is a seam because of what
+    /// it looks like, not because of how many pixels wide the render happened to be, and a gate
+    /// that passed a picture at one frame and refused it at another would be reporting the setting
+    /// rather than the artwork.
+    /// </summary>
+    [Fact]
+    public void The_verdicts_are_the_same_at_1536_and_at_2048()
+    {
+        foreach (var (name, atReference, atWider) in new[]
+                 {
+                     ("clean", Verdicts(CleanAt(1536)), Verdicts(CleanAt(2048))),
+                     ("narrow seam", Verdicts(SeamedAt(1536)), Verdicts(SeamedAt(2048))),
+                     ("half-canvas veil", Verdicts(VeiledAt(1536)), Verdicts(VeiledAt(2048))),
+                 })
+        {
+            Assert.True(
+                atReference == atWider,
+                $"the {name} fixture reads {atReference} at 1536 and {atWider} at 2048.");
+        }
+
+        // Not vacuously equal: the three fixtures produce three different pairs, which is what
+        // makes "the same at both widths" worth asserting. A narrow painted seam is a repairable
+        // run AND a full-height tonal edge, so both instruments see it; a veil is too wide to
+        // repair and is caught by the field reading alone.
+        Assert.Equal((false, false), Verdicts(CleanAt(2048)));
+        Assert.Equal((true, true), Verdicts(SeamedAt(2048)));
+        Assert.Equal((false, true), Verdicts(VeiledAt(2048)));
+    }
+
+    /// <summary>
+    /// The narrow seam is repaired on the wider canvas too, and the repair is still local: a run
+    /// of a seam's width, interpolated, and nothing else touched.
+    /// </summary>
+    [Fact]
+    public void A_seam_on_a_wider_canvas_is_repaired_at_the_same_visual_width()
+    {
+        var seamed = SeamedAt(2048);
+
+        var before = CompositeSeamRepair.Measure(seamed);
+        Assert.True(before.Exceeded, $"the scaled seam measured only {before.Ratio:F1}x.");
+        Assert.InRange(
+            before.ColumnCount, 1, CompositeSeamRepair.ScaleToCanvas(
+                CompositeSeamRepair.MaxRepairColumns, 2048));
+
+        var (repaired, _, after) = CompositeSeamRepair.Gate(seamed);
+
+        Assert.False(after.Exceeded, $"the seam still measures {after.Ratio:F1}x after the repair.");
+        Assert.NotEqual(seamed, repaired);
+    }
+
+    /// <summary>
+    /// The cover's four construction lines read the same on a wider wrap: a painted spine is found
+    /// and named, and a continuous panorama passes.
+    ///
+    /// The cover geometry is the one that could not survive being left in raw pixels — its strips
+    /// are sized to fit inside an 8 mm hinge, which is a fixed number of MILLIMETRES and therefore
+    /// a different number of columns on every canvas.
+    /// </summary>
+    [Fact]
+    public void The_cover_construction_bands_read_the_same_at_1536_and_at_2048()
+    {
+        foreach (var width in new[] { 1536, 2048 })
+        {
+            var height = (int)Math.Round(width / (double)BekiCoverDieline.AspectRatio);
+
+            Assert.False(
+                CompositeSeamRepair.MeasureConstructionBands(Gradient(width, height)).Exceeded,
+                $"a continuous {width}-wide wrap was reported as banded.");
+
+            var banded = WithSeam(
+                Gradient(width, height),
+                columns: CompositeSeamRepair.ScaleToCanvas(3, width),
+                darken: 90,
+                atColumn: CompositeCoverBandTests.ColumnFor(250.5, width));
+
+            var measured = CompositeSeamRepair.MeasureConstructionBands(banded);
+
+            Assert.True(measured.Exceeded, $"the {width}-wide painted spine was missed: {measured}");
+            Assert.Equal(
+                "back-hinge-to-spine",
+                Assert.Single(measured.Offending).Boundary.Name);
+        }
+    }
+
+    /// <summary>The printed spread's height for a given render width — 15:7, rounded.</summary>
+    private static int SpreadHeightFor(int width) =>
+        (int)Math.Round(width / CompositeDeterministicChecks.TargetAspect);
+
+    private static byte[] CleanAt(int width) => Gradient(width, SpreadHeightFor(width));
+
+    /// <summary>The same seam, in the columns that width needs to make it the same seam.</summary>
+    private static byte[] SeamedAt(int width) => WithSeam(
+        CleanAt(width), columns: CompositeSeamRepair.ScaleToCanvas(2, width), darken: 90);
+
+    private static byte[] VeiledAt(int width) => WithVeil(
+        CleanAt(width), leftSide: true, lift: 0.5,
+        shoulderColumns: CompositeSeamRepair.ScaleToCanvas(24, width));
+
+    /// <summary>Both instruments' answers about one picture, as a pair a test can compare.</summary>
+    private static (bool Seam, bool Field) Verdicts(byte[] png) =>
+    (
+        CompositeSeamRepair.Measure(png).Exceeded,
+        CompositeSeamRepair.MeasureCentreField(png).Exceeded
+    );
+
+    // ---------------------------------------------------------------------------------------
     // The centre-fold gate blocks again — audit-2 P0-05
     // ---------------------------------------------------------------------------------------
 

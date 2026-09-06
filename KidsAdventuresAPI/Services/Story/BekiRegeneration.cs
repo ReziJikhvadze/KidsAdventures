@@ -108,7 +108,8 @@ public sealed class BekiRegeneration(
     IBackgroundJobClient backgroundJobClient,
     IOptions<BekiOptions> bekiOptions,
     ILogger<BekiRegeneration> logger,
-    TimeProvider? timeProvider = null) : IBekiRegeneration
+    TimeProvider? timeProvider = null,
+    IBekiPackLock? packLock = null) : IBekiRegeneration
 {
     /// <summary>What the parent sees while the pictures are being made again.</summary>
     public const string ProgressMessage = "ადმინის მოთხოვნით ხელახლა იხატება…";
@@ -116,9 +117,28 @@ public sealed class BekiRegeneration(
     /// <summary>The alarms-table check id for a deliberate redraw. Severity flag: it is not a fault.</summary>
     public const string AlarmCheckId = "admin_regenerate";
 
+    /// <summary>
+    /// The refusal when another operation is running on this book — print re-preparation, stored-art
+    /// recovery, or a redraw somebody else asked for a moment earlier.
+    ///
+    /// A constant because a test has to be able to name it: the sentence itself is Georgian and
+    /// goes straight to the operator, and asserting on a copy of it would let the two drift.
+    /// </summary>
+    public const string BusyRefusal =
+        "წიგნზე სხვა ოპერაცია მიმდინარეობს (ბეჭდვის მომზადება, აღდგენა ან ხელახლა დახატვა) — "
+        + "დაელოდეთ დასრულებას და სცადეთ ხელახლა.";
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
+    /// <summary>
+    /// The book's one lock, shared with print re-preparation, recovery and the fulfilment job — see
+    /// <see cref="IBekiPackLock"/>. The status check above refuses a book whose job has claimed it,
+    /// but re-preparation runs against a book that stays <c>Completed</c> the whole time, so the
+    /// status is not evidence of anything for that case and only the lock is.
+    /// </summary>
+    private readonly IBekiPackLock _packLock = packLock ?? new InProcessBekiPackLock();
 
     public bool CanRegenerate(AdventurePack pack)
     {
@@ -194,6 +214,26 @@ public sealed class BekiRegeneration(
             // Without the preview run there is no plan, no portrait and no scenario source, and the
             // job would fail on its first line. Said plainly rather than queued and left to die.
             return Refused("ამ წიგნის საწყისი გეგმა ან ფოტო ვეღარ მოიძებნა, ამიტომ ხელახლა დახატვა შეუძლებელია.");
+        }
+
+        /*
+          The book's lock, around the claim, the deletes and the enqueue.
+
+          The compare-and-set below cannot see the operation that matters most here. Print
+          re-preparation and stored-art recovery run inline from the admin controller and leave the
+          pack reading Completed for their whole duration — minutes of building a press candidate
+          and then writing it over the live blobs — so a redraw arriving in that window passes every
+          status check above and then deletes the artwork the other stage is laying out. Whichever
+          finished last would publish a book describing pictures that no longer exist.
+
+          Zero wait, and a refusal rather than a queue: an operator wants to be told the book is
+          busy, and a redraw is a spend that should be made deliberately rather than in a minute's
+          time against a book somebody else has just changed.
+        */
+        await using var held = await _packLock.TryAcquireAsync(pack.Id, TimeSpan.Zero, cancellationToken);
+        if (held is null)
+        {
+            return Refused(BusyRefusal);
         }
 
         /*
@@ -343,6 +383,9 @@ public sealed class BekiRegeneration(
         BekiPackBlobs.SpreadQaName(pack.UserId, pack.Id, spread),
         BekiPackBlobs.CompositionManifestName(pack.UserId, pack.Id, spread),
         BekiPackBlobs.FailedSpreadName(pack.UserId, pack.Id, spread),
+        // The record of what the image provider was asked for THIS base. A receipt that outlived
+        // the pixels it describes is a receipt for a picture nobody can look at.
+        BekiPackBlobs.SpreadGenerationName(pack.UserId, pack.Id, spread),
     ];
 
     /// <summary>
@@ -359,6 +402,7 @@ public sealed class BekiRegeneration(
         BekiPackBlobs.CoverName(pack.UserId, pack.Id),
         BekiPackBlobs.CoverPdfName(pack.UserId, pack.Id),
         BekiPackBlobs.CoverPreflightName(pack.UserId, pack.Id),
+        BekiPackBlobs.CoverWrapGenerationName(pack.UserId, pack.Id),
     ];
 
     // -- the run this book resumes from -------------------------------------------------------

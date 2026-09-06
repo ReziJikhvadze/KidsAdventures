@@ -653,6 +653,32 @@ function OrderDetail({
               მომხმარებლის წიგნი მზადაა · ბეჭდვა შეჩერებულია — შეამოწმეთ შეცდომები
             </span>
           ) : null}
+          {/*
+            Printing held on a finished book is the one state the console had no button for: the
+            recovery button above needs a Failed book, and the retry button re-drives the whole
+            paid order. This re-runs print preparation over the artwork that is already stored.
+          */}
+          {book &&
+          !isLegacy &&
+          book.status === "Completed" &&
+          book.hasReadingPdf &&
+          !book.hasPrintPdf ? (
+            <button
+              type="button"
+              className="button"
+              disabled={action !== null}
+              onClick={() =>
+                void run("reprepare-print", async () => {
+                  const { message } = await admin.repreparePrint(book.id);
+                  return message;
+                })
+              }
+            >
+              {action === "reprepare-print"
+                ? "ბეჭდვა მზადდება…"
+                : "ბეჭდვის ხელახლა მომზადება — ახალი ხატვის გარეშე"}
+            </button>
+          ) : null}
           {book?.hasReadingPdf ? (
             <button
               type="button"

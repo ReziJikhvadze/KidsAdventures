@@ -393,6 +393,147 @@ public class BekiReconciliationTests
         Assert.Equal(new[] { 200, 30 }, packs.Batches);
     }
 
+    // ==============================================================================================
+    // One book, one operation — the sweep included
+    // ==============================================================================================
+
+    /// <summary>
+    /// A book somebody else is operating on is skipped, not judged.
+    ///
+    /// This is the hole the per-pack lock closes here. While a print re-preparation runs, the pack
+    /// stays Completed and its <c>PrintPdfUrl</c> has been revoked — which is exactly the shape the
+    /// withheld query looks for. So the sweep picked the book up mid-replacement, judged whichever
+    /// half of the new evidence had landed, and wrote a print URL from it; a re-preparation that
+    /// then withheld or rolled back had its refusal overwritten by a scan that knew nothing about
+    /// it. Skipped rather than queued: the sweep walks thousands of books and must not stop on one
+    /// for the several minutes a press stage takes.
+    /// </summary>
+    [Fact]
+    public async Task The_withheld_sweep_skips_a_book_whose_lock_another_operation_holds()
+    {
+        var blobs = new PolicyFakeBlobs();
+        SeedFinishedBook(blobs);
+        BekiReleasePolicyGateTests.Seed(blobs, UserId, PackId);
+
+        var withheld = CompletedPack();
+        withheld.PdfUrl = null;
+
+        var packs = new ReconcilePacks(withheld) { Withheld = [withheld] };
+
+        // The lock as a re-preparation would be holding it: the same in-process implementation the
+        // fulfilment and regeneration services fall back to, whose dictionary is static, so the
+        // holder and the sweep meet on one semaphore exactly as they meet on one Hangfire lock.
+        var packLock = new InProcessBekiPackLock();
+        var held = await packLock.TryAcquireAsync(PackId, TimeSpan.Zero, CancellationToken.None);
+
+        Assert.NotNull(held);
+
+        try
+        {
+            var published = await Reconciliation(
+                    packs, blobs, new RecordingAlarms(), packLock: packLock)
+                .ReconcileWithheldAsync(CancellationToken.None);
+
+            // Nothing published, and nothing counted: an operator's "0 books" is the truth here.
+            Assert.Equal(0, published);
+            Assert.True(string.IsNullOrWhiteSpace(packs.Pack.PdfUrl));
+            Assert.Null(packs.Pack.PrintPdfUrl);
+        }
+        finally
+        {
+            await held.DisposeAsync();
+        }
+    }
+
+    /// <summary>
+    /// And the skip is a postponement, not a verdict: the next pass finds the book and publishes it
+    /// exactly as it would have.
+    /// </summary>
+    [Fact]
+    public async Task The_next_sweep_publishes_the_book_once_the_lock_is_released()
+    {
+        var blobs = new PolicyFakeBlobs();
+        SeedFinishedBook(blobs);
+        BekiReleasePolicyGateTests.Seed(blobs, UserId, PackId);
+
+        var withheld = CompletedPack();
+        withheld.PdfUrl = null;
+
+        var packs = new ReconcilePacks(withheld) { Withheld = [withheld] };
+        var packLock = new InProcessBekiPackLock();
+        var reconciliation = Reconciliation(
+            packs, blobs, new RecordingAlarms(), packLock: packLock);
+
+        var held = await packLock.TryAcquireAsync(PackId, TimeSpan.Zero, CancellationToken.None);
+
+        Assert.NotNull(held);
+        Assert.Equal(0, await reconciliation.ReconcileWithheldAsync(CancellationToken.None));
+
+        await held.DisposeAsync();
+
+        Assert.Equal(1, await reconciliation.ReconcileWithheldAsync(CancellationToken.None));
+        Assert.False(string.IsNullOrWhiteSpace(packs.Pack.PdfUrl));
+    }
+
+    /// <summary>
+    /// The caller that is already inside the gate publishes rather than refusing itself.
+    ///
+    /// The fulfilment job's revival after a lost completion runs inside <c>ProcessAsync</c>, whose
+    /// <c>DisableConcurrentExecution</c> attribute is holding <c>beki-pack:{id}</c> — the very
+    /// resource this lock takes. A lock that is not re-entrant cannot be asked for twice, so that
+    /// caller says so, and everything past the acquisition is the same body. Without the
+    /// distinction the correction would have cost exactly the book it was written to save: a job
+    /// that finished after the sweep buried it would have found itself holding the lock and given
+    /// up on its own family's book.
+    /// </summary>
+    [Fact]
+    public async Task The_caller_that_already_holds_the_lock_still_publishes()
+    {
+        var blobs = new PolicyFakeBlobs();
+        SeedFinishedBook(blobs);
+
+        var packs = new ReconcilePacks(BuriedPack());
+        var packLock = new InProcessBekiPackLock();
+
+        await using var held = await packLock.TryAcquireAsync(
+            PackId, TimeSpan.Zero, CancellationToken.None);
+
+        Assert.NotNull(held);
+
+        var reconciliation = Reconciliation(
+            packs, blobs, new RecordingAlarms(), packLock: packLock);
+
+        // Anybody else is told the book is busy, and reads nothing.
+        var refused = await reconciliation.ReconcilePackAsync(
+            PackId, "a retry", CancellationToken.None);
+
+        Assert.False(refused.Restored);
+        Assert.Equal(BekiReconcileOutcomes.Locked, refused.Outcome);
+        Assert.Equal(AdventurePackStatus.Failed, packs.Pack.Status);
+
+        // The fulfilment job's way in goes straight through and publishes.
+        var restored = await reconciliation.ReconcilePackAsync(
+            PackId, "the fulfilment job finished after the sweep buried the book",
+            lockHeld: true, CancellationToken.None);
+
+        Assert.True(restored.Restored);
+        Assert.Equal(AdventurePackStatus.Completed, packs.Pack.Status);
+        Assert.False(string.IsNullOrWhiteSpace(packs.Pack.PdfUrl));
+
+        // And so does the shared writer entered the same way — which is what that revival published
+        // through, and what a self-deadlock would have hung on.
+        packs.Pack.PdfUrl = null;
+
+        var stored = BekiReleaseGateReport.TryParse(
+            Encoding.UTF8.GetString(blobs.Get(BekiPackBlobs.ReleaseGatesName(UserId, PackId))!))!;
+
+        var outcome = await reconciliation.PublishUnlockedFilesLockedAsync(
+            packs.Pack, stored, CancellationToken.None);
+
+        Assert.True(outcome.CustomerPdf);
+        Assert.False(string.IsNullOrWhiteSpace(packs.Pack.PdfUrl));
+    }
+
     /// <summary>
     /// The download refusal's own question, and the end of the lie the audit found: a Completed book
     /// with no PDF answers "review" or "gates" rather than "story must be ready".
@@ -449,13 +590,15 @@ public class BekiReconciliationTests
         ReconcilePacks packs,
         PolicyFakeBlobs blobs,
         RecordingAlarms alarms,
-        BekiReleasePolicySnapshot? policy = null) =>
+        BekiReleasePolicySnapshot? policy = null,
+        IBekiPackLock? packLock = null) =>
         new(packs,
             blobs,
             new BekiReleaseGates(blobs),
             alarms,
             NullLogger<BekiReleaseReconciliation>.Instance,
-            new FixedPolicy(policy ?? BekiReleasePolicySnapshot.Defaults));
+            new FixedPolicy(policy ?? BekiReleasePolicySnapshot.Defaults),
+            packLock);
 
     /// <summary>A pack the sweep buried, with the story the parent previewed still on the row.</summary>
     private static AdventurePack BuriedPack() => new()

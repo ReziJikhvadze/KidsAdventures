@@ -33,6 +33,26 @@ public interface IIllustrationClient
         string? imageSize = null,
         string? imageQuality = null);
 
+    /// <summary>
+    /// The same call, answering with what was actually sent and what actually came back — the
+    /// illustration client's half of <see cref="IOpenAiService.GenerateStoryImageWithProvenanceAsync"/>.
+    ///
+    /// A default implementation for the same reason it is one there: a vendor client that has not
+    /// been taught to describe itself reports <see cref="GeneratedStoryImage.Unknown"/> and
+    /// measures the picture, which is honest, rather than being unable to compile.
+    /// </summary>
+    async Task<GeneratedStoryImage> GenerateStoryImageWithProvenanceAsync(
+        string imagePrompt,
+        StoryImageReference? reference,
+        CancellationToken cancellationToken,
+        string? imageSize = null,
+        string? imageQuality = null) =>
+        GeneratedStoryImage.Unattributed(
+            await GenerateStoryImageAsync(
+                imagePrompt, reference, cancellationToken, imageSize, imageQuality),
+            imageSize,
+            imageQuality);
+
     Task<string> ReviewIllustrationAsync(
         byte[] imageBytes,
         string reviewPrompt,
@@ -57,6 +77,25 @@ public sealed class GeminiIllustrationClient(
     private readonly OpenAiOptions _openAi = openAiOptions.Value;
 
     public async Task<byte[]> GenerateStoryImageAsync(
+        string imagePrompt,
+        StoryImageReference? reference,
+        CancellationToken cancellationToken,
+        string? imageSize = null,
+        string? imageQuality = null) =>
+        (await GenerateStoryImageWithProvenanceAsync(
+            imagePrompt, reference, cancellationToken, imageSize, imageQuality)).Png;
+
+    /// <summary>
+    /// The one place the request is built, so the receipt cannot describe a call this class did
+    /// not make.
+    ///
+    /// <see cref="GeneratedStoryImage.RequestedSize"/> is deliberately not the caller's <c>WxH</c>:
+    /// Gemini is never sent one. What it is sent is the derived aspect ratio and the configured
+    /// resolution class, and writing those down — as <c>3:2@2K</c> — is what makes a Gemini book's
+    /// evidence comparable with an OpenAI book's instead of quietly claiming a pixel size nobody
+    /// asked this vendor for.
+    /// </summary>
+    public async Task<GeneratedStoryImage> GenerateStoryImageWithProvenanceAsync(
         string imagePrompt,
         StoryImageReference? reference,
         CancellationToken cancellationToken,
@@ -108,8 +147,39 @@ public sealed class GeminiIllustrationClient(
         var jpeg = await gemini.GenerateImageAsync(
             _gemini.ImageModel, input, responseFormat, cancellationToken);
 
-        return ToPng(jpeg);
+        var png = ToPng(jpeg);
+        var (width, height) = GeneratedStoryImage.MeasurePixels(png);
+
+        return new GeneratedStoryImage(
+            png,
+            AiProvider.Gemini.ToLowerInvariant(),
+            _gemini.ImageModel,
+            GenerateImageEndpoint,
+            $"{aspectRatio}@{_gemini.ImageSize}",
+            // Gemini has no per-call quality knob at all — see the log above. "n/a" rather than
+            // echoing the caller's ask, which would put a setting in the receipt that never left
+            // this machine.
+            "n/a",
+            width,
+            height,
+            // The API answers with the picture and nothing about how it drew it, so there is
+            // nothing to echo. Null is the difference between "it did not say" and "it said this".
+            ResponseSize: null,
+            ResponseQuality: null,
+            // Always: the API returns JPEG (asking for PNG is a 400) and ToPng transcodes it, so
+            // what this method hands back is a PNG whatever the wire carried.
+            OutputFormat: "png");
     }
+
+    /// <summary>
+    /// The route the picture came from, for the receipt.
+    ///
+    /// The Interactions API, not <c>generateContent</c>: this product talks to Gemini through
+    /// <see cref="IGeminiInteractionsClient"/>, which posts to <c>interactions</c>, and a receipt
+    /// naming the route the docs are famous for rather than the one the bytes travelled would be
+    /// a plausible lie in the one document written to be checked.
+    /// </summary>
+    internal const string GenerateImageEndpoint = "interactions";
 
     public async Task<string> ReviewIllustrationAsync(
         byte[] imageBytes,

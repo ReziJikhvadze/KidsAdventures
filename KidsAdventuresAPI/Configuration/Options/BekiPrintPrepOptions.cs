@@ -1,6 +1,52 @@
 namespace AdventurePacks.Api.Configuration.Options;
 
 /// <summary>
+/// How a short raster is made long enough for press.
+///
+/// Two modes, because there are exactly two lawful answers and the difference between them is a
+/// deployment decision rather than a code path somebody discovers at runtime.
+/// </summary>
+public enum BekiPrintPrepMode
+{
+    /// <summary>
+    /// The shipped default: one local, deterministic Lanczos3 normalization to the exact locked
+    /// raster, after an aspect-safe minimal crop. No external process, no network, no cost, and
+    /// the same bytes every time the same source is prepared.
+    /// </summary>
+    DeterministicLanczos,
+
+    /// <summary>
+    /// An external super-resolution executable, configured by path and argument template. Optional
+    /// and unused by this deployment; kept because the tooling and the receipts for it exist and a
+    /// future printer may want it.
+    /// </summary>
+    ExternalSuperResolution,
+}
+
+/// <summary>
+/// The configuration spellings of <see cref="BekiPrintPrepMode"/>.
+///
+/// The strings are the contract: they appear in <c>appsettings</c>, in <c>press-status.json</c>, in
+/// the preflight report and in the failure a misconfigured deployment gets at startup. Naming them
+/// once here is what keeps those four places from drifting into four different words for one mode.
+/// </summary>
+public static class BekiPrintPrepModes
+{
+    /// <inheritdoc cref="BekiPrintPrepMode.DeterministicLanczos"/>
+    public const string DeterministicLanczos = "deterministic_lanczos";
+
+    /// <inheritdoc cref="BekiPrintPrepMode.ExternalSuperResolution"/>
+    public const string ExternalSuperResolution = "external_super_resolution";
+
+    /// <summary>The configuration id of a mode — the one spelling anything written down uses.</summary>
+    public static string Id(BekiPrintPrepMode mode) => mode switch
+    {
+        BekiPrintPrepMode.ExternalSuperResolution => ExternalSuperResolution,
+        _ => DeterministicLanczos,
+    };
+}
+
+/// <summary>
 /// What the print-preparation stage runs with — since the Locked Print Specification v1
 /// (contracts/BEKI_Print_Production_Locked_Spec_v1.md), every default is the locked value rather
 /// than "not supplied": the exact FOGRA39 profile ships in the asset tree with its hash pinned
@@ -80,22 +126,72 @@ public sealed class BekiPrintPrepOptions
     public int RenderDpi { get; set; } = 120;
 
     /// <summary>
-    /// The external super-resolution executable, empty by default — which means disabled.
+    /// Which print-preparation mode this deployment runs — one of
+    /// <see cref="BekiPrintPrepModes.DeterministicLanczos"/> (the default) or
+    /// <see cref="BekiPrintPrepModes.ExternalSuperResolution"/>.
     ///
-    /// Audit P1-01 and P0-04: the shipped book was built on ~143 PPI story art and a ~125 PPI
-    /// cover, stretched to 300 PPI targets by a Lanczos pass. "Upscaling changes pixel count, not
-    /// source detail", so the resolution gate refuses interpolation-only enlargement outright and
-    /// there is exactly one lawful way to make a short source long enough: a real super-resolver,
-    /// named here, whose tool and factor are then recorded in the resolution receipt and the
-    /// preflight. Nothing is installed with this build; unconfigured is the shipped state, and an
-    /// unconfigured deployment withholds press files rather than passing thin ones.
+    /// A string rather than an enum on the wire, because this key is typed into an App Service
+    /// settings box and the value a reader of that box needs to recognise is the one the decision
+    /// record uses. <see cref="ParseMode"/> is forgiving about case and about <c>_</c> versus
+    /// <c>-</c>, and refuses everything else by name at startup rather than silently defaulting:
+    /// a typo here would otherwise decide how every press raster in the product is produced.
+    ///
+    /// The default is the 2026-09-06 decision record
+    /// (<c>contracts/BEKI_Print_Prep_Deterministic_Normalization_v1.md</c>): the physical proof was
+    /// reviewed and its sharpness accepted, so no external tool is required for this phase.
+    /// </summary>
+    public string Mode { get; set; } = BekiPrintPrepModes.DeterministicLanczos;
+
+    /// <summary>
+    /// <see cref="Mode"/> as the pipeline reads it.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// The configured value is not a mode. Thrown rather than defaulted, and the message names
+    /// <c>Beki:PrintPrep:Mode</c>, because the startup validator turns it into a deploy-time
+    /// failure that says which key to fix.
+    /// </exception>
+    public BekiPrintPrepMode ResolvedMode => ParseMode(Mode);
+
+    /// <summary>
+    /// Parses a configured mode, ignoring case and word separators.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The value names no mode.</exception>
+    public static BekiPrintPrepMode ParseMode(string value)
+    {
+        var normalized = (value ?? string.Empty)
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .Trim()
+            .ToLowerInvariant();
+
+        return normalized switch
+        {
+            "deterministiclanczos" => BekiPrintPrepMode.DeterministicLanczos,
+            "externalsuperresolution" => BekiPrintPrepMode.ExternalSuperResolution,
+            _ => throw new InvalidOperationException(
+                $"Beki:PrintPrep:Mode is '{value}', which is not a print preparation mode. Use "
+                + $"'{BekiPrintPrepModes.DeterministicLanczos}' (the default) or "
+                + $"'{BekiPrintPrepModes.ExternalSuperResolution}'."),
+        };
+    }
+
+    /// <summary>
+    /// The external super-resolution executable. Optional, and empty by default.
+    ///
+    /// Ignored entirely in <see cref="BekiPrintPrepModes.DeterministicLanczos"/> mode, which is
+    /// what this deployment runs: nothing reads it, and nothing fails for its absence. It is
+    /// required — with <see cref="UpscalerArgsTemplate"/> — only when <see cref="Mode"/> is
+    /// <see cref="BekiPrintPrepModes.ExternalSuperResolution"/>, and then startup validation
+    /// refuses to boot without it, because a mode that names a tool and has none is a deployment
+    /// that would silently prepare nothing.
     /// </summary>
     public string UpscalerPath { get; set; } = string.Empty;
 
     /// <summary>
-    /// The upscaler's argument template, whitespace-separated, with <c>{in}</c>, <c>{out}</c> and
-    /// <c>{scale}</c> substituted per invocation — for example
-    /// <c>-i {in} -o {out} -s {scale} -n realesrgan-x4plus</c>.
+    /// The external tool's argument template, whitespace-separated, with <c>{in}</c>, <c>{out}</c>
+    /// and <c>{scale}</c> substituted per invocation — for example
+    /// <c>-i {in} -o {out} -s {scale} -n realesrgan-x4plus</c>. Optional and ignored on the default
+    /// mode; required alongside <see cref="UpscalerPath"/> in external mode.
     ///
     /// A template rather than a command line: the tokens are expanded into
     /// <see cref="System.Diagnostics.ProcessStartInfo.ArgumentList"/> one argument at a time, so a

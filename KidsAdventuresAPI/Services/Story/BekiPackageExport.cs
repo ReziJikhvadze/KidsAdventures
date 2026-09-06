@@ -278,7 +278,17 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
                 $"qa/spread-{spread:00}-qa.json", PackageStatus.Canonical));
             entries.Add(new(BekiPackBlobs.FailedSpreadName(userId, packId, spread),
                 $"diagnostic/spread-{spread:00}-failed.png", PackageStatus.Diagnostic));
+
+            // What the image provider was asked for this page and what it returned. Optional
+            // because only books drawn since the record was introduced carry one, and an older
+            // book's package must not report a gap for evidence that never existed.
+            entries.Add(new(BekiPackBlobs.SpreadGenerationName(userId, packId, spread),
+                $"receipts/spread-{spread:00}-generation.json", PackageStatus.Canonical,
+                Optional: true));
         }
+
+        entries.Add(new(BekiPackBlobs.CoverWrapGenerationName(userId, packId),
+            "receipts/cover-wrap-generation.json", PackageStatus.Canonical, Optional: true));
 
         /*
           What the release policy waived, and the pictures it waived it on — amendment B4's evidence,

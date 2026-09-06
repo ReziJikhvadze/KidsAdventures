@@ -43,6 +43,36 @@ public sealed class AiServiceRouter(
         bool requireReferences = false,
         string? imageQuality = null)
     {
+        RequireReferences(reference, requireReferences);
+
+        return illustrations.GenerateStoryImageAsync(
+            imagePrompt, reference, cancellationToken, imageSize, imageQuality);
+    }
+
+    /// <summary>
+    /// The same routing decision, carrying the receipt back.
+    ///
+    /// Forwarded to whichever client this router actually routes to and never resolved here: a
+    /// receipt is only worth having if it names the vendor that drew the picture, and a router
+    /// that answered "openai" because that is the interface's name would be the exact failure
+    /// this record exists to end.
+    /// </summary>
+    public Task<GeneratedStoryImage> GenerateStoryImageWithProvenanceAsync(
+        string imagePrompt,
+        StoryImageReference? reference,
+        CancellationToken cancellationToken,
+        string? imageSize = null,
+        bool requireReferences = false,
+        string? imageQuality = null)
+    {
+        RequireReferences(reference, requireReferences);
+
+        return illustrations.GenerateStoryImageWithProvenanceAsync(
+            imagePrompt, reference, cancellationToken, imageSize, imageQuality);
+    }
+
+    private static void RequireReferences(StoryImageReference? reference, bool requireReferences)
+    {
         if (requireReferences
             && reference?.CharacterAnchorBytes is not { Length: > 0 }
             && reference?.CastPhotos.Any(photo => photo.Bytes is { Length: > 0 }) != true)
@@ -52,9 +82,6 @@ public sealed class AiServiceRouter(
                 + "supplied. Drawing it from the prompt alone would produce a picture of a "
                 + "different child in a different world.");
         }
-
-        return illustrations.GenerateStoryImageAsync(
-            imagePrompt, reference, cancellationToken, imageSize, imageQuality);
     }
 
     public Task<string> ReviewIllustrationAsync(

@@ -35,6 +35,12 @@ public static class BekiReconcileOutcomes
 
     /// <summary>Somebody moved the row between the read and the write.</summary>
     public const string Raced = "raced";
+
+    /// <summary>
+    /// Another operation holds the book's lock — a re-preparation, a recovery or a redraw — so this
+    /// call looked at nothing and wrote nothing. Not a failure: the next pass will find the book.
+    /// </summary>
+    public const string Locked = "locked";
 }
 
 /// <summary>
@@ -59,8 +65,28 @@ public interface IBekiReleaseReconciliation
     Task<BekiReconcileResult> ReconcilePackAsync(Guid packId, string reason, CancellationToken ct);
 
     /// <summary>
+    /// The same revival, for a caller that is ALREADY holding this book's lock.
+    ///
+    /// The fulfilment job is one: its <c>DisableConcurrentExecution</c> attribute takes the very
+    /// resource <see cref="IBekiPackLock"/> takes, so a revival called from inside the job that
+    /// tried to take it again would be told the book is busy — by itself. Passing
+    /// <paramref name="lockHeld"/> is how that caller says "the gate is already shut behind me",
+    /// and it is the only difference between the two: everything past the acquisition is one body.
+    ///
+    /// A default implementation so that the hand-written doubles in the suites, which implement the
+    /// three-argument form, keep compiling — and so that a double that has no lock at all behaves
+    /// exactly as it did.
+    /// </summary>
+    Task<BekiReconcileResult> ReconcilePackAsync(
+        Guid packId, string reason, bool lockHeld, CancellationToken ct) =>
+        ReconcilePackAsync(packId, reason, ct);
+
+    /// <summary>
     /// Re-evaluates every Completed Beki book whose download is withheld, under the policy in force
     /// now, and publishes what unlocks — amendment B7. Returns how many were published.
+    ///
+    /// Each book is visited under its own lock. One that another operation is holding is skipped
+    /// and not counted; the next pass will find it.
     /// </summary>
     Task<int> ReconcileWithheldAsync(CancellationToken ct);
 
@@ -78,6 +104,21 @@ public interface IBekiReleaseReconciliation
     /// </summary>
     Task<BekiPublishOutcome> PublishUnlockedFilesAsync(
         Domain.Entities.AdventurePack pack, BekiReleaseGateReport report, CancellationToken ct);
+
+    /// <summary>
+    /// The same writer, for a caller that already holds the book's lock.
+    ///
+    /// <see cref="PublishUnlockedFilesAsync"/> takes the lock itself, re-reads the row and the
+    /// stored verdict under it, and skips a book somebody else is operating on — which is what an
+    /// admin approval and the withheld sweep want. A caller that is already inside the gate must
+    /// NOT ask for it a second time: the lock is not re-entrant, and a re-entrant acquisition on a
+    /// distributed lock is a deadlock rather than an error.
+    ///
+    /// A default implementation, so an existing double keeps behaving exactly as it did.
+    /// </summary>
+    Task<BekiPublishOutcome> PublishUnlockedFilesLockedAsync(
+        Domain.Entities.AdventurePack pack, BekiReleaseGateReport report, CancellationToken ct) =>
+        PublishUnlockedFilesAsync(pack, report, ct);
 
     /// <summary>
     /// Raises one alarm per gate the policy waived on a stored verdict — amendment B4. Idempotent by
@@ -132,9 +173,26 @@ public sealed class BekiReleaseReconciliation(
     BekiReleaseGates releaseGates,
     IBekiAlarmService alarms,
     ILogger<BekiReleaseReconciliation> logger,
-    IBekiReleasePolicyService? policyService = null) : IBekiReleaseReconciliation, IBekiDownloadStatusService
+    IBekiReleasePolicyService? policyService = null,
+    IBekiPackLock? packLock = null) : IBekiReleaseReconciliation, IBekiDownloadStatusService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    /// <summary>
+    /// The book's one gate, the same one the fulfilment job, a re-preparation and a redraw take.
+    ///
+    /// This service was outside it, and that was the hole. While a re-preparation runs, the pack
+    /// stays Completed and its <c>PrintPdfUrl</c> has been revoked — which is precisely the shape
+    /// <c>ListWithheldBekiPacksAsync</c> looks for. So the sweep could pick the book up mid-write,
+    /// judge it on evidence that was half the old book and half a candidate about to be thrown
+    /// away, and re-publish printing over a re-preparation that had just withheld it. Optional and
+    /// defaulted like the other two services' so that every existing construction still compiles.
+    /// </summary>
+    private readonly IBekiPackLock _packLock = packLock ?? new InProcessBekiPackLock();
+
+    /// <summary>What a log line says about a book somebody else is operating on.</summary>
+    private const string SkippedMessage =
+        "Beki pack {PackId} skipped: another operation holds its lock.";
 
     /// <summary>How many withheld books are read from the database at a time.</summary>
     private const int WithheldBatchLimit = 200;
@@ -151,9 +209,37 @@ public sealed class BekiReleaseReconciliation(
     /// </summary>
     private const int WithheldMaxBatches = 50;
 
+    public Task<BekiReconcileResult> ReconcilePackAsync(
+        Guid packId, string reason, CancellationToken ct) =>
+        ReconcilePackAsync(packId, reason, lockHeld: false, ct);
+
     public async Task<BekiReconcileResult> ReconcilePackAsync(
-        Guid packId, string reason, CancellationToken ct)
+        Guid packId, string reason, bool lockHeld, CancellationToken ct)
     {
+        /*
+          The book's lock, unless the caller is already standing inside it.
+
+          Everything below reads the pack row and the stored evidence and then writes both URL
+          columns, which is exactly what a re-preparation is doing to the same book at the same
+          moment — and a revival that read the candidate's release-gates.json and then wrote a print
+          URL from it would publish files a re-preparation was about to roll back. Zero wait: this
+          runs from a Hangfire job and from an operator's click, and neither wants to be queued
+          behind a press stage that takes minutes.
+        */
+        await using var held = lockHeld
+            ? null
+            : await _packLock.TryAcquireAsync(packId, TimeSpan.Zero, ct);
+
+        if (!lockHeld && held is null)
+        {
+            logger.LogInformation(SkippedMessage, packId);
+
+            return BekiReconcileResult.No(
+                BekiReconcileOutcomes.Locked,
+                "another operation is running on this book (print re-preparation, recovery or "
+                + "regeneration); nothing was read and nothing was written.");
+        }
+
         var pack = await packRepository.GetByIdNoOwnershipAsync(packId, ct);
 
         if (pack is null)
@@ -251,7 +337,9 @@ public sealed class BekiReleaseReconciliation(
             pack.PdfUrl = pdfUrl;
             pack.GeneratedJson = contentJson;
 
-            await PublishUnlockedFilesAsync(pack, report, ct);
+            // The locked form: this method is holding the gate already, and asking for it again
+            // would be this call telling itself the book is busy.
+            await PublishUnlockedFilesLockedAsync(pack, report, ct);
             await RaiseWaiverAlarmsAsync(pack.Id, pack.UserId, null, report, ct);
         }
 
@@ -328,6 +416,41 @@ public sealed class BekiReleaseReconciliation(
             {
                 try
                 {
+                    /*
+                      One book's lock, for as long as this book takes, and no waiting.
+
+                      The row was read a moment ago and the sweep is about to judge the book's
+                      stored evidence and write its URL columns from the verdict. A re-preparation
+                      running on the same book is doing exactly that in the other direction — it
+                      revokes the print URL, replaces the evidence, and puts everything back if the
+                      verdict refuses — while the pack still reads Completed and therefore still
+                      answers the withheld query. Without this the sweep judged whatever half of the
+                      replacement had landed and re-published printing over a withholding.
+
+                      Skipping rather than waiting: a book that is busy now will be idle by the next
+                      pass, and a pass that queued behind a press stage would hold this scan open
+                      for minutes on behalf of one book.
+                    */
+                    await using var held = await _packLock.TryAcquireAsync(pack.Id, TimeSpan.Zero, ct);
+
+                    if (held is null)
+                    {
+                        logger.LogInformation(SkippedMessage, pack.Id);
+                        continue;
+                    }
+
+                    // Re-read under the lock. The row in hand came out of a batch read before the
+                    // gate was shut, so whoever was holding the book may have finished writing to
+                    // it since — including the very columns this is about to decide on.
+                    var current = await packRepository.GetByIdNoOwnershipAsync(pack.Id, ct);
+
+                    if (current is null)
+                    {
+                        continue;
+                    }
+
+                    Adopt(pack, current);
+
                     var report = await releaseGates.EvaluateAsync(
                         pack.UserId, pack.Id, ct, policy);
 
@@ -342,7 +465,9 @@ public sealed class BekiReleaseReconciliation(
                     // Either column counts. A press gate loosened to a flag releases the printer's
                     // interior on a book whose reading copy went out months ago, and reporting that
                     // as "nothing was published" would tell the operator their switch reached nobody.
-                    if ((await PublishUnlockedFilesAsync(pack, report, ct)).Anything)
+                    //
+                    // The locked form, because the gate above is this loop's own.
+                    if ((await PublishUnlockedFilesLockedAsync(pack, report, ct)).Anything)
                     {
                         published++;
                     }
@@ -388,6 +513,47 @@ public sealed class BekiReleaseReconciliation(
     }
 
     public async Task<BekiPublishOutcome> PublishUnlockedFilesAsync(
+        Domain.Entities.AdventurePack pack, BekiReleaseGateReport report, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(pack);
+        ArgumentNullException.ThrowIfNull(report);
+
+        /*
+          The door for callers who are NOT already holding the book: the admin approval endpoint,
+          and anything else that judges a book on a request thread.
+
+          The verdict such a caller hands in was computed before this line, outside the gate. If a
+          re-preparation finished in between, that verdict describes a book that no longer exists —
+          so the row and the stored verdict are read again in here, and the newer one wins.
+        */
+        await using var held = await _packLock.TryAcquireAsync(pack.Id, TimeSpan.Zero, ct);
+
+        if (held is null)
+        {
+            logger.LogInformation(SkippedMessage, pack.Id);
+            return BekiPublishOutcome.Nothing;
+        }
+
+        var current = await packRepository.GetByIdNoOwnershipAsync(pack.Id, ct);
+
+        if (current is null)
+        {
+            logger.LogWarning(
+                "Beki pack {PackId}: the row is gone, so there is nothing to publish to.", pack.Id);
+            return BekiPublishOutcome.Nothing;
+        }
+
+        Adopt(pack, current);
+
+        // The stored verdict, re-read under the gate. Falling back to the caller's own when there
+        // is nothing readable in storage: a book with no release-gates.json is a book judged by
+        // whoever is asking, which is what it was before this method took a lock at all.
+        var stored = await ReadReportAsync(pack.UserId, pack.Id, ct);
+
+        return await PublishUnlockedFilesLockedAsync(pack, stored ?? report, ct);
+    }
+
+    public async Task<BekiPublishOutcome> PublishUnlockedFilesLockedAsync(
         Domain.Entities.AdventurePack pack, BekiReleaseGateReport report, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(pack);
@@ -514,6 +680,31 @@ public sealed class BekiReleaseReconciliation(
     // ==============================================================================================
     // Reading what is stored
     // ==============================================================================================
+
+    /// <summary>
+    /// Brings the caller's copy of the row up to date with the one just read under the lock.
+    ///
+    /// The caller's instance is updated rather than replaced because it is the object the caller
+    /// keeps looking at after this returns — the approval endpoint reads the columns back off it,
+    /// and the sweep's batch holds it. Handing back a different object would leave both of them
+    /// reading the row as it was before the gate was shut, which is the fault this is closing.
+    ///
+    /// Only the four columns anything here decides on, and nothing when the repository handed back
+    /// the very same instance, which a tracked context and every test double do.
+    /// </summary>
+    private static void Adopt(
+        Domain.Entities.AdventurePack pack, Domain.Entities.AdventurePack current)
+    {
+        if (ReferenceEquals(pack, current))
+        {
+            return;
+        }
+
+        pack.Status = current.Status;
+        pack.PdfUrl = current.PdfUrl;
+        pack.PrintPdfUrl = current.PrintPdfUrl;
+        pack.GeneratedJson = current.GeneratedJson;
+    }
 
     /// <summary>
     /// Which of a finished book's artifacts are not there. Empty means the book is complete in the

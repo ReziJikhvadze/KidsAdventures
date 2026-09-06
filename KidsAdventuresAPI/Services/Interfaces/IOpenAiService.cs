@@ -1,7 +1,90 @@
 using AdventurePacks.Api.Domain.Models;
 using AdventurePacks.Api.DTOs.AdventurePacks;
+using SixLabors.ImageSharp;
 
 namespace AdventurePacks.Api.Services.Interfaces;
+
+/// <summary>
+/// One generated picture together with the request that actually produced it.
+///
+/// It exists because the book's evidence package could not answer the simplest question anyone
+/// asks of a printed spread: what was this drawn at? The pipeline logged <c>Beki:ImageModel</c> —
+/// a configuration value that the image routes do not necessarily send — and nothing anywhere
+/// recorded the size or quality asked for, let alone the pixels that came back. So a book whose
+/// bases measured 1536×717 could not be told apart from a book whose provider had quietly
+/// answered at a smaller frame, and a size or quality change could not be shown to have taken
+/// effect on a real order.
+///
+/// Every field is what happened rather than what was configured: <see cref="Model"/> is the model
+/// name put in the request, <see cref="Endpoint"/> the route it went to, and the three
+/// <c>Response*</c> fields are the provider's own echo of what it did, present only when it sent
+/// them (gpt-image responses carry <c>size</c>, <c>quality</c> and <c>output_format</c>).
+/// </summary>
+/// <param name="ReturnedWidthPx">
+/// Measured from the bytes, not read from the request — a provider that ignored the size asked
+/// for is exactly the case this record has to be able to show. Zero when the bytes will not decode.
+/// </param>
+public sealed record GeneratedStoryImage(
+    byte[] Png,
+    string Provider,
+    string Model,
+    string Endpoint,
+    string RequestedSize,
+    string RequestedQuality,
+    int ReturnedWidthPx,
+    int ReturnedHeightPx,
+    string? ResponseSize,
+    string? ResponseQuality,
+    string? OutputFormat)
+{
+    /// <summary>What a provenance-unaware implementation truthfully knows about itself.</summary>
+    public const string Unknown = "unknown";
+
+    /// <summary>The requested value when the caller passed none and the deployment's own applied.</summary>
+    public const string Default = "default";
+
+    /// <summary>
+    /// The honest record for an implementation that only has the bytes: the picture is real and
+    /// measured, everything else says so rather than guessing. Used by the interface default
+    /// members, which is what lets a new member arrive without every existing double changing.
+    /// </summary>
+    public static GeneratedStoryImage Unattributed(
+        byte[] png, string? requestedSize, string? requestedQuality)
+    {
+        var (width, height) = MeasurePixels(png);
+
+        return new GeneratedStoryImage(
+            png, Unknown, Unknown, Unknown,
+            string.IsNullOrWhiteSpace(requestedSize) ? Default : requestedSize.Trim(),
+            string.IsNullOrWhiteSpace(requestedQuality) ? Default : requestedQuality.Trim(),
+            width, height, null, null, null);
+    }
+
+    /// <summary>
+    /// The picture's own dimensions, or 0×0 when the bytes are not an image this build can read.
+    ///
+    /// Never throws: this is a receipt, and a receipt that takes down the book it is describing
+    /// would be worse than a receipt with a gap in it. The undecodable case is already the
+    /// pipeline's own deterministic check to refuse, with a far better message than a header read.
+    /// </summary>
+    public static (int Width, int Height) MeasurePixels(byte[]? png)
+    {
+        if (png is not { Length: > 0 })
+        {
+            return (0, 0);
+        }
+
+        try
+        {
+            var info = Image.Identify(png);
+            return (info.Width, info.Height);
+        }
+        catch (Exception)
+        {
+            return (0, 0);
+        }
+    }
+}
 
 public interface IOpenAiService
 {
@@ -51,6 +134,29 @@ public interface IOpenAiService
         string? imageSize = null,
         bool requireReferences = false,
         string? imageQuality = null);
+
+    /// <summary>
+    /// The same call, answering with what was actually sent and what actually came back.
+    ///
+    /// A default implementation rather than a new obligation, and deliberately so: every caller
+    /// that only wants the picture keeps the method above, and every existing implementation —
+    /// the test doubles most of all — compiles unchanged and reports itself honestly as
+    /// <see cref="GeneratedStoryImage.Unknown"/> instead of inventing a provider it never called.
+    /// The real implementations override it; see <c>OpenAiService</c> and
+    /// <c>GeminiIllustrationClient</c>.
+    /// </summary>
+    async Task<GeneratedStoryImage> GenerateStoryImageWithProvenanceAsync(
+        string imagePrompt,
+        StoryImageReference? reference,
+        CancellationToken cancellationToken,
+        string? imageSize = null,
+        bool requireReferences = false,
+        string? imageQuality = null) =>
+        GeneratedStoryImage.Unattributed(
+            await GenerateStoryImageAsync(
+                imagePrompt, reference, cancellationToken, imageSize, requireReferences, imageQuality),
+            imageSize,
+            imageQuality);
 
     /// <summary>
     /// Looks at a finished illustration and says whether it is usable. Returns the model's raw

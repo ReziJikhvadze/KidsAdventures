@@ -32,14 +32,14 @@ namespace Adventrya.Story.Tests;
 public class BekiReleaseGatesTests
 {
     [Fact]
-    public async Task Missing_upscaler_and_flagged_human_review_do_not_withhold_the_customer_pdf()
+    public async Task Withheld_printing_and_flagged_human_review_do_not_withhold_the_customer_pdf()
     {
         var blobs = new FakeBlobs();
         SeedCompleteBook(blobs, needsHumanReading: true);
         blobs.Seed(BekiPackBlobs.PressStatusName(UserId, PackId), Json(new
         {
             failed_gates = new[] { "PRESS_RESOLUTION" },
-            reason = "Beki:PrintPrep:UpscalerPath is empty",
+            reason = "page 3 full-spread raster is 4000×1866 px, locked size is 5315×2480",
         }));
         var report = await new BekiReleaseGates(blobs).EvaluateAsync(
             UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Defaults);
@@ -113,7 +113,7 @@ public class BekiReleaseGatesTests
         blobs.Seed(BekiPackBlobs.PressStatusName(UserId, PackId), Json(new
         {
             failed_gates = new[] { "PRESS_RESOLUTION" },
-            reason = "the source art carries 143 PPI of detail at placement size",
+            reason = "the placed raster measures 143 effective PPI where 300 is owed",
         }));
 
         var verdict = await new BekiReleaseGates(blobs)

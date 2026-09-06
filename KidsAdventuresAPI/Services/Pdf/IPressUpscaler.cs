@@ -6,48 +6,69 @@ using SixLabors.ImageSharp;
 namespace AdventurePacks.Api.Services.Pdf;
 
 /// <summary>
-/// The one lawful way to make a short raster long enough for press.
+/// The stage that turns a stored base into the exact raster the press sheet needs.
 ///
-/// Audit P1-01 states the rule this abstraction exists to enforce: "Upscaling changes pixel count,
-/// not source detail." The shipped book ran 2528×1180 story art through a Lanczos stretch to
-/// 5315×2480 and reported 300 PPI, and the audit named that metadata-passing as the defect. So the
-/// resolution gate refuses interpolation-only enlargement outright, and the correction plan (D5c)
-/// leaves exactly one door open: an approved super-resolver, run as an external tool, whose name
-/// and factor are recorded in the resolution receipt and echoed in the preflight so that a physical
-/// proof can be inspected against a claim somebody actually made.
+/// Two implementations, one per <see cref="BekiPrintPrepMode"/>:
+/// <see cref="DeterministicLanczosNormalizer"/> — the default — reconciles the aspect ratio with a
+/// minimal centred crop and performs one local Lanczos3 resize to the locked pixel size, and
+/// <see cref="CliPressUpscaler"/> runs an external super-resolution executable for a deployment that
+/// configures one. Which one is registered is <see cref="PressRasterPreparerFactory"/>'s decision,
+/// taken from configuration; nothing downstream asks.
 ///
-/// **Nothing is installed by this build.** The implementation ships disabled — no binary, no
-/// registration — which is the intended state: an unconfigured deployment withholds press files
-/// with <c>PRESS_RESOLUTION</c> rather than passing thin ones, and the parent's reading copy is
-/// unaffected either way.
+/// What the caller gets back is a measurement, not a claim. The 2026-09-06 decision record
+/// (<c>contracts/BEKI_Print_Prep_Deterministic_Normalization_v1.md</c>) settled that the gate judges
+/// the output — exact pixels, effective PPI at placement, aspect preserved — and never the name or
+/// the provenance of the tool that resized it. The receipt still records the tool, the factor and
+/// the crop, because a physical proof is inspected against what somebody actually did.
 /// </summary>
 public interface IPressUpscaler
 {
-    /// <summary>Whether a tool is configured at all. False is the shipped default.</summary>
+    /// <summary>
+    /// Whether this preparer can run at all. The deterministic normalizer is always configured;
+    /// the external tool is configured only when a path was supplied.
+    /// </summary>
     bool IsConfigured { get; }
 
     /// <summary>
-    /// Enlarges one PNG to at least the requested pixel size using real super-resolution.
+    /// Prepares one PNG at the requested pixel size.
     /// </summary>
     /// <returns>
-    /// The enlarged PNG and the provenance a receipt needs. Never throws for a configuration
-    /// reason: an unconfigured or failing upscaler answers with
-    /// <see cref="PressUpscaleResult.Succeeded"/> false and a reason, because the caller's next
-    /// move is to withhold the press file, not to crash the book the parent paid for.
+    /// The prepared PNG and the provenance a receipt needs. Never throws for a configuration or a
+    /// content reason: a failing preparer answers with <see cref="PressUpscaleResult.Succeeded"/>
+    /// false and a reason, because the caller's next move is to record the problem and let the
+    /// measurement decide, not to crash the book the parent paid for.
     /// </returns>
     Task<PressUpscaleResult> UpscaleAsync(
         byte[] png, int targetWidth, int targetHeight, CancellationToken cancellationToken);
 }
 
 /// <summary>
-/// What an upscale attempt produced, and what may be said about it afterwards.
+/// The rectangle a normalization kept out of its source, and how much of each axis that discarded.
+///
+/// Recorded rather than inferred: "we resized it" and "we resized it after throwing away a fifth of
+/// the picture" are different statements about the same delivered pixel count, and only one of them
+/// is a book somebody approved.
 /// </summary>
-/// <param name="Succeeded">False means the press path withholds; it does not mean the book failed.</param>
-/// <param name="Png">The enlarged image, when there is one.</param>
+/// <param name="CropFractionX">Share of the source width discarded — 0 when nothing was.</param>
+public sealed record PressCropGeometry(
+    int XPx,
+    int YPx,
+    int WidthPx,
+    int HeightPx,
+    double CropFractionX,
+    double CropFractionY);
+
+/// <summary>
+/// What a preparation attempt produced, and what may be said about it afterwards.
+/// </summary>
+/// <param name="Succeeded">False means this raster was not prepared; it does not mean the book failed.</param>
+/// <param name="Png">The prepared image, when there is one.</param>
 /// <param name="Tool">The tool as it will appear in the receipt — never "resize", never blank.</param>
-/// <param name="Factor">Linear enlargement actually achieved, source width to delivered width.</param>
+/// <param name="Factor">Linear scale actually applied, cropped source width to delivered width.</param>
 /// <param name="SourceWidthPx">The source's real pixel width, which is the number the audit cares about.</param>
 /// <param name="Reason">Why it did not happen, when it did not.</param>
+/// <param name="Crop">What the aspect reconciliation discarded; null when nothing was resized.</param>
+/// <param name="Mode">The print preparation mode this result came out of.</param>
 public sealed record PressUpscaleResult(
     bool Succeeded,
     byte[]? Png,
@@ -57,23 +78,77 @@ public sealed record PressUpscaleResult(
     int SourceHeightPx,
     int DeliveredWidthPx,
     int DeliveredHeightPx,
-    string? Reason)
+    string? Reason,
+    PressCropGeometry? Crop = null,
+    string Mode = BekiPrintPrepModes.DeterministicLanczos)
 {
-    /// <summary>The shipped state: no tool configured, so no enlargement may be claimed.</summary>
-    public static PressUpscaleResult NotConfigured(int sourceWidth, int sourceHeight) =>
+    /// <summary>
+    /// External mode was selected and no tool was named. The startup validator makes this
+    /// unreachable on a healthy deployment; it exists so a test double and a hand-built options
+    /// object get the same sentence a misconfiguration would.
+    /// </summary>
+    public static PressUpscaleResult ExternalToolNotConfigured(int sourceWidth, int sourceHeight) =>
         new(false, null, "none", 1d, sourceWidth, sourceHeight, sourceWidth, sourceHeight,
-            "no press upscaler is configured (Beki:PrintPrep:UpscalerPath is empty); "
-            + "interpolation-only enlargement is a PRESS_RESOLUTION failure, so the press file is "
-            + "withheld rather than upscaled in software");
+            "external_super_resolution mode is enabled but Beki:PrintPrep:UpscalerPath is empty; "
+            + "configure the tool or switch Beki:PrintPrep:Mode to deterministic_lanczos",
+            null, BekiPrintPrepModes.ExternalSuperResolution);
+
+    /// <summary>
+    /// The former name of <see cref="ExternalToolNotConfigured"/>, kept as a forwarding alias so the
+    /// callers written against it keep compiling. Not marked obsolete on purpose: CI builds with
+    /// <c>-warnaserror</c>, and a rename is not worth breaking the build over.
+    /// </summary>
+    public static PressUpscaleResult NotConfigured(int sourceWidth, int sourceHeight) =>
+        ExternalToolNotConfigured(sourceWidth, sourceHeight);
 
     /// <summary>The receipt line this result contributes to the preflight.</summary>
     public BekiResolutionSource ToReceiptSource(string role) => new(
         role, SourceWidthPx, SourceHeightPx, DeliveredWidthPx, DeliveredHeightPx, Tool, Factor,
-        InterpolationOnly: false);
+        InterpolationOnly: false, Crop, Mode);
 }
 
 /// <summary>
-/// The configured-external-tool implementation: a process, an argument list, and no shell.
+/// The default preparer: one deterministic Lanczos3 normalization, locally, for free.
+///
+/// It is always "configured" because there is nothing to configure — no binary, no path, no
+/// network — which is the whole reason the 2026-09-06 decision record makes it the default: a
+/// deployment cannot forget to install it, and the same source produces the same bytes on every
+/// machine that prepares it.
+/// </summary>
+public sealed class DeterministicLanczosNormalizer : IPressUpscaler
+{
+    /// <inheritdoc />
+    public bool IsConfigured => true;
+
+    /// <inheritdoc />
+    public Task<PressUpscaleResult> UpscaleAsync(
+        byte[] png, int targetWidth, int targetHeight, CancellationToken cancellationToken) =>
+        Task.FromResult(BekiPressRaster.NormalizeDeterministic(png, targetWidth, targetHeight));
+}
+
+/// <summary>
+/// Chooses the preparer the configured mode asks for.
+///
+/// One factory rather than a conditional at each construction site: DI resolves it, and so does the
+/// fulfilment stage's constructor fallback, and those two answering differently is exactly the
+/// class of bug where a job prepares press rasters with a tool the report names wrongly.
+/// </summary>
+public static class PressRasterPreparerFactory
+{
+    /// <summary>The preparer for these options' <see cref="BekiPrintPrepOptions.ResolvedMode"/>.</summary>
+    public static IPressUpscaler Create(BekiPrintPrepOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        return options.ResolvedMode == BekiPrintPrepMode.ExternalSuperResolution
+            ? new CliPressUpscaler(options)
+            : new DeterministicLanczosNormalizer();
+    }
+}
+
+/// <summary>
+/// The <see cref="BekiPrintPrepMode.ExternalSuperResolution"/> implementation: a process, an
+/// argument list, and no shell. Only reached when a deployment selects that mode.
 ///
 /// The executable and its arguments come from <see cref="BekiPrintPrepOptions.UpscalerPath"/> and
 /// <see cref="BekiPrintPrepOptions.UpscalerArgsTemplate"/>. Arguments are expanded token by token
@@ -100,7 +175,7 @@ public sealed class CliPressUpscaler(BekiPrintPrepOptions options) : IPressUpsca
 
         if (!IsConfigured)
         {
-            return PressUpscaleResult.NotConfigured(sourceWidth, sourceHeight);
+            return PressUpscaleResult.ExternalToolNotConfigured(sourceWidth, sourceHeight);
         }
 
         if (string.IsNullOrWhiteSpace(_options.UpscalerArgsTemplate))
@@ -209,7 +284,9 @@ public sealed class CliPressUpscaler(BekiPrintPrepOptions options) : IPressUpsca
                 sourceHeight,
                 deliveredWidth,
                 deliveredHeight,
-                null);
+                null,
+                null,
+                BekiPrintPrepModes.ExternalSuperResolution);
         }
         catch (System.ComponentModel.Win32Exception)
         {
@@ -225,7 +302,8 @@ public sealed class CliPressUpscaler(BekiPrintPrepOptions options) : IPressUpsca
 
     private PressUpscaleResult Failed(int width, int height, string reason) =>
         new(false, null, string.IsNullOrWhiteSpace(_options.UpscalerPath) ? "none" : _options.UpscalerPath,
-            1d, width, height, width, height, reason);
+            1d, width, height, width, height, reason,
+            null, BekiPrintPrepModes.ExternalSuperResolution);
 
     private static (int Width, int Height) Measure(byte[] png)
     {

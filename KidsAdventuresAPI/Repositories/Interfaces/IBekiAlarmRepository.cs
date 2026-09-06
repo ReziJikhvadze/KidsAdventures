@@ -49,5 +49,23 @@ public interface IBekiAlarmRepository
     Task<bool> ReviewAsync(
         Guid alarmId, string reviewedBy, string resolution, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Closes every open alarm one book raised under one check, and answers how many that was.
+    ///
+    /// The lifecycle this fills in: alarms are deduplicated per pack and check and stay open until
+    /// somebody reviews them, so <c>PRINT_PREPARATION_HELD</c> outlived the hold it was about — a
+    /// later run could publish the press files and the blocker would still be sitting in the
+    /// console. Closing is by (pack, check) rather than by id because the closer is a stage, not a
+    /// person: it knows which book it just fixed and which check it fixed, and never which row id
+    /// somebody's earlier attempt happened to create.
+    ///
+    /// A default implementation that does nothing, so that a test double implementing this
+    /// interface does not have to grow a member it will never be asked for. The real repository
+    /// overrides it.
+    /// </summary>
+    Task<int> ResolveOpenForPackAsync(
+        Guid packId, string checkId, string reviewedBy, string resolution,
+        CancellationToken cancellationToken) => Task.FromResult(0);
+
     Task<int> CountOpenAsync(CancellationToken cancellationToken);
 }

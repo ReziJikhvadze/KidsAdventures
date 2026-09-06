@@ -234,6 +234,26 @@ public sealed class OpenAiService(
         CancellationToken cancellationToken,
         string? imageSize = null,
         bool requireReferences = false,
+        string? imageQuality = null) =>
+        (await GenerateStoryImageWithProvenanceAsync(
+            imagePrompt, reference, cancellationToken, imageSize, requireReferences, imageQuality)).Png;
+
+    /// <summary>
+    /// The one implementation of the image call; <see cref="GenerateStoryImageAsync"/> is this
+    /// method with the receipt thrown away.
+    ///
+    /// One body rather than two, deliberately. The routing rule here — references mean the edit
+    /// route, a dead edit route means one images/generations fallback unless the caller forbids it
+    /// — is the rule that decides what a book costs and whether it is a picture of the right
+    /// child; a second copy written for the provenance path would eventually disagree with this
+    /// one about exactly that, and the receipt would then describe a request nobody made.
+    /// </summary>
+    public async Task<GeneratedStoryImage> GenerateStoryImageWithProvenanceAsync(
+        string imagePrompt,
+        StoryImageReference? reference,
+        CancellationToken cancellationToken,
+        string? imageSize = null,
+        bool requireReferences = false,
         string? imageQuality = null)
     {
         if (!_options.EnableStoryImages)
@@ -259,7 +279,11 @@ public sealed class OpenAiService(
             logger.LogInformation(
                 "OpenAI image request → model={Model} size={Size} quality={Quality} references={ReferenceCount} route={Route}\n" +
                 "--- prompt ---\n{Prompt}",
-                referenceImages.Count > 0 ? _options.ImageEditModel : _options.ImageModel,
+                // The model that will actually be sent, resolved the way the route resolves it —
+                // not the raw setting, which may name a model neither route can use.
+                referenceImages.Count > 0
+                    ? ResolveImageEditModel(_options)
+                    : ResolveImagesApiModel(_options),
                 size,
                 quality,
                 referenceImages.Count,
@@ -329,7 +353,7 @@ public sealed class OpenAiService(
         return await GenerateStoryImageViaImagesApiAsync(imagePrompt, size, quality, cancellationToken);
     }
 
-    private async Task<byte[]> GenerateStoryImageViaEditApiWithRetryAsync(
+    private async Task<GeneratedStoryImage> GenerateStoryImageViaEditApiWithRetryAsync(
         string imagePrompt,
         IReadOnlyList<(byte[] Bytes, string FileName, string ContentType)> referenceImages,
         string size,
@@ -472,7 +496,7 @@ public sealed class OpenAiService(
         public TimeSpan? RetryAfter { get; } = retryAfter;
     }
 
-    private async Task<byte[]> GenerateStoryImageViaEditApiAsync(
+    private async Task<GeneratedStoryImage> GenerateStoryImageViaEditApiAsync(
         string imagePrompt,
         IReadOnlyList<(byte[] Bytes, string FileName, string ContentType)> referenceImages,
         string size,
@@ -481,7 +505,7 @@ public sealed class OpenAiService(
     {
         var client = CreateImageClient();
         using var form = new MultipartFormDataContent();
-        var model = ResolveGptImageEditModel();
+        var model = ResolveImageEditModel(_options);
         var quality = MapGptImageQuality(qualitySetting);
 
         form.Add(new StringContent(model), "model");
@@ -533,14 +557,15 @@ public sealed class OpenAiService(
             form.Add(imageContent, "image[]", fileName);
         }
 
-        using var response = await client.PostAsync("images/edits", form, cancellationToken);
+        using var response = await client.PostAsync(ImagesEditEndpoint, form, cancellationToken);
         var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             throw FailureFor("OpenAI Images Edit API", response, responseText);
         }
 
-        return await ExtractImageBytesFromImagesResponseAsync(responseText, cancellationToken);
+        return await ReadImagesResponseAsync(
+            responseText, ImagesEditEndpoint, model, size, quality, cancellationToken);
     }
 
     private async Task<byte[]> GenerateStoryImageViaResponsesApiAsync(string imagePrompt, CancellationToken cancellationToken)
@@ -569,7 +594,7 @@ public sealed class OpenAiService(
                 new
                 {
                     type = "image_generation",
-                    model = ResolveImagesApiModel(),
+                    model = ResolveImagesApiModel(_options),
                     size = _options.ImageSize,
                     quality = MapGptImageQuality(_options.ImageQuality)
                 }
@@ -592,14 +617,14 @@ public sealed class OpenAiService(
         return imageBytes;
     }
 
-    private async Task<byte[]> GenerateStoryImageViaImagesApiAsync(
+    private async Task<GeneratedStoryImage> GenerateStoryImageViaImagesApiAsync(
         string imagePrompt,
         string size,
         string qualitySetting,
         CancellationToken cancellationToken)
     {
         var client = CreateImageClient();
-        var imageModel = ResolveImagesApiModel();
+        var imageModel = ResolveImagesApiModel(_options);
 
         var payload = new Dictionary<string, object>
         {
@@ -609,23 +634,33 @@ public sealed class OpenAiService(
             ["size"] = size
         };
 
+        // Recorded as whatever this route decided to send: a DALL·E model is asked in its own
+        // vocabulary and a model that takes no quality at all is asked for none, and the receipt
+        // has to be able to say which of the three happened.
+        var requestedQuality = "unset";
+
         if (IsGptImageModel(imageModel))
         {
-            payload["quality"] = MapGptImageQuality(qualitySetting);
+            requestedQuality = MapGptImageQuality(qualitySetting);
+            payload["quality"] = requestedQuality;
         }
         else if (imageModel.Equals("dall-e-3", StringComparison.OrdinalIgnoreCase))
         {
-            payload["quality"] = MapDalleQuality(qualitySetting);
+            requestedQuality = MapDalleQuality(qualitySetting);
+            payload["quality"] = requestedQuality;
         }
 
-        using var response = await client.PostAsJsonAsync("images/generations", payload, cancellationToken);
+        using var response = await client.PostAsJsonAsync(
+            ImagesGenerationsEndpoint, payload, cancellationToken);
         var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             throw FailureFor("OpenAI Images API", response, responseText);
         }
 
-        return await ExtractImageBytesFromImagesResponseAsync(responseText, cancellationToken);
+        return await ReadImagesResponseAsync(
+            responseText, ImagesGenerationsEndpoint, imageModel, size, requestedQuality,
+            cancellationToken);
     }
 
     private List<(byte[] Bytes, string FileName, string ContentType)> CollectReferenceImages(
@@ -665,30 +700,73 @@ public sealed class OpenAiService(
         return chars.Length > 0 ? new string(chars).ToLowerInvariant() : "cast";
     }
 
-    private string ResolveGptImageEditModel()
+    /// <summary>
+    /// The model the reference-carrying edit route will actually send.
+    ///
+    /// Static and public because two callers now need the same answer and neither may guess at it:
+    /// this class, when it builds the request, and <c>BekiImageRequestValidation</c>, when it
+    /// decides at startup whether the configured image size is one that model accepts. A validator
+    /// that read <c>OpenAI:ImageEditModel</c> directly would pass a configuration whose real
+    /// request goes out as <see cref="FallbackImageModel"/> — which supports far fewer sizes — and
+    /// the book would fail on the wire instead of at boot.
+    /// </summary>
+    public static string ResolveImageEditModel(OpenAiOptions options)
     {
-        if (IsGptImageModel(_options.ImageEditModel))
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (IsGptImageModel(options.ImageEditModel))
         {
-            return _options.ImageEditModel;
+            return options.ImageEditModel;
         }
 
-        if (IsGptImageModel(_options.ImageModel))
+        if (IsGptImageModel(options.ImageModel))
         {
-            return _options.ImageModel;
+            return options.ImageModel;
         }
 
-        return "gpt-image-1-mini";
+        return FallbackImageModel;
     }
 
-    private string ResolveImagesApiModel()
+    /// <summary>The model the images/generations route will actually send — see above.</summary>
+    public static string ResolveImagesApiModel(OpenAiOptions options)
     {
-        if (IsGptImageModel(_options.ImageModel) || IsDalleModel(_options.ImageModel))
+        ArgumentNullException.ThrowIfNull(options);
+
+        if (IsGptImageModel(options.ImageModel) || IsDalleModel(options.ImageModel))
         {
-            return _options.ImageModel;
+            return options.ImageModel;
         }
 
-        return "gpt-image-1-mini";
+        return FallbackImageModel;
     }
+
+    /// <summary>
+    /// What a configuration naming no image model this class recognises falls back to. The cheap
+    /// one on purpose: an unrecognised name is a mistake, and a mistake should not silently buy
+    /// the expensive model.
+    /// </summary>
+    public const string FallbackImageModel = "gpt-image-1-mini";
+
+    /// <summary>The two live image routes, named once so the receipts cannot misspell them.</summary>
+    public const string ImagesEditEndpoint = "images/edits";
+
+    /// <inheritdoc cref="ImagesEditEndpoint"/>
+    public const string ImagesGenerationsEndpoint = "images/generations";
+
+    /// <inheritdoc cref="ImagesEditEndpoint"/>
+    public const string ResponsesEndpoint = "responses";
+
+    /// <summary>
+    /// Whether a model is of the gpt-image-2 family, which is the family that accepts the larger
+    /// frames.
+    ///
+    /// A prefix match, for the reason <see cref="AlwaysReadsInputsAtHighFidelity"/> gives: the
+    /// behaviour belongs to the family, and matching the exact name would let a dated snapshot
+    /// (<c>gpt-image-2-2026-…</c>) be validated against gpt-image-1's much shorter size list and
+    /// refuse to boot a configuration that is perfectly correct.
+    /// </summary>
+    public static bool IsGptImage2Family(string? model) =>
+        model?.StartsWith("gpt-image-2", StringComparison.OrdinalIgnoreCase) == true;
 
     private static bool IsGptImageModel(string model) =>
         model.StartsWith("gpt-image", StringComparison.OrdinalIgnoreCase);
@@ -728,10 +806,10 @@ public sealed class OpenAiService(
     ///
     /// A prefix match on the family, because that is how the refusal is scoped: every gpt-image-2
     /// variant OpenAI has shipped behaves this way, and matching the exact name would let
-    /// "gpt-image-2-mini" fail its first real book instead of its first test.
+    /// "gpt-image-2-mini" fail its first real book instead of its first test. The same family test
+    /// the size allowlist uses, and deliberately the same one line of code.
     /// </summary>
-    private static bool AlwaysReadsInputsAtHighFidelity(string model) =>
-        model.StartsWith("gpt-image-2", StringComparison.OrdinalIgnoreCase);
+    private static bool AlwaysReadsInputsAtHighFidelity(string model) => IsGptImage2Family(model);
 
     private static bool IsDalleModel(string model) =>
         model.StartsWith("dall-e", StringComparison.OrdinalIgnoreCase);
@@ -758,18 +836,73 @@ public sealed class OpenAiService(
     private static string ToDataUrl(byte[] bytes, string contentType) =>
         $"data:{contentType};base64,{Convert.ToBase64String(bytes)}";
 
-    private static async Task<byte[]> ExtractImageBytesFromImagesResponseAsync(
+    /// <summary>
+    /// The picture out of an Images response, and everything the response says about how it was
+    /// drawn.
+    ///
+    /// The echo — <c>size</c>, <c>quality</c>, <c>output_format</c> — is read where the bytes are
+    /// read, because it is the only place it exists: gpt-image responses carry these beside the
+    /// image and nothing downstream ever sees the JSON again. They are optional on purpose. A
+    /// model that does not send them leaves nulls in the receipt, which reads as "the provider did
+    /// not say" rather than as a claim about what it did; and when they ARE sent they are the one
+    /// piece of evidence that the size we asked for is the size we were charged for.
+    /// </summary>
+    private static async Task<GeneratedStoryImage> ReadImagesResponseAsync(
         string responseJson,
+        string endpoint,
+        string model,
+        string requestedSize,
+        string requestedQuality,
         CancellationToken cancellationToken)
     {
         using var doc = JsonDocument.Parse(responseJson);
-        var data = doc.RootElement.GetProperty("data");
+        var root = doc.RootElement;
+        var data = root.GetProperty("data");
         if (data.GetArrayLength() == 0)
         {
             throw new InvalidOperationException("OpenAI Images API response contained no data.");
         }
 
         var item = data[0];
+        var png = await ImageBytesAsync(item, cancellationToken);
+        var (width, height) = GeneratedStoryImage.MeasurePixels(png);
+
+        return new GeneratedStoryImage(
+            png,
+            OpenAiProvider,
+            model,
+            endpoint,
+            requestedSize,
+            requestedQuality,
+            width,
+            height,
+            // Sent at the top level by the Images routes, and looked for on the item too because
+            // that is where a future response shape would most plausibly put it.
+            Echoed(root, item, "size"),
+            Echoed(root, item, "quality"),
+            Echoed(root, item, "output_format"));
+    }
+
+    /// <summary>The provider name in receipts. Lower case, matching the Gemini client's.</summary>
+    public const string OpenAiProvider = "openai";
+
+    private static string? Echoed(JsonElement root, JsonElement item, string name)
+    {
+        if (item.ValueKind == JsonValueKind.Object
+            && item.TryGetProperty(name, out var onItem)
+            && onItem.ValueKind == JsonValueKind.String)
+        {
+            return onItem.GetString();
+        }
+
+        return root.TryGetProperty(name, out var onRoot) && onRoot.ValueKind == JsonValueKind.String
+            ? onRoot.GetString()
+            : null;
+    }
+
+    private static async Task<byte[]> ImageBytesAsync(
+        JsonElement item, CancellationToken cancellationToken)
+    {
         if (item.TryGetProperty("b64_json", out var b64Prop))
         {
             var b64 = b64Prop.GetString();

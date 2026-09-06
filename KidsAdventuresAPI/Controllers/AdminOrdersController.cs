@@ -316,11 +316,90 @@ public sealed class AdminOrdersController(
         try
         {
             await fulfillment.RecoverCustomerPdfAsync(id, cancellationToken);
-            return Ok(new { message = "Customer PDF ready. Printing remains held for review." });
+            return Ok(new { message = "Customer PDF ready; " + await PrintOutcomeAsync(id, cancellationToken) });
         }
         catch (InvalidOperationException ex)
         {
             return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Prepares the printer's files again for a finished book, from the artwork it already has.
+    ///
+    /// Beside recovery and shaped like it, because an operator reaches for the two in the same
+    /// situation and should not have to know which of them applies: a book held at
+    /// <c>PRINT_PREFLIGHT_FAILED</c> is handed to recovery by the service itself. Nothing here
+    /// draws anything, charges anything or changes the book's status; a refusal is a 409 with the
+    /// reason, and the book is exactly as it was.
+    /// </summary>
+    [HttpPost("books/{id:guid}/reprepare-print")]
+    public async Task<IActionResult> RepreparePrint(Guid id,
+        [FromServices] IBekiPackFulfillment fulfillment, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await fulfillment.RepreparePrintAsync(id, cancellationToken);
+            return Ok(new
+            {
+                message = "Print re-prepared from stored artwork; "
+                    + await PrintOutcomeAsync(id, cancellationToken)
+                    + " No images were regenerated and nothing was charged.",
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Whether that book's press files are now published, and what is holding them when they are
+    /// not — read back from the book itself rather than assumed by the caller.
+    ///
+    /// The print slot is written by the release verdict inside the job, so the only honest way for
+    /// an HTTP response to say what happened is to look at what the job left behind. Best-effort on
+    /// the reasons: the operation succeeded either way, and a press-status document that cannot be
+    /// read must not turn a successful re-preparation into an error.
+    /// </summary>
+    private async Task<string> PrintOutcomeAsync(Guid packId, CancellationToken cancellationToken)
+    {
+        var pack = await packRepository.GetByIdNoOwnershipAsync(packId, cancellationToken);
+        if (pack is null) return "printing state unknown.";
+        if (!string.IsNullOrWhiteSpace(pack.PrintPdfUrl)) return "print files published.";
+
+        var reasons = await TryReadPressHoldAsync(pack.UserId, pack.Id, cancellationToken);
+        return reasons is null
+            ? "printing held; see release-gates.json."
+            : $"printing held: {reasons}.";
+    }
+
+    /// <summary>The gate ids the stored press-status record names, or null when it cannot be read.</summary>
+    private async Task<string?> TryReadPressHoldAsync(
+        Guid userId, Guid packId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var name = BekiPackBlobs.PressStatusName(userId, packId);
+            if (!await blobStorage.ExistsAsync(name, cancellationToken)) return null;
+
+            await using var stream = await blobStorage.DownloadAsync(name, cancellationToken);
+            using var document = await System.Text.Json.JsonDocument.ParseAsync(stream, default, cancellationToken);
+
+            if (!document.RootElement.TryGetProperty("failed_gates", out var gates)
+                || gates.ValueKind != System.Text.Json.JsonValueKind.Array) return null;
+
+            var named = gates.EnumerateArray()
+                .Select(gate => gate.GetString())
+                .Where(gate => !string.IsNullOrWhiteSpace(gate))
+                .ToList();
+
+            return named.Count == 0 ? null : string.Join(", ", named);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Press status for book {BookId} could not be read for the response message.", packId);
+            return null;
         }
     }
 

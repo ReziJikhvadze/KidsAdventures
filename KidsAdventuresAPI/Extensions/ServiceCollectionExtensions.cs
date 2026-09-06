@@ -42,9 +42,39 @@ public static class ServiceCollectionExtensions
         // somebody is watching. The message .NET gives names the exact key.
         services.AddOptions<BekiOptions>()
             .Bind(configuration.GetSection(BekiOptions.SectionName))
+            // The print preparation mode is the one Beki setting that decides how every press
+            // raster in the product is produced, so a typo in it is a deploy-time failure rather
+            // than a silent default. The default mode needs nothing: deterministic normalization is
+            // local code. External super-resolution needs both the tool and the arguments to drive
+            // it, and a deployment that selects that mode with neither would prepare nothing at all
+            // while looking configured.
+            .Validate(
+                options =>
+                {
+                    BekiPrintPrepMode mode;
+                    try
+                    {
+                        mode = options.PrintPrep.ResolvedMode;
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        return false;
+                    }
+
+                    return mode != BekiPrintPrepMode.ExternalSuperResolution
+                        || (!string.IsNullOrWhiteSpace(options.PrintPrep.UpscalerPath)
+                            && !string.IsNullOrWhiteSpace(options.PrintPrep.UpscalerArgsTemplate));
+                },
+                $"Beki:PrintPrep:Mode must be '{BekiPrintPrepModes.DeterministicLanczos}' (the "
+                + $"default, which needs nothing else) or '{BekiPrintPrepModes.ExternalSuperResolution}' "
+                + "with both Beki:PrintPrep:UpscalerPath and Beki:PrintPrep:UpscalerArgsTemplate set.")
             // September 5 accepts RGB: a missing print-only ICC setting must not stop the
             // application. Legacy CMYK preparation still validates its profile when invoked.
             .ValidateOnStart();
+        // The image frames the book asks the provider for are judged against the provider and
+        // model that will actually receive them (BekiImageRequestValidation); registered as its own
+        // validator so the failure names the key and the model rather than a fixed sentence.
+        services.AddSingleton<IValidateOptions<BekiOptions>, BekiImageRequestOptionsValidator>();
         // OpenAI carries one rule of its own on top of the binding check. A zero story backoff
         // is a value with a meaning — retry immediately, which the retry tests run with so the
         // suite does not sleep — but a negative is a typo, and the client reading it would have
@@ -564,15 +594,33 @@ public static class ServiceCollectionExtensions
           admin approval endpoint resolves them inside a request, alongside the repositories whose
           scope they share.
 
-          The press upscaler is the one with a configuration story. It is registered unconditionally
-          and ships DISABLED — `Beki:PrintPrep:UpscalerPath` is empty by default — because audit
-          P1-01's ruling is that interpolation-only enlargement is a failure, not a fallback. An
-          unconfigured deployment therefore withholds press files with PRESS_RESOLUTION, and the
-          parent's book is unaffected. Singleton: it holds a path and a template, and every call
-          starts its own process.
+          The press raster preparer is the one with a configuration story. Which implementation is
+          registered comes from `Beki:PrintPrep:Mode` through PressRasterPreparerFactory, and the
+          shipped mode is `deterministic_lanczos`: one local Lanczos3 normalization to the exact
+          locked raster, no binary to install and nothing to forget on a deployment (decision record
+          BEKI_Print_Prep_Deterministic_Normalization_v1.md, 2026-09-06 — the physical proof was
+          reviewed and its sharpness accepted). `external_super_resolution` is the opt-in
+          alternative and is validated above, because a mode that names a tool and has none would
+          prepare nothing while looking configured. Singleton either way: the deterministic
+          normalizer holds no state, and the external one holds a path and a template while every
+          call starts its own process.
         */
         services.AddScoped<BekiAssetLock>();
         services.AddScoped<BekiReleaseGates>();
+
+        /*
+          One book, one operation, whichever door it came in by.
+
+          Hangfire's DisableConcurrentExecution is a server filter: it serialises the fulfilment job
+          against itself and sees nothing of the admin controller's re-preparation, recovery and
+          redraw, which run inline on the request thread while the pack still reads Completed. This
+          takes the SAME distributed-lock resource the job attribute takes, so all four contend for
+          one row and a redraw can no longer delete the spreads a press stage is laying out.
+
+          Singleton because it holds nothing: each acquisition opens its own storage connection and
+          disposes it with the lock, since a Hangfire lock belongs to the connection that took it.
+        */
+        services.AddSingleton<IBekiPackLock, HangfireBekiPackLock>();
 
         /*
           The release policy, its alarms, and the two things that act on them.
@@ -599,7 +647,8 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<BekiReleaseReconciliation>());
         services.AddScoped<IBekiReleasePolicyService, BekiReleasePolicyService>();
         services.AddSingleton<IPressUpscaler>(provider =>
-            new CliPressUpscaler(provider.GetRequiredService<IOptions<BekiOptions>>().Value.PrintPrep));
+            PressRasterPreparerFactory.Create(
+                provider.GetRequiredService<IOptions<BekiOptions>>().Value.PrintPrep));
 
         // The intake gate is not part of a pipeline: it runs on its own, in front of everything,
         // while a parent is still on the form.

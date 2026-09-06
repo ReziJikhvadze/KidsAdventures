@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Enums;
@@ -37,14 +38,36 @@ public interface IBekiPackFulfillment
     /// already being drawn, and the second worker's only job is to give up so its thread can do
     /// something else. Half an hour of a blocked worker per duplicate is how a queue of paid
     /// orders stops moving behind one book, over an SSH tunnel where duplicates are not rare.
+    ///
+    /// Those sixty seconds now also cover the operator's buttons. The pattern is
+    /// <see cref="BekiPackLockResource.Pattern"/>, and <see cref="HangfireBekiPackLock"/> takes the
+    /// same resource for re-preparation, recovery and a redraw — so a job whose book an admin is
+    /// re-preparing waits for that to finish (or gives up) instead of laying out pages over it.
     /// </summary>
-    [DisableConcurrentExecution("beki-pack:{0}", 60)]
+    [DisableConcurrentExecution(BekiPackLockResource.Pattern, 60)]
     Task ProcessAsync(Guid packId, Guid runId, CancellationToken cancellationToken);
 
-    /// <summary>Admin-only recovery from stored artwork. Never invokes generation or upscaling.</summary>
-    [DisableConcurrentExecution("beki-pack:{0}", 60)]
+    /// <summary>Admin-only recovery from stored artwork. Never invokes generation or drawing.</summary>
+    [DisableConcurrentExecution(BekiPackLockResource.Pattern, 60)]
     Task RecoverCustomerPdfAsync(Guid packId, CancellationToken cancellationToken) =>
         throw new NotSupportedException("Stored-art recovery is unavailable.");
+
+    /// <summary>
+    /// Admin-only: prepares the printer's files again for a book that is already finished, from
+    /// the artwork it already has.
+    ///
+    /// It exists because the two things that can hold printing — a normalization that has since
+    /// been fixed, and a press gate whose measurement has since changed — both leave a Completed
+    /// book with a reading copy and no print URL, and until now the only way to move that book was
+    /// to re-drive the whole order, which draws nine pictures and charges for them. This draws
+    /// nothing, calls no image provider, writes no order row and never changes the pack's status.
+    ///
+    /// Defaulted to a refusal for the same reason recovery is: every test double that implements
+    /// this interface would otherwise have to grow a member it will never call.
+    /// </summary>
+    [DisableConcurrentExecution(BekiPackLockResource.Pattern, 60)]
+    Task RepreparePrintAsync(Guid packId, CancellationToken cancellationToken) =>
+        throw new NotSupportedException("Print re-preparation is unavailable.");
 }
 
 /// <summary>
@@ -209,8 +232,15 @@ public static class BekiPackBlobs
     public static string FixedPageQaName(Guid userId, Guid packId, string role) =>
         $"{userId}/{packId}/fixed-{role}-qa.json";
 
+    /// <summary>
+    /// The name of the one composed document, as a constant rather than a literal at each use: the
+    /// publish step writes its receipts under this mode and the rollback list reads them back, and
+    /// two spellings of it would be a rollback that misses a file.
+    /// </summary>
+    public const string CanonicalLayoutMode = "canonical";
+
     /// <summary>The one composed document that carries post-layout receipts.</summary>
-    public static readonly IReadOnlyList<string> LayoutModes = ["canonical"];
+    public static readonly IReadOnlyList<string> LayoutModes = [CanonicalLayoutMode];
 
     /// <summary>One composed document's whole receipt set (amendment A4).</summary>
     public static string LayoutReceiptName(Guid userId, Guid packId, string mode) =>
@@ -331,6 +361,24 @@ public static class BekiPackBlobs
     /// </summary>
     public static string SpreadBaseName(Guid userId, Guid packId, int spreadNumber) =>
         $"{userId}/{packId}/spread-{spreadNumber:00}-base.png";
+
+    /// <summary>
+    /// What actually drew one page's child/world base: provider, model, endpoint, the size and
+    /// quality that were asked for, and the pixels that came back.
+    ///
+    /// A file of its own beside the base it describes, rather than a section of the composition
+    /// receipt, because the two answer to different authors. The composition receipt is this
+    /// product's own arithmetic — which approved pose went where — and is verified by recomputing
+    /// it. This is a record of what a third party was asked and what it returned, and it cannot be
+    /// recomputed from anything: if it is not written down at the moment of the call it is gone.
+    /// Print preparation reads none of it; the audit does.
+    /// </summary>
+    public static string SpreadGenerationName(Guid userId, Guid packId, int spreadNumber) =>
+        $"{userId}/{packId}/spread-{spreadNumber:00}-generation.json";
+
+    /// <inheritdoc cref="SpreadGenerationName" path="/summary"/>
+    public static string CoverWrapGenerationName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}-cover-wrap-generation.json";
 }
 
 /// <summary>
@@ -406,11 +454,29 @@ public sealed class BekiPackFulfillment(
     IBekiReleasePolicyService? releasePolicy = null,
     IBekiAlarmService? alarms = null,
     IBekiReleaseReconciliation? reconciliation = null,
-    IOrderRepository? orders = null) : IBekiPackFulfillment
+    IOrderRepository? orders = null,
+    IBekiPackLock? packLock = null) : IBekiPackFulfillment
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    [DisableConcurrentExecution("beki-pack:{0}", 60)]
+    /// <summary>
+    /// The one gate every operation on this book passes, whichever door it came in by — see
+    /// <see cref="IBekiPackLock"/> for why the Hangfire attribute alone was not enough.
+    /// </summary>
+    private readonly IBekiPackLock _packLock = packLock ?? new InProcessBekiPackLock();
+
+    /// <summary>
+    /// What an operator is told when the book is already busy.
+    ///
+    /// One sentence for all three operations, because from where the person is standing they are
+    /// one thing — "something is already happening to this book" — and a message that named only
+    /// re-preparation would be a lie the moment a redraw was what held it.
+    /// </summary>
+    public const string BusyMessage =
+        "Another operation is already running on this book (print re-preparation, recovery or "
+        + "regeneration); try again when it finishes.";
+
+    [DisableConcurrentExecution(BekiPackLockResource.Pattern, 60)]
     public async Task RecoverCustomerPdfAsync(Guid packId, CancellationToken cancellationToken)
     {
         var pack = await packRepository.GetByIdNoOwnershipAsync(packId, cancellationToken)
@@ -422,8 +488,196 @@ public sealed class BekiPackFulfillment(
             || pack.ErrorMessage?.StartsWith(CompositeFailureCodes.PrintPreflightFailed, StringComparison.Ordinal) != true)
             throw new InvalidOperationException("Recovery requires a failed canonical book with a print-preflight error and no active generation.");
 
+        // Taken before the first live write and held to the end: recovery rebuilds the customer's
+        // PDF over the names the reader serves, so a redraw deleting spreads underneath it would
+        // publish a book assembled half from artwork that no longer exists.
+        await using var held = await _packLock.TryAcquireAsync(packId, TimeSpan.Zero, cancellationToken)
+            ?? throw new InvalidOperationException(BusyMessage);
+
+        var book = await LoadStoredBookAsync(pack, cancellationToken);
+
+        var claimed = await packRepository.TryUpdateStatusAsync(pack.Id, AdventurePackStatus.Failed,
+            AdventurePackStatus.GeneratingPdf, pack.GeneratedJson, null, null, cancellationToken);
+        if (!claimed) throw new InvalidOperationException("Book state changed; recovery was not started.");
+        try
+        {
+            var hashes = await VerifyAssetLockAsync(pack, cancellationToken);
+            var work = new PressWork();
+            /*
+              Build, look at it, then publish — amendment A5.
+
+              This used to prepare the press stage straight over the live blobs and then write the
+              print slot to null unconditionally, which said in code that a recovered book can never
+              be printed. It can: the normalization is local and deterministic, the gates measure the
+              output, and a recovered book whose measurements pass has earned its press files exactly
+              as a freshly drawn one has. What decides is the release verdict, below.
+            */
+            var candidate = await BuildPressCandidateAsync(pack, book.Plan, book.Spreads,
+                book.Personalization, book.WrapComposite, hashes, work, cancellationToken,
+                storedArtworkOnly: true);
+            var renders = await ValidateRendersAsync(pack, new BekiRenderInputs(candidate.Pdf),
+                cancellationToken, customerDeliveryOnly: work.FailedGates.Count > 0);
+
+            await packRepository.UpdatePrintPdfUrlAsync(pack.Id, null, cancellationToken);
+            await PublishPressCandidateAsync(pack, candidate, cancellationToken);
+            await PublishRenderEvidenceAsync(pack, renders, cancellationToken);
+
+            var storyUrl = await blobStorage.UploadAsync(BekiPackBlobs.StoryName(pack.UserId, pack.Id),
+                System.Text.Encoding.UTF8.GetBytes(book.Run.StoryJson!), "application/json", cancellationToken);
+            var wrapUrl = await blobStorage.UploadAsync(BekiPackBlobs.CoverWrapCompositeName(pack.UserId, pack.Id),
+                book.WrapComposite, "image/png", cancellationToken);
+            var manifest = book.Manifest with
+            {
+                StoryUrl = storyUrl,
+                Cover = new BekiCoverRecord(wrapUrl, BekiCoverRecord.WrapMaster, "Recovered from verified stored artwork")
+                {
+                    CompositeSha256 = Sha256Hex(book.WrapComposite),
+                    PoseId = ReceiptValue(book.CoverReceiptJson, "beki_layer", "pose_id"),
+                    Anchor = ReceiptAnchor(book.CoverReceiptJson)
+                }
+            };
+            await blobStorage.UploadAsync(book.ManifestName, JsonSerializer.SerializeToUtf8Bytes(manifest, JsonOptions),
+                "application/json", cancellationToken);
+            var release = await EvaluateAndStoreReleaseAsync(pack, cancellationToken);
+            if (!release.CustomerPdfMayPublish)
+                throw new BekiLayoutException(CompositeFailureCodes.PrintPreflightFailed,
+                    "Customer validation still withholds this book. Inspect release-gates.json; no images were regenerated.");
+            await packRepository.UpdatePrintPdfUrlAsync(pack.Id,
+                release.PrintReady && release.CustomerPdfMayPublish ? work.InteriorUrl : null, cancellationToken);
+            var frontUrl = await blobStorage.UploadAsync(BekiPackBlobs.CoverFrontName(pack.UserId, pack.Id),
+                composer.CropFrontBoard(book.WrapComposite), "image/png", cancellationToken);
+            await packRepository.UpdateBookPresentationAsync(pack.Id, book.Plan.Concept.Title, frontUrl, cancellationToken);
+            var content = ProjectForReader(book.Plan, book.Run.ChildName, pack,
+                manifest.Entries.ToDictionary(e => e.SpreadNumber, e => e.StoredUrl));
+            if (!await packRepository.TryUpdateStatusAsync(pack.Id, AdventurePackStatus.GeneratingPdf,
+                    AdventurePackStatus.Completed, JsonSerializer.Serialize(content, JsonOptions), work.InteriorUrl,
+                    null, cancellationToken))
+                throw new InvalidOperationException("Book state changed before recovery completed.");
+            await packRepository.UpdateProgressAsync(pack.Id, "მზადაა! წიგნი ბიბლიოთეკაშია.", 100, cancellationToken);
+            await ResolvePrintHoldAlarmsAsync(pack, work, "stored-art recovery", cancellationToken);
+            logger.LogInformation(
+                "Recovered customer PDF for {PackId} from stored artwork only ({Mode}, normalizer {Normalizer}); "
+                + "press files {Press}.",
+                pack.Id, BekiPrintPrepModes.Id(bekiOptions.Value.PrintPrep.ResolvedMode), candidate.Normalizer,
+                release.PrintReady && release.CustomerPdfMayPublish
+                    ? "published"
+                    : $"held: {PressHoldReason(work, release)}");
+        }
+        catch (Exception ex)
+        {
+            await packRepository.TryUpdateStatusAsync(pack.Id, AdventurePackStatus.GeneratingPdf,
+                AdventurePackStatus.Failed, pack.GeneratedJson, null,
+                $"{CompositeFailureCodes.PrintPreflightFailed}: Stored-art recovery failed: {ex.Message}", CancellationToken.None);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    [DisableConcurrentExecution(BekiPackLockResource.Pattern, 60)]
+    public async Task RepreparePrintAsync(Guid packId, CancellationToken cancellationToken)
+    {
+        var pack = await packRepository.GetByIdNoOwnershipAsync(packId, cancellationToken)
+            ?? throw new InvalidOperationException("Book not found.");
+        if (!bekiOptions.Value.CompositePipelineEnabled || orders is null)
+            throw new InvalidOperationException(
+                "Print re-preparation is only available for canonical (composite-pipeline) books.");
+
+        // A book that never finished is recovery's case, not this one, and the two would otherwise
+        // race each other over the same blobs from two admin buttons.
+        if (pack.Status == AdventurePackStatus.Failed
+            && pack.ErrorMessage?.StartsWith(CompositeFailureCodes.PrintPreflightFailed, StringComparison.Ordinal) == true)
+        {
+            await RecoverCustomerPdfAsync(packId, cancellationToken);
+            return;
+        }
+
+        if (pack.Status != AdventurePackStatus.Completed || string.IsNullOrWhiteSpace(pack.PdfUrl))
+            throw new InvalidOperationException(
+                "Print re-preparation needs a completed book with a reading copy already published.");
+
+        /*
+          The book's one lock, taken after the hand-off to recovery so the two cannot deadlock each
+          other, and held for the whole operation.
+
+          Not a semaphore of this stage's own, which is what it was: that guarded two clicks on THIS
+          button and nothing else, while the thing most likely to be happening to a finished book at
+          the same moment is an operator's redraw — and a redraw deletes the spreads this stage is
+          laying out, in another request thread, with the pack still reading Completed the entire
+          time. Zero wait because a person clicked a button: they want to hear that the book is busy,
+          not to hold a request open for the several minutes a press stage takes.
+        */
+        await using var held = await _packLock.TryAcquireAsync(packId, TimeSpan.Zero, cancellationToken)
+            ?? throw new InvalidOperationException(BusyMessage);
+
+        var book = await LoadStoredBookAsync(pack, cancellationToken);
+        var hashes = await VerifyAssetLockAsync(pack, cancellationToken);
+        var work = new PressWork();
+
+        // Everything up to here writes only additive print/* evidence: the customer's PDF, its
+        // reports and the print slot are exactly as they were, so a failure, a refusal or a
+        // cancellation from this point back leaves the book alone.
+        var candidate = await BuildPressCandidateAsync(pack, book.Plan, book.Spreads,
+            book.Personalization, book.WrapComposite, hashes, work, cancellationToken,
+            storedArtworkOnly: true);
+        var renders = await ValidateRendersAsync(pack, new BekiRenderInputs(candidate.Pdf),
+            cancellationToken, customerDeliveryOnly: work.FailedGates.Count > 0);
+        var unreleasable = renders.Where(entry => !entry.Result.IsReleasable).ToList();
+        if (unreleasable.Count > 0)
+            throw new InvalidOperationException(
+                "The re-prepared book failed render-back validation, so nothing was replaced: "
+                + string.Join(" ", unreleasable.SelectMany(entry => entry.Result.Problems)));
+
+        var snapshot = await SnapshotLiveDeliverablesAsync(pack, candidate.Receipts, cancellationToken);
+        BekiReleaseGateReport release;
+        try
+        {
+            await packRepository.UpdatePrintPdfUrlAsync(pack.Id, null, cancellationToken);
+            await PublishPressCandidateAsync(pack, candidate, cancellationToken);
+            await PublishRenderEvidenceAsync(pack, renders, cancellationToken);
+            release = await EvaluateAndStoreReleaseAsync(pack, cancellationToken);
+            await packRepository.UpdatePrintPdfUrlAsync(pack.Id,
+                release.PrintReady && release.CustomerPdfMayPublish ? work.InteriorUrl : null,
+                cancellationToken);
+            if (!release.CustomerPdfMayPublish)
+                throw new InvalidOperationException(
+                    "The re-prepared book would not have been publishable to the family, so the "
+                    + "previous files were put back. Inspect release-gates.json; no images were "
+                    + "regenerated and nothing was charged.");
+        }
+        catch
+        {
+            await RestoreLiveDeliverablesAsync(pack, snapshot, CancellationToken.None);
+            throw;
+        }
+
+        await ResolvePrintHoldAlarmsAsync(pack, work, "print re-preparation", cancellationToken);
+        logger.LogInformation(
+            "Beki pack {PackId}: print re-prepared from stored artwork ({Mode}, normalizer "
+            + "{Normalizer}). Release verdict {Verdict}; press files {Press}. Previous files kept "
+            + "under {Snapshot}.",
+            pack.Id, BekiPrintPrepModes.Id(bekiOptions.Value.PrintPrep.ResolvedMode),
+            candidate.Normalizer, release.Verdict,
+            release.PrintReady && release.CustomerPdfMayPublish
+                ? "published"
+                : $"held: {PressHoldReason(work, release)}",
+            snapshot.Prefix);
+    }
+
+    /// <summary>
+    /// The paid plan, the stored artwork and the personalization that made this book — everything a
+    /// re-run of layout needs and nothing that would require drawing anything again.
+    ///
+    /// Shared by recovery and re-preparation because the two differ only in what they are allowed to
+    /// do afterwards. Reading it twice from two copies of this code is how the two paths would come
+    /// to disagree about which manifest contract is acceptable, and the contract check is the one
+    /// thing standing between "re-lay out the stored art" and "re-lay out artwork drawn to a
+    /// different specification".
+    /// </summary>
+    private async Task<StoredBook> LoadStoredBookAsync(
+        Domain.Entities.AdventurePack pack, CancellationToken cancellationToken)
+    {
         MasterStoryRun? run = null;
-        foreach (var order in await orders.GetPaidForBookAsync(packId, cancellationToken))
+        foreach (var order in await orders!.GetPaidForBookAsync(pack.Id, cancellationToken))
         {
             var draft = JsonSerializer.Deserialize<DTOs.Orders.BookDraftRequest>(order.DraftJson ?? "{}", JsonOptions);
             if (draft?.PreviewBookId is { } runId)
@@ -449,70 +703,85 @@ public sealed class BekiPackFulfillment(
             || !manifest.Entries.Select(e => e.SpreadNumber).Order().SequenceEqual(Enumerable.Range(1, 8)))
             throw new InvalidOperationException("Stored artwork contract is incomplete or incompatible; no redraw was attempted.");
 
-        var claimed = await packRepository.TryUpdateStatusAsync(pack.Id, AdventurePackStatus.Failed,
-            AdventurePackStatus.GeneratingPdf, pack.GeneratedJson, null, null, cancellationToken);
-        if (!claimed) throw new InvalidOperationException("Book state changed; recovery was not started.");
-        try
+        var stored = new List<BekiSpreadArtwork>();
+        foreach (var entry in manifest.Entries.OrderBy(e => e.SpreadNumber))
+            stored.Add(new BekiSpreadArtwork(entry.SpreadNumber,
+                await blobStorage.DownloadBytesFromStoredUrlAsync(entry.StoredUrl, cancellationToken)));
+        var wrap = await ReadRequiredBlobAsync(
+            BekiPackBlobs.CoverWrapCompositeName(pack.UserId, pack.Id), cancellationToken);
+        var receipt = System.Text.Encoding.UTF8.GetString(await ReadRequiredBlobAsync(
+            BekiPackBlobs.CoverCompositionName(pack.UserId, pack.Id), cancellationToken));
+        var personalization = new BekiBookPersonalization(run.ChildName, run.Age, pack.CreatedAt,
+            pack.Theme.ToString(), StoryWorlds.For(pack.Theme).Place)
+            { ContinuationUrl = BekiOptions.WebsiteQrDestination };
+
+        return new StoredBook(plan, run, manifest, manifestName, stored, wrap, receipt, personalization);
+    }
+
+    /// <summary>Everything a stored book is, to a stage that may not draw anything.</summary>
+    private sealed record StoredBook(
+        MasterStory Plan,
+        MasterStoryRun Run,
+        BekiFulfillmentManifest Manifest,
+        string ManifestName,
+        IReadOnlyList<BekiSpreadArtwork> Spreads,
+        byte[] WrapComposite,
+        string CoverReceiptJson,
+        BekiBookPersonalization Personalization);
+
+    /// <summary>
+    /// The sixteen-gate verdict under this deployment's current policy, written down where every
+    /// other stage expects to find it.
+    /// </summary>
+    private async Task<BekiReleaseGateReport> EvaluateAndStoreReleaseAsync(
+        Domain.Entities.AdventurePack pack, CancellationToken cancellationToken)
+    {
+        var policy = releasePolicy is null ? BekiReleasePolicySnapshot.Defaults
+            : await releasePolicy.SnapshotAsync(cancellationToken);
+        var release = await _releaseGates.EvaluateAsync(pack.UserId, pack.Id, cancellationToken, policy);
+        await blobStorage.UploadAsync(BekiPackBlobs.ReleaseGatesName(pack.UserId, pack.Id),
+            System.Text.Encoding.UTF8.GetBytes(release.ToJson()), "application/json", cancellationToken);
+        if (reconciliation is not null)
         {
-            var hashes = await VerifyAssetLockAsync(pack, cancellationToken);
-            var stored = new List<BekiSpreadArtwork>();
-            foreach (var entry in manifest.Entries.OrderBy(e => e.SpreadNumber))
-                stored.Add(new BekiSpreadArtwork(entry.SpreadNumber,
-                    await blobStorage.DownloadBytesFromStoredUrlAsync(entry.StoredUrl, cancellationToken)));
-            var wrap = await ReadRequiredBlobAsync(BekiPackBlobs.CoverWrapCompositeName(pack.UserId, pack.Id), cancellationToken);
-            var receipt = System.Text.Encoding.UTF8.GetString(await ReadRequiredBlobAsync(
-                BekiPackBlobs.CoverCompositionName(pack.UserId, pack.Id), cancellationToken));
-            var personalization = new BekiBookPersonalization(run.ChildName, run.Age, pack.CreatedAt,
-                pack.Theme.ToString(), StoryWorlds.For(pack.Theme).Place)
-                { ContinuationUrl = BekiOptions.WebsiteQrDestination };
-            var work = new PressWork();
-            await PreparePressAsync(pack, plan, stored, personalization, wrap, hashes, work,
-                cancellationToken, storedArtworkOnly: true);
-            await ValidateStoredRendersAsync(pack, new BekiRenderInputs(work.PreparedInterior),
-                cancellationToken, customerDeliveryOnly: true);
-            var storyUrl = await blobStorage.UploadAsync(BekiPackBlobs.StoryName(pack.UserId, pack.Id),
-                System.Text.Encoding.UTF8.GetBytes(run.StoryJson!), "application/json", cancellationToken);
-            var wrapUrl = await blobStorage.UploadAsync(BekiPackBlobs.CoverWrapCompositeName(pack.UserId, pack.Id),
-                wrap, "image/png", cancellationToken);
-            manifest = manifest with
-            {
-                StoryUrl = storyUrl,
-                Cover = new BekiCoverRecord(wrapUrl, BekiCoverRecord.WrapMaster, "Recovered from verified stored artwork")
-                {
-                    CompositeSha256 = Sha256Hex(wrap), PoseId = ReceiptValue(receipt, "beki_layer", "pose_id"),
-                    Anchor = ReceiptAnchor(receipt)
-                }
-            };
-            await blobStorage.UploadAsync(manifestName, JsonSerializer.SerializeToUtf8Bytes(manifest, JsonOptions),
-                "application/json", cancellationToken);
-            var policy = releasePolicy is null ? BekiReleasePolicySnapshot.Defaults
-                : await releasePolicy.SnapshotAsync(cancellationToken);
-            var release = await _releaseGates.EvaluateAsync(pack.UserId, pack.Id, cancellationToken, policy);
-            await blobStorage.UploadAsync(BekiPackBlobs.ReleaseGatesName(pack.UserId, pack.Id),
-                System.Text.Encoding.UTF8.GetBytes(release.ToJson()), "application/json", cancellationToken);
-            if (!release.CustomerPdfMayPublish)
-                throw new BekiLayoutException(CompositeFailureCodes.PrintPreflightFailed,
-                    "Customer validation still withholds this book. Inspect release-gates.json; no images were regenerated.");
-            await packRepository.UpdatePrintPdfUrlAsync(pack.Id, null, cancellationToken);
-            var frontUrl = await blobStorage.UploadAsync(BekiPackBlobs.CoverFrontName(pack.UserId, pack.Id),
-                composer.CropFrontBoard(wrap), "image/png", cancellationToken);
-            await packRepository.UpdateBookPresentationAsync(pack.Id, plan.Concept.Title, frontUrl, cancellationToken);
-            var content = ProjectForReader(plan, run.ChildName, pack,
-                manifest.Entries.ToDictionary(e => e.SpreadNumber, e => e.StoredUrl));
-            if (!await packRepository.TryUpdateStatusAsync(pack.Id, AdventurePackStatus.GeneratingPdf,
-                    AdventurePackStatus.Completed, JsonSerializer.Serialize(content, JsonOptions), work.InteriorUrl,
-                    null, cancellationToken))
-                throw new InvalidOperationException("Book state changed before recovery completed.");
-            await packRepository.UpdateProgressAsync(pack.Id, "მზადაა! წიგნი ბიბლიოთეკაშია.", 100, cancellationToken);
-            logger.LogInformation("Recovered customer PDF for {PackId} using stored artwork only; printing remains held.", pack.Id);
+            await RecordDeliveryDiagnosticAsync(pack.Id, "release waiver alarms", async () =>
+                await reconciliation.RaiseWaiverAlarmsAsync(pack.Id, pack.UserId,
+                    await OrderIdAsync(pack.Id, cancellationToken), release, cancellationToken),
+                cancellationToken);
         }
-        catch (Exception ex)
+        return release;
+    }
+
+    /// <summary>Why printing is still held, for a log line and an admin's message.</summary>
+    private static string PressHoldReason(PressWork work, BekiReleaseGateReport release) =>
+        work.FailedGates.Count > 0
+            ? string.Join(", ", work.FailedGates.Distinct(StringComparer.Ordinal))
+            : release.FailingGates.Count > 0
+                ? string.Join(", ", release.FailingGates)
+                : "the release policy withheld the press files";
+
+    /// <summary>
+    /// Closes the alarms this book's printing was held by, once it is not held any more.
+    ///
+    /// Nothing used to close them: <c>PRINT_PREPARATION_HELD</c> and an expired press clock both
+    /// stayed open until an operator clicked them away, so a console listing open blockers listed
+    /// books whose press files had since been published. Only the two alarms this stage itself
+    /// raises are closed, and only when the stage's own gate list is empty — an alarm about
+    /// something else is somebody else's to judge.
+    /// </summary>
+    private async Task ResolvePrintHoldAlarmsAsync(
+        Domain.Entities.AdventurePack pack, PressWork work, string stage, CancellationToken cancellationToken)
+    {
+        if (work.FailedGates.Count > 0 || alarms is null) return;
+
+        var resolution = $"Printing is no longer held: {stage} prepared the press files in "
+            + $"{BekiPrintPrepModes.Id(bekiOptions.Value.PrintPrep.ResolvedMode)} mode and every "
+            + $"measured gate passed. See {BekiPackBlobs.PressStatusName(pack.UserId, pack.Id)}.";
+
+        await RecordDeliveryDiagnosticAsync(pack.Id, "print hold alarm resolution", async () =>
         {
-            await packRepository.TryUpdateStatusAsync(pack.Id, AdventurePackStatus.GeneratingPdf,
-                AdventurePackStatus.Failed, pack.GeneratedJson, null,
-                $"{CompositeFailureCodes.PrintPreflightFailed}: Stored-art recovery failed: {ex.Message}", CancellationToken.None);
-            throw;
-        }
+            await alarms.ResolveForPackAsync(pack.Id, "PRINT_PREPARATION_HELD", resolution, cancellationToken);
+            await alarms.ResolveForPackAsync(pack.Id, PressBudgetAlarmCheck, resolution, cancellationToken);
+        }, cancellationToken);
     }
 
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
@@ -522,15 +791,15 @@ public sealed class BekiPackFulfillment(
 
       Defaulted because every one of them is constructible from what this class already holds, and
       because the alternative is a constructor break that reaches every test harness that ever
-      builds this job. Container-resolved in production — see ServiceCollectionExtensions — where
-      the upscaler reads the deployment's configured tool rather than the shipped-disabled default.
+      builds this job. Container-resolved in production — see ServiceCollectionExtensions — and the
+      fallback goes through the SAME factory the container uses, so a job built by hand and a job
+      built by DI cannot prepare rasters with different tools while both reports claim the mode.
 
-      The disabled default is the correct default. An unconfigured deployment withholds press files
-      with PRESS_RESOLUTION rather than passing interpolated ones, which is precisely what audit
-      P1-01 asks for.
+      The default the factory hands back is the deterministic normalizer (decision record
+      2026-09-06): local, free, and impossible for a deployment to forget to install.
     */
     private readonly IPressUpscaler _pressUpscaler =
-        pressUpscaler ?? new CliPressUpscaler(bekiOptions.Value.PrintPrep);
+        pressUpscaler ?? PressRasterPreparerFactory.Create(bekiOptions.Value.PrintPrep);
 
     private readonly BekiReleaseGates _releaseGates = releaseGates ?? new BekiReleaseGates(blobStorage);
 
@@ -560,13 +829,13 @@ public sealed class BekiPackFulfillment(
         + "family's reading copy is unaffected.";
 
     /// <summary>
-    /// How many press upscales, and how many render validations, run at once.
+    /// How many press rasters, and how many render validations, are prepared at once.
     ///
-    /// Three rather than "all of them": each upscale is an external super-resolver process over a
-    /// multi-megapixel PNG and each render validation spawns Ghostscript and two Poppler tools, so
-    /// the limit is about not starving the host rather than about the API. Small enough to be
-    /// safe on the smallest worker; large enough that nine upscales take three rounds instead of
-    /// nine, and the three finals render back together instead of one after another.
+    /// Three rather than "all of them": each raster is a Lanczos3 resample of a multi-megapixel
+    /// image (or, in external mode, a whole super-resolution process) and each render validation
+    /// spawns Ghostscript and two Poppler tools, so the limit is about not starving the host rather
+    /// than about any API. Small enough to be safe on the smallest worker; large enough that nine
+    /// rasters take three rounds instead of nine, and the finals render back together.
     /// </summary>
     private const int PressParallelism = 3;
 
@@ -606,7 +875,14 @@ public sealed class BekiPackFulfillment(
         AdventurePackStatus.GeneratingPdf
     ];
 
-    [DisableConcurrentExecution("beki-pack:{0}", 60)]
+    /*
+      The job's own lock, on the resource the inline operations take too.
+
+      Same name, so this is not merely "one worker per book": a job that arrives while an operator
+      is re-preparing, recovering or redrawing this book waits the stated sixty seconds for that to
+      finish and then gives up, instead of drawing pages over a stage that is mid-flight.
+    */
+    [DisableConcurrentExecution(BekiPackLockResource.Pattern, 60)]
     public async Task ProcessAsync(Guid packId, Guid runId, CancellationToken cancellationToken)
     {
         // The spec's telemetry mandate (§27): before any performance work, measure where the
@@ -1675,6 +1951,16 @@ public sealed class BekiPackFulfillment(
                     System.Text.Encoding.UTF8.GetBytes(wrap.ManifestJson),
                     "application/json", jobToken);
 
+                // And what the image provider was asked for the wrap, beside the wrap's own
+                // paperwork — the cover's half of the generation record every spread now carries.
+                if (wrap.GenerationReceiptJson is { Length: > 0 } wrapGeneration)
+                {
+                    await blobStorage.UploadAsync(
+                        BekiPackBlobs.CoverWrapGenerationName(pack.UserId, pack.Id),
+                        System.Text.Encoding.UTF8.GetBytes(wrapGeneration),
+                        "application/json", jobToken);
+                }
+
                 coverRecord = new BekiCoverRecord(
                     wrapUrl,
                     BekiCoverRecord.WrapMaster,
@@ -1859,7 +2145,7 @@ public sealed class BekiPackFulfillment(
                       beside it — the exact claim amendment A1 exists to make impossible.
 
                       Layout is the only stage on this path that knows a raster was enlarged (there
-                      is no press upscaler here; the composite path's PreparePressAsync concatenates
+                      is no press normalization stage here; the composite path's PreparePressAsync concatenates
                       both lists for that reason), so the composer's own list IS the whole receipt.
                     */
                     var interior = composer.ComposeInteriorWithReceipts(plan, stored, personalization);
@@ -2522,6 +2808,10 @@ public sealed class BekiPackFulfillment(
             var result = await reconciliation.ReconcilePackAsync(
                 pack.Id,
                 "the fulfilment job finished after the stale-generation sweep had buried the book",
+                // This runs inside ProcessAsync, whose DisableConcurrentExecution attribute is
+                // already holding beki-pack:{id} — the same resource the reconciliation's lock
+                // takes. Letting it ask again would have the job refuse itself.
+                lockHeld: true,
                 CancellationToken.None);
 
             logger.LogWarning(
@@ -2766,7 +3056,30 @@ public sealed class BekiPackFulfillment(
 
         public bool CoverPreflightStored { get; set; }
 
+        /// <summary>
+        /// The acceptance gates the MEASUREMENT refused, and nothing else (amendment A2).
+        ///
+        /// Populated only from <see cref="BekiPrintPrep.PrepareWithGates"/>'s verdict on the composed
+        /// candidate, or from an exception that stage threw. It used to also collect the press
+        /// stage's own operational troubles — a normalizer that could not decode a base, a composite
+        /// that could not be stored — and that is the defect the decision record of 2026-09-06
+        /// closes: those are reasons a raster was not improved, not evidence that the file which
+        /// came out is unfit. What comes out is measured, and the measurement decides.
+        /// </summary>
         public List<string> FailedGates { get; } = [];
+
+        /// <summary>
+        /// What went wrong while preparing rasters, kept because it is worth knowing and refused as
+        /// a verdict. Written to <c>press-status.json</c> as <c>preparation_problems</c>.
+        /// </summary>
+        public List<string> PreparationProblems { get; } = [];
+
+        /// <summary>
+        /// What actually prepared the first spread's raster, in the receipt's own vocabulary —
+        /// <c>imagesharp-3.1.12-lanczos3</c>, <c>native-source</c>, or the external tool's file
+        /// name. The mode says what was configured; this says what ran.
+        /// </summary>
+        public string? Normalizer { get; set; }
 
         public List<string> Reasons { get; } = [];
     }
@@ -2778,10 +3091,30 @@ public sealed class BekiPackFulfillment(
     private sealed record BekiRenderInputs(byte[]? Canonical);
 
     /// <summary>
+    /// A press candidate that has been built and measured but not yet published anywhere a reader,
+    /// a download or a printer can see it.
+    /// </summary>
+    /// <param name="Normalizer">
+    /// The tool that actually prepared the first spread — the receipt's own word for it, so a log
+    /// line says "imagesharp-3.1.12-lanczos3" or "native-source" rather than repeating the mode.
+    /// </param>
+    private sealed record PressCandidate(
+        byte[] Pdf,
+        string PreflightJson,
+        byte[] DigitalReport,
+        BekiLayoutReceipts Receipts,
+        IReadOnlySet<string> AssetLockHashes,
+        PressWork Work,
+        string Normalizer);
+
+    /// <summary>
     /// The single canonical PDF, with native-detail and exact-Beki provenance. Backgrounds are
-    /// enlarged before approved poses are reapplied. Print-only failures retain the original
-    /// artwork for customer delivery and withhold manufacturing; corrupt storage/layout still
-    /// fails closed. Reader and download continue to consume one canonical artifact.
+    /// normalized before approved poses are reapplied. Preparation trouble retains the original
+    /// artwork for customer delivery and is recorded as a problem rather than a verdict; corrupt
+    /// storage/layout still fails closed. Reader and download consume one canonical artifact.
+    ///
+    /// Build and publish, back to back — which is what the drawing job wants and what the two
+    /// stored-art paths must be able to take apart (amendment A4). Nothing between the two halves.
     /// </summary>
     private async Task PreparePressAsync(
         Domain.Entities.AdventurePack pack,
@@ -2794,11 +3127,37 @@ public sealed class BekiPackFulfillment(
         CancellationToken cancellationToken,
         bool storedArtworkOnly = false)
     {
-        var options = bekiOptions.Value.PrintPrep;
-        // A rebuild overwrites the canonical blob. Revoke older manufacturing permission first.
+        var candidate = await BuildPressCandidateAsync(pack, plan, spreads, personalization,
+            wrapComposite, assetLockHashes, work, cancellationToken, storedArtworkOnly);
+        // A rebuild overwrites the canonical blob. Revoke older manufacturing permission first —
+        // here rather than at the top of the stage, so a candidate that never gets built cannot
+        // take a live print URL down with it.
         await packRepository.UpdatePrintPdfUrlAsync(pack.Id, null, cancellationToken);
-        // Only the child/world base can enter a detail-producing (possibly AI) upscaler.
-        // The approved Beki layer is re-applied afterwards from its hash-verified asset.
+        await PublishPressCandidateAsync(pack, candidate, cancellationToken);
+    }
+
+    /// <summary>
+    /// Everything up to and including the measurement, writing nothing under a name anybody serves.
+    ///
+    /// The only blobs this leaves behind are the additive <c>print/*</c> composites and the cover
+    /// layout-safety record: evidence about a candidate, under names no reader, download, printer
+    /// or gate consumes as the book. That is what lets re-preparation look at the result before it
+    /// decides whether the finished book should be replaced by it.
+    /// </summary>
+    private async Task<PressCandidate> BuildPressCandidateAsync(
+        Domain.Entities.AdventurePack pack,
+        MasterStory plan,
+        IReadOnlyList<BekiSpreadArtwork> spreads,
+        BekiBookPersonalization personalization,
+        byte[] wrapComposite,
+        IReadOnlySet<string> assetLockHashes,
+        PressWork work,
+        CancellationToken cancellationToken,
+        bool storedArtworkOnly = false)
+    {
+        var options = bekiOptions.Value.PrintPrep;
+        // Only the child/world base is normalized. The approved Beki layer is re-applied
+        // afterwards from its hash-verified asset.
         var bases = new List<(byte[] Png, BekiCompositionManifest Manifest)>(spreads.Count + 1);
         foreach (var spread in spreads)
         {
@@ -2812,7 +3171,7 @@ public sealed class BekiPackFulfillment(
             BekiPackBlobs.CoverCompositionName(pack.UserId, pack.Id),
             wrapComposite, cancellationToken));
 
-        // Inspect stored, pixel-bound observations before any (possibly billable) upscaler call.
+        // Inspect stored, pixel-bound observations before anything resamples a raster.
         // Resampling changes resolution, not full-wrap physical coordinates.
         var reviewName = BekiPackBlobs.CoverLayoutReviewName(pack.UserId, pack.Id);
         BekiCoverLayoutReview? coverReview = null;
@@ -2842,19 +3201,31 @@ public sealed class BekiPackFulfillment(
             index == spreads.Count ? CoverPressWidthPx : InteriorPressWidthPx,
             index == spreads.Count ? CoverPressHeightPx : InteriorPressHeightPx)).ToList();
 
-        PressUpscaleResult[] upscales;
+        /*
+          Stored-art re-preparation runs the normalization; it only ever skipped a BILLABLE one.
+
+          The old rule was "recovery calls nothing", written when the only way to reach the locked
+          size was an external super-resolver: a process, possibly a paid one, on artwork somebody
+          had already been charged for. The deterministic normalizer is neither — it is a Lanczos3
+          resize in this process — so refusing to run it on a recovered book withheld printing from
+          every recovered book for a cost that does not exist. In external mode the old rule stands,
+          with the real reason recorded.
+        */
+        PressUpscaleResult[] normalizations;
+        var skipExternalTool = storedArtworkOnly
+            && options.ResolvedMode == BekiPrintPrepMode.ExternalSuperResolution;
         using (var pressDeadline = GenerationBudget.Start(
             cancellationToken, PressBudgetFor(bekiOptions.Value), _timeProvider))
         {
             try
             {
-                upscales = storedArtworkOnly
-                    ? OriginalRasters("Stored-art recovery: no generation or upscaler calls allowed.")
-                    : await UpscaleAllAsync(rasters, pressDeadline.Token);
+                normalizations = skipExternalTool
+                    ? OriginalRasters("Stored-art re-preparation does not run the external super-resolution tool.")
+                    : await PrepareRastersAsync(rasters, pressDeadline.Token);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                upscales = OriginalRasters("Print upscaler exceeded its time budget; customer artwork retained.");
+                normalizations = OriginalRasters("Print normalization exceeded its time budget; customer artwork retained.");
             }
         }
 
@@ -2866,50 +3237,51 @@ public sealed class BekiPackFulfillment(
             return new PressUpscaleResult(false, null, "none", 1d,
                 size?.Width ?? 0, size?.Height ?? 0, size?.Width ?? 0, size?.Height ?? 0, reason);
         }).ToArray();
+        work.Normalizer = normalizations.Length > 0 ? normalizations[0].Tool : "none";
         var pressArt = new List<BekiSpreadArtwork>(spreads.Count);
         var sources = new List<BekiResolutionSource>(spreads.Count + 1);
 
         for (var index = 0; index < spreads.Count; index++)
         {
             var spread = spreads[index];
-            var (upscale, artwork) = await PrepareCustomerArtworkAsync(
-                pack, $"spread-{spread.SpreadNumber:00}", upscales[index],
+            var (normalization, artwork) = await PrepareCustomerArtworkAsync(
+                pack, $"spread-{spread.SpreadNumber:00}", normalizations[index],
                 bases[index].Manifest, spread.Image, cancellationToken);
 
-            sources.Add(upscale.ToReceiptSource($"spread-{spread.SpreadNumber:00}") with
+            sources.Add(normalization.ToReceiptSource($"spread-{spread.SpreadNumber:00}") with
             {
-                DeliveredWidthPx = upscale.Succeeded ? InteriorPressWidthPx : upscale.DeliveredWidthPx,
-                DeliveredHeightPx = upscale.Succeeded ? InteriorPressHeightPx : upscale.DeliveredHeightPx,
+                DeliveredWidthPx = normalization.Succeeded ? InteriorPressWidthPx : normalization.DeliveredWidthPx,
+                DeliveredHeightPx = normalization.Succeeded ? InteriorPressHeightPx : normalization.DeliveredHeightPx,
             });
 
-            if (!upscale.Succeeded)
+            if (!normalization.Succeeded)
             {
-                work.FailedGates.Add(BekiPrintPrep.PressResolutionGate);
-                work.Reasons.Add(
-                    $"{BekiPrintPrep.PressResolutionGate}: spread {spread.SpreadNumber} was not "
-                    + $"delivered at {InteriorPressWidthPx}×{InteriorPressHeightPx} by an approved "
-                    + $"detail-producing upscaler ({upscale.Reason ?? "no reason returned"}).");
+                // Recorded, not judged (amendment A2). This spread keeps the verified original the
+                // family already has, and whether the BOOK is fit to print is settled below by
+                // measuring the document that comes out of the composer.
+                work.PreparationProblems.Add(
+                    $"spread {spread.SpreadNumber} could not be normalized to "
+                    + $"{InteriorPressWidthPx}×{InteriorPressHeightPx} px "
+                    + $"({normalization.Reason ?? "no reason returned"}).");
                 pressArt.Add(spread);
                 continue;
             }
             pressArt.Add(new BekiSpreadArtwork(spread.SpreadNumber, artwork));
         }
 
-        var (coverUpscale, coverArt) = await PrepareCustomerArtworkAsync(
-            pack, "cover-wrap", upscales[^1], bases[^1].Manifest, wrapComposite, cancellationToken);
-        if (!coverUpscale.Succeeded)
+        var (coverNormalization, coverArt) = await PrepareCustomerArtworkAsync(
+            pack, "cover-wrap", normalizations[^1], bases[^1].Manifest, wrapComposite, cancellationToken);
+        if (!coverNormalization.Succeeded)
         {
-            work.FailedGates.Add(BekiPrintPrep.PressResolutionGate);
-            work.Reasons.Add(
-                $"{BekiPrintPrep.PressResolutionGate}: the cover wrap was not delivered at "
-                + $"{CoverPressWidthPx}×{CoverPressHeightPx} by an approved detail-producing "
-                + $"upscaler ({coverUpscale.Reason ?? "no reason returned"}).");
+            work.PreparationProblems.Add(
+                $"the cover wrap could not be normalized to {CoverPressWidthPx}×{CoverPressHeightPx} px "
+                + $"({coverNormalization.Reason ?? "no reason returned"}).");
         }
 
-        sources.Add(coverUpscale.ToReceiptSource("cover-wrap") with
+        sources.Add(coverNormalization.ToReceiptSource("cover-wrap") with
         {
-            DeliveredWidthPx = coverUpscale.Succeeded ? CoverPressWidthPx : coverUpscale.DeliveredWidthPx,
-            DeliveredHeightPx = coverUpscale.Succeeded ? CoverPressHeightPx : coverUpscale.DeliveredHeightPx,
+            DeliveredWidthPx = coverNormalization.Succeeded ? CoverPressWidthPx : coverNormalization.DeliveredWidthPx,
+            DeliveredHeightPx = coverNormalization.Succeeded ? CoverPressHeightPx : coverNormalization.DeliveredHeightPx,
         });
 
         var canonical = composer.ComposeCanonicalWithReceipts(
@@ -2918,49 +3290,93 @@ public sealed class BekiPackFulfillment(
         var prepared = canonical.Pdf;
         var preflight = System.Text.Encoding.UTF8.GetString(BekiWithheldReport.Bytes(
             BekiPrintPrep.PressResolutionGate, "print preparation", string.Join(" ", work.Reasons)));
-        if (work.FailedGates.Count == 0)
+
+        /*
+          Always measured, never skipped — amendment A2.
+
+          There used to be a guard here: if anything had already gone wrong while preparing rasters,
+          the stage did not run the preflight at all and stored a withheld report in its place. That
+          traded a real measurement of the real document for a sentence about a raster, and it is
+          how the last book ended up with no placed-image measurements, no PPI figures and four
+          gates reading FAIL off an absence. `requirePressResolution: false` is the other half: the
+          two measured gates come back as a LIST, so the report is written with every number in it
+          and the caller decides what to withhold. Everything else in that stage still throws.
+        */
+        try
         {
-            try
+            var result = BekiPrintPrep.PrepareWithGates(
+                canonical.Pdf,
+                plan.Concept.Title,
+                options,
+                trimInsetMm: 5f,
+                probe: new BekiPrintProbe(
+                    canonical.Receipts.LightTextPages,
+                    canonical.Receipts.FlatGroundTextProbes,
+                    canonical.Receipts.MaximumVisibleTextDrawsByPage),
+                resolutionReceipt: new BekiResolutionReceipt(
+                    [.. sources, .. canonical.Receipts.RasterSources]),
+                canonicalMixedGeometry: true,
+                requirePressResolution: false, acceptRgbForScopedDelivery: true);
+            preflight = result.ReportJson;
+            work.FailedGates.AddRange(result.FailedGates);
+            if (result.FailedGates.Count == 0)
             {
-                var result = BekiPrintPrep.PrepareWithGates(
-                    canonical.Pdf,
-                    plan.Concept.Title,
-                    options,
-                    trimInsetMm: 5f,
-                    probe: new BekiPrintProbe(
-                        canonical.Receipts.LightTextPages,
-                        canonical.Receipts.FlatGroundTextProbes,
-                        canonical.Receipts.MaximumVisibleTextDrawsByPage),
-                    resolutionReceipt: new BekiResolutionReceipt(
-                        [.. sources, .. canonical.Receipts.RasterSources]),
-                    canonicalMixedGeometry: true,
-                    requirePressResolution: true, acceptRgbForScopedDelivery: true);
-                preflight = result.ReportJson;
-                work.FailedGates.AddRange(result.FailedGates);
-                if (result.FailedGates.Count == 0)
-                {
-                    prepared = result.Pdf;
-                }
-                else
-                {
-                    work.Reasons.Add("Print preflight failed: " + string.Join(", ", result.FailedGates));
-                }
+                prepared = result.Pdf;
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            else
             {
-                // Only the optional print transform is caught. Composition, source provenance,
-                // storage readback and customer render validation remain mandatory below.
-                var namedGates = GatesNamedIn(ex.Message).ToList();
-                if (namedGates.Count == 0) namedGates.Add("PRESS_COLOR");
-                work.FailedGates.AddRange(namedGates);
-                work.Reasons.Add(ex.Message);
-                preflight = System.Text.Encoding.UTF8.GetString(BekiWithheldReport.Bytes(
-                    namedGates[0], "print preparation", ex.Message));
-                logger.LogError(ex, "Print preparation held for pack {PackId}; validating the customer PDF.", pack.Id);
+                work.Reasons.Add("Print preflight failed: " + string.Join(", ", result.FailedGates));
             }
         }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Only the optional print transform is caught. Composition, source provenance,
+            // storage readback and customer render validation remain mandatory below.
+            var namedGates = GatesNamedIn(ex.Message).ToList();
+            if (namedGates.Count == 0) namedGates.Add("PRESS_COLOR");
+            work.FailedGates.AddRange(namedGates);
+            work.Reasons.Add(ex.Message);
+            preflight = System.Text.Encoding.UTF8.GetString(BekiWithheldReport.Bytes(
+                namedGates[0], "print preparation", ex.Message));
+            logger.LogError(ex, "Print preparation held for pack {PackId}; validating the customer PDF.", pack.Id);
+        }
 
-        var digitalReport = BekiCustomerPdfValidation.Validate(prepared);
+        if (work.PreparationProblems.Count > 0)
+        {
+            logger.LogWarning(
+                "Beki pack {PackId}: {Count} raster(s) were not normalized; the verified originals "
+                + "were composed instead and the output was measured on its own terms. {Problems}",
+                pack.Id, work.PreparationProblems.Count, string.Join(" ", work.PreparationProblems));
+        }
+
+        return new PressCandidate(
+            prepared,
+            preflight,
+            BekiCustomerPdfValidation.Validate(prepared),
+            canonical.Receipts,
+            assetLockHashes,
+            work,
+            work.Normalizer ?? "none");
+    }
+
+    /// <summary>
+    /// The candidate becomes the book: the reading PDF and every report a gate reads, under the
+    /// names the reader, the download, the admin console and the printer already point at.
+    ///
+    /// The order is the one the drawing job has always used, and it matters. The PDF is stored and
+    /// read straight back before anything claims it was; the integrity record is written from what
+    /// came back rather than from what went out; the preflight lands under all three of its names
+    /// so a gate looking for the press cover's report and one looking for the canonical report read
+    /// the same verdict; and the hold alarm is raised last, when there is a press-status document
+    /// for it to point at.
+    /// </summary>
+    private async Task PublishPressCandidateAsync(
+        Domain.Entities.AdventurePack pack, PressCandidate candidate, CancellationToken cancellationToken)
+    {
+        var work = candidate.Work;
+        var prepared = candidate.Pdf;
+        var preflight = candidate.PreflightJson;
+        var digitalReport = candidate.DigitalReport;
 
         work.InteriorUrl = await blobStorage.UploadAsync(
             BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id),
@@ -2973,7 +3389,7 @@ public sealed class BekiPackFulfillment(
                 "CANONICAL_STORAGE: stored PDF bytes differ from the preflighted artifact.");
         }
         await blobStorage.UploadAsync(
-            $"{pack.UserId}/{pack.Id}/canonical-integrity.json",
+            CanonicalIntegrityName(pack.UserId, pack.Id),
             JsonSerializer.SerializeToUtf8Bytes(new
             {
                 sha256 = BekiCompositeEngine.Sha256Hex(storedPdf),
@@ -3002,8 +3418,9 @@ public sealed class BekiPackFulfillment(
         work.InteriorPreflightStored = true;
         work.CoverPreflightStored = true;
 
-        await UploadLayoutReceiptsAsync(pack, "canonical", canonical.Receipts, cancellationToken);
-        await StoreFixedPageQaAsync(pack, canonical.Receipts, assetLockHashes, cancellationToken);
+        await UploadLayoutReceiptsAsync(
+            pack, BekiPackBlobs.CanonicalLayoutMode, candidate.Receipts, cancellationToken);
+        await StoreFixedPageQaAsync(pack, candidate.Receipts, candidate.AssetLockHashes, cancellationToken);
 
         await RecordDeliveryDiagnosticAsync(pack.Id, "print status",
             () => WritePressStatusAsync(pack, work, cancellationToken), cancellationToken);
@@ -3020,9 +3437,275 @@ public sealed class BekiPackFulfillment(
         }
     }
 
-    // The verified original composite remains usable even if an optional enlarged version is
-    // malformed, cannot be recomposited, or cannot be stored. Never upgrade that failure to a
-    // print approval; the caller records PRESS_RESOLUTION and still validates the customer PDF.
+    /// <summary>The readback record that proves the stored PDF is the one that was measured.</summary>
+    private static string CanonicalIntegrityName(Guid userId, Guid packId) =>
+        $"{userId}/{packId}/canonical-integrity.json";
+
+    /// <summary>
+    /// Every document <see cref="PublishPressCandidateAsync"/> and the evidence steps beside it
+    /// write under a name somebody serves or judges, with the content type each is served as.
+    ///
+    /// Written down once because two operations need the same list and would otherwise each keep
+    /// their own: the copy taken before a re-preparation, and the copy put back when one is
+    /// refused. A file missing from one list and present in the other is a rollback that leaves the
+    /// book half replaced, which is the single worst outcome this whole path can produce.
+    ///
+    /// The receipts and the fixed-page QA are here for exactly that reason. They were not, and the
+    /// consequence was subtle and bad: publishing overwrites <c>receipts/canonical-layout.json</c>,
+    /// its per-page files and <c>fixed-*-qa.json</c>, and those are what TEXT_LAYER and VISUAL_QA
+    /// read — so a rejected candidate's rollback restored the old PDF and left the rejected
+    /// document's evidence in place, and the book that a family kept was afterwards judged on
+    /// measurements of a PDF that was thrown away.
+    ///
+    /// The page names come from the receipts the publish step is about to write, rather than from a
+    /// page count repeated here, so the two cannot disagree about how many pages a book has. The
+    /// fixed-page roles are listed in full even though a document may carry only some of them: a
+    /// name the starting state did not have is recorded as absent and DELETED on rollback, which is
+    /// how a QA record invented by a rejected candidate stops counting as this book's evidence.
+    ///
+    /// Deliberately NOT here: the additive <c>print/*</c> composites and
+    /// <see cref="BekiPackBlobs.CoverLayoutSafetyName"/>, which are written while a candidate is
+    /// being built and are evidence ABOUT a candidate — no reader, download, printer or gate
+    /// consumes them as the book.
+    /// </summary>
+    public static IReadOnlyList<(string Name, string ContentType)> LiveDeliverables(
+        Guid userId, Guid packId, BekiLayoutReceipts receipts)
+    {
+        ArgumentNullException.ThrowIfNull(receipts);
+
+        var names = new List<(string Name, string ContentType)>
+        {
+            (BekiPackBlobs.ReadingPdfName(userId, packId), "application/pdf"),
+            (CanonicalIntegrityName(userId, packId), "application/json"),
+            (BekiPackBlobs.CanonicalPreflightName(userId, packId), "application/json"),
+            (BekiPackBlobs.InteriorPreflightName(userId, packId), "application/json"),
+            (BekiPackBlobs.CoverPreflightName(userId, packId), "application/json"),
+            (BekiPackBlobs.DigitalReportName(userId, packId), "application/json"),
+            (BekiPackBlobs.PressStatusName(userId, packId), "application/json"),
+            (BekiPackBlobs.RenderReportName(userId, packId, BekiPackBlobs.CanonicalRenderArtifact), "application/json"),
+            (BekiPackBlobs.ReleaseGatesName(userId, packId), "application/json"),
+            (BekiPackBlobs.ContactSheetName(userId, packId, BekiPackBlobs.CanonicalRenderArtifact), "image/png"),
+            (BekiPackBlobs.LayoutReceiptName(userId, packId, BekiPackBlobs.CanonicalLayoutMode), "application/json"),
+        };
+
+        foreach (var page in receipts.Pages)
+        {
+            names.Add((
+                BekiPackBlobs.LayoutPageReceiptName(
+                    userId, packId, BekiPackBlobs.CanonicalLayoutMode, page.FileName),
+                "application/json"));
+        }
+
+        foreach (var role in BekiFixedPageQa.Roles)
+        {
+            names.Add((BekiPackBlobs.FixedPageQaName(userId, packId, role), "application/json"));
+        }
+
+        return names;
+    }
+
+    /// <summary>
+    /// What the book published before a re-preparation replaced it.
+    /// </summary>
+    /// <param name="Blobs">
+    /// One entry per name in <see cref="LiveDeliverables"/>, present or not: null bytes mean the
+    /// book did not have that document before, and rollback removes whatever the attempt left
+    /// under it. Absence has to be recorded rather than skipped — a rejected candidate that
+    /// invents a page receipt or a fixed-page QA record the book never had would otherwise leave
+    /// it behind for the gates to read.
+    /// </param>
+    private sealed record LiveSnapshot(
+        string Prefix,
+        string? PrintPdfUrl,
+        IReadOnlyList<(string Name, string ContentType, byte[]? Bytes)> Blobs);
+
+    /// <summary>
+    /// Copies the finished book aside before anything is written over it.
+    ///
+    /// Kept under the pack's own prefix rather than deleted-and-hoped-for, because the alternative
+    /// to a copy is a rollback that has nothing to roll back to: the reading PDF is what a family
+    /// is downloading right now, and a re-preparation that turns out worse must be able to put the
+    /// exact bytes back rather than a rebuild of them. The timestamped folder also means a second
+    /// re-preparation does not overwrite the first one's evidence.
+    /// </summary>
+    /// <param name="receipts">
+    /// The candidate's layout receipts, which name the per-page files the publish step is about to
+    /// write — the one place the snapshot list and the publish step agree on how many pages there
+    /// are.
+    /// </param>
+    private async Task<LiveSnapshot> SnapshotLiveDeliverablesAsync(
+        Domain.Entities.AdventurePack pack, BekiLayoutReceipts receipts, CancellationToken cancellationToken)
+    {
+        var prefix = $"{pack.UserId}/{pack.Id}/previous/"
+            + _timeProvider.GetUtcNow().UtcDateTime.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture);
+        var saved = new List<(string Name, string ContentType, byte[]? Bytes)>();
+
+        foreach (var (name, contentType) in LiveDeliverables(pack.UserId, pack.Id, receipts))
+        {
+            if (!await blobStorage.ExistsAsync(name, cancellationToken))
+            {
+                // Nothing to copy aside, and the fact that there was nothing is itself the record
+                // rollback needs.
+                saved.Add((name, contentType, null));
+                continue;
+            }
+
+            var bytes = await ReadRequiredBlobAsync(name, cancellationToken);
+            await blobStorage.UploadAsync(
+                $"{prefix}/{name[(name.LastIndexOf('/') + 1)..]}", bytes, contentType, cancellationToken);
+            saved.Add((name, contentType, bytes));
+        }
+
+        return new LiveSnapshot(prefix, pack.PrintPdfUrl, saved);
+    }
+
+    /// <summary>
+    /// Puts the previous book back, byte for byte, and with it the print slot it had — and removes
+    /// what the attempt added.
+    ///
+    /// Best-effort per blob and loud about it: this runs while an exception is already on its way
+    /// out, and a second failure here must not replace the reason the caller is being told about.
+    /// What it cannot restore it names, because a half-restored book is something a person has to
+    /// know about immediately.
+    ///
+    /// The print slot is the one thing that is NOT best effort, and that is the correction. It used
+    /// to be written back unconditionally after the loop, whatever the loop had managed — so a
+    /// re-preparation of an already-printable book that failed after replacing the canonical PDF,
+    /// and then failed AGAIN putting the original back, restored a URL pointing at the blob that
+    /// now held the rejected candidate. The printer would have been sent the document this whole
+    /// stage exists to refuse. The slot comes back only when every document the book had before
+    /// came back; otherwise it stays empty, an operator is paged with the names, and — when it is
+    /// the family's own reading copy that could not be put back — the caller is told, so that the
+    /// endpoint's 409 says the book is damaged rather than merely refused.
+    /// </summary>
+    private async Task RestoreLiveDeliverablesAsync(
+        Domain.Entities.AdventurePack pack, LiveSnapshot snapshot, CancellationToken cancellationToken)
+    {
+        var readingPdfName = BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id);
+        var unrestored = new List<string>();
+        var readingPdfLost = false;
+
+        foreach (var (name, contentType, bytes) in snapshot.Blobs)
+        {
+            try
+            {
+                if (bytes is null)
+                {
+                    // The book did not have this document. Deleting rather than leaving it is the
+                    // whole point: a rejected candidate's receipt or QA record left in storage is
+                    // evidence the release gates would read as if it described the restored book.
+                    // Keyed by bare name, the way every other reader in this pipeline addresses
+                    // these files.
+                    await blobStorage.DeleteByStoredUrlAsync(name, cancellationToken);
+                    continue;
+                }
+
+                await blobStorage.UploadAsync(name, bytes, contentType, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(
+                    ex, "Beki pack {PackId}: '{Blob}' could not be restored after a refused print "
+                    + "re-preparation. The copy taken before the attempt is under {Snapshot}.",
+                    pack.Id, name, snapshot.Prefix);
+
+                // A removal that failed counts too: what is left under that name is the rejected
+                // candidate's document, and the gates read it as this book's.
+                unrestored.Add(name[(name.LastIndexOf('/') + 1)..]);
+                readingPdfLost |= string.Equals(name, readingPdfName, StringComparison.Ordinal);
+            }
+        }
+
+        if (unrestored.Count == 0)
+        {
+            try
+            {
+                await packRepository.UpdatePrintPdfUrlAsync(
+                    pack.Id, snapshot.PrintPdfUrl, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(
+                    ex, "Beki pack {PackId}: the print slot could not be restored after a refused "
+                    + "print re-preparation.", pack.Id);
+            }
+
+            return;
+        }
+
+        var names = string.Join(", ", unrestored);
+
+        try
+        {
+            // Emptied explicitly rather than merely left alone: the refusal can arrive after the
+            // verdict has already written a URL, and that URL now names bytes this stage rejected.
+            await packRepository.UpdatePrintPdfUrlAsync(pack.Id, null, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex, "Beki pack {PackId}: the print slot could not be emptied after an incomplete "
+                + "rollback. It may still point at the rejected candidate.", pack.Id);
+        }
+
+        /*
+          Deliberately NOT written: a note over press-status.json.
+
+          It is one of the documents this method has just put back, and the ones that came back are
+          the restored book's own evidence. Overwriting it to say "the rollback failed" would
+          destroy a document the rollback succeeded at restoring, on a book that already has less
+          evidence than it should. The names go into the log line and into the alarm's detail, which
+          is where an operator reads them.
+        */
+        logger.LogError(
+            "Beki pack {PackId}: rollback incomplete after a refused print re-preparation — {Names} "
+            + "could not be put back. The print slot is left empty rather than pointed at the "
+            + "rejected candidate. The copy taken before the attempt is under {Snapshot}.",
+            pack.Id, names, snapshot.Prefix);
+
+        if (alarms is not null)
+        {
+            try
+            {
+                await alarms.RaiseAsync(
+                    new BekiAlarmRaise(
+                        pack.Id,
+                        await OrderIdAsync(pack.Id, cancellationToken),
+                        pack.UserId,
+                        "PRINT_PREPARATION_HELD",
+                        BekiReleaseSeverity.Blocker,
+                        $"rollback incomplete: {names}. A refused print re-preparation could not put "
+                        + "these documents back, so printing is withheld and part of this book's "
+                        + $"stored evidence is the rejected candidate's. The bytes taken before the "
+                        + $"attempt are under {snapshot.Prefix}.",
+                        BekiPackBlobs.PressStatusName(pack.UserId, pack.Id),
+                        BekiAlarmEvidence.ForAttempt("rollback-incomplete", pack.Id, snapshot.Prefix)),
+                    cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(
+                    ex, "Beki pack {PackId}: the incomplete-rollback alarm could not be raised. The "
+                    + "documents that were not put back are: {Names}.", pack.Id, names);
+            }
+        }
+
+        if (readingPdfLost)
+        {
+            // The family's own file. The blob name is stable, so the PdfUrl column still points
+            // here — at a document this stage refused — and the caller must say so rather than
+            // report an ordinary refusal.
+            throw new InvalidOperationException(
+                "The re-prepared book was refused AND the family's reading copy could not be put "
+                + $"back ({names}). The bytes from before the attempt are under {snapshot.Prefix}; "
+                + "printing is withheld and this book needs an operator.");
+        }
+    }
+
+    // The verified original composite remains usable even if a normalized version is malformed,
+    // cannot be recomposited, or cannot be stored. Never upgrade that failure to a print approval:
+    // the caller records it as a preparation problem, the composed output is still measured, and
+    // the customer PDF is still validated.
     private async Task<(PressUpscaleResult Result, byte[] Artwork)> PrepareCustomerArtworkAsync(
         Domain.Entities.AdventurePack pack, string role, PressUpscaleResult result,
         BekiCompositionManifest receipt, byte[] original, CancellationToken ct)
@@ -3090,8 +3773,9 @@ public sealed class BekiPackFulfillment(
         BekiCompositionManifest receipt, CancellationToken cancellationToken)
     {
         var prefix = $"{pack.UserId}/{pack.Id}/print/{role}";
-        // A super-resolver may return a larger trained-factor canvas. Only downsample its
-        // child/world base to the final dimensions, then apply the unchanged approved Beki PNG.
+        // An external super-resolver returns a larger whole-factor canvas. This only ever reduces,
+        // and is a no-op on the deterministic normalizer's exact output; the unchanged approved
+        // Beki PNG is applied afterwards either way.
         var cover = role == "cover-wrap";
         enlargedBase = BekiPressRaster.FinalSize(enlargedBase,
             cover ? CoverPressWidthPx : InteriorPressWidthPx,
@@ -3105,14 +3789,19 @@ public sealed class BekiPackFulfillment(
     }
 
     /// <summary>
-    /// The press stage's rasters through the configured super-resolver, <see cref="PressParallelism"/>
+    /// The press stage's rasters through the configured preparer, <see cref="PressParallelism"/>
     /// at a time, answered in the order they were asked.
+    ///
+    /// The short-circuit is exact equality and nothing looser — amendment A3. It used to adopt any
+    /// raster that was at least the target size, which quietly published over-sized rasters the
+    /// exact-size gate then failed, and which is also how a 5316-px sheet reached a composer that
+    /// resampled it back down to 5315 for a second generation of loss. Equal, or prepared.
     ///
     /// The semaphore is not disposed: a batch that faults leaves siblings still inside it, and a
     /// release against a disposed semaphore would turn one honest failure into a second, unobserved
     /// one. It holds no handle — nothing here asks for its wait handle — so there is nothing to free.
     /// </summary>
-    private async Task<PressUpscaleResult[]> UpscaleAllAsync(
+    private async Task<PressUpscaleResult[]> PrepareRastersAsync(
         IReadOnlyList<(byte[] Png, int Width, int Height)> rasters,
         CancellationToken cancellationToken)
     {
@@ -3128,14 +3817,14 @@ public sealed class BekiPackFulfillment(
             }
             catch (SixLabors.ImageSharp.UnknownImageFormatException)
             {
-                // Test doubles and a configured external resolver may intentionally accept opaque
+                // Test doubles and a configured external tool may intentionally accept opaque
                 // bytes. Native adoption is only an optimization; unreadable input still follows
-                // the normal resolver path and is judged by its result.
+                // the normal preparer path and is judged by its result.
             }
 
             if (nativeSize is { } native
-                && native.Width >= raster.Width
-                && native.Height >= raster.Height)
+                && native.Width == raster.Width
+                && native.Height == raster.Height)
             {
                 return new PressUpscaleResult(
                     true,
@@ -3159,7 +3848,7 @@ public sealed class BekiPackFulfillment(
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                logger.LogError(ex, "Print upscaler failed; retaining original artwork for customer delivery.");
+                logger.LogError(ex, "Print normalization failed; retaining original artwork for customer delivery.");
                 return new PressUpscaleResult(false, null, "none", 1d,
                     nativeSize?.Width ?? 0, nativeSize?.Height ?? 0,
                     nativeSize?.Width ?? 0, nativeSize?.Height ?? 0, ex.Message);
@@ -3194,7 +3883,17 @@ public sealed class BekiPackFulfillment(
                     cover = work.CoverUrl is null || work.FailedGates.Count > 0 ? "withheld" : "prepared",
                     failed_gates = work.FailedGates.Distinct(StringComparer.Ordinal).ToList(),
                     reason = work.Reasons.Count == 0 ? null : string.Join(" ", work.Reasons),
-                    upscaler_configured = _pressUpscaler.IsConfigured,
+                    // What prepared the rasters, and what went wrong while doing it. The two are
+                    // deliberately separate from failed_gates: a normalization that could not run
+                    // is a reason a raster was not improved, and the gate list is what the output
+                    // measured. `upscaler_configured` lived here and answered a question this
+                    // product no longer asks — the default mode has nothing to configure.
+                    print_prep_mode = BekiPrintPrepModes.Id(bekiOptions.Value.PrintPrep.ResolvedMode),
+                    normalizer = work.Normalizer ?? "none",
+                    external_upscaler_configured =
+                        bekiOptions.Value.PrintPrep.ResolvedMode == BekiPrintPrepMode.ExternalSuperResolution
+                        && _pressUpscaler.IsConfigured,
+                    preparation_problems = work.PreparationProblems,
                 },
                 JsonOptions),
             "application/json",
@@ -3300,14 +3999,20 @@ public sealed class BekiPackFulfillment(
         }
     }
 
-    /// <summary>The press raster targets: 450 × 210 mm and 512 × 245 mm, both at 300 PPI.</summary>
-    private const int InteriorPressWidthPx = 5315;
+    /// <summary>
+    /// The press raster targets: 450 × 210 mm and 512 × 245 mm, both at 300 PPI.
+    ///
+    /// Aliases rather than a second set of literals. The gate that measures these sizes and the
+    /// stage that produces them must read the same four numbers from the same place, or a change to
+    /// the sheet becomes a book that is refused by a rule nobody edited.
+    /// </summary>
+    private const int InteriorPressWidthPx = BekiPressRaster.InteriorWidthPx;
 
-    private const int InteriorPressHeightPx = 2480;
+    private const int InteriorPressHeightPx = BekiPressRaster.InteriorHeightPx;
 
-    private const int CoverPressWidthPx = 6047;
+    private const int CoverPressWidthPx = BekiPressRaster.CoverWidthPx;
 
-    private const int CoverPressHeightPx = 2894;
+    private const int CoverPressHeightPx = BekiPressRaster.CoverHeightPx;
 
     /// <summary>
     /// The acceptance-gate ids a print-prep refusal names in its own message, so the withholding
@@ -3339,6 +4044,27 @@ public sealed class BekiPackFulfillment(
     /// an absent report is a gate that does not pass.
     /// </summary>
     private async Task ValidateStoredRendersAsync(
+        Domain.Entities.AdventurePack pack,
+        BekiRenderInputs inputs,
+        CancellationToken cancellationToken,
+        bool customerDeliveryOnly = false) =>
+        await PublishRenderEvidenceAsync(
+            pack,
+            await ValidateRendersAsync(pack, inputs, cancellationToken, customerDeliveryOnly),
+            cancellationToken);
+
+    /// <summary>One artifact's render-back verdict, before anybody has been told about it.</summary>
+    private sealed record RenderEvidence(string Artifact, BekiRenderValidationResult Result);
+
+    /// <summary>
+    /// The looking half of <see cref="ValidateStoredRendersAsync"/>: render the bytes back, scan the
+    /// QR, build the contact sheet — and store nothing.
+    ///
+    /// Split out for re-preparation (amendment A4), which has to know whether a candidate renders
+    /// correctly BEFORE it is allowed to replace a book somebody is already reading. Fused, the only
+    /// way to ask that question was to publish the answer first.
+    /// </summary>
+    private async Task<IReadOnlyList<RenderEvidence>> ValidateRendersAsync(
         Domain.Entities.AdventurePack pack,
         BekiRenderInputs inputs,
         CancellationToken cancellationToken,
@@ -3410,6 +4136,7 @@ public sealed class BekiPackFulfillment(
             }
         }));
 
+        var evidence = new List<RenderEvidence>(validated.Length);
         foreach (var (artifact, result) in validated)
         {
             if (result is null)
@@ -3419,6 +4146,24 @@ public sealed class BekiPackFulfillment(
                     "RENDER_VALIDATION: the canonical PDF could not be rendered and scanned.");
             }
 
+            evidence.Add(new RenderEvidence(artifact, result));
+        }
+
+        return evidence;
+    }
+
+    /// <summary>
+    /// The telling half: the report and the contact sheet go into storage, and only then is a
+    /// failing verdict allowed to stop the book — because an absent report is a gate that does not
+    /// pass, and a refusal nobody can read is worse than one they can.
+    /// </summary>
+    private async Task PublishRenderEvidenceAsync(
+        Domain.Entities.AdventurePack pack,
+        IReadOnlyList<RenderEvidence> evidence,
+        CancellationToken cancellationToken)
+    {
+        foreach (var (artifact, result) in evidence)
+        {
             try
             {
                 await blobStorage.UploadAsync(
@@ -3599,6 +4344,17 @@ public sealed class BekiPackFulfillment(
                 BekiPackBlobs.SpreadBaseName(pack.UserId, pack.Id, artifact.SpreadNumber),
                 artifact.BasePng,
                 "image/png",
+                cancellationToken);
+        }
+
+        // What was asked of the image provider, and what came back. Only a freshly drawn page has
+        // one — an adopted page's receipt belongs to the run that drew it and is already stored.
+        if (artifact.GenerationReceiptJson is { Length: > 0 } generation)
+        {
+            await blobStorage.UploadAsync(
+                BekiPackBlobs.SpreadGenerationName(pack.UserId, pack.Id, artifact.SpreadNumber),
+                System.Text.Encoding.UTF8.GetBytes(generation),
+                "application/json",
                 cancellationToken);
         }
 

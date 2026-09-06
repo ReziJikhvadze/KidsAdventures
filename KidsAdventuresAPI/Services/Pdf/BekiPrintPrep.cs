@@ -46,14 +46,22 @@ public sealed record BekiTextProbeRect(
 /// <summary>
 /// Where the pixels in a press raster actually came from.
 ///
-/// P1-01's finding is that pixel count is not evidence: 2528×1180 story art Lanczos-stretched to
-/// 5315×2480 measures 300 PPI and carries 143 PPI of detail. So the preflight is told, per raster,
-/// what the source was and what enlarged it — and amendment A1 makes an interpolation-only
-/// enlargement a <c>PRESS_RESOLUTION</c> failure rather than a note.
+/// A record of what was done, not a verdict on it. The 2026-09-06 decision record
+/// (<c>contracts/BEKI_Print_Prep_Deterministic_Normalization_v1.md</c>) settled that the resolution
+/// gate judges the measured output — exact pixels, effective PPI at placement size, aspect
+/// preserved — and never the name of the tool that resized anything. The receipt is still carried
+/// into the preflight, and it is still worth carrying: a physical proof is inspected against the
+/// crop and the factor somebody actually applied.
 /// </summary>
 public sealed record BekiResolutionReceipt(IReadOnlyList<BekiResolutionSource> Sources);
 
-/// <summary>One raster's provenance. <paramref name="Tool"/> "none" means it was never enlarged.</summary>
+/// <summary>One raster's provenance. <paramref name="Tool"/> "none" means it was never resized.</summary>
+/// <param name="InterpolationOnly">
+/// The caller's own note that this raster gained pixels without gaining detail. Recorded and echoed;
+/// no gate reads it, because the output is what is judged.
+/// </param>
+/// <param name="Crop">What the aspect reconciliation discarded, when one ran.</param>
+/// <param name="Mode">The print preparation mode that produced this raster.</param>
 public sealed record BekiResolutionSource(
     string Role,
     int SourceWidthPx,
@@ -62,26 +70,9 @@ public sealed record BekiResolutionSource(
     int DeliveredHeightPx,
     string Tool,
     double Factor,
-    bool InterpolationOnly)
-{
-    /// <summary>
-    /// Resamplers that move pixels around without adding detail. Named here rather than trusted
-    /// from the caller's flag, because the failure this catches is precisely a caller who believes
-    /// a Lanczos stretch counts as resolution — the shipped book's own belief.
-    /// </summary>
-    private static readonly string[] Interpolators =
-        ["none", "", "resize", "resample", "lanczos", "lanczos3", "bicubic", "bilinear",
-         "nearest", "catmullrom", "mitchell", "box", "spline", "welch", "hermite"];
-
-    /// <summary>
-    /// Whether this raster was enlarged by interpolation alone. True either because the caller said
-    /// so or because the tool it named is a resampler and the factor is greater than one.
-    /// </summary>
-    public bool IsInterpolationOnly =>
-        InterpolationOnly
-        || (Factor > 1.0001d
-            && Interpolators.Contains(Tool.Trim().ToLowerInvariant(), StringComparer.Ordinal));
-}
+    bool InterpolationOnly,
+    PressCropGeometry? Crop = null,
+    string? Mode = null);
 
 /// <summary>
 /// The print-preparation stage — the one the supplier's audit found did not exist.
@@ -113,6 +104,13 @@ public sealed record BekiResolutionSource(
 /// — and the number it measured is worth having either way. The file is produced at the stated size,
 /// the gate says FAIL in the report and in <c>failed_gates</c>, and the release policy decides. The
 /// measurement itself is untouched to the pixel.
+///
+/// What that measurement is allowed to look at narrowed on 2026-09-06
+/// (<c>contracts/BEKI_Print_Prep_Deterministic_Normalization_v1.md</c>): the exact pixel sizes on the
+/// canonical sheets, the effective PPI at placement, and whether any raster was stretched onto a box
+/// of a different ratio — which travels as <c>PRESS_GEOMETRY</c>. Never the name or the provenance of
+/// the resizing tool. A physical proof was reviewed and accepted, and a gate that fails a book for
+/// the word "lanczos3" in a receipt is failing it for something nobody can see on paper.
 /// </summary>
 public static class BekiPrintPrep
 {
@@ -127,6 +125,15 @@ public static class BekiPrintPrep
     /// </summary>
     public const string PressResolutionGate = "PRESS_RESOLUTION";
 
+    /// <summary>
+    /// <inheritdoc cref="PressResolutionGate" path="/summary"/>
+    ///
+    /// Raised here for the one geometry defect that is invisible to a page-box check: a raster
+    /// painted onto a box whose ratio is not its own, which is a stretched picture on paper. The
+    /// supplier's release policy already blocks on this id.
+    /// </summary>
+    public const string PressGeometryGate = "PRESS_GEOMETRY";
+
     /// <inheritdoc cref="PressResolutionGate"/>
     public const string TextColorIntegrityGate = "TEXT_COLOR_INTEGRITY";
 
@@ -138,6 +145,12 @@ public static class BekiPrintPrep
 
     /// <summary>The supplied gates document, read at runtime rather than transcribed into C#.</summary>
     private const string AcceptanceGatesFile = "BEKI_Acceptance_Gates_v1.json";
+
+    /// <summary>
+    /// The owner's 2026-09-06 amendment to those gates: what PRESS_RESOLUTION may judge, and what
+    /// it may not. Named in every preflight so the artifact says which rule it was measured under.
+    /// </summary>
+    private const string DecisionRecordFile = "BEKI_Print_Prep_Deterministic_Normalization_v1.md";
 
     /// <summary>
     /// Applies print preparation to one laid-out artifact and proves what it did.
@@ -160,25 +173,25 @@ public static class BekiPrintPrep
     /// not yet produced layout receipts can honestly ask for.
     /// </param>
     /// <param name="resolutionReceipt">
-    /// Where each press raster's pixels came from (amendment A1). Null means no enlargement is
-    /// claimed; a receipt that admits interpolation-only enlargement fails the resolution gate in
-    /// the report and in the returned gate list.
+    /// Where each press raster's pixels came from. Null means nothing claims to have resized
+    /// anything, and that is a lawful state rather than a suspicious one: the gate's verdict comes
+    /// from the measured output either way, and no receipt can make a correctly sized, correctly
+    /// placed raster fail.
     ///
-    /// The composer knows things the upscaler in front of it does not — it is the stage that
-    /// enlarges a short raster onto the stated sheet — so a caller building this from the upscaler
-    /// alone hands the gate a receipt with that enlargement missing. Combine it with
-    /// <see cref="BekiLayoutReceipts.RasterSources"/> from the composed book.
+    /// Supplied because the supplier handback is better with it than without it. Combine the
+    /// preparation stage's own results with <see cref="BekiLayoutReceipts.RasterSources"/> from the
+    /// composed book, which is the stage that knows what the sheet finally received.
     /// </param>
     /// <returns>
     /// The prepared PDF, the preflight report as JSON ready to store beside it, and the acceptance
     /// gates that FAILED without withholding the file.
     ///
-    /// That third value is the whole of what owner ruling 2026-09-01 rule 4 changed here. Exactly one
-    /// gate travels in it today — <c>PRESS_RESOLUTION</c> — because a press file that refuses to
-    /// exist is not a printing size being correct, and the audit's measurement is worth keeping
-    /// whether or not it is worth stopping a release for. Every other check in this stage still
-    /// refuses outright and throws. A caller that ignores this list is publishing a file whose
-    /// resolution gate may have failed; the release policy is where that is weighed.
+    /// That third value is the whole of what owner ruling 2026-09-01 rule 4 changed here. Two gates
+    /// can travel in it — <c>PRESS_RESOLUTION</c> and <c>PRESS_GEOMETRY</c> — because a press file
+    /// that refuses to exist is not a printing size being correct, and the measurement is worth
+    /// keeping whether or not it is worth stopping a release for. Every other check in this stage
+    /// still refuses outright and throws. A caller that ignores this list is publishing a file whose
+    /// measured defects it did not read; the release policy is where they are weighed.
     /// </returns>
     /// <exception cref="BekiLayoutException">
     /// <c>PRINT_PREFLIGHT_FAILED</c> — a required input is missing or a hard check failed. The
@@ -332,22 +345,28 @@ public static class BekiPrintPrep
             contents.Add(BekiContentWalker.Walk(document.Pages[index], index + 1));
         }
 
-        var (resolution, resolutionProblems) =
-            MeasurePressResolution(contents, requiredPpi, resolutionReceipt);
+        var (resolution, resolutionProblems, geometryProblems) = MeasurePressResolution(
+            contents, requiredPpi, resolutionReceipt, options, canonicalMixedGeometry);
 
-        if (requirePressResolution && resolutionProblems.Count > 0)
+        if (requirePressResolution && (resolutionProblems.Count > 0 || geometryProblems.Count > 0))
         {
-            throw Failure(
-                $"{PressResolutionGate}: " + string.Join(" ", resolutionProblems));
+            var refusals = new List<string>(2);
+            if (resolutionProblems.Count > 0)
+                refusals.Add($"{PressResolutionGate}: " + string.Join(" ", resolutionProblems));
+            if (geometryProblems.Count > 0)
+                refusals.Add($"{PressGeometryGate}: " + string.Join(" ", geometryProblems));
+            throw Failure(string.Join(" ", refusals));
         }
         var textColour = EnforceTextColourIntegrity(contents, probe);
         var textLayers = EnforceSingleTextLayer(contents, probe);
         var vectorLogo = canonicalMixedGeometry ? EnforceVectorCoverLogo(contents) : null;
 
-        // The one gate this stage measures and does not act on. Everything else in here still
+        // The two gates this stage measures and does not act on. Everything else in here still
         // refuses outright: a missing ICC profile, an unembedded face, a wrong page box, a dropped
         // page, an RGB raster, cream text converted to device black. See MeasurePressResolution.
-        var failedGates = resolutionProblems.Count > 0 ? new[] { PressResolutionGate } : [];
+        var failedGates = new List<string>(2);
+        if (resolutionProblems.Count > 0) failedGates.Add(PressResolutionGate);
+        if (geometryProblems.Count > 0) failedGates.Add(PressGeometryGate);
 
         // Page heights are read before the save, while the document is unambiguously ours: the
         // probe rectangles arrive measured from the top-left corner, and turning that into a
@@ -372,9 +391,9 @@ public static class BekiPrintPrep
                 stage = canonicalMixedGeometry ? "beki-canonical-print-prep-v3" : "beki-print-prep-v2",
                 spec = acceptRgbForScopedDelivery ? "BEKI_FINAL_SCOPE_2026-09-05" : "BEKI_Print_Production_Locked_Spec_v1",
                 prepared_at_utc = DateTime.UtcNow,
-                // The gates that failed and did not stop the file being written. Empty on a clean
-                // artifact. This exists because owner ruling 2026-09-01 rule 4 moved the decision on
-                // PRESS_RESOLUTION out of this stage: the file is produced at the stated size, and
+                // The gates that failed and did not stop the file being written — PRESS_RESOLUTION,
+                // PRESS_GEOMETRY, or neither. This exists because owner ruling 2026-09-01 rule 4
+                // moved the decision out of this stage: the file is produced at the stated size, and
                 // whoever publishes it needs to be able to read, in one place, what is wrong with it.
                 failed_gates = failedGates,
                 pdfx = new
@@ -560,39 +579,52 @@ public static class BekiPrintPrep
     }
 
     /// <summary>
-    /// <c>PRESS_RESOLUTION</c>: "Every press raster has at least 300 effective source PPI at
-    /// placement size; interpolation-only upscaling is a failure."
+    /// <c>PRESS_RESOLUTION</c> and <c>PRESS_GEOMETRY</c>, measured on the composed output and on
+    /// nothing else.
     ///
-    /// Three ways to fail, and the last is the one the audit had to invent. The first is a placement
-    /// that could not be measured — amendment A1 is explicit that unknown is not a pass, because the
-    /// shipped cover passed a preflight that simply never asked. The second is arithmetic: pixels
-    /// over placed inches, per axis, for every image the content stream actually paints, which is why
-    /// there is a content-stream walker at all (the credits Beki mark is a 32 mm image on a 440 mm
-    /// page, and page-size arithmetic would report it at forty times its density). The third is
-    /// provenance: a raster can measure 300 PPI and carry 143, because something stretched it, and
-    /// only the receipt knows.
+    /// The decision record of 2026-09-06 is explicit about the second half of that sentence: "Do not
+    /// fail based on the name or provenance of the resizing tool." A physical proof was inspected
+    /// and its sharpness accepted, which retires the older rule that a receipt naming a resampler was
+    /// itself the defect. What is left is what a press can actually be handed:
     ///
-    /// **It measures and it reports; it no longer decides.** Every one of those three used to throw,
-    /// which meant a book whose art was thin produced no press file at all — and with no
-    /// super-resolver on the deployment, that is every book. Owner ruling 2026-09-01, rule 4: "the
+    /// 1. A placement that could not be measured. Unknown is not a pass — the shipped cover passed a
+    ///    preflight that simply never asked.
+    /// 2. Effective PPI: pixels over placed inches, per axis, for every image the content stream
+    ///    actually paints. This is why there is a content-stream walker at all — the credits Beki
+    ///    mark is a 32 mm image on a 440 mm page, and page-size arithmetic would report it at forty
+    ///    times its density. A metadata DPI tag is never consulted, so re-tagging a thin raster
+    ///    changes nothing here.
+    /// 3. On the canonical book, the exact locked pixel sizes on the exact locked sheets: the cover
+    ///    raster on page 1, one full-spread raster on each of pages 2–12. No tolerance — the
+    ///    normalization delivers those numbers or the book does not have them.
+    /// 4. Stretch: a raster whose pixel ratio and placed-millimetre ratio disagree by more than half
+    ///    a percent is a distorted picture, and that travels as <c>PRESS_GEOMETRY</c> rather than as
+    ///    a resolution problem, because it is a shape defect and the release policy already blocks
+    ///    on that id.
+    ///
+    /// **It measures and it reports; it does not decide.** Owner ruling 2026-09-01, rule 4: "the
     /// sizes we have indicated for printing are correct", and a press build that refuses to exist is
-    /// not a size being correct. So the measurement is unchanged to the pixel, the message is
-    /// unchanged word for word, and the verdict lands in the report and in
-    /// <c>failed_gates</c> instead of in an exception. Whether a failed <c>PRESS_RESOLUTION</c>
-    /// withholds a release is the release policy's call, made where the other gates are weighed.
-    ///
-    /// Nothing here is softened. A gate that reads FAIL in the preflight is a gate that failed, and
-    /// the supplier handback carries the same numbers it always did.
+    /// not a size being correct. So the verdict lands in the report and in <c>failed_gates</c>
+    /// instead of in an exception, and the release policy weighs it where the other gates are
+    /// weighed. Nothing here is softened: a gate that reads FAIL in the preflight is a gate that
+    /// failed, and the supplier handback carries the numbers behind it.
     /// </summary>
-    /// <returns>The report block, and the problems found — empty when the gate passes.</returns>
-    private static (object Report, IReadOnlyList<string> Problems) MeasurePressResolution(
-        IReadOnlyList<BekiContentWalker.PageContent> contents,
-        int requiredPpi,
-        BekiResolutionReceipt? receipt)
+    /// <returns>
+    /// The report block, the resolution problems and the geometry problems — each empty when that
+    /// gate passes.
+    /// </returns>
+    private static (object Report, IReadOnlyList<string> Problems, IReadOnlyList<string> GeometryProblems)
+        MeasurePressResolution(
+            IReadOnlyList<BekiContentWalker.PageContent> contents,
+            int requiredPpi,
+            BekiResolutionReceipt? receipt,
+            BekiPrintPrepOptions options,
+            bool canonicalMixedGeometry)
     {
         var images = contents.SelectMany(page => page.Images).ToList();
         var unresolved = contents.SelectMany(page => page.Unresolved).ToList();
         var problems = new List<string>();
+        var geometryProblems = new List<string>();
 
         if (unresolved.Count > 0)
         {
@@ -618,24 +650,87 @@ public static class BekiPrintPrep
                         + $"{image.EffectivePpiX:F0}×{image.EffectivePpiY:F0} PPI.")));
         }
 
-        var stretched = (receipt?.Sources ?? []).Where(source => source.IsInterpolationOnly).ToList();
-        if (stretched.Count > 0)
+        // The canonical book's locked sizes, checked as sizes rather than as claims. Every page owes
+        // exactly one full-sheet raster, and it owes it at the pixel — a spread one column short is
+        // a spread that was resampled by something downstream that should not have touched it.
+        if (canonicalMixedGeometry)
         {
-            problems.Add(
-                $"{stretched.Count} raster(s) reached their pixel count by "
-                + "interpolation alone, and upscaling changes pixel count rather than source "
-                + "detail (audit P1-01). "
-                + string.Join(" ", stretched
+            foreach (var page in contents)
+            {
+                var (wantWidthPx, wantHeightPx, wantWidthMm, wantHeightMm) = page.Page == 1
+                    ? (BekiPressRaster.CoverWidthPx, BekiPressRaster.CoverHeightPx, 512d, 245d)
+                    : (BekiPressRaster.InteriorWidthPx, BekiPressRaster.InteriorHeightPx, 450d, 210d);
+
+                var fullSheet = page.Images
+                    .Where(image => !image.IsStencilMask && !image.Inline
+                        && Math.Abs(image.PlacedWidthMm - wantWidthMm) <= 0.5d
+                        && Math.Abs(image.PlacedHeightMm - wantHeightMm) <= 0.5d)
+                    .ToList();
+
+                if (fullSheet.Count == 0)
+                {
+                    var found = page.Images.Count == 0
+                        ? "no raster is painted on it"
+                        : "what is painted: " + string.Join(", ", page.Images
+                            .Take(4)
+                            .Select(image =>
+                                $"{image.WidthPx}×{image.HeightPx} px at "
+                                + $"{image.PlacedWidthMm:F1}×{image.PlacedHeightMm:F1} mm"));
+
+                    problems.Add(
+                        $"page {page.Page} carries no full-sheet raster placed at "
+                        + $"{wantWidthMm:F0}×{wantHeightMm:F0} mm ({found}).");
+                    continue;
+                }
+
+                var exact = fullSheet.FirstOrDefault(
+                    image => image.WidthPx == wantWidthPx && image.HeightPx == wantHeightPx);
+
+                if (exact is null)
+                {
+                    problems.Add(
+                        $"page {page.Page}'s full-sheet raster is "
+                        + string.Join(" / ", fullSheet.Take(3)
+                            .Select(image => $"{image.WidthPx}×{image.HeightPx} px"))
+                        + $" where the locked canonical size is {wantWidthPx}×{wantHeightPx} px.");
+                }
+            }
+        }
+
+        // Stretch, measured rather than declared: the placed box's ratio against the raster's own.
+        // Half a percent is the rounding a 5315 px sheet and a 450 mm box leave behind; past that,
+        // somebody's picture is a different shape on paper than it is in the file.
+        var distorted = images
+            .Where(image => !image.IsStencilMask
+                && image.WidthPx > 0 && image.HeightPx > 0
+                && image.PlacedWidthMm > 0 && image.PlacedHeightMm > 0
+                && Math.Abs(
+                    (image.PlacedWidthMm / image.PlacedHeightMm)
+                    / ((double)image.WidthPx / image.HeightPx) - 1d) > 0.005d)
+            .ToList();
+
+        if (distorted.Count > 0)
+        {
+            geometryProblems.Add(
+                $"{distorted.Count} of {images.Count} placed raster(s) are stretched: the box they "
+                + "are painted into is not the shape they are. "
+                + string.Join(" ", distorted
                     .Take(6)
-                    .Select(source =>
-                        $"'{source.Role}': {source.SourceWidthPx}×{source.SourceHeightPx} px "
-                        + $"enlarged ×{source.Factor:F2} by '{source.Tool}'.")));
+                    .Select(image =>
+                        $"page {image.Page} '{image.Name}': {image.WidthPx}×{image.HeightPx} px "
+                        + $"(ratio {(double)image.WidthPx / image.HeightPx:F4}) placed at "
+                        + $"{image.PlacedWidthMm:F1}×{image.PlacedHeightMm:F1} mm "
+                        + $"(ratio {image.PlacedWidthMm / image.PlacedHeightMm:F4}).")));
         }
 
         return (new
         {
             gate = PressResolutionGate,
             contract = AcceptanceGatesFile,
+            // The record that says what this gate is allowed to look at, named in the artifact so a
+            // reader does not have to take the code's word for the rule it applied.
+            decision_record = DecisionRecordFile,
+            print_prep_mode = BekiPrintPrepModes.Id(options.ResolvedMode),
             required_press_raster_ppi = requiredPpi,
             verdict = problems.Count == 0 ? "PASS" : "FAIL",
             // Named so a reader of the JSON is not left to guess why a FAIL still produced a file:
@@ -643,8 +738,15 @@ public static class BekiPrintPrep
             decision = problems.Count == 0
                 ? "none needed"
                 : "withheld from this stage: BekiReleasePolicy weighs a failed PRESS_RESOLUTION "
-                  + "against the rest of the gates (owner ruling 2026-09-01, rule 4)",
+                  + $"against the rest of the gates ({DecisionRecordFile}, 2026-09-06)",
             problems,
+            geometry = new
+            {
+                gate = PressGeometryGate,
+                verdict = geometryProblems.Count == 0 ? "PASS" : "FAIL",
+                rule = "placed-millimetre ratio and pixel ratio agree within 0.5 %",
+                problems = geometryProblems,
+            },
             placed_images = images
                 .Select(image => new
                 {
@@ -666,7 +768,7 @@ public static class BekiPrintPrep
                 .SelectMany(page => page.ImagesNeverPlaced.Select(name => new { page = page.Page, name }))
                 .ToList(),
             receipt = receipt is null
-                ? (object)"no resolution receipt supplied; no enlargement is claimed for any raster"
+                ? (object)"no resolution receipt supplied; no resizing is claimed for any raster"
                 : receipt.Sources
                     .Select(source => new
                     {
@@ -675,10 +777,21 @@ public static class BekiPrintPrep
                         delivered_px = new[] { source.DeliveredWidthPx, source.DeliveredHeightPx },
                         tool = source.Tool,
                         factor = Math.Round(source.Factor, 4),
-                        interpolation_only = source.IsInterpolationOnly,
+                        mode = source.Mode,
+                        crop = source.Crop is null
+                            ? null
+                            : (object)new
+                            {
+                                x = source.Crop.XPx,
+                                y = source.Crop.YPx,
+                                w = source.Crop.WidthPx,
+                                h = source.Crop.HeightPx,
+                                fraction_x = Math.Round(source.Crop.CropFractionX, 6),
+                                fraction_y = Math.Round(source.Crop.CropFractionY, 6),
+                            },
                     })
                     .ToList(),
-        }, problems);
+        }, problems, geometryProblems);
     }
 
     /// <summary>

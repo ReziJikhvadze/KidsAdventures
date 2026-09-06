@@ -130,7 +130,35 @@ public sealed record FieldReadingGeometry(
     /// <summary>How many columns either side of a boundary this geometry actually touches.</summary>
     public int Reach => Math.Max(EdgeStripColumns, FieldGapColumns + FieldStripColumns);
 
-    /// <summary>The story spread's reading: one fold, a whole panorama to spread out in.</summary>
+    /// <summary>
+    /// The same reading, in the same VISUAL widths, on a canvas of another size.
+    ///
+    /// Every column count in this record was tuned against 1536-wide renders — eight columns is
+    /// the width of a razor edge's shoulder there, forty-eight is the width of a veil's field —
+    /// and none of them is a property of the picture: they are fractions of a spread expressed in
+    /// the pixels a spread happened to have. Left unscaled on a 2048-wide render they would read a
+    /// quarter of the material and a threshold calibrated on thirty-nine real bases would mean
+    /// something else. Scaled, an opted-in larger frame measures like the frame the thresholds
+    /// were calibrated on.
+    ///
+    /// The band fraction is already a fraction of the width, so it travels unchanged; and at
+    /// <see cref="CompositeSeamRepair.ReferenceCanvasWidthPx"/> the factor is exactly one, which
+    /// is why today's numbers and today's tests are untouched.
+    /// </summary>
+    public FieldReadingGeometry ScaledTo(int canvasWidthPx) =>
+        canvasWidthPx == CompositeSeamRepair.ReferenceCanvasWidthPx
+            ? this
+            : new FieldReadingGeometry(
+                CompositeSeamRepair.ScaleToCanvas(EdgeStripColumns, canvasWidthPx),
+                CompositeSeamRepair.ScaleToCanvas(FieldGapColumns, canvasWidthPx),
+                CompositeSeamRepair.ScaleToCanvas(FieldStripColumns, canvasWidthPx),
+                BandFraction);
+
+    /// <summary>
+    /// The story spread's reading: one fold, a whole panorama to spread out in. At
+    /// <see cref="CompositeSeamRepair.ReferenceCanvasWidthPx"/> — call <see cref="ScaledTo"/> for
+    /// the canvas actually in hand.
+    /// </summary>
     public static readonly FieldReadingGeometry Spread = new(
         CompositeSeamRepair.EdgeStripColumns,
         CompositeSeamRepair.FieldGapColumns,
@@ -229,6 +257,33 @@ public static class CompositeSeamRepair
     public const double Threshold = 5.0;
 
     /// <summary>
+    /// The canvas width every column count in this file was tuned against.
+    ///
+    /// 1536, which is what <c>Beki:SpreadImageSize</c> has always asked the provider for and what
+    /// every stored base and every calibration fixture measures. It is named here because that
+    /// frame is now a setting rather than a constant: a deployment may opt in to 2048×1152 or
+    /// 3840×2160, and a threshold expressed in raw columns would then be measuring a third of the
+    /// material it was calibrated on while reporting the same numbers.
+    ///
+    /// The decision, spelled out because both answers are defensible: these thresholds preserve
+    /// NORMALIZED VISUAL WIDTH, not absolute pixels. A seam is a feature of the picture — a
+    /// painted fold is a fold whatever the render is scaled to — so eight columns at 1536 becomes
+    /// eleven at 2048 and twenty at 3840. The alternative, keeping the pixel counts, would make
+    /// the same book pass at one frame and fail at another for no reason a reader could see.
+    /// </summary>
+    public const int ReferenceCanvasWidthPx = 1536;
+
+    /// <summary>
+    /// One of this file's tuned column counts, in the columns a canvas of the given width needs to
+    /// span the same visual width. Never zero: a strip of no columns divides by nothing.
+    /// </summary>
+    public static int ScaleToCanvas(int referenceColumns, int canvasWidthPx) =>
+        canvasWidthPx == ReferenceCanvasWidthPx
+            ? referenceColumns
+            : Math.Max(1, (int)Math.Round(
+                referenceColumns * canvasWidthPx / (double)ReferenceCanvasWidthPx));
+
+    /// <summary>
     /// How far either side of the exact centre a seam may sit, as a fraction of the width.
     ///
     /// Three columns of slack was the first guess and it was too tight to catch the defect it was
@@ -243,6 +298,9 @@ public static class CompositeSeamRepair
     /// The widest run this repairs. Past eight columns it is not a seam, it is a feature — and a
     /// feature is left alone rather than trimmed to fit, because trimming would repair part of
     /// somebody's artwork and leave the rest.
+    ///
+    /// Eight columns AT <see cref="ReferenceCanvasWidthPx"/>, like every other column count here;
+    /// a wider canvas gets the same visual width through <see cref="ScaleToCanvas"/>.
     /// </summary>
     public const int MaxRepairColumns = 8;
 
@@ -476,8 +534,12 @@ public static class CompositeSeamRepair
           between. A seam is a narrow band with two edges of its own, so the second edge is looked
           for within a seam's width of the first.
         */
-        var windowFrom = Math.Max(from, peakAt - MaxRepairColumns);
-        var windowTo = Math.Min(to, peakAt + MaxRepairColumns);
+        // In this canvas's own columns: a seam is as wide as it looks, not as many pixels as it
+        // was at 1536 — see ReferenceCanvasWidthPx.
+        var maxRepairColumns = ScaleToCanvas(MaxRepairColumns, width);
+
+        var windowFrom = Math.Max(from, peakAt - maxRepairColumns);
+        var windowTo = Math.Min(to, peakAt + maxRepairColumns);
 
         var firstBoundary = -1;
         var lastBoundary = -1;
@@ -506,7 +568,7 @@ public static class CompositeSeamRepair
         //
         // And a run wider than a seam is a structure, left alone rather than trimmed to fit — a
         // trimmed repair would smear part of a real feature and leave the rest of it standing.
-        if (firstBoundary < 0 || first > last || last - first + 1 > MaxRepairColumns)
+        if (firstBoundary < 0 || first > last || last - first + 1 > maxRepairColumns)
         {
             return new SeamMeasurement(baseline, peak, ratio, -1, -1, offset);
         }
@@ -546,7 +608,7 @@ public static class CompositeSeamRepair
 
         using var image = Image.Load<Rgba32>(png);
 
-        return MeasureFieldAt(image, 0.5, FieldReadingGeometry.Spread);
+        return MeasureFieldAt(image, 0.5, FieldReadingGeometry.Spread.ScaledTo(image.Width));
     }
 
     /// <summary>
@@ -583,11 +645,15 @@ public static class CompositeSeamRepair
 
         using var image = Image.Load<Rgba32>(basePng);
 
+        // Scaled once, outside the loop: the four readings must be taken with the same instrument,
+        // and the wrap is one canvas.
+        var geometry = FieldReadingGeometry.CoverBand.ScaledTo(image.Width);
+
         return new CoverBandMeasurement(
             CoverConstructionBoundaries
                 .Select(boundary => new CoverBandReading(
                     boundary,
-                    MeasureFieldAt(image, boundary.WidthFraction, FieldReadingGeometry.CoverBand)))
+                    MeasureFieldAt(image, boundary.WidthFraction, geometry)))
                 .ToList());
     }
 

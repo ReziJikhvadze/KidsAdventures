@@ -208,11 +208,14 @@ public class BekiSpecV2PrintTests
         Assert.True(raster.Interpolated);
         Assert.Equal("lanczos3", raster.Resampler);
 
-        // And the same fact reaches the press gate in the shape it reads: an interpolation-only
-        // source, which is what makes PRESS_RESOLUTION able to fail on a stretch the upscaler in
-        // front of layout knows nothing about.
-        var stretched = book.Receipts.RasterSources.Where(source => source.IsInterpolationOnly).ToList();
-        Assert.Contains(stretched, source => source.Role == "spread-01");
+        // And the same fact reaches the press gate in the shape it reads: the tool that resized the
+        // sheet and the factor it resized it by. The gate's verdict comes from measuring the output
+        // (2026-09-06 decision record), so what this receipt owes the report is the record of what
+        // was done — which is exactly what a physical proof is inspected against.
+        var enlarged = book.Receipts.RasterSources
+            .Where(source => source.Tool == "lanczos3" && source.Factor > 1)
+            .ToList();
+        Assert.Contains(enlarged, source => source.Role == "spread-01");
     }
 
     /// <summary>

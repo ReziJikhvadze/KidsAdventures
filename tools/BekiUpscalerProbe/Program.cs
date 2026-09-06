@@ -4,6 +4,8 @@ using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Services.Pdf;
 using SixLabors.ImageSharp;
 
+// Diagnostic for the external_super_resolution mode only. The shipped deterministic_lanczos mode
+// runs entirely in-process (BekiPressRaster.NormalizeDeterministic) and has nothing to probe.
 // Explicit opt-in diagnostic. No web host, database, order, AI provider, or job queue is started.
 // The executable supplied by the operator MAY itself charge money: approval belongs to them.
 if (args.Length != 7)

@@ -340,9 +340,9 @@ public class BekiPrintPrepTests
     /// carries the verdict FAIL and the measurements behind it, <c>failed_gates</c> names the gate,
     /// and the release policy is where a failed <c>PRESS_RESOLUTION</c> is weighed against the rest.
     ///
-    /// This is still correction-plan risk R4 written as a test — every real press run fails
-    /// <c>PRESS_RESOLUTION</c> until the source art is genuinely 300 PPI or an approved upscaler is
-    /// configured. The intended state is unchanged; only who acts on it has moved.
+    /// The measurement is untouched by the 2026-09-06 decision record: thin is still thin. What that
+    /// record removed was the verdict a receipt's wording used to produce, not the arithmetic — a
+    /// book whose rasters do not carry 300 PPI at their placed size fails here exactly as before.
     /// </summary>
     [Fact]
     public void A_book_composed_at_screen_resolution_reports_a_failed_press_resolution_gate()
@@ -386,18 +386,17 @@ public class BekiPrintPrepTests
     }
 
     /// <summary>
-    /// The other half of the resolution gate, and the one arithmetic cannot see: a raster can carry
-    /// 300 PPI of pixels and 143 PPI of detail. The receipt is where that is admitted, and admitting
-    /// it still fails the gate — in the report, which under rule 4 is where a failed
-    /// <c>PRESS_RESOLUTION</c> lives.
+    /// The rule the 2026-09-06 decision record retired, asserted as retired.
     ///
-    /// This is now the ORDINARY path rather than the exceptional one: the composer enlarges the
-    /// interior to the stated sheet and declares the enlargement in its layout receipts, so a press
-    /// build with no super-resolver configured produces files and a failed resolution gate every
-    /// time. The gate is what keeps that visible.
+    /// The same receipt that used to fail this gate outright — a spread enlarged ×2.1 by something
+    /// called "lanczos3" — is now provenance and nothing more. "Do not fail based on the name or
+    /// provenance of the resizing tool": the physical proof was inspected and its sharpness
+    /// accepted, so a gate that reads a resampler's name out of a receipt is failing a book for
+    /// something nobody can see on paper. What is judged is the measured output, and the fixture's
+    /// own art is what decides the verdict here.
     /// </summary>
     [Fact]
-    public void A_receipt_that_admits_interpolation_only_upscaling_fails_the_gate_in_the_report()
+    public void A_receipt_naming_a_resampler_no_longer_fails_the_gate()
     {
         var receipt = new BekiResolutionReceipt(
         [
@@ -410,22 +409,32 @@ public class BekiPrintPrepTests
             resolutionReceipt: receipt);
 
         Assert.NotEmpty(pdf);
-        Assert.Equal([BekiPrintPrep.PressResolutionGate], failedGates);
 
         using var report = JsonDocument.Parse(reportJson);
         var resolution = report.RootElement.GetProperty("resolution");
 
-        Assert.Equal("FAIL", resolution.GetProperty("verdict").GetString());
+        // The fixture's own 360-PPI band passes on measurement, and the receipt adds nothing to
+        // fail on — so this book has no failed gate at all any more.
+        Assert.Empty(failedGates);
+        Assert.Equal("PASS", resolution.GetProperty("verdict").GetString());
+        Assert.Empty(resolution.GetProperty("problems").EnumerateArray());
 
-        var problem = Assert.Single(resolution.GetProperty("problems").EnumerateArray()).GetString()!;
-        Assert.Contains("interpolation alone", problem, StringComparison.Ordinal);
-        Assert.Contains("spread-04", problem, StringComparison.Ordinal);
+        // And no problem anywhere in the report is phrased as one about interpolation.
+        Assert.DoesNotContain("interpolation", reportJson, StringComparison.OrdinalIgnoreCase);
 
         // The receipt is echoed whatever the verdict: the supplier handback has to keep saying what
         // is real, and "which raster, from what, by what" is the real thing.
         var echoed = resolution.GetProperty("receipt").EnumerateArray().Single();
         Assert.Equal("spread-04", echoed.GetProperty("role").GetString());
-        Assert.True(echoed.GetProperty("interpolation_only").GetBoolean());
+        Assert.Equal("lanczos3", echoed.GetProperty("tool").GetString());
+
+        // The rule the artifact was measured under is named in the artifact.
+        Assert.Equal(
+            "BEKI_Print_Prep_Deterministic_Normalization_v1.md",
+            resolution.GetProperty("decision_record").GetString());
+        Assert.Equal(
+            BekiPrintPrepModes.DeterministicLanczos,
+            resolution.GetProperty("print_prep_mode").GetString());
     }
 
     /// <summary>
@@ -448,6 +457,10 @@ public class BekiPrintPrepTests
     /// <summary>
     /// A receipt naming a real super-resolver passes and is echoed into the report, because that is
     /// the provenance a physical proof is later inspected against.
+    ///
+    /// What the echo carries has moved with the decision record: the mode the raster was prepared
+    /// under, and the crop the aspect reconciliation applied, are the two things a proof can be
+    /// argued against. The verdict a tool's name once produced is gone from the echo entirely.
     /// </summary>
     [Fact]
     public void A_receipt_naming_a_real_upscaler_passes_and_is_echoed_into_the_report()
@@ -455,7 +468,8 @@ public class BekiPrintPrepTests
         var receipt = new BekiResolutionReceipt(
         [
             new BekiResolutionSource(
-                "cover", 1512, 724, 6048, 2896, "realesrgan-x4plus", 4d, InterpolationOnly: false),
+                "cover", 1512, 724, 6048, 2896, "realesrgan-x4plus", 4d, InterpolationOnly: false,
+                Crop: null, Mode: BekiPrintPrepModes.ExternalSuperResolution),
         ]);
 
         var (_, reportJson) = BekiPrintPrep.Prepare(
@@ -468,7 +482,10 @@ public class BekiPrintPrepTests
 
         Assert.Equal("cover", echoed.GetProperty("role").GetString());
         Assert.Equal("realesrgan-x4plus", echoed.GetProperty("tool").GetString());
-        Assert.False(echoed.GetProperty("interpolation_only").GetBoolean());
+        Assert.Equal(
+            BekiPrintPrepModes.ExternalSuperResolution, echoed.GetProperty("mode").GetString());
+        Assert.Equal(JsonValueKind.Null, echoed.GetProperty("crop").ValueKind);
+        Assert.False(echoed.TryGetProperty("interpolation_only", out _));
     }
 
     // ------------------------------------------------------------------------------------------
@@ -620,21 +637,30 @@ public class BekiPrintPrepTests
         Assert.False(string.IsNullOrWhiteSpace(options.PrintPrep.OutputIntentIccSha256));
         Assert.Equal("pdftoppm", options.PrintPrep.PopplerPdftoppmPath);
         Assert.Equal(120, options.PrintPrep.RenderDpi);
+
+        // The shipped mode needs no external tool, and the empty path is therefore not a gap: it is
+        // the state the default mode expects and validates cleanly against.
+        Assert.Equal(BekiPrintPrepModes.DeterministicLanczos, options.PrintPrep.Mode);
+        Assert.Equal(BekiPrintPrepMode.DeterministicLanczos, options.PrintPrep.ResolvedMode);
         Assert.Equal(string.Empty, options.PrintPrep.UpscalerPath);
     }
 
     // ------------------------------------------------------------------------------------------
-    // D5c — the press upscaler, shipped disabled
+    // The optional external super-resolution mode
 
     /// <summary>
-    /// The shipped state, asserted as a state rather than assumed: no binary is installed by this
-    /// campaign, so the upscaler answers "not configured" and the press path withholds. It does not
-    /// quietly resample — that is the defect (P1-01), not the fallback.
+    /// The external tool selected and not supplied. Since the 2026-09-06 decision record this is a
+    /// misconfiguration of an opt-in mode and nothing more — it is not a resolution verdict, and the
+    /// reason says which two keys to reconcile rather than naming a gate that has no opinion on it.
+    /// The startup validator makes it unreachable on a real deployment; this proves the sentence.
     /// </summary>
     [Fact]
-    public async Task An_unconfigured_upscaler_answers_not_configured_rather_than_resampling()
+    public async Task External_mode_without_a_tool_names_the_two_keys_and_not_a_gate()
     {
-        var upscaler = new CliPressUpscaler(new BekiPrintPrepOptions());
+        var upscaler = new CliPressUpscaler(new BekiPrintPrepOptions
+        {
+            Mode = BekiPrintPrepModes.ExternalSuperResolution,
+        });
 
         Assert.False(upscaler.IsConfigured);
 
@@ -646,8 +672,11 @@ public class BekiPrintPrepTests
         Assert.Equal("none", result.Tool);
         Assert.Equal(1d, result.Factor);
         Assert.Equal(300, result.SourceWidthPx);
-        Assert.Contains("UpscalerPath", result.Reason);
-        Assert.Contains("PRESS_RESOLUTION", result.Reason);
+        Assert.Equal(BekiPrintPrepModes.ExternalSuperResolution, result.Mode);
+        Assert.Contains("external_super_resolution", result.Reason, StringComparison.Ordinal);
+        Assert.Contains("Beki:PrintPrep:UpscalerPath", result.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain("PRESS_RESOLUTION", result.Reason, StringComparison.Ordinal);
+        Assert.DoesNotContain("interpolation", result.Reason, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>

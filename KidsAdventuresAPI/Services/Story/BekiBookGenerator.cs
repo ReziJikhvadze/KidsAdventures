@@ -194,6 +194,11 @@ public sealed class BekiBookGenerator(
     /// Landscape, until the 2.2:1 spread is decided. gpt-image offers three shapes and none of
     /// them is 440×200, so this is the closest that is not a distortion; the final framing is a
     /// layout question rather than a generation one.
+    ///
+    /// Still a constant, and still this value, but no longer what the requests read: it is the
+    /// DEFAULT of <see cref="BekiOptions.SpreadImageSize"/>, which is what the call sites use, so
+    /// that an operator can try a larger frame without a deployment. Kept public because it is
+    /// the one place the proven frame is written down and the suite pins the option to it.
     /// </summary>
     public const string SpreadImageSize = "1536x1024";
 
@@ -971,7 +976,8 @@ public sealed class BekiBookGenerator(
 
         var genSw = System.Diagnostics.Stopwatch.StartNew();
         var image = await openAi.GenerateStoryImageAsync(
-            prompt, reference, cancellationToken, SpreadImageSize, imageQuality: imageQuality);
+            prompt, reference, cancellationToken, bekiOptions.Value.SpreadImageSize,
+            imageQuality: imageQuality);
         genSw.Stop();
 
         // The sheet's shape, before anything downstream keeps this picture — the reviewer's copy,
@@ -1023,7 +1029,8 @@ public sealed class BekiBookGenerator(
             var corrected = $"{prompt}\n\n{Corrections(verdict)}";
             genSw.Restart();
             image = await openAi.GenerateStoryImageAsync(
-                corrected, reference, cancellationToken, SpreadImageSize, imageQuality: imageQuality);
+                corrected, reference, cancellationToken, bekiOptions.Value.SpreadImageSize,
+                imageQuality: imageQuality);
             genSw.Stop();
 
             if (spreadNumber is { } redrawnSpread)
@@ -1447,7 +1454,14 @@ public sealed class BekiBookGenerator(
                 spread.PoseId,
                 spread.Manifest.ToJson(),
                 spread.Manifest.Output.Sha256,
-                spread.BasePng),
+                spread.BasePng)
+            {
+                // Carried across with the composition it belongs to: this projection is the only
+                // way a composite page reaches the fulfilment layer through the generator, and a
+                // receipt dropped here would be a page whose stored evidence says nothing about
+                // what drew it.
+                GenerationReceiptJson = spread.GenerationReceiptJson,
+            },
     };
 
     /// <summary>
