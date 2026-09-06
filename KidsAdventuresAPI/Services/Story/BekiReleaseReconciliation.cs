@@ -502,8 +502,9 @@ public sealed class BekiReleaseReconciliation(
                     userId,
                     waiver.CheckId,
                     BekiReleaseSeverity.Flag,
-                    $"{waiver.Status} on the {waiver.DeliverableClass} deliverable, published anyway "
-                    + $"because the policy flags this check: {waiver.Detail}",
+                    $"{waiver.Status} on the {waiver.DeliverableClass} deliverable; "
+                    + "this check is waived by policy, not proof of publication. "
+                    + $"Customer availability and print readiness are evaluated separately: {waiver.Detail}",
                     BekiPackBlobs.ReleaseGatesName(userId, packId),
                     BekiAlarmEvidence.ForAttempt(waiver.CheckId, waiver.DeliverableClass)),
                 ct);

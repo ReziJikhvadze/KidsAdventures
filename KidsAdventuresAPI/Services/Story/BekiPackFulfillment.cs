@@ -1779,9 +1779,10 @@ public sealed class BekiPackFulfillment(
                 */
                 if (reconciliation is not null)
                 {
-                    await reconciliation.RaiseWaiverAlarmsAsync(
+                    await RecordDeliveryDiagnosticAsync(pack.Id, "release waiver alarms", async () =>
+                        await reconciliation.RaiseWaiverAlarmsAsync(
                         pack.Id, pack.UserId, await OrderIdAsync(pack.Id, cancellationToken), release,
-                        cancellationToken);
+                        cancellationToken), cancellationToken);
                 }
 
                 /*
@@ -1804,7 +1805,7 @@ public sealed class BekiPackFulfillment(
                     + "Customer PDF {Customer}; press files {Press}.",
                     packId, release.Verdict,
                     release.FailingGates.Count == 0 ? "(none)" : string.Join(", ", release.FailingGates),
-                    release.CustomerPdfMayPublish ? "published" : "withheld",
+                    release.CustomerPdfMayPublish ? "eligible; completion write pending" : "withheld",
                     release.PrintReady && release.CustomerPdfMayPublish && pdfUrl is not null
                         ? "published" : "withheld");
             }
@@ -2871,7 +2872,9 @@ public sealed class BekiPackFulfillment(
         for (var index = 0; index < spreads.Count; index++)
         {
             var spread = spreads[index];
-            var upscale = upscales[index];
+            var (upscale, artwork) = await PrepareCustomerArtworkAsync(
+                pack, $"spread-{spread.SpreadNumber:00}", upscales[index],
+                bases[index].Manifest, spread.Image, cancellationToken);
 
             sources.Add(upscale.ToReceiptSource($"spread-{spread.SpreadNumber:00}") with
             {
@@ -2889,13 +2892,11 @@ public sealed class BekiPackFulfillment(
                 pressArt.Add(spread);
                 continue;
             }
-            var recomposited = await StorePressCompositeAsync(
-                pack, $"spread-{spread.SpreadNumber:00}", upscale.Png!, bases[index].Manifest,
-                cancellationToken);
-            pressArt.Add(new BekiSpreadArtwork(spread.SpreadNumber, recomposited));
+            pressArt.Add(new BekiSpreadArtwork(spread.SpreadNumber, artwork));
         }
 
-        var coverUpscale = upscales[^1];
+        var (coverUpscale, coverArt) = await PrepareCustomerArtworkAsync(
+            pack, "cover-wrap", upscales[^1], bases[^1].Manifest, wrapComposite, cancellationToken);
         if (!coverUpscale.Succeeded)
         {
             work.FailedGates.Add(BekiPrintPrep.PressResolutionGate);
@@ -2905,10 +2906,6 @@ public sealed class BekiPackFulfillment(
                 + $"upscaler ({coverUpscale.Reason ?? "no reason returned"}).");
         }
 
-        var coverArt = coverUpscale.Succeeded
-            ? await StorePressCompositeAsync(
-                pack, "cover-wrap", coverUpscale.Png!, bases[^1].Manifest, cancellationToken)
-            : wrapComposite;
         sources.Add(coverUpscale.ToReceiptSource("cover-wrap") with
         {
             DeliveredWidthPx = coverUpscale.Succeeded ? CoverPressWidthPx : coverUpscale.DeliveredWidthPx,
@@ -3008,15 +3005,56 @@ public sealed class BekiPackFulfillment(
         await UploadLayoutReceiptsAsync(pack, "canonical", canonical.Receipts, cancellationToken);
         await StoreFixedPageQaAsync(pack, canonical.Receipts, assetLockHashes, cancellationToken);
 
-        await WritePressStatusAsync(pack, work, cancellationToken);
+        await RecordDeliveryDiagnosticAsync(pack.Id, "print status",
+            () => WritePressStatusAsync(pack, work, cancellationToken), cancellationToken);
         if (work.FailedGates.Count > 0 && alarms is not null)
         {
-            await alarms.RaiseAsync(new BekiAlarmRaise(pack.Id,
+            await RecordDeliveryDiagnosticAsync(pack.Id, "print hold alarm", async () =>
+                await alarms.RaiseAsync(new BekiAlarmRaise(pack.Id,
                 await OrderIdAsync(pack.Id, cancellationToken), pack.UserId,
                 "PRINT_PREPARATION_HELD", BekiReleaseSeverity.Blocker,
                 "Printing is blocked. Customer delivery is evaluated independently. "
                 + string.Join(" ", work.Reasons), BekiPackBlobs.PressStatusName(pack.UserId, pack.Id),
-                BekiAlarmEvidence.ForAttempt("PRINT_PREPARATION_HELD", pack.Id)), cancellationToken);
+                BekiAlarmEvidence.ForAttempt("PRINT_PREPARATION_HELD", pack.Id)), cancellationToken),
+                cancellationToken);
+        }
+    }
+
+    // The verified original composite remains usable even if an optional enlarged version is
+    // malformed, cannot be recomposited, or cannot be stored. Never upgrade that failure to a
+    // print approval; the caller records PRESS_RESOLUTION and still validates the customer PDF.
+    private async Task<(PressUpscaleResult Result, byte[] Artwork)> PrepareCustomerArtworkAsync(
+        Domain.Entities.AdventurePack pack, string role, PressUpscaleResult result,
+        BekiCompositionManifest receipt, byte[] original, CancellationToken ct)
+    {
+        if (!result.Succeeded) return (result, original);
+        try
+        {
+            return (result, await StorePressCompositeAsync(pack, role, result.Png!, receipt, ct));
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogError(ex,
+                "Beki pack {PackId}: print artwork {Role} failed; retaining verified original for customer delivery.",
+                pack.Id, role);
+            return (new PressUpscaleResult(false, null, "none", 1d,
+                receipt.Canvas.WidthPx, receipt.Canvas.HeightPx,
+                receipt.Canvas.WidthPx, receipt.Canvas.HeightPx,
+                "Print artwork preparation failed: " + ex.Message), original);
+        }
+    }
+
+    // Admin diagnostics supplement the stored preflight/release evidence. An alarm-service
+    // failure must not turn a valid paid book into Failed. Host cancellation still propagates.
+    private async Task RecordDeliveryDiagnosticAsync(
+        Guid packId, string diagnostic, Func<Task> record, CancellationToken ct)
+    {
+        try { await record(); }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogError(ex,
+                "Beki pack {PackId}: could not record {Diagnostic}; customer delivery continues. "
+                + "Consult the stored preflight and release reports.", packId, diagnostic);
         }
     }
 

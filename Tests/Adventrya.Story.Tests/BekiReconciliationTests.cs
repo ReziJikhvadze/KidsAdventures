@@ -28,6 +28,28 @@ namespace Adventrya.Story.Tests;
 /// </summary>
 public class BekiReconciliationTests
 {
+    [Fact]
+    public async Task Waiver_alarms_do_not_claim_a_book_has_been_published()
+    {
+        var blobs = new PolicyFakeBlobs();
+        BekiReleasePolicyGateTests.Seed(blobs, UserId, PackId);
+        blobs.Seed(BekiPackBlobs.PressStatusName(UserId, PackId), BekiReleasePolicyGateTests.Json(new
+        {
+            failed_gates = new[] { "PRESS_RESOLUTION" }, reason = "No upscaler configured",
+        }));
+        var report = await new BekiReleaseGates(blobs).EvaluateAsync(
+            UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Defaults);
+        var alarms = new RecordingAlarms();
+        await Reconciliation(new ReconcilePacks(CompletedPack()), blobs, alarms)
+            .RaiseWaiverAlarmsAsync(PackId, UserId, null, report, CancellationToken.None);
+        Assert.NotEmpty(alarms.Raised);
+        Assert.All(alarms.Raised, alarm =>
+        {
+            Assert.DoesNotContain("published anyway", alarm.Detail);
+            Assert.Contains("not proof of publication", alarm.Detail);
+        });
+    }
+
     private static readonly Guid UserId = Guid.NewGuid();
     private static readonly Guid PackId = Guid.NewGuid();
 
