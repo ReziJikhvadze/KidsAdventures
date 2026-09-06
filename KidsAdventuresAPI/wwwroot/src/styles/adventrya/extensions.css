@@ -185,3 +185,56 @@
   padding: 40px 20px;
   text-align: center;
 }
+
+/*
+  The delivery address picker.
+
+  A dialog rather than a map embedded in the form: the map is only wanted for the few seconds it
+  takes to find a street, and a live map sitting open under the questions is both a distraction
+  and a billable session for every parent who was never going to use it.
+*/
+.ux-location-dialog {
+  width: min(560px, calc(100vw - 32px));
+  display: grid;
+  gap: 12px;
+}
+.ux-location-search {
+  /* Google renders its own input here; the panel it drops has to clear the dialog's edge. */
+  position: relative;
+  z-index: 1;
+}
+.ux-location-search gmp-place-autocomplete {
+  width: 100%;
+}
+.ux-location-map {
+  position: relative;
+  height: min(340px, 45vh);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #1a113a;
+}
+.ux-location-map-wait {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.ux-location-chosen {
+  min-height: 1.4em;
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--jw-ink-soft, #655f72);
+}
+.ux-location-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+/* The way onto the map, under the address field it fills in. */
+.ux-pick-location {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.8rem;
+}

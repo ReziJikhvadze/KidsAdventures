@@ -1,4 +1,4 @@
-using AdventurePacks.Api.Configuration.Options;
+﻿using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Controllers;
 using AdventurePacks.Api.Domain;
 using AdventurePacks.Api.Domain.Entities;
@@ -677,6 +677,13 @@ public class BekiReleaseApiTests
 
         public Task<bool> DeleteByStoredUrlAsync(string storedUrl, CancellationToken ct) =>
             throw new NotSupportedException();
+
+        public Task<byte[]?> TryDownloadBesideAsync(
+            string storedUrl, string suffix, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task UploadBesideAsync(
+            string storedUrl, string suffix, byte[] bytes, string contentType,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class FakeRateLimiter : IGuestRateLimiter

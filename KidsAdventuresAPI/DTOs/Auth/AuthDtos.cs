@@ -160,6 +160,15 @@ public sealed class AuthConfigResponse
 
     public string? RecaptchaSiteKey { get; set; }
 
+    /// <summary>
+    /// Browser key for the Maps JavaScript API, or null when no picker is offered.
+    ///
+    /// Sent with the rest of the public client configuration rather than baked into the frontend
+    /// build, so the key can be rotated in the portal without shipping a new bundle — the same
+    /// reason <see cref="GoogleClientId"/> travels this way.
+    /// </summary>
+    public string? GoogleMapsApiKey { get; set; }
+
     /// <summary>Magic-link and phone-code availability, plus the dev-delivery flag.</summary>
     public PasswordlessConfigResponse Passwordless { get; set; } = new();
 }

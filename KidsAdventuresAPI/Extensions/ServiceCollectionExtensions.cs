@@ -1,4 +1,5 @@
-﻿using System.Threading.RateLimiting;
+﻿using System.IO.Compression;
+using System.Threading.RateLimiting;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Data;
 using AdventurePacks.Api.Domain;
@@ -17,6 +18,7 @@ using Hangfire.SqlServer;
 using Hangfire.States;
 using Hangfire.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -118,6 +120,7 @@ public static class ServiceCollectionExtensions
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
         services.Configure<GoogleAuthOptions>(configuration.GetSection(GoogleAuthOptions.SectionName));
+        services.Configure<GoogleMapsOptions>(configuration.GetSection(GoogleMapsOptions.SectionName));
         services.Configure<RecaptchaOptions>(configuration.GetSection(RecaptchaOptions.SectionName));
         services.Configure<PasswordlessAuthOptions>(configuration.GetSection(PasswordlessAuthOptions.SectionName));
         // Enabled with nothing behind it is the shape that must never reach production: the flow
@@ -177,9 +180,69 @@ public static class ServiceCollectionExtensions
             {
                 policy.WithOrigins(distinctOrigins)
                     .AllowAnyHeader()
-                    .AllowAnyMethod();
+                    .AllowAnyMethod()
+                    /*
+                      The browser asks permission before every authorised request, because a
+                      Bearer header is not a simple one. Unanswered, that question is asked again
+                      for each of them: a dashboard showing six children paid six extra round
+                      trips to Poland — measured at 0.59s each on a cold connection — before a
+                      single portrait began downloading.
+
+                      A day is what Chrome caps this at anyway; Firefox caps at 24 hours too.
+                      Asking for longer would be asking for a number nobody honours.
+                    */
+                    .SetPreflightMaxAge(TimeSpan.FromHours(24));
             });
         });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Every JSON answer went out uncompressed, which on this API is not a rounding error: the
+    /// dashboard's pack list is 12 KB of highly repetitive JSON that gzips to about a quarter of
+    /// that, and it is fetched on every visit to the screen.
+    ///
+    /// <para>
+    /// Images are deliberately absent from the MIME list. WebP, PNG and JPEG are already
+    /// compressed, and running them through Brotli spends CPU to add bytes.
+    /// </para>
+    ///
+    /// <para>
+    /// <c>EnableForHttps</c> is what makes any of this apply here, since nothing reaches this API
+    /// over plain HTTP. That switch defaults to false because compressing a secret next to
+    /// attacker-chosen text over TLS is what BREACH reads — but BREACH needs the victim's browser
+    /// to make the authenticated request on the attacker's behalf, and this API authenticates by
+    /// Bearer header rather than by cookie. A cross-site page cannot attach that header, so it
+    /// cannot ask the question whose answer length it wants to measure. If session cookies are
+    /// ever added, this decision has to be made again.
+    /// </para>
+    /// </summary>
+    public static IServiceCollection AddAdventurePacksResponseCompression(this IServiceCollection services)
+    {
+        services.AddResponseCompression(options =>
+        {
+            options.EnableForHttps = true;
+            options.Providers.Add<BrotliCompressionProvider>();
+            options.Providers.Add<GzipCompressionProvider>();
+            options.MimeTypes =
+            [
+                "application/json",
+                "application/problem+json",
+                "application/javascript",
+                "text/plain",
+                "text/html",
+                "text/css",
+                "text/xml",
+                "application/xml",
+                "image/svg+xml"
+            ];
+        });
+
+        // Fastest, not Optimal. The default for Brotli is quality 11, which spends tens of
+        // milliseconds on a 12 KB payload to save bytes a 210 ms round trip will not notice.
+        services.Configure<BrotliCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
+        services.Configure<GzipCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
 
         return services;
     }
@@ -423,6 +486,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPrintOrderService, PrintOrderService>();
 
         services.AddScoped<IReferenceImageNormalizer, ReferenceImageNormalizer>();
+        services.AddScoped<IPortraitRenditionService, PortraitRenditionService>();
 
         // Which vendor answers which half of the book. Both halves default to OpenAI, and the
         // choice is made per resolution rather than at startup so that flipping the setting is a

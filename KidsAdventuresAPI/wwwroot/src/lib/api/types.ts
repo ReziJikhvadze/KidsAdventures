@@ -81,6 +81,8 @@ export type AuthConfigResponse = {
   googleClientId: string | null;
   recaptchaEnabled?: boolean;
   recaptchaSiteKey?: string | null;
+  /** Browser key for the Maps JavaScript API; null where no address picker is offered. */
+  googleMapsApiKey?: string | null;
   passwordless?: PasswordlessConfig;
 };
 

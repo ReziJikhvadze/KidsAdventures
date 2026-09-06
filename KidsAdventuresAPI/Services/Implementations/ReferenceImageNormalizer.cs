@@ -14,6 +14,34 @@ public sealed class ReferenceImageNormalizer(ILogger<ReferenceImageNormalizer> l
     private const int StorageWebpQuality = 88;
 
     /// <summary>
+    /// For screens, not for the model. 512 is more than twice the largest a portrait is ever drawn
+    /// at — a 50px avatar in the picker, a 160px frame in the form — with room left for a retina
+    /// panel, and the whole point of the number is that the encode is quick: the 2048px pass this
+    /// replaces took twenty seconds an image on the API.
+    /// </summary>
+    private const int DisplayMaxEdgePixels = 512;
+
+    /// <summary>Below about 70 a face starts to smear; above 80 the file stops getting better.</summary>
+    private const int DisplayWebpQuality = 78;
+
+    /// <summary>
+    /// For the portrait kept in storage. Higher than <see cref="StorageWebpQuality"/> on purpose:
+    /// an illustration at 88 is only ever looked at, while this one is read back by the image
+    /// model every time the child appears on a page, and the twelve extra kilobytes are the
+    /// cheapest insurance in the pipeline.
+    ///
+    /// <para>
+    /// A portrait was being written as a lossless PNG, which sounds careful and is not. The photo
+    /// has already been through a lossy encoder before it arrives — <c>preparePortrait.ts</c> fits
+    /// it to 1024px and re-encodes it as JPEG at 0.82 so the upload clears the request limit — so
+    /// what the PNG preserved perfectly was somebody else's JPEG artefacts, at six to seven times
+    /// the size of the file it was handed. Measured on a real child: 2.3 MB kept for a photo that
+    /// arrived as a couple of hundred kilobytes.
+    /// </para>
+    /// </summary>
+    private const int PortraitStorageWebpQuality = 92;
+
+    /// <summary>
     /// Results already computed by this instance, keyed by what decides them: the variant and
     /// the bytes that went in.
     ///
@@ -58,6 +86,38 @@ public sealed class ReferenceImageNormalizer(ILogger<ReferenceImageNormalizer> l
             });
 
             return new NormalizedReferenceImage(output.ToArray(), "image/webp", "illustration.webp");
+        });
+
+    public NormalizedReferenceImage NormalizeForPortraitStorage(byte[] bytes, string? hintContentType = null) =>
+        Cached("portrait-storage", bytes, () =>
+        {
+            using var image = LoadAndPrepare(bytes, hintContentType, OpenAiMaxEdgePixels, OpenAiMinEdgePixels);
+
+            using var output = new MemoryStream();
+            image.Save(output, new WebpEncoder
+            {
+                Quality = PortraitStorageWebpQuality,
+                FileFormat = WebpFileFormatType.Lossy
+            });
+
+            return new NormalizedReferenceImage(output.ToArray(), "image/webp", "portrait.webp");
+        });
+
+    public NormalizedReferenceImage NormalizeForDisplayWebp(byte[] bytes, string? hintContentType = null) =>
+        Cached("display", bytes, () =>
+        {
+            // No minimum: a small photograph is left small rather than blown up to a size the
+            // model needs and a screen does not.
+            using var image = LoadAndPrepare(bytes, hintContentType, DisplayMaxEdgePixels, 1);
+
+            using var output = new MemoryStream();
+            image.Save(output, new WebpEncoder
+            {
+                Quality = DisplayWebpQuality,
+                FileFormat = WebpFileFormatType.Lossy
+            });
+
+            return new NormalizedReferenceImage(output.ToArray(), "image/webp", "portrait.webp");
         });
 
     /// <summary>

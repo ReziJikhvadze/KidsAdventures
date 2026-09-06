@@ -11,6 +11,7 @@ public sealed class ChildrenController(
     IChildRepository childRepository,
     IBlobStorageService blobStorageService,
     IReferenceImageNormalizer referenceImageNormalizer,
+    IPortraitRenditionService portraitRenditions,
     IUserContextService userContext) : ControllerBase
 {
     private const long MaxFileSizeBytes = 5 * 1024 * 1024;
@@ -71,6 +72,12 @@ public sealed class ChildrenController(
         return updated ? NoContent() : NotFound();
     }
 
+    /// <summary>
+    /// Sized for a screen, and tagged so that reusing it costs a question rather than a picture.
+    /// Same reasoning, and the same measurements, as <see cref="CharactersController.GetPhoto"/>:
+    /// the stored file is a lossless PNG for the image model, and it was being sent whole to draw
+    /// an avatar.
+    /// </summary>
     [HttpGet("{id:guid}/photo")]
     public async Task<IActionResult> GetPhoto(Guid id, CancellationToken cancellationToken)
     {
@@ -81,15 +88,29 @@ public sealed class ChildrenController(
             return NotFound();
         }
 
+        var etag = CharactersController.PortraitETag(child.PhotoUrl);
+        Response.Headers.CacheControl = "private, no-cache";
+        if (CharactersController.MatchesPortraitETag(Request, etag))
+        {
+            Response.Headers.ETag = etag.ToString();
+            return StatusCode(StatusCodes.Status304NotModified);
+        }
+
         try
         {
-            var bytes = await blobStorageService.DownloadBytesFromStoredUrlAsync(child.PhotoUrl, cancellationToken);
-            var contentType = child.PhotoUrl.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
-                ? "image/png"
-                : child.PhotoUrl.EndsWith(".webp", StringComparison.OrdinalIgnoreCase)
-                    ? "image/webp"
-                    : "image/jpeg";
-            return File(bytes, contentType);
+            var display = await portraitRenditions.GetAsync(child.PhotoUrl, cancellationToken);
+            // See CharactersController: only the rendition's own bytes carry the tag.
+            if (display.IsRendition)
+            {
+                Response.Headers.ETag = etag.ToString();
+            }
+
+            return File(display.Bytes, display.ContentType);
+        }
+        // See the same guard in CharactersController: a cancelled request is not a missing photo.
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch
         {
@@ -124,13 +145,18 @@ public sealed class ChildrenController(
         await using var stream = photo.OpenReadStream();
         using var ms = new MemoryStream();
         await stream.CopyToAsync(ms, cancellationToken);
-        var normalized = referenceImageNormalizer.NormalizeForOpenAi(ms.ToArray(), photo.ContentType);
-        var blobName = $"{userId}/children/{childId}/hero-{Guid.NewGuid()}.png";
-        return await blobStorageService.UploadAsync(
+        var normalized = referenceImageNormalizer.NormalizeForPortraitStorage(ms.ToArray(), photo.ContentType);
+        var blobName = $"{userId}/children/{childId}/hero-{Guid.NewGuid()}.webp";
+        var storedUrl = await blobStorageService.UploadAsync(
             blobName,
             normalized.Bytes,
             normalized.ContentType,
             cancellationToken);
+
+        // Made now, while the bytes are in hand, so the first parent to open the list is not the
+        // one who pays for it.
+        await portraitRenditions.WarmAsync(storedUrl, normalized.Bytes, cancellationToken);
+        return storedUrl;
     }
 
     private static ChildResponse Map(Child child) => new()

@@ -55,6 +55,21 @@ export function JourneyScreen() {
   const charactersRef = useRef(draft.characters);
   charactersRef.current = draft.characters;
 
+  /*
+    Whether this screen is still on the page at all.
+
+    The portrait below outlives the effect that starts it, on purpose, so it cannot use that
+    effect's `cancelled` flag — writing the child's name is itself what ends that run. This is the
+    only thing left worth checking before it writes.
+  */
+  const onScreen = useRef(true);
+  useEffect(() => {
+    onScreen.current = true;
+    return () => {
+      onScreen.current = false;
+    };
+  }, []);
+
   // When continuing from the map — or starting a second book from the cabinet — draft slots may
   // only have serverIds. Fill in names, dates and photos.
   useEffect(() => {
@@ -99,12 +114,49 @@ export function JourneyScreen() {
               photoStored: !!remote.photoUrl,
             };
 
+            /*
+              Started here, waited for somewhere else.
+
+              The child is 800 bytes; their photograph is megabytes, and awaiting it here made the
+              name wait on the picture — measured at 132ms for the details and 1.74s for the
+              portrait, so a parent who tapped a name sat in front of an empty form for nearly two
+              seconds to learn something the server had answered almost at once.
+
+              The photograph is only ever shown, never sent — the order names the child and the
+              server already holds the bytes — so nothing downstream is waiting on it. It lands in
+              the avatar when it lands, by `localId`: choose a different child and this one has
+              nowhere to write, because that slot no longer exists.
+            */
             if (remote.photoUrl) {
-              try {
-                patch.photoDataUrl = await fetchCharacterPhotoObjectUrl(slot.serverId!);
-              } catch {
-                // Ignore error, photo preview just won't show
-              }
+              void fetchCharacterPhotoObjectUrl(slot.serverId!)
+                .then((photoDataUrl) => {
+                  /*
+                    Installed only into the slot that asked for it, still holding the same child,
+                    still without a picture. Two seconds is long enough for a parent to press
+                    "change photo" and choose a file, and the stored portrait arriving afterwards
+                    would silently undo what they had just done.
+
+                    Anything not installed is released here. An object URL is a reference the
+                    document holds until it is told otherwise, and one nobody can see is a
+                    photograph's worth of memory kept for nothing.
+                  */
+                  const now = charactersRef.current.find((c) => c.localId === slot.localId);
+                  const wanted =
+                    onScreen.current && now?.serverId === slot.serverId && !now?.photoDataUrl;
+                  if (!wanted) {
+                    URL.revokeObjectURL(photoDataUrl);
+                    return;
+                  }
+                  setDraft((prev) => ({
+                    ...prev,
+                    characters: prev.characters.map((c) =>
+                      c.localId === slot.localId ? { ...c, photoDataUrl } : c,
+                    ),
+                  }));
+                })
+                .catch(() => {
+                  // The portrait just does not appear; the child is here either way.
+                });
             }
 
             return { localId: slot.localId, patch };

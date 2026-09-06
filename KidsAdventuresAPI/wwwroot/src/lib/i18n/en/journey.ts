@@ -41,9 +41,12 @@ export const journey = {
     },
     heroPicker: {
       title: "Who is this book for?",
-      hint: "A saved hero's details and photo are filled in for you.",
       newChild: "A new child",
       loading: "Loading your heroes…",
+      scrollBack: "Earlier children",
+      scrollOn: "More children",
+      /* While the chosen child's details and photo are being brought back from the account. */
+      fetching: "Bringing your hero back…",
     },
   },
 
@@ -273,6 +276,13 @@ export const journey = {
     zeroTotal: "The amount due is zero",
     zeroTotalNote: "Card details are no longer needed.",
     recipient: "Recipient",
+    pickLocation: "Choose the location on a map",
+    pickLocationTitle: "Where should it go?",
+    pickLocationHint: "Search for the street and pick it from the list.",
+    pickLocationConfirm: "Use this address",
+    pickLocationUnavailable: "The map is unavailable right now — type the address instead.",
+    addressNotes: "Extra directions for the courier",
+    addressNotesPlaceholder: "Entrance, floor, flat, door code, landmark",
     addressPlaceholder: "City, street, building and flat",
     shippingAddress: "Recipient's address",
     addAnotherAddress: "Add another address",

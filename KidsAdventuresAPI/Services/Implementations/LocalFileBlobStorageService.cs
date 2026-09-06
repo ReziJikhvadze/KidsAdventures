@@ -92,6 +92,35 @@ public sealed class LocalFileBlobStorageService : IBlobStorageService
     public Task<bool> ExistsAsync(string blobName, CancellationToken cancellationToken) =>
         Task.FromResult(File.Exists(ResolvePath($"{_containerName}/{blobName.TrimStart('/')}")));
 
+    public async Task<byte[]?> TryDownloadBesideAsync(
+        string storedUrl,
+        string suffix,
+        CancellationToken cancellationToken)
+    {
+        var path = ResolvePath(ToKey(storedUrl) + suffix);
+        return File.Exists(path) ? await File.ReadAllBytesAsync(path, cancellationToken) : null;
+    }
+
+    public async Task UploadBesideAsync(
+        string storedUrl,
+        string suffix,
+        byte[] bytes,
+        string contentType,
+        CancellationToken cancellationToken)
+    {
+        var path = ResolvePath(ToKey(storedUrl) + suffix);
+        var directory = Path.GetDirectoryName(path)!;
+
+        if (_knownDirectories.TryAdd(directory, 0))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        // The companion sits beside a file that is already there, so the folder exists; the
+        // create above is for the first write of a process that has not touched it yet.
+        await File.WriteAllBytesAsync(path, bytes, cancellationToken);
+    }
+
     public async Task<byte[]> DownloadBytesFromStoredUrlAsync(
         string storedUrl,
         CancellationToken cancellationToken)

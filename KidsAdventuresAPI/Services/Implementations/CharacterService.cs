@@ -10,6 +10,7 @@ public sealed class CharacterService(
     ICharacterRepository characterRepository,
     IBlobStorageService blobStorageService,
     IReferenceImageNormalizer referenceImageNormalizer,
+    IPortraitRenditionService portraitRenditions,
     IMasterStoryRunRepository? masterStoryRuns = null) : ICharacterService
 {
     private const long MaxPhotoBytes = 5 * 1024 * 1024;
@@ -153,10 +154,12 @@ public sealed class CharacterService(
                 return (null, null);
             }
 
-            var normalized = referenceImageNormalizer.NormalizeForOpenAi(bytes, "image/png");
-            var blobName = $"{userId}/characters/{characterId}/portrait-{Guid.NewGuid()}.png";
+            var normalized = referenceImageNormalizer.NormalizeForPortraitStorage(bytes, "image/png");
+            var blobName = $"{userId}/characters/{characterId}/portrait-{Guid.NewGuid()}.webp";
             var url = await blobStorageService.UploadAsync(
                 blobName, normalized.Bytes, normalized.ContentType, cancellationToken);
+
+            await portraitRenditions.WarmAsync(url, normalized.Bytes, cancellationToken);
 
             return (url, string.IsNullOrWhiteSpace(run.AppearanceDescription) ? null : run.AppearanceDescription);
         }
@@ -361,13 +364,24 @@ public sealed class CharacterService(
         using var buffer = new MemoryStream();
         await stream.CopyToAsync(buffer, cancellationToken);
 
-        var normalized = referenceImageNormalizer.NormalizeForOpenAi(buffer.ToArray(), photo.ContentType);
-        var blobName = $"{userId}/characters/{characterId}/portrait-{Guid.NewGuid()}.png";
-        return await blobStorageService.UploadAsync(
+        var normalized = referenceImageNormalizer.NormalizeForPortraitStorage(buffer.ToArray(), photo.ContentType);
+        var blobName = $"{userId}/characters/{characterId}/portrait-{Guid.NewGuid()}.webp";
+        var storedUrl = await blobStorageService.UploadAsync(
             blobName,
             normalized.Bytes,
             normalized.ContentType,
             cancellationToken);
+
+        /*
+          The screen's copy, made here rather than the first time anybody looks.
+
+          What is stored is sized for the image model, and turning one of those into a thumbnail
+          took twenty seconds on the API. At 512px it is a fraction of a second, and the bytes are
+          already in hand — so it is paid once, by the parent who is already waiting for an upload,
+          rather than by whoever opens the list next.
+        */
+        await portraitRenditions.WarmAsync(storedUrl, normalized.Bytes, cancellationToken);
+        return storedUrl;
     }
 
     /// <summary>

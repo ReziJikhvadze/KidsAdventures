@@ -1,4 +1,4 @@
-import { Camera, Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Camera, Check, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { BekiLoader } from "@/components/adventrya/BekiLoader";
@@ -18,6 +18,18 @@ import { emptyCharacter, type DraftCharacter, type JourneyDraft } from "@/lib/jo
 // The keys are the stored values, not display copy, so they stay literal rather than
 // being derived from a catalogue that now changes with the interface language.
 const EYE_COLORS: EyeColor[] = ["brown", "blue", "green", "grey"];
+
+/*
+  Long enough that a quick answer is never announced.
+
+  With the portrait no longer in the way, the account replies in about a tenth of a second on a
+  good connection — a spinner drawn and removed inside that is a flicker, not a message. Slower
+  than this and the parent is genuinely waiting, and should be told so.
+*/
+const HERO_FETCH_QUIET_MS = 140;
+
+/* How long a chosen child may be "on the way" before the form is offered instead. */
+const HERO_FETCH_PATIENCE_MS = 10000;
 
 type Props = {
   draft: JourneyDraft;
@@ -137,6 +149,31 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
     // chooseHero closes over onChange, which is stable; primary is read once when the list lands.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [heroes, primary]);
+
+  /*
+    The gap between choosing a child and having them.
+
+    Picking writes the id and nothing else — the details, the date and the photo are fetched, and
+    the form stands empty until they land. Empty fields under a name the parent has just tapped
+    read as the child being lost rather than fetched, and on a slow connection they are tempting
+    to start typing into. So the card waits out loud instead.
+
+    Capped, because a fetch that fails leaves the slot exactly as it is: the loader would spin for
+    the rest of the visit. After this the empty form comes back, which at least can be filled in.
+  */
+  const awaitingHero = !!primary?.serverId && !primary.name.trim();
+  const [heroWait, setHeroWait] = useState<"quiet" | "showing" | "lapsed">("quiet");
+  useEffect(() => {
+    // Reset on the way out as well as in: a state left standing is one the next child inherits.
+    setHeroWait("quiet");
+    if (!awaitingHero) return;
+    const show = setTimeout(() => setHeroWait("showing"), HERO_FETCH_QUIET_MS);
+    const lapse = setTimeout(() => setHeroWait("lapsed"), HERO_FETCH_PATIENCE_MS);
+    return () => {
+      clearTimeout(show);
+      clearTimeout(lapse);
+    };
+  }, [awaitingHero, primary?.serverId]);
 
   // The form opened for a saved hero closes to a summary card once the account has filled it.
   useEffect(() => {
@@ -358,6 +395,24 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
         ) : null}
 
         {draft.characters.map((character, index) => {
+          if (character.isPrimary && awaitingHero && heroWait === "showing") {
+            return (
+              <article
+                key={character.localId}
+                className="ux-character-summary ux-character-waiting"
+                aria-busy="true"
+              >
+                <span className="ux-summary-avatar">
+                  <BekiLoader size={30} />
+                </span>
+                <div>
+                  <small>{copy.profile.primaryCharacter}</small>
+                  <p role="status">{copy.profile.heroPicker.fetching}</p>
+                </div>
+              </article>
+            );
+          }
+
           if (editingId === character.localId) {
             return (
               <CharacterEditor
@@ -498,6 +553,12 @@ function benefactive(name: string): string {
  * Chips rather than a dropdown: a family has a handful of children, and the names are the whole
  * of what a parent needs to see to choose. The selected one is the child in the hero slot below;
  * "a new child" empties that slot for someone the account has not met.
+ *
+ * One line, always. Wrapping was the honest thing to do for three names and the wrong thing for
+ * twelve: the row grew down the page, pushed the form off the screen, and left the questions and
+ * the create button fighting for the same space. A row that scrolls sideways costs the layout the
+ * same height whatever the family size, and the arrows say there is more without a parent having
+ * to guess that the strip moves.
  */
 function HeroPicker({
   heroes,
@@ -512,37 +573,128 @@ function HeroPicker({
 }) {
   const copy = useT().journey.profile.heroPicker;
   const isNew = selectedId === null;
+  const rail = useRef<HTMLDivElement | null>(null);
+  /* Both false while the strip fits, which is what hides the arrows for a family of two. */
+  const [reach, setReach] = useState({ back: false, on: false });
+
+  /*
+    Where the strip stands: at the start, at the end, or between.
+
+    Read from the element rather than counted from the chips, because what matters is how much is
+    off-screen, and that depends on the names — a Georgian name is not a fixed number of pixels.
+    Recomputed on scroll, on resize, and whenever the family changes.
+  */
+  useEffect(() => {
+    const strip = rail.current;
+    if (!strip) return;
+
+    const measure = () => {
+      // A pixel of slack: browsers land fractionally short of the end after a smooth scroll.
+      const max = strip.scrollWidth - strip.clientWidth;
+      setReach({ back: strip.scrollLeft > 1, on: strip.scrollLeft < max - 1 });
+    };
+
+    measure();
+    strip.addEventListener("scroll", measure, { passive: true });
+    const observer = new ResizeObserver(measure);
+    observer.observe(strip);
+    return () => {
+      strip.removeEventListener("scroll", measure);
+      observer.disconnect();
+    };
+  }, [heroes]);
+
+  /*
+    The chosen child, brought into view.
+
+    A parent returning to this step with their fourth child selected would otherwise find the
+    strip at its start and the selection nowhere on it, which reads as nothing being selected.
+
+    On the family too, not only the selection: the list is fetched, so the first run of this
+    happens while the strip still holds nothing but "a new child". The chip to scroll to appears
+    later, and without `heroes` here nothing would go looking for it.
+  */
+  useEffect(() => {
+    const strip = rail.current;
+    if (!strip) return;
+    const chip = strip.querySelector(".selected");
+    chip?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [selectedId, heroes]);
+
+  /* Either end reachable means there is something off-screen, whichever way it sits. */
+  const scrolls = reach.back || reach.on;
+
+  const nudge = (direction: -1 | 1) => {
+    const strip = rail.current;
+    if (!strip) return;
+    if (direction < 0 ? !reach.back : !reach.on) return;
+    // Most of a screenful, not all of it: the chip at the edge stays visible as a landmark.
+    strip.scrollBy({
+      left: direction * strip.clientWidth * 0.8,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
+  };
 
   return (
     <fieldset className="choice-fieldset ux-hero-picker">
       <legend>{copy.title}</legend>
-      <div className="ux-choice-chips">
-        {heroes.map((hero) => (
-          <button
-            key={hero.id}
-            type="button"
-            className={hero.id === selectedId ? "selected" : ""}
-            aria-pressed={hero.id === selectedId}
-            onClick={() => {
-              if (hero.id !== selectedId) onPick(hero);
-            }}
-          >
-            {hero.name}
-          </button>
-        ))}
+      <div className="ux-hero-picker-rail">
+        {/*
+          Present whenever the strip moves at all, greyed at the end rather than taken away.
+          Removing the arrow you just pressed drops the keyboard focus to the top of the document,
+          so a parent tabbing through the names would be thrown out of the picker by reaching the
+          end of it. `disabled` does the same thing — a focused control that becomes disabled is
+          blurred — so the end of the row is said with `aria-disabled` and a press that does
+          nothing, which keeps the button where the parent left their focus. Both arrows go only
+          when there is nothing to scroll.
+        */}
         <button
           type="button"
-          className={isNew ? "selected" : ""}
-          aria-pressed={isNew}
-          onClick={() => {
-            if (!isNew) onNew();
-          }}
+          className="ux-hero-picker-arrow"
+          aria-label={copy.scrollBack}
+          hidden={!scrolls}
+          aria-disabled={!reach.back}
+          onClick={() => nudge(-1)}
         >
-          <Plus aria-hidden="true" size={14} />
-          {copy.newChild}
+          <ChevronLeft aria-hidden="true" size={16} />
+        </button>
+        <div className="ux-choice-chips" ref={rail}>
+          {heroes.map((hero) => (
+            <button
+              key={hero.id}
+              type="button"
+              className={hero.id === selectedId ? "selected" : ""}
+              aria-pressed={hero.id === selectedId}
+              onClick={() => {
+                if (hero.id !== selectedId) onPick(hero);
+              }}
+            >
+              {hero.name}
+            </button>
+          ))}
+          <button
+            type="button"
+            className={isNew ? "selected" : ""}
+            aria-pressed={isNew}
+            onClick={() => {
+              if (!isNew) onNew();
+            }}
+          >
+            <Plus aria-hidden="true" size={14} />
+            {copy.newChild}
+          </button>
+        </div>
+        <button
+          type="button"
+          className="ux-hero-picker-arrow"
+          aria-label={copy.scrollOn}
+          hidden={!scrolls}
+          aria-disabled={!reach.on}
+          onClick={() => nudge(1)}
+        >
+          <ChevronRight aria-hidden="true" size={16} />
         </button>
       </div>
-      <p className="ux-hero-picker-hint">{copy.hint}</p>
     </fieldset>
   );
 }

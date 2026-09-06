@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Entities;
 using AdventurePacks.Api.Domain.Enums;
@@ -935,6 +935,16 @@ public class GenerationBudgetTests
 
         public Task<bool> DeleteByStoredUrlAsync(string storedUrl, CancellationToken cancellationToken) =>
             Task.FromResult(true);
+
+        // No companion kept: the rendition is an optimisation, and its absence is the
+        // ordinary answer the first time anybody asks.
+        public Task<byte[]?> TryDownloadBesideAsync(
+            string storedUrl, string suffix, CancellationToken cancellationToken) =>
+            Task.FromResult<byte[]?>(null);
+
+        public Task UploadBesideAsync(
+            string storedUrl, string suffix, byte[] bytes, string contentType,
+            CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class CountingNotifier : IAdminNotifier
@@ -983,6 +993,8 @@ public class GenerationBudgetTests
     {
         public NormalizedReferenceImage NormalizeForOpenAi(byte[] bytes, string? hintContentType = null) => throw new NotSupportedException();
         public NormalizedReferenceImage NormalizeForStorageWebp(byte[] bytes, string? hintContentType = null) => throw new NotSupportedException();
+        public NormalizedReferenceImage NormalizeForDisplayWebp(byte[] bytes, string? hintContentType = null) => throw new NotSupportedException();
+        public NormalizedReferenceImage NormalizeForPortraitStorage(byte[] bytes, string? hintContentType = null) => throw new NotSupportedException();
     }
 
     private sealed class ThrowingJobClient : IBackgroundJobClient

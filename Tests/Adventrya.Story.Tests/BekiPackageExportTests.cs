@@ -1,4 +1,4 @@
-using System.IO.Compression;
+﻿using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
 using AdventurePacks.Api.Configuration.Options;
@@ -470,5 +470,15 @@ public class BekiPackageExportTests
 
         public Task<bool> DeleteByStoredUrlAsync(string storedUrl, CancellationToken cancellationToken) =>
             Task.FromResult(_blobs.Remove(storedUrl.Replace("https://blob.test/", string.Empty)));
+
+        // No companion kept: the rendition is an optimisation, and its absence is the
+        // ordinary answer the first time anybody asks.
+        public Task<byte[]?> TryDownloadBesideAsync(
+            string storedUrl, string suffix, CancellationToken cancellationToken) =>
+            Task.FromResult<byte[]?>(null);
+
+        public Task UploadBesideAsync(
+            string storedUrl, string suffix, byte[] bytes, string contentType,
+            CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

@@ -1,8 +1,9 @@
-import { ArrowLeft, ArrowRight, Check, Lock, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Lock, MapPin, Sparkles } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import { BekiLoader } from "@/components/adventrya/BekiLoader";
+import { LocationPickerDialog } from "@/components/adventrya/journey/LocationPickerDialog";
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
 import { ApiError, resolveApiUrl } from "@/lib/api/client";
 import * as ordersApi from "@/lib/api/orders";
@@ -48,6 +49,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const bookTitle = draft.preview?.title?.trim() || world.bookTitle(heroName);
   const orderPackage: OrderPackage = draft.bookPackage === "print" ? "Print" : "Digital";
   const isPrint = orderPackage === "Print";
+  const [pickingLocation, setPickingLocation] = useState(false);
   // The book is written in whatever language the parent is reading the site in — there is no
   // separate choice to make, so there is nothing to remember and nothing to get out of step.
   const { locale } = useLocale();
@@ -286,6 +288,14 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   return (
     <section className="journey-stage checkout-stage ux-checkout-stage">
       {handoverOverlay}
+
+      <LocationPickerDialog
+        open={pickingLocation}
+        onOpenChange={setPickingLocation}
+        onChoose={({ address, city }) =>
+          updateShipping(city ? { addressLine1: address, city } : { addressLine1: address })
+        }
+      />
       <div className="checkout-form">
         <p className="eyebrow">
           <Sparkles aria-hidden="true" /> {t.journey.checkout.secure}
@@ -341,6 +351,43 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                 placeholder={t.journey.checkout.addressPlaceholder}
                 value={draft.shipping.addressLine1}
                 onChange={(e) => updateShipping({ addressLine1: e.target.value })}
+              />
+              {/*
+                Beside the field, not instead of it.
+
+                A Georgian street typed from memory is the easiest thing on this form to get
+                wrong and the most expensive: the parcel reaches a courier, and a courier with a
+                misspelt street rings or gives up. Picking the place resolves it against Google's
+                own record. Typing still works — the map is a shortcut, never a gate, and it is
+                simply absent on a deployment with no key.
+              */}
+              <button
+                className="ux-inline-link ux-pick-location"
+                type="button"
+                onClick={() => setPickingLocation(true)}
+              >
+                <MapPin aria-hidden="true" size={14} />
+                {t.journey.checkout.pickLocation}
+              </button>
+            </label>
+
+            {/*
+              What no map knows and the parent always does.
+
+              A resolved address ends at the building. Which entrance, which floor, which flat and
+              what to press at the door is the half that decides whether the parcel arrives, and
+              until now there was nowhere on this form to say it — though the order has carried a
+              `notes` field the whole time.
+            */}
+            <label className="field field-wide" htmlFor="checkout-ship-notes">
+              <span>{t.journey.checkout.addressNotes}</span>
+              <textarea
+                id="checkout-ship-notes"
+                name="notes"
+                rows={2}
+                placeholder={t.journey.checkout.addressNotesPlaceholder}
+                value={draft.shipping.notes ?? ""}
+                onChange={(e) => updateShipping({ notes: e.target.value })}
               />
             </label>
           </div>

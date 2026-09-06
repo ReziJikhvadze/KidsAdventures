@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -290,5 +290,11 @@ public class OpenAiImageRetryTests
 
         public NormalizedReferenceImage NormalizeForStorageWebp(byte[] bytes, string? hintContentType = null) =>
             new(bytes, "image/webp", "illustration.webp");
+
+        public NormalizedReferenceImage NormalizeForDisplayWebp(byte[] bytes, string? hintContentType = null) =>
+            new(bytes, "image/webp", "portrait.webp");
+
+        public NormalizedReferenceImage NormalizeForPortraitStorage(byte[] bytes, string? hintContentType = null) =>
+            new(bytes, "image/webp", "portrait.webp");
     }
 }

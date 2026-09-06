@@ -12,6 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services
     .AddAdventurePacksOptions(builder.Configuration)
     .AddAdventurePacksCors(builder.Configuration)
+    .AddAdventurePacksResponseCompression()
     .AddAdventurePacksData()
     .AddAdventurePacksAuth(builder.Configuration)
     .AddAdventurePacksInfrastructure(builder.Configuration)
@@ -69,6 +70,8 @@ for (var attempt = 1; ; attempt++)
         await Task.Delay(wait);
     }
 }
+
+app.UseResponseCompression();
 
 app.UseGlobalExceptionHandling();
 

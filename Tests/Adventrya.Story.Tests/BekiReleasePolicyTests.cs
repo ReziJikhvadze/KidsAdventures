@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using AdventurePacks.Api.Domain.Entities;
 using AdventurePacks.Api.Domain.Story;
@@ -809,4 +809,11 @@ internal sealed class PolicyFakeBlobs : IBlobStorageService
 
     public Task<bool> DeleteByStoredUrlAsync(string storedUrl, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
+
+    public Task<byte[]?> TryDownloadBesideAsync(
+        string storedUrl, string suffix, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+    public Task UploadBesideAsync(
+        string storedUrl, string suffix, byte[] bytes, string contentType,
+        CancellationToken cancellationToken) => throw new NotSupportedException();
 }

@@ -77,10 +77,9 @@
   the left column widens into the room the narrower gap frees.
 */
 /*
-  Wider than the preview and generated stages it shares a width with. Those scroll if they must;
-  this one is clipped to the viewport, so every pixel taken by a side margin is a pixel the form
-  has to find somewhere else — and it was finding it by squeezing the eye-colour swatches until
-  their labels no longer fitted.
+  Wider than the preview and generated stages it shares a width with. This one is laid out to fit
+  one screen, so every pixel taken by a side margin is a pixel the form has to find somewhere else
+  — and it was finding it by squeezing the eye-colour swatches until their labels no longer fitted.
 */
 .ux-profile-stage {
   width: min(1320px, calc(100% - 50px));
@@ -89,16 +88,22 @@
   /*
     Three rows: the title, the pair, and what closes the form.
 
-    `minmax(0, 1fr)` on the middle one so it takes whatever the other two leave and its children
-    may shrink inside it — an `auto` row would be sized by the taller column and push the step
-    past the fold it is built to fit inside. The pair is the point of the row: the painting and
-    the card are the two things on this screen that should be the same size, and sharing a row
-    is what makes them so without either being told a number.
+    The middle one takes whatever the other two leave, so the painting and the card come out the
+    same size without either being told a number — that is the point of sharing a row.
+
+    It was written `minmax(0, 1fr)`, and the zero is what broke: a floor of zero lets a row be
+    shorter than its own content, and grid does not clip an overflowing item, it draws it over
+    whatever comes next. A family with a dozen saved children, whose picker wraps onto two lines,
+    had the consent line and the create button painted across the eye-colour questions.
+
+    Plain `1fr` is the same track with the floor grid would have chosen: it still spends every
+    spare pixel on the pair, and it will not go under what is actually in the row. Past that the
+    step is taller than the window and the shell scrolls, which is the honest answer.
 
     Gaps split by axis: the columns want the wide one, and the button under the card wants to
     stay next to the card. The title keeps its own air through a margin instead.
   */
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto 1fr auto;
   align-items: start;
   column-gap: clamp(26px, 3vw, 44px);
   row-gap: 9px;
@@ -516,6 +521,22 @@
   border-color: #79dcae59;
   border-radius: 19px 19px 30px;
   background: linear-gradient(135deg, #4aa17e33, #251b4b85);
+}
+/*
+  The same card, before the child is in it.
+
+  Same box, same padding, same avatar slot, so when the details land the loader is replaced and
+  nothing under it moves. What goes is the tick — there is nothing ready yet — and the buttons,
+  which would act on a child that is not here.
+*/
+.ux-character-waiting {
+  grid-template-columns: 50px 1fr;
+  border-color: rgba(239, 224, 193, 0.2);
+  background: linear-gradient(135deg, #f8f2e51c, #2c1d5280);
+}
+.ux-character-waiting .ux-summary-avatar {
+  color: #f8f2e5;
+  background: #2b1e5299;
 }
 .ux-ready-check {
   width: 29px;
@@ -1981,8 +2002,18 @@
     font-size: clamp(24px, 1.95vw, 31px);
   }
 
+  /*
+    Made to fit a short laptop by narrowing, not by squashing.
+
+    `max-height` looks like the way to say this and is not: the width is already settled at 100% of
+    the column, so capping the height only makes the frame wider than 13:10 — the one thing every
+    world's panel is supposed to share, and the shape the crop is measured against. Capping the
+    width instead keeps the ratio and gives up size, which is what was meant. The subtraction is
+    safe here: this block only applies from 768px of viewport height up.
+  */
   .ux-profile-aside .world-art-panel {
-    min-height: clamp(200px, 26vh, 360px);
+    width: min(100%, calc((100svh - 210px) * 13 / 10));
+    margin-inline: auto;
   }
 
   /*
@@ -2274,6 +2305,22 @@
 .world-art-panel {
   position: relative;
   margin: 0;
+  /*
+    One frame, the same for every world.
+
+    The panel used to stretch to the column, which made it far taller than any island is wide —
+    and a frame taller than its island has room for the next one. That is what put two islands in
+    a picture: the forest with the sky castle over its shoulder, the ocean with both its
+    neighbours.
+
+    13:10 is the shape that suits six islands of different builds at once. Measured against the
+    frames in `ISLAND_FRAMES`: a neighbour took 18% of the frame on average and 23% at worst, and
+    now takes 5% and 12% — the 12% being one corner of the ocean, whose island and the observatory
+    above it are painted overlapping, so no rectangle can hold one without the other. Two worlds
+    have none at all, and no island is cropped. Tighter than this starts cutting islands — the
+    dinosaur loses its head again — so the last of it is left to the vignette.
+  */
+  aspect-ratio: 13 / 10;
   overflow: hidden;
   isolation: isolate;
   border: 1px solid rgba(240, 226, 197, 0.16);
@@ -2374,18 +2421,26 @@
   gap: 22px;
 }
 
+/*
+  Held to its shape, and stood on the same line as the form.
+
+  Centring it in the column left it floating between the top of the form and the bottom of it,
+  lining up with neither. The bottom is the edge to share: the form ends where the column does
+  whatever is above it, so the two finish together with or without the picker over the card, and
+  the picture sits down on the page instead of hovering half way up it.
+*/
+.ux-profile-aside {
+  justify-content: flex-end;
+}
+
 .ux-profile-aside .world-art-panel {
-  flex: 1 1 auto;
-  min-height: clamp(280px, 38vh, 520px);
+  flex: 0 0 auto;
+  width: 100%;
 }
 
 @media (max-width: 1080px) {
   .ux-profile-aside {
     position: static;
-  }
-
-  .ux-profile-aside .world-art-panel {
-    min-height: 220px;
   }
 }
 
@@ -2571,19 +2626,90 @@
 */
 .ux-hero-picker {
   margin-bottom: 18px;
+  /*
+    A fieldset's inline size floors at `min-content` unless it is told otherwise — a rule of its
+    own, not the one every other box follows. Left alone it widens to hold the whole strip, so the
+    strip never overflows, never scrolls, and pushes the card off the side of the page instead.
+  */
+  min-width: 0;
+}
+/*
+  One row that slides, with the arrows outside it.
+
+  The chips class is shared with the relationship and eye-colour questions, where wrapping is
+  right — those are a fixed handful and every one of them should be in sight. Here the count is
+  the family's, so the strip is told not to wrap and given the scroll instead; the rules below
+  are scoped to this picker for exactly that reason.
+*/
+.ux-hero-picker-rail {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.ux-hero-picker .ux-choice-chips {
+  flex: 1;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  /* The arrows are the affordance; a scrollbar under one row of chips is just a second one. */
+  scrollbar-width: none;
+  /* Room for the selected chip's ring, which a scroll container would otherwise cut. */
+  padding: 3px 1px;
+}
+.ux-hero-picker .ux-choice-chips::-webkit-scrollbar {
+  display: none;
 }
 .ux-hero-picker .ux-choice-chips button {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 6px;
   font-size: 13px;
   min-height: 42px;
   padding: 0 16px;
+  /* A name is one chip, never two lines of one. */
+  white-space: nowrap;
 }
-.ux-hero-picker-hint {
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: #f8f2e5a6;
+/*
+  A round button, not a rounded one.
+
+  It was 30 wide and 42 tall with a pill radius, which is a capsule standing on its end beside a
+  row of capsules lying down — the one shape on this row that reads as a mistake. Square and fully
+  rounded it is a circle, and a circle beside a row of pills is plainly a control rather than
+  another name. It sits outside the strip, so it never covers a name.
+*/
+.ux-hero-picker-arrow {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid rgba(238, 226, 205, 0.22);
+  border-radius: 50%;
+  cursor: pointer;
+  color: #f8f2e5cc;
+  background: #2a1d5299;
+  transition:
+    color 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease;
+}
+/* Said out loud: an author `display` outranks the browser's own rule for the hidden attribute,
+   so without this the arrows for a family that fits on one line would still be drawn. */
+.ux-hero-picker-arrow[hidden] {
+  display: none;
+}
+.ux-hero-picker-arrow:hover:not([aria-disabled="true"]) {
+  color: #2c1c49;
+  border-color: var(--story-gold);
+  background: var(--story-gold);
+}
+/* Still there, still focusable, plainly at the end of the row. */
+.ux-hero-picker-arrow[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.35;
 }
 .ux-summary-avatar {
   overflow: hidden;

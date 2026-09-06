@@ -43,9 +43,12 @@ export const journey = {
     },
     heroPicker: {
       title: "ვისთვის ვქმნით წიგნს?",
-      hint: "შენახული გმირის მონაცემები და ფოტო ავტომატურად შეივსება.",
       newChild: "ახალი ბავშვი",
       loading: "გმირები იტვირთება…",
+      scrollBack: "წინა ბავშვები",
+      scrollOn: "შემდეგი ბავშვები",
+      /* While the chosen child's details and photo are being brought back from the account. */
+      fetching: "გმირი მოაქვს…",
     },
   },
 
@@ -307,6 +310,13 @@ export const journey = {
     zeroTotal: "გადასახდელი თანხა განულებულია",
     zeroTotalNote: "ბარათის მონაცემები აღარ არის საჭირო.",
     recipient: "მიმღები",
+    pickLocation: "აირჩიე ლოკაცია რუკაზე",
+    pickLocationTitle: "სად მივიტანოთ?",
+    pickLocationHint: "მოძებნე ქუჩა და აირჩიე ჩამონათვალიდან.",
+    pickLocationConfirm: "ამ მისამართის დადასტურება",
+    pickLocationUnavailable: "რუკა ამჟამად მიუწვდომელია — ჩაწერე მისამართი ხელით.",
+    addressNotes: "დამატებითი მითითება კურიერისთვის",
+    addressNotesPlaceholder: "სადარბაზო, სართული, ბინა, კოდი, ორიენტირი",
     addressPlaceholder: "ქალაქი, ქუჩა, შენობა და ბინა",
     shippingAddress: "მიმღების მისამართი",
     addAnotherAddress: "სხვა მისამართის დამატება",
