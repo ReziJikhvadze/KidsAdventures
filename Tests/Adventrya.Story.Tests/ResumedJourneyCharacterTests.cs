@@ -3,6 +3,7 @@ using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.DTOs.Characters;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Implementations;
+using AdventurePacks.Api.Services.Interfaces;
 using Xunit;
 
 namespace Adventrya.Story.Tests;
@@ -105,7 +106,20 @@ public class ResumedJourneyCharacterTests : CompositePipelineTestBase
     };
 
     private static CharacterService Service(CapturingCharacters characters, OneRun runs) =>
-        new(characters, new StubBlobStorage(), new PassThroughNormalizer(), runs);
+        new(characters, new StubBlobStorage(), new PassThroughNormalizer(), new NoRenditions(), runs);
+
+    /// <summary>
+    /// The thumbnail is made beside the portrait and never blocks it, so these tests — which are
+    /// about which character comes back from a resumed run — have nothing to say about it.
+    /// </summary>
+    private sealed class NoRenditions : IPortraitRenditionService
+    {
+        public Task<PortraitForDisplay> GetAsync(string storedUrl, CancellationToken cancellationToken) =>
+            Task.FromResult(new PortraitForDisplay([], "image/webp", IsRendition: false));
+
+        public Task WarmAsync(string storedUrl, byte[] originalBytes, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
+    }
 
     private sealed class OneRun(MasterStoryRun? run) : IMasterStoryRunRepository
     {

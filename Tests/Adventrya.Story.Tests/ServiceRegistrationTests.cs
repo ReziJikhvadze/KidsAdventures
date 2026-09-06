@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Data;
 using AdventurePacks.Api.Domain.Entities;
@@ -111,6 +111,13 @@ public class ServiceRegistrationTests
         public Task<bool> ExistsAsync(string blobName, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<byte[]> DownloadBytesFromStoredUrlAsync(string storedUrl, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> DeleteByStoredUrlAsync(string storedUrl, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<byte[]?> TryDownloadBesideAsync(
+            string storedUrl, string suffix, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task UploadBesideAsync(
+            string storedUrl, string suffix, byte[] bytes, string contentType,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     private sealed class SilentNotifier : IAdminNotifier

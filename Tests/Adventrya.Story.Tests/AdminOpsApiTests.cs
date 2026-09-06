@@ -1,4 +1,4 @@
-using AdventurePacks.Api.Configuration.Options;
+﻿using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Controllers;
 using AdventurePacks.Api.Domain.Entities;
 using AdventurePacks.Api.Domain.Enums;
@@ -544,6 +544,13 @@ public class AdminOpsApiTests
 
         public Task<bool> DeleteByStoredUrlAsync(
             string storedUrl, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<byte[]?> TryDownloadBesideAsync(
+            string storedUrl, string suffix, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task UploadBesideAsync(
+            string storedUrl, string suffix, byte[] bytes, string contentType,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 
     /// <summary>The policy the release controller needs to exist; no test here touches it.</summary>

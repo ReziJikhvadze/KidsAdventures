@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Enums;
 using AdventurePacks.Api.Domain.Entities;
@@ -301,6 +301,16 @@ public class LegacyFulfillmentPressTests
 
         public Task<bool> DeleteByStoredUrlAsync(string storedUrl, CancellationToken cancellationToken) =>
             Task.FromResult(true);
+
+        // No companion kept: the rendition is an optimisation, and its absence is the
+        // ordinary answer the first time anybody asks.
+        public Task<byte[]?> TryDownloadBesideAsync(
+            string storedUrl, string suffix, CancellationToken cancellationToken) =>
+            Task.FromResult<byte[]?>(null);
+
+        public Task UploadBesideAsync(
+            string storedUrl, string suffix, byte[] bytes, string contentType,
+            CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     /// <summary>The pack row, remembering the two columns these tests are about.</summary>

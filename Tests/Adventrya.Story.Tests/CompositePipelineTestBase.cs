@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
@@ -1261,6 +1261,16 @@ public abstract class CompositePipelineTestBase
 
         public Task<bool> DeleteByStoredUrlAsync(string storedUrl, CancellationToken cancellationToken) =>
             Task.FromResult(true);
+
+        // No companion kept: the rendition is an optimisation, and its absence is the
+        // ordinary answer the first time anybody asks.
+        public Task<byte[]?> TryDownloadBesideAsync(
+            string storedUrl, string suffix, CancellationToken cancellationToken) =>
+            Task.FromResult<byte[]?>(null);
+
+        public Task UploadBesideAsync(
+            string storedUrl, string suffix, byte[] bytes, string contentType,
+            CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     /// <summary>Draws whatever it is asked for; the router test is about what reaches it.</summary>
@@ -1289,6 +1299,12 @@ public abstract class CompositePipelineTestBase
 
         public NormalizedReferenceImage NormalizeForStorageWebp(byte[] bytes, string? hintContentType = null) =>
             new(bytes, "image/webp", "illustration.webp");
+
+        public NormalizedReferenceImage NormalizeForDisplayWebp(byte[] bytes, string? hintContentType = null) =>
+            new(bytes, "image/webp", "portrait.webp");
+
+        public NormalizedReferenceImage NormalizeForPortraitStorage(byte[] bytes, string? hintContentType = null) =>
+            new(bytes, "image/webp", "portrait.webp");
     }
 
     protected sealed class StubBackgroundJobClient : Hangfire.IBackgroundJobClient

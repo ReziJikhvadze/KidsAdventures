@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Controllers;
@@ -1144,6 +1144,16 @@ public class AdminConsoleApiTests
             Deleted.Add(storedUrl);
             return Task.FromResult(true);
         }
+
+        // No companion kept: the rendition is an optimisation, and its absence is the
+        // ordinary answer the first time anybody asks.
+        public Task<byte[]?> TryDownloadBesideAsync(
+            string storedUrl, string suffix, CancellationToken cancellationToken) =>
+            Task.FromResult<byte[]?>(null);
+
+        public Task UploadBesideAsync(
+            string storedUrl, string suffix, byte[] bytes, string contentType,
+            CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task<bool> ExistsAsync(string blobName, CancellationToken ct) =>
             Task.FromResult(_stored.Contains(blobName) || Bytes.ContainsKey(blobName));
