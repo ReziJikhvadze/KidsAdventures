@@ -31,6 +31,25 @@ namespace Adventrya.Story.Tests;
 /// </summary>
 public class BekiReleaseGatesTests
 {
+    [Fact]
+    public async Task Missing_upscaler_and_flagged_human_review_do_not_withhold_the_customer_pdf()
+    {
+        var blobs = new FakeBlobs();
+        SeedCompleteBook(blobs, needsHumanReading: true);
+        blobs.Seed(BekiPackBlobs.PressStatusName(UserId, PackId), Json(new
+        {
+            failed_gates = new[] { "PRESS_RESOLUTION" },
+            reason = "Beki:PrintPrep:UpscalerPath is empty",
+        }));
+        var report = await new BekiReleaseGates(blobs).EvaluateAsync(
+            UserId, PackId, CancellationToken.None, policy: BekiReleasePolicySnapshot.Defaults);
+        Assert.True(report.AwaitingHumanReview);
+        Assert.True(report.IsWaived(BekiReleaseChecks.HumanReview, BekiReleaseGates.DigitalClass));
+        Assert.True(report.CustomerPdfMayPublish);
+        Assert.False(report.PrintReady);
+        Assert.Contains("PRESS_RESOLUTION", report.FailingGates);
+    }
+
     private static readonly Guid UserId = Guid.NewGuid();
     private static readonly Guid PackId = Guid.NewGuid();
 

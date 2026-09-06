@@ -62,7 +62,6 @@ public class CompositePipelineFulfillmentTests
         {
             MalformedUpscale = failure == "malformed-upscaler-output",
             WaiverAlarmFails = failure == "waiver-alarm-unavailable",
-            NeedsHumanReview = true,
         };
         world.Composer.CanonicalPdf = BekiRenderFixtures.CanonicalTestBook();
         world.Alarms.ThrowOnRaise = failure == "alarm-unavailable";
@@ -81,7 +80,6 @@ public class CompositePipelineFulfillmentTests
             world.Blobs.Uploaded[BekiPackBlobs.ReleaseGatesName(world.UserId, world.PackId)]))!;
         Assert.True(release.CustomerPdfMayPublish);
         Assert.False(release.PrintReady);
-        Assert.True(release.IsWaived(BekiReleaseChecks.HumanReview, BekiReleaseGates.DigitalClass));
         Assert.Contains("PRESS_RESOLUTION", release.FailingGates);
         Assert.Contains(world.Alarms.Raised, alarm => alarm.CheckId == "PRINT_PREPARATION_HELD");
         if (failure == "print-status-unavailable")
@@ -438,8 +436,6 @@ public class CompositePipelineFulfillmentTests
 
         public bool WaiverAlarmFails { get; init; }
 
-        public bool NeedsHumanReview { get; init; }
-
         public PackWorld() =>
             Packs = new FakePacks(new AdventurePack
             {
@@ -674,8 +670,7 @@ public class CompositePipelineFulfillmentTests
                 Composite = new CompositeBookArtifacts
                 {
                     ScenarioJson = ScenarioJson,
-                    ReviewJson = world.NeedsHumanReview
-                        ? """{"needs_human_reading": true}""" : """{"needs_human_reading": false}""",
+                    ReviewJson = """{"needs_human_reading": false}""",
                     Identity = CompositePipelineTestBase.IdentityFixture,
                     Anchor = [1, 2, 3, 4],
                     Spreads = spreads
