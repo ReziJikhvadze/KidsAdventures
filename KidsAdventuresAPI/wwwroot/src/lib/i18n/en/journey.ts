@@ -267,6 +267,8 @@ export const journey = {
   },
 
   checkout: {
+    stepAddress: "Where it goes",
+    stepParcel: "How it is made up",
     copies: "Number of copies",
     copiesNote: "One address, one parcel",
     copiesFewer: "One fewer",

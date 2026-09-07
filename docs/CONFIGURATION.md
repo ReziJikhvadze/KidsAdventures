@@ -43,9 +43,24 @@ Also for production: `Seed__Enabled=false` (absent), `Swagger__Enabled=false`, `
 | Fonts on the host: none needed | Ottia and Noto Sans Georgian ship in `Assets/BekiComposite` and are hash-locked | | |
 | Node 22 sidecar for SSR | only when `Frontend__EnableHostedNode=true` (`Frontend__NodePort` 3099, `Frontend__OutputRelativePath` `wwwroot/azure-ssr`) | | frontend served by the front App Service instead |
 
-CI installs `ghostscript poppler-utils libfontconfig1` on Ubuntu; the API App Service must provide the
-same two tools (startup script or custom image). **Verify with the post-deploy check in §7**: the
-release-gates document of a finished book lists `RENDER_VALIDATION = PASS` only when both ran.
+CI installs `ghostscript poppler-utils libfontconfig1` on Ubuntu. **The API App Service gets them from
+the image**: since 2026-09-07 the API ships as a container built from `KidsAdventuresAPI/Dockerfile`,
+which installs the same packages and then proves they run (`RUN gs --version && pdftoppm -v &&
+pdffonts -v`) — so a base image that ever loses one fails the build rather than the printing.
+
+That replaced a startup script (`KidsAdventuresAPI/startup.sh`, kept as the fallback if the app is
+ever put back on code deploy). The script installed the tools on every cold start, which worked and
+guaranteed nothing: the container is rebuilt from its image on every restart, deploy, scale-out and
+platform patch, so the install ran again each time and an unreachable Debian mirror meant a book that
+could not be released, quietly.
+
+Container settings on the App Service: `WEBSITES_PORT=8080`, the image pulled with the app's managed
+identity (`acrUseManagedIdentityCreds`), and **no startup command** — the image has an entrypoint.
+None of the `Beki__PrintPrep__*Path` settings are needed: apt puts `gs`, `pdftoppm` and `pdffonts` on
+PATH, which is where the defaults look.
+
+**Verify with the post-deploy check in §7**: the release-gates document of a finished book lists
+`RENDER_VALIDATION = PASS` only when both ran.
 
 ## 3. Print preparation (changed 2026-09-06)
 

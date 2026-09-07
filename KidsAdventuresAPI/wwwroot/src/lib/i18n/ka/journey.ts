@@ -301,6 +301,8 @@ export const journey = {
   checkout: {
     /* The package a parent is buying, named in the language the rest of the page is in.
        These two lines were the last English left on the order summary. */
+    stepAddress: "სად მივიტანოთ",
+    stepParcel: "როგორ მოვამზადოთ",
     copies: "ეგზემპლარების რაოდენობა",
     copiesNote: "ერთ მისამართზე, ერთ ამანათში",
     copiesFewer: "ერთით ნაკლები",

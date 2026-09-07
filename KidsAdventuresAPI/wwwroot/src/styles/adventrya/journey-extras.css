@@ -483,37 +483,11 @@
 /*
   Minus, number, plus — the stepper every food app has already taught this parent to read.
 
-  Same panel as the wrapping row below it so the two optional things on this screen are plainly
-  a pair. The number is fixed-width by its own min-width rather than by a monospace font, so the
-  buttons do not shuffle sideways between 1 and 5.
+  The panel it used to sit in is gone: copies and wrapping are the two halves of one question
+  now and share a row of cards (`.ux-parcel` in journey-ux.css). This is only the control. The
+  number is fixed-width by its own min-width rather than by a monospace font, so the buttons do
+  not shuffle sideways between 1 and 5.
 */
-.ux-copies {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 11px;
-  margin-top: 14px;
-  padding: 12px;
-  border: 1px solid rgba(239, 227, 207, 0.15);
-  border-radius: 15px;
-  background: #2d1f5459;
-}
-.ux-copies > span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.ux-copies strong {
-  color: #f8f2e5;
-  font-size: 12px;
-  font-weight: 700;
-}
-.ux-copies small {
-  color: #f8f2e58f;
-  font-size: 11px;
-  line-height: 1.35;
-}
 .ux-copies-stepper {
   display: flex;
   align-items: center;
@@ -567,49 +541,59 @@
   a pair rather than one being a form and the other an afterthought. The price sits at the end
   of the row, where the eye already goes for a number.
 */
+/*
+  Drawn as a switch, still an input.
+
+  The checkbox is not replaced by a span — it is taken off-screen and the span painted in its
+  place — so the label, the keyboard and the screen reader all keep working, and the input's
+  focus is passed through to the thing that looks focusable.
+*/
 .ux-gift-wrap {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 11px;
-  margin-top: 14px;
-  padding: 12px;
-  border: 1px solid rgba(239, 227, 207, 0.15);
-  border-radius: 15px;
   cursor: pointer;
-  background: #2d1f5459;
+}
+.ux-gift-wrap.is-on {
+  border-color: rgba(232, 201, 138, 0.46);
+  background: #3a2a5e8a;
 }
 .ux-gift-wrap input {
-  width: 17px;
-  height: 17px;
-  accent-color: var(--story-gold);
-  cursor: pointer;
-}
-.ux-gift-wrap span {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-.ux-gift-wrap strong {
-  color: #f8f2e5;
-  font-size: 12px;
-  font-weight: 700;
-}
-.ux-gift-wrap small {
-  color: #f8f2e58f;
-  font-size: 11px;
-  line-height: 1.35;
-}
-.ux-gift-wrap b {
-  color: var(--story-gold);
-  font-size: 12px;
-  font-weight: 700;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
 }
-.ux-gift-wrap:has(input:checked) {
-  border-color: rgba(232, 201, 138, 0.42);
-  background: #3a2a5e7a;
+.ux-switch {
+  width: 42px;
+  height: 24px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 3px;
+  border-radius: 999px;
+  background: #f8f2e51f;
+  transition: background 0.18s ease;
+}
+.ux-switch::before {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f8f2e5;
+  content: "";
+}
+.ux-gift-wrap.is-on .ux-switch {
+  justify-content: flex-end;
+  background: var(--story-gold);
+}
+.ux-gift-wrap.is-on .ux-switch::before {
+  background: #2c1c49;
+}
+.ux-gift-wrap input:focus-visible ~ .ux-switch {
+  outline: 2px solid var(--story-gold);
+  outline-offset: 2px;
 }
 
 /*

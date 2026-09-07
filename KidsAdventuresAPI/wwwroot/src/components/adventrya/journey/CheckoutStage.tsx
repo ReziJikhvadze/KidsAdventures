@@ -402,6 +402,14 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
           built and not how anybody says where they live. One line takes the whole address as
           the parent would write it on a parcel; the courier reads it the same way either way.
         */}
+        {/*
+          Two questions, named.
+
+          The form used to be an unlabelled run of fields followed by three boxes that looked
+          alike, so nothing on it said where one question ended and the next began. Where the
+          parcel goes and how it is made up are different questions and now say so.
+        */}
+        {isPrint ? <p className="ux-checkout-step">{t.journey.checkout.stepAddress}</p> : null}
         {isPrint ? (
           <div className="ux-ship-fields">
             <label className="field" htmlFor="checkout-ship-recipient">
@@ -491,49 +499,136 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
           a trap. The ends stop rather than wrap: at one there is nothing to take away, and five
           is as many copies as this checkout will take.
         */}
-        {isPrint ? (
-          <div className="ux-copies">
-            <span>
-              <strong>{t.journey.checkout.copies}</strong>
-              <small>{t.journey.checkout.copiesNote}</small>
-            </span>
-            <div className="ux-copies-stepper">
-              <button
-                type="button"
-                aria-label={t.journey.checkout.copiesFewer}
-                disabled={copies <= 1}
-                onClick={() => onChange({ quantity: Math.max(1, copies - 1) })}
-              >
-                <Minus aria-hidden="true" size={16} />
-              </button>
-              <b aria-live="polite">{copies}</b>
-              <button
-                type="button"
-                aria-label={t.journey.checkout.copiesMore}
-                disabled={copies >= MAX_PRINT_QUANTITY}
-                onClick={() => onChange({ quantity: Math.min(MAX_PRINT_QUANTITY, copies + 1) })}
-              >
-                <Plus aria-hidden="true" size={16} />
-              </button>
-            </div>
-          </div>
-        ) : null}
+        {/*
+          Side by side, because they are the same question asked twice.
 
+          Stacked, each in its own box, they read as two more things to get through. On one row
+          the pair is plainly "how should the parcel be made up", and the step costs the column
+          one row instead of two.
+        */}
         {isPrint ? (
-          <label className="ux-gift-wrap">
-            <input
-              type="checkbox"
-              name="giftWrap"
-              checked={draft.giftWrap}
-              onChange={(e) => onChange({ giftWrap: e.target.checked })}
-            />
-            <span>
-              <strong>{t.journey.checkout.giftWrap}</strong>
-              <small>{t.journey.checkout.giftWrapNote}</small>
-            </span>
-            <b>+{formatGel(PRICES.giftWrap)}</b>
-          </label>
+          <>
+            <p className="ux-checkout-step">{t.journey.checkout.stepParcel}</p>
+            <div className="ux-parcel">
+              <div className="ux-parcel-card">
+                <div>
+                  <strong>{t.journey.checkout.copies}</strong>
+                  <small>{t.journey.checkout.copiesNote}</small>
+                </div>
+                <div className="ux-parcel-foot">
+                  <span>{formatGel(PRICES.print * copies)}</span>
+                  <div className="ux-copies-stepper">
+                    <button
+                      type="button"
+                      aria-label={t.journey.checkout.copiesFewer}
+                      disabled={copies <= 1}
+                      onClick={() => onChange({ quantity: Math.max(1, copies - 1) })}
+                    >
+                      <Minus aria-hidden="true" size={16} />
+                    </button>
+                    <b aria-live="polite">{copies}</b>
+                    <button
+                      type="button"
+                      aria-label={t.journey.checkout.copiesMore}
+                      disabled={copies >= MAX_PRINT_QUANTITY}
+                      onClick={() =>
+                        onChange({ quantity: Math.min(MAX_PRINT_QUANTITY, copies + 1) })
+                      }
+                    >
+                      <Plus aria-hidden="true" size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/*
+                A switch, not a tick — but a real checkbox underneath it.
+
+                The control is drawn as the toggle the design asks for and stays an
+                `input[type=checkbox]`, so the keyboard, the screen reader and the label
+                association all keep working; only its painting changes.
+              */}
+              <label className={`ux-parcel-card ux-gift-wrap${draft.giftWrap ? " is-on" : ""}`}>
+                <div>
+                  <strong>{t.journey.checkout.giftWrap}</strong>
+                  <small>{t.journey.checkout.giftWrapNote}</small>
+                </div>
+                <div className="ux-parcel-foot">
+                  <b>+{formatGel(PRICES.giftWrap)}</b>
+                  <input
+                    type="checkbox"
+                    name="giftWrap"
+                    checked={draft.giftWrap}
+                    onChange={(e) => onChange({ giftWrap: e.target.checked })}
+                  />
+                  <span className="ux-switch" aria-hidden="true" />
+                </div>
+              </label>
+            </div>
+          </>
         ) : null}
+      </div>
+
+      <aside className="order-summary ux-order-summary">
+        <div className="ux-compact-product">
+          <StorybookVolume
+            variant="display"
+            className={`storybook storybook-thumbnail theme-${worldId}`}
+            heroName={heroName}
+            title={bookTitle}
+            coverImageUrl={coverSrc}
+            worldId={worldId}
+            pages={thumbPages}
+            lockedPageCount={0}
+            isUnlocked={false}
+            // Not turnable: this is an 82px thumbnail in the order summary, not a
+            // reading surface. Making it interactive rendered page controls, a page
+            // rail and a gesture hint at full size on top of the title and price.
+            interactive={false}
+            initialIndex={0}
+          />
+          <div>
+            <small>{packageLabel}</small>
+            <strong>{bookTitle}</strong>
+            <span>{formatGel(totalMinor)}</span>
+          </div>
+        </div>
+
+        <div className="summary-lines">
+          <h2>{t.journey.checkout.summaryHeading}</h2>
+          {/* The book on its own. Wrapping is inside `subtotalMinor` — the server prices it as
+              part of the subtotal so a promo can reach it — so printing the subtotal here and
+              the wrapping again below made the lines add up to more than the total under them. */}
+          <span>
+            {packageLabel}
+            {quotedCopies > 1 ? ` × ${quotedCopies}` : ""}
+            <strong>{formatGel(subtotalMinor - giftWrapMinor)}</strong>
+          </span>
+          <span>
+            {t.journey.checkout.bookLanguage} <strong>{langLabel}</strong>
+          </span>
+          {isPrint ? (
+            <span>
+              {t.journey.checkout.deliveryLine}
+              <strong>0 ₾</strong>
+            </span>
+          ) : null}
+          {giftWrapMinor > 0 ? (
+            <span>
+              {t.journey.checkout.giftWrap} <strong>{formatGel(giftWrapMinor)}</strong>
+            </span>
+          ) : null}
+          {discountMinor > 0 ? (
+            <span className="ux-discount-line">
+              {t.journey.checkout.discountLine}
+              {draft.promoCode} <strong>−{formatGel(discountMinor)}</strong>
+            </span>
+          ) : null}
+          <div>
+            {t.journey.checkout.total}
+            <strong>{formatGel(totalMinor)}</strong>
+          </div>
+        </div>
 
         {/*
           Back, as asked. It went when this screen was cut to one page, and a code on the draft
@@ -641,68 +736,6 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
           somewhere else to go. The browser's own back button still does it for anyone who wants
           it, and losing the link is what lets the column fit a screen without a scrollbar.
         */}
-      </div>
-
-      <aside className="order-summary ux-order-summary">
-        <div className="ux-compact-product">
-          <StorybookVolume
-            variant="display"
-            className={`storybook storybook-thumbnail theme-${worldId}`}
-            heroName={heroName}
-            title={bookTitle}
-            coverImageUrl={coverSrc}
-            worldId={worldId}
-            pages={thumbPages}
-            lockedPageCount={0}
-            isUnlocked={false}
-            // Not turnable: this is an 82px thumbnail in the order summary, not a
-            // reading surface. Making it interactive rendered page controls, a page
-            // rail and a gesture hint at full size on top of the title and price.
-            interactive={false}
-            initialIndex={0}
-          />
-          <div>
-            <small>{packageLabel}</small>
-            <strong>{bookTitle}</strong>
-            <span>{formatGel(totalMinor)}</span>
-          </div>
-        </div>
-
-        <div className="summary-lines">
-          <h2>{t.journey.checkout.summaryHeading}</h2>
-          {/* The book on its own. Wrapping is inside `subtotalMinor` — the server prices it as
-              part of the subtotal so a promo can reach it — so printing the subtotal here and
-              the wrapping again below made the lines add up to more than the total under them. */}
-          <span>
-            {packageLabel}
-            {quotedCopies > 1 ? ` × ${quotedCopies}` : ""}
-            <strong>{formatGel(subtotalMinor - giftWrapMinor)}</strong>
-          </span>
-          <span>
-            {t.journey.checkout.bookLanguage} <strong>{langLabel}</strong>
-          </span>
-          {isPrint ? (
-            <span>
-              {t.journey.checkout.deliveryLine}
-              <strong>0 ₾</strong>
-            </span>
-          ) : null}
-          {giftWrapMinor > 0 ? (
-            <span>
-              {t.journey.checkout.giftWrap} <strong>{formatGel(giftWrapMinor)}</strong>
-            </span>
-          ) : null}
-          {discountMinor > 0 ? (
-            <span className="ux-discount-line">
-              {t.journey.checkout.discountLine}
-              {draft.promoCode} <strong>−{formatGel(discountMinor)}</strong>
-            </span>
-          ) : null}
-          <div>
-            {t.journey.checkout.total}
-            <strong>{formatGel(totalMinor)}</strong>
-          </div>
-        </div>
 
         <p>
           <Lock aria-hidden="true" size={13} />

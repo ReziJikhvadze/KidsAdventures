@@ -43,6 +43,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The App Service startup command. It has to be IN the deployed zip, because that is the
+         only thing the platform copies to the host — see the file's own header for why the
+         print-validation tools are installed there rather than baked into an image. -->
+    <Content Include="startup.sh" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Data\Scripts\*.sql" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="Data\Scripts\README.md" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Data\Scripts\Manual\**\*" CopyToOutputDirectory="Never" />

@@ -101,6 +101,10 @@ jobs:
     # Attach required reviewers to this environment in repo settings to gate production.
     environment: production
     steps:
+      # The Dockerfile is in the repository; the publish output is in the artifact. This job
+      # needs both, which is why it checks out as well as downloads.
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: api
@@ -112,13 +116,33 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Zip
-        run: cd api && zip -r ../api.zip . -x '*.pdb'
+      # The API ships as a container so Ghostscript and Poppler are part of it. The blessed
+      # .NET image does not carry them, and RENDER_VALIDATION refuses to release a printed book
+      # on evidence it could not gather — see KidsAdventuresAPI/Dockerfile for the reasoning.
+      #
+      # The registry is logged into with the same federated identity as everything else here:
+      # `az acr login` mints a short-lived token from the OIDC session, so no registry password
+      # is stored in GitHub, and the App Service pulls with its own managed identity rather than
+      # with a credential of ours.
+      - name: Log in to the container registry
+        run: az acr login --name "${{ vars.AZURE_ACR_NAME }}"
+
+      # Tagged with the commit, and with `latest` for a human reading the registry. The deploy
+      # below names the commit tag: "latest" is ambiguous the moment two builds are in flight,
+      # and a rollback wants a tag that means exactly one build.
+      - name: Build and push the API image
+        env:
+          IMAGE: ${{ vars.AZURE_ACR_NAME }}.azurecr.io/adventrya-api
+        run: |
+          cp KidsAdventuresAPI/Dockerfile api/Dockerfile
+          docker build -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" api
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
 
       - uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ vars.AZURE_API_APP_NAME }}
-          package: api.zip
+          images: ${{ vars.AZURE_ACR_NAME }}.azurecr.io/adventrya-api:${{ github.sha }}
 
       # Migrations run during startup, so "healthy" genuinely means "schema applied".
       #
