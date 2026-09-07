@@ -108,11 +108,43 @@ public class GeorgianNameFidelityTests : CompositePipelineTestBase
     /// A title that names nobody is a good title — the prompt asks for wonder, friendship and
     /// light, not for the hero's name — so absence from the title is only a problem when the title
     /// reached for the name and missed.
+    ///
+    /// **Unless the title is a cover.** Owner request 2026-09-07: the printed BEKI book's title is
+    /// the largest thing on the cover of a book bought to put this child inside it, and one reading
+    /// only „მოციმციმე ტყე“ could have been anybody's. That is the composite and print paths' rule
+    /// and not the A5 path's, so it is a flag on the check rather than a change to it — the same
+    /// book, read twice, answers differently on purpose.
     /// </summary>
     [Fact]
-    public void A_title_that_does_not_name_the_hero_is_accepted() =>
+    public void A_title_that_does_not_name_the_hero_is_accepted_unless_the_title_is_a_cover()
+    {
+        var story = Book("მოციმციმე ტყე", "ვეკო გაემართა ტყისკენ.");
+
+        Assert.Empty(GeorgianNameFidelity.Inspect(story, "ვეკო"));
+
+        var owed = Assert.Single(
+            GeorgianNameFidelity.Inspect(story, "ვეკო", requireNameInTitle: true));
+
+        Assert.Equal(NameFidelityProblem.AbsentFromTitle, owed.Kind);
+        Assert.Equal("title", owed.Location);
+
+        // The sentence has to say what to write, not which rule was broken: a planner told only
+        // that the title is wrong has nothing to act on.
+        Assert.Contains("must contain „ვეკო“", owed.ToString(), StringComparison.Ordinal);
+        Assert.Contains("ვეკო და მოციმციმე ტყე", owed.ToString(), StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// And a title that carries the name owes nothing, however Georgian has declined it — the same
+    /// suffix reading every other rule here is made on.
+    /// </summary>
+    [Theory]
+    [InlineData("ვეკო და მოციმციმე ტყე")]
+    [InlineData("ვეკოს მოციმციმე ტყე")]
+    [InlineData("მოციმციმე ტყე და ვეკო")]
+    public void A_title_that_names_the_child_satisfies_the_cover_rule(string title) =>
         Assert.Empty(GeorgianNameFidelity.Inspect(
-            Book("მოციმციმე ტყე", "ვეკო გაემართა ტყისკენ."), "ვეკო"));
+            Book(title, "ვეკო გაემართა ტყისკენ."), "ვეკო", requireNameInTitle: true));
 
     /// <summary>
     /// A word two edits away is a different word. ვედრო is not a misspelling of ვეკო, and reading
@@ -695,8 +727,74 @@ public class GeorgianNameFidelityTests : CompositePipelineTestBase
         Assert.Empty(restored);
     }
 
-    /// <summary>The eight-spread fixture plan, naming ვეკო correctly, titled after the wood.</summary>
-    private static MasterStory NamedPlan() => VekoPlan("მოციმციმე ტყე");
+    // ===========================================================================================
+    // Naming the title — the cover rule's last resort
+    // ===========================================================================================
+
+    /// <summary>
+    /// The shape the prompt asks for, built without asking anybody: the name as the parent typed
+    /// it, „და“, and the title the story wrote. The check that reported the title then passes it.
+    /// </summary>
+    [Fact]
+    public void The_last_resort_puts_the_name_in_front_of_the_title_the_story_wrote()
+    {
+        var story = Book("მოციმციმე ტყე", "ვეკო გაემართა ტყისკენ.");
+        var named = GeorgianNameFidelity.NameTheTitle(story, "ვეკო");
+
+        Assert.Equal("ვეკო და მოციმციმე ტყე", named.Concept.Title);
+        Assert.Empty(GeorgianNameFidelity.Inspect(named, "ვეკო", requireNameInTitle: true));
+
+        // The story's own words are the story's. This adds a word to the title and nothing else.
+        Assert.Equal(story.Spreads[0].Text, named.Spreads[0].Text);
+    }
+
+    /// <summary>
+    /// A title that already names the child is left exactly as the planner wrote it — including the
+    /// declined forms, which are the name. The helper and <see cref="GeorgianNameFidelity.Inspect"/>
+    /// read a title the same way, or one of them would be undoing the other's work.
+    /// </summary>
+    [Theory]
+    [InlineData("ვეკო და მოციმციმე ტყე")]
+    [InlineData("ვეკოს მოციმციმე ტყე")]
+    public void The_last_resort_leaves_a_title_that_already_names_the_child_alone(string title)
+    {
+        var story = Book(title, "ვეკო გაემართა ტყისკენ.");
+
+        Assert.Same(story, GeorgianNameFidelity.NameTheTitle(story, "ვეკო"));
+    }
+
+    /// <summary>
+    /// The name as typed, and only the given name: a parent who typed two words gets the first one
+    /// on the cover, which is the same word every other rule in this file is about.
+    /// </summary>
+    [Fact]
+    public void The_last_resort_uses_the_given_name_exactly_as_the_parent_typed_it()
+    {
+        var named = GeorgianNameFidelity.NameTheTitle(
+            Book("მოციმციმე ტყე", "ნინო გაემართა ტყისკენ."), "  ნინო გელაშვილი  ");
+
+        Assert.Equal("ნინო და მოციმციმე ტყე", named.Concept.Title);
+    }
+
+    /// <summary>
+    /// And it does nothing where there is nothing it could be right about: a name too short to be
+    /// checked at all, and a book with no name to put anywhere.
+    /// </summary>
+    [Fact]
+    public void The_last_resort_does_nothing_for_a_name_it_would_not_check()
+    {
+        var story = Book("მოციმციმე ტყე", "ია გაემართა ტყისკენ.");
+
+        Assert.Same(story, GeorgianNameFidelity.NameTheTitle(story, "ია"));
+        Assert.Same(story, GeorgianNameFidelity.NameTheTitle(story, null));
+        Assert.Same(story, GeorgianNameFidelity.NameTheTitle(story, "   "));
+    }
+
+    /// <summary>
+    /// The eight-spread fixture plan, naming ვეკო correctly — in the spreads and, since the cover
+    /// rule of 2026-09-07, in the title the printed book carries.
+    /// </summary>
+    private static MasterStory NamedPlan() => VekoPlan("ვეკო და მოციმციმე ტყე");
 
     /// <summary>The same book with the observed defect in its title: ვეკო written ველო.</summary>
     private static MasterStory MisspeltPlan() => VekoPlan("ველო და მოციმციმე ტყე");

@@ -398,7 +398,7 @@ public class CompositeContractAmendmentTests : CompositePipelineTestBase
 
     [Fact]
     public void The_story_prompt_version_is_bumped_for_the_amendment() =>
-        Assert.Equal("composite-v1.2", MasterStoryPromptComposite.Version);
+        Assert.Equal("composite-v1.3", MasterStoryPromptComposite.Version);
 
     // ===========================================================================================
     // v1.2 / the observed defect of 2026-09-01 — the child's name
@@ -438,8 +438,8 @@ public class CompositeContractAmendmentTests : CompositePipelineTestBase
             AppContext.BaseDirectory, "Assets", "BekiComposite", "contracts",
             "BEKI_Story_Boundary_v1.md"));
 
-        Assert.Contains("story-boundary-v1.2", contract, StringComparison.Ordinal);
-        Assert.Contains("composite-v1.2", contract, StringComparison.Ordinal);
+        Assert.Contains("story-boundary-v1.3", contract, StringComparison.Ordinal);
+        Assert.Contains("composite-v1.3", contract, StringComparison.Ordinal);
 
         // The observed defect, as the canonical example.
         Assert.Contains("ველო და მოციმციმე ტყე", contract, StringComparison.Ordinal);

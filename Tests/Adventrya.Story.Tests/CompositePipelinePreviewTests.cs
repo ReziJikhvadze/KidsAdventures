@@ -821,7 +821,13 @@ public class CompositePipelinePreviewTests : CompositePipelineTestBase
         Assert.Null(pipeline.WrapAnchor);
 
         // The scenario was planned from the story this preview just wrote, not from something else.
-        Assert.Equal(story.LastStory!.Concept.Title, pipeline.PlannedFrom!.Concept.Title);
+        //
+        // The words rather than the title alone: since the cover rule of 2026-09-07 the preview
+        // writes the child's name into the title itself when the planner leaves it out, so the
+        // string the stub last returned is contained in the book's title rather than equal to it.
+        Assert.Equal(story.LastStory!.Spreads[0].Text, pipeline.PlannedFrom!.Spreads[0].Text);
+        Assert.Contains(
+            story.LastStory.Concept.Title, pipeline.PlannedFrom.Concept.Title, StringComparison.Ordinal);
 
         // Every model call this cover costs is logged under the run the parent is polling.
         Assert.Equal(runId, pipeline.LastContext!.JobId);

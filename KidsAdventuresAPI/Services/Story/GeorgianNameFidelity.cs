@@ -26,7 +26,10 @@ public sealed record NameFidelityProblem(
     /// <summary>A word that is one letter away from the child's name, and is not the name.</summary>
     public const string NearMiss = "near_miss";
 
-    /// <summary>The title mangles the name and never spells it correctly.</summary>
+    /// <summary>
+    /// The title does not carry the child's name — either because it mangled it and never spelled it
+    /// correctly, or, where the caller requires the name in the title, because it names nobody.
+    /// </summary>
     public const string AbsentFromTitle = "absent_from_title";
 
     /// <summary>The child is never named anywhere in their own book.</summary>
@@ -51,10 +54,11 @@ public sealed record NameFidelityProblem(
             + $"{Declensions(Expected)} — but the letters of the name itself never change.",
 
         AbsentFromTitle =>
-            $"The title spells the child's name wrongly and never spells it correctly. The child's "
-            + $"name is „{Expected}“: a title that names the hero must name „{Expected}“, letter for "
-            + "letter (a case ending may follow it), and a title that does not name the hero at all "
-            + "is fine.",
+            $"The title does not contain the child's name. It must contain „{Expected}“, letter for "
+            + $"letter — the name in the nominative, ideally the first word, followed by the story's "
+            + $"own title, the way „{Expected} და მოციმციმე ტყე“ does. A case ending may follow it "
+            + $"({Declensions(Expected)}), the letters of the name itself never change, and no word "
+            + "near it counts as it.",
 
         _ =>
             $"The child is never named in their own book. The child's name is „{Expected}“, and it "
@@ -105,6 +109,12 @@ public sealed record NameFidelityProblem(
 /// book whose sentences were written around a different word, and would hide from everybody that the
 /// planner cannot spell the name it was given. The answer is the corrective retry the plan validation
 /// already owns, and then the release policy.
+///
+/// Two narrow exceptions have been cut out of that sentence since, each argued on its own method and
+/// neither of them a rewrite of anybody's prose: <see cref="Restore"/> puts a misspelled name back as
+/// the parent typed it (owner rule, 2026-09-02), and <see cref="NameTheTitle"/> writes the name into a
+/// title that would not carry it (owner request, 2026-09-07). Both are arithmetic on an input; the
+/// story's own words are never touched by either.
 /// </summary>
 public static class GeorgianNameFidelity
 {
@@ -161,7 +171,19 @@ public static class GeorgianNameFidelity
     /// Everything wrong with how <paramref name="story"/> spells <paramref name="childName"/>.
     /// Empty means the book names the child, and never nearly names them.
     /// </summary>
-    public static IReadOnlyList<NameFidelityProblem> Inspect(MasterStory? story, string? childName)
+    /// <param name="requireNameInTitle">
+    /// Whether the title OWES the name — the printed BEKI book's rule since owner request
+    /// 2026-09-07, and false everywhere else.
+    ///
+    /// It is a parameter and not a new rule for everybody because the two products disagree about
+    /// what a title is for, and both are right. „მოციმციმე ტყე“ is a good title for a story and
+    /// exactly what composite-v1.2 asked for; it is a poor cover for a book somebody bought to put
+    /// their child inside, where the title is the largest thing printed and naming nobody makes a
+    /// cover that could have been anybody's. The composite and print callers pass true, the A5 path
+    /// keeps the title it has always been allowed.
+    /// </param>
+    public static IReadOnlyList<NameFidelityProblem> Inspect(
+        MasterStory? story, string? childName, bool requireNameInTitle = false)
     {
         if (story is null)
         {
@@ -287,11 +309,15 @@ public static class GeorgianNameFidelity
         /*
           And the two absences.
 
-          A title that does not name the hero is a good title — „მოციმციმე ტყე“ names nobody and is
-          exactly the kind of title this prompt asks for. What is never acceptable is a title that
-          reaches for the name and misses, which is why the title's obligation is conditional on a
-          near miss being in it. The book's obligation is not conditional: a personalised book in
-          which the child is never named is not personalised.
+          The book's obligation is not conditional: a personalised book in which the child is never
+          named is not personalised.
+
+          The title's is the caller's to state. Where the name is not required there, a title that
+          names nobody is a good title — „მოციმციმე ტყე“ is exactly what composite-v1.2 asked for —
+          and what is never acceptable is a title that reaches for the name and misses, so the
+          obligation follows a near miss. Where the name IS required (requireNameInTitle: the printed
+          book since owner request 2026-09-07, where this string is the cover), the title owes the
+          name whether or not it went looking for it.
         */
         if (!exactSomewhere)
         {
@@ -299,7 +325,7 @@ public static class GeorgianNameFidelity
                 NameFidelityProblem.AbsentFromBook, "the book", 0, string.Empty, expected));
         }
 
-        if (nearMissInTitle && !exactInTitle)
+        if ((requireNameInTitle || nearMissInTitle) && !exactInTitle)
         {
             problems.Add(new NameFidelityProblem(
                 NameFidelityProblem.AbsentFromTitle, "title", 0, string.Empty, expected));
@@ -312,8 +338,11 @@ public static class GeorgianNameFidelity
     /// The same reading as the sentences the corrective retry is sent — see
     /// <see cref="NameFidelityProblem.ToString"/> for why they are sentences.
     /// </summary>
-    public static IReadOnlyList<string> Problems(MasterStory? story, string? childName) =>
-        Inspect(story, childName).Select(problem => problem.ToString()).ToList();
+    public static IReadOnlyList<string> Problems(
+        MasterStory? story, string? childName, bool requireNameInTitle = false) =>
+        Inspect(story, childName, requireNameInTitle)
+            .Select(problem => problem.ToString())
+            .ToList();
 
     /// <summary>
     /// One word the book spelled one letter away from the child's name, put back as the parent
@@ -431,6 +460,63 @@ public static class GeorgianNameFidelity
             Spreads = spreads,
         }, restored);
     }
+
+    /// <summary>
+    /// The child's name put in front of a title that would not carry it, and the story otherwise
+    /// untouched.
+    ///
+    /// **The last resort of the 2026-09-07 title rule, and deliberately the dullest thing that can
+    /// work.** The prompt asks for „{name} და …“, and the corrective retry asks again; a model that
+    /// has ignored both has to be answered by arithmetic, because the alternative is refusing to
+    /// print a book whose only fault is a title the parent never asked to choose. „ვეკო“ in front of
+    /// „მოციმციმე ტყე“ is „ვეკო და მოციმციმე ტყე“ — the shape the prompt asked for, built from the
+    /// name as the parent typed it and the words the story wrote, with nothing invented.
+    ///
+    /// It is not <see cref="Restore"/>'s kind of repair and must not be read as one. Restore corrects
+    /// a misspelling the planner made; this adds a word the planner left out, and it can only ever be
+    /// right about it because the name is an input and the conjunction „და“ is not a story decision.
+    /// The caller logs it, so a planner that keeps needing this is visible.
+    ///
+    /// A no-op wherever there is nothing to do: a name too short to check, a name already in the
+    /// title (however it is declined — the same reading <see cref="Inspect"/> makes), or a title that
+    /// is only the name.
+    /// </summary>
+    public static MasterStory NameTheTitle(MasterStory story, string? childName)
+    {
+        ArgumentNullException.ThrowIfNull(story);
+
+        var typed = (childName ?? string.Empty).Trim();
+        var replacement = GivenNameAsTyped(typed);
+        var name = GivenName(Fold(typed));
+
+        if (name.Length < ShortestCheckableName || replacement.Length == 0)
+        {
+            return story;
+        }
+
+        var title = (story.Concept.Title ?? string.Empty).Trim();
+
+        if (TitleNamesTheChild(title, name))
+        {
+            return story;
+        }
+
+        return story with
+        {
+            Concept = story.Concept with
+            {
+                Title = title.Length == 0 ? replacement : $"{replacement} და {title}",
+            },
+        };
+    }
+
+    /// <summary>
+    /// Whether a title already carries the exact name — <see cref="Inspect"/>'s own reading of it,
+    /// so the helper and the check can never disagree about whether there is anything to fix.
+    /// Georgian declines by suffix, so „ვეკოს ბილიკი“ names ვეკო and is left alone.
+    /// </summary>
+    private static bool TitleNamesTheChild(string title, string name) =>
+        Tokens(Fold(title)).Any(token => Distance(Prefix(token, name.Length), name) == 0);
 
     /// <summary>The near-miss decision of <see cref="Inspect"/>, on one folded token.</summary>
     private static bool IsNearMiss(string foldedToken, string name, HashSet<string> exempt)

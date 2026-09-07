@@ -25,7 +25,7 @@ Non-negotiable differences from local: `Seed:Enabled=false`, `Stripe:BypassPayme
 Host dependencies (not settings): `gs`, `pdftoppm`, `pdffonts` on the API host; Node 22 only if
 `Frontend:EnableHostedNode=true`.
 
-## A. App Service settings (Advanced edit JSON) — 232 entries
+## A. App Service settings (Advanced edit JSON) — 237 entries
 
 ```json
 [
@@ -742,6 +742,31 @@ Host dependencies (not settings): `gs`, `pdftoppm`, `pdffonts` on the API host; 
   {
     "name": "BekiPrintLayout__StoryFontSizeLadderPt__3",
     "value": "14",
+    "slotSetting": false
+  },
+  {
+    "name": "BekiPrintLayout__CoverTitleSizeLadderPt__0",
+    "value": "36",
+    "slotSetting": false
+  },
+  {
+    "name": "BekiPrintLayout__CoverTitleSizeLadderPt__1",
+    "value": "32",
+    "slotSetting": false
+  },
+  {
+    "name": "BekiPrintLayout__CoverTitleSizeLadderPt__2",
+    "value": "28",
+    "slotSetting": false
+  },
+  {
+    "name": "BekiPrintLayout__CoverTitleSizeLadderPt__3",
+    "value": "24",
+    "slotSetting": false
+  },
+  {
+    "name": "BekiPrintLayout__CoverTitleSizeLadderPt__4",
+    "value": "20",
     "slotSetting": false
   },
   {

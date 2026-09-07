@@ -240,7 +240,11 @@ public class CompositePipelinePoseTests : CompositePipelineTestBase
             result.Artifacts.ReviewJson);
 
         // And not one word was rewritten: the plan that comes out is the plan that went in.
-        Assert.Equal("ფუნღუროს ზღაპარი", result.Plan.Concept.Title);
+        // "Left alone" is about the Georgian: the misspelt word and the hyphenated suffix are
+        // flagged, never corrected. The title is the one exception since the owner's rule of
+        // 2026-09-07 — a previewed title that does not name the child gets the name in front of
+        // it, deterministically, and the misspelling it carried is still there to be flagged.
+        Assert.Equal("ნინა და ფუნღუროს ზღაპარი", result.Plan.Concept.Title);
         Assert.Equal("თემო-ს გაუხარდა და ბილიკი გამოჩნდა.", result.Plan.Spreads[3].Text);
     }
 

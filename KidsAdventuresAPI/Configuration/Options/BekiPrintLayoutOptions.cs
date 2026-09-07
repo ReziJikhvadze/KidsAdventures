@@ -224,6 +224,30 @@ public sealed class BekiPrintLayoutOptions
     public float CoverTitleOutlineWidthPt { get; set; } = 1.5f;
 
     /// <summary>
+    /// Every size the cover title may be set at, in points on the press cover, largest first.
+    ///
+    /// **The observed defect, 2026-09-07.** The title was set at a fixed 36 pt
+    /// (<see cref="StoryFontSize"/> × 2) inside the dieline's fixed 136 × 46 mm title-safe box.
+    /// Forty-six millimetres is 130 pt, which holds two 36 pt lines and not three — so a title long
+    /// enough to wrap three times had its last line paginated into a page that does not exist inside
+    /// a QuestPDF layer, and the cover printed part of the book's name. Nothing measured it and
+    /// nothing reported it; the owner found it on a cover.
+    ///
+    /// The composer now walks this ladder and sets the title at the largest rung whose MEASURED
+    /// block fits the box, exactly as a spread's copy walks <see cref="StoryFontSizeLadderPt"/> down
+    /// its column. Below the last rung there is no smaller size and no trimming: the book stops with
+    /// <c>LAYOUT_FAILED</c> naming the title and the box, because a cover that quietly drops the last
+    /// line of the book's own name is the defect this ladder exists to make impossible.
+    ///
+    /// 36 pt is the shipped size and stays the top rung whatever this list says — the composer starts
+    /// at <see cref="StoryFontSize"/> × 2 and only descends — so every title that fitted before is
+    /// set exactly as it was. The rungs below step by four points: small enough that the next one
+    /// down is not a visibly different cover, large enough that five rungs reach 20 pt, which on a
+    /// 512 mm wrap read at arm's length is as small as a book's own name should ever be.
+    /// </summary>
+    public float[] CoverTitleSizeLadderPt { get; set; } = [36f, 32f, 28f, 24f, 20f];
+
+    /// <summary>
     /// How much of an illustration a centred crop to the sheet may remove, per axis, before the
     /// book stops.
     ///

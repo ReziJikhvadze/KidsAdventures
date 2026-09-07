@@ -705,6 +705,16 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private readonly Dictionary<string, float?> _measuredBlockHeights = [];
 
     /// <summary>
+    /// The size each cover title was fitted at, keyed by the title and the box it was fitted into.
+    ///
+    /// One book asks the same question up to four times — the press page sets the title, the rim
+    /// step needs the size to scale the pen, and the download's page and rim ask again — and every
+    /// answer costs one measurement document per rung of the ladder. The fit is a pure function of
+    /// the title, the measure and the box, so the second question is free.
+    /// </summary>
+    private readonly Dictionary<string, float> _coverTitleSizes = [];
+
+    /// <summary>
     /// The approved Beki mark for the credits spread, resolved through the pose registry by the id
     /// the layout registry names.
     ///
@@ -795,7 +805,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             RimCoverTitle(
                 Build(plan, null, wrapComposite, spreads, personalization, BekiRenderMode.Reading, receipts)
                     .GeneratePdf(),
-                ReadingCoverTitleOutlineWidthPt));
+                ReadingCoverTitleOutlineWidthPt(CoverTitleSizePt(plan.Concept.Title))));
 
         return new BekiComposedBook(pdf, receipts.Build());
     }
@@ -915,7 +925,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             .GeneratePdf();
 
         return new BekiComposedBook(
-            BekiVectorLogo.Apply(RimCoverTitle(pdf, CoverTitleOutlineWidthPt), _assets.CoverLogoBytes()),
+            BekiVectorLogo.Apply(
+                RimCoverTitle(pdf, CoverTitleOutlineWidthPt(CoverTitleSizePt(title))),
+                _assets.CoverLogoBytes()),
             receipts.Build());
     }
 
@@ -976,7 +988,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         return new BekiComposedBook(
             PdfPrintBoxes.ApplyCanonical(
                 BekiVectorLogo.Apply(
-                    RimCoverTitle(pdf, CoverTitleOutlineWidthPt), _assets.CoverLogoBytes()),
+                    RimCoverTitle(
+                        pdf, CoverTitleOutlineWidthPt(CoverTitleSizePt(plan.Concept.Title))),
+                    _assets.CoverLogoBytes()),
                 _layout.BleedMm),
             receipts.Build());
     }
@@ -995,8 +1009,25 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private static byte[] RimCoverTitle(byte[] pdf, double widthPt) =>
         widthPt > 0d ? BekiTitleOutline.Apply(pdf, TextOutlineInk, widthPt) : pdf;
 
-    /// <summary>The pen the press cover's title is stroked with, in points.</summary>
-    private double CoverTitleOutlineWidthPt => _layout.CoverTitleOutlineWidthPt;
+    /// <summary>
+    /// The pen the press cover's title is stroked with, in points, for a title set at
+    /// <paramref name="titleSizePt"/>.
+    ///
+    /// The configured width is stated at the reference 36 pt
+    /// (<see cref="BekiPrintLayoutOptions.StoryFontSize"/> × 2) and
+    /// the option says why it is that number: "a rim is only strong relative to the letter it is
+    /// drawn around". So when the fit ladder sets a long title at 28 pt, the rim goes down with it —
+    /// 1.5 × 28 ÷ 36 — or the same pen that reads as a border on a 36 pt ღ would start closing its
+    /// counters at 20 pt, which is the treatment turning into a printing fault.
+    /// </summary>
+    private double CoverTitleOutlineWidthPt(float titleSizePt)
+    {
+        var reference = _layout.StoryFontSize * 2f;
+
+        return reference <= 0f
+            ? _layout.CoverTitleOutlineWidthPt
+            : _layout.CoverTitleOutlineWidthPt * titleSizePt / reference;
+    }
 
     /// <summary>
     /// The same rim on the customer's download, scaled with the type it surrounds. The reading
@@ -1005,8 +1036,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// fractionally heavier border on a fractionally smaller letter — the same design, drawn
     /// differently, which is what audit P0-01 objected to about the two covers in the first place.
     /// </summary>
-    private double ReadingCoverTitleOutlineWidthPt =>
-        CoverTitleOutlineWidthPt * BekiCoverDieline.DigitalScale;
+    private double ReadingCoverTitleOutlineWidthPt(float pressTitleSizePt) =>
+        CoverTitleOutlineWidthPt(pressTitleSizePt) * BekiCoverDieline.DigitalScale;
 
     private void ComposeCoverWrapPage(
         IDocumentContainer document,
@@ -1015,7 +1046,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         ReceiptBook receipts)
     {
         var titleWidthPt = MmToPt(BekiCoverDieline.TitleSafeWidthMm);
-        var titleSize = _layout.StoryFontSize * 2f;
+        var titleSize = CoverTitleSizePt(title);
         var placed = NormalizeCoverWrap(wrapComposite);
 
         document.Page(page =>
@@ -1039,7 +1070,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                     .Height(BekiCoverDieline.TitleSafeHeightMm, Unit.Millimetre)
                     .AlignMiddle()
                     .Element(item => OutlinedText(
-                        item, title, titleSize, 1.25f,
+                        item, title, titleSize, CoverTitleLineHeight,
                         TextColor, OutlineColor, titleWidthPt,
                         PdfFontBootstrap.TitleFamily, centred: true));
 
@@ -1057,8 +1088,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             [Sha256(placed)],
             Wash: null,
             [new BekiTypographyRecord(
-                "cover-title", PdfFontBootstrap.TitleFamily, titleSize, 1.25d, TextColorHex,
-                CoverTitleOutlineWidthPt)],
+                "cover-title", PdfFontBootstrap.TitleFamily, titleSize, CoverTitleLineHeight,
+                TextColorHex, CoverTitleOutlineWidthPt(titleSize))],
             WrapLines(title, titleSize, titleWidthPt, PdfFontBootstrap.TitleFamily),
             TextProbe: null,
             SourceSha256: [_assets.CoverLogo.Sha256],
@@ -1244,7 +1275,13 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         BekiRenderMode mode, ReceiptBook receipts)
     {
         var placed = CropToPage(image, _layout.PageWidthMm, mode, enforceCropTolerance: false);
-        var titleSize = _layout.StoryFontSize * 2f;
+
+        // The same ladder as the two shipped covers, measured in this page's own wider band. The
+        // title-safe height is the cover design's, not this leaf's: nothing about a title that has
+        // to step down on the wrap should print larger here, or the proof render would stop being a
+        // proof of the cover that gets printed.
+        var titleSize = CoverTitleSizePt(
+            title, CoverTitleWidthPt, MmToPt(BekiCoverDieline.TitleSafeHeightMm));
 
         container.Page(page =>
         {
@@ -1264,7 +1301,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                     .PaddingBottom(_layout.SafeMarginMm * 1.6f, Unit.Millimetre)
                     .AlignBottom()
                     .Element(item => OutlinedText(
-                        item, title, titleSize, 1.25f,
+                        item, title, titleSize, CoverTitleLineHeight,
                         TextColor, OutlineColor, CoverTitleWidthPt,
                         PdfFontBootstrap.TitleFamily, centred: true));
             });
@@ -1277,7 +1314,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             [Sha256(placed)],
             Wash: null,
             [new BekiTypographyRecord(
-                "cover-title", PdfFontBootstrap.TitleFamily, titleSize, 1.25d, TextColorHex)],
+                "cover-title", PdfFontBootstrap.TitleFamily, titleSize, CoverTitleLineHeight,
+                TextColorHex)],
             WrapLines(title, titleSize, CoverTitleWidthPt, PdfFontBootstrap.TitleFamily),
             TextProbe: null,
             Rasters: [Provenance("cover-front-legacy", image, placed, mode)]));
@@ -1315,7 +1353,13 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
         // The type scales with the board (BekiCoverDieline.DigitalScale). Setting the press size on
         // a page 1.12% smaller would break the title's lines somewhere the printed cover does not.
-        var titleSize = _layout.StoryFontSize * 2f * BekiCoverDieline.DigitalScale;
+        //
+        // The size it scales is the size the PRESS cover chose, measured against the press box, for
+        // the same reason: the fit ladder is part of the design now, and a download that ran its own
+        // ladder against its own slightly smaller rectangle could land a rung lower than the printed
+        // cover and break the title's lines somewhere else — audit P0-01's finding exactly.
+        var pressTitleSize = CoverTitleSizePt(title);
+        var titleSize = pressTitleSize * BekiCoverDieline.DigitalScale;
 
         container.Page(page =>
         {
@@ -1334,7 +1378,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                     .Height(titleHeightMm, Unit.Millimetre)
                     .AlignMiddle()
                     .Element(item => OutlinedText(
-                        item, title, titleSize, 1.25f,
+                        item, title, titleSize, CoverTitleLineHeight,
                         TextColor, OutlineColor, MmToPt(titleWidthMm),
                         PdfFontBootstrap.TitleFamily, centred: true));
             });
@@ -1346,8 +1390,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             [Sha256(board)],
             Wash: null,
             [new BekiTypographyRecord(
-                "cover-title", PdfFontBootstrap.TitleFamily, titleSize, 1.25d, TextColorHex,
-                ReadingCoverTitleOutlineWidthPt)],
+                "cover-title", PdfFontBootstrap.TitleFamily, titleSize, CoverTitleLineHeight,
+                TextColorHex, ReadingCoverTitleOutlineWidthPt(pressTitleSize))],
             WrapLines(title, titleSize, MmToPt(titleWidthMm), PdfFontBootstrap.TitleFamily),
             TextProbe: null,
             // The board crop is the source: the wrap is a different picture, and a factor measured
@@ -2158,6 +2202,123 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         return rungs;
     }
 
+    /// <summary>The leading the cover title is set on, as QuestPDF's multiple of its size.</summary>
+    /// <remarks>
+    /// Tighter than the story's, and stated once here because three pages set this title and the fit
+    /// ladder measures it: a measurement taken on a different leading from the one that is drawn is
+    /// a measurement of a block that does not exist.
+    /// </remarks>
+    private const float CoverTitleLineHeight = 1.25f;
+
+    /// <summary>
+    /// The sizes a cover title may be set at, largest first — the shipped 36 pt
+    /// (<see cref="BekiPrintLayoutOptions.StoryFontSize"/> × 2) and every configured rung below it.
+    ///
+    /// The same shape as <see cref="StoryFontSizeLadder"/>, and for the same reason: the top rung is
+    /// the book's own size and not a config value, so a ladder somebody edits can only ever offer
+    /// smaller sizes for titles that do not fit. No configuration can make an existing cover's title
+    /// bigger than the one that was approved.
+    /// </summary>
+    private IReadOnlyList<float> CoverTitleSizeLadder()
+    {
+        var start = _layout.StoryFontSize * 2f;
+        var rungs = new List<float> { start };
+
+        foreach (var rung in _layout.CoverTitleSizeLadderPt.OrderByDescending(size => size))
+        {
+            if (rung < start) rungs.Add(rung);
+        }
+
+        return rungs;
+    }
+
+    /// <summary>
+    /// The size this cover's title is set at: the largest rung of the ladder whose measured block
+    /// fits the dieline's title-safe box (<see cref="BekiCoverDieline.TitleSafeWidthMm"/> ×
+    /// <see cref="BekiCoverDieline.TitleSafeHeightMm"/> — 136 × 46 mm).
+    ///
+    /// **The observed defect, 2026-09-07: the cover printed part of the book's name.** The title was
+    /// set at a fixed 36 pt inside that fixed box. Forty-six millimetres is 130 pt and three 36 pt
+    /// lines are 135, so a long title's last line was paginated by QuestPDF into a page that does not
+    /// exist inside a <c>Layers</c> layer — it simply did not print. Nothing measured the block and
+    /// nothing compared it to the box; the page's own receipt would even have listed the line that
+    /// was lost, because <see cref="WrapLines"/> measures separately from what is drawn.
+    ///
+    /// So the block is measured before it is set, at the same face, the same measure and the same
+    /// leading the page will use, and the first rung that fits is the size. The title is never
+    /// trimmed and no line of it is ever dropped: below the last rung the book stops.
+    /// </summary>
+    private float CoverTitleSizePt(string title) =>
+        CoverTitleSizePt(
+            title,
+            MmToPt(BekiCoverDieline.TitleSafeWidthMm),
+            MmToPt(BekiCoverDieline.TitleSafeHeightMm));
+
+    /// <param name="widthPt">The measure the title is set to — the box's own width.</param>
+    /// <param name="boxHeightPt">
+    /// The height the set block has to fit inside. Nothing is subtracted from it: the block QuestPDF
+    /// measures here is the block it draws, and the box is the rectangle the layout gives it.
+    /// </param>
+    private float CoverTitleSizePt(string title, float widthPt, float boxHeightPt)
+    {
+        var ladder = CoverTitleSizeLadder();
+
+        // A cover with no title has nothing to fit; the top rung is what an empty block is set at,
+        // and the rim step is handed a width for type that draws nothing.
+        if (string.IsNullOrWhiteSpace(title) || widthPt <= 1f)
+        {
+            return ladder[0];
+        }
+
+        var key = string.Join('|', widthPt.ToString("R"), boxHeightPt.ToString("R"), title);
+
+        if (_coverTitleSizes.TryGetValue(key, out var cached))
+        {
+            return cached;
+        }
+
+        var measured = new List<string>(ladder.Count);
+
+        foreach (var size in ladder)
+        {
+            // Unmeasurable is a failure and not a guess, exactly as it is for a spread's copy: the
+            // whole question here is whether the title fits, and "we could not tell" must never
+            // become "print it anyway" — which is what the fixed size did.
+            var blockPt = BuildBlockHeightPt(
+                title, size, widthPt, PdfFontBootstrap.TitleFamily,
+                lineHeight: CoverTitleLineHeight)
+                ?? throw new BekiLayoutException(
+                    CompositeFailureCodes.LayoutFailed,
+                    $"The composer could not measure the cover title „{title}“ at {size:0.##}pt in a "
+                    + $"{widthPt:0}pt measure, so it cannot tell whether it fits the cover.");
+
+            measured.Add($"{size:0.##}pt→{blockPt:0}pt");
+
+            if (blockPt > boxHeightPt)
+            {
+                continue;
+            }
+
+            if (size < ladder[0])
+            {
+                _logger.LogInformation(
+                    "Beki cover title: „{Title}“ is set at {ChosenPt:0.##}pt rather than the "
+                    + "book's {TopPt:0.##}pt — it does not fit the {BoxPt:0}pt title box at any "
+                    + "larger size ({Measured}). The whole title is printed.",
+                    title, size, ladder[0], boxHeightPt, string.Join(", ", measured));
+            }
+
+            _coverTitleSizes[key] = size;
+            return size;
+        }
+
+        throw new BekiLayoutException(
+            CompositeFailureCodes.LayoutFailed,
+            $"The cover title „{title}“ does not fit its {widthPt:0} × {boxHeightPt:0} pt title box "
+            + $"at any size the cover ladder allows ({string.Join(", ", measured)}). The title is "
+            + "never trimmed and no line of it is ever dropped, so this book needs a human.");
+    }
+
     // ==============================================================================================
     // The copy column and its rules
     // ==============================================================================================
@@ -2274,9 +2435,18 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             + $"{widthPt:0}pt column, so it cannot tell whether the copy fits the page.");
     }
 
+    /// <param name="lineHeight">
+    /// The leading to measure on, or null for the block's own — the proof's where there is one, and
+    /// otherwise the story's <see cref="StoryLineHeight"/>.
+    ///
+    /// The cover title is the caller that needs it. It is set on 1.25 and the story on 1.5, so a
+    /// title measured without this was measured a fifth taller than the block the page draws — which
+    /// on a 46 mm box is the difference between a title that fits and a ladder that steps it down for
+    /// no reason.
+    /// </param>
     private float? BuildBlockHeightPt(
         string text, float fontSize, float widthPt, string? fontFamily = null,
-        BekiTextStyleProof? proof = null)
+        BekiTextStyleProof? proof = null, float? lineHeight = null)
     {
         if (string.IsNullOrWhiteSpace(text) || widthPt <= 1f)
         {
@@ -2289,7 +2459,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         // the designers' sheets are not all on the reference's 18:27 — and a Bold cut is a wider
         // letter that wraps a line earlier, so measuring it in Regular would size the column for a
         // paragraph that is not the one being drawn.
-        var lineHeight = proof?.LineHeight ?? StoryLineHeight;
+        var leading = lineHeight ?? proof?.LineHeight ?? StoryLineHeight;
 
         try
         {
@@ -2305,7 +2475,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 page.Content().Text(text)
                     .FontFamily(family, PdfFontBootstrap.BodyFamily)
                     .FontSize(fontSize)
-                    .LineHeight(lineHeight)
+                    .LineHeight(leading)
                     // Any ink: this document is measured and thrown away, never looked at.
                     .FontColor(TextColor);
             }));

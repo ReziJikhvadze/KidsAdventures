@@ -91,6 +91,25 @@ public sealed class BekiCompositeEngine
             outputFileName);
 
     /// <summary>
+    /// Reads a base picture and says where on it this pose should stand — the configured default
+    /// for the text side, or a calmer anchor within the window that default defines.
+    ///
+    /// A thin front door onto <see cref="BekiPlacementChooser"/>, which needs three things this
+    /// class already holds: the approved pose bytes (hash-verified on the way out of the registry),
+    /// the pose's own alpha, and the config default for the side. Nothing about
+    /// <see cref="Composite"/> changes — the chooser returns three numbers and they are handed back
+    /// in through <paramref name="basePng"/>'s composite call as any other anchor override would be.
+    /// §14 again: "a failed placement should first adjust deterministic anchors, not redraw Beki."
+    /// </summary>
+    public BekiPlacementChoice ChooseStoryPlacement(
+        byte[] basePng, string poseId, BekiTextSide textSide)
+        => BekiPlacementChooser.Choose(
+            basePng,
+            _registry.ApprovedPoseBytes(poseId),
+            textSide,
+            _config.StoryDefaultFor(textSide));
+
+    /// <summary>
     /// Composites the intro spread: the registry's forced pose at the config's intro anchor, which
     /// is a much larger and further-right Beki than any story spread — the intro is her page.
     /// </summary>
@@ -266,8 +285,13 @@ public sealed class BekiCompositeEngine
     /// edge pixel still counts, which is what keeps the box identical to the reference's on the same
     /// file; a threshold would crop a hair tighter and shift every downstream number. Returns null
     /// for a fully transparent sheet, which the caller turns into the reference's error.
+    ///
+    /// Internal rather than private only so that <see cref="BekiPlacementChooser"/> can size a
+    /// candidate the way this class sizes a composite. A second copy of this walk would be a second
+    /// definition of how big Beki is, and the two would eventually disagree by a pixel on some
+    /// pose — which is a whole page composited at numbers nothing measured.
     /// </summary>
-    private static Rectangle? VisibleAlphaBounds(Image<Rgba32> image)
+    internal static Rectangle? VisibleAlphaBounds(Image<Rgba32> image)
     {
         var left = int.MaxValue;
         var top = int.MaxValue;
@@ -325,8 +349,12 @@ public sealed class BekiCompositeEngine
     /// <see cref="Math.Round(double)"/> already does this, but it is spelled out because the whole
     /// point is that it must never become half-away-from-zero — see the class remarks for the
     /// spread that lands on a tie.
+    ///
+    /// Internal for <see cref="BekiPlacementChooser"/>: a candidate is only worth scoring if it is
+    /// scored at the rectangle this class would actually paste, and that rectangle is two of these
+    /// roundings deep.
     /// </summary>
-    private static int RoundHalfToEven(double value)
+    internal static int RoundHalfToEven(double value)
         => (int)Math.Round(value, MidpointRounding.ToEven);
 
     internal static string Sha256Hex(byte[] bytes)
@@ -459,7 +487,20 @@ public sealed record BekiCompositeAnchor(
 /// The composition manifest. Persist it: it is what lets a reprint prove the page carried the
 /// approved character.
 /// </param>
-public sealed record BekiCompositeResult(byte[] Png, BekiCompositionManifest Manifest);
+public sealed record BekiCompositeResult(byte[] Png, BekiCompositionManifest Manifest)
+{
+    /// <summary>
+    /// How the anchor in <see cref="Manifest"/> was arrived at, when something chose it rather than
+    /// reading it off the config. Null on the intro, on an explicit override, and on every path
+    /// that composites at a fixed anchor.
+    ///
+    /// It rides here rather than in the manifest because the manifest's schema is the supplier's
+    /// (<c>composition_manifest_v1.schema.json</c>, <c>additionalProperties:false</c>) and it
+    /// already answers the question a reprint asks — where Beki was. This answers ours: why there.
+    /// The pipeline writes it into the spread's own QA document, which is a file we own.
+    /// </summary>
+    public BekiPlacementChoice? Placement { get; init; }
+}
 
 /// <summary>
 /// The <c>beki_composite</c> block of the partner pack's <c>pipeline_config_v1.json</c>: the

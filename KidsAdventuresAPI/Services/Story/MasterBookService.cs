@@ -394,6 +394,19 @@ public sealed class MasterBookService(
             {
                 result = RestoreChildName(result, storyInput.ChildName, runId);
 
+                // And the title carries the name, deterministically, before the plan is judged.
+                //
+                // The corrective retry below is a second paid call with a parent watching a loading
+                // screen, and it is not worth buying for a conjunction: „ნინა და“ in front of the
+                // title the planner wrote is the shape composite-v1.3 asks for, built from the
+                // parent's own input and the story's own words. The prompt still asks the planner to
+                // write it that way, and the retry is still spent on everything a model actually has
+                // to fix.
+                if (compositeStoryInput is not null)
+                {
+                    result = NameTheTitle(result, storyInput.ChildName, runId);
+                }
+
                 var problems = PlanProblems(result.Story, storyInput, compositeStoryInput is not null);
                 if (problems.Count > 0)
                 {
@@ -425,6 +438,14 @@ public sealed class MasterBookService(
                     };
 
                     result = RestoreChildName(result, storyInput.ChildName, runId);
+
+                    // The same, for the plan the retry came back with: a corrected story that has
+                    // written itself a new nameless title gets the name put back, rather than
+                    // costing the parent a preview over it.
+                    if (compositeStoryInput is not null)
+                    {
+                        result = NameTheTitle(result, storyInput.ChildName, runId);
+                    }
 
                     var stillWrong = PlanProblems(
                         result.Story, storyInput, compositeStoryInput is not null);
@@ -617,6 +638,37 @@ public sealed class MasterBookService(
         return result with { Story = story };
     }
 
+    /// <summary>
+    /// The child's name put in front of a title that would not carry it — the composite title rule
+    /// (owner request 2026-09-07) answered deterministically, and never a failed preview on its own
+    /// account.
+    ///
+    /// Only when the title is the ONLY thing still wrong about the name. A book that misspells the
+    /// name or never names the child at all is a different defect and one this must not paper over:
+    /// it stays in <see cref="PlanProblems"/>'s list and the retry and the policy above decide. See
+    /// <see cref="GeorgianNameFidelity.NameTheTitle"/> for why arithmetic beats another model call.
+    /// </summary>
+    private MasterStoryResult NameTheTitle(MasterStoryResult result, string childName, Guid runId)
+    {
+        var problems = GeorgianNameFidelity.Inspect(
+            result.Story, childName, requireNameInTitle: true);
+
+        if (problems.Count == 0
+            || problems.Any(problem => problem.Kind != NameFidelityProblem.AbsentFromTitle))
+        {
+            return result;
+        }
+
+        var named = GeorgianNameFidelity.NameTheTitle(result.Story, childName);
+
+        logger.LogWarning(
+            "Run {RunId}: the planner left „{Name}“ out of the title, so the book is called "
+            + "„{Named}“ rather than „{Written}“. The story's own words are untouched.",
+            runId, childName, named.Concept.Title, result.Story.Concept.Title);
+
+        return result with { Story = named };
+    }
+
     private static IReadOnlyList<string> PlanProblems(
         MasterStory story, MasterStoryInput input, bool composite)
     {
@@ -624,7 +676,13 @@ public sealed class MasterBookService(
             .Validate(story, input.SpreadCount, input.Age)
             .ToList();
 
-        problems.AddRange(GeorgianNameFidelity.Problems(story, input.ChildName));
+        // requireNameInTitle, unconditionally, because of where this method is called from: the only
+        // caller runs it behind `composite || BookFormat.IsPrintPlan`, and both of those are books
+        // whose title is printed on a cover. Owner request 2026-09-07 — the cover carries the full
+        // book name AND the child's name. A preview written by any other prompt never reaches here
+        // and keeps the title it has always been allowed.
+        problems.AddRange(
+            GeorgianNameFidelity.Problems(story, input.ChildName, requireNameInTitle: true));
 
         if (composite)
         {

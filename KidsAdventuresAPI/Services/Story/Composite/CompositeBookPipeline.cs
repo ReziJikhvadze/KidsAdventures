@@ -503,12 +503,23 @@ public static class CompositeSpreadQa
     /// base checks, the composite receipt — which is why this page is accepted rather than merely
     /// unexamined, and why the list of them is named here rather than left to be assumed.
     /// </summary>
+    /// <param name="placement">
+    /// How Beki's anchor was arrived at on this page, or null when it was not chosen but given —
+    /// an override, or a chooser that could not read the base.
+    ///
+    /// It is here rather than in the composition manifest because that manifest's schema is the
+    /// supplier's and already records the anchor that was USED; this record answers our own
+    /// question, which is why there. On the unreviewed path it is the ONLY thing that ever looked
+    /// at where the character landed, so a page that moved her and a page that kept the configured
+    /// anchor have to be different sentences in the paperwork rather than the same one.
+    /// </param>
     public static string WriteSkipped(
         int page,
         string poseId,
         string textSide,
         int baseAttempts,
-        string severity)
+        string severity,
+        BekiPlacementChoice? placement = null)
     {
         return JsonSerializer.Serialize(
             new
@@ -520,6 +531,29 @@ public static class CompositeSpreadQa
                 text_side = textSide,
                 base_attempts = baseAttempts,
                 review_attempts = 0,
+                beki_placement = placement is null
+                    ? null
+                    : new
+                    {
+                        version = BekiPlacementChooser.Version,
+                        moved = placement.Moved,
+                        @default = new
+                        {
+                            visible_center_x = placement.DefaultAnchor.VisibleCenterX,
+                            visible_center_y = placement.DefaultAnchor.VisibleCenterY,
+                            visible_height = placement.DefaultAnchor.VisibleHeight,
+                        },
+                        chosen = new
+                        {
+                            visible_center_x = placement.Anchor.VisibleCenterX,
+                            visible_center_y = placement.Anchor.VisibleCenterY,
+                            visible_height = placement.Anchor.VisibleHeight,
+                        },
+                        default_score = placement.DefaultScore,
+                        chosen_score = placement.ChosenScore,
+                        candidates_evaluated = placement.CandidatesEvaluated,
+                        reason = placement.Reason,
+                    },
                 status = CompositeBookPipeline.ReviewSkippedStatus,
                 // No action, because nobody recommended one. The ladder that reads this field is
                 // not entered on this path at all.
@@ -2098,7 +2132,21 @@ public sealed class CompositeBookPipeline(
         // in place, on record, rather than rewriting a story the parent has already read.
         plan = RestoreChildName(context, plan, input.ChildName);
 
-        var problems = GeorgianNameFidelity.Inspect(plan, input.ChildName);
+        var problems = GeorgianNameFidelity.Inspect(plan, input.ChildName, requireNameInTitle: true);
+
+        // A previewed story may predate the title rule (owner, 2026-09-07): the preview that wrote
+        // it never asked for the child's name in the title. When that is the ONLY thing wrong it
+        // is not a misspelling and buys no rewrite — the parent has already read this story — so
+        // the name goes in front of the title the same deterministic way the preview now does it,
+        // and every other word stays as previewed. It is judged after the inspection and only for
+        // that one problem on purpose: a story that never names the child anywhere must still be
+        // replanned or waived below, and a name put into the title first would have hidden it.
+        if (problems.Count > 0
+            && problems.All(problem => problem.Kind == NameFidelityProblem.AbsentFromTitle))
+        {
+            plan = NameTheAdoptedTitle(context, plan, input.ChildName);
+            problems = GeorgianNameFidelity.Inspect(plan, input.ChildName, requireNameInTitle: true);
+        }
 
         if (problems.Count == 0)
         {
@@ -2126,6 +2174,29 @@ public sealed class CompositeBookPipeline(
     }
 
     /// <summary>
+    /// The adopted title with the child's name in front of it when the preview left it out — see
+    /// <see cref="GeorgianNameFidelity.NameTheTitle"/>. Returns the plan untouched, same instance,
+    /// when the title already names the child.
+    /// </summary>
+    private MasterStory NameTheAdoptedTitle(
+        CompositeBookContext context, MasterStory plan, string childName)
+    {
+        var named = GeorgianNameFidelity.NameTheTitle(plan, childName);
+
+        if (ReferenceEquals(named, plan))
+        {
+            return plan;
+        }
+
+        logger.LogWarning(
+            "Composite pipeline {JobId}: the previewed story's title „{Written}“ did not name the "
+            + "child, so the book is called „{Named}“. The story's words are as previewed.",
+            context.JobId, plan.Concept.Title, named.Concept.Title);
+
+        return named;
+    }
+
+    /// <summary>
     /// Writes and structurally validates the story before any visual call. One corrective retry
     /// uses the same frozen planner; structural defects then fail closed. The existing name repair
     /// remains separate from these non-waivable count, content, cast and layout-length checks.
@@ -2140,7 +2211,10 @@ public sealed class CompositeBookPipeline(
             await PlanStoryAsync(context, storyInput, [], attempt: 0, cancellationToken),
             input.ChildName);
 
-        var problems = GeorgianNameFidelity.Inspect(plan, input.ChildName)
+        // requireNameInTitle: this book's title is its cover. Owner request 2026-09-07 — the cover
+        // must carry the full book name AND the child's name — and composite-v1.3 asks for exactly
+        // that, so the first attempt is read against the rule the prompt was given.
+        var problems = GeorgianNameFidelity.Inspect(plan, input.ChildName, requireNameInTitle: true)
             .Select(problem => problem.ToString())
             .Concat(CompositePlanRules.Problems(plan, BookFormat.SpreadCount, input.AgeBand))
             .Concat(StoryBoundary.From(plan).Problems).ToList();
@@ -2175,7 +2249,29 @@ public sealed class CompositeBookPipeline(
                 + string.Join("; ", structuralProblems));
         }
 
-        var stillWrong = GeorgianNameFidelity.Inspect(plan, input.ChildName);
+        var stillWrong = GeorgianNameFidelity.Inspect(plan, input.ChildName, requireNameInTitle: true);
+
+        // The title, last resort, deterministically — and never a failed book on its own account.
+        //
+        // Two planning calls have now been asked for a title carrying the child's name. If that is
+        // the ONLY thing still wrong, the answer is arithmetic and not a third call: „ვეკო“ in front
+        // of the title the story wrote is the shape composite-v1.3 asked for, built from the parent's
+        // own input and the story's own words. Refusing a paid book over a conjunction would be the
+        // wrong trade, and asking a model that has ignored the rule twice is not a plan.
+        if (stillWrong.Count > 0
+            && stillWrong.All(problem => problem.Kind == NameFidelityProblem.AbsentFromTitle))
+        {
+            var named = GeorgianNameFidelity.NameTheTitle(plan, input.ChildName);
+
+            logger.LogWarning(
+                "Composite pipeline {JobId}: both attempts at the story left „{Name}“ out of the "
+                + "title, so the cover's title is „{Named}“ rather than „{Written}“. The story's "
+                + "own words are untouched.",
+                context.JobId, input.ChildName, named.Concept.Title, plan.Concept.Title);
+
+            plan = named;
+            stillWrong = GeorgianNameFidelity.Inspect(plan, input.ChildName, requireNameInTitle: true);
+        }
 
         return stillWrong.Count == 0
             ? plan
@@ -3148,7 +3244,8 @@ public sealed class CompositeBookPipeline(
                 PoseFallback = selection.Fallback,
                 GenerationReceiptJson = receiptJson,
                 QaJson = CompositeSpreadQa.WriteSkipped(
-                    page.Page, selection.PoseId, textSide, baseAttempts, severity),
+                    page.Page, selection.PoseId, textSide, baseAttempts, severity,
+                    unreviewed.Placement),
             };
         }
 
@@ -4092,10 +4189,19 @@ public sealed class CompositeBookPipeline(
     /// the canvas" is arithmetic somebody can repeat months later without the pipeline.
     /// </summary>
     /// <param name="placement">
-    /// Null for the deterministic anchor this text side's config gives, which is what every first
-    /// attempt uses; an adjusted anchor only on the one permitted placement retry. The engine has
-    /// taken an override since it was written — §14 anticipated exactly this — so nothing about the
-    /// composite itself changes here except the three numbers it is told to place her at.
+    /// Null to let this picture choose its own anchor — which is what every first attempt does; an
+    /// adjusted anchor only on the one permitted placement retry. The engine has taken an override
+    /// since it was written — §14 anticipated exactly this — so nothing about the composite itself
+    /// changes here except the three numbers it is told to place her at.
+    ///
+    /// "Choose" rather than "read from the config" since 2026-09-07. The configured default per text
+    /// side is proven against one approved printed proof and is right for that page; it is not a
+    /// statement about where the model put the child on the next eight. On book 54cba4b3 it pasted
+    /// the approved character against the child's face or shoulder on four spreads out of eight, so
+    /// <see cref="BekiPlacementChooser"/> now measures the base and either keeps that anchor or
+    /// moves her to a calmer place inside the window the deterministic checks already enforce. It is
+    /// ImageSharp arithmetic on bytes already paid for: no model is asked anything (owner's rule 5),
+    /// and the choice itself is written into the spread's QA record.
     /// </param>
     private BekiCompositeResult Composite(
         CompositeBookContext context,
@@ -4107,6 +4213,8 @@ public sealed class CompositeBookPipeline(
     {
         var side = BekiCompositeConfig.ParseTextSide(textSide);
 
+        var choice = placement is null ? ChoosePlacement(context, page, basePng, poseId, side) : null;
+
         BekiCompositeResult result;
         try
         {
@@ -4116,7 +4224,7 @@ public sealed class CompositeBookPipeline(
                 poseId,
                 side,
                 $"spread-{page.Page:00}.png",
-                placement);
+                placement ?? choice?.Anchor);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -4162,7 +4270,58 @@ public sealed class CompositeBookPipeline(
             };
         }
 
-        return result;
+        return result with { Placement = choice };
+    }
+
+    /// <summary>
+    /// Where this particular picture wants Beki, measured rather than assumed.
+    ///
+    /// Wrapped in a catch for the reason the release policy exists: a placement is a quality
+    /// judgement, and a quality judgement does not kill a paid book. If the measurement throws —
+    /// an unreadable base, a pose the registry cannot vouch for at this moment — the configured
+    /// anchor stands, which is exactly the behaviour this pipeline had before the chooser existed.
+    /// The one thing that must not happen is a family losing their book because an arithmetic
+    /// improvement to where a character stands could not be computed.
+    /// </summary>
+    private BekiPlacementChoice? ChoosePlacement(
+        CompositeBookContext context,
+        VisualScenarioSpread page,
+        byte[] basePng,
+        string poseId,
+        BekiTextSide side)
+    {
+        BekiPlacementChoice choice;
+        try
+        {
+            choice = _engine.Value.ChooseStoryPlacement(basePng, poseId, side);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(
+                ex,
+                "Composite pipeline {JobId} spread {Page}: the deterministic placement chooser "
+                + "({Version}) could not read this base; compositing at the configured anchor for "
+                + "the {Side} text side instead.",
+                context.JobId, page.Page, BekiPlacementChooser.Version, side);
+
+            return null;
+        }
+
+        var configured = _engine.Value.Config.StoryDefaultFor(side);
+
+        logger.LogInformation(
+            "Composite pipeline {JobId} spread {Page}: placement {Version} — {Decision}. "
+            + "default={DefaultX},{DefaultY},{DefaultH} score {DefaultScore:F3}; "
+            + "chosen={ChosenX},{ChosenY},{ChosenH} score {ChosenScore:F3}; "
+            + "candidates={Candidates}. {Reason}",
+            context.JobId, page.Page, BekiPlacementChooser.Version,
+            choice.Moved ? "MOVED" : "KEPT",
+            configured.VisibleCenterX, configured.VisibleCenterY, configured.VisibleHeight,
+            choice.DefaultScore,
+            choice.Anchor.VisibleCenterX, choice.Anchor.VisibleCenterY, choice.Anchor.VisibleHeight,
+            choice.ChosenScore, choice.CandidatesEvaluated, choice.Reason);
+
+        return choice;
     }
 
     /// <summary>

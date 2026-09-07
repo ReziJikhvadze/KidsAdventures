@@ -1,9 +1,21 @@
-# BEKI Story Boundary v1.2
+# BEKI Story Boundary v1.3
 
-**Contract version:** `story-boundary-v1.2`  
+**Contract version:** `story-boundary-v1.3`  
 **Status:** Locked MVP boundary, not a replacement creative prompt
 
 The exact approved Story prompt and provider-specific response schema must be taken from the active backend branch. The archived `MasterStoryPromptV6.md` must not be copied into the new pipeline because it contains superseded requirements.
+
+## v1.3 changelog
+
+Amended against the product owner's request of **2026-09-07**: *"the book name is trimmed when put on the cover — the cover must carry the FULL title, and the title must contain the child's name and the real full book name."* The input and output boundaries are untouched, to the field: v1.3 tightens one locked rule about the title, and names the prompt version that implements it — `composite-v1.3`, in `MasterStoryPromptComposite`.
+
+- **Observed defect: the title named nobody, and v1.2 called that correct.** `v1.2` locked the spelling of the child's name and left the title free to omit it — "a title that does not name the hero is legal" — which is a good rule for a story and the wrong one for this product. The title is this book's cover: it is the largest thing printed on it, and a cover reading only `მოციმციმე ტყე` is a cover that could have been any child's. **Locked:** the title of a printed BEKI book always contains the child's name, spelled exactly, in the nominative, ideally as the first word, followed by the story's own title — `ვეკო და მოციმციმე ტყე`. Three to seven words; every word of the v1.1/v1.2 title rules (warm and inviting, never built on a harsh or frightening word, Georgian only) still holds.
+
+**The deterministic check, and the deterministic last resort.** `GeorgianNameFidelity.Inspect(story, childName, requireNameInTitle: true)` reports `absent_from_title` whenever the exact name is not in the title, not only when the title reached for it and missed. The composite and print callers pass `true`; the A5 path passes `false` and keeps the title it has always been allowed, because the rule is about what a BEKI cover carries and not about how a story is titled. The correction sentence sent to the planner states the obligation and the shape.
+
+A title is never worth a refused book on its own, and it is never worth a third model call either. After the one corrective retry, if the only remaining name problem is `absent_from_title`, `GeorgianNameFidelity.NameTheTitle` writes `{name} და {title}` from the parent's own input and the story's own words, the run logs it, and the book continues. Nothing else in the story moves — this adds a word the planner left out, and it is never used to repair a misspelling, which is `Restore`'s job and a different one.
+
+**And the cover typesets all of it.** The composer's cover title is no longer set at a fixed 36 pt inside the dieline's fixed 136 × 46 mm title-safe box, where a title wrapping to three lines had its last line silently dropped. It walks `BekiPrintLayoutOptions.CoverTitleSizeLadderPt` and sets the title at the largest size whose measured block fits the box, identically on the press cover and the customer's download; below the last rung the book stops with `LAYOUT_FAILED`. The title is never trimmed and no line of it is ever dropped.
 
 ## v1.2 changelog
 
@@ -78,3 +90,4 @@ Validate with `story_boundary_v1.schema.json`. Provider-specific fields may exis
 - (v1.1) Natural spoken Georgian for the age band — `მას ეძინება`, not `მას ძილი ნებავს` (pending Georgian editor approval).
 - (v1.1) The copy tracks an important object's state, luminosity included, from the page that introduces it to the last page it appears on.
 - (v1.2) The child's name is reproduced exactly, letter for letter, everywhere it appears — title and every spread. Case endings may follow it; its own letters never change. Checked deterministically by `GeorgianNameFidelity`; `name_fidelity` is a blocker by default.
+- (v1.3) The title of a printed BEKI book always contains that name, in the nominative and ideally first, followed by the story's own title, in three to seven words. Checked by `GeorgianNameFidelity.Inspect(…, requireNameInTitle: true)` on the composite and print paths only; after one corrective retry the name is written into the title deterministically rather than the book being refused.

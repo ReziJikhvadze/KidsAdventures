@@ -126,8 +126,27 @@ public static class MasterStoryPromptComposite
     ///
     /// Nothing else moved: the rhythm, the Beki rules, the Dumbadze voice, the title rule, the
     /// word budgets and the safety block are composite-v1's word for word.
+    ///
+    /// v1.3 is the title rule, and it is the owner's, stated on 2026-09-07: the cover must carry the
+    /// full book name AND the child's name.
+    ///
+    /// v1.2 left the title free to name nobody — „მოციმციმე ტყე“ was an acceptable title and
+    /// <see cref="GeorgianNameFidelity"/> agreed, because a title that does not reach for the name
+    /// cannot misspell it. That is a defensible rule for a story and the wrong one for this product:
+    /// the title is what is printed largest on the cover of a book somebody bought to put their child
+    /// inside, and a cover that says only „მოციმციმე ტყე“ is a book that could have been anybody's.
+    /// So the title now always contains the name, in the nominative, ideally first, followed by the
+    /// story's own title — „{ChildName} და მოციმციმე ტყე“ — in three to seven words, with every
+    /// forbidden word and the warm-and-inviting instruction unchanged.
+    ///
+    /// The prompt is still only the asking. <c>GeorgianNameFidelity.Inspect(…,
+    /// requireNameInTitle: true)</c> is the reading, and the composite pipeline's last resort — the
+    /// name put in front of the title the model wrote — is what makes it true whatever the model
+    /// does, exactly as the restore does for a misspelling.
+    ///
+    /// Nothing else moved.
     /// </summary>
-    public const string Version = "composite-v1.2";
+    public const string Version = "composite-v1.3";
 
     public static string System(CompositeStoryInput input)
     {
@@ -154,8 +173,8 @@ public static class MasterStoryPromptComposite
             exactly as it is given here — letter for letter — every single time it appears, in the
             title and on every spread. Georgian case endings may follow it („{input.ChildName}ს“,
             „{input.ChildName}მ“, „{input.ChildName}სთვის“), and that is the only thing that may
-            ever change about it: no other spelling of this child's name exists in this book, and a
-            title that names the hero names „{input.ChildName}“ and nothing near it.
+            ever change about it: no other spelling of this child's name exists in this book, and the
+            title names „{input.ChildName}“ and nothing near it.
 
             Beki is the platform's one canonical story character: every book this platform makes
             gives the child the same warm, curious, brave guide and friend. Beki is present in
@@ -257,12 +276,19 @@ public static class MasterStoryPromptComposite
             is never described again as glowing, shining or bright unless the story itself lights
             it again. An object that mattered to the ending is still there at the ending.
 
-            The title: short, warm and inviting — Georgian words a parent is happy to say aloud at
-            bedtime, built from wonder, friendship, discovery or light. Never build the title on a
-            harsh, loud or frightening word — roaring, growling, howling, screaming, shrieking
-            (ღრიალი, ბრდღვინვა, ყვირილი and their kind), or anything naming danger or menace. If a
-            sound or creature matters to the story, the title names the gentle side of it, not the
-            noise.
+            The title always contains the child's name. Write „{input.ChildName}“ — the nominative,
+            exactly those letters — and then the story's own title after it, the way
+            „{input.ChildName} და მოციმციმე ტყე“ does. The name comes first unless Georgian itself
+            reads better with it elsewhere, and it is never left out: this title is printed largest
+            on the cover of a book bought to put this child inside it, and a title naming nobody
+            makes a cover that could have been anybody's.
+
+            The title: three to seven words, short, warm and inviting — Georgian words a parent is
+            happy to say aloud at bedtime, built from wonder, friendship, discovery or light. Never
+            build the title on a harsh, loud or frightening word — roaring, growling, howling,
+            screaming, shrieking (ღრიალი, ბრდღვინვა, ყვირილი and their kind), or anything naming
+            danger or menace. If a sound or creature matters to the story, the title names the gentle
+            side of it, not the noise.
 
             This book is written in Georgian and in no other language. The title and every spread's
             story text are Georgian. Nothing in this book is written twice in two languages.

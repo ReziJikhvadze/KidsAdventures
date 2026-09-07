@@ -73,6 +73,7 @@ PATH, which is where the defaults look.
 | `BekiPrintLayout__PrintAssetJpegQuality` | **95** (was 90) | press rasters: one JPEG encode, 4:4:4, no chroma subsampling |
 | `BekiPrintLayout__ScreenAssetJpegQuality` | 90 | reading-copy rasters (non-canonical paths) |
 | `BekiPrintLayout__CoverTitleOutlineWidthPt` | 1.5 | vector rim on the cover title (0 disables) |
+| `BekiPrintLayout__CoverTitleSizeLadderPt` | `36,32,28,24,20` | **new 2026-09-07.** The cover title is set at the largest size that fits the 136 × 46 mm title box in full; a long title steps down instead of losing a line. The rim scales with the size. Leave at default. |
 | `BekiPrintLayout__StoryPanelInkHex` / `StoryPanelOpacity` | unchanged | translucent copy panel under story text |
 
 `PRESS_RESOLUTION` now judges only the output (exact locked pixel sizes, effective PPI from pixels over
@@ -92,6 +93,17 @@ Optional trial the owner may run on a real book (not a default): `Beki__SpreadIm
 `Beki__CoverWrapImageSize=2048x1152`, `Beki__PageImageQuality=high`, `OpenAI__ImageTimeoutMinutes=6`.
 Rollback = remove those four keys. Per-image provenance (model, endpoint, requested size/quality,
 returned pixels) is stored beside each base as `spread-NN-generation.json` / `-cover-wrap-generation.json`.
+
+## 5a. Title and Beki placement (changed 2026-09-07)
+
+- The story prompt (`composite-v1.3`) requires the child's name in the title; the name check
+  enforces it and, as a last resort, the name is put in front of the title the model wrote
+  („ვერიკო და ღრუბლების ქალაქი“). No setting.
+- Beki's position on each story spread is chosen deterministically from the generated picture
+  (`beki-placement-v1`, contract `BEKI_Beki_Placement_Selection_v1.md`): the exact PNG is placed in
+  the calmest spot of her allowed window, never over the fold or the text third, and stays at the
+  configured anchor when that spot is already calm. No model call, no setting; the chosen anchor
+  is in each spread's composition manifest and `spread-NN-qa.json` (`beki_placement`).
 
 ## 5. Preview cover (changed 2026-09-07)
 
