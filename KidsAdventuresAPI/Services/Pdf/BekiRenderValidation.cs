@@ -164,16 +164,69 @@ public static class BekiRenderValidation
 
         var problems = new List<string>();
         var failedGates = new List<string>();
+        var stage = Stopwatch.StartNew();
 
         try
         {
             var input = Path.Combine(work, "in.pdf");
             File.WriteAllBytes(input, storedPdf);
 
-            var ghostscript = RenderWithGhostscript(options, input, work, dpi);
+            /*
+              The three tools run at the same time, because they are three separate processes that
+              share nothing.
+
+              They were run one after another, and on a real book that was the single largest block
+              of the press stage: Ghostscript 8.5 s, pdftoppm 8.3 s, pdffonts 0.06 s — seventeen
+              seconds of a machine sitting idle waiting for the next one to start. Nothing couples
+              them. Each writes under its own file prefix in the work folder (pdffonts writes
+              nothing), each is read only after all three have finished, and the report lists them in
+              the same order it always did, so the evidence is identical and only the clock changed.
+
+              Sequential when the box has one core to give: two renderers on one vCPU finish in the
+              same total time and hold twice the memory while doing it, which is the trade this
+              campaign exists to avoid. `Beki:PrintPrep:Parallelism` decides.
+            */
+            (BekiRendererRun Run, double Ms) gs, ppm, faces;
+            var rendererClock = Stopwatch.StartNew();
+
+            string[] pdftoppmArguments =
+            [
+                "-r", PopplerDpi.ToString(CultureInfo.InvariantCulture), "-png", input,
+                Path.Combine(work, "poppler-page"),
+            ];
+
+            if (options.ResolvedParallelism > 1)
+            {
+                var gsTask = Task.Run(() => Timed(() => RenderWithGhostscript(options, input, work, dpi)));
+                var ppmTask = Task.Run(() => Timed(() => RunPoppler(
+                    options.PopplerPdftoppmPath, "pdftoppm", pdftoppmArguments, work)));
+                var fontsTask = Task.Run(() => Timed(() => RunPoppler(
+                    options.PopplerPdffontsPath, "pdffonts", [input], work)));
+
+                Task.WaitAll(gsTask, ppmTask, fontsTask);
+
+                gs = gsTask.Result;
+                ppm = ppmTask.Result;
+                faces = fontsTask.Result;
+            }
+            else
+            {
+                gs = Timed(() => RenderWithGhostscript(options, input, work, dpi));
+                ppm = Timed(() => RunPoppler(
+                    options.PopplerPdftoppmPath, "pdftoppm", pdftoppmArguments, work));
+                faces = Timed(() => RunPoppler(options.PopplerPdffontsPath, "pdffonts", [input], work));
+            }
+
+            var ghostscript = gs.Run;
+            var pdftoppm = ppm.Run;
+            var pdffonts = faces.Run;
+            var rendererMs = rendererClock.Elapsed.TotalMilliseconds;
+
+            var pagesClock = Stopwatch.StartNew();
             var pages = ghostscript.Status == BekiRendererRun.Ok
                 ? ReadRenderedPages(work, "gs-page-")
                 : [];
+            var pagesMs = pagesClock.Elapsed.TotalMilliseconds;
 
             if (ghostscript.Status != BekiRendererRun.Ok)
             {
@@ -183,15 +236,6 @@ public static class BekiRenderValidation
             {
                 problems.Add("Ghostscript exited clean and produced no page images at all.");
             }
-
-            var pdftoppm = RunPoppler(
-                options.PopplerPdftoppmPath, "pdftoppm",
-                ["-r", PopplerDpi.ToString(CultureInfo.InvariantCulture), "-png", input,
-                 Path.Combine(work, "poppler-page")],
-                work);
-
-            var pdffonts = RunPoppler(
-                options.PopplerPdffontsPath, "pdffonts", [input], work);
 
             // When printing is already withheld, a broken press renderer must not also
             // withhold a customer PDF that Poppler can render, inspect and QR-scan correctly.
@@ -235,11 +279,13 @@ public static class BekiRenderValidation
                 failedGates.Add(RenderValidationGate);
             }
 
+            var qrClock = Stopwatch.StartNew();
             var qr = ScanQr(
                 pages,
                 request?.QrPage,
                 expectedQrCount,
                 request?.ExpectedQrDestination ?? expectedQrDestination);
+            var qrMs = qrClock.Elapsed.TotalMilliseconds;
             var effectiveQrDestination = request?.ExpectedQrDestination ?? expectedQrDestination;
             if (qr.Status != BekiRendererRun.Ok)
             {
@@ -251,12 +297,14 @@ public static class BekiRenderValidation
                 failedGates.Add(QrGate);
             }
 
+            var sheetClock = Stopwatch.StartNew();
             var contactSheet = pages.Count == 0
                 ? null
                 : BuildContactSheet(
                     pages,
                     request?.ContactSheetColumns ?? DefaultColumns(pages.Count),
                     request?.ThumbnailWidthPx ?? 420);
+            var sheetMs = sheetClock.Elapsed.TotalMilliseconds;
 
             var sha = contactSheet is null
                 ? null
@@ -276,6 +324,22 @@ public static class BekiRenderValidation
                     failed_gates = failedGates,
                     problems,
                     render_dpi = dpi,
+                    // What this stage cost, so a slow production run can be read rather than
+                    // guessed at. `renderers` is wall time for the whole renderer block: with
+                    // Beki:PrintPrep:Parallelism above one the three tools overlap, so it is close
+                    // to the slowest of them rather than their sum.
+                    timings_ms = new
+                    {
+                        ghostscript = (long)Math.Round(gs.Ms),
+                        pdftoppm = (long)Math.Round(ppm.Ms),
+                        pdffonts = (long)Math.Round(faces.Ms),
+                        renderers = (long)Math.Round(rendererMs),
+                        read_pages = (long)Math.Round(pagesMs),
+                        qr_scan = (long)Math.Round(qrMs),
+                        contact_sheet = (long)Math.Round(sheetMs),
+                        total = (long)Math.Round(stage.Elapsed.TotalMilliseconds),
+                    },
+                    concurrent_renderers = options.ResolvedParallelism > 1,
                     renderers = new[] { ghostscript, pdftoppm, pdffonts }
                         .Select(run => new
                         {
@@ -550,6 +614,17 @@ public static class BekiRenderValidation
         || name.Contains("[none]", StringComparison.OrdinalIgnoreCase)
         || new[] { "Helvetica", "Times-", "Courier", "Symbol", "ZapfDingbats", "Arial" }
             .Any(alias => name.Contains(alias, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// One renderer run and what it cost, so the report can say which of the three was the slow one
+    /// rather than only that the stage was slow.
+    /// </summary>
+    private static (BekiRendererRun Run, double Ms) Timed(Func<BekiRendererRun> run)
+    {
+        var clock = Stopwatch.StartNew();
+        var result = run();
+        return (result, clock.Elapsed.TotalMilliseconds);
+    }
 
     private static BekiRendererRun RenderWithGhostscript(
         BekiPrintPrepOptions options, string input, string work, int dpi)

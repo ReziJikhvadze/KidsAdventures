@@ -26,6 +26,20 @@ var app = builder.Build();
 
 LogConfiguredFlags(app);
 
+// Before anything decodes an image. See BekiImageMemory: the press stage's burst of thirteen-
+// megapixel canvases must not leave a pool behind that the plan cannot hold.
+var printPrep = app.Services
+    .GetRequiredService<IOptions<AdventurePacks.Api.Configuration.Options.BekiOptions>>()
+    .Value.PrintPrep;
+if (AdventurePacks.Api.Services.Pdf.BekiImageMemory.Configure(printPrep.MaxImagePoolMegabytes))
+{
+    app.Logger.LogInformation(
+        "ImageSharp pooled memory capped at {Megabytes} MB; press parallelism {Parallelism} "
+        + "(configured {Configured}, {Cores} cores).",
+        printPrep.MaxImagePoolMegabytes, printPrep.ResolvedParallelism, printPrep.Parallelism,
+        Environment.ProcessorCount);
+}
+
 /*
   The database is reached before the host starts, so a blip here is not a failed request — it is
   a process that never comes up.

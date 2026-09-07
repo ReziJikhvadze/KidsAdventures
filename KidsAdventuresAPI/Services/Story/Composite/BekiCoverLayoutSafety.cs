@@ -41,15 +41,33 @@ public static class BekiCoverLayoutSafety
         }
     }
 
-    public static IReadOnlyList<string> Conflicts(IReadOnlyList<BekiCoverProtectedArea> areas)
+    /// <param name="titleBox">
+    /// The rectangle this book's title is actually set in, from
+    /// <see cref="BekiCoverTitlePlacement"/>. Null means the approved box — which is where the title
+    /// went on every book printed before 2026-09-08, and is still the answer on any cover the
+    /// placement left alone.
+    ///
+    /// A parameter rather than a second constant because the two questions this gate asks are now
+    /// different in kind. The LOGO's clear space is fixed geometry: it is where the mark is stamped,
+    /// on every cover, and an observation that lands there is a defect no matter what. The TITLE's
+    /// rectangle is a decision made about this cover's own artwork, so a reviewer's "the head is
+    /// here" can only be checked against the box this book's title was set in — checking it against
+    /// the approved one would fail a cover whose title had already been moved out of the way, and
+    /// pass one whose title had been moved onto something else.
+    /// </param>
+    public static IReadOnlyList<string> Conflicts(
+        IReadOnlyList<BekiCoverProtectedArea> areas, BekiCoverTitleChoice? titleBox = null)
     {
         ValidateAreas(areas);
         var conflicts = new List<string>();
         var clearance = BekiCoverDieline.LogoClearSpaceMm;
+        var titleLeft = titleBox?.LeftMm ?? BekiCoverDieline.TitleSafeLeftMm;
+        var titleTop = titleBox?.TopMm ?? BekiCoverDieline.TitleSafeTopMm;
+        var titleWidth = titleBox?.WidthMm ?? BekiCoverDieline.TitleSafeWidthMm;
+        var titleHeight = titleBox?.HeightMm ?? BekiCoverDieline.TitleSafeHeightMm;
         foreach (var area in areas)
         {
-            if (Intersects(area, BekiCoverDieline.TitleSafeLeftMm, BekiCoverDieline.TitleSafeTopMm,
-                    BekiCoverDieline.TitleSafeWidthMm, BekiCoverDieline.TitleSafeHeightMm))
+            if (Intersects(area, titleLeft, titleTop, titleWidth, titleHeight))
                 conflicts.Add($"TITLE overlaps {area.Kind}: {area.Description}.");
             if (Intersects(area, BekiCoverDieline.LogoLeftMm - clearance, BekiCoverDieline.LogoTopMm - clearance,
                     BekiCoverDieline.LogoWidthMm + 2 * clearance, BekiCoverDieline.LogoHeightMm + 2 * clearance))
@@ -58,12 +76,13 @@ public static class BekiCoverLayoutSafety
         return conflicts;
     }
 
-    public static void EnsureClear(IReadOnlyList<BekiCoverProtectedArea>? areas)
+    public static void EnsureClear(
+        IReadOnlyList<BekiCoverProtectedArea>? areas, BekiCoverTitleChoice? titleBox = null)
     {
         // No observation is not a PASS. Production records NOT_REVIEWED separately; the prompt
         // still reserves the zones. Do not invent detector output or buy an extra vision call.
         if (areas is null) return;
-        var conflicts = Conflicts(areas);
+        var conflicts = Conflicts(areas, titleBox);
         if (conflicts.Count > 0)
             throw Failure(string.Join(" ", conflicts) + " Correct the cover composition before export.");
     }

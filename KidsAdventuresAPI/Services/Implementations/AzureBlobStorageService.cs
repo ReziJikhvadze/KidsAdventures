@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Services.Interfaces;
+using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 
@@ -159,6 +160,49 @@ public sealed class AzureBlobStorageService : IBlobStorageService
         var response = await container.GetBlobClient(blobName).DeleteIfExistsAsync(
             cancellationToken: cancellationToken);
         return response.Value;
+    }
+
+    /// <summary>
+    /// The account's own copy, rather than a round trip through this process.
+    ///
+    /// Both names are container-relative, so source and destination are in the same account and the
+    /// copy is authorized by the same shared key the rest of this class uses — no SAS, no public
+    /// source. An intra-account copy normally completes on the first response; the poll is there
+    /// because the service is allowed to take longer and a snapshot that has not finished is not a
+    /// snapshot.
+    ///
+    /// It does not fall back to download-and-upload when the service refuses. A copy that failed is
+    /// a storage failure, and the caller — the snapshot taken before a book is replaced — must hear
+    /// about it rather than be handed a slower path that may be failing for the same reason. A copy
+    /// the service ends as <see cref="CopyStatus.Failed"/> or <see cref="CopyStatus.Aborted"/>
+    /// surfaces as the exception the wait throws, renamed here so the message says which two blobs.
+    /// <paramref name="contentType"/> is unused on purpose: the copy inherits the source blob's own
+    /// properties, which is the same answer and a truer one.
+    /// </summary>
+    public async Task CopyAsync(
+        string sourceName, string destinationName, string contentType, CancellationToken cancellationToken)
+    {
+        var container = await GetContainerAsync(_options.ContainerName, cancellationToken);
+        var source = container.GetBlobClient(sourceName);
+        var destination = container.GetBlobClient(destinationName);
+
+        // The options overload, named explicitly: the older parameter list is still there and
+        // binding to it by accident is the kind of thing that reads identically and behaves
+        // differently.
+        var operation = await destination.StartCopyFromUriAsync(
+            source.Uri, options: new BlobCopyFromUriOptions(), cancellationToken);
+
+        try
+        {
+            await operation.WaitForCompletionAsync(cancellationToken);
+        }
+        catch (RequestFailedException ex)
+        {
+            // The service's own message names neither blob, and a snapshot that did not happen is
+            // exactly the failure an operator has to be able to read at a glance.
+            throw new InvalidOperationException(
+                $"Copying '{sourceName}' to '{destinationName}' did not complete: {ex.Message}", ex);
+        }
     }
 
     /// <summary>

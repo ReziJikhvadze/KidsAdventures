@@ -156,6 +156,42 @@ public sealed class LocalFileBlobStorageService : IBlobStorageService
     }
 
     /// <summary>
+    /// A file copy, which is what a copy is here.
+    ///
+    /// The base implementation would read the whole blob into a byte array and write it back out —
+    /// fifty megabytes through the managed heap to move a file the operating system can move
+    /// without looking at it. <paramref name="contentType"/> is unused for the same reason
+    /// <see cref="UploadAsync"/> does not persist it: the key carries the extension, and every
+    /// caller that serves one of these back decides the type from that.
+    /// </summary>
+    public Task CopyAsync(
+        string sourceName, string destinationName, string contentType, CancellationToken cancellationToken)
+    {
+        var source = ResolvePath($"{_containerName}/{sourceName.TrimStart('/')}");
+        var destination = ResolvePath($"{_containerName}/{destinationName.TrimStart('/')}");
+        var directory = Path.GetDirectoryName(destination)!;
+
+        if (_knownDirectories.TryAdd(directory, 0))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        try
+        {
+            File.Copy(source, destination, overwrite: true);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // The same race UploadAsync answers: a folder this process has recorded as created but
+            // something outside it has since removed.
+            Directory.CreateDirectory(directory);
+            File.Copy(source, destination, overwrite: true);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
     /// Accepts either a key this service wrote or a full URL left behind by the Azure
     /// implementation, so a database that has seen both still reads.
     /// </summary>

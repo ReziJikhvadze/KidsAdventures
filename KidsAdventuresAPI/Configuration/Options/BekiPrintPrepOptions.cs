@@ -176,6 +176,50 @@ public sealed class BekiPrintPrepOptions
     }
 
     /// <summary>
+    /// How many press rasters — and how many render validations — are worked on at once.
+    ///
+    /// Zero or less means "decide from the box", which is the shipped answer:
+    /// <see cref="ResolvedParallelism"/> is <c>min(ProcessorCount, 3)</c>. Three was a constant in
+    /// the fulfilment stage and it was the wrong shape of number, because each slot is a
+    /// multi-megapixel resample holding a decoded canvas and its PNG buffer: on a one-vCPU App
+    /// Service three of those do not run three times faster, they run at the same speed with three
+    /// times the resident memory, and a plan that then swaps turns a two-minute stage into an hour.
+    /// The ceiling stays at three even on a large box, because the stage is bounded by memory long
+    /// before it is bounded by cores.
+    ///
+    /// An explicit value is honoured as given — including one above the core count — for a
+    /// deployment that knows its own machine, and is capped only by
+    /// <see cref="MaximumParallelism"/> so a typo cannot ask for a thousand.
+    /// </summary>
+    public int Parallelism { get; set; }
+
+    /// <summary>The most slots any configuration may ask for.</summary>
+    public const int MaximumParallelism = 16;
+
+    /// <summary>The most slots this stage takes for itself when nothing is configured.</summary>
+    public const int DefaultParallelismCeiling = 3;
+
+    /// <summary><see cref="Parallelism"/> as the stage reads it — never zero, never above the cap.</summary>
+    public int ResolvedParallelism => Parallelism > 0
+        ? Math.Min(Parallelism, MaximumParallelism)
+        : Math.Max(1, Math.Min(Environment.ProcessorCount, DefaultParallelismCeiling));
+
+    /// <summary>
+    /// The ceiling, in megabytes, on the pool ImageSharp keeps its pixel buffers in.
+    ///
+    /// ImageSharp's default allocator sizes its pool from the machine and holds on to what it has
+    /// allocated, which is right for a long-lived image service and wrong for this one: a press
+    /// stage touches ten thirteen-megapixel canvases in a burst, a few times a day, and then wants
+    /// the memory back for the web application it shares a process with. On a small App Service the
+    /// retained pool is the difference between a resident set that fits and one that swaps.
+    ///
+    /// 256 MB is enough for the three concurrent canvases the default parallelism allows without
+    /// pooling every buffer the burst ever touched. Zero or less leaves ImageSharp's own default in
+    /// place, for a deployment that would rather tune the runtime than this key.
+    /// </summary>
+    public int MaxImagePoolMegabytes { get; set; } = 256;
+
+    /// <summary>
     /// The external super-resolution executable. Optional, and empty by default.
     ///
     /// Ignored entirely in <see cref="BekiPrintPrepModes.DeterministicLanczos"/> mode, which is

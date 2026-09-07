@@ -73,6 +73,8 @@ PATH, which is where the defaults look.
 | `BekiPrintLayout__PrintAssetJpegQuality` | **95** (was 90) | press rasters: one JPEG encode, 4:4:4, no chroma subsampling |
 | `BekiPrintLayout__ScreenAssetJpegQuality` | 90 | reading-copy rasters (non-canonical paths) |
 | `BekiPrintLayout__CoverTitleOutlineWidthPt` | 1.5 | vector rim on the cover title (0 disables) |
+| `Beki__PrintPrep__Parallelism` | 0 (= min(cores, 3)) | **new 2026-09-08.** How many press rasters are normalized/composited at once. Leave at 0; set 1 only on a 1-vCPU plan if memory is tight. |
+| `Beki__PrintPrep__MaxImagePoolMegabytes` | 256 | **new 2026-09-08.** Cap on ImageSharp's pooled image memory (set once at startup). 0 = library default. |
 | `BekiPrintLayout__CoverTitleSizeLadderPt` | `36,32,28,24,20` | **new 2026-09-07.** The cover title is set at the largest size that fits the 136 × 46 mm title box in full; a long title steps down instead of losing a line. The rim scales with the size. Leave at default. |
 | `BekiPrintLayout__StoryPanelInkHex` / `StoryPanelOpacity` | unchanged | translucent copy panel under story text |
 
@@ -94,7 +96,13 @@ Optional trial the owner may run on a real book (not a default): `Beki__SpreadIm
 Rollback = remove those four keys. Per-image provenance (model, endpoint, requested size/quality,
 returned pixels) is stored beside each base as `spread-NN-generation.json` / `-cover-wrap-generation.json`.
 
-## 5a. Title and Beki placement (changed 2026-09-07)
+## 5a. Title and Beki placement (changed 2026-09-07/08)
+
+- The cover title box is chosen per book from the finished cover wrap (`cover-title-placement-v1`,
+  contract `BEKI_Cover_Title_Placement_v1.md`): it stays in the approved top-left box when that
+  area is calm and moves to the calmest band on the front board (never into the logo's clear
+  space) when the model painted the child's head there. Press and download covers use the same
+  box; the cover receipt carries `title_box`. No setting.
 
 - The story prompt (`composite-v1.3`) requires the child's name in the title; the name check
   enforces it and, as a last resort, the name is put in front of the title the model wrote
@@ -120,6 +128,19 @@ before; a bought book costs the same overall and finishes sooner.
 `Beki__PortraitGateEnabled` false, `Gemini__*` models as committed, `OpenAI__MasterStoryModel`
 `gpt-5.6-sol`, `WifisherSms__*` (SMS OTP, off by default), `GoogleAuth__*`, `GoogleMaps__*`,
 `PasswordlessAuth__*` (OTP/magic-link limits), `PrintLayout__*` (legacy print), `Email__From*`.
+
+## 6a. Press stage speed and timings (changed 2026-09-08)
+
+- The 18 press-size evidence PNGs per book (`print/*-base.png`, `*-composite.png`, ≈ 208 MB)
+  are no longer uploaded; `print/*-composition.json` keeps the partner manifest verbatim plus
+  SHA-256 and byte length of both rasters. Nothing read the PNGs.
+- Ghostscript and Poppler now render concurrently; snapshots to `previous/{ts}/` and the print
+  slot use Azure server-side copies (no bytes through the app).
+- `press-status.json` now has `timings_ms` per step (read_bases, normalize, composite,
+  upload_receipts, compose_pdf, preflight, snapshot, publish, total) and `parallelism`;
+  `render-canonical-book.json` has the renderer timings. **After the first production book,
+  read these** — they say where the time went. On a 1-vCPU App Service plan this stage is CPU
+  bound; a P1v3-class plan (2 vCPU / 8 GB) or larger is the practical minimum.
 
 ## 7. Post-deploy checks (both sides must work)
 

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
@@ -736,7 +737,8 @@ public sealed class BekiPackFulfillment(
                 "The re-prepared book failed render-back validation, so nothing was replaced: "
                 + string.Join(" ", unreleasable.SelectMany(entry => entry.Result.Problems)));
 
-        var snapshot = await SnapshotLiveDeliverablesAsync(pack, candidate.Receipts, cancellationToken);
+        var snapshot = await SnapshotLiveDeliverablesAsync(
+            pack, candidate.Receipts, candidate.Work, cancellationToken);
         BekiReleaseGateReport release;
         try
         {
@@ -959,15 +961,20 @@ public sealed class BekiPackFulfillment(
         + "family's reading copy is unaffected.";
 
     /// <summary>
-    /// How many press rasters, and how many render validations, are prepared at once.
+    /// How many press rasters, and how many press composites, are worked on at once.
     ///
-    /// Three rather than "all of them": each raster is a Lanczos3 resample of a multi-megapixel
-    /// image (or, in external mode, a whole super-resolution process) and each render validation
-    /// spawns Ghostscript and two Poppler tools, so the limit is about not starving the host rather
-    /// than about any API. Small enough to be safe on the smallest worker; large enough that nine
-    /// rasters take three rounds instead of nine, and the finals render back together.
+    /// A limit rather than "all of them": each slot is a Lanczos3 resample of a multi-megapixel
+    /// image (or, in external mode, a whole super-resolution process) holding a decoded canvas and
+    /// its PNG buffer, so the limit is about not starving the host rather than about any API.
+    ///
+    /// It was the constant 3, and the number was right for a developer's laptop and wrong for the
+    /// deployment: three thirteen-megapixel canvases on a one-vCPU App Service do not finish three
+    /// times sooner, they finish in the same time holding three times the memory — and a plan that
+    /// then swaps is how a two-minute stage became an hour. <c>Beki:PrintPrep:Parallelism</c> now
+    /// decides, defaulting to <c>min(cores, 3)</c>, so the small box takes one at a time and nothing
+    /// changes on a box that has the cores.
     /// </summary>
-    private const int PressParallelism = 3;
+    private int PressParallelism => bekiOptions.Value.PrintPrep.ResolvedParallelism;
 
     /// <summary>
     /// This job's one lookup of which order paid for this book, memoized for the run.
@@ -3334,7 +3341,92 @@ public sealed class BekiPackFulfillment(
         /// </summary>
         public string? ArtworkContractDrift { get; set; }
 
+        /// <summary>
+        /// How long each step of this press stage took, written to <c>press-status.json</c> as
+        /// <c>timings_ms</c>.
+        ///
+        /// The clock starts when this ledger is constructed, which every path does immediately
+        /// before the press stage and nowhere else, so <c>total</c> is the stage rather than the
+        /// job. It exists because the production symptom was "after 91 % it takes over an hour" and
+        /// nothing in any stored document could say which hour that was — the press stage does a
+        /// dozen expensive things and every one of them was equally plausible. A run now says so
+        /// itself.
+        /// </summary>
+        public PressTimings Timings { get; } = new();
+
         public List<string> Reasons { get; } = [];
+    }
+
+    /// <summary>
+    /// A press stage's stopwatch readings, in milliseconds, by step name.
+    ///
+    /// Concurrent because the raster steps are, and additive because a step that runs once per
+    /// raster is asked as one question — "how long did compositing cost this book" — rather than as
+    /// nine. The per-raster spread is kept separately, since a single slow sheet and nine even ones
+    /// are different problems with the same total.
+    /// </summary>
+    private sealed class PressTimings
+    {
+        private readonly ConcurrentDictionary<string, double> _steps = new(StringComparer.Ordinal);
+        private readonly ConcurrentBag<double> _perRaster = [];
+        private readonly Stopwatch _stage = Stopwatch.StartNew();
+
+        public void Record(string step, TimeSpan elapsed) =>
+            _steps.AddOrUpdate(
+                step,
+                elapsed.TotalMilliseconds,
+                (_, running) => running + elapsed.TotalMilliseconds);
+
+        public void RecordRaster(TimeSpan elapsed) => _perRaster.Add(elapsed.TotalMilliseconds);
+
+        /// <summary>Runs <paramref name="work"/>, recording what it cost under <paramref name="step"/>.</summary>
+        public async Task<T> MeasureAsync<T>(string step, Func<Task<T>> work)
+        {
+            var clock = Stopwatch.StartNew();
+            try
+            {
+                return await work();
+            }
+            finally
+            {
+                Record(step, clock.Elapsed);
+            }
+        }
+
+        /// <inheritdoc cref="MeasureAsync{T}"/>
+        public async Task MeasureAsync(string step, Func<Task> work)
+        {
+            var clock = Stopwatch.StartNew();
+            try
+            {
+                await work();
+            }
+            finally
+            {
+                Record(step, clock.Elapsed);
+            }
+        }
+
+        /// <summary>
+        /// The readings as <c>press-status.json</c> carries them: whole milliseconds, ordered by
+        /// name so two books' documents diff against each other, plus the stage's own total read at
+        /// the moment the document is written.
+        /// </summary>
+        public IReadOnlyDictionary<string, long> ForStatus()
+        {
+            var readings = _steps
+                .OrderBy(step => step.Key, StringComparer.Ordinal)
+                .ToDictionary(step => step.Key, step => (long)Math.Round(step.Value), StringComparer.Ordinal);
+
+            if (!_perRaster.IsEmpty)
+            {
+                readings["normalize_slowest_raster"] = (long)Math.Round(_perRaster.Max());
+                readings["normalize_fastest_raster"] = (long)Math.Round(_perRaster.Min());
+            }
+
+            readings["total"] = (long)Math.Round(_stage.Elapsed.TotalMilliseconds);
+            return readings;
+        }
     }
 
     /// <summary>
@@ -3412,6 +3504,7 @@ public sealed class BekiPackFulfillment(
         // Only the child/world base is normalized. The approved Beki layer is re-applied
         // afterwards from its hash-verified asset.
         var bases = new List<(byte[] Png, BekiCompositionManifest Manifest)>(spreads.Count + 1);
+        var readClock = Stopwatch.StartNew();
         foreach (var spread in spreads)
         {
             bases.Add(await ReadPressBaseAsync(
@@ -3423,6 +3516,10 @@ public sealed class BekiPackFulfillment(
             BekiPackBlobs.CoverWrapBaseName(pack.UserId, pack.Id),
             BekiPackBlobs.CoverCompositionName(pack.UserId, pack.Id),
             wrapComposite, cancellationToken));
+        work.Timings.Record("read_bases", readClock.Elapsed);
+        logger.LogInformation(
+            "Beki pack {PackId}: press stage read {Count} hash-verified bases in {Milliseconds} ms.",
+            pack.Id, bases.Count, (long)readClock.Elapsed.TotalMilliseconds);
 
         // Inspect stored, pixel-bound observations before anything resamples a raster.
         // Resampling changes resolution, not full-wrap physical coordinates.
@@ -3436,19 +3533,6 @@ public sealed class BekiPackFulfillment(
                     "COVER_LAYOUT_SAFETY: stored review is empty.");
             BekiCoverLayoutSafety.VerifySource(coverReview, bases[^1].Png);
         }
-        var coverConflicts = coverReview is null ? [] : BekiCoverLayoutSafety.Conflicts(coverReview.Areas);
-        await blobStorage.UploadAsync(BekiPackBlobs.CoverLayoutSafetyName(pack.UserId, pack.Id),
-            JsonSerializer.SerializeToUtf8Bytes(new
-            {
-                gate = BekiCoverLayoutSafety.Gate,
-                verdict = coverReview is null ? "NOT_REVIEWED" : coverConflicts.Count == 0 ? "PASS" : "FAIL",
-                method = "human-recorded bounds; no automatic face detector or added paid vision call",
-                review = coverReview,
-                conflicts = coverConflicts,
-            }), "application/json", cancellationToken);
-        personalization = personalization with { CoverProtectedAreas = coverReview?.Areas };
-        BekiCoverLayoutSafety.EnsureClear(personalization.CoverProtectedAreas);
-
         var rasters = bases.Select((source, index) => (
             source.Png,
             index == spreads.Count ? CoverPressWidthPx : InteriorPressWidthPx,
@@ -3467,6 +3551,7 @@ public sealed class BekiPackFulfillment(
         PressUpscaleResult[] normalizations;
         var skipExternalTool = storedArtworkOnly
             && options.ResolvedMode == BekiPrintPrepMode.ExternalSuperResolution;
+        var normalizeClock = Stopwatch.StartNew();
         using (var pressDeadline = GenerationBudget.Start(
             cancellationToken, PressBudgetFor(bekiOptions.Value), _timeProvider))
         {
@@ -3474,13 +3559,18 @@ public sealed class BekiPackFulfillment(
             {
                 normalizations = skipExternalTool
                     ? OriginalRasters("Stored-art re-preparation does not run the external super-resolution tool.")
-                    : await PrepareRastersAsync(rasters, pressDeadline.Token);
+                    : await PrepareRastersAsync(rasters, work.Timings, pressDeadline.Token);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
                 normalizations = OriginalRasters("Print normalization exceeded its time budget; customer artwork retained.");
             }
         }
+        work.Timings.Record("normalize", normalizeClock.Elapsed);
+        logger.LogInformation(
+            "Beki pack {PackId}: press stage normalized {Count} rasters in {Milliseconds} ms "
+            + "({Parallelism} at a time).",
+            pack.Id, rasters.Count, (long)normalizeClock.Elapsed.TotalMilliseconds, PressParallelism);
 
         PressUpscaleResult[] OriginalRasters(string reason) => rasters.Select(raster =>
         {
@@ -3494,12 +3584,62 @@ public sealed class BekiPackFulfillment(
         var pressArt = new List<BekiSpreadArtwork>(spreads.Count);
         var sources = new List<BekiResolutionSource>(spreads.Count + 1);
 
+        /*
+          The ten composites are made <see cref="PressParallelism"/> at a time, and the bookkeeping
+          that follows is still one at a time in order.
+
+          Each one is a decode of a thirteen-megapixel PNG, the approved pose pasted onto it, and a
+          PNG encode of the result — 4.5 seconds apiece on this machine — and they were done in a
+          plain sequential loop while the very next stage in this same method was already bounded by
+          a semaphore. Nothing couples one sheet to another: they read different bases and write
+          different names. What must stay sequential is the ORDER of what comes out, so the results
+          land in an array by index and the receipts, the problems and the artwork are assembled from
+          it afterwards, exactly as before. A book's pages cannot depend on which raster finished
+          first.
+
+          The normalized PNG is handed over and dropped from the array in the same breath, because
+          the composite is what everything downstream reads: holding both for all ten sheets is a
+          hundred and fifty megabytes of pixels nothing will look at again.
+
+          The semaphore is not disposed, for the same reason PrepareRastersAsync does not dispose
+          its own: a batch that faults leaves siblings still inside it, and a release against a
+          disposed semaphore would turn one honest failure into a second, unobserved one.
+        */
+        var artworkClock = Stopwatch.StartNew();
+        var artworkSlots = new SemaphoreSlim(PressParallelism, PressParallelism);
+        var artwork = new (PressUpscaleResult Result, byte[] Png)[spreads.Count + 1];
+
+        await Task.WhenAll(Enumerable.Range(0, spreads.Count + 1).Select(async index =>
+        {
+            var cover = index == spreads.Count;
+            var role = cover ? "cover-wrap" : $"spread-{spreads[index].SpreadNumber:00}";
+            var normalization = normalizations[index];
+            normalizations[index] = normalization with { Png = null };
+
+            await artworkSlots.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                artwork[index] = await PrepareCustomerArtworkAsync(
+                    pack, role, normalization, bases[index].Manifest,
+                    cover ? wrapComposite : spreads[index].Image, work.Timings, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            finally
+            {
+                artworkSlots.Release();
+            }
+        }));
+
+        work.Timings.Record("composite", artworkClock.Elapsed);
+        logger.LogInformation(
+            "Beki pack {PackId}: press stage composited {Count} press rasters in {Milliseconds} ms "
+            + "({Parallelism} at a time).",
+            pack.Id, artwork.Length, (long)artworkClock.Elapsed.TotalMilliseconds, PressParallelism);
+
         for (var index = 0; index < spreads.Count; index++)
         {
             var spread = spreads[index];
-            var (normalization, artwork) = await PrepareCustomerArtworkAsync(
-                pack, $"spread-{spread.SpreadNumber:00}", normalizations[index],
-                bases[index].Manifest, spread.Image, cancellationToken);
+            var normalization = artwork[index].Result;
 
             sources.Add(normalization.ToReceiptSource($"spread-{spread.SpreadNumber:00}") with
             {
@@ -3519,11 +3659,10 @@ public sealed class BekiPackFulfillment(
                 pressArt.Add(spread);
                 continue;
             }
-            pressArt.Add(new BekiSpreadArtwork(spread.SpreadNumber, artwork));
+            pressArt.Add(new BekiSpreadArtwork(spread.SpreadNumber, artwork[index].Png));
         }
 
-        var (coverNormalization, coverArt) = await PrepareCustomerArtworkAsync(
-            pack, "cover-wrap", normalizations[^1], bases[^1].Manifest, wrapComposite, cancellationToken);
+        var (coverNormalization, coverArt) = artwork[^1];
         if (!coverNormalization.Succeeded)
         {
             work.PreparationProblems.Add(
@@ -3537,8 +3676,50 @@ public sealed class BekiPackFulfillment(
             DeliveredHeightPx = coverNormalization.Succeeded ? CoverPressHeightPx : coverNormalization.DeliveredHeightPx,
         });
 
+        /*
+          The cover-layout verdict is judged against the title box this book will actually be set
+          in, from the same bytes the composer decides it from (coverArt — the press wrap, or the
+          customer wrap when normalization declined). Judged here rather than before normalization
+          because the box is a reading of the finished wrap, and a human-recorded head the title
+          has already stepped around is not a conflict (owner, 2026-09-08). The choice fails open to
+          the approved box, exactly as the composer does.
+        */
+        BekiCoverTitleChoice? titleBox = null;
+        try
+        {
+            titleBox = BekiCoverTitlePlacement.Choose(coverArt);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex,
+                "Beki pack {PackId}: the cover title placement could not read the wrap; the "
+                + "layout-safety verdict is judged against the approved title box.", pack.Id);
+        }
+
+        var coverConflicts = coverReview is null
+            ? []
+            : BekiCoverLayoutSafety.Conflicts(coverReview.Areas, titleBox);
+        await blobStorage.UploadAsync(BekiPackBlobs.CoverLayoutSafetyName(pack.UserId, pack.Id),
+            JsonSerializer.SerializeToUtf8Bytes(new
+            {
+                gate = BekiCoverLayoutSafety.Gate,
+                verdict = coverReview is null ? "NOT_REVIEWED" : coverConflicts.Count == 0 ? "PASS" : "FAIL",
+                method = "human-recorded bounds; no automatic face detector or added paid vision call",
+                review = coverReview,
+                conflicts = coverConflicts,
+                title_box = titleBox,
+            }), "application/json", cancellationToken);
+        personalization = personalization with { CoverProtectedAreas = coverReview?.Areas };
+        BekiCoverLayoutSafety.EnsureClear(personalization.CoverProtectedAreas, titleBox);
+
+        var composeClock = Stopwatch.StartNew();
         var canonical = composer.ComposeCanonicalWithReceipts(
             plan, coverArt, pressArt, personalization);
+        work.Timings.Record("compose_pdf", composeClock.Elapsed);
+        logger.LogInformation(
+            "Beki pack {PackId}: press stage composed a {Megabytes:0.0} MB canonical PDF in "
+            + "{Milliseconds} ms.",
+            pack.Id, canonical.Pdf.Length / 1024d / 1024d, (long)composeClock.Elapsed.TotalMilliseconds);
 
         var prepared = canonical.Pdf;
         var preflight = System.Text.Encoding.UTF8.GetString(BekiWithheldReport.Bytes(
@@ -3555,6 +3736,7 @@ public sealed class BekiPackFulfillment(
           two measured gates come back as a LIST, so the report is written with every number in it
           and the caller decides what to withhold. Everything else in that stage still throws.
         */
+        var preflightClock = Stopwatch.StartNew();
         try
         {
             var result = BekiPrintPrep.PrepareWithGates(
@@ -3594,6 +3776,8 @@ public sealed class BekiPackFulfillment(
             logger.LogError(ex, "Print preparation held for pack {PackId}; validating the customer PDF.", pack.Id);
         }
 
+        work.Timings.Record("preflight", preflightClock.Elapsed);
+
         if (work.PreparationProblems.Count > 0)
         {
             logger.LogWarning(
@@ -3630,6 +3814,7 @@ public sealed class BekiPackFulfillment(
         var prepared = candidate.Pdf;
         var preflight = candidate.PreflightJson;
         var digitalReport = candidate.DigitalReport;
+        var publishClock = Stopwatch.StartNew();
 
         work.InteriorUrl = await blobStorage.UploadAsync(
             BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id),
@@ -3674,6 +3859,14 @@ public sealed class BekiPackFulfillment(
         await UploadLayoutReceiptsAsync(
             pack, BekiPackBlobs.CanonicalLayoutMode, candidate.Receipts, cancellationToken);
         await StoreFixedPageQaAsync(pack, candidate.Receipts, candidate.AssetLockHashes, cancellationToken);
+
+        // Recorded before the status document is written, because the status document is what
+        // carries the reading — a publish timed after it was stored would always report zero.
+        work.Timings.Record("publish", publishClock.Elapsed);
+        logger.LogInformation(
+            "Beki pack {PackId}: press stage published a {Megabytes:0.0} MB canonical PDF and its "
+            + "reports in {Milliseconds} ms.",
+            pack.Id, prepared.Length / 1024d / 1024d, (long)publishClock.Elapsed.TotalMilliseconds);
 
         await RecordDeliveryDiagnosticAsync(pack.Id, "print status",
             () => WritePressStatusAsync(pack, work, cancellationToken), cancellationToken);
@@ -3757,16 +3950,22 @@ public sealed class BekiPackFulfillment(
     /// What the book published before a re-preparation replaced it.
     /// </summary>
     /// <param name="Blobs">
-    /// One entry per name in <see cref="LiveDeliverables"/>, present or not: null bytes mean the
-    /// book did not have that document before, and rollback removes whatever the attempt left
+    /// One entry per name in <see cref="LiveDeliverables"/>, present or not: a null copy name means
+    /// the book did not have that document before, and rollback removes whatever the attempt left
     /// under it. Absence has to be recorded rather than skipped — a rejected candidate that
     /// invents a page receipt or a fixed-page QA record the book never had would otherwise leave
     /// it behind for the gates to read.
+    ///
+    /// The copy is named rather than held. It used to be the bytes themselves, which meant the
+    /// reading PDF — fifty megabytes of it — sat in this process's memory for the whole of a press
+    /// stage that is already the most memory-hungry thing the application does, and were then
+    /// uploaded a second time to put the book back. The copy is in storage; the rollback copies it
+    /// back from there, byte for byte, which is the same guarantee without the resident set.
     /// </param>
     private sealed record LiveSnapshot(
         string Prefix,
         string? PrintPdfUrl,
-        IReadOnlyList<(string Name, string ContentType, byte[]? Bytes)> Blobs);
+        IReadOnlyList<(string Name, string ContentType, string? Copy)> Blobs);
 
     /// <summary>
     /// Copies the finished book aside before anything is written over it.
@@ -3783,11 +3982,13 @@ public sealed class BekiPackFulfillment(
     /// are.
     /// </param>
     private async Task<LiveSnapshot> SnapshotLiveDeliverablesAsync(
-        Domain.Entities.AdventurePack pack, BekiLayoutReceipts receipts, CancellationToken cancellationToken)
+        Domain.Entities.AdventurePack pack, BekiLayoutReceipts receipts, PressWork work,
+        CancellationToken cancellationToken)
     {
+        var clock = Stopwatch.StartNew();
         var prefix = $"{pack.UserId}/{pack.Id}/previous/"
             + _timeProvider.GetUtcNow().UtcDateTime.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture);
-        var saved = new List<(string Name, string ContentType, byte[]? Bytes)>();
+        var saved = new List<(string Name, string ContentType, string? Copy)>();
 
         foreach (var (name, contentType) in LiveDeliverables(pack.UserId, pack.Id, receipts))
         {
@@ -3799,11 +4000,21 @@ public sealed class BekiPackFulfillment(
                 continue;
             }
 
-            var bytes = await ReadRequiredBlobAsync(name, cancellationToken);
-            await blobStorage.UploadAsync(
-                $"{prefix}/{name[(name.LastIndexOf('/') + 1)..]}", bytes, contentType, cancellationToken);
-            saved.Add((name, contentType, bytes));
+            // The storage service's own copy, so a fifty-megabyte PDF does not make a round trip
+            // through this process to be put beside itself. The local store copies the file; Azure
+            // copies it inside the account; a double that can do neither downloads and uploads,
+            // exactly as this method used to.
+            var copy = $"{prefix}/{name[(name.LastIndexOf('/') + 1)..]}";
+            await blobStorage.CopyAsync(name, copy, contentType, cancellationToken);
+            saved.Add((name, contentType, copy));
         }
+
+        work.Timings.Record("snapshot", clock.Elapsed);
+        logger.LogInformation(
+            "Beki pack {PackId}: copied {Count} live deliverables aside to {Snapshot} in "
+            + "{Milliseconds} ms.",
+            pack.Id, saved.Count(entry => entry.Copy is not null), prefix,
+            (long)clock.Elapsed.TotalMilliseconds);
 
         return new LiveSnapshot(prefix, pack.PrintPdfUrl, saved);
     }
@@ -3834,11 +4045,11 @@ public sealed class BekiPackFulfillment(
         var unrestored = new List<string>();
         var readingPdfLost = false;
 
-        foreach (var (name, contentType, bytes) in snapshot.Blobs)
+        foreach (var (name, contentType, copy) in snapshot.Blobs)
         {
             try
             {
-                if (bytes is null)
+                if (copy is null)
                 {
                     // The book did not have this document. Deleting rather than leaving it is the
                     // whole point: a rejected candidate's receipt or QA record left in storage is
@@ -3849,7 +4060,10 @@ public sealed class BekiPackFulfillment(
                     continue;
                 }
 
-                await blobStorage.UploadAsync(name, bytes, contentType, cancellationToken);
+                // Copied back out of the snapshot rather than re-uploaded from a copy this process
+                // was holding: the same bytes, and the reading PDF no longer has to be resident for
+                // the whole of a press stage on the chance that the candidate is refused.
+                await blobStorage.CopyAsync(copy, name, contentType, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -3957,12 +4171,18 @@ public sealed class BekiPackFulfillment(
     // the customer PDF is still validated.
     private async Task<(PressUpscaleResult Result, byte[] Artwork)> PrepareCustomerArtworkAsync(
         Domain.Entities.AdventurePack pack, string role, PressUpscaleResult result,
-        BekiCompositionManifest receipt, byte[] original, CancellationToken ct)
+        BekiCompositionManifest receipt, byte[] original, PressTimings timings, CancellationToken ct)
     {
         if (!result.Succeeded) return (result, original);
         try
         {
-            return (result, await StorePressCompositeAsync(pack, role, result.Png!, receipt, ct));
+            // The receipt goes back without the normalized PNG. Everything the caller reads off
+            // this result is a measurement — the tool, the factor, the delivered size, the crop —
+            // and the pixels have already become the composite that is returned beside it. Handing
+            // them back too is fifteen megabytes per sheet kept alive, for all ten sheets, until the
+            // whole stage finishes.
+            return (result with { Png = null },
+                await StorePressCompositeAsync(pack, role, result.Png!, receipt, timings, ct));
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
@@ -4137,9 +4357,33 @@ public sealed class BekiPackFulfillment(
         }
     }
 
+    /// <summary>
+    /// One press raster: sized, recomposited with the approved pose, and written down.
+    ///
+    /// <para>
+    /// **The two PNGs are no longer uploaded.** They were: a <c>print/{role}-base.png</c> and a
+    /// <c>print/{role}-composite.png</c> per sheet, eighteen files and 208 MB for the measured book,
+    /// pushed to storage on every press run — and no reader, download, printer or gate ever fetched
+    /// one back. They were additive evidence about a candidate, and the evidence they carried is
+    /// carried better by two things that stay: the composition receipt beside them, which states the
+    /// SHA-256 and now the byte length of both images, and the JPEG the composer encodes from the
+    /// composite into the press PDF, which is the artifact a printer actually receives. A hash of an
+    /// image nobody kept is still a hash somebody can check the moment the same inputs are
+    /// re-prepared, which is the claim EXACT_BEKI makes; a copy of the image is not what made it
+    /// true. On a small App Service those uploads were minutes of a stage that had an hour to
+    /// explain.
+    /// </para>
+    /// <para>
+    /// What the receipt says is deliberately wider than the partner manifest, which is a closed
+    /// schema (<c>additionalProperties: false</c>) and cannot grow a byte-length field. The manifest
+    /// travels inside the document, verbatim, so it still diffs against the partners' own; the
+    /// envelope adds the sizes and says plainly that the files it names were not retained, rather
+    /// than leaving a reader to conclude storage lost them.
+    /// </para>
+    /// </summary>
     private async Task<byte[]> StorePressCompositeAsync(
         Domain.Entities.AdventurePack pack, string role, byte[] enlargedBase,
-        BekiCompositionManifest receipt, CancellationToken cancellationToken)
+        BekiCompositionManifest receipt, PressTimings timings, CancellationToken cancellationToken)
     {
         var prefix = $"{pack.UserId}/{pack.Id}/print/{role}";
         // An external super-resolver returns a larger whole-factor canvas. This only ever reduces,
@@ -4150,12 +4394,60 @@ public sealed class BekiPackFulfillment(
             cover ? CoverPressWidthPx : InteriorPressWidthPx,
             cover ? CoverPressHeightPx : InteriorPressHeightPx);
         var result = BekiPressComposite.Compose(enlargedBase, receipt, prefix);
-        await blobStorage.UploadAsync(prefix + "-base.png", enlargedBase, "image/png", cancellationToken);
-        await blobStorage.UploadAsync(prefix + "-composite.png", result.Png, "image/png", cancellationToken);
-        await blobStorage.UploadAsync(prefix + "-composition.json",
-            System.Text.Encoding.UTF8.GetBytes(result.Manifest.ToJson()), "application/json", cancellationToken);
+
+        using var composition = JsonDocument.Parse(result.Manifest.ToJson());
+
+        // Timed on its own, and additive across the ten rasters. It is a six-kilobyte write, so on
+        // any healthy deployment it reads as noise — which is the point: this used to be two
+        // multi-megabyte PNG uploads per sheet, and if storage latency is ever the reason a book is
+        // slow again, this line is where it will show.
+        var uploadClock = Stopwatch.StartNew();
+
+        await blobStorage.UploadAsync(
+            prefix + "-composition.json",
+            JsonSerializer.SerializeToUtf8Bytes(
+                new
+                {
+                    stage = PressCompositeReceiptStage,
+                    role,
+                    retained =
+                        "receipt only: the press base and composite PNGs are produced in memory, "
+                        + "JPEG-encoded once into the canonical PDF by the composer, and not stored. "
+                        + "The hashes and byte lengths below identify them exactly, and re-preparing "
+                        + "the same stored base reproduces both.",
+                    base_png = new
+                    {
+                        file = prefix + "-base.png",
+                        sha256 = result.Manifest.BaseImage.Sha256,
+                        byte_length = enlargedBase.Length,
+                    },
+                    composite_png = new
+                    {
+                        file = prefix + "-composite.png",
+                        sha256 = result.Manifest.Output.Sha256,
+                        byte_length = result.Png.Length,
+                    },
+                    composition = composition.RootElement,
+                },
+                PressEvidenceJson),
+            "application/json",
+            cancellationToken);
+
+        timings.Record("upload_receipts", uploadClock.Elapsed);
+
         return result.Png;
     }
+
+    /// <summary>The <c>stage</c> of the per-raster press receipt, so a reader can key off one word.</summary>
+    private const string PressCompositeReceiptStage = "beki-press-composite-receipt-v1";
+
+    /// <summary>
+    /// Indented, unlike the rest of this file's JSON: the press receipts are read by a person
+    /// checking a proof against what produced it, and they carry the partner manifest verbatim,
+    /// which the reference implementation also writes indented.
+    /// </summary>
+    private static readonly JsonSerializerOptions PressEvidenceJson =
+        new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
     /// <summary>
     /// The press stage's rasters through the configured preparer, <see cref="PressParallelism"/>
@@ -4172,12 +4464,14 @@ public sealed class BekiPackFulfillment(
     /// </summary>
     private async Task<PressUpscaleResult[]> PrepareRastersAsync(
         IReadOnlyList<(byte[] Png, int Width, int Height)> rasters,
+        PressTimings timings,
         CancellationToken cancellationToken)
     {
         var slots = new SemaphoreSlim(PressParallelism, PressParallelism);
 
         return await Task.WhenAll(rasters.Select(async raster =>
         {
+            var clock = Stopwatch.StartNew();
             (int Width, int Height)? nativeSize = null;
             try
             {
@@ -4225,6 +4519,10 @@ public sealed class BekiPackFulfillment(
             finally
             {
                 slots.Release();
+                // Wall time including the wait for a slot, which is the number that explains a
+                // stage: one sheet's own cost and "it queued behind two others" look identical in a
+                // total and are different deployments.
+                timings.RecordRaster(clock.Elapsed);
             }
         }));
     }
@@ -4268,6 +4566,14 @@ public sealed class BekiPackFulfillment(
                     // null there too when nothing drifted — which is the difference between "the
                     // terms moved and could not have changed these pixels" and "nobody asked".
                     artwork_contract_drift = work.ArtworkContractDrift,
+                    // What each step of this stage cost, in milliseconds. The production report was
+                    // "after 91 % it takes more than an hour", and no stored document could say
+                    // which part of it did — so the next run says so itself, in the document an
+                    // operator already opens when printing is held. `total` is the whole press
+                    // stage; the render-back timings are in the render report, which is where that
+                    // stage's own evidence lives.
+                    timings_ms = work.Timings.ForStatus(),
+                    parallelism = bekiOptions.Value.PrintPrep.ResolvedParallelism,
                 },
                 JsonOptions),
             "application/json",

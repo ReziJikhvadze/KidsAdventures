@@ -130,6 +130,29 @@ public sealed record BekiTypographyRecord(
     [property: JsonPropertyName("title_outline_width_pt")] double? TitleOutlineWidthPt = null);
 
 /// <summary>
+/// The rectangle a cover's title was actually set in, and whether it is the approved one.
+///
+/// Wrap millimetres from the top-left of the 512 × 245 canvas on both covers alike — the press page
+/// pads to these numbers directly and the customer's page takes
+/// <see cref="Composite.BekiCoverDieline.InsideFrontBoardCrop"/> of them, so a reader comparing the
+/// two receipts is comparing one decision rather than two coordinate systems.
+///
+/// It exists because the decision is now made per book. Until 2026-09-08 the title's box was a
+/// constant and a receipt naming it would have been a receipt for the source code; since
+/// <see cref="Composite.BekiCoverTitlePlacement"/> reads the artwork, the box is a fact about THIS
+/// cover and a package that did not record it could not answer "why is the title lower on this
+/// book than on that one" a year from now.
+/// </summary>
+public sealed record BekiTitleBox(
+    [property: JsonPropertyName("left_mm")] double LeftMm,
+    [property: JsonPropertyName("top_mm")] double TopMm,
+    [property: JsonPropertyName("width_mm")] double WidthMm,
+    [property: JsonPropertyName("height_mm")] double HeightMm,
+    [property: JsonPropertyName("version")] string Version,
+    [property: JsonPropertyName("moved")] bool Moved,
+    [property: JsonPropertyName("reason")] string Reason);
+
+/// <summary>
 /// Everything a gate needs to know about one finished page that only layout can answer.
 /// </summary>
 /// <param name="ImageSha256">
@@ -169,7 +192,11 @@ public sealed record BekiLayoutPageReceipt(
     // Owner ruling 2026-09-01, rule 4: the press sheet is built at the stated size, and the size it
     // was built FROM is stated here. One entry per raster this page placed, in placement order —
     // the same order as ImageSha256.
-    [property: JsonPropertyName("rasters")] IReadOnlyList<BekiRasterProvenance>? Rasters = null)
+    [property: JsonPropertyName("rasters")] IReadOnlyList<BekiRasterProvenance>? Rasters = null,
+    // The chosen title rectangle, on the two pages that set a title over the cover wrap and null on
+    // every other page in the book. Trailing and optional so receipts written before 2026-09-08
+    // deserialize unchanged, and so that adding it moved no page but the two covers.
+    [property: JsonPropertyName("title_box")] BekiTitleBox? TitleBox = null)
 {
     /// <summary>The name fulfillment stores this under: <c>receipts/page-NN-layout.json</c>.</summary>
     [JsonIgnore]
@@ -715,6 +742,17 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private readonly Dictionary<string, float> _coverTitleSizes = [];
 
     /// <summary>
+    /// Where each cover wrap's title was placed, keyed by the SHA-256 of the wrap it was read from.
+    ///
+    /// One book asks the same question twice — the press cover sets the title on the wrap and the
+    /// customer's front page sets it on a crop of the same wrap — and the two MUST get the same
+    /// answer or the download and the printed book are different designs again (audit P0-01). The
+    /// reading is deterministic, so the cache is an optimisation and not the mechanism; the wrap's
+    /// own hash is the key because that is what "the same cover" means here.
+    /// </summary>
+    private readonly Dictionary<string, BekiCoverTitleChoice> _coverTitleBoxes = [];
+
+    /// <summary>
     /// The approved Beki mark for the credits spread, resolved through the pose registry by the id
     /// the layout registry names.
     ///
@@ -942,7 +980,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         ArgumentNullException.ThrowIfNull(spreads);
         ArgumentNullException.ThrowIfNull(personalization);
 
-        BekiCoverLayoutSafety.EnsureClear(personalization.CoverProtectedAreas);
+        // Against the box this book's title will actually be set in, not the approved one: a cover
+        // whose head the placement has already stepped around is not a cover to refuse.
+        BekiCoverLayoutSafety.EnsureClear(
+            personalization.CoverProtectedAreas, CoverTitleBox(wrapComposite));
 
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -1039,6 +1080,62 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private double ReadingCoverTitleOutlineWidthPt(float pressTitleSizePt) =>
         CoverTitleOutlineWidthPt(pressTitleSizePt) * BekiCoverDieline.DigitalScale;
 
+    /// <summary>
+    /// Where this cover's title goes, read from the cover itself — once per wrap, and the same
+    /// answer for the press page and the customer's page.
+    ///
+    /// **The observed defect, 2026-09-08 (owner): "the cover TITLE was printed over the child's
+    /// face."** The box used to be four constants, and no book could ever have been set anywhere
+    /// else. See <see cref="BekiCoverTitlePlacement"/> for the reading and its window.
+    ///
+    /// A measurement that throws does not fail the book. The approved rectangle is where the title
+    /// has always been set and it is a legal, printable answer; refusing a paid cover because an
+    /// optional improvement could not be computed would be trading a real book for a better one
+    /// nobody gets. The warning says which book it happened on.
+    /// </summary>
+    private BekiCoverTitleChoice CoverTitleBox(byte[] wrapComposite)
+    {
+        var key = Sha256(wrapComposite);
+
+        if (_coverTitleBoxes.TryGetValue(key, out var cached))
+        {
+            return cached;
+        }
+
+        BekiCoverTitleChoice choice;
+
+        try
+        {
+            choice = BekiCoverTitlePlacement.Choose(wrapComposite);
+
+            _logger.LogInformation(
+                "Beki cover title: {Version} placed the title at {LeftMm:0.#},{TopMm:0.#} mm "
+                + "({WidthMm:0.#} × {HeightMm:0.#}) on wrap {WrapSha256} — {Reason}",
+                choice.Version, choice.LeftMm, choice.TopMm, choice.WidthMm, choice.HeightMm,
+                key, choice.Reason);
+        }
+        catch (Exception ex)
+        {
+            choice = BekiCoverTitleChoice.Approved(
+                "kept the approved title box: this cover could not be measured "
+                + $"({ex.GetType().Name}).");
+
+            _logger.LogWarning(
+                ex,
+                "Beki cover title: wrap {WrapSha256} could not be measured, so the title is set in "
+                + "the approved box at {LeftMm:0.#},{TopMm:0.#} mm.",
+                key, choice.LeftMm, choice.TopMm);
+        }
+
+        _coverTitleBoxes[key] = choice;
+        return choice;
+    }
+
+    /// <summary>The chosen box as the page's receipt records it.</summary>
+    private static BekiTitleBox Recorded(BekiCoverTitleChoice choice) => new(
+        choice.LeftMm, choice.TopMm, choice.WidthMm, choice.HeightMm,
+        choice.Version, choice.Moved, choice.Reason);
+
     private void ComposeCoverWrapPage(
         IDocumentContainer document,
         string title,
@@ -1048,6 +1145,11 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         var titleWidthPt = MmToPt(BekiCoverDieline.TitleSafeWidthMm);
         var titleSize = CoverTitleSizePt(title);
         var placed = NormalizeCoverWrap(wrapComposite);
+
+        // The box is chosen from the wrap as it ARRIVED, not from `placed`: normalization re-encodes
+        // the same picture at the same size, and hashing the arrival is what lets the customer's
+        // page — which never sees `placed` — key the same decision.
+        var box = CoverTitleBox(wrapComposite);
 
         document.Page(page =>
         {
@@ -1062,12 +1164,12 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                     .FitUnproportionally().UseOriginalImage();
 
                 layers.Layer()
-                    .PaddingLeft(BekiCoverDieline.TitleSafeLeftMm, Unit.Millimetre)
-                    .PaddingTop(BekiCoverDieline.TitleSafeTopMm, Unit.Millimetre)
+                    .PaddingLeft((float)box.LeftMm, Unit.Millimetre)
+                    .PaddingTop((float)box.TopMm, Unit.Millimetre)
                     .AlignLeft()
                     .AlignTop()
-                    .Width(BekiCoverDieline.TitleSafeWidthMm, Unit.Millimetre)
-                    .Height(BekiCoverDieline.TitleSafeHeightMm, Unit.Millimetre)
+                    .Width((float)box.WidthMm, Unit.Millimetre)
+                    .Height((float)box.HeightMm, Unit.Millimetre)
                     .AlignMiddle()
                     .Element(item => OutlinedText(
                         item, title, titleSize, CoverTitleLineHeight,
@@ -1093,7 +1195,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             WrapLines(title, titleSize, titleWidthPt, PdfFontBootstrap.TitleFamily),
             TextProbe: null,
             SourceSha256: [_assets.CoverLogo.Sha256],
-            Rasters: [Provenance("cover-wrap", wrapComposite, placed)]));
+            Rasters: [Provenance("cover-wrap", wrapComposite, placed)],
+            TitleBox: Recorded(box)));
     }
 
     /// <summary>
@@ -1331,9 +1434,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// scale and not a squash (amendment A3).
     ///
     /// The title is the identical string, in the identical face, set into the identical rectangle —
-    /// expressed as fractions of the crop window so that "the same place on the cover" survives the
-    /// change of coordinate system. What the parent downloads and what the press prints are the same
-    /// design, which is the whole of what P0-01 asked for.
+    /// the one <see cref="CoverTitleBox"/> chose from this very wrap, expressed as fractions of the
+    /// crop window so that "the same place on the cover" survives the change of coordinate system.
+    /// What the parent downloads and what the press prints are the same design, which is the whole
+    /// of what P0-01 asked for, and it stays true now that the place is decided per book.
     /// </summary>
     private void ComposeReadingFrontCover(
         IDocumentContainer container, string title, byte[] wrapComposite, ReceiptBook receipts)
@@ -1341,10 +1445,14 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         var crop = CropFrontBoard(wrapComposite);
         var board = FitForScreen(crop, BekiCoverDieline.DigitalPageWidthMm);
 
+        // The same decision the press page made, from the same wrap bytes and the same cache — not
+        // a second reading that could disagree with it. Audit P0-01's whole complaint was two covers
+        // that were not the same design, and a title box chosen twice is exactly that shape again.
+        var box = CoverTitleBox(wrapComposite);
+
         var (leftFraction, topFraction, widthFraction, heightFraction) =
             BekiCoverDieline.InsideFrontBoardCrop(
-                BekiCoverDieline.TitleSafeLeftMm, BekiCoverDieline.TitleSafeTopMm,
-                BekiCoverDieline.TitleSafeWidthMm, BekiCoverDieline.TitleSafeHeightMm);
+                (float)box.LeftMm, (float)box.TopMm, (float)box.WidthMm, (float)box.HeightMm);
 
         var titleLeftMm = leftFraction * BekiCoverDieline.DigitalPageWidthMm;
         var titleTopMm = topFraction * BekiCoverDieline.DigitalPageHeightMm;
@@ -1396,7 +1504,10 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             TextProbe: null,
             // The board crop is the source: the wrap is a different picture, and a factor measured
             // against it would be describing a crop rather than a resize.
-            Rasters: [Provenance("cover-front", crop, board, BekiRenderMode.Reading)]));
+            Rasters: [Provenance("cover-front", crop, board, BekiRenderMode.Reading)],
+            // In WRAP millimetres, exactly as the press page records it — the two receipts are then
+            // comparable without anybody converting anything, which is the point of recording it.
+            TitleBox: Recorded(box)));
     }
 
     /// <summary>

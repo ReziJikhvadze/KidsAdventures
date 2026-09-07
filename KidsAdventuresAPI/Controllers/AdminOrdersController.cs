@@ -52,16 +52,67 @@ public sealed class AdminOrdersController(
                 await ReadCoverBlobAsync(reviewName, cancellationToken));
         var sha = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(png)).ToLowerInvariant();
         var current = review?.BaseSha256.Equals(sha, StringComparison.OrdinalIgnoreCase) == true;
+        var titleBox = await ChosenTitleBoxAsync(pack.UserId, pack.Id, cancellationToken);
         return Ok(new
         {
             baseSha256 = sha, canvasWidthMm = 512, canvasHeightMm = 245,
             imageUrl = $"/api/admin/orders/{id}/cover-layout/base",
-            title = new { x = BekiCoverDieline.TitleSafeLeftMm, y = BekiCoverDieline.TitleSafeTopMm,
-                width = BekiCoverDieline.TitleSafeWidthMm, height = BekiCoverDieline.TitleSafeHeightMm },
+            // Where this book's title actually goes, not where the dieline used to put every book's:
+            // the reviewer is drawing boxes on the picture to say "the head is here", and the answer
+            // to that only means anything against the rectangle this cover's title was set in.
+            title = new { x = titleBox?.LeftMm ?? BekiCoverDieline.TitleSafeLeftMm,
+                y = titleBox?.TopMm ?? BekiCoverDieline.TitleSafeTopMm,
+                width = titleBox?.WidthMm ?? BekiCoverDieline.TitleSafeWidthMm,
+                height = titleBox?.HeightMm ?? BekiCoverDieline.TitleSafeHeightMm,
+                version = titleBox?.Version, moved = titleBox?.Moved, reason = titleBox?.Reason },
             review,
             status = review is null ? "NOT_REVIEWED" : !current ? "STALE" :
-                BekiCoverLayoutSafety.Conflicts(review.Areas).Count == 0 ? "PASS" : "FAIL",
+                BekiCoverLayoutSafety.Conflicts(review.Areas, titleBox).Count == 0 ? "PASS" : "FAIL",
         });
+    }
+
+    /// <summary>
+    /// The title rectangle this pack's PUBLISHED cover was set in, read from the record the press
+    /// stage wrote beside it (<c>cover-layout-safety.json</c>, <c>title_box</c>).
+    ///
+    /// Read, never recomputed. Fulfilment decides the box from the normalized press wrap — the
+    /// bytes the composer is handed — and records it in the same run that publishes the PDF, so
+    /// the record and the printed cover cannot disagree. Recomputing here from the stored customer
+    /// wrap could: a book produced before placement existed has its title in the approved box
+    /// whatever the picture measures today, and a fresh reading of a different-resolution copy of
+    /// the wrap can land one grid step away from the box the book actually carries (sol review,
+    /// 2026-09-08). A reviewer marking "the head is here" needs the rectangle the title is in, not
+    /// the rectangle it would be in if the book were made again.
+    ///
+    /// Null — and therefore the approved box — when there is no record (a book that has not
+    /// reached the press stage, or one made before the record existed; both set their title in the
+    /// approved box) or when the record cannot be read: this endpoint reports on a book, and a
+    /// missing evidence file is not a reason to refuse the page.
+    /// </summary>
+    private async Task<BekiCoverTitleChoice?> ChosenTitleBoxAsync(
+        Guid userId, Guid packId, CancellationToken cancellationToken)
+    {
+        var name = BekiPackBlobs.CoverLayoutSafetyName(userId, packId);
+
+        try
+        {
+            if (!await blobStorage.ExistsAsync(name, cancellationToken)) return null;
+
+            using var document = System.Text.Json.JsonDocument.Parse(
+                await ReadCoverBlobAsync(name, cancellationToken));
+
+            return document.RootElement.TryGetProperty("title_box", out var box)
+                && box.ValueKind == System.Text.Json.JsonValueKind.Object
+                    ? System.Text.Json.JsonSerializer.Deserialize<BekiCoverTitleChoice>(box.GetRawText())
+                    : null;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(
+                ex, "Cover layout: the recorded title box for pack {PackId} could not be read.",
+                packId);
+            return null;
+        }
     }
 
     [HttpGet("orders/{id:guid}/cover-layout/base")]
@@ -88,7 +139,8 @@ public sealed class AdminOrdersController(
             DateTimeOffset.UtcNow, request.Areas ?? []);
         try { BekiCoverLayoutSafety.VerifySource(review, png); }
         catch (BekiLayoutException ex) { return Conflict(new { message = ex.Message }); }
-        var conflicts = BekiCoverLayoutSafety.Conflicts(review.Areas);
+        var conflicts = BekiCoverLayoutSafety.Conflicts(
+            review.Areas, await ChosenTitleBoxAsync(pack.UserId, pack.Id, cancellationToken));
         // Preserve negative observations too: the next explicit preparation must refuse them.
         // This endpoint does not alter old customer PDFs, print URLs or payment/order state.
         await blobStorage.UploadAsync(BekiPackBlobs.CoverLayoutReviewName(pack.UserId, pack.Id),

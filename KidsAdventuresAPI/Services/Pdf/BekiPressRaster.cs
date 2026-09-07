@@ -148,11 +148,21 @@ public static class BekiPressRaster
             image.Metadata.HorizontalResolution = 300d;
             image.Metadata.VerticalResolution = 300d;
 
-            // PNG, deliberately: this is an intermediate, and the composer performs the single
-            // JPEG encode the press file ships with. Two encodes would be two generations of loss
-            // where the specification allows one.
+            /*
+              PNG, deliberately: this is an intermediate, and the composer performs the single JPEG
+              encode the press file ships with. Two encodes would be two generations of loss where
+              the specification allows one.
+
+              BestSpeed, measured. Deflate's default level spent 3859 ms per interior raster on this
+              machine against 535 ms at BestSpeed — nine rasters, so a minute of a book's press stage
+              went into compressing a buffer that is decoded again a few milliseconds later and never
+              leaves the process. PNG is lossless at every level, so the pixels the composer receives
+              are identical and the exactness the deterministic mode is named for is untouched; what
+              changes is the size of a temporary. The bytes are still a pure function of the input,
+              which is what the receipt's hash asserts.
+            */
             using var buffer = new MemoryStream();
-            image.Save(buffer, new PngEncoder());
+            image.Save(buffer, new PngEncoder { CompressionLevel = PngCompressionLevel.BestSpeed });
 
             return new PressUpscaleResult(
                 true,
@@ -171,19 +181,26 @@ public static class BekiPressRaster
     /// <summary>
     /// Reduces an over-sized prepared base to the locked size. External mode only: a super-resolver
     /// scales by whole factors and overshoots, and this is where the overshoot comes off.
+    ///
+    /// Three of the four answers this can give are decided by two integers, so the header is read
+    /// first and the pixels only when one of them actually has to move. It used to decode the whole
+    /// image before looking — and on the shipped deterministic mode the answer is ALWAYS "already
+    /// exact", so every book paid for nine full decodes of a thirteen-megapixel PNG (171 ms each
+    /// here, against 6 ms to read the header) to be told a size the header already stated.
     /// </summary>
     public static byte[] FinalSize(byte[] detailPreparedBase, int width, int height)
     {
-        using var image = Image.Load(detailPreparedBase);
-        if (image.Width < width || image.Height < height)
+        var size = Image.Identify(detailPreparedBase);
+        if (size.Width < width || size.Height < height)
             throw new BekiLayoutException(CompositeFailureCodes.PrintPreflightFailed,
-                $"PRESS_RESOLUTION: {image.Width}x{image.Height} is short of the {width}x{height} "
+                $"PRESS_RESOLUTION: {size.Width}x{size.Height} is short of the {width}x{height} "
                 + "this placement needs; final sizing only reduces.");
-        if (image.Width == width && image.Height == height) return detailPreparedBase;
+        if (size.Width == width && size.Height == height) return detailPreparedBase;
         // Canvas ratios differ only by integer rounding. Refuse a different composition.
-        if (Math.Abs((double)image.Width / image.Height / ((double)width / height) - 1) > 0.005)
+        if (Math.Abs((double)size.Width / size.Height / ((double)width / height) - 1) > 0.005)
             throw new BekiLayoutException(CompositeFailureCodes.PrintPreflightFailed,
                 "PRESS_GEOMETRY: prepared base has a different aspect ratio.");
+        using var image = Image.Load(detailPreparedBase);
         image.Mutate(context => context.Resize(width, height, KnownResamplers.Lanczos3));
         using var output = new MemoryStream();
         image.SaveAsPng(output);

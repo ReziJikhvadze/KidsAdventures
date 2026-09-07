@@ -35,4 +35,41 @@ public interface IBlobStorageService
     /// already gone: cleanup runs repeatedly and must be safe to run twice.
     /// </summary>
     Task<bool> DeleteByStoredUrlAsync(string storedUrl, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Copies one stored blob to another name inside the same store, without the bytes travelling
+    /// through this process.
+    /// </summary>
+    /// <remarks>
+    /// It exists for the snapshot a print re-preparation takes before it replaces a finished book:
+    /// a fifty-megabyte reading PDF, a contact sheet and a dozen reports were downloaded to the
+    /// application and uploaded straight back under <c>previous/{timestamp}/</c>, and the rollback
+    /// that puts them back did it again in the other direction. On Azure that is a hundred
+    /// megabytes over the wire, twice, for bytes the storage account already had; the service can do
+    /// the whole thing itself.
+    ///
+    /// <para>
+    /// A DEFAULT member, and the default is exactly the download-and-upload the callers used to
+    /// write out by hand. This interface has more hand-written doubles than implementations —
+    /// eighteen of them across the test assembly — and a new required member would have been
+    /// eighteen edits to teach eighteen dictionaries a trick none of their tests are about. The
+    /// implementations that can do better override it; a double gets the honest, slow answer and
+    /// stays correct.
+    /// </para>
+    /// <para>
+    /// <paramref name="contentType"/> is what the copy is served as when the fallback has to
+    /// re-upload it. A server-side copy carries the source's own properties and ignores it, which
+    /// is the right answer in both cases: the copy of a PDF is a PDF either way.
+    /// </para>
+    /// </remarks>
+    /// <param name="sourceName">The blob to copy, named the way <see cref="UploadAsync"/> names it.</param>
+    /// <param name="destinationName">Where to put it, named the same way. Overwritten if present.</param>
+    async Task CopyAsync(
+        string sourceName, string destinationName, string contentType, CancellationToken cancellationToken)
+    {
+        await using var stream = await DownloadAsync(sourceName, cancellationToken);
+        using var buffer = new MemoryStream();
+        await stream.CopyToAsync(buffer, cancellationToken);
+        await UploadAsync(destinationName, buffer.ToArray(), contentType, cancellationToken);
+    }
 }
