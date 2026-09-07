@@ -61,3 +61,14 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+###############################################################################
+# Shell scripts are read by Linux, whatever checked them out.
+#
+# `* text=auto` above normalises in the repository and hands a Windows working
+# tree CRLF, which is right for almost everything here and fatal for one thing:
+# a .sh deployed to App Service. bash reads the carriage return as part of the
+# command and answers "/home/site/wwwroot/startup.sh: cannot execute", which
+# reads like a missing file rather than a line ending.
+###############################################################################
+*.sh text eol=lf

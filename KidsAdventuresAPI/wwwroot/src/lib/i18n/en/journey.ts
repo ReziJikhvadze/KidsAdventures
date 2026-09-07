@@ -59,7 +59,7 @@ export const journey = {
     relationshipCustom: "Describe the relationship",
     relationshipPlaceholder: "e.g. godparent or magical friend",
     photoGuideAlt:
-      "On the left a good photo — the child's face close up, facing the camera; on the right a poor one, far away and in profile.",
+      "On the left a good photo — the child faces the camera and their face is clearly visible; on the right a poor one, turned in profile and far away.",
     photoUpload: "Upload a photo",
     photoReplace: "Change the photo",
     // Advice, not a rule: the check itself only asks whether a person is in the photo, so this
@@ -267,6 +267,8 @@ export const journey = {
   },
 
   checkout: {
+    stepAddress: "Where it goes",
+    stepParcel: "How it is made up",
     copies: "Number of copies",
     copiesNote: "One address, one parcel",
     copiesFewer: "One fewer",

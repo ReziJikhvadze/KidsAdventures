@@ -16,7 +16,13 @@
  */
 
 const GA_MEASUREMENT_ID = "G-7ZL6C5SB29";
-const GTM_ID = "GTM-K9Q596H3";
+/*
+  The container swapped on 2026-09-07, from GTM-K9Q596H3 to this one. Replaced rather than added
+  beside it: two containers on one page is two of everything they each carry, and the tags that
+  live in this file were already moved out of <head> once because a pixel was counting every
+  page view twice. Whatever the old container still holds stops firing the moment this deploys.
+*/
+const GTM_ID = "GTM-57L68PG9";
 const PINTEREST_TAG_ID = "2614019108945";
 const ADSENSE_CLIENT = "ca-pub-9730875401500289";
 const META_PIXEL_ID = "931422879431654";

@@ -1240,11 +1240,229 @@
   fits, and this keeps it fitting: the columns centre in the space they are given rather than
   stacking up from the top.
 */
+/*
+  The order stops being a card on the page and becomes the edge of it.
+
+  A cream card floating in the middle of a dark screen put the price in one column and the
+  button that pays it in the other — the two things a payment screen is for, on opposite sides
+  of a 72px gap. The rail carries both: the breakdown, the code, the total and the button, in
+  that order, down the right-hand edge. The form gets the rest of the width and no longer has a
+  column of options competing with a column of prices.
+
+  `padding-right: 0` is what lets the rail reach the edge: the stage inherits the journey's
+  horizontal padding, and the rail is the one thing on this screen that should not sit inside it.
+*/
 .ux-checkout-stage {
   display: grid;
-  grid-template-columns: 1.03fr 0.97fr;
-  gap: clamp(32px, 4.5vw, 72px);
+  grid-template-columns: minmax(0, 1fr) clamp(380px, 32vw, 620px);
+  gap: clamp(28px, 3.4vw, 56px);
+  align-items: stretch;
+  padding-right: 0;
+}
+/*
+  Wider than the 590px the form kept when a card sat beside it.
+
+  With the rail hard against the right edge, every spare pixel on a wide window collects in one
+  gutter between the two — 439px of it at 1536, which reads as a hole rather than as air. The
+  form takes most of it back, and the address it holds is the one field on the site that has
+  never had enough width; the heading stops wrapping to two lines at the same time.
+*/
+.ux-checkout-stage > .checkout-form {
+  /*
+    Both caps scale, or the gutter does.
+
+    Fixed widths leave every spare pixel of a wide window in the one gap between the columns —
+    610px of it at 1920, which is a hole rather than air. Growing both with the viewport keeps
+    that gap at about a tenth of the width from 1280 up to 1920, and stops the form's fields
+    from stretching to a width no name needs.
+  */
+  max-width: min(100%, clamp(590px, 50vw, 900px));
+}
+
+/*
+  The rail.
+
+  Everything about the price lives here and nothing else does: what is being bought, what it
+  costs, a code if there is one, the total, and the button. The cream card it replaces is not
+  missed for its warmth — the book's own cover is the warm thing on this screen — but for the
+  contrast it gave the numbers, so the total is set in the display face at 30px and the lines
+  under it stay quiet.
+
+  Flush right, square on that side: it is the edge of the window, not a panel near it.
+*/
+.ux-checkout-stage > .ux-order-summary {
+  width: 100%;
+  max-width: none;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(20px, 2.6vh, 30px) clamp(22px, 2.2vw, 34px);
+  border: 0;
+  border-left: 1px solid rgba(239, 227, 207, 0.13);
+  border-radius: 0;
+  color: #f8f2e5;
+  background: linear-gradient(180deg, #2a1d52a1, #1b1240d6);
+  box-shadow: none;
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+.ux-checkout-stage > .ux-order-summary .summary-lines {
+  color: #f8f2e5;
+}
+.ux-checkout-stage > .ux-order-summary .summary-lines h2 {
+  color: #f8f2e5;
+}
+.ux-checkout-stage > .ux-order-summary .summary-lines > span {
+  border-bottom-color: rgba(239, 227, 207, 0.1);
+  color: #e6e0ec99;
+}
+.ux-checkout-stage > .ux-order-summary .summary-lines > span strong {
+  color: #f8f2e5d6;
+}
+.ux-checkout-stage > .ux-order-summary .ux-discount-line,
+.ux-checkout-stage > .ux-order-summary .ux-discount-line strong {
+  color: #9fe0be !important;
+}
+/*
+  The total, and the one number on the screen that is allowed to be big.
+
+  It is the last line of the breakdown in the markup, which is where it belongs for a reader;
+  the border above it and the type size are what make it read as the answer rather than a
+  fifth row.
+*/
+.ux-checkout-stage > .ux-order-summary .summary-lines > div {
+  align-items: baseline;
+  margin-top: 14px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(239, 227, 207, 0.16);
+  color: #e6e0ec9e;
+  font-size: 12px;
+}
+.ux-checkout-stage > .ux-order-summary .summary-lines > div strong {
+  color: var(--story-gold);
+  font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+}
+/* The product, the breakdown and the code sit at the top; the total and the button at the
+   bottom, however tall the window is. */
+.ux-checkout-stage > .ux-order-summary .ux-promo-panel {
+  margin-top: 10px;
+  margin-bottom: auto;
+}
+.ux-checkout-stage > .ux-order-summary .summary-lines h2 {
+  margin: 14px 0 8px;
+}
+.ux-checkout-stage > .ux-order-summary .ux-compact-product small {
+  color: #cbb9ff9e;
+}
+.ux-checkout-stage > .ux-order-summary .ux-compact-product strong {
+  color: #fff8eb;
+}
+.ux-checkout-stage > .ux-order-summary .ux-compact-product span {
+  color: var(--story-gold);
+}
+.ux-checkout-stage > .ux-order-summary > p {
+  margin-top: 10px;
+  padding: 9px 11px;
+  color: #e6e0ec7a;
+  background: #3c786421;
+}
+.ux-checkout-stage > .ux-order-summary > p svg {
+  color: #8ebca8;
+}
+.ux-checkout-stage > .ux-order-summary .checkout-pay {
+  min-height: 54px;
+  margin-top: 14px;
+}
+/*
+  The rail is now the taller of the two columns — it took the code, the button and the note off
+  the form — so its own rows give a little back. Nothing is removed: the breakdown is the one
+  thing a payment screen may not hide.
+*/
+.ux-checkout-stage > .ux-order-summary .summary-lines > span {
+  padding: 8px 0;
+}
+.ux-checkout-stage > .ux-order-summary .ux-promo-panel {
+  padding: 10px;
+}
+
+/* The name of a question, not a heading: it labels the group of fields under it. */
+.ux-checkout-step {
+  display: flex;
   align-items: center;
+  gap: 10px;
+  margin: 16px 0 0;
+  color: #f8f2e5a8;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.ux-checkout-step::after {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, #efe3cf24, transparent);
+  content: "";
+}
+
+/*
+  Copies and wrapping: one row, two answers to one question — until the row is too narrow to
+  hold them.
+
+  auto-fit rather than a breakpoint, because what decides this is the column's width and not the
+  window's: between 781px and about 1000px the checkout is still two columns, so the form is
+  around 340px wide and each card would get 160 of it — less than the price and the three-button
+  stepper need side by side. 200px is that pair plus the card's own padding; under twice it, the
+  two cards stack and nothing overflows.
+*/
+.ux-parcel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+.ux-parcel-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 92px;
+  padding: 13px 14px;
+  border: 1px solid rgba(239, 227, 207, 0.15);
+  border-radius: 18px;
+  background: #2d1f5459;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+.ux-parcel-card strong {
+  display: block;
+  color: #f8f2e5;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ux-parcel-card small {
+  display: block;
+  margin-top: 2px;
+  color: #f8f2e58f;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.ux-parcel-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ux-parcel-foot > span:first-child {
+  color: #f8f2e5a3;
+  font-size: 11px;
+}
+.ux-parcel-foot b {
+  color: var(--story-gold);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 /*
@@ -1724,13 +1942,29 @@
     width: min(285px, 85vw);
     min-height: 405px;
   }
+  /*
+    Stacked, the rail stops being a rail: it is a panel under the form, with the page's padding
+    back on both sides.
+  */
   .ux-checkout-stage {
     display: flex;
     flex-direction: column;
+    padding-right: clamp(48px, 5vw, 80px);
   }
-  .ux-order-summary {
-    order: -1;
+  /*
+    And it comes last, not first.
+
+    It used to be lifted above the form so a parent saw the price before the fields. The button
+    that pays it lives in this panel now, so leading with it would put "pay" above the address
+    it is waiting for; the order is the form, then the price, then the button — which is the
+    order every other checkout on a phone is read in.
+  */
+  .ux-checkout-stage > .ux-order-summary {
+    order: 0;
+    max-width: none;
     padding: 15px;
+    border: 1px solid rgba(239, 227, 207, 0.13);
+    border-radius: 22px;
   }
   .ux-compact-product {
     grid-template-columns: 76px 1fr;
@@ -2279,6 +2513,19 @@
     margin-bottom: 8px;
   }
 
+  /*
+    And the two example photographs, which are an illustration of a rule rather than the rule.
+
+    The picture grew taller when the "good" example was replaced — the new artwork hangs its
+    tick below the ring, where the old one tucked it inside — and eight of those pixels landed
+    on the one window that had none to spare. Contain rather than crop: a guide to what a good
+    photograph looks like must not itself be badly cropped.
+  */
+  .ux-character-stack:has(> .ux-hero-picker) .ux-photo-guide {
+    max-height: 104px;
+    object-fit: contain;
+  }
+
   .ux-profile-stage:has(.ux-hero-picker) > .ux-stage-heading .eyebrow {
     margin-bottom: 4px;
   }
@@ -2659,6 +2906,13 @@
     gap: 12px;
     padding-top: 10px;
     padding-bottom: 10px;
+    /*
+      Symmetric again. The rail's rule above strips the right-hand padding so it can reach the
+      edge of a wide window; on a phone the rail is an ordinary panel and the page's own 20px
+      belongs on both sides — without this the whole checkout sat 28px left of centre and every
+      control lost that width.
+    */
+    padding-right: 20px;
   }
   /* Rows, not paragraphs: the breakdown is four short facts and a total. */
   .ux-checkout-stage .summary-lines > span {

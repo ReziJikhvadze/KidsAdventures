@@ -61,7 +61,7 @@ export const journey = {
     relationshipCustom: "ჩაწერე ურთიერთობა",
     relationshipPlaceholder: "მაგ. ნათლია ან ჯადოსნური მეგობარი",
     photoGuideAlt:
-      "მარცხნივ სწორი ფოტო — ბავშვის სახე ახლოდან და პირდაპირ; მარჯვნივ არასწორი — შორიდან და გვერდულად.",
+      "მარცხნივ სწორი ფოტო — ბავშვი კამერისკენ იყურება და სახე კარგად ჩანს; მარჯვნივ არასწორი — გვერდულად შემობრუნებული და შორიდან.",
     photoUpload: "ფოტოს ატვირთვა",
     photoReplace: "შეცვალე ფოტო",
     photoChecking: "ფოტო მზადდება…",
@@ -301,6 +301,8 @@ export const journey = {
   checkout: {
     /* The package a parent is buying, named in the language the rest of the page is in.
        These two lines were the last English left on the order summary. */
+    stepAddress: "სად მივიტანოთ",
+    stepParcel: "როგორ მოვამზადოთ",
     copies: "ეგზემპლარების რაოდენობა",
     copiesNote: "ერთ მისამართზე, ერთ ამანათში",
     copiesFewer: "ერთით ნაკლები",
