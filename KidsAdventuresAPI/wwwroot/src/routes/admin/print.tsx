@@ -23,7 +23,7 @@ export const Route = createFileRoute("/admin/print")({
   }),
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `ბეჭდვა და მიწოდება — ${BRAND_NAME} Admin`,
+      title: `ბეჭდვა და მიწოდება - ${BRAND_NAME} Admin`,
       description: "Print queue.",
       path: "/admin/print",
       noindex: true,
@@ -164,7 +164,7 @@ function PrintRow({ row, onChanged }: { row: admin.AdminPrintOrder; onChanged: (
       </td>
       <td className="book-cell">
         <Link to="/admin/orders" search={{ q: row.orderId }}>
-          {row.bookTitle || "—"}
+          {row.bookTitle || "-"}
         </Link>
         <span className="cell-subtitle">
           {row.heroName ? `გმირი: ${row.heroName} · ` : ""}

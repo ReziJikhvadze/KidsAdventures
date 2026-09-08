@@ -182,7 +182,7 @@ public sealed class SeriesMemoryService(
             {
                 var description = string.IsNullOrWhiteSpace(companion.Description)
                     ? string.Empty
-                    : $" — {companion.Description.Trim()}";
+                    : $" - {companion.Description.Trim()}";
                 var met = string.IsNullOrWhiteSpace(companion.MetIn)
                     ? string.Empty
                     : $" (met: {companion.MetIn.Trim()})";
@@ -237,8 +237,8 @@ public sealed class SeriesMemoryService(
             You maintain the running memory of a children's book series.
 
             THE HERO OF THIS SERIES IS: {{heroName}}
-            {{heroName}} is the child the books are written for. Everyone else — friends, animals,
-            guides — is a companion, never the hero.
+            {{heroName}} is the child the books are written for. Everyone else - friends, animals,
+            guides - is a companion, never the hero.
 
             Each book visits a world and introduces people, places and moments that later books
             should be able to call back to. Merge the NEW BOOK into the EXISTING MEMORY and return
@@ -249,7 +249,7 @@ public sealed class SeriesMemoryService(
             - Keep every companion that still matters; add the ones this book introduced. Never
               invent anyone who does not appear in the book or the existing memory. {{heroName}}
               must NEVER appear in "companions".
-            - "memories" are short concrete moments told from {{heroName}}'s side — what
+            - "memories" are short concrete moments told from {{heroName}}'s side - what
               {{heroName}} did, chose, felt or was given ("{{heroName}} gave Rex the golden map").
               Every entry must name {{heroName}} or be plainly about {{heroName}}. Newest first,
               at most 8. Do not write a companion's biography here.
@@ -257,12 +257,12 @@ public sealed class SeriesMemoryService(
               and it is {{heroName}}'s goal. Carry the existing one forward unless this book
               clearly resolved or changed it.
             - "heroTraits" are qualities the STORIES have actually shown about {{heroName}}. Each
-              one is one or two WORDS ("brave", "curious", "gentle with animals") — never a
+              one is one or two WORDS ("brave", "curious", "gentle with animals") - never a
               sentence, and never the evidence for it. At most 4, and only ones the book earned.
             - Add or update the entry in "worlds" for world id "{{worldId ?? "unknown"}}", saying
               how this book left that place.
-            - LANGUAGE: every human-readable value — including "description" and "metIn" on each
-              companion, and "leftAs" on each world — must be written entirely in
+            - LANGUAGE: every human-readable value - including "description" and "metIn" on each
+              companion, and "leftAs" on each world - must be written entirely in
               {{LanguageName(language)}}, because the next book is written in that language. Not
               one English word may appear inside those values, not even a single adjective. Only
               the JSON keys and the world ids stay English. Before returning, re-read every value

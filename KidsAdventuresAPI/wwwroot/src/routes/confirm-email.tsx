@@ -9,7 +9,7 @@ import { buildPageMeta } from "@/lib/seo";
 export const Route = createFileRoute("/confirm-email")({
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `Confirm email — ${BRAND_NAME}`,
+      title: `Confirm email - ${BRAND_NAME}`,
       description: "Confirm your Beki account email address.",
       path: "/confirm-email",
       noindex: true,
@@ -69,7 +69,7 @@ function ConfirmEmailPage() {
             ? "Your account is active. Sign in to start creating personalized storybooks."
             : showConfirmButton
               ? `Click the button below to activate your ${BRAND_NAME} account.`
-              : "This link may have expired. If you already clicked it once, try signing in — your email may already be confirmed."}
+              : "This link may have expired. If you already clicked it once, try signing in - your email may already be confirmed."}
         </p>
         {error ? <p className="mt-3 text-destructive text-sm">{error}</p> : null}
         {showConfirmButton ? (

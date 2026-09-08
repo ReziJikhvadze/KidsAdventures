@@ -105,7 +105,7 @@ public class LiveMasterStoryTests(ITestOutputHelper output)
         foreach (var spread in story.Spreads.OrderBy(s => s.Number))
         {
             text.AppendLine();
-            text.AppendLine($"### სცენა {spread.Number} — {spread.Title}  *(გვ. {spread.Number * 2 - 1}–{spread.Number * 2})*");
+            text.AppendLine($"### სცენა {spread.Number} - {spread.Title}  *(გვ. {spread.Number * 2 - 1}–{spread.Number * 2})*");
             text.AppendLine($"*{spread.Caption}*");
             text.AppendLine();
             text.AppendLine(spread.Text);
@@ -131,7 +131,7 @@ public class LiveMasterStoryTests(ITestOutputHelper output)
         {
             var brief = spread.Illustration;
             text.AppendLine();
-            text.AppendLine($"### სცენა {spread.Number} — {spread.Title}");
+            text.AppendLine($"### სცენა {spread.Number} - {spread.Title}");
             text.AppendLine();
             text.AppendLine("```");
             text.AppendLine(brief.Scene);

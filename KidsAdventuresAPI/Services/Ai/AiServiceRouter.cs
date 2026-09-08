@@ -114,7 +114,7 @@ public sealed class AiServiceRouter(
     {
         logger.LogWarning(
             "Adventure {AdventureId} is being generated through the legacy A5 flow, which always "
-            + "uses OpenAI — the image provider setting does not apply to it.",
+            + "uses OpenAI - the image provider setting does not apply to it.",
             adventureId);
 
         return openAi.GenerateAdventureContentAsync(input, adventureId, cancellationToken);

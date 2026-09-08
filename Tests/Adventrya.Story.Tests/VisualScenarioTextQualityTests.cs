@@ -52,7 +52,7 @@ public class VisualScenarioTextQualityTests : CompositePipelineTestBase
     // Opening on punctuation: the tail of a list, not a sentence that forgot its capital.
     [InlineData(", the child steps into the valley.", "punctuation mark")]
     [InlineData("; the child steps into the valley.", "punctuation mark")]
-    [InlineData("— the child steps into the valley.", "punctuation mark")]
+    [InlineData("- the child steps into the valley.", "punctuation mark")]
     // Opening on a lowercase word — including the conjunction fragments, caught by the same rule
     // rather than by a hand-kept list of conjunctions that would always be somebody's partial list.
     [InlineData("and the child steps into the valley.", "capital letter")]

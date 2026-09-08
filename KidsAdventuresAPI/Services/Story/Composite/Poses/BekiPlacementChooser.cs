@@ -354,7 +354,7 @@ public static class BekiPlacementChooser
             scored,
             $"moved Beki off the configured anchor: it measures {configured.Score:F3} against "
             + $"{chosen.Score:F3} at {chosen.CentreX:F3},{chosen.CentreY:F3} height "
-            + $"{chosen.Sprite.Height:F3} — {1 - (chosen.Score / configured.Score):P0} calmer, "
+            + $"{chosen.Sprite.Height:F3} - {1 - (chosen.Score / configured.Score):P0} calmer, "
             + $"chosen from {scored} candidates.");
 
         // Every legal centre on the grid, at one height.

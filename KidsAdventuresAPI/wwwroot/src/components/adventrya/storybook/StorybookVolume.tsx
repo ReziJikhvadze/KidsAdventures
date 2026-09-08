@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Lock, Maximize2, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
+import { BekiMark } from "@/components/brand/BekiMark";
 import { preloadIllustration, useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { useT } from "@/lib/i18n";
@@ -293,10 +294,14 @@ function CoverFace({
     <article className="storybook-cover">
       <div className="storybook-cover-art" style={{ backgroundImage: `url("${coverSrc}")` }} />
       {/* No wash over the painting. It darkened the lower half of every cover to seat the title,
-          and the generated cover is the one picture in this product a parent is waiting to see —
+          and the generated cover is the one picture in this product a parent is waiting to see -
           their own child, under a gradient. The title keeps its own shadow, which is what was
           actually holding it up. */}
-      <span className="storybook-brand">{t.story.storybook.brand}</span>
+      {/* The lockup, not the word set in the page's own type. "BEKI" in a bold sans with wide
+          letter-spacing was a stand-in for a mark we did not have; we have it, and it is the
+          same image the site's header carries. Decorative: the cover already says whose book
+          this is, and the mark is the publisher's colophon rather than a second title. */}
+      <BekiMark className="storybook-brand" decorative />
       <div className="storybook-cover-copy">
         {/* The cover said the book was the child's twice, above and below the title. Once is
             the point; twice reads as a template that forgot it had already said it. */}
@@ -354,13 +359,19 @@ function StoryFace({
           <div className="storybook-back-art" style={{ backgroundImage: `url("${backSrc}")` }} />
         ) : null}
         <div className="storybook-back-glow" aria-hidden="true" />
-        <span className="storybook-brand">{t.story.storybook.brand}</span>
+        <BekiMark className="storybook-brand" decorative />
         {/* Beki sees the child off. The canonical art is the fallback: a book drawn before
             per-book Beki existed, or one whose extra picture failed, still has him here. */}
         <img className="storybook-back-guide" src={BEKI_PORTRAIT} alt="" aria-hidden="true" />
         <div className="storybook-back-copy">
+          {/*
+            The heading and the button, and nothing between them.
+
+            "გააგრძელე მოგზაურობა სხვა სამყაროში" said in a sentence what the button under it says
+            in three words, on the one page of the book where there is a single thing to do. The
+            heading sits lower for its going, which is where a closing line belongs.
+          */}
           <strong>{t.story.storybook.qrTitle}</strong>
-          <p>{t.story.storybook.backTap}</p>
           {/* To the worlds, not to the form. `/create` opens on the questions — a name, a date
               of birth, a photograph — which is the wrong thing to meet at the end of a story you
               have just read. The first step is choosing where the next one happens.

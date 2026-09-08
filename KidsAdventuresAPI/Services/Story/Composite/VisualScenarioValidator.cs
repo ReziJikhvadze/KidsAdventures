@@ -633,7 +633,7 @@ public static class VisualScenarioValidator
             // list of conjunctions, which would always be somebody's partial list.
             problems.Add(new VisualScenarioProblem(
                 VisualScenarioProblemCodes.MalformedText,
-                $"{location} begins \"{Lead(trimmed)}\" — a scene starts with a capital letter or a "
+                $"{location} begins \"{Lead(trimmed)}\" - a scene starts with a capital letter or a "
                 + "Georgian letter, not mid-phrase."));
         }
 

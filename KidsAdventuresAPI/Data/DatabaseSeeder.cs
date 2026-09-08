@@ -51,7 +51,7 @@ public sealed class DatabaseSeeder(
         var existing = await userRepository.GetByEmailAsync(normalizedEmail, cancellationToken);
         if (existing is not null)
         {
-            logger.LogInformation("Seed skipped — user {Email} already exists.", normalizedEmail);
+            logger.LogInformation("Seed skipped - user {Email} already exists.", normalizedEmail);
             return;
         }
 

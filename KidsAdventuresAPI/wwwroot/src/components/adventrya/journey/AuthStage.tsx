@@ -125,7 +125,7 @@ export function AuthStage({ draft, onAuthenticated }: Props) {
               }
             }}
           >
-            {devSkipBusy ? "Signing in as demo…" : "DEV: Skip — continue as local demo"}
+            {devSkipBusy ? "Signing in as demo…" : "DEV: Skip - continue as local demo"}
           </button>
           {devSkipError && <p className="ux-form-error">{devSkipError}</p>}
         </div>

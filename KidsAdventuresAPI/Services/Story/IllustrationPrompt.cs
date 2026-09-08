@@ -274,7 +274,7 @@ public static class IllustrationPrompt
     /// nothing in particular.
     /// </summary>
     private const string FocusRule =
-        "The one focus the scene names must be the visually dominant element — large, clearly lit "
+        "The one focus the scene names must be the visually dominant element - large, clearly lit "
         + "and readable at a glance. Everything else supports it and never competes with it.";
 
     /// <summary>
@@ -319,7 +319,7 @@ public static class IllustrationPrompt
             return """
                 Composition, which is a hard requirement of this cover and not a preference: this
                 is one upright book cover, a single whole picture with the child as its subject.
-                Draw the child and the story's action large, clearly lit and unmistakable — the
+                Draw the child and the story's action large, clearly lit and unmistakable - the
                 hero is the one thing this cover is about and must read at a glance, even at
                 thumbnail size.
 
@@ -335,12 +335,12 @@ public static class IllustrationPrompt
 
         var side = textSide.Trim().ToLowerInvariant();
         var heroSide = side == "left" ? "right" : "left";
-        var ctaClause = ctaSafe ? " The lower part of the reserved side must stay especially clear — a printed continuation module sits there in the finished book." : string.Empty;
+        var ctaClause = ctaSafe ? " The lower part of the reserved side must stay especially clear - a printed continuation module sits there in the finished book." : string.Empty;
 
         return $"""
             Composition, which is a hard requirement of this page and not a preference: the
             {side} third of the image is reserved for story text that will be printed over it.
-            Fill that third with quiet, naturally light background only — bright open sky, mist,
+            Fill that third with quiet, naturally light background only - bright open sky, mist,
             sunlit water, pale distant landscape, or a softly lit wall. Keep it light and airy:
             not shadow, not darkness, and not a dark panel. No character, no face, no hands and no
             part of the main action may enter it.{ctaClause}
@@ -351,7 +351,7 @@ public static class IllustrationPrompt
 
             Keep every face and the story's key action inside the central horizontal band of the
             image as well: the printed spread is wider than it is tall, so the top and bottom
-            sixths of this picture may be trimmed away. Sky, canopy and ground belong there —
+            sixths of this picture may be trimmed away. Sky, canopy and ground belong there -
             nothing the story cannot lose.
             """;
     }

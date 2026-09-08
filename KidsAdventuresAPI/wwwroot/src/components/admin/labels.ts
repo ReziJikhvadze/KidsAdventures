@@ -95,8 +95,8 @@ export const CHECK_TEXT: Record<string, { label: string; about: string }> = {
   image_review: {
     label: "სურათების შემოწმება მოდელით",
     about:
-      "„ბლოკერი“ — თითოეულ გაშლილ გვერდს მოდელი ათვალიერებს დახატვის შემდეგ. " +
-      "„ფლაგი“ (ნაგულისხმევი) — არ ათვალიერებს: გვერდი მიიღება ავტომატური გაზომვებით " +
+      "„ბლოკერი“ - თითოეულ გაშლილ გვერდს მოდელი ათვალიერებს დახატვის შემდეგ. " +
+      "„ფლაგი“ (ნაგულისხმევი) - არ ათვალიერებს: გვერდი მიიღება ავტომატური გაზომვებით " +
       "(ნაკეცი, ზომა, ქვითარი), ხოლო ჩანაწერში იწერება, რომ შემოწმება არ ჩატარებულა.",
   },
   image_qa: {
@@ -113,7 +113,7 @@ export const CHECK_TEXT: Record<string, { label: string; about: string }> = {
   },
   cover_bands: {
     label: "ყდის ზოლები",
-    about: "ყდის ზედა და ქვედა ზოლები — სათაური და ლოგო დაშვებულ არეშია თუ არა.",
+    about: "ყდის ზედა და ქვედა ზოლები - სათაური და ლოგო დაშვებულ არეშია თუ არა.",
   },
   name_fidelity: {
     label: "ბავშვის სახელის სისწორე",
@@ -128,7 +128,7 @@ export const CHECK_TEXT: Record<string, { label: string; about: string }> = {
   press_file_missing: {
     label: "საბეჭდი ფაილი არ არსებობს",
     about:
-      "ბეჭდვის რიგში წიგნია, რომელსაც საბეჭდი ინტერიერი არ აქვს — რიგი საკითხავ ასლს სთავაზობს.",
+      "ბეჭდვის რიგში წიგნია, რომელსაც საბეჭდი ინტერიერი არ აქვს - რიგი საკითხავ ასლს სთავაზობს.",
   },
   admin_regenerate: {
     label: "ხელახლა დახატვა ადმინის მიერ",
@@ -144,7 +144,7 @@ export const CHECK_TEXT: Record<string, { label: string; about: string }> = {
   },
   COVER_CONTINUITY: {
     label: "ყდის უწყვეტობა",
-    about: "ყდა ერთი მთლიანი ნახატია — წინა, ზურგი და კედელი ერთმანეთს ებმის.",
+    about: "ყდა ერთი მთლიანი ნახატია - წინა, ზურგი და კედელი ერთმანეთს ებმის.",
   },
   INTERIOR_CONTINUITY: {
     label: "შიდა გვერდების უწყვეტობა",
@@ -168,7 +168,7 @@ export const CHECK_TEXT: Record<string, { label: string; about: string }> = {
   },
   PRESS_GEOMETRY: {
     label: "საბეჭდი გეომეტრია",
-    about: "ბლიდი, ტრიმი და ნაკეცის ხაზები — ტიპოგრაფიის დაშვებებში.",
+    about: "ბლიდი, ტრიმი და ნაკეცის ხაზები - ტიპოგრაფიის დაშვებებში.",
   },
   PRESS_COLOR: {
     label: "საბეჭდი ფერი (CMYK)",
@@ -196,7 +196,7 @@ export const CHECK_TEXT: Record<string, { label: string; about: string }> = {
   },
   EXACT_BEKI: {
     label: "ზუსტი BEKI",
-    about: "ჰეშები და გეომეტრია ემთხვევა — ეს ინვარიანტია, გემოვნების საკითხი არა.",
+    about: "ჰეშები და გეომეტრია ემთხვევა - ეს ინვარიანტია, გემოვნების საკითხი არა.",
   },
   SINGLE_COVER_MASTER: {
     label: "ერთი ყდის ორიგინალი",
@@ -209,7 +209,7 @@ export function checkLabel(checkId: string): string {
 }
 
 export function label(table: Record<string, string>, value: string | null | undefined): string {
-  if (!value) return "—";
+  if (!value) return "-";
   return table[value] ?? value;
 }
 

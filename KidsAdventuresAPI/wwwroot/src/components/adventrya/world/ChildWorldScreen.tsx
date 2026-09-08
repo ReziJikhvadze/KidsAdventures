@@ -461,7 +461,7 @@ export function ChildWorldScreen({ celebrationBookId }: ChildWorldScreenProps) {
                     className={`journey-node ${activeWorldId === id ? "is-selected" : ""}`}
                     data-state={trackState}
                     aria-pressed={activeWorldId === id}
-                    aria-label={`${place.mapTitle} — ${
+                    aria-label={`${place.mapTitle} - ${
                       trackState === "done"
                         ? t.journey.worldSelector.visited
                         : trackState === "locked"

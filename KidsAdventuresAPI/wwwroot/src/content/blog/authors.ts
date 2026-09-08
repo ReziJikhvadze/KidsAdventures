@@ -30,7 +30,7 @@ export const EDITORIAL_AUTHOR: Author = {
   id: "editorial",
   name: BRAND_NAME,
   role: "Personalized storybooks for kids",
-  bio: `${BRAND_NAME} turns a child's name and photo into personalized illustrated adventure books. Our team writes about personalized storytelling, early literacy, and screen-free parenting — drawn from building custom storybooks for families.`,
+  bio: `${BRAND_NAME} turns a child's name and photo into personalized illustrated adventure books. Our team writes about personalized storytelling, early literacy, and screen-free parenting - drawn from building custom storybooks for families.`,
   knowsAbout: TOPICS,
   sameAs: BRAND_SOCIAL_LINKS.map((link) => link.href),
 };

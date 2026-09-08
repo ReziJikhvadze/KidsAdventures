@@ -6,14 +6,14 @@ const demoPages = [
   {
     title: "The Skyward Quest Begins",
     content:
-      "When Leo looked out the window, the clouds had shaped themselves into airplanes — and one of them had his name painted on the side in golden letters.",
+      "When Leo looked out the window, the clouds had shaped themselves into airplanes - and one of them had his name painted on the side in golden letters.",
     isIllustrated: true,
     illustrationUrl: "/demo/demo-page-1.webp",
   },
   {
     title: "Through the Cloud Kingdom",
     content:
-      "The friendly captain handed Leo a map made of starlight. Every page of your book can look like this — with a unique illustration starring your child.",
+      "The friendly captain handed Leo a map made of starlight. Every page of your book can look like this - with a unique illustration starring your child.",
     isIllustrated: true,
     illustrationUrl: "/demo/demo-page-2.webp",
   },

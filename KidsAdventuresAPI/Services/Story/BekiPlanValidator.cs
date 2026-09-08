@@ -62,7 +62,7 @@ public static class BekiPlanValidator
         {
             problems.Add(
                 "worldLock is blank. Write 2–3 concrete English sentences fixing the world's "
-                + "constant look — palette, light, terrain, one recurring landmark — with no "
+                + "constant look - palette, light, terrain, one recurring landmark - with no "
                 + "characters, story events or camera instructions.");
         }
     }

@@ -137,7 +137,7 @@ public sealed class PrintOrderService(
         var updated = await printOrderRepository.UpdateAddressAsync(printOrder, cancellationToken);
         if (!updated)
         {
-            throw new InvalidOperationException("მისამართის შეცვლა შეუძლებელია — შეკვეთა უკვე გაიგზავნა.");
+            throw new InvalidOperationException("მისამართის შეცვლა შეუძლებელია - შეკვეთა უკვე გაიგზავნა.");
         }
 
         if (request.SaveForLater)

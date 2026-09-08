@@ -9,8 +9,8 @@ import { buildPageMeta } from "@/lib/seo";
 export const Route = createFileRoute("/about")({
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `ჩვენ შესახებ — ${BRAND_NAME}`,
-      description: `ვინ ვართ და რას ვქმნით — პერსონალური საბავშვო წიგნები, სადაც მთავარი გმირი თქვენი ბავშვია.`,
+      title: `ჩვენ შესახებ - ${BRAND_NAME}`,
+      description: `ვინ ვართ და რას ვქმნით - პერსონალური საბავშვო წიგნები, სადაც მთავარი გმირი თქვენი ბავშვია.`,
       path: "/about",
     });
     return { meta, links };

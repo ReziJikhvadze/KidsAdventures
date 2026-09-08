@@ -280,7 +280,7 @@ public static class BekiPrintPrep
         {
             throw Failure(
                 $"the conversion returned {document.Pages.Count} page(s) where the layout has "
-                + $"{expectedPages} — content was dropped rather than converted.");
+                + $"{expectedPages} - content was dropped rather than converted.");
         }
 
         // PDF/X requires a document title and an explicit trapped state; both live in the info
@@ -630,7 +630,7 @@ public static class BekiPrintPrep
         {
             problems.Add(
                 $"{unresolved.Count} paint operation(s) could not be "
-                + "measured, so their resolution is unknown — and unknown is not a pass. "
+                + "measured, so their resolution is unknown - and unknown is not a pass. "
                 + string.Join(" ", unresolved
                     .Take(6)
                     .Select(item => $"page {item.Page} '{item.Name}': {item.Reason}.")));

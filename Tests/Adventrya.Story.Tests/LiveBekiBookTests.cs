@@ -70,7 +70,7 @@ public class LiveBekiBookTests(ITestOutputHelper output)
 
         await WriteBookAsync(book, input, elapsed, directory);
 
-        output.WriteLine($"{book.Plan.Concept.Title} — {elapsed.TotalMinutes:0.0} min");
+        output.WriteLine($"{book.Plan.Concept.Title} - {elapsed.TotalMinutes:0.0} min");
         output.WriteLine($"accepted: {book.Spreads.Count(s => s.Accepted)}/{book.Spreads.Count} spreads, cover {(book.Cover.Accepted ? "yes" : "no")}");
         foreach (var warning in book.Warnings) output.WriteLine($"warning: {warning}");
         output.WriteLine($"\nWritten to {directory}");
@@ -117,7 +117,7 @@ public class LiveBekiBookTests(ITestOutputHelper output)
             report.AppendLine("## Cast");
             foreach (var member in book.Plan.Cast)
             {
-                report.AppendLine($"- **{member.Id} · {member.Name}** — {member.VisualDescription}");
+                report.AppendLine($"- **{member.Id} · {member.Name}** - {member.VisualDescription}");
             }
 
             report.AppendLine();

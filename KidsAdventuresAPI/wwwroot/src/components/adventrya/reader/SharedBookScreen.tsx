@@ -4,6 +4,7 @@ import { Link, useParams } from "@tanstack/react-router";
 
 import { AppHeader } from "@/components/adventrya/AppHeader";
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
+import { BekiMark } from "@/components/brand/BekiMark";
 import { ApiError } from "@/lib/api/client";
 import { getAdventurePack } from "@/lib/api/adventure-packs";
 import type { AdventurePackDetailResponse } from "@/lib/api/types";
@@ -185,7 +186,7 @@ export function SharedBookScreen() {
                     style={{ backgroundImage: `url("${coverFallback}")` }}
                   />
                   {/* No wash; see the note beside the same cover in StorybookVolume. */}
-                  <span className="storybook-brand">{t.story.storybook.brand}</span>
+                  <BekiMark className="storybook-brand" decorative />
                   <div className="storybook-cover-copy">
                     <small>{t.story.storybook.belongsTo(heroName)}</small>
                     <h2>{title}</h2>

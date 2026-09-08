@@ -429,8 +429,8 @@ public class CompositePipelineCoverTests : CompositePipelineTestBase
         var prompt = SpreadPrompt(scenario, page: 1);
 
         Assert.Contains(
-            "Image 1 is the identity reference photograph and settles who this child is — the face "
-            + "and the likeness — wherever it and this list disagree about that; the eye colour and "
+            "Image 1 is the identity reference photograph and settles who this child is - the face "
+            + "and the likeness - wherever it and this list disagree about that; the eye colour and "
             + "the age above are the parent's own entered values and win over the photograph "
             + "wherever they differ.", prompt);
 

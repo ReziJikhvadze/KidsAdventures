@@ -34,14 +34,14 @@ public static class StoryPlanSchema
                     description =
                         "ENGLISH ONLY. One paragraph describing every recurring character's "
                         + "appearance: face, hair, eyes, skin, build, and the exact clothing worn "
-                        + "in every scene. Appearance only — no scene, no instruction about "
+                        + "in every scene. Appearance only - no scene, no instruction about "
                         + "photographs. It is placed into every illustration prompt automatically."
                 },
                 ["characterManifest"] = new
                 {
                     type = "array",
                     description =
-                        "The hero is not listed. At most two secondary characters — a book for a "
+                        "The hero is not listed. At most two secondary characters - a book for a "
                         + "small child cannot hold more.",
                     items = new
                     {
@@ -77,7 +77,7 @@ public static class StoryPlanSchema
                             ["title"] = Text("Short heading for this scene, in the story's language."),
                             ["plotSummary"] = Text("One short sentence. What happens, not how it is written."),
                             ["childAction"] = Text(
-                                "What the child physically does or notices here — the skill shown "
+                                "What the child physically does or notices here - the skill shown "
                                 + "as an action, never named.")
                         }
                     }

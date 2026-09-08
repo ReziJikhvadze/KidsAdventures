@@ -148,9 +148,9 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
         ? `Enter your password to sign in as ${email.trim()}.`
         : mode === "signup"
           ? "You're one tap away. Set a password to save your child's stories."
-          : "Enter your password — we'll sign you in or create your account automatically."
+          : "Enter your password - we'll sign you in or create your account automatically."
       : step === "email"
-        ? "New or returning — one flow. No separate sign-up step and no confirmation email."
+        ? "New or returning - one flow. No separate sign-up step and no confirmation email."
         : "Personalized, beautifully illustrated storybooks where your child is the hero. Free to start.";
 
   return (
@@ -277,7 +277,7 @@ export function AuthDialog({ open, onOpenChange, onSuccess }: AuthDialogProps) {
                   <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <span>
                     {hasUsedGuestPreview()
-                      ? "Continue your story — your first illustrated page is on us. Unlock the full book for $4.99."
+                      ? "Continue your story - your first illustrated page is on us. Unlock the full book for $4.99."
                       : "Your first story includes 1 beautifully illustrated free page."}
                   </span>
                 </div>

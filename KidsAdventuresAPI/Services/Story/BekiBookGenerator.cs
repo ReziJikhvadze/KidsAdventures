@@ -844,7 +844,7 @@ public sealed class BekiBookGenerator(
                 anchored.Add(id);
                 references.Add((anchor, "image/png", member.Name));
                 continuity.Add(
-                    $"{member.Name} — {member.VisualDescription} — appears again here: keep "
+                    $"{member.Name} - {member.VisualDescription} - appears again here: keep "
                     + "it identical to its own continuity reference, and do not give any other "
                     + "character its design.");
             }
@@ -862,7 +862,7 @@ public sealed class BekiBookGenerator(
                 anchored.Add(id);
                 references.Add((anchor, "image/png", obj.Name));
                 continuity.Add(
-                    $"{obj.Name} — {obj.VisualDescription} — appears again here: "
+                    $"{obj.Name} - {obj.VisualDescription} - appears again here: "
                     + "keep it identical to its own continuity reference, and do not give any other object its design.");
             }
             else
@@ -1364,7 +1364,7 @@ public sealed class BekiBookGenerator(
             Image = existingCover ?? [],
             Accepted = true,
             Verdict = existingCover is null
-                ? "No previewed cover; the composite path draws none here — the wrap is the cover master."
+                ? "No previewed cover; the composite path draws none here - the wrap is the cover master."
                 : "Adopted from the preview the parent chose; not drawn here.",
             Attempts = 0,
             Prompt = string.Empty,

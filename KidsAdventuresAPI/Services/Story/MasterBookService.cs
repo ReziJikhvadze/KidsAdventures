@@ -527,7 +527,7 @@ public sealed class MasterBookService(
             }
 
             logger.LogInformation(
-                "Run {RunId} ready in {Total:F1}s — story {Story:F1}s, cover {Cover:F1}s: \"{Title}\".",
+                "Run {RunId} ready in {Total:F1}s - story {Story:F1}s, cover {Cover:F1}s: \"{Title}\".",
                 runId,
                 started.ElapsedMilliseconds / 1000.0,
                 writingDoneMs / 1000.0,
@@ -889,7 +889,7 @@ public sealed class MasterBookService(
 
             bekiFailure = failure ?? "the Beki cover path returned nothing";
             logger.LogWarning(
-                "Run {RunId}: no Beki cover ({Reason}). Falling back to a child-only cover — the "
+                "Run {RunId}: no Beki cover ({Reason}). Falling back to a child-only cover - the "
                 + "fallback prompt has no Beki reference, so it is forbidden from inventing a "
                 + "companion in Beki's place.",
                 run.Id, bekiFailure);

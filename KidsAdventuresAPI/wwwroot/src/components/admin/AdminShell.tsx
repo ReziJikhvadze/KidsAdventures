@@ -151,7 +151,7 @@ export function AdminShell({
               className="nav-link-button"
               disabled={hangfireBusy}
               onClick={() => void openHangfire()}
-              title="Hangfire — ფონური სამუშაოების დაფა (ახალ ფანჯარაში)"
+              title="Hangfire - ფონური სამუშაოების დაფა (ახალ ფანჯარაში)"
             >
               <Icon name="audit" />
               <span>{hangfireBusy ? "იხსნება…" : "ფონური სამუშაოები"}</span>

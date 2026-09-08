@@ -310,7 +310,7 @@ public static class BekiCoverTitlePlacement
             chosen.Score,
             scored,
             $"moved the title off the approved box: it measures {approvedScore:F3} against "
-            + $"{chosen.Score:F3} at {chosen.LeftMm:F1},{chosen.TopMm:F1} mm — "
+            + $"{chosen.Score:F3} at {chosen.LeftMm:F1},{chosen.TopMm:F1} mm - "
             + $"{1 - (chosen.Score / approvedScore):P0} calmer, chosen from {scored} candidates.");
     }
 

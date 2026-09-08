@@ -612,7 +612,7 @@ public static class CompositeIllustrationPrompt
     public static string CompositionBlockFor(string textSide) =>
         BekiCompositeConfig.ParseTextSide(textSide) == BekiTextSide.Left
             ? "Keep the full left third quiet enough to set story text over: continue the same "
-              + "scene through it as calm open environment — sky, far foliage, open ground — "
+              + "scene through it as calm open environment - sky, far foliage, open ground - "
               + "painted at exactly the same colour depth, saturation, contrast, exposure, and "
               + "finish as the rest of the picture. It is calm because the scene is calm there, "
               + "not because anything covers it: do not lighten it, and do not fade, veil, haze "
@@ -623,7 +623,7 @@ public static class CompositeIllustrationPrompt
               + "character, face, hand, foreground object, or key action may enter this area. "
               + "Place the child and the main action in the outer-right area."
             : "Keep the full right third quiet enough to set story text over: continue the same "
-              + "scene through it as calm open environment — sky, far foliage, open ground — "
+              + "scene through it as calm open environment - sky, far foliage, open ground - "
               + "painted at exactly the same colour depth, saturation, contrast, exposure, and "
               + "finish as the rest of the picture. It is calm because the scene is calm there, "
               + "not because anything covers it: do not lighten it, and do not fade, veil, haze "
@@ -809,17 +809,17 @@ public static class CompositeIllustrationPrompt
             {
                 case VisualScenarioPropStates.Found:
                     required.Add(element);
-                    annotated.Add(element + " — the child discovers this in this very moment; it has not been seen before this page.");
+                    annotated.Add(element + " - the child discovers this in this very moment; it has not been seen before this page.");
                     break;
 
                 case VisualScenarioPropStates.Carried:
                     required.Add(element);
-                    annotated.Add(element + " — the child is holding or carrying this.");
+                    annotated.Add(element + " - the child is holding or carrying this.");
                     break;
 
                 case VisualScenarioPropStates.Placed:
                     required.Add(element);
-                    annotated.Add(element + " — the child is placing this where the story says it now belongs.");
+                    annotated.Add(element + " - the child is placing this where the story says it now belongs.");
                     break;
 
                 case VisualScenarioPropStates.Ambient:
@@ -941,7 +941,7 @@ public static class CompositeIllustrationPrompt
         "child identity reference photograph. Preserve the child's recognizable identity: this "
         + "photograph says WHO the child is, and nothing else. Render the child's proportions and "
         + $"face at {childAge.ToString(CultureInfo.InvariantCulture)} years old, which is the age "
-        + "this book is for, even if the photograph appears older or younger — it may have been "
+        + "this book is for, even if the photograph appears older or younger - it may have been "
         + "taken some time ago. Render the child as a warm, polished stylized 3D animated "
         + "character, not photorealistically. Do not copy clothing, pose, lighting, crop, or "
         + "background from the photo."
@@ -1360,7 +1360,7 @@ public static class CompositeVisualScenarioPrompt
         - For a companion character or a scenery element that is simply present, use AMBIENT on the pages where it appears.
         - Use ABSENT for any element that is not visible in that page's picture. Never mix AMBIENT with the chain states for one element.
         - The scene text and the state must agree: a page whose scene shows the child holding the object is a CARRIED page, and a page before the discovery must neither show nor name it.
-        - When a recurring element gives off light and the story turns on it, that page's child_world_scene must state how strongly it is shining right then — brightly glowing, softly lit, dimming, nearly out, dark. State it on every page the element appears on, and follow the story: an object the story says is fading is fading in that picture and stays that way until the story lights it again.
+        - When a recurring element gives off light and the story turns on it, that page's child_world_scene must state how strongly it is shining right then - brightly glowing, softly lit, dimming, nearly out, dark. State it on every page the element appears on, and follow the story: an object the story says is fading is fading in that picture and stays that way until the story lights it again.
 
         OUTPUT
 
@@ -1455,7 +1455,7 @@ public static class CompositeVisualScenarioPrompt
                         {
                             type = "array",
                             description =
-                                "AT MOST THREE entries — a fourth is rejected. Only recurring story "
+                                "AT MOST THREE entries - a fourth is rejected. Only recurring story "
                                 + "elements whose appearance must stay consistent across images. "
                                 + "Never Beki. An empty array is a valid answer.",
                             items = new { type = "string" }

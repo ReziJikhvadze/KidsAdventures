@@ -132,7 +132,7 @@ public sealed class StaleGenerationSweepService(
             {
                 logger.LogWarning(
                     "Stale-generation sweep: pack {PackId} has sat {Status} for {Minutes:0} minutes "
-                    + "with no generation job claiming it. It is not failed — it may only be queued — "
+                    + "with no generation job claiming it. It is not failed - it may only be queued - "
                     + "but a paid book with no job needs a person to look; the retry button accepts it.",
                     pack.Id, pack.Status, silence.TotalMinutes);
 
@@ -182,7 +182,7 @@ public sealed class StaleGenerationSweepService(
                 BekiReleaseSeverity.Flag,
                 $"No generation job has claimed this book: it has been {pack.Status} for "
                 + $"{silence.TotalMinutes:0} minutes. Nothing was written to it and nothing was "
-                + "requeued — it may still be queued behind other books, or the job may be gone. "
+                + "requeued - it may still be queued behind other books, or the job may be gone. "
                 + "The order's retry re-queues it if a person decides it should be.",
                 BekiPackBlobs.ManifestName(row.UserId, pack.Id),
                 BekiAlarmEvidence.ForAttempt("sweep-unclaimed", pack.Id)),
@@ -310,7 +310,7 @@ public sealed class StaleGenerationSweepService(
                         BekiReleaseSeverity.Blocker,
                         $"The stale-generation sweep failed this book: it was {pack.Status} and "
                         + $"nothing had been written to it for {silence.TotalMinutes:0} minutes. "
-                        + "Nothing was requeued — a person decides whether it is retried. "
+                        + "Nothing was requeued - a person decides whether it is retried. "
                         + $"Stored reason: {reason}",
                         BekiPackBlobs.ManifestName(pack.UserId, packId),
                         BekiAlarmEvidence.ForAttempt("sweep-burial", packId)),

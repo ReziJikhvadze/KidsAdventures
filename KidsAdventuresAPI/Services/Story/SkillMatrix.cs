@@ -71,8 +71,8 @@ public static class SkillMatrix
         },
         [(ThemeType.Dinosaurs, AgeBand.Middle)] = new Skill
         {
-            Georgian = "სხვისი პერსპექტივის გაგება — დიდიც შეიძლება შეშინებული იყოს",
-            English = "perspective-taking — even something big can be frightened",
+            Georgian = "სხვისი პერსპექტივის გაგება - დიდიც შეიძლება შეშინებული იყოს",
+            English = "perspective-taking - even something big can be frightened",
             GeorgianHowToShow = "გმირი ხვდება, რომ დიდი დინოზავრი მისივე მსგავსად შეშინებულია"
         },
         [(ThemeType.Dinosaurs, AgeBand.Older)] = new Skill
@@ -91,8 +91,8 @@ public static class SkillMatrix
         },
         [(ThemeType.Space, AgeBand.Early)] = new Skill
         {
-            Georgian = "მოთმინება — ზოგი რამ დროს საჭიროებს",
-            English = "patience — some things take time",
+            Georgian = "მოთმინება - ზოგი რამ დროს საჭიროებს",
+            English = "patience - some things take time",
             GeorgianHowToShow = "გმირს უწევს ლოდინი და ლოდინის დროს რაღაცას ამჩნევს"
         },
         [(ThemeType.Space, AgeBand.Middle)] = new Skill
@@ -105,7 +105,7 @@ public static class SkillMatrix
         {
             Georgian = "იმის მიღება, რომ ყველა კითხვას პასუხი მაშინვე არ აქვს",
             English = "sitting with an unanswered question",
-            GeorgianHowToShow = "გმირი ერთ საიდუმლოს ვერ ხსნის და ეს კარგია — სხვას ხსნის სამაგიეროდ"
+            GeorgianHowToShow = "გმირი ერთ საიდუმლოს ვერ ხსნის და ეს კარგია - სხვას ხსნის სამაგიეროდ"
         },
 
         // --- Pirates: sharing, fairness, and what treasure actually is --------------------
@@ -117,8 +117,8 @@ public static class SkillMatrix
         },
         [(ThemeType.Pirates, AgeBand.Early)] = new Skill
         {
-            Georgian = "სამართლიანობა — რა არის თანაბარი განაწილება",
-            English = "fairness — what an equal share means",
+            Georgian = "სამართლიანობა - რა არის თანაბარი განაწილება",
+            English = "fairness - what an equal share means",
             GeorgianHowToShow = "გმირი ხედავს უსამართლობას და თვითონ ასწორებს"
         },
         [(ThemeType.Pirates, AgeBand.Middle)] = new Skill
@@ -129,7 +129,7 @@ public static class SkillMatrix
         },
         [(ThemeType.Pirates, AgeBand.Older)] = new Skill
         {
-            Georgian = "ღირებულებების გარჩევა — ყველაზე ძვირფასი ყოველთვის ოქრო არაა",
+            Georgian = "ღირებულებების გარჩევა - ყველაზე ძვირფასი ყოველთვის ოქრო არაა",
             English = "telling worth from value",
             GeorgianHowToShow = "გმირი ოქროსა და მეგობრობას შორის ირჩევს და მიზეზსაც ხედავს"
         },
@@ -149,13 +149,13 @@ public static class SkillMatrix
         },
         [(ThemeType.Animals, AgeBand.Middle)] = new Skill
         {
-            Georgian = "მოსმენა — სანამ დაასკვნი, ჯერ მოისმინე",
+            Georgian = "მოსმენა - სანამ დაასკვნი, ჯერ მოისმინე",
             English = "listening before concluding",
             GeorgianHowToShow = "გმირი ჯერ არასწორად ხვდება, მერე მოისმენს და აზრს იცვლის"
         },
         [(ThemeType.Animals, AgeBand.Older)] = new Skill
         {
-            Georgian = "განსხვავებულობის მიღება — ყველა ერთნაირად არ უნდა იყოს",
+            Georgian = "განსხვავებულობის მიღება - ყველა ერთნაირად არ უნდა იყოს",
             English = "accepting difference",
             GeorgianHowToShow = "გმირი ხვდება, რომ განსხვავება სისუსტე კი არა, უპირატესობაა"
         },
@@ -169,8 +169,8 @@ public static class SkillMatrix
         },
         [(ThemeType.Airplanes, AgeBand.Early)] = new Skill
         {
-            Georgian = "დამოუკიდებლობა — „მე თვითონ შევძლებ“",
-            English = "independence — doing it myself",
+            Georgian = "დამოუკიდებლობა - „მე თვითონ შევძლებ“",
+            English = "independence - doing it myself",
             GeorgianHowToShow = "გმირი დახმარებაზე ამბობს უარს და თვითონ ახერხებს"
         },
         [(ThemeType.Airplanes, AgeBand.Middle)] = new Skill
@@ -181,7 +181,7 @@ public static class SkillMatrix
         },
         [(ThemeType.Airplanes, AgeBand.Older)] = new Skill
         {
-            Georgian = "დახმარების თხოვნა — ეს სისუსტე არაა",
+            Georgian = "დახმარების თხოვნა - ეს სისუსტე არაა",
             English = "asking for help is not weakness",
             GeorgianHowToShow = "გმირი მარტო ვერ ახერხებს და თხოვნის შემდეგ ახერხებს"
         },

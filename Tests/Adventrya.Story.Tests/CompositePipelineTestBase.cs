@@ -853,7 +853,7 @@ public abstract class CompositePipelineTestBase
             number,
             title = string.Empty,
             caption = string.Empty,
-            text = $"ნინა და ბეკი — გვერდი {number}.",
+            text = $"ნინა და ბეკი - გვერდი {number}.",
             characters = new[] { "child", "beki" },
             objects = Array.Empty<string>(),
             illustration = new { scene = "The child in the valley.", avoid = string.Empty },

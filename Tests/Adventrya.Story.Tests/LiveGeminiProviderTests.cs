@@ -178,7 +178,7 @@ public class LiveGeminiProviderTests(ITestOutputHelper output)
                 page.Size(160, 60, Unit.Millimetre);
                 page.PageColor(QuestPDF.Helpers.Colors.White);
                 page.Content().AlignMiddle().AlignCenter()
-                    .Text("HELLO BOOK — გამარჯობა")
+                    .Text("HELLO BOOK - გამარჯობა")
                     .FontFamily(AdventurePacks.Api.Services.Pdf.PdfFontBootstrap.BodyFamily)
                     .FontSize(28)
                     .FontColor(QuestPDF.Helpers.Colors.Black);

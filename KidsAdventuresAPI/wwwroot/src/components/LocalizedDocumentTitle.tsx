@@ -31,7 +31,7 @@ export function LocalizedDocumentTitle() {
       .sort((a, b) => b.length - a.length)[0];
 
     if (!key) return;
-    document.title = `${t.pageMeta[key]} — ${BRAND_NAME}`;
+    document.title = `${t.pageMeta[key]} - ${BRAND_NAME}`;
     // `locale` is not read directly, but a change to it must re-run this.
   }, [t, locale, pathname]);
 

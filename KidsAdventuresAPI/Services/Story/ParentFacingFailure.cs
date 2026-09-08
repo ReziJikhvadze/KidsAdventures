@@ -61,7 +61,7 @@ public static class ParentFacingFailure
             or CompositeFailureCodes.ImageGenerationFailed
             or CompositeFailureCodes.IdentitySpecFailed
             or CompositeFailureCodes.VisualScenarioFailed =>
-            "წიგნის ხატვა ვერ დასრულდა — სურათებმა ჩვენი ხარისხის შემოწმება ვერ გაიარეს. "
+            "წიგნის ხატვა ვერ დასრულდა - სურათებმა ჩვენი ხარისხის შემოწმება ვერ გაიარეს. "
             + Reassurance,
 
         // The words, or the details the words were to be built from. Nothing was drawn at all.
@@ -91,7 +91,7 @@ public static class ParentFacingFailure
 
         // Anything else, including a code minted after this file was written. The default is the
         // honest one rather than a guess at which group a new code belongs to.
-        _ => "წიგნის ხატვა ვერ დასრულდა — " + Reassurance
+        _ => "წიგნის ხატვა ვერ დასრულდა - " + Reassurance
     };
 
     /// <summary>

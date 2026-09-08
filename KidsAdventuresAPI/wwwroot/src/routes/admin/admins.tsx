@@ -9,7 +9,7 @@ import { buildPageMeta } from "@/lib/seo";
 export const Route = createFileRoute("/admin/admins")({
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `ადმინისტრატორები — ${BRAND_NAME} Admin`,
+      title: `ადმინისტრატორები - ${BRAND_NAME} Admin`,
       description: "Administrators.",
       path: "/admin/admins",
       noindex: true,
@@ -97,12 +97,12 @@ function AdminsPage() {
                     {data.items.map((row) => (
                       <tr key={row.id}>
                         <td>
-                          {row.displayName || row.email || "—"}
+                          {row.displayName || row.email || "-"}
                           {row.displayName && row.email ? (
                             <span className="cell-subtitle">{row.email}</span>
                           ) : null}
                         </td>
-                        <td>{row.phoneNumber || "—"}</td>
+                        <td>{row.phoneNumber || "-"}</td>
                         <td>
                           {row.bookCount}
                           <span className="cell-subtitle">{row.orderCount} შეკვეთა</span>

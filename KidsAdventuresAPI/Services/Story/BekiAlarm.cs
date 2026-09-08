@@ -133,13 +133,13 @@ public sealed class BekiAlarmService(
             {
                 case BekiAlarmRaiseOutcome.Inserted:
                     logger.LogWarning(
-                        "Beki alarm raised for pack {PackId}: {CheckId} ({Severity}) — {Detail}",
+                        "Beki alarm raised for pack {PackId}: {CheckId} ({Severity}) - {Detail}",
                         raise.PackId, raise.CheckId, raise.Severity, raise.Detail);
                     break;
 
                 case BekiAlarmRaiseOutcome.Reopened:
                     logger.LogWarning(
-                        "Beki alarm REOPENED for pack {PackId}: {CheckId} ({Severity}) — it had been "
+                        "Beki alarm REOPENED for pack {PackId}: {CheckId} ({Severity}) - it had been "
                         + "reviewed and has happened again. {Detail}",
                         raise.PackId, raise.CheckId, raise.Severity, raise.Detail);
                     break;

@@ -77,7 +77,7 @@ public sealed class AdminPromoController(
         {
             return BadRequest(new
             {
-                message = "კოდი ან პროცენტულია, ან სრულიად უფასო — ორივე ერთად არ შეიძლება."
+                message = "კოდი ან პროცენტულია, ან სრულიად უფასო - ორივე ერთად არ შეიძლება."
             });
         }
 

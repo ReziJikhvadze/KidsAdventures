@@ -28,7 +28,7 @@ public sealed class ContactController(IEmailService emailService) : ControllerBa
             return Ok(new ContactResponse
             {
                 Success = true,
-                Message = "Thanks — we'll get back to you soon.",
+                Message = "Thanks - we'll get back to you soon.",
             });
         }
 
@@ -43,7 +43,7 @@ public sealed class ContactController(IEmailService emailService) : ControllerBa
             return Ok(new ContactResponse
             {
                 Success = true,
-                Message = "Thanks — your message was sent. We'll reply by email soon.",
+                Message = "Thanks - your message was sent. We'll reply by email soon.",
             });
         }
         catch (InvalidOperationException ex)

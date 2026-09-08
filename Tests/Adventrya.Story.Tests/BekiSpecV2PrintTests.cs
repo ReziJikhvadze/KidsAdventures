@@ -406,7 +406,7 @@ public class BekiSpecV2PrintTests
         var mark = Assert.Single(images);
         Assert.True(mark.Elements.GetInteger("/Width") >= 1024,
             $"The credits mark is embedded {mark.Elements.GetInteger("/Width")} px wide. It is a "
-            + "32 mm placement re-rastered by QuestPDF — UseOriginalImage is missing, and the press "
+            + "32 mm placement re-rastered by QuestPDF - UseOriginalImage is missing, and the press "
             + "resolution gate fails on it (amendment A1).");
 
         // The blank-URL book, for contrast: the same single image, because the code was never one.

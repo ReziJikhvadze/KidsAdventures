@@ -48,21 +48,21 @@ public sealed record NameFidelityProblem(
     public override string ToString() => Kind switch
     {
         NearMiss =>
-            $"The child's name is „{Expected}“, exactly — the {Location} wrote „{Found}“. Every "
+            $"The child's name is „{Expected}“, exactly - the {Location} wrote „{Found}“. Every "
             + $"mention of the child, in the title and on every spread, must be the exact name "
-            + $"„{Expected}“, letter for letter. Georgian case endings may follow it — "
-            + $"{Declensions(Expected)} — but the letters of the name itself never change.",
+            + $"„{Expected}“, letter for letter. Georgian case endings may follow it - "
+            + $"{Declensions(Expected)} - but the letters of the name itself never change.",
 
         AbsentFromTitle =>
             $"The title does not contain the child's name. It must contain „{Expected}“, letter for "
-            + $"letter — the name in the nominative, ideally the first word, followed by the story's "
+            + $"letter - the name in the nominative, ideally the first word, followed by the story's "
             + $"own title, the way „{Expected} და მოციმციმე ტყე“ does. A case ending may follow it "
             + $"({Declensions(Expected)}), the letters of the name itself never change, and no word "
             + "near it counts as it.",
 
         _ =>
             $"The child is never named in their own book. The child's name is „{Expected}“, and it "
-            + "must appear — spelled exactly, letter for letter — at least once in the story text.",
+            + "must appear - spelled exactly, letter for letter - at least once in the story text.",
     };
 
     /// <summary>

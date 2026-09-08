@@ -29,19 +29,19 @@ export const dashboard = {
     readMark: "წაკითხულია",
     pdfBusy: "მზადდება…",
     drawing: "წიგნი იხატება…",
-    pdfNotReady: "PDF ჯერ მზადდება — სცადე ერთ წუთში.",
+    pdfNotReady: "PDF ჯერ მზადდება - სცადე ერთ წუთში.",
     /* The book is finished and the file is deliberately not out yet. Said as a wait, because
        that is what it is: nothing is broken and nobody has to do anything. */
-    downloadHeld: "წიგნი გადის ბოლო შემოწმებას — ჩამოტვირთვა მალე გაიხსნება.",
+    downloadHeld: "წიგნი გადის ბოლო შემოწმებას - ჩამოტვირთვა მალე გაიხსნება.",
     /* Anything the server said that we do not have a sentence for. What used to appear here was
        the server's own English, code first — on a parent's shelf. */
-    pdfFailed: "PDF ვერ ჩამოიტვირთა — ცოტა ხანში სცადე ხელახლა.",
+    pdfFailed: "PDF ვერ ჩამოიტვირთა - ცოტა ხანში სცადე ხელახლა.",
     failedTitle: "წიგნი ვერ შეიქმნა",
     failedBody:
       "წიგნის შექმნა შეწყდა. ჩვენ უკვე ვმუშაობთ პრობლემის მოსაგვარებლად. არაფერი დაკარგულა.",
     failedCta: "დაგვიკავშირდი",
     stalledNote:
-      "წიგნის მომზადებას ჩვეულებრივზე ცოტა მეტი დრო სჭირდება — ის ისევ იხატება და არაფერი დაკარგულა. შეგიძლია აქ დაელოდო, ან მოგვიანებით დაფაზე ნახო: როგორც კი მზად იქნება, იქ გამოჩნდება.",
+      "წიგნის მომზადებას ჩვეულებრივზე ცოტა მეტი დრო სჭირდება - ის ისევ იხატება და არაფერი დაკარგულა. შეგიძლია აქ დაელოდო, ან მოგვიანებით დაფაზე ნახო: როგორც კი მზად იქნება, იქ გამოჩნდება.",
 
     orderPrint: (price: string) => `ბეჭდვა · ${price}`,
     printEdition: "ბეჭდური ვერსია",

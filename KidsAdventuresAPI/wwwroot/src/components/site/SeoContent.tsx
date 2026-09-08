@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 const TOPICS = [
   {
     heading: "Personalized children's books & kids adventure stories",
-    body: "Parents search for custom storybooks where their child is the hero — not a generic character. Beki creates illustrated adventure books with your child's name, age, and optional photo turned into a cartoon character. Choose dinosaur, space, pirate, animal, or airplane themes and get a printable PDF for bedtime, birthdays, or classroom gifts.",
+    body: "Parents search for custom storybooks where their child is the hero - not a generic character. Beki creates illustrated adventure books with your child's name, age, and optional photo turned into a cartoon character. Choose dinosaur, space, pirate, animal, or airplane themes and get a printable PDF for bedtime, birthdays, or classroom gifts.",
     link: { label: "See all adventure themes", to: "/themes" as const },
   },
   {
@@ -13,7 +13,7 @@ const TOPICS = [
   },
   {
     heading: "Parenting: screen-free fun that actually works",
-    body: "Modern parenting often means balancing tablets with meaningful offline time. A custom illustrated storybook gives kids something to hold, act out, and re-read — while grandparents and caregivers get an easy gift that feels personal. Start with a free 2-page preview, then unlock full 6-page books with credits that never expire.",
+    body: "Modern parenting often means balancing tablets with meaningful offline time. A custom illustrated storybook gives kids something to hold, act out, and re-read - while grandparents and caregivers get an easy gift that feels personal. Start with a free 2-page preview, then unlock full 6-page books with credits that never expire.",
     link: {
       label: "Personalized children's books guide",
       to: "/personalized-childrens-books" as const,

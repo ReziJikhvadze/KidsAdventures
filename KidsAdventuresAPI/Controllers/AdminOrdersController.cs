@@ -352,7 +352,7 @@ public sealed class AdminOrdersController(
             */
             var fallbackName = wantsPrint ? $"beki-{detail.Book.Id}-book.pdf"
                 : $"beki-{detail.Book.Id}-READING-COPY-not-print.pdf";
-            var suffix = wantsPrint ? " — print" : " — reading copy (not print)";
+            var suffix = wantsPrint ? " - print" : " - reading copy (not print)";
 
             // Set directly rather than through a download name on the result: ASP.NET rebuilds
             // Content-Disposition from that, replacing every Georgian letter with an underscore.
@@ -551,7 +551,7 @@ public sealed class AdminOrdersController(
         {
             return Conflict(new
             {
-                message = "ამ წიგნს ჯერ არ აქვს გამოშვების შემოწმება — დასადასტურებელი არაფერია."
+                message = "ამ წიგნს ჯერ არ აქვს გამოშვების შემოწმება - დასადასტურებელი არაფერია."
             });
         }
 
@@ -570,7 +570,7 @@ public sealed class AdminOrdersController(
         {
             return Conflict(new
             {
-                message = "დადასტურება ეხება სხვა კონტაქტ-ფურცელს — გვერდი განაახლეთ და ხელახლა ნახეთ.",
+                message = "დადასტურება ეხება სხვა კონტაქტ-ფურცელს - გვერდი განაახლეთ და ხელახლა ნახეთ.",
                 expected = sheet,
             });
         }
@@ -668,7 +668,7 @@ public sealed class AdminOrdersController(
         {
             logger.LogWarning(
                 "Beki pack {PackId}: the verdict releases the printer's files and the column is "
-                + "still empty — the press PDF is missing from storage (canonical {Canonical}, "
+                + "still empty - the press PDF is missing from storage (canonical {Canonical}, "
                 + "legacy {Legacy}), so the print download stays held.",
                 pack.Id,
                 BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id),
@@ -845,7 +845,7 @@ public sealed class AdminOrdersController(
 
         if (!written)
         {
-            return Conflict(new { message = "შეკვეთის სტატუსი შეიცვალა — გვერდი განაახლეთ." });
+            return Conflict(new { message = "შეკვეთის სტატუსი შეიცვალა - გვერდი განაახლეთ." });
         }
 
         /*

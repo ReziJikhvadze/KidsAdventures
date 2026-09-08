@@ -9,7 +9,7 @@ import { buildPageMeta } from "@/lib/seo";
 export const Route = createFileRoute("/admin/")({
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `მიმოხილვა — ${BRAND_NAME} Admin`,
+      title: `მიმოხილვა - ${BRAND_NAME} Admin`,
       description: "Overview.",
       path: "/admin",
       noindex: true,
@@ -33,7 +33,7 @@ function OverviewPage() {
     <AdminScreen
       active="overview"
       title="მიმოხილვა"
-      subtitle="რა ხდება ახლა — და ვინ ელოდება ვინმეს აქედან"
+      subtitle="რა ხდება ახლა - და ვინ ელოდება ვინმეს აქედან"
       actions={
         <button
           type="button"
@@ -124,14 +124,14 @@ function OverviewPage() {
                             <span className="cell-subtitle">{row.id.slice(0, 8)}</span>
                           </td>
                           <td>
-                            {row.customerEmail || row.customerPhone || "—"}
+                            {row.customerEmail || row.customerPhone || "-"}
                             {row.heroName ? (
                               <span className="cell-subtitle">გმირი: {row.heroName}</span>
                             ) : null}
                           </td>
                           <td className="book-cell">
                             <Link to="/admin/orders" search={{ q: row.id }}>
-                              {row.bookTitle || "—"}
+                              {row.bookTitle || "-"}
                             </Link>
                             <span className="cell-subtitle">
                               {row.openAlarmCount > 0 ? `${row.openAlarmCount} შეტყობინება · ` : ""}

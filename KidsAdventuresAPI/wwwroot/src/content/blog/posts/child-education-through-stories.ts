@@ -5,7 +5,7 @@ export const childEducationThroughStories: BlogPost = {
   slug: "child-education-through-stories",
   title: "Child education through stories: why personalized books work",
   description:
-    "How personalized adventure books support early literacy, vocabulary, and screen-free learning for kids — a practical guide for parents and teachers.",
+    "How personalized adventure books support early literacy, vocabulary, and screen-free learning for kids - a practical guide for parents and teachers.",
   publishedAt: "2026-06-16",
   updatedAt: "2026-06-24",
   readingTimeMinutes: 6,
@@ -24,7 +24,7 @@ export const childEducationThroughStories: BlogPost = {
     {
       heading: "Engagement drives retention",
       paragraphs: [
-        "When a child hears their own name in a dinosaur or space adventure, attention spikes. That engagement is the first step in child education — kids remember what they care about. Personalized children's books turn passive listening into active participation.",
+        "When a child hears their own name in a dinosaur or space adventure, attention spikes. That engagement is the first step in child education - kids remember what they care about. Personalized children's books turn passive listening into active participation.",
       ],
     },
     {
@@ -36,13 +36,13 @@ export const childEducationThroughStories: BlogPost = {
     {
       heading: "Comprehension through conversation",
       paragraphs: [
-        "After reading, ask: What would you do next? Who helped the hero? Personalized plots make these parenting questions natural. Teachers use the same technique in classrooms — narrative comprehension builds critical thinking.",
+        "After reading, ask: What would you do next? Who helped the hero? Personalized plots make these parenting questions natural. Teachers use the same technique in classrooms - narrative comprehension builds critical thinking.",
       ],
     },
     {
       heading: "Screen-free learning parents actually stick with",
       paragraphs: [
-        "Educational apps compete with games. A printable adventure book competes with nothing — it is a physical object kids can flip, color, and shelve. Pair reading with acting out scenes for multisensory learning.",
+        "Educational apps compete with games. A printable adventure book competes with nothing - it is a physical object kids can flip, color, and shelve. Pair reading with acting out scenes for multisensory learning.",
         "Try a free 2-page preview on Beki before buying credits for the full illustrated PDF.",
       ],
     },
@@ -58,7 +58,7 @@ export const childEducationThroughStories: BlogPost = {
     },
     {
       q: "Can teachers use personalized storybooks in the classroom?",
-      a: "Absolutely. Teachers use narrative comprehension questions — what happens next, who helped the hero — to build critical thinking, and printable PDFs make class sets easy to produce.",
+      a: "Absolutely. Teachers use narrative comprehension questions - what happens next, who helped the hero - to build critical thinking, and printable PDFs make class sets easy to produce.",
     },
   ],
 };

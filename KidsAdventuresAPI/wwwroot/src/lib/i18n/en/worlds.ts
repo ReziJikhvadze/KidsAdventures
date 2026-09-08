@@ -20,7 +20,7 @@ export const worlds = {
     teaserBody: "Your child meets Rex, and together they discover the Lost Valley.",
     memoryTitle: "The Lost Valley",
     memoryBody:
-      "This is where they first met Rex — the friend who follows them into every new chapter.",
+      "This is where they first met Rex - the friend who follows them into every new chapter.",
   },
   space: {
     theme: "Space",
@@ -75,11 +75,11 @@ export const worlds = {
     chapter: "Chapter I · The City of Clouds",
     bookTitle: (hero: string) => `${hero} and the City Hidden Beyond the Clouds`,
     synopsis: (hero: string) =>
-      `${hero}'s first great flight heads for an unknown horizon — to where a whole city lies hidden beyond the clouds.`,
+      `${hero}'s first great flight heads for an unknown horizon - to where a whole city lies hidden beyond the clouds.`,
     teaserTitle: "Above the clouds",
     teaserBody: "A first great flight towards an unknown horizon.",
     memoryTitle: "The City of Clouds",
-    memoryBody: "Another path shows beyond the clouds — the next adventure will open it.",
+    memoryBody: "Another path shows beyond the clouds - the next adventure will open it.",
   },
   magic: {
     theme: "A magical world",

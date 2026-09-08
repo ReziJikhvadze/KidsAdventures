@@ -73,7 +73,7 @@ public class PayloadDumpTests(ITestOutputHelper output)
 
         var branch = StoryBranches.All(ThemeType.Dinosaurs)[0];
 
-        output.WriteLine("########## CALL 1 — ARCHITECT ##########");
+        output.WriteLine("########## CALL 1 - ARCHITECT ##########");
         output.WriteLine("");
         output.WriteLine("--- instructions ---");
         output.WriteLine(MasterStoryPromptV3.PlannerSystem(input, branch));
@@ -81,7 +81,7 @@ public class PayloadDumpTests(ITestOutputHelper output)
         output.WriteLine("--- input ---");
         output.WriteLine(MasterStoryPromptV3.PlannerUser(input));
         output.WriteLine("");
-        output.WriteLine("########## CALL 2 — WRITER ##########");
+        output.WriteLine("########## CALL 2 - WRITER ##########");
         output.WriteLine("");
         output.WriteLine("--- instructions ---");
         output.WriteLine(MasterStoryPromptV3.WriterSystem(input));

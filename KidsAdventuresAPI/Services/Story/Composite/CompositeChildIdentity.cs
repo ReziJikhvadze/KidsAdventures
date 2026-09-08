@@ -165,7 +165,7 @@ public static class CompositeChildIdentity
         - Describe the eyebrows by shape and thickness, for example "soft, medium-thick, gently arched".
         - Describe the face shape, for example "round with a soft chin" or "oval".
         - "glasses" is required and must never be left empty. Write exactly "none" when the child is not wearing glasses. When they are, describe the frames in a few words, for example "round thin gold frames".
-        - For "distinctive_features", give three to five short visual details that make this particular child recognisable — freckles, a dimple, a gap in the front teeth, a small birthmark — separated by semicolons. Write "none obvious" only if there genuinely are none.
+        - For "distinctive_features", give three to five short visual details that make this particular child recognisable - freckles, a dimple, a gap in the front teeth, a small birthmark - separated by semicolons. Write "none obvious" only if there genuinely are none.
         - Do not state or guess the child's name, ethnicity, nationality, religion, health, or mood.
         - Do not describe clothing, background, or expression, or anything that is not one of the eight attributes.
         - Do not add commentary, caveats, or explanation. Return the JSON object and nothing else.
@@ -336,7 +336,7 @@ public static class CompositeChildIdentity
             Glasses: {spec.Glasses}
             Distinctive features: {spec.DistinctiveFeatures}
             The child is {childAge.ToString(CultureInfo.InvariantCulture)} years old in this book. That is the age the parent entered, and it is the age to draw: the photograph says who the child is, not how old they are here, and it may have been taken some time ago.
-            These attributes are identical on the cover and on all eight spreads. The child's eyes are {spec.EyeColor} on every page. Image {identityImage.ToString(CultureInfo.InvariantCulture)} is the identity reference photograph and settles who this child is — the face and the likeness — wherever it and this list disagree about that; the eye colour and the age above are the parent's own entered values and win over the photograph wherever they differ.
+            These attributes are identical on the cover and on all eight spreads. The child's eyes are {spec.EyeColor} on every page. Image {identityImage.ToString(CultureInfo.InvariantCulture)} is the identity reference photograph and settles who this child is - the face and the likeness - wherever it and this list disagree about that; the eye colour and the age above are the parent's own entered values and win over the photograph wherever they differ.
             """;
     }
 

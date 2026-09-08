@@ -100,7 +100,7 @@ public class GeorgianNameFidelityTests : CompositePipelineTestBase
     [InlineData("ვეკომ ბილიკი იპოვა.")]
     [InlineData("ბეკიმ ვეკოსთვის კარი გააღო.")]
     [InlineData("ვეკო და ბეკი ერთად წავიდნენ.")]
-    [InlineData("„ვეკო!“ — თქვა ბეკიმ.")]
+    [InlineData("„ვეკო!“ - თქვა ბეკიმ.")]
     public void A_declined_name_is_the_name(string text) =>
         Assert.Empty(GeorgianNameFidelity.Inspect(Book("მოციმციმე ტყე", text), "ვეკო"));
 

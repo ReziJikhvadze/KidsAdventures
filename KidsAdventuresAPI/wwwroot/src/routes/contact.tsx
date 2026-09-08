@@ -10,9 +10,9 @@ import { buildBreadcrumbSchema, buildContactPageSchema } from "@/lib/structured-
 export const Route = createFileRoute("/contact")({
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `კონტაქტი — ${BRAND_NAME}`,
+      title: `კონტაქტი - ${BRAND_NAME}`,
       description:
-        "დაგვიკავშირდი Beki გუნდს — კითხვები ამბების, ბეჭდვის ან პირადი საჩუქრების შესახებ.",
+        "დაგვიკავშირდი Beki გუნდს - კითხვები ამბების, ბეჭდვის ან პირადი საჩუქრების შესახებ.",
       path: "/contact",
     });
     return { meta, links };

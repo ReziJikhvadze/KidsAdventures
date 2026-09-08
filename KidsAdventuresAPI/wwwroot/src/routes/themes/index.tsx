@@ -15,7 +15,7 @@ import { buildPageMeta } from "@/lib/seo";
 export const Route = createFileRoute("/themes/")({
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `აირჩიე სამყარო — ${BRAND_NAME}`,
+      title: `აირჩიე სამყარო - ${BRAND_NAME}`,
       description: "აირჩიე პირველი თავგადასავლის სამყარო რუკაზე.",
       path: "/themes",
       noindex: true,

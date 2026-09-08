@@ -234,7 +234,7 @@ public static class CompositeStorySchema
                 {
                     type = "array",
                     description =
-                        "Only as many recurring supporting characters as the story actually needs — "
+                        "Only as many recurring supporting characters as the story actually needs - "
                         + "none is a valid answer. The child is the hero and is never listed here, "
                         + "and neither is Beki.",
                     items = new
@@ -257,7 +257,7 @@ public static class CompositeStorySchema
                 {
                     type = "array",
                     description =
-                        "Only as many recurring story objects as the story actually needs — "
+                        "Only as many recurring story objects as the story actually needs - "
                         + "none is a valid answer.",
                     items = new
                     {
@@ -290,7 +290,7 @@ public static class CompositeStorySchema
                     description =
                         "ENGLISH ONLY. Two or three sentences fixing the constant look of this "
                         + "book's world: palette, quality of light, terrain or architecture, and "
-                        + "one recurring landmark. No characters, no story events, no camera — "
+                        + "one recurring landmark. No characters, no story events, no camera - "
                         + "this is repeated word for word into every illustration, so everything "
                         + "in it must be true of every spread."
                 },
@@ -359,7 +359,7 @@ public static class CompositeStorySchema
                     + "action, what the characters feel, the place with its objects, weather and time "
                     + "of day. No style, no format, no camera or shot instruction, no photograph "
                     + "instruction, no text side or fold, and nothing about what the child or Beki "
-                    + "look like — every one of those is added by our code or fixed by approved "
+                    + "look like - every one of those is added by our code or fixed by approved "
                     + "artwork. Draw only what this spread's own text says is there."
             },
             ["avoid"] = new

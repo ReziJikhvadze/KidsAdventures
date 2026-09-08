@@ -170,7 +170,7 @@ public static class MasterStoryPromptComposite
             Make the child the main hero.
 
             The child's name is „{input.ChildName}“, and it is copied, never spelled. Write it
-            exactly as it is given here — letter for letter — every single time it appears, in the
+            exactly as it is given here - letter for letter - every single time it appears, in the
             title and on every spread. Georgian case endings may follow it („{input.ChildName}ს“,
             „{input.ChildName}მ“, „{input.ChildName}სთვის“), and that is the only thing that may
             ever change about it: no other spelling of this child's name exists in this book, and the
@@ -179,26 +179,26 @@ public static class MasterStoryPromptComposite
             Beki is the platform's one canonical story character: every book this platform makes
             gives the child the same warm, curious, brave guide and friend. Beki is present in
             every one of the {input.SpreadCount} spreads, so list exactly the id "beki" in every
-            spread's characters — never as a cast member, and never as anything else spelled or
+            spread's characters - never as a cast member, and never as anything else spelled or
             capitalised differently.
 
             Beki is a name and nothing else. Never state or suggest what Beki is or what Beki looks
-            like — not a species, not an animal, not a size, a shape, a material, a colour or a
-            costume — in any scene, in any cast entry, or in the story text. Beki's appearance is
+            like - not a species, not an animal, not a size, a shape, a material, a colour or a
+            costume - in any scene, in any cast entry, or in the story text. Beki's appearance is
             fixed by approved artwork this call never sees, and any description written here would
             contradict the picture that gets printed.
 
-            In Georgian the companion's name is written exactly „ბეკი“, in every grammatical form —
+            In Georgian the companion's name is written exactly „ბეკი“, in every grammatical form -
             ბეკიმ, ბეკის, ბეკისთან, ბეკიდან, ბეკიო. Always კ, never ქ: „ბექი“ is a different word
             and is never this character's name.
 
             Beki is beside the child on all {input.SpreadCount} spreads, without exception. Write
             the story that way: there is no spread of this book where the child is alone. The child
-            stays the protagonist throughout — the child makes the important decisions, and Beki
+            stays the protagonist throughout - the child makes the important decisions, and Beki
             never solves the main problem for them. Beki guides, reacts, encourages, listens,
             reassures or reveals a path, and does no more than that. On a spread where the child
             must act alone, Beki is still there, watching or waiting, and does not intervene. Beki
-            needs no costume for the theme — Beki is Beki in every world.
+            needs no costume for the theme - Beki is Beki in every world.
 
             Use the selected theme as the world of the story.
 
@@ -209,7 +209,7 @@ public static class MasterStoryPromptComposite
             {input.SpreadCount} fully resolves it: only a subtle feeling that more adventures are
             possible, never a loose thread. The final spread's visual scene must contain one
             concrete, visible continuation signal (a new path appearing, a distant light, a door
-            opening, a new star — one image-visible thing) while the story still fully resolves;
+            opening, a new star - one image-visible thing) while the story still fully resolves;
             the signal lives in the illustration, not only in the words.
 
             Create only as many recurring supporting characters as the story needs. None is a valid
@@ -218,14 +218,14 @@ public static class MasterStoryPromptComposite
             them, with an id: a character named in two spreads and described in neither is drawn as
             two different characters.
 
-            Create only as many recurring story objects as the story needs — only IMPORTANT objects
+            Create only as many recurring story objects as the story needs - only IMPORTANT objects
             appearing meaningfully in two or more spreads. Ids must be obj_01, obj_02, etc. Provide
             one short stable concrete visual description each. A recurring object's design never
             changes between spreads without a story reason. None is a valid answer. List a spread's
             recurring objects in its objects array.
 
             The cover shows the child in one inviting moment from this world. No other character,
-            creature, animal or vehicle appears in it, and its setting stays simple and iconic —
+            creature, animal or vehicle appears in it, and its setting stays simple and iconic -
             one clear suggestion of the world, uncluttered.
 
             For every spread:
@@ -238,31 +238,31 @@ public static class MasterStoryPromptComposite
             Each spread should contain one clear story moment.
 
             The visual scene must describe only what should be visible in the illustration, and it
-            must name exactly one visual focus — the single thing the reader's eye should land on
+            must name exactly one visual focus - the single thing the reader's eye should land on
             first. Everything else in the scene is there to support it.
 
             Write worldLock as well: two or three English sentences that fix the constant look of
-            this book's world — palette, quality of light, terrain or architecture, and one
+            this book's world - palette, quality of light, terrain or architecture, and one
             recurring landmark that can appear again. No characters, no story events, no camera or
             shot. It is repeated word for word into every illustration of this book, so everything
             in it must be true of every spread.
 
             Shape on the page: each spread's Georgian text is written as short lines separated by
             newlines, never as one block. Narration is its own line, and every speaker's words are
-            their own line — never two speakers in one line, and never a line of speech with its
+            their own line - never two speakers in one line, and never a line of speech with its
             narration attached. This is how the words are arranged, not how many there are: the
             word budget below still holds.
 
             Voice, for the Georgian story text: write in a warm, simple, spoken storytelling voice,
-            in the manner of Nodar Dumbadze's prose — short natural sentences with the rhythm of
+            in the manner of Nodar Dumbadze's prose - short natural sentences with the rhythm of
             speech; concrete, everyday words a child knows; gentle, humane humor and tenderness.
             Never archaic, bookish or ornate vocabulary, and no long winding constructions. Every
             sentence must read aloud beautifully.
 
             One tense for the whole book: choose a single simple tense for the narration on spread
             1 and keep it on all {input.SpreadCount} spreads. The present tense is the natural
-            choice at this age. Never drift between present and past narration — not between two
-            spreads and not inside one — because a book that says ქრება on one page and გამოვიდა
+            choice at this age. Never drift between present and past narration - not between two
+            spreads and not inside one - because a book that says ქრება on one page and გამოვიდა
             on the next is read aloud as two different storytellers. Dialogue keeps the tense the
             speaker would naturally use; the narration around it does not move.
 
@@ -271,21 +271,21 @@ public static class MasterStoryPromptComposite
 
             What the words say about an object is what the picture will show, so the story must
             keep every important object straight from the page that introduces it to the last page
-            it appears on: who has it, where it is, and — if it gives off light — how brightly it
+            it appears on: who has it, where it is, and - if it gives off light - how brightly it
             is shining. An object the story has said is fading is fading from that page onward and
             is never described again as glowing, shining or bright unless the story itself lights
             it again. An object that mattered to the ending is still there at the ending.
 
-            The title always contains the child's name. Write „{input.ChildName}“ — the nominative,
-            exactly those letters — and then the story's own title after it, the way
+            The title always contains the child's name. Write „{input.ChildName}“ - the nominative,
+            exactly those letters - and then the story's own title after it, the way
             „{input.ChildName} და მოციმციმე ტყე“ does. The name comes first unless Georgian itself
             reads better with it elsewhere, and it is never left out: this title is printed largest
             on the cover of a book bought to put this child inside it, and a title naming nobody
             makes a cover that could have been anybody's.
 
-            The title: three to seven words, short, warm and inviting — Georgian words a parent is
+            The title: three to seven words, short, warm and inviting - Georgian words a parent is
             happy to say aloud at bedtime, built from wonder, friendship, discovery or light. Never
-            build the title on a harsh, loud or frightening word — roaring, growling, howling,
+            build the title on a harsh, loud or frightening word - roaring, growling, howling,
             screaming, shrieking (ღრიალი, ბრდღვინვა, ყვირილი and their kind), or anything naming
             danger or menace. If a sound or creature matters to the story, the title names the gentle
             side of it, not the noise.
@@ -296,7 +296,7 @@ public static class MasterStoryPromptComposite
             {WordBudget(input.AgeBand)}
 
             Safety, for readers aged 1–8. These override the theme and the story:
-            - No alcohol anywhere — no wine, beer or spirits, and no winery, wine cellar, brewery,
+            - No alcohol anywhere - no wine, beer or spirits, and no winery, wine cellar, brewery,
               bar or any other alcohol-making or alcohol-serving place as a plot, setting or
               destination.
             - The child never operates a real vehicle, machine or tool independently or
@@ -339,7 +339,7 @@ public static class MasterStoryPromptComposite
         // v6 sent the enum's own name and nothing else. The subject word is added because it is
         // the gap StoryWorlds was written to close: given only a place name, a model wrote three
         // good books about a valley for a parent who had chosen dinosaurs.
-        text.AppendLine($"Theme: {input.ThemeId} — {world.Subject}, {world.Place}");
+        text.AppendLine($"Theme: {input.ThemeId} - {world.Subject}, {world.Place}");
 
         /*
           Nothing follows. v6's User continues with the Extra Wish, the appearance description read
@@ -362,15 +362,15 @@ public static class MasterStoryPromptComposite
     private static string WordBudget(string ageBand) => ageBand switch
     {
         "1-2" =>
-            "This book is for the 1-2 age band. Keep the story very simple and very short — "
+            "This book is for the 1-2 age band. Keep the story very simple and very short - "
             + "approximately 15–25 Georgian words per spread, in short sentences a toddler can "
             + "hear all the way through.",
         "3-5" =>
-            "This book is for the 3-5 age band. Keep the story simple and short — approximately "
+            "This book is for the 3-5 age band. Keep the story simple and short - approximately "
             + "20–35 Georgian words per spread, easy to read aloud.",
         "6+" =>
             "This book is for the 6+ age band. Use slightly richer language while remaining "
-            + "concise and easy to read aloud — approximately 30–45 Georgian words per spread.",
+            + "concise and easy to read aloud - approximately 30–45 Georgian words per spread.",
         _ => throw new ArgumentOutOfRangeException(
             nameof(ageBand),
             ageBand,

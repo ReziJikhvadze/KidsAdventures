@@ -105,7 +105,7 @@ public sealed class BookFulfillmentService(
             SeriesId = seriesId,
             SequenceNumber = sequenceNumber,
             ContinuesFromBookId = draft.ContinuesFromBookId,
-            ProgressMessage = "შეკვეთა მიღებულია — იწყება წიგნის შექმნა.",
+            ProgressMessage = "შეკვეთა მიღებულია - იწყება წიგნის შექმნა.",
             CreatedAt = DateTime.UtcNow,
             // In the same INSERT as everything else: the pack has never existed in a state where
             // its pipeline was unknown, and it never will.

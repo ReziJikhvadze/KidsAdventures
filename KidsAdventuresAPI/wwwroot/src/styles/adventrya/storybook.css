@@ -176,15 +176,34 @@
 }
 /* `.storybook-cover-wash` is gone: it darkened the band the title sits in, which on a generated
    cover is the half the child is painted into. `.storybook-cover-copy` carries its own shadow. */
-.storybook-brand {
+/*
+  The corner the lockup stands in. Both boards are containers (below), so the mark is a share of
+  the board it is printed on rather than of the window: the same book is 188px wide on a phone
+  and 1400 in full screen, and a mark sized off the viewport would have been the same number of
+  pixels on both.
+
+  6.2% of the board is the width the word "BEKI" had when it was type here — the lockup carries
+  the chameleon as well, so it stands about twice the old cap height and reads as a mark rather
+  than as a line of small caps. The ceiling is where a full-screen board stops making it bigger.
+*/
+.storybook-cover,
+.storybook-back {
+  container-type: inline-size;
+}
+.beki-mark.storybook-brand {
   position: absolute;
   z-index: 3;
   top: 7%;
   left: 9%;
-  color: #f2cd84;
-  font-size: clamp(7px, 0.8vw, 10px);
-  font-weight: 800;
-  letter-spacing: 0.2em;
+  /* Stated here rather than leant on from base.css: the book carries this mark on a page that
+     is drawn inside a 3D turn, and a rule it needs should not live in another sheet. */
+  display: block;
+  width: auto;
+  height: min(6.2cqw, 27px);
+  object-fit: contain;
+  -webkit-user-select: none;
+  user-select: none;
+  filter: drop-shadow(0 2px 9px rgba(5, 2, 17, 0.75));
 }
 .storybook-cover-copy {
   position: relative;
@@ -380,12 +399,13 @@
   border-radius: 50%;
   background: radial-gradient(closest-side, #f1c97038, transparent 74%);
 }
-.storybook-back .storybook-brand {
+/* Centred on the back board, where the printed colophon is. `left: 50%` and back, because the
+   mark is an image as wide as it needs to be rather than a full-width line of centred text. */
+.storybook-back .beki-mark.storybook-brand {
   z-index: 1;
   top: 6%;
-  left: 0;
-  width: 100%;
-  text-align: center;
+  left: 50%;
+  transform: translateX(-50%);
 }
 /*
   The canonical portrait carries its own dark backdrop, so it is faded into the page with a mask
@@ -944,10 +964,9 @@
   border-width: 3px 3px 3px 5px;
   padding: 8px;
 }
-.storybook-thumbnail .storybook-brand {
-  top: 8px;
-  left: 9px;
-  font-size: 3px;
+/* An 82px cover, where 6.2% is five pixels of chameleon and the mark reads as a smudge. */
+.storybook-thumbnail .beki-mark.storybook-brand {
+  display: none;
 }
 .storybook-thumbnail .storybook-cover-copy small,
 .storybook-thumbnail .storybook-cover-copy span {

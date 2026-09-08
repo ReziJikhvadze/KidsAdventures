@@ -10,7 +10,7 @@ import { buildPageMeta } from "@/lib/seo";
 export const Route = createFileRoute("/admin/settings")({
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `გამოშვების წესები — ${BRAND_NAME} Admin`,
+      title: `გამოშვების წესები - ${BRAND_NAME} Admin`,
       description: "Release policy.",
       path: "/admin/settings",
       noindex: true,
@@ -172,7 +172,7 @@ function SettingsPage() {
                           <span className="cell-subtitle">ნაგულისხმევი</span>
                         ) : (
                           <>
-                            {check.updatedBy || "—"}
+                            {check.updatedBy || "-"}
                             <span className="cell-subtitle">
                               {admin.moment(check.updatedAtUtc)}
                             </span>

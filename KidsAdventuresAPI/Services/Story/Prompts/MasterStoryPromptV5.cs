@@ -49,20 +49,20 @@ public static class MasterStoryPromptV5
 
         Beki is the platform's one canonical story character: every book this platform makes gives
         the child the same warm, curious, brave, magical guide and friend. When Beki appears in a
-        spread, list exactly the id "beki" in that spread's characters — never as a cast member,
+        spread, list exactly the id "beki" in that spread's characters - never as a cast member,
         and never as anything else spelled or capitalised differently. Beki's appearance is fixed
         elsewhere and is not yours to invent: no visual detail about what Beki looks like belongs
         in any scene, in characterLock, or in a cast entry.
 
         For the story's words only: Beki is a small, floating, magical leaf spirit who asks rather
         than commands, remembers the child's earlier adventures, and celebrates the child's effort.
-        If the text ever names what Beki is, it says a leaf spirit — never a lamb, a sheep, or any
+        If the text ever names what Beki is, it says a leaf spirit - never a lamb, a sheep, or any
         animal.
 
         Beki must appear in spread 1 and in spread {input.SpreadCount} (the last one), and
-        meaningfully in at least three other spreads — more when the story naturally calls for it.
+        meaningfully in at least three other spreads - more when the story naturally calls for it.
         The child stays the protagonist throughout: the child makes the important decisions, and
-        Beki never solves the main problem for them. Beki needs no costume for the theme — Beki is
+        Beki never solves the main problem for them. Beki needs no costume for the theme - Beki is
         Beki in every world.
 
         Use the selected theme as the world of the story.
@@ -73,7 +73,7 @@ public static class MasterStoryPromptV5
         give the story one memorable magical or emotional turn. Spread {input.SpreadCount} fully
         resolves it: only a subtle feeling that more adventures are possible, never a loose thread.
         The final spread's visual scene must contain one concrete, visible continuation signal
-        (a new path appearing, a distant light, a door opening, a new star — one image-visible thing)
+        (a new path appearing, a distant light, a door opening, a new star - one image-visible thing)
         while the story still fully resolves; the signal lives in the illustration, not only in the words.
 
         Integrate the extra wish naturally when it improves the story. If it would bend the story
@@ -85,14 +85,14 @@ public static class MasterStoryPromptV5
         them, with an id: a character named in two spreads and described in neither is drawn as
         two different characters.
 
-        Create only as many recurring story objects as the story needs — only IMPORTANT objects
+        Create only as many recurring story objects as the story needs - only IMPORTANT objects
         appearing meaningfully in two or more spreads. Ids must be obj_01, obj_02, etc. Provide
         one short stable concrete visual description each. A recurring object's design never changes
         between spreads without a story reason. None is a valid answer. List a spread's recurring
         objects in its objects array.
 
         The cover shows the child and Beki only. No other character, creature, animal or vehicle
-        appears on it, and its setting stays simple and iconic — one clear suggestion of the
+        appears on it, and its setting stays simple and iconic - one clear suggestion of the
         world, uncluttered.
 
         For every spread:
@@ -106,7 +106,7 @@ public static class MasterStoryPromptV5
         Each spread should contain one clear story moment.
 
         The visual scene must describe only what should be visible in the illustration, and it
-        must name exactly one visual focus — the single thing the reader's eye should land on
+        must name exactly one visual focus - the single thing the reader's eye should land on
         first. Everything else in the scene is there to support it.
 
         For ages 2–4, keep the story very simple and short (approximately 15–30 Georgian words per spread).
@@ -114,7 +114,7 @@ public static class MasterStoryPromptV5
         Treat an age under 2 as 2, and an age over 8 as 8, when choosing language complexity.
 
         Safety, for readers aged 2–8. These override the theme, the extra wish and the story:
-        - No alcohol anywhere — no wine, beer or spirits, and no winery, wine cellar, brewery,
+        - No alcohol anywhere - no wine, beer or spirits, and no winery, wine cellar, brewery,
           bar or any other alcohol-making or alcohol-serving place as a plot, setting or
           destination.
         - The child never operates a real vehicle, machine or tool independently or
@@ -154,7 +154,7 @@ public static class MasterStoryPromptV5
         if (!string.IsNullOrWhiteSpace(input.AppearanceDescription))
         {
             text.AppendLine();
-            text.AppendLine("The child looks like this — use it for characterLock, not for the story:");
+            text.AppendLine("The child looks like this - use it for characterLock, not for the story:");
             text.AppendLine(input.AppearanceDescription!.Trim());
         }
 

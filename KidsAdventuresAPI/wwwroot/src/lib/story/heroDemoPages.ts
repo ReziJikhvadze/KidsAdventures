@@ -152,7 +152,7 @@ const LOST_VALLEY = (heroName: string, placeIn: string): DemoSpread[] => [
   {
     title: "ტირილი გვიმრებში",
     caption: "ვიღაც ტიროდა ახლოს",
-    text: `გზა ${placeIn} შედიოდა. ${heroName} გაჰყვა. უცებ გაჩერდა — სადღაც ახლოს ვიღაც ტიროდა.`,
+    text: `გზა ${placeIn} შედიოდა. ${heroName} გაჰყვა. უცებ გაჩერდა - სადღაც ახლოს ვიღაც ტიროდა.`,
     image: 2,
   },
   {

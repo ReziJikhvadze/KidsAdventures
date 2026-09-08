@@ -30,8 +30,8 @@ public class PdfFileNamesTests
     [InlineData("...")]
     public void A_title_that_is_not_a_name_falls_back_to_the_spelling_the_route_always_had(string? title)
     {
-        Assert.Equal(Fallback, PdfFileNames.ForBook(title, " — print", Fallback));
-        Assert.Equal(Fallback, PdfFileNames.AsciiForBook(title, " — print", Fallback));
+        Assert.Equal(Fallback, PdfFileNames.ForBook(title, " - print", Fallback));
+        Assert.Equal(Fallback, PdfFileNames.AsciiForBook(title, " - print", Fallback));
     }
 
     [Fact]
@@ -58,19 +58,19 @@ public class PdfFileNamesTests
     {
         // Georgian costs three UTF-8 bytes a letter, so a title that looks harmless in characters
         // is most of the 255-byte budget before the suffix is added.
-        var name = PdfFileNames.ForBook(new string('ა', 300), " — print", Fallback);
+        var name = PdfFileNames.ForBook(new string('ა', 300), " - print", Fallback);
 
-        Assert.EndsWith(" — print.pdf", name);
+        Assert.EndsWith(" - print.pdf", name);
         Assert.True(System.Text.Encoding.UTF8.GetByteCount(name) < 255);
     }
 
     [Fact]
     public void The_suffix_keeps_the_two_console_files_apart()
     {
-        Assert.Equal("ზუკა — print.pdf", PdfFileNames.ForBook("ზუკა", " — print", Fallback));
+        Assert.Equal("ზუკა - print.pdf", PdfFileNames.ForBook("ზუკა", " - print", Fallback));
         Assert.Equal(
-            "ზუკა — reading copy (not print).pdf",
-            PdfFileNames.ForBook("ზუკა", " — reading copy (not print)", Fallback));
+            "ზუკა - reading copy (not print).pdf",
+            PdfFileNames.ForBook("ზუკა", " - reading copy (not print)", Fallback));
     }
 
     [Fact]
@@ -86,7 +86,7 @@ public class PdfFileNamesTests
     [Fact]
     public void The_ascii_parameter_is_ascii_and_never_runs_separators_together()
     {
-        var name = PdfFileNames.AsciiForBook("ზუკა !!! —  და 42", null, Fallback);
+        var name = PdfFileNames.AsciiForBook("ზუკა !!! -  და 42", null, Fallback);
 
         Assert.Equal("zuka-da-42.pdf", name);
         Assert.All(name, character => Assert.True(char.IsAscii(character)));

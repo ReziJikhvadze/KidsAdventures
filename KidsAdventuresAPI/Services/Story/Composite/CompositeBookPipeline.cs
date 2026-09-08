@@ -1171,7 +1171,7 @@ public sealed class CompositeBookPipeline(
                 logger.LogWarning(
                     "Composite pipeline {JobId}: the previewed story was replaced over the child's "
                     + "name, so the {Spreads} stored spread(s) and the stored Visual Scenario were "
-                    + "discarded — they belong to the story this run just stopped printing. The "
+                    + "discarded - they belong to the story this run just stopped printing. The "
                     + "book is redrawn from the new plan.",
                     context.JobId, resume.Spreads.Count);
 
@@ -1238,7 +1238,7 @@ public sealed class CompositeBookPipeline(
         foreach (var problem in CompositeGeorgianCheck.RuleProblems)
         {
             logger.LogWarning(
-                "Composite pipeline {JobId}: georgian_checklist_problem — {Problem} This book was "
+                "Composite pipeline {JobId}: georgian_checklist_problem - {Problem} This book was "
                 + "checked by the remaining rules only.", context.JobId, problem);
 
             warnings.Add(
@@ -1438,7 +1438,7 @@ public sealed class CompositeBookPipeline(
         {
             logger.LogWarning(
                 "Composite pipeline {JobId}: {Stored} stored spread(s) have no child appearance "
-                + "anchor — spread {AnchorPage}'s base image is missing — so they were drawn "
+                + "anchor - spread {AnchorPage}'s base image is missing - so they were drawn "
                 + "against a stylization this attempt cannot match. Redrawing the whole book.",
                 context.JobId, resume.Spreads.Count, anchorPage);
 
@@ -1472,7 +1472,7 @@ public sealed class CompositeBookPipeline(
         {
             logger.LogWarning(
                 "Composite pipeline {JobId}: {Stored} stored spread(s) are being adopted without "
-                + "per-page QA records — this book was stored before the records existed, or by a "
+                + "per-page QA records - this book was stored before the records existed, or by a "
                 + "caller that does not keep them. Their artifacts are flagged adopted with no "
                 + "verdict, and the release gates decide what that is worth.",
                 context.JobId, resume.Spreads.Count);
@@ -1730,9 +1730,9 @@ public sealed class CompositeBookPipeline(
 
             throw new CompositePipelineException(
                 CompositeFailureCodes.LayoutFailed,
-                "The composite cover needs the active printer-approved cover geometry — back "
+                "The composite cover needs the active printer-approved cover geometry - back "
                 + "panel, spine, hinge, front panel, title-safe, child/action, Beki integration and "
-                + "wrap — and this deployment has none configured. The interior bleed must never be "
+                + "wrap - and this deployment has none configured. The interior bleed must never be "
                 + "substituted for it.");
         }
 
@@ -1883,7 +1883,7 @@ public sealed class CompositeBookPipeline(
             "Composite pipeline {JobId} cover wrap: drawing to the book's own identity lock "
             + "({Version}); appearance anchor {Anchor}.",
             context.JobId, CompositeIllustrationPrompt.CoverVersion,
-            anchored ? "attached" : "not available — the lock and the photograph carry it");
+            anchored ? "attached" : "not available - the lock and the photograph carry it");
 
         logger.LogInformation(
             "Cover prompt provenance {JobId}: promptVersion={PromptVersion} promptSha256={PromptSha256}; "
@@ -1939,13 +1939,13 @@ public sealed class CompositeBookPipeline(
         {
             logger.LogWarning(
                 "Composite pipeline {JobId} cover wrap: the generated base has a full-height "
-                + "discontinuity on {Count} of {Total} dieline boundaries — {Offending}. Spending "
+                + "discontinuity on {Count} of {Total} dieline boundaries - {Offending}. Spending "
                 + "the one base regeneration.",
                 context.JobId, bands.Offending.Count, bands.Bands.Count,
                 string.Join("; ", bands.Offending));
 
             logger.LogWarning(
-                "Composite pipeline {JobId} cover wrap: buying a new base image — the centre "
+                "Composite pipeline {JobId} cover wrap: buying a new base image - the centre "
                 + "construction is painted into the artwork.", context.JobId);
 
             var (retry, retryMs, retryGenerated) = await GenerateBaseImageAsync(
@@ -1991,7 +1991,7 @@ public sealed class CompositeBookPipeline(
                 {
                     logger.LogError(
                         "Composite pipeline {JobId} cover wrap: the regenerated base still paints "
-                        + "the centre construction — {Offending}. Stopping the book; the refused "
+                        + "the centre construction - {Offending}. Stopping the book; the refused "
                         + "wrap and the numbers are stored as evidence.",
                         context.JobId, string.Join("; ", second.Offending));
 
@@ -2074,7 +2074,7 @@ public sealed class CompositeBookPipeline(
         {
             logger.LogWarning(
                 "Composite pipeline {JobId}: the stored Visual Scenario no longer validates, so a "
-                + "new one is being planned — {Problems}", context.JobId, validation.Summary);
+                + "new one is being planned - {Problems}", context.JobId, validation.Summary);
 
             warnings.Add(
                 "The stored Visual Scenario no longer validates and was replanned; spreads adopted "
@@ -2159,14 +2159,14 @@ public sealed class CompositeBookPipeline(
         {
             await WaiveAsync(
                 context, BekiReleaseChecks.NameFidelity, problems[0].Spread,
-                $"the previewed story was adopted with the child's name misspelled — {detail}",
+                $"the previewed story was adopted with the child's name misspelled - {detail}",
                 [], NameFidelityEvidenceJson(problems, input.ChildName));
 
             return (plan, false);
         }
 
         logger.LogWarning(
-            "Composite pipeline {JobId}: the previewed story misspells the child's name — {Detail}. "
+            "Composite pipeline {JobId}: the previewed story misspells the child's name - {Detail}. "
             + "Writing a new story rather than printing it; no image has been drawn, so this costs "
             + "text and not artwork.", context.JobId, detail);
 
@@ -2225,7 +2225,7 @@ public sealed class CompositeBookPipeline(
         }
 
         logger.LogWarning(
-            "Composite pipeline {JobId}: the story for {ChildName} failed validation — "
+            "Composite pipeline {JobId}: the story for {ChildName} failed validation - "
             + "{Problems}. Asking again, once, with "
             + "the correction; nothing has been drawn yet, so this costs one text call.",
             context.JobId, input.ChildName,
@@ -2369,7 +2369,7 @@ public sealed class CompositeBookPipeline(
         }
 
         logger.LogError(
-            "Composite pipeline {JobId}: both attempts at the story misspelled the child's name — "
+            "Composite pipeline {JobId}: both attempts at the story misspelled the child's name - "
             + "{Detail}. Stopping the book before anything is drawn.", context.JobId, detail);
 
         throw new CompositePipelineException(
@@ -2602,7 +2602,7 @@ public sealed class CompositeBookPipeline(
             previous = validation;
 
             logger.LogWarning(
-                "Composite pipeline {JobId}: Visual Scenario attempt {Attempt} rejected — {Problems}",
+                "Composite pipeline {JobId}: Visual Scenario attempt {Attempt} rejected - {Problems}",
                 context.JobId, attempt + 1, validation.Summary);
         }
 
@@ -2728,7 +2728,7 @@ public sealed class CompositeBookPipeline(
                 previous = parsed;
 
                 logger.LogWarning(
-                    "Composite pipeline {JobId}: identity spec attempt {Attempt} rejected — {Problems}",
+                    "Composite pipeline {JobId}: identity spec attempt {Attempt} rejected - {Problems}",
                     context.JobId, attempt + 1, parsed.Summary);
 
                 continue;
@@ -3144,14 +3144,14 @@ public sealed class CompositeBookPipeline(
         if (centreField.Exceeded)
         {
             logger.LogWarning(
-                "Composite pipeline {JobId} spread {Page}: centre-fold gate — edge {Edge:P1} at "
+                "Composite pipeline {JobId} spread {Page}: centre-fold gate - edge {Edge:P1} at "
                 + "column {EdgeColumn}, one-way field {Field:P1} at column {FieldColumn}{Severe} "
                 + "(advisory limits {EdgeLimit:P0}/{FieldLimit:P0}). Spending the one base "
                 + "regeneration.",
                 context.JobId, page.Page,
                 centreField.EdgeCoverage, centreField.EdgeColumn,
                 centreField.FieldCoverage, centreField.FieldColumn,
-                centreField.Severe ? " — SEVERE tier" : string.Empty,
+                centreField.Severe ? " - SEVERE tier" : string.Empty,
                 CompositeSeamRepair.EdgeCoverageLimit, CompositeSeamRepair.FieldCoverageLimit);
 
             (basePng, generationMs, placement, receiptJson) = await RegenerateBaseAsync(
@@ -3220,7 +3220,7 @@ public sealed class CompositeBookPipeline(
             });
 
             logger.LogInformation(
-                "Composite pipeline {JobId} spread {Page}: accepted without a visual review — "
+                "Composite pipeline {JobId} spread {Page}: accepted without a visual review - "
                 + "image_review is a {Severity} in the policy this job is running under. "
                 + "review_attempts=0; the deterministic checks passed.",
                 context.JobId, page.Page, severity);
@@ -3322,7 +3322,7 @@ public sealed class CompositeBookPipeline(
                     */
                     logger.LogInformation(
                         "Composite pipeline {JobId} spread {Page}: age_note (advisory, no effect on "
-                        + "the verdict) — entered age {Age}, reviewer says \"{Note}\".",
+                        + "the verdict) - entered age {Age}, reviewer says \"{Note}\".",
                         context.JobId, page.Page, input.ChildAge, ageNote);
                 }
 
@@ -3334,7 +3334,7 @@ public sealed class CompositeBookPipeline(
                     // and there is no evidence yet to price that — which is what this collects.
                     logger.LogWarning(
                         "Composite pipeline {JobId} spread {Page}: shot_note (advisory, no effect "
-                        + "on the verdict) — asked for \"{Shot}\", reviewer says \"{Note}\".",
+                        + "on the verdict) - asked for \"{Shot}\", reviewer says \"{Note}\".",
                         context.JobId, page.Page, CompositeSpreadRhythm.ShotFor(page.Page), shotNote);
                 }
 
@@ -3428,7 +3428,7 @@ public sealed class CompositeBookPipeline(
                 {
                     logger.LogWarning(
                         "Composite pipeline {JobId} spread {Page}: QA asked for a re-composite; "
-                        + "moving Beki from {FromX},{FromY},{FromH} to {ToX},{ToY},{ToH} — {Verdict}",
+                        + "moving Beki from {FromX},{FromY},{FromH} to {ToX},{ToY},{ToH} - {Verdict}",
                         context.JobId, page.Page,
                         layer.NormalizedAnchor.VisibleCenterX, layer.NormalizedAnchor.VisibleCenterY,
                         layer.NormalizedAnchor.VisibleHeight,
@@ -3502,7 +3502,7 @@ public sealed class CompositeBookPipeline(
                 await WaiveAsync(
                     context, BekiReleaseChecks.ImageQa, page.Page,
                     $"the reviewer refused this page after {baseAttempts} base image(s) and "
-                    + $"{attempts.Count} review(s) — {verdict}",
+                    + $"{attempts.Count} review(s) - {verdict}",
                     composite.Png, exhausted);
 
                 // Deliberately NOT remembered as a continuity reference. A page the reviewer refused
@@ -3533,7 +3533,7 @@ public sealed class CompositeBookPipeline(
 
             logger.LogError(
                 "Composite pipeline {JobId} spread {Page}: stopping for human review after "
-                + "{BaseAttempts} base image(s) and {Reviews} review(s) — {Verdict}",
+                + "{BaseAttempts} base image(s) and {Reviews} review(s) - {Verdict}",
                 context.JobId, page.Page, baseAttempts, attempts.Count, verdict);
 
             throw new CompositePipelineException(
@@ -3571,7 +3571,7 @@ public sealed class CompositeBookPipeline(
             CancellationToken cancellationToken)
     {
         logger.LogWarning(
-            "Composite pipeline {JobId} spread {Page}: buying a new base image — {Reason}",
+            "Composite pipeline {JobId} spread {Page}: buying a new base image - {Reason}",
             context.JobId, page.Page, reason);
 
         var (rawPng, generationMs, generated) = await GenerateBaseImageAsync(
@@ -3632,7 +3632,7 @@ public sealed class CompositeBookPipeline(
         {
             logger.LogInformation(
                 "Composite pipeline {JobId} spread {Page}: the regenerated base continues across "
-                + "the centre fold — {Second}.",
+                + "the centre fold - {Second}.",
                 context.JobId, page.Page, Reading(measured));
 
             return measured;
@@ -3664,7 +3664,7 @@ public sealed class CompositeBookPipeline(
 
         logger.LogError(
             "Composite pipeline {JobId} spread {Page}: the regenerated base does not continue "
-            + "across the centre fold — {Second} (the base it replaced read {First}). Stopping the "
+            + "across the centre fold - {Second} (the base it replaced read {First}). Stopping the "
             + "book; the refused picture and the numbers are stored as evidence.",
             context.JobId, page.Page, Reading(measured), Reading(previous));
 
@@ -3841,7 +3841,7 @@ public sealed class CompositeBookPipeline(
     {
         logger.LogWarning(
             "Composite pipeline {JobId} {Where}: {CheckId} refused this page and the release policy "
-            + "flags it, so the artwork ships and an alarm is raised — {Detail}",
+            + "flags it, so the artwork ships and an alarm is raised - {Detail}",
             context.JobId, page == 0 ? "cover wrap" : $"spread {page}", checkId, detail);
 
         if (context.OnPolicyWaiver is not { } sink)
@@ -4159,7 +4159,7 @@ public sealed class CompositeBookPipeline(
                 logger.LogWarning(
                     "Composite pipeline {JobId} {Page}: centre measured {Ratio:F1}x baseline "
                     + "({Centre:F2} against {Baseline:F2}) at {Offset:+0.0%;-0.0%;0.0%} from "
-                    + "centre, but no narrow run to repair — a step or a band wider than "
+                    + "centre, but no narrow run to repair - a step or a band wider than "
                     + "{Max} columns. Deferring to the centre-field gate.",
                     context.JobId, page is null ? "cover" : $"spread {page}",
                     before.Ratio, before.Centre, before.Baseline, before.OffsetFraction,
@@ -4310,7 +4310,7 @@ public sealed class CompositeBookPipeline(
         var configured = _engine.Value.Config.StoryDefaultFor(side);
 
         logger.LogInformation(
-            "Composite pipeline {JobId} spread {Page}: placement {Version} — {Decision}. "
+            "Composite pipeline {JobId} spread {Page}: placement {Version} - {Decision}. "
             + "default={DefaultX},{DefaultY},{DefaultH} score {DefaultScore:F3}; "
             + "chosen={ChosenX},{ChosenY},{ChosenH} score {ChosenScore:F3}; "
             + "candidates={Candidates}. {Reason}",
@@ -4446,7 +4446,7 @@ public sealed class CompositeBookPipeline(
             previous = parsed;
 
             logger.LogWarning(
-                "Composite pipeline {JobId} spread {Page}: the QA answer did not parse — {Problems}",
+                "Composite pipeline {JobId} spread {Page}: the QA answer did not parse - {Problems}",
                 context.JobId, page.Page, parsed.Summary);
         }
 
@@ -4467,7 +4467,7 @@ public sealed class CompositeBookPipeline(
         {
             await WaiveAsync(
                 context, BekiReleaseChecks.QaUnreadable, page.Page,
-                $"no readable QA verdict after two attempts — {previous.Summary}",
+                $"no readable QA verdict after two attempts - {previous.Summary}",
                 composite.Png, evidenceJson);
 
             /*
@@ -4541,7 +4541,7 @@ public sealed class CompositeBookPipeline(
                 status = UnreadableStatus,
                 problems,
                 note = "Two answers from the visual reviewer, neither of which could be read as a "
-                       + "verdict. The picture beside this document was never judged — not refused.",
+                       + "verdict. The picture beside this document was never judged - not refused.",
             },
             CompositeJson.Readable);
 

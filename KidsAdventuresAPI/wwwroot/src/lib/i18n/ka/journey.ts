@@ -28,7 +28,7 @@ export const journey = {
       expected a form needs to be told why there is not one.
     */
     resume: "დაუბრუნდი ნიმუშს",
-    resumeNote: "ამ ბავშვის ნიმუში უკვე მზადდება. ჯერ ის დაასრულე — მერე შეძლებ ახლის შექმნას.",
+    resumeNote: "ამ ბავშვის ნიმუში უკვე მზადდება. ჯერ ის დაასრულე - მერე შეძლებ ახლის შექმნას.",
     ready: "პერსონაჟი მზადაა",
     saveCharacter: " პერსონაჟის შენახვა",
     saveChanges: " ცვლილებების შენახვა",
@@ -68,7 +68,7 @@ export const journey = {
     relationshipCustom: "ჩაწერე ურთიერთობა",
     relationshipPlaceholder: "მაგ. ნათლია ან ჯადოსნური მეგობარი",
     photoGuideAlt:
-      "მარცხნივ სწორი ფოტო — ბავშვი კამერისკენ იყურება და სახე კარგად ჩანს; მარჯვნივ არასწორი — გვერდულად შემობრუნებული და შორიდან.",
+      "მარცხნივ სწორი ფოტო - ბავშვი კამერისკენ იყურება და სახე კარგად ჩანს; მარჯვნივ არასწორი - გვერდულად შემობრუნებული და შორიდან.",
     photoUpload: "ფოტოს ატვირთვა",
     photoReplace: "შეცვალე ფოტო",
     photoChecking: "ფოტო მზადდება…",
@@ -77,11 +77,11 @@ export const journey = {
       "This photo will not do" sends a parent back to the picker with nothing to change.
     */
     photoRejected: {
-      not_a_person: "ფოტოზე ადამიანი ვერ ვნახეთ — ატვირთე სურათი, სადაც ბავშვი ჩანს.",
-      unsuitable: "ეს ფოტო არ გამოდგება — ატვირთე სურათი, სადაც ბავშვი ჩანს.",
-      unreadable: "ფაილი ვერ წავიკითხეთ — ატვირთე JPG, PNG ან WEBP ფოტო.",
-      too_large: "ფოტო ძალიან დიდია — აირჩიე უფრო პატარა სურათი.",
-      unavailable: "ფოტოს შემოწმება ვერ მოხერხდა — სცადე ხელახლა ატვირთვა.",
+      not_a_person: "ფოტოზე ადამიანი ვერ ვნახეთ - ატვირთე სურათი, სადაც ბავშვი ჩანს.",
+      unsuitable: "ეს ფოტო არ გამოდგება - ატვირთე სურათი, სადაც ბავშვი ჩანს.",
+      unreadable: "ფაილი ვერ წავიკითხეთ - ატვირთე JPG, PNG ან WEBP ფოტო.",
+      too_large: "ფოტო ძალიან დიდია - აირჩიე უფრო პატარა სურათი.",
+      unavailable: "ფოტოს შემოწმება ვერ მოხერხდა - სცადე ხელახლა ატვირთვა.",
     },
   },
 
@@ -105,7 +105,7 @@ export const journey = {
       cannot make a book is one the parent can still fix, in the same dialog every other missing
       answer uses. The range is the server's; see AdventurePacksController.
     */
-    birthDateRange: "დაბადების თარიღი შეამოწმე — წიგნი 1-დან 18 წლამდე ბავშვისთვის იქმნება.",
+    birthDateRange: "დაბადების თარიღი შეამოწმე - წიგნი 1-დან 18 წლამდე ბავშვისთვის იქმნება.",
     genderRequired: "აირჩიე, პერსონაჟი გოგოა თუ ბიჭი.",
     relationshipRequired: "დაამატე მისი თანამგზავრი",
     relationshipTextRequired: "ვინ არის ის?",
@@ -131,13 +131,13 @@ export const journey = {
     lead: "შეეხე კუნძულს და აღმოაჩინე მისი ამბავი",
     stageLabel: "ჯადოსნური სამყაროს არჩევა",
     artLabel: "ექვსი მოფარფატე ჯადოსნური სამყარო, ბექი და მანათობელი წიგნი",
-    brandLabel: "Beki — მთავარი",
+    brandLabel: "Beki - მთავარი",
     /* The arrow no longer always leads home — it leads back to wherever the parent came from. */
     backLabel: "უკან დაბრუნება",
     /* "Create", not "let's go to this world": the button makes a book, and the world is already
        chosen by the time it can be pressed. */
     create: "შექმნა",
-    continueTo: (world: string) => `შექმნა — ${world}`,
+    continueTo: (world: string) => `შექმნა - ${world}`,
     /* Spoken, not shown: the painting says all this in pictures, and a screen reader cannot
        see a star cross it. */
     statusIdle: "სამყარო ჯერ არ არის არჩეული.",
@@ -151,7 +151,7 @@ export const journey = {
     tryAgain: "სცადე თავიდან",
     locked: "ჯერ დახურულია",
     lockedNote: (world: string) =>
-      `${world} ჯერ დახურულია — წინა თავგადასავალი ჯერ არ დასრულებულა.`,
+      `${world} ჯერ დახურულია - წინა თავგადასავალი ჯერ არ დასრულებულა.`,
     forChild: (name: string) => `${name}ს სამყაროები`,
   },
 
@@ -159,14 +159,14 @@ export const journey = {
     title: "აირჩიე შენი ზღაპარი",
     letBekiChoose: "ბეკიმ აირჩიოს",
     bekiChoosing: "ბეკი არჩევს…",
-    continueTo: (place: string) => `${place} — წავიდეთ!`,
+    continueTo: (place: string) => `${place} - წავიდეთ!`,
     eyebrow: "ბეკის გზა · პირველი კარიბჭე",
     creating: "პირველ თავგადასავალს ქმნი",
     titlePrefix: "სად იწყება ",
     titleSuffix: "ს პირველი თავგადასავალი?",
-    guidance: "დააჭირე შენს საყვარელ სამყაროს — ბეკი გზას გაგინათებს.",
+    guidance: "დააჭირე შენს საყვარელ სამყაროს - ბეკი გზას გაგინათებს.",
     selectedHeading: "არჩეული სამყარო და სურვილი",
-    emptySelection: "დააჭირე ერთ სამყაროს — შენი ამბავი აქ დაიწყება.",
+    emptySelection: "დააჭირე ერთ სამყაროს - შენი ამბავი აქ დაიწყება.",
     emptyGlyph: "სამყარო 0",
     selected: "არჩეულია",
     activate: "გააცოცხლე",
@@ -177,7 +177,7 @@ export const journey = {
     continue: "გავიცნოთ პატარა გმირი",
     /* Beki says one short line at a time. A child is listening, not reading. */
     beki: {
-      greeting: "გამარჯობა! მე ბეკი ვარ — შენი გზამკვლევი.",
+      greeting: "გამარჯობა! მე ბეკი ვარ - შენი გზამკვლევი.",
       peek: (theme: string) => `${theme}? კარგი არჩევანია.`,
       chosen: (place: string) => `შესანიშნავია! ${place} გველოდება.`,
       chosenByBeki: (place: string) => `მე ვირჩევ: ${place}! წავიდეთ.`,
@@ -186,7 +186,7 @@ export const journey = {
   },
 
   previewLoader: {
-    paintingCover: "ზღაპარი დაწერილია — ვხატავთ ყდას…",
+    paintingCover: "ზღაპარი დაწერილია - ვხატავთ ყდას…",
     heading: " პერსონალიზებული Preview იქმნება",
     subheading: "ს პირველი გვერდი უკვე მზადდება ✨",
     ariaLabel: (hero: string) => `ნახე ${hero}ს ამბავი უფასოდ`,
@@ -207,14 +207,14 @@ export const journey = {
   preview: {
     chooseWorldFirst: "ჯერ აირჩიე სამყარო, რომ ზღაპარი შენს არჩევანს დაემთხვეს.",
     failedTitle: "ზღაპარი ვერ დაიწერა",
-    failed: "ზღაპრის შექმნისას რაღაც ხარვეზი მოხდა. სცადე თავიდან — შენი მონაცემები შენახულია.",
+    failed: "ზღაპრის შექმნისას რაღაც ხარვეზი მოხდა. სცადე თავიდან - შენი მონაცემები შენახულია.",
     expired: "შენი ზღაპრის ვადა ამოიწურა. შექმენი ახალი.",
     tookTooLong:
-      "ზღაპარი მოსალოდნელზე დიდხანს გრძელდება. სცადე თავიდან — შენი მონაცემები შენახულია.",
+      "ზღაპარი მოსალოდნელზე დიდხანს გრძელდება. სცადე თავიდან - შენი მონაცემები შენახულია.",
     tryAgain: "თავიდან ცდა",
     /* The server's own rate limit, said as what it is — a busy moment, not a fault of the parent. */
     tooBusy:
-      "ამ წუთას ძალიან ბევრი ზღაპარი იწერება. სცადე რამდენიმე წუთში — შენი მონაცემები შენახულია.",
+      "ამ წუთას ძალიან ბევრი ზღაპარი იწერება. სცადე რამდენიმე წუთში - შენი მონაცემები შენახულია.",
     eyebrow: " პერსონალიზებული Preview მზადაა",
     titlePrefix: "აი, როგორ იწყება ",
     titleSuffix: "ს ამბავი",
@@ -269,7 +269,7 @@ export const journey = {
     registerSubmit: "რეგისტრაცია ",
     tabPassword: "პაროლით",
     sendMagicLink: "გამომიგზავნე Magic Link ",
-    magicLinkSent: (email: string) => `ბმული გაიგზავნა — შეამოწმე ${email}.`,
+    magicLinkSent: (email: string) => `ბმული გაიგზავნა - შეამოწმე ${email}.`,
     openMagicLink: "გახსენი Magic Link (დემო)",
     phoneLabel: "ტელეფონის ნომერი",
     phoneDemoNote: "SMS არ გაიგზავნება",
@@ -334,7 +334,7 @@ export const journey = {
     pickLocationTitle: "სად მივიტანოთ?",
     pickLocationHint: "მოძებნე ქუჩა და აირჩიე ჩამონათვალიდან.",
     pickLocationConfirm: "ამ მისამართის დადასტურება",
-    pickLocationUnavailable: "რუკა ამჟამად მიუწვდომელია — ჩაწერე მისამართი ხელით.",
+    pickLocationUnavailable: "რუკა ამჟამად მიუწვდომელია - ჩაწერე მისამართი ხელით.",
     addressNotes: "დამატებითი მითითება კურიერისთვის",
     addressNotesPlaceholder: "სადარბაზო, სართული, ბინა, კოდი, ორიენტირი",
     addressPlaceholder: "ქალაქი, ქუჩა, შენობა და ბინა",
@@ -351,7 +351,7 @@ export const journey = {
     deliveryLine: "მიწოდება საქართველოში ",
     discountLine: "შენი ფასდაკლება ",
     total: "ჯამი ",
-    printReuseNote: "უკვე შექმნილი წიგნი დაიბეჭდება — ისტორია ხელახლა არ გენერირდება.",
+    printReuseNote: "უკვე შექმნილი წიგნი დაიბეჭდება - ისტორია ხელახლა არ გენერირდება.",
     bookLanguage: "წიგნის ენა",
     payFirstNote: "სრული წიგნი მხოლოდ წარმატებული გადახდის შემდეგ შეიქმნება.",
   },
@@ -362,11 +362,11 @@ export const journey = {
     failedBody:
       "წიგნის შექმნა შეწყდა. ჩვენ უკვე ვმუშაობთ პრობლემის მოსაგვარებლად. არაფერი დაკარგულა.",
     stillWorking:
-      "წიგნის მომზადებას ჩვეულებრივზე ცოტა მეტი დრო სჭირდება — ის ისევ იხატება და არაფერი დაკარგულა. შეგიძლია აქ დაელოდო, ან მოგვიანებით დაფაზე ნახო: როგორც კი მზად იქნება, იქ გამოჩნდება.",
+      "წიგნის მომზადებას ჩვეულებრივზე ცოტა მეტი დრო სჭირდება - ის ისევ იხატება და არაფერი დაკარგულა. შეგიძლია აქ დაელოდო, ან მოგვიანებით დაფაზე ნახო: როგორც კი მზად იქნება, იქ გამოჩნდება.",
     titleSuffix: "ს ამბავში მაგია იწყება...",
     companionPrefix: "რექსმა ",
     companionSuffix: "ს ახალი სამყაროს კარი გაიღო",
-    leaveNote: "შეგიძლია თავისუფლად გახვიდე — წიგნის მზადებისას ელფოსტასაც გამოგიგზავნით.",
+    leaveNote: "შეგიძლია თავისუფლად გახვიდე - წიგნის მზადებისას ელფოსტასაც გამოგიგზავნით.",
     /* A Beki book is nine paintings and a print-ready file; a minute was never true. */
     softTime: "ჩვეულებრივ 5–10 წუთი",
     stageLabel: "ნაბიჯი ",
@@ -399,7 +399,7 @@ export const journey = {
       book that stalled at page three kept telling the parent it was being bound.
     */
     statusLine: {
-      Pending: "შეკვეთა მიღებულია — ვიწყებთ",
+      Pending: "შეკვეთა მიღებულია - ვიწყებთ",
       Generating: "ისტორიას ვწერთ",
       GeneratingStory: "ისტორიას ვწერთ",
       StoryReady: "ილუსტრაციებს ვხატავთ",
@@ -413,7 +413,7 @@ export const journey = {
     digitalNote: "ეს არის შენი ციფრული ვერსია",
     languageNote: "წიგნის ენა: ",
     deliveryNote:
-      "ბეჭდურ წიგნს მიიღებ მითითებულ მისამართზე — თბილისში 2–3 დღეში, საქართველოს სხვა რეგიონებში 5–7 დღეში.",
+      "ბეჭდურ წიგნს მიიღებ მითითებულ მისამართზე - თბილისში 2–3 დღეში, საქართველოს სხვა რეგიონებში 5–7 დღეში.",
     pageBadge: " 16 გვერდი",
     fullBookAria: (hero: string) => `${hero}ს სრული წიგნი`,
     downloadPdf: "PDF-ის ჩამოტვირთვა",

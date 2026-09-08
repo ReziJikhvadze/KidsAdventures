@@ -122,7 +122,7 @@ public static class BekiDigitalPrep
         {
             throw Failure(
                 $"{DigitalGeometryGate}: the reading copy has {expectedPages} page(s) where the "
-                + $"book is {ExpectedPageCount} — cover, endpaper, intro, "
+                + $"book is {ExpectedPageCount} - cover, endpaper, intro, "
                 + $"{BookFormat.SpreadCount} spreads, credits, endpaper, back cover.");
         }
 
@@ -145,7 +145,7 @@ public static class BekiDigitalPrep
         {
             throw Failure(
                 $"the linearization pass returned {document.PageCount} page(s) where the composed "
-                + $"reading copy has {expectedPages} — content was dropped rather than reordered.");
+                + $"reading copy has {expectedPages} - content was dropped rather than reordered.");
         }
 
         var pages = InspectGeometry(document, locked);
@@ -161,7 +161,7 @@ public static class BekiDigitalPrep
         if (printerOnly.Count > 0)
         {
             throw Failure(
-                $"{DigitalGeometryGate}: the reading copy still carries printer-only structures — "
+                $"{DigitalGeometryGate}: the reading copy still carries printer-only structures - "
                 + string.Join(" ", printerOnly) + ". Audit P0-08: the downloadable file must not "
                 + "carry print bleed, trim metadata or press colour identification.");
         }
@@ -458,7 +458,7 @@ public static class BekiDigitalPrep
             else if (!hasCrop || crop is null)
             {
                 problem =
-                    "there is no CropBox, so a viewer displays the MediaBox — which is exactly how "
+                    "there is no CropBox, so a viewer displays the MediaBox - which is exactly how "
                     + "the audited file showed printer bleed to a parent";
             }
             else if (Math.Abs(crop.Width - media.Width) > ToleranceP
@@ -748,7 +748,7 @@ public static class BekiDigitalPrep
         if (problems.Count == 0) return;
         throw Failure(
             $"{DigitalGeometryGate}: {problems.Count} ICCBased colour space(s) point at a "
-            + "profile stream that is not a readable ICC profile — "
+            + "profile stream that is not a readable ICC profile - "
             + string.Join(" ", problems)
             + " A strict viewer drops every image in such a colour space, which is a page of "
             + "flat colour where the artwork should be.");
@@ -838,7 +838,7 @@ public static class BekiDigitalPrep
             {
                 problem =
                     $"object {number}: the profile's own header states {size} bytes and the stream "
-                    + $"holds {bytes.Length} — it is truncated.";
+                    + $"holds {bytes.Length} - it is truncated.";
             }
             else if (declared > 0 && components > 0 && declared != components)
             {

@@ -36,16 +36,16 @@ public static class BekiImageQaPrompt
         1. the child resembles the reference and is rendered as a stylized 3D animated character,
            not photorealistically,
         2. the child's hairstyle, clothing, footwear and accessories match the fixed appearance
-           above — judge wardrobe against that description alone, not against the clothes in the
-           reference photograph — unless this scene states a change,
+           above - judge wardrobe against that description alone, not against the clothes in the
+           reference photograph - unless this scene states a change,
         3. recurring characters and recurring story objects remain recognizable and consistent,
         4. {{BekiIdentity.QaRule}}
         5. within about two seconds, the scene's main story beat is obvious: the required action
            or discovery reads at a glance rather than being incidental or hidden,
         6. important faces and actions are away from the center gutter,
-        7. the reserved third named above holds quiet background only — no character, face, hands
+        7. the reserved third named above holds quiet background only - no character, face, hands
            or main action anywhere inside it,
-        8. there is no legible or pseudo-legible lettering anywhere — no words, letter-like marks,
+        8. there is no legible or pseudo-legible lettering anywhere - no words, letter-like marks,
            signs, notes, labels, logos, frames or QR codes,
         9. there are no incorrect or unnecessary story characters.
 

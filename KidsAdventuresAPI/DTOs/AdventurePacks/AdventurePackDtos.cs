@@ -1,6 +1,31 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace AdventurePacks.Api.DTOs.AdventurePacks;
+
+/// <summary>
+/// A book's own words, with the long dash spelled the way a keyboard spells it.
+///
+/// The model writes em dashes; a hyphen is what the house style asks for, and the difference is
+/// one of the tells that a paragraph was machine-written. Doing it here rather than at the point
+/// of generation is deliberate: every book, including the ones written months ago and sitting in
+/// the database, is read back through these properties on its way to the reader and to the PDF,
+/// so a book already sold is corrected the next time anybody opens it. Writing normalises too,
+/// so a book generated from now on is stored clean rather than cleaned on the way out.
+///
+/// Only the dashes. Nothing else about the model's prose is rewritten behind the author's back.
+/// </summary>
+public sealed class PlainDashStringConverter : JsonConverter<string>
+{
+    public static string Apply(string? value) =>
+        (value ?? string.Empty).Replace('\u2014', '-').Replace('\u2015', '-');
+
+    public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        Apply(reader.GetString());
+
+    public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(Apply(value));
+}
 
 public class AdventurePackResponse
 {
@@ -239,6 +264,7 @@ public sealed class MasterStoryRunStatusDto
 public sealed class AdventureContentDto
 {
     [JsonPropertyName("title")]
+    [JsonConverter(typeof(PlainDashStringConverter))]
     public string Title { get; set; } = string.Empty;
 
     [JsonPropertyName("theme")]
@@ -275,13 +301,18 @@ public sealed class AdventureContentDto
 public sealed class StoryPageDto
 {
     [JsonPropertyName("title")]
+    [JsonConverter(typeof(PlainDashStringConverter))]
     public string Title { get; set; } = string.Empty;
 
     /// <summary>Short evocative phrase (3-8 words) shown overlaid on the illustration.</summary>
     [JsonPropertyName("caption")]
+    [JsonConverter(typeof(PlainDashStringConverter))]
     public string Caption { get; set; } = string.Empty;
 
+    /// <summary>The page's prose. See <see cref="PlainDashStringConverter"/> for the one thing
+    /// that is rewritten on its way in and out.</summary>
     [JsonPropertyName("content")]
+    [JsonConverter(typeof(PlainDashStringConverter))]
     public string Content { get; set; } = string.Empty;
 
     [JsonPropertyName("illustrationUrl")]

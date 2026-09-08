@@ -1,12 +1,12 @@
 export const landing = {
-  announcement: " Your child's first personalised book — from 14 ₾",
+  announcement: " Your child's first personalised book - from 14 ₾",
   announcementLink: "See examples ",
 
   hero: {
     kicker: "Personalised adventures for children",
     titleLine1: "A story of their own,",
     titleEm: "that grows with every book",
-    lead: "Create a personalised illustrated book where your child is the hero — and every new adventure continues the story before it.",
+    lead: "Create a personalised illustrated book where your child is the hero - and every new adventure continues the story before it.",
     primaryCta: "Create the first adventure ",
     primaryNote: "See a personalised sample of the book for free",
     secondaryCta: " See example books",
@@ -51,9 +51,9 @@ export const landing = {
 
   how: {
     eyebrow: "Three simple steps",
-    titleLine1: "From a few details —",
+    titleLine1: "From a few details -",
     titleEm: "to a world of their own",
-    cta: "Start creating — about 3 minutes ",
+    cta: "Start creating - about 3 minutes ",
     steps: [
       {
         title: "Introduce the little hero",
@@ -86,14 +86,14 @@ export const landing = {
     cta: "Explore Zuka's world ",
     /* A pin on the map shows only the short name of the place. This is what it says to a screen
        reader, which has to hear where the link goes rather than see the island it stands on. */
-    mapPin: (world: string) => `Start an adventure — ${world}`,
+    mapPin: (world: string) => `Start an adventure - ${world}`,
   },
 
   worlds: {
     eyebrow: "Six worlds for the first choice",
     titleLine1: "Which door will they open",
     titleEm: "first?",
-    lead: "The theme is only the beginning — every child's story is shaped to their age and their special wish.",
+    lead: "The theme is only the beginning - every child's story is shaped to their age and their special wish.",
   },
 
   pricing: {
@@ -168,7 +168,7 @@ export const landing = {
     quotes: [
       {
         quote:
-          "“When she saw her own name she went quiet — then showed it to everyone, one by one, because it was her book.”",
+          "“When she saw her own name she went quiet - then showed it to everyone, one by one, because it was her book.”",
         author: "Mariam · parent of a 5-year-old",
       },
       {
@@ -222,6 +222,6 @@ export const landing = {
     eyebrow: " The first chapter begins here",
     titleLine1: "One day childhood ends.",
     titleEm: "Their world stays.",
-    lead: "Create a book that delights them today — and brings them home again years from now.",
+    lead: "Create a book that delights them today - and brings them home again years from now.",
   },
 };

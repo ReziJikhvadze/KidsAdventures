@@ -122,7 +122,7 @@ public static class CompositePoseVocabulary
 
         builder.AppendLine();
         builder.AppendLine(
-            "Use the family that the story page actually calls for, in a natural sentence — do not "
+            "Use the family that the story page actually calls for, in a natural sentence - do not "
             + "force a beat the page does not contain, and do not reuse one family for the whole "
             + "book. Prefer the plain verb (\"Beki claps\", \"Beki gazes in wonder\", \"Beki stands "
             + "beside the child\") over an abstract paraphrase. This is wording guidance only: never "
@@ -190,8 +190,8 @@ public static class CompositePoseVocabulary
             VisualScenarioProblemCodes.PoseVocabularyMiss,
             $"{audit.FallbackCount} of {audit.Choices.Count} beki_action sentences use a verb the "
             + $"approved pose table cannot read, so Beki would be drawn in the same neutral hovering "
-            + $"pose on {audit.FallbackCount} spreads. {quoted} Rewrite those sentences — and only "
-            + $"those — around one of the nine verb families ({families}), keeping each page's own "
+            + $"pose on {audit.FallbackCount} spreads. {quoted} Rewrite those sentences - and only "
+            + $"those - around one of the nine verb families ({families}), keeping each page's own "
             + "story beat, the same one concise sentence, and Beki named. Do not change any "
             + "child_world_scene, the visual_lock, or the cover.");
     }

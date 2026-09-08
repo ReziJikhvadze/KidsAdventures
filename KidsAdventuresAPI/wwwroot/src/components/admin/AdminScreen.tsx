@@ -151,7 +151,7 @@ export function useAdminData<T>(
         if (cancelled) return;
         setError(
           err instanceof ApiError && err.status === 403
-            ? "ეს ანგარიში ადმინისტრატორი არ არის. მიანიჭე Users.IsAdmin = 1 და შემდეგ გამოდი და ხელახლა შედი — როლი ტოკენში ჩაიწერება მისი გაცემისას."
+            ? "ეს ანგარიში ადმინისტრატორი არ არის. მიანიჭე Users.IsAdmin = 1 და შემდეგ გამოდი და ხელახლა შედი - როლი ტოკენში ჩაიწერება მისი გაცემისას."
             : err instanceof Error
               ? err.message
               : "ჩატვირთვა ვერ მოხერხდა.",

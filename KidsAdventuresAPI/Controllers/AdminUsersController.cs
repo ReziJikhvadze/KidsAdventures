@@ -105,7 +105,7 @@ public sealed class AdminUsersController(
             userContext.GetUserId(),
             request.IsAdmin ? "granted" : "removed",
             id,
-            target.Email ?? target.PhoneNumber ?? "—");
+            target.Email ?? target.PhoneNumber ?? "-");
 
         return Ok(new
         {

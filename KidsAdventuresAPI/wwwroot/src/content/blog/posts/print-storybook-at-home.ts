@@ -5,7 +5,7 @@ export const printStorybookAtHome: BlogPost = {
   slug: "print-storybook-at-home",
   title: "How to print your child's adventure book at home",
   description:
-    "Step-by-step guide to printing Beki PDFs on A4 or US Letter paper — binding tips, paper choices, and screen-free reading ideas.",
+    "Step-by-step guide to printing Beki PDFs on A4 or US Letter paper - binding tips, paper choices, and screen-free reading ideas.",
   publishedAt: "2026-06-02",
   updatedAt: "2026-06-24",
   readingTimeMinutes: 4,
@@ -30,12 +30,12 @@ export const printStorybookAtHome: BlogPost = {
     {
       heading: "Printer settings",
       paragraphs: [
-        'Use a color inkjet or laser printer on A4 or US Letter paper. Select "Actual size" or 100% scale — do not fit to page, or margins may clip illustrations.',
+        'Use a color inkjet or laser printer on A4 or US Letter paper. Select "Actual size" or 100% scale - do not fit to page, or margins may clip illustrations.',
         "For richer colors, choose a heavier paper (32 lb / 120 gsm) if your printer supports it. Plain copy paper works fine for bedtime reading.",
       ],
       bullets: [
         "Color printing recommended",
-        "100% scale — no shrink-to-fit",
+        "100% scale - no shrink-to-fit",
         "Heavier paper optional for gifts",
       ],
     },

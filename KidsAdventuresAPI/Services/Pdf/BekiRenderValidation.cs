@@ -550,7 +550,7 @@ public static class BekiRenderValidation
                 problems.Add(
                     $"FONT_INTEGRITY: '{(name.Length == 0 ? "(unnamed)" : name)}' "
                     + $"({(row.Type.Length == 0 ? "unknown type" : row.Type)}) is not embedded in "
-                    + "the stored artifact — pdffonts reports emb=no, so the page prints in "
+                    + "the stored artifact - pdffonts reports emb=no, so the page prints in "
                     + "whatever the consumer substitutes.");
             }
             else if (IndicatesSubstitution(name))

@@ -63,7 +63,7 @@ export const journey = {
     relationshipCustom: "Describe the relationship",
     relationshipPlaceholder: "e.g. godparent or magical friend",
     photoGuideAlt:
-      "On the left a good photo — the child faces the camera and their face is clearly visible; on the right a poor one, turned in profile and far away.",
+      "On the left a good photo - the child faces the camera and their face is clearly visible; on the right a poor one, turned in profile and far away.",
     photoUpload: "Upload a photo",
     photoReplace: "Change the photo",
     // Advice, not a rule: the check itself only asks whether a person is in the photo, so this
@@ -71,11 +71,11 @@ export const journey = {
     photoChecking: "Preparing the photo…",
     photoRejected: {
       not_a_person:
-        "We couldn't find a person in that image — upload a photo with the child in it.",
-      unsuitable: "This photo won't work — upload one with the child in it.",
-      unreadable: "We couldn't read that file — upload a JPG, PNG or WEBP photo.",
-      too_large: "That photo is too large — please choose a smaller one.",
-      unavailable: "We couldn't check the photo — please try uploading it again.",
+        "We couldn't find a person in that image - upload a photo with the child in it.",
+      unsuitable: "This photo won't work - upload one with the child in it.",
+      unreadable: "We couldn't read that file - upload a JPG, PNG or WEBP photo.",
+      too_large: "That photo is too large - please choose a smaller one.",
+      unavailable: "We couldn't check the photo - please try uploading it again.",
     },
   },
 
@@ -93,7 +93,7 @@ export const journey = {
     nameRequired: "Enter the character's name.",
     birthDateRequired: "Enter the child's date of birth.",
     /* See the note beside the Georgian string: the server's 1–18 range, asked for on the form. */
-    birthDateRange: "Check the date of birth — a book is made for a child aged 1 to 18.",
+    birthDateRange: "Check the date of birth - a book is made for a child aged 1 to 18.",
     genderRequired: "Choose whether the character is a girl or a boy.",
     relationshipRequired: "Add their companion",
     relationshipTextRequired: "Who are they?",
@@ -109,10 +109,10 @@ export const journey = {
     lead: "Touch an island and discover its story",
     stageLabel: "Choosing a magical world",
     artLabel: "Six floating magical worlds, Beki, and a glowing book",
-    brandLabel: "Beki — home",
+    brandLabel: "Beki - home",
     backLabel: "Go back",
     create: "Create",
-    continueTo: (world: string) => `Create — ${world}`,
+    continueTo: (world: string) => `Create - ${world}`,
     statusIdle: "No world chosen yet.",
     statusFlying: (world: string) => `${world} chosen. Beki's star is on its way.`,
     statusReady: (world: string) => `${world} chosen. The button to go there is ready.`,
@@ -121,7 +121,7 @@ export const journey = {
     tryAgain: "Try it again",
     locked: "Still locked",
     lockedNote: (world: string) =>
-      `${world} is still locked — the previous adventure is not finished yet.`,
+      `${world} is still locked - the previous adventure is not finished yet.`,
     forChild: (name: string) => `${name}'s worlds`,
   },
 
@@ -131,11 +131,11 @@ export const journey = {
     creating: "You are creating the first adventure",
     titlePrefix: "Where does ",
     titleSuffix: "'s first adventure begin?",
-    guidance: "Tap the world you love — Beki will light the way.",
+    guidance: "Tap the world you love - Beki will light the way.",
     letBekiChoose: "Let Beki choose",
     bekiChoosing: "Beki is choosing…",
     selectedHeading: "Chosen world and wish",
-    emptySelection: "Tap a world — that’s where your story begins.",
+    emptySelection: "Tap a world - that’s where your story begins.",
     emptyGlyph: "World 0",
     selected: "Selected",
     activate: "Bring it to life",
@@ -147,7 +147,7 @@ export const journey = {
     continueTo: (place: string) => `Let's go to ${place}!`,
     /* Beki says one short line at a time. A child is listening, not reading. */
     beki: {
-      greeting: "Hello! I'm Beki — your guide.",
+      greeting: "Hello! I'm Beki - your guide.",
       peek: (theme: string) => `${theme}? Good choice.`,
       chosen: (place: string) => `Wonderful. ${place} is waiting for us!`,
       chosenByBeki: (place: string) => `I choose ${place}! Let's begin there.`,
@@ -156,7 +156,7 @@ export const journey = {
   },
 
   previewLoader: {
-    paintingCover: "The story is written — painting the cover…",
+    paintingCover: "The story is written - painting the cover…",
     heading: " Your personalised preview is being made",
     subheading: "'s first page is already being made ✨",
     ariaLabel: (hero: string) => `See ${hero}'s story for free`,
@@ -172,13 +172,13 @@ export const journey = {
     chooseWorldFirst: "Choose a world first, so the story matches what you picked.",
     failedTitle: "The story couldn't be written",
     failed:
-      "Something went wrong while writing the story. Try again — nothing you entered has been lost.",
+      "Something went wrong while writing the story. Try again - nothing you entered has been lost.",
     expired: "Your story has expired. Create a new one.",
     tookTooLong:
-      "This is taking longer than it should. Try again — nothing you entered has been lost.",
+      "This is taking longer than it should. Try again - nothing you entered has been lost.",
     tryAgain: "Try again",
     tooBusy:
-      "A lot of stories are being written right now. Try again in a few minutes — nothing you entered has been lost.",
+      "A lot of stories are being written right now. Try again in a few minutes - nothing you entered has been lost.",
     eyebrow: " Your personalised preview is ready",
     titlePrefix: "Here's how ",
     titleSuffix: "'s story begins",
@@ -228,7 +228,7 @@ export const journey = {
     registerSubmit: "Create account ",
     tabPassword: "Password",
     sendMagicLink: "Send me a Magic Link ",
-    magicLinkSent: (email: string) => `Link sent — check ${email}.`,
+    magicLinkSent: (email: string) => `Link sent - check ${email}.`,
     openMagicLink: "Open Magic Link (demo)",
     phoneLabel: "Phone number",
     phoneDemoNote: "No SMS is sent",
@@ -292,7 +292,7 @@ export const journey = {
     pickLocationTitle: "Where should it go?",
     pickLocationHint: "Search for the street and pick it from the list.",
     pickLocationConfirm: "Use this address",
-    pickLocationUnavailable: "The map is unavailable right now — type the address instead.",
+    pickLocationUnavailable: "The map is unavailable right now - type the address instead.",
     addressNotes: "Extra directions for the courier",
     addressNotesPlaceholder: "Entrance, floor, flat, door code, landmark",
     addressPlaceholder: "City, street, building and flat",
@@ -309,7 +309,7 @@ export const journey = {
     discountLine: "Your discount ",
     total: "Total ",
     printReuseNote:
-      "The book you already created will be printed — the story is not generated again.",
+      "The book you already created will be printed - the story is not generated again.",
     bookLanguage: "Book language",
     payFirstNote: "The full book is created only after a successful payment.",
   },
@@ -320,11 +320,11 @@ export const journey = {
     failedBody:
       "The book generation was interrupted. We are already working on it. Nothing is lost.",
     stillWorking:
-      "The book is taking longer than usual — it is still being drawn and nothing is lost. You can wait here, or check the dashboard later: it will appear there as soon as it is ready.",
+      "The book is taking longer than usual - it is still being drawn and nothing is lost. You can wait here, or check the dashboard later: it will appear there as soon as it is ready.",
     titleSuffix: "'s story, where the magic starts…",
     companionPrefix: "Rex opened the door to ",
     companionSuffix: "'s new world",
-    leaveNote: "Feel free to leave — we will email you as soon as the book is ready.",
+    leaveNote: "Feel free to leave - we will email you as soon as the book is ready.",
     softTime: "Usually 5–10 minutes",
     stageLabel: "Step ",
     orderMissing: "The order could not be found.",
@@ -342,7 +342,7 @@ export const journey = {
       "Binding sixteen pages into one book",
     ],
     statusLine: {
-      Pending: "Order received — starting",
+      Pending: "Order received - starting",
       Generating: "Writing the story",
       GeneratingStory: "Writing the story",
       StoryReady: "Painting the illustrations",
@@ -356,7 +356,7 @@ export const journey = {
     digitalNote: "This is your Digital edition",
     languageNote: "Book language: ",
     deliveryNote:
-      "Your printed book will arrive at the address you gave — 2–3 days in Tbilisi, 5–7 days elsewhere in Georgia.",
+      "Your printed book will arrive at the address you gave - 2–3 days in Tbilisi, 5–7 days elsewhere in Georgia.",
     pageBadge: " 16 pages",
     fullBookAria: (hero: string) => `${hero}'s complete book`,
     downloadPdf: "Download PDF",

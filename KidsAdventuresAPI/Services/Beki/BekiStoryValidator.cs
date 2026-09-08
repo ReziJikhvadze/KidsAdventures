@@ -150,7 +150,7 @@ public sealed partial class BekiStoryValidator
 
             if (string.IsNullOrWhiteSpace(page.ChildAgencyEn))
             {
-                errors.Add($"{where}: childAgencyEn is required — state what the child does that matters.");
+                errors.Add($"{where}: childAgencyEn is required - state what the child does that matters.");
             }
 
             if (string.IsNullOrWhiteSpace(page.SceneSummaryEn))
@@ -294,7 +294,7 @@ public sealed partial class BekiStoryValidator
                 if (hit)
                 {
                     errors.Add(
-                        $"Page {page.PageNumber}: remove '{ending}'. The series never signs off — page 12 opens the next chapter.");
+                        $"Page {page.PageNumber}: remove '{ending}'. The series never signs off - page 12 opens the next chapter.");
                 }
             }
         }
@@ -324,7 +324,7 @@ public sealed partial class BekiStoryValidator
 
         if (string.IsNullOrWhiteSpace(memory.ResolvedThreadKa))
         {
-            errors.Add("continuationMemory.resolvedThreadKa is required — this book must close its own problem.");
+            errors.Add("continuationMemory.resolvedThreadKa is required - this book must close its own problem.");
         }
 
         if (memory.OpenThreadsKa.Count == 0)

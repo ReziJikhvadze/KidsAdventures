@@ -169,11 +169,11 @@ public class IllustrationPromptTests
 
             A warm hero portrait of the child, inviting the reader in. Obey that camera distance exactly; do not default to a medium close-up.
 
-            The one focus the scene names must be the visually dominant element — large, clearly lit and readable at a glance. Everything else supports it and never competes with it.
+            The one focus the scene names must be the visually dominant element - large, clearly lit and readable at a glance. Everything else supports it and never competes with it.
 
             Composition, which is a hard requirement of this cover and not a preference: this
             is one upright book cover, a single whole picture with the child as its subject.
-            Draw the child and the story's action large, clearly lit and unmistakable — the
+            Draw the child and the story's action large, clearly lit and unmistakable - the
             hero is the one thing this cover is about and must read at a glance, even at
             thumbnail size.
 
@@ -214,11 +214,11 @@ public class IllustrationPromptTests
 
             A wide establishing shot. Obey that camera distance exactly; do not default to a medium close-up.
 
-            The one focus the scene names must be the visually dominant element — large, clearly lit and readable at a glance. Everything else supports it and never competes with it.
+            The one focus the scene names must be the visually dominant element - large, clearly lit and readable at a glance. Everything else supports it and never competes with it.
 
             Composition, which is a hard requirement of this page and not a preference: the
             left third of the image is reserved for story text that will be printed over it.
-            Fill that third with quiet, naturally light background only — bright open sky, mist,
+            Fill that third with quiet, naturally light background only - bright open sky, mist,
             sunlit water, pale distant landscape, or a softly lit wall. Keep it light and airy:
             not shadow, not darkness, and not a dark panel. No character, no face, no hands and no
             part of the main action may enter it.
@@ -229,7 +229,7 @@ public class IllustrationPromptTests
 
             Keep every face and the story's key action inside the central horizontal band of the
             image as well: the printed spread is wider than it is tall, so the top and bottom
-            sixths of this picture may be trimmed away. Sky, canopy and ground belong there —
+            sixths of this picture may be trimmed away. Sky, canopy and ground belong there -
             nothing the story cannot lose.
 
             High-quality cinematic 3D animated family-film aesthetic, expressive characters, rounded and appealing forms, detailed environments, warm emotional storytelling, soft global illumination, polished textures, vibrant but harmonious colors, cinematic composition, child-friendly atmosphere.

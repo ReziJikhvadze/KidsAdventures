@@ -735,8 +735,8 @@ public sealed class AdventurePacksController(
                 message = held switch
                 {
                     BekiDownloadHeld.Review or BekiDownloadHeld.Gates =>
-                        "წიგნი გადის ბოლო შემოწმებას — ჩამოტვირთვა მალე გაიხსნება.",
-                    _ => "წიგნი ჯერ მზადდება — ცოტა ხანში სცადე ხელახლა.",
+                        "წიგნი გადის ბოლო შემოწმებას - ჩამოტვირთვა მალე გაიხსნება.",
+                    _ => "წიგნი ჯერ მზადდება - ცოტა ხანში სცადე ხელახლა.",
                 },
                 downloadHeld = held,
             });
@@ -765,7 +765,7 @@ public sealed class AdventurePacksController(
 
             // Georgian, and vague on purpose: the row says a file exists and storage disagrees,
             // which is our problem and not something to describe to a parent in English.
-            return NotFound(new { message = "PDF ვერ მოიძებნა — ცოტა ხანში სცადე ხელახლა." });
+            return NotFound(new { message = "PDF ვერ მოიძებნა - ცოტა ხანში სცადე ხელახლა." });
         }
     }
 
@@ -876,7 +876,7 @@ public sealed class AdventurePacksController(
               when the job has not written one, which is the whole first minute after an order.
             */
             detail.ProgressMessage = string.IsNullOrWhiteSpace(pack.ProgressMessage)
-                ? "წიგნი ჯერ იხატება — მალე აქვე გამოჩნდება."
+                ? "წიგნი ჯერ იხატება - მალე აქვე გამოჩნდება."
                 : pack.ProgressMessage;
 
             return detail;

@@ -9,8 +9,8 @@ import { buildPageMeta } from "@/lib/seo";
 export const Route = createFileRoute("/privacy")({
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `კონფიდენციალურობა — ${BRAND_NAME}`,
-      description: `როგორ იცავს ${BRAND_NAME} პერსონალურ მონაცემებს — ფოტოები, AI დამუშავება და თქვენი უფლებები.`,
+      title: `კონფიდენციალურობა - ${BRAND_NAME}`,
+      description: `როგორ იცავს ${BRAND_NAME} პერსონალურ მონაცემებს - ფოტოები, AI დამუშავება და თქვენი უფლებები.`,
       path: "/privacy",
     });
     return { meta, links };

@@ -49,7 +49,7 @@ public class CompositePipelineReviewTests : CompositePipelineTestBase
         var corrected = CompositePlanJson(
             spreads: 8,
             title: "ბაფუს ბილიკი და ვარსკვლავი",
-            spreadText: (3, "ნინა და ბეკი ფუღუროში — გვერდი 3."));
+            spreadText: (3, "ნინა და ბეკი ფუღუროში - გვერდი 3."));
 
         var client = new ScriptedStoryModelClient(written, corrected);
 
@@ -68,7 +68,7 @@ public class CompositePipelineReviewTests : CompositePipelineTestBase
 
         // What crossed back: the title and the spread text, and that is all there is here.
         Assert.Equal("ბაფუს ბილიკი და ვარსკვლავი", result.Story.Concept.Title);
-        Assert.Equal("ნინა და ბეკი ფუღუროში — გვერდი 3.", result.Story.Spreads[2].Text);
+        Assert.Equal("ნინა და ბეკი ფუღუროში - გვერდი 3.", result.Story.Spreads[2].Text);
 
         // Both calls are on the record — prompts and tokens — the way v6 records its two.
         Assert.Contains("===== STEP 2 =====", result.SystemPrompt);
@@ -117,7 +117,7 @@ public class CompositePipelineReviewTests : CompositePipelineTestBase
 
         // The written book stands, whole.
         Assert.Equal([1, 2, 3, 4, 5, 6, 7, 8], result.Story.Spreads.Select(s => s.Number));
-        Assert.Equal("ნინა და ბეკი — გვერდი 2.", result.Story.Spreads[1].Text);
+        Assert.Equal("ნინა და ბეკი - გვერდი 2.", result.Story.Spreads[1].Text);
 
         // The call was still made and paid for, so it is still on the record.
         Assert.Contains("===== STEP 2 =====", result.SystemPrompt);
@@ -138,7 +138,7 @@ public class CompositePipelineReviewTests : CompositePipelineTestBase
         var result = await CompositeStoryService(client).WriteCompositePlanAsync(
             CompositeStoryInputFixture(), [], CancellationToken.None);
 
-        Assert.Equal("ნინა და ბეკი — გვერდი 5.", result.Story.Spreads[4].Text);
+        Assert.Equal("ნინა და ბეკი - გვერდი 5.", result.Story.Spreads[4].Text);
     }
 
     /// <summary>

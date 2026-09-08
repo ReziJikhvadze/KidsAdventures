@@ -53,7 +53,7 @@ const plans: {
       "Printable PDF download (free)",
       "Your extra wishes woven into the story",
     ],
-    cta: "Buy a book — $4.99",
+    cta: "Buy a book - $4.99",
     highlighted: true,
     action: "Book1",
     icon: BookOpen,

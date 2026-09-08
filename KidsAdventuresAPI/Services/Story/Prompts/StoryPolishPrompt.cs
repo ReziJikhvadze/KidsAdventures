@@ -29,8 +29,8 @@ public static class StoryPolishPrompt
         2. Georgian grammar, spelling and punctuation errors in the story text, and English
            grammar, spelling and punctuation errors in textEn. The companion's name is one of
            them: it is written „ბეკი“ in every grammatical form, always with კ. „ბექი“, ბექიმ,
-           ბექის and any other ქ spelling of that stem is a spelling error — correct it to ბეკ.
-        3. Anything unsafe or inappropriate for readers aged 2–8 — including harsh, loud or
+           ბექის and any other ქ spelling of that stem is a spelling error - correct it to ბეკ.
+        3. Anything unsafe or inappropriate for readers aged 2–8 - including harsh, loud or
            frightening wording in the TITLE, in either language: a title built on roaring,
            growling, screaming or menace (ღრიალი, ბრდღვინვა, ყვირილი and their kind) is
            inappropriate for this shelf and must be softened to the gentle side of the same
@@ -42,7 +42,7 @@ public static class StoryPolishPrompt
         spreads.
 
         Do not rewrite the style. The voice is deliberately simple, warm and spoken, with short
-        sentences and everyday words — that is how it was asked for, and "improving" it into
+        sentences and everyday words - that is how it was asked for, and "improving" it into
         richer or more literary language is the one change you can make that ruins the book.
 
         Return the COMPLETE book in the same JSON schema, unchanged except for the corrections
@@ -102,20 +102,20 @@ public static class StoryPolishPrompt
         Fix only these three things:
         1. Profanity, crude, vulgar or otherwise inappropriate wording.
         2. Georgian language errors in the story text and the title. Two kinds, and both matter:
-           a. MISSPELLINGS — a word whose letters are wrong. Read every word letter by letter
+           a. MISSPELLINGS - a word whose letters are wrong. Read every word letter by letter
               rather than skimming for sense; a misspelled Georgian word usually still reads
               fluently in context, which is exactly why these survive. A real example from a
-              printed book: „ფუნღუროში“ for „ფუღუროში“ — one inserted ნ, shipped.
-           b. WRONG WORD CHOICE — a word that is spelled correctly but is not the word the
+              printed book: „ფუნღუროში“ for „ფუღუროში“ - one inserted ნ, shipped.
+           b. WRONG WORD CHOICE - a word that is spelled correctly but is not the word the
               sentence means, most often a verb. A real example from a printed book: „ეწყოს“
               where the sense was „იყოს“ (to be) or „ეგდოს“ (to lie there). „It is a real word“
               is not a reason to leave it.
            Also: the companion's name is written „ბეკი“ in every grammatical form, always with კ.
-           „ბექი“, ბექიმ, ბექის and any other ქ spelling of that stem is a spelling error —
+           „ბექი“, ბექიმ, ბექის and any other ქ spelling of that stem is a spelling error -
            correct it to ბეკ.
            And: a Georgian case ending attaches directly to a name, with no hyphen. „თემო-ს“ is
            wrong; it is „თემოს“. Correct every hyphenated case ending you find on a name.
-        3. Anything unsafe or inappropriate for readers aged 2–8 — including harsh, loud or
+        3. Anything unsafe or inappropriate for readers aged 2–8 - including harsh, loud or
            frightening wording in the TITLE: a title built on roaring, growling, screaming or
            menace (ღრიალი, ბრდღვინვა, ყვირილი and their kind) is inappropriate for this shelf and
            must be softened to the gentle side of the same story, keeping the title short and warm.
@@ -127,7 +127,7 @@ public static class StoryPolishPrompt
         the outline, or the structure of the book. Do not add, remove or reorder spreads.
 
         Do not rewrite the style. The voice is deliberately simple, warm and spoken, with short
-        sentences and everyday words — that is how it was asked for, and "improving" it into
+        sentences and everyday words - that is how it was asked for, and "improving" it into
         richer or more literary language is the one change you can make that ruins the book.
 
         Return the COMPLETE book in the same JSON schema, unchanged except for the corrections

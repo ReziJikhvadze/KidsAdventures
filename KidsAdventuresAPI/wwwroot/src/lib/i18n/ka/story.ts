@@ -1,6 +1,5 @@
 export const story = {
   storybook: {
-    brand: "BEKI",
     /*
       One string, not a prefix and a suffix with the name wedged between them. Georgian declines
       a name — the suffix was a literal "-ს", so the cover read "ზუკა-ს ეკუთვნის", which is a
@@ -51,27 +50,27 @@ export const story = {
       atelier: "BEKI BOOK ATELIER",
       title: "ვხატავთ წიგნის სურათებს",
       leadWaiting:
-        "წიგნს მაშინ გაჩვენებთ, როცა ყველა სურათი მზად იქნება — რომ ერთიანად, დასრულებული ნახო.",
-      lead: "ზღაპარი უკვე დაწერილია — ქვემოთ შეგიძლია წაიკითხო. სურათები სათითაოდ ჩნდება.",
+        "წიგნს მაშინ გაჩვენებთ, როცა ყველა სურათი მზად იქნება - რომ ერთიანად, დასრულებული ნახო.",
+      lead: "ზღაპარი უკვე დაწერილია - ქვემოთ შეგიძლია წაიკითხო. სურათები სათითაოდ ჩნდება.",
       email: "შეგიძლია დახურო ეს გვერდი. როცა წიგნი მზად იქნება, მეილს მოგწერთ.",
       progress: (done: number, total: number) => `${done} სურათი ${total}-დან`,
-      failed: "სურათების ნაწილი ვერ დაიხატა — ხელახლა ვცდილობთ. ტექსტი შენახულია.",
+      failed: "სურათების ნაწილი ვერ დაიხატა - ხელახლა ვცდილობთ. ტექსტი შენახულია.",
     },
     pdf: {
       building: "მზადდება…",
       atelier: "BEKI PRINT ATELIER",
       title: "საბეჭდ PDF-ს ვამზადებთ",
-      lead: "წიგნს საბეჭდად ვაწყობთ — ჩამოტვირთვა ავტომატურად დაიწყება.",
+      lead: "წიგნს საბეჭდად ვაწყობთ - ჩამოტვირთვა ავტომატურად დაიწყება.",
       email: "შეგიძლია დახურო ეს გვერდი. როცა PDF მზად იქნება, მეილს მოგწერთ.",
       /* The two sentences that replaced a raw English 400. */
-      held: "წიგნი გადის ბოლო შემოწმებას — ჩამოტვირთვა მალე გაიხსნება.",
-      failed: "PDF ვერ ჩამოიტვირთა — ცოტა ხანში სცადე ხელახლა.",
+      held: "წიგნი გადის ბოლო შემოწმებას - ჩამოტვირთვა მალე გაიხსნება.",
+      failed: "PDF ვერ ჩამოიტვირთა - ცოტა ხანში სცადე ხელახლა.",
     },
     /* A book still being made, opened in the reader. What stood here was an empty volume: the
        covers, and nothing between them. */
     pending: {
       title: "წიგნი ჯერ იხატება",
-      body: "ზღაპარი უკვე იწერება და სურათებიც მალე დაიხატება. როგორც კი მზად იქნება, აქვე გამოჩნდება — მეილსაც მოგწერთ.",
+      body: "ზღაპარი უკვე იწერება და სურათებიც მალე დაიხატება. როგორც კი მზად იქნება, აქვე გამოჩნდება - მეილსაც მოგწერთ.",
     },
   },
 
@@ -103,7 +102,7 @@ export const story = {
     explanation: "შენახული მოგონება შეგიძლია თავიდან წაიკითხო ან აქედან ახალი გზა გააგრძელო.",
     guidance:
       "შეეხე რუკაზე ნებისმიერ სამყაროს. უკვე ნაპოვნი მეგობრები, მოგონებები და მიზნები ახალ თავშიც ბუნებრივად გაგრძელდება.",
-    readyNote: "რექსი მზადაა — ოქროსფერი რუკა ამ სამყაროსკენ მიუძღვის.",
+    readyNote: "რექსი მზადაა - ოქროსფერი რუკა ამ სამყაროსკენ მიუძღვის.",
     lockedNote: "ეს სამყარო ჯერ ჩაკეტილია. ახალი წიგნი მის კარიბჭეს გააღებს.",
     continueFromMemory: "გააგრძელე ამ მოგონებიდან",
     unlockNext: "გახსენი შემდეგი თავგადასავალი",
@@ -113,11 +112,11 @@ export const story = {
     newWorld: "ახალი სამყარო",
     /* The rebuilt /world: a shelf of this child's books above the path of six worlds. */
     spaceOf: (name: string) => `${name}ს პერსონალური სივრცე`,
-    shelfLead: "ყველა შექმნილი ამბავი — წასაკითხად, ჩამოსატვირთად და გასაგრძელებლად.",
+    shelfLead: "ყველა შექმნილი ამბავი - წასაკითხად, ჩამოსატვირთად და გასაგრძელებლად.",
     journeySuffix: "ს მოგზაურობა",
     nextAdventure: "შემდეგი თავგადასავალი",
     /* When an island has been picked on the map, the button says which one it will open. */
-    startHere: (world: string) => `დაიწყე — ${world}`,
+    startHere: (world: string) => `დაიწყე - ${world}`,
     /* The book the parent walked away from, and the way back into it. */
     resumeTitle: "წიგნი ჯერ კიდევ იქმნება",
     resumeBody:

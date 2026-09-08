@@ -616,7 +616,7 @@ export function gel(minor: number): string {
 
 /** A UTC timestamp as a local date and time, or a dash when it never happened. */
 export function moment(value: string | null | undefined): string {
-  if (!value) return "—";
+  if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return `${date.toLocaleDateString("ka-GE")} ${date.toLocaleTimeString("ka-GE", {
@@ -627,9 +627,9 @@ export function moment(value: string | null | undefined): string {
 
 /** "3 წთ", "2 სთ", "4 დღე" — how long ago, for a heartbeat or a queue age. */
 export function ago(value: string | null | undefined): string {
-  if (!value) return "—";
+  if (!value) return "-";
   const ms = Date.now() - new Date(value).getTime();
-  if (Number.isNaN(ms)) return "—";
+  if (Number.isNaN(ms)) return "-";
   const minutes = Math.round(ms / 60000);
   if (minutes < 1) return "ახლახან";
   if (minutes < 60) return `${minutes} წთ`;

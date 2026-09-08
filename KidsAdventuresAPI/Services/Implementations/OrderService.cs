@@ -1102,7 +1102,7 @@ public sealed class OrderService(
             */
             if (order.IsPaid)
             {
-                response.ProgressMessage = "გადახდა მიღებულია — იწყება წიგნის შექმნა.";
+                response.ProgressMessage = "გადახდა მიღებულია - იწყება წიგნის შექმნა.";
             }
 
             if (TryReadDraft(order) is { } draft)
@@ -1263,8 +1263,8 @@ public sealed class OrderService(
     }
 
     private static string BookLineDescription(OrderPackage package) => package == OrderPackage.Print
-        ? "პერსონალური წიგნი — ბეჭდური და ციფრული"
-        : "პერსონალური წიგნი — ციფრული";
+        ? "პერსონალური წიგნი - ბეჭდური და ციფრული"
+        : "პერსონალური წიგნი - ციფრული";
 
     private static OrderType ParseType(string? value) =>
         Enum.TryParse<OrderType>((value ?? string.Empty).Trim(), ignoreCase: true, out var type)

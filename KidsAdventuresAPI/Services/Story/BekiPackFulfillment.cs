@@ -1197,8 +1197,8 @@ public sealed class BekiPackFulfillment(
             {
                 logger.LogWarning(
                     "Beki pack {PackId} was read as {Status} but another writer moved it before "
-                    + "this job could claim it; leaving it alone. Whoever moved it — the "
-                    + "stale-generation sweep or a duplicate worker — owns the row now.",
+                    + "this job could claim it; leaving it alone. Whoever moved it - the "
+                    + "stale-generation sweep or a duplicate worker - owns the row now.",
                     packId, pack.Status);
 
                 return;
@@ -1226,7 +1226,7 @@ public sealed class BekiPackFulfillment(
             // the same — the same checks that would have triggered a retry at preview time.
             foreach (var problem in BekiPlanValidator.Validate(plan, BookFormat.SpreadCount, run.Age))
             {
-                logger.LogWarning("Beki pack {PackId}: plan validation problem — {Problem}", packId, problem);
+                logger.LogWarning("Beki pack {PackId}: plan validation problem - {Problem}", packId, problem);
             }
 
             await packRepository.UpdateProgressAsync(
@@ -1973,7 +1973,7 @@ public sealed class BekiPackFulfillment(
                 uploadMs += artifactStopwatch.ElapsedMilliseconds;
 
                 logger.LogInformation(
-                    "Beki pack {PackId}: composite artifacts stored — visual scenario at "
+                    "Beki pack {PackId}: composite artifacts stored - visual scenario at "
                     + "{ScenarioStored}, {Receipts} composition manifest(s), review at "
                     + "{ReviewStored} ({ReviewSummary}).",
                     packId, scenarioUrl is null ? "(none)" : "its blob", compositions.Count,
@@ -2239,7 +2239,7 @@ public sealed class BekiPackFulfillment(
                     coverRecord, compositions, jobToken, reviewUrl);
 
                 logger.LogInformation(
-                    "Beki pack {PackId}: cover master stored — the composited wrap (pose {PoseId}, "
+                    "Beki pack {PackId}: cover master stored - the composited wrap (pose {PoseId}, "
                     + "sha {Sha}), with the reader pointed at its front-board crop.",
                     packId, wrap.PoseId, wrapSha[..12]);
 
@@ -2437,7 +2437,7 @@ public sealed class BekiPackFulfillment(
                     if (failedGates.Count > 0)
                     {
                         logger.LogWarning(
-                            "Beki pack {PackId}: print artifact withheld — {Gates} failed on the "
+                            "Beki pack {PackId}: print artifact withheld - {Gates} failed on the "
                             + "prepared interior. The file and its preflight report are stored as "
                             + "evidence; the previous path has no release-gates evaluator, so a "
                             + "failed gate withholds the print slot outright. The parent's digital "
@@ -2459,7 +2459,7 @@ public sealed class BekiPackFulfillment(
                     await packRepository.UpdatePrintPdfUrlAsync(packId, null, jobToken);
 
                     logger.LogWarning(
-                        "Beki pack {PackId}: print artifact withheld ({Code}) — {Reason} The "
+                        "Beki pack {PackId}: print artifact withheld ({Code}) - {Reason} The "
                         + "parent's digital book is unaffected.",
                         packId, CompositeFailureCodes.PrintPreflightFailed, ex.Message);
                 }
@@ -2530,7 +2530,7 @@ public sealed class BekiPackFulfillment(
             {
                 logger.LogWarning(
                     "Beki pack {PackId} finished drawing {Spreads} spreads, but its status is no "
-                    + "longer {Expected} — the stale-generation sweep or another writer moved it "
+                    + "longer {Expected} - the stale-generation sweep or another writer moved it "
                     + "first. Leaving the stored status alone; the PDF and the spreads are saved "
                     + "and the manifest can resume from them.",
                     packId, stored.Count, expectedStatus);
@@ -3067,7 +3067,7 @@ public sealed class BekiPackFulfillment(
                 CancellationToken.None);
 
             logger.LogWarning(
-                "Beki pack {PackId}: reconciliation after a lost completion said {Outcome} — {Detail}",
+                "Beki pack {PackId}: reconciliation after a lost completion said {Outcome} - {Detail}",
                 pack.Id, result.Outcome, result.Detail);
         }
         catch (Exception ex)
@@ -3175,7 +3175,7 @@ public sealed class BekiPackFulfillment(
             cancellationToken);
 
         logger.LogInformation(
-            "Beki pack {PackId}: asset lock passed — {Count} approved assets from {Registries}.",
+            "Beki pack {PackId}: asset lock passed - {Count} approved assets from {Registries}.",
             pack.Id, manifest.Assets.Count,
             string.Join(", ", manifest.SourceRegistries.Select(pair => $"{pair.Key} {pair.Value}")));
 
@@ -4121,7 +4121,7 @@ public sealed class BekiPackFulfillment(
           is where an operator reads them.
         */
         logger.LogError(
-            "Beki pack {PackId}: rollback incomplete after a refused print re-preparation — {Names} "
+            "Beki pack {PackId}: rollback incomplete after a refused print re-preparation - {Names} "
             + "could not be put back. The print slot is left empty rather than pointed at the "
             + "rejected candidate. The copy taken before the attempt is under {Snapshot}.",
             pack.Id, names, snapshot.Prefix);
@@ -4863,7 +4863,7 @@ public sealed class BekiPackFulfillment(
                     pack.Id, artifact, result.Verdict,
                     result.FailedGates.Count == 0
                         ? string.Empty
-                        : $" — {string.Join(", ", result.FailedGates)}");
+                        : $" - {string.Join(", ", result.FailedGates)}");
 
                 if (!result.IsReleasable)
                 {

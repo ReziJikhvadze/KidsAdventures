@@ -890,7 +890,7 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
                 // Word for word what the reader's closing page says, so a family that reads the
                 // book on paper and the book on a screen is read the same sentence.
                 _ => new PrintStrings(
-                    name => $"მთავარ როლში — {name}",
+                    name => $"მთავარ როლში - {name}",
                     // `t.story.storybook.belongsTo`, down to the comma the screen sets.
                     name => $"ამბავი, რომელიც {name.Trim()}ს ეკუთვნის",
                     name => $"{GeorgianGenitive(name)} თავგადასავალი",

@@ -125,7 +125,7 @@ public sealed class BekiRegeneration(
     /// goes straight to the operator, and asserting on a copy of it would let the two drift.
     /// </summary>
     public const string BusyRefusal =
-        "წიგნზე სხვა ოპერაცია მიმდინარეობს (ბეჭდვის მომზადება, აღდგენა ან ხელახლა დახატვა) — "
+        "წიგნზე სხვა ოპერაცია მიმდინარეობს (ბეჭდვის მომზადება, აღდგენა ან ხელახლა დახატვა) - "
         + "დაელოდეთ დასრულებას და სცადეთ ხელახლა.";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -197,7 +197,7 @@ public sealed class BekiRegeneration(
             // The legacy pipeline draws per page on demand and has no spreads, no cover wrap and no
             // resumable manifest. Queuing the Beki job at it would start a run against a book whose
             // preview plan was never written for it.
-            return Refused("ეს წიგნი ძველი პაიპლაინითაა დახატული — ხელახლა დახატვა მხოლოდ ახალ ფორმატზეა შესაძლებელი.");
+            return Refused("ეს წიგნი ძველი პაიპლაინითაა დახატული - ხელახლა დახატვა მხოლოდ ახალ ფორმატზეა შესაძლებელი.");
         }
 
         if (!CanRegenerate(pack))
@@ -205,7 +205,7 @@ public sealed class BekiRegeneration(
             // Everything that reaches here is a book with a job in front of it: claimed, planned,
             // drawing or laying out. Refused rather than raced — Hangfire's per-pack lock exists to
             // stop one book being drawn twice, and this would be asking for it politely.
-            return Refused("წიგნი ახლა იხატება — დაელოდეთ დასრულებას ან ჩავარდნას.");
+            return Refused("წიგნი ახლა იხატება - დაელოდეთ დასრულებას ან ჩავარდნას.");
         }
 
         var (runId, orderId) = await ResumePointAsync(pack, cancellationToken);
@@ -259,7 +259,7 @@ public sealed class BekiRegeneration(
 
         if (!claimed)
         {
-            return Refused("წიგნის სტატუსი შეიცვალა — გვერდი განაახლეთ და ხელახლა სცადეთ.");
+            return Refused("წიგნის სტატუსი შეიცვალა - გვერდი განაახლეთ და ხელახლა სცადეთ.");
         }
 
         await packRepository.UpdatePrintPdfUrlAsync(pack.Id, null, cancellationToken);
@@ -273,7 +273,7 @@ public sealed class BekiRegeneration(
         await RaiseAsync(pack, orderId, scope, request, deleted, cancellationToken);
 
         logger.LogWarning(
-            "Beki pack {PackId}: {Operator} asked for a {Scope}{Spread} redraw — {Deleted} stored "
+            "Beki pack {PackId}: {Operator} asked for a {Scope}{Spread} redraw - {Deleted} stored "
             + "artifact(s) removed, run {RunId} queued again. Reason: {Reason}",
             pack.Id, request.Operator, scope,
             scope == BekiRegenerationScopes.Spread ? $" {request.Spread}" : string.Empty,

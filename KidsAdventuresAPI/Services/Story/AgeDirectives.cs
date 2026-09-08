@@ -53,16 +53,16 @@ public static class AgeDirectives
             **Sentences: two to four words.** Three or four of them per scene, no more. A child
             this age is listening, not reading, and a long sentence loses them halfway.
 
-            **A sound on every page.** At least one vivid Georgian sound effect per scene —
+            **A sound on every page.** At least one vivid Georgian sound effect per scene -
             „ტუპ-ტუპ!“, „ხრაშ-ხრაშ!“, „წკაპ-წკაპ!“, „ფუუუ!“, „ბუმ!“. Never the same sound twice
             in one book; eight identical bumps is one sound repeated, not a story with sounds.
 
-            **Ask the child to look.** In most scenes, point at the picture — „ნახე, ფოთლის ქვეშ
+            **Ask the child to look.** In most scenes, point at the picture - „ნახე, ფოთლის ქვეშ
             რა არის?“, „სად დაიმალა?“, „თითი დაადე!“ At this age a book is something you do
             together, not something you are told.
 
             **Speech: two to four words, and worth repeating.** A child this age says the lines
-            back before they can read them. Keep them tiny, and make it obvious who is talking —
+            back before they can read them. Keep them tiny, and make it obvious who is talking -
             „ლოლომ თქვა: «ნელა!»“ rather than a bare quotation mark.
 
             One friend besides the hero, and no more. A second one is a name this child will not
@@ -72,14 +72,14 @@ public static class AgeDirectives
         Bracket.RhythmAndHeart =>
             """
             **Three or four sentences per scene**, written to be read aloud without stumbling.
-            Vary their length — three of the same length read as a list. At most one line of
+            Vary their length - three of the same length read as a list. At most one line of
             dialogue per scene.
 
             **Show, don't tell.** Never write the feeling; write what the body did.
             Bad: „შეეშინდა“ · Good: „ნაბიჯი უკან გადადგა“
             Bad: „გახარებული იყო“ · Good: „ტაში დაუკრა“
 
-            **The hero gets something wrong.** Once, somewhere, and harmlessly — steps in the
+            **The hero gets something wrong.** Once, somewhere, and harmlessly - steps in the
             puddle, picks the wrong stone, says the name backwards. Not for the plot: children
             trust a character who is not perfect, and they laugh before they trust.
 
@@ -100,9 +100,9 @@ public static class AgeDirectives
 
             **Clues in the world.** Scratches on a rock, which way the wind moves the grass,
             tracks that are fresher on one side. Give the child something to work out a page
-            before the hero does — being right ahead of the story is the pleasure at this age.
+            before the hero does - being right ahead of the story is the pleasure at this age.
 
-            **Speech should be worth quoting.** Give each character a real manner — one talks too
+            **Speech should be worth quoting.** Give each character a real manner - one talks too
             much, one answers in three words, one asks questions instead of answering. A child
             this age notices when everybody in a book has the same voice.
 

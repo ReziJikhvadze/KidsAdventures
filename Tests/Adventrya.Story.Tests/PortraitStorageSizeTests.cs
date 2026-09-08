@@ -36,7 +36,7 @@ public class PortraitStorageSizeTests
         // that still fails if the encoder is ever put back to lossless.
         Assert.True(
             stored.Bytes.Length * 3 < lossless.Bytes.Length,
-            $"stored {stored.Bytes.Length} bytes against {lossless.Bytes.Length} lossless — "
+            $"stored {stored.Bytes.Length} bytes against {lossless.Bytes.Length} lossless - "
             + "the portrait is no longer being compressed.");
     }
 

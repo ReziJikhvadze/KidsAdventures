@@ -11,7 +11,7 @@ import { buildPageMeta } from "@/lib/seo";
 export const Route = createFileRoute("/book/$bookId")({
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `თავგადასავალი აქ არ მთავრდება — ${BRAND_NAME}`,
+      title: `თავგადასავალი აქ არ მთავრდება - ${BRAND_NAME}`,
       description: "დაასკანერე და გააგრძელე ბავშვის სამყარო შემდეგი თავგადასავლით.",
       path: "/book",
       noindex: true,

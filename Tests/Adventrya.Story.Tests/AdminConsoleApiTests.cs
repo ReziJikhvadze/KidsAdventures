@@ -267,8 +267,8 @@ public class AdminConsoleApiTests
         Assert.IsType<FileContentResult>(await controller.OrderPdf(OrderId, "reading"));
         var reading = Names(controller);
 
-        Assert.Equal($"{BookTitle} — print.pdf", print.Utf8);
-        Assert.Equal($"{BookTitle} — reading copy (not print).pdf", reading.Utf8);
+        Assert.Equal($"{BookTitle} - print.pdf", print.Utf8);
+        Assert.Equal($"{BookTitle} - reading copy (not print).pdf", reading.Utf8);
         Assert.Equal($"beki-{PackId}-book.pdf", print.Ascii);
         Assert.Equal($"beki-{PackId}-READING-COPY-not-print.pdf", reading.Ascii);
     }

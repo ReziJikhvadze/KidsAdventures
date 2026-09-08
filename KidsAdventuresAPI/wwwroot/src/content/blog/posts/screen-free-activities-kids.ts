@@ -42,14 +42,14 @@ export const screenFreeActivities: BlogPost = {
     {
       heading: "4. Grandparent read-aloud",
       paragraphs: [
-        "Send the PDF to grandparents for video calls. They read while your child follows along with the printed copy — great for long-distance families.",
+        "Send the PDF to grandparents for video calls. They read while your child follows along with the printed copy - great for long-distance families.",
       ],
     },
     {
       heading: "5. Rainy-day treasure hunt",
       paragraphs: [
         "Hide printed pages around the house in story order. Each page clue leads to the next scene. Pirate and dinosaur themes work especially well.",
-        "Start your free preview on the home page — no card needed.",
+        "Start your free preview on the home page - no card needed.",
       ],
     },
   ],
@@ -60,7 +60,7 @@ export const screenFreeActivities: BlogPost = {
     },
     {
       q: "How do personalized books reduce screen time?",
-      a: "A printed adventure book is a physical object kids can flip, color, and re-enact — it competes with screens by offering tactile, imaginative play rather than passive watching.",
+      a: "A printed adventure book is a physical object kids can flip, color, and re-enact - it competes with screens by offering tactile, imaginative play rather than passive watching.",
     },
     {
       q: "Are these activities good for rainy days or travel?",

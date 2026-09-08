@@ -29,7 +29,7 @@ export const privacySections: LegalSection[] = [
   },
   {
     id: "photos",
-    title: "3. Photos — important",
+    title: "3. Photos - important",
     paragraphs: [
       "If you upload a hero photo, it is stored in our secure cloud storage (Microsoft Azure Blob Storage) and linked to your account so we can generate and display illustrations consistently.",
       "Photos and related prompts are also sent to our AI provider (OpenAI) to generate story text and images. OpenAI processes this data on our behalf to produce output.",
@@ -56,10 +56,10 @@ export const privacySections: LegalSection[] = [
     title: "5. Legal basis (GDPR / similar laws)",
     paragraphs: ["Where GDPR or similar laws apply, we rely on:"],
     bullets: [
-      "Contract — to provide the service you sign up for (account, story generation, PDF export).",
-      "Consent — where required (for example optional photo upload and marketing emails if we offer them in future).",
-      "Legitimate interests — security, fraud prevention, and improving the service, balanced against your rights.",
-      "Legal obligation — where we must retain or disclose data under law.",
+      "Contract - to provide the service you sign up for (account, story generation, PDF export).",
+      "Consent - where required (for example optional photo upload and marketing emails if we offer them in future).",
+      "Legitimate interests - security, fraud prevention, and improving the service, balanced against your rights.",
+      "Legal obligation - where we must retain or disclose data under law.",
     ],
   },
   {
@@ -69,10 +69,10 @@ export const privacySections: LegalSection[] = [
       "We use trusted providers to run the service. They process data only as needed to perform their role:",
     ],
     bullets: [
-      "OpenAI — AI story and image generation (prompts and optional reference photos).",
-      "Microsoft Azure — cloud hosting, database (Azure SQL), and file storage (Blob Storage).",
-      "Bank of Georgia — payment processing for book purchases.",
-      "Email provider (SMTP) — transactional emails such as account confirmation and notifications.",
+      "OpenAI - AI story and image generation (prompts and optional reference photos).",
+      "Microsoft Azure - cloud hosting, database (Azure SQL), and file storage (Blob Storage).",
+      "Bank of Georgia - payment processing for book purchases.",
+      "Email provider (SMTP) - transactional emails such as account confirmation and notifications.",
     ],
     afterBullets: [
       "Each provider has its own privacy and security practices. We choose providers that offer appropriate safeguards for personal data.",
@@ -95,10 +95,10 @@ export const privacySections: LegalSection[] = [
       "Typical retention:",
     ],
     bullets: [
-      "Account and story library data — until you delete your account or ask us to delete it.",
-      "Uploaded photos and generated illustrations — stored with your stories until account/content deletion.",
-      "Server and security logs — usually up to 90 days, unless needed longer for investigation.",
-      "Payment records — as required for accounting, tax, and dispute resolution (often several years, depending on law).",
+      "Account and story library data - until you delete your account or ask us to delete it.",
+      "Uploaded photos and generated illustrations - stored with your stories until account/content deletion.",
+      "Server and security logs - usually up to 90 days, unless needed longer for investigation.",
+      "Payment records - as required for accounting, tax, and dispute resolution (often several years, depending on law).",
     ],
   },
   {

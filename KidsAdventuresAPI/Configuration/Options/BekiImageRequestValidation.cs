@@ -127,8 +127,8 @@ public static class BekiImageRequestValidation
         if (width <= height)
         {
             return $"{key} is {width}x{height}, which is not landscape. Both of this book's frames "
-                   + $"are wider than they are tall — the spread prints at 15:7 and the cover wrap "
-                   + $"at 512:245 — so a square or portrait request would be cropped to a sliver "
+                   + $"are wider than they are tall - the spread prints at 15:7 and the cover wrap "
+                   + $"at 512:245 - so a square or portrait request would be cropped to a sliver "
                    + $"({where}).";
         }
 

@@ -11,7 +11,7 @@ import { buildPageMeta } from "@/lib/seo";
 export const Route = createFileRoute("/admin/alarms")({
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `შეტყობინებები — ${BRAND_NAME} Admin`,
+      title: `შეტყობინებები - ${BRAND_NAME} Admin`,
       description: "Alarms.",
       path: "/admin/alarms",
       noindex: true,
@@ -40,7 +40,7 @@ function AlarmsPage() {
     <AdminScreen
       active="alarms"
       title="შეტყობინებები"
-      subtitle="რაც კონვეიერმა გაატარა და აღნიშნა — სანამ ვინმე არ ნახავს"
+      subtitle="რაც კონვეიერმა გაატარა და აღნიშნა - სანამ ვინმე არ ნახავს"
       actions={
         <button
           type="button"
@@ -137,7 +137,7 @@ export function AlarmRow({
             შეკვეთა {alarm.orderId.slice(0, 8)}
           </Link>
         ) : (
-          "—"
+          "-"
         )}
         <span className="cell-subtitle">წიგნი {alarm.packId.slice(0, 8)}</span>
       </td>
@@ -248,7 +248,7 @@ function Evidence({ alarm }: { alarm: admin.AdminAlarm }) {
       {open ? (
         url ? (
           <a href={url} target="_blank" rel="noreferrer">
-            <img src={url} alt={`მტკიცებულება — ${checkLabel(alarm.checkId)}`} />
+            <img src={url} alt={`მტკიცებულება - ${checkLabel(alarm.checkId)}`} />
           </a>
         ) : (
           <span className="cell-subtitle">იტვირთება…</span>

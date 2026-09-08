@@ -367,8 +367,8 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       await refreshAccountBalance();
       notify.success(
         giftStory
-          ? "Your story is ready — with 1 free illustrated page!"
-          : "Your story is ready to read — free!",
+          ? "Your story is ready - with 1 free illustrated page!"
+          : "Your story is ready to read - free!",
         {
           description: giftStory
             ? "Enjoy your free page, then unlock the full illustrated book for $4.99."
@@ -516,7 +516,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       setStatus("storyReady");
       await refreshAccountBalance();
       notify.success(
-        giftStory ? "Story saved — with 1 free illustrated page!" : "Story saved to your account!",
+        giftStory ? "Story saved - with 1 free illustrated page!" : "Story saved to your account!",
         { description: "Unlock the full illustrated storybook for $4.99." },
       );
     } catch (err) {
@@ -639,7 +639,7 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
     setUnlocking(true);
     setStatus("illustrating");
     setProgress(10);
-    setProgressMessage("Unlocking illustrations — painting your pages (~8–12 min)…");
+    setProgressMessage("Unlocking illustrations - painting your pages (~8–12 min)…");
     try {
       const res = await adventurePacksApi.illustrateAdventurePack(completedPackId);
       if (typeof res.bookCredits === "number") {
@@ -663,11 +663,11 @@ export function Generator({ initialTheme = null }: GeneratorProps) {
       setStatus("storyReady");
       await refreshAccountBalance();
       notify.success("Illustrations unlocked!", {
-        description: "Your picture book is ready — export a free PDF below.",
+        description: "Your picture book is ready - export a free PDF below.",
       });
     } catch (err) {
       setStatus("storyReady");
-      notify.fromError(err, "Could not unlock illustrations. Your credit is safe — try again.");
+      notify.fromError(err, "Could not unlock illustrations. Your credit is safe - try again.");
       await refreshAccountBalance();
     } finally {
       setUnlocking(false);

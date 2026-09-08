@@ -33,7 +33,7 @@ public sealed class SmtpEmailService(
             <p>Please confirm your email address to start creating personalized storybooks for your child:</p>
             <p><a href="{confirmationUrl}">Confirm my email</a></p>
             <p>If you did not create this account, you can ignore this message.</p>
-            <p>— {Brand}</p>
+            <p>- {Brand}</p>
             """;
         return SendEmailCoreAsync(toAddress, $"Confirm your {Brand} account", html, cancellationToken);
     }
@@ -57,10 +57,10 @@ public sealed class SmtpEmailService(
               </p>
               <p style="font-size:14px;color:#6b6480">ბმული მოქმედებს {validForMinutes} წუთი და მხოლოდ ერთხელ გამოიყენება.</p>
               <p style="font-size:14px;color:#6b6480">თუ ეს თქვენ არ მოგითხოვიათ, უბრალოდ იგნორირება გაუკეთეთ ამ წერილს.</p>
-              <p>— {Brand}</p>
+              <p>- {Brand}</p>
             </div>
             """;
-        return SendEmailCoreAsync(toAddress, $"{Brand} — შესვლის ბმული", html, cancellationToken);
+        return SendEmailCoreAsync(toAddress, $"{Brand} - შესვლის ბმული", html, cancellationToken);
     }
 
     public Task SendStoryReadyAsync(
@@ -72,12 +72,12 @@ public sealed class SmtpEmailService(
     {
         var html = $"""
             <p>Hi there,</p>
-            <p>Good news — <strong>{childName}'s {theme} story</strong> has been written and is waiting for you.</p>
+            <p>Good news - <strong>{childName}'s {theme} story</strong> has been written and is waiting for you.</p>
             <p>We're now painting the picture-book pages. You'll get another note when the slideshow is ready to read together.</p>
             <p><a href="{packUrl}">Open My Books</a></p>
             <p>With warmth,<br/>{Brand}</p>
             """;
-        return SendEmailCoreAsync(toAddress, $"{childName}'s story is ready — {Brand}", html, cancellationToken);
+        return SendEmailCoreAsync(toAddress, $"{childName}'s story is ready - {Brand}", html, cancellationToken);
     }
 
     public Task SendSlideshowReadyAsync(
@@ -89,12 +89,12 @@ public sealed class SmtpEmailService(
     {
         var html = $"""
             <p>Hi there,</p>
-            <p>Your picture-book slideshow for <strong>{childName}'s {theme} adventure</strong> is ready — every page is illustrated and waiting for bedtime.</p>
+            <p>Your picture-book slideshow for <strong>{childName}'s {theme} adventure</strong> is ready - every page is illustrated and waiting for bedtime.</p>
             <p>Snuggle up, tap <strong>Read story</strong>, and swipe through the pages together. When you're ready, you can export a printable PDF from My Books.</p>
             <p><a href="{packUrl}">Read the slideshow</a></p>
             <p>With warmth,<br/>{Brand}</p>
             """;
-        return SendEmailCoreAsync(toAddress, $"{childName}'s picture book is ready to read — {Brand}", html, cancellationToken);
+        return SendEmailCoreAsync(toAddress, $"{childName}'s picture book is ready to read - {Brand}", html, cancellationToken);
     }
 
     public Task SendPdfReadyAsync(
@@ -107,11 +107,11 @@ public sealed class SmtpEmailService(
         var html = $"""
             <p>Hi there,</p>
             <p>Your printable storybook PDF for <strong>{childName}'s {theme} adventure</strong> is ready to download.</p>
-            <p>Open the book and tap <strong>Download storybook PDF</strong> — perfect for printing or sharing with grandparents.</p>
+            <p>Open the book and tap <strong>Download storybook PDF</strong> - perfect for printing or sharing with grandparents.</p>
             <p><a href="{packUrl}">Open the book</a></p>
             <p>With warmth,<br/>{Brand}</p>
             """;
-        return SendEmailCoreAsync(toAddress, $"Your storybook PDF is ready — {childName}", html, cancellationToken);
+        return SendEmailCoreAsync(toAddress, $"Your storybook PDF is ready - {childName}", html, cancellationToken);
     }
 
     public Task SendBookFailedAsync(
@@ -126,9 +126,9 @@ public sealed class SmtpEmailService(
         // says "-ის წიგნი" because a name was blank is worse than one that says nothing.
         var subject = string.IsNullOrWhiteSpace(bookTitle)
             ? string.IsNullOrWhiteSpace(childName)
-                ? $"{Brand} — წიგნი ვერ შეიქმნა"
-                : $"{Brand} — {childName.Trim()}-ის წიგნი ვერ შეიქმნა"
-            : $"{Brand} — „{bookTitle.Trim()}“ ვერ შეიქმნა";
+                ? $"{Brand} - წიგნი ვერ შეიქმნა"
+                : $"{Brand} - {childName.Trim()}-ის წიგნი ვერ შეიქმნა"
+            : $"{Brand} - „{bookTitle.Trim()}“ ვერ შეიქმნა";
 
         var named = string.IsNullOrWhiteSpace(bookTitle)
             ? string.IsNullOrWhiteSpace(childName)
@@ -140,8 +140,8 @@ public sealed class SmtpEmailService(
         // same sentence the parent is already reading on their screen — one story, two places.
         var html = GeorgianShell($"""
             <p>გამარჯობა,</p>
-            <p><strong>{named}</strong> — {WebUtility.HtmlEncode(parentMessage)}</p>
-            <p>თქვენგან არაფერია საჭირო — ჩვენი გუნდი უკვე იხილავს ამ შემთხვევას და თავად
+            <p><strong>{named}</strong> - {WebUtility.HtmlEncode(parentMessage)}</p>
+            <p>თქვენგან არაფერია საჭირო - ჩვენი გუნდი უკვე იხილავს ამ შემთხვევას და თავად
                დაგიკავშირდებით. თუ კითხვა გაქვთ, უბრალოდ გვიპასუხეთ ამ წერილს.</p>
             <p>ბოდიშს გიხდით შეფერხებისთვის.</p>
             """);
@@ -173,7 +173,7 @@ public sealed class SmtpEmailService(
 
         return SendEmailCoreAsync(
             inbox,
-            $"Contact form — {senderName}",
+            $"Contact form - {senderName}",
             html,
             cancellationToken,
             senderEmail);
@@ -194,7 +194,7 @@ public sealed class SmtpEmailService(
             <p>როგორც კი გამოიგზავნება, თვალის მიდევნების კოდს გამოგიგზავნით.</p>
             """);
 
-        return SendEmailCoreAsync(toAddress, $"{Brand} — ბეჭდური წიგნის შეკვეთა მიღებულია", html, cancellationToken);
+        return SendEmailCoreAsync(toAddress, $"{Brand} - ბეჭდური წიგნის შეკვეთა მიღებულია", html, cancellationToken);
     }
 
     public Task SendPrintOrderStatusAsync(
@@ -241,7 +241,7 @@ public sealed class SmtpEmailService(
                 """
         };
 
-        var subject = $"{Brand} — {PrintOrderStatusText.Label(status)}: {bookTitle}";
+        var subject = $"{Brand} - {PrintOrderStatusText.Label(status)}: {bookTitle}";
         return SendEmailCoreAsync(toAddress, subject, GeorgianShell(body), cancellationToken);
     }
 
@@ -299,7 +299,7 @@ public sealed class SmtpEmailService(
     private string GeorgianShell(string bodyHtml) => $"""
         <div style="font-family:'Noto Sans Georgian',Arial,sans-serif;font-size:16px;line-height:1.7;color:#29233a">
         {bodyHtml}
-          <p>— {Brand}</p>
+          <p>- {Brand}</p>
         </div>
         """;
 
@@ -312,13 +312,13 @@ public sealed class SmtpEmailService(
     {
         if (!_options.Enabled)
         {
-            logger.LogWarning("Email disabled — skipped message to {To}: {Subject}", toAddress, subject);
+            logger.LogWarning("Email disabled - skipped message to {To}: {Subject}", toAddress, subject);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_options.SmtpPassword))
         {
-            logger.LogWarning("Email:SmtpPassword is empty — skipped message to {To}: {Subject}", toAddress, subject);
+            logger.LogWarning("Email:SmtpPassword is empty - skipped message to {To}: {Subject}", toAddress, subject);
             throw new InvalidOperationException("Email is not configured yet. Please try again later.");
         }
 

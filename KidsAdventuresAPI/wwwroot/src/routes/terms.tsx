@@ -9,8 +9,8 @@ import { buildPageMeta } from "@/lib/seo";
 export const Route = createFileRoute("/terms")({
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `წესები და პირობები — ${BRAND_NAME}`,
-      description: `${BRAND_NAME}-ის გამოყენების პირობები — საბავშვო წიგნები, მშობლის პასუხისმგებლობა და შინაარსის განმარტებები.`,
+      title: `წესები და პირობები - ${BRAND_NAME}`,
+      description: `${BRAND_NAME}-ის გამოყენების პირობები - საბავშვო წიგნები, მშობლის პასუხისმგებლობა და შინაარსის განმარტებები.`,
       path: "/terms",
     });
     return { meta, links };

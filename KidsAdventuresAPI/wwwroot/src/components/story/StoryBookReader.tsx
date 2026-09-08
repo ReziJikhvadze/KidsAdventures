@@ -474,9 +474,9 @@ export function StoryBookReader({
 
         <p className="text-center text-xs text-muted-foreground mb-3">
           {allIllustrated
-            ? "Every page is illustrated — swipe or tap a page."
+            ? "Every page is illustrated - swipe or tap a page."
             : painting
-              ? "Painting your pages — they fill in one by one."
+              ? "Painting your pages - they fill in one by one."
               : "Read the whole story free. Unlock illustrations to see every page painted."}
         </p>
 
@@ -618,8 +618,8 @@ export function StoryBookReader({
             <Lock className="h-4 w-4 shrink-0 text-primary" />
             <p className="text-sm text-foreground">
               {isWelcomeGiftStory
-                ? "Your free page is ready — unlock every page for $4.99."
-                : "Story's free to read — unlock the illustrations for $4.99."}
+                ? "Your free page is ready - unlock every page for $4.99."
+                : "Story's free to read - unlock the illustrations for $4.99."}
             </p>
           </div>
         )}

@@ -232,17 +232,17 @@ public sealed class AdventureGenerationService(
                     ? held == BekiDownloadHeld.Gates
                         // The gates variant. Vaguer on purpose: a failing gate has no promised end,
                         // and "shortly" would be a date nobody set.
-                        ? "წიგნის ფაილს ბოლო შემოწმება აკლია — ჩამოტვირთვა დროებით დახურულია და ჩვენ უკვე ვმუშაობთ ამაზე."
-                        : "წიგნი გადის ბოლო შემოწმებას — ჩამოტვირთვა მალე გაიხსნება."
+                        ? "წიგნის ფაილს ბოლო შემოწმება აკლია - ჩამოტვირთვა დროებით დახურულია და ჩვენ უკვე ვმუშაობთ ამაზე."
+                        : "წიგნი გადის ბოლო შემოწმებას - ჩამოტვირთვა მალე გაიხსნება."
                     // Not Completed: the book is still being drawn, which the reader already shows
                     // as a spinner. This is the download button pressed a moment too early.
-                    : "წიგნი ჯერ იხატება — ჩამოტვირთვა დასრულებისთანავე გაიხსნება.");
+                    : "წიგნი ჯერ იხატება - ჩამოტვირთვა დასრულებისთანავე გაიხსნება.");
         }
 
         if (pack.Status != AdventurePackStatus.StoryReady)
         {
             throw new InvalidOperationException(
-                "წიგნი ჯერ არ არის მზად — ჩამოტვირთვა დასრულებისთანავე გაიხსნება.");
+                "წიგნი ჯერ არ არის მზად - ჩამოტვირთვა დასრულებისთანავე გაიხსნება.");
         }
 
         if (string.IsNullOrWhiteSpace(pack.GeneratedJson))
@@ -318,7 +318,7 @@ public sealed class AdventureGenerationService(
 
                 await SetProgressAsync(
                     packId,
-                    "ისტორია მზადაა — ვხატავთ წიგნის გვერდებს…",
+                    "ისტორია მზადაა - ვხატავთ წიგნის გვერდებს…",
                     cancellationToken);
 
                 EnqueuePreviewIllustrationJob(packId);
@@ -337,7 +337,7 @@ public sealed class AdventureGenerationService(
 
             await SetProgressAsync(
                 packId,
-                "ვიწყებთ… შეგიძლია დატოვო ეს გვერდი — წიგნს შენს ბიბლიოთეკაში შევინახავთ.",
+                "ვიწყებთ… შეგიძლია დატოვო ეს გვერდი - წიგნს შენს ბიბლიოთეკაში შევინახავთ.",
                 cancellationToken);
 
             var input = await BuildGenerationInputAsync(pack, cancellationToken);
@@ -366,7 +366,7 @@ public sealed class AdventureGenerationService(
             {
                 await SetProgressAsync(
                     packId,
-                    "ისტორია დაწერილია — ვხატავთ უფასო ნიმუშის ილუსტრაციას (~1 წუთი)…",
+                    "ისტორია დაწერილია - ვხატავთ უფასო ნიმუშის ილუსტრაციას (~1 წუთი)…",
                     cancellationToken);
 
                 // Free 1-page illustrated sample (the welcome perk) — no credit is charged.
@@ -380,7 +380,7 @@ public sealed class AdventureGenerationService(
                 // second "buy illustrations" click that no longer exists.
                 await SetProgressAsync(
                     packId,
-                    "ისტორია მზადაა — ვხატავთ წიგნის გვერდებს…",
+                    "ისტორია მზადაა - ვხატავთ წიგნის გვერდებს…",
                     cancellationToken);
 
                 EnqueuePreviewIllustrationJob(packId);
@@ -603,7 +603,7 @@ public sealed class AdventureGenerationService(
 
             await SetProgressAsync(
                 packId,
-                "ილუსტრაციები ვერ დაიხატა — ვცდილობთ ხელახლა. ტექსტი შენახულია.",
+                "ილუსტრაციები ვერ დაიხატა - ვცდილობთ ხელახლა. ტექსტი შენახულია.",
                 cancellationToken);
         }
     }
@@ -769,7 +769,7 @@ public sealed class AdventureGenerationService(
                 // finished, and telling a parent otherwise contradicts what they can see.
                 logger.LogWarning(
                     "Pack {PackId}: the PDF was built and uploaded, but the pack is no longer "
-                    + "{Expected} — another writer moved it first. Leaving the stored status alone.",
+                    + "{Expected} - another writer moved it first. Leaving the stored status alone.",
                     packId, expectedStatus);
                 return;
             }
@@ -815,7 +815,7 @@ public sealed class AdventureGenerationService(
 
             await SetProgressAsync(
                 packId,
-                "PDF ვერ შეიქმნა. ისტორია შენახულია — სცადე ხელახლა.",
+                "PDF ვერ შეიქმნა. ისტორია შენახულია - სცადე ხელახლა.",
                 null,
                 cancellationToken);
         }
@@ -1133,7 +1133,7 @@ public sealed class AdventureGenerationService(
         {
             logger.LogWarning(
                 "Pack {PackId} could not be marked Failed: it is no longer {Expected}. Another "
-                + "writer — most likely the stale-generation sweep — got there first, so its "
+                + "writer - most likely the stale-generation sweep - got there first, so its "
                 + "verdict stands and this one is only logged.",
                 packId, expectedStatus);
         }

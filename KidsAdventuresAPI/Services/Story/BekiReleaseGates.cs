@@ -989,7 +989,7 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
                 id,
                 $"the stored press {string.Join(" and ", refused)} preflight report(s) record a "
                 + "refusal rather than a preparation"
-                + (stored.PressWithheldReason is { Length: > 0 } why ? $" — {why}" : "."),
+                + (stored.PressWithheldReason is { Length: > 0 } why ? $" - {why}" : "."),
                 [stored.InteriorPreflightName, stored.CoverPreflightName, stored.PressStatusName]);
         }
 
@@ -1002,7 +1002,7 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
             return Missing(
                 id,
                 $"no preflight report for the press {string.Join(" or ", absent)}"
-                + (stored.PressWithheldReason is { Length: > 0 } why ? $" — {why}" : "."),
+                + (stored.PressWithheldReason is { Length: > 0 } why ? $" - {why}" : "."),
                 [stored.InteriorPreflightName, stored.CoverPreflightName, stored.PressStatusName]);
         }
 

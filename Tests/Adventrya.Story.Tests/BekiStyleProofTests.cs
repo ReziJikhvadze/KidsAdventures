@@ -95,57 +95,57 @@ public class BekiStyleProofTests(ITestOutputHelper output)
         return
         [
             ("BEKI_STYLE_01_CURRENT_18pt_rim9_cream",
-             "01  CURRENT — 18pt / 27pt leading, cream #FFF8EB, rim #0D071D 9% of em, 16 steps",
+             "01  CURRENT - 18pt / 27pt leading, cream #FFF8EB, rim #0D071D 9% of em, 16 steps",
              new BekiTextStyleProof { FontSizePt = 18f, LeadingPt = 27f }),
 
             ("BEKI_STYLE_02_18pt_rim5_cream",
-             "02  thinner border — 18pt, cream #FFF8EB, rim #0D071D 5% of em",
+             "02  thinner border - 18pt, cream #FFF8EB, rim #0D071D 5% of em",
              new BekiTextStyleProof
              {
                  FontSizePt = 18f, LeadingPt = 27f, RimWidthFactor = 0.05f,
              }),
 
             ("BEKI_STYLE_03_18pt_rim13_cream",
-             "03  thicker border — 18pt, cream #FFF8EB, rim #0D071D 13% of em",
+             "03  thicker border - 18pt, cream #FFF8EB, rim #0D071D 13% of em",
              new BekiTextStyleProof
              {
                  FontSizePt = 18f, LeadingPt = 27f, RimWidthFactor = 0.13f,
              }),
 
             ("BEKI_STYLE_04_20pt_rim9_cream",
-             "04  bigger type — 20pt / 30pt leading, cream #FFF8EB, rim #0D071D 9% of em",
+             "04  bigger type - 20pt / 30pt leading, cream #FFF8EB, rim #0D071D 9% of em",
              new BekiTextStyleProof { FontSizePt = 20f, LeadingPt = 30f }),
 
             ("BEKI_STYLE_05_22pt_rim10_cream",
-             "05  biggest type — 22pt / 33pt leading, cream #FFF8EB, rim #0D071D 10% of em",
+             "05  biggest type - 22pt / 33pt leading, cream #FFF8EB, rim #0D071D 10% of em",
              new BekiTextStyleProof
              {
                  FontSizePt = 22f, LeadingPt = 33f, RimWidthFactor = 0.10f,
              }),
 
             ("BEKI_STYLE_06_18pt_rim9_purewhite",
-             "06  pure white — 18pt, fill #FFFFFF, rim #0D071D 9% of em",
+             "06  pure white - 18pt, fill #FFFFFF, rim #0D071D 9% of em",
              new BekiTextStyleProof
              {
                  FontSizePt = 18f, LeadingPt = 27f, FillColorHex = "FFFFFF",
              }),
 
             ("BEKI_STYLE_07_18pt_rim9_cream70",
-             "07  translucent letters — 18pt, cream #FFF8EB at 70% opacity, rim #0D071D 9% of em",
+             "07  translucent letters - 18pt, cream #FFF8EB at 70% opacity, rim #0D071D 9% of em",
              new BekiTextStyleProof
              {
                  FontSizePt = 18f, LeadingPt = 27f, FillOpacity = 0.70f,
              }),
 
             ("BEKI_STYLE_08_18pt_rim12_rim60",
-             "08  soft halo — 18pt, cream #FFF8EB, rim #0D071D 12% of em at 60% opacity",
+             "08  soft halo - 18pt, cream #FFF8EB, rim #0D071D 12% of em at 60% opacity",
              new BekiTextStyleProof
              {
                  FontSizePt = 18f, LeadingPt = 27f, RimWidthFactor = 0.12f, RimOpacity = 0.60f,
              }),
 
             ("BEKI_STYLE_09_20pt_rim11_white_rimblack",
-             "09  white on black rim — 20pt / 30pt, fill #FFFFFF, rim #000000 11% of em",
+             "09  white on black rim - 20pt / 30pt, fill #FFFFFF, rim #000000 11% of em",
              new BekiTextStyleProof
              {
                  FontSizePt = 20f, LeadingPt = 30f,
@@ -153,7 +153,7 @@ public class BekiStyleProofTests(ITestOutputHelper output)
              }),
 
             ("BEKI_STYLE_10_norim_darkink",
-             "10  contrast reference — 18pt, dark ink #241A33, NO rim, straight on the artwork",
+             "10  contrast reference - 18pt, dark ink #241A33, NO rim, straight on the artwork",
              new BekiTextStyleProof
              {
                  FontSizePt = 18f, LeadingPt = 27f,
@@ -248,7 +248,7 @@ public class BekiStyleProofTests(ITestOutputHelper output)
 
             var size = Image.Identify(png);
             output.WriteLine(
-                $"{file}.png — {size.Width}×{size.Height}, {png.Length:N0} bytes, "
+                $"{file}.png - {size.Width}×{size.Height}, {png.Length:N0} bytes, "
                 + $"sha256 {hashes[file][..12]}");
 
             Assert.True(File.Exists(destination));
@@ -263,7 +263,7 @@ public class BekiStyleProofTests(ITestOutputHelper output)
 
         var sheetSize = Image.Identify(sheet);
         output.WriteLine(
-            $"BEKI_STYLE_CONTACT_SHEET.png — {sheetSize.Width}×{sheetSize.Height}, "
+            $"BEKI_STYLE_CONTACT_SHEET.png - {sheetSize.Width}×{sheetSize.Height}, "
             + $"{sheet.Length:N0} bytes");
 
         Assert.True(sheet.Length > 100_000);
@@ -356,7 +356,7 @@ public class BekiStyleProofTests(ITestOutputHelper output)
                 var id = $"{stem}-{number:00}";
 
                 var caption = spec.IsHollow
-                    ? $"{number:00}  {spec.Name}  —  {spec.FontSizePt:0.#}pt/{spec.Leading:0.#}pt "
+                    ? $"{number:00}  {spec.Name}  -  {spec.FontSizePt:0.#}pt/{spec.Leading:0.#}pt "
                       + $"{spec.Weight}, border {spec.Border:0.##}pt {spec.BorderColor}, interior "
                       + (spec.VeilOpacity <= 0f
                           ? "see-through"
@@ -398,7 +398,7 @@ public class BekiStyleProofTests(ITestOutputHelper output)
             if (ReuseExisting && File.Exists(destination))
             {
                 var existing = File.ReadAllBytes(destination);
-                output.WriteLine($"REUSED: {file}.png — {existing.Length:N0} bytes, not rewritten");
+                output.WriteLine($"REUSED: {file}.png - {existing.Length:N0} bytes, not rewritten");
                 written.Add((file, caption, existing));
                 continue;
             }
@@ -415,7 +415,7 @@ public class BekiStyleProofTests(ITestOutputHelper output)
             File.WriteAllBytes(destination, png);
 
             Assert.True(File.Exists(destination));
-            output.WriteLine($"{file}.png — {png.Length:N0} bytes");
+            output.WriteLine($"{file}.png - {png.Length:N0} bytes");
 
             written.Add((file, caption, png));
         }
@@ -464,7 +464,7 @@ public class BekiStyleProofTests(ITestOutputHelper output)
 
         var sheetSize = Image.Identify(sheet);
         output.WriteLine(
-            $"{sheetName} — {sheetSize.Width}×{sheetSize.Height}, {sheet.Length:N0} bytes");
+            $"{sheetName} - {sheetSize.Width}×{sheetSize.Height}, {sheet.Length:N0} bytes");
 
         Assert.True(sheet.Length > 100_000);
     }
@@ -795,7 +795,7 @@ public class BekiStyleProofTests(ITestOutputHelper output)
 
             var file = $"{stem}_{number:00}_{box.Name}";
             File.WriteAllBytes(Path.Combine(outputFolder, file + ".png"), png);
-            output.WriteLine($"{file}.png — {png.Length:N0} bytes");
+            output.WriteLine($"{file}.png - {png.Length:N0} bytes");
 
             var rim = text.RimWidthFactor <= 0f
                 ? "no rim"
@@ -803,7 +803,7 @@ public class BekiStyleProofTests(ITestOutputHelper output)
 
             written.Add((
                 file,
-                $"{number:00}  {box.Name}  —  panel {box.BoxColorHex} @ {opacity:P0}, "
+                $"{number:00}  {box.Name}  -  panel {box.BoxColorHex} @ {opacity:P0}, "
                 + $"pad {layout.WashPaddingMm:0.#}mm r{layout.WashCornerRadiusMm:0.#}mm  |  text "
                 + $"{text.FontSizePt:0.#}pt {text.Weight} {text.FillColorHex}, {rim}",
                 png));
@@ -831,7 +831,7 @@ public class BekiStyleProofTests(ITestOutputHelper output)
         File.WriteAllBytes(Path.Combine(outputFolder, contactName), contact);
 
         var size = Image.Identify(contact);
-        output.WriteLine($"{contactName} — {size.Width}×{size.Height}, {contact.Length:N0} bytes");
+        output.WriteLine($"{contactName} - {size.Width}×{size.Height}, {contact.Length:N0} bytes");
 
         Assert.True(contact.Length > 100_000);
     }

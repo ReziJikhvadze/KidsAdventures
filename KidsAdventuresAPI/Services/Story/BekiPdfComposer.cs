@@ -1110,7 +1110,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
             _logger.LogInformation(
                 "Beki cover title: {Version} placed the title at {LeftMm:0.#},{TopMm:0.#} mm "
-                + "({WidthMm:0.#} × {HeightMm:0.#}) on wrap {WrapSha256} — {Reason}",
+                + "({WidthMm:0.#} × {HeightMm:0.#}) on wrap {WrapSha256} - {Reason}",
                 choice.Version, choice.LeftMm, choice.TopMm, choice.WidthMm, choice.HeightMm,
                 key, choice.Reason);
         }
@@ -1264,7 +1264,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         _ = BekiMark();
         var mark = Engine.Value.Registry.Pose(_assets.BekiMarkPoseId);
         _logger.LogInformation(
-            "Beki PDF: credits mark resolved — pose {PoseId}, file {FileName}, "
+            "Beki PDF: credits mark resolved - pose {PoseId}, file {FileName}, "
             + "sha256 {Sha256}.",
             mark.Id, mark.FileName, mark.Sha256);
 
@@ -1746,8 +1746,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             throw new BekiLayoutException(
                 CompositeFailureCodes.TextOverflow,
                 $"The intro spread's copy needs {columnHeightMm:0.#} mm of leaf and the safe area "
-                + $"holds {availableHeightMm:0.#} mm. The intro has no step-down ladder — its lines "
-                + "come from configured templates — so this is a templates change, not a layout one.");
+                + $"holds {availableHeightMm:0.#} mm. The intro has no step-down ladder - its lines "
+                + "come from configured templates - so this is a templates change, not a layout one.");
         }
 
         var columnTopMm = Bleed(mode) + _layout.SafeMarginMm
@@ -2272,7 +2272,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             CompositeFailureCodes.TextOverflow,
             $"Spread {spread.Number}'s Georgian copy does not fit its column at any size the age "
             + $"band allows ({string.Join(", ", measured)}; the column holds {usableHeightPt:0}pt). "
-            + "The copy is not rewritten to make it fit — this book needs a human.");
+            + "The copy is not rewritten to make it fit - this book needs a human.");
     }
 
     /// <summary>
@@ -2424,7 +2424,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             {
                 _logger.LogInformation(
                     "Beki cover title: „{Title}“ is set at {ChosenPt:0.##}pt rather than the "
-                    + "book's {TopPt:0.##}pt — it does not fit the {BoxPt:0}pt title box at any "
+                    + "book's {TopPt:0.##}pt - it does not fit the {BoxPt:0}pt title box at any "
                     + "larger size ({Measured}). The whole title is printed.",
                     title, size, ladder[0], boxHeightPt, string.Join(", ", measured));
             }

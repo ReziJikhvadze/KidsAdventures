@@ -52,7 +52,7 @@ public static class BekiBookPlanSchema
                 {
                     type = "array",
                     description =
-                        "Only as many recurring supporting characters as the story actually needs — "
+                        "Only as many recurring supporting characters as the story actually needs - "
                         + "none is a valid answer. The child is the hero and is never listed here.",
                     items = new
                     {
@@ -74,7 +74,7 @@ public static class BekiBookPlanSchema
                 {
                     type = "array",
                     description =
-                        "Only as many recurring story objects as the story actually needs — "
+                        "Only as many recurring story objects as the story actually needs - "
                         + "none is a valid answer.",
                     items = new
                     {
@@ -105,7 +105,7 @@ public static class BekiBookPlanSchema
                 {
                     type = "string",
                     description =
-                        "ENGLISH ONLY. The child's unchanging appearance only — face, hair, eyes, "
+                        "ENGLISH ONLY. The child's unchanging appearance only - face, hair, eyes, "
                         + "skin, build and the clothing worn in every scene. Not the supporting "
                         + "cast: each of those carries its own visualDescription above."
                 },
@@ -115,7 +115,7 @@ public static class BekiBookPlanSchema
                     description =
                         "ENGLISH ONLY. Two or three sentences fixing the constant look of this "
                         + "book's world: palette, quality of light, terrain or architecture, and "
-                        + "one recurring landmark. No characters, no story events, no camera — "
+                        + "one recurring landmark. No characters, no story events, no camera - "
                         + "this is repeated word for word into every illustration, so everything "
                         + "in it must be true of every spread."
                 },
@@ -144,7 +144,7 @@ public static class BekiBookPlanSchema
             ["text"] = Text(
                 "The Georgian story text for this spread. One clear story moment. For ages 2–4 keep "
                 + "it very simple and short; for 5–8 richer but still easy to read aloud."),
-            ["textEn"] = Text("The same spread in English — an equivalent, not a literal gloss."),
+            ["textEn"] = Text("The same spread in English - an equivalent, not a literal gloss."),
             ["characters"] = new
             {
                 type = "array",
@@ -180,7 +180,7 @@ public static class BekiBookPlanSchema
                     "ENGLISH ONLY. Only what should be visible in this illustration: the moment, the "
                     + "action, what the characters feel, the place with its objects, weather and time "
                     + "of day. No style, no format, no camera or shot instruction, no photograph "
-                    + "instruction, and no permanent character appearance — every one of those is "
+                    + "instruction, and no permanent character appearance - every one of those is "
                     + "added by our code. Draw only what this spread's own text says is there."
             },
             ["avoid"] = new

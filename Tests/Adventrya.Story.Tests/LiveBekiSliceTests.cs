@@ -114,7 +114,7 @@ public class LiveBekiSliceTests(ITestOutputHelper output)
         report.AppendLine($"cast: {plan.Cast?.Count ?? 0}");
         foreach (var member in plan.Cast ?? [])
         {
-            report.AppendLine($"  {member.Id} · {member.Name} — {member.VisualDescription}");
+            report.AppendLine($"  {member.Id} · {member.Name} - {member.VisualDescription}");
         }
 
         Assert.Equal(input.SpreadCount, plan.Spreads.Count);
@@ -196,7 +196,7 @@ public class LiveBekiSliceTests(ITestOutputHelper output)
         var reference = BuildReference(childPhoto, hasAnchor ? anchorBytes : null);
 
         report.AppendLine();
-        report.AppendLine($"### Spread {spread.Number} — text {textSide}, anchor: {(hasAnchor ? "yes" : "no")}");
+        report.AppendLine($"### Spread {spread.Number} - text {textSide}, anchor: {(hasAnchor ? "yes" : "no")}");
         report.AppendLine("```");
         report.AppendLine(prompt);
         report.AppendLine("```");
@@ -231,7 +231,7 @@ public class LiveBekiSliceTests(ITestOutputHelper output)
 
         if (!accepted)
         {
-            report.AppendLine("NEEDS_REVIEW — shipped unaccepted for measurement.");
+            report.AppendLine("NEEDS_REVIEW - shipped unaccepted for measurement.");
         }
 
         return (image, accepted, verdict);

@@ -134,7 +134,7 @@ export const common = {
   contactForm: {
     eyebrow: "Contact",
     title: "We would love to hear from you",
-    lead: "Questions about the stories, printing or delivery? Write to us — we'll reply by email.",
+    lead: "Questions about the stories, printing or delivery? Write to us - we'll reply by email.",
     nameLabel: "Your name",
     namePlaceholder: "e.g. Ana",
     emailLabel: "Email",

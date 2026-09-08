@@ -343,8 +343,8 @@ internal static class AdventurePromptBuilder
 
     private static string DescribeScariness(int level) => level switch
     {
-        0 => "nothing tense at all — no danger, no threat, no darkness; warmth throughout.",
-        1 => "mild suspense only — a surprise or a puzzle, never a threat to anyone.",
+        0 => "nothing tense at all - no danger, no threat, no darkness; warmth throughout.",
+        1 => "mild suspense only - a surprise or a puzzle, never a threat to anyone.",
         2 => "real stakes are allowed, but the hero is never physically in danger and it resolves warmly.",
         _ => "genuine jeopardy is allowed, resolved fully and reassuringly before the last page.",
     };

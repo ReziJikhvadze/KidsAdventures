@@ -11,7 +11,7 @@ import { buildPageMeta } from "@/lib/seo";
 export const Route = createFileRoute("/auth/magic")({
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `შესვლა — ${BRAND_NAME}`,
+      title: `შესვლა - ${BRAND_NAME}`,
       description: "Beki-ს ერთჯერადი ბმულით შესვლა.",
       path: "/auth/magic",
       noindex: true,

@@ -9,7 +9,7 @@ import { buildPageMeta } from "@/lib/seo";
 export const Route = createFileRoute("/admin/promo")({
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `პრომო კოდები — ${BRAND_NAME} Admin`,
+      title: `პრომო კოდები - ${BRAND_NAME} Admin`,
       description: "Promo codes.",
       path: "/admin/promo",
       noindex: true,

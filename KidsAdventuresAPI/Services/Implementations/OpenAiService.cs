@@ -345,7 +345,7 @@ public sealed class OpenAiService(
                 logger.LogWarning(
                     ex,
                     usedPhoto
-                        ? "GPT Image edit failed after retries; falling back to text-only generation (uploaded photo was not used — likeness may be lost)."
+                        ? "GPT Image edit failed after retries; falling back to text-only generation (uploaded photo was not used - likeness may be lost)."
                         : "GPT Image edit failed after retries; one text-only images/generations fallback.");
             }
         }

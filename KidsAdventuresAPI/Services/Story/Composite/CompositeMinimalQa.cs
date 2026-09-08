@@ -488,7 +488,7 @@ public static class CompositeMinimalQa
 
         var anchor = anchorAttached
             ? "\nChild appearance anchor: the accepted first spread of this same book is attached. "
-              + "This page's child must be the same stylized child — same face shape, hair, "
+              + "This page's child must be the same stylized child - same face shape, hair, "
               + "eyebrows, eye colour, skin tone, glasses and outfit. It is not a pose, "
               + "composition, or background reference."
             : string.Empty;
@@ -509,9 +509,9 @@ public static class CompositeMinimalQa
         var shot = string.IsNullOrWhiteSpace(shotInstruction)
             ? string.Empty
             : $"\nShot this page was asked for: {shotInstruction.Trim()} If the rendered "
-              + "composition clearly contradicts that shot type — wrong camera distance, a "
+              + "composition clearly contradicts that shot type - wrong camera distance, a "
               + "required full figure not fully visible, the main story subject cropped by the "
-              + "canvas edge — fail SHOT_COMPLIANCE with recommended_action regenerate_base. For "
+              + "canvas edge - fail SHOT_COMPLIANCE with recommended_action regenerate_base. For "
               + "a borderline impression, put one short sentence in shot_note instead; the note "
               + "is advisory and changes nothing.";
 
@@ -534,7 +534,7 @@ public static class CompositeMinimalQa
             Beki action: {bekiAction.Trim()}
             Required base outfit: {childOutfit.Trim()}
             Relevant recurring elements: {elements}{props}{shot}
-            Reserved text side: {textSide.ToUpperInvariant()} — the {textSide.ToLowerInvariant()} third of the spread carries printed story text and must stay clear of faces, hands, characters, foreground objects and key action.
+            Reserved text side: {textSide.ToUpperInvariant()} - the {textSide.ToLowerInvariant()} third of the spread carries printed story text and must stay clear of faces, hands, characters, foreground objects and key action.
             Central exclusion zone: a narrow vertical strip at the exact centre of the spread; continuous environment may cross it, but no face, hand, character or story-critical detail may.{spec}{anchor}
             """;
     }
@@ -565,15 +565,15 @@ public static class CompositeMinimalQa
             var line = prop.State?.Trim() switch
             {
                 VisualScenarioPropStates.NotFound =>
-                    $"{element} — not yet discovered in the story and must not appear",
+                    $"{element} - not yet discovered in the story and must not appear",
                 VisualScenarioPropStates.Found =>
-                    $"{element} — the child discovers it on this very page",
+                    $"{element} - the child discovers it on this very page",
                 VisualScenarioPropStates.Carried =>
-                    $"{element} — the child is holding or carrying it",
+                    $"{element} - the child is holding or carrying it",
                 VisualScenarioPropStates.Placed =>
-                    $"{element} — the child is placing it where it now belongs",
+                    $"{element} - the child is placing it where it now belongs",
                 VisualScenarioPropStates.NoLongerCarried =>
-                    $"{element} — left behind earlier in the story and must not appear",
+                    $"{element} - left behind earlier in the story and must not appear",
                 _ => null,
             };
 
@@ -607,7 +607,7 @@ public static class CompositeMinimalQa
 
         var anchor = anchorAttached
             ? "\nChild appearance anchor: the accepted first spread of this same book is attached. "
-              + "The child on this cover must be the same stylized child — same face shape, hair, "
+              + "The child on this cover must be the same stylized child - same face shape, hair, "
               + "eyebrows, eye colour, skin tone, glasses and outfit. It is not a pose, "
               + "composition, or background reference."
             : string.Empty;

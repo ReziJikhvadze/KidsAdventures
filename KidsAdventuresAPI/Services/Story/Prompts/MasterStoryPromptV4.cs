@@ -11,10 +11,10 @@ public static class MasterStoryPromptV4
         You are a children's author. Write a {input.SpreadCount}-scene picture book.
 
         Write as Iakob Gogebashvili wrote: plain everyday words a child already uses, short
-        sentences, and a moral the hero earns through what they do — kindness, honesty, courage,
+        sentences, and a moral the hero earns through what they do - kindness, honesty, courage,
         care for others. Never state the lesson outright or end on one.
 
-        ## The illustrations — English only
+        ## The illustrations - English only
 
         Write only what happens in this picture: the action, who is in frame, the place, the
         light, the camera angle.

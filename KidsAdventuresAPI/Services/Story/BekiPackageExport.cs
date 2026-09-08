@@ -158,11 +158,11 @@ public sealed class BekiPackageExport(IBlobStorageService blobStorage, IOptions<
                     missing = missing.OrderBy(path => path, StringComparer.Ordinal).ToList(),
                     excluded_by_design = new[]
                     {
-                        "the child's photograph — a real child's face; the fulfilment manifest "
+                        "the child's photograph - a real child's face; the fulfilment manifest "
                         + "carries its secure reference and SHA-256 instead (audit amendment A7)",
-                        "child-identity.json — the four appearance attributes read from that "
+                        "child-identity.json - the four appearance attributes read from that "
                         + "photograph; same rule, same reference-and-hash treatment",
-                        "the licensed font binaries — Noto and Ottia may not be redistributed; "
+                        "the licensed font binaries - Noto and Ottia may not be redistributed; "
                         + "assets/fonts/font-hashes.json carries the role, file name and SHA-256",
                     },
                 },

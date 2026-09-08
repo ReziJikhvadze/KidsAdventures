@@ -17,7 +17,7 @@ export const Route = createFileRoute("/")({
     const { meta, links } = buildPageMeta({
       title: `პერსონალიზებული საბავშვო წიგნები | ${BRAND_NAME}`,
       description:
-        "შექმენი პერსონალიზებული ილუსტრირებული წიგნი, სადაც მთავარი გმირი შენი ბავშვია — Digital 14 ₾-დან, Printed + Digital 79 ₾.",
+        "შექმენი პერსონალიზებული ილუსტრირებული წიგნი, სადაც მთავარი გმირი შენი ბავშვია - Digital 14 ₾-დან, Printed + Digital 79 ₾.",
       path: "/",
     });
     return { meta, links };

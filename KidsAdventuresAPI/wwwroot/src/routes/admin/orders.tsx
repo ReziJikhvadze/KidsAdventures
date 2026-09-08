@@ -65,7 +65,7 @@ export const Route = createFileRoute("/admin/orders")({
   }),
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `შეკვეთები — ${BRAND_NAME} Admin`,
+      title: `შეკვეთები - ${BRAND_NAME} Admin`,
       description: "Orders.",
       path: "/admin/orders",
       noindex: true,
@@ -270,7 +270,7 @@ function OrderRow({
         </span>
       </td>
       <td>
-        {order.customerEmail || order.customerPhone || "—"}
+        {order.customerEmail || order.customerPhone || "-"}
         {order.customerEmail && order.customerPhone ? (
           <span className="cell-subtitle">{order.customerPhone}</span>
         ) : null}
@@ -279,7 +279,7 @@ function OrderRow({
       <td className="book-cell">
         {/* A real button, so the keyboard can open the row the mouse can. */}
         <button type="button" className="row-open" onClick={onToggle} aria-expanded={open}>
-          {order.bookTitle || "—"}
+          {order.bookTitle || "-"}
         </button>
         <span className="cell-subtitle">
           {order.generationPipeline ? `${label(PIPELINE_TEXT, order.generationPipeline)} · ` : ""}
@@ -355,7 +355,7 @@ function AttentionChips({ order }: { order: admin.AdminOrderRow }) {
       {order.isStale ? (
         <span
           className="attention-chip is-failed"
-          title={`ბოლო სიგნალი ${admin.ago(order.heartbeatUtc)} წინ — სამუშაო აღარ პასუხობს`}
+          title={`ბოლო სიგნალი ${admin.ago(order.heartbeatUtc)} წინ - სამუშაო აღარ პასუხობს`}
         >
           გაჩერებული
         </span>
@@ -363,7 +363,7 @@ function AttentionChips({ order }: { order: admin.AdminOrderRow }) {
       {order.withheld ? (
         <span
           className="attention-chip is-review"
-          title="წიგნი დასრულებულია, ფაილი კი შეჩერებული — გახსენი, რომ ნახო რატომ"
+          title="წიგნი დასრულებულია, ფაილი კი შეჩერებული - გახსენი, რომ ნახო რატომ"
         >
           შეჩერებული ფაილი
         </span>
@@ -462,7 +462,7 @@ function OrderDetail({
         // Both spellings: the file is named after the book now, and only the ASCII fallback
         // parameter still carries the shouted READING-COPY form.
         return /READING-COPY|reading copy/i.test(filename ?? "")
-          ? "ჩამოიტვირთა საკითხავი ასლი — საბეჭდი ფაილი არ არსებობს."
+          ? "ჩამოიტვირთა საკითხავი ასლი - საბეჭდი ფაილი არ არსებობს."
           : "PDF ჩამოიტვირთა.";
       },
       false,
@@ -562,7 +562,7 @@ function OrderDetail({
                 {isGenerating(book.status) || book.progressMessage ? (
                   <Field
                     label="ეტაპი"
-                    value={`${book.progressMessage ?? "—"}${
+                    value={`${book.progressMessage ?? "-"}${
                       typeof book.progressPercent === "number" ? ` · ${book.progressPercent}%` : ""
                     }`}
                   />
@@ -571,7 +571,7 @@ function OrderDetail({
                   <Field
                     label="ბოლო სიგნალი"
                     value={`${admin.moment(book.heartbeatUtc)} (${admin.ago(book.heartbeatUtc)} წინ)${
-                      book.isStale ? " — გაჩერებული" : ""
+                      book.isStale ? " - გაჩერებული" : ""
                     }`}
                   />
                 ) : null}
@@ -598,10 +598,10 @@ function OrderDetail({
                     label="გამოშვება"
                     value={
                       detail.awaitingReview
-                        ? "შეჩერებულია — ელოდება ვიზუალურ შემოწმებას"
+                        ? "შეჩერებულია - ელოდება ვიზუალურ შემოწმებას"
                         : detail.failingGateCount > 0
-                          ? `შეჩერებულია — ${detail.failingGateCount} გეითი ვერ გავიდა`
-                          : "შეჩერებულია — მიზეზი ჩანაწერში არ არის"
+                          ? `შეჩერებულია - ${detail.failingGateCount} გეითი ვერ გავიდა`
+                          : "შეჩერებულია - მიზეზი ჩანაწერში არ არის"
                     }
                   />
                 ) : null}
@@ -648,7 +648,7 @@ function OrderDetail({
                 })
               }
             >
-              {action === "recover-pdf" ? "PDF მოწმდება…" : "PDF-ის აღდგენა — ახალი ხატვის გარეშე"}
+              {action === "recover-pdf" ? "PDF მოწმდება…" : "PDF-ის აღდგენა - ახალი ხატვის გარეშე"}
             </button>
           ) : null}
           {book?.hasReadingPdf && !book.hasPrintPdf && !isLegacy ? (
@@ -679,7 +679,7 @@ function OrderDetail({
             >
               {action === "reprepare-print"
                 ? "ბეჭდვა მზადდება…"
-                : "ბეჭდვის ხელახლა მომზადება — ახალი ხატვის გარეშე"}
+                : "ბეჭდვის ხელახლა მომზადება - ახალი ხატვის გარეშე"}
             </button>
           ) : null}
           {book?.hasReadingPdf ? (
@@ -866,7 +866,7 @@ function OrderDetail({
                     });
                     setGates(revised);
                     return revised.verdict === "RELEASABLE"
-                      ? "შემოწმება დადასტურდა — წიგნი გამოსაშვებად მზადაა."
+                      ? "შემოწმება დადასტურდა - წიგნი გამოსაშვებად მზადაა."
                       : "შემოწმება დადასტურდა.";
                   })
                 }
@@ -904,7 +904,7 @@ function OrderDetail({
                 ? "მთელი წიგნის ხელახლა დახატვა"
                 : regen.scope === "cover"
                   ? "ყდის ხელახლა დახატვა"
-                  : `გვერდი ${regen.spread} — ხელახლა დახატვა`}
+                  : `გვერდი ${regen.spread} - ხელახლა დახატვა`}
             </strong>
             <p className="cell-subtitle">
               ეს რეალურ ხარჯს იწვევს ({regen.scope === "book" ? "9 სურათი" : "1–2 სურათი"}) და
@@ -1191,7 +1191,7 @@ function ContactSheet({ bookId }: { bookId: string }) {
   return (
     <figure className="contact-sheet">
       <a href={url} target="_blank" rel="noreferrer">
-        <img src={url} alt="კონტაქტ-ფურცელი — ეს არის რენდერი, რომელსაც ხელს აწერ" />
+        <img src={url} alt="კონტაქტ-ფურცელი - ეს არის რენდერი, რომელსაც ხელს აწერ" />
       </a>
       <figcaption>კონტაქტ-ფურცელი: ზუსტად ეს რენდერი დასტურდება.</figcaption>
     </figure>
@@ -1262,7 +1262,7 @@ function Field({ label: name, value }: { label: string; value: string | null | u
   return (
     <p className="detail-field">
       <span>{name}</span>
-      <strong>{value || "—"}</strong>
+      <strong>{value || "-"}</strong>
     </p>
   );
 }

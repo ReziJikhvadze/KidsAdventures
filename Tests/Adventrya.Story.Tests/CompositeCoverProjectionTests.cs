@@ -875,7 +875,7 @@ public class CompositeCoverProjectionTests
             Number = number,
             Title = string.Empty,
             Caption = string.Empty,
-            Text = $"ნინა და ბეკი — გვერდი {number}.",
+            Text = $"ნინა და ბეკი - გვერდი {number}.",
             Characters = ["child", "beki"],
             Objects = [],
             Illustration = new IllustrationBrief { Scene = "The child in the valley." },

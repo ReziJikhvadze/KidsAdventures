@@ -611,7 +611,7 @@ function WorldStageArt({
                   className="world-hotspot"
                   aria-label={
                     isDone || finished
-                      ? `${place.mapTitle} — ${copy.visited}`
+                      ? `${place.mapTitle} - ${copy.visited}`
                       : `${place.mapTitle}: ${place.teaserBody}`
                   }
                   aria-pressed={isSelected}

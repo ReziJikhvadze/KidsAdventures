@@ -21,7 +21,7 @@ public sealed record GeorgianTextFlag(
     string RuleId, string Location, string Found, string Expected, string Excerpt)
 {
     public override string ToString() =>
-        $"{RuleId} in {Location}: \"{Found}\" (expected {Expected}) — …{Excerpt}…";
+        $"{RuleId} in {Location}: \"{Found}\" (expected {Expected}) - …{Excerpt}…";
 }
 
 /// <summary>
@@ -207,7 +207,7 @@ public sealed class GeorgianChecklist
 
                 if (string.IsNullOrWhiteSpace(kind) || string.IsNullOrWhiteSpace(pattern))
                 {
-                    problems.Add($"{id}: skipped — it has no kind or no pattern.");
+                    problems.Add($"{id}: skipped - it has no kind or no pattern.");
                     continue;
                 }
 
@@ -229,7 +229,7 @@ public sealed class GeorgianChecklist
                 {
                     // An invalid pattern is the operator's typo, not this book's problem. The
                     // message is the regex engine's own and names the fault in the pattern.
-                    problems.Add($"{id}: skipped — the regular expression is invalid ({ex.Message}).");
+                    problems.Add($"{id}: skipped - the regular expression is invalid ({ex.Message}).");
                 }
             }
 

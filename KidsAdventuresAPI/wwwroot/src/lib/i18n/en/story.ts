@@ -1,6 +1,5 @@
 export const story = {
   storybook: {
-    brand: "BEKI",
     belongsTo: (hero: string) => `This story is ${hero.trim()}'s`,
     nextChapter: (hero: string) => "The next adventure",
     adventureOf: (hero: string) => `${hero}'s story`,
@@ -43,23 +42,23 @@ export const story = {
       title: "Painting the pictures",
       leadWaiting:
         "We'll show the book once every picture is done, so you meet it finished rather than half-drawn.",
-      lead: "The story is written — you can read it below. The pictures arrive one at a time.",
+      lead: "The story is written - you can read it below. The pictures arrive one at a time.",
       email: "You can close this page. We'll email you when the book is ready.",
       progress: (done: number, total: number) => `${done} of ${total} pictures`,
-      failed: "Some pictures could not be drawn — we're trying again. The story is safe.",
+      failed: "Some pictures could not be drawn - we're trying again. The story is safe.",
     },
     pdf: {
       building: "Preparing…",
       atelier: "BEKI PRINT ATELIER",
       title: "Preparing your printable PDF",
-      lead: "We're setting the book for print — the download starts on its own.",
+      lead: "We're setting the book for print - the download starts on its own.",
       email: "You can close this page. We'll email you when the PDF is ready.",
-      held: "The book is in its final check — the download opens shortly.",
-      failed: "The PDF could not be downloaded — please try again shortly.",
+      held: "The book is in its final check - the download opens shortly.",
+      failed: "The PDF could not be downloaded - please try again shortly.",
     },
     pending: {
       title: "The book is still being drawn",
-      body: "The story is being written and the pictures are on their way. It will appear here as soon as it is ready — we'll email you too.",
+      body: "The story is being written and the pictures are on their way. It will appear here as soon as it is ready - we'll email you too.",
     },
   },
 
@@ -91,7 +90,7 @@ export const story = {
     explanation: "You can reread a saved memory or start a new path from here.",
     guidance:
       "Tap any world on the map. Friends already found, memories, and goals carry naturally into the new chapter.",
-    readyNote: "Rex is ready — the golden path leads to this world.",
+    readyNote: "Rex is ready - the golden path leads to this world.",
     lockedNote: "This world is still locked. A new book opens its gate.",
     continueFromMemory: "Continue from this memory",
     unlockNext: "Open the next adventure",
@@ -101,13 +100,13 @@ export const story = {
       `Age ${age} · ${stories} completed ${stories === 1 ? "story" : "stories"}`,
     newWorld: "A new world",
     spaceOf: (name: string) => `${name}'s personal space`,
-    shelfLead: "Every story made so far — to read, to download, and to carry on.",
+    shelfLead: "Every story made so far - to read, to download, and to carry on.",
     journeySuffix: "'s journey",
     nextAdventure: "The next adventure",
-    startHere: (world: string) => `Start here — ${world}`,
+    startHere: (world: string) => `Start here - ${world}`,
     resumeTitle: "A book is still being made",
     resumeBody:
-      "Leaving this page did not stop it — the story is still being written. Come back and see where it got to.",
+      "Leaving this page did not stop it - the story is still being written. Come back and see where it got to.",
     resumeAction: "Back to the book",
     openedStoriesSuffix: "'s stories discovered so far",
     archiveNote:

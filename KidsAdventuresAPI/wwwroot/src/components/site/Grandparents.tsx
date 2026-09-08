@@ -22,8 +22,8 @@ export function Grandparents() {
               {[
                 "Personalized with their grandchild's name, age and theme",
                 "Add grandma or grandpa into the story as a character",
-                "15-book pack — gifts for every grandchild",
-                "Print at home or ship-ready PDF — no waiting",
+                "15-book pack - gifts for every grandchild",
+                "Print at home or ship-ready PDF - no waiting",
               ].map((f) => (
                 <li key={f} className="flex items-start gap-3">
                   <span className="mt-0.5 grid place-items-center h-5 w-5 rounded-full bg-secondary text-primary">

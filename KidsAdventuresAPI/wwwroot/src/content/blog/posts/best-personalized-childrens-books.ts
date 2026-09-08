@@ -5,7 +5,7 @@ export const bestPersonalizedChildrensBooks: BlogPost = {
   slug: "best-personalized-childrens-books",
   title: "Best personalized children's books in 2026: what parents should look for",
   description:
-    "Shopping for custom kids books or adventure storybooks? Compare photo books, name books, and illustrated PDFs — and what makes a great personalized children's book gift.",
+    "Shopping for custom kids books or adventure storybooks? Compare photo books, name books, and illustrated PDFs - and what makes a great personalized children's book gift.",
   publishedAt: "2026-06-16",
   updatedAt: "2026-06-24",
   readingTimeMinutes: 7,
@@ -25,7 +25,7 @@ export const bestPersonalizedChildrensBooks: BlogPost = {
     {
       heading: "Name on the cover vs. name in the story",
       paragraphs: [
-        "Cheap personalized books often swap a name into a generic template. Better options weave your child's name, age, and interests into the plot. Look for adventure books where they are the hero — not a bystander with a label on page one.",
+        "Cheap personalized books often swap a name into a generic template. Better options weave your child's name, age, and interests into the plot. Look for adventure books where they are the hero - not a bystander with a label on page one.",
       ],
     },
     {
@@ -37,7 +37,7 @@ export const bestPersonalizedChildrensBooks: BlogPost = {
     {
       heading: "Themes kids already love",
       paragraphs: [
-        "Dinosaurs, space, pirates, animals, airplanes — the best personalized children's books match existing obsessions. A space adventure book for a rocket-loving five-year-old beats a random fairy tale every time.",
+        "Dinosaurs, space, pirates, animals, airplanes - the best personalized children's books match existing obsessions. A space adventure book for a rocket-loving five-year-old beats a random fairy tale every time.",
       ],
     },
     {
@@ -49,15 +49,15 @@ export const bestPersonalizedChildrensBooks: BlogPost = {
     {
       heading: "Printable beats clutter",
       paragraphs: [
-        "Parents tired of toy clutter love printable storybooks. Download once, print at home, gift the PDF to family — no shipping wait, no plastic packaging.",
-        "Create your free preview at beki.ge — takes about a minute.",
+        "Parents tired of toy clutter love printable storybooks. Download once, print at home, gift the PDF to family - no shipping wait, no plastic packaging.",
+        "Create your free preview at beki.ge - takes about a minute.",
       ],
     },
   ],
   faqs: [
     {
       q: "What makes a personalized children's book worth buying?",
-      a: "The best personalized children's books weave your child's name, age, and interests into the actual plot — not just the cover — and offer illustrations that resemble your child. A free preview before paying is a strong sign of quality.",
+      a: "The best personalized children's books weave your child's name, age, and interests into the actual plot - not just the cover - and offer illustrations that resemble your child. A free preview before paying is a strong sign of quality.",
     },
     {
       q: "Are personalized books better than name books?",
@@ -65,7 +65,7 @@ export const bestPersonalizedChildrensBooks: BlogPost = {
     },
     {
       q: "How much should a personalized children's book cost?",
-      a: "Prices range widely. Beki keeps the full story free to read and charges a one-time $4.99 to unlock the complete illustrated book, with a free printable PDF — far less than typical $30–40 physical custom books.",
+      a: "Prices range widely. Beki keeps the full story free to read and charges a one-time $4.99 to unlock the complete illustrated book, with a free printable PDF - far less than typical $30–40 physical custom books.",
     },
   ],
 };

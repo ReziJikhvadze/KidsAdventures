@@ -70,7 +70,7 @@ public class BekiReaderExportTests
                 $"Page {index + 1}: MediaBox is {page.MediaBox.Height / MmToPt:F2} mm tall.");
 
             Assert.True(page.Elements.ContainsKey("/CropBox"),
-                $"Page {index + 1} has no CropBox — a viewer would show the MediaBox (P0-08).");
+                $"Page {index + 1} has no CropBox - a viewer would show the MediaBox (P0-08).");
             Assert.Equal(page.MediaBox.Width, page.CropBox.Width, 1);
             Assert.Equal(page.MediaBox.Height, page.CropBox.Height, 1);
 
@@ -212,7 +212,7 @@ public class BekiReaderExportTests
 
         Assert.True(Math.Abs(left.R - right.R) > 8,
             $"the back cover reads as one flat colour (#{left.R:X2}{left.G:X2}{left.B:X2} to "
-            + $"#{right.R:X2}{right.G:X2}{right.B:X2}) — the placeholder is back.");
+            + $"#{right.R:X2}{right.G:X2}{right.B:X2}) - the placeholder is back.");
 
         // And the page ground is nowhere to be seen: artwork covers the leaf edge to edge.
         Assert.DoesNotContain(

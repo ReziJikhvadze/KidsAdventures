@@ -35,8 +35,8 @@ public static class MasterStorySchema
                         // Every book is one chapter of a series, and the last page used to simply
                         // stop. A thread left open is what makes a child ask for the next one.
                         + "The last spread settles what this book began and then leaves one thread "
-                        + "open — a door not yet gone through, a map with a further mark, a promise "
-                        + "to meet again — so the next book has somewhere to start. A hook, not a "
+                        + "open - a door not yet gone through, a map with a further mark, a promise "
+                        + "to meet again - so the next book has somewhere to start. A hook, not a "
                         + "cliffhanger: nothing frightening, and nothing the child was worried "
                         + "about left unresolved.",
                     items = SpreadSchema()
@@ -47,7 +47,7 @@ public static class MasterStorySchema
                     description =
                         "ENGLISH ONLY. One paragraph describing every recurring character's "
                         + "appearance: face, hair, eyes, skin, build, and the exact clothing worn "
-                        + "in every scene. Appearance only — no instruction about the photograph "
+                        + "in every scene. Appearance only - no instruction about the photograph "
                         + "and no scene. Written once; it is placed into every illustration "
                         + "prompt automatically, so it must not be repeated anywhere else."
                 },
@@ -89,7 +89,7 @@ public static class MasterStorySchema
             ["caption"] = Text("The short line beside the picture. Two to five words."),
             ["text"] = Text(
                 "The read-aloud text for this scene: three to five short sentences. It has a page "
-                + "to itself, but filling the page is not the goal — a child follows the picture "
+                + "to itself, but filling the page is not the goal - a child follows the picture "
                 + "and the voice, not the length of the paragraph."),
             ["illustration"] = IllustrationSchema(
                 "The picture for this scene, on the facing page.")
@@ -112,7 +112,7 @@ public static class MasterStorySchema
             {
                 type = "string",
                 description =
-                    "ENGLISH ONLY. This picture, and nothing else — no style, no format, no "
+                    "ENGLISH ONLY. This picture, and nothing else - no style, no format, no "
                     + "instruction about the photograph, and no description of the characters' "
                     + "permanent appearance. In one flowing paragraph: which moment of the text "
                     + "is shown, the main action, what the characters feel, the place with its "
@@ -128,7 +128,7 @@ public static class MasterStorySchema
             {
                 type = "string",
                 description =
-                    "ENGLISH ONLY. Only what would go wrong in THIS picture — a hazard the scene "
+                    "ENGLISH ONLY. Only what would go wrong in THIS picture - a hazard the scene "
                     + "could imply, a character who should not appear. Leave it empty when there "
                     + "is nothing particular; identity and artefact exclusions are always added."
             }

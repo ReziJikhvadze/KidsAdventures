@@ -9,7 +9,7 @@ import { buildPageMeta } from "@/lib/seo";
 export const Route = createFileRoute("/refunds")({
   head: () => {
     const { meta, links } = buildPageMeta({
-      title: `მიწოდება და დაბრუნება — ${BRAND_NAME}`,
+      title: `მიწოდება და დაბრუნება - ${BRAND_NAME}`,
       description:
         "როგორ მიდის შეკვეთა, რა ვადებში ბარდება ნაბეჭდი წიგნი, როგორ ხდება გაუქმება და თანხის დაბრუნება.",
       path: "/refunds",

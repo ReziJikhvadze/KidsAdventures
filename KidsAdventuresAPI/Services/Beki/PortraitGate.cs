@@ -33,11 +33,11 @@ public static class PortraitGateReasons
 
     private static readonly Dictionary<string, string> Messages = new(StringComparer.OrdinalIgnoreCase)
     {
-        [NotAPerson] = "ფოტოზე ადამიანი ვერ ვნახეთ — ატვირთე სურათი, სადაც ბავშვი ჩანს.",
-        [Unsuitable] = "ეს ფოტო არ გამოდგება — ატვირთე სურათი, სადაც ბავშვი ჩანს.",
-        [Unreadable] = "ფაილი ვერ წავიკითხეთ — ატვირთე JPG, PNG ან WEBP ფოტო.",
-        [TooLarge] = "ფოტო ძალიან დიდია — აირჩიე უფრო პატარა სურათი.",
-        [Unavailable] = "ფოტოს შემოწმება ვერ მოხერხდა — სცადე ხელახლა ატვირთვა.",
+        [NotAPerson] = "ფოტოზე ადამიანი ვერ ვნახეთ - ატვირთე სურათი, სადაც ბავშვი ჩანს.",
+        [Unsuitable] = "ეს ფოტო არ გამოდგება - ატვირთე სურათი, სადაც ბავშვი ჩანს.",
+        [Unreadable] = "ფაილი ვერ წავიკითხეთ - ატვირთე JPG, PNG ან WEBP ფოტო.",
+        [TooLarge] = "ფოტო ძალიან დიდია - აირჩიე უფრო პატარა სურათი.",
+        [Unavailable] = "ფოტოს შემოწმება ვერ მოხერხდა - სცადე ხელახლა ატვირთვა.",
     };
 
     /// <summary>True for a code the model is allowed to return as a refusal.</summary>
@@ -198,7 +198,7 @@ public sealed class PortraitGate(
             return PortraitVerdict.Pass();
         }
 
-        logger.LogInformation("Portrait gate refused a photo: {Reason} — {Explanation}",
+        logger.LogInformation("Portrait gate refused a photo: {Reason} - {Explanation}",
             response.Reason, response.Explanation);
 
         return PortraitVerdict.Fail(

@@ -42,25 +42,25 @@ internal static class AdventureWorldCanon
     {
         [ThemeType.Dinosaurs] = new WorldFacts
         {
-            Place = "დაკარგული ხეობა — მწვანე, თბილი ხეობა, სადაც დინოზავრები მშვიდად ცხოვრობენ",
+            Place = "დაკარგული ხეობა - მწვანე, თბილი ხეობა, სადაც დინოზავრები მშვიდად ცხოვრობენ",
             Landmarks = "გიგანტური გვიმრები, თბილი ტალახის გუბეები, ქვის ბილიკები კლდეებში, უძველესი კვალი მიწაზე, ჩანჩქერი ხეობის ბოლოს",
             Atmosphere = "მზიანი, ცოცხალი და უსაფრთხო; დინოზავრები მეგობრული და ცნობისმოყვარეა, არასოდეს საშიში",
-            Companion = "რექსი — პატარა, მეგობრული დინოზავრი, რომელიც გმირს ხეობაში ხვდება",
+            Companion = "რექსი - პატარა, მეგობრული დინოზავრი, რომელიც გმირს ხეობაში ხვდება",
                     PromisedTitle = "{0} და დაკარგული ხეობის საიდუმლო",
             PromisedPremise = "როდესაც {0} უცნაურ კვალს აღმოაჩენს, მეგობარ რექსთან ერთად იწყებს მოგზაურობას, რომელიც სიმამაცის ნამდვილ მნიშვნელობას აჩვენებს.",
         },
         [ThemeType.Space] = new WorldFacts
         {
-            Place = "ვარსკვლავების გზა — მანათობელი ბილიკი, რომელიც მთვარის იქით მიდის",
+            Place = "ვარსკვლავების გზა - მანათობელი ბილიკი, რომელიც მთვარის იქით მიდის",
             Landmarks = "ვარსკვლავური რუკები, მცურავი ქვის კუნძულები, ობსერვატორია მინის გუმბათით, კომეტების ბილიკი, მშვიდი პლანეტები რბილი ფერებით",
             Atmosphere = "მშვიდი, საოცრებით სავსე და უჰაერო სიცივის გარეშე; კოსმოსი აქ თბილი და მისასალმებელია",
             Companion = "რექსი, რომელიც გმირს ამ მოგზაურობაშიც აჰყვება",
                     PromisedTitle = "{0} და დაკარგული ვარსკვლავის გზა",
-            PromisedPremise = "{0} და რექსი მთვარის იქით მიმავალ მანათობელ კვალს მიჰყვებიან — იქ, სადაც ძველი მეგობრობა ახალ სამყაროს ხსნის.",
+            PromisedPremise = "{0} და რექსი მთვარის იქით მიმავალ მანათობელ კვალს მიჰყვებიან - იქ, სადაც ძველი მეგობრობა ახალ სამყაროს ხსნის.",
         },
         [ThemeType.Pirates] = new WorldFacts
         {
-            Place = "მბრწყინავი კუნძული — ზღვაში დამალული კუნძული, რომელსაც ძველი ოქროსფერი რუკა მიუთითებს",
+            Place = "მბრწყინავი კუნძული - ზღვაში დამალული კუნძული, რომელსაც ძველი ოქროსფერი რუკა მიუთითებს",
             Landmarks = "ოქროსფერი რუკა, ქვიშის სანაპირო ნიჟარებით, გამოქვაბულები ზღვის მხრიდან, ძველი ხის ხომალდი, შუქურა კლდეზე",
             Atmosphere = "სათავგადასავლო და მხიარული; მეკობრეები კეთილები არიან და საგანძური ყოველთვის რაღაც სასიკეთოა",
             Companion = "კეთილი მეკობრე, რომელიც რუკის კითხვას ასწავლის",
@@ -69,7 +69,7 @@ internal static class AdventureWorldCanon
         },
         [ThemeType.Animals] = new WorldFacts
         {
-            Place = "მოჯადოებული ტყე — მანათობელი ტყე, სადაც ყველა ბინადარს თავისი პატარა საიდუმლო აქვს",
+            Place = "მოჯადოებული ტყე - მანათობელი ტყე, სადაც ყველა ბინადარს თავისი პატარა საიდუმლო აქვს",
             Landmarks = "მანათობელი სოკოები, ხის ხიდები ტოტებს შორის, ჩუმი ტბა, ციცინათელების მინდორი, ძველი მოლაპარაკე ხე",
             Atmosphere = "თბილი, ჩურჩულით სავსე და ნაზი; ცხოველები საუბრობენ და მეგობრობა მოულოდნელად იბადება",
             Companion = "ტყის ცხოველები, რომლებიც თანდათან ენდობიან გმირს",
@@ -78,16 +78,16 @@ internal static class AdventureWorldCanon
         },
         [ThemeType.Airplanes] = new WorldFacts
         {
-            Place = "ღრუბლების ქალაქი — ღრუბლებს მიღმა დამალული ქალაქი",
+            Place = "ღრუბლების ქალაქი - ღრუბლებს მიღმა დამალული ქალაქი",
             Landmarks = "ღრუბლების ბაქნები, ქარის წისქვილები, პატარა თვითმფრინავები ფერადი ფრთებით, ხიდები ღრუბლებს შორის, სიმაღლის შუქურა",
             Atmosphere = "ღია, მსუბუქი და თავისუფალი; სიმაღლე აქ სასიხარულოა და არა საშიში",
             Companion = "პატარა თვითმფრინავი, რომელსაც საკუთარი ხასიათი აქვს",
                     PromisedTitle = "{0} და ღრუბლებს მიღმა დამალული ქალაქი",
-            PromisedPremise = "{0}-ის პირველი დიდი ფრენა უცნობი ჰორიზონტისკენ მიდის — იქ, სადაც ღრუბლებს მიღმა მთელი ქალაქია დამალული.",
+            PromisedPremise = "{0}-ის პირველი დიდი ფრენა უცნობი ჰორიზონტისკენ მიდის - იქ, სადაც ღრუბლებს მიღმა მთელი ქალაქია დამალული.",
         },
         [ThemeType.Magic] = new WorldFacts
         {
-            Place = "სინათლის ქალაქი — მოჯადოებული ქალაქი, რომლის კარიბჭეც მხოლოდ კეთილ სურვილზე იღება",
+            Place = "სინათლის ქალაქი - მოჯადოებული ქალაქი, რომლის კარიბჭეც მხოლოდ კეთილ სურვილზე იღება",
             Landmarks = "სინათლის კარიბჭე, ცოცხალი წიგნები, ფარნების ქუჩა, სარკის მოედანი, კოშკი, რომელიც სახელს იმახსოვრებს",
             Atmosphere = "ჯადოსნური, თბილი და ოდნავ საიდუმლოებით მოცული; პატარა არჩევანიც კი სინათლეს ტოვებს",
             Companion = "ქალაქის ფარნების მცველი, რომელიც გამოცანებით ელაპარაკება",
@@ -100,7 +100,7 @@ internal static class AdventureWorldCanon
     {
         [ThemeType.Dinosaurs] = new WorldFacts
         {
-            Place = "the Lost Valley — a warm green valley where dinosaurs live peacefully",
+            Place = "the Lost Valley - a warm green valley where dinosaurs live peacefully",
             Landmarks = "giant ferns, warm mud pools, stone paths in the cliffs, ancient tracks in the earth, a waterfall at the valley's end",
             Atmosphere = "sunlit, alive and safe; the dinosaurs are friendly and curious, never threatening",
             Companion = "Rex, a small friendly dinosaur who meets the hero in the valley",
@@ -109,7 +109,7 @@ internal static class AdventureWorldCanon
         },
         [ThemeType.Space] = new WorldFacts
         {
-            Place = "the Star Path — a glowing trail that leads out past the moon",
+            Place = "the Star Path - a glowing trail that leads out past the moon",
             Landmarks = "star maps, floating stone islands, an observatory under a glass dome, a comet trail, calm planets in soft colours",
             Atmosphere = "calm and full of wonder, without airless cold; space here is warm and welcoming",
             Companion = "Rex, who comes along on this journey too",
@@ -118,7 +118,7 @@ internal static class AdventureWorldCanon
         },
         [ThemeType.Pirates] = new WorldFacts
         {
-            Place = "the Shining Island — an island hidden at sea, marked on an old golden map",
+            Place = "the Shining Island - an island hidden at sea, marked on an old golden map",
             Landmarks = "the golden map, a shell-strewn shore, sea caves, an old wooden ship, a lighthouse on the rocks",
             Atmosphere = "adventurous and cheerful; the pirates are kind and the treasure is always something good",
             Companion = "a kind pirate who teaches the hero to read the map",
@@ -127,7 +127,7 @@ internal static class AdventureWorldCanon
         },
         [ThemeType.Animals] = new WorldFacts
         {
-            Place = "the Enchanted Forest — a glowing forest where every resident keeps a small secret",
+            Place = "the Enchanted Forest - a glowing forest where every resident keeps a small secret",
             Landmarks = "glowing mushrooms, rope bridges between branches, a quiet lake, a firefly meadow, an old talking tree",
             Atmosphere = "warm, whispering and gentle; the animals speak and friendship arrives unexpectedly",
             Companion = "the forest animals, who come to trust the hero",
@@ -136,7 +136,7 @@ internal static class AdventureWorldCanon
         },
         [ThemeType.Airplanes] = new WorldFacts
         {
-            Place = "the Cloud City — a city hidden above the clouds",
+            Place = "the Cloud City - a city hidden above the clouds",
             Landmarks = "cloud platforms, windmills, small aeroplanes with colourful wings, bridges between clouds, a beacon at altitude",
             Atmosphere = "open, light and free; height here is a joy rather than a danger",
             Companion = "a little aeroplane with a character of its own",
@@ -145,7 +145,7 @@ internal static class AdventureWorldCanon
         },
         [ThemeType.Magic] = new WorldFacts
         {
-            Place = "the City of Light — an enchanted city whose gate opens only to a kind wish",
+            Place = "the City of Light - an enchanted city whose gate opens only to a kind wish",
             Landmarks = "the gate of light, living books, a street of lanterns, a mirror square, a tower that remembers names",
             Atmosphere = "magical, warm and lightly mysterious; even a small choice leaves light behind",
             Companion = "the keeper of the city's lanterns, who speaks in riddles",

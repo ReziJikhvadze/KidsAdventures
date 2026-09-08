@@ -19,7 +19,7 @@ public static class BekiIdentity
     public const string ReferenceAssetPath = "Assets/Beki/beki-canonical-v2.png";
 
     /// <summary>The label every reference attachment carries, so the model knows which file rules.</summary>
-    public const string ReferenceLabel = "Beki master reference — the sole authority for Beki's design";
+    public const string ReferenceLabel = "Beki master reference - the sole authority for Beki's design";
 
     /// <summary>
     /// The identity lock, condensed from the pack's AI prompt. Sent with every image that
@@ -27,7 +27,7 @@ public static class BekiIdentity
     /// must not lose — the exact drift the pack's avoid-list saw coming.
     /// </summary>
     public const string Lock =
-        "Beki is a small abstract floating leaf spirit — never a lamb, sheep, animal, human, "
+        "Beki is a small abstract floating leaf spirit - never a lamb, sheep, animal, human, "
         + "ghost, fairy or robed figure. Locked identity: plum-violet face with no nose and no "
         + "ears; large warm golden eyes; a sincere open smile; a layered cream-gold leaf body "
         + "that is anatomy, not clothing; one broad leaf spiral rising above the head; one long "
@@ -38,15 +38,15 @@ public static class BekiIdentity
 
     /// <summary>Continuity for a story spread that lists Beki.</summary>
     public const string SpreadContinuity =
-        "Beki appears in this scene: depict the exact character in the Beki master reference — "
-        + "same face, leaf anatomy, upper spiral, rear ribbon and chest glow — hovering at the "
+        "Beki appears in this scene: depict the exact character in the Beki master reference - "
+        + "same face, leaf anatomy, upper spiral, rear ribbon and chest glow - hovering at the "
         + "child's level as their warm companion, never leading the action, and never "
         + "duplicated. " + Lock;
 
     /// <summary>Continuity for the cover, where the relationship is the subject.</summary>
     public const string CoverContinuity =
         "Include Beki exactly as shown in the Beki master reference, hovering beside the child "
-        + "at their level as a warm, lovable companion — with the child, never in front of "
+        + "at their level as a warm, lovable companion - with the child, never in front of "
         + "them. " + Lock;
 
     /// <summary>

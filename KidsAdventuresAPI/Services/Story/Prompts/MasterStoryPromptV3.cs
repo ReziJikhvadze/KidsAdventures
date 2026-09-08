@@ -31,7 +31,7 @@ public static class MasterStoryPromptV3
         var chain = string.Join("\n", branch.Chain.Select((step, i) => $"{i + 1}. {step}"));
 
         return $"""
-            You are a master children's author. please remember, think like top 1% most famous children's author. You do not list events that happen to be in order —
+            You are a master children's author. please remember, think like top 1% most famous children's author. You do not list events that happen to be in order -
             you build a chain where each thing happens *because* of the thing before it.
 
             Plan an {input.SpreadCount}-scene story for {input.ChildName}, aged {input.Age}.
@@ -45,7 +45,7 @@ public static class MasterStoryPromptV3
 
             ## The chain to follow
 
-            This is the spine of the book — „{branch.Name}“:
+            This is the spine of the book - „{branch.Name}“:
 
             {chain}
 
@@ -53,7 +53,7 @@ public static class MasterStoryPromptV3
             make it happen to **this** child, in **this** world, carrying **this** skill.
 
             **A step's outcome is fixed.** If the step says an egg is carried somewhere safe, the
-            egg is carried somewhere safe — it does not hatch, does not break, does not turn out
+            egg is carried somewhere safe - it does not hatch, does not break, does not turn out
             to be something else. You decide how it happens, who helps, and what it costs. You do
             not decide whether it happens.
 
@@ -61,7 +61,7 @@ public static class MasterStoryPromptV3
 
             **Cause and effect.** Scene N begins as the immediate physical consequence of scene
             N−1. If the child lifts a leaf at the end of one scene, the next begins under that
-            leaf — not somewhere else, not later, not after something unstated.
+            leaf - not somewhere else, not later, not after something unstated.
 
             **A hook on every page.** Every scene ends with something open a child can see or
             hear: what is under that stone, where does that sound go, what made that mark. A scene
@@ -73,11 +73,11 @@ public static class MasterStoryPromptV3
             ## Characters
 
             Besides {input.ChildName}, at most **{maxCharacters}**. For each, give the scene they
-            first appear in — they do not exist before it, not named, not present, not hinted at.
+            first appear in - they do not exist before it, not named, not present, not hinted at.
             They must arrive at a point the chain has physically reached.
 
             **Only what is on this list speaks.** The world is full of stones, ferns, water and
-            wind. They rustle, splash, crack and knock, and a child hears all of it — but none of
+            wind. They rustle, splash, crack and knock, and a child hears all of it - but none of
             them say words. If something has to speak, it is a character: put it on the list, or
             leave it silent.
 
@@ -86,14 +86,14 @@ public static class MasterStoryPromptV3
             The book carries this: **{skill.Georgian}**
             How it shows: {skill.GeorgianHowToShow}
 
-            Never state it, and do not put it in every scene — a skill practised on all eight pages
+            Never state it, and do not put it in every scene - a skill practised on all eight pages
             is a drill, not a story. It belongs at the turning points: one scene where it is hard,
             one where it decides the outcome.
 
             ## The refrain
 
             One short phrase, two to four words in {LanguageName(input.Language)}. It must sound
-            like something a character would actually say — and it has to still work when somebody
+            like something a character would actually say - and it has to still work when somebody
             else says it back to them, because the writer will put it in three different mouths.
             """;
     }
@@ -116,10 +116,10 @@ public static class MasterStoryPromptV3
             prompt.AppendLine();
             prompt.AppendLine("## ბავშვის გარეგნობა (ატვირთული ფოტოდან, ინგლისურად)");
             prompt.AppendLine(input.AppearanceDescription.Trim());
-            prompt.AppendLine($"Eye colour: **{input.EyeColor}** — this is what the parent chose "
+            prompt.AppendLine($"Eye colour: **{input.EyeColor}** - this is what the parent chose "
                               + "and it decides, whatever the photograph appears to show.");
             prompt.AppendLine();
-            prompt.AppendLine("ეს არის characterLock-ის საფუძველი — გამოიყენე თითქმის უცვლელად.");
+            prompt.AppendLine("ეს არის characterLock-ის საფუძველი - გამოიყენე თითქმის უცვლელად.");
             prompt.AppendLine("არაფერი დაუმატო გარეგნობას, რაც აღწერაში არ წერია.");
         }
 
@@ -150,18 +150,18 @@ public static class MasterStoryPromptV3
 
         {AgeDirectives.WritingRules(input.Age)}
 
-        ## Continuity — the rule this variant exists for
+        ## Continuity - the rule this variant exists for
 
         **Every scene opens by naming what the last one left.** The object, the sound, the mark in
-        the sand — whatever the previous scene ended on is the first thing this one touches. A
+        the sand - whatever the previous scene ended on is the first thing this one touches. A
         reader should never wonder how the child got here.
 
         **Every scene ends on something open.** Not a summary, not a settled feeling: a thing seen
         or heard that has no answer yet.
 
-        ## The story text — {LanguageName(input.Language)}
+        ## The story text - {LanguageName(input.Language)}
 
-        **Write {LanguageName(input.Language)}, not translated English.** Avoid calques —
+        **Write {LanguageName(input.Language)}, not translated English.** Avoid calques -
         „ფოთლები შრიალებენ“, not „ფოთლები დარბიან“. A parent reads this aloud and hears every
         awkward phrase.
 
@@ -169,15 +169,15 @@ public static class MasterStoryPromptV3
         in. Do not name them, place them, or hint at them before it.
 
         **Everyone sounds like themselves.** The narrator describes; the hero speaks simply, in
-        their own words. A companion must not sound like the hero — give them a habit of their
+        their own words. A companion must not sound like the hero - give them a habit of their
         own. Make it clear who is speaking; a parent should never have to guess.
 
         **Only the characters in the plan speak.** Stones, trees, rivers and wind belong to the
-        world, not to the cast. They crack, rustle, splash and creak — a child hears every bit of
-        it — but they do not say words. A stone that talks is a second world arriving in the
+        world, not to the cast. They crack, rustle, splash and creak - a child hears every bit of
+        it - but they do not say words. A stone that talks is a second world arriving in the
         middle of the one this book has been careful about.
 
-        **The refrain** is in the plan, and it is used exactly three times — each time in a
+        **The refrain** is in the plan, and it is used exactly three times - each time in a
         different mouth, at a different kind of moment:
 
         - once the hero says it to themselves, where the next step is frightening;
@@ -189,15 +189,15 @@ public static class MasterStoryPromptV3
         Never in the same place on the page twice. If it is the last line of one scene, it cannot
         be the last line of another.
 
-        **The last scene ends warm, and leaves one small thing open** — a new track, a feather
+        **The last scene ends warm, and leaves one small thing open** - a new track, a feather
         that was not there before, a small key. Not a cliffhanger: a world that carries on.
 
-        ## The illustrations — English only
+        ## The illustrations - English only
 
         Only what happens in this picture: the action, who is in frame, the place, the light, the
         camera angle.
 
-        **Do not describe appearance.** Not clothing, not hair, not faces — the character lock is
+        **Do not describe appearance.** Not clothing, not hair, not faces - the character lock is
         added to every prompt automatically. Do not write style, format, or anything about
         photographs; those are added too.
 
@@ -228,7 +228,7 @@ public static class MasterStoryPromptV3
         // The writer used to get the chain's name and nothing else, and a book that hatched an egg
         // the chain had asked to be carried somewhere safe is what that cost. The plan is supposed
         // to carry the chain — but the plan is the part that can drift, and the chain cannot.
-        prompt.AppendLine("## The chain — one step per scene, in this order");
+        prompt.AppendLine("## The chain - one step per scene, in this order");
         foreach (var (step, i) in branch.Chain.Select((s, i) => (s, i)))
         {
             prompt.AppendLine($"{i + 1}. {step}");
@@ -236,7 +236,7 @@ public static class MasterStoryPromptV3
 
         prompt.AppendLine();
         prompt.AppendLine("What a step says happens, happens. You choose the words, the pace and "
-                          + "the feeling — not the outcome. Where the plan and this list disagree, "
+                          + "the feeling - not the outcome. Where the plan and this list disagree, "
                           + "this list is right.");
         prompt.AppendLine();
         prompt.AppendLine(planJson);
@@ -251,7 +251,7 @@ public static class MasterStoryPromptV3
             {
                 prompt.AppendLine(
                     $"- **{character.Name}** ({character.Role}): first appears in scene "
-                    + $"{character.IntroducedInSpread}. Not before — not named, not present, "
+                    + $"{character.IntroducedInSpread}. Not before - not named, not present, "
                     + "not hinted at.");
             }
 
@@ -259,7 +259,7 @@ public static class MasterStoryPromptV3
         }
 
         prompt.AppendLine("## The refrain");
-        prompt.AppendLine($"„{plan.RefrainPhrase}“ — three times: the hero to themselves, somebody "
+        prompt.AppendLine($"„{plan.RefrainPhrase}“ - three times: the hero to themselves, somebody "
                           + "else back to the hero, and once at the end. Not in the same place on "
                           + "the page twice.");
         prompt.AppendLine();

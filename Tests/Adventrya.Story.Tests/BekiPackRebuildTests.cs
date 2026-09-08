@@ -95,7 +95,7 @@ public class BekiPackRebuildTests(ITestOutputHelper output)
         var personalization = RecoverPersonalization(folder, storedReceipts, plan.Concept.Title);
 
         output.WriteLine(
-            $"rebuilding {plan.Concept.Title} — {personalization.ChildName}, {personalization.Age}, "
+            $"rebuilding {plan.Concept.Title} - {personalization.ChildName}, {personalization.Age}, "
             + $"{personalization.Theme} ({personalization.WorldName}); "
             + $"{spreads.Count} spreads, wrap {wrap.Length:N0} bytes");
 
@@ -146,7 +146,7 @@ public class BekiPackRebuildTests(ITestOutputHelper output)
         File.WriteAllText(Path.ChangeExtension(destination, ".report.json"), reportJson);
 
         var colour = report.RootElement.GetProperty("colour");
-        output.WriteLine($"wrote {destination} — {prepared.Length:N0} bytes");
+        output.WriteLine($"wrote {destination} - {prepared.Length:N0} bytes");
         output.WriteLine($"icc profiles: {colour.GetProperty("icc_profiles")}");
         output.WriteLine($"restamped: {colour.GetProperty("icc_restamped_for_pdfwrite")}");
     }

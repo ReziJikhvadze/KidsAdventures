@@ -97,7 +97,7 @@ public sealed class BekiVisualPipeline(
         if (!identity.IsUsable)
         {
             logger.LogInformation(
-                "Beki visual {StoryId}: photo rejected ({Quality}) — {Reasons}",
+                "Beki visual {StoryId}: photo rejected ({Quality}) - {Reasons}",
                 context.StoryId, identity.ReferenceQuality, string.Join("; ", identity.UncertainOrOccluded));
             return Failure("photo_insufficient", identity);
         }
@@ -143,12 +143,12 @@ public sealed class BekiVisualPipeline(
         }
 
         var childPhoto = new BekiImageAttachment(
-            "Reference Image A: child photo — identity only",
+            "Reference Image A: child photo - identity only",
             context.ChildPhotoBytes,
             context.ChildPhotoContentType);
 
         var anchorReference = new BekiImageAttachment(
-            "Reference Image B: approved hero anchor — stylized design and outfit",
+            "Reference Image B: approved hero anchor - stylized design and outfit",
             anchor,
             "image/png");
 
@@ -290,13 +290,13 @@ public sealed class BekiVisualPipeline(
                 _options.VisualPromptModel,
                 prompts.Get(BekiPromptProvider.HeroCharacterAnchor),
                 new { visualBible = bible },
-                [new BekiImageAttachment("Reference Image A: child photo — identity only",
+                [new BekiImageAttachment("Reference Image A: child photo - identity only",
                     context.ChildPhotoBytes, context.ChildPhotoContentType)],
                 cancellationToken);
 
             var image = await client.GenerateImageAsync(
                 prompt,
-                [new BekiImageAttachment("Reference Image A: child photo — identity only",
+                [new BekiImageAttachment("Reference Image A: child photo - identity only",
                     context.ChildPhotoBytes, context.ChildPhotoContentType)],
                 _options.InteriorImageSize,
                 _options.AnchorImageQuality,
@@ -399,7 +399,7 @@ public sealed class BekiVisualPipeline(
                 if (bekiBytes is not null)
                 {
                     references.Add(new BekiImageAttachment(
-                        "Reference Image C: official Beki — the sole authority for Beki's design",
+                        "Reference Image C: official Beki - the sole authority for Beki's design",
                         bekiBytes, "image/png"));
                 }
                 else
@@ -451,12 +451,12 @@ public sealed class BekiVisualPipeline(
                 }
 
                 logger.LogInformation(
-                    "Beki {Label} for story {RequestId}: review says {Decision} — {Issues}",
+                    "Beki {Label} for story {RequestId}: review says {Decision} - {Issues}",
                     label, story.RequestId, review.Decision, string.Join("; ", review.DetectedIssues.Take(3)));
 
                 if (attempt == _options.MaxPageRepairAttempts)
                 {
-                    warnings.Add($"{label}: shipped below QA threshold after {attempt + 1} attempt(s) — {review.Decision}.");
+                    warnings.Add($"{label}: shipped below QA threshold after {attempt + 1} attempt(s) - {review.Decision}.");
                     await PersistAssetAsync(assetId, refs, assetType, spec, label, image, finalPrompt,
                         review, repairs, regenerations, BekiAssetStatus.Approved, startedAt, cancellationToken);
                     return image;
@@ -673,7 +673,7 @@ public sealed class BekiVisualPipeline(
     /// the lock explicitly rather than inferring it from a picture.
     /// </summary>
     private const string BekiCanonDescription = """
-        Beki is the platform's canonical guide: a small abstract floating leaf spirit — never
+        Beki is the platform's canonical guide: a small abstract floating leaf spirit - never
         a lamb, animal or human. A plum-violet face with no nose and no ears, large warm
         golden eyes, a sincere open smile, a layered cream-gold leaf body that is anatomy
         rather than clothing, one broad leaf spiral above the head, one long rear leaf-ribbon,
