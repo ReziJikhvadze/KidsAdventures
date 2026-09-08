@@ -585,10 +585,29 @@
 
   position: absolute;
   z-index: 2;
-  top: 50%;
-  transform: translateY(-50%);
-  /* TextColumnShare 0.33 of the spread = 145.2mm = 66% of one leaf. */
-  width: 66%;
+  /*
+    Top-aligned, not centred.
+
+    Measured off a printed book (ზუკა და სინათლის ქალაქი, 2026-09-08): the first baseline sits at
+    177.9mm up the 210mm sheet on every one of the eight story spreads, while the last one moves
+    with the amount of text — 82.6, 103.8, 72, 93.2. So the panel hangs from a fixed top and grows
+    downwards. Centring it made short spreads drift down the page and long ones ride up, which is
+    the one thing a reader turning pages would notice.
+
+    12mm is SafeMarginMm, and the printed panel starts exactly there: text at 24mm from the sheet
+    edge, less 5mm bleed and 7mm WashPaddingMm, is 12mm from the trim.
+  */
+  top: calc(var(--mmy) * 12);
+  /*
+    About half a leaf, not two thirds.
+
+    TextColumnShare 0.33 is what the *illustrator* is briefed to leave calm — the quiet third of
+    the painting — and it is not the width of the panel drawn on top of it. The filled rectangles
+    in the same printed book measure 115.5, 106.2 and 115.7mm across, which is 24-26% of the
+    440mm spread and about 52% of one 220mm leaf. The panel is sized to its own words inside that,
+    which is what `width` here is a ceiling for rather than a fixed measure.
+  */
+  width: 52%;
   display: flex;
   flex-direction: column;
   /* WashPaddingMm 7; StoryPanelInkHex #FFF8EB at StoryPanelOpacity 0.86; radius 4mm. */
