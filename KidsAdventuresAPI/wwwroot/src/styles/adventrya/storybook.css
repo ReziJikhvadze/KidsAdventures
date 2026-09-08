@@ -6,6 +6,7 @@
   --book-radius: 15px;
   --book-paper: #f7eedf;
   width: min(100%, calc(var(--book-width) + 110px));
+  /* see .storybook-hero: the shop window keeps none of this padding */
   display: flex;
   align-items: center;
   flex-direction: column;
@@ -16,8 +17,15 @@
   outline: 2px solid rgba(242, 205, 132, 0.86);
   outline-offset: 7px;
 }
+/*
+  Half an open spread, and the ceiling rather than the size.
+
+  Every width here is `min(--book-width * 2, 100%)`, so this only decides when the book stops
+  growing; the column decides how big it actually is. At 408 the open book hit the ceiling
+  before it hit the column and left the hero half empty.
+*/
 .storybook-hero {
-  --book-width: 408px;
+  --book-width: 560px;
 }
 .storybook-preview {
   --book-width: 390px;
@@ -36,10 +44,22 @@
   --book-width: 405px;
   margin: 0 auto;
 }
+/*
+  The book is the shape of the book we print.
+
+  It was 0.725 shut and 1.45 open — a tall portrait volume. The printed one is neither: the
+  cover board is 222.5 x 205mm (BekiCoverDieline: 512mm wrap less two 20mm turn-ins, an 11mm
+  spine and two 8mm hinges, halved) and the open interior trims to 440 x 200mm. So the object a
+  parent holds is slightly wider than it is tall shut, and twice that open.
+
+  Both numbers make the book SHORTER at the same width, so nothing here can overflow a column
+  that already fitted.
+*/
 .storybook-volume {
   position: relative;
   width: min(var(--book-width), 100%);
-  aspect-ratio: 0.725;
+  /* 222.5 / 205 — one cover board */
+  aspect-ratio: 1.085;
   flex: 0 0 auto;
   perspective: 1700px;
   isolation: isolate;
@@ -1132,23 +1152,29 @@
   color: #fff8eb7a;
 }
 /*
-  Both faces of the open spread are `--book-width` wide and the closed cover is one of them, so
-  either state stands 1.379 x --book-width tall. Deriving the width from the height the hero can
-  spare keeps the book as large as the screen allows and stops it from growing down into the
-  section beneath on a short one — the book is centred by an absolute position, so anything it
-  cannot fit it spills, half of it onto the shelf below. The 470px ceiling is where the column
-  runs out. Below 900px the hero is one column and sizes the book from the width instead.
+  The height the hero can spare still decides the width — but against the printed shape.
+
+  The divisor was 1.379, which is 1 / 0.725: the book used to be a tall portrait volume and its
+  height was nearly one and a half times its width. It is the printed book now — 222.5 x 205mm
+  shut, 440 x 200 open — so both states stand about 0.92 x --book-width tall, and dividing by
+  1.38 was asking for a third less width than the same strip of screen could hold.
+
+  Ceiling raised to match: 470px was where the old column ran out, and the row leans to the book
+  now (see journey-extras.css). Everything downstream is `min(..., 100%)`, so the column is still
+  what decides the size and this only says when to stop.
+
+  Below 900px the hero is one column and sizes the book from the width instead.
 */
 @media (min-width: 901px) {
   .landing-v3-hero-product .storybook-hero {
     /* Subtracting the header, the hero's own padding and the controls under the book. */
-    --book-width: min(470px, calc((100svh - 245px) / 1.38));
+    --book-width: min(620px, calc((100svh - 245px) / 0.93));
   }
 }
 @media (min-width: 1181px) {
   /* The controls are taller here, so the book is allowed correspondingly less. */
   .landing-v3-hero-product .storybook-hero {
-    --book-width: min(470px, calc((100svh - 275px) / 1.38));
+    --book-width: min(620px, calc((100svh - 275px) / 0.93));
   }
   /*
     The way to turn a page, at a size that says so — but no larger than it needs to be.
@@ -1190,7 +1216,7 @@
 .ux-preview-product .storybook-preview .storybook-volume {
   max-height: 395px;
   width: min(var(--book-width), 100%);
-  aspect-ratio: 0.725;
+  aspect-ratio: 1.085;
 }
 /*
  * A fixed 395px book is what pushed the preview step past a short laptop viewport.

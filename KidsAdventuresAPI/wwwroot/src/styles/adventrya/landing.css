@@ -169,7 +169,15 @@
   min-height: 100svh;
   isolation: isolate;
   display: grid;
-  grid-template-columns: minmax(440px, 0.88fr) minmax(510px, 1.12fr);
+  /*
+    The book takes the wider half.
+
+    An open Beki spread is 2.2:1 — the printed trim — so its height is its width over two,
+    and in a 510px column it came out 541 x 246 with 504px of the column left empty under it.
+    Width is the only dimension that makes this book bigger; there is nothing to gain by
+    holding it back for a column of type that has already wrapped.
+  */
+  grid-template-columns: minmax(380px, 0.74fr) minmax(560px, 1.26fr);
   align-items: center;
   gap: clamp(30px, 5vw, 88px);
   padding: calc(var(--lv3-header-h) + clamp(16px, 2.2vh, 34px)) clamp(34px, 5vw, 78px)

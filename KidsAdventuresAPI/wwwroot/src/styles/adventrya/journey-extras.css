@@ -1128,18 +1128,19 @@
 }
 @media (min-width: 1181px) {
   /*
-    A little more of the row to the words and a little less to the book — which still ends up
-    bigger, because what was making it small was the 0.79 scale it used to be drawn at, not the
-    column it stood in. The headline needs the width: its first line is set `nowrap`, so a
-    column that cannot hold it does not wrap the line, it overflows it.
+    The row leans to the book now, not to the words.
+
+    It used to read 1.1fr of type against 0.9fr of book, from the days when the book was a tall
+    portrait volume that could not use width anyway. An open spread is 2.2:1 — the printed trim —
+    so width is the only dimension that makes it bigger, and at 0.9fr it came out 541 x 246 with
+    over 500px of the row left empty underneath it.
+
+    The headline still gets its floor. Its first line is set `nowrap`, so a column too narrow to
+    hold it overflows rather than wraps — 480px is what that line measures, and the fr share
+    only decides what happens above it.
   */
   .landing-v3-hero {
-    /*
-      The floors are floors, not the widths this is aiming for. 590px + 430px already added up
-      to more than a 1181px-wide window has to give, so the two tracks overflowed the section
-      at the very width the breakpoint exists to serve.
-    */
-    grid-template-columns: minmax(520px, 1.1fr) minmax(400px, 0.9fr);
+    grid-template-columns: minmax(480px, 0.86fr) minmax(560px, 1.14fr);
     gap: clamp(25px, 3vw, 46px);
   }
 }

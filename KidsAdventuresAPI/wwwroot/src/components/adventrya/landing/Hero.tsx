@@ -82,6 +82,14 @@ export function Hero() {
               title={HERO_TITLE}
               coverCaption={HERO_COVER_CAPTION}
               worldId="magic"
+              /*
+                The printed front board, cut out of the cover wrap in the same PDF the spreads
+                came from: 222.5 x 205mm of the 512 x 245 sheet, between the turn-in and the
+                hinge. Without it the closed book showed the generic world painting, which is
+                the fallback for a book whose cover has not been drawn yet.
+              */
+              coverImageUrl="/adventrya/hero-demo/cover-front.webp"
+              backImageUrl="/adventrya/hero-demo/cover-back.webp"
               pages={pages}
               lockedPageCount={0}
               isUnlocked

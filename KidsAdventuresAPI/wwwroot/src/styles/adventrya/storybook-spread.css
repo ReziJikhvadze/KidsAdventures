@@ -221,16 +221,24 @@
     inset 0 0 0 1px #ffffff12,
     inset 18px 0 30px #0603125c;
 }
+/*
+  Opening a book should not make it smaller.
+
+  The 110px was room for the covers to swing in a portrait volume. A 2.2:1 spread is short
+  enough that the swing has all the height it needs, and the padding was the difference
+  between filling the hero and stopping short of it.
+*/
 .storybook.uses-desktop-spread.is-open {
-  width: min(100%, calc(var(--book-width) * 2 + 110px));
+  width: 100%;
 }
 .storybook.uses-desktop-spread.is-open .storybook-volume {
   width: min(calc(var(--book-width) * 2), 100%);
-  aspect-ratio: 1.45;
+  /* 440 / 200 — the interior trim, both leaves */
+  aspect-ratio: 2.2;
 }
 .storybook.uses-desktop-spread.is-closed .storybook-volume {
   width: min(var(--book-width), 100%);
-  aspect-ratio: 0.725;
+  aspect-ratio: 1.085;
 }
 .storybook.uses-desktop-spread.is-open .storybook-surface {
   overflow: visible;
@@ -242,7 +250,7 @@
   right: 4%;
 }
 .storybook.uses-desktop-spread .storybook-controls {
-  width: min(100%, calc(var(--book-width) * 1.45));
+  width: min(100%, calc(var(--book-width) * 2.2));
 }
 .storybook-cover-turn,
 .storybook-spread-turn {

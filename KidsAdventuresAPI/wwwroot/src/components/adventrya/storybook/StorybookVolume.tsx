@@ -70,6 +70,14 @@ export type StorybookVolumeProps = {
    * to nobody, so it names its world instead of a child who does not exist.
    */
   coverCaption?: string;
+  /**
+   * The back board of the printed cover, when the book has one.
+   *
+   * The last page stays the designed screen it is — Beki, a line of copy, a way into the next
+   * world. This only puts the painting that is actually printed on the back of the case behind
+   * them, so the book shuts on the picture a parent will be holding. Absent, nothing changes.
+   */
+  backImageUrl?: string | null;
 };
 
 /** Beki's canonical portrait, shown until a book carries one drawn for its own world. */
@@ -233,6 +241,7 @@ function CoverFace({
 function StoryFace({
   leaf,
   heroName,
+  backSrc,
   pageSide,
   totalStoryPages,
   isSpreadBook = false,
@@ -242,6 +251,8 @@ function StoryFace({
     | Extract<StorybookLeaf, { kind: "locked" }>
     | Extract<StorybookLeaf, { kind: "qr" }>;
   heroName: string;
+  /** The printed back board, when the book has one; see StorybookVolumeProps. */
+  backSrc?: string | null;
   pageSide?: "left" | "right";
   totalStoryPages: number;
   isSpreadBook?: boolean;
@@ -267,6 +278,9 @@ function StoryFace({
   if (leaf.kind === "qr") {
     return (
       <article className={`storybook-back ${pageSide ? `page-${pageSide}` : ""}`}>
+        {backSrc ? (
+          <div className="storybook-back-art" style={{ backgroundImage: `url("${backSrc}")` }} />
+        ) : null}
         <div className="storybook-back-glow" aria-hidden="true" />
         <span className="storybook-brand">{t.story.storybook.brand}</span>
         {/* Beki sees the child off. The canonical art is the fallback: a book drawn before
@@ -401,6 +415,7 @@ function LeafView({
   title,
   coverCaption,
   coverSrc,
+  backSrc,
   pageSide,
   totalStoryPages,
   isSpreadBook = false,
@@ -410,6 +425,7 @@ function LeafView({
   title: string;
   coverCaption?: string;
   coverSrc: string;
+  backSrc?: string | null;
   pageSide?: "left" | "right";
   totalStoryPages: number;
   isSpreadBook?: boolean;
@@ -425,6 +441,7 @@ function LeafView({
     <StoryFace
       leaf={leaf}
       heroName={heroName}
+      backSrc={backSrc}
       pageSide={pageSide}
       totalStoryPages={totalStoryPages}
       isSpreadBook={isSpreadBook}
@@ -544,6 +561,7 @@ function SpreadSlot({
   title,
   coverCaption,
   coverSrc,
+  backSrc,
   totalStoryPages,
   isSpreadBook,
 }: {
@@ -554,6 +572,7 @@ function SpreadSlot({
   title: string;
   coverCaption?: string;
   coverSrc: string;
+  backSrc?: string | null;
   totalStoryPages: number;
   isSpreadBook: boolean;
 }) {
@@ -599,6 +618,7 @@ export function StorybookVolume({
   initialIndex = 0,
   variant = "full",
   autoAdvanceMs,
+  backImageUrl,
 }: StorybookVolumeProps) {
   const t = useT();
   // Demo Ot uses min-width: 1024px for desktop spreads (not 781).
@@ -914,6 +934,7 @@ export function StorybookVolume({
       title={title}
       coverCaption={coverCaption}
       coverSrc={resolvedCover}
+      backSrc={backImageUrl}
       totalStoryPages={totalStoryPages}
       isSpreadBook={isSpreadBook}
     />
@@ -1115,6 +1136,7 @@ export function StorybookVolume({
               title={title}
               coverCaption={coverCaption}
               coverSrc={resolvedCover}
+              backSrc={backImageUrl}
               totalStoryPages={totalStoryPages}
               isSpreadBook={isSpreadBook}
             />
@@ -1185,6 +1207,7 @@ export function StorybookVolume({
                 title={title}
                 coverCaption={coverCaption}
                 coverSrc={resolvedCover}
+                backSrc={backImageUrl}
                 totalStoryPages={totalStoryPages}
                 isSpreadBook={isSpreadBook}
               />
@@ -1196,6 +1219,7 @@ export function StorybookVolume({
                 title={title}
                 coverCaption={coverCaption}
                 coverSrc={resolvedCover}
+                backSrc={backImageUrl}
                 totalStoryPages={totalStoryPages}
                 isSpreadBook={isSpreadBook}
               />
