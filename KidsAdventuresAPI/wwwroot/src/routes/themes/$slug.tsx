@@ -20,7 +20,15 @@ export const Route = createFileRoute("/themes/$slug")({
   beforeLoad: ({ params }) => {
     throw redirect({
       to: "/themes",
-      search: isWorldId(params.slug) ? { world: params.slug } : undefined,
+      /*
+        `from=top` as well as the world.
+
+        Without it the picker's back arrow reads `?world=` with no origin as the home page's
+        book gallery — right for the covers there, which link exactly that way, and wrong for
+        somebody who arrived from a search result and has never seen the page. The top of the
+        home page is where an arrival from outside belongs.
+      */
+      search: isWorldId(params.slug) ? { world: params.slug, from: "top" } : { from: "top" },
     });
   },
 });

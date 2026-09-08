@@ -926,11 +926,8 @@
   .ux-profile-aside {
     gap: 14px;
   }
-  /* See the note beside the same selector in journey-ux.css: cap the width, never the height. */
-  .ux-profile-aside .world-art-panel {
-    width: min(100%, calc((100svh - 210px) * 13 / 10));
-    margin-inline: auto;
-  }
+  /* The width cap that used to sit here is gone with its twin in journey-ux.css: the panel is
+     shaped by its column now, and the column already caps its own height. */
   /*
     The right column is what the page's height is actually measured by — the left one is told to
     fill whatever it is given. So the last few pixels come from here: the closing lines, which are

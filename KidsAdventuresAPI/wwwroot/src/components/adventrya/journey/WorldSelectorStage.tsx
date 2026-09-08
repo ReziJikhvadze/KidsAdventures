@@ -86,7 +86,26 @@ function backHrefFromSearch(search: string): string {
   if (from === LANDING_TOP) return "/";
   if (from && LANDING_SECTIONS.has(from)) return `/#${from}`;
   if (params.has("world") && !from) return "/#books";
-  return "/#worlds";
+
+  /*
+    Nobody said where they came from, so this says nothing about it either.
+
+    The fallback used to be `/#worlds` — the painted map two thirds of the way down the home
+    page — which claims an origin that cannot be true here. The picker on the home page is
+    embedded: choosing an island there goes straight to the questions and never visits this
+    route at all. Every link on that page that does reach this one names its section in `from=`,
+    handled above. So `/#worlds` was only ever reached by someone who had *not* come from the
+    worlds section: a bookmark, a search result, "another world" off a finished book, the legacy
+    `/create#world` redirect — and each of them was dropped seven screens down a page they had
+    never scrolled, next to a second copy of the picker they had just left.
+
+    Worse on the way back through the journey: choosing a world here and pressing back twice
+    returned to this page and then to `#worlds`, so the parent ended up staring at the picker
+    they had already used, one page below where the section they wanted was.
+
+    The top of the home page is the honest answer when the address carries no origin.
+  */
+  return "/";
 }
 
 type Props = {

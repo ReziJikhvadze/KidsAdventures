@@ -2266,18 +2266,13 @@
   }
 
   /*
-    Made to fit a short laptop by narrowing, not by squashing.
+    The width cap that used to sit here is gone.
 
-    `max-height` looks like the way to say this and is not: the width is already settled at 100% of
-    the column, so capping the height only makes the frame wider than 13:10 — the one thing every
-    world's panel is supposed to share, and the shape the crop is measured against. Capping the
-    width instead keeps the ratio and gives up size, which is what was meant. The subtraction is
-    safe here: this block only applies from 768px of viewport height up.
+    It narrowed the panel on a short laptop so the frame could keep 13:10 while giving up height.
+    The panel is now shaped by its column, which already carries `max-height: calc(100svh -
+    116px)` — the same idea, stated where the height actually is. Left in place the cap would
+    have pulled the picture in from both edges of a column it is meant to fill.
   */
-  .ux-profile-aside .world-art-panel {
-    width: min(100%, calc((100svh - 210px) * 13 / 10));
-    margin-inline: auto;
-  }
 
   /*
     Measured in viewport height, like the padding above it.
@@ -2810,20 +2805,32 @@
 }
 
 /*
-  Held to its shape, and stood on the same line as the form.
+  The painting fills its column, beside a form of exactly the same height.
 
-  Centring it in the column left it floating between the top of the form and the bottom of it,
-  lining up with neither. The bottom is the edge to share: the form ends where the column does
-  whatever is above it, so the two finish together with or without the picker over the card, and
-  the picture sits down on the page instead of hovering half way up it.
+  It was held to 13:10 and pushed to the bottom of the column. The column is as tall as the form
+  next to it, and 13:10 of the column's width is shorter than that — so the two halves of this
+  step were the same size as boxes and plainly different as pictures, with a strip of empty page
+  above the art. Shaped like its column instead, the two read as one pair.
+
+  Nothing about the crop depends on the old ratio. `WorldArtPanel` measures the panel it is in
+  and works out the zoom at which the chosen island, plus its margin, fits inside both edges —
+  with a ResizeObserver, so a panel that changes shape reframes rather than drifting. The fixed
+  ratio only ever decided how much of a *neighbouring* island could show around the chosen one,
+  and the vignette is what closes that off.
+
+  The column's own `max-height` is what keeps this off the bottom of a short screen; the panel
+  has no cap of its own to disagree with it.
 */
 .ux-profile-aside {
-  justify-content: flex-end;
+  justify-content: stretch;
 }
 
 .ux-profile-aside .world-art-panel {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   width: 100%;
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: auto;
 }
 
 @media (max-width: 1080px) {
