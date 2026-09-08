@@ -30,6 +30,13 @@ public interface IUserRepository
 
     Task UpdateProfileAsync(Guid userId, string? displayName, string? preferredLanguage, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Records whether the parent wants to hear from us. Withdrawable: the parent's own space
+    /// reads the flag back and can turn it off, which is the half of consent a tick in a browser
+    /// tab could never give.
+    /// </summary>
+    Task<bool> SetMarketingConsentAsync(Guid userId, bool consent, CancellationToken cancellationToken);
+
     Task AddBookCreditsAsync(Guid userId, int credits, CancellationToken cancellationToken);
     Task<bool> TryConsumeBookCreditAsync(Guid userId, CancellationToken cancellationToken);
     Task RefundBookCreditAsync(Guid userId, CancellationToken cancellationToken);

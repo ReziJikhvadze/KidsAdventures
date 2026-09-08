@@ -18,6 +18,12 @@ public sealed class User
     public SubscriptionType SubscriptionType { get; set; } = SubscriptionType.Free;
     public int BookCredits { get; set; }
     public int WelcomeStoryRemaining { get; set; }
+    /// <summary>
+    /// The parent has agreed to hear from us. Not the terms — those are the condition of making
+    /// a book; this is a favour, asked as an optional tick and withdrawable from their own space.
+    /// </summary>
+    public bool MarketingConsent { get; set; }
+
     public bool EmailConfirmed { get; set; }
     public string? EmailConfirmationToken { get; set; }
     public DateTime? EmailConfirmationExpiresAt { get; set; }

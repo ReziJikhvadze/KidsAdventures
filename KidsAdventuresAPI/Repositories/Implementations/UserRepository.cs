@@ -7,7 +7,7 @@ public sealed class UserRepository(ISqlConnectionFactory connectionFactory) : IU
     private const string UserColumns = """
         Id, Email, PasswordHash, PhoneNumber, PhoneConfirmed, PreferredLanguage, DisplayName, IsAdmin,
         SubscriptionType, BookCredits, WelcomeStoryRemaining, EmailConfirmed,
-        EmailConfirmationToken, EmailConfirmationExpiresAt, CreatedAt
+        EmailConfirmationToken, EmailConfirmationExpiresAt, MarketingConsent, CreatedAt
         """;
 
     public async Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
@@ -68,11 +68,13 @@ public sealed class UserRepository(ISqlConnectionFactory connectionFactory) : IU
                            INSERT INTO Users (
                                Id, Email, PasswordHash, PhoneNumber, PhoneConfirmed, PreferredLanguage,
                                DisplayName, IsAdmin, SubscriptionType, BookCredits, WelcomeStoryRemaining,
-                               EmailConfirmed, EmailConfirmationToken, EmailConfirmationExpiresAt, CreatedAt)
+                               EmailConfirmed, EmailConfirmationToken, EmailConfirmationExpiresAt,
+                               MarketingConsent, CreatedAt)
                            VALUES (
                                @Id, @Email, @PasswordHash, @PhoneNumber, @PhoneConfirmed, @PreferredLanguage,
                                @DisplayName, @IsAdmin, @SubscriptionType, @BookCredits, @WelcomeStoryRemaining,
-                               @EmailConfirmed, @EmailConfirmationToken, @EmailConfirmationExpiresAt, @CreatedAt);
+                               @EmailConfirmed, @EmailConfirmationToken, @EmailConfirmationExpiresAt,
+                               @MarketingConsent, @CreatedAt);
                            """;
         user.Id = user.Id == Guid.Empty ? Guid.NewGuid() : user.Id;
 
@@ -93,6 +95,7 @@ public sealed class UserRepository(ISqlConnectionFactory connectionFactory) : IU
             user.EmailConfirmed,
             user.EmailConfirmationToken,
             user.EmailConfirmationExpiresAt,
+            user.MarketingConsent,
             user.CreatedAt
         }, cancellationToken: cancellationToken));
 
@@ -212,6 +215,21 @@ public sealed class UserRepository(ISqlConnectionFactory connectionFactory) : IU
             cancellationToken: cancellationToken));
     }
 
+    public async Task<bool> SetMarketingConsentAsync(Guid userId, bool consent, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           UPDATE Users
+                           SET MarketingConsent = @Consent
+                           WHERE Id = @UserId;
+                           """;
+        using var connection = connectionFactory.CreateConnection();
+        var affected = await connection.ExecuteAsync(new CommandDefinition(
+            sql,
+            new { UserId = userId, Consent = consent },
+            cancellationToken: cancellationToken));
+        return affected > 0;
+    }
+
     public async Task AddBookCreditsAsync(Guid userId, int credits, CancellationToken cancellationToken)
     {
         const string sql = """
@@ -291,6 +309,7 @@ public sealed class UserRepository(ISqlConnectionFactory connectionFactory) : IU
         EmailConfirmed = row.EmailConfirmed,
         EmailConfirmationToken = row.EmailConfirmationToken,
         EmailConfirmationExpiresAt = row.EmailConfirmationExpiresAt,
+        MarketingConsent = row.MarketingConsent,
         CreatedAt = row.CreatedAt
     };
 
@@ -339,6 +358,7 @@ public sealed class UserRepository(ISqlConnectionFactory connectionFactory) : IU
         public bool EmailConfirmed { get; set; }
         public string? EmailConfirmationToken { get; set; }
         public DateTime? EmailConfirmationExpiresAt { get; set; }
+        public bool MarketingConsent { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 }

@@ -152,8 +152,29 @@ public sealed class AuthController(
             // the row would tell a session it is not an admin while every admin route lets it
             // straight through.
             IsAdmin = User.IsInRole(UserRoles.Admin),
-            WelcomeStoryRemaining = user?.WelcomeStoryRemaining ?? 0
+            WelcomeStoryRemaining = user?.WelcomeStoryRemaining ?? 0,
+            // Silence is not agreement: a row that could not be read answers "no" rather than
+            // leaving the switch in the parent's space showing a permission nobody gave.
+            MarketingConsent = user?.MarketingConsent ?? false
         });
+    }
+
+    /// <summary>
+    /// The parent turning being written to on or off.
+    /// </summary>
+    /// <remarks>
+    /// Their own account only — the id comes from the token, never from the body — because the
+    /// one thing this endpoint must not be is a way to sign somebody else up.
+    /// </remarks>
+    [Authorize]
+    [HttpPatch("me/preferences")]
+    public async Task<ActionResult<SessionInfoResponse>> UpdatePreferences(
+        UpdatePreferencesRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = userContext.GetUserId();
+        await userRepository.SetMarketingConsentAsync(userId, request.MarketingConsent, cancellationToken);
+        return await GetSession(cancellationToken);
     }
 
     [HttpPost("confirm-email")]

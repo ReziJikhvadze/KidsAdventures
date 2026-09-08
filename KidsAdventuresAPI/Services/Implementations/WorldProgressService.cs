@@ -192,7 +192,15 @@ public sealed class WorldProgressService(
                 Name = world.Name,
                 SortOrder = world.SortOrder,
                 State = state,
-                CanStart = state is WorldState.Unlocked or WorldState.Next,
+                /*
+                  A world already visited can be visited again.
+
+                  Completed was excluded, which meant the one island a child had a book in was
+                  the one island they could not have a second book in — and on a map of six that
+                  is a door shut on the world they liked best. The state is still reported, so
+                  the picker can mark where they have been; it just no longer refuses them.
+                */
+                CanStart = state is WorldState.Unlocked or WorldState.Next or WorldState.Completed,
                 BookId = book?.Id,
                 BookTitle = book?.Title,
                 CoverImageUrl = book?.CoverImageUrl,
@@ -236,7 +244,17 @@ public sealed class WorldProgressService(
             return WorldState.Next;
         }
 
-        return row?.State == WorldState.Unlocked ? WorldState.Unlocked : WorldState.Locked;
+        /*
+          Every world after the first journey too.
+
+          This used to fall through to Locked for anything the child had not been given a stored
+          unlock for, so a family that had finished one book was offered exactly one island —
+          the next in sort order — and the map they had just been shown six of turned into five
+          refusals. The first journey has always been a free choice across the whole map; this
+          makes the second one the same. Next still names the lowest unfinished world, so the
+          map can still suggest where to go, and Completed still marks where they have been.
+        */
+        return WorldState.Unlocked;
     }
 
     /// <summary>Lowest-ordered world the child has not finished yet.</summary>

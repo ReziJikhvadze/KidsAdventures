@@ -70,6 +70,19 @@ public sealed class SessionInfoResponse
     public string PreferredLanguage { get; set; } = "ka";
     public bool IsAdmin { get; set; }
     public int WelcomeStoryRemaining { get; set; }
+
+    /// <summary>Whether this parent has agreed to hear from us. Their space reads it back.</summary>
+    public bool MarketingConsent { get; set; }
+}
+
+/// <summary>
+/// The parent's own answer about being written to, sent either from the tick beside the terms on
+/// the create form or from the switch in their space. One field, because it is the only
+/// preference an account has that the parent may change.
+/// </summary>
+public sealed class UpdatePreferencesRequest
+{
+    public bool MarketingConsent { get; set; }
 }
 
 public sealed class EmailStatusRequest

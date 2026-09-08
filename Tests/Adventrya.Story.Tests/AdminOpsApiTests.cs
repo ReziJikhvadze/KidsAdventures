@@ -721,6 +721,10 @@ public class AdminOpsApiTests
             Guid userId, string? displayName, string? preferredLanguage, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<bool> SetMarketingConsentAsync(
+            Guid userId, bool consent, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task AddBookCreditsAsync(Guid userId, int credits, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 

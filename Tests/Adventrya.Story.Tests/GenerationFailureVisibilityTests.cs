@@ -1162,6 +1162,8 @@ public class OrderFailureVisibilityTests
         public Task<bool> AttachPhoneNumberAsync(Guid userId, string phoneNumber, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> AttachEmailAsync(Guid userId, string email, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task UpdateProfileAsync(Guid userId, string? displayName, string? preferredLanguage, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<bool> SetMarketingConsentAsync(Guid userId, bool consent, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task AddBookCreditsAsync(Guid userId, int credits, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> TryConsumeBookCreditAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task RefundBookCreditAsync(Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
