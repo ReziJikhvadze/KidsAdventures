@@ -730,13 +730,6 @@
 .storybook-plate.is-plain {
   background: #fbf7ee;
 }
-.storybook-plate-whole .storybook-spread-full-art {
-  background-size: cover;
-  background-position: center;
-}
-.storybook-plate-whole .storybook-spread-prose {
-  left: calc(var(--mmx) * 12);
-}
 .storybook-plate-prose {
   font-size: clamp(10px, 0.85vw, 13px);
 }

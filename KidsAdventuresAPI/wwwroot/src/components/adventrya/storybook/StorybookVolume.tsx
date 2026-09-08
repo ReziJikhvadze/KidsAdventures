@@ -504,7 +504,10 @@ function LeafView({
   // Nothing to draw rather than a filler page: with the title page gone, an out-of-range leaf
   // is the blank right-hand side of the last spread, and a blank page is what belongs there.
   if (!leaf) return <article className="storybook-page storybook-page-blank" aria-hidden="true" />;
-  if (leaf.kind === "plate") return <PlateFace leaf={leaf} />;
+  // A plate leaf knows which half of its sheet it is, and that is what it draws — on a phone as
+  // much as on the open book, so the endpaper's bare leaf stays bare and the dedication keeps
+  // its words on the half the press put them on.
+  if (leaf.kind === "plate") return <PlateHalf leaf={leaf} side={leaf.half} />;
   if (leaf.kind === "cover")
     return (
       <CoverFace heroName={heroName} title={title} caption={coverCaption} coverSrc={coverSrc} />
@@ -640,23 +643,6 @@ function PlateHalf({ leaf, side }: { leaf: PlateLeaf; side: SpreadSide }) {
   );
 }
 
-/** A plate on a phone, where one leaf is the whole screen: the painting whole, the panel on it. */
-function PlateFace({ leaf }: { leaf: PlateLeaf }) {
-  return (
-    <article
-      className={`storybook-spread-full storybook-plate storybook-plate-whole page-left${leaf.plain ? " is-plain" : ""}`}
-    >
-      {leaf.art && !leaf.plain ? (
-        <div
-          className="storybook-spread-full-art"
-          style={{ backgroundImage: `url("${leaf.art}")` }}
-        />
-      ) : null}
-      {leaf.panel ? <PlatePanel lines={leaf.panel} centred={leaf.centred} /> : null}
-    </article>
-  );
-}
-
 /**
  * One half of the open book, drawn either as part of a painting or as the page it always was.
  *
@@ -725,6 +711,7 @@ function SpreadSlot({
       title={title}
       coverCaption={coverCaption}
       coverSrc={coverSrc}
+      backSrc={backSrc}
       pageSide={pageSide}
       totalStoryPages={totalStoryPages}
       isSpreadBook={isSpreadBook}
@@ -1071,6 +1058,19 @@ export function StorybookVolume({
     />
   );
 
+  /*
+    Which half of the sheet a single leaf is, when the phone shows one at a time.
+
+    A spread book is paged the same way whatever the screen: the painting on the odd leaf and
+    its words on the even one, cut at the gutter. Drawing a lone leaf through the same slot the
+    open book uses means a phone shows the left half and then the right half of one picture —
+    the child on whichever half the illustrator put them — instead of what it did: one cover
+    crop of the whole painting, anchored top-left, that kept the calm side and lost the child,
+    followed by the words on a sheet of paper. The cover and the back cover are not halves and
+    fall straight through the slot to the faces they always had.
+  */
+  const halfOf = (leafIndex: number): SpreadSide => (leafIndex % 2 === 1 ? "left" : "right");
+
   // The back cover is a shut book of its own, never the right-hand page of a spread, so a story
   // with an odd number of pages ends against the inside of it.
   const rightSlotIndex = spreadPages.right <= contentLast ? spreadPages.right : NO_LEAF;
@@ -1261,16 +1261,8 @@ export function StorybookVolume({
               </div>
             </div>
           ) : (
-            <LeafView
-              leaf={leaves[displayIndex] ?? null}
-              heroName={heroName}
-              title={title}
-              coverCaption={coverCaption}
-              coverSrc={resolvedCover}
-              backSrc={backImageUrl}
-              totalStoryPages={totalStoryPages}
-              isSpreadBook={isSpreadBook}
-            />
+            // One leaf, drawn as the half of the sheet it is; see `halfOf`.
+            renderSlot(displayIndex, halfOf(displayIndex), halfOf(displayIndex))
           )}
         </div>
 
@@ -1332,28 +1324,18 @@ export function StorybookVolume({
         {turning && turnTo !== null && !desktopSpread ? (
           <div className={`storybook-turn-sheet turn-${turning}`} aria-hidden="true">
             <div className="storybook-turn-face storybook-turn-front">
-              <LeafView
-                leaf={leaves[turning === "next" ? index : turnTo] ?? null}
-                heroName={heroName}
-                title={title}
-                coverCaption={coverCaption}
-                coverSrc={resolvedCover}
-                backSrc={backImageUrl}
-                totalStoryPages={totalStoryPages}
-                isSpreadBook={isSpreadBook}
-              />
+              {renderSlot(
+                turning === "next" ? index : turnTo,
+                halfOf(turning === "next" ? index : turnTo),
+                halfOf(turning === "next" ? index : turnTo),
+              )}
             </div>
             <div className="storybook-turn-face storybook-turn-back">
-              <LeafView
-                leaf={leaves[turning === "next" ? turnTo : index] ?? null}
-                heroName={heroName}
-                title={title}
-                coverCaption={coverCaption}
-                coverSrc={resolvedCover}
-                backSrc={backImageUrl}
-                totalStoryPages={totalStoryPages}
-                isSpreadBook={isSpreadBook}
-              />
+              {renderSlot(
+                turning === "next" ? turnTo : index,
+                halfOf(turning === "next" ? turnTo : index),
+                halfOf(turning === "next" ? turnTo : index),
+              )}
             </div>
             <i className="storybook-page-curl" />
           </div>
