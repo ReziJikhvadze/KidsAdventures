@@ -160,7 +160,7 @@ public static class BekiCoverDieline
     public const float TitleSafeHeightMm = 46f;
 
     /// <summary>Visible artwork bounds, 20 mm inward from the physical top/right folds.</summary>
-    public const float LogoWidthMm = 36f;
+    public const float LogoWidthMm = 39.6f; // Owner update: 10% larger, same physical fold clearance.
     public const float LogoRightMm = FrontBoardRightMm - 20f;
     public const float LogoLeftMm = LogoRightMm - LogoWidthMm;
     public const float LogoTopMm = BoardTopMm + 20f;
@@ -228,7 +228,7 @@ public static class BekiCoverDieline
         TITLE: x={TitleSafeLeftMm}..{TitleSafeLeftMm + TitleSafeWidthMm}, y={TitleSafeTopMm}..{TitleSafeTopMm + TitleSafeHeightMm}.
         Keep the child's entire face, head, hairline, eyes and expression, other characters and prominent accent details outside this area. Use only naturally calm low-detail atmosphere behind the future title.
         LOGO: visible artwork x={LogoLeftMm}..{LogoRightMm}, y={LogoTopMm}..{LogoTopMm + LogoHeightMm}; reserve {LogoClearSpaceMm} mm additional clear space around it.
-        Keep this upper-right area calm and light enough for the official violet/yellow logo. Do not draw the logo or any lettering. Do not draw borders, bands, blank panels or fold marks.
+        Keep this upper-right area calm and dark enough for the official solid-white logo to remain clearly visible. Do not draw the logo or any lettering. Do not draw borders, bands, blank panels or fold marks.
         """);
 
     public static readonly CompositeCoverGeometry Geometry = new(

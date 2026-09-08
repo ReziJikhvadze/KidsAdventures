@@ -12,8 +12,8 @@ using PdfSharp.Pdf.IO;
 namespace AdventurePacks.Api.Services.Pdf;
 
 /// <summary>
-/// Translates the hash-locked logo's paths and exact axial gradient to native PDF operators.
-/// No rasterization, band approximation, recolouring or geometric edits are involved.
+/// Translates the hash-locked logo's paths to solid-white native PDF operators for the cover.
+/// Owner update 2026-09-08 changes the ink, not the approved path geometry.
 /// This deliberately supports only the approved SVG's vocabulary; new artwork fails closed.
 /// </summary>
 public static class BekiVectorLogo
@@ -106,37 +106,9 @@ public static class BekiVectorLogo
         });
         var svg = XDocument.Load(reader);
         XNamespace ns = "http://www.w3.org/2000/svg";
-        var gradient = svg.Descendants(ns + "linearGradient").Single();
-        var matrix = Numbers((string)gradient.Attribute("gradientTransform")!).ToArray();
-        // The locked gradient is (0,0) -> (1,0) in userSpaceOnUse, transformed by this matrix.
-        var coords = new[] { matrix[4], matrix[5], matrix[0] + matrix[4], matrix[1] + matrix[5] };
-
         using var input = new MemoryStream(pdf);
         using var document = PdfReader.Open(input, PdfDocumentOpenMode.Modify);
         var page = document.Pages[0];
-        var function = new PdfDictionary(document);
-        function.Elements.SetInteger("/FunctionType", 2);
-        function.Elements["/Domain"] = new PdfLiteral("[0 1]");
-        var stops = gradient.Elements(ns + "stop").ToArray();
-        function.Elements["/C0"] = new PdfLiteral("[" + Colour((string)stops[0].Attribute("style")!) + "]");
-        function.Elements["/C1"] = new PdfLiteral("[" + Colour((string)stops[1].Attribute("style")!) + "]");
-        function.Elements.SetInteger("/N", 1);
-        var shading = new PdfDictionary(document);
-        shading.Elements.SetInteger("/ShadingType", 2);
-        shading.Elements.SetName("/ColorSpace", "/DeviceRGB");
-        shading.Elements["/Coords"] = new PdfLiteral("[" + string.Join(" ", coords.Select(F)) + "]");
-        shading.Elements["/Function"] = function;
-        shading.Elements["/Extend"] = new PdfLiteral("[true true]");
-        document.Internals.AddObject(shading);
-        var resources = page.Elements.GetDictionary("/Resources")
-            ?? throw new InvalidOperationException("Cover page resources are missing.");
-        var shadings = resources.Elements.GetDictionary("/Shading");
-        if (shadings is null)
-        {
-            shadings = new PdfDictionary(document);
-            resources.Elements["/Shading"] = shadings;
-        }
-        shadings.Elements["/BekiApprovedLogo"] = shading.Reference!;
 
         var scale = BekiCoverDieline.LogoWidthMm / 25.4d * 72d / VisibleWidth;
         var x = BekiCoverDieline.LogoLeftMm / 25.4d * 72d - VisibleMinX * scale;
@@ -147,11 +119,7 @@ public static class BekiVectorLogo
         {
             content.AppendLine("q");
             AppendPath(content, (string)path.Attribute("d")!);
-            var style = (string)path.Attribute("style")!;
-            if (style == "fill:url(#_Linear1);")
-                content.AppendLine("W* n /BekiApprovedLogo sh");
-            else
-                content.AppendLine(Colour(style) + " rg f*");
+            content.AppendLine("1 1 1 rg f*");
             content.AppendLine("Q");
         }
         content.AppendLine("Q");
@@ -163,16 +131,6 @@ public static class BekiVectorLogo
     }
 
     private static string F(double value) => value.ToString("0.##########", CultureInfo.InvariantCulture);
-    private static IEnumerable<double> Numbers(string value) => Regex.Matches(value,
-        @"[-+]?(?:\d*\.\d+|\d+)(?:[eE][-+]?\d+)?").Select(m => double.Parse(m.Value, CultureInfo.InvariantCulture));
-    private static string Colour(string style)
-    {
-        var hex = Regex.Match(style, @"#[0-9a-fA-F]{6}").Value;
-        if (hex.Length != 7) throw new InvalidOperationException("Unsupported logo colour.");
-        return string.Join(" ", Enumerable.Range(0, 3)
-            .Select(i => F(Convert.ToInt32(hex.Substring(1 + i * 2, 2), 16) / 255d)));
-    }
-
     private static void AppendPath(StringBuilder output, string data)
     {
         var tokens = Regex.Matches(data, @"[A-Za-z]|[-+]?(?:\d*\.\d+|\d+)(?:[eE][-+]?\d+)?")

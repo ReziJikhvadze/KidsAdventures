@@ -13,18 +13,19 @@ namespace Adventrya.Story.Tests;
 public class BekiSeptemberScopeTests
 {
     [Fact]
-    public void Colored_logo_visible_bounds_have_exact_fold_clearance_and_title_clear_space()
+    public void Larger_white_logo_keeps_exact_fold_clearance_and_title_clear_space()
     {
         Assert.Equal(20f, BekiCoverDieline.LogoTopMm - BekiCoverDieline.BoardTopMm);
         Assert.Equal(20f, BekiCoverDieline.FrontBoardRightMm - BekiCoverDieline.LogoRightMm);
-        Assert.Equal(436f, BekiCoverDieline.LogoLeftMm);
+        Assert.Equal(432.4f, BekiCoverDieline.LogoLeftMm, 3);
         Assert.Equal(40f, BekiCoverDieline.LogoTopMm);
-        Assert.InRange(BekiCoverDieline.LogoWidthMm, 25f, 36f);
-        Assert.InRange(BekiCoverDieline.LogoHeightMm, 12.791f, 12.792f);
+        Assert.Equal(36f * 1.1f, BekiCoverDieline.LogoWidthMm, 3);
+        Assert.InRange(BekiCoverDieline.LogoHeightMm, 14.070f, 14.071f);
         Assert.True(BekiCoverDieline.TitleSafeLeftMm + BekiCoverDieline.TitleSafeWidthMm
             <= BekiCoverDieline.LogoLeftMm - BekiCoverDieline.LogoClearSpaceMm);
         Assert.Contains("face, head, hairline, eyes", BekiCoverDieline.Geometry.PanelInstructions);
-        Assert.Contains("436..472", BekiCoverDieline.Geometry.PanelInstructions);
+        Assert.Contains("432.4..472", BekiCoverDieline.Geometry.PanelInstructions);
+        Assert.Contains("solid-white logo", BekiCoverDieline.Geometry.PanelInstructions);
     }
 
     [Fact]
@@ -44,7 +45,7 @@ public class BekiSeptemberScopeTests
     {
         Assert.Equal("https://beki.ge", BekiOptions.WebsiteQrDestination);
         Assert.Equal("visual-scenario-v2.4", CompositeVisualScenarioPrompt.Version);
-        Assert.Equal("cover-child-world-v1.3", CompositeIllustrationPrompt.CoverVersion);
+        Assert.Equal("cover-child-world-v1.4", CompositeIllustrationPrompt.CoverVersion);
         Assert.Equal("composite-v1.3", MasterStoryPromptComposite.Version);
     }
 

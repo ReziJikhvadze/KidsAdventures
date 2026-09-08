@@ -66,7 +66,7 @@ public class BekiCoverTitleOutlineTests
 
         Assert.Contains("2 Tr", content, StringComparison.Ordinal);
         Assert.Contains(
-            $"2 Tr {Pen(new BekiPrintLayoutOptions().CoverTitleOutlineWidthPt)} w "
+            $"2 Tr {Pen(new BekiPrintLayoutOptions().CoverTitleOutlineWidthPt * 32f / 36f)} w "
             + $"{OutlineInkOperands} RG 1 j 1 J",
             content,
             StringComparison.Ordinal);
@@ -120,9 +120,10 @@ public class BekiCoverTitleOutlineTests
 
         var canonicalTitle = Assert.Single(
             Canonical.Value.Receipts.Pages.Single(page => page.Role == "cover-wrap").Typography);
-        Assert.Equal(layout.CoverTitleOutlineWidthPt, canonicalTitle.TitleOutlineWidthPt!.Value, 6);
+        var fittedWidth = layout.CoverTitleOutlineWidthPt * 32f / 36f;
+        Assert.Equal(fittedWidth, canonicalTitle.TitleOutlineWidthPt!.Value, 6);
 
-        var scaled = layout.CoverTitleOutlineWidthPt * BekiCoverDieline.DigitalScale;
+        var scaled = fittedWidth * BekiCoverDieline.DigitalScale;
         var reading = ComposeReadingCopy();
         var readingTitle = Assert.Single(
             reading.Receipts.Pages.Single(page => page.Role == "cover-front").Typography);

@@ -47,6 +47,24 @@ public class BekiCoverTitleFitTests
 
     private static float TitleBoxHeightPt => BekiCoverDieline.TitleSafeHeightMm * 72f / 25.4f;
 
+    [Fact]
+    public void Cover_uses_Mtavruli_without_changing_the_stored_title()
+    {
+        var plan = BekiLayoutFixture.EightSpreadPlan();
+        var original = plan.Concept.Title;
+        var composed = PressCover(original);
+        var text = string.Join(" ", composed.Receipts.Pages[0].TextLines);
+        Assert.Equal(original.ToUpperInvariant(), text);
+        Assert.DoesNotContain(text, ch => ch is >= '\u10D0' and <= '\u10F0');
+        Assert.Contains(text, ch => ch is >= '\u1C90' and <= '\u1CB0');
+        Assert.Equal(original, plan.Concept.Title);
+
+        // Explicit opt-in diagnostic: synthetic background only, never paid artwork generation.
+        var proofPath = Environment.GetEnvironmentVariable("BEKI_COVER_STYLE_PROOF_PDF");
+        if (!string.IsNullOrWhiteSpace(proofPath))
+            File.WriteAllBytes(proofPath, composed.Pdf);
+    }
+
     // ==============================================================================================
     // The whole title, at a size that fits
     // ==============================================================================================
@@ -78,7 +96,7 @@ public class BekiCoverTitleFitTests
 
         foreach (var word in LongTitle.Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
-            Assert.Contains(word, lines, StringComparison.Ordinal);
+            Assert.Contains(word.ToUpperInvariant(), lines, StringComparison.Ordinal);
         }
     }
 
@@ -94,23 +112,23 @@ public class BekiCoverTitleFitTests
             MeasureBlockPt(LongTitle, 36f) > TitleBoxHeightPt,
             "the long title fits at 36pt, so this test is no longer about the observed defect.");
 
-        Assert.True(MeasureBlockPt(ShortTitle, 36f) <= TitleBoxHeightPt);
+        Assert.True(MeasureBlockPt(ShortTitle, 32f) <= TitleBoxHeightPt);
     }
 
     /// <summary>
-    /// A title that fitted before is set exactly as it was. The ladder only ever descends, and its
-    /// top rung is the book's own size rather than a configured one, so no existing cover moved.
+    /// Mtavruli is taller than Mkhedruli in Ottia. The same complete short title now fits at 32pt;
+    /// the sizing ladder must measure the displayed capitals, not its stored lowercase name.
     /// </summary>
     [Fact]
-    public void A_short_title_is_still_set_at_thirty_six_points()
+    public void A_short_Mtavruli_title_steps_down_to_fit_and_scales_its_outline()
     {
         var receipt = PressCover(ShortTitle).Receipts.Pages.Single(page => page.Role == "cover-wrap");
         var typography = Assert.Single(receipt.Typography);
 
-        Assert.Equal(36d, typography.SizePt, 6);
+        Assert.Equal(32d, typography.SizePt, 6);
         Assert.Equal(1.25d, typography.LineHeight, 6);
         Assert.Equal(
-            new BekiPrintLayoutOptions().CoverTitleOutlineWidthPt,
+            new BekiPrintLayoutOptions().CoverTitleOutlineWidthPt * 32d / 36d,
             typography.TitleOutlineWidthPt!.Value,
             6);
     }
@@ -132,7 +150,7 @@ public class BekiCoverTitleFitTests
                 .ComposeCoverPressWithReceipts(LongTitle, Wrap(512, 245)));
 
         Assert.Equal(CompositeFailureCodes.LayoutFailed, failure.FailureCode);
-        Assert.Contains(LongTitle, failure.Message, StringComparison.Ordinal);
+        Assert.Contains(LongTitle.ToUpperInvariant(), failure.Message, StringComparison.Ordinal);
         Assert.Contains("never trimmed", failure.Message, StringComparison.Ordinal);
     }
 
@@ -188,7 +206,7 @@ public class BekiCoverTitleFitTests
 
         foreach (var word in LongTitle.Split(' ', StringSplitOptions.RemoveEmptyEntries))
         {
-            Assert.Contains(Normalize(word), extracted, StringComparison.Ordinal);
+            Assert.Contains(Normalize(word.ToUpperInvariant()), extracted, StringComparison.Ordinal);
         }
     }
 
@@ -231,6 +249,7 @@ public class BekiCoverTitleFitTests
     /// </summary>
     private static float MeasureBlockPt(string title, float fontSize)
     {
+        title = title.ToUpperInvariant();
         PdfFontBootstrap.EnsureRegistered();
 
         var pages = Document.Create(document => document.Page(page =>

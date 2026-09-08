@@ -456,7 +456,7 @@ public static class CompositeIllustrationPrompt
     /// same <see cref="CompositeChildIdentity.LockBlock"/>, numbered against the references the
     /// request actually carries, so the two pictures cannot describe two children.
     /// </summary>
-    public const string CoverVersion = "cover-child-world-v1.3";
+    public const string CoverVersion = "cover-child-world-v1.4";
 
     /// <summary>
     /// <remarks>

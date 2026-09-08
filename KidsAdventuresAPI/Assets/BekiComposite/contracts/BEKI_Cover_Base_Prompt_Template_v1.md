@@ -2,7 +2,12 @@
 
 September 5 scoped override: runtime `CompositeIllustrationPrompt.ForCover` adds COVER IMPACT AND SELECTIVE-VARNISH CANDIDATES, executing normally two or three prominent story-grounded details at readable scale, with clear silhouettes and materials. No invented plot, no varnish mask, no Beki or lettering in the base. `BekiCoverDieline.Geometry` resolves the actual title/colored-logo rectangles and clear space. Keep the child face/head and important accents out of both. These reservations supersede the historical prohibition on numeric cover safe zones below; never draw zones or their boundaries.
 
-**Prompt version:** `cover-child-world-v1.3`
+**Prompt version:** `cover-child-world-v1.4`
+
+**Owner cover update 2026-09-08:** the compositor uses the approved logo paths in solid white,
+at 39.6 mm visible width (10% larger), with the same 20 mm top/right physical fold clearance.
+The upper-right logo ground must remain calm and dark enough for white lettering.
+Cover titles use Mtavruli (uppercase) from the licensed display face; interior copy is unchanged.
 **Status:** Implementation source with printer-geometry placeholders  
 **Purpose:** Generate one continuous cover base without Beki, title text, spine text, QR, or other typography.
 

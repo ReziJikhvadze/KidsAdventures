@@ -1142,6 +1142,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         byte[] wrapComposite,
         ReceiptBook receipts)
     {
+        title = CoverDisplayTitle(title);
         var titleWidthPt = MmToPt(BekiCoverDieline.TitleSafeWidthMm);
         var titleSize = CoverTitleSizePt(title);
         var placed = NormalizeCoverWrap(wrapComposite);
@@ -1176,8 +1177,8 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                         TextColor, OutlineColor, titleWidthPt,
                         PdfFontBootstrap.TitleFamily, centred: true));
 
-                // The approved logo is appended as exact native paths and axial shading after
-                // QuestPDF finishes, avoiding its SVG gradient rasterization.
+                // The approved logo geometry is appended as solid-white native paths after
+                // QuestPDF finishes; the owner-approved cover ink does not change the source SVG.
             });
         });
 
@@ -1377,6 +1378,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         IDocumentContainer container, string title, byte[] image,
         BekiRenderMode mode, ReceiptBook receipts)
     {
+        title = CoverDisplayTitle(title);
         var placed = CropToPage(image, _layout.PageWidthMm, mode, enforceCropTolerance: false);
 
         // The same ladder as the two shipped covers, measured in this page's own wider band. The
@@ -1442,6 +1444,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private void ComposeReadingFrontCover(
         IDocumentContainer container, string title, byte[] wrapComposite, ReceiptBook receipts)
     {
+        title = CoverDisplayTitle(title);
         var crop = CropFrontBoard(wrapComposite);
         var board = FitForScreen(crop, BekiCoverDieline.DigitalPageWidthMm);
 
@@ -2344,6 +2347,12 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     }
 
     /// <summary>
+    /// Display-only casing: never mutate the story plan, interior copy, or stored book name.
+    /// The licensed Ottia includes U+1C90..U+1CB0, so Georgian capitals stay in its own face.
+    /// </summary>
+    private static string CoverDisplayTitle(string title) => title.ToUpperInvariant();
+
+    /// <summary>
     /// The size this cover's title is set at: the largest rung of the ladder whose measured block
     /// fits the dieline's title-safe box (<see cref="BekiCoverDieline.TitleSafeWidthMm"/> ×
     /// <see cref="BekiCoverDieline.TitleSafeHeightMm"/> — 136 × 46 mm).
@@ -2372,6 +2381,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// </param>
     private float CoverTitleSizePt(string title, float widthPt, float boxHeightPt)
     {
+        title = CoverDisplayTitle(title);
         var ladder = CoverTitleSizeLadder();
 
         // A cover with no title has nothing to fit; the top rung is what an empty block is set at,

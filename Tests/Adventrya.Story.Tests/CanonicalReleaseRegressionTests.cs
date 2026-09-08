@@ -68,7 +68,7 @@ public class CanonicalReleaseRegressionTests : CompositePipelineTestBase
     }
 
     [Fact]
-    public void Approved_logo_uses_exact_native_axial_shading_without_raster_images()
+    public void Approved_logo_uses_solid_white_native_paths_without_raster_images()
     {
         using var document = new PdfDocument();
         var page = document.AddPage();
@@ -82,14 +82,15 @@ public class CanonicalReleaseRegressionTests : CompositePipelineTestBase
         using var read = PdfReader.Open(output, PdfDocumentOpenMode.Modify);
         var resources = read.Pages[0].Elements.GetDictionary("/Resources")!;
         Assert.Null(resources.Elements.GetDictionary("/XObject"));
-        var shading = resources.Elements.GetDictionary("/Shading")!
-            .Elements.GetDictionary("/BekiApprovedLogo")!;
-        Assert.Equal(2, shading.Elements.GetInteger("/ShadingType"));
-        var coords = shading.Elements.GetArray("/Coords")!;
-        Assert.Equal(233.463459, coords.Elements.GetReal(0), 6);
-        Assert.Equal(794.347666, coords.Elements.GetReal(1), 6);
-        Assert.Equal(232.148174, coords.Elements.GetReal(2), 6);
-        Assert.Equal(765.176513, coords.Elements.GetReal(3), 6);
+        Assert.Null(resources.Elements.GetDictionary("/Shading"));
+        var operators = PdfSharp.Pdf.Content.ContentReader.ReadContent(read.Pages[0])
+            .OfType<PdfSharp.Pdf.Content.Objects.COperator>().ToList();
+        var fills = operators.Where(op => op.OpCode.Name == "rg").ToList();
+        Assert.NotEmpty(fills);
+        Assert.All(fills, fill => Assert.All(fill.Operands.Cast<PdfSharp.Pdf.Content.Objects.CInteger>(),
+            channel => Assert.Equal(1, channel.Value)));
+        Assert.Contains(operators, op => op.OpCode.Name == "c");
+        Assert.DoesNotContain(operators, op => op.OpCode.Name == "sh");
         Assert.Throws<InvalidOperationException>(() => BekiVectorLogo.Apply(pdf, [1, 2, 3]));
     }
 }
