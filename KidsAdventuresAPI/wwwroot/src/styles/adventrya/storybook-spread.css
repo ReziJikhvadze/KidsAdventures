@@ -576,24 +576,53 @@
   which costs nothing and composites anywhere.
 */
 .storybook-spread-prose {
+  /*
+    One leaf is 220 x 200 mm, so a millimetre is this much of it. Every number below is the
+    press spec measured in those units rather than a value chosen by eye.
+  */
+  --mmx: 0.454545%;
+  --mmy: 0.5%;
+
   position: absolute;
   z-index: 2;
-  inset: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  /* TextColumnShare 0.33 of the spread = 145.2mm = 66% of one leaf. */
+  width: 66%;
   display: flex;
-  align-items: center;
-  justify-content: center;
   flex-direction: column;
-  padding: 12% 10%;
-  color: #402c3d;
-  text-align: center;
-  text-shadow: 0 1px 2px rgba(255, 250, 240, 0.85);
-  background: radial-gradient(
-    ellipse 74% 60% at 50% 50%,
-    rgba(255, 251, 242, 0.93) 0%,
-    rgba(255, 250, 240, 0.85) 44%,
-    rgba(255, 249, 238, 0.52) 68%,
-    rgba(255, 248, 236, 0) 84%
-  );
+  /* WashPaddingMm 7; StoryPanelInkHex #FFF8EB at StoryPanelOpacity 0.86; radius 4mm. */
+  padding: calc(var(--mmy) * 7) calc(var(--mmx) * 7);
+  border-radius: calc(var(--mmx) * 4);
+  background: rgb(255 248 235 / 0.86);
+  color: #33224f;
+  text-align: left;
+}
+/* SafeMarginMm 12, held off the OUTER trim so the column never reaches the fold. */
+.storybook-spread-full.page-left .storybook-spread-prose {
+  left: calc(var(--mmx) * 12);
+}
+.storybook-spread-full.page-right .storybook-spread-prose {
+  right: calc(var(--mmx) * 12);
+}
+/*
+  The type inside the panel, set the way the press sets it.
+
+  The shared rules above are written for `.storybook-text-page` — a whole paper page of centred
+  prose on a narrow measure. Inside the panel the column IS the measure (66% of the leaf, which
+  is the spec's own 33% of the spread), so the cap comes off; and the leading is the approved
+  proof's 18pt on 27pt, which is 1.5 rather than the 1.8 a full page wanted.
+*/
+.storybook-spread-prose > small {
+  margin-bottom: calc(var(--mmy) * 4);
+  color: #8a5322;
+}
+.storybook-spread-prose > p {
+  max-width: none;
+  line-height: 1.5;
+}
+.storybook-spread-prose > i {
+  margin-top: calc(var(--mmy) * 5);
 }
 /* In the flow of the prose rather than pinned to the page, so the page number stays inside the
    wash instead of sitting alone on the artwork. */

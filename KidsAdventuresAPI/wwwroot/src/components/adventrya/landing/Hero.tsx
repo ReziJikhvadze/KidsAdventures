@@ -86,6 +86,17 @@ export function Hero() {
               lockedPageCount={0}
               isUnlocked
               isSpreadBook
+              /*
+                The same object the parent will buy: one painting across both leaves, words on it.
+
+                Inert until the demo art is redrawn. `public/adventrya/hero-demo/page-*.webp` are
+                900x1350 portraits, one per page, and the component measures each illustration
+                before it treats one as a spread — so today these fall through to the old
+                page-at-a-time path rather than being stretched across the fold. Drop landscape
+                art in at the same paths and the home page becomes the printed book with no
+                further change here.
+              */
+              fullBleedSpreads
               interactive
               /*
               The book waits to be opened rather than turning itself.

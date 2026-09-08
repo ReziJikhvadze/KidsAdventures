@@ -55,8 +55,11 @@ export type StorybookVolumeProps = {
    */
   autoAdvanceMs?: number;
   /**
-   * Demo variants. `preview` stays single-page in the create layout so
-   * `uses-desktop-spread` does not fight `ux-preview-product` max-height.
+   * Which screen the book is standing on.
+   *
+   * Only `display` changes how it opens: those are the 82px thumbnails on the shelf and in the
+   * order summary, where an open spread would be two illustrations forty pixels wide each.
+   * Everything else opens as a spread on a wide viewport, because that is the object.
    */
   variant?: "full" | "hero" | "preview" | "display";
   /**
@@ -598,8 +601,19 @@ export function StorybookVolume({
   const t = useT();
   // Demo Ot uses min-width: 1024px for desktop spreads (not 781).
   const wideViewport = useMediaQuery("(min-width: 1024px)");
-  // Preview column is too narrow for open spreads — keep single-page like a tall phone book.
-  const desktopSpread = wideViewport && variant !== "preview" && variant !== "display";
+  /*
+    The preview opens like the book it is selling.
+
+    It was held to single pages because the create layout is a two-column screen and an open
+    spread was thought too wide for the left of it. That reasoning made the one screen where a
+    parent decides whether to buy the only screen that showed a different object from the one
+    they would receive: the printed book is a spread, one picture across both leaves with the
+    words set over it, and the preview was showing half of that on a page of its own.
+
+    `display` stays single-page. Those are the 82px thumbnails in the order summary and on the
+    shelf, where an open spread is two illustrations rendered forty pixels wide each.
+  */
+  const desktopSpread = wideViewport && variant !== "display";
   const resolvedClassName =
     className ?? `storybook storybook-${variant}${worldId ? ` theme-${worldId}` : ""}`;
   const leaves = useMemo(

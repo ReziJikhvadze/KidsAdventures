@@ -522,6 +522,15 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
             pages={previewPages}
             isSpreadBook
             /*
+              One picture across both leaves, with the words set over it — the printed book.
+
+              Safe to ask for unconditionally: the component measures the illustration and only
+              treats a landscape one as a painting spanning two pages, so a cover that is still
+              being fetched, or a book drawn the old way, falls through to the page-at-a-time
+              path instead of being stretched across the fold.
+            */
+            fullBleedSpreads
+            /*
               No locked placeholders. The preview is one cover and one page — all that is
               generated — but the book used to be handed six blank locked leaves as well, so a
               parent could page forward into six empty pages that only said the book was locked.
