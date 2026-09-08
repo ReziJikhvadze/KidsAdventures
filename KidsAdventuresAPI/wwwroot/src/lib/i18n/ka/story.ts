@@ -20,6 +20,8 @@ export const story = {
     previousPage: "წინა გვერდი",
     nextPage: "შემდეგი გვერდი",
     gestureHint: "გადაფურცლე, გამოიყენე ისრები ან კლავიატურა",
+    fullscreen: "მთელ ეკრანზე",
+    exitFullscreen: "მთელი ეკრანის დახურვა",
     flipAria: (hero: string) => `გადაფურცლე ${hero}ს ამბავი`,
 
     qrTitle: "ეს მხოლოდ დასაწყისია",

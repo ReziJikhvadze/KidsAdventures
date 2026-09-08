@@ -1,5 +1,6 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
+import { createPortal } from "react-dom";
+import { ChevronLeft, ChevronRight, Lock, Maximize2, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 import { preloadIllustration, useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
@@ -762,7 +763,43 @@ export function StorybookVolume({
     `display` stays single-page. Those are the 82px thumbnails in the order summary and on the
     shelf, where an open spread is two illustrations rendered forty pixels wide each.
   */
-  const desktopSpread = wideViewport && variant !== "display";
+  /*
+    Full screen, the way a video player offers it.
+
+    A button on the corner of the book; the book then fills the screen, and on a phone held
+    upright it turns on its side to do so — the whole point on a phone, where an open spread
+    the width of the screen is 170px tall. Where the browser lets a page ask for it (Android
+    Chrome) the device is asked to turn to landscape; where it does not (iPhone) the book is
+    drawn turned instead, so the reader turns the phone and reads.
+  */
+  const [fullscreen, setFullscreen] = useState(false);
+  /*
+    Whether native full screen is currently wanted. A `fullscreenchange` that finds no full-screen
+    element closes the mode only while this is set: the reader pressed Esc, or the browser left.
+    When this component leaves native full screen itself — the screen would not turn, so the
+    overlay has to do the turning — it clears this first, and the events that follow (there are
+    two, and both already report no element) are ignored.
+  */
+  const nativeIntended = useRef(false);
+  /*
+    The sample book on the home page is a spread on a phone as well.
+
+    It used to be one leaf at a time below 781px, which for a picture painted across both
+    leaves meant a phone showed the calm half with the words and then, a turn later, the half
+    with the child on it — never the picture. The whole painting at the width of the screen is
+    small, and it is the picture; the full-screen mode above is how it gets big.
+
+    The hero only, by decision (2026-09-08): the preview and the reader keep one leaf at a time
+    on a phone until they are looked at on their own.
+  */
+  const heroSpread = variant === "hero" && fullBleedSpreads;
+  const desktopSpread = variant !== "display" && (wideViewport || heroSpread || fullscreen);
+  /*
+    The phone's open book: both leaves at the width of the screen, and the words under the
+    picture rather than on it — a panel on a painting 170px tall is not something anyone reads.
+    Full screen puts the panel back where the press prints it, because there is room again.
+  */
+  const narrowSpread = desktopSpread && !wideViewport && !fullscreen;
   const resolvedClassName =
     className ?? `storybook storybook-${variant}${worldId ? ` theme-${worldId}` : ""}`;
   const leaves = useMemo(
@@ -934,7 +971,74 @@ export function StorybookVolume({
     };
     node.addEventListener("wheel", handler, { passive: false });
     return () => node.removeEventListener("wheel", handler);
-  }, [interactive, turning, canNext, canPrev, goTo, nextTarget, prevTarget]);
+    // `fullscreen` because the root is re-created when the book moves into and out of the
+    // portal below, and the listener has to follow it onto the new node.
+  }, [interactive, turning, canNext, canPrev, goTo, nextTarget, prevTarget, fullscreen]);
+
+  useEffect(() => {
+    if (!fullscreen) return;
+    const node = rootRef.current;
+    node?.focus?.();
+
+    /*
+      Native full screen only where the device can also be asked to turn.
+
+      Browsers give the full-screen element `transform: none !important`, which would undo the
+      CSS that draws the book on its side; that is fine wherever `screen.orientation.lock` exists
+      to turn the screen instead (Android, and desktops that are landscape anyway) and wrong on an
+      iPhone, which has no lock — so there the page keeps the plain fixed overlay and rotates it.
+    */
+    // Not in lib.dom: Safari never shipped `lock`, so the type has to be written down here.
+    type LockableOrientation = ScreenOrientation & {
+      lock?: (orientation: "landscape") => Promise<void>;
+    };
+    const orientation =
+      typeof screen !== "undefined" ? (screen.orientation as LockableOrientation) : undefined;
+    const canLock = typeof orientation?.lock === "function";
+    if (canLock && node && typeof node.requestFullscreen === "function") {
+      nativeIntended.current = true;
+      node
+        .requestFullscreen()
+        .then(() =>
+          orientation?.lock?.("landscape").catch(() => {
+            /*
+              The screen would not turn. On a screen that is already wide that is nothing — the
+              book fills it as it is. On one held upright it means the CSS has to turn the book,
+              and the browser's own full-screen styles forbid that transform; so native full
+              screen is given back and the fixed overlay, which the CSS can turn, does the work.
+            */
+            if (!window.matchMedia("(orientation: portrait)").matches) return;
+            nativeIntended.current = false;
+            if (!document.fullscreenElement) return;
+            return document.exitFullscreen();
+          }),
+        )
+        .catch(() => {
+          nativeIntended.current = false;
+        });
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onFullscreenChange = () => {
+      if (document.fullscreenElement) return;
+      if (!nativeIntended.current) return;
+      setFullscreen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFullscreen(false);
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      nativeIntended.current = false;
+      if (canLock) orientation?.unlock();
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => undefined);
+    };
+  }, [fullscreen]);
 
   /*
     Which books are read rather than counted.
@@ -1201,10 +1305,34 @@ export function StorybookVolume({
     ? isBackCover(spreadPages.left) || isBackCover(rightSlotIndex)
     : leaves[index]?.kind === "qr";
 
-  return (
+  /*
+    The words under the picture, on a phone.
+
+    The same lines the panel would carry — a story spread's prose, or a plate's dedication —
+    read off the spread that is lying open, so the caption changes when the turn commits and
+    the picture does. Nothing while the book is shut: a cover has no words under it.
+  */
+  const caption: PlatePanelLine[] | null = (() => {
+    if (!narrowSpread || isClosed) return null;
+    const left = leaves[displayIndex] ?? null;
+    const right = leaves[displayIndex + 1] ?? null;
+    for (const leaf of [left, right]) {
+      if (leaf?.kind === "plate" && leaf.panel) return leaf.panel;
+    }
+    const plan = resolveSlot(displayIndex, "left");
+    if (plan.pair) return [{ text: plan.pair.text.page.content }];
+    if (right?.kind === "story" && right.page.isTextOnlyPage === true && !right.page.isLocked) {
+      return [{ text: right.page.content }];
+    }
+    return null;
+  })();
+
+  const volume = (
     <div
       ref={rootRef}
-      className={`${resolvedClassName} ${spreadClass} ${openClass}`.trim()}
+      className={`${resolvedClassName} ${spreadClass} ${openClass}${
+        narrowSpread ? " is-narrow-spread" : ""
+      }${fullscreen ? " is-fullscreen" : ""}`.trim()}
       tabIndex={interactive ? 0 : undefined}
       role={interactive ? "region" : undefined}
       aria-label={t.story.storybook.flipAria(heroName)}
@@ -1366,7 +1494,39 @@ export function StorybookVolume({
             aria-label={t.story.storybook.nextPage}
           />
         ) : null}
+        {interactive && !fullscreen && variant === "hero" ? (
+          <button
+            type="button"
+            className="storybook-expand"
+            onClick={() => setFullscreen(true)}
+            aria-label={t.story.storybook.fullscreen}
+            title={t.story.storybook.fullscreen}
+          >
+            <Maximize2 size={15} absoluteStrokeWidth />
+          </button>
+        ) : null}
       </div>
+
+      {caption ? (
+        <div className="storybook-spread-caption" aria-live="polite">
+          {caption.map((line, i) => (
+            <p key={i} className={line.size ? `storybook-plate-line ${line.size}` : undefined}>
+              {line.text}
+            </p>
+          ))}
+        </div>
+      ) : null}
+
+      {fullscreen ? (
+        <button
+          type="button"
+          className="storybook-fullscreen-close"
+          onClick={() => setFullscreen(false)}
+          aria-label={t.story.storybook.exitFullscreen}
+        >
+          <X size={18} absoluteStrokeWidth />
+        </button>
+      ) : null}
 
       {interactive ? (
         <>
@@ -1416,4 +1576,16 @@ export function StorybookVolume({
       ) : null}
     </div>
   );
+
+  /*
+    Out of the page and onto the body while it fills the screen.
+
+    A fixed overlay drawn where the book stands is drawn inside whatever stacking context the
+    page put the book in — the hero isolates its own — so the site header and the phone's
+    call-to-action bar, both fixed at the root, painted over it. At the root itself nothing does.
+    The component's state lives here and survives the move; only the DOM is rebuilt.
+  */
+  return fullscreen && typeof document !== "undefined"
+    ? createPortal(volume, document.body)
+    : volume;
 }

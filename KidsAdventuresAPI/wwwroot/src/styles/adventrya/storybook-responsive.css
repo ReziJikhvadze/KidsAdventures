@@ -71,7 +71,8 @@
     margin: 4px auto 0;
     transform: none;
   }
-  .landing-v3-hero-product .storybook-volume {
+  /* Only the one-leaf book. An open spread is the width of the screen, and its shut cover half of it. */
+  .landing-v3-hero-product .storybook:not(.uses-desktop-spread) .storybook-volume {
     max-width: 330px;
   }
   .ux-preview-layout {

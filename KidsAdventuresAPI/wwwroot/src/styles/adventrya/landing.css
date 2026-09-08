@@ -2294,3 +2294,30 @@
   border-radius: inherit;
   content: "";
 }
+/*
+  The sample book runs edge to edge on a phone.
+
+  An open spread is 2.2:1, so at the width of a phone it is 150-180px tall and every pixel of
+  width is height. The 24px the hero keeps at its sides is 12% of a 375px screen; the book is
+  allowed to take it. The words are not on the picture here (see .storybook-spread-caption) so
+  the picture loses nothing to them, and square corners because a picture that meets the edge
+  of the screen has no corner to round.
+*/
+@media (max-width: 780px) {
+  .landing-v3-hero-product {
+    width: calc(100% + 48px);
+    max-width: none;
+  }
+  .landing-v3-hero-product .storybook.uses-desktop-spread.is-open .storybook-surface {
+    border-radius: 0;
+  }
+  /* The book may meet the edge of the screen; the buttons under it keep the hero's margin. */
+  .landing-v3-hero-product .storybook.uses-desktop-spread .storybook-controls {
+    width: calc(100% - 32px);
+  }
+}
+@media (max-width: 640px) {
+  .landing-v3-hero-product {
+    width: calc(100% + 36px);
+  }
+}

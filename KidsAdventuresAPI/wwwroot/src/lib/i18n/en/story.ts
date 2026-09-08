@@ -13,6 +13,8 @@ export const story = {
     previousPage: "Previous page",
     nextPage: "Next page",
     gestureHint: "Swipe, use the arrows, or your keyboard",
+    fullscreen: "Full screen",
+    exitFullscreen: "Exit full screen",
     flipAria: (hero: string) => `Leaf through ${hero}'s story`,
 
     qrTitle: "This is only the beginning",
