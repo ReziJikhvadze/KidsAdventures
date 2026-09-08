@@ -181,9 +181,19 @@
   isolation: isolate;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  /*
+    Three rows, and the book has whatever the other two leave.
+
+    The stack used to be centred in the section and the book sized from a guess at the height
+    everything else would take — a constant, which was wrong on every screen it had not been
+    measured on: a 14" laptop's 1366 x 657 put the button 83px below the fold and a 1280 x 620
+    put it 118px below. The words and the button are content and take the height they need; the
+    row between them is what is left, and the book is measured against that row (see
+    storybook.css) rather than against the window. So the first screen holds the whole section
+    at any size, and it is the book that gives way.
+  */
+  grid-template-rows: auto minmax(0, 1fr) auto;
   justify-items: center;
-  /* Centred only when there is room over: on most screens the stack is the whole viewport. */
-  align-content: center;
   row-gap: clamp(16px, 2.6vh, 24px);
   padding: calc(var(--lv3-header-h) + clamp(16px, 2.2vh, 34px)) clamp(34px, 5vw, 78px)
     clamp(26px, 3.4vh, 54px);
@@ -339,8 +349,58 @@
   */
   width: var(--hero-col);
   min-width: 0;
+  min-height: 0;
   display: grid;
   place-items: center;
+}
+/*
+  And the box the book is measured against.
+
+  `container-type: size` only where the height is definite — the grid row above gives it one
+  from 901px up. Below that the hero is one column of content and a size container would
+  measure itself as nothing, taking the book with it.
+*/
+@media (min-width: 901px) {
+  .landing-v3-hero-product {
+    container-type: size;
+  }
+}
+/*
+  Short screens give the book what the rest of the column can spare.
+
+  A 14" laptop is 1366 x 657 after the browser's own bars, and there the section ran 134px past
+  the bottom of the screen. Every number here is off the fixed rows — the headline, the padding,
+  the gaps and the row of words under the book — because the book is the one thing that can
+  scale, and it is already down to whatever is left.
+*/
+@media (min-width: 901px) and (max-height: 800px) {
+  .landing-v3-hero {
+    padding-top: calc(var(--lv3-header-h) + 10px);
+    padding-bottom: 18px;
+    row-gap: 12px;
+  }
+  .landing-v3-kicker {
+    margin-bottom: 10px;
+    font-size: 11px;
+  }
+  .landing-v3-hero-lead {
+    font-size: 13px;
+    line-height: 1.62;
+  }
+  .landing-v3-primary {
+    min-height: 50px;
+  }
+  /*
+    And the line under the buttons goes, which is 30px of the book on a screen that has none to
+    spare. It says a page can be turned by swiping or with the arrow keys; the two buttons it is
+    written under say the same thing and are the way almost everyone does it.
+  */
+  .landing-v3-hero-product .storybook-gesture-hint {
+    display: none;
+  }
+  .landing-v3-hero-product .storybook-controls {
+    margin-top: 9px;
+  }
 }
 .landing-v3-book-stack {
   position: relative;
@@ -2069,67 +2129,6 @@
     align-items: flex-start;
     flex-direction: column;
   }
-  .landing-v3-mobile-cta {
-    position: fixed;
-    z-index: 100;
-    left: 10px;
-    right: 10px;
-    bottom: 10px;
-    min-height: 66px;
-    /* Held off the screen until the hero's own button has scrolled away. */
-    visibility: hidden;
-    opacity: 0;
-    transform: translateY(12px);
-    transition:
-      opacity 0.22s ease,
-      transform 0.22s ease,
-      visibility 0s linear 0.22s;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 9px 9px 9px 17px;
-    color: #fff9ed;
-    border: 1px solid rgba(255, 255, 255, 0.13);
-    border-radius: 19px;
-    background: #19102fe8;
-    box-shadow: 0 19px 44px #0c071b4f;
-    -webkit-backdrop-filter: blur(17px);
-    backdrop-filter: blur(17px);
-  }
-  .landing-v3-mobile-cta.is-visible {
-    visibility: visible;
-    opacity: 1;
-    transform: none;
-    transition-delay: 0s;
-  }
-  .landing-v3-mobile-cta > span {
-    display: flex;
-    flex-direction: column;
-  }
-  .landing-v3-mobile-cta small {
-    color: #fffaee75;
-    font-size: 11px;
-  }
-  .landing-v3-mobile-cta strong {
-    font-family: var(--font-body);
-    font-size: 14px;
-  }
-  .landing-v3-mobile-cta > a {
-    min-height: 47px;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 0 14px;
-    color: #28183e;
-    border-radius: 13px;
-    background: linear-gradient(135deg, #f4d48f, #edaf58);
-    font-size: 11px;
-    font-weight: 700;
-  }
-  .landing-v3-mobile-cta > a svg {
-    width: 13px;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .landing-v3 *,
@@ -2319,5 +2318,76 @@
 @media (max-width: 640px) {
   .landing-v3-hero-product {
     width: calc(100% + 36px);
+  }
+}
+/*
+  The bar that follows the reader, on every screen the hero stacks into one column.
+
+  It was written inside the 640px block, so between 641 and 900 — a narrow desktop window, a
+  small tablet — the hero was already one column, which puts its own button below the fold, and
+  nothing took the button's place. The rules are the phone's, unchanged; only the width they
+  answer to has moved to where the layout they belong to actually starts.
+*/
+@media (max-width: 900px) {
+  .landing-v3-mobile-cta {
+    position: fixed;
+    z-index: 100;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    min-height: 66px;
+    /* Held off the screen until the hero's own button has scrolled away. */
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(12px);
+    transition:
+      opacity 0.22s ease,
+      transform 0.22s ease,
+      visibility 0s linear 0.22s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 9px 9px 17px;
+    color: #fff9ed;
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 19px;
+    background: #19102fe8;
+    box-shadow: 0 19px 44px #0c071b4f;
+    -webkit-backdrop-filter: blur(17px);
+    backdrop-filter: blur(17px);
+  }
+  .landing-v3-mobile-cta.is-visible {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+    transition-delay: 0s;
+  }
+  .landing-v3-mobile-cta > span {
+    display: flex;
+    flex-direction: column;
+  }
+  .landing-v3-mobile-cta small {
+    color: #fffaee75;
+    font-size: 11px;
+  }
+  .landing-v3-mobile-cta strong {
+    font-family: var(--font-body);
+    font-size: 14px;
+  }
+  .landing-v3-mobile-cta > a {
+    min-height: 47px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 0 14px;
+    color: #28183e;
+    border-radius: 13px;
+    background: linear-gradient(135deg, #f4d48f, #edaf58);
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .landing-v3-mobile-cta > a svg {
+    width: 13px;
   }
 }

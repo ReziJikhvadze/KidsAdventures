@@ -1123,6 +1123,15 @@
   font-size: clamp(32px, 4.7cqi, 46px);
   line-height: 1.06;
 }
+/*
+  Two lines at 46px are 96px of a 657px screen, and the book is what pays for them. On a short
+  window the headline gives some back — still two lines, and still the largest thing on the page.
+*/
+@media (min-width: 901px) and (max-height: 800px) {
+  .landing-v3-hero h1 {
+    font-size: clamp(26px, 3.7cqi, 38px);
+  }
+}
 .landing-v3-hero h1 > span {
   display: block;
 }

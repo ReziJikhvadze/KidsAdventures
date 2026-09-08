@@ -872,6 +872,17 @@
   opacity: 1;
   transform: translateY(-1px);
 }
+/*
+  Out of the way of the one button the page itself carries.
+
+  The back cover ends on "a new adventure", centred across the foot of the board, and on a phone
+  that board is 188px wide — so a 36px control in the bottom corner sat on top of it. The corner
+  it moves to is empty on that page: the wordmark is centred and Beki starts below it.
+*/
+.storybook-volume:has(.storybook-back) .storybook-expand {
+  top: 10px;
+  bottom: auto;
+}
 .storybook-expand svg {
   width: 15px;
   height: 15px;

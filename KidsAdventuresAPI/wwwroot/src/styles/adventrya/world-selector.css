@@ -166,7 +166,7 @@
   the crop takes clouds, not worlds, on every aspect ratio between 4:3 and 21:9.
 */
 /*
-  Edge to edge, until covering would start throwing worlds away.
+  Edge to edge, and the sides are never bare.
 
   Cover is the rule: the painting fills the window on every ordinary screen, and the earlier cap
   of a percent and a half was protecting a button that has since moved into the island's card.
@@ -186,44 +186,52 @@
   arrow add the hidden band to their own offset, and so does the bottom row of cards.
 */
 /*
-  The cap is not "how tall may the frame get", it is "how much of the painting may be thrown
-  away" — and the painting itself says how much that is.
+  The cap is "how much of the painting may be thrown away", and it was set so tight that the
+  painting stopped reaching the sides of the screen.
 
-  A frame one and a half times the window kept the islands' *buttons* on screen, which is what
-  it was written for, and let the crop run to eight percent of the master at either end. The art
-  has nothing like that to spare: measured on the master, the observatory's planets start four
-  percent from the top and the ocean island stops three and a half from the right edge. So on
-  every ordinary widescreen laptop — 1366x657 crops 7.2%, 1920x950 crops 6% — the top of the
-  space island was being cut off, which is the report this answers.
+  A frame at most 1.075 times the window's height keeps the vertical crop to four percent a
+  side, which is the painting's own margin — but a widescreen laptop is nothing like the
+  painting's shape, and holding the height down holds the width down with it. Measured: 56px of
+  flat, darkened blur down each side of a 1366x657 window, 71px at 1536x730, 53px at 1920x950.
+  That is what the report calls the black bars, and it is the section not filling the screen.
 
-  Four percent a side vertically, three and a half horizontally: the painting's own margins, and
-  band of the blurred copy of the painting down the sides of a wide window (about 52px at 1920,
-  24px at 1536) instead of a covered edge — the ambient layer exists for exactly this, and it is
-  what already fills the shape of a window the map cannot cover.
+  1.22 covers every ordinary laptop — 2.08:1 at 1366x657 needs 1.17, 2.10:1 at 1536x730 needs
+  1.18 — and the crop it costs is spent where the painting can afford it (see the split below)
+  rather than equally at both ends. Past about 2.17:1 the cap binds again and the ambient layer
+  fills what is left, which is what it is for; a window that shape is an ultrawide, where the
+  section is a thousand pixels tall and a hand's breadth of blur at each end is the lesser loss.
 */
 .desktop-frame {
   width: min(
     max(100vw, calc(100svh * 1.776833)),
-    calc(100svh * 1.075 * 1.776833),
+    calc(100svh * 1.22 * 1.776833),
     calc(100vw * 1.0638)
   );
   aspect-ratio: 1672 / 941;
   /* The same expression as the width, read as a height and measured against the window: the
-     landscape master's own ratio, its own caps, its own hidden band. */
-  --crop-band: max(
+     landscape master's own ratio, its own caps, and how much of it is off the screen. */
+  --crop-total: max(
     0px,
     calc(
-      (
-          min(
-              max(100vw / 1.776833, 100svh),
-              calc(100svh * 1.075),
-              calc(100vw * 1.0638 / 1.776833)
-            ) -
-            100svh
-        ) /
-        2
+      min(max(100vw / 1.776833, 100svh), calc(100svh * 1.22), calc(100vw * 1.0638 / 1.776833)) -
+        100svh
     )
   );
+  /*
+    Not half each. A centred crop takes the same band off the top of the painting as off the
+    bottom, and the painting is not symmetrical: the space island's planets start four percent
+    down from the top edge, while below the book's pedestal there is six percent of cloud. So
+    the top keeps the smaller share and the bottom takes the rest, which is where the crop can
+    be spent without losing anything drawn.
+  */
+  --crop-band: calc(var(--crop-total) * 0.38);
+  --crop-band-bottom: calc(var(--crop-total) * 0.62);
+  /*
+    How the split is applied. The stage centres its frame, and a centred box with a top margin
+    of M hides (T − M) / 2 above; M = 0.2 T is what makes that 0.38 T. Zero when nothing is
+    hidden, so a frame that fits stays centred.
+  */
+  margin-top: calc(var(--crop-total) * 0.2);
 }
 
 /*
@@ -268,7 +276,7 @@
 .experience-shell-embedded .desktop-frame {
   width: min(
     max(100%, calc(100svh * 1.776833)),
-    calc(100svh * 1.075 * 1.776833),
+    calc(100svh * 1.22 * 1.776833),
     calc(100% * 1.0638)
   );
 }
@@ -848,12 +856,12 @@
 */
 .desktop-frame .hotspot-kingdom .world-card {
   bottom: -25.1%;
-  margin-bottom: var(--crop-band);
+  margin-bottom: var(--crop-band-bottom, var(--crop-band));
 }
 
 .desktop-frame .hotspot-dinosaurs .world-card {
   bottom: -17.6%;
-  margin-bottom: var(--crop-band);
+  margin-bottom: var(--crop-band-bottom, var(--crop-band));
 }
 
 .world-label small {

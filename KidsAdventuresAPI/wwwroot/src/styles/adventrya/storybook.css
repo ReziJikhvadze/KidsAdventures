@@ -323,6 +323,40 @@
   background:
     radial-gradient(120% 90% at 50% 0%, #4a3459 0%, transparent 62%),
     linear-gradient(180deg, #2f2140 0%, #241a33 100%);
+  /*
+    Everything on this page is measured against the page.
+
+    It was measured against the window — 22px of heading below 780px, 1.15vw above it — from
+    when the back cover was a page the width of the phone. It is half an open spread now, 188px
+    across on a 375px screen, and 22px of heading with a 14px button under it needed 229px of a
+    173px page: the words started above the top of the cover and the button hung off the bottom.
+    A container query asks the page instead, so the same layout holds at 188px and at 700.
+  */
+  container-type: inline-size;
+}
+/*
+  The board that is actually printed on the back of the case.
+
+  `backImageUrl` has been passed since the printed cover went in, and the element has been
+  rendered all along — with no rule to its name, so it was a static, zero-height div and the
+  back cover kept the flat violet it had before. Behind everything the page draws, with the
+  page's own gradient dimmed over it so Beki and the words stay legible on the painting.
+*/
+.storybook-back-art {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+.storybook-back-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* Enough to read Beki and the words over the painting, and no more: the board a parent will
+     be holding is the point of putting it here. */
+  background: linear-gradient(180deg, #1c122e73, #170f2694 46%, #130c20cf);
 }
 /*
   The warm light belongs behind Beki, not above him.
@@ -391,14 +425,15 @@
   display: block;
   color: #fff8eb;
   font-family: var(--font-body);
-  font-size: clamp(12px, 1.15vw, 17px);
+  /* 7.6% of the page: 14px on a phone's 188px half-spread, 17px at the ceiling. */
+  font-size: clamp(11px, 7.6cqw, 17px);
   font-weight: 700;
   line-height: 1.3;
 }
 .storybook-back-copy p {
-  margin: 7px 0 0;
+  margin: 0.5cqw 0 0;
   color: #fff8ebb0;
-  font-size: clamp(9px, 0.8vw, 12px);
+  font-size: clamp(8px, 5.2cqw, 12px);
   line-height: 1.5;
 }
 /*
@@ -409,12 +444,12 @@
   position: relative;
   z-index: 10;
   display: inline-block;
-  margin-top: 13px;
-  padding: 8px 17px;
+  margin-top: 4cqw;
+  padding: 2.6cqw 5.5cqw;
   border-radius: 999px;
   background: #f1c970;
   color: #2d1d4a;
-  font-size: clamp(9px, 0.78vw, 12px);
+  font-size: clamp(8px, 5cqw, 12px);
   font-weight: 700;
   text-decoration: none;
   transition: transform 0.16s ease;
@@ -422,16 +457,20 @@
 .storybook-back-cta:hover {
   transform: translateY(-1px);
 }
+/*
+  A page the whole width of the screen can afford print sizes; half an open spread cannot. The
+  cap is lifted only where the page is actually that wide — the reader and the preview, which
+  still show one leaf at a time on a phone.
+*/
 @media (max-width: 780px) {
-  .storybook-back-copy strong {
-    font-size: 22px;
+  .storybook:not(.uses-desktop-spread) .storybook-back-copy strong {
+    font-size: min(22px, 7.6cqw);
   }
-  .storybook-back-copy p {
-    font-size: 14px;
+  .storybook:not(.uses-desktop-spread) .storybook-back-copy p {
+    font-size: min(14px, 5.2cqw);
   }
-  .storybook-back-cta {
-    font-size: 14px;
-    padding: 11px 22px;
+  .storybook:not(.uses-desktop-spread) .storybook-back-cta {
+    font-size: min(14px, 5cqw);
   }
 }
 .storybook-page.is-locked .storybook-page-content {
@@ -1140,33 +1179,32 @@
   color: #fff8eb7a;
 }
 /*
-  The width the column gives, unless the screen is too short for it.
+  The size of the box the book is standing in, and nothing else.
 
   `--book-width` is one leaf: the open spread is twice it at 2.2:1 and the shut board is once it
-  at 1.085:1, so the two states stand the same height and opening the book moves nothing under
-  it. 490 is half the 980px column, which on a 1280 x 900 screen is a 900 x 410 book.
+  at 1.085:1, so the two states stand about 0.92 x this tall and opening the book moves nothing
+  under it.
 
-  The height term is what the viewport has left after everything else in the column: the header
-  and padding (122), the kicker and a two-line headline (130), two row gaps (36-48), the controls
-  and the hint under the book (73-80), and the lead-and-button row (83) — about 450px, then the
-  spread's height is the rest and one leaf is 1.1 times that (2.2 / 2). On a 900px screen that
-  is the full 490; on 790 it is 374, a 748px book, and the button is still on the first screen.
+  It used to be worked out from the window — the viewport's height less a 450px constant for
+  everything else in the hero — and a constant is a measurement of one screen. On the 14" laptop
+  in the report it was 134px out, which is why the button sat below the fold.
 
-  The floor is 0.39 of the column — a spread 78% as wide as the column, 764px on a wide screen,
-  696 at 1008 — on anything shorter than that. The column is restated from the viewport here
-  (100vw less the hero's side padding, capped at 980) rather than read from `--hero-col`, whose
-  `100%` would resolve against the box this property is used in — the book, not the column. Measured on a 1536 x 739 laptop, the commonest
-  screen there is: a fixed 340px floor gave a 680px book, smaller than the two-column hero's 760
-  it was replacing. There the words under the book need a scroll to reach — chosen over a book
-  that shrinks to keep them, because the book is what the section is selling. Below 900px the
-  hero is one column and sizes the book from the width.
+  The hero's book row is a size container now (landing.css), so this asks the row: half its width,
+  or its height less the controls and the hint under the book, whichever runs out first. 78px is
+  the only measured number left and it is a control strip, not a page: 36px of buttons, their
+  13-14px of margin and a 12-13px line of hint under them.
+
+  On a short screen that hint is hidden and the margin is tighter (landing.css), so the strip is
+  45px and the book has the difference.
 */
 @media (min-width: 901px) {
   .landing-v3-hero-product .storybook-hero {
-    --book-width: min(
-      490px,
-      max(calc(min(100vw - 2 * clamp(34px, 5vw, 78px), 980px) * 0.39), calc((100svh - 450px) * 1.1))
-    );
+    --book-width: min(490px, calc(100cqw / 2), calc((100cqh - 78px) * 1.087));
+  }
+}
+@media (min-width: 901px) and (max-height: 800px) {
+  .landing-v3-hero-product .storybook-hero {
+    --book-width: min(490px, calc(100cqw / 2), calc((100cqh - 45px) * 1.087));
   }
 }
 /*
