@@ -28,6 +28,10 @@ export const journey = {
     termsLink: "terms and conditions",
     /* The one action on this form: it makes the book. */
     continue: "Create the book",
+    /* See the note beside the Georgian strings: what this form says while a book is in flight. */
+    resume: "Back to the sample",
+    resumeNote:
+      "A sample for this child is already being made. Finish that one first — then you can make another.",
     ready: "Character ready",
     saveCharacter: " Save character",
     saveChanges: " Save changes",

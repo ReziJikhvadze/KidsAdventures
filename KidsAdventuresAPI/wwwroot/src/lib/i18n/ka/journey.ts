@@ -22,6 +22,13 @@ export const journey = {
     termsLink: "წესებსა და პირობებს",
     /* The one action on this form: it makes the book. */
     continue: "შექმენი წიგნი",
+    /*
+      What this form says instead, while a book for this child is already being written. The note
+      is the whole explanation the screen gives: the card above it is closed, so a parent who
+      expected a form needs to be told why there is not one.
+    */
+    resume: "დაუბრუნდი ნიმუშს",
+    resumeNote: "ამ ბავშვის ნიმუში უკვე მზადდება. ჯერ ის დაასრულე — მერე შეძლებ ახლის შექმნას.",
     ready: "პერსონაჟი მზადაა",
     saveCharacter: " პერსონაჟის შენახვა",
     saveChanges: " ცვლილებების შენახვა",

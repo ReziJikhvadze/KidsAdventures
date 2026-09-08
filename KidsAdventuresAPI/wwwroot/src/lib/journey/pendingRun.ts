@@ -51,6 +51,31 @@ export function writePendingRun(run: PendingRun): void {
   }
 }
 
+/**
+ * The stored run, when it belongs to the book being made right now.
+ *
+ * "A book" and not "any book": the stored run carries the world and the child it was started
+ * for, so a run left behind by another book is not offered as this one. A blank world or a hero
+ * the draft does not know yet is not a contradiction — that is exactly the empty draft of a
+ * fresh page load — so only a world or a hero that *disagrees* rejects it.
+ *
+ * Shared between the questions and the preview on purpose. The preview reads it to rejoin a book
+ * already being written; the questions read it to know there is one, and to stop a second being
+ * started over the top of it. Two copies of this rule would eventually disagree, and the screen
+ * that got it wrong would be the one billing for a book nobody asked for.
+ */
+export function resumablePendingRun(
+  hero: { serverId?: string; name: string; birthDate: string },
+  worldId: string | null,
+): PendingRun | null {
+  const pending = readPendingRun();
+  if (!pending) return null;
+  const heroKnown = !!hero.serverId || !!hero.name.trim();
+  if (worldId && pending.worldId !== worldId) return null;
+  if (heroKnown && pending.heroKey !== heroKeyOf(hero)) return null;
+  return pending;
+}
+
 export function clearPendingRun(): void {
   try {
     localStorage.removeItem(SESSION_KEYS.pendingBookRunId);

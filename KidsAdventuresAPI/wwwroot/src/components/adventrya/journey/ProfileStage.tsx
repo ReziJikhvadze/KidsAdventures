@@ -14,6 +14,7 @@ import { BOOK_LANGUAGES, type BookLanguage, useT } from "@/lib/i18n";
 import { preparePortrait } from "@/lib/images/preparePortrait";
 import type { CharacterGender, CharacterResponse, EyeColor } from "@/lib/api/types";
 import { emptyCharacter, type DraftCharacter, type JourneyDraft } from "@/lib/journey/draft";
+import { heroKeyOf, resumablePendingRun, type PendingRun } from "@/lib/journey/pendingRun";
 
 // The keys are the stored values, not display copy, so they stay literal rather than
 // being derived from a catalogue that now changes with the interface language.
@@ -191,6 +192,36 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
     if (userOpened.current.has(primary.localId)) return;
     if (isHydratedHero(primary)) setEditingId(null);
   }, [primary, editingId]);
+
+  /*
+    A book already being written, and whether this screen is standing in front of one.
+
+    Leaving the waiting screen keeps the run on the device so that coming back rejoins the same
+    book rather than paying for a second one — but the questions did not know that, so they
+    reopened as a form with a "create the book" button under it. Pressing it started another
+    book for the same child in the same world, and the first one was still being drawn.
+
+    So while a run is resumable this step is a summary and one button: go back to it. Nothing
+    here offers to edit the child or pick another, because either would change the identity the
+    run is keyed to and quietly unblock a second book.
+
+    Read in an effect and not in render: `localStorage` does not exist on the server, and a value
+    read during render would make the first client paint disagree with the markup it hydrates.
+    Re-read whenever the hero or the world changes, which is what the run is matched against.
+  */
+  const [pendingRun, setPendingRun] = useState<PendingRun | null>(null);
+  const heroKey = primary ? heroKeyOf(primary) : null;
+  useEffect(() => {
+    setPendingRun(primary ? resumablePendingRun(primary, draft.worldId) : null);
+    // `heroKey` is what `resumablePendingRun` actually compares; the object identity changes on
+    // every keystroke and would re-read storage for each one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [heroKey, draft.worldId]);
+
+  /* The card closes while a run is waiting: an open form is an invitation to change the child. */
+  useEffect(() => {
+    if (pendingRun) setEditingId(null);
+  }, [pendingRun]);
   /*
     Consent to the terms, which is asked for once and here.
 
@@ -426,7 +457,10 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
           book now simply follows the interface it was ordered in.
         */}
 
-        {heroes && heroes.length > 0 && primary ? (
+        {/* No picker while a book is being written for one of these children: choosing another
+            would change the child the waiting run is keyed to, and the block would lift with a
+            half-drawn book left behind it. */}
+        {heroes && heroes.length > 0 && primary && !pendingRun ? (
           <HeroPicker
             heroes={heroes}
             selectedId={primary.serverId ?? null}
@@ -499,12 +533,17 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
                 Nothing needs finishing — the editor writes into the draft as it is typed — so
                 opening one card simply closes the other.
               */
-              onEdit={() => {
-                userOpened.current.add(character.localId);
-                setEditingId(character.localId);
-                setError(null);
-              }}
-              onRemove={removeAction(character)}
+              /* Nothing to change while the book this child is in is being written. */
+              onEdit={
+                pendingRun
+                  ? null
+                  : () => {
+                      userOpened.current.add(character.localId);
+                      setEditingId(character.localId);
+                      setError(null);
+                    }
+              }
+              onRemove={pendingRun ? undefined : removeAction(character)}
             />
           );
         })}
@@ -569,13 +608,32 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
         height.
       */}
       <div className="ux-profile-footer">
-        {/* The padlock line saying the data is only used to make the book has gone. The consent
-            beside it links the terms, which is where that promise is actually made and kept. */}
-        {consent}
+        {/*
+          A book already being written leaves one thing to do: go back to it.
 
-        <button className="button journey-primary" type="button" onClick={handleContinue}>
-          {copy.profile.continue}
-        </button>
+          No consent tick either — it is asked for once, at the press that writes a book, and
+          that press has already happened. Asking again on the way back to the same book would be
+          a second consent for one story.
+        */}
+        {pendingRun ? (
+          <>
+            <p className="ux-profile-resume-note">{copy.profile.resumeNote}</p>
+            <button className="button journey-primary" type="button" onClick={onContinue}>
+              {copy.profile.resume}
+            </button>
+          </>
+        ) : (
+          <>
+            {/* The padlock line saying the data is only used to make the book has gone. The
+                consent beside it links the terms, which is where that promise is actually made
+                and kept. */}
+            {consent}
+
+            <button className="button journey-primary" type="button" onClick={handleContinue}>
+              {copy.profile.continue}
+            </button>
+          </>
+        )}
       </div>
     </section>
   );
@@ -1127,7 +1185,8 @@ function CharacterSummary({
 }: {
   character: DraftCharacter;
   index: number;
-  onEdit: () => void;
+  /** Null while this child's book is already being written: there is nothing to change. */
+  onEdit: (() => void) | null;
   onRemove?: () => void;
 }) {
   const t = useT();
@@ -1219,10 +1278,12 @@ function CharacterSummary({
         </p>
       </div>
       <div className="ux-summary-actions">
-        <button type="button" onClick={onEdit}>
-          <Pencil aria-hidden="true" />
-          {t.common.actions.change}
-        </button>
+        {onEdit ? (
+          <button type="button" onClick={onEdit}>
+            <Pencil aria-hidden="true" />
+            {t.common.actions.change}
+          </button>
+        ) : null}
         {onRemove ? (
           <button type="button" className="danger" onClick={onRemove}>
             <Trash2 aria-hidden="true" />

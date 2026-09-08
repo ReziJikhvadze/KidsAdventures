@@ -19,6 +19,7 @@ import {
   clearPendingRun,
   heroKeyOf,
   readPendingRun,
+  resumablePendingRun,
   savedCharacterIdOf,
   writePendingRun,
 } from "@/lib/journey/pendingRun";
@@ -104,13 +105,9 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
       the empty draft of a fresh page load — so only a world or a hero that disagrees rejects it.
     */
     const pending = readPendingRun();
-    const heroKnown = !!hero.serverId || !!hero.name.trim();
-    const resumable =
-      pending &&
-      (!draft.worldId || pending.worldId === draft.worldId) &&
-      (!heroKnown || pending.heroKey === heroKeyOf(hero))
-        ? pending
-        : null;
+    /* The rule lives in `pendingRun.ts` now: the questions ask the same thing, to know whether a
+       book is already being written before offering to start another. */
+    const resumable = resumablePendingRun(hero, draft.worldId);
     if (pending && !resumable) clearPendingRunId();
 
     // A saved hero named in the URL is still on its way from the account. Starting now would

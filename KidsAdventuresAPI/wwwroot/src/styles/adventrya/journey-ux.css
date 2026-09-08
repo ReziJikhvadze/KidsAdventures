@@ -839,6 +839,16 @@
   min-width: min(210px, 42%);
   margin-top: 0;
 }
+/* Stands where the consent stands, and reads like it: this row is one line tall, and the note is
+   the sentence that explains why the card above it is closed. */
+.ux-profile-resume-note {
+  flex: 1 1 auto;
+  margin: 0;
+  color: #f8f2e5a8;
+  font-size: 13px;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
 /*
   The one special wish, now that it is asked on the details step rather than over the map.
   Sized to sit with the name and the date of birth above it rather than as a panel of its own.
