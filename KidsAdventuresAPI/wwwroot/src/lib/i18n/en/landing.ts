@@ -202,7 +202,10 @@ export const landing = {
       },
       {
         question: "How long until I receive the printed book?",
-        answer: "Free delivery across Georgia.",
+        /* The question asks how long, so the answer says how long. It used to say only that
+           delivery is free — true, and about the price rather than the wait. */
+        answer:
+          "2–3 working days in Tbilisi, 5–7 working days elsewhere in Georgia. Delivery is free across Georgia.",
       },
       {
         question: "When is the full book created?",

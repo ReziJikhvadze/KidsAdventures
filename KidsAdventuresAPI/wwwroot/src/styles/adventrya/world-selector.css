@@ -871,10 +871,6 @@
   line-height: 1.25;
 }
 
-.short-title {
-  display: none;
-}
-
 .world-node.is-previewed .world-label,
 .world-node.is-selected .world-label,
 .world-node:hover .world-label,
@@ -1148,12 +1144,11 @@
   border-color: rgba(255, 225, 154, 0.27);
 }
 
-.mobile-frame .world-label small,
-.mobile-frame .full-title {
+.mobile-frame .world-label small {
   display: none;
 }
 
-.mobile-frame .world-label .short-title {
+.mobile-frame .world-label .world-title {
   display: block;
   overflow: hidden;
   max-width: 100%;

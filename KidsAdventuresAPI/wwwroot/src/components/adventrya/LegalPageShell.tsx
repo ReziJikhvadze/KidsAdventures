@@ -1,14 +1,10 @@
-import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { AppHeader } from "@/components/adventrya/AppHeader";
-import { useT } from "@/lib/i18n";
+import { SiteFooter } from "@/components/adventrya/SiteFooter";
 
 /** Shared Beki chrome for privacy / terms / contact (replaces old English site Nav/Footer). */
 export function LegalPageShell({ children }: { children: ReactNode }) {
-  const t = useT();
-  const F = t.common.footer;
-
   return (
     /*
       Deliberately not `.screen`.
@@ -23,31 +19,9 @@ export function LegalPageShell({ children }: { children: ReactNode }) {
       <div className="grain" aria-hidden="true" />
       <AppHeader backHref="/" />
       <main style={{ padding: "20px 0 36px" }}>{children}</main>
-      <footer className="landing-v3-footer" style={{ marginTop: "auto" }}>
-        <div>
-          <Link to="/" className="landing-v3-logo">
-            {t.common.brand}
-            <small>{t.common.brandTagline}</small>
-          </Link>
-          <p>{F.blurb}</p>
-        </div>
-        <nav>
-          <div>
-            <strong>{F.product}</strong>
-            <Link to="/create">{t.common.nav.createBook}</Link>
-            <Link to="/world">{F.myWorld}</Link>
-          </div>
-          <div>
-            <strong>{F.help}</strong>
-            <Link to="/contact">{F.contact}</Link>
-          </div>
-          <div>
-            <strong>{F.legal}</strong>
-            <Link to="/privacy">კონფიდენციალურობა</Link>
-            <Link to="/terms">წესები და პირობები</Link>
-          </div>
-        </nav>
-      </footer>
+      {/* The site's footer, not a shorter copy of it. `.legal-page > main` already takes the
+          spare height, so a short document keeps this at the foot of the screen. */}
+      <SiteFooter />
     </div>
   );
 }

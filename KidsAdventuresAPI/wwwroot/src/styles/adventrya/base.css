@@ -594,6 +594,13 @@ svg {
   border-radius: 12px;
   font-size: 14px;
 }
+/* The signed-out disc carries an icon rather than an initial; lucide ships at 24px, which fills
+   a 34px disc edge to edge. Sized here because it is not a direct child of the pill, so the
+   chevron's rule above does not reach it. */
+.child-avatar svg {
+  width: 17px;
+  height: 17px;
+}
 .child-pill > span:nth-child(2) {
   min-width: 74px;
   display: flex;

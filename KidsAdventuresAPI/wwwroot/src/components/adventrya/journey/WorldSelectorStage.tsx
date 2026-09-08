@@ -629,11 +629,16 @@ function WorldStageArt({
                   the whole island stays one big click target until there is something to press.
                 */}
                 <div className="world-card">
-                  {/* The stylesheet shows the full title where there is room and the short one
-                      where there is not, so both are set and neither is chosen in script. */}
+                  {/* One name, written once.
+
+                      This used to be two <strong>s — the full title and a shorter map label —
+                      with the stylesheet showing whichever fitted. Now that a world has a single
+                      name, the two carried the same string, so every island's name appeared
+                      twice in the markup: twice in the page's text, and twice again because both
+                      the desktop and the mobile stage are always rendered. The stylesheet sizes
+                      this one element per stage instead. */}
                   <span className="world-label">
-                    <strong className="full-title">{place.mapTitle}</strong>
-                    <strong className="short-title">{place.mapLabel}</strong>
+                    <strong className="world-title">{place.mapTitle}</strong>
                     {/* One line under the name, and only for a child whose map this is: where
                         they have been, and what is not open to them yet. */}
                     {isDone || finished ? <em className="world-state">{copy.visited}</em> : null}

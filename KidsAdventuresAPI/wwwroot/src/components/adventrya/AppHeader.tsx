@@ -1,5 +1,5 @@
 import { Link, useCanGoBack, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, ChevronDown, ChevronRight, Globe, LogOut } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Globe, LogOut, User } from "lucide-react";
 
 import { LanguageSwitcher } from "@/components/adventrya/LanguageSwitcher";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -98,10 +98,15 @@ export function AppHeader({
     This pill opens the parent's account, so it wears the parent's
     initial. It wore the child's — and on the world picker, where no child has been entered
     yet, that was the first letter of the placeholder name "პატარა გმირი": a "პ" that belonged
-    to nobody. Falls back to the brand letter while signed out, when there is no one to name.
+    to nobody.
+
+    Signed out there is no one to name, and the fallback used to be a literal "A" — the initial
+    of "Adventrya", a brand this product has not carried for months. On a Georgian page it read
+    as a Latin letter stuck to the front of the label beside it. An icon says "your account"
+    without claiming to be anybody's initial, and belongs to no alphabet.
   */
   const parentInitial =
-    (user?.displayName?.trim() || user?.email?.trim() || "").charAt(0).toUpperCase() || "A";
+    (user?.displayName?.trim() || user?.email?.trim() || "").charAt(0).toUpperCase() || null;
 
   return (
     <header
@@ -191,12 +196,16 @@ export function AppHeader({
           */
           <Link className="child-pill" to="/dashboard" aria-label={t.common.nav.openDashboard}>
             <span className="child-avatar" aria-hidden="true">
-              {parentInitial}
+              {parentInitial ?? <User />}
             </span>
-            <span>
-              <small>{t.common.nav.parentSpace}</small>
-              {t.common.nav.myCabinet}
-            </span>
+            {/* One label, and the same one the marketing header uses.
+
+                This carried two at once — "მშობლის სივრცე" over "ჩემი კაბინეტი" — for a single
+                button that goes to a single place. Two names for one destination is one name too
+                many wherever it is read: stacked on the pill, run together in the page's text,
+                and read out one after the other by a screen reader. The home page's header has
+                always said "ჩემი სივრცე" for this, so that is what it says here too. */}
+            <span>{t.common.nav.mySpace}</span>
             <ChevronRight />
           </Link>
         ) : null}

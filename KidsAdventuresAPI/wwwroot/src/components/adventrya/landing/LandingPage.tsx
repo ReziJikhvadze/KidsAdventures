@@ -1,12 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
+import { SiteFooter } from "@/components/adventrya/SiteFooter";
 import { WorldSelectorStage } from "@/components/adventrya/journey/WorldSelectorStage";
 import { Books } from "@/components/adventrya/landing/Books";
-import { Header, useLogoToTop } from "@/components/adventrya/landing/Header";
+import { Header } from "@/components/adventrya/landing/Header";
 import { Hero } from "@/components/adventrya/landing/Hero";
 import { ArrowIcon, CheckIcon, SparkleIcon } from "@/components/adventrya/landing/icons";
-import { BRAND_HEADER_NAME } from "@/lib/brand";
 import { formatGel, useT } from "@/lib/i18n";
 import { PRICES } from "@/lib/pricing";
 import { useJourneyDraft } from "@/lib/journey/draft";
@@ -269,63 +269,6 @@ function Final() {
   );
 }
 
-function Footer() {
-  const t = useT();
-  const F = t.common.footer;
-  // The footer mark is the same mark, and at the bottom of a long page it is the one a reader is
-  // actually next to when they want the top.
-  const toTop = useLogoToTop();
-  return (
-    /* Named so the pages it links to can put a reader back where they were standing. The rest
-       of the page's sections carry an id for the same reason; the footer is seven screens down,
-       which makes it the one where being returned to the top is most obviously wrong. */
-    <footer className="landing-v3-footer" id="footer">
-      <div>
-        <Link to="/" className="landing-v3-logo" onClick={toTop}>
-          {BRAND_HEADER_NAME}
-          <small>{t.common.brandTagline}</small>
-        </Link>
-        <p>{F.blurb}</p>
-      </div>
-      <nav>
-        <div>
-          <strong>{F.product}</strong>
-          {/* Named like the link below it: both start in the footer, and the arrow out of the
-              picker has to bring a reader back to the foot of a seven-screen page rather than
-              the top of it. */}
-          <Link to={START_JOURNEY} search={fromSection("footer")}>
-            {t.common.nav.createBook}
-          </Link>
-          <a href="#pricing">{t.common.nav.pricing}</a>
-          {/* The picker's back arrow is a plain link to a fixed address — it cannot use the
-              browser's history the way the pages below it do — so it is told where this reader
-              came from. Without it, leaving the picker dropped them seven screens up the page. */}
-          <Link to="/themes" search={{ from: "footer" }}>
-            {F.chooseWorld}
-          </Link>
-        </div>
-        <div>
-          <strong>{F.help}</strong>
-          <Link to="/about">ჩვენ შესახებ</Link>
-          <Link to="/contact">{F.contact}</Link>
-          <a href="#faq">{t.common.nav.faq}</a>
-        </div>
-        {/*
-          Delivery and refunds sits with the legal links rather than under help: it is the
-          document a card scheme expects to find from every page, and the footer is the only
-          thing on every page.
-        */}
-        <div>
-          <strong>{F.legal}</strong>
-          <Link to="/refunds">მიწოდება და დაბრუნება</Link>
-          <Link to="/privacy">კონფიდენციალურობა</Link>
-          <Link to="/terms">წესები და პირობები</Link>
-        </div>
-      </nav>
-    </footer>
-  );
-}
-
 /**
  * The bar that follows you down the page.
  *
@@ -425,7 +368,7 @@ export function LandingPage() {
         <Faq />
         <Final />
       </main>
-      <Footer />
+      <SiteFooter />
       <MobileCta />
     </div>
   );

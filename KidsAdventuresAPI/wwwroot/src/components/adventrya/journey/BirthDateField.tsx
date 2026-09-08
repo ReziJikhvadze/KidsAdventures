@@ -53,7 +53,17 @@ export function BirthDateField({
   const years: number[] = [];
   for (let y = thisYear; y >= thisYear - 18; y--) years.push(y);
 
-  const daysInMonth = year && month ? new Date(year, month, 0).getDate() : 31;
+  /*
+    The month decides the days, with or without a year.
+
+    This asked for both and fell back to 31 when either was missing — so a parent who chose
+    February before choosing a year was offered the 30th and the 31st, days February has never
+    had. The year only settles one question, whether this particular February has 29 days, so
+    until it is chosen the list is built against a leap year: every day the month can have, and
+    none it cannot. Picking the year afterwards clamps through `emit` below.
+  */
+  const LEAP_YEAR = 2024;
+  const daysInMonth = month ? new Date(year ?? LEAP_YEAR, month, 0).getDate() : 31;
   const days: number[] = [];
   for (let d = 1; d <= daysInMonth; d++) days.push(d);
 
@@ -62,8 +72,15 @@ export function BirthDateField({
     const m = next.m === undefined ? month : next.m;
     let d = next.d === undefined ? day : next.d;
 
-    // 31 January then February: clamp rather than silently emit an invalid date.
-    if (y && m && d) d = Math.min(d, new Date(y, m, 0).getDate());
+    /*
+      31 January then February: clamp rather than silently emit an invalid date.
+
+      The year is not required for this. Without it the clamp did not run, so a 31 chosen under
+      January survived a switch to February — a value with no option left to match it, which the
+      select renders as an empty box. Against a leap year the clamp is right for every month and
+      one day out only for a 29th that a later, non-leap year will clamp again.
+    */
+    if (m && d) d = Math.min(d, new Date(y ?? LEAP_YEAR, m, 0).getDate());
 
     setParts([y, m, d]);
     onChange(y && m && d ? `${y}-${pad(m)}-${pad(d)}` : "");

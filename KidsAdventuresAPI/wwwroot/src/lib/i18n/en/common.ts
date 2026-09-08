@@ -74,6 +74,12 @@ export const common = {
     adventureMap: "Adventure Map",
     legal: "Privacy · Terms and conditions",
     madeIn: "Made in Georgia",
+    /* The four link labels below were written straight into the home page's footer, which is
+       why the shorter footer on every other page could quietly go without them. */
+    about: "About us",
+    refunds: "Delivery and returns",
+    privacy: "Privacy",
+    terms: "Terms and conditions",
   },
 
   /** Relationship chips offered when adding a supporting character. */

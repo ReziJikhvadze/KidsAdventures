@@ -36,7 +36,7 @@ export const landing = {
       },
       {
         theme: "space",
-        title: "ელენე და ვარსკვლავის გზა",
+        title: "ელენე და ვარსკვლავების გზა",
         meta: "კოსმოსი · გამბედაობა",
         age: "8–10 წელი",
       },
@@ -202,7 +202,11 @@ export const landing = {
       },
       {
         question: "რამდენ ხანში მივიღებ ბეჭდურ წიგნს?",
-        answer: "უფასო მიწოდება მთელ საქართველოში.",
+        /* The question asks how long, so the answer says how long. It used to say only "free
+           delivery across Georgia" — true, and about the price rather than the wait. The days
+           are the ones the refunds document and the checkout already promise. */
+        answer:
+          "თბილისში 2–3 სამუშაო დღეში, საქართველოს სხვა რეგიონებში 5–7 სამუშაო დღეში. მიწოდება უფასოა მთელ საქართველოში.",
       },
       {
         question: "როდის შეიქმნება სრული წიგნი?",
