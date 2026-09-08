@@ -42,83 +42,153 @@ const gen = (name: string) => `${name.trim()}${endsInVowel(name) ? "ს" : "ი�
  */
 type DemoSpread = { title: string; caption: string; text: string; image: number };
 
-function spreads(heroName: string, placeIn: string): DemoSpread[] {
-  return [
-    {
-      title: "ძველი რუკა",
-      caption: "ძველი წიგნი და ოქროსფერი გზა",
-      text: `${gen(heroName)} ბაბუას ძველი წიგნი ჰქონდა. ერთ დილას ${erg(heroName)} ის გადაშალა. შიგნით რუკა იდო და რუკაზე ოქროსფერი გზა იყო დახატული.`,
-      image: 1,
-    },
-    {
-      title: "ტირილი გვიმრებში",
-      caption: "ვიღაც ტიროდა ახლოს",
-      text: `გზა ${placeIn} შედიოდა. ${heroName} გაჰყვა. უცებ გაჩერდა — სადღაც ახლოს ვიღაც ტიროდა.`,
-      image: 2,
-    },
-    {
-      title: "ქვა ქვაზე",
-      caption: "ხელები დაეღალა, მაგრამ არ გაჩერდა",
-      text: `ქვების ქვეშ პატარა დინოზავრს ფეხი გაება. ${erg(heroName)} ქვები სათითაოდ გადაწია. ხელები დაეღალა, მაგრამ არ გაჩერდა.`,
-      image: 3,
-    },
-    {
-      title: "ერთად გზაზე",
-      caption: "ორნი ერთ გზაზე",
-      text: `პატარა რექსი გამოვიდა და ფეხზე წამოდგა. მერე ${dat(heroName)} გვერდით ამოუდგა. ოქროსფერ გზას ერთად გაჰყვნენ.`,
-      image: 8,
-    },
-    {
-      title: "გატეხილი ხიდი",
-      caption: "მდინარე და გატეხილი ხიდი",
-      text: "მალე მდინარესთან მივიდნენ. ხიდი გატეხილი იყო. რექსმა უკან დაიხია.",
-      image: 4,
-    },
-    {
-      title: "პირველი ნაბიჯი",
-      caption: "პირველი ნაბიჯი ფიცარზე",
-      text: `${dat(heroName)}აც ეშინოდა. მაგრამ ხელი გაუწოდა და პირველმა დადგა ფიცარზე. ნელა, ერთად გაიარეს.`,
-      image: 5,
-    },
-    {
-      title: "მეორე ნაპირზე",
-      caption: "დედა მეორე ნაპირზე ელოდა",
-      text: `მეორე ნაპირზე რექსის დედა ელოდა. მან გრძელი ყელი დახარა და ${dat(heroName)} ნაზად შეეხო. რექსი დედის ფეხს მიეკრა.`,
-      image: 6,
-    },
-    {
-      title: "რუკა ისევ წიგნში",
-      caption: "გზა შინისკენ ანათებდა",
-      text: `შინ რომ ბრუნდებოდა, გზა ოქროსფრად ანათებდა. ${erg(heroName)} რუკა ისევ წიგნში ჩადო და თაროზე დადო.`,
-      image: 7,
-    },
-  ];
-}
+/**
+ * The printed book, word for word.
+ *
+ * Lifted out of "ზუკა და სინათლის ქალაქი" — a real Beki book, print PDF dated 2026-09-08 — so the
+ * sample on the home page is not a sample at all. The words are the ones on the press sheets and
+ * the pictures are the same nine illustrations, pulled out of that file at 5315 x 2480 and resized
+ * for the web without recomposing anything.
+ *
+ * `caption` is empty on purpose. The printed story spreads carry no rubric over the prose — the
+ * text sits alone in its panel — and a heading invented for the screen would be the one part of
+ * this book that never went to press.
+ */
+const CITY_OF_LIGHT = (heroName: string): DemoSpread[] => [
+  {
+    title: "ჩამქრალი ფარანი",
+    caption: "",
+    text: `${heroName} სინათლის ქალაქში დგას. მთელი ქალაქი თბილად ანათებს. მხოლოდ ${dat(heroName)} პატარა ფარანია ჩამქრალი. – ნეტავ, როგორ ავანთოთ? – ფიქრობს ${heroName}. ბეკი გვერდით უდგას და უღიმის.`,
+    image: 1,
+  },
+  {
+    title: "ოქროსფერი მტვერი",
+    caption: "",
+    text: `უცებ ჰაერში ოქროსფერი მტვერი ფარფატებს. ის ნელა მიედინება მთავარი ქუჩისკენ. – შეხედე, ბეკი! – იძახის ${heroName}. – ეს ხომ სინათლის ბილიკია! მეგობრები ბილიკს მიჰყვებიან.`,
+    image: 2,
+  },
+  {
+    title: "მანათობელი ხიდი",
+    caption: "",
+    text: `ბილიკი მანათობელ ხიდზე გადადის. ${heroName} თამამად მიაბიჯებს შუშის საფეხურებზე. ჩამქრალი ფარანი მაგრად უჭირავს ხელში. ბეკიც მხიარულად მიჰყვება უკან.`,
+    image: 3,
+  },
+  {
+    title: "ბილიკი წყდება",
+    caption: "",
+    text: `მოულოდნელად, ხიდის ბოლოს ბილიკი წყდება. ირგვლივ სიბნელეა. ${dat(heroName)} ფარანი ოდნავ ციმციმებს და ისევ ქრება. – სად წავიდეთ? – ჩურჩულებს ${heroName}. ბეკი ყურს უგდებს სიჩუმეს.`,
+    image: 4,
+  },
+  {
+    title: "ლამპრები ინთება",
+    caption: "",
+    text: `${heroName} ამჩნევს, რომ სიბნელეში რაღაც წკრიალებს. ის ნელა იწყებს მელოდიის ღიღინს. ქუჩის ლამპრები სათითაოდ ინთება! ისინი პირდაპირ დიდი კოშკისკენ მიუთითებენ. ბეკი სიხარულით ტაშს უკრავს.`,
+    image: 5,
+  },
+  {
+    title: "სინათლის გული",
+    caption: "",
+    text: `კოშკის წინ უზარმაზარი შადრევანია. იქ წყლის მაგივრად თბილი შუქი ჩქეფს. ეს ხომ სინათლის გულია! ${heroName} გაოცებული იყურება ზემოთ. ბეკი ღიმილით უყურებს მეგობარს.`,
+    image: 6,
+  },
+  {
+    title: "ფარანი ინთება",
+    caption: "",
+    text: `${heroName} ფარანს შადრევანში ყოფს. შუშა ოქროსფრად ივსება და მზესავით ანათებს. ყველაფერი გამოვიდა! ${heroName} ბედნიერია, ბეკი კი მხიარულად ხტუნავს. ახლა მათი გზა სულ ნათელია.`,
+    image: 7,
+  },
+  {
+    title: "ლურჯი ვარსკვლავი",
+    caption: "",
+    text: `მთელი ქალაქი ჯადოსნურად ციმციმებს. ${heroName} თავის მანათობელ ფარანს მაღლა სწევს. უცებ, ცაში პატარა ლურჯი ვარსკვლავი ეშვება. ნეტავ იქ რა ხდება? მეგობრები ერთმანეთს უღიმიან.`,
+    image: 8,
+  },
+];
+
+/**
+ * The older dinosaur demo, kept for the worlds the printed book does not cover.
+ *
+ * Its artwork is `hero-demo/page-*.webp` — 900 x 1350 portraits drawn one to a page, which is the
+ * pre-spread format. They are not spreads and must not be stretched across a fold; the component
+ * measures every illustration and falls back to the page-at-a-time layout for them by itself.
+ */
+const LOST_VALLEY = (heroName: string, placeIn: string): DemoSpread[] => [
+  {
+    title: "ძველი რუკა",
+    caption: "ძველი წიგნი და ოქროსფერი გზა",
+    text: `${gen(heroName)} ბაბუას ძველი წიგნი ჰქონდა. ერთ დილას ${erg(heroName)} ის გადაშალა. შიგნით რუკა იდო და რუკაზე ოქროსფერი გზა იყო დახატული.`,
+    image: 1,
+  },
+  {
+    title: "ტირილი გვიმრებში",
+    caption: "ვიღაც ტიროდა ახლოს",
+    text: `გზა ${placeIn} შედიოდა. ${heroName} გაჰყვა. უცებ გაჩერდა — სადღაც ახლოს ვიღაც ტიროდა.`,
+    image: 2,
+  },
+  {
+    title: "ქვა ქვაზე",
+    caption: "ხელები დაეღალა, მაგრამ არ გაჩერდა",
+    text: `ქვების ქვეშ პატარა დინოზავრს ფეხი გაება. ${erg(heroName)} ქვები სათითაოდ გადაწია. ხელები დაეღალა, მაგრამ არ გაჩერდა.`,
+    image: 3,
+  },
+  {
+    title: "ერთად გზაზე",
+    caption: "ორნი ერთ გზაზე",
+    text: `პატარა რექსი გამოვიდა და ფეხზე წამოდგა. მერე ${dat(heroName)} გვერდით ამოუდგა. ოქროსფერ გზას ერთად გაჰყვნენ.`,
+    image: 8,
+  },
+  {
+    title: "გატეხილი ხიდი",
+    caption: "მდინარე და გატეხილი ხიდი",
+    text: "მალე მდინარესთან მივიდნენ. ხიდი გატეხილი იყო. რექსმა უკან დაიხია.",
+    image: 4,
+  },
+  {
+    title: "პირველი ნაბიჯი",
+    caption: "პირველი ნაბიჯი ფიცარზე",
+    text: `${dat(heroName)}აც ეშინოდა. მაგრამ ხელი გაუწოდა და პირველმა დადგა ფიცარზე. ნელა, ერთად გაიარეს.`,
+    image: 5,
+  },
+  {
+    title: "მეორე ნაპირზე",
+    caption: "დედა მეორე ნაპირზე ელოდა",
+    text: `მეორე ნაპირზე რექსის დედა ელოდა. მან გრძელი ყელი დახარა და ${dat(heroName)} ნაზად შეეხო. რექსი დედის ფეხს მიეკრა.`,
+    image: 6,
+  },
+  {
+    title: "რუკა ისევ წიგნში",
+    caption: "გზა შინისკენ ანათებდა",
+    text: `შინ რომ ბრუნდებოდა, გზა ოქროსფრად ანათებდა. ${erg(heroName)} რუკა ისევ წიგნში ჩადო და თაროზე დადო.`,
+    image: 7,
+  },
+];
 
 /**
  * The book on the landing page, laid out the way a printed one is.
- *
- * Two things were wrong with it. Every page carried the same picture — the world's cover, seven
- * times — so the sample showed a parent a book whose pages never change. And each page drew the
- * artwork and the words together, which is the old single-page format; the books we actually
- * print are spreads, a full-bleed illustration facing a page of prose. The demo is the strongest
- * claim the landing page makes about the product, so it should be the product.
  *
  * The shape here is the one MasterStoryProjection builds for a real book: each spread becomes two
  * pages, the picture first with an empty `content`, then the facing prose with no illustration,
  * both carrying the same title and caption.
  *
- * Art only exists for the dinosaur valley, which is the world the hero section shows. Any other
- * world falls back to its cover rather than putting a boy and a sauropod in the wrong place.
+ * Two sets of artwork, and they are not interchangeable. The magic world is served by the real
+ * book's own spreads — 2.143:1, one painting across an open sheet — which is what makes the home
+ * page show the product rather than a drawing of it. Every other world still has the older
+ * portraits, one per page. Anything with no art at all falls back to its world cover rather than
+ * putting a boy and a sauropod in the wrong place.
  */
-export function heroDemoPages(heroName: string, theme: WorldId = "dinosaurs"): StoryPageContent[] {
-  const placeIn = PLACE_IN[theme] ?? PLACE_IN.dinosaurs;
-  const art = (image: number) =>
-    theme === "dinosaurs"
-      ? `/adventrya/hero-demo/page-${image}.webp`
-      : (WORLD_COVER_ART[theme] ?? WORLD_COVER_ART.dinosaurs);
+export function heroDemoPages(heroName: string, theme: WorldId = "magic"): StoryPageContent[] {
+  const placeIn = PLACE_IN[theme] ?? PLACE_IN.magic;
 
-  return spreads(heroName, placeIn).flatMap((spread) => [
+  const art = (image: number) => {
+    if (theme === "magic") return `/adventrya/hero-demo/spread-${image}.webp`;
+    if (theme === "dinosaurs") return `/adventrya/hero-demo/page-${image}.webp`;
+    return WORLD_COVER_ART[theme] ?? WORLD_COVER_ART.dinosaurs;
+  };
+
+  const beats =
+    theme === "magic" ? CITY_OF_LIGHT(heroName.trim()) : LOST_VALLEY(heroName.trim(), placeIn);
+
+  return beats.flatMap((spread) => [
     {
       title: spread.title,
       caption: spread.caption,

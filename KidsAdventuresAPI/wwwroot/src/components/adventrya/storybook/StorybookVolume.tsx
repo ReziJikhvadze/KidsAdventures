@@ -502,7 +502,9 @@ function SpreadHalf({
       <div className="storybook-spread-full-art" style={{ backgroundImage: `url("${artUrl}")` }} />
       {prose ? (
         <div className="storybook-spread-prose">
-          {prose.caption || prose.title ? <small>{prose.caption || prose.title}</small> : null}
+          {/* No rubric. Checked against the print PDF: every one of the eight story spreads
+              sets the prose alone in its panel, with no heading over it. A caption here was a
+              screen-only invention — the one part of the page that never went to press. */}
           <p>{prose.content}</p>
           <i>{t.story.storybook.pageLabel(pair.text.storyIndex + 1, totalStoryPages)}</i>
         </div>

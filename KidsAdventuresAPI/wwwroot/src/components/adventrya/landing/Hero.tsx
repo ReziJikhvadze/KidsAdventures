@@ -23,11 +23,11 @@ const HERO_TITLE = "";
  * of the product. The sample belongs to nobody, so it names the world it is set in rather than
  * a child who does not exist.
  */
-const HERO_COVER_CAPTION = "დინოზავრების დაკარგული ხეობა.";
+const HERO_COVER_CAPTION = "სინათლის ქალაქი.";
 
 export function Hero() {
   const t = useT();
-  const pages = heroDemoPages(HERO_NAME, "dinosaurs");
+  const pages = heroDemoPages(HERO_NAME, "magic");
 
   return (
     <>
@@ -76,25 +76,22 @@ export function Hero() {
               different section of it. Same marker the hero's own button carries. */}
           <NewBookReturnContext.Provider value="top">
             <StorybookVolume
-              className="storybook storybook-hero theme-dinosaurs"
+              className="storybook storybook-hero theme-magic"
               variant="hero"
               heroName={HERO_NAME}
               title={HERO_TITLE}
               coverCaption={HERO_COVER_CAPTION}
-              worldId="dinosaurs"
+              worldId="magic"
               pages={pages}
               lockedPageCount={0}
               isUnlocked
               isSpreadBook
               /*
-                The same object the parent will buy: one painting across both leaves, words on it.
+                The same object the parent will buy: one painting across both leaves.
 
-                Inert until the demo art is redrawn. `public/adventrya/hero-demo/page-*.webp` are
-                900x1350 portraits, one per page, and the component measures each illustration
-                before it treats one as a spread — so today these fall through to the old
-                page-at-a-time path rather than being stretched across the fold. Drop landscape
-                art in at the same paths and the home page becomes the printed book with no
-                further change here.
+                Live now that the demo is the real book. `hero-demo/spread-*.webp` are the
+                illustrations out of the printed PDF at 2.143:1, so the component measures
+                them as spreads and lays them across the fold the way the press does.
               */
               fullBleedSpreads
               interactive
