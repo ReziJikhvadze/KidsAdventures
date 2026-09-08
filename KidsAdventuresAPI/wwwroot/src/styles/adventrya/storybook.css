@@ -1123,27 +1123,15 @@
   big it is, and the height it is allowed comes from the viewport rather than from a constant.
 */
 /*
-  Taken out of the flow only where something else is holding the height open.
+  In the flow at every width.
 
-  Between 781px and 900px it was absolute inside a column the hero had just told to be
-  `height: auto` — an absolute child measures as nothing, so the box collapsed to zero and the
-  book, centred on a line rather than in a space, hung half over the headline above it and half
-  over the shelf below. The single-column layout keeps it in the flow, where its own height is
-  the column's height.
+  It used to be absolutely centred in a box of fixed height on a desktop, so that opening the
+  book — which changes its shape — moved nothing around it. The hero is one column now and the
+  row of words under the book follows it, so the book holds its own place; the shape change is
+  harmless because a shut board and an open spread come out the same height (below).
 */
 .landing-v3-hero-product > .storybook {
   margin: 0 auto;
-}
-@media (min-width: 901px) {
-  .landing-v3-hero-product > .storybook {
-    position: absolute;
-    z-index: 4;
-    top: 50%;
-    left: 50%;
-    margin: 0;
-    transform: translate(-50%, -50%);
-    transform-origin: center;
-  }
 }
 .landing-v3-hero-product .storybook-controls {
   margin-top: 13px;
@@ -1152,30 +1140,46 @@
   color: #fff8eb7a;
 }
 /*
-  The height the hero can spare still decides the width — but against the printed shape.
+  The width the column gives, unless the screen is too short for it.
 
-  The divisor was 1.379, which is 1 / 0.725: the book used to be a tall portrait volume and its
-  height was nearly one and a half times its width. It is the printed book now — 222.5 x 205mm
-  shut, 440 x 200 open — so both states stand about 0.92 x --book-width tall, and dividing by
-  1.38 was asking for a third less width than the same strip of screen could hold.
+  `--book-width` is one leaf: the open spread is twice it at 2.2:1 and the shut board is once it
+  at 1.085:1, so the two states stand the same height and opening the book moves nothing under
+  it. 490 is half the 980px column, which on a 1280 x 900 screen is a 900 x 410 book.
 
-  Ceiling raised to match: 470px was where the old column ran out, and the row leans to the book
-  now (see journey-extras.css). Everything downstream is `min(..., 100%)`, so the column is still
-  what decides the size and this only says when to stop.
+  The height term is what the viewport has left after everything else in the column: the header
+  and padding (122), the kicker and a two-line headline (130), two row gaps (36-48), the controls
+  and the hint under the book (73-80), and the lead-and-button row (83) — about 450px, then the
+  spread's height is the rest and one leaf is 1.1 times that (2.2 / 2). On a 900px screen that
+  is the full 490; on 790 it is 374, a 748px book, and the button is still on the first screen.
 
-  Below 900px the hero is one column and sizes the book from the width instead.
+  The floor is 0.39 of the column — a spread 78% as wide as the column, 764px on a wide screen,
+  696 at 1008 — on anything shorter than that. The column is restated from the viewport here
+  (100vw less the hero's side padding, capped at 980) rather than read from `--hero-col`, whose
+  `100%` would resolve against the box this property is used in — the book, not the column. Measured on a 1536 x 739 laptop, the commonest
+  screen there is: a fixed 340px floor gave a 680px book, smaller than the two-column hero's 760
+  it was replacing. There the words under the book need a scroll to reach — chosen over a book
+  that shrinks to keep them, because the book is what the section is selling. Below 900px the
+  hero is one column and sizes the book from the width.
 */
 @media (min-width: 901px) {
   .landing-v3-hero-product .storybook-hero {
-    /* Subtracting the header, the hero's own padding and the controls under the book. */
-    --book-width: min(620px, calc((100svh - 245px) / 0.93));
+    --book-width: min(
+      490px,
+      max(calc(min(100vw - 2 * clamp(34px, 5vw, 78px), 980px) * 0.39), calc((100svh - 450px) * 1.1))
+    );
+  }
+}
+/*
+  Two leaves from 781px, so here too one leaf is half the column — the hero's 24px of padding
+  off each side. Left at the 560px default the shut book stood 516px tall against an open spread
+  of 342, and opening it moved everything under it by the difference.
+*/
+@media (min-width: 781px) and (max-width: 900px) {
+  .landing-v3-hero-product .storybook-hero {
+    --book-width: calc((100vw - 48px) / 2);
   }
 }
 @media (min-width: 1181px) {
-  /* The controls are taller here, so the book is allowed correspondingly less. */
-  .landing-v3-hero-product .storybook-hero {
-    --book-width: min(620px, calc((100svh - 275px) / 0.93));
-  }
   /*
     The way to turn a page, at a size that says so — but no larger than it needs to be.
 
@@ -1187,7 +1191,7 @@
   */
   .landing-v3-hero-product .storybook-controls {
     gap: 10px;
-    margin-top: 18px;
+    margin-top: 14px;
   }
   .landing-v3-hero-product .storybook-controls button {
     font-size: 11px;
@@ -1201,7 +1205,7 @@
     font-size: 11px;
   }
   .landing-v3-hero-product .storybook-gesture-hint {
-    margin-top: 10px;
+    margin-top: 6px;
     font-size: 12px;
   }
 }

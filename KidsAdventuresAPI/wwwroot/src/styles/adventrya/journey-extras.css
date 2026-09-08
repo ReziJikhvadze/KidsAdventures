@@ -1103,19 +1103,24 @@
   measurement can only ever be right in one band.
 
   A container query removes both mistakes at once. The line is sized as a fraction of the box it
-  actually has to fit inside, so it cannot outgrow it whatever the grid does, and 1/14.6 leaves
-  a few percent over the measured ratio rather than sitting exactly on it.
+  actually has to fit inside, so it cannot outgrow it whatever the grid does.
 
-  `nowrap` is gone as well, so the floor cannot spill either: below about 500px of column the
+  The fraction is set by the SECOND line now, not the first. The hero is one column with the
+  book under the headline, and the headline has two lines to be in: the gold line, at 0.86 of the
+  size, measures 24x its own font size — 1155px at 48px — so it is the one that decides. At
+  1/20.6 of the column it just fits; 4.7cqi leaves a little over that, and the ceiling is where a
+  980px column runs out. Two lines at 46px, not three at 56, is 70px the book gets back.
+
+  `nowrap` is gone as well, so the floor cannot spill either: below about 680px of column the
   clamp stops shrinking, and there the line wraps — onto two balanced lines inside the column —
-  instead of running out of it onto the cover.
+  instead of running out of it.
 */
 .landing-v3-hero-copy {
   container-type: inline-size;
 }
 .landing-v3-hero h1 {
   max-width: 100%;
-  font-size: clamp(32px, 6.85cqi, 56px);
+  font-size: clamp(32px, 4.7cqi, 46px);
   line-height: 1.06;
 }
 .landing-v3-hero h1 > span {
@@ -1125,24 +1130,6 @@
   margin-top: 5px;
   font-size: 0.86em;
   line-height: 1.08;
-}
-@media (min-width: 1181px) {
-  /*
-    The row leans to the book now, not to the words.
-
-    It used to read 1.1fr of type against 0.9fr of book, from the days when the book was a tall
-    portrait volume that could not use width anyway. An open spread is 2.2:1 — the printed trim —
-    so width is the only dimension that makes it bigger, and at 0.9fr it came out 541 x 246 with
-    over 500px of the row left empty underneath it.
-
-    The headline still gets its floor. Its first line is set `nowrap`, so a column too narrow to
-    hold it overflows rather than wraps — 480px is what that line measures, and the fr share
-    only decides what happens above it.
-  */
-  .landing-v3-hero {
-    grid-template-columns: minmax(480px, 0.86fr) minmax(560px, 1.14fr);
-    gap: clamp(25px, 3vw, 46px);
-  }
 }
 .landing-v3-primary-wrap {
   display: flex;

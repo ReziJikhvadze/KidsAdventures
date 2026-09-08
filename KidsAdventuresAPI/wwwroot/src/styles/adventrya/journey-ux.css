@@ -1777,16 +1777,22 @@
   }
 }
 @media (max-width: 780px) {
+  /*
+    Four lines, not six. At 38px the two sentences ran to six lines and 337px on a 375px phone,
+    and the book — the thing the section sells — began 534px down an 812px screen. At 28px each
+    sentence is two lines (the first measures 16x its size, the gold one 24x at 0.86 of it), the
+    headline is 120px tall, and the book starts above the middle of the first screen.
+  */
   .landing-v3-hero h1 {
     max-width: 390px;
-    font-size: clamp(34px, 10.2vw, 40px);
-    line-height: 1.09;
+    font-size: clamp(26px, 7.5vw, 32px);
+    line-height: 1.08;
   }
   .landing-v3-hero h1 > span {
     white-space: normal;
   }
   .landing-v3-hero h1 em {
-    font-size: 1em;
+    font-size: 0.86em;
   }
   .landing-v3-kicker {
     max-width: 330px;
@@ -1795,7 +1801,6 @@
   }
   .landing-v3-hero-lead {
     max-width: 375px;
-    margin-top: 18px;
     font-size: 13px;
     line-height: 1.65;
   }
@@ -1803,7 +1808,6 @@
     width: 100%;
     align-items: stretch;
     flex-direction: column;
-    margin-top: 22px;
   }
   .landing-v3-primary-wrap,
   .landing-v3-primary {

@@ -739,8 +739,17 @@ export function StorybookVolume({
   frontMatter = NO_FRONT_MATTER,
 }: StorybookVolumeProps) {
   const t = useT();
-  // Demo Ot uses min-width: 1024px for desktop spreads (not 781).
-  const wideViewport = useMediaQuery("(min-width: 1024px)");
+  /*
+    Two leaves from 781px up, which is where the responsive sheet stops treating the screen as a
+    phone (reader.css: below 781px the responsive sheet owns --book-width).
+
+    It was 1024, the demo's number, and the gap between the two was a real screen: a laptop with
+    the window not maximised, or a 1024px display with its scrollbar, is 1008px wide — and there
+    the book fell to one leaf at a time. Once a leaf became half a painting, that meant a desktop
+    reader turning pages and never once seeing both halves of a picture drawn to be seen whole.
+    At 781px an open 2.2:1 spread is still 355px tall, which is a book, not a strip.
+  */
+  const wideViewport = useMediaQuery("(min-width: 781px)");
   /*
     The preview opens like the book it is selling.
 

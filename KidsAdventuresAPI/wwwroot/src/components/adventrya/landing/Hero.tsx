@@ -46,27 +46,6 @@ export function Hero() {
             <span>{t.landing.hero.titleLine1}</span>
             <em>{t.landing.hero.titleEm}</em>
           </h1>
-          <p className="landing-v3-hero-lead">{t.landing.hero.lead}</p>
-
-          <div className="landing-v3-hero-actions">
-            <div className="landing-v3-primary-wrap">
-              {/* `from=top` so the picker's back arrow returns to the page this button is at
-                  the top of. Without it the arrow fell through to `/#worlds`, which put a reader
-                  who had pressed the very first button on the site two thirds of the way down
-                  it, with no sign of how they got there. */}
-              <Link className="landing-v3-primary" to="/themes" search={{ from: "top" }}>
-                {t.landing.hero.primaryCta}
-                <ArrowIcon />
-              </Link>
-              <small>{t.landing.hero.primaryNote}</small>
-            </div>
-          </div>
-
-          {/*
-            The two-price strip that stood here is gone. The pricing section says the same two
-            numbers properly, with what each one buys; repeating them under the first sentence
-            asked a visitor to compare packages before they knew what the product was.
-          */}
         </div>
 
         <div className="landing-v3-hero-product" aria-label={t.landing.hero.bookExample}>
@@ -116,6 +95,36 @@ export function Hero() {
               initialIndex={0}
             />
           </NewBookReturnContext.Provider>
+        </div>
+
+        {/*
+          The words come after the book.
+
+          The hero is one column now: the headline, the open book at the full width of the
+          column, and then this row — the lead on the left, the button on the right. The book is
+          what the section is selling, so it stands where the eye lands, and the button waits
+          just under it. On a phone the row stacks, lead first.
+
+          The two-price strip that stood under the lead is gone. The pricing section says the
+          same two numbers properly, with what each one buys; repeating them under the first
+          sentence asked a visitor to compare packages before they knew what the product was.
+        */}
+        <div className="landing-v3-hero-foot">
+          <p className="landing-v3-hero-lead">{t.landing.hero.lead}</p>
+
+          <div className="landing-v3-hero-actions">
+            <div className="landing-v3-primary-wrap">
+              {/* `from=top` so the picker's back arrow returns to the page this button is at
+                  the top of. Without it the arrow fell through to `/#worlds`, which put a reader
+                  who had pressed the very first button on the site two thirds of the way down
+                  it, with no sign of how they got there. */}
+              <Link className="landing-v3-primary" to="/themes" search={{ from: "top" }}>
+                {t.landing.hero.primaryCta}
+                <ArrowIcon />
+              </Link>
+              <small>{t.landing.hero.primaryNote}</small>
+            </div>
+          </div>
         </div>
 
         {/*

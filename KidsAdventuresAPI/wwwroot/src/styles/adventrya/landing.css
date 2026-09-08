@@ -166,20 +166,25 @@
 */
 .landing-v3-hero {
   position: relative;
+  /*
+    One column, and the book has all of it.
+
+    An open Beki spread is 2.2:1 — the printed trim — so width is the only dimension that makes
+    it bigger. Beside a column of type it never had enough: at 1000px the two-column row left it
+    371px wide and 169px tall, a strip under a headline. The headline, the book and the words
+    stack now, each as wide as this column, and the book is 900px on a 1280px screen.
+
+    The column is measured once here so the three rows line up on the same left edge.
+  */
+  --hero-col: min(100%, 980px);
   min-height: 100svh;
   isolation: isolate;
   display: grid;
-  /*
-    The book takes the wider half.
-
-    An open Beki spread is 2.2:1 — the printed trim — so its height is its width over two,
-    and in a 510px column it came out 541 x 246 with 504px of the column left empty under it.
-    Width is the only dimension that makes this book bigger; there is nothing to gain by
-    holding it back for a column of type that has already wrapped.
-  */
-  grid-template-columns: minmax(380px, 0.74fr) minmax(560px, 1.26fr);
-  align-items: center;
-  gap: clamp(30px, 5vw, 88px);
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  /* Centred only when there is room over: on most screens the stack is the whole viewport. */
+  align-content: center;
+  row-gap: clamp(16px, 2.6vh, 24px);
   padding: calc(var(--lv3-header-h) + clamp(16px, 2.2vh, 34px)) clamp(34px, 5vw, 78px)
     clamp(26px, 3.4vh, 54px);
   color: #fff9ed;
@@ -219,25 +224,19 @@
     279px 241px,
     311px 293px;
 }
-.landing-v3-hero-copy {
+.landing-v3-hero-copy,
+.landing-v3-hero-foot {
   position: relative;
   z-index: 5;
-  align-self: center;
-  max-width: 715px;
+  width: var(--hero-col);
+  min-width: 0;
 }
-/*
-  Centred in a row as tall as the viewport, the headline sat 141px below the header with nothing
-  in between — the gap read as a mistake rather than as air. It hangs from the top of the row now,
-  by a margin that grows with the screen instead of a constant that only suits one of them.
-
-  Only where there is a row to hang from. On one column the copy is already the first thing in
-  the hero, and the same margin would just be 68px of nothing under the header.
-*/
-@media (min-width: 901px) {
-  .landing-v3-hero-copy {
-    align-self: start;
-    margin-top: clamp(12px, 8.4vh, 120px);
-  }
+/* The lead on the left, the button on the right, under the book. */
+.landing-v3-hero-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
 }
 .landing-v3-kicker,
 .landing-v3-books .landing-v3-section-heading > p,
@@ -285,17 +284,17 @@
   font-style: normal;
 }
 .landing-v3-hero-lead {
-  max-width: 616px;
-  margin: 25px 0 0;
+  max-width: 540px;
+  margin: 0;
   color: #f5efe5b3;
   font-size: 14px;
   line-height: 1.78;
 }
 .landing-v3-hero-actions {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 30px;
 }
 .landing-v3-primary {
   min-height: 58px;
@@ -334,17 +333,12 @@
   position: relative;
   z-index: 3;
   /*
-    650px was the width of the old cover stack. The open spread is a two-page book and wants the
-    column it was given, so the ceiling is only here to stop it stretching on a very wide screen.
+    The book's row is the column, and the box is only as tall as the book in it. The height used
+    to be fixed so that an absolutely centred book had something to be centred in; in the flow it
+    holds its own height, and the row of words under it follows the book wherever it ends.
   */
-  width: min(100%, 780px);
-  /*
-    660px flat was the other half of the hero not fitting: on an 860px viewport it left the
-    padding no room to be honoured. It keeps its full size where there is height for it and
-    gives way where there is not, which is what lets the book below grow rather than shrink.
-  */
-  height: min(780px, calc(100svh - 150px));
-  justify-self: end;
+  width: var(--hero-col);
+  min-width: 0;
   display: grid;
   place-items: center;
 }
@@ -1669,20 +1663,7 @@
     display: none;
   }
   /*
-    Nearly even, and no floors. The words had 0.85 of the row against the book's 1.15, which on a
-    1100px window left the headline a 391px column for a first line that is 505px long and
-    `nowrap` — so the line finished on top of the cover. The two halves share the row here.
-  */
-  .landing-v3-hero {
-    grid-template-columns: minmax(0, 1.02fr) minmax(0, 0.98fr);
-  }
-  .landing-v3-hero-product {
-    transform: scale(0.9);
-    transform-origin: right center;
-  }
-  /*
-    The same treatment as the hero above, for the same reason and the three bands that still had
-    floors under them.
+    No floors under the three bands that still had them.
 
     `.landing-v3-section` spends up to 156px on its own side padding, so a pair of tracks with a
     combined floor of 940 or 1000 does not fit a 1024px laptop — measured there, the pricing cards
@@ -1739,27 +1720,35 @@
     gap: 20px;
     padding: 140px 24px 75px;
   }
-  .landing-v3-hero-copy,
-  .landing-v3-hero-product {
-    min-width: 0;
-  }
   .landing-v3-hero-wash {
     background: linear-gradient(180deg, #160d2cf0, #160d2cdb 43%, #130b27ab 72%, #110a23f0);
   }
-  .landing-v3-hero-copy {
-    max-width: 700px;
-  }
+  /*
+    The headline, then the book, then the words — the same order as on a desktop, which is why
+    it needs no reordering here. The button lands below the fold on purpose: `MobileCta` shows
+    its bar exactly when the hero's own button is off-screen, so the call to action is on the
+    first screen anyway — pinned to the bottom, following the reader — and the book gets the room.
+  */
+  /* The size is set in journey-extras.css (by the column) and journey-ux.css (on a phone). */
   .landing-v3-hero h1 {
     max-width: 700px;
-    font-size: clamp(43px, 8vw, 68px);
+  }
+  /* The lead over the button, and the same gap between them as the grid keeps everywhere else. */
+  .landing-v3-hero-foot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
   }
   /*
     Height by content, not by decree. A fixed 600px was set for a book alone; the book plus its
     prev/next controls and its page rail needs more, and the surplus ran straight into the
     section underneath — which is why the way to turn a page appeared to be missing.
+
+    900, not 650: between 781px and 900px the book is already an open spread, and 650 was the
+    width of a portrait cover.
   */
   .landing-v3-hero-product {
-    width: min(100%, 650px);
+    width: min(100%, 900px);
     height: auto;
     justify-self: center;
     transform: none;
@@ -1872,7 +1861,6 @@
   .landing-v3-hero-actions {
     align-items: stretch;
     flex-direction: column;
-    margin-top: 23px;
   }
   .landing-v3-primary {
     min-height: 52px;
