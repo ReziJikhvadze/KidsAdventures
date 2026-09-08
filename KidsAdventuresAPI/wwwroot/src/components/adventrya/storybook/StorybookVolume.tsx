@@ -209,7 +209,10 @@ function CoverFace({
   return (
     <article className="storybook-cover">
       <div className="storybook-cover-art" style={{ backgroundImage: `url("${coverSrc}")` }} />
-      <div className="storybook-cover-wash" aria-hidden="true" />
+      {/* No wash over the painting. It darkened the lower half of every cover to seat the title,
+          and the generated cover is the one picture in this product a parent is waiting to see —
+          their own child, under a gradient. The title keeps its own shadow, which is what was
+          actually holding it up. */}
       <span className="storybook-brand">{t.story.storybook.brand}</span>
       <div className="storybook-cover-copy">
         {/* The cover said the book was the child's twice, above and below the title. Once is
@@ -770,6 +773,16 @@ export function StorybookVolume({
     return () => node.removeEventListener("wheel", handler);
   }, [interactive, turning, canNext, canPrev, goTo, nextTarget, prevTarget]);
 
+  /*
+    Which books are read rather than counted.
+
+    The home page's sample and the preview are both a book on display: one is a shop window, the
+    other is two free pages shown to someone deciding whether to buy. Neither is being paged
+    through for a place in a story, so a counter under them is bookkeeping. The reader and the
+    order summary keep theirs.
+  */
+  const countless = variant === "hero" || variant === "preview";
+
   // The back cover sits past the last story page, so numbering it produces inverted
   // ranges like "7–6" on the final step. It gets its own label instead.
   //
@@ -1205,17 +1218,18 @@ export function StorybookVolume({
               <ChevronLeft size={13} absoluteStrokeWidth />
               <span>{t.story.storybook.previous}</span>
             </button>
-            {/* No page counter on the shop window. On the home page the sample book is there to
-                be looked at, and "3 / 16" under it is bookkeeping for a reader who has not
-                bought anything yet. The reader itself keeps its counter. */}
+            {/* No page counter on the shop window, and none on the sample either. On the home
+                page and in the preview the book is there to be looked at, and "1 გვერდი" under
+                it is bookkeeping for a reader who has not bought anything yet. The reader itself
+                keeps its counter. */}
             {/* The middle track is still occupied when the counter is hidden: the controls are a
                 three-column grid, and dropping the element outright slid "next" into the centre
                 and both buttons out of balance. */}
             <span
-              className={`storybook-progress${variant === "hero" ? " is-spacer" : ""}`}
+              className={`storybook-progress${countless ? " is-spacer" : ""}`}
               aria-live="polite"
-              aria-hidden={variant === "hero" ? true : undefined}
-              style={variant === "hero" ? { visibility: "hidden" } : undefined}
+              aria-hidden={countless ? true : undefined}
+              style={countless ? { visibility: "hidden" } : undefined}
             >
               {progressLabel}
             </span>

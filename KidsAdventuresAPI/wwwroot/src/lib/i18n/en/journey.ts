@@ -88,6 +88,8 @@ export const journey = {
   validation: {
     nameRequired: "Enter the character's name.",
     birthDateRequired: "Enter the child's date of birth.",
+    /* See the note beside the Georgian string: the server's 1–18 range, asked for on the form. */
+    birthDateRange: "Check the date of birth — a book is made for a child aged 1 to 18.",
     genderRequired: "Choose whether the character is a girl or a boy.",
     relationshipRequired: "Add their companion",
     relationshipTextRequired: "Who are they?",
@@ -151,19 +153,14 @@ export const journey = {
 
   previewLoader: {
     paintingCover: "The story is written — painting the cover…",
-    stopWaiting: "Stop and go back",
-    stopWaitingNote: "The story is being written. You can wait here, or go back — nothing is lost.",
     heading: " Your personalised preview is being made",
     subheading: "'s first page is already being made ✨",
-    reassurance: "Stay for this bit of magic — it usually takes 2–4 minutes.",
-    atelier: "BEKI BOOK ATELIER · 2–4 minutes",
     ariaLabel: (hero: string) => `See ${hero}'s story for free`,
+    /* Three; see the note beside the Georgian list. */
     stages: [
       "Preparing the characters and their details",
       "Writing the story's first moment",
-      "Painting the cover illustration",
-      "Bringing the first page to life",
-      "Binding the preview into a book",
+      "Making the sample",
     ],
   },
 
@@ -181,14 +178,12 @@ export const journey = {
     eyebrow: " Your personalised preview is ready",
     titlePrefix: "Here's how ",
     titleSuffix: "'s story begins",
-    lead: "The cover and first page are free. The full book is created after payment.",
-    bookNote: " The cover and first page — free. The full story — when you love it.",
     freeFirstPage: "See the first page for free",
     wishAcknowledged: "Your wish is in the story too ✨",
     packageHeading: "Choose a format",
     packageQuestion: "How would you like to receive the book?",
     selectedPackage: "Selected package",
-    continue: "Continue the story · ",
+    continue: "Create the story · ",
     changeSelection: " Change selection",
     coverAlt: (hero: string) => `${hero}'s book cover`,
   },
@@ -329,6 +324,8 @@ export const journey = {
     softTime: "Usually 5–10 minutes",
     stageLabel: "Step ",
     orderMissing: "The order could not be found.",
+    /* See the note beside the Georgian string: this screen owns its own exit label now. */
+    stopWaiting: "Stop and go back",
     toDashboard: "Go to the dashboard",
     pagesDrawn: "Pages drawn so far",
     pageAlt: (spread: number) => `Page ${spread}`,

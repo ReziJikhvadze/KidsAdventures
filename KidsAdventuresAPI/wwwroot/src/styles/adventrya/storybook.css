@@ -147,24 +147,15 @@
   border-radius: 8px;
   box-shadow: inset 0 0 24px #ffffff0d;
 }
-.storybook-cover-art,
-.storybook-cover-wash {
+.storybook-cover-art {
   position: absolute;
   inset: 0;
-}
-.storybook-cover-art {
   background-size: cover;
   background-position: 50% 48%;
   transform: scale(1.025);
 }
-.storybook-cover-wash {
-  z-index: 1;
-  background:
-    /* Clear through the upper two thirds so the artwork reads, then darkening only
-       across the band the title occupies. */
-    linear-gradient(180deg, transparent 0 52%, rgba(13, 7, 29, 0.42) 74%, rgba(13, 7, 29, 0.88)),
-    radial-gradient(circle at 62% 34%, transparent 0 46%, rgba(16, 8, 35, 0.18));
-}
+/* `.storybook-cover-wash` is gone: it darkened the band the title sits in, which on a generated
+   cover is the half the child is painted into. `.storybook-cover-copy` carries its own shadow. */
 .storybook-brand {
   position: absolute;
   z-index: 3;

@@ -379,7 +379,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
             type="button"
             onClick={() => void navigate({ to: "/dashboard" })}
           >
-            {t.journey.previewLoader.stopWaiting}
+            {t.journey.generating.stopWaiting}
           </button>
         </div>
 

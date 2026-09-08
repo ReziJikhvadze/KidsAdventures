@@ -390,13 +390,10 @@ function renderStage(
         <ProfileStage draft={ctx.draft} onChange={ctx.setDraft} onContinue={ctx.goAfterProfile} />
       );
     case "preview":
+      // Leaving the waiting screen is the header's back arrow, which already goes to the
+      // questions; the stage no longer carries a second control of its own for it.
       return (
-        <PreviewStage
-          draft={ctx.draft}
-          onChange={ctx.setDraft}
-          onContinue={ctx.goAfterPreview}
-          onStopWaiting={() => ctx.goToStage("profile")}
-        />
+        <PreviewStage draft={ctx.draft} onChange={ctx.setDraft} onContinue={ctx.goAfterPreview} />
       );
     case "auth":
       return <AuthStage draft={ctx.draft} onAuthenticated={() => ctx.goToStage("checkout")} />;

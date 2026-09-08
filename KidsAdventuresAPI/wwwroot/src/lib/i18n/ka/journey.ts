@@ -91,6 +91,14 @@ export const journey = {
   validation: {
     nameRequired: "მიუთითე პერსონაჟის სახელი.",
     birthDateRequired: "მიუთითე ბავშვის დაბადების თარიღი.",
+    /*
+      The server refuses an age outside 1–18, and did so after the parent had already pressed
+      "create the book" and been moved to the waiting screen — where the refusal arrived as an
+      English sentence written for an API client. The form is where this belongs: a date that
+      cannot make a book is one the parent can still fix, in the same dialog every other missing
+      answer uses. The range is the server's; see AdventurePacksController.
+    */
+    birthDateRange: "დაბადების თარიღი შეამოწმე — წიგნი 1-დან 18 წლამდე ბავშვისთვის იქმნება.",
     genderRequired: "აირჩიე, პერსონაჟი გოგოა თუ ბიჭი.",
     relationshipRequired: "დაამატე მისი თანამგზავრი",
     relationshipTextRequired: "ვინ არის ის?",
@@ -172,27 +180,20 @@ export const journey = {
 
   previewLoader: {
     paintingCover: "ზღაპარი დაწერილია — ვხატავთ ყდას…",
-    /*
-      A way off the waiting screen.
-
-      Nothing here can be recalled — the story is already being written on the server — so the
-      button says what it honestly does: stop waiting and go back. The run is remembered, so
-      coming back rejoins this same book rather than paying for another.
-    */
-    stopWaiting: "შეაჩერე და დაბრუნდი",
-    stopWaitingNote: "ისტორია იწერება. შეგიძლია დაელოდო აქ, ან უკან დაბრუნდე — დაკარგული არაფერია.",
     heading: " პერსონალიზებული Preview იქმნება",
     subheading: "ს პირველი გვერდი უკვე მზადდება ✨",
-    /* Honest: a whole sixteen-page story plus its cover takes minutes, not seconds. */
-    reassurance: "დარჩი ამ ჯადოსნურ მომენტში — ჩვეულებრივ 2–4 წუთი სჭირდება.",
-    atelier: "BEKI BOOK ATELIER · 2–4 წუთი",
     ariaLabel: (hero: string) => `ნახე ${hero}ს ამბავი უფასოდ`,
+    /*
+      Three, and the last one names what is being made rather than how it is assembled.
+
+      Five steps described the machinery — drawing the cover, bringing page one to life, binding
+      the preview into a book — which is our vocabulary, not a parent's, and it made a two-minute
+      wait read as five separate things going wrong one at a time.
+    */
     stages: [
       "გმირებისა და მათი დეტალების მომზადება",
       "ისტორიის პირველი მომენტის დაწერა",
-      "ყდის ილუსტრაციის მოხატვა",
-      "პირველი გვერდის გაცოცხლება",
-      "Preview-ს წიგნად აკინძვა",
+      "ნიმუშის შექმნა",
     ],
   },
 
@@ -210,14 +211,12 @@ export const journey = {
     eyebrow: " პერსონალიზებული Preview მზადაა",
     titlePrefix: "აი, როგორ იწყება ",
     titleSuffix: "ს ამბავი",
-    lead: "ყდა და პირველი გვერდი უფასოა. სრული წიგნი გადახდის შემდეგ შეიქმნება.",
-    bookNote: " ყდა და პირველი გვერდი — უფასოდ. სრული ამბავი — როცა მოგეწონება.",
     freeFirstPage: "ნახე პირველი გვერდი უფასოდ",
     wishAcknowledged: "შენი სურვილიც ამბავშია ✨",
     packageHeading: "აირჩიე ფორმატი",
     packageQuestion: "როგორ გინდა მიიღო წიგნი?",
     selectedPackage: "არჩეული პაკეტი",
-    continue: "გააგრძელე ამბავი · ",
+    continue: "შექმენი ამბავი · ",
     changeSelection: " არჩევანის შეცვლა",
     coverAlt: (hero: string) => `${hero}ს წიგნის ყდა`,
   },
@@ -225,7 +224,8 @@ export const journey = {
   packages: {
     digital: {
       title: "ციფრული წიგნი",
-      features: ["PDF ჩამოტვირთვა", "Online Reader", "Adventure World"],
+      /* Two of these three were left in English on an otherwise Georgian card. */
+      features: ["PDF ჩამოტვირთვა", "ონლაინ კითხვა", "თავგადასავლების სამყარო"],
       upgradeNote: "ბეჭდურზე გადასვლა მოგვიანებით +65 ₾",
     },
     print: {
@@ -364,6 +364,15 @@ export const journey = {
     softTime: "ჩვეულებრივ 5–10 წუთი",
     stageLabel: "ნაბიჯი ",
     orderMissing: "შეკვეთა ვერ მოიძებნა.",
+    /*
+      This screen keeps its own way out, and now owns the words for it.
+
+      It borrowed `previewLoader.stopWaiting`, which went with the preview's exit panel. The two
+      screens are not the same case: the preview's arrow in the header already leads back to the
+      questions, while a paid book is being drawn on the server for minutes and the parent's
+      place to wait is the cabinet, not the step before.
+    */
+    stopWaiting: "შეაჩერე და დაბრუნდი",
     toDashboard: "დაფაზე გადასვლა",
     pagesDrawn: "დახატული გვერდები",
     pageAlt: (spread: number) => `გვერდი ${spread}`,

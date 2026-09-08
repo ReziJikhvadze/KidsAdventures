@@ -184,7 +184,7 @@ export function SharedBookScreen() {
                     className="storybook-cover-art"
                     style={{ backgroundImage: `url("${coverFallback}")` }}
                   />
-                  <div className="storybook-cover-wash" aria-hidden="true" />
+                  {/* No wash; see the note beside the same cover in StorybookVolume. */}
                   <span className="storybook-brand">{t.story.storybook.brand}</span>
                   <div className="storybook-cover-copy">
                     <small>{t.story.storybook.belongsTo(heroName)}</small>

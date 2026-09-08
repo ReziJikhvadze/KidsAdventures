@@ -242,9 +242,40 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
     }));
   };
 
+  /**
+   * Whole years old on the date given, or null when the date is not a date.
+   *
+   * The same arithmetic the API does — `AdventurePacksController.AgeOn` — so the form and the
+   * server agree on which dates make a book, rather than the form letting one through for the
+   * server to refuse two screens later.
+   */
+  const ageFromBirthDate = (value: string): number | null => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+    if (!match) return null;
+    const [, y, m, d] = match.map(Number);
+    const today = new Date();
+    let age = today.getFullYear() - y;
+    const beforeBirthday =
+      today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d);
+    if (beforeBirthday) age -= 1;
+    return age;
+  };
+
   const validateCharacter = (character: DraftCharacter): string | null => {
     if (!character.name.trim()) return copy.validation.nameRequired;
     if (character.isPrimary && !character.birthDate) return copy.validation.birthDateRequired;
+    /*
+      An age the server would refuse, refused here instead.
+
+      The API accepts 1 to 18 and answers anything else with "Please enter a valid age" — an
+      English sentence, arriving after the parent had pressed the button and been moved to the
+      waiting screen. A birth date in the current year is one tap away in the year list, so this
+      was reachable by accident and gave no way back to the field that caused it.
+    */
+    if (character.isPrimary && character.birthDate) {
+      const age = ageFromBirthDate(character.birthDate);
+      if (age === null || age < 1 || age > 18) return copy.validation.birthDateRange;
+    }
     const needsGender = character.characterType === "child" || character.characterType === "adult";
     if (needsGender && !character.gender) return copy.validation.genderRequired;
     if (!character.isPrimary) {

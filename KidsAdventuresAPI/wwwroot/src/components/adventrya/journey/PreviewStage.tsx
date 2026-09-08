@@ -1,4 +1,4 @@
-import { Check, Lock, Sparkles } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
@@ -30,8 +30,6 @@ type Props = {
   draft: JourneyDraft;
   onChange: (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) => void;
   onContinue: () => void;
-  /** Leaves the waiting screen for the step before it; the book keeps being written. */
-  onStopWaiting: () => void;
 };
 
 // One book is one vision call + one whole-book call + a cover image, so the paid start must
@@ -55,7 +53,7 @@ function clearPendingRunId(): void {
   clearPendingRun();
 }
 
-export function PreviewStage({ draft, onChange, onContinue, onStopWaiting }: Props) {
+export function PreviewStage({ draft, onChange, onContinue }: Props) {
   const WORLD_BY_ID = useWorldById();
   const t = useT();
   // The story is written in the language the site is being read in; there is no separate
@@ -400,7 +398,6 @@ export function PreviewStage({ draft, onChange, onContinue, onStopWaiting }: Pro
             {heroName}
             {t.journey.previewLoader.subheading}
           </h1>
-          <p>{t.journey.previewLoader.reassurance}</p>
         </header>
 
         <div
@@ -429,15 +426,20 @@ export function PreviewStage({ draft, onChange, onContinue, onStopWaiting }: Pro
           </div>
 
           <div className="preview-loader-copy">
-            <small>{t.journey.previewLoader.atelier}</small>
             {/*
               The server says what it is actually doing, so prefer that over the timed
               guess. The stage list stays as the fallback for the seconds before the first
               poll comes back.
             */}
             <strong>{progressMessage || t.journey.previewLoader.stages[loaderStep]}</strong>
+            {/* Out of however many stages there are, rather than out of the five there used to
+                be — a hard 20% a step filled the bar to 60% and stopped. */}
             <div className="preview-loader-progress" aria-hidden="true">
-              <i style={{ width: `${(loaderStep + 1) * 20}%` }} />
+              <i
+                style={{
+                  width: `${((loaderStep + 1) * 100) / t.journey.previewLoader.stages.length}%`,
+                }}
+              />
             </div>
             <div className="preview-loader-stages">
               {t.journey.previewLoader.stages.map((label, index) => (
@@ -456,20 +458,14 @@ export function PreviewStage({ draft, onChange, onContinue, onStopWaiting }: Pro
             </div>
 
             {/*
-              A way off this screen.
+              The way off this screen is the arrow in the header, and only that.
 
-              Writing a book takes minutes and there was nothing here but the wait — no button,
-              and a header arrow that is easy to miss on a screen that is plainly busy. It is not
-              a cancel and does not pretend to be: the story is already being written and the
-              request cannot be recalled. What it does is stop the waiting. The run id is kept,
-              so coming back rejoins this book instead of buying another.
+              A panel here said the same thing in a paragraph and a second button: the story is
+              being written, you may wait or go back, nothing is lost. It was two more things to
+              read on a screen whose whole job is to be waited on, and the button did exactly
+              what the arrow above it already does — leave for the questions, keeping the run id
+              so coming back rejoins this book rather than buying another.
             */}
-            <div className="preview-loader-exit">
-              <p>{t.journey.previewLoader.stopWaitingNote}</p>
-              <button className="button button-quiet" type="button" onClick={onStopWaiting}>
-                {t.journey.previewLoader.stopWaiting}
-              </button>
-            </div>
           </div>
         </div>
       </section>
@@ -515,7 +511,6 @@ export function PreviewStage({ draft, onChange, onContinue, onStopWaiting }: Pro
           {hero.name || t.common.fallbackHeroName}
           {t.journey.preview.titleSuffix}
         </h1>
-        <p>{t.journey.preview.lead}</p>
       </header>
 
       <div className="ux-preview-layout">
@@ -550,9 +545,9 @@ export function PreviewStage({ draft, onChange, onContinue, onStopWaiting }: Pro
             adds length rather than anything to decide on.
           */}
 
-          <p className="ux-preview-book-note">
-            <Lock aria-hidden="true" /> {t.journey.preview.bookNote}
-          </p>
+          {/* The line that said the cover and first page are free went with the one in the
+              heading above it: the same promise, twice on one screen, over a sample that is
+              plainly a sample. */}
           {draft.storyNotes.trim() ? (
             <p className="ux-preview-book-note">{t.journey.preview.wishAcknowledged}</p>
           ) : null}

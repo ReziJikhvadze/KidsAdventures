@@ -1165,7 +1165,13 @@
 }
 .ux-package-badge {
   position: absolute;
-  top: -7px;
+  /*
+    Sat on the card's top edge, a third of it above and two thirds over the padding inside —
+    close enough to the title under it to read as part of the card's first line. Lifted so it
+    reads as a tab pinned to the card rather than a label crowding what it is about. The pill is
+    about 21px tall, so this leaves a third of it overlapping and the rest clear of the border.
+  */
+  top: -13px;
   right: 13px;
   padding: 4px 8px;
   border-radius: 999px;
@@ -3176,7 +3182,8 @@
   to be possible. Left-aligned with the copy beside it rather than centred, so it reads as part
   of the paragraph explaining it rather than as a second call to action.
 */
-.preview-loader-exit,
+/* `.preview-loader-exit` is gone — the preview's waiting screen leaves by the header arrow now.
+   The generating stage still carries its own. */
 .generation-exit {
   margin-top: 18px;
   display: flex;
@@ -3184,15 +3191,6 @@
   align-items: center;
   gap: 10px;
 }
-.preview-loader-exit p {
-  flex: 1 1 190px;
-  min-width: 0;
-  margin: 0;
-  color: #f8f2e58f;
-  font-size: 12.5px;
-  line-height: 1.45;
-}
-.preview-loader-exit .button,
 .generation-exit .button {
   flex-shrink: 0;
 }
