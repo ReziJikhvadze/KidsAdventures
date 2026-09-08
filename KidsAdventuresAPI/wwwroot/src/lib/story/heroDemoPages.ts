@@ -1,4 +1,5 @@
 import type { StoryPageContent } from "@/lib/api/types";
+import type { PlateSpread } from "@/components/adventrya/storybook/StorybookVolume";
 import { WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
 
 /**
@@ -104,6 +105,35 @@ const CITY_OF_LIGHT = (heroName: string): DemoSpread[] => [
     image: 8,
   },
 ];
+
+/**
+ * What the printed book opens on before the story: the two plates between cover and page one.
+ *
+ * Both lifted from the same PDF as the spreads. The endpaper is the approved 450 x 210mm
+ * pattern (`BEKI_Endpaper_Pattern_Approved_450x210mm_300ppi_sRGB.png`), pasted down on the
+ * left board with the free leaf on the right left bare, which is how page 2 of the file
+ * renders. The dedication is page 3: Beki alone at the gate, and in the cream panel the four
+ * lines the press sets at 24.3, 14.4, 18 and 18pt, ranged left, centred on the leaf.
+ *
+ * The age is the printed book's own — this is a sample of one real copy, not a template.
+ */
+export function heroDemoFrontMatter(heroName: string): PlateSpread[] {
+  const name = heroName.trim();
+  return [
+    { art: "/adventrya/hero-demo/endpaper.webp", plainRight: true },
+    {
+      art: "/adventrya/hero-demo/title.webp",
+      panelSide: "left",
+      centred: true,
+      panel: [
+        { text: `ეს წიგნი ეკუთვნის ${dat(name)}`, size: "lg" },
+        { text: "4 წლის", size: "sm" },
+        { text: `„${name} და სინათლის ქალაქი“` },
+        { text: `${name}, ერთად გავუყვებით ამ ბილიკს. დროა, დაიწყოს ჩვენი თავგადასავალი!` },
+      ],
+    },
+  ];
+}
 
 /**
  * The older dinosaur demo, kept for the worlds the printed book does not cover.

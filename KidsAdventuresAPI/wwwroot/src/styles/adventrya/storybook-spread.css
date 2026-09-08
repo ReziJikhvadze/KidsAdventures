@@ -717,3 +717,48 @@
   margin-top: 2px;
   color: #f5d996;
 }
+
+/*
+  Front-matter plates: the endpaper and the dedication.
+
+  They reuse `.storybook-spread-full` and the prose panel wholesale, so a plate joins across the
+  gutter and carries its cream exactly as a story spread does. Only three things are their own:
+  a bare-paper half for the endpaper's free leaf, a panel centred on the leaf rather than hung
+  from the top — which is how the dedication is set — and lines of three sizes inside it, in
+  the ratios the press uses: 24.3, 14.4 and 18pt against the story's 18.
+*/
+.storybook-plate.is-plain {
+  background: #fbf7ee;
+}
+.storybook-plate-whole .storybook-spread-full-art {
+  background-size: cover;
+  background-position: center;
+}
+.storybook-plate-whole .storybook-spread-prose {
+  left: calc(var(--mmx) * 12);
+}
+.storybook-plate-prose {
+  font-size: clamp(10px, 0.85vw, 13px);
+}
+.storybook-spread-prose.storybook-plate-prose.is-centred {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.storybook-plate-prose > p.storybook-plate-line {
+  margin: 0;
+  font-size: 1em;
+  line-height: 1.5;
+}
+.storybook-plate-prose > p.storybook-plate-line + p.storybook-plate-line {
+  margin-top: calc(var(--mmy) * 3);
+}
+.storybook-plate-prose > p.storybook-plate-line.lg {
+  font-size: 1.35em;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #8a5322;
+}
+.storybook-plate-prose > p.storybook-plate-line.sm {
+  font-size: 0.8em;
+  opacity: 0.8;
+}

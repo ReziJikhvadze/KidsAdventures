@@ -13,7 +13,38 @@ export type StorybookLeaf =
   | { kind: "cover" }
   | { kind: "story"; page: StoryPageContent; storyIndex: number }
   | { kind: "locked"; pageNumber: number }
-  | { kind: "qr" };
+  | { kind: "qr" }
+  /** One leaf of a front-matter plate; see `PlateSpread`. */
+  | {
+      kind: "plate";
+      art: string | null;
+      half: SpreadSide;
+      /** Paper and nothing else — the free endpaper facing the pasted-down pattern. */
+      plain: boolean;
+      panel: PlatePanelLine[] | null;
+      centred: boolean;
+    };
+
+/** A line inside a plate's panel. `lg` is the dedication, `sm` the age under it. */
+export type PlatePanelLine = { text: string; size?: "lg" | "md" | "sm" };
+
+/**
+ * A spread that comes before the story: the printed book has two of them, an endpaper and a
+ * dedication, and the screen had neither — it opened the cover straight onto page one.
+ *
+ * Modelled as a painting across both leaves, exactly like a story spread, because that is
+ * what it is on the sheet: the endpaper pattern is one 450 x 210mm plate and the dedication
+ * sits in the same cream panel the story does. `plainRight` is the endpaper's own quirk — the
+ * pattern is pasted to the board on the left and the free leaf on the right is bare paper.
+ */
+export type PlateSpread = {
+  art: string | null;
+  plainRight?: boolean;
+  panel?: PlatePanelLine[] | null;
+  panelSide?: SpreadSide;
+  /** Centred on the leaf, the way the dedication is set, rather than hung 12mm from the top. */
+  centred?: boolean;
+};
 
 export type StorybookVolumeProps = {
   heroName: string;
@@ -78,6 +109,12 @@ export type StorybookVolumeProps = {
    * them, so the book shuts on the picture a parent will be holding. Absent, nothing changes.
    */
   backImageUrl?: string | null;
+  /**
+   * The spreads between the cover and the story. Empty for a real book today; the home page
+   * passes the printed sample's endpaper and dedication so the object opens the way the
+   * printed one does.
+   */
+  frontMatter?: PlateSpread[];
 };
 
 /** Beki's canonical portrait, shown until a book carries one drawn for its own world. */
@@ -94,6 +131,9 @@ export type StorybookVolumeProps = {
   alpha, which is what let the mask over this frame go — see `.storybook-back-guide`.
 */
 const BEKI_PORTRAIT = "/adventrya/beki-canonical.webp";
+
+/** One shared empty array, so a book with no front matter does not rebuild its leaves every render. */
+const NO_FRONT_MATTER: PlateSpread[] = [];
 
 /*
   Is this picture a spread, or a page?
@@ -181,11 +221,42 @@ function buildLeaves(options: {
   pages: StoryPageContent[];
   lockedPageCount: number;
   isUnlocked: boolean;
+  frontMatter: PlateSpread[];
 }): StorybookLeaf[] {
-  // No title page. It carried "this book belongs to <name>" and an epigraph, which the cover
-  // had already said, so the second thing a child saw was the first thing repeated. The story
-  // starts on the page after the cover now.
   const leaves: StorybookLeaf[] = [{ kind: "cover" }];
+
+  /*
+    Front matter, two leaves a spread, before the story.
+
+    The screen used to open the cover straight onto page one, on the reasoning that a title
+    page repeated what the cover had said. The printed book disagrees: it opens on a patterned
+    endpaper and then a dedication — "this book belongs to", the child's age, the title, a line
+    of welcome — and a sample that skipped them showed a different object from the one on the
+    press. Pushed in pairs so every spread still starts on an odd leaf, which is the one fact
+    the pairing below and the step list rely on; `storyIndex` is untouched, so the side the
+    words fall on in the story is exactly what it was.
+  */
+  for (const spread of options.frontMatter) {
+    const side = spread.panelSide ?? "left";
+    const panel = spread.panel ?? null;
+    const centred = spread.centred ?? false;
+    leaves.push({
+      kind: "plate",
+      art: spread.art,
+      half: "left",
+      plain: false,
+      panel: side === "left" ? panel : null,
+      centred,
+    });
+    leaves.push({
+      kind: "plate",
+      art: spread.art,
+      half: "right",
+      plain: spread.plainRight ?? false,
+      panel: side === "right" ? panel : null,
+      centred,
+    });
+  }
   options.pages.forEach((page, storyIndex) => {
     leaves.push({ kind: "story", page, storyIndex });
   });
@@ -433,6 +504,7 @@ function LeafView({
   // Nothing to draw rather than a filler page: with the title page gone, an out-of-range leaf
   // is the blank right-hand side of the last spread, and a blank page is what belongs there.
   if (!leaf) return <article className="storybook-page storybook-page-blank" aria-hidden="true" />;
+  if (leaf.kind === "plate") return <PlateFace leaf={leaf} />;
   if (leaf.kind === "cover")
     return (
       <CoverFace heroName={heroName} title={title} caption={coverCaption} coverSrc={coverSrc} />
@@ -530,6 +602,61 @@ function SpreadHalf({
   );
 }
 
+type PlateLeaf = Extract<StorybookLeaf, { kind: "plate" }>;
+
+/** The cream panel on a plate, set as lines rather than prose: a dedication is a stack, not a paragraph. */
+function PlatePanel({ lines, centred }: { lines: PlatePanelLine[]; centred: boolean }) {
+  return (
+    <div className={`storybook-spread-prose storybook-plate-prose${centred ? " is-centred" : ""}`}>
+      {lines.map((line, i) => (
+        <p key={i} className={`storybook-plate-line ${line.size ?? "md"}`}>
+          {line.text}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Half a front-matter plate on the open book.
+ *
+ * Same markup and stylesheet as `SpreadHalf`, so the endpaper and the dedication join across
+ * the gutter and carry their panel exactly the way a story spread does. A plain half draws
+ * paper and nothing else — the printed endpaper's free leaf is bare.
+ */
+function PlateHalf({ leaf, side }: { leaf: PlateLeaf; side: SpreadSide }) {
+  return (
+    <article
+      className={`storybook-spread-full storybook-plate page-${side}${leaf.plain ? " is-plain" : ""}`}
+    >
+      {leaf.art && !leaf.plain ? (
+        <div
+          className="storybook-spread-full-art"
+          style={{ backgroundImage: `url("${leaf.art}")` }}
+        />
+      ) : null}
+      {leaf.panel ? <PlatePanel lines={leaf.panel} centred={leaf.centred} /> : null}
+    </article>
+  );
+}
+
+/** A plate on a phone, where one leaf is the whole screen: the painting whole, the panel on it. */
+function PlateFace({ leaf }: { leaf: PlateLeaf }) {
+  return (
+    <article
+      className={`storybook-spread-full storybook-plate storybook-plate-whole page-left${leaf.plain ? " is-plain" : ""}`}
+    >
+      {leaf.art && !leaf.plain ? (
+        <div
+          className="storybook-spread-full-art"
+          style={{ backgroundImage: `url("${leaf.art}")` }}
+        />
+      ) : null}
+      {leaf.panel ? <PlatePanel lines={leaf.panel} centred={leaf.centred} /> : null}
+    </article>
+  );
+}
+
 /**
  * One half of the open book, drawn either as part of a painting or as the page it always was.
  *
@@ -580,6 +707,9 @@ function SpreadSlot({
   // is a branch, not a reason for a hook to disappear.
   const artUrl = useIllustrationUrl(plan.pair ? plan.pair.art.page.illustrationUrl : null);
   const isSpreadShaped = useIsSpreadShapedArt(artUrl);
+  // A plate is already a painting cut in two; it needs neither the URL resolution nor the
+  // shape probe that a story illustration does, so it is drawn straight from its leaf.
+  if (plan.leaf?.kind === "plate") return <PlateHalf leaf={plan.leaf} side={side} />;
   if (plan.pair && artUrl && isSpreadShaped) {
     return (
       <SpreadHalf pair={plan.pair} side={side} artUrl={artUrl} totalStoryPages={totalStoryPages} />
@@ -619,6 +749,7 @@ export function StorybookVolume({
   variant = "full",
   autoAdvanceMs,
   backImageUrl,
+  frontMatter = NO_FRONT_MATTER,
 }: StorybookVolumeProps) {
   const t = useT();
   // Demo Ot uses min-width: 1024px for desktop spreads (not 781).
@@ -639,8 +770,8 @@ export function StorybookVolume({
   const resolvedClassName =
     className ?? `storybook storybook-${variant}${worldId ? ` theme-${worldId}` : ""}`;
   const leaves = useMemo(
-    () => buildLeaves({ pages, lockedPageCount, isUnlocked }),
-    [pages, lockedPageCount, isUnlocked],
+    () => buildLeaves({ pages, lockedPageCount, isUnlocked, frontMatter }),
+    [pages, lockedPageCount, isUnlocked, frontMatter],
   );
   const lastIndex = Math.max(0, leaves.length - 1);
   const [index, setIndex] = useState(Math.min(initialIndex, lastIndex));

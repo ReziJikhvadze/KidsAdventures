@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
 import { NewBookReturnContext } from "@/lib/story/newBookCharacter";
 import { useT } from "@/lib/i18n";
-import { heroDemoPages } from "@/lib/story/heroDemoPages";
+import { heroDemoFrontMatter, heroDemoPages } from "@/lib/story/heroDemoPages";
 
 import { BookIcon, SparkleIcon, ArrowIcon } from "./icons";
 
@@ -28,6 +28,7 @@ const HERO_COVER_CAPTION = "სინათლის ქალაქი.";
 export function Hero() {
   const t = useT();
   const pages = heroDemoPages(HERO_NAME, "magic");
+  const frontMatter = heroDemoFrontMatter(HERO_NAME);
 
   return (
     <>
@@ -90,6 +91,8 @@ export function Hero() {
               */
               coverImageUrl="/adventrya/hero-demo/cover-front.webp"
               backImageUrl="/adventrya/hero-demo/cover-back.webp"
+              /* The endpaper and the dedication, so the book opens the way the printed one does. */
+              frontMatter={frontMatter}
               pages={pages}
               lockedPageCount={0}
               isUnlocked
