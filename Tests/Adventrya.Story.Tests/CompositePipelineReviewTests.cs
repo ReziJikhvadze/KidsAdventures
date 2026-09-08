@@ -46,7 +46,7 @@ public class CompositePipelineReviewTests : CompositePipelineTestBase
     public async Task A_composite_plan_is_edited_before_it_is_returned()
     {
         var written = CompositePlanJson(spreads: 8);
-        var corrected = CompositePlanJson(
+        var corrected = CompositePolishJson(
             spreads: 8,
             title: "ბაფუს ბილიკი და ვარსკვლავი",
             spreadText: (3, "ნინა და ბეკი ფუღუროში - გვერდი 3."));
@@ -58,8 +58,10 @@ public class CompositePipelineReviewTests : CompositePipelineTestBase
 
         Assert.Equal(2, client.Calls);
 
-        // The editor is asked in the composite schema, with the composite editor's rules.
-        Assert.Equal(CompositeStorySchema.Name, "composite_book_plan");
+        // The book is written in the book's schema and corrected in the editor's own, which offers
+        // only the two fields the merge accepts — see CompositePolishSchema.
+        Assert.Equal("composite_book_plan", CompositeStorySchema.Name);
+        Assert.Equal("composite_book_polish", CompositePolishSchema.Name);
         Assert.Contains("You are an editor of Georgian children's books", client.SystemPrompts[1]);
         Assert.Contains("MISSPELLINGS", client.SystemPrompts[1]);
         Assert.Contains("„ფუნღუროში“", client.SystemPrompts[1]);

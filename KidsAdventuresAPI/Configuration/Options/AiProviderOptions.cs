@@ -139,6 +139,30 @@ public sealed class GeminiOptions
     /// </summary>
     public string StoryModel { get; set; } = "gemini-3.1-pro-preview";
 
+    /// <summary>
+    /// Corrects the book after it is written. Empty means "whatever <see cref="StoryModel"/> says".
+    ///
+    /// Split out for the reason <see cref="AiProviderOptions.StoryPolish"/> splits the vendor:
+    /// writing and proofreading are not the same job, and the writer's model is the expensive half
+    /// of that pair. The editor is handed a finished book and asked for spelling, grammar and the
+    /// two words it must never print — no invention, no structure, nothing to reason about — and a
+    /// Pro reasoning model spent 44 seconds on that against the 47 the writing itself took, on a
+    /// run where it corrected nothing at all.
+    ///
+    /// Only honoured when it names a Gemini model: <c>GeminiStoryModelClient.ModelFor</c> ignores
+    /// anything that does not begin "gemini-", which is what stops an OpenAI product name being
+    /// forwarded to Google. <c>gemini-3.6-flash</c> — already the configured vision model — is the
+    /// intended value.
+    /// </summary>
+    public string StoryPolishModel { get; set; } = string.Empty;
+
+    /// <summary>
+    /// What <see cref="StoryPolishModel"/> resolves to. Read this rather than the raw property, so
+    /// an installation that never sets it keeps one model for both halves exactly as before.
+    /// </summary>
+    public string ResolvedStoryPolishModel =>
+        string.IsNullOrWhiteSpace(StoryPolishModel) ? StoryModel : StoryPolishModel;
+
     /// <summary>Draws the illustrations. The image-capable models are a separate family.</summary>
     public string ImageModel { get; set; } = "gemini-3.1-flash-image";
 
@@ -175,4 +199,31 @@ public sealed class GeminiOptions
     public int RetryAttempts { get; set; } = 3;
 
     public int RetryBackoffSeconds { get; set; } = 5;
+
+    /// <summary>
+    /// How much the model may think before it answers, in tokens. Null sends nothing and leaves the
+    /// model at its own default.
+    ///
+    /// The request used to carry no generation controls at all — model, input, schema and nothing
+    /// else — so a Pro reasoning model thought for as long as it liked on every call. The reply's
+    /// own <c>usage.total_thought_tokens</c> is the evidence that it does. A book's story call is
+    /// worth thinking about; correcting its spelling is not, and the editor was taking 44 seconds
+    /// against the writer's 47.
+    ///
+    /// <para>
+    /// The field name below is the one thing here that could not be verified from this repository:
+    /// the Interactions envelope is not the documented <c>generateContent</c> shape and there is no
+    /// example of a generation config in the codebase. So the client watches for a 400 that names
+    /// it, drops the block for the life of the process and carries on — a wrong guess costs one
+    /// failed request per restart and then behaves exactly as before. Check the log line for
+    /// "generation controls" after the first deploy.
+    /// </para>
+    /// </summary>
+    public int? ThinkingBudget { get; set; }
+
+    /// <summary>
+    /// A ceiling on the answer, in tokens. Null sends nothing. Same caveat as
+    /// <see cref="ThinkingBudget"/> about the field name, and the same automatic climb-down.
+    /// </summary>
+    public int? MaxOutputTokens { get; set; }
 }

@@ -67,7 +67,13 @@ public static class StoryPolishPrompt
     /// The version recorded against a composite polish call, so a book edited by this prompt and a
     /// book that never saw an editor at all are distinguishable on the record.
     /// </summary>
-    public const string CompositeVersion = "composite-story-polish-v1";
+    /// <remarks>
+    /// v2 is the same three rules asked for a narrower answer. v1 asked for the complete book back
+    /// through the book's own schema and kept the title and the spread texts out of it; v2 asks for
+    /// those two things and nothing else — see <c>CompositePolishSchema</c>. A book on the record as
+    /// v1 was edited by a call that regenerated everything, which is worth being able to tell apart.
+    /// </remarks>
+    public const string CompositeVersion = "composite-story-polish-v2";
 
     /// <summary>
     /// The same editor, for the composite pipeline's Georgian-only book.
@@ -130,8 +136,13 @@ public static class StoryPolishPrompt
         sentences and everyday words - that is how it was asked for, and "improving" it into
         richer or more literary language is the one change you can make that ruins the book.
 
-        Return the COMPLETE book in the same JSON schema, unchanged except for the corrections
-        that were necessary. If nothing needs fixing, return it exactly as it was. Valid JSON only.
+        You are shown the whole book because a correction depends on its context. You return only
+        the two things you are allowed to correct: the title, and one line per spread.
+
+        Return the title, and every spread by its own number with its Georgian text. Every spread
+        comes back, including the ones you did not need to touch - a spread you leave out cannot be
+        told apart from a spread you decided to delete. Where nothing needed fixing, return the
+        text exactly as it was given to you. Valid JSON only.
         """;
 
     /// <inheritdoc cref="User"/>

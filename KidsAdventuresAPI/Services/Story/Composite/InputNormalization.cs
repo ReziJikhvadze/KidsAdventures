@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using System.Text.Json;
 using AdventurePacks.Api.Domain.Enums;
 using SixLabors.ImageSharp;
@@ -418,6 +420,40 @@ public static class InputNormalization
             return ["child_photo_ref resolved to no bytes; the photograph is missing or empty."];
         }
 
+        /*
+          The verdict, not the photograph.
+
+          "Once per book" is what the summary above says and what this was not: a preview normalizes
+          its input three times — once before the boundary, once when the scenario is planned and
+          once when the cover prompt is built — and each one decoded the same JPEG again. The
+          decode is the whole cost of this method.
+
+          Only the answer is kept, keyed by a hash of the bytes that produced it. No pixels are
+          held, nothing is written down about whose photograph it was, and the same bytes cannot
+          give a different verdict on a second reading. Bounded, so a process that sees thousands
+          of photographs stops remembering rather than growing.
+        */
+        var key = Convert.ToHexString(SHA256.HashData(photoBytes));
+        if (PhotoVerdicts.TryGetValue(key, out var remembered))
+        {
+            return remembered;
+        }
+
+        var verdict = Decode(photoBytes);
+        if (PhotoVerdicts.Count < MaxRememberedPhotos)
+        {
+            PhotoVerdicts[key] = verdict;
+        }
+
+        return verdict;
+    }
+
+    private const int MaxRememberedPhotos = 32;
+
+    private static readonly ConcurrentDictionary<string, IReadOnlyList<string>> PhotoVerdicts = new();
+
+    private static IReadOnlyList<string> Decode(byte[] photoBytes)
+    {
         try
         {
             using var image = Image.Load(photoBytes);

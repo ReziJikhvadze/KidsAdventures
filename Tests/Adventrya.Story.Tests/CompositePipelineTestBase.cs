@@ -434,6 +434,7 @@ public abstract class CompositePipelineTestBase
                 SpreadConcurrency = spreadConcurrency,
             }),
             Options.Create(new BekiPrintLayoutOptions()),
+            new PassThroughNormalizer(),
             NullLogger<CompositeBookPipeline>.Instance);
 
     protected static BekiBookGenerator Generator(
@@ -908,6 +909,34 @@ public abstract class CompositePipelineTestBase
         }
 
         return plan.ToJsonString();
+    }
+
+    /// <summary>
+    /// What the editor answers with: a title and one line per spread, and nothing else.
+    ///
+    /// The polish used to be asked for the whole book back through the book's own schema, so this
+    /// fixture used to be <see cref="CompositePlanJson(int, string?, ValueTuple{int, string}?, int?)"/>.
+    /// It answers in <c>CompositePolishSchema</c>'s shape now — see the note there for why the
+    /// editor is no longer asked to regenerate the cast, the objects, the world lock and every
+    /// spread's English scene in order to correct a Georgian letter.
+    /// </summary>
+    protected static string CompositePolishJson(
+        int spreads, string? title = null, (int Number, string Text)? spreadText = null,
+        int? renumberFirstSpreadTo = null)
+    {
+        var corrected = Enumerable.Range(1, spreads)
+            .Select(number => new
+            {
+                number = renumberFirstSpreadTo is { } renumbered && number == 1 ? renumbered : number,
+                text = spreadText is { } edit && edit.Number == number
+                    ? edit.Text
+                    : $"ნინა და ბეკი - გვერდი {number}.",
+            })
+            .ToArray();
+
+        return JsonSerializer.Serialize(
+            new { title = title ?? "ბაფუს ბილიკი", spreads = corrected },
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
     }
 
     /// <summary>A real JPEG, so truncating it truncates something a decoder actually walks.</summary>

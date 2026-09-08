@@ -573,6 +573,7 @@ public class CompositeIdentityTests
                 SpreadConcurrency = 1,
             }),
             Options.Create(new BekiPrintLayoutOptions()),
+            new PassThroughNormalizer(),
             logger ?? NullLogger<CompositeBookPipeline>.Instance);
 
     private static CompositeBookContext Context(string? eyeColor = null) => new()
@@ -777,4 +778,26 @@ public class CompositeIdentityTests
             }
         }
     }
+
+    /// <summary>
+    /// The pipeline hands the world reference through the normalizer before it reaches the image
+    /// service, so it takes one. Nothing here is testing the resize; the bytes go straight
+    /// through. Mirrors <c>CompositePipelineTestBase.PassThroughNormalizer</c>, which this class
+    /// does not inherit.
+    /// </summary>
+    private sealed class PassThroughNormalizer : IReferenceImageNormalizer
+    {
+        public NormalizedReferenceImage NormalizeForOpenAi(byte[] bytes, string? hintContentType = null) =>
+            new(bytes, hintContentType ?? "image/png", "reference.png");
+
+        public NormalizedReferenceImage NormalizeForStorageWebp(byte[] bytes, string? hintContentType = null) =>
+            new(bytes, "image/webp", "illustration.webp");
+
+        public NormalizedReferenceImage NormalizeForDisplayWebp(byte[] bytes, string? hintContentType = null) =>
+            new(bytes, "image/webp", "portrait.webp");
+
+        public NormalizedReferenceImage NormalizeForPortraitStorage(byte[] bytes, string? hintContentType = null) =>
+            new(bytes, "image/webp", "portrait.webp");
+    }
+
 }

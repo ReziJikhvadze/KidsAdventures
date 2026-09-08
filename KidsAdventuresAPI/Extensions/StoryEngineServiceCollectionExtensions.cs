@@ -43,9 +43,11 @@ public static class StoryEngineServiceCollectionExtensions
             if (providers.UsesGeminiForStoryPolish)
             {
                 var gemini = sp.GetRequiredService<IOptions<GeminiOptions>>().Value;
+                // The editor's own model where one is named, the writer's where it is not — see
+                // GeminiOptions.StoryPolishModel for why proofreading does not want the writer's.
                 return new StoryPolishClient(
                     ActivatorUtilities.CreateInstance<GeminiStoryModelClient>(sp),
-                    gemini.StoryModel);
+                    gemini.ResolvedStoryPolishModel);
             }
 
             var openAi = sp.GetRequiredService<IOptions<OpenAiOptions>>().Value;

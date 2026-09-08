@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -94,6 +95,22 @@ public static class CompositeThemeReferences
 
     private static readonly Lazy<IReadOnlyDictionary<string, RegistryEntry>> Registry = new(Read);
 
+    /*
+      Read once and kept, which is what the summary below has always said and what this class did
+      not do.
+
+      Every call read 12–14 MB from disk and hashed it. On App Service that disk is an SMB share,
+      so the read alone is seconds rather than milliseconds, and a preview asks twice — once to
+      plan the pictures and once to draw the cover — while a paid book asks nine times. Measured
+      at roughly four seconds a call.
+
+      Safe to hold: the file is part of the published output and cannot change under a running
+      process, and the hash check that is the point of this class still runs on the first read of
+      each theme. Six worlds at 13 MB is the ceiling, and only for worlds a process has actually
+      drawn.
+    */
+    private static readonly ConcurrentDictionary<string, CompositeThemeReference> Cached = new();
+
     /// <summary>
     /// The reference for one canonical theme id, read once and kept — a book asks for it nine
     /// times and the file cannot change while the process is running.
@@ -106,6 +123,14 @@ public static class CompositeThemeReferences
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(themeId);
 
+        // Keyed by the directory too: a test may point at a fixture tree, and the cached bytes of
+        // the published one would be the wrong answer for it.
+        var key = $"{baseDirectory ?? AppContext.BaseDirectory}|{themeId}";
+        return Cached.GetOrAdd(key, _ => Load(themeId, baseDirectory));
+    }
+
+    private static CompositeThemeReference Load(string themeId, string? baseDirectory)
+    {
         if (!Registry.Value.TryGetValue(themeId, out var entry))
         {
             throw new InvalidOperationException(

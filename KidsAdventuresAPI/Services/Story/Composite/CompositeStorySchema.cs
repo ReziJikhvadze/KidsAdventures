@@ -374,3 +374,84 @@ public static class CompositeStorySchema
 
     private static object Text(string description) => new { type = "string", description };
 }
+
+/// <summary>
+/// What the polish pass is actually allowed to hand back: a title and one corrected line per
+/// spread.
+///
+/// It used to be asked for the whole book again, through <see cref="CompositeStorySchema"/> — the
+/// concept, the cast, the objects, the world lock, the cover, and every spread's English scene and
+/// avoid text. The merge accepts two of those fields and throws the rest away, so a proofreading
+/// pass was paying a second book's worth of generation to correct a handful of Georgian letters:
+/// measured at 44 seconds against the 47 the writing itself took, on a run that corrected nothing.
+///
+/// Narrowing the schema is the correction, not a shortcut around it. The editor is asked for
+/// exactly what it is permitted to change, which makes the wasted output impossible rather than
+/// merely discarded — and it can no longer rewrite a scene, rename a character or invent an object,
+/// because there is nowhere in the answer to put one.
+/// </summary>
+public static class CompositePolishSchema
+{
+    public const string Version = "composite-polish-schema-v1";
+
+    public const string Name = "composite_book_polish";
+
+    public static JsonElement Build(int spreadCount = BookFormat.SpreadCount)
+    {
+        var schema = new
+        {
+            type = "object",
+            additionalProperties = false,
+            required = new[] { "title", "spreads" },
+            properties = new Dictionary<string, object>
+            {
+                ["title"] = new
+                {
+                    type = "string",
+                    description =
+                        "The book's title in Georgian, corrected. Return it unchanged when there is "
+                        + "nothing to correct - never a new title."
+                },
+                ["spreads"] = new
+                {
+                    type = "array",
+                    description =
+                        $"All {spreadCount} spreads, numbered 1 to {spreadCount}, in order. Every "
+                        + "spread comes back even when its text needed no correction: a missing one "
+                        + "cannot be told apart from one you decided to delete.",
+                    items = new
+                    {
+                        type = "object",
+                        additionalProperties = false,
+                        required = new[] { "number", "text" },
+                        properties = new Dictionary<string, object>
+                        {
+                            ["number"] = new
+                            {
+                                type = "integer",
+                                description =
+                                    "The spread's own number, exactly as it was given to you. This "
+                                    + "is what the correction is matched back by."
+                            },
+                            ["text"] = new
+                            {
+                                type = "string",
+                                description =
+                                    "This spread's Georgian text, corrected. Same story, same "
+                                    + "events, same length - spelling, grammar and punctuation only."
+                            }
+                        }
+                    }
+                }
+            }
+        };
+
+        return JsonSerializer.SerializeToElement(schema, StoryJson.Options);
+    }
+}
+
+/// <summary>One spread as the polish pass returns it: which spread, and its corrected line.</summary>
+public sealed record CompositePolishSpread(int Number, string? Text);
+
+/// <summary>The whole of what a polish call is allowed to say.</summary>
+public sealed record CompositePolishResult(string? Title, IReadOnlyList<CompositePolishSpread>? Spreads);

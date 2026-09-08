@@ -871,12 +871,21 @@ public sealed class MasterStoryService(
             polishUser = StoryPolishPrompt.CompositeUser(
                 input.AgeBand, CompositePolishJson(written));
 
+            /*
+              The narrow schema, not the book's own.
+
+              This asked for the whole plan back and kept two fields of it. See
+              CompositePolishSchema: the editor now answers with exactly what it may change, which
+              is a fifth of the tokens and takes a fifth of the time — and makes it structurally
+              incapable of rewriting a scene or renaming a character, rather than merely having
+              those answers thrown away afterwards.
+            */
             answer = await polishClient.Client.CompleteAsync<JsonElement>(
                 polishClient.ModelName,
                 polishSystem,
                 polishUser,
-                CompositeStorySchema.Name,
-                CompositeStorySchema.Build(input.SpreadCount),
+                CompositePolishSchema.Name,
+                CompositePolishSchema.Build(input.SpreadCount),
                 cancellationToken);
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -888,24 +897,26 @@ public sealed class MasterStoryService(
             return (written, string.Empty, string.Empty, 0, 0);
         }
 
-        MasterStory corrected;
+        CompositePolishResult corrected;
         try
         {
-            corrected = ReadCompositePlan(answer.Value);
+            corrected = StoryJson.Deserialize<CompositePolishResult>(answer.Value.GetRawText())
+                        ?? throw new InvalidOperationException("The polish returned no object.");
         }
         catch (Exception ex)
         {
             // The call was made and paid for, so its prompts and tokens are still reported; what
-            // came back was not a book, so nothing is merged.
+            // came back was not a correction, so nothing is merged.
             logger.LogWarning(
-                ex, "The composite polish returned something that is not a usable plan; the written "
-                + "story stands.");
+                ex, "The composite polish returned something that is not a usable correction; the "
+                + "written story stands.");
 
             return (written, polishSystem, polishUser, answer.PromptTokens, answer.CompletionTokens);
         }
 
+        var correctedSpreads = corrected.Spreads ?? [];
         var writtenNumbers = written.Spreads.Select(spread => spread.Number).ToList();
-        var polishedNumbers = corrected.Spreads.Select(spread => spread.Number).ToList();
+        var polishedNumbers = correctedSpreads.Select(spread => spread.Number).ToList();
 
         // Without the same set of numbers on both sides there is no correspondence to merge along,
         // and merging by position would put one spread's corrected text under another's picture.
@@ -920,13 +931,13 @@ public sealed class MasterStoryService(
             return (written, polishSystem, polishUser, answer.PromptTokens, answer.CompletionTokens);
         }
 
-        var byNumber = corrected.Spreads.ToDictionary(spread => spread.Number);
+        var byNumber = correctedSpreads.ToDictionary(spread => spread.Number);
 
         var merged = written with
         {
             Concept = written.Concept with
             {
-                Title = Prefer(corrected.Concept.Title, written.Concept.Title)
+                Title = Prefer(corrected.Title, written.Concept.Title)
             },
             Spreads = written.Spreads
                 .Select(spread => spread with

@@ -1051,6 +1051,7 @@ public sealed class CompositeBookPipeline(
     IMasterStoryService masterStory,
     IOptions<BekiOptions> bekiOptions,
     IOptions<BekiPrintLayoutOptions> printLayoutOptions,
+    IReferenceImageNormalizer referenceImageNormalizer,
     ILogger<CompositeBookPipeline> logger) : ICompositeBookPipeline
 {
     /// <summary>
@@ -4564,7 +4565,7 @@ public sealed class CompositeBookPipeline(
     /// is for the same reason: the accepted BASE of spread one, which is the page before Beki was
     /// pasted onto it.
     /// </summary>
-    private static StoryImageReference? References(
+    private StoryImageReference? References(
         byte[] childPhoto,
         string childPhotoContentType,
         CompositeThemeReference theme,
@@ -4585,7 +4586,8 @@ public sealed class CompositeBookPipeline(
         // And the photograph directly behind it, never dropped: the anchor is one stylization, and
         // a stylization is answerable to the child it was made from.
         references.Add((childPhoto, childPhotoContentType, "Child identity reference"));
-        references.Add((theme.Bytes, "image/png", $"Approved {theme.OfficialName} world reference"));
+        references.Add((ThemeReferenceForModel(theme), "image/png",
+            $"Approved {theme.OfficialName} world reference"));
 
         if (continuityImage is { Length: > 0 })
         {
@@ -4594,6 +4596,31 @@ public sealed class CompositeBookPipeline(
 
         return BekiImageReferences.ToStoryImageReference(references);
     }
+
+    /*
+      The world reference at the size the model is going to get anyway, worked out once.
+
+      The approved reference is a print master: 450 x 210mm at 300ppi, which is 5315 x 2480 and
+      twelve to fourteen megabytes. Every image request downsamples it to 2048px before sending —
+      that is `ReferenceImageNormalizer`, and on an App Service vCPU the decode, resize and PNG
+      re-encode of thirteen megapixels measured at twenty-three seconds. Twenty-three seconds of
+      a parent's wait, spent producing a file byte-for-byte identical to the one produced for the
+      book before theirs.
+
+      The normalizer caches, but it is scoped to the job, so every book paid the bill again. Six
+      worlds cannot change while a process is running, so the answer is kept here for as long as
+      the process lives: the first book of each world after a restart pays once, and no book pays
+      twice.
+
+      The print master itself is untouched — this is only what is handed to the image model, and
+      `theme.Bytes` is still the verified file for anything that wants it.
+    */
+    private byte[] ThemeReferenceForModel(CompositeThemeReference theme) =>
+        ThemeModelBytes.GetOrAdd(
+            theme.Id,
+            _ => referenceImageNormalizer.NormalizeForOpenAi(theme.Bytes, "image/png").Bytes);
+
+    private static readonly ConcurrentDictionary<string, byte[]> ThemeModelBytes = new();
 
     private static CompositeSpreadResult AdoptedSpread(int page, byte[] image) => new()
     {

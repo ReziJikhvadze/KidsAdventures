@@ -243,6 +243,7 @@ public class CompositeGenerationProvenanceTests : CompositePipelineTestBase
                 SpreadConcurrency = 1,
             }),
             Options.Create(new BekiPrintLayoutOptions()),
+            new PassThroughNormalizer(),
             NullLogger<CompositeBookPipeline>.Instance);
 
     private static GeminiIllustrationClient GeminiClient(byte[] jpeg)

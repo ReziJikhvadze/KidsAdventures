@@ -1033,17 +1033,36 @@ public sealed class MasterBookService(
 
             var started = System.Diagnostics.Stopwatch.StartNew();
 
-            // The spec first, because the cover prompt quotes it: the CHILD IDENTITY LOCK is what
-            // owner's rule 2 is enforced by, and it has to exist before the cover asks for a child.
-            var identity = await compositePipeline!.DeriveIdentityAsync(
-                context, photo, cancellationToken);
+            /*
+              Both, at once, because neither is waiting on the other.
 
-            // Then the scenario for all nine pictures — the same planner, validator and single
+              These ran one after the other and cost a parent about eighty seconds of straight
+              line. Nothing made them a line: the identity spec is derived from the photograph and
+              the details on the form and never reads a word of the story, while the scenario is
+              planned from the story and the theme and is never shown the spec. The purchased book
+              already proves the ordering is free by running them the other way round.
+
+              The cover is what needs both — the CHILD IDENTITY LOCK the cover prompt quotes is
+              what owner's rule 2 is enforced by, and the scenario is where the cover's own frame
+              comes from — so it awaits them together, below, and takes as long as the slower one
+              rather than as long as the two of them.
+
+              Not `Task.WhenAll` on its own: an exception on one of two unawaited tasks is an
+              unobserved exception if the other throws first. Awaiting both, in order, after the
+              pair has been started means whichever fails first is the one that surfaces and the
+              other is still observed.
+            */
+            var identityTask = compositePipeline!.DeriveIdentityAsync(context, photo, cancellationToken);
+
+            // The scenario for all nine pictures — the same planner, validator and single
             // corrective retry the purchased book uses, because this document IS the purchased
             // book's: the outfit it fixes dresses the child on every spread the parent has not
             // seen yet.
-            var plan = await compositePipeline.PlanScenarioAsync(
-                context, story, photo, cancellationToken);
+            var planTask = compositePipeline.PlanScenarioAsync(context, story, photo, cancellationToken);
+
+            await Task.WhenAll(identityTask, planTask).ConfigureAwait(false);
+            var identity = await identityTask;
+            var plan = await planTask;
 
             var wrap = await compositePipeline.DrawCoverWrapAsync(
                 context, plan.Scenario, photo, "image/png", identity,
