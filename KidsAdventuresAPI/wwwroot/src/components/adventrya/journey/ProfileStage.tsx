@@ -7,9 +7,11 @@ import { BirthDateField } from "@/components/adventrya/journey/BirthDateField";
 import { WorldArtPanel } from "@/components/adventrya/journey/WorldArtPanel";
 import { SparkleIcon } from "@/components/adventrya/landing/icons";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { listCharacters } from "@/lib/api/characters";
+import { fetchCharacterPhotoObjectUrl, listCharacters } from "@/lib/api/characters";
 import { checkPortrait, type PortraitRejection } from "@/lib/api/portraits";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { rememberMarketingConsent } from "@/lib/auth/marketingConsent";
+import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { BOOK_LANGUAGES, type BookLanguage, useT } from "@/lib/i18n";
 import { preparePortrait } from "@/lib/images/preparePortrait";
 import type { CharacterGender, CharacterResponse, EyeColor } from "@/lib/api/types";
@@ -74,16 +76,24 @@ function isBlankHero(character: DraftCharacter): boolean {
   );
 }
 
-/** The children an account can make a book about, newest first. */
+/**
+ * The children an account can make a book about, newest first.
+ *
+ * By when they joined the family, not by when they were last touched. `updatedAt` moves every
+ * time a birthday is corrected or a photograph is replaced, so the row of faces reshuffled
+ * itself behind the parent's back: the child they had just edited jumped to the front, and the
+ * chip they were reaching for was somewhere else by the time they got there. A child's place in
+ * their own family does not change, so neither does their place in this row.
+ */
 function heroesOf(characters: CharacterResponse[]): CharacterResponse[] {
   return characters
     .filter((c) => c.isPrimary || c.characterType === "child")
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export function ProfileStage({ draft, onChange, onContinue }: Props) {
   const t = useT();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, user, setMarketingConsent } = useAuth();
   const [editingId, setEditingId] = useState<string | null>(() => entryEditingId(draft.characters));
   const [error, setError] = useState<string | null>(null);
   /*
@@ -230,6 +240,23 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
     reload is a tick nobody gave.
   */
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  /*
+    And the one that is a favour rather than a condition.
+
+    Seeded from the account, so a parent who already said yes finds the box ticked instead of
+    being asked the same question every time they make a book. Signed out there is nobody to ask
+    about, and it stays off until they say otherwise.
+
+    Where it goes depends on whether there is an account yet: signed in it is written now, and
+    signed out it is held on the device until the sign-in three stages further on. Either way the
+    parent's own space can turn it off afterwards, which is the half of this that makes it
+    consent rather than a tick.
+  */
+  const [wantsMarketing, setWantsMarketing] = useState(false);
+  const accountConsent = user?.marketingConsent ?? false;
+  useEffect(() => {
+    setWantsMarketing(accountConsent);
+  }, [accountConsent]);
   /*
     Whether the dialog is standing in for the consent, rather than only reporting on it.
 
@@ -387,14 +414,46 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
     onContinue();
   };
 
+  /**
+   * The answer to "may we write to you", recorded wherever there is somewhere to record it.
+   *
+   * Signed in it goes to the account at once — the parent is standing on the tick, so this is
+   * the moment it means something. Signed out there is no row yet, so it is held on the device
+   * and spent by the sign-in three stages further on. Nothing waits on either: a preference is
+   * not worth holding up the book behind it, and a failure leaves the switch in the parent's
+   * space as the way to say it again.
+   */
+  const recordMarketingConsent = (consented: boolean) => {
+    setWantsMarketing(consented);
+    if (isAuthenticated) {
+      void setMarketingConsent(consented).catch(() => {});
+      return;
+    }
+    rememberMarketingConsent(consented);
+  };
+
+  /*
+    Two ticks, one block.
+
+    They are stacked rather than side by side because they are not the same kind of thing and
+    must not look interchangeable: the first is the condition of making a book at all, the second
+    is a favour, and the second says "optional" out loud so nobody reads a pair of boxes and
+    assumes both are required. Stacked also survives a phone, where a row of two 12px sentences
+    is a row of two very narrow columns.
+
+    Rendered in two places — the footer, and the dialog that stops a parent who pressed the
+    button without ticking — so what they are offered in the interruption is what they were
+    offered on the page.
+  */
   const consent = (
-    <label className="ux-terms-consent">
-      <input
-        type="checkbox"
-        checked={acceptedTerms}
-        onChange={(event) => {
-          setAcceptedTerms(event.target.checked);
-          /*
+    <div className="ux-consent-group">
+      <label className="ux-terms-consent">
+        <input
+          type="checkbox"
+          checked={acceptedTerms}
+          onChange={(event) => {
+            setAcceptedTerms(event.target.checked);
+            /*
             Ticking clears the complaint — unless the complaint is the thing holding the tick.
 
             The dialog is open exactly while `error` is set, so clearing it here shut the dialog
@@ -403,16 +462,29 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
             and the same press to make again. In the dialog the tick is half the answer; the
             button is the other half, and it clears the error itself.
           */
-          if (event.target.checked && !blockedOnTerms) setError(null);
-        }}
-      />
-      <span>
-        {copy.profile.termsPrefix}
-        <a href="/terms" target="_blank" rel="noreferrer">
-          {copy.profile.termsLink}
-        </a>
-      </span>
-    </label>
+            if (event.target.checked && !blockedOnTerms) setError(null);
+          }}
+        />
+        <span>
+          {copy.profile.termsPrefix}
+          <a href="/terms" target="_blank" rel="noreferrer">
+            {copy.profile.termsLink}
+          </a>
+        </span>
+      </label>
+
+      <label className="ux-terms-consent ux-marketing-consent">
+        <input
+          type="checkbox"
+          checked={wantsMarketing}
+          onChange={(event) => recordMarketingConsent(event.target.checked)}
+        />
+        <span>
+          {copy.profile.marketingConsent}
+          <small>{copy.profile.marketingConsentOptional}</small>
+        </span>
+      </label>
+    </div>
   );
 
   return (
@@ -501,17 +573,6 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
                   } else {
                     setEditingId(null);
                   }
-                  setError(null);
-                }}
-                onClearToNew={() => {
-                  const fresh = emptyCharacter(character.isPrimary);
-                  onChange((prev) => ({
-                    ...prev,
-                    characters: prev.characters.map((c) =>
-                      c.localId === character.localId ? fresh : c,
-                    ),
-                  }));
-                  setEditingId(fresh.localId);
                   setError(null);
                 }}
               />
@@ -772,6 +833,9 @@ function HeroPicker({
                 if (hero.id !== selectedId) onPick(hero);
               }}
             >
+              {/* The child, not their name spelled out. A family tells its children apart by
+                  looking at them, and the name stays beside the face for the ones who cannot. */}
+              <HeroFace hero={hero} />
               {hero.name}
             </button>
           ))}
@@ -810,18 +874,74 @@ function HeroPicker({
   );
 }
 
+/**
+ * A saved child's face, for their chip in the row above the form.
+ *
+ * Two pictures exist for a child and they are not the same thing. `heroPortraitUrl` is the child
+ * as their own books draw them — the one a family recognises, and the one the parent's space
+ * already leads with — but it is null until a first book has been illustrated. The photograph
+ * behind `/api/characters/{id}/photo` is the parent's own snapshot, which every saved child has,
+ * because it is what the form asks for. So: the drawing if there is one, the photograph if not,
+ * and the initial for a child who somehow has neither.
+ *
+ * The drawing goes through `useIllustrationUrl`, which caches for the session — the same hook
+ * the cabinet and the reader use, so a family arriving here from their shelf pays nothing for
+ * these pictures a second time. The photograph is fetched here because it is a different
+ * endpoint, and only for the children whose drawing is missing.
+ */
+function HeroFace({ hero }: { hero: CharacterResponse }) {
+  const drawn = useIllustrationUrl(hero.heroPortraitUrl);
+  const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [broken, setBroken] = useState(false);
+
+  useEffect(() => {
+    // The drawing wins, so a child who has one never costs a second request.
+    if (hero.heroPortraitUrl || !hero.photoUrl) return;
+
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    fetchCharacterPhotoObjectUrl(hero.id)
+      .then((url) => {
+        objectUrl = url;
+        if (cancelled) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        setSnapshot(url);
+      })
+      // A face that will not load is not worth an error: the initial says who this is.
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setSnapshot(null);
+    };
+  }, [hero.id, hero.heroPortraitUrl, hero.photoUrl]);
+
+  const face = drawn ?? snapshot;
+
+  return (
+    <span className="ux-hero-face" aria-hidden="true">
+      {face && !broken ? (
+        <img src={face} alt="" loading="lazy" onError={() => setBroken(true)} />
+      ) : (
+        hero.name.trim().slice(0, 1)
+      )}
+    </span>
+  );
+}
+
 function CharacterEditor({
   character,
   index,
   onChange,
   onCancel,
-  onClearToNew,
 }: {
   character: DraftCharacter;
   index: number;
   onChange: (patch: Partial<DraftCharacter>) => void;
   onCancel: () => void;
-  onClearToNew: () => void;
 }) {
   const t = useT();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -926,36 +1046,14 @@ function CharacterEditor({
         <h2>{character.isPrimary ? copy.profile.primaryCharacter : title}</h2>
       </div>
 
-      {character.serverId && character.originalName ? (
-        <div
-          className="ux-known-character-banner"
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 12,
-            justifyContent: "space-between",
-            alignItems: "baseline",
-            backgroundColor: "var(--surface-sunken, #f7f7f7)",
-            padding: "12px 16px",
-            borderRadius: 12,
-            marginBottom: 24,
-          }}
-        >
-          <strong style={{ fontSize: "0.9rem", color: "var(--text-main, #111)" }}>
-            {character.name.trim() !== character.originalName.trim() && character.name.trim() !== ""
-              ? copy.profile.knownHero.newHero(character.name.trim())
-              : copy.profile.knownHero.newBook(character.originalName.trim())}
-          </strong>
-          <button
-            type="button"
-            className="ux-inline-link"
-            style={{ fontSize: "0.85rem" }}
-            onClick={onClearToNew}
-          >
-            {copy.profile.knownHero.otherChild}
-          </button>
-        </div>
-      ) : null}
+      {/*
+        The "you are making a new book for X" banner stood here.
+
+        It was a light grey panel dropped into a dark card, and it said what the picker above it
+        already shows: whose chip is lit is who this form is for. Its one action — "another
+        child? start with a new hero" — is the picker's own "+ a new child" chip, which sits in
+        the same row as the faces and is there whenever this banner was.
+      */}
 
       <div className="ux-character-fields">
         <div className="ux-character-inputs">

@@ -47,6 +47,8 @@ export type SessionInfoResponse = {
   storiesRemainingThisMonth?: number;
   subscriptionType?: SubscriptionType;
   hasUnlimitedPdf?: boolean;
+  /** Whether this parent has agreed to hear from us. Optional, so an older server reads as no. */
+  marketingConsent?: boolean;
 };
 
 export type AccountBalanceResponse = {

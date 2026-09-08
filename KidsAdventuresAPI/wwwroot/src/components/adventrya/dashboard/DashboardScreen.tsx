@@ -43,6 +43,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { AddressAutocompleteField } from "@/components/adventrya/journey/AddressAutocompleteField";
+import { LocationPickerDialog } from "@/components/adventrya/journey/LocationPickerDialog";
 import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { continueViaPickerHref, newBookHref } from "@/lib/continue";
 import { formatGel, formatGelAmount, normalizeGeorgianPhone, useT } from "@/lib/i18n";
@@ -535,7 +537,8 @@ export function DashboardScreen({
   if (authLoading || loading) {
     return (
       <div className="journey-screen">
-        <AppHeader backHref="/" />
+        {/* The white bar, so the coloured lockup. See the note on the cabinet below. */}
+        <AppHeader backHref="/" mark="color" />
         <div className="journey-wrap">
           {/* The wait a parent meets most often, and until now the only one with nothing in
               it: a line of grey text on an empty page, which reads the same as a page that
@@ -553,7 +556,15 @@ export function DashboardScreen({
 
   return (
     <div className="journey-screen">
-      <AppHeader backHref="/" />
+      {/*
+        The one coloured mark on the site.
+
+        `.journey-screen .app-header` is white — it was painted white on purpose, so the top of
+        the cabinet reads as above the cream cards rather than part of them — and the white
+        lockup on it is a white shape on a white bar. The sign-in screen above keeps the white
+        mark: it wears the same class but paints the bar back over a night sky.
+      */}
+      <AppHeader backHref="/" mark="color" />
 
       <main className="journey-wrap">
         <section className="journey-welcome">
@@ -765,8 +776,54 @@ export function DashboardScreen({
 
           {error ? <p className="journey-note">{error}</p> : null}
         </section>
+
+        {/*
+          The one preference an account has, and the only place it can be withdrawn.
+
+          Consent that cannot be taken back is not consent, and the tick that gives it is on a
+          form the parent visits once per book — so the answer needs a home they can return to.
+          At the foot of their own space, quiet: it is not what anybody came here for, and a
+          switch about email sitting above the shelf would be.
+        */}
+        <MarketingPreference />
       </main>
     </div>
+  );
+}
+
+/**
+ * "Send me news and offers", after the fact.
+ *
+ * The switch moves on the press and the request follows, so it never reads as a control that did
+ * not work; `setMarketingConsent` puts it back if the write fails. Nothing is said about success
+ * — the switch itself is the confirmation — and a failure says so once, beside it.
+ */
+function MarketingPreference() {
+  const t = useT();
+  const { user, setMarketingConsent } = useAuth();
+  const [failed, setFailed] = useState(false);
+
+  if (!user) return null;
+
+  return (
+    <section className="journey-preferences" aria-label={t.dashboard.preferences.heading}>
+      <label className="ux-terms-consent">
+        <input
+          type="checkbox"
+          checked={user.marketingConsent}
+          onChange={(event) => {
+            setFailed(false);
+            void setMarketingConsent(event.target.checked).catch(() => setFailed(true));
+          }}
+        />
+        <span>{t.dashboard.preferences.marketing}</span>
+      </label>
+      {failed ? (
+        <p className="journey-note" role="status">
+          {t.common.states.saveFailed}
+        </p>
+      ) : null}
+    </section>
   );
 }
 
@@ -1102,6 +1159,7 @@ function PrintUpgradePanel({
   onSubmit: () => void;
 }) {
   const t = useT();
+  const [pickingLocation, setPickingLocation] = useState(false);
   const heading =
     mode === "edit"
       ? "მიწოდების მისამართის განახლება"
@@ -1153,18 +1211,37 @@ function PrintUpgradePanel({
             onChange={(e) => onChange({ recipientPhone: e.target.value })}
           />
         </label>
-        <label className="journey-field journey-field-wide" htmlFor="dashboard-ship-address">
-          <span>{t.journey.checkout.shippingAddress}</span>
-          <input
-            id="dashboard-ship-address"
-            name="addressLine1"
-            autoComplete="street-address"
-            placeholder={t.journey.checkout.addressPlaceholder}
-            value={shipping.addressLine1}
-            onChange={(e) => onChange({ addressLine1: e.target.value })}
-          />
-        </label>
+        {/*
+          The same address field the checkout uses, which this form did not have at all.
+
+          Ordering a printed copy from the shelf asks for exactly what buying one asks for, and
+          the two forms had drifted: the checkout resolved the street against Google's own record
+          and this one took whatever was typed. A misspelt street is the most expensive mistake
+          on either form — it reaches a courier — so the shortcut belongs on both.
+        */}
+        <AddressAutocompleteField
+          id="dashboard-ship-address"
+          name="addressLine1"
+          fieldClassName="journey-field"
+          className="journey-field-wide"
+          label={t.journey.checkout.shippingAddress}
+          placeholder={t.journey.checkout.addressPlaceholder}
+          value={shipping.addressLine1}
+          onChange={(addressLine1) => onChange({ addressLine1 })}
+          onChoose={({ address, city }) =>
+            onChange(city ? { addressLine1: address, city } : { addressLine1: address })
+          }
+          onPickOnMap={() => setPickingLocation(true)}
+        />
       </div>
+
+      <LocationPickerDialog
+        open={pickingLocation}
+        onOpenChange={setPickingLocation}
+        onChoose={({ address, city }) =>
+          onChange(city ? { addressLine1: address, city } : { addressLine1: address })
+        }
+      />
 
       {error ? (
         <p className="journey-note" role="alert">

@@ -22,13 +22,44 @@ type PlaceLike = {
   fetchFields(options: { fields: string[] }): Promise<unknown>;
 };
 
-export type PlacePrediction = { toPlace(): PlaceLike };
+export type PlacePrediction = {
+  toPlace(): PlaceLike;
+  /** What the row says. `text` is the whole address; the two halves are for a two-line row. */
+  text?: { toString(): string };
+  mainText?: { toString(): string };
+  secondaryText?: { toString(): string };
+};
+
+type AutocompleteSuggestion = { placePrediction?: PlacePrediction | null };
 
 type PlacesLibrary = {
   PlaceAutocompleteElement: new (options?: {
     includedRegionCodes?: string[];
     locationBias?: unknown;
   }) => HTMLElement;
+  /**
+   * The same predictions the element above draws for itself, as data.
+   *
+   * The element renders Google's own input and Google's own list, which is right inside the map
+   * dialog — it is Google's box in Google's box — and wrong in a form field standing between a
+   * recipient's name and their phone number, where it would be the one control on the page that
+   * is not ours. This is what lets the field stay ours.
+   */
+  AutocompleteSuggestion: {
+    fetchAutocompleteSuggestions(request: {
+      input: string;
+      sessionToken?: unknown;
+      includedRegionCodes?: string[];
+      language?: string;
+      region?: string;
+    }): Promise<{ suggestions: AutocompleteSuggestion[] }>;
+  };
+  /**
+   * Google bills a session — every keystroke of typing plus the one place that is chosen — as a
+   * single lookup rather than one per letter, provided the same token is passed throughout and
+   * a new one is started afterwards.
+   */
+  AutocompleteSessionToken: new () => unknown;
 };
 
 type MapsLibrary = {
@@ -180,6 +211,61 @@ export async function mapsLibrary(): Promise<MapsLibrary> {
 
 export async function markerLibrary(): Promise<MarkerLibrary> {
   return (await window.google!.maps!.importLibrary("marker")) as MarkerLibrary;
+}
+
+/**
+ * Georgian addresses matching what has been typed, for a field to draw its own list from.
+ *
+ * Restricted to Georgia because everything printed here is delivered here, and asking Google for
+ * the whole planet puts a street in Georgia, USA above the one in Tbilisi. Errors come back as an
+ * empty list rather than a throw: a suggestion that does not arrive leaves an ordinary text field
+ * that the parent can simply finish typing, which is the same thing that happens where the key is
+ * unset.
+ */
+export async function suggestAddresses(
+  input: string,
+  sessionToken?: unknown,
+): Promise<PlacePrediction[]> {
+  try {
+    const places = await placesLibrary();
+    const { suggestions } = await places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+      input,
+      sessionToken,
+      includedRegionCodes: ["ge"],
+      language: "ka",
+      region: "ge",
+    });
+    return suggestions
+      .map((suggestion) => suggestion.placePrediction)
+      .filter((prediction): prediction is PlacePrediction => !!prediction);
+  } catch {
+    return [];
+  }
+}
+
+/** Starts a billing session, so a whole search costs one lookup rather than one per keystroke. */
+export async function newAddressSession(): Promise<unknown> {
+  try {
+    const places = await placesLibrary();
+    return new places.AutocompleteSessionToken();
+  } catch {
+    return undefined;
+  }
+}
+
+/** The address a chosen prediction stands for, or null if Google will not say. */
+export async function resolvePrediction(
+  prediction: PlacePrediction,
+): Promise<{ address: string; city: string } | null> {
+  try {
+    const place = prediction.toPlace();
+    await place.fetchFields({ fields: ["formattedAddress", "addressComponents"] });
+    const address = place.formattedAddress?.trim();
+    if (!address) return null;
+    return { address, city: cityOf(place) };
+  } catch {
+    return null;
+  }
 }
 
 /** The one component of a Google address this form keeps on its own: the city. */

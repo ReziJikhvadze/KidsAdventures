@@ -394,6 +394,58 @@ svg {
 .app-header-end {
   gap: 11px;
 }
+/*
+  The lockup, wherever it lands.
+
+  Sized by height and nothing else: the file is trimmed to the mark, so a height is a promise
+  about how tall the chameleon is rather than about how much empty PNG sits around it. Height
+  alone would be enough on its own, but `object-fit` is here as a guard — a flex column that
+  stretches its items would otherwise widen this image without touching its height and squash
+  the artwork sideways.
+*/
+.beki-mark {
+  display: block;
+  width: auto;
+  height: 30px;
+  flex-shrink: 0;
+  object-fit: contain;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.app-header-mark {
+  height: 28px;
+}
+/*
+  The bar is tight on a phone and wraps to two rows; the mark gives up the same proportion of
+  its height that the back arrow and the avatar beside it give up of theirs.
+*/
+@media (max-width: 560px) {
+  .app-header-mark {
+    height: 22px;
+  }
+  /*
+    The create journey's bar is the crowded one: the arrow, the mark, "ნაბიჯი 2 / 3" and its
+    rail, the language code and the avatar, all on one row. The counter gives way first there,
+    and it is the one thing on that bar a parent halfway through a book is actually reading —
+    so the mark gives up the width instead.
+  */
+  .app-header:has(.step-progress) .app-header-mark {
+    height: 18px;
+  }
+}
+/*
+  And below that it goes, on that screen only.
+
+  360px is the narrowest phone the two of them both fit on — measured, with the counter reading
+  its longest label — and 320px is the next size down. Below the boundary "ნაბიჯი 2 / 3" starts
+  arriving as "ნაბიჯი 2 …", which is not a step counter. Every other page keeps the mark at
+  every width.
+*/
+@media (max-width: 359px) {
+  .app-header:has(.step-progress) .app-header-mark {
+    display: none;
+  }
+}
 /* The one part with arbitrary-length content: a child's name. It gives way first. */
 .app-header .child-pill {
   min-width: 0;

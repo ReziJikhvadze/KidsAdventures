@@ -2,6 +2,7 @@ import { Link, useCanGoBack, useRouter } from "@tanstack/react-router";
 import { ArrowLeft, ChevronDown, ChevronRight, Globe, LogOut, User } from "lucide-react";
 
 import { LanguageSwitcher } from "@/components/adventrya/LanguageSwitcher";
+import { BekiMark, type BekiMarkTone } from "@/components/brand/BekiMark";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useT } from "@/lib/i18n";
 
@@ -27,6 +28,12 @@ export interface AppHeaderProps {
   worldMode?: boolean;
   /** Strip account and brand controls from a child-facing, immersive step. */
   minimal?: boolean;
+  /**
+   * Which finish the lockup wears, which is a question about this bar's background rather than
+   * about this page. Every screen keeps the dark bar the white mark was drawn for; the parent's
+   * space paints it white once there is a cabinet to show, and passes "color" for that.
+   */
+  mark?: BekiMarkTone;
 }
 
 /**
@@ -59,6 +66,7 @@ export function AppHeader({
   explicitBack = false,
   worldMode = false,
   minimal = false,
+  mark = "white",
 }: AppHeaderProps) {
   const t = useT();
   const { isAuthenticated, logout, user } = useAuth();
@@ -127,14 +135,16 @@ export function AppHeader({
           <ArrowLeft aria-hidden="true" />
         </Link>
         {/*
-          No wordmark inside the app.
+          The mark, and it does not go anywhere.
 
-          The arrow and the name sat side by side and went to two different places — the arrow
-          one step back, the name all the way out to the home page — so the corner of every
-          screen offered two "backs" and the bigger, more inviting one threw away the flow the
-          parent was halfway through. The brand keeps its wordmark on the home page, which is
-          the one place it is a destination rather than an exit.
+          A wordmark stood here once and was taken out: it sat beside the arrow and went
+          somewhere else — the arrow one step back, the name all the way out to the home page —
+          so the corner of every screen offered two "backs" and the bigger, more inviting one
+          threw away the flow the parent was halfway through. The brand belongs in the corner
+          of every page; being a second exit is what it does not belong doing. So it is an
+          image rather than a link, and the arrow is still the only way out of here.
         */}
+        <BekiMark className="app-header-mark" tone={mark} decorative />
       </div>
 
       {/*

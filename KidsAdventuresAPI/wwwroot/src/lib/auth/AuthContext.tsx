@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import * as authApi from "@/lib/api/auth";
+import { flushMarketingConsent } from "@/lib/auth/marketingConsent";
 import { ApiError } from "@/lib/api/client";
 import { getToken, setUnauthorizedHandler } from "@/lib/api/client";
 import type { AuthResponse, SessionInfoResponse, SubscriptionType } from "@/lib/api/types";
@@ -26,6 +27,8 @@ type AuthUser = {
   storiesRemainingThisMonth: number;
   welcomeStoryRemaining: number;
   hasUnlimitedPdf: boolean;
+  /** Whether this parent has agreed to hear from us. Their own space shows it and can turn it off. */
+  marketingConsent: boolean;
 };
 
 type AuthContextValue = {
@@ -48,6 +51,7 @@ type AuthContextValue = {
   applySession: (session: AuthResponse) => void;
   refreshAccountBalance: () => Promise<void>;
   setBookCredits: (credits: number) => void;
+  setMarketingConsent: (consent: boolean) => Promise<void>;
 };
 
 const USER_KEY = "adventurepacks_user";
@@ -80,6 +84,7 @@ function normalizeUser(raw: Partial<AuthUser>): AuthUser {
     storiesRemainingThisMonth,
     welcomeStoryRemaining,
     hasUnlimitedPdf: false,
+    marketingConsent: raw.marketingConsent ?? false,
   };
 }
 
@@ -96,6 +101,7 @@ function userFromSessionInfo(session: SessionInfoResponse): AuthUser {
     storiesRemainingThisMonth: session.storiesRemainingThisMonth,
     welcomeStoryRemaining: session.welcomeStoryRemaining ?? 0,
     hasUnlimitedPdf: false,
+    marketingConsent: session.marketingConsent ?? false,
   });
 }
 
@@ -159,6 +165,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      /*
+        A yes given before this account existed, spent here.
+
+        The tick beside the terms is on the first stage of the create journey and the sign-in is
+        on the fourth, so the parent agrees several screens before there is a row to write it on.
+        Held on the device until now. It runs before `/me` so the session that arrives already
+        carries the answer, and it is silent about failure — see `flushMarketingConsent`.
+      */
+      await flushMarketingConsent();
       const session = await authApi.getSession();
       applySessionInfo(session);
     } catch (error) {
@@ -201,6 +216,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     [refreshAccountBalance],
   );
+
+  /**
+   * The parent turning being written to on or off, from their own space.
+   *
+   * The switch moves first and the request follows, because a checkbox that waits for a server
+   * before it moves reads as a checkbox that did not work. A failure puts it back where it was
+   * and is thrown on, so the caller can say so.
+   */
+  const setMarketingConsent = useCallback(async (consent: boolean) => {
+    const revert = (prev: AuthUser | null) => prev;
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next: AuthUser = { ...prev, marketingConsent: consent };
+      persistUser(next);
+      return next;
+    });
+
+    try {
+      const session = await authApi.updateMarketingConsent(consent);
+      const next = userFromSessionInfo(session);
+      setUser(next);
+      persistUser(next);
+    } catch (error) {
+      setUser((prev) => {
+        if (!prev) return revert(prev);
+        const back: AuthUser = { ...prev, marketingConsent: !consent };
+        persistUser(back);
+        return back;
+      });
+      throw error;
+    }
+  }, []);
 
   const setBookCredits = useCallback((credits: number) => {
     setUser((prev) => {
@@ -282,6 +329,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       applySession,
       refreshAccountBalance,
       setBookCredits,
+      setMarketingConsent,
     }),
     [
       user,
@@ -297,6 +345,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       applySession,
       refreshAccountBalance,
       setBookCredits,
+      setMarketingConsent,
     ],
   );
 

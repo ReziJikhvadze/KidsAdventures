@@ -55,4 +55,10 @@ export const dashboard = {
       "Details are deleted automatically after 7 days if you do not complete the order",
     ],
   },
+
+  /* The one thing on this page a parent may change about themselves rather than about a book. */
+  preferences: {
+    heading: "Preferences",
+    marketing: "Send me news and offers",
+  },
 };

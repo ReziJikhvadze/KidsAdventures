@@ -59,12 +59,19 @@
   width: max-content;
   display: inline-flex;
   flex-direction: column;
-  gap: 3px;
-  color: #f3cd7e;
-  font-size: 19px;
-  font-weight: 700;
+  /*
+    Left, not stretched. The column's items used to be text, which takes the width it needs
+    whatever the alignment says; the mark is an image, and the default `stretch` would have
+    pulled it out to the width of the tagline underneath it.
+  */
+  align-items: flex-start;
+  gap: 7px;
+  /* The type here dressed the name when the name was text. Only the tagline is left, and it
+     brings its own face, size and colour; the leading is the one thing it takes from here. */
   line-height: 1;
-  letter-spacing: 0.19em;
+}
+.landing-v3-logo .beki-mark {
+  height: 30px;
 }
 .landing-v3-logo small {
   color: #fffaee85;
@@ -537,28 +544,60 @@
     linear-gradient(180deg, #fcf8ef, #f7efe2);
 }
 /*
-  Ten percent off the row's own width, on both branches of the min() — the cap and the
-  fluid one — so the three covers shrink by the same tenth whether the viewport is wide
-  enough to hit 1188px or not.
+  A shelf of six, three of them on screen at a time.
+
+  This was a three-column grid holding the only three books that existed on the page, and the
+  tenth taken off its width was there to make those three fit. There are six now — the whole map,
+  so a family whose child wants pirates can see there is an island for them — and six covers at a
+  readable size is wider than any screen. So it is a rail: the same measurement, the same gap, but
+  the tracks keep their width and the row scrolls past them.
+
+  The phone already worked this way (see the 900px block below); this is that rail lifted to every
+  width. `auto-columns` rather than `columns` so the count is the family's, not the CSS's.
 */
 .landing-v3-book-gallery {
   width: min(90%, 1188px);
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - 2 * clamp(20px, 3vw, 42px)) / 3);
   align-items: end;
   gap: clamp(20px, 3vw, 42px);
   margin: 0 auto;
+  overflow-x: auto;
+  /* The rail turns itself; a scrollbar under three covers is a second, worse affordance. */
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+  /* Room for the raised middle cover and its shadow, which a scroll container would cut. */
+  padding: 26px 0 34px;
 }
+.landing-v3-book-gallery::-webkit-scrollbar {
+  display: none;
+}
+/*
+  Snapped to the left edge, not the middle.
+
+  Centring is right when one cover fills the rail, and wrong when three do: the browser centres
+  the nearest card on load, which needs a scroll offset, so the shelf opened already past its
+  first book. Aligning to the start opens on book one. The phone puts `center` back below.
+*/
 .landing-v3-example-book {
   position: relative;
+  scroll-snap-align: start;
 }
-.example-book-1 {
+/*
+  The stagger, repeating.
+
+  It was written as `example-book-1..3` against the item's index, which is three rules for a shelf
+  that now holds six — books four to six stood flat while the first three leaned. Every third
+  cover takes the same lean, so the rhythm carries however many there are.
+*/
+.landing-v3-example-book:nth-child(3n + 1) {
   transform: translateY(20px) rotate(-1.3deg);
 }
-.example-book-2 {
+.landing-v3-example-book:nth-child(3n + 2) {
   transform: translateY(-8px);
 }
-.example-book-3 {
+.landing-v3-example-book:nth-child(3n) {
   transform: translateY(18px) rotate(1.3deg);
 }
 .landing-v3-example-art {
@@ -1749,8 +1788,8 @@
     margin-bottom: -78px;
     padding: 0 22px;
   }
-  .landing-v3-logo {
-    font-size: 16px;
+  .landing-v3-logo .beki-mark {
+    height: 27px;
   }
   /*
     The language switcher was hidden below 900px, which left a Georgian-or-English product with
@@ -1813,18 +1852,22 @@
     justify-self: center;
     transform: none;
   }
+  /* The rail is the base layout now; below here it widens its cards and bleeds to the edges. */
   .landing-v3-book-gallery {
+    width: auto;
     gap: 24px;
-    overflow-x: auto;
-    grid-template-columns: repeat(3, minmax(270px, 62vw));
+    grid-auto-columns: minmax(270px, 62vw);
     align-items: start;
     margin-inline: -28px;
     padding: 10px 28px 42px;
-    scroll-snap-type: x mandatory;
+  }
+  .landing-v3-example-book:nth-child(n) {
+    /* No lean where only one cover is on screen: it reads as a crooked photograph, not a shelf. */
+    transform: none;
   }
   .landing-v3-example-book {
+    /* One cover at a time, so it belongs in the middle of the screen rather than at its edge. */
     scroll-snap-align: center;
-    transform: none;
   }
   .landing-v3-preview,
   .landing-v3-pricing,
@@ -1883,8 +1926,8 @@
     margin-bottom: -69px;
     padding: 0 16px;
   }
-  .landing-v3-logo {
-    font-size: 14px;
+  .landing-v3-logo .beki-mark {
+    height: 24px;
   }
   .landing-v3-logo small {
     display: none;
@@ -1971,7 +2014,7 @@
     font-size: 12px;
   }
   .landing-v3-book-gallery {
-    grid-template-columns: repeat(3, minmax(245px, 76vw));
+    grid-auto-columns: minmax(245px, 76vw);
     margin-inline: -20px;
     padding-inline: 20px;
   }

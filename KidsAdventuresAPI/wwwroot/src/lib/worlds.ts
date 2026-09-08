@@ -88,3 +88,24 @@ export const WORLD_COVER_ART: Record<WorldId, string> = {
   airplanes: "/adventrya/worlds/airplanes.webp",
   magic: "/adventrya/worlds/magic.webp",
 };
+
+/*
+  Each world painted on its own, rather than cut out of the map.
+
+  The six islands live together on one canvas for the picker, and the panel beside the create
+  form used to show a chosen world by cropping that canvas down to the one island — measured
+  coordinates, a computed zoom, and a neighbouring island always somewhere just outside the
+  frame. These are the same six worlds painted one to a picture, at the size the panel actually
+  shows them, so the island is composed for this shape instead of rescued from another one.
+
+  The map masters are untouched: `SELECTOR_ART` still draws /themes, the cabinet's sky and the
+  landing hero, and `ISLAND_FRAMES` still measures against them.
+*/
+export const WORLD_SCENE_ART: Record<WorldId, string> = {
+  dinosaurs: "/adventrya/world-art/dinosaurs.webp",
+  space: "/adventrya/world-art/space.webp",
+  pirates: "/adventrya/world-art/pirates.webp",
+  animals: "/adventrya/world-art/animals.webp",
+  airplanes: "/adventrya/world-art/airplanes.webp",
+  magic: "/adventrya/world-art/magic.webp",
+};

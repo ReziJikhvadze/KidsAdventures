@@ -601,6 +601,16 @@
   pointer-events: auto;
 }
 
+/*
+  The mark in the row the comment above describes, sized off the arrow beside it rather than off
+  a fixed pixel height: this header floats over a painting that is cropped to the viewport, and
+  everything in the corner scales with it.
+*/
+.map-header-mark {
+  height: clamp(22px, 1.8vw, 27px);
+  filter: drop-shadow(0 2px 10px rgba(4, 3, 29, 0.85));
+}
+
 .map-back {
   flex-shrink: 0;
   width: clamp(38px, 3vw, 46px);
@@ -1121,6 +1131,12 @@
   top: calc(var(--crop-band) + max(1.25%, env(safe-area-inset-top, 0px)));
   left: 4%;
   gap: 10px;
+}
+
+/* The portrait artboard puts the headline right of this row, so the mark gives up the width the
+   arrow keeps. */
+.mobile-frame .map-header-mark {
+  height: clamp(16px, 4vw, 22px);
 }
 
 .mobile-frame .headline {

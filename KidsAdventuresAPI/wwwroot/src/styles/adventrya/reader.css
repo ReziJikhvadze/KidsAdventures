@@ -50,6 +50,16 @@
   border: 0;
   background: #fff;
 }
+/*
+  The same frame, holding the wait rather than the book.
+
+  It keeps the plate's dark ground instead of the iframe's white: a white sheet appearing a
+  moment before the pages do reads as the book having loaded blank.
+*/
+.reader-canonical-pdf-waiting {
+  display: grid;
+  place-items: center;
+}
 .reader-header {
   position: relative;
   z-index: 5;

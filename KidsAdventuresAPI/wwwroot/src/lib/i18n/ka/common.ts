@@ -7,6 +7,8 @@ export const common = {
     dashboardFailed: "Dashboard ვერ ჩაიტვირთა.",
     loading: "იტვირთება…",
     bookFailed: "წიგნი ვერ ჩაიტვირთა.",
+    /* A preference that would not save. Said beside the control, not over the page. */
+    saveFailed: "ვერ შევინახეთ. სცადე ხელახლა.",
   },
 
   actions: {

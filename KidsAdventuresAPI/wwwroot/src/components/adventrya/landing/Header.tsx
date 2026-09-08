@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "@tanstack/react-router";
 
 import { LanguageSwitcher } from "@/components/adventrya/LanguageSwitcher";
-import { BRAND_HEADER_NAME } from "@/lib/brand";
+import { BekiMark } from "@/components/brand/BekiMark";
 import { useT } from "@/lib/i18n";
 
 import { ChevronDownIcon, DashboardIcon, GlobeIcon } from "./icons";
@@ -75,8 +75,10 @@ export function Header() {
 
   return (
     <header className="landing-v3-header">
+      {/* The drawn lockup rather than the name set in gold. The link already carries the brand
+          in its aria-label, so the image is decorative and the tagline is the only text left. */}
       <Link className="landing-v3-logo" to="/" aria-label={t.common.nav.homeAria} onClick={toTop}>
-        {BRAND_HEADER_NAME}
+        <BekiMark decorative />
         <small>{t.common.brandTagline}</small>
       </Link>
 

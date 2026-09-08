@@ -16,10 +16,19 @@ import {
 import type { AdventurePackDetailResponse } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { rememberReadLocally } from "@/lib/books-read";
+import { BekiLoader } from "@/components/adventrya/BekiLoader";
 import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { useT } from "@/lib/i18n";
 import { NewBookCharacterContext } from "@/lib/story/newBookCharacter";
 import { useWorldById, isWorldId } from "@/lib/worlds";
+
+/*
+  The book, in pages.
+
+  Eight painted spreads, two leaves each — the number the home page promises in words and the one
+  `pageCount` documents. Named here because the reader is the last place that still guessed at it.
+*/
+const BOOK_PAGE_COUNT = 16;
 
 export function ReaderScreen() {
   const WORLD_BY_ID = useWorldById();
@@ -164,7 +173,16 @@ export function ReaderScreen() {
     (world ? world.bookTitle(heroName) : t.story.storybook.adventureOf(heroName));
   const pages = pack?.storyPages ?? [];
   const isUnlocked = pack?.isUnlocked === true || pack?.accessLevel === "Full";
-  const lockedPageCount = pack?.lockedPageCount ?? (isUnlocked ? 0 : Math.max(0, 7 - pages.length));
+  /*
+    Sixteen, when the server has not said.
+
+    The fallback counted to seven — a page count from a book format this product left behind —
+    so a locked reader was told the rest of the book was six pages when the home page, the
+    pricing copy and `pageCount` all say sixteen. `BOOK_PAGE_COUNT` is the eight painted spreads,
+    two leaves each. The server's own `lockedPageCount` still wins wherever it is given.
+  */
+  const lockedPageCount =
+    pack?.lockedPageCount ?? (isUnlocked ? 0 : Math.max(0, BOOK_PAGE_COUNT - pages.length));
   const canVisitWorldPassport =
     Boolean(pack?.worldId) &&
     isUnlocked &&
@@ -404,6 +422,30 @@ export function ReaderScreen() {
               src={`${pdfObjectUrl}#view=FitH&toolbar=1&navpanes=0`}
               allow="fullscreen"
             />
+          </div>
+        ) : pack && !isIllustrating && pack.pdfUrl && pack.status === "Completed" && !pdfError ? (
+          /*
+            The book is arriving.
+
+            Everything above has resolved — the book is finished and has a PDF — but the file
+            itself is a blob this screen downloads with the session token, and until it lands
+            `pdfObjectUrl` is null. Every branch here used to miss that case and the chain fell
+            through to nothing, so the whole book slot was empty for the length of the download:
+            a reader who had just pressed "read" was shown a page with a heading and a hole in
+            it, which reads as a book that failed rather than one on its way.
+
+            Beki's own spark, at the size it is used when it is alone in the middle of a page.
+            Not one of the loader's two exclusions: those are the preview and a book being
+            written, which both have real spreads to show instead. This has nothing to show.
+
+            The conditions are the effect's own — a completed book with a PDF — so the mark turns
+            exactly while a download is in flight and never over a state that has no download
+            coming to end it.
+          */
+          <div className="reader-canonical-pdf reader-canonical-pdf-waiting">
+            <div className="beki-loader-block">
+              <BekiLoader size={56} label={t.common.states.loading} />
+            </div>
           </div>
         ) : pack && !isIllustrating && !pack.pdfUrl && pack.generationPipeline === "beki" ? (
           <p role="status">{t.story.reader.pdf.held}</p>

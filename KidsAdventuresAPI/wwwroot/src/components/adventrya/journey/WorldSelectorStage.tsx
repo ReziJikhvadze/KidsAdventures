@@ -2,6 +2,7 @@ import { useLocation, useRouter } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { BekiMark } from "@/components/brand/BekiMark";
 import { getAdventureMap } from "@/lib/api/worlds";
 import type { WorldNodeState } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -22,10 +23,12 @@ type Variant = "desktop" | "mobile";
  * Whether the server would let this child start here.
  *
  * `null` is a visitor with no progress at all, who may start anywhere. Everything else mirrors
- * `WorldProgressService.EnsureCanStartAsync`: `Unlocked` and `Next` only.
+ * `WorldProgressService`, which no longer locks anything: `Unlocked`, `Next`, and `Completed`
+ * for a world the child wants a second book in. `Locked` is a state the server stopped issuing
+ * — kept here because an older map response in a tab left open all afternoon can still carry it.
  */
 function startableState(state: WorldNodeState | null | undefined): boolean {
-  return !state || state === "Unlocked" || state === "Next";
+  return !state || state === "Unlocked" || state === "Next" || state === "Completed";
 }
 
 /**
@@ -311,11 +314,13 @@ export function WorldSelectorStage({
         Only what the server will actually accept.
 
         `WorldProgressService.EnsureCanStartAsync` refuses any node whose `CanStart` is false,
-        and the map sets that flag for `Unlocked` and `Next` alone — so both a locked world and
-        a finished one are refused. Offering them here does not open them; it walks a parent
-        through the whole creation flow and fails at the moment they try to pay. Dimming a
-        finished world is right and stays; letting it be chosen is not ours to decide from the
-        browser.
+        and offering a world it will refuse does not open it — it walks a parent through the
+        whole creation flow and fails at the moment they try to pay. The server now says yes to
+        all six, a finished world included, so this check passes for every island the map knows;
+        it stays because it is the browser's copy of a rule the browser does not own.
+
+        A finished world is still dimmed and still says "visited". That is what the parent gets
+        told about it, not what they are allowed to do with it.
       */
       if (!startableState(worldStates?.[world.worldId])) return;
 
@@ -549,6 +554,9 @@ function WorldStageArt({
               <a className="map-back" href={backHref} aria-label={copy.backLabel}>
                 <ArrowLeft aria-hidden="true" />
               </a>
+              {/* The mark is back beside the arrow, as an image rather than the link it used
+                  to be — the row was always drawn for the two of them. */}
+              <BekiMark className="map-header-mark" decorative />
             </div>
           ) : null}
 

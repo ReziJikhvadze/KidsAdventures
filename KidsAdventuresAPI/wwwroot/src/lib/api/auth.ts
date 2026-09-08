@@ -77,6 +77,22 @@ export async function getSession(): Promise<SessionInfoResponse> {
   return apiRequest<SessionInfoResponse>("/api/auth/me");
 }
 
+/**
+ * The parent's answer about being written to, on or off.
+ *
+ * Their own account only — the server takes the id from the token and ignores anything the body
+ * might say about whose preference this is. Returns the whole session back, so the caller does
+ * not have to guess that the write landed.
+ */
+export async function updateMarketingConsent(
+  marketingConsent: boolean,
+): Promise<SessionInfoResponse> {
+  return apiRequest<SessionInfoResponse>("/api/auth/me/preferences", {
+    method: "PATCH",
+    body: JSON.stringify({ marketingConsent }),
+  });
+}
+
 export async function register(
   email: string,
   password: string,

@@ -26,12 +26,15 @@ export const journey = {
     privacyNote: "These details are used only to create the personalised book.",
     termsPrefix: "I agree to the ",
     termsLink: "terms and conditions",
+    /* See the note beside the Georgian strings. */
+    marketingConsent: "Send me news and offers",
+    marketingConsentOptional: "optional",
     /* The one action on this form: it makes the book. */
     continue: "Create the book",
     /* See the note beside the Georgian strings: what this form says while a book is in flight. */
     resume: "Back to the sample",
     resumeNote:
-      "A sample for this child is already being made. Finish that one first — then you can make another.",
+      "A sample for this child is already being made. Finish that one first - then you can make another.",
     ready: "Character ready",
     saveCharacter: " Save character",
     saveChanges: " Save changes",
@@ -190,6 +193,11 @@ export const journey = {
     continue: "Create the story · ",
     changeSelection: " Change selection",
     coverAlt: (hero: string) => `${hero}'s book cover`,
+    /* The dedication leaf. See the note beside the Georgian strings. */
+    dedicationOwner: (hero: string) => `This book belongs to ${hero}`,
+    dedicationAge: (years: number) => `${years} years old`,
+    dedicationInvite: (hero: string) =>
+      `${hero}, we will follow this path together. It is time our adventure began!`,
   },
 
   packages: {

@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { useT } from "@/lib/i18n";
 import { primaryCharacter, type JourneyDraft } from "@/lib/journey/draft";
 import { heroDemoPages } from "@/lib/story/heroDemoPages";
-import { useWorldById, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
+import { useWorldById, type WorldId } from "@/lib/worlds";
 
 type Props = {
   draft: JourneyDraft;
@@ -27,7 +27,14 @@ export function AuthStage({ draft, onAuthenticated }: Props) {
   const hero = primaryCharacter(draft);
   const worldId = (draft.worldId ?? "dinosaurs") as WorldId;
   const world = WORLD_BY_ID[worldId];
-  const coverSrc = draft.preview?.coverImageDataUrl || WORLD_COVER_ART[worldId];
+  /*
+    The real cover, or nothing.
+
+    Falling back to the world painting here and handing it on as `coverImageUrl` left the book
+    unable to tell a cover from a stand-in, so its own fallback never ran and the map artwork was
+    presented as this child''s cover. Null lets the one fallback in `StorybookVolume` do the job.
+  */
+  const coverSrc = draft.preview?.coverImageDataUrl || null;
   const heroName = hero.name || t.common.fallbackHeroName;
   const bookTitle = draft.preview?.title || world.bookTitle(heroName);
 

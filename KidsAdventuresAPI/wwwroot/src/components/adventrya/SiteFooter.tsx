@@ -1,7 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
 
 import { useLogoToTop } from "@/components/adventrya/landing/Header";
-import { BRAND_HEADER_NAME } from "@/lib/brand";
+import { BekiMark } from "@/components/brand/BekiMark";
 import { useT } from "@/lib/i18n";
 
 /**
@@ -40,7 +40,7 @@ export function SiteFooter() {
     <footer className="landing-v3-footer" id="footer">
       <div>
         <Link to="/" className="landing-v3-logo" onClick={toTop}>
-          {BRAND_HEADER_NAME}
+          <BekiMark />
           <small>{t.common.brandTagline}</small>
         </Link>
         <p>{F.blurb}</p>

@@ -7,6 +7,8 @@ export const common = {
     dashboardFailed: "The dashboard could not be loaded.",
     loading: "Loading…",
     bookFailed: "The book could not be loaded.",
+    /* A preference that would not save. Said beside the control, not over the page. */
+    saveFailed: "That did not save. Try again.",
   },
 
   actions: {

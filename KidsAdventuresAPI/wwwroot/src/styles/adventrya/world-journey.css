@@ -620,6 +620,28 @@
   font-size: 0.8rem;
 }
 
+/*
+  The foot of the parent's space: what they may change about themselves.
+
+  A rule above it rather than a card around it, because a card would give one checkbox about
+  email the same weight as the shelf of books above. `.ux-terms-consent` comes from the create
+  form and is dark-bar copy by default; the cabinet is cream, so the ink is set here.
+*/
+.journey-preferences {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 34px;
+  padding-top: 18px;
+  border-top: 1px solid var(--jw-line, #e9e1d7);
+}
+
+.journey-preferences .ux-terms-consent {
+  margin: 0;
+  color: var(--jw-ink-soft, #655f72);
+  font-size: 13px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .journey-resume-spark svg {
     animation: none;

@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
+import { BekiMark } from "@/components/brand/BekiMark";
 import { ApiError } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { takeMagicReturnPath } from "@/lib/auth/magicReturn";
@@ -95,6 +96,9 @@ function MagicLinkLanding() {
 
   return (
     <main className="ux-auth-landing">
+      {/* This page carries no header of its own — it exists for the couple of seconds a token
+          takes to be spent — so the mark stands above the card rather than in a bar. */}
+      <BekiMark className="ux-auth-landing-mark" />
       <section className="ux-auth-landing-card" role="status" aria-live="polite">
         <h1 className="ux-auth-landing-title">
           {error ? copy.failedTitle : done ? copy.successTitle : copy.verifying}

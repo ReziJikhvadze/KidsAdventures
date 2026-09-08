@@ -20,6 +20,10 @@ export const journey = {
     privacyNote: "მონაცემები გამოიყენება მხოლოდ პერსონალიზებული წიგნის შესაქმნელად.",
     termsPrefix: "ვეთანხმები ",
     termsLink: "წესებსა და პირობებს",
+    /* The optional one. "თუ გნებავთ" says outright that this is a favour rather than a
+       condition, so nobody reads two ticks and assumes both are required. */
+    marketingConsent: "მსურს სიახლეებისა და შეთავაზებების მიღება",
+    marketingConsentOptional: "არასავალდებულო",
     /* The one action on this form: it makes the book. */
     continue: "შექმენი წიგნი",
     /*
@@ -226,6 +230,15 @@ export const journey = {
     continue: "შექმენი ამბავი · ",
     changeSelection: " არჩევანის შეცვლა",
     coverAlt: (hero: string) => `${hero}ს წიგნის ყდა`,
+    /*
+      The dedication leaf, the way the press sets it: whose book this is, how old they are, the
+      title, and Beki inviting them in. The printed sample on the home page carries the same four
+      lines; here they are about the real child rather than about ზუკა.
+    */
+    dedicationOwner: (hero: string) => `ეს წიგნი ეკუთვნის ${hero}ს`,
+    dedicationAge: (years: number) => `${years} წლის`,
+    dedicationInvite: (hero: string) =>
+      `${hero}, ერთად გავუყვებით ამ ბილიკს. დროა, დაიწყოს ჩვენი თავგადასავალი!`,
   },
 
   packages: {

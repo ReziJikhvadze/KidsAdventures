@@ -1,7 +1,10 @@
 import { Check, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
+import {
+  StorybookVolume,
+  type PlatePanelLine,
+} from "@/components/adventrya/storybook/StorybookVolume";
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
 import { storeGuestPreviewIds } from "@/lib/api/auth";
 import { ApiError, resolveApiUrl } from "@/lib/api/client";
@@ -25,7 +28,15 @@ import {
 } from "@/lib/journey/pendingRun";
 import { patchJourneyResume, writeJourneyResume } from "@/lib/journey/resume";
 import { readyPreviewPatch } from "@/lib/journey/previewRecovery";
-import { useWorldById, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
+import { useWorldById, WORLD_SCENE_ART, type WorldId } from "@/lib/worlds";
+
+/*
+  What the parent is buying, minus the one page they are shown.
+
+  Sixteen is the book: eight painted spreads, and the number the home page promises in so many
+  words. One is written for the preview, so fifteen are still shut.
+*/
+const PREVIEW_LOCKED_PAGES = 15;
 
 type Props = {
   draft: JourneyDraft;
@@ -360,8 +371,52 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, draft.worldId, retryToken, hero.serverId, hero.name, hero.photoStored]);
 
-  const coverSrc = draft.preview?.coverImageDataUrl || WORLD_COVER_ART[worldId];
+  /*
+    The real cover, or nothing.
+
+    This used to fall back to the world painting here, and then hand that painting to
+    `StorybookVolume` as `coverImageUrl` — so the book had no way to tell a cover from a
+    stand-in, and its own fallback never ran. What a parent saw was the map's artwork presented
+    as their child's cover. Passing null lets the one fallback in the component do the job, and
+    `waitForCover` above swaps the real picture in the moment it is painted.
+  */
+  const coverSrc = draft.preview?.coverImageDataUrl || null;
   const bookTitle = draft.preview?.title || world.bookTitle(hero.name || t.common.fallbackHeroName);
+  const heroAge = ageFromBirthDate(hero.birthDate);
+
+  /*
+    The book opens the way the printed one opens.
+
+    The preview used to begin at page one: cover, then words. The printed book — and the sample
+    on the home page, which is a photograph of a real copy — opens on the endpaper and then the
+    dedication, and only then on the story. A sample that skips both is a sample of a different
+    object.
+
+    The endpaper is the approved pattern and belongs to no world. The dedication plate takes this
+    world's own painting rather than the demo's, which is a picture of the city of light and
+    would be the wrong place for five of the six.
+  */
+  const previewFrontMatter = useMemo(() => {
+    const name = hero.name.trim() || t.common.fallbackHeroName;
+    const lines: PlatePanelLine[] = [
+      // The dative, as `heroDemoPages` sets it on the printed sample.
+      { text: t.journey.preview.dedicationOwner(name), size: "lg" as const },
+    ];
+    if (heroAge)
+      lines.push({ text: t.journey.preview.dedicationAge(heroAge), size: "sm" as const });
+    lines.push({ text: `„${bookTitle}“` });
+    lines.push({ text: t.journey.preview.dedicationInvite(name) });
+
+    return [
+      { art: "/adventrya/hero-demo/endpaper.webp", plainRight: true },
+      {
+        art: WORLD_SCENE_ART[worldId],
+        panelSide: "left" as const,
+        centred: true,
+        panel: lines,
+      },
+    ];
+  }, [hero.name, heroAge, bookTitle, worldId, t]);
 
   const previewPages: StoryPageContent[] = useMemo(() => {
     return [
@@ -404,9 +459,20 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
           aria-label={t.journey.previewLoader.ariaLabel(heroName)}
         >
           <div className="preview-atelier-book">
+            {/*
+              The child's own cover, as soon as there is one.
+
+              The server saves the cover while the parent is still on this screen — the story is
+              marked ready before the picture is painted, and the poll above collects it — so for
+              the last stretch of the wait the real thing exists and was not being shown. The
+              world's painting stands in until then, which is the honest answer to "we have not
+              drawn it yet", and the swap is the moment the wait starts being worth it.
+            */}
             <div
               className="preview-atelier-art"
-              style={{ backgroundImage: `url("${WORLD_COVER_ART[worldId]}")` }}
+              style={{
+                backgroundImage: `url("${draft.preview?.coverImageDataUrl || WORLD_SCENE_ART[worldId]}")`,
+              }}
             />
             <div className="preview-atelier-cover-lines" aria-hidden="true" />
             <span className="preview-atelier-spine" aria-hidden="true" />
@@ -519,6 +585,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
             title={bookTitle}
             coverImageUrl={coverSrc}
             worldId={worldId}
+            frontMatter={previewFrontMatter}
             pages={previewPages}
             isSpreadBook
             /*
@@ -531,14 +598,16 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
             */
             fullBleedSpreads
             /*
-              No locked placeholders. The preview is one cover and one page — all that is
-              generated — but the book used to be handed six blank locked leaves as well, so a
-              parent could page forward into six empty pages that only said the book was locked.
-              A stack of empty pages is a worse answer than none: it makes the sample feel hollow
-              at the moment the buying decision is made. Previous and next now move between the
-              two things that exist, and the package panel beside them is the next step.
+              Fifteen locked leaves — the rest of the book.
+
+              This was zero, and the argument for zero was that a stack of empty pages makes the
+              sample feel hollow. The opposite turned out to be true: with nothing behind page
+              one, the sample reads as the whole of what is being sold. The site promises sixteen
+              personalised pages on the home page; one written and fifteen shut is that promise,
+              shown rather than claimed, and each leaf says which page it is and that the full
+              book opens it.
             */
-            lockedPageCount={0}
+            lockedPageCount={PREVIEW_LOCKED_PAGES}
             isUnlocked={false}
             interactive
             initialIndex={0}

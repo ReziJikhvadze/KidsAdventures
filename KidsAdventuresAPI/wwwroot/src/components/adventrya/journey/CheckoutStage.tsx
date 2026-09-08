@@ -2,6 +2,7 @@ import { ArrowRight, Check, Lock, MapPin, Minus, Plus, Sparkles } from "lucide-r
 import { useEffect, useRef, useState } from "react";
 
 import { BekiLoader } from "@/components/adventrya/BekiLoader";
+import { AddressAutocompleteField } from "@/components/adventrya/journey/AddressAutocompleteField";
 import { LocationPickerDialog } from "@/components/adventrya/journey/LocationPickerDialog";
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
 import { ApiError, resolveApiUrl } from "@/lib/api/client";
@@ -22,7 +23,7 @@ import { getGuestPreviewStatus } from "@/lib/api/adventure-packs";
 import { ensureServerCharacters } from "@/lib/journey/syncCharacters";
 import { MAX_PRINT_QUANTITY, PRICES } from "@/lib/pricing";
 import { heroDemoPages } from "@/lib/story/heroDemoPages";
-import { useWorldById, WORLD_COVER_ART, type WorldId } from "@/lib/worlds";
+import { useWorldById, type WorldId } from "@/lib/worlds";
 
 type Props = {
   draft: JourneyDraft;
@@ -44,7 +45,14 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const heroName = hero.name.trim() || t.common.fallbackHeroName;
   const worldId = (draft.worldId ?? "dinosaurs") as WorldId;
   const world = WORLD_BY_ID[worldId];
-  const coverSrc = draft.preview?.coverImageDataUrl || WORLD_COVER_ART[worldId];
+  /*
+    The real cover, or nothing.
+
+    Falling back to the world painting here and handing it on as `coverImageUrl` left the book
+    unable to tell a cover from a stand-in, so its own fallback never ran and the map artwork was
+    presented as this child''s cover. Null lets the one fallback in `StorybookVolume` do the job.
+  */
+  const coverSrc = draft.preview?.coverImageDataUrl || null;
   const bookTitle = draft.preview?.title?.trim() || world.bookTitle(heroName);
   const orderPackage: OrderPackage = draft.bookPackage === "print" ? "Print" : "Digital";
   const isPrint = orderPackage === "Print";
@@ -433,34 +441,30 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                 onChange={(e) => updateShipping({ recipientPhone: e.target.value })}
               />
             </label>
-            <label className="field field-wide" htmlFor="checkout-ship-address">
-              <span>{t.journey.checkout.shippingAddress}</span>
-              <input
-                id="checkout-ship-address"
-                name="addressLine1"
-                autoComplete="street-address"
-                placeholder={t.journey.checkout.addressPlaceholder}
-                value={draft.shipping.addressLine1}
-                onChange={(e) => updateShipping({ addressLine1: e.target.value })}
-              />
-              {/*
-                Beside the field, not instead of it.
+            {/*
+              The field searches, and the map is under it.
 
-                A Georgian street typed from memory is the easiest thing on this form to get
-                wrong and the most expensive: the parcel reaches a courier, and a courier with a
-                misspelt street rings or gives up. Picking the place resolves it against Google's
-                own record. Typing still works — the map is a shortcut, never a gate, and it is
-                simply absent on a deployment with no key.
-              */}
-              <button
-                className="ux-inline-link ux-pick-location"
-                type="button"
-                onClick={() => setPickingLocation(true)}
-              >
-                <MapPin aria-hidden="true" size={14} />
-                {t.journey.checkout.pickLocation}
-              </button>
-            </label>
+              A Georgian street typed from memory is the easiest thing on this form to get wrong
+              and the most expensive: the parcel reaches a courier, and a courier with a misspelt
+              street rings or gives up. So the field itself now offers Google's own addresses as
+              the parent types, which is where nearly every address will come from, and the map
+              is the second way in for the one nobody can spell. Typing still works on its own —
+              both are shortcuts, never gates, and both are simply absent where there is no key.
+            */}
+            <AddressAutocompleteField
+              id="checkout-ship-address"
+              name="addressLine1"
+              fieldClassName="field"
+              className="field-wide"
+              label={t.journey.checkout.shippingAddress}
+              placeholder={t.journey.checkout.addressPlaceholder}
+              value={draft.shipping.addressLine1}
+              onChange={(addressLine1) => updateShipping({ addressLine1 })}
+              onChoose={({ address, city }) =>
+                updateShipping(city ? { addressLine1: address, city } : { addressLine1: address })
+              }
+              onPickOnMap={() => setPickingLocation(true)}
+            />
 
             {/*
               What no map knows and the parent always does.

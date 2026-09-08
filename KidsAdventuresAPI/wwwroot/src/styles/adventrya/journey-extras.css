@@ -116,10 +116,23 @@
   -webkit-backdrop-filter: blur(24px);
   backdrop-filter: blur(24px);
 }
+/*
+  The book being made is the book that arrives.
+
+  This was 0.725 — a tall paperback — while the thing a parent is waiting for is a squarish
+  board, 222.5 × 205 mm, which `.storybook-volume` states as 1.085. So the screen that sells the
+  book showed a different book, and the shape was the first thing wrong with it.
+
+  `isolation` is not decoration. The turning sheet below sits behind the cover on `z-index: -1`,
+  and a negative index is resolved against the nearest ancestor that forms a stacking context —
+  which was not this element, so the sheet was being painted against a container several levels
+  up and came out over the cover instead of under it.
+*/
 .preview-atelier-book {
   position: relative;
+  isolation: isolate;
   width: min(310px, 100%);
-  aspect-ratio: 0.725;
+  aspect-ratio: 1.085;
   justify-self: center;
   overflow: visible;
   border: 8px solid #5b3d49;
@@ -307,14 +320,20 @@
   should be, which is the opposite of what a screen selling an illustrated book should show while
   a parent waits. It now stays at least six sevenths painted and only warms up from there.
 */
+/*
+  The colour warms. Nothing is cut away any more.
+
+  The `clip-path` took the right 14% off the cover for most of the cycle — and the turning sheet
+  sits at exactly that edge, `inset: 3% -12% 2% 10%`, so what showed through the gap was the
+  sheet, over the front of the book. That is the report. The stacking fix on the book above is
+  the other half; this is the hole it was showing through.
+*/
 @keyframes preview-paint-reveal {
   0% {
     filter: saturate(0.72) brightness(0.84);
-    clip-path: inset(0 14% 0 0);
   }
   to {
     filter: saturate(1.04) brightness(1);
-    clip-path: inset(0 0 0 0);
   }
 }
 @keyframes preview-page-build {

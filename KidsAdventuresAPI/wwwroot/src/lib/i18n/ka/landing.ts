@@ -46,6 +46,32 @@ export const landing = {
         meta: "მაგია · სიკეთე",
         age: "2–4 წელი",
       },
+      /*
+        The other three worlds, so the shelf shows the whole map.
+
+        Three of the six were on display and three were not, which made the band read as the
+        catalogue rather than a sample of it — a family whose child wants pirates saw dinosaurs,
+        space and magic and had no reason to think there was an island for them. The titles are
+        built the way the first three are: a child's name and the world's own `mapTitle`.
+      */
+      {
+        theme: "pirates",
+        title: "ლუკა და საიდუმლო კუნძული",
+        meta: "ზღვა · სიმამაცე",
+        age: "6–8 წელი",
+      },
+      {
+        theme: "animals",
+        title: "მარი და მოჯადოებული ტყე",
+        meta: "ბუნება · მზრუნველობა",
+        age: "3–5 წელი",
+      },
+      {
+        theme: "airplanes",
+        title: "სანდრო და ღრუბლების ქალაქი",
+        meta: "ფრენა · ცნობისმოყვარეობა",
+        age: "5–7 წელი",
+      },
     ],
   },
 

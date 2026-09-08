@@ -46,6 +46,25 @@ export const landing = {
         meta: "Magic · kindness",
         age: "Ages 2–4",
       },
+      /* The other three worlds. See the note beside the Georgian strings. */
+      {
+        theme: "pirates",
+        title: "Luka and the Secret Island",
+        meta: "The sea · courage",
+        age: "Ages 6–8",
+      },
+      {
+        theme: "animals",
+        title: "Mari and the Enchanted Forest",
+        meta: "Nature · care",
+        age: "Ages 3–5",
+      },
+      {
+        theme: "airplanes",
+        title: "Sandro and the City in the Clouds",
+        meta: "Flight · curiosity",
+        age: "Ages 5–7",
+      },
     ],
   },
 

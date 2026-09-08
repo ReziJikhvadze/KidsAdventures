@@ -73,4 +73,10 @@ export const dashboard = {
       "მონაცემები 7 დღეში ავტომატურად წაიშლება, თუ შეკვეთას არ დაასრულებ",
     ],
   },
+
+  /* The one thing on this page a parent may change about themselves rather than about a book. */
+  preferences: {
+    heading: "პარამეტრები",
+    marketing: "მსურს სიახლეებისა და შეთავაზებების მიღება",
+  },
 };
