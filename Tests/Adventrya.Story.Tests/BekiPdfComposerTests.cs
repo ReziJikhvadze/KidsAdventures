@@ -27,6 +27,49 @@ public class BekiPdfComposerTests(ITestOutputHelper output)
     private static string? BookDirectory => Environment.GetEnvironmentVariable("ADVENTRYA_BEKI_BOOK");
 
     [Fact]
+    public void Testing_pdf_has_only_cover_and_two_spreads_and_is_never_a_print_book()
+    {
+        var plan = BekiLayoutFixture.EightSpreadPlan();
+        var spreads = plan.Spreads.Take(2).Select(spread => new BekiSpreadArtwork(
+            spread.Number, BekiLayoutFixture.SheetPng((30, 90, 120), width: 1024))).ToList();
+        var composer = Compose(new BekiPrintLayoutOptions());
+        var options = BekiLayoutFixture.Personalization() with { TestingFlow = true, PrepareForPrint = false };
+        var sample = composer.ComposeCanonicalWithReceipts(plan, WrapPng(), spreads, options);
+        Assert.Equal(3, CountPages(sample.Pdf));
+        Assert.Equal(["cover-wrap", "spread-01", "spread-02"], sample.Receipts.Pages.Select(p => p.Role));
+        using var report = JsonDocument.Parse(BekiCustomerPdfValidation.Validate(sample.Pdf, testingFlow: true));
+        Assert.Equal("PASS", report.RootElement.GetProperty("verdict").GetString());
+        Assert.Throws<BekiLayoutException>(() => BekiCustomerPdfValidation.Validate(sample.Pdf));
+        Assert.Throws<BekiLayoutException>(() => composer.ComposeCanonicalWithReceipts(plan, WrapPng(), spreads,
+            options with { PrepareForPrint = true }));
+        Assert.Throws<BekiLayoutException>(() => composer.ComposeCanonicalWithReceipts(plan, WrapPng(), spreads,
+            options with { TestingFlow = false }));
+        Assert.All(sample.Receipts.Pages.SelectMany(p => p.Rasters), r => Assert.True(r.Factor <= 1));
+    }
+
+    [Fact]
+    public void Customer_canonical_pdf_never_upscales_spreads_even_with_300_ppi_print_settings()
+    {
+        var plan = BekiLayoutFixture.EightSpreadPlan();
+        var spreads = plan.Spreads.Select(spread => new BekiSpreadArtwork(
+            spread.Number, BekiLayoutFixture.SheetPng((30, 90, 120), width: 1024))).ToList();
+        var book = Compose(new BekiPrintLayoutOptions { PrintTargetPpi = 300 })
+            .ComposeCanonicalWithReceipts(plan, WrapPng(), spreads,
+                BekiLayoutFixture.Personalization() with { PrepareForPrint = false });
+        Assert.Equal(12, CountPages(book.Pdf));
+        foreach (var page in book.Receipts.Pages.Where(page => page.Role.StartsWith("spread-")))
+        foreach (var raster in page.Rasters)
+        {
+            Assert.True(raster.DeliveredWidthPx <= 1024);
+            Assert.True(raster.DeliveredWidthPx <= raster.SourceWidthPx);
+            Assert.True(raster.DeliveredHeightPx <= raster.SourceHeightPx);
+            Assert.False(raster.Interpolated);
+        }
+        using var report = JsonDocument.Parse(BekiCustomerPdfValidation.Validate(book.Pdf));
+        Assert.Equal("PASS", report.RootElement.GetProperty("verdict").GetString());
+    }
+
+    [Fact]
     public void Canonical_book_is_one_12_page_mixed_geometry_artifact()
     {
         var layout = BekiLayoutFixture.ScreenProofLayout();

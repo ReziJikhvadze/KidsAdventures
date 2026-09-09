@@ -5,6 +5,17 @@ public static class BekiPressComposite
 {
     public static void ValidateSource(byte[] basePng, byte[] composite, BekiCompositionManifest receipt)
     {
+        if (BekiGeneratedArtwork.IsGenerated(receipt))
+        {
+            if (!basePng.AsSpan().SequenceEqual(composite)
+                || BekiCompositeEngine.Sha256Hex(basePng) != receipt.BaseImage.Sha256
+                || BekiCompositeEngine.Sha256Hex(composite) != receipt.Output.Sha256
+                || receipt.BekiLayer.PoseId != BekiGeneratedArtwork.PoseId
+                || !receipt.BekiLayer.Redrawn)
+                throw new BekiLayoutException(CompositeFailureCodes.PrintPreflightFailed,
+                    "BEKI_REFERENCE: generated artwork does not match its stored provenance.");
+            return;
+        }
         var layer = receipt.BekiLayer;
         if (receipt.CompositionVersion != BekiCompositionManifest.Version
             || !string.Equals(BekiCompositeEngine.Sha256Hex(basePng), receipt.BaseImage.Sha256,

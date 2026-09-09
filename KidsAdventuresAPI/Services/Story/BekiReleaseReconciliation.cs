@@ -821,30 +821,29 @@ public sealed class BekiReleaseReconciliation(
     }
 
     /// <summary>
-    /// Which stored file IS the printer's file for this book.
-    ///
-    /// Two answers, because there are two kinds of book in storage. Since the canonical unification
-    /// a composite book has ONE PDF — <see cref="BekiPackBlobs.ReadingPdfName"/> — and the reader,
-    /// the download, the admin console and the press all point at it; nothing writes the separate
-    /// press interior any more. A book made before that, or by the legacy path, still has its
-    /// interior beside the reading copy and the printer wants THAT one.
-    ///
-    /// The canonical integrity record is the mark, because only the canonical publish step writes
-    /// it, it is written from the stored bytes read back, and it names the blob it is about. Asking
-    /// storage which record exists is therefore asking the book what kind it is, rather than
-    /// inferring it from a column or a pipeline name on the row.
-    ///
-    /// This was not a preference. The approval endpoint published through here and looked only for
-    /// the legacy interior, so for every canonical book — which is every book this deployment now
-    /// makes — an operator's signature wrote nothing at all: <c>PrintPdfUrl</c> stayed null, the
-    /// admin print download answered 409, and the response still claimed the press files were out.
+    /// Resolve the separate admin-prepared print PDF. Historical unified books retain their
+    /// reading artifact only when its integrity record explicitly names print as a consumer.
     /// </summary>
     private async Task<string> PressPdfNameAsync(
-        Domain.Entities.AdventurePack pack, CancellationToken ct) =>
-        await blobStorage.ExistsAsync(
-            BekiPackBlobs.CanonicalIntegrityName(pack.UserId, pack.Id), ct)
-            ? BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id)
-            : BekiPackBlobs.InteriorPdfName(pack.UserId, pack.Id);
+        Domain.Entities.AdventurePack pack, CancellationToken ct)
+    {
+        var interior = BekiPackBlobs.InteriorPdfName(pack.UserId, pack.Id);
+        if (await blobStorage.ExistsAsync(interior, ct)) return interior;
+
+        // Only historical unified PDFs may serve both roles. New reading copies explicitly
+        // omit print from their consumer list and must never be published by approval alone.
+        var integrity = BekiPackBlobs.CanonicalIntegrityName(pack.UserId, pack.Id);
+        if (await blobStorage.ExistsAsync(integrity, ct))
+        {
+            await using var stream = await blobStorage.DownloadAsync(integrity, ct);
+            using var record = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            if (record.RootElement.TryGetProperty("consumers", out var consumers)
+                && consumers.ValueKind == JsonValueKind.Array
+                && consumers.EnumerateArray().Any(c => c.GetString() == "print"))
+                return BekiPackBlobs.ReadingPdfName(pack.UserId, pack.Id);
+        }
+        return interior;
+    }
 
     /// <summary>
     /// The blob's own stored URL, which is whatever upload returned for it.

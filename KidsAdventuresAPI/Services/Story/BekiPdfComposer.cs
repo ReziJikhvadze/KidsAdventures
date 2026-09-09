@@ -30,6 +30,12 @@ public sealed record BekiBookPersonalization(
 {
     /// <summary>Verified observations tied to this cover's source by fulfillment, if available.</summary>
     public IReadOnlyList<BekiCoverProtectedArea>? CoverProtectedAreas { get; init; }
+
+    /// <summary>Only admin print preparation requests print-sized rasters.</summary>
+    public bool PrepareForPrint { get; init; } = true;
+
+    /// <summary>Cover and two story spreads only; screen output, never print preparation.</summary>
+    public bool TestingFlow { get; init; }
 }
 
 /// <summary>
@@ -635,6 +641,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         /// <summary>The press file: trim plus bleed, and every raster normalized to the sheet.</summary>
         Press,
 
+        /// <summary>Canonical geometry with screen rasters; never upscales artwork.</summary>
+        Screen,
+
         /// <summary>The proof render: the press geometry, native rasters, for looking at.</summary>
         Proof,
 
@@ -987,25 +996,32 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
 
         QuestPDF.Settings.License = LicenseType.Community;
 
-        if (spreads.Count != BookFormat.SpreadCount)
+        var expectedSpreads = personalization.TestingFlow ? BekiOptions.TestingSpreadCount : BookFormat.SpreadCount;
+        if (personalization.TestingFlow && personalization.PrepareForPrint)
+            throw new BekiLayoutException(CompositeFailureCodes.LayoutFailed, "Test samples cannot be prepared for printing.");
+        if (!spreads.Select(s => s.SpreadNumber).Order().SequenceEqual(Enumerable.Range(1, expectedSpreads)))
         {
             throw new BekiLayoutException(
                 CompositeFailureCodes.LayoutFailed,
-                $"Canonical BEKI PDF requires exactly {BookFormat.SpreadCount} story spreads; got {spreads.Count}.");
+                $"Canonical BEKI PDF requires exactly {expectedSpreads} story spreads numbered from one; got {spreads.Count}.");
         }
 
         var themeId = CanonicalThemeId(personalization);
         _assets.VerifyForBook(themeId);
         PdfFontBootstrap.EnsureRegistered();
 
-        var receipts = new ReceiptBook(BekiRenderMode.Press);
+        var mode = personalization.PrepareForPrint ? BekiRenderMode.Press : BekiRenderMode.Screen;
+        var receipts = new ReceiptBook(mode);
         var bySpread = plan.Spreads.ToDictionary(spread => spread.Number);
 
         var pdf = Document.Create(document =>
         {
-            ComposeCoverWrapPage(document, plan.Concept.Title, wrapComposite, receipts);
-            ComposeEndpaper(document, rear: false, BekiRenderMode.Press, receipts);
-            ComposeIntro(document, themeId, plan.Concept.Title, personalization, BekiRenderMode.Press, receipts);
+            ComposeCoverWrapPage(document, plan.Concept.Title, wrapComposite, receipts, mode);
+            if (!personalization.TestingFlow)
+            {
+                ComposeEndpaper(document, rear: false, mode, receipts);
+                ComposeIntro(document, themeId, plan.Concept.Title, personalization, mode, receipts);
+            }
 
             foreach (var artwork in spreads.OrderBy(spread => spread.SpreadNumber))
             {
@@ -1016,10 +1032,11 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                         $"Canonical BEKI PDF has artwork without story text for spread {artwork.SpreadNumber}.");
                 }
 
-                ComposeSpread(document, artwork.Image, spread, personalization, BekiRenderMode.Press, receipts);
+                ComposeSpread(document, artwork.Image, spread, personalization, mode, receipts);
             }
 
-            ComposeCredits(document, personalization, BekiRenderMode.Press, receipts);
+            if (!personalization.TestingFlow)
+                ComposeCredits(document, personalization, mode, receipts);
         }).WithMetadata(new DocumentMetadata
         {
             Title = plan.Concept.Title,
@@ -1140,12 +1157,15 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         IDocumentContainer document,
         string title,
         byte[] wrapComposite,
-        ReceiptBook receipts)
+        ReceiptBook receipts,
+        BekiRenderMode mode = BekiRenderMode.Press)
     {
         title = CoverDisplayTitle(title);
         var titleWidthPt = MmToPt(BekiCoverDieline.TitleSafeWidthMm);
         var titleSize = CoverTitleSizePt(title);
-        var placed = NormalizeCoverWrap(wrapComposite);
+        var placed = mode == BekiRenderMode.Screen
+            ? FitForScreen(wrapComposite, BekiCoverDieline.CanvasWidthMm)
+            : NormalizeCoverWrap(wrapComposite);
 
         // The box is chosen from the wrap as it ARRIVED, not from `placed`: normalization re-encodes
         // the same picture at the same size, and hashing the arrival is what lets the customer's
@@ -2719,12 +2739,12 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private FixedPage EndpaperArtwork(BekiRenderMode mode)
         => FixedPageArtwork.GetOrAdd(
             FixedPageKey(
-                $"endpaper|{(mode == BekiRenderMode.Reading ? "screen" : "press")}",
+                $"endpaper|{(mode is BekiRenderMode.Reading or BekiRenderMode.Screen ? "screen" : "press")}",
                 _assets.EndpaperPattern.Sha256),
             _ =>
             {
                 var pattern = _assets.EndpaperPatternBytes();
-                var placed = mode == BekiRenderMode.Reading
+                var placed = mode is BekiRenderMode.Reading or BekiRenderMode.Screen
                     ? FitForScreen(pattern, _layout.SpreadWidthMm)
                     : NormalizeForPrint(pattern, PrintRaster, preserveApprovedBytes: true);
 
@@ -2744,7 +2764,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private FixedPage IntroArtwork(string themeId, BekiRenderMode mode)
         => FixedPageArtwork.GetOrAdd(
             FixedPageKey(
-                $"intro|{themeId}|{(mode == BekiRenderMode.Reading ? "screen" : "press")}",
+                $"intro|{themeId}|{(mode is BekiRenderMode.Reading or BekiRenderMode.Screen ? "screen" : "press")}",
                 _assets.IntroBackground(themeId).Sha256),
             _ =>
             {
@@ -2768,7 +2788,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                     composite.Manifest.Canvas.WidthPx,
                     composite.Manifest.Canvas.HeightPx);
 
-                var placed = mode == BekiRenderMode.Reading
+                var placed = mode is BekiRenderMode.Reading or BekiRenderMode.Screen
                     ? FitForScreen(composite.Png, _layout.SpreadWidthMm)
                     : NormalizeForPrint(composite.Png, PrintRaster);
 
@@ -2968,7 +2988,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     private string EncoderLabel(byte[] delivered, BekiRenderMode mode)
         => delivered.Length < 2 || delivered[0] != 0xFF || delivered[1] != 0xD8
             ? "passthrough"
-            : mode == BekiRenderMode.Reading
+            : mode is BekiRenderMode.Reading or BekiRenderMode.Screen
                 ? $"jpeg-q{_layout.ScreenAssetJpegQuality}"
                 : $"jpeg-q{_layout.PrintAssetJpegQuality}-444";
 
@@ -3315,7 +3335,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
             {
                 WidthPx = PixelsFor(bledWidthMm, _layout.PrintTargetPpi),
             }),
-            BekiRenderMode.Reading => FitForScreen(outBytes, sheetWidthMm),
+            BekiRenderMode.Reading or BekiRenderMode.Screen => FitForScreen(outBytes, sheetWidthMm),
             _ => outBytes,
         };
     }

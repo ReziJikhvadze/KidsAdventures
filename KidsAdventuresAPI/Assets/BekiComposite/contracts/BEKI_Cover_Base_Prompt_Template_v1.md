@@ -71,7 +71,7 @@ This is one continuous panoramic scene, painted as a single picture from edge to
 The child and the one inviting story action belong on the right side of the picture.
 The left side is the same world continuing outward as quieter environment: no child, no other character, and no story action there, and never a second version of the composition on the right.
 Through the middle of the picture the scene stays simple, calm, and low in detail — open sky, far ground, quiet water or foliage — carrying the same light, colour, and finish as everything around it, with nothing marked, tinted, framed, blurred, or edged there and no face, hand, character, or story-critical detail sitting there.
-The upper right of the picture stays naturally calm and open, readable without a blank panel, artificial blur, dark rectangle, or hard-edged box.
+The lower right of the picture stays naturally calm and open, readable without a blank panel, artificial blur, dark rectangle, or hard-edged box.
 Let the scene run off all four outer edges naturally, and keep everything important well away from those edges.
 ```
 

@@ -37,6 +37,19 @@ public static class BekiIdentity
         + "Beki: no ears, horns, wings, hair, clothes, teeth or animal anatomy.";
 
     /// <summary>Continuity for a story spread that lists Beki.</summary>
+    public const string GenerationLock =
+        "The final attached image is the canonical Beki reference, the sole authority for Beki. "
+        + "Include exactly one Beki in the finished scene. Copy the reference almost exactly: "
+        + "preserve the silhouette, body and head proportions, eye shape, eye size, eye spacing, "
+        + "golden eye colour, face, smile, leaf layers, head spiral, rear ribbon and chest core. "
+        + "Preserve the exact rounded hand shapes and lobes shown: NO human fingers, NO extra "
+        + "digits, NO changed hands. Do not enlarge Beki's head, eyes, hands or body or change "
+        + "their relative sizes. Keep Beki a small companion at the same scale relative to the "
+        + "child throughout the book. No redesign, reinterpretation, costume, new anatomy or "
+        + "style conversion. Only minimal pose/expression adjustment and scene lighting may vary. "
+        + "The child remains the active hero. Keep Beki clear of the child's face, hands, text "
+        + "area and centre fold. The reference overrides any conflicting scene description. " + Lock;
+
     public const string SpreadContinuity =
         "Beki appears in this scene: depict the exact character in the Beki master reference - "
         + "same face, leaf anatomy, upper spiral, rear ribbon and chest glow - hovering at the "

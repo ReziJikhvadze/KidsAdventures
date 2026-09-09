@@ -40,7 +40,7 @@ public class CompositeContractAmendmentTests : CompositePipelineTestBase
         + "open sky, far ground, quiet water or foliage - carrying the same light, colour, and "
         + "finish as everything around it, with nothing marked, tinted, framed, blurred, or edged "
         + "there and no face, hand, character, or story-critical detail sitting there.\n"
-        + "The upper right of the picture stays naturally calm and open, readable without a blank "
+        + "The lower right of the picture stays naturally calm and open, readable without a blank "
         + "panel, artificial blur, dark rectangle, or hard-edged box.\n"
         + "Let the scene run off all four outer edges naturally, and keep everything important "
         + "well away from those edges.";
@@ -101,7 +101,7 @@ public class CompositeContractAmendmentTests : CompositePipelineTestBase
         Assert.Contains("right side of the picture", prompt, StringComparison.Ordinal);
         Assert.Contains("The left side is the same world", prompt, StringComparison.Ordinal);
         Assert.Contains("the middle of the picture the scene stays simple", prompt, StringComparison.Ordinal);
-        Assert.Contains("upper right of the picture stays naturally calm and open", prompt, StringComparison.Ordinal);
+        Assert.Contains("lower right of the picture stays naturally calm and open", prompt, StringComparison.Ordinal);
         Assert.Contains("keep everything important well away from those edges", prompt, StringComparison.Ordinal);
 
         // The back cover still carries no cast and no second composition — the audit's one
@@ -160,7 +160,7 @@ public class CompositeContractAmendmentTests : CompositePipelineTestBase
     /// </remarks>
     [Fact]
     public void The_cover_prompt_version_is_bumped_for_the_amendment() =>
-        Assert.Equal("cover-child-world-v1.4", CompositeIllustrationPrompt.CoverVersion);
+        Assert.Equal("cover-child-world-v1.5", CompositeIllustrationPrompt.CoverVersion);
 
     // ===========================================================================================
     // D10 / P1-08 — the scenario's text quality bar
@@ -279,7 +279,7 @@ public class CompositeContractAmendmentTests : CompositePipelineTestBase
 
     [Fact]
     public void The_scenario_prompt_version_is_bumped_for_the_amendment() =>
-        Assert.Equal("visual-scenario-v2.4", CompositeVisualScenarioPrompt.Version);
+        Assert.Equal("visual-scenario-v2.5", CompositeVisualScenarioPrompt.Version);
 
     /// <summary>
     /// The request schema carries the same rule the supplied file states as a pattern — in words,

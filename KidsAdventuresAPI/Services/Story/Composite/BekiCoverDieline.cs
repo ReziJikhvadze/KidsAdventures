@@ -150,13 +150,12 @@ public static class BekiCoverDieline
     private static int Round(double value) => (int)Math.Round(value, MidpointRounding.ToEven);
 
     /// <summary>
-    /// The Ottia title's home: the upper front board, held 16 mm in from the board's sides and
-    /// sitting between 14% and 33% of the canvas height — calm by generation-time instruction,
-    /// typeset at layout time.
+    /// The title stays in the lower front board, below the child's face and the cover Beki.
+    /// The 136 × 46 mm box ends 17 mm above the board's bottom edge.
     /// </summary>
     public const float TitleSafeLeftMm = FrontBoardLeftMm + 16f;
     public const float TitleSafeWidthMm = 136f;
-    public const float TitleSafeTopMm = 34f;
+    public const float TitleSafeTopMm = 162f;
     public const float TitleSafeHeightMm = 46f;
 
     /// <summary>Visible artwork bounds, 20 mm inward from the physical top/right folds.</summary>
@@ -171,23 +170,10 @@ public static class BekiCoverDieline
     /// Where the approved pose lands on the wrap, normalized over the full 512 × 245 canvas the
     /// way every engine anchor is.
     ///
-    /// It used to be (0.80, 0.62, 0.34), and audit P1-09 read the printed result exactly as it
-    /// looks: "the exact Beki asset overlaps the child's torso and its top curl reaches the face
-    /// area … reposition it beside the child, clear of the face and torso". So the anchor moves
-    /// right and down and Beki gets slightly smaller: centred at 87% of the width and 64% of the
-    /// height, three tenths of the canvas tall.
-    ///
-    /// The value is not an opinion. <c>BekiCoverDielineTests</c> places EVERY pose in the approved
-    /// registry at this anchor — each one's own alpha-box aspect, the engine's own arithmetic — and
-    /// asserts that the placed rectangle stays inside the front board (269.5–492 × 20–225 mm), never
-    /// touches the title-safe rectangle, and keeps its right edge inside the 96.1% turn-in line. The
-    /// widest pose in the registry is the forward glide at aspect 1.186: at 73.5 mm tall it is
-    /// 87.1 mm wide, so its right edge lands at 489.0 mm — three millimetres clear of the board and
-    /// well clear of the turn-in. The tightest constraint the anchor answers to is that one; the
-    /// title-safe rectangle ends at 80 mm and the pose's top edge is at 120.1 mm, so the two cannot
-    /// meet at any pose aspect. Change the anchor and that test decides whether the change is legal.
+    /// The pose keeps its size and horizontal position, but sits above the lower title band.
+    /// Every approved pose must remain inside the board and clear of the title and logo.
     /// </summary>
-    public static readonly BekiCompositeAnchor FrontBekiAnchor = new(0.87, 0.64, 0.30);
+    public static readonly BekiCompositeAnchor FrontBekiAnchor = new(0.87, 0.45, 0.30);
 
     /// <summary>
     /// What the cover geometry says to the image model — and, since audit P0-03, the whole of what
@@ -217,7 +203,7 @@ public static class BekiCoverDieline
         + "open sky, far ground, quiet water or foliage — carrying the same light, colour, and "
         + "finish as everything around it, with nothing marked, tinted, framed, blurred, or edged "
         + "there and no face, hand, character, or story-critical detail sitting there.\n"
-        + "The upper right of the picture stays naturally calm and open, readable without a blank "
+        + "The lower right of the picture stays naturally calm and open, readable without a blank "
         + "panel, artificial blur, dark rectangle, or hard-edged box.\n"
         + "Let the scene run off all four outer edges naturally, and keep everything important "
         + "well away from those edges.";
@@ -225,8 +211,9 @@ public static class BekiCoverDieline
     /// <summary>The locked wrap, in the shape the cover prompt template takes.</summary>
     public static string ReservedArtworkInstructions => FormattableString.Invariant($"""
         COMPOSITION RESERVATIONS ONLY; never paint these rectangles or their edges. Coordinates are millimetres from the top-left of the continuous 512 x 245 canvas.
+        CHILD FRAMING: Show the child's full body, from the top of the hair to both shoes, with breathing room inside the visible front cover. No close-up or oversized portrait. Keep the head and feet away from the outer artwork edges and above the lower title band.
         TITLE: x={TitleSafeLeftMm}..{TitleSafeLeftMm + TitleSafeWidthMm}, y={TitleSafeTopMm}..{TitleSafeTopMm + TitleSafeHeightMm}.
-        Keep the child's entire face, head, hairline, eyes and expression, other characters and prominent accent details outside this area. Use only naturally calm low-detail atmosphere behind the future title.
+        Keep the child's entire face, head, hairline, eyes and expression above this lower title band. Keep other characters and prominent accent details outside this area. Use only naturally calm low-detail atmosphere behind the future title.
         LOGO: visible artwork x={LogoLeftMm}..{LogoRightMm}, y={LogoTopMm}..{LogoTopMm + LogoHeightMm}; reserve {LogoClearSpaceMm} mm additional clear space around it.
         Keep this upper-right area calm and dark enough for the official solid-white logo to remain clearly visible. Do not draw the logo or any lettering. Do not draw borders, bands, blank panels or fold marks.
         """);

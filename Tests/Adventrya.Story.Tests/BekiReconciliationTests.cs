@@ -549,6 +549,26 @@ public class BekiReconciliationTests
     /// A canonical book's press file is the canonical PDF, and there is no legacy interior to find.
     /// </summary>
     [Fact]
+    public async Task Approving_a_screen_copy_cannot_publish_it_for_printing()
+    {
+        var blobs = new PolicyFakeBlobs();
+        blobs.Seed(BekiPackBlobs.ReadingPdfName(UserId, PackId), [9]);
+        blobs.Seed(BekiPackBlobs.CanonicalIntegrityName(UserId, PackId),
+            "{\"consumers\":[\"reader\",\"download\",\"admin\"]}"u8.ToArray());
+        var packs = new ReconcilePacks(CompletedPack());
+        var service = Reconciliation(packs, blobs, new RecordingAlarms());
+        var outcome = await service.PublishUnlockedFilesLockedAsync(packs.Pack, Unlocked(), CancellationToken.None);
+        Assert.False(outcome.PressFiles);
+        Assert.Null(packs.Pack.PrintPdfUrl);
+
+        blobs.Seed(BekiPackBlobs.InteriorPdfName(UserId, PackId), [8]);
+        outcome = await service.PublishUnlockedFilesLockedAsync(packs.Pack, Unlocked(), CancellationToken.None);
+        Assert.True(outcome.PressFiles);
+        Assert.Equal($"https://blob.test/{BekiPackBlobs.InteriorPdfName(UserId, PackId)}", packs.Pack.PrintPdfUrl);
+        Assert.Equal(new byte[] { 9 }, blobs.Get(BekiPackBlobs.ReadingPdfName(UserId, PackId)));
+    }
+
+    [Fact]
     public async Task A_canonical_books_press_file_is_the_canonical_pdf()
     {
         var blobs = new PolicyFakeBlobs();
@@ -601,7 +621,7 @@ public class BekiReconciliationTests
     public async Task A_canonical_book_with_no_pdf_publishes_nothing()
     {
         var blobs = new PolicyFakeBlobs();
-        blobs.Seed(BekiPackBlobs.CanonicalIntegrityName(UserId, PackId), "{}"u8.ToArray());
+        blobs.Seed(BekiPackBlobs.CanonicalIntegrityName(UserId, PackId), "{\"consumers\":[\"reader\",\"print\"]}"u8.ToArray());
 
         var packs = new ReconcilePacks(CompletedPack());
         var reconciliation = Reconciliation(packs, blobs, new RecordingAlarms());
@@ -755,7 +775,7 @@ public class BekiReconciliationTests
     private static void SeedCanonicalBook(PolicyFakeBlobs blobs)
     {
         blobs.Seed(BekiPackBlobs.ReadingPdfName(UserId, PackId), [9]);
-        blobs.Seed(BekiPackBlobs.CanonicalIntegrityName(UserId, PackId), "{}"u8.ToArray());
+        blobs.Seed(BekiPackBlobs.CanonicalIntegrityName(UserId, PackId), "{\"consumers\":[\"reader\",\"print\"]}"u8.ToArray());
     }
 
     /// <summary>

@@ -653,7 +653,7 @@ function OrderDetail({
           ) : null}
           {book?.hasReadingPdf && !book.hasPrintPdf && !isLegacy ? (
             <span className="attention-chip is-failed">
-              მომხმარებლის წიგნი მზადაა · ბეჭდვა შეჩერებულია — შეამოწმეთ შეცდომები
+              მომხმარებლის წიგნი მზადაა · ბეჭდვის PDF მოამზადეთ საჭიროებისას
             </span>
           ) : null}
           {/*
@@ -678,8 +678,8 @@ function OrderDetail({
               }
             >
               {action === "reprepare-print"
-                ? "ბეჭდვა მზადდება…"
-                : "ბეჭდვის ხელახლა მომზადება - ახალი ხატვის გარეშე"}
+                ? "ბეჭდვის PDF დიდდება…"
+                : "ბეჭდვისთვის გადიდება (Upscale for printing)"}
             </button>
           ) : null}
           {book?.hasReadingPdf ? (

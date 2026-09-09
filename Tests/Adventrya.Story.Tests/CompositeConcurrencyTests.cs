@@ -459,6 +459,7 @@ public class CompositeConcurrencyTests
             Options.Create(new BekiOptions
             {
                 CompositePipelineEnabled = true,
+                InsertBekiInGeneration = false,
                 SpreadConcurrency = spreadConcurrency,
             }),
             Options.Create(new BekiPrintLayoutOptions()),

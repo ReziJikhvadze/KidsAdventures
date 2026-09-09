@@ -404,9 +404,9 @@ public sealed class AdminOrdersController(
             await fulfillment.RepreparePrintAsync(id, cancellationToken);
             return Ok(new
             {
-                message = "Print re-prepared from stored artwork; "
+                message = "Print PDF prepared from stored artwork; "
                     + await PrintOutcomeAsync(id, cancellationToken)
-                    + " No images were regenerated and nothing was charged.",
+                    + " No illustrations were regenerated.",
             });
         }
         catch (InvalidOperationException ex)

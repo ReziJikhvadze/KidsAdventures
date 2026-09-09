@@ -153,7 +153,8 @@ public static class BekiImageRequestValidation
         var family = OpenAiService.IsGptImage2Family(model);
         var accepted = family ? GptImage2LandscapeSizes : GptImage1LandscapeSizes;
 
-        if (accepted.Contains(normalized, StringComparer.OrdinalIgnoreCase))
+        if ((family && key == CoverWrapSizeKey && normalized is "1200x576" or "1024x672")
+            || accepted.Contains(normalized, StringComparer.OrdinalIgnoreCase))
         {
             return null;
         }

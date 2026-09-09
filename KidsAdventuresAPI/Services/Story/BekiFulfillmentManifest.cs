@@ -143,6 +143,10 @@ public sealed record BekiCompositionManifestEntry(
 /// </summary>
 public sealed record BekiFulfillmentManifest
 {
+    /// <summary>A deliberately shortened sample, never a complete printable book.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool TestingFlow { get; init; }
+
     /// <summary>
     /// One line per spread, in spread order. Opaque on purpose — nothing reads the parts back out,
     /// it is only ever compared whole against <see cref="CurrentContract"/>, and a format nobody
@@ -470,7 +474,7 @@ public sealed record BekiCompositeContractTerms(
     /// The canonical theme id this book is drawn against. The hash is per world, so the contract
     /// has to be built for the world rather than for the deployment.
     /// </param>
-    public static BekiCompositeContractTerms Current(string themeId)
+    public static BekiCompositeContractTerms Current(string themeId, bool insertBekiInGeneration = false)
     {
         var config = Composite.Poses.BekiCompositeConfig.Load();
 
@@ -478,7 +482,7 @@ public sealed record BekiCompositeContractTerms(
             config.PoseRegistryVersion,
             config.ConfigVersion,
             Composite.MasterStoryPromptComposite.Version,
-            Composite.CompositeIllustrationPrompt.Version,
+            insertBekiInGeneration ? Composite.Poses.BekiGeneratedArtwork.Version : Composite.CompositeIllustrationPrompt.Version,
             Composite.CompositeChildIdentity.Version,
             themeId,
             Composite.CompositeThemeReferences.RegisteredSha256(themeId),

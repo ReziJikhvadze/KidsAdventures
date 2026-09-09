@@ -341,7 +341,7 @@ public class CompositeCoverProjectionTests
                 new SilentNotifier(),
                 new RecordingEmailService(),
                 new SingleUserRepository(),
-                Options.Create(new BekiOptions { CompositePipelineEnabled = true }),
+                Options.Create(new BekiOptions { CompositePipelineEnabled = true, InsertBekiInGeneration = false }),
                 NullLogger<BekiPackFulfillment>.Instance,
                 TimeProvider.System);
 

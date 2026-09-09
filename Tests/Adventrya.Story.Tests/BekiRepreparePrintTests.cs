@@ -74,9 +74,12 @@ public class BekiRepreparePrintTests
         Assert.True(world.Packs.PrintPdfUrlWritten);
         Assert.Equal(
             release.PrintReady && release.CustomerPdfMayPublish
-                ? $"https://blob.test/{BekiPackBlobs.ReadingPdfName(world.UserId, world.PackId)}"
+                ? $"https://blob.test/{BekiPackBlobs.InteriorPdfName(world.UserId, world.PackId)}"
                 : null,
             world.Packs.PrintPdfUrl);
+
+        Assert.Equal(previousPdf, world.Blobs.Uploaded[BekiPackBlobs.ReadingPdfName(world.UserId, world.PackId)]);
+        Assert.NotEqual(previousPdf, world.Blobs.Uploaded[BekiPackBlobs.InteriorPdfName(world.UserId, world.PackId)]);
 
         // The previous deliverables are kept, byte for byte, under a timestamped folder.
         var snapshot = world.Blobs.Uploaded.Keys
@@ -372,13 +375,13 @@ public class BekiRepreparePrintTests
         // And the other direction, so the list cannot pass by being empty: the documents the
         // finding was about really are the ones publishing writes.
         Assert.Contains(
-            BekiPackBlobs.LayoutReceiptName(world.UserId, world.PackId, BekiPackBlobs.CanonicalLayoutMode),
+            BekiPackBlobs.LayoutReceiptName(world.UserId, world.PackId, "print"),
             world.Blobs.UploadOrder);
         Assert.Contains(
             BekiPackBlobs.LayoutPageReceiptName(
-                world.UserId, world.PackId, BekiPackBlobs.CanonicalLayoutMode, "page-01-layout.json"),
+                world.UserId, world.PackId, "print", "page-01-layout.json"),
             world.Blobs.UploadOrder);
-        Assert.Contains(
+        Assert.DoesNotContain(
             BekiPackBlobs.FixedPageQaName(world.UserId, world.PackId, "intro"),
             world.Blobs.UploadOrder);
     }
@@ -646,7 +649,7 @@ public class BekiRepreparePrintTests
             world.Blobs.Uploaded[BekiPackBlobs.ReleaseGatesName(world.UserId, world.PackId)]))!;
         Assert.Equal(
             release.PrintReady && release.CustomerPdfMayPublish
-                ? $"https://blob.test/{BekiPackBlobs.ReadingPdfName(world.UserId, world.PackId)}"
+                ? $"https://blob.test/{BekiPackBlobs.InteriorPdfName(world.UserId, world.PackId)}"
                 : null,
             world.Packs.PrintPdfUrl);
 
@@ -849,7 +852,7 @@ public class BekiRepreparePrintTests
                 packId, new SucceedingFulfillment(), CancellationToken.None));
 
         Assert.Contains("print files published", Message(response), StringComparison.Ordinal);
-        Assert.Contains("No images were regenerated", Message(response), StringComparison.Ordinal);
+        Assert.Contains("No illustrations were regenerated", Message(response), StringComparison.Ordinal);
     }
 
     /// <summary>The same call on a book whose printing is still held names the gates that hold it.</summary>
@@ -957,7 +960,7 @@ public class BekiRepreparePrintTests
 
         Assert.Equal(AdventurePackStatus.Completed, world.Packs.Status);
         Assert.Null(world.Packs.PrintPdfUrl);
-        Assert.Contains(world.Alarms.Raised, alarm => alarm.CheckId == "PRINT_PREPARATION_HELD");
+        Assert.DoesNotContain(world.Alarms.Raised, alarm => alarm.CheckId == "PRINT_PREPARATION_HELD");
 
         return world;
     }

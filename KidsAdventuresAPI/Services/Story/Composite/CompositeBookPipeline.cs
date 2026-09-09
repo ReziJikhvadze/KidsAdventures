@@ -1399,7 +1399,9 @@ public sealed class CompositeBookPipeline(
         // ---- Steps 3-7: the anchor spread, then the rest ---------------------------------------
         var visualLock = scenario.VisualLock!;
         var continuity = new CompositeContinuity();
-        var pages = scenario.Spreads!;
+        var pages = _options.TestingFlow
+            ? scenario.Spreads!.Take(BekiOptions.TestingSpreadCount).ToList()
+            : scenario.Spreads!;
 
         // Validated as exactly eight, numbered 1 to 8 in order, so the first entry is spread one —
         // the page that produces the anchor and therefore the page that cannot be drawn beside any
@@ -3075,7 +3077,39 @@ public sealed class CompositeBookPipeline(
             ContinuityElementNames = reference?.ElementNames ?? [],
             IdentitySpec = identity,
             AnchorAttached = anchored,
+            InsertBekiInGeneration = _options.InsertBekiInGeneration,
+            BekiAction = page.BekiAction,
         });
+
+        if (_options.InsertBekiInGeneration)
+        {
+            var bekiReference = BekiGeneratedArtwork.Reference(_options.BekiReferenceAssetPath);
+            var (raw, elapsed, image) = await GenerateBaseImageAsync(
+                context, page.Page, prompt,
+                References(childPhoto, childPhotoContentType, theme, anchor, reference?.Image, bekiReference),
+                cancellationToken);
+            var png = NormalizeToSpread(context, page.Page, raw);
+            continuity.Remember(elements, png);
+            return new CompositeSpreadResult
+            {
+                Page = page.Page, BasePng = png, CompositePng = png,
+                Manifest = BekiGeneratedArtwork.Receipt(png, bekiReference, $"spread-{page.Page:00}.png"),
+                Prompt = prompt, PoseId = BekiGeneratedArtwork.PoseId, TextSide = textSide,
+                Verdict = "REFERENCE_GENERATED (no compositing or model review)", BaseAttempts = 1,
+                Attempts = [new CompositeAttempt(elapsed, 0, ReviewSkippedStatus, true)],
+                GenerationReceiptJson = GenerationReceiptJson(image, elapsed,
+                    BekiGeneratedArtwork.Version, png, SpreadCropRatio),
+                QaJson = JsonSerializer.Serialize(new
+                {
+                    page = page.Page, status = ReviewSkippedStatus, review_skipped = true,
+                    qa_prompt_version = CompositeMinimalQa.Version, recommended_action = "none",
+                    image_prompt_version = BekiGeneratedArtwork.Version,
+                    generation_mode = BekiGeneratedArtwork.Version,
+                    reference_sha256 = BekiCompositeEngine.Sha256Hex(bekiReference),
+                    exact_png_composite = false, review_attempts = 0,
+                }),
+            };
+        }
 
         // Chosen from the scenario's Beki sentence and nothing else, before a single pixel exists.
         // The selection cannot depend on the picture, because the picture was drawn with a hole
@@ -4570,7 +4604,8 @@ public sealed class CompositeBookPipeline(
         string childPhotoContentType,
         CompositeThemeReference theme,
         byte[]? childAnchor,
-        byte[]? continuityImage)
+        byte[]? continuityImage,
+        byte[]? bekiReference = null)
     {
         var references = new List<(byte[] Bytes, string ContentType, string Label)>();
 
@@ -4593,6 +4628,9 @@ public sealed class CompositeBookPipeline(
         {
             references.Add((continuityImage, "image/png", "Continuity reference"));
         }
+
+        if (bekiReference is { Length: > 0 })
+            references.Add((bekiReference, "image/png", BekiIdentity.ReferenceLabel));
 
         return BekiImageReferences.ToStoryImageReference(references);
     }

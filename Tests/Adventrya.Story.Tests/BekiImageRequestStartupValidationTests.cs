@@ -31,7 +31,7 @@ public class BekiImageRequestStartupValidationTests
         var options = Resolve().Value;
 
         Assert.Equal("1536x1024", options.SpreadImageSize);
-        Assert.Equal("1536x1024", options.CoverWrapImageSize);
+        Assert.Equal("1200x576", options.CoverWrapImageSize);
         Assert.False(options.AllowExperimentalImageSizes);
     }
 

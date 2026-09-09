@@ -570,6 +570,7 @@ public class CompositeIdentityTests
             Options.Create(new BekiOptions
             {
                 CompositePipelineEnabled = true,
+                InsertBekiInGeneration = false,
                 SpreadConcurrency = 1,
             }),
             Options.Create(new BekiPrintLayoutOptions()),

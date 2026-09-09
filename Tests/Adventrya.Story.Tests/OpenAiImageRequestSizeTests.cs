@@ -314,9 +314,27 @@ public class OpenAiImageRequestSizeTests
             AdventurePacks.Api.Services.Story.BekiBookGenerator.SpreadImageSize,
             new BekiOptions().SpreadImageSize);
 
-        Assert.Equal("1536x1024", new BekiOptions().CoverWrapImageSize);
+        Assert.Equal("1200x576", new BekiOptions().CoverWrapImageSize);
         Assert.False(new BekiOptions().AllowExperimentalImageSizes);
         Assert.Equal("medium", new BekiOptions().PageImageQuality);
+    }
+
+    [Theory]
+    [InlineData("gpt-image-2.5-flare")]
+    [InlineData("gpt-image-2.5-flare-2026-09-08")]
+    public async Task Flare_cover_request_sends_fast_size_and_reference_edit_parameters(string model)
+    {
+        var handler = new CapturingHandler(() => Picture(Png(1024, 672)));
+        var options = Defaults();
+        options.ImageModel = options.ImageEditModel = model;
+        var beki = new BekiOptions();
+        await Service(handler, options).GenerateStoryImageAsync("draw", HeroPhoto(), CancellationToken.None,
+            beki.CoverWrapImageSize, requireReferences: true, imageQuality: beki.CoverImageQuality);
+        Assert.Equal("images/edits", handler.Path);
+        Assert.Equal(model, handler.Field("model"));
+        Assert.Equal("1200x576", handler.Field("size"));
+        Assert.Equal("medium", handler.Field("quality"));
+        Assert.Null(handler.Field("input_fidelity"));
     }
 
     // ---- harness ---------------------------------------------------------

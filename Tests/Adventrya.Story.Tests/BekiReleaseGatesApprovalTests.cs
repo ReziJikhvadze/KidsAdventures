@@ -287,7 +287,7 @@ public class BekiReleaseGatesApprovalTests
         var blobs = new PolicyFakeBlobs();
         SeedReviewSkipped(blobs);
         blobs.Seed(BekiPackBlobs.ReadingPdfName(UserId, PackId), [7]);
-        blobs.Seed(BekiPackBlobs.CanonicalIntegrityName(UserId, PackId), "{}"u8.ToArray());
+        blobs.Seed(BekiPackBlobs.InteriorPdfName(UserId, PackId), [8]);
 
         var policy = BekiReleasePolicySnapshot.Defaults;
         var sheet = await StoreVerdictAsync(blobs, policy);
@@ -304,11 +304,11 @@ public class BekiReleaseGatesApprovalTests
         Assert.False(response.PrintAwaitingHumanApproval);
         Assert.True(response.PressFilesPublished);
 
-        // The canonical PDF, which is what the printer is sent and what the admin download serves.
+        // The separately prepared print PDF is published; the customer copy is preserved.
         Assert.Equal(
-            $"https://blob.test/{BekiPackBlobs.ReadingPdfName(UserId, PackId)}",
+            $"https://blob.test/{BekiPackBlobs.InteriorPdfName(UserId, PackId)}",
             packs.Pack.PrintPdfUrl);
-        Assert.False(blobs.Has(BekiPackBlobs.InteriorPdfName(UserId, PackId)));
+        Assert.True(blobs.Has(BekiPackBlobs.ReadingPdfName(UserId, PackId)));
     }
 
     // ==============================================================================================

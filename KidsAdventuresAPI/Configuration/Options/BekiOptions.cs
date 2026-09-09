@@ -1,4 +1,4 @@
-﻿namespace AdventurePacks.Api.Configuration.Options;
+namespace AdventurePacks.Api.Configuration.Options;
 
 /// <summary>
 /// Configuration for the Beki story and visual pipelines.
@@ -56,6 +56,15 @@ public sealed class BekiOptions
     /// impossible to try without the first, or the reverse.
     /// </summary>
     public bool CompositePipelineEnabled { get; set; }
+
+    /// <summary>Draw Beki from the canonical reference in the spread's first image call.</summary>
+    public bool InsertBekiInGeneration { get; set; } = true;
+
+    /// <summary>Generate a sample cover and the first two spreads instead of a full composite book.</summary>
+    public bool TestingFlow { get; set; }
+
+    public const int TestingSpreadCount = 2;
+
 
     /// <summary>
     /// The model that plans the Visual Scenario, when it should not be the story provider's own.
@@ -138,7 +147,7 @@ public sealed class BekiOptions
     public string VisualReviewerModel { get; set; } = "gpt-5.6-luna";
 
     /// <summary>Renders illustrations.</summary>
-    public string ImageModel { get; set; } = "gpt-image-2";
+    public string ImageModel { get; set; } = "gpt-image-2.5-flare";
 
     /// <summary>Portrait single-page. The handoff sets 2:3 as the product default.</summary>
     public string InteriorAspectRatio { get; set; } = "2:3";
@@ -179,12 +188,10 @@ public sealed class BekiOptions
     public string SpreadImageSize { get; set; } = Services.Story.BekiBookGenerator.SpreadImageSize;
 
     /// <summary>
-    /// The frame the press cover wrap is bought at. Its own key rather than the spread's, because
-    /// the wrap is cropped to 512:245 rather than 15:7 and is one picture per book: it is the page
-    /// a parent sees first and the one place where paying more for one picture is a defensible
-    /// trade on its own. Same allowlist, same default, same rollback.
+    /// Fast cover frame, cropped to the wrap's 512:245 ratio. At 1200×576 it is less than
+    /// half the pixel count of a 1536×1024 spread. Admin print preparation enlarges it later.
     /// </summary>
-    public string CoverWrapImageSize { get; set; } = "1536x1024";
+    public string CoverWrapImageSize { get; set; } = "1200x576";
 
     /// <summary>
     /// Whether this deployment may ask for an output OpenAI documents as experimental — anything
@@ -197,9 +204,9 @@ public sealed class BekiOptions
     /// </summary>
     public bool AllowExperimentalImageSizes { get; set; }
 
-    /// <summary>The hero anchor and cover set the standard every page is matched against.</summary>
+    /// <summary>The hero anchor stays high quality; covers and pages use medium for speed.</summary>
     public string AnchorImageQuality { get; set; } = "high";
-    public string CoverImageQuality { get; set; } = "high";
+    public string CoverImageQuality { get; set; } = "medium";
     public string PageImageQuality { get; set; } = "medium";
 
     /// <summary>Pages start only once the hero anchor exists, then run in small batches.</summary>

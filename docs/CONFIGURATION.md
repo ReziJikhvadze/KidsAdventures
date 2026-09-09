@@ -4,6 +4,35 @@ Scope: everything the API and the frontend read from configuration, what is **re
 production App Service, what changed in the 6–7 September iteration, and the checks to run after
 the deploy. Companion to `docs/DEPLOYMENT.md` (workflows, OIDC, approval gate, rollback).
 
+## 9 September: faster generation and on-demand print PDFs
+
+Set these App Service overrides when deploying this change (environment values override code defaults):
+
+| Key | Value |
+| --- | --- |
+| `OpenAI__ImageModel` | `gpt-image-2.5-flare` |
+| `OpenAI__ImageEditModel` | `gpt-image-2.5-flare` |
+| `Beki__ImageModel` | `gpt-image-2.5-flare` |
+| `Beki__CoverWrapImageSize` | `1200x576` |
+| `Beki__CoverImageQuality` | `medium` |
+| `Beki__InsertBekiInGeneration` | `true` |
+
+The BEKI composite book flow now generates spreads with the canonical Beki image attached and a
+strict identity lock. It skips separate Beki compositing, placement analysis, and image review.
+Set `Beki__InsertBekiInGeneration=false` to restore exact PNG compositing for new spreads.
+Generation provenance distinguishes the two modes; a resumed generation cannot mix them.
+Stored books remain printable in either mode without generating new illustrations.
+
+Customer PDF creation keeps native/screen-sized artwork and never runs print upscaling.
+Admin → order → **Upscale for printing** prepares and validates a separate print PDF from stored art.
+The customer PDF stays unchanged; use **Print PDF** once preparation succeeds. Existing print release
+gates still apply. Human approval alone cannot turn a screen copy into a print file.
+`Beki__PrintPrep__Mode` still selects deterministic Lanczos or the configured external upscaler.
+
+Official model and size documentation: https://developers.openai.com/api/docs/models/gpt-image-2.5-flare
+and https://developers.openai.com/api/docs/guides/image-generation . Token rates match GPT Image 2;
+actual per-image consumption and visual fidelity require a representative live sample.
+
 Conventions
 - Settings are read from `appsettings.json` (committed defaults) → environment-specific JSON →
   **App Service configuration** (environment variables). The deploy deletes
@@ -21,7 +50,7 @@ Conventions
 |---|---|---|
 | `ConnectionStrings__DefaultConnection` | Azure SQL | Hangfire uses the same database. |
 | `Jwt__SecretKey` | token signing, ≥64 chars | `Jwt__Issuer`, `Jwt__Audience` default from appsettings; `Jwt__ExpirationMinutes` 120. |
-| `OpenAI__ApiKey` | story polish + all BEKI images | Images route: **Images Edit** with `OpenAI__ImageEditModel` (default `gpt-image-2`). |
+| `OpenAI__ApiKey` | story polish + all BEKI images | Images route: **Images Edit** with `OpenAI__ImageEditModel` (default `gpt-image-2.5-flare`). |
 | `Gemini__ApiKey` | story model | **Required at startup whenever `Providers__Story=Gemini`** (the committed default). CI uses a placeholder; production needs the real key or the app refuses to start. |
 | `AzureBlobStorage__ConnectionString` | all book artefacts | `AzureBlobStorage__ContainerName` default `adventurepacks`. `LocalBlobStorage__Enabled` must be **false/absent** in production. |
 | `Email__SmtpPassword` | SMTP for magic links, order and admin mail | Also set `Email__BaseUrl` (public web URL) and `Email__ApiBaseUrl` (public API URL): the committed defaults are localhost and would put local ports into customer emails. |
@@ -81,14 +110,14 @@ PATH, which is where the defaults look.
 `PRESS_RESOLUTION` now judges only the output (exact locked pixel sizes, effective PPI from pixels over
 placement, no stretch → `PRESS_GEOMETRY`). `PRINT_PREPARATION_HELD` is raised only for a measured defect.
 
-## 4. Image generation request (changed 2026-09-06; defaults unchanged)
+## 4. Image generation request (changed 2026-09-09)
 
 | Key | Default | Meaning |
 |---|---|---|
-| `OpenAI__ImageEditModel` | `gpt-image-2` | the model actually sent (references are always attached) |
-| `Beki__SpreadImageSize`, `Beki__CoverWrapImageSize` | `1536x1024` | requested frame; validated at startup against the model family |
+| `OpenAI__ImageEditModel` | `gpt-image-2.5-flare` | the model actually sent (references are always attached) |
+| `Beki__SpreadImageSize`, `Beki__CoverWrapImageSize` | `1536x1024` / `1200x576` | requested frame; validated at startup against the model family |
 | `Beki__AllowExperimentalImageSizes` | false | needed for `3840x2160` (OpenAI marks outputs above 3.69 MP experimental) |
-| `Beki__AnchorImageQuality`, `Beki__CoverImageQuality`, `Beki__PageImageQuality` | high / high / medium | |
+| `Beki__AnchorImageQuality`, `Beki__CoverImageQuality`, `Beki__PageImageQuality` | high / medium / medium | |
 | `OpenAI__ImageTimeoutMinutes` | 3 | raise when opting into a larger frame |
 
 Optional trial the owner may run on a real book (not a default): `Beki__SpreadImageSize=2048x1152`,
@@ -118,7 +147,7 @@ returned pixels) is stored beside each base as `spread-NN-generation.json` / `-c
 A print-format preview now derives the child identity, plans the visual scenario and draws the real
 cover wrap; the six artefacts are stored under `master-runs/{runId}/` and the purchased book adopts
 them (no second cover draw; spread 1 is drawn against the cover's child). No new settings. Cost moves
-from fulfilment to preview: a preview that is not bought costs about one high-quality image more than
+from fulfilment to preview: a preview that is not bought costs about one medium-quality image more than
 before; a bought book costs the same overall and finishes sooner.
 
 ## 6. Other settings (defaults are fine unless noted)
@@ -164,3 +193,36 @@ before; a bought book costs the same overall and finishes sooner.
 
 Re-preparation, recovery, regeneration and the reconciliation sweep share the Hangfire distributed lock
 `beki-pack:{packId}`; the API and the Hangfire workers run in the same process.
+
+
+### Short testing flow
+
+`Beki:TestingFlow` (`Beki__TestingFlow`) defaults to `false`. It is enabled in this
+workspace's `appsettings.Development.json`; the existing local user secrets
+already enable `Beki:BookFormatEnabled` and `Beki:CompositePipelineEnabled`.
+
+When enabled, the composite pipeline retains the full validated story/scenario but
+generates only spread 1 (the anchor), spread 2, and the cover wrap. The reader shows
+two spreads and the downloadable sample PDF contains exactly three pages: cover,
+spread 1, spread 2. No upscaling, full-book release validation, or print PDF is run.
+The manifest persists `testingFlow: true`; print preparation refuses these samples
+even after the flag is disabled. The shortened illustration contract cannot be
+resumed as a full book. Set the flag to `false` and start a new book for the complete
+8-spread flow. Existing completed books are unchanged.
+
+For a hosted test environment, set `Beki__TestingFlow=true` in that environment's
+configuration. The checked-in defaults and production example remain `false`.
+
+
+### Lower cover title
+
+The cover title now stays in the lower front-board band (wrap y=162–208 mm),
+including the fallback when artwork cannot be measured. Screen and print PDFs
+use the same title placement. Cover generation reserves that lower area, and
+Beki's cover anchor sits above it at the same size. Existing PDFs retain their
+original layout until regenerated or prepared again.
+
+The fast cover request is `1200x576` (about 0.69 megapixels). Its aspect ratio closely
+matches the wrap: normalizing removes about 2 pixels of height, versus 182 pixels
+from the earlier `1024x672` request. Preview still draws only its cover; no story
+spread drawing, PDF composition, or print upscaling is added to the preview path.

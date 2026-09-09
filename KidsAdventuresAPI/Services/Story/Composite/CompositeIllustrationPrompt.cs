@@ -284,6 +284,8 @@ public sealed record CompositeSpreadPromptInput
     /// what keeps every caller that predates the reserve compiling and correct.
     /// </summary>
     public BekiCompositeAnchor? BekiAnchor { get; init; }
+    public bool InsertBekiInGeneration { get; init; }
+    public string? BekiAction { get; init; }
 }
 
 /// <summary>
@@ -468,7 +470,7 @@ public static class CompositeIllustrationPrompt
     /// pipeline has measured the same law: name a region and it gets drawn (the v1.1 fold band,
     /// the v1.6 spread-4 translucent panel, and now the spine bands). So the cover prompt stops
     /// naming regions altogether: the panel block is painter's language about sides and the middle
-    /// of one picture, the title area is "the upper right stays naturally calm and open", the
+    /// of one picture, the title area is "the lower right stays naturally calm and open", the
     /// spine, the hinge and the Beki rectangle are not mentioned at all, and the negatives ban a
     /// vertical tonal step as loudly as they ban a drawn line.
     ///
@@ -481,7 +483,7 @@ public static class CompositeIllustrationPrompt
     /// same <see cref="CompositeChildIdentity.LockBlock"/>, numbered against the references the
     /// request actually carries, so the two pictures cannot describe two children.
     /// </summary>
-    public const string CoverVersion = "cover-child-world-v1.4";
+    public const string CoverVersion = "cover-child-world-v1.5";
 
     /// <summary>
     /// <remarks>
@@ -518,7 +520,7 @@ public static class CompositeIllustrationPrompt
 
         return $"""
             Use case: illustration-story
-            Asset type: BEKI personalized children's book child/world base image for later exact Beki PNG compositing
+            Asset type: BEKI personalized children's book { (input.InsertBekiInGeneration ? "finished spread including reference-matched Beki" : "child/world base image for later exact Beki PNG compositing") }
 
             INPUT IMAGES
             {InputImageBlock(input)}
@@ -542,9 +544,10 @@ public static class CompositeIllustrationPrompt
             Obey that camera distance and framing exactly; do not default to a medium shot, and keep the page's main story subject fully inside the frame.
             Create one continuous very wide panoramic painting designed for a final 15:7 crop.
             {CompositionBlockFor(textSide)}
-            {BekiReserveBlock(
-                input.BekiAnchor ?? CompositeConfig.Value.StoryDefaultFor(
-                    BekiCompositeConfig.ParseTextSide(textSide)))}
+            {(input.InsertBekiInGeneration
+                ? BekiIdentity.GenerationLock + "\nBeki action: " + input.BekiAction
+                : BekiReserveBlock(input.BekiAnchor ?? CompositeConfig.Value.StoryDefaultFor(
+                    BekiCompositeConfig.ParseTextSide(textSide))))}
             {CentralZoneRule}
             Keep all important content in the central horizontal band so modest top-and-bottom crop normalization is safe.
 
@@ -552,7 +555,7 @@ public static class CompositeIllustrationPrompt
             Premium warm stylized 3D children's-book illustration; expressive but natural; soft tactile materials; cinematic depth; welcoming, age-appropriate emotional tone. Match the supplied approved theme reference while creating a new scene.
 
             HARD CONSTRAINTS
-            {SpreadConstraints}{ForbiddenElementLines(input.ForbiddenElements)}
+            {(input.InsertBekiInGeneration ? SpreadConstraints.Replace("Do not generate Beki.", "Include exactly one Beki from the final reference image.").Replace("Do not generate any substitute guide, floating mascot, leaf spirit, lamb, sheep, or Beki-like character.", "No substitute guide or additional mascot.") : SpreadConstraints)}{ForbiddenElementLines(input.ForbiddenElements)}
             """;
     }
 
@@ -1218,7 +1221,7 @@ public static class CompositeVisualScenarioPrompt
     /// existing PROP_STATE reviewer reads — no new enum, no new field, nothing downstream to
     /// migrate.
     /// </summary>
-    public const string Version = "visual-scenario-v2.4";
+    public const string Version = "visual-scenario-v2.5";
 
     /// <summary>The schema name recorded against the call. The file itself is the response schema.</summary>
     public const string SchemaName = "visual_scenario_v2";
@@ -1365,7 +1368,7 @@ public static class CompositeVisualScenarioPrompt
         - back_environment is a natural continuation of the same world, atmosphere, lighting, and terrain.
         - back_environment contains neither the child nor Beki.
         - Make the front cover visually arresting and appropriate for a premium personalized children's book. In addition to the child's inviting action and the space reserved for later Beki compositing, describe a small number of prominent, concrete theme- or story-grounded accent details, normally two or three where appropriate. These details must be recognizable subjects suitable for later selective varnish, not merely tiny glitter or distant background texture. Name and describe them within front_child_world_scene. Keep the child the active hero, preserve one coherent cover moment, and do not reveal the ending or invent a new plot. Do not describe Beki inside front_child_world_scene. Do not specify coordinates, print settings, or typography; the cover image prompt and composer supply those.
-        - Plan the front cover with a clean, calm upper title area. The child's face, head, hairline, eyes, and important expression details must not be placed inside or behind the title area. Compose the child's pose and gaze so the child remains the hero while leaving enough negative space for a readable title above. Keep prominent accent details out of the title area unless they are faint, low-detail background elements that will not interfere with typography.
+        - Frame the child's full body inside the visible front cover, with breathing room above the hair and below the shoes; avoid close-up framing or clipping the body at the artwork edges. Plan the front cover with a clean, calm lower title area. The child's face, head, hairline, eyes, and important expression details must not be placed inside or behind the title area. Compose the child's pose and gaze so the child remains the hero while leaving enough negative space for a readable title below the child's face. Keep prominent accent details out of the title area unless they are faint, low-detail background elements that will not interfere with typography.
 
         STORY SPREADS
 

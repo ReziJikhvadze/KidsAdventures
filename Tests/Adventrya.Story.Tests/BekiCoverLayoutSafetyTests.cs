@@ -11,11 +11,11 @@ public class BekiCoverLayoutSafetyTests
         new("head", "Whole head including hair and facial features", x, y, 60, 70);
 
     [Fact]
-    public void Head_below_title_and_outside_logo_is_safe() =>
+    public void Head_above_lower_title_and_outside_logo_is_safe() =>
         Assert.Empty(BekiCoverLayoutSafety.Conflicts([Head()]));
 
     [Theory]
-    [InlineData(350, 50, "TITLE")]
+    [InlineData(350, 170, "TITLE")]
     [InlineData(437, 42, "LOGO")]
     public void A_known_head_collision_is_refused(double x, double y, string region)
     {
@@ -27,7 +27,7 @@ public class BekiCoverLayoutSafetyTests
     [Fact]
     public void Important_accents_cannot_be_hidden_under_the_title() =>
         Assert.Throws<BekiLayoutException>(() => BekiCoverLayoutSafety.EnsureClear(
-            [Head(), new("important_detail", "Story landmark", 300, 40, 30, 30)]));
+            [Head(), new("important_detail", "Story landmark", 300, 170, 30, 30)]));
 
     [Fact]
     public void Review_is_bound_to_the_exact_base_pixels()
@@ -53,7 +53,7 @@ public class BekiCoverLayoutSafetyTests
         var composer = new BekiPdfComposer(Options.Create(BekiLayoutFixture.ScreenProofLayout()));
         var failure = Assert.Throws<BekiLayoutException>(() => composer.ComposeCanonicalWithReceipts(
             BekiLayoutFixture.EightSpreadPlan(), [1], [],
-            BekiLayoutFixture.Personalization() with { CoverProtectedAreas = [Head(350, 50)] }));
+            BekiLayoutFixture.Personalization() with { CoverProtectedAreas = [Head(350, 170)] }));
         Assert.Contains("COVER_LAYOUT_SAFETY", failure.Message);
     }
 }

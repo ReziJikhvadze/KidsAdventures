@@ -8,13 +8,14 @@ namespace AdventurePacks.Api.Services.Pdf;
 /// <summary>Customer structure is mandatory even when manufacturing is withheld.</summary>
 public static class BekiCustomerPdfValidation
 {
-    public static byte[] Validate(byte[] pdf)
+    public static byte[] Validate(byte[] pdf, bool testingFlow = false)
     {
         try
         {
             using var document = PdfReader.Open(new MemoryStream(pdf), PdfDocumentOpenMode.Import);
-            if (document.PageCount != 12)
-                throw new InvalidOperationException("Expected one cover wrap and exactly eleven interior spreads.");
+            var expectedPages = testingFlow ? 3 : 12;
+            if (document.PageCount != expectedPages)
+                throw new InvalidOperationException($"Expected {expectedPages} pages including the cover wrap.");
             for (var index = 0; index < document.PageCount; index++)
             {
                 var page = document.Pages[index];
@@ -28,8 +29,9 @@ public static class BekiCustomerPdfValidation
             // Rendering and QR decoding are separate mandatory checks over these same bytes.
             return JsonSerializer.SerializeToUtf8Bytes(new
             {
-                stage = "beki-customer-canonical-v1", verdict = "PASS", page_count = 12,
-                story_spreads = 8, print_approval = "See press-status.json; this is not print approval."
+                stage = testingFlow ? "beki-testing-sample-v1" : "beki-customer-canonical-v1",
+                verdict = "PASS", page_count = expectedPages,
+                story_spreads = testingFlow ? 2 : 8, testing_flow = testingFlow, print_approval = "See press-status.json; this is not print approval."
             });
         }
         catch (Exception ex) when (ex is not BekiLayoutException)

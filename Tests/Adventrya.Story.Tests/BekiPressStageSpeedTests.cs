@@ -270,8 +270,7 @@ public class BekiPressStageSpeedTests
         // 208 MB of PNGs on the measured book, uploaded on every press run and fetched back by
         // nobody. The receipt beside them stays.
         Assert.DoesNotContain(written, name => name.EndsWith(".png", StringComparison.Ordinal));
-        Assert.All(written, name =>
-            Assert.EndsWith("-composition.json", name, StringComparison.Ordinal));
+        Assert.Single(written, name => name.EndsWith("-composition.json", StringComparison.Ordinal));
 
         using var receipt = JsonDocument.Parse(
             world.Blobs.Uploaded[prefix + "spread-01-composition.json"]);
@@ -335,7 +334,7 @@ public class BekiPressStageSpeedTests
         {
             _world.Composer.CanonicalPdf = BekiCanonicalBookFixtures.CanonicalScreenBook();
 
-            await new BekiPackFulfillment(
+            var job = new BekiPackFulfillment(
                 _world.Packs,
                 new CompositePipelineFulfillmentTests.FakeRuns(_world.RunId, _world.UserId),
                 _world.Blobs,
@@ -344,13 +343,15 @@ public class BekiPressStageSpeedTests
                 _world.Notifier,
                 _world.Email,
                 new SingleUserRepository(),
-                Options.Create(new BekiOptions { CompositePipelineEnabled = true }),
+                Options.Create(new BekiOptions { CompositePipelineEnabled = true, InsertBekiInGeneration = false }),
                 NullLogger<BekiPackFulfillment>.Instance,
                 _world.Clock,
                 pressUpscaler: new OneRealRasterUpscaler(),
                 alarms: _world.Alarms,
-                orders: _world.Orders)
-                .ProcessAsync(_world.PackId, _world.RunId, CancellationToken.None);
+                orders: _world.Orders);
+            await job.ProcessAsync(_world.PackId, _world.RunId, CancellationToken.None);
+            _world.Composer.CanonicalPdf = BekiCanonicalBookFixtures.CanonicalPressBook();
+            await job.RepreparePrintAsync(_world.PackId, CancellationToken.None);
         }
     }
 

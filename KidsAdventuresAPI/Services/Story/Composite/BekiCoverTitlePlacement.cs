@@ -10,7 +10,7 @@ namespace AdventurePacks.Api.Services.Story.Composite;
 /// cover rectangle is stated in — so the press page can pad to it directly and the customer's page
 /// can take <see cref="BekiCoverDieline.InsideFrontBoardCrop"/> of it and land in the same place.
 /// </summary>
-/// <param name="ApprovedScore">What the approved box (x 285.5, y 34) measured on this wrap.</param>
+/// <param name="ApprovedScore">What the approved box (x 285.5, y 162) measured on this wrap.</param>
 /// <param name="ChosenScore">
 /// What the chosen box measured, the departure toll included — the same number as
 /// <paramref name="ApprovedScore"/> when the title did not move.
@@ -48,56 +48,14 @@ public sealed record BekiCoverTitleChoice(
 }
 
 /// <summary>
-/// Picks the calmest place on a finished cover wrap for the book's title to sit.
-///
-/// **The observed defect, 2026-09-08 (owner).** "On a production book the cover TITLE was printed
-/// over the child's face." It was. <see cref="BekiCoverDieline.TitleSafeLeftMm"/> and its three
-/// companions are a FIXED rectangle — x 285.5, y 34, 136 × 46 mm, the upper front board — and
-/// <c>BekiPdfComposer</c> set the title there on every book ever printed. The cover prompt does ask
-/// the model to keep the child's head out of it
-/// (<see cref="BekiCoverDieline.ReservedArtworkInstructions"/>), in millimetre coordinates on a
-/// canvas the model cannot measure, and on a book whose child it drew tall and centred the head
-/// landed in the top band anyway. Nothing downstream looked at the picture:
-/// <see cref="BekiCoverLayoutSafety"/> compares HUMAN-recorded bounds against that same fixed
-/// rectangle, and production records <c>NOT_REVIEWED</c>.
-///
-/// **What may be done about it.** The same thing §14 of the supplier handoff licenses for Beki
-/// herself — "a failed placement should first adjust deterministic anchors" — applied to the one
-/// other thing this pipeline places by number. So this class returns a rectangle. It never resizes
-/// the title (the box stays 136 × 46 mm, so <c>CoverTitleSizePt</c>'s ladder is untouched), never
-/// paints anything on the artwork, never asks a model anything, and costs a few milliseconds of
-/// ImageSharp arithmetic on bytes the book has already paid for — owner's rule 5, 2026-09-01: "we
-/// don't need additional reviews for images".
-///
-/// **What it reads.** The wrap COMPOSITE, which is the base with the approved Beki already pasted
-/// onto it — which is also what the composer is handed. That is deliberate and it is what makes
-/// Beki free: she is part of the picture by the time this looks at it, and a rectangle over her
-/// measures busy for exactly the reason a rectangle over the child does. There is no pose geometry
-/// here and there is nothing to keep in step with the engine.
-///
-/// The reading itself is <see cref="BekiActivityMap"/> — the same contour-and-colour occupancy map
-/// <see cref="Poses.BekiPlacementChooser"/> was calibrated on, shared rather than copied.
-///
-/// **The window.** Down the front board and no further: y from the approved 34 mm to
-/// <see cref="BekiCoverDieline.BoardBottomMm"/> less <see cref="BoardMarginMm"/> and the box's own
-/// height, in <see cref="VerticalStepMm"/> steps; x on <see cref="LeftsMm"/>, each of which keeps
-/// the box <see cref="BoardMarginMm"/> inside both board edges. Never above the approved top, where
-/// the turn-in is. Never overlapping the logo's rectangle plus its
-/// <see cref="BekiCoverDieline.LogoClearSpaceMm"/> of clear space, which in practice is what makes
-/// the three right-hand columns available only below the logo.
-///
-/// **Why the approved box is sticky.** Moving the title is a change to a cover design somebody
-/// approved, so it happens only when the alternative is materially calmer — the same two-part test
-/// <see cref="Poses.BekiPlacementChooser"/> uses (<see cref="CalmerRatio"/> and
-/// <see cref="CalmerMargin"/>), over a score that already includes a toll for the walk. A cover
-/// whose top band the model DID keep calm keeps the approved box, and so does a cover that is busy
-/// everywhere: there is nowhere calmer to go, and shuffling the title around a crowded board trades
-/// a known design for an unknown one.
+/// Keeps the title in the lower front-board band, with horizontal adjustments toward calmer art.
+/// The upper board is never a candidate, even when its background is quieter. The same lower
+/// rectangle is used as the fallback if the image cannot be measured. No model call is needed.
 /// </summary>
 public static class BekiCoverTitlePlacement
 {
     /// <summary>The version this algorithm is recorded under in a page's layout receipt.</summary>
-    public const string Version = "cover-title-placement-v1";
+    public const string Version = "cover-title-placement-v2-lower";
 
     /// <summary>
     /// How far inside the board's sides and its foot the box is kept — the margin the approved box
@@ -105,8 +63,7 @@ public static class BekiCoverTitlePlacement
     /// applied to the other three edges so that a moved title is no closer to a fold than the one
     /// that was signed off.
     ///
-    /// Not applied to the TOP: the approved box's own 34 mm is 14 mm from the board's head, and the
-    /// window never goes above it anyway.
+    /// The window never goes above the lower title band.
     /// </summary>
     public const float BoardMarginMm = 16f;
 

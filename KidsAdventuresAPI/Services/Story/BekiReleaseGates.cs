@@ -642,8 +642,8 @@ public sealed class BekiReleaseGates(IBlobStorageService blobStorage)
                 ? Failed(id, "the cover wrap carries no composition receipt.", [stored.CoverCompositionName])
                 : Passed(
                     id,
-                    $"{BookFormat.SpreadCount} spread receipts and the cover receipt name an "
-                    + "approved pose and its output hash.",
+                    $"{BookFormat.SpreadCount} spread receipts and the cover receipt identify "
+                    + "the approved pose or canonical generation reference and the output hash.",
                     [stored.ManifestName, stored.CoverCompositionName]),
 
         "SINGLE_COVER_MASTER" => !stored.WrapCompositePresent

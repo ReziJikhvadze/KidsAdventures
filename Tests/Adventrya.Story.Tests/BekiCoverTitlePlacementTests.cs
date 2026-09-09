@@ -35,24 +35,13 @@ public class BekiCoverTitlePlacementTests
     // Keeping the approved box
     // ==============================================================================================
 
-    /// <summary>
-    /// A cover whose upper board the model DID leave calm keeps the box the design was approved
-    /// with.
-    ///
-    /// This is half the claim and the more important half: a placement that improves the bad covers
-    /// by quietly restyling the good ones is not an improvement, it is a redesign nobody asked for.
-    /// The head here sits low on the board, where the cover prompt asks for it.
-    /// </summary>
     [Fact]
-    public void A_calm_top_band_keeps_the_approved_box()
+    public void A_face_in_the_upper_board_keeps_the_title_in_the_lower_band()
     {
-        var choice = BekiCoverTitlePlacement.Choose(Wrap(headTopMm: 120f));
-
-        Assert.False(choice.Moved);
-        Assert.Equal(Approved.Left, choice.LeftMm, 3);
-        Assert.Equal(Approved.Top, choice.TopMm, 3);
-        Assert.Equal(choice.ApprovedScore, choice.ChosenScore, 9);
-        Assert.Contains("kept the approved title box", choice.Reason, StringComparison.Ordinal);
+        var choice = BekiCoverTitlePlacement.Choose(Wrap(headTopMm: 30f));
+        Assert.True(choice.TopMm >= 162, choice.Reason);
+        Assert.True(choice.TopMm + choice.HeightMm <= BekiCoverDieline.BoardBottomMm - 16);
+        Assert.True(BekiCoverTitleChoice.Approved("fallback").TopMm >= 162);
     }
 
     /// <summary>
@@ -76,29 +65,14 @@ public class BekiCoverTitlePlacementTests
     // Moving off it
     // ==============================================================================================
 
-    /// <summary>
-    /// A head painted into the top band moves the title down to a band that does not have one in it.
-    ///
-    /// The two assertions that matter are separate on purpose. That it MOVED is the defect being
-    /// answered; that the chosen box does not overlap the head's own rectangle is the answer being
-    /// correct, and a placement that moved by one step onto the same forehead would satisfy the
-    /// first and fail the second.
-    /// </summary>
-    [Fact]
-    public void A_head_in_the_top_band_moves_the_title_to_a_calmer_band()
+    [Theory]
+    [InlineData(30f)]
+    [InlineData(90f)]
+    [InlineData(150f)]
+    public void Artwork_never_moves_the_title_back_to_the_upper_board(float headTopMm)
     {
-        var choice = BekiCoverTitlePlacement.Choose(Wrap(headTopMm: 30f));
-
-        Assert.True(choice.Moved, choice.Reason);
-        Assert.True(choice.TopMm > Approved.Top, $"the box stayed at y {choice.TopMm}.");
-        Assert.True(
-            choice.ChosenScore < choice.ApprovedScore,
-            $"{choice.ChosenScore} is not below {choice.ApprovedScore}.");
-
-        // The head occupies y 30 … 30 + HeadHeightMm; the chosen box must start below it.
-        Assert.True(
-            choice.TopMm >= 30f + HeadHeightMm,
-            $"the box at y {choice.TopMm} still overlaps the head at y 30…{30 + HeadHeightMm}.");
+        var choice = BekiCoverTitlePlacement.Choose(Wrap(headTopMm));
+        Assert.InRange(choice.TopMm, 162, 163);
     }
 
     /// <summary>
@@ -164,7 +138,7 @@ public class BekiCoverTitlePlacementTests
             }
         }
 
-        Assert.True(offered > 20, $"the window offered only {offered} rectangles.");
+        Assert.Equal(4, offered);
     }
 
     /// <summary>
@@ -180,7 +154,7 @@ public class BekiCoverTitlePlacementTests
 
         // A box in the same row, pushed right until it reaches under the mark.
         Assert.True(BekiCoverTitlePlacement.TouchesLogo(
-            340f, Approved.Top,
+            340f, BekiCoverDieline.LogoTopMm,
             BekiCoverDieline.TitleSafeWidthMm, BekiCoverDieline.TitleSafeHeightMm));
     }
 
@@ -274,7 +248,7 @@ public class BekiCoverTitlePlacementTests
 
         Assert.NotNull(pressBox);
         Assert.Equal(pressBox, readingBox);
-        Assert.True(pressBox.Moved, "the fixture's head should have moved the title.");
+        Assert.True(pressBox.TopMm >= 162, "both exports must keep the title below the face.");
 
         // And the box the customer's page derives from it is a real rectangle on that page: the
         // fractions are what ComposeReadingFrontCover pads by, and one outside [0, 1] would set the
@@ -342,7 +316,7 @@ public class BekiCoverTitlePlacementTests
             BekiCoverDieline.TitleSafeWidthMm, BekiCoverDieline.TitleSafeHeightMm,
             Moved: true, ApprovedScore: 0.4, ChosenScore: 0.1, CandidatesEvaluated: 56, "moved");
 
-        var inTheOldBox = new BekiCoverProtectedArea("head", "head in the approved band", 320, 40, 40, 40);
+        var inTheOldBox = new BekiCoverProtectedArea("head", "head in the default lower band", 320, 200, 40, 10);
         var inTheNewBox = new BekiCoverProtectedArea("head", "head in the chosen band", 320, 140, 40, 40);
 
         Assert.Empty(BekiCoverLayoutSafety.Conflicts([inTheOldBox], moved));
@@ -351,7 +325,7 @@ public class BekiCoverTitlePlacementTests
             Assert.Single(BekiCoverLayoutSafety.Conflicts([inTheNewBox], moved)),
             StringComparison.Ordinal);
 
-        // Null is the approved box — which is where every book printed before 2026-09-08 set it.
+        // Null uses the current lower default.
         Assert.Single(BekiCoverLayoutSafety.Conflicts([inTheOldBox]));
     }
 
@@ -466,6 +440,6 @@ public class BekiCoverTitlePlacementTests
         // below it — and the same verdict must come out of the record as out of the live choice.
         var head = new BekiCoverProtectedArea("head", "the child's head", 300, 30, 60, 50);
         Assert.Empty(BekiCoverLayoutSafety.Conflicts([head], read));
-        Assert.NotEmpty(BekiCoverLayoutSafety.Conflicts([head]));
+        Assert.Empty(BekiCoverLayoutSafety.Conflicts([head]));
     }
 }

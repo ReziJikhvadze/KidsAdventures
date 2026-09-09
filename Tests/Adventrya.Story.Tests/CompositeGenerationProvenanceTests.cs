@@ -111,6 +111,7 @@ public class CompositeGenerationProvenanceTests : CompositePipelineTestBase
         var beki = new BekiOptions
         {
             CompositePipelineEnabled = true,
+                InsertBekiInGeneration = false,
             SpreadConcurrency = 1,
             SpreadImageSize = "2048x1152",
             CoverWrapImageSize = "2048x1152",
@@ -192,7 +193,7 @@ public class CompositeGenerationProvenanceTests : CompositePipelineTestBase
             receipt.RootElement.GetProperty("prompt_version").GetString());
 
         // The wrap is bought at the wrap's key, and there is exactly one of it.
-        Assert.Equal(["1536x1024"], images.Sizes);
+        Assert.Equal(["1200x576"], images.Sizes);
     }
 
     /// <summary>
@@ -240,6 +241,7 @@ public class CompositeGenerationProvenanceTests : CompositePipelineTestBase
             Options.Create(beki ?? new BekiOptions
             {
                 CompositePipelineEnabled = true,
+                InsertBekiInGeneration = false,
                 SpreadConcurrency = 1,
             }),
             Options.Create(new BekiPrintLayoutOptions()),

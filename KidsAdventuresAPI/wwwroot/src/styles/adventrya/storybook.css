@@ -172,7 +172,7 @@
   inset: 0;
   background-size: cover;
   background-position: 50% 48%;
-  transform: scale(1.025);
+  /* The server already crops the front board; extra zoom clips its head and foot margins. */
 }
 /* `.storybook-cover-wash` is gone: it darkened the band the title sits in, which on a generated
    cover is the half the child is painted into. `.storybook-cover-copy` carries its own shadow. */

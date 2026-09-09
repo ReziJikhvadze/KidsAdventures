@@ -94,13 +94,13 @@ public class CompositePipelineFulfillmentTests
             world.Blobs.Uploaded[BekiPackBlobs.ReleaseGatesName(world.UserId, world.PackId)]))!;
         Assert.True(release.CustomerPdfMayPublish);
         Assert.False(release.PrintReady);
-        Assert.Contains(world.Alarms.Raised, alarm => alarm.CheckId == "PRINT_PREPARATION_HELD");
+        Assert.DoesNotContain(world.Alarms.Raised, alarm => alarm.CheckId == "PRINT_PREPARATION_HELD");
 
         // The preflight is a real measurement of the real document, not a sentence about a raster:
         // the gate names the pages, and nothing in it blames a tool that was never involved.
         var preflight = Encoding.UTF8.GetString(
             world.Blobs.Uploaded[BekiPackBlobs.CanonicalPreflightName(world.UserId, world.PackId)]);
-        Assert.Contains("where the locked canonical size is", preflight, StringComparison.Ordinal);
+        Assert.Contains("Printing has not been requested", preflight, StringComparison.Ordinal);
         Assert.DoesNotContain("upscaler", preflight, StringComparison.OrdinalIgnoreCase);
 
         if (failure == "print-status-unavailable")
@@ -127,22 +127,8 @@ public class CompositePipelineFulfillmentTests
         var problems = status.RootElement.GetProperty("preparation_problems")
             .EnumerateArray().Select(problem => problem.GetString()!).ToList();
 
-        if (failure == "normalizer-output-undecodable")
-        {
-            // Undecodable normalizer output is an operational problem, recorded as one. It is not
-            // in failed_gates, and the book the family paid for is still finished and published.
-            Assert.Contains(problems, problem => problem.Contains("could not be normalized to 5315×2480 px", StringComparison.Ordinal));
-            Assert.Contains(problems, problem => problem.Contains("Print artwork preparation failed", StringComparison.Ordinal));
-            Assert.Equal(["PRESS_RESOLUTION"], status.RootElement.GetProperty("failed_gates")
-                .EnumerateArray().Select(gate => gate.GetString()).ToList());
-        }
-        else
-        {
-            // The stub bases are marker bytes rather than images, so the normalizer refuses them —
-            // again as a preparation problem, and again without touching the gate list.
-            Assert.All(problems, problem =>
-                Assert.Contains("could not be decoded as an image", problem, StringComparison.Ordinal));
-        }
+        Assert.Empty(problems); // The normalizer is not called during customer delivery.
+        Assert.False(world.Composer.LastPrepareForPrint);
     }
 
     /// <summary>
@@ -154,7 +140,7 @@ public class CompositePipelineFulfillmentTests
     /// trouble is recorded, and the file that comes out is judged on what it is.
     /// </summary>
     [Fact]
-    public async Task A_normalization_failure_whose_output_measures_correctly_holds_nothing()
+    public async Task Even_print_sized_input_waits_for_an_explicit_admin_print_request()
     {
         var world = new PackWorld { MalformedUpscale = true };
         world.Composer.CanonicalPdf = BekiCanonicalBookFixtures.CanonicalPressBook();
@@ -169,14 +155,13 @@ public class CompositePipelineFulfillmentTests
 
         using var status = JsonDocument.Parse(Encoding.UTF8.GetString(
             world.Blobs.Uploaded[BekiPackBlobs.PressStatusName(world.UserId, world.PackId)]));
-        Assert.Empty(status.RootElement.GetProperty("failed_gates").EnumerateArray());
-        Assert.Equal("prepared", status.RootElement.GetProperty("interior").GetString());
-        Assert.NotEmpty(status.RootElement.GetProperty("preparation_problems").EnumerateArray());
+        Assert.Contains(status.RootElement.GetProperty("failed_gates").EnumerateArray(), g => g.GetString() == "PRESS_RESOLUTION");
+        Assert.Equal("withheld", status.RootElement.GetProperty("interior").GetString());
+        Assert.Empty(status.RootElement.GetProperty("preparation_problems").EnumerateArray());
 
         var release = BekiReleaseGateReport.TryParse(Encoding.UTF8.GetString(
             world.Blobs.Uploaded[BekiPackBlobs.ReleaseGatesName(world.UserId, world.PackId)]))!;
-        Assert.DoesNotContain(release.FailingGates,
-            gate => gate.StartsWith("PRESS_", StringComparison.Ordinal));
+        Assert.Contains("PRESS_RESOLUTION", release.FailingGates);
     }
 
     // =======================================================================================
@@ -679,6 +664,8 @@ public class CompositePipelineFulfillmentTests
         /// <summary>Whether the stubbed illustrator announces an anchor the way the real pipeline does.</summary>
         public bool AnnounceAnchor { get; init; }
 
+        public bool TestingFlow { get; init; }
+
         public bool WrapFails { get; init; }
 
         /// <summary>The wrap waits on its token until somebody cancels it.</summary>
@@ -732,7 +719,7 @@ public class CompositePipelineFulfillmentTests
         /// withholds the customer PDF.
         /// </param>
         /// <param name="compositePipeline">Off is a book from the previous pipeline.</param>
-        public BekiPackFulfillment Job(bool strictPolicy = false, bool compositePipeline = true) =>
+        public BekiPackFulfillment Job(bool strictPolicy = false, bool compositePipeline = true, bool? testingFlow = null) =>
             new(Packs,
                 new FakeRuns(RunId, UserId),
                 Blobs,
@@ -741,7 +728,7 @@ public class CompositePipelineFulfillmentTests
                 Notifier,
                 Email,
                 new SingleUserRepository(),
-                Options.Create(new BekiOptions { CompositePipelineEnabled = compositePipeline }),
+                Options.Create(new BekiOptions { CompositePipelineEnabled = compositePipeline, InsertBekiInGeneration = false, TestingFlow = testingFlow ?? TestingFlow }),
                 NullLogger<BekiPackFulfillment>.Instance,
                 Clock,
                 pressUpscaler: new ScriptedUpscaler(this),
@@ -973,7 +960,7 @@ public class CompositePipelineFulfillmentTests
                 throw failure;
             }
 
-            var spreads = Enumerable.Range(1, BookFormat.SpreadCount)
+            var spreads = Enumerable.Range(1, world.TestingFlow ? BekiOptions.TestingSpreadCount : BookFormat.SpreadCount)
                 .Select(number => new BekiImageResult
                 {
                     SpreadNumber = number,
@@ -1172,6 +1159,9 @@ public class CompositePipelineFulfillmentTests
 
     internal sealed class RecordingComposer : IBekiPdfComposer
     {
+        public bool LastPrepareForPrint { get; private set; }
+        public bool LastTestingFlow { get; private set; }
+        public int LastSpreadCount { get; private set; }
         public byte[] CanonicalPdf { get; set; } = [0x25, 0x50, 0x44, 0x46];
         public byte[]? ReadingWrap { get; private set; }
 
@@ -1188,6 +1178,9 @@ public class CompositePipelineFulfillmentTests
             BekiBookPersonalization? personalization = null)
         {
             OnCompose?.Invoke();
+            LastPrepareForPrint = personalization!.PrepareForPrint;
+            LastTestingFlow = personalization.TestingFlow;
+            LastSpreadCount = spreads.Count;
             return new BekiComposedBook(CanonicalPdf, Receipts("canonical"));
         }
 
@@ -1397,6 +1390,7 @@ public class CompositePipelineFulfillmentTests
 
             _pack.Status = status;
             _pack.PdfUrl = pdfUrl;
+            _pack.GeneratedJson = generatedJson;
             _pack.ErrorMessage = errorMessage;
             return Task.FromResult(true);
         }
