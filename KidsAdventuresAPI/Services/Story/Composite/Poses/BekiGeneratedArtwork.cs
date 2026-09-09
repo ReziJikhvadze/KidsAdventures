@@ -6,7 +6,7 @@ namespace AdventurePacks.Api.Services.Story.Composite.Poses;
 /// </summary>
 public static class BekiGeneratedArtwork
 {
-    public const string Version = "beki-reference-generated-v2";
+    public const string Version = "beki-reference-generated-v3";
     private const string LegacyVersion = "beki-reference-generated-v1";
     public const string PoseId = "canonical-reference-generated";
 
@@ -16,7 +16,7 @@ public static class BekiGeneratedArtwork
 
     // Old books remain readable and printable; only new generation uses the stronger lock.
     public static bool IsGenerated(BekiCompositionManifest receipt) =>
-        receipt.CompositionVersion is Version or LegacyVersion;
+        receipt.CompositionVersion is Version or LegacyVersion or "beki-reference-generated-v2";
 
     public static BekiCompositionManifest Receipt(byte[] png, byte[] reference, string file)
     {

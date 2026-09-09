@@ -1398,10 +1398,10 @@ public sealed class CompositeBookPipeline(
 
         // ---- Steps 3-7: the anchor spread, then the rest ---------------------------------------
         var visualLock = scenario.VisualLock!;
-        var continuity = new CompositeContinuity();
         var pages = _options.TestingFlow
             ? scenario.Spreads!.Take(BekiOptions.TestingSpreadCount).ToList()
             : scenario.Spreads!;
+        var continuity = new CompositeContinuity(pages, visualLock.RecurringElements);
 
         // Validated as exactly eight, numbered 1 to 8 in order, so the first entry is spread one —
         // the page that produces the anchor and therefore the page that cannot be drawn beside any
@@ -1485,6 +1485,29 @@ public sealed class CompositeBookPipeline(
                 + "QA verdict, so this book's own record covers only the pages this attempt drew.");
         }
 
+        // A character's first appearance is durable source artwork. If that source is lost or
+        // must be redrawn, redraw its dependent pages too; never mix two designs in one book.
+        var redraw = new HashSet<int>();
+        foreach (var page in pages)
+        {
+            if (!resume.Spreads.TryGetValue(page.Page, out var stored) || stored.Length == 0
+                || (qaTracked && CompositeSpreadQa.TryReadStored(
+                    resume.SpreadQaJson.GetValueOrDefault(page.Page)) is null)
+                || (continuity.IsSource(page.Page)
+                    && resume.BaseImages.GetValueOrDefault(page.Page) is not { Length: > 0 })
+                || continuity.Dependencies(page.Page).Any(redraw.Contains))
+                redraw.Add(page.Page);
+        }
+        if (redraw.Contains(anchorPage))
+        {
+            // The child is shared by every page, including pages with no recurring creature.
+            anchor = null;
+            redraw.UnionWith(pages.Select(page => page.Page));
+        }
+        if (redraw.Any(resume.Spreads.ContainsKey))
+            warnings.Add("Stored artwork with missing character source images or evidence, and its "
+                + "dependent spreads, will be redrawn to keep one character design throughout the book.");
+
         foreach (var page in pages)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -1508,9 +1531,8 @@ public sealed class CompositeBookPipeline(
 
               So the page is redrawn, which is the resume path's existing answer to every piece of
               missing provenance: an unreadable scenario, an absent identity spec and a missing
-              anchor all cost artwork rather than being worked around. This one costs the least of
-              the four — one page, not the book — because a verdict belongs to a page and to
-              nothing else.
+              anchor all cost artwork rather than being worked around. If this page established
+              a character design, its dependents are redrawn with it.
             */
             if (qaTracked
                 && CompositeSpreadQa.TryReadStored(
@@ -1526,6 +1548,12 @@ public sealed class CompositeBookPipeline(
                     $"Spread {page.Page} was redrawn rather than adopted: the QA verdict stored "
                     + "for it is missing or was written by a different reviewer prompt version.");
 
+                toDraw.Add(page);
+                continue;
+            }
+
+            if (redraw.Contains(page.Page))
+            {
                 toDraw.Add(page);
                 continue;
             }
@@ -1549,13 +1577,7 @@ public sealed class CompositeBookPipeline(
             if (resume.BaseImages.TryGetValue(page.Page, out var storedBase)
                 && storedBase.Length > 0)
             {
-                continuity.Remember(elements, storedBase);
-            }
-            else if (elements.Count > 0)
-            {
-                warnings.Add(
-                    $"Spread {page.Page} was adopted without its base image, so the recurring "
-                    + "elements it introduced cannot be a continuity reference for later spreads.");
+                continuity.Remember(page.Page, elements, storedBase);
             }
 
             adopted[page.Page] = AdoptedSpread(page.Page, alreadyDrawn);
@@ -1900,7 +1922,7 @@ public sealed class CompositeBookPipeline(
 
         var (raw, coverMs, coverGenerated) = await GenerateBaseImageAsync(
             context, page: null, prompt,
-            References(childPhoto, childPhotoContentType, theme, childAnchor, continuityImage: null),
+            References(childPhoto, childPhotoContentType, theme, childAnchor, continuityImages: null),
             cancellationToken);
 
         // To the wrap's own shape — 512:245 — not the interior's 15:7.
@@ -1957,7 +1979,7 @@ public sealed class CompositeBookPipeline(
                 // buying a different painting of the same child, not a different child.
                 References(
                     childPhoto, childPhotoContentType, theme,
-                    childAnchor, continuityImage: null),
+                    childAnchor, continuityImages: null),
                 cancellationToken);
 
             basePng = SpreadArtCrop.CropToRatio(retry, BekiCoverDieline.AspectRatio);
@@ -2780,9 +2802,8 @@ public sealed class CompositeBookPipeline(
     ///
     /// Spread one is alone because it is the anchor: it is the picture the other seven are told to
     /// match the child against, so nothing else can start until it has been drawn and accepted.
-    /// After that the remaining pages have no dependency on each other that a shared continuity
-    /// reference does not already satisfy, and drawing them one at a time cost the first real book
-    /// 651 seconds of mostly waiting.
+    /// Later pages wait only for the first appearances of characters they reuse. Once those
+    /// designs exist, the remaining pages run concurrently against immutable references.
     ///
     /// Three rules make the concurrency safe rather than merely fast.
     ///
@@ -2796,10 +2817,8 @@ public sealed class CompositeBookPipeline(
     /// gives up, and the pages still in flight stop before their next paid call rather than
     /// finishing pictures for a book that is already over.
     ///
-    /// The continuity reference is whatever was accepted when a page was scheduled. It is usually
-    /// spread one, which is the accepted trade: a creature introduced mid-book may now be matched
-    /// against the page that introduced it rather than against the page immediately before, and QA
-    /// still checks it.
+    /// Character references are the first accepted appearances, never whichever parallel page
+    /// happened to finish last. References are restored from persisted base artwork on resume.
     /// </summary>
     private async Task<(IReadOnlyDictionary<int, CompositeSpreadResult> Drawn, byte[]? Anchor)>
         DrawSpreadsAsync(
@@ -2941,6 +2960,8 @@ public sealed class CompositeBookPipeline(
 
         Exception? terminal = null;
 
+        var completed = remaining.ToDictionary(page => page.Page,
+            _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
         var tasks = remaining.Select(DrawOneAsync).ToList();
 
         try
@@ -2986,6 +3007,12 @@ public sealed class CompositeBookPipeline(
 
         async Task DrawOneAsync(VisualScenarioSpread page)
         {
+            // Wait before taking a generation slot, so dependencies cannot deadlock the pool.
+            // Only first appearances are dependencies; pages reusing established designs overlap.
+            foreach (var source in continuity.Dependencies(page.Page))
+                if (completed.TryGetValue(source, out var ready))
+                    await ready.Task.WaitAsync(siblings.Token).ConfigureAwait(false);
+
             await slots.WaitAsync(siblings.Token).ConfigureAwait(false);
 
             CompositeSpreadResult spread;
@@ -3007,6 +3034,7 @@ public sealed class CompositeBookPipeline(
             }
 
             drawn[spread.Page] = spread;
+            completed[spread.Page].TrySetResult();
 
             try
             {
@@ -3057,11 +3085,9 @@ public sealed class CompositeBookPipeline(
             visualLock.RecurringElements, page.ChildWorldScene, page.Props);
         var elements = elementPlan.Required;
 
-        // Read once, when this page is scheduled: the most recently accepted base carrying one of
-        // this page's recurring elements. With the pages drawn concurrently that is usually spread
-        // one rather than the page immediately before, which is the trade the parallel campaign
-        // accepted and QA's CAST_ERROR still checks.
-        var reference = continuity.For(elements);
+        // The scheduler has finished every needed first appearance. Reuse the same source bytes
+        // on every page, including every recurring character present in this scene.
+        var references = continuity.For(page.Page, elements);
 
         var anchored = anchor is { Length: > 0 };
 
@@ -3074,7 +3100,7 @@ public sealed class CompositeBookPipeline(
             ChildOutfit = visualLock.ChildOutfit!,
             RecurringElements = elementPlan.Annotated,
             ForbiddenElements = elementPlan.Forbidden,
-            ContinuityElementNames = reference?.ElementNames ?? [],
+            ContinuityReferenceElements = references.Select(reference => reference.ElementNames).ToList(),
             IdentitySpec = identity,
             AnchorAttached = anchored,
             InsertBekiInGeneration = _options.InsertBekiInGeneration,
@@ -3086,10 +3112,10 @@ public sealed class CompositeBookPipeline(
             var bekiReference = BekiGeneratedArtwork.Reference(_options.BekiReferenceAssetPath);
             var (raw, elapsed, image) = await GenerateBaseImageAsync(
                 context, page.Page, prompt,
-                References(childPhoto, childPhotoContentType, theme, anchor, reference?.Image, bekiReference),
+                References(childPhoto, childPhotoContentType, theme, anchor, references, bekiReference),
                 cancellationToken);
             var png = NormalizeToSpread(context, page.Page, raw);
-            continuity.Remember(elements, png);
+            continuity.Remember(page.Page, elements, png);
             return new CompositeSpreadResult
             {
                 Page = page.Page, BasePng = png, CompositePng = png,
@@ -3126,7 +3152,7 @@ public sealed class CompositeBookPipeline(
 
         var (rawPng, generationMs, generated) = await GenerateBaseImageAsync(
             context, page.Page, prompt,
-            References(childPhoto, childPhotoContentType, theme, anchor, reference?.Image),
+            References(childPhoto, childPhotoContentType, theme, anchor, references),
             cancellationToken);
 
         var basePng = NormalizeToSpread(context, page.Page, rawPng);
@@ -3192,7 +3218,7 @@ public sealed class CompositeBookPipeline(
             (basePng, generationMs, placement, receiptJson) = await RegenerateBaseAsync(
                 context, page, prompt,
                 $"the base does not continue across the centre fold ({Reading(centreField)})",
-                childPhoto, childPhotoContentType, theme, anchor, reference?.Image,
+                childPhoto, childPhotoContentType, theme, anchor, references,
                 cancellationToken);
 
             regenerated = true;
@@ -3262,7 +3288,7 @@ public sealed class CompositeBookPipeline(
 
             // Remembered like any other accepted page: nothing refused it, and the next spread
             // sharing a creature with it has no better picture to be shown.
-            continuity.Remember(elements, basePng);
+            continuity.Remember(page.Page, elements, basePng);
 
             return new CompositeSpreadResult
             {
@@ -3340,7 +3366,7 @@ public sealed class CompositeBookPipeline(
             {
                 // Only an accepted page becomes a continuity reference. An image the reviewer
                 // refused is precisely the one a later spread must not be told to match.
-                continuity.Remember(elements, basePng);
+                continuity.Remember(page.Page, elements, basePng);
 
                 if (verdict.AgeNote is { Length: > 0 } ageNote)
                 {
@@ -3413,7 +3439,7 @@ public sealed class CompositeBookPipeline(
             {
                 (basePng, generationMs, placement, receiptJson) = await RegenerateBaseAsync(
                     context, page, prompt, verdict.ToString(), childPhoto, childPhotoContentType,
-                    theme, anchor, reference?.Image, cancellationToken);
+                    theme, anchor, references, cancellationToken);
 
                 regenerated = true;
                 baseAttempts++;
@@ -3507,7 +3533,7 @@ public sealed class CompositeBookPipeline(
             {
                 (basePng, generationMs, placement, receiptJson) = await RegenerateBaseAsync(
                     context, page, prompt, verdict.ToString(), childPhoto, childPhotoContentType,
-                    theme, anchor, reference?.Image, cancellationToken);
+                    theme, anchor, references, cancellationToken);
 
                 regenerated = true;
                 baseAttempts++;
@@ -3602,7 +3628,7 @@ public sealed class CompositeBookPipeline(
             string childPhotoContentType,
             CompositeThemeReference theme,
             byte[]? anchor,
-            byte[]? continuityImage,
+            IReadOnlyList<CompositeCharacterReference>? continuityImages,
             CancellationToken cancellationToken)
     {
         logger.LogWarning(
@@ -3611,7 +3637,7 @@ public sealed class CompositeBookPipeline(
 
         var (rawPng, generationMs, generated) = await GenerateBaseImageAsync(
             context, page.Page, prompt,
-            References(childPhoto, childPhotoContentType, theme, anchor, continuityImage),
+            References(childPhoto, childPhotoContentType, theme, anchor, continuityImages),
             cancellationToken);
 
         /*
@@ -4581,30 +4607,17 @@ public sealed class CompositeBookPipeline(
             CompositeJson.Readable);
 
     /// <summary>
-    /// The images the generation call carries, in the order the prompt numbers them, and the one it
-    /// must never carry.
-    ///
-    /// Two on the first spread — the child's photograph as the identity reference and the approved
-    /// world reference — then the child appearance anchor on every page after it, then the last
-    /// accepted base containing this page's recurring element when there is one. Four at most,
-    /// which is the template's own limit.
-    ///
-    /// The order is not cosmetic. The prompt calls them Image 1 to Image 4 by position, so a list
-    /// assembled in a different order tells the model to take the child's stylization from a
-    /// picture of a creature. It is also the weighting: the first reference is the one the image
-    /// model leans on hardest, and that is the photograph, deliberately, on every page.
-    ///
-    /// No Beki, in any position, under any label — the config says <c>send_beki_reference: false</c>,
-    /// and a list built anywhere else is a list this rule could be broken in. Note what the anchor
-    /// is for the same reason: the accepted BASE of spread one, which is the page before Beki was
-    /// pasted onto it.
+    /// References in exactly the prompt's numbered order: fixed child anchor when available,
+    /// original child image, approved world, then one first-appearance source per character group.
+    /// Beki is excluded for exact compositing; the experimental native mode attaches her approved
+    /// reference last. The maximum is six images for compositing, seven for native Beki.
     /// </summary>
     private StoryImageReference? References(
         byte[] childPhoto,
         string childPhotoContentType,
         CompositeThemeReference theme,
         byte[]? childAnchor,
-        byte[]? continuityImage,
+        IReadOnlyList<CompositeCharacterReference>? continuityImages,
         byte[]? bekiReference = null)
     {
         var references = new List<(byte[] Bytes, string ContentType, string Label)>();
@@ -4624,9 +4637,9 @@ public sealed class CompositeBookPipeline(
         references.Add((ThemeReferenceForModel(theme), "image/png",
             $"Approved {theme.OfficialName} world reference"));
 
-        if (continuityImage is { Length: > 0 })
+        foreach (var character in continuityImages ?? [])
         {
-            references.Add((continuityImage, "image/png", "Continuity reference"));
+            references.Add((character.Image, "image/png", "Continuity reference"));
         }
 
         if (bekiReference is { Length: > 0 })
@@ -4744,76 +4757,57 @@ public sealed class CompositeBookPipeline(
             context.JobId, stage, page?.ToString() ?? "-", model, endpoint ?? "-", request ?? "-",
             promptVersion, latencyMs, retryCount, validation);
 
+    private sealed record CompositeCharacterReference(byte[] Image, IReadOnlyList<string> ElementNames);
+
     /// <summary>
-    /// The continuity reference mechanism, reused rather than rebuilt (handoff §6 Step 4: "do not
-    /// build a new extraction service for v0").
-    ///
-    /// It remembers the most recent accepted BASE image each recurring element appeared in — the
-    /// base, never the composite, because the composite has Beki in it and the continuity
-    /// instruction tells the model to copy only the named elements from that picture. Handing it a
-    /// page with Beki on it is handing it a picture of Beki.
+    /// A book-local, immutable design cache. The first planned appearance owns each character.
+    /// Later artwork never replaces it, and restored future pages never seed earlier pages.
+    /// Stored base images reconstruct this cache after a restart without another model call.
     /// </summary>
     private sealed class CompositeContinuity
     {
-        private readonly Dictionary<string, byte[]> _byElement = new(StringComparer.Ordinal);
-
-        /// <summary>
-        /// Read while one page is being scheduled, written when another is accepted, and those two
-        /// now happen at the same time. A plain dictionary torn by a concurrent write is not a
-        /// wrong reference — it is a corrupted dictionary, on the path that decides what nine paid
-        /// image calls are shown.
-        /// </summary>
+        private readonly Dictionary<string, int> _sourceByElement = new(StringComparer.Ordinal);
+        private readonly Dictionary<int, IReadOnlyList<string>> _elementsByPage = new();
+        private readonly Dictionary<int, byte[]> _images = new();
         private readonly object _gate = new();
 
-        /// <summary>
-        /// The reference for this page: the last accepted base containing any of the elements this
-        /// page reuses, and the names it may be read for.
-        ///
-        /// One image, not several. The image call takes a list of references and the model weights
-        /// the first most heavily; two continuity pictures is how a spread came back with the same
-        /// creature drawn twice on the legacy path, and this pipeline's answer is to attach the one
-        /// picture and name what may be taken from it.
-        /// </summary>
-        public (byte[] Image, IReadOnlyList<string> ElementNames)? For(IReadOnlyList<string> elements)
+        public CompositeContinuity(IReadOnlyList<VisualScenarioSpread> pages, IReadOnlyList<string>? recurring)
         {
-            lock (_gate)
+            foreach (var page in pages.OrderBy(page => page.Page))
             {
+                var elements = CompositeIllustrationPrompt.ElementsFor(
+                    recurring, page.ChildWorldScene, page.Props).Required;
+                _elementsByPage[page.Page] = elements;
                 foreach (var element in elements)
-                {
-                    if (_byElement.TryGetValue(element, out var image))
-                    {
-                        return (image, [element]);
-                    }
-                }
-
-                return null;
+                    _sourceByElement.TryAdd(element, page.Page);
             }
         }
 
-        /// <summary>
-        /// Records the most recent accepted appearance, replacing whatever was there.
-        ///
-        /// It used to keep the first and never look again, which is the wrong end of the book. The
-        /// contract asks for "the most recent approved image containing a recurring story character
-        /// or object", and the reason is drift: each spread is drawn from the one before it, so by
-        /// spread seven the creature has moved a little from where spread two left it, and matching
-        /// spread seven against spread two asks the model to undo six pages of accumulated change in
-        /// one step. Matching it against spread six asks for one page's worth.
-        /// </summary>
-        public void Remember(IReadOnlyList<string> elements, byte[] basePng)
-        {
-            if (basePng is not { Length: > 0 })
-            {
-                return;
-            }
+        public bool IsSource(int page) => _sourceByElement.ContainsValue(page);
 
+        public IReadOnlyList<int> Dependencies(int page) => _elementsByPage[page]
+            .Select(element => _sourceByElement[element]).Where(source => source < page)
+            .Distinct().Order().ToList();
+
+        public IReadOnlyList<CompositeCharacterReference> For(int page, IReadOnlyList<string> elements)
+        {
             lock (_gate)
             {
-                foreach (var element in elements)
-                {
-                    _byElement[element] = basePng;
-                }
+                // One attachment per source page, with ALL characters it supplies named explicitly.
+                return elements.GroupBy(element => _sourceByElement[element])
+                    .Where(group => group.Key < page && _images.ContainsKey(group.Key))
+                    .OrderBy(group => group.Key)
+                    .Select(group => new CompositeCharacterReference(_images[group.Key], group.ToList()))
+                    .ToList();
             }
+        }
+
+        public void Remember(int page, IReadOnlyList<string> elements, byte[] basePng)
+        {
+            if (basePng.Length == 0 || !elements.Any(element => _sourceByElement[element] == page))
+                return;
+            lock (_gate)
+                _images.TryAdd(page, basePng);
         }
     }
 

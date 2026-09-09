@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Models;
 using AdventurePacks.Api.Domain.Story;
@@ -39,8 +40,13 @@ public class CompositeConcurrencyTests
     private static string FixturePath(string name) =>
         Path.Combine(AppContext.BaseDirectory, "Fixtures", "nina_dinosaurs", name);
 
-    private static string ScenarioFixture() =>
-        File.ReadAllText(FixturePath("visual_scenario_output_v2.json"));
+    private static string ScenarioFixture(bool recurringCharacters = false)
+    {
+        var scenario = JsonNode.Parse(File.ReadAllText(FixturePath("visual_scenario_output_v2.json")))!;
+        if (!recurringCharacters)
+            scenario["visual_lock"]!["recurring_elements"] = new JsonArray();
+        return scenario.ToJsonString();
+    }
 
     private static readonly IReadOnlyDictionary<int, string> ScenesByPage = ReadScenes();
 
@@ -99,6 +105,88 @@ public class CompositeConcurrencyTests
 
         Assert.Equal(1, images.MaxInFlight);
         Assert.Equal([1, 2, 3, 4, 5, 6, 7, 8], images.ImagePages);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(8)]
+    public async Task Characters_wait_for_first_appearance_and_keep_the_same_reference(int concurrency)
+    {
+        var images = new GatedImageService { Gated = [2], DelayMs = 5 };
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var run = Pipeline(images, concurrency, recurringCharacters: true)
+            .RunAsync(Request(), cancellation.Token);
+        try
+        {
+            await images.WaitUntilStarted(2, cancellation.Token);
+            await Task.Delay(50, cancellation.Token);
+            Assert.DoesNotContain(3, images.ImagePages);
+            Assert.DoesNotContain(4, images.ImagePages);
+            Assert.DoesNotContain(6, images.ImagePages);
+            Assert.DoesNotContain(7, images.ImagePages);
+            Assert.DoesNotContain(8, images.ImagePages);
+            images.Release(2);
+            var result = await run;
+            foreach (var page in new[] { 3, 4, 6, 7, 8 })
+                Assert.Equal(result.Spreads[1].BasePng, images.CharacterReferences[page][0]);
+            Assert.Equal(BookFormat.SpreadCount, images.ImagePages.Count);
+        }
+        finally
+        {
+            await cancellation.CancelAsync();
+            images.Release(2);
+            try { await run; } catch (OperationCanceledException) { }
+        }
+    }
+
+    [Fact]
+    public async Task A_failed_character_source_cancels_its_waiting_spreads()
+    {
+        var images = new GatedImageService { Gated = [2], FailAtReview = [2] };
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var run = Pipeline(images, 8, recurringCharacters: true).RunAsync(Request(), cancellation.Token);
+        await images.WaitUntilStarted(2, cancellation.Token);
+        images.Release(2);
+        var error = await Assert.ThrowsAsync<CompositePipelineException>(() => run);
+        Assert.Equal(2, error.Page);
+        Assert.DoesNotContain(3, images.ImagePages);
+        Assert.DoesNotContain(4, images.ImagePages);
+        Assert.DoesNotContain(6, images.ImagePages);
+        Assert.DoesNotContain(7, images.ImagePages);
+        Assert.DoesNotContain(8, images.ImagePages);
+    }
+
+    [Fact]
+    public async Task A_scene_receives_every_character_source_with_matching_image_labels()
+    {
+        var images = new GatedImageService();
+        var result = await Pipeline(images, 8, recurringCharacters: true)
+            .RunAsync(Request(), TestTimeout);
+        // Bafu, his mother and the leaf first appear on different pages in this fixture.
+        var scenario = result.Scenario;
+        var first = new Dictionary<string, int>();
+        foreach (var page in scenario.Spreads!)
+        {
+            var elements = CompositeIllustrationPrompt.ElementsFor(
+                scenario.VisualLock!.RecurringElements, page.ChildWorldScene, page.Props).Required;
+            foreach (var element in elements) first.TryAdd(element, page.Page);
+            var sources = elements.GroupBy(element => first[element])
+                .Where(group => group.Key < page.Page).OrderBy(group => group.Key).ToList();
+            Assert.Equal(sources.Count, images.CharacterReferences[page.Page].Length);
+            for (var index = 0; index < sources.Count; index++)
+            {
+                Assert.Equal(result.Spreads[sources[index].Key - 1].BasePng,
+                    images.CharacterReferences[page.Page][index]);
+                var line = images.Prompts[page.Page].Split('\n')
+                    .Single(line => line.StartsWith($"Image {4 + index} - continuity reference"));
+                foreach (var element in sources[index]) Assert.Contains(element, line);
+            }
+        }
+        Assert.Equal(3, images.CharacterReferences[8].Length);
+        Assert.Equal(result.Spreads[1].BasePng, images.CharacterReferences[8][0]);
+        Assert.Equal(result.Spreads[3].BasePng, images.CharacterReferences[8][1]);
+        Assert.Equal(result.Spreads[4].BasePng, images.CharacterReferences[8][2]);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -452,8 +540,8 @@ public class CompositeConcurrencyTests
         DistinctiveFeatures = "light freckles across the nose; a dimple on the left cheek",
     };
 
-    private static CompositeBookPipeline Pipeline(IOpenAiService images, int spreadConcurrency) =>
-        new(new ScenarioClient(ScenarioFixture()),
+    private static CompositeBookPipeline Pipeline(IOpenAiService images, int spreadConcurrency, bool recurringCharacters = false) =>
+        new(new ScenarioClient(ScenarioFixture(recurringCharacters)),
             images,
             new UnusedStoryService(),
             Options.Create(new BekiOptions
@@ -587,6 +675,8 @@ public class CompositeConcurrencyTests
         public ConcurrentQueue<int> ImagePages { get; } = new();
 
         public ConcurrentQueue<int> ReviewPages { get; } = new();
+        public ConcurrentDictionary<int, byte[][]> CharacterReferences { get; } = new();
+        public ConcurrentDictionary<int, string> Prompts { get; } = new();
 
         /// <summary>The anchor image each page was drawn against, or null where there was none.</summary>
         public ConcurrentDictionary<int, byte[]?> Anchors { get; } = new();
@@ -630,6 +720,9 @@ public class CompositeConcurrencyTests
             var page = PageOf(imagePrompt);
 
             ImagePages.Enqueue(page);
+            CharacterReferences[page] = (reference?.CastPhotos ?? [])
+                .Where(photo => photo.Name == "Continuity reference").Select(photo => photo.Bytes).ToArray();
+            Prompts[page] = imagePrompt;
 
             // From v1.2 the appearance anchor is the FIRST attached reference on every spread but
             // the first, so it arrives in the lead slot rather than among the labelled cast. The

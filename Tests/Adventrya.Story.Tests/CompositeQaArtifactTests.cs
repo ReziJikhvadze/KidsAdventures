@@ -250,11 +250,11 @@ public class CompositeQaArtifactTests : CompositePipelineTestBase
                     qaFor: [1, 3])),
                 CancellationToken.None);
 
-        // Six pictures: the five never drawn, plus spread two.
-        Assert.Equal(BookFormat.SpreadCount - 2, images.ImageCalls);
+        // Spread three also changes: it depended on the lost Bafu design from spread two.
+        Assert.Equal(BookFormat.SpreadCount - 1, images.ImageCalls);
 
         Assert.Equal(
-            new[] { 1, 3 },
+            new[] { 1 },
             result.Artifacts.Spreads
                 .Where(artifact => artifact.Adopted)
                 .Select(artifact => artifact.SpreadNumber)

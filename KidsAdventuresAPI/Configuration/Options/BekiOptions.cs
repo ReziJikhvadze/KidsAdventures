@@ -57,8 +57,9 @@ public sealed class BekiOptions
     /// </summary>
     public bool CompositePipelineEnabled { get; set; }
 
-    /// <summary>Draw Beki from the canonical reference in the spread's first image call.</summary>
-    public bool InsertBekiInGeneration { get; set; } = true;
+    /// <summary>Experimental native Beki drawing. Default off: composite the approved artwork to
+    /// preserve exact anatomy without adding an AI call.</summary>
+    public bool InsertBekiInGeneration { get; set; }
 
     /// <summary>Generate a sample cover and the first two spreads instead of a full composite book.</summary>
     public bool TestingFlow { get; set; }

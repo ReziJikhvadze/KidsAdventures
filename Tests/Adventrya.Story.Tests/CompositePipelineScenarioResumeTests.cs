@@ -268,73 +268,35 @@ public class CompositePipelineScenarioResumeTests : CompositePipelineTestBase
         Assert.All(images.ContinuityImages, image => Assert.NotEqual(composited, image));
     }
 
-    /// <summary>
-    /// An adopted page whose base was never stored is a continuity gap, and the run says so instead
-    /// of quietly drawing the rest of the book without it.
-    ///
-    /// A gap rather than a redraw, and the difference is which base is missing. Spread one's base
-    /// is the anchor for the whole book, so losing it discards the artwork; a later page's base is
-    /// only the continuity reference for the creature that page introduced, so losing it costs
-    /// continuity on the pages that reuse the creature and nothing else.
-    /// </summary>
     [Fact]
-    public async Task An_adopted_page_with_no_stored_base_is_reported_as_a_continuity_gap()
-    {
-        var result = await Pipeline(
-                new ScriptedStoryModelClient(ScenarioFixture()), new StubImageService())
-            .RunAsync(
-                Request(resume: new CompositeResumeState(
-                    ScenarioFixture(),
-                    new Dictionary<int, byte[]> { [1] = BasePng(), [2] = BasePng() },
-                    // Spread one kept its base — the anchor — and spread two did not.
-                    new Dictionary<int, byte[]> { [1] = BasePng() })
-                {
-                    IdentitySpecJson = CompositeChildIdentity.ToStoredJson(IdentityFixture),
-                }),
-                CancellationToken.None);
-
-        Assert.Contains(
-            result.Warnings,
-            warning => warning.Contains("adopted without its base image"));
-
-        // And it stayed a gap: both pages are still adopted.
-        Assert.True(result.Spreads[0].Adopted);
-        Assert.True(result.Spreads[1].Adopted);
-    }
-
-    /// <summary>
-    /// The most recent accepted appearance is the continuity reference, not the first one ever.
-    ///
-    /// Each spread is drawn from the one before it, so by spread seven the creature has drifted from
-    /// where spread two left it. Matching spread seven against spread two asks a model to undo six
-    /// pages of change in one step; matching it against spread six asks for one page's worth. The
-    /// contract asks for "the most recent approved image", and keeping the first was the bug.
-    /// </summary>
-    [Fact]
-    public async Task Continuity_tracks_the_most_recent_accepted_appearance()
+    public async Task Missing_character_source_redraws_it_and_its_adopted_dependents()
     {
         var images = new StubImageService();
+        var stored = Enumerable.Range(1, 4).ToDictionary(page => page, _ => BasePng());
+        var bases = stored.Where(pair => pair.Key != 2).ToDictionary();
+        var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+            .RunAsync(Request(resume: new CompositeResumeState(ScenarioFixture(), stored, bases)
+            {
+                IdentitySpecJson = CompositeChildIdentity.ToStoredJson(IdentityFixture),
+            }), CancellationToken.None);
 
-        await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+        Assert.Contains(result.Warnings, warning => warning.Contains("missing character source"));
+        Assert.True(result.Spreads[0].Adopted);
+        Assert.All(result.Spreads.Skip(1).Take(3), spread => Assert.False(spread.Adopted));
+        Assert.Equal(result.Spreads[1].BasePng, images.ContinuityImages[1]);
+    }
+
+    [Fact]
+    public async Task Continuity_reuses_first_appearance_instead_of_propagating_later_drift()
+    {
+        var images = new StubImageService();
+        var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
             .RunAsync(Request(), CancellationToken.None);
 
-        // Spreads 2, 3, 4, 7 and 8 all name Bafu, so each of them after the first is drawn against
-        // the page immediately before it rather than against spread two forever.
-        var third = images.ContinuityImages[2];
-        var fourth = images.ContinuityImages[3];
-
-        Assert.NotNull(third);
-        Assert.NotNull(fourth);
-
-        // The stub returns a distinct picture per call, so "the reference moved on" is checkable.
-        Assert.NotEqual(third, fourth);
-
-        // And what is kept is the NORMALIZED base — the spread-shaped picture Beki was pasted onto
-        // — rather than the provider's 3:2 frame, so a later page is matched against the same
-        // canvas it will itself be drawn to.
-        Assert.Equal(
-            SpreadArtCrop.CropToRatio(images.Returned[2], 15f / 7f),
-            fourth);
+        var source = result.Spreads[1].BasePng;
+        foreach (var page in new[] { 3, 4, 6, 7, 8 })
+            Assert.Equal(source, images.ContinuityImages[page - 1]);
+        Assert.NotEqual(result.Spreads[2].BasePng, images.ContinuityImages[3]);
     }
 
     /// <summary>
@@ -385,7 +347,7 @@ public class CompositePipelineScenarioResumeTests : CompositePipelineTestBase
     {
         var current = BekiCompositeContractTerms.Current("dinosaurs");
 
-        Assert.Equal("child-world-image-v1.7", CompositeIllustrationPrompt.Version);
+        Assert.Equal("child-world-image-v1.8", CompositeIllustrationPrompt.Version);
         Assert.Equal("minimal-visual-qa-v1.6", CompositeMinimalQa.Version);
         Assert.Equal("child-identity-spec-v1.2", CompositeChildIdentity.Version);
 

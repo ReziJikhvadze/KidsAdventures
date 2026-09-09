@@ -104,7 +104,7 @@ public class FastBookGenerationTests : CompositePipelineTestBase
         var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images,
             insertBekiInGeneration: true).RunAsync(Request(), CancellationToken.None);
 
-        Assert.True(new BekiOptions().InsertBekiInGeneration);
+        Assert.False(new BekiOptions().InsertBekiInGeneration);
         Assert.Equal(BookFormat.SpreadCount, images.ImageCalls);
         Assert.Equal(0, images.ReviewCalls);
         Assert.All(images.StrictFlags, Assert.True);
@@ -124,7 +124,7 @@ public class FastBookGenerationTests : CompositePipelineTestBase
             Assert.Contains("golden-yellow/amber irises", spread.Prompt);
             Assert.Contains("MOUTH: preserve the same small open upturned", spread.Prompt);
             Assert.Contains("those images are NOT Beki design", spread.Prompt);
-            Assert.Contains("(FINAL IMAGE)", spread.Prompt);
+            Assert.Contains($"Image {images.ReferenceCounts[spread.Page - 1]} (FINAL IMAGE)", spread.Prompt);
             Assert.EndsWith(BekiIdentity.GenerationFinalCheck, spread.Prompt.Trim());
             Assert.DoesNotContain("five-lobed", spread.Prompt);
             Assert.DoesNotContain("pose/expression adjustment", spread.Prompt);
@@ -134,10 +134,31 @@ public class FastBookGenerationTests : CompositePipelineTestBase
     }
 
     [Fact]
+    public async Task Default_Beki_is_exact_artwork_without_extra_model_calls()
+    {
+        var images = new StubImageService();
+        var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+            .RunAsync(Request(context: Context() with { ReleasePolicy = BekiReleasePolicySnapshot.Defaults }),
+                CancellationToken.None);
+        Assert.False(new BekiOptions().InsertBekiInGeneration);
+        Assert.Equal(BookFormat.SpreadCount, images.ImageCalls);
+        Assert.Equal(0, images.ReviewCalls);
+        Assert.All(images.BekiReferences, Assert.Null);
+        foreach (var spread in result.Spreads)
+        {
+            Assert.False(spread.Manifest!.BekiLayer.Redrawn);
+            Assert.False(BekiGeneratedArtwork.IsGenerated(spread.Manifest));
+            Assert.NotEqual(spread.BasePng, spread.CompositePng);
+            BekiPressComposite.ValidateSource(spread.BasePng, spread.CompositePng, spread.Manifest);
+        }
+    }
+
+    [Fact]
     public void Stronger_identity_lock_versions_new_generation_but_preserves_old_book_provenance()
     {
         var receipt = BekiGeneratedArtwork.Receipt(BasePng(), BekiGeneratedArtwork.Reference(), "spread.png");
-        Assert.Equal("beki-reference-generated-v2", receipt.CompositionVersion);
+        Assert.Equal("beki-reference-generated-v3", receipt.CompositionVersion);
+        Assert.True(BekiGeneratedArtwork.IsGenerated(receipt with { CompositionVersion = "beki-reference-generated-v2" }));
         Assert.True(BekiGeneratedArtwork.IsGenerated(receipt with { CompositionVersion = "beki-reference-generated-v1" }));
         Assert.False(BekiGeneratedArtwork.IsGenerated(receipt with { CompositionVersion = "unrecognized" }));
         Assert.Equal(BekiGeneratedArtwork.Version,

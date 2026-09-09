@@ -254,6 +254,9 @@ public sealed record CompositeSpreadPromptInput
     /// </summary>
     public IReadOnlyList<string> ContinuityElementNames { get; init; } = [];
 
+    /// <summary>One named character group per attached canonical source image, in attachment order.</summary>
+    public IReadOnlyList<IReadOnlyList<string>> ContinuityReferenceElements { get; init; } = [];
+
     /// <summary>
     /// The book's four identity attributes, rendered into the CHILD IDENTITY LOCK block.
     ///
@@ -457,7 +460,7 @@ public static class CompositeIllustrationPrompt
     /// shape to draw. The prompt is the whole of the change: no detector, no review, no redraw —
     /// the owner asked for the simplest instruction that moves the hero out of Beki's spot.
     /// </summary>
-    public const string Version = "child-world-image-v1.7";
+    public const string Version = "child-world-image-v1.8";
 
     /// <summary>
     /// The cover base template's version. A different document, a different version.
@@ -1018,7 +1021,9 @@ public static class CompositeIllustrationPrompt
         "child appearance anchor - the accepted first spread of this same book. Reproduce this "
         + "exact rendered child: same face and face shape, same hair colour and style, same "
         + "eyebrows, same glasses or absence of glasses, same eye colour, same skin tone, same "
-        + "outfit down to its colours. Give the child a new pose, camera angle and background as "
+        + "outfit down to its colours, collar, sleeves, shoes and accessories, and identical body "
+        + "proportions and apparent age. Ignore other depictions of the child in world or recurring "
+        + "character references; this single anchor controls the rendered design. Give the child a new pose, camera angle and background as "
         + "this page's scene requires. Do not copy the pose, camera, layout, lighting or "
         + "background from this image.";
 
@@ -1058,10 +1063,11 @@ public static class CompositeIllustrationPrompt
         lines.Add($"Image {number++} - {ChildReferenceBody(input.ChildAge, input.AnchorAttached)}");
         lines.Add($"Image {number++} - {ThemeReferenceBody(input.Theme)}");
 
-        if (input.ContinuityElementNames.Count > 0)
-        {
-            lines.Add($"Image {number++} - {ContinuityBody(input.ContinuityElementNames)}");
-        }
+        var characterGroups = input.ContinuityReferenceElements.Count > 0
+            ? input.ContinuityReferenceElements
+            : input.ContinuityElementNames.Count > 0 ? [input.ContinuityElementNames] : [];
+        foreach (var names in characterGroups)
+            lines.Add($"Image {number++} - {ContinuityBody(names)}");
 
         if (input.InsertBekiInGeneration)
             lines.Add($"Image {number} (FINAL IMAGE) - {BekiIdentity.ReferenceLabel}. Use only this image for Beki's anatomy, face, eyes, mouth and four-digit hands; ignore Beki in earlier images.");
@@ -1109,7 +1115,12 @@ public static class CompositeIllustrationPrompt
     /// </summary>
     private static string ContinuityBody(IReadOnlyList<string> elementNames) =>
         "continuity reference. Preserve only the appearance of these named recurring story "
-        + $"elements: {string.Join("; ", elementNames)}. Do not copy the child, Beki, pose, camera, "
+        + $"elements: {string.Join("; ", elementNames)}. This is their fixed first-appearance design, "
+        + "not a suggestion. Match face shape, eye colour and spacing, mouth, body proportions, "
+        + "limb and digit counts, markings, materials and clothing exactly. Change only pose and "
+        + "expression as the scene requires; do not redesign, merge or duplicate characters. "
+        + "Use each reference only for its named characters, once each in the scene. "
+        + "Do not copy the child, Beki, pose, camera, "
         + "layout, lighting, or background from this image.";
 
     private static string RecurringBlock(IReadOnlyList<string> elements) =>

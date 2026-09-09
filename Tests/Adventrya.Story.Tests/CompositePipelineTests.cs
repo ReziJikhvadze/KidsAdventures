@@ -708,8 +708,8 @@ public class CompositePipelineTests : CompositePipelineTestBase
 
         // Two references on page one — the photograph and the approved world — and never one
         // carrying Beki. Page two adds the child appearance anchor, and page three, which reuses
-        // Bafu, adds the continuity reference behind it: four images, which is the template's own
-        // limit and the last position this list has to give.
+        // Bafu, adds his fixed reference behind it. Later scenes can add the other characters
+        // too, with one attachment per source page.
         Assert.Equal(2, images.ReferenceCounts[0]);
         Assert.Equal(3, images.ReferenceCounts[1]);
         Assert.Equal(4, images.ReferenceCounts[2]);
@@ -717,7 +717,8 @@ public class CompositePipelineTests : CompositePipelineTestBase
         Assert.StartsWith("Image 1 - child appearance anchor", InputImages(images.Prompts[1]));
         Assert.Contains("Image 2 - child identity reference photograph.", images.Prompts[1]);
         Assert.Contains("Image 4 - continuity reference", images.Prompts[2]);
-        Assert.All(images.ReferenceCounts, count => Assert.True(count <= 4, $"{count} references."));
+        Assert.All(images.ReferenceCounts, count => Assert.InRange(count, 2, 6));
+        Assert.Equal(6, images.ReferenceCounts[7]);
     }
 
     /// <summary>
