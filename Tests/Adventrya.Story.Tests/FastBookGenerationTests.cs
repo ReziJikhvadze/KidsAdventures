@@ -104,7 +104,7 @@ public class FastBookGenerationTests : CompositePipelineTestBase
         var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images,
             insertBekiInGeneration: true).RunAsync(Request(), CancellationToken.None);
 
-        Assert.False(new BekiOptions().InsertBekiInGeneration);
+        Assert.True(new BekiOptions().InsertBekiInGeneration);
         Assert.Equal(BookFormat.SpreadCount, images.ImageCalls);
         Assert.Equal(0, images.ReviewCalls);
         Assert.All(images.StrictFlags, Assert.True);
@@ -134,13 +134,13 @@ public class FastBookGenerationTests : CompositePipelineTestBase
     }
 
     [Fact]
-    public async Task Default_Beki_is_exact_artwork_without_extra_model_calls()
+    public async Task Opt_in_exact_Beki_compositing_still_works_without_extra_model_calls()
     {
         var images = new StubImageService();
         var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
             .RunAsync(Request(context: Context() with { ReleasePolicy = BekiReleasePolicySnapshot.Defaults }),
                 CancellationToken.None);
-        Assert.False(new BekiOptions().InsertBekiInGeneration);
+        Assert.True(new BekiOptions().InsertBekiInGeneration);
         Assert.Equal(BookFormat.SpreadCount, images.ImageCalls);
         Assert.Equal(0, images.ReviewCalls);
         Assert.All(images.BekiReferences, Assert.Null);

@@ -17,7 +17,7 @@ namespace Adventrya.Story.Tests;
 public class LiveCompositeCharacterTests : CompositePipelineTestBase
 {
     [SkippableFact]
-    public async Task Draw_two_scenes_with_the_same_child_creature_and_exact_Beki()
+    public async Task Draw_two_scenes_with_the_same_child_and_story_creature()
     {
         var key = Environment.GetEnvironmentVariable("ADVENTRYA_CHARACTER_PROOF_KEY");
         Skip.If(string.IsNullOrWhiteSpace(key), "Set ADVENTRYA_CHARACTER_PROOF_KEY for the paid visual proof.");
@@ -45,7 +45,8 @@ public class LiveCompositeCharacterTests : CompositePipelineTestBase
             Options.Create(new OpenAiOptions { ApiKey = key!, EnableStoryImages = true, LogPrompts = false }),
             NullLogger<OpenAiService>.Instance);
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(10));
-        var result = await Pipeline(new ScriptedStoryModelClient(json), images, testingFlow: true)
+        var result = await Pipeline(new ScriptedStoryModelClient(json), images,
+                insertBekiInGeneration: new BekiOptions().InsertBekiInGeneration, testingFlow: true)
             .RunAsync(Request(context: Context() with { ReleasePolicy = BekiReleasePolicySnapshot.Defaults },
                 resume: new CompositeResumeState(json, new Dictionary<int, byte[]>(), new Dictionary<int, byte[]>())
                 { IdentitySpecJson = CompositeChildIdentity.ToStoredJson(identity) }) with
@@ -59,7 +60,7 @@ public class LiveCompositeCharacterTests : CompositePipelineTestBase
             await File.WriteAllBytesAsync(Path.Combine(directory, $"spread-{spread.Page:00}.png"), spread.CompositePng);
             await File.WriteAllTextAsync(Path.Combine(directory, $"spread-{spread.Page:00}-prompt.txt"), spread.Prompt);
             await File.WriteAllTextAsync(Path.Combine(directory, $"spread-{spread.Page:00}-composition.json"), spread.Manifest!.ToJson());
-            Assert.False(spread.Manifest.BekiLayer.Redrawn);
+            Assert.True(spread.Manifest.BekiLayer.Redrawn);
             Assert.Equal(0, spread.Attempts.Sum(attempt => attempt.ReviewMs));
         }
         Assert.Contains("continuity reference", result.Spreads[1].Prompt);

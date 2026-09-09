@@ -1236,7 +1236,7 @@ public static class CompositeVisualScenarioPrompt
     /// existing PROP_STATE reviewer reads — no new enum, no new field, nothing downstream to
     /// migrate.
     /// </summary>
-    public const string Version = "visual-scenario-v2.5";
+    public const string Version = "visual-scenario-v2.6";
 
     /// <summary>The schema name recorded against the call. The file itself is the response schema.</summary>
     public const string SchemaName = "visual_scenario_v2";
@@ -1352,6 +1352,9 @@ public static class CompositeVisualScenarioPrompt
         - The same base outfit is used on the cover and all eight spreads.
         - Story-required accessories may be added without replacing the base outfit or hiding the child's face.
         - List only recurring story elements whose appearance must remain consistent across multiple images.
+        - Register every recurring supporting character explicitly, including personified stars, clouds, dinosaurs, animals and other talking objects. They are individual characters, not interchangeable scenery. Prioritize these characters over decorative recurring objects.
+        - Give each character one stable name or identifier and one fixed visual description: species or object type, silhouette, body proportions, face and mouth shape, eye color, base colors, limb count or star-point count, distinctive markings and any clothing. Derive the design once from the story and retain it on every appearance; never invent a different design for a later page.
+        - Reuse that character's exact identifier in every scene where it is visible and the exact full description in props. Keep different individuals separate even when they share a species. Emotion, pose and story-required glow intensity may change; identity, anatomy and markings may not.
         - Include no more than three recurring elements. Use an empty array when none are necessary.
         - Do not include Beki in recurring_elements.
         - Do not invent a recurring object unsupported by the story.
@@ -1499,7 +1502,9 @@ public static class CompositeVisualScenarioPrompt
                             type = "array",
                             description =
                                 "AT MOST THREE entries - a fourth is rejected. Only recurring story "
-                                + "elements whose appearance must stay consistent across images. "
+                                + "elements whose appearance must stay consistent across images. Prioritize every "
+                                + "recurring supporting character, including personified stars and animals, "
+                                + "with one stable identifier and a fixed anatomical and color description. "
                                 + "Never Beki. An empty array is a valid answer.",
                             items = new { type = "string" }
                         }

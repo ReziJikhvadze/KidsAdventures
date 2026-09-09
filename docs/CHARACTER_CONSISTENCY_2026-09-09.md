@@ -1,8 +1,10 @@
 # Character consistency across spreads
 
-New books use the approved Beki PNG poses by default (`Beki:InsertBekiInGeneration=false`).
-The model draws the child and world, then the existing compositor places Beki. Her face, eyes,
-mouth and fingers come from the approved artwork. The experimental native mode remains opt-in.
+The consistency change targets the supporting cast invented by each story: stars, dinosaurs,
+animals and other recurring characters. The scenario planner registers them with stable names
+and fixed descriptions of their anatomy, colors and markings, including personified objects.
+Beki's existing native generation remains the default (`Beki:InsertBekiInGeneration=true`).
+The optional exact-PNG compositor is still available when that flag is explicitly false.
 No additional model review was enabled, and no preview stage was added.
 
 The child keeps the original identity reference plus one fixed rendered appearance anchor.
@@ -21,11 +23,10 @@ Prompt caching is a latency/cost optimization, not an identity guarantee:
 https://developers.openai.com/api/docs/guides/prompt-caching
 OpenAI still documents possible recurring-character drift:
 https://developers.openai.com/api/docs/guides/image-generation
-Beki uses exact source artwork; the generated child and story creatures remain reference-guided,
+The generated child, Beki and story creatures remain reference-guided,
 so new visual samples still require inspection.
 
-Deployment requires no new environment setting. If an environment explicitly sets
-`Beki__InsertBekiInGeneration=true`, set it to `false` to use exact Beki compositing.
+Deployment requires no new environment setting. Beki's generation setting is unchanged.
 The GPT Image 2.5 Flare model and the testing-flow switch are unchanged. Full-book generation
 can wait longer when a new recurring character is introduced; the preview has no added work.
 

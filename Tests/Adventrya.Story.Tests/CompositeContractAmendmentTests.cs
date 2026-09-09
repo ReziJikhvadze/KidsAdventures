@@ -279,7 +279,7 @@ public class CompositeContractAmendmentTests : CompositePipelineTestBase
 
     [Fact]
     public void The_scenario_prompt_version_is_bumped_for_the_amendment() =>
-        Assert.Equal("visual-scenario-v2.5", CompositeVisualScenarioPrompt.Version);
+        Assert.Equal("visual-scenario-v2.6", CompositeVisualScenarioPrompt.Version);
 
     /// <summary>
     /// The request schema carries the same rule the supplied file states as a pattern — in words,

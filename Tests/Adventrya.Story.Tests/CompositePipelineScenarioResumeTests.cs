@@ -268,6 +268,49 @@ public class CompositePipelineScenarioResumeTests : CompositePipelineTestBase
         Assert.All(images.ContinuityImages, image => Assert.NotEqual(composited, image));
     }
 
+    [Theory]
+    [InlineData("Nova", "Nova, a golden five-pointed star with blue eyes and a small crescent smile.")]
+    [InlineData("Milo", "Milo, an orange fox with green eyes, a white muzzle and a white tail tip.")]
+    [InlineData("Dino", "Dino, a mint-green baby dinosaur with amber eyes and three golden back markings.")]
+    public async Task Supporting_cast_keeps_its_first_design_after_disappearing_and_returning(
+        string name, string description)
+    {
+        var scenario = JsonNode.Parse(ScenarioFixture())!;
+        scenario["visual_lock"]!["recurring_elements"] = new JsonArray(description);
+        var visible = new HashSet<int> { 2, 3, 6, 8 };
+        string[] scenes =
+        [
+            "The child follows a quiet path between tall ferns.",
+            $"The child discovers {name} beside a fallen branch.",
+            $"The child helps {name} climb over the fallen branch.",
+            "The child searches alone for a safe route through the valley.",
+            "The child chooses a shallow place to cross the stream.",
+            $"The child crosses the stream with {name} beside the stepping stones.",
+            "The child pauses alone beneath a tall fern.",
+            $"The child waves goodbye to {name} at the edge of the valley."
+        ];
+        for (var index = 0; index < 8; index++)
+        {
+            scenario["spreads"]![index]!["child_world_scene"] = scenes[index];
+            scenario["spreads"]![index]!["props"] = new JsonArray(new JsonObject
+            {
+                ["element"] = description,
+                ["state"] = visible.Contains(index + 1) ? "AMBIENT" : "ABSENT",
+            });
+        }
+        var images = new StubImageService();
+        var result = await Pipeline(new ScriptedStoryModelClient(scenario.ToJsonString()), images,
+                insertBekiInGeneration: true).RunAsync(Request(), CancellationToken.None);
+        Assert.Equal(8, images.ImageCalls);
+        Assert.Equal(0, images.ReviewCalls);
+        foreach (var page in new[] { 3, 6, 8 })
+        {
+            Assert.Equal(result.Spreads[1].BasePng, images.ContinuityImages[page - 1]);
+            Assert.Contains(description, images.Prompts[page - 1]);
+        }
+        foreach (var page in new[] { 1, 2, 4, 5, 7 }) Assert.Null(images.ContinuityImages[page - 1]);
+    }
+
     [Fact]
     public async Task Missing_character_source_redraws_it_and_its_adopted_dependents()
     {
