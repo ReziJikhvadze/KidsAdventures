@@ -256,6 +256,7 @@ public class BekiCoverTitleFitTests
             {
                 page.ContinuousSize(TitleWidthPt, Unit.Point);
                 page.Margin(0);
+                page.DefaultTextStyle(style => style.Bold());
                 page.Content().Text(title)
                     .FontFamily(PdfFontBootstrap.TitleFamily, PdfFontBootstrap.BodyFamily)
                     .FontSize(fontSize)

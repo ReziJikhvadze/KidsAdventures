@@ -2610,7 +2610,7 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
                 page.Margin(0);
                 page.PageColor(Colors.Transparent);
                 page.DefaultTextStyle(style => proof is null
-                    ? style.FontFamily(family)
+                    ? (family == PdfFontBootstrap.TitleFamily ? style.FontFamily(family).Bold() : style.FontFamily(family))
                     : style.FontFamily(family).Weight(proof.WeightValue));
 
                 page.Content().Text(text)
@@ -3639,6 +3639,9 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
         // The cut goes on as a default rather than on the run: QuestPDF exposes family, size,
         // leading and colour on a text block and the weight only on a style, and a default the
         // block does not override is the same thing said in the place the API keeps it.
+        // Ottia has one cut. Skia embeds its synthesized bold as vector Type 3 glyphs;
+        // BekiTitleOutline preserves that weight when adding the cover's fine dark edge.
+        weight ??= fontFamily == PdfFontBootstrap.TitleFamily ? FontWeight.Bold : null;
         var target = weight is { } cut
             ? container.DefaultTextStyle(style => style.Weight(cut))
             : container;

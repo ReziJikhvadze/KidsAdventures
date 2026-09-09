@@ -1451,10 +1451,17 @@ public static class BekiPrintPrep
 
                 var name = font.Elements.GetName("/BaseFont");
                 var descriptor = FontDescriptor(font);
+                if (string.IsNullOrEmpty(name)) name = descriptor?.Elements.GetName("/FontName") ?? string.Empty;
                 var embedded = descriptor is not null
                                && (descriptor.Elements.ContainsKey("/FontFile")
                                    || descriptor.Elements.ContainsKey("/FontFile2")
                                    || descriptor.Elements.ContainsKey("/FontFile3"));
+                // Synthesized bold is self-contained vector glyph programs, rather than a
+                // separate FontFile stream. Missing or empty programs still fail embedding.
+                if (font.Elements.GetName("/Subtype") == "/Type3"
+                    && font.Elements.GetDictionary("/CharProcs") is { } glyphs)
+                    embedded = glyphs.Elements.Count > 0 && glyphs.Elements.Keys.All(glyph =>
+                        glyphs.Elements.GetDictionary(glyph)?.Stream?.UnfilteredValue.Length > 0);
 
                 // A face used on several pages reports once, and "embedded anywhere" is not
                 // good enough — every occurrence descends from the same object, so one answer

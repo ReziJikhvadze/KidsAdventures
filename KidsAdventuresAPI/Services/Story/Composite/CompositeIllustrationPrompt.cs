@@ -545,7 +545,7 @@ public static class CompositeIllustrationPrompt
             Create one continuous very wide panoramic painting designed for a final 15:7 crop.
             {CompositionBlockFor(textSide)}
             {(input.InsertBekiInGeneration
-                ? BekiIdentity.GenerationLock + "\nBeki action: " + input.BekiAction
+                ? BekiIdentity.GenerationLock + "\nBeki action (supporting intent only; keep the locked face, smile and four-digit hands unchanged): " + input.BekiAction
                 : BekiReserveBlock(input.BekiAnchor ?? CompositeConfig.Value.StoryDefaultFor(
                     BekiCompositeConfig.ParseTextSide(textSide))))}
             {CentralZoneRule}
@@ -556,6 +556,7 @@ public static class CompositeIllustrationPrompt
 
             HARD CONSTRAINTS
             {(input.InsertBekiInGeneration ? SpreadConstraints.Replace("Do not generate Beki.", "Include exactly one Beki from the final reference image.").Replace("Do not generate any substitute guide, floating mascot, leaf spirit, lamb, sheep, or Beki-like character.", "No substitute guide or additional mascot.") : SpreadConstraints)}{ForbiddenElementLines(input.ForbiddenElements)}
+            {(input.InsertBekiInGeneration ? BekiIdentity.GenerationFinalCheck : string.Empty)}
             """;
     }
 
@@ -1059,8 +1060,11 @@ public static class CompositeIllustrationPrompt
 
         if (input.ContinuityElementNames.Count > 0)
         {
-            lines.Add($"Image {number} - {ContinuityBody(input.ContinuityElementNames)}");
+            lines.Add($"Image {number++} - {ContinuityBody(input.ContinuityElementNames)}");
         }
+
+        if (input.InsertBekiInGeneration)
+            lines.Add($"Image {number} (FINAL IMAGE) - {BekiIdentity.ReferenceLabel}. Use only this image for Beki's anatomy, face, eyes, mouth and four-digit hands; ignore Beki in earlier images.");
 
         return string.Join("\n", lines);
     }

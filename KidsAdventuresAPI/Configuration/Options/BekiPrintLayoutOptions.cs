@@ -212,14 +212,9 @@ public sealed class BekiPrintLayoutOptions
     /// once, in one text object, in PDF text rendering mode 2: fill AND stroke, from the one set of
     /// glyphs (<see cref="Services.Story.BekiTitleOutline"/>).
     ///
-    /// 1.5 pt is a twenty-fourth of the 36 pt cover title (<see cref="StoryFontSize"/> × 2), and the
-    /// fraction is what the number means — a rim is only strong relative to the letter it is drawn
-    /// around. A stroke is centred on the outline, so 1.5 pt reaches 0.75 pt ≈ 0.26 mm outside the
-    /// glyph, which is a visible dark edge at arm's length on a printed 512 mm wrap, and eats
-    /// 0.75 pt inwards, which on Ottia at 36 pt narrows the counters of ღ and ბ without closing
-    /// them. Thicker than about 2 pt starts to fill them in and the title stops being letters;
-    /// thinner than about 1 pt is a hairline the press dot-gain swallows. The customer's download
-    /// scales this with its type, so both covers are the same design.
+    /// The bold cover title uses a 1.5 pt pen at the reference 36 pt size. The stroke is painted
+    /// before the synthesized bold glyph's fill so it cannot eat into the cream letter or expose
+    /// the internal contours used to embolden it. Reading and print covers scale the rim with type.
     /// </summary>
     public float CoverTitleOutlineWidthPt { get; set; } = 1.5f;
 

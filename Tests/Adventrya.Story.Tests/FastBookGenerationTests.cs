@@ -119,9 +119,29 @@ public class FastBookGenerationTests : CompositePipelineTestBase
             Assert.NotNull(CompositeSpreadQa.TryReadStored(spread.QaJson));
             Assert.Contains("NO human fingers", spread.Prompt);
             Assert.Contains("eye size", spread.Prompt);
+            Assert.Contains("exactly FOUR rounded digits on EACH hand", spread.Prompt);
+            Assert.Contains("Four total, NOT four plus a thumb", spread.Prompt);
+            Assert.Contains("golden-yellow/amber irises", spread.Prompt);
+            Assert.Contains("MOUTH: preserve the same small open upturned", spread.Prompt);
+            Assert.Contains("those images are NOT Beki design", spread.Prompt);
+            Assert.Contains("(FINAL IMAGE)", spread.Prompt);
+            Assert.EndsWith(BekiIdentity.GenerationFinalCheck, spread.Prompt.Trim());
+            Assert.DoesNotContain("five-lobed", spread.Prompt);
+            Assert.DoesNotContain("pose/expression adjustment", spread.Prompt);
             Assert.DoesNotContain("Do not generate Beki", spread.Prompt);
             Assert.DoesNotContain("later exact Beki PNG compositing", spread.Prompt);
         }
+    }
+
+    [Fact]
+    public void Stronger_identity_lock_versions_new_generation_but_preserves_old_book_provenance()
+    {
+        var receipt = BekiGeneratedArtwork.Receipt(BasePng(), BekiGeneratedArtwork.Reference(), "spread.png");
+        Assert.Equal("beki-reference-generated-v2", receipt.CompositionVersion);
+        Assert.True(BekiGeneratedArtwork.IsGenerated(receipt with { CompositionVersion = "beki-reference-generated-v1" }));
+        Assert.False(BekiGeneratedArtwork.IsGenerated(receipt with { CompositionVersion = "unrecognized" }));
+        Assert.Equal(BekiGeneratedArtwork.Version,
+            BekiCompositeContractTerms.Current("dinosaurs", true).ImagePromptVersion);
     }
 
     [Fact]

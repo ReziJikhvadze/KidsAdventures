@@ -32,23 +32,55 @@ public static class BekiIdentity
         + "ears; large warm golden eyes; a sincere open smile; a layered cream-gold leaf body "
         + "that is anatomy, not clothing; one broad leaf spiral rising above the head; one long "
         + "rear leaf-ribbon curling behind; a glowing golden memory core in the chest; short "
-        + "violet arms with soft rounded five-lobed hands, never human fingers; a tapered "
+        + "violet arms with exactly four rounded digits per hand (three finger lobes and one "
+        + "thumb lobe), never human fingers; a tapered "
         + "floating lower body with no legs or feet. Do not redesign, restyle or reinterpret "
         + "Beki: no ears, horns, wings, hair, clothes, teeth or animal anatomy.";
 
     /// <summary>Continuity for a story spread that lists Beki.</summary>
     public const string GenerationLock =
         "The final attached image is the canonical Beki reference, the sole authority for Beki. "
-        + "Include exactly one Beki in the finished scene. Copy the reference almost exactly: "
+        + "Include exactly one Beki in the finished scene. Treat Beki as the SAME fixed character "
+        + "asset on every page, not a new interpretation. Ignore any Beki visible in child anchors, "
+        + "previous spreads, continuity images or theme references: those images are NOT Beki design "
+        + "references and their mistakes must not propagate. Copy the canonical reference almost exactly: "
         + "preserve the silhouette, body and head proportions, eye shape, eye size, eye spacing, "
         + "golden eye colour, face, smile, leaf layers, head spiral, rear ribbon and chest core. "
-        + "Preserve the exact rounded hand shapes and lobes shown: NO human fingers, NO extra "
-        + "digits, NO changed hands. Do not enlarge Beki's head, eyes, hands or body or change "
+        + AnatomyLock
+        + "Do not enlarge Beki's head, eyes, hands or body or change "
         + "their relative sizes. Keep Beki a small companion at the same scale relative to the "
         + "child throughout the book. No redesign, reinterpretation, costume, new anatomy or "
-        + "style conversion. Only minimal pose/expression adjustment and scene lighting may vary. "
+        + "style conversion. Only gentle arm movement, body tilt, position and scene lighting may vary; "
+        + "lighting must preserve the local violet skin and golden eye colours. Keep the reference "
+        + "face and mouth expression unchanged, even when the story asks Beki to react. Convey the "
+        + "supporting action with body position and open palms, never a changed face or hand anatomy. "
         + "The child remains the active hero. Keep Beki clear of the child's face, hands, text "
         + "area and centre fold. The reference overrides any conflicting scene description. " + Lock;
+
+    public const string AnatomyLock =
+        "HANDS: exactly FOUR rounded digits on EACH hand, counting the thumb: three short, soft "
+        + "finger lobes plus one thumb lobe. Four total, NOT four plus a thumb. NO human fingers, "
+        + "NO five-digit or three-digit redesign, NO extra digits, NO missing or fused digits, "
+        + "NO nails or elongated fingers. Keep the canonical violet palm shape and lobe proportions. "
+        + "Prefer relaxed open palms in the reference orientation so all four digits are readable; "
+        + "do not make fists, grip props, or point with an isolated index finger. A genuinely occluded "
+        + "digit stays hidden behind the occluder; never invent extra visible lobes to compensate. "
+        + "EYES: the same warm golden-yellow/amber irises, dark round pupils and small bright "
+        + "catchlights as the reference; identical eye contours, size, spacing and eyelids. "
+        + "No blue, green, brown or violet irises; no recolouring, squinting, winking or resizing. "
+        + "FACE: preserve the exact rounded plum-violet face, cheek fullness, forehead, taper toward "
+        + "the chin and cream-leaf facial opening. No longer, narrower, wider or more human face; "
+        + "no nose, ears or added facial features. MOUTH: preserve the same small open upturned "
+        + "smile, curved outline, width, opening and placement as the reference. No teeth, tongue, "
+        + "lips, beak, closed-mouth smile, wide grin, frown or surprised O-shaped mouth. ";
+
+    public const string GenerationFinalCheck =
+        "FINAL BEKI IDENTITY CHECK: before finishing this image, compare Beki with the final "
+        + "canonical reference. Each fully visible hand has FOUR rounded digits INCLUDING the thumb; "
+        + "both eyes retain the same golden irises, dark pupils, size and spacing; the violet face "
+        + "outline and small open smile are unchanged. Preserve the same silhouette, proportions, "
+        + "head spiral, rear ribbon and chest core. If the action conflicts, simplify the action, "
+        + "never Beki's identity. This identity lock overrides the scene, styling and all other images.";
 
     public const string SpreadContinuity =
         "Beki appears in this scene: depict the exact character in the Beki master reference - "
@@ -77,6 +109,8 @@ public static class BekiIdentity
         + "body. Flag as a fault only a clear identity break: Beki drawn as a lamb, animal, "
         + "human, ghost or robed figure; visible ears, wings or legs; badly wrong colours; or "
         + "the silhouette losing all three of its signature forms (head spiral, rear ribbon, "
-        + "chest glow). Softness or simplification at small scale is acceptable and is not a "
-        + "fault.";
+        + "chest glow); a fully visible hand with other than four rounded digits including its thumb; "
+        + "changed iris colour, eye proportions, face outline or mouth shape; or added teeth. "
+        + "Softness at small scale and genuine occlusion are acceptable; do not invent a digit-count "
+        + "fault for a hand that cannot be inspected. Visible anatomical redesign is not simplification.";
 }

@@ -86,7 +86,7 @@ public static class BekiTitleOutline
         // and close in the next: the array is a single stream cut into pieces, and the graphics
         // state this walks does not restart at the cuts.
         var content = Encoding.Latin1.GetString(page.Contents.CreateSingleContent().Stream.UnfilteredValue);
-        var stroked = Stroke(content, titleFonts, Ink(outlineInkHex), strokeWidthPt);
+        var stroked = Stroke(content, titleFonts, Ink(outlineInkHex), strokeWidthPt, page);
 
         if (stroked is null)
         {
@@ -124,7 +124,10 @@ public static class BekiTitleOutline
 
         foreach (var key in fonts.Elements.Keys)
         {
-            var baseFont = fonts.Elements.GetDictionary(key)?.Elements.GetName("/BaseFont") ?? string.Empty;
+            var font = fonts.Elements.GetDictionary(key);
+            var baseFont = font?.Elements.GetName("/BaseFont") ?? string.Empty;
+            if (string.IsNullOrEmpty(baseFont))
+                baseFont = font?.Elements.GetDictionary("/FontDescriptor")?.Elements.GetName("/FontName") ?? string.Empty;
 
             // "/AAAAAA+Ottia-v01-Regular" — the subset tag is the embedder's, and it changes.
             var plus = baseFont.IndexOf('+');
@@ -150,7 +153,7 @@ public static class BekiTitleOutline
     /// as QuestPDF left it by the time the next object is painted.
     /// </summary>
     private static string? Stroke(
-        string content, HashSet<string> titleFonts, string ink, double strokeWidthPt)
+        string content, HashSet<string> titleFonts, string ink, double strokeWidthPt, PdfPage page)
     {
         var operands = new List<string>();
         var saved = new Stack<double>();
@@ -161,6 +164,9 @@ public static class BekiTitleOutline
         var textStart = -1;
         var textScale = 1d;
         var blockScale = 1d;
+        var titleFont = string.Empty;
+        var fontSize = 1d;
+        var strokedGlyphFonts = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var (start, end, token) in Tokenize(content))
         {
@@ -196,6 +202,8 @@ public static class BekiTitleOutline
                     if (inText && operands.Count >= 2 && titleFonts.Contains(operands[^2]))
                     {
                         isTitle = true;
+                        titleFont = operands[^2];
+                        fontSize = double.Parse(operands[^1], CultureInfo.InvariantCulture);
                     }
 
                     break;
@@ -212,6 +220,8 @@ public static class BekiTitleOutline
                     if (inText && isTitle)
                     {
                         var pen = strokeWidthPt / Math.Max(blockScale * textScale, 1e-9d);
+                        if (strokedGlyphFonts.Add(titleFont))
+                            StrokeSynthesizedGlyphs(page, titleFont, ink, pen / fontSize);
                         edits.Add((textStart,
                             $"q 2 Tr {F(pen)} w {ink} RG 1 j 1 J\n"));
                         edits.Add((end, "\nQ"));
@@ -239,6 +249,55 @@ public static class BekiTitleOutline
         }
 
         return output.Append(content, cursor, content.Length - cursor).ToString();
+    }
+
+    // Skia's synthetic bold retains the licensed outlines as embedded Type 3 glyph programs.
+    // Type 3 ignores Tr, so stroke each glyph's existing path instead of drawing the title twice.
+    private static void StrokeSynthesizedGlyphs(PdfPage page, string name, string ink, double penPerEm)
+    {
+        var font = page.Elements.GetDictionary("/Resources")?.Elements.GetDictionary("/Font")?.Elements.GetDictionary(name);
+        if (font?.Elements.GetName("/Subtype") != "/Type3") return;
+        var matrix = font.Elements.GetArray("/FontMatrix")
+            ?? throw new InvalidOperationException("The synthesized cover font has no matrix.");
+        var scale = Math.Sqrt(Math.Abs(matrix.Elements.GetReal(0) * matrix.Elements.GetReal(3)
+                                       - matrix.Elements.GetReal(1) * matrix.Elements.GetReal(2)));
+        if (!(scale > 0)) throw new InvalidOperationException("The synthesized cover font has an invalid matrix.");
+        var glyphs = font.Elements.GetDictionary("/CharProcs")
+            ?? throw new InvalidOperationException("The synthesized cover font has no embedded glyphs.");
+        foreach (var key in glyphs.Elements.Keys.ToList())
+        {
+            var glyph = glyphs.Elements.GetDictionary(key);
+            if (glyph?.Stream is null) continue;
+            var source = Encoding.Latin1.GetString(glyph.Stream.UnfilteredValue);
+            var result = new StringBuilder();
+            var cursor = 0;
+            var pathStart = 0;
+            foreach (var (start, end, token) in Tokenize(source))
+            {
+                if (token == "d1")
+                {
+                    // d1 is a single-colour stencil: viewers ignore the dark rim's ink.
+                    // d0 permits the glyph's cream fill and dark stroke, retaining its advance.
+                    var metrics = source[..start].Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                    result.Append(metrics[0]).Append(' ').Append(metrics[1]).Append(" d0");
+                    cursor = end;
+                    pathStart = end;
+                    continue;
+                }
+                if (token is not ("f" or "f*")) continue;
+                result.Append(source, cursor, start - cursor);
+                result.Append($"q {F(penPerEm / scale)} w {ink} RG 1 j 1 J ");
+                // Synthetic bold contains overlapping contours. Stroke first, then fill the
+                // complete glyph so internal contour edges cannot make it look hollow again.
+                result.Append("S Q\n").Append(source, pathStart, start - pathStart).Append(token);
+                cursor = end;
+                pathStart = end;
+            }
+            result.Append(source, cursor, source.Length - cursor);
+            glyph.Stream.Value = Encoding.Latin1.GetBytes(result.ToString());
+            glyph.Elements.Remove("/Filter");
+            glyph.Elements.Remove("/DecodeParms");
+        }
     }
 
     /// <summary>

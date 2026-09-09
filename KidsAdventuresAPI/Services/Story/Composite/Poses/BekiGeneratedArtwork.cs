@@ -6,14 +6,17 @@ namespace AdventurePacks.Api.Services.Story.Composite.Poses;
 /// </summary>
 public static class BekiGeneratedArtwork
 {
-    public const string Version = "beki-reference-generated-v1";
+    public const string Version = "beki-reference-generated-v2";
+    private const string LegacyVersion = "beki-reference-generated-v1";
     public const string PoseId = "canonical-reference-generated";
 
     public static byte[] Reference(string? path = null) => File.ReadAllBytes(
         Path.IsPathRooted(path ?? BekiIdentity.ReferenceAssetPath)
             ? path! : Path.Combine(AppContext.BaseDirectory, path ?? BekiIdentity.ReferenceAssetPath));
 
-    public static bool IsGenerated(BekiCompositionManifest receipt) => receipt.CompositionVersion == Version;
+    // Old books remain readable and printable; only new generation uses the stronger lock.
+    public static bool IsGenerated(BekiCompositionManifest receipt) =>
+        receipt.CompositionVersion is Version or LegacyVersion;
 
     public static BekiCompositionManifest Receipt(byte[] png, byte[] reference, string file)
     {

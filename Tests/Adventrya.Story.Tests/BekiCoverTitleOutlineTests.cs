@@ -192,11 +192,13 @@ public class BekiCoverTitleOutlineTests
         Assert.True(stroked.Rim > 500, $"only {stroked.Rim} rim pixels were rendered.");
         Assert.True(
             stroked.Rimmed >= 0.99d,
-            $"only {stroked.Rimmed:P1} of the title's cream pixels have the rim within three pixels.");
+            $"only {stroked.Rimmed:P1} of the bold title's cream pixels have the rim within four pixels.");
 
         var bare = Ring(Unstroked.Value.Pdf);
         Assert.True(bare.Cream > 500, $"the control rendered only {bare.Cream} cream pixels.");
         Assert.Equal(0, bare.Rim);
+        Assert.True(stroked.Cream > bare.Cream * 0.9,
+            "The border consumed too much of the bold title's cream fill.");
     }
 
     // ==============================================================================================
@@ -335,7 +337,9 @@ public class BekiCoverTitleOutlineTests
                     {
                         var pixel = row[x];
                         if (pixel is { R: 255, G: 248, B: 235}) cream.Add((x, y));
-                        else if (pixel is { R: 13, G: 7, B: 29 }) rim.Add((x, y));
+                        // The outside-only rim is antialiased at 100 DPI. Count dark edge
+                        // pixels as well as pure ink, excluding the flat grey fixture ground.
+                        else if (pixel is { R: < 100, G: < 90, B: < 110 }) rim.Add((x, y));
                     }
                 }
             });
@@ -354,9 +358,10 @@ public class BekiCoverTitleOutlineTests
 
     private static bool Near(HashSet<(int X, int Y)> rim, (int X, int Y) point)
     {
-        for (var dy = -3; dy <= 3; dy++)
+        // Bold stems have a wider cream centre than the old regular title.
+        for (var dy = -4; dy <= 4; dy++)
         {
-            for (var dx = -3; dx <= 3; dx++)
+            for (var dx = -4; dx <= 4; dx++)
             {
                 if (rim.Contains((point.X + dx, point.Y + dy))) return true;
             }
