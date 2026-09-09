@@ -3,6 +3,9 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
 using AdventurePacks.Api.Configuration.Options;
+using AdventurePacks.Api.Services.Story;
+using PdfSharp.Pdf;
+using PdfSharp.Pdf.IO;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
@@ -265,7 +268,7 @@ public static class BekiRenderValidation
               book on it. A non-embedded face is a page that prints in whatever the RIP substitutes,
               which is the one thing a press file may not do quietly.
             */
-            var fonts = ScanFonts(pdffonts);
+            var fonts = ScanFonts(pdffonts, storedPdf);
             problems.AddRange(fonts.Problems);
 
             if ((ghostscript.Status != BekiRendererRun.Ok && request?.CustomerDeliveryOnly != true)
@@ -462,7 +465,7 @@ public static class BekiRenderValidation
     /// answer has not answered. An artifact with no fonts at all (a press cover is one whole image)
     /// prints the header and no rows, and that is a genuine zero rather than a silence.
     /// </summary>
-    public static BekiFontScan ScanFonts(BekiRendererRun pdffonts)
+    public static BekiFontScan ScanFonts(BekiRendererRun pdffonts, byte[]? storedPdf = null)
     {
         ArgumentNullException.ThrowIfNull(pdffonts);
 
@@ -524,6 +527,9 @@ public static class BekiRenderValidation
         byName.TryGetValue("type", out var type);
         byName.TryGetValue("encoding", out var encoding);
         byName.TryGetValue("sub", out var subset);
+        byName.TryGetValue("object ID", out var objectId);
+        var embeddedTitleFonts = new Lazy<IReadOnlyDictionary<(int Object, int Generation), string>>(
+            () => ReadEmbeddedTitleFonts(storedPdf));
 
         var rows = new List<BekiFontRow>();
         var problems = new List<string>();
@@ -542,6 +548,19 @@ public static class BekiRenderValidation
                 Cut(line, encoding).Trim(),
                 Cut(line, embedded).Trim().Equals("yes", StringComparison.OrdinalIgnoreCase),
                 Cut(line, subset).Trim().Equals("yes", StringComparison.OrdinalIgnoreCase));
+
+            // Older Poppler releases print [none] for Type 3 even when FontDescriptor names
+            // the licensed face. Resolve only that exact PDF object, never all unnamed fonts.
+            if (row.Embedded && row.Type == "Type 3" && name is "" or "[none]")
+            {
+                var id = Cut(line, objectId).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+                if (id.Length == 2 && int.TryParse(id[0], out var number) && int.TryParse(id[1], out var generation)
+                    && embeddedTitleFonts.Value.TryGetValue((number, generation), out var resolvedName))
+                {
+                    name = resolvedName;
+                    row = row with { Name = resolvedName };
+                }
+            }
 
             rows.Add(row);
 
@@ -562,6 +581,29 @@ public static class BekiRenderValidation
         }
 
         return new BekiFontScan(BekiRendererRun.Ok, rows, problems, table);
+    }
+
+    private static IReadOnlyDictionary<(int Object, int Generation), string> ReadEmbeddedTitleFonts(byte[]? pdf)
+    {
+        var names = new Dictionary<(int, int), string>();
+        if (pdf is null) return names;
+        using var stream = new MemoryStream(pdf, writable: false);
+        using var document = PdfReader.Open(stream, PdfDocumentOpenMode.Import);
+        var licensedName = Path.GetFileNameWithoutExtension(BekiTitleOutline.TitleFaceFileName);
+        foreach (var font in document.Internals.GetAllObjects().OfType<PdfDictionary>())
+        {
+            if (font.Elements.GetName("/Type") != "/Font" || font.Elements.GetName("/Subtype") != "/Type3") continue;
+            var name = font.Elements.GetDictionary("/FontDescriptor")?.Elements.GetName("/FontName") ?? string.Empty;
+            name = name.TrimStart('/');
+            var stem = name[(name.IndexOf('+') + 1)..];
+            if (!stem.Equals(licensedName, StringComparison.Ordinal)
+                || font.Elements.GetDictionary("/CharProcs") is not { } glyphs
+                || glyphs.Elements.Count == 0
+                || !glyphs.Elements.Keys.All(key => glyphs.Elements.GetDictionary(key)?.Stream?.UnfilteredValue.Length > 0))
+                continue;
+            names[(font.Internals.ObjectNumber, font.Internals.GenerationNumber)] = name;
+        }
+        return names;
     }
 
     /// <summary>The dashed rule's runs, which are the table's column extents.</summary>

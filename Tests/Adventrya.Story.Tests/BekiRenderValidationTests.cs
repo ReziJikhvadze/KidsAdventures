@@ -1,6 +1,10 @@
 using System.Text.Json;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Services.Pdf;
+using AdventurePacks.Api.Services.Story;
+using Microsoft.Extensions.Options;
+using PdfSharp.Pdf;
+using PdfSharp.Pdf.IO;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
 using SixLabors.ImageSharp;
@@ -25,6 +29,76 @@ namespace Adventrya.Story.Tests;
 public class BekiRenderValidationTests
 {
     private const string LockedDestination = "https://beki.ge";
+
+    [SkippableFact]
+    public void Bold_cover_passes_render_back_when_server_Poppler_reports_an_unnamed_Type3_font()
+    {
+        Skip.If(OperatingSystem.IsWindows(), "the font-table stub is a shell script.");
+        Skip.IfNot(PopplerInstalled(), "Poppler is required for the actual PDF render.");
+        var (pdf, number, generation) = BoldCover();
+        using var poppler = new StubbedPoppler(UnnamedFontTable(number, generation));
+        poppler.Options.PopplerPdftoppmPath = "pdftoppm";
+
+        var result = BekiRenderValidation.Validate(pdf, "canonical-book", poppler.Options,
+            new BekiRenderValidationRequest(ExpectedPages: 1));
+
+        Assert.True(result.IsReleasable, string.Join("\n", result.Problems));
+        Assert.Empty(result.Fonts.Problems);
+        Assert.EndsWith("Ottia-v01-Regular", Assert.Single(result.Fonts.Rows).Name);
+        Assert.Contains("[none]", result.Fonts.Table); // Preserve the renderer's original evidence.
+        Assert.Single(result.Pages);
+    }
+
+    [Theory]
+    [InlineData("wrong_object")]
+    [InlineData("wrong_generation")]
+    [InlineData("missing_descriptor")]
+    [InlineData("unlicensed_name")]
+    [InlineData("missing_glyphs")]
+    [InlineData("not_embedded")]
+    [InlineData("wrong_type")]
+    [InlineData("no_pdf")]
+    public void Unnamed_fonts_are_not_accepted_without_matching_embedded_licensed_glyphs(string defect)
+    {
+        var (pdf, number, generation) = BoldCover(defect);
+        var table = UnnamedFontTable(number + (defect == "wrong_object" ? 10000 : 0),
+            generation + (defect == "wrong_generation" ? 1 : 0),
+            defect == "not_embedded" ? "no" : "yes",
+            defect == "wrong_type" ? "TrueType" : "Type 3");
+        var scan = BekiRenderValidation.ScanFonts(
+            new BekiRendererRun("pdffonts", BekiRendererRun.Ok, "pdffonts", 0, table, ""),
+            defect == "no_pdf" ? null : pdf);
+        Assert.NotEmpty(scan.Problems);
+        Assert.Equal("[none]", Assert.Single(scan.Rows).Name);
+    }
+
+    private static (byte[] Pdf, int Object, int Generation) BoldCover(string? defect = null)
+    {
+        var composed = new BekiPdfComposer(Options.Create(BekiLayoutFixture.ScreenProofLayout()))
+            .ComposeCoverPressWithReceipts("ნინო და მოჯადოებული ტყე", BekiLayoutFixture.SheetPng((180, 170, 160)));
+        using var stream = new MemoryStream(composed.Pdf);
+        using var document = PdfReader.Open(stream, PdfDocumentOpenMode.Modify);
+        var font = Assert.Single(document.Internals.GetAllObjects().OfType<PdfDictionary>(),
+            item => item.Elements.GetName("/Subtype") == "/Type3");
+        if (defect == "missing_descriptor") font.Elements.Remove("/FontDescriptor");
+        if (defect == "unlicensed_name")
+            font.Elements.GetDictionary("/FontDescriptor")!.Elements.SetName("/FontName", "/ABCDEF+Helvetica");
+        if (defect == "missing_glyphs") font.Elements.GetDictionary("/CharProcs")!.Elements.Clear();
+        using var output = new MemoryStream();
+        document.Save(output);
+        var bytes = output.ToArray();
+        // Saving may renumber objects; the table must address the stored bytes, not the source.
+        using var savedStream = new MemoryStream(bytes);
+        using var saved = PdfReader.Open(savedStream, PdfDocumentOpenMode.Import);
+        var storedFont = Assert.Single(saved.Internals.GetAllObjects().OfType<PdfDictionary>(),
+            item => item.Elements.GetName("/Subtype") == "/Type3");
+        return (bytes, storedFont.Internals.ObjectNumber, storedFont.Internals.GenerationNumber);
+    }
+
+    private static string UnnamedFontTable(int number, int generation, string embedded = "yes", string type = "Type 3") =>
+        "name                                 type              encoding         emb sub uni object ID\n"
+        + "------------------------------------ ----------------- ---------------- --- --- --- ---------\n"
+        + $"{"[none]",-36} {type,-17} {"Custom",-16} {embedded,-3} {"yes",-3} {"yes",-3} {number,6} {generation,2}\n";
 
     [Fact]
     public void A_missing_press_renderer_does_not_block_a_valid_customer_render_and_qr()
