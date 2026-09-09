@@ -1631,18 +1631,18 @@ public sealed class BekiPackFulfillment(
                 // adoption path, which is exactly why it is written here.
                 scenarioUrl = await blobStorage.UploadAsync(
                     BekiPackBlobs.ScenarioName(pack.UserId, pack.Id),
-                    System.Text.Encoding.UTF8.GetBytes(adoptedCover.ScenarioJson),
+                    System.Text.Encoding.UTF8.GetBytes(storedScenario),
                     "application/json", jobToken);
 
                 identitySpecUrl = await blobStorage.UploadAsync(
                     BekiPackBlobs.IdentitySpecName(pack.UserId, pack.Id),
-                    System.Text.Encoding.UTF8.GetBytes(adoptedCover.IdentityJson),
+                    System.Text.Encoding.UTF8.GetBytes(storedIdentitySpec),
                     "application/json", jobToken);
 
                 logger.LogInformation(
                     "Beki pack {PackId}: adopting the cover wrap the parent previewed on run "
-                    + "{RunId}, with its Visual Scenario and child identity spec. No wrap, scenario "
-                    + "or identity call is bought for this book.",
+                    + "{RunId}, with its cover plan and child identity spec. Full-book cast and spread "
+                    + "planning is deferred to the pipeline when this is a cover-only plan.",
                     packId, run.Id);
             }
 
@@ -2123,7 +2123,7 @@ public sealed class BekiPackFulfillment(
                 */
                 var adoptedWrap = adoptedCover is null
                     ? null
-                    : string.Equals(adoptedCover.ScenarioJson, scenarioDocument, StringComparison.Ordinal)
+                    : CompositePreviewCoverPlan.MatchesFullScenario(adoptedCover.ScenarioJson, scenarioDocument)
                         ? adoptedCover.Wrap
                         : null;
 
@@ -4325,7 +4325,8 @@ public sealed class BekiPackFulfillment(
             // the pipeline as no spec at all — which would leave the book drawn to a fresh reading
             // of the photograph while its cover kept the old one. Both are checked here so that the
             // three adoptions stand or fall together.
-            if (VisualScenarioValidator.Validate(scenarioJson).Scenario is null)
+            if (CompositePreviewCoverPlan.TryRead(scenarioJson) is null
+                && VisualScenarioValidator.Validate(scenarioJson).Scenario is null)
             {
                 logger.LogWarning(
                     "Beki pack {PackId}: preview run {RunId} stored a Visual Scenario this "

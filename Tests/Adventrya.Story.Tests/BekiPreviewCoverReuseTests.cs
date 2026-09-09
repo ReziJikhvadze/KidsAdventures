@@ -267,7 +267,7 @@ internal sealed class FakeCoverPipeline : ICompositeBookPipeline
         return Task.FromResult(CompositePipelineTestBase.IdentityFixture);
     }
 
-    public Task<CompositeScenarioPlan> PlanScenarioAsync(
+    public Task<CompositeScenarioPlan> PlanPreviewCoverAsync(
         CompositeBookContext context, MasterStory story, byte[] childPhoto,
         CancellationToken cancellationToken)
     {
@@ -275,9 +275,8 @@ internal sealed class FakeCoverPipeline : ICompositeBookPipeline
         LastContext = context;
         PlannedFrom = story;
 
-        return Task.FromResult(new CompositeScenarioPlan(
-            VisualScenarioValidator.Validate(PreviewWrapFixture.ScenarioJson).Scenario!,
-            PreviewWrapFixture.ScenarioJson));
+        return Task.FromResult(CompositePreviewCoverPlan.Create(
+            VisualScenarioValidator.Validate(PreviewWrapFixture.ScenarioJson).Scenario!));
     }
 
     public Task<CompositeCoverWrap> DrawCoverWrapAsync(
@@ -475,7 +474,7 @@ internal static class PreviewCoverAssertions
         Assert.Equal(
             PreviewWrapFixture.CompositePng, blobs.Uploaded[BekiRunBlobs.CoverWrapCompositeName(runId)]);
         Assert.Equal(
-            PreviewWrapFixture.ScenarioJson,
+            CompositePreviewCoverPlan.Create(VisualScenarioValidator.Validate(PreviewWrapFixture.ScenarioJson).Scenario!).Json,
             Encoding.UTF8.GetString(blobs.Uploaded[BekiRunBlobs.ScenarioName(runId)]));
         Assert.Equal(
             PreviewWrapFixture.IdentityJson,

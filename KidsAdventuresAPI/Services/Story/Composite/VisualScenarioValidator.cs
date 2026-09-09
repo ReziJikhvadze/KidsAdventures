@@ -218,6 +218,14 @@ public static class VisualScenarioValidator
     /// Public because the same checks have to hold for a scenario read back out of storage on a
     /// resumed job, where there is no model response to re-parse.
     /// </summary>
+    public static IReadOnlyList<VisualScenarioProblem> CoverProblems(VisualScenarioV2 scenario)
+    {
+        var problems = new List<VisualScenarioProblem>();
+        CheckVisualLock(scenario.VisualLock, problems);
+        CheckCover(scenario.Cover, problems);
+        return problems;
+    }
+
     public static IReadOnlyList<VisualScenarioProblem> SemanticProblems(VisualScenarioV2 scenario)
     {
         ArgumentNullException.ThrowIfNull(scenario);

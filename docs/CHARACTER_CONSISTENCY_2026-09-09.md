@@ -5,7 +5,15 @@ animals and other recurring characters. The scenario planner registers them with
 and fixed descriptions of their anatomy, colors and markings, including personified objects.
 Beki's existing native generation remains the default (`Beki:InsertBekiInGeneration=true`).
 The optional exact-PNG compositor is still available when that flag is explicitly false.
-No additional model review was enabled, and no preview stage was added.
+No additional model review was enabled. Preview uses a small cover-only planning call based on
+just the opening two story pages, alongside the existing child identity call. Its schema has no
+supporting cast or spread plans. The saved cover plan is explicitly marked as partial; it cannot
+be mistaken for a completed visual scenario.
+
+Full-book fulfillment analyzes the cast and plans all eight spreads once, preserving the preview's
+outfit and cover fields exactly. The cover image and child identity are reused. Full analysis is
+saved before the first spread is drawn and adopted on subsequent retries. Older previews that
+already hold a full scenario remain readable and reusable.
 
 The child keeps the original identity reference plus one fixed rendered appearance anchor.
 Each recurring character or object now keeps its first planned appearance as its design source.

@@ -999,16 +999,13 @@ public interface ICompositeBookPipeline
         CancellationToken cancellationToken) =>
         throw new NotSupportedException("This pipeline does not derive a child identity spec.");
 
-    /// <summary>
-    /// The Visual Scenario for the whole book, planned from the story — step 2 of
-    /// <see cref="RunAsync"/>, on its own, and by the same planner with the same validation and the
-    /// same single corrective retry.
-    ///
-    /// The cover is one of the nine pictures the scenario fixes: the outfit, the recurring elements
-    /// and the cover's own front-board scene all come out of this document. A preview that planned
-    /// its cover from anything else would hand the fulfilment job a cover the book's own scenario
-    /// does not describe.
-    /// </summary>
+    /// <summary>Plan the preview cover and outfit only; no supporting cast or spread analysis.</summary>
+    Task<CompositeScenarioPlan> PlanPreviewCoverAsync(
+        CompositeBookContext context, MasterStory story, byte[] childPhoto,
+        CancellationToken cancellationToken) =>
+        throw new NotSupportedException("This pipeline does not plan a preview cover.");
+
+    /// <summary>Plan the full book scenario, including supporting cast and all spreads.</summary>
     Task<CompositeScenarioPlan> PlanScenarioAsync(
         CompositeBookContext context,
         MasterStory story,
@@ -1267,7 +1264,8 @@ public sealed class CompositeBookPipeline(
         // outfit and the recurring elements for all nine pictures, so a resumed run that planned a
         // second scenario would redraw its missing spreads against a different outfit from the ones
         // it is adopting — and every page would still pass its own review.
-        var adoptedScenario = AdoptScenario(context, resume, warnings);
+        var previewCover = CompositePreviewCoverPlan.TryRead(resume.ScenarioJson);
+        var adoptedScenario = previewCover is null ? AdoptScenario(context, resume, warnings) : null;
 
         if (adoptedScenario is null)
         {
@@ -1309,12 +1307,12 @@ public sealed class CompositeBookPipeline(
                     + "Clear the stored spreads to redraw the book, or restore the scenario.");
             }
 
-            resume = CompositeResumeState.Empty;
+            resume = previewCover is null ? CompositeResumeState.Empty : resume with { ScenarioJson = null };
         }
 
         var planned = adoptedScenario is { } already
             ? (already.Scenario, already.Json, PoseAudit: (CompositePoseAudit?)null, RetrySpent: false)
-            : await PlanVisualScenarioAsync(context, input, theme, boundary, cancellationToken);
+            : await PlanVisualScenarioAsync(context, input, theme, boundary, cancellationToken, previewCover);
 
         var (scenario, scenarioJson) = (planned.Scenario, planned.Json);
 
@@ -1812,15 +1810,33 @@ public sealed class CompositeBookPipeline(
         return await DeriveIdentityAsync(context, request: null, childPhoto, cancellationToken);
     }
 
-    /// <summary>
-    /// Step 2, reachable on its own — the same planner, validator and single corrective retry
-    /// <see cref="RunAsync"/> uses, over the same boundary the story is mapped to there.
-    ///
-    /// The pose audit and the retry flag are deliberately not returned. They are facts about the
-    /// BOOK's record, written when the book is drawn; a preview that reported them would be writing
-    /// a book review for a book that does not exist yet, and the fulfilment job replays the audit
-    /// over whatever scenario it ends up holding anyway.
-    /// </summary>
+    /// <summary>One small planning call for the preview cover. Failure uses the preview's existing fallback.</summary>
+    public async Task<CompositeScenarioPlan> PlanPreviewCoverAsync(
+        CompositeBookContext context, MasterStory story, byte[] childPhoto,
+        CancellationToken cancellationToken)
+    {
+        var normalized = InputNormalization.Normalize(context.Input, childPhoto);
+        var boundary = StoryBoundary.From(story);
+        if (!normalized.IsValid || !boundary.IsValid)
+            throw new CompositePipelineException(CompositeFailureCodes.InvalidBookInput,
+                "The preview input or opening story cannot be used.");
+        var input = normalized.Story!;
+        var theme = CompositeThemeReferences.For(input.ThemeId);
+        var user = JsonSerializer.Serialize(new
+        {
+            age_group = input.AgeBand, child_gender = input.ChildGender,
+            theme = new { theme.Id, theme.OfficialName, theme.VisualDirection },
+            book_title = story.Concept.Title,
+            opening_story_pages = boundary.Boundary!.StoryPages.Take(2),
+        });
+        var result = await storyClient.CompleteAsync<JsonElement>(VisualScenarioModel,
+            CompositePreviewCoverPlan.System, user, "preview_cover_plan_v1",
+            CompositePreviewCoverPlan.Schema(), cancellationToken);
+        var plan = result.Value.Deserialize<VisualScenarioV2>(CompositeJson.Options)
+            ?? throw new InvalidOperationException("The preview cover plan is empty.");
+        return CompositePreviewCoverPlan.Create(plan);
+    }
+
     public async Task<CompositeScenarioPlan> PlanScenarioAsync(
         CompositeBookContext context, MasterStory story, byte[] childPhoto,
         CancellationToken cancellationToken)
@@ -2495,9 +2511,14 @@ public sealed class CompositeBookPipeline(
         NormalizedBookInput input,
         CompositeThemeReference theme,
         StoryBoundaryOutput boundary,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        VisualScenarioV2? previewCover = null)
     {
         var inputJson = CompositeVisualScenarioPrompt.InputJson(input, theme, boundary);
+        if (previewCover is not null)
+            inputJson += "\nThe parent already saw this cover. Preserve its cover fields and child outfit "
+                + "exactly while analyzing the supporting cast and planning all story spreads:\n"
+                + CompositePreviewCoverPlan.Create(previewCover).Json;
         var model = VisualScenarioModel;
 
         VisualScenarioValidationResult? previous = null;
@@ -2541,6 +2562,8 @@ public sealed class CompositeBookPipeline(
                     cancellationToken);
 
                 answer = result.Value.GetRawText();
+                if (previewCover is not null)
+                    answer = CompositePreviewCoverPlan.ApplyToFullScenario(answer, previewCover);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

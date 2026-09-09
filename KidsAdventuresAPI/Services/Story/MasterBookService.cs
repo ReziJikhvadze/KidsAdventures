@@ -961,10 +961,9 @@ public sealed class MasterBookService(
     /// <summary>
     /// The book's REAL cover, drawn at preview time and stored where the fulfilment job can find it.
     ///
-    /// Three paid calls in sequence, and each one is a thing the purchased book would otherwise buy
-    /// for itself: the child identity spec read off the photograph, the Visual Scenario for the whole
-    /// book planned off the story, and the 512 × 245 mm press wrap with the approved Beki composited
-    /// onto its front board. What the parent then sees is the wrap's front board, cropped — the same
+    /// The child identity and a small cover-only plan run concurrently, followed by the cover image.
+    /// Supporting-character analysis and all spread planning wait for full-book fulfillment.
+    /// The approved Beki artwork is composited onto the front board. What the parent then sees is the wrap's front board, cropped — the same
     /// rectangle the printed book's cover is, and the same one the customer PDF's first page is built
     /// from.
     ///
@@ -1054,11 +1053,9 @@ public sealed class MasterBookService(
             */
             var identityTask = compositePipeline!.DeriveIdentityAsync(context, photo, cancellationToken);
 
-            // The scenario for all nine pictures — the same planner, validator and single
-            // corrective retry the purchased book uses, because this document IS the purchased
-            // book's: the outfit it fixes dresses the child on every spread the parent has not
-            // seen yet.
-            var planTask = compositePipeline.PlanScenarioAsync(context, story, photo, cancellationToken);
+            // Only the cover and outfit. Supporting cast and all eight spread plans are deferred
+            // until purchase; this document cannot be adopted as a complete book scenario.
+            var planTask = compositePipeline.PlanPreviewCoverAsync(context, story, photo, cancellationToken);
 
             await Task.WhenAll(identityTask, planTask).ConfigureAwait(false);
             var identity = await identityTask;
