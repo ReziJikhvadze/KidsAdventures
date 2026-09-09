@@ -201,29 +201,18 @@ public sealed class GeminiOptions
     public int RetryBackoffSeconds { get; set; } = 5;
 
     /// <summary>
-    /// How much the model may think before it answers, in tokens. Null sends nothing and leaves the
-    /// model at its own default.
-    ///
-    /// The request used to carry no generation controls at all — model, input, schema and nothing
-    /// else — so a Pro reasoning model thought for as long as it liked on every call. The reply's
-    /// own <c>usage.total_thought_tokens</c> is the evidence that it does. A book's story call is
-    /// worth thinking about; correcting its spelling is not, and the editor was taking 44 seconds
-    /// against the writer's 47.
-    ///
-    /// <para>
-    /// The field name below is the one thing here that could not be verified from this repository:
-    /// the Interactions envelope is not the documented <c>generateContent</c> shape and there is no
-    /// example of a generation config in the codebase. So the client watches for a 400 that names
-    /// it, drops the block for the life of the process and carries on — a wrong guess costs one
-    /// failed request per restart and then behaves exactly as before. Check the log line for
-    /// "generation controls" after the first deploy.
-    /// </para>
+    /// Legacy setting retained for configuration compatibility; ignored by Interactions, which
+    /// does not support numeric thinking budgets. Use ThinkingLevel instead. There is no exact
+    /// conversion from tokens to a level; leaving it unset preserves the model default.
     /// </summary>
     public int? ThinkingBudget { get; set; }
 
     /// <summary>
-    /// A ceiling on the answer, in tokens. Null sends nothing. Same caveat as
-    /// <see cref="ThinkingBudget"/> about the field name, and the same automatic climb-down.
+    /// Interactions thinking level: minimal, low, medium, or high. Null/empty uses the model default.
+    /// Choose a level supported by the configured models; supported levels vary by model.
     /// </summary>
+    public string? ThinkingLevel { get; set; }
+
+    /// <summary>A ceiling on response tokens. Null leaves the provider default.</summary>
     public int? MaxOutputTokens { get; set; }
 }

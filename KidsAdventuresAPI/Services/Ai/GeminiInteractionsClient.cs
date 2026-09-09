@@ -137,7 +137,7 @@ public sealed class GeminiInteractionsClient(
         }
 
         var generation = GenerationConfig();
-        if (generation is not null && !_generationControlsRefused)
+        if (generation is not null)
         {
             payload["generation_config"] = generation;
         }
@@ -150,29 +150,6 @@ public sealed class GeminiInteractionsClient(
             {
                 var body = await PostAsync(payload, timeout, cancellationToken);
                 return JsonDocument.Parse(body);
-            }
-            /*
-              A guess that was wrong costs one request, not a book.
-
-              `generation_config` is how the thinking budget and the answer ceiling are asked for,
-              and the exact spelling could not be confirmed against this endpoint from the
-              repository — the Interactions envelope is not the documented `generateContent` shape.
-              A 400 that names it means the field is wrong or unsupported, which is a permanent fact
-              about this deployment rather than a transient one: it is dropped for the life of the
-              process and the call is made again without it.
-            */
-            catch (GeminiRequestRefusedException ex) when (
-                payload.ContainsKey("generation_config") && NamesGenerationConfig(ex.Body))
-            {
-                logger.LogWarning(
-                    "Gemini refused the generation controls ({Reason}); dropping them for this "
-                    + "process and calling again without them. Gemini:ThinkingBudget and "
-                    + "Gemini:MaxOutputTokens will have no effect until the field name is corrected.",
-                    Truncate(ex.Body));
-
-                _generationControlsRefused = true;
-                payload.Remove("generation_config");
-                attempt--;
             }
             catch (TransientGeminiException ex) when (attempt < attempts)
             {
@@ -229,21 +206,13 @@ public sealed class GeminiInteractionsClient(
                 throw new TransientGeminiException($"Gemini returned {status}.", RetryAfter(response));
             }
 
-            // A 400 is our request being wrong, and one particular way of being wrong is
-            // recoverable — see the generation-config catch in SendAsync. It carries the body so
-            // that caller can decide, and is otherwise exactly the failure it replaces.
-            if (status == 400)
-            {
-                throw new GeminiRequestRefusedException(
-                    $"Gemini returned 400: {Truncate(body)}", body);
-            }
-
             throw new InvalidOperationException($"Gemini returned {status}: {Truncate(body)}");
         }
     }
 
     /// <summary>
-    /// The thinking budget and the answer ceiling, or null when neither is configured.
+    /// Interactions uses flat thinking_level and max_output_tokens fields, not generateContent's
+    /// nested thinking_config. See https://ai.google.dev/api/interactions#creating-an-interaction.
     ///
     /// Both are omitted rather than sent as nulls: an absent field is the model's own default,
     /// and a present null is a value the endpoint may or may not read the same way.
@@ -252,9 +221,15 @@ public sealed class GeminiInteractionsClient(
     {
         var config = new Dictionary<string, object>();
 
-        if (_options.ThinkingBudget is { } budget and >= 0)
+        if (!string.IsNullOrWhiteSpace(_options.ThinkingLevel))
         {
-            config["thinking_config"] = new { thinking_budget = budget };
+            var level = _options.ThinkingLevel.Trim().ToLowerInvariant();
+            if (level is not ("minimal" or "low" or "medium" or "high"))
+            {
+                throw new InvalidOperationException(
+                    "Gemini:ThinkingLevel must be minimal, low, medium, high, or empty for the model default.");
+            }
+            config["thinking_level"] = level;
         }
 
         if (_options.MaxOutputTokens is { } max and > 0)
@@ -264,38 +239,6 @@ public sealed class GeminiInteractionsClient(
 
         return config.Count == 0 ? null : config;
     }
-
-    /// <summary>
-    /// Whether a refusal is about the generation block rather than about the prompt or the schema.
-    ///
-    /// Deliberately generous: a message naming the block, either of its fields, or complaining
-    /// about an unknown or unexpected field is taken as "this endpoint does not accept it". The
-    /// cost of reading it too widely is that a genuinely bad request is retried once without the
-    /// block and fails again with the same message; the cost of reading it too narrowly is every
-    /// book failing until somebody notices.
-    /// </summary>
-    private static bool NamesGenerationConfig(string body)
-    {
-        if (string.IsNullOrWhiteSpace(body)) return false;
-
-        foreach (var needle in
-                 (string[])["generation_config", "generationConfig", "thinking_config",
-                     "thinkingConfig", "max_output_tokens", "maxOutputTokens",
-                     "Unknown name", "unknown field", "Cannot find field"])
-        {
-            if (body.Contains(needle, StringComparison.OrdinalIgnoreCase)) return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Set once, for the life of the process, when the endpoint has refused the generation block.
-    ///
-    /// Static because the refusal is a fact about the API rather than about one scoped client, and
-    /// this class is resolved per job: without it every book would rediscover it.
-    /// </summary>
-    private static volatile bool _generationControlsRefused;
 
     private HttpClient CreateClient(TimeSpan timeout)
     {
@@ -499,14 +442,4 @@ public sealed class GeminiInteractionsClient(
         public TimeSpan? RetryAfter { get; } = retryAfter;
     }
 
-    /// <summary>
-    /// A 400, carrying what the endpoint said. Still an <see cref="InvalidOperationException"/>, so
-    /// every caller that already handles one keeps handling it; the body is here only so the one
-    /// recoverable kind can be told from the rest.
-    /// </summary>
-    private sealed class GeminiRequestRefusedException(string message, string body)
-        : InvalidOperationException(message)
-    {
-        public string Body { get; } = body;
-    }
 }

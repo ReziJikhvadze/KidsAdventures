@@ -22,6 +22,91 @@ namespace Adventrya.Story.Tests;
 /// </summary>
 public class GeminiProviderTests
 {
+    [Theory]
+    [InlineData(null)]
+    [InlineData("minimal")]
+    [InlineData("low")]
+    [InlineData("medium")]
+    [InlineData("high")]
+    [InlineData(" LOW ")]
+    public async Task First_call_uses_Interactions_controls_even_with_legacy_budget(string? level)
+    {
+        var handler = new CapturingHandler(TextResponse("ok"));
+        var client = Transport(handler, new GeminiOptions
+        {
+            ApiKey = "test-key", ThinkingBudget = 4096, ThinkingLevel = level,
+            MaxOutputTokens = 16384,
+        });
+
+        var result = await client.CompleteTextAsync(
+            "gemini-3.6-flash", [GeminiInputItem.Text("hello")], null, CancellationToken.None);
+
+        Assert.Equal("ok", result.Text);
+        Assert.Equal(1, handler.Calls);
+        using var body = JsonDocument.Parse(handler.LastBody!);
+        var config = body.RootElement.GetProperty("generation_config");
+        Assert.Equal(16384, config.GetProperty("max_output_tokens").GetInt32());
+        Assert.False(config.TryGetProperty("thinking_config", out _));
+        Assert.False(config.TryGetProperty("thinking_budget", out _));
+        if (level is null)
+            Assert.False(config.TryGetProperty("thinking_level", out _));
+        else
+            Assert.Equal(level.Trim().ToLowerInvariant(), config.GetProperty("thinking_level").GetString());
+        Assert.Equal(level is null ? 1 : 2, config.EnumerateObject().Count());
+    }
+
+    [Fact]
+    public async Task Legacy_budget_alone_omits_generation_controls()
+    {
+        var handler = new CapturingHandler(TextResponse("ok"));
+        var client = Transport(handler, new GeminiOptions { ApiKey = "test-key", ThinkingBudget = 4096 });
+        await client.CompleteTextAsync("model", [GeminiInputItem.Text("hello")], null, CancellationToken.None);
+
+        Assert.Equal(1, handler.Calls);
+        using var body = JsonDocument.Parse(handler.LastBody!);
+        Assert.False(body.RootElement.TryGetProperty("generation_config", out _));
+    }
+
+    [Theory]
+    [InlineData("Unknown parameter 'thinking_config' at 'generation_config'")]
+    [InlineData("Unknown name in response_format.schema")]
+    public async Task Bad_requests_are_not_retried_and_do_not_disable_other_clients_controls(string refusal)
+    {
+        var options = new GeminiOptions
+        {
+            ApiKey = "test-key", ThinkingLevel = "low", MaxOutputTokens = 16384, RetryAttempts = 3,
+        };
+        var failed = new CapturingHandler(new HttpResponseMessage(HttpStatusCode.BadRequest)
+        {
+            Content = new StringContent(refusal),
+        });
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Transport(failed, options).CompleteTextAsync(
+                "model", [GeminiInputItem.Text("hello")], null, CancellationToken.None));
+        Assert.Contains(refusal, error.Message);
+        Assert.Equal(1, failed.Calls);
+
+        var successful = new CapturingHandler(TextResponse("ok"));
+        await Transport(successful, options).CompleteTextAsync(
+            "model", [GeminiInputItem.Text("hello")], null, CancellationToken.None);
+        Assert.Equal(1, successful.Calls);
+        using var body = JsonDocument.Parse(successful.LastBody!);
+        var config = body.RootElement.GetProperty("generation_config");
+        Assert.Equal("low", config.GetProperty("thinking_level").GetString());
+        Assert.Equal(16384, config.GetProperty("max_output_tokens").GetInt32());
+    }
+
+    [Fact]
+    public async Task Invalid_thinking_level_fails_before_sending_a_request()
+    {
+        var handler = new CapturingHandler(TextResponse("ok"));
+        var client = Transport(handler, new GeminiOptions { ApiKey = "test-key", ThinkingLevel = "4096" });
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            client.CompleteTextAsync("model", [GeminiInputItem.Text("hello")], null, CancellationToken.None));
+        Assert.Contains("Gemini:ThinkingLevel", error.Message);
+        Assert.Equal(0, handler.Calls);
+    }
+
     [Fact]
     public async Task Story_call_sends_the_schema_and_the_key_header()
     {
@@ -394,12 +479,14 @@ public class GeminiProviderTests
 
     private sealed class CapturingHandler(HttpResponseMessage response) : HttpMessageHandler
     {
+        public int Calls { get; private set; }
         public HttpRequestMessage? LastRequest { get; private set; }
         public string? LastBody { get; private set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            Calls++;
             LastRequest = request;
             LastBody = request.Content is null
                 ? null
