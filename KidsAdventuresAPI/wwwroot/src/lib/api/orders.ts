@@ -1,13 +1,11 @@
 import { apiRequest } from "./client";
 import type {
-  AuthChallengeResponse,
   CheckoutResponse,
   CreateOrderRequest,
   CreatePrintUpgradeOrderRequest,
   OrderStatusResponse,
   QuoteRequest,
   QuoteResponse,
-  RecipientPhoneStatus,
 } from "./types";
 
 export async function quoteOrder(request: QuoteRequest): Promise<QuoteResponse> {
@@ -38,42 +36,6 @@ export async function createPrintUpgradeOrder(
   return apiRequest<CheckoutResponse>("/api/orders/print-upgrade", {
     method: "POST",
     body: JSON.stringify(request),
-  });
-}
-
-/*
-  Proving the handset a parcel is going to.
-
-  A POST for the status read too, because the thing being asked about is a phone number: a GET
-  would put it in a query string and from there into an access log and a browser's history.
-*/
-
-/** Whether this recipient's number still needs proving, and what to draw if it does. */
-export async function getRecipientPhoneStatus(phoneNumber: string): Promise<RecipientPhoneStatus> {
-  return apiRequest<RecipientPhoneStatus>("/api/orders/recipient-phone/status", {
-    method: "POST",
-    body: JSON.stringify({ phoneNumber }),
-  });
-}
-
-/** Sends four digits to the recipient. */
-export async function requestRecipientPhoneCode(
-  phoneNumber: string,
-): Promise<AuthChallengeResponse> {
-  return apiRequest<AuthChallengeResponse>("/api/orders/recipient-phone/code", {
-    method: "POST",
-    body: JSON.stringify({ phoneNumber }),
-  });
-}
-
-/** Redeems the code. The number is remembered, so this is asked once and not again. */
-export async function verifyRecipientPhone(
-  phoneNumber: string,
-  code: string,
-): Promise<RecipientPhoneStatus> {
-  return apiRequest<RecipientPhoneStatus>("/api/orders/recipient-phone/verify", {
-    method: "POST",
-    body: JSON.stringify({ phoneNumber, code }),
   });
 }
 

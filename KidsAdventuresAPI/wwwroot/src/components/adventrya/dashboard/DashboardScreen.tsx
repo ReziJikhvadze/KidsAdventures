@@ -48,10 +48,15 @@ import {
 import { useAuth } from "@/lib/auth/AuthContext";
 import { AddressAutocompleteField } from "@/components/adventrya/journey/AddressAutocompleteField";
 import { LocationPickerDialog } from "@/components/adventrya/journey/LocationPickerDialog";
-import { RecipientPhoneCheck } from "@/components/adventrya/journey/RecipientPhoneCheck";
 import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { continueViaPickerHref, newBookHref } from "@/lib/continue";
-import { formatGel, formatGelAmount, normalizeGeorgianPhone, useT } from "@/lib/i18n";
+import {
+  formatGel,
+  formatGelAmount,
+  formatGeorgianPhone,
+  normalizeGeorgianPhone,
+  useT,
+} from "@/lib/i18n";
 import { MERCHANT } from "@/lib/merchant";
 import { DELIVERY_DAYS, PRICES } from "@/lib/pricing";
 import { readPendingRun, savedCharacterIdOf, type PendingRun } from "@/lib/journey/pendingRun";
@@ -129,15 +134,6 @@ export function DashboardScreen({
   const [shipping, setShipping] = useState<ShippingAddressRequest>(emptyShipping);
   const [printBusy, setPrintBusy] = useState(false);
   const [printError, setPrintError] = useState<string | null>(null);
-  /*
-    Whether the handset the courier will ring has been proved.
-
-    Ordering a printed copy from the shelf is the same purchase the checkout makes, so it meets
-    the same gate: the panel in the form does the asking, this holds the answer, and the button
-    acts on it. Editing an address on an order already paid for is not a purchase and is not
-    asked.
-  */
-  const [printPhoneVerified, setPrintPhoneVerified] = useState(false);
   /*
     A preview the parent walked away from.
 
@@ -506,12 +502,6 @@ export function DashboardScreen({
       return;
     }
 
-    /* A new parcel needs a handset that answers; an address correction on an old one does not. */
-    if (!editPrintOrderId && !printPhoneVerified) {
-      setPrintError(t.journey.checkout.phoneCheckPayHint);
-      return;
-    }
-
     setPrintBusy(true);
     setPrintError(null);
     try {
@@ -854,7 +844,6 @@ export function DashboardScreen({
               busy={printBusy}
               error={printError}
               shipping={shipping}
-              onPhoneVerifiedChange={setPrintPhoneVerified}
               onChange={(patch) => setShipping((prev) => ({ ...prev, ...patch }))}
               onCancel={() => {
                 setPrintBookId(null);
@@ -1361,7 +1350,6 @@ function PrintUpgradePanel({
   busy,
   error,
   onChange,
-  onPhoneVerifiedChange,
   onCancel,
   onSubmit,
 }: {
@@ -1370,7 +1358,6 @@ function PrintUpgradePanel({
   busy: boolean;
   error: string | null;
   onChange: (patch: Partial<ShippingAddressRequest>) => void;
-  onPhoneVerifiedChange: (verified: boolean) => void;
   onCancel: () => void;
   onSubmit: () => void;
 }) {
@@ -1418,14 +1405,21 @@ function PrintUpgradePanel({
         </label>
         <label className="journey-field" htmlFor="dashboard-ship-phone">
           <span>{t.common.labels.phone}</span>
-          <input
-            id="dashboard-ship-phone"
-            name="recipientPhone"
-            type="tel"
-            autoComplete="tel"
-            value={shipping.recipientPhone}
-            onChange={(e) => onChange({ recipientPhone: e.target.value })}
-          />
+          {/* The country code is in the field, as on the checkout - see the note there. */}
+          <span className="ux-tel">
+            <b aria-hidden="true">+995</b>
+            <input
+              id="dashboard-ship-phone"
+              name="recipientPhone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="5XX XX XX XX"
+              maxLength={13}
+              value={formatGeorgianPhone(shipping.recipientPhone)}
+              onChange={(e) => onChange({ recipientPhone: e.target.value })}
+            />
+          </span>
         </label>
         {/*
           The same address field the checkout uses, which this form did not have at all.
@@ -1458,14 +1452,6 @@ function PrintUpgradePanel({
           onChange(city ? { addressLine1: address, city } : { addressLine1: address })
         }
       />
-
-      {/* The courier's half of the address. Not on an edit: that order is already paid for. */}
-      {mode === "upgrade" ? (
-        <RecipientPhoneCheck
-          phoneNumber={shipping.recipientPhone}
-          onVerifiedChange={onPhoneVerifiedChange}
-        />
-      ) : null}
 
       {error ? (
         <p className="journey-note" role="alert">

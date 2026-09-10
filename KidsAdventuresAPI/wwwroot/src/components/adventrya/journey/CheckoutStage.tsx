@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { BekiLoader } from "@/components/adventrya/BekiLoader";
 import { AddressAutocompleteField } from "@/components/adventrya/journey/AddressAutocompleteField";
 import { LocationPickerDialog } from "@/components/adventrya/journey/LocationPickerDialog";
-import { RecipientPhoneCheck } from "@/components/adventrya/journey/RecipientPhoneCheck";
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
 import { ApiError, resolveApiUrl } from "@/lib/api/client";
 import * as ordersApi from "@/lib/api/orders";
@@ -19,6 +18,7 @@ import {
   bookLanguageLabel,
   formatGel,
   formatGelAmount,
+  formatGeorgianPhone,
   normalizeGeorgianPhone,
   useLocale,
   useT,
@@ -147,15 +147,6 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   /** True while the fields are showing: a new address, or an account with none saved. */
   const [addressOpen, setAddressOpen] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  /*
-    Whether the handset the courier will ring has been proved.
-
-    The panel beside the total does the asking; this screen only needs the answer, because the
-    answer is what the pay button is allowed to act on. False until the server has said
-    otherwise - a print order whose recipient cannot be reached is a parcel that comes back.
-  */
-  const [phoneVerified, setPhoneVerified] = useState(false);
 
   /** Whether this screen is still the one in front of the parent. See placeOrder. */
   const mounted = useRef(true);
@@ -426,23 +417,6 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
       return;
     }
     setShowErrors(false);
-
-    /*
-      The number the courier rings, proved before the bank is opened.
-
-      Ahead of the world check and everything after it because it is the one thing on this screen
-      the parent cannot fix from the payment page: they are sent to the bank, they pay, and the
-      parcel is booked against a handset nobody answers. The panel is already on screen beside
-      the total - this only walks them to it.
-    */
-    if (isPrint && !phoneVerified) {
-      setError(t.journey.checkout.phoneCheckPayHint);
-      const panel = document.querySelector<HTMLElement>('[data-phone-check="pending"]');
-      panel?.scrollIntoView({ behavior: "smooth", block: "center" });
-      panel?.querySelector<HTMLElement>("button, input")?.focus({ preventScroll: true });
-      return;
-    }
-
     if (!draft.worldId && !draft.preview?.storyId) {
       setError("აირჩიე სამყარო.");
       return;
@@ -713,19 +687,32 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             </label>
             <label className="field" htmlFor="checkout-ship-phone">
               <span>{t.common.labels.phone}</span>
-              <input
-                id="checkout-ship-phone"
-                name="recipientPhone"
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                aria-invalid={fieldErrors.recipientPhone ? true : undefined}
-                aria-describedby={
-                  fieldErrors.recipientPhone ? "checkout-ship-phone-error" : undefined
-                }
-                value={draft.shipping.recipientPhone}
-                onChange={(e) => updateShipping({ recipientPhone: e.target.value })}
-              />
+              {/*
+                The country code is already in the field, not something to remember to type.
+
+                Every Georgian mobile starts +995 and no parent should be spelling it out - and
+                when they did, half of them typed it and half did not, which is how the same
+                house ended up on the saved list under two different numbers. The box now holds
+                the nine digits it wants, grouped as a Georgian number is read.
+              */}
+              <span className="ux-tel">
+                <b aria-hidden="true">+995</b>
+                <input
+                  id="checkout-ship-phone"
+                  name="recipientPhone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="5XX XX XX XX"
+                  maxLength={13}
+                  aria-invalid={fieldErrors.recipientPhone ? true : undefined}
+                  aria-describedby={
+                    fieldErrors.recipientPhone ? "checkout-ship-phone-error" : undefined
+                  }
+                  value={formatGeorgianPhone(draft.shipping.recipientPhone)}
+                  onChange={(e) => updateShipping({ recipientPhone: e.target.value })}
+                />
+              </span>
               {fieldErrors.recipientPhone ? (
                 <small id="checkout-ship-phone-error" className="ux-field-error" role="alert">
                   {fieldErrors.recipientPhone}
@@ -1049,22 +1036,6 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             </p>
           ) : null}
         </div>
-
-        {/*
-          The courier's half of the address, asked about where the money is.
-
-          Beside the total rather than under the phone field: a parent who picked a saved address
-          never opens that form, and the question belongs to the payment either way - it is the
-          last thing between them and the bank. Asked once per number and then remembered, so on
-          most orders this renders a single confirmed line, and on a repeat to the same recipient
-          nothing at all.
-        */}
-        {isPrint ? (
-          <RecipientPhoneCheck
-            phoneNumber={draft.shipping.recipientPhone}
-            onVerifiedChange={setPhoneVerified}
-          />
-        ) : null}
 
         {error ? <p className="ux-form-error">{error}</p> : null}
 

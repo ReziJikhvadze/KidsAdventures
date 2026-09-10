@@ -1275,3 +1275,31 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+  +995, already in the box.
+
+  Every Georgian mobile starts with it and no parent should be spelling it out - and while they
+  were, half typed it and half did not, so the same house reached the saved-address list under two
+  numbers that no comparison could match. The code sits inside the field rather than in a box of
+  its own, so the control is still one box and takes whatever chrome its screen gives it: this
+  rule is the same on the checkout's dark form and the shelf's white one.
+*/
+.ux-tel {
+  position: relative;
+  display: block;
+}
+.ux-tel > b {
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  color: inherit;
+  opacity: 0.62;
+  transform: translateY(-50%);
+  font-size: 13px;
+  font-weight: 400;
+  pointer-events: none;
+}
+.ux-tel > input {
+  padding-left: 58px;
+}

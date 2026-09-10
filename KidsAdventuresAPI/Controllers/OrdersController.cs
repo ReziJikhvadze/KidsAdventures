@@ -1,4 +1,3 @@
-using AdventurePacks.Api.DTOs.Auth;
 using AdventurePacks.Api.DTOs.Orders;
 using AdventurePacks.Api.Services.Interfaces;
 
@@ -9,7 +8,6 @@ namespace AdventurePacks.Api.Controllers;
 [Route("api/orders")]
 public sealed class OrdersController(
     IOrderService orderService,
-    IRecipientPhoneVerificationService recipientPhones,
     IUserContextService userContext) : ControllerBase
 {
     /// <summary>Prices a package with a promo code applied, without creating anything.</summary>
@@ -75,50 +73,6 @@ public sealed class OrdersController(
         var cancelled = await orderService.CancelAsync(userContext.GetUserId(), id, cancellationToken);
         return cancelled ? NoContent() : Conflict(new { message = "შეკვეთა ვერ გაუქმდა." });
     }
-
-    /*
-      Proving the handset a parcel is going to.
-
-      Three endpoints rather than two, because the first question checkout asks is whether to ask
-      anything at all: a number this parent has already proved - or their own - sends the panel
-      straight past. Asking a parent to read four digits back off a phone they proved last month
-      is the shop having forgotten them.
-
-      A POST for a read, because the thing being asked about is a phone number: a GET would put it
-      in a query string and from there into an access log and a browser's history.
-    */
-
-    /// <summary>Whether this recipient's number still needs proving.</summary>
-    [HttpPost("recipient-phone/status")]
-    public async Task<ActionResult<RecipientPhoneStatusResponse>> RecipientPhoneStatus(
-        [FromBody] RecipientPhoneCodeRequest request,
-        CancellationToken cancellationToken)
-    {
-        return Ok(await recipientPhones.GetStatusAsync(
-            userContext.GetUserId(), request.PhoneNumber, cancellationToken));
-    }
-
-    /// <summary>Sends the code to the recipient.</summary>
-    [HttpPost("recipient-phone/code")]
-    public async Task<ActionResult<AuthChallengeResponse>> RequestRecipientPhoneCode(
-        [FromBody] RecipientPhoneCodeRequest request,
-        CancellationToken cancellationToken)
-    {
-        return Ok(await recipientPhones.RequestCodeAsync(
-            userContext.GetUserId(), request.PhoneNumber, ClientIp(), cancellationToken));
-    }
-
-    /// <summary>Redeems the code and remembers the number for next time.</summary>
-    [HttpPost("recipient-phone/verify")]
-    public async Task<ActionResult<RecipientPhoneStatusResponse>> VerifyRecipientPhone(
-        [FromBody] VerifyRecipientPhoneRequest request,
-        CancellationToken cancellationToken)
-    {
-        return Ok(await recipientPhones.VerifyAsync(
-            userContext.GetUserId(), request.PhoneNumber, request.Code, cancellationToken));
-    }
-
-    private string? ClientIp() => HttpContext.Connection.RemoteIpAddress?.ToString();
 }
 
 [ApiController]

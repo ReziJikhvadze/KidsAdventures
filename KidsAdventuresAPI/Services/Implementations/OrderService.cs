@@ -43,7 +43,6 @@ public sealed class OrderService(
     IPromoCodeRepository promoCodeRepository,
     IUserRepository userRepository,
     IMasterStoryRunRepository masterStoryRunRepository,
-    IRecipientPhoneVerificationService recipientPhones,
     IAdminNotifier adminNotifier,
     IBackgroundJobClient backgroundJobClient,
     IBogPaymentClient bogClient,
@@ -126,21 +125,6 @@ public sealed class OrderService(
             : null;
 
         /*
-          The courier's half of the address, proved before anybody is charged.
-
-          A printed book is posted to a phone number as much as to a street - the courier rings
-          before they climb the stairs - so checkout sends four digits to the recipient and waits
-          for them. The panel in front of the pay button is what a parent sees; this is what makes
-          it true, for a client that skipped it or a session left open long enough for the answer
-          to change. Before the order row rather than after, so a number nobody can reach never
-          becomes a paid parcel.
-        */
-        if (shipping is not null)
-        {
-            await recipientPhones.EnsureVerifiedAsync(userId, shipping.RecipientPhone, cancellationToken);
-        }
-
-        /*
           Resolved against the address the parcel is going to, not against what the client sent.
 
           The name is written back onto the address before it is serialised, so ShippingJson
@@ -209,9 +193,6 @@ public sealed class OrderService(
         }
 
         var shipping = RequireShippingAddress(request.ShippingAddress);
-
-        // Same gate as a new book: the parcel is going to a handset as much as to a street.
-        await recipientPhones.EnsureVerifiedAsync(userId, shipping.RecipientPhone, cancellationToken);
 
         /*
           Resolved against the address the parcel is going to, not against what the client sent.
