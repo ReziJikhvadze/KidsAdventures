@@ -47,7 +47,7 @@ public sealed class OrderService(
     IBogPaymentClient bogClient,
     IOptions<StripeOptions> stripeOptions,
     IOptions<BogOptions> bogOptions,
-    ILogger<OrderService> logger) : IOrderService
+    ILogger<OrderService> logger, IFastPreviewService? fastPreview = null) : IOrderService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -989,6 +989,9 @@ public sealed class OrderService(
                 throw new InvalidOperationException("ზოგიერთი პერსონაჟი ვერ მოიძებნა.");
             }
         }
+
+        if (fastPreview is not null && draft.PreviewBookId is { } previewId)
+            await fastPreview.ValidatePurchaseAsync(userId, previewId, draft.CoverRevisionId, draft.WorldId, hero.Name, cancellationToken, hero.AgeYears, hero.Gender);
 
         await worldProgressService.EnsureCanStartAsync(userId, hero.Id, draft.WorldId, cancellationToken);
 

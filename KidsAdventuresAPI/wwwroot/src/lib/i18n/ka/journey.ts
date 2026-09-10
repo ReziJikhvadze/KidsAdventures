@@ -190,7 +190,7 @@ export const journey = {
   },
 
   previewLoader: {
-    paintingCover: "ზღაპარი დაწერილია - ვხატავთ ყდას…",
+    paintingCover: "ვხატავთ შენი წიგნის ყდას…",
     heading: " პერსონალიზებული Preview იქმნება",
     subheading: "ს პირველი გვერდი უკვე მზადდება ✨",
     ariaLabel: (hero: string) => `ნახე ${hero}ს ამბავი უფასოდ`,
@@ -201,11 +201,7 @@ export const journey = {
       the preview into a book — which is our vocabulary, not a parent's, and it made a two-minute
       wait read as five separate things going wrong one at a time.
     */
-    stages: [
-      "გმირებისა და მათი დეტალების მომზადება",
-      "ისტორიის პირველი მომენტის დაწერა",
-      "ნიმუშის შექმნა",
-    ],
+    stages: ["შენი ყდის მომზადება", "შენი სამყაროს დახატვა", "ნიმუშის დასრულება"],
   },
 
   preview: {

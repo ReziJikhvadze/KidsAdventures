@@ -24,6 +24,10 @@ public sealed class AiServiceRouter(
     IIllustrationClient illustrations,
     ILogger<AiServiceRouter> logger) : IOpenAiService
 {
+    public Task<GeneratedStoryImage> GeneratePreviewCoverImageAsync(string prompt, StoryImageReference reference,
+        CancellationToken cancellationToken, string size, string quality) =>
+        openAi.GeneratePreviewCoverImageAsync(prompt, reference, cancellationToken, size, quality);
+
     /// <summary>
     /// <paramref name="requireReferences"/> is honoured here rather than forwarded, because what it
     /// forbids differs by vendor and only one half of it is the illustration client's business.

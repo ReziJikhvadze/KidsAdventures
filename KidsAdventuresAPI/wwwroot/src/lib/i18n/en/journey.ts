@@ -159,16 +159,12 @@ export const journey = {
   },
 
   previewLoader: {
-    paintingCover: "The story is written - painting the cover…",
+    paintingCover: "Painting your book cover…",
     heading: " Your personalised preview is being made",
     subheading: "'s first page is already being made ✨",
     ariaLabel: (hero: string) => `See ${hero}'s story for free`,
     /* Three; see the note beside the Georgian list. */
-    stages: [
-      "Preparing the characters and their details",
-      "Writing the story's first moment",
-      "Making the sample",
-    ],
+    stages: ["Preparing your cover", "Painting your world", "Making the sample"],
   },
 
   preview: {

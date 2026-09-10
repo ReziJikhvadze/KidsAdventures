@@ -565,7 +565,9 @@ public sealed class BekiPackFulfillment(
     IBekiAlarmService? alarms = null,
     IBekiReleaseReconciliation? reconciliation = null,
     IOrderRepository? orders = null,
-    IBekiPackLock? packLock = null) : IBekiPackFulfillment
+    IBekiPackLock? packLock = null,
+    IMasterBookService? masterBooks = null,
+    IFastPreviewService? fastPreview = null) : IBekiPackFulfillment
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -837,6 +839,14 @@ public sealed class BekiPackFulfillment(
             BekiPackBlobs.CoverWrapCompositeName(pack.UserId, pack.Id), cancellationToken);
         var receipt = System.Text.Encoding.UTF8.GetString(await ReadRequiredBlobAsync(
             BekiPackBlobs.CoverCompositionName(pack.UserId, pack.Id), cancellationToken));
+        if (FastPreviewPlan.IsFast(run))
+        {
+            var revision = await (fastPreview ?? throw new InvalidOperationException("Preview service unavailable.")).ReadAsync(run.Id, cancellationToken);
+            if (FastPreviewPlan.Sha(wrap) != revision.MasterSha256)
+                throw new InvalidOperationException("The purchased cover must be recovered before PDF preparation.");
+            composer.RestorePreviewLayout(revision.Title, wrap, revision.LayoutJson);
+            plan = plan with { Concept = plan.Concept with { Title = revision.Title } };
+        }
         var personalization = new BekiBookPersonalization(run.ChildName, run.Age, pack.CreatedAt,
             pack.Theme.ToString(), StoryWorlds.For(pack.Theme).Place)
             { ContinuationUrl = BekiOptions.WebsiteQrDestination };
@@ -1213,6 +1223,26 @@ public sealed class BekiPackFulfillment(
                       ?? throw new InvalidOperationException($"Preview run {runId} is gone.");
 
             childName = run.ChildName;
+            if (FastPreviewPlan.IsFast(run))
+            {
+                if (run.UserId != pack.UserId || run.PackId != pack.Id || orders is null || fastPreview is null)
+                    throw new InvalidOperationException("The preview is not bound to this purchased book.");
+                var revision = await fastPreview.ReadAsync(run.Id, jobToken);
+                var paidOrders = await orders.GetPaidForBookAsync(pack.Id, jobToken);
+                var bound = paidOrders.Where(order => order.IsPaid).Any(order =>
+                {
+                    var draft = JsonSerializer.Deserialize<DTOs.Orders.BookDraftRequest>(order.DraftJson ?? "{}", JsonOptions);
+                    return draft?.PreviewBookId == run.Id && draft.CoverRevisionId == revision.CoverRevisionId;
+                });
+                if (!bound) throw new InvalidOperationException("The purchased preview revision must be recovered.");
+            }
+            if (FastPreviewPlan.IsFast(run) && string.IsNullOrWhiteSpace(run.StoryJson))
+            {
+                stage = "writing the purchased story";
+                await (masterBooks ?? throw new InvalidOperationException("Paid story service unavailable.")).EnsurePaidStoryAsync(runId, jobToken);
+                run = await masterStoryRunRepository.GetByIdAsync(runId, jobToken)
+                    ?? throw new InvalidOperationException("Purchased preview is missing.");
+            }
 
             if (string.IsNullOrWhiteSpace(run.StoryJson) || string.IsNullOrWhiteSpace(run.PhotoBlobUrl))
             {
@@ -1240,6 +1270,8 @@ public sealed class BekiPackFulfillment(
                 run.PhotoBlobUrl, jobToken);
 
             var compositeEnabled = bekiOptions.Value.CompositePipelineEnabled;
+            if (FastPreviewPlan.IsFast(run) && !compositeEnabled)
+                throw new InvalidOperationException("The purchased fast-preview book requires the composite pipeline.");
             var testingFlow = bekiOptions.Value.TestingFlow;
             if (testingFlow && !compositeEnabled)
                 throw new InvalidOperationException("Beki:TestingFlow requires Beki:CompositePipelineEnabled=true.");
@@ -1611,7 +1643,7 @@ public sealed class BekiPackFulfillment(
             */
             AdoptedPreviewCover? adoptedCover = null;
 
-            if (compositeEnabled && coverRecord is null)
+            if (compositeEnabled && (coverRecord is null || FastPreviewPlan.IsFast(run)))
             {
                 adoptedCover = await TryAdoptPreviewCoverAsync(pack, run, jobToken);
             }
@@ -1636,7 +1668,7 @@ public sealed class BekiPackFulfillment(
 
                 identitySpecUrl = await blobStorage.UploadAsync(
                     BekiPackBlobs.IdentitySpecName(pack.UserId, pack.Id),
-                    System.Text.Encoding.UTF8.GetBytes(storedIdentitySpec),
+                    System.Text.Encoding.UTF8.GetBytes(storedIdentitySpec ?? "null"),
                     "application/json", jobToken);
 
                 logger.LogInformation(
@@ -1682,6 +1714,7 @@ public sealed class BekiPackFulfillment(
                       to the cover.
                     */
                     CoverAnchorBasePng = adoptedCover?.BasePng,
+                    LockedBookTitle = FastPreviewPlan.IsFast(run) ? plan.Concept.Title : null,
                     // Whether this pack's cover has already been through the redraw. The
                     // illustrator cannot know it — the manifest is this job's — and a resumed
                     // attempt that redrew it again would replace a reviewed cover with one that
@@ -2123,7 +2156,7 @@ public sealed class BekiPackFulfillment(
                 */
                 var adoptedWrap = adoptedCover is null
                     ? null
-                    : CompositePreviewCoverPlan.MatchesFullScenario(adoptedCover.ScenarioJson, scenarioDocument)
+                    : (FastPreviewPlan.IsFast(run) || CompositePreviewCoverPlan.MatchesFullScenario(adoptedCover.ScenarioJson, scenarioDocument))
                         ? adoptedCover.Wrap
                         : null;
 
@@ -4290,6 +4323,22 @@ public sealed class BekiPackFulfillment(
     {
         try
         {
+            if (FastPreviewPlan.IsFast(run))
+            {
+                var revision = await (fastPreview ?? throw new InvalidOperationException("Fast preview service unavailable.")).ReadAsync(run.Id, cancellationToken);
+                var basePngFast = await ReadRequiredBlobAsync(BekiRunBlobs.CoverWrapBaseName(run.Id), cancellationToken);
+                var compositeFast = await ReadRequiredBlobAsync(BekiRunBlobs.CoverWrapCompositeName(run.Id), cancellationToken);
+                var manifestFast = System.Text.Encoding.UTF8.GetString(await ReadRequiredBlobAsync(BekiRunBlobs.CoverCompositionName(run.Id), cancellationToken));
+                var generationFast = System.Text.Encoding.UTF8.GetString(await ReadRequiredBlobAsync(BekiRunBlobs.CoverWrapGenerationName(run.Id), cancellationToken));
+                if (FastPreviewPlan.Sha(basePngFast) != revision.BaseSha256 || FastPreviewPlan.Sha(compositeFast) != revision.MasterSha256)
+                    throw new InvalidOperationException("Purchased preview checksum mismatch. Recover its original cover.");
+                var receiptFast = JsonSerializer.Deserialize<BekiCompositionManifest>(manifestFast)!;
+                BekiPressComposite.ValidateSource(basePngFast, compositeFast, receiptFast);
+                composer.RestorePreviewLayout(revision.Title, compositeFast, revision.LayoutJson);
+                return new AdoptedPreviewCover(new CompositeCoverWrap(basePngFast, compositeFast,
+                    manifestFast, receiptFast.BekiLayer.PoseId, "") { GenerationReceiptJson = generationFast },
+                    basePngFast, revision.ScenarioJson, "null");
+            }
             foreach (var name in BekiRunBlobs.CoverArtifacts(run.Id))
             {
                 if (!await blobStorage.ExistsAsync(name, cancellationToken))
@@ -4361,7 +4410,7 @@ public sealed class BekiPackFulfillment(
                 scenarioJson,
                 identityJson);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException && !FastPreviewPlan.IsFast(run))
         {
             logger.LogWarning(
                 ex,

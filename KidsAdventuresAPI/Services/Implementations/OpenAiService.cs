@@ -248,6 +248,17 @@ public sealed class OpenAiService(
     /// child; a second copy written for the provenance path would eventually disagree with this
     /// one about exactly that, and the receipt would then describe a request nobody made.
     /// </summary>
+    public Task<GeneratedStoryImage> GeneratePreviewCoverImageAsync(string prompt, StoryImageReference reference,
+        CancellationToken cancellationToken, string size, string quality)
+    {
+        if (!_options.EnableStoryImages) throw new InvalidOperationException("Story images are disabled.");
+        var images = CollectReferenceImages(reference);
+        if (images.Count < 2) throw new InvalidOperationException("Preview requires the child and theme references.");
+        // A single HTTP attempt, including on a timeout: do not silently purchase another cover.
+        return GenerateStoryImageViaEditApiAsync(prompt, images, size, quality, cancellationToken,
+            AdventurePacks.Api.Services.Story.Composite.FastPreviewPlan.Model);
+    }
+
     public async Task<GeneratedStoryImage> GenerateStoryImageWithProvenanceAsync(
         string imagePrompt,
         StoryImageReference? reference,
@@ -501,11 +512,11 @@ public sealed class OpenAiService(
         IReadOnlyList<(byte[] Bytes, string FileName, string ContentType)> referenceImages,
         string size,
         string qualitySetting,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, string? modelOverride = null)
     {
         var client = CreateImageClient();
         using var form = new MultipartFormDataContent();
-        var model = ResolveImageEditModel(_options);
+        var model = modelOverride ?? ResolveImageEditModel(_options);
         var quality = MapGptImageQuality(qualitySetting);
 
         form.Add(new StringContent(model), "model");
@@ -621,7 +632,7 @@ public sealed class OpenAiService(
         string imagePrompt,
         string size,
         string qualitySetting,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, string? modelOverride = null)
     {
         var client = CreateImageClient();
         var imageModel = ResolveImagesApiModel(_options);

@@ -11,6 +11,7 @@ using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.Services.Interfaces;
 using AdventurePacks.Api.Services.Pdf;
 using AdventurePacks.Api.Services.Story;
+using AdventurePacks.Api.Services.Story.Composite;
 using Microsoft.Net.Http.Headers;
 
 namespace AdventurePacks.Api.Controllers;
@@ -69,7 +70,7 @@ public sealed class AdventurePacksController(
         [FromForm] string? optionalStoryNotes,
         [FromForm] string? characterId,
         IFormFile? photo,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, [FromForm] Guid? reusePreviewId = null)
     {
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -134,6 +135,18 @@ public sealed class AdventurePacksController(
             return BadRequest(new { message = "That photo is too large. Please choose a smaller one." });
         }
 
+        MasterStoryRun? reuseRun = null;
+        if (reusePreviewId is { } reuseId)
+        {
+            reuseRun = await masterBookService.GetAsync(reuseId, cancellationToken);
+            if (!FastPreviewPlan.IsFast(reuseRun) || reuseRun!.Status != MasterStoryRunStatus.Ready
+                || reuseRun.UserId is { } reuseOwner && (!signedIn || reuseOwner != ownerId)
+                || reuseRun.ExpiresAt is { } expires && expires <= DateTime.UtcNow)
+                return BadRequest(new { message = "Previous preview is unavailable." });
+            if (photoBytes.Bytes is null)
+                photoBytes = (await blobStorageService.DownloadBytesFromStoredUrlAsync(reuseRun.PhotoBlobUrl!, cancellationToken), "image/png", false);
+        }
+
         string? cachedAppearance = null;
         if (knownHero is not null && photoBytes.Bytes is null && !string.IsNullOrWhiteSpace(knownHero.PhotoUrl))
         {
@@ -187,7 +200,8 @@ public sealed class AdventurePacksController(
                       preview under somebody else's child.
                     */
                     UserId = signedIn ? ownerId : null,
-                    CharacterId = knownHero?.Id
+                    CharacterId = knownHero?.Id,
+                    ReusePreviewId = reusePreviewId
                 },
                 cancellationToken);
 
@@ -266,6 +280,31 @@ public sealed class AdventurePacksController(
             return Ok(dto);
         }
 
+        if (FastPreviewPlan.IsFast(run))
+        {
+            // The paid story may replace ContentJson later; the preview is immutable in blob storage.
+            FastPreviewRevision? revision;
+            if (string.IsNullOrWhiteSpace(run.StoryJson))
+                revision = JsonSerializer.Deserialize<FastPreviewRevision>(run.ContentJson);
+            else
+            {
+                await using var saved = await blobStorageService.DownloadAsync(FastPreviewPlan.ReceiptName(run.Id), cancellationToken);
+                revision = await JsonSerializer.DeserializeAsync<FastPreviewRevision>(saved, cancellationToken: cancellationToken);
+            }
+            if (revision is null) return StatusCode(503);
+            dto.PreviewVersion = FastPreviewPlan.Version;
+            dto.CoverRevisionId = revision.CoverRevisionId;
+            dto.IntroImageUrl = $"/api/adventure-packs/guest-preview/{run.Id}/intro";
+            dto.Title = revision.Title;
+            dto.ChildName = run.ChildName;
+            dto.WorldId = AdventurePacks.Api.Domain.WorldThemes.WorldIdFor(Enum.Parse<ThemeType>(run.Theme));
+            dto.BirthDate = run.BirthDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            dto.Gender = run.Gender;
+            dto.HasPortrait = true;
+            dto.PageCount = BookFormat.PageCount;
+            return Ok(dto);
+        }
+
         var content = JsonSerializer.Deserialize<AdventureContentDto>(run.ContentJson, JsonOptions);
         if (content is null)
         {
@@ -302,6 +341,17 @@ public sealed class AdventurePacksController(
     /// nobody can guess and the row it names expires. Only the cover is reachable this way — the
     /// eight illustrations of a bought book are not.
     /// </summary>
+    [AllowAnonymous]
+    [HttpGet("guest-preview/{runId:guid}/intro")]
+    public async Task<IActionResult> GetGuestPreviewIntro(Guid runId, CancellationToken cancellationToken)
+    {
+        var run = await masterBookService.GetAsync(runId, cancellationToken);
+        if (!FastPreviewPlan.IsFast(run) || run!.CoverImageUrl is null) return NotFound();
+        var stream = await blobStorageService.DownloadAsync(FastPreviewPlan.IntroName(runId), cancellationToken);
+        Response.Headers.CacheControl = "private, max-age=86400";
+        return File(stream, "image/webp");
+    }
+
     [AllowAnonymous]
     [HttpGet("guest-preview/{runId:guid}/cover")]
     public async Task<IActionResult> GetGuestPreviewCover(Guid runId, CancellationToken cancellationToken)
@@ -519,75 +569,10 @@ public sealed class AdventurePacksController(
         [FromForm] string? storyLanguage,
         [FromForm] string? optionalStoryNotes,
         IFormFile? photo,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, [FromForm] Guid? reusePreviewId = null)
     {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            return BadRequest(new { message = "Child's name is required." });
-        }
-
-        if (age < 1 || age > 18)
-        {
-            return BadRequest(new { message = "Please enter a valid age." });
-        }
-
-        if (!Enum.TryParse<ThemeType>(theme, ignoreCase: true, out var themeType))
-        {
-            return BadRequest(new { message = "Please choose a valid theme." });
-        }
-
-        if (!guestRateLimiter.TryAcquire(GetClientKey()))
-        {
-            return StatusCode(
-                StatusCodes.Status429TooManyRequests,
-                new { message = "You've reached the free preview limit. Please sign in to keep creating stories." });
-        }
-
-        byte[]? photoBytes = null;
-        var contentType = "image/jpeg";
-        if (photo is { Length: > 0 })
-        {
-            if (photo.Length > 12_000_000)
-            {
-                // Reached through the action, so the response carries CORS headers and the
-                // parent sees a real message instead of a blocked request.
-                return BadRequest(new { message = "That photo is too large. Please choose a smaller one." });
-            }
-
-            using var ms = new MemoryStream();
-            await photo.CopyToAsync(ms, cancellationToken);
-            photoBytes = ms.ToArray();
-            if (!string.IsNullOrWhiteSpace(photo.ContentType))
-            {
-                contentType = photo.ContentType;
-            }
-        }
-
-        try
-        {
-            var result = await generationService.GenerateGuestPreviewAsync(
-                new GuestPreviewInput
-                {
-                    ChildName = name.Trim(),
-                    Age = age,
-                    Theme = themeType,
-                    Gender = NormalizeGender(gender),
-                    StoryLanguage = storyLanguage,
-                    OptionalStoryNotes = string.IsNullOrWhiteSpace(optionalStoryNotes) ? null : optionalStoryNotes.Trim(),
-                    PhotoBytes = photoBytes,
-                    PhotoContentType = contentType
-                },
-                cancellationToken);
-
-            return Ok(result);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Guest preview generation failed");
-            return StatusCode(
-                StatusCodes.Status502BadGateway,
-                new { message = "We couldn't create your preview right now. Please try again in a moment." });
-        }
+        await Task.CompletedTask;
+        return StatusCode(StatusCodes.Status410Gone, new { message = "Use guest-preview/start to create the cover preview." });
     }
 
     /// <summary>Only the two values the prompt understands; anything else is "unspecified".</summary>

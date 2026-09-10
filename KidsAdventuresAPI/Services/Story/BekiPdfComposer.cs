@@ -428,6 +428,10 @@ internal sealed record BekiTextStyleProof
 
 public interface IBekiPdfComposer
 {
+    byte[] RenderPreviewIntro(string title, BekiBookPersonalization personalization) => throw new NotSupportedException();
+    string CapturePreviewLayout(string title, byte[] wrap) => throw new NotSupportedException();
+    void RestorePreviewLayout(string title, byte[] wrap, string json) => throw new NotSupportedException();
+
     // ------------------------------------------------------------------------------------------
     // The receipt-returning API (amendment A4).
     //
@@ -912,6 +916,35 @@ public sealed class BekiPdfComposer : IBekiPdfComposer
     /// pattern, no intro background and no Beki mark, so demanding a theme would be asking the proof
     /// to prove something it does not use.
     /// </summary>
+    public byte[] RenderPreviewIntro(string title, BekiBookPersonalization personalization)
+    {
+        QuestPDF.Settings.License = LicenseType.Community;
+        _assets.VerifyFonts();
+        PdfFontBootstrap.EnsureRegistered();
+        return Document.Create(document => ComposeIntro(document, personalization.Theme, title,
+            personalization, BekiRenderMode.Reading, new ReceiptBook(BekiRenderMode.Reading)))
+            .GenerateImages(new ImageGenerationSettings { ImageFormat = ImageFormat.Png, RasterDpi = 72 }).Single();
+    }
+
+    private sealed record PreviewLayout(string Source, string Title, string OptionsHash,
+        BekiCoverTitleChoice Box, float Size);
+
+    public string CapturePreviewLayout(string title, byte[] wrap) => JsonSerializer.Serialize(new PreviewLayout(
+        Sha256(wrap), title, Sha256(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(_layout))),
+        CoverTitleBox(wrap), CoverTitleSizePt(title)));
+
+    public void RestorePreviewLayout(string title, byte[] wrap, string json)
+    {
+        var saved = JsonSerializer.Deserialize<PreviewLayout>(json) ?? throw new InvalidOperationException("Missing preview layout.");
+        if (saved.Source != Sha256(wrap) || saved.Title != title
+            || saved.OptionsHash != Sha256(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(_layout))))
+            throw new InvalidOperationException("The purchased cover layout must be recovered before rendering this book.");
+        _coverTitleBoxes[saved.Source] = saved.Box;
+        var key = string.Join('|', MmToPt(BekiCoverDieline.TitleSafeWidthMm).ToString("R"),
+            MmToPt(BekiCoverDieline.TitleSafeHeightMm).ToString("R"), CoverDisplayTitle(title));
+        _coverTitleSizes[key] = saved.Size;
+    }
+
     internal byte[] RenderStyleProofSpread(
         StorySpread spread,
         byte[] artwork,

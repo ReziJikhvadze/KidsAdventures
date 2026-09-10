@@ -25,7 +25,7 @@ import {
   type PendingRun,
 } from "@/lib/journey/pendingRun";
 import { patchJourneyResume, writeJourneyResume } from "@/lib/journey/resume";
-import { readyPreviewPatch } from "@/lib/journey/previewRecovery";
+import { hasRenderedPreview, readyPreviewPatch } from "@/lib/journey/previewRecovery";
 import { useWorldById, WORLD_SCENE_ART, type WorldId } from "@/lib/worlds";
 
 /*
@@ -211,6 +211,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
         {
           ...status,
           coverImageUrl: status.coverImageUrl ? resolveApiUrl(status.coverImageUrl) : "",
+          introImageUrl: status.introImageUrl ? resolveApiUrl(status.introImageUrl) : undefined,
         },
         {
           worldId: resumable?.worldId,
@@ -309,7 +310,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
           }
           poll(runId);
         }
-      }, 4000);
+      }, 1500);
     };
 
     void (async () => {
@@ -340,6 +341,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
         inflightStart ??= adventurePacksApi
           .startGuestPreview({
             name: hero.name.trim() || t.common.fallbackHeroName,
+            reusePreviewId: draft.reusePreviewId,
             age: ageFromBirthDate(hero.birthDate),
             gender: hero.gender ?? undefined,
             eyeColor: hero.eyeColor ?? undefined,
@@ -553,37 +555,33 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
 
       <div className="ux-preview-layout">
         <div className="ux-preview-product">
-          {/*
-            The cover, and nothing behind it.
-
-            This screen used to hand the component a whole sample volume — the endpaper, a
-            dedication plate, the first page written out and fifteen locked leaves after it — and
-            a pair of prev/next buttons to walk through them. What the parent is deciding here is
-            whether to buy the book whose cover they have just been shown their own child on, and
-            the paging turned that one picture into a thing to be got through: the cover was the
-            first of eighteen states, and the two most prominent controls on the screen pointed
-            away from it.
-
-            So the volume is given nothing but its cover. `buildLeaves` starts from one and adds
-            per page, so with no pages, no front matter and no locked count there is a single
-            leaf; `interactive={false}` then takes the controls, the corner targets, the swipe
-            and the keyboard bindings with it, because there is nowhere for any of them to go.
-
-            None of it is lost to the parent: the dedication and the printed first page are the
-            reader's, on the book they have bought, and the home page's sample volume still opens
-            the way the printed one does.
-          */}
-          <StorybookVolume
-            variant="preview"
-            className={`storybook storybook-preview theme-${worldId}`}
-            heroName={hero.name.trim() || t.common.fallbackHeroName}
-            title={bookTitle}
-            coverImageUrl={coverSrc}
-            worldId={worldId}
-            pages={NO_PAGES}
-            isUnlocked={false}
-            interactive={false}
-          />
+          {/* The preview shows only the cover. Its saved typography must not be overlaid again. */}
+          {hasRenderedPreview(draft.preview) ? (
+            <img
+              src={coverSrc || undefined}
+              alt={bookTitle}
+              style={{
+                width: "min(100%, 380px)",
+                height: "auto",
+                aspectRatio: "1.1",
+                objectFit: "contain",
+                display: "block",
+                margin: "0 auto",
+              }}
+            />
+          ) : (
+            <StorybookVolume
+              variant="preview"
+              className={`storybook storybook-preview theme-${worldId}`}
+              heroName={hero.name.trim() || t.common.fallbackHeroName}
+              title={bookTitle}
+              coverImageUrl={coverSrc}
+              worldId={worldId}
+              pages={NO_PAGES}
+              isUnlocked={false}
+              interactive={false}
+            />
+          )}
 
           {/*
             The world painting used to sit here, on the reasoning that a cover alone is not a

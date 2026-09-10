@@ -2,6 +2,11 @@ import { THEME_ID_TO_API, type MasterStoryRunStatus } from "../api/types.ts";
 import type { JourneyDraft } from "./draft";
 import type { WorldId } from "../worlds";
 
+/** Frozen cover/intro images already contain their typography. Never overlay browser text. */
+export function hasRenderedPreview(preview: JourneyDraft["preview"]): boolean {
+  return Boolean(preview?.coverRevisionId && preview?.introImageUrl);
+}
+
 /** Restore the book the server actually wrote; never silently substitute a default world. */
 export function readyPreviewPatch(
   draft: JourneyDraft,
@@ -18,6 +23,9 @@ export function readyPreviewPatch(
     worldId: world,
     preview: {
       guestPreviewId: status.runId,
+      previewVersion: status.previewVersion,
+      coverRevisionId: status.coverRevisionId,
+      introImageUrl: status.introImageUrl,
       storyId: status.runId,
       worldId: world,
       title: status.title || "",

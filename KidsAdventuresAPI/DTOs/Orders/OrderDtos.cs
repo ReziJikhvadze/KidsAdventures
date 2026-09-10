@@ -28,6 +28,7 @@ public sealed class BookDraftRequest
 
     /// <summary>The teaser the parent already saw, so the paid book keeps that opening.</summary>
     public Guid? PreviewBookId { get; set; }
+    public Guid? CoverRevisionId { get; set; }
 
     /// <summary>
     /// The story the parent was actually shown in the preview, serialized exactly as the

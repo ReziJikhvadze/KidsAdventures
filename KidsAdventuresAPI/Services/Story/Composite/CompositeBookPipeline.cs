@@ -210,6 +210,7 @@ public sealed record CompositeBookContext
     /// at the interior's own shape and reviewed as an interior page.
     /// </summary>
     public byte[]? CoverAnchorBasePng { get; init; }
+    public string? LockedBookTitle { get; init; }
 }
 
 /// <summary>
@@ -930,6 +931,9 @@ public sealed record CompositeBookResult
 
 public interface ICompositeBookPipeline
 {
+    Task<CompositeCoverWrap> DrawFastPreviewCoverAsync(CompositeBookContext context, byte[] photo,
+        CancellationToken cancellationToken) => throw new NotSupportedException("Fast preview is not supported.");
+
     /// <summary>
     /// Input to eight composited spreads: normalize, story, boundary, Visual Scenario, then per
     /// page an image, a pose, a composite and a review.
@@ -1201,6 +1205,8 @@ public sealed class CompositeBookPipeline(
                 + string.Join("; ", structuralProblems));
         }
 
+        if (context.LockedBookTitle is { Length: > 0 } lockedTitle)
+            plan = plan with { Concept = plan.Concept with { Title = lockedTitle } };
         var boundaryResult = StoryBoundary.From(plan);
         if (!boundaryResult.IsValid)
         {
@@ -1794,6 +1800,37 @@ public sealed class CompositeBookPipeline(
     /// prompt, the same one retry, the same refusal to soft-degrade — with the boundary in front of
     /// it, because a caller reaching straight for this has not been through step 0.
     /// </summary>
+    public async Task<CompositeCoverWrap> DrawFastPreviewCoverAsync(
+        CompositeBookContext context, byte[] photo, CancellationToken cancellationToken)
+    {
+        var normalized = InputNormalization.Normalize(context.Input, photo);
+        if (!normalized.IsValid)
+            throw new InvalidOperationException(string.Join(" ", normalized.Problems));
+        var input = normalized.Story!;
+        var theme = CompositeThemeReferences.For(input.ThemeId);
+        var prompt = FastPreviewPlan.Prompt(input.ChildAge, input.ChildGender, theme.Id);
+        // Validate the approved pose before buying the one image. No creative retry or AI reviewer.
+        var selection = BekiPoseSelector.Select(_engine.Value.Registry, "Beki welcomes the child with an inviting wave.");
+        var watch = Stopwatch.StartNew();
+        var generated = await openAi.GeneratePreviewCoverImageAsync(prompt,
+            References(photo, "image/png", theme, null, null)!, cancellationToken,
+            _options.CoverWrapImageSize, _options.CoverImageQuality);
+        var dimensions = GeneratedStoryImage.MeasurePixels(generated.Png);
+        var ratio = dimensions.Height > 0 ? (double)dimensions.Width / dimensions.Height : 0;
+        if (ratio <= 0 || Math.Abs(ratio / BekiCoverDieline.AspectRatio - 1) > 0.05)
+            throw new InvalidOperationException("The cover response has the wrong aspect ratio; refusing a crop that could cut off the child.");
+        var basePng = SpreadArtCrop.CropToRatio(generated.Png, BekiCoverDieline.AspectRatio);
+        var composite = _engine.Value.Composite(basePng, "cover-wrap-base.png", selection.PoseId,
+            BekiCoverDieline.FrontBekiAnchor, "cover-wrap-composite.png");
+        logger.LogInformation("Fast preview {PreviewId}: image call completed, model={Model}, promptVersion={Version}, promptSha256={Hash}, elapsedMs={Ms}",
+            context.JobId, generated.Model, FastPreviewPlan.Version, FastPreviewPlan.Sha(Encoding.UTF8.GetBytes(prompt)), watch.ElapsedMilliseconds);
+        return new CompositeCoverWrap(basePng, composite.Png, composite.Manifest.ToJson(), selection.PoseId, prompt)
+        {
+            GenerationReceiptJson = GenerationReceiptJson(generated, watch.ElapsedMilliseconds,
+                FastPreviewPlan.Version, basePng, CoverWrapCropRatio)
+        };
+    }
+
     public async Task<ChildIdentitySpec> DeriveIdentityAsync(
         CompositeBookContext context, byte[] childPhoto, CancellationToken cancellationToken)
     {

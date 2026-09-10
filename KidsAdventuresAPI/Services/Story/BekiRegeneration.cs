@@ -230,6 +230,11 @@ public sealed class BekiRegeneration(
           busy, and a redraw is a spend that should be made deliberately rather than in a minute's
           time against a book somebody else has just changed.
         */
+        if (scope == BekiRegenerationScopes.Cover
+            && AdventurePacks.Api.Services.Story.Composite.FastPreviewPlan.IsFast(
+                await masterStoryRunRepository.GetByIdAsync(run, cancellationToken)))
+            return Refused("This cover is the customer's purchased preview. Restore its saved artwork instead of generating a replacement.");
+
         await using var held = await _packLock.TryAcquireAsync(pack.Id, TimeSpan.Zero, cancellationToken);
         if (held is null)
         {
@@ -452,7 +457,7 @@ public sealed class BekiRegeneration(
             if (run is not null
                 && !string.IsNullOrWhiteSpace(run.StoryJson)
                 && !string.IsNullOrWhiteSpace(run.PhotoBlobUrl)
-                && BookFormat.IsPrintPlan(run.PromptVersion))
+                && (BookFormat.IsPrintPlan(run.PromptVersion) || AdventurePacks.Api.Services.Story.Composite.FastPreviewPlan.IsFast(run)))
             {
                 return (runId, order.Id);
             }

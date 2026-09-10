@@ -1,3 +1,4 @@
+using AdventurePacks.Api.Services.Story.Composite;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
 
@@ -36,16 +37,27 @@ public sealed class MasterStoryRunCleanupService(
         }
 
         var filesRemoved = 0;
+        var completed = new List<Guid>();
         foreach (var run in expired)
         {
-            filesRemoved += await TryDeleteAsync(run.PhotoBlobUrl, run.Id);
-            filesRemoved += await TryDeleteAsync(run.CoverImageUrl, run.Id);
+            var names = new[] { run.PhotoBlobUrl, run.CoverImageUrl }
+                .Concat(BekiRunBlobs.CoverArtifacts(run.Id))
+                .Concat(new[] { FastPreviewPlan.ReceiptName(run.Id), FastPreviewPlan.IntroName(run.Id),
+                    FastPreviewPlan.CoverPdfName(run.Id), $"master-runs/{run.Id:N}/cover-attempt.json" });
+            var failed = false;
+            foreach (var name in names.Distinct())
+            {
+                var removed = await TryDeleteAsync(name, run.Id);
+                if (removed < 0) failed = true;
+                else filesRemoved += removed;
+            }
+            if (!failed) completed.Add(run.Id);
         }
 
         // Rows go last. If a blob delete fails, the row survives to be tried again on the next
         // sweep — the opposite order would drop the only record of where the file lives.
         var rowsRemoved = await runRepository.DeleteAsync(
-            expired.Select(r => r.Id).ToList(), CancellationToken.None);
+            completed, CancellationToken.None);
 
         logger.LogInformation(
             "Purged {Rows} expired guest runs and {Files} of their files.", rowsRemoved, filesRemoved);
@@ -69,7 +81,7 @@ public sealed class MasterStoryRunCleanupService(
             // Logged rather than thrown: one unreachable file must not stop the sweep clearing
             // everything else, and the row it belongs to stays behind to be retried.
             logger.LogWarning(ex, "Could not delete a file belonging to expired run {RunId}.", runId);
-            return 0;
+            return -1;
         }
     }
 }

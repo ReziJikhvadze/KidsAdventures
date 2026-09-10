@@ -72,6 +72,18 @@ public class OpenAiImageRetryTests
         Assert.True(options.ImageTimeoutMinutes < options.TimeoutMinutes);
     }
 
+    [Fact]
+    public async Task Fast_preview_never_retries_a_rate_limit_or_falls_back_without_references()
+    {
+        var handler = new ScriptedHandler(() => RateLimited(TimeSpan.FromSeconds(7)), () => Picture());
+        var (service, waits) = Service(handler);
+        var reference = new StoryImageReference { CharacterAnchorBytes = [1, 2, 3], CastPhotos = HeroPhoto().CastPhotos };
+        await Assert.ThrowsAnyAsync<InvalidOperationException>(() => service.GeneratePreviewCoverImageAsync(
+            "cover", reference, CancellationToken.None, "1200x576", "medium"));
+        Assert.Equal(1, handler.Calls);
+        Assert.Empty(waits);
+    }
+
     // -- the wire ----------------------------------------------------------
 
     [Fact]

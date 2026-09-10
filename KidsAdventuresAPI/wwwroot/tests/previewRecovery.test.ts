@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { readyPreviewPatch } from "../src/lib/journey/previewRecovery.ts";
+import { hasRenderedPreview, readyPreviewPatch } from "../src/lib/journey/previewRecovery.ts";
 import type { JourneyDraft } from "../src/lib/journey/draft";
 import type { MasterStoryRunStatus } from "../src/lib/api/types";
 
@@ -101,4 +101,36 @@ test("same-tab recovery does not discard the uploaded portrait or edited child d
 
 test("an unfinished preview cannot be accepted for checkout", () => {
   assert.throws(() => readyPreviewPatch(blank(), { ...ready(), status: "Writing" }), /not ready/);
+});
+
+test("fast preview recovery preserves the exact checkout revision and rendered intro", () => {
+  const result = readyPreviewPatch(blank(), {
+    ...ready(),
+    previewVersion: "preview-v1",
+    coverRevisionId: "revision-7",
+    introImageUrl: "/preview/intro",
+    coverImageUrl: "/preview/cover",
+  });
+  assert.equal(result.preview?.coverRevisionId, "revision-7");
+  assert.equal(result.preview?.introImageUrl, "/preview/intro");
+  assert.equal(result.preview?.previewVersion, "preview-v1");
+  assert.equal(hasRenderedPreview(result.preview!), true);
+});
+
+test("rendered covers never receive browser typography when their prompt version changes", () => {
+  for (const previewVersion of ["preview-v1", "fast-preview-v1", "preview-v2", undefined]) {
+    const result = readyPreviewPatch(blank(), {
+      ...ready(),
+      previewVersion,
+      coverRevisionId: "revision-7",
+      introImageUrl: "/preview/intro",
+      coverImageUrl: "/preview/cover",
+    });
+    assert.equal(hasRenderedPreview(result.preview!), true);
+  }
+});
+
+test("legacy previews keep their browser-composed book layout", () => {
+  assert.equal(hasRenderedPreview(null), false);
+  assert.equal(hasRenderedPreview(readyPreviewPatch(blank(), ready()).preview!), false);
 });

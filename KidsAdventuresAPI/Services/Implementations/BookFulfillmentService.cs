@@ -10,6 +10,7 @@ using AdventurePacks.Api.DTOs.Orders;
 using AdventurePacks.Api.Repositories.Interfaces;
 using AdventurePacks.Api.Services.Interfaces;
 using AdventurePacks.Api.Services.Story;
+using AdventurePacks.Api.Services.Story.Composite;
 
 namespace AdventurePacks.Api.Services.Implementations;
 
@@ -222,12 +223,16 @@ public sealed class BookFulfillmentService(
             // Same decision the first attempt made. A retry that fell back to the legacy
             // pipeline would give the parent a different kind of book than the one that failed.
             Guid? bekiRunId = null;
+            var pinnedPreview = false;
             try
             {
-                bekiRunId = await BekiRunForAsync(DeserializeDraft(order), cancellationToken);
+                var retryDraft = DeserializeDraft(order);
+                pinnedPreview = retryDraft.CoverRevisionId is not null;
+                bekiRunId = await BekiRunForAsync(retryDraft, cancellationToken);
             }
             catch (Exception ex)
             {
+                if (pinnedPreview) throw;
                 logger.LogWarning(ex, "Retry for book {BookId} could not read its draft; using the legacy pipeline.", bookId);
             }
 
@@ -347,19 +352,30 @@ public sealed class BookFulfillmentService(
     /// </summary>
     private async Task<Guid?> BekiRunForAsync(BookDraftRequest draft, CancellationToken cancellationToken)
     {
-        if (!bekiOptions.Value.BookFormatEnabled || draft.PreviewBookId is not { } runId)
+        if (draft.PreviewBookId is not { } runId)
         {
             return null;
         }
 
         var run = await masterStoryRunRepository.GetByIdAsync(runId, cancellationToken);
+        if (draft.CoverRevisionId is not null && !FastPreviewPlan.IsFast(run))
+            throw new InvalidOperationException("The purchased preview must be recovered; a replacement book cannot be generated.");
+        if (FastPreviewPlan.IsFast(run))
+        {
+            if (!bekiOptions.Value.BookFormatEnabled || !bekiOptions.Value.CompositePipelineEnabled)
+                throw new InvalidOperationException("The purchased preview requires the Beki composite pipeline.");
+            if (string.IsNullOrWhiteSpace(run!.PhotoBlobUrl)) throw new InvalidOperationException("The purchased portrait must be recovered.");
+            return runId;
+        }
+        if (!bekiOptions.Value.BookFormatEnabled) return null;
+
 
         // The gate is the printing book format, not a version equality: what the Beki pipeline
         // needs is a plan written with a cast list and per-spread placement, whichever version of
         // the printing flow wrote it.
         return run is not null
-               && !string.IsNullOrWhiteSpace(run.StoryJson)
                && !string.IsNullOrWhiteSpace(run.PhotoBlobUrl)
+               && !string.IsNullOrWhiteSpace(run.StoryJson)
                && BookFormat.IsPrintPlan(run.PromptVersion)
             ? runId
             : null;
@@ -446,6 +462,8 @@ public sealed class BookFulfillmentService(
         var storedRun = draft.PreviewBookId is { } runId
             ? await masterStoryRunRepository.GetByIdAsync(runId, cancellationToken)
             : null;
+
+        if (FastPreviewPlan.IsFast(storedRun)) return;
 
         var storyJson = storedRun?.ContentJson ?? draft.PreviewStoryJson;
         var coverSource = storedRun?.CoverImageUrl ?? draft.PreviewCoverImage;

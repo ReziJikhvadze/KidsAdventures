@@ -205,6 +205,10 @@ public sealed class MasterStoryRunStartedDto
 /// </summary>
 public sealed class MasterStoryRunStatusDto
 {
+    public string? PreviewVersion { get; set; }
+    public Guid? CoverRevisionId { get; set; }
+    public string? IntroImageUrl { get; set; }
+
     /// <summary>The authoritative world of the stored preview, used to restore checkout.</summary>
     [JsonPropertyName("worldId")]
     public string? WorldId { get; set; }
