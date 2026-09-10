@@ -261,6 +261,59 @@ public sealed class MasterStoryRunStatusDto
     public int PageCount { get; set; }
 }
 
+/// <summary>
+/// One unbought preview, as the parent's own space lists it.
+///
+/// Everything a card needs and nothing a book has: no story, no pages, no PDF. What a parent can
+/// do with it is go back and buy it, which is why the world and the hero travel with it - those
+/// two are what the resumed journey would otherwise have to ask for again.
+/// </summary>
+public sealed class GuestPreviewSummaryDto
+{
+    [JsonPropertyName("runId")]
+    public Guid RunId { get; set; }
+
+    /// <summary>The saved hero it was written for, when the parent started from one.</summary>
+    [JsonPropertyName("characterId")]
+    public Guid? CharacterId { get; set; }
+
+    /// <summary>Pending | Writing | Illustrating | Ready | Failed</summary>
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = string.Empty;
+
+    [JsonPropertyName("progressMessage")]
+    public string? ProgressMessage { get; set; }
+
+    /// <summary>The parent-facing line, never the operator's failure code.</summary>
+    [JsonPropertyName("errorMessage")]
+    public string? ErrorMessage { get; set; }
+
+    /// <summary>Null until the story is written; the card falls back to the world's own title.</summary>
+    [JsonPropertyName("title")]
+    public string? Title { get; set; }
+
+    [JsonPropertyName("childName")]
+    public string? ChildName { get; set; }
+
+    [JsonPropertyName("worldId")]
+    public string? WorldId { get; set; }
+
+    /// <summary>The same served cover the journey shows, or null while it is still being painted.</summary>
+    [JsonPropertyName("coverImageUrl")]
+    public string? CoverImageUrl { get; set; }
+
+    [JsonPropertyName("createdAt")]
+    public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// When this preview stops being available, in UTC. Not decoration: an unbought preview is
+    /// deleted with the child's photograph a day after it is made, and a card that did not say so
+    /// would be a promise the sweep breaks.
+    /// </summary>
+    [JsonPropertyName("expiresAt")]
+    public DateTime? ExpiresAt { get; set; }
+}
+
 public sealed class AdventureContentDto
 {
     [JsonPropertyName("title")]

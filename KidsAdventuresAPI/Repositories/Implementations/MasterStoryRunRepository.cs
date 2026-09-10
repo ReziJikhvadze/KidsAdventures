@@ -17,7 +17,7 @@ public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFac
     ];
 
     private const string Columns = """
-        Id, UserId, PackId, Status, ProgressMessage, ChildName, BirthDate, Age, Gender, Theme, EyeColor,
+        Id, UserId, PackId, CharacterId, Status, ProgressMessage, ChildName, BirthDate, Age, Gender, Theme, EyeColor,
         ExtraWishes, AppearanceDescription, PhotoBlobUrl, StoryLanguage, SpreadCount, Model, SystemPrompt,
         UserPrompt, PromptTokens, CompletionTokens, StoryJson, ContentJson, CoverImageUrl,
         ErrorMessage, PromptVersion, CreatedAt, UpdatedAt, ExpiresAt
@@ -27,11 +27,11 @@ public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFac
     {
         const string sql = """
                            INSERT INTO dbo.MasterStoryRuns (
-                               Id, UserId, Status, ProgressMessage, ChildName, BirthDate, Age, Gender, Theme, EyeColor,
+                               Id, UserId, CharacterId, Status, ProgressMessage, ChildName, BirthDate, Age, Gender, Theme, EyeColor,
                                ExtraWishes, AppearanceDescription, PhotoBlobUrl, StoryLanguage, SpreadCount, Model,
                                SystemPrompt, UserPrompt, CreatedAt, UpdatedAt, ExpiresAt)
                            VALUES (
-                               @Id, @UserId, @Status, @ProgressMessage, @ChildName, @BirthDate, @Age, @Gender, @Theme, @EyeColor,
+                               @Id, @UserId, @CharacterId, @Status, @ProgressMessage, @ChildName, @BirthDate, @Age, @Gender, @Theme, @EyeColor,
                                @ExtraWishes, @AppearanceDescription, @PhotoBlobUrl, @StoryLanguage, @SpreadCount, @Model,
                                @SystemPrompt, @UserPrompt, @CreatedAt, @UpdatedAt, @ExpiresAt);
                            """;
@@ -208,6 +208,67 @@ public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFac
         using var connection = connectionFactory.CreateConnection();
         await connection.ExecuteAsync(new CommandDefinition(
             sql, new { Id = id, UserId = userId, PackId = packId }, cancellationToken: cancellationToken));
+    }
+
+    public async Task<int> AttachToUserAsync(Guid id, Guid userId, CancellationToken cancellationToken)
+    {
+        /*
+          Only a run nobody owns, and the expiry is left exactly where it is.
+
+          Two things this deliberately is not. It is not ClaimAsync: that one belongs to a paid
+          book and clears the expiry, and a preview that has been looked at is still a preview —
+          keeping the row forever would keep a child's photograph forever with it. And it is not
+          an update by id alone: the id is a bearer token, so the WHERE is what stops a second
+          account taking over a run the first one is already watching. A run that is already this
+          parent's matches too, which makes a repeated call free rather than a failure.
+        */
+        const string sql = """
+                           UPDATE dbo.MasterStoryRuns
+                           SET UserId = @UserId, UpdatedAt = SYSUTCDATETIME()
+                           WHERE Id = @Id AND (UserId IS NULL OR UserId = @UserId);
+                           """;
+
+        using var connection = connectionFactory.CreateConnection();
+        return await connection.ExecuteAsync(new CommandDefinition(
+            sql, new { Id = id, UserId = userId }, cancellationToken: cancellationToken));
+    }
+
+    public async Task<IReadOnlyList<MasterStoryRunSummary>> ListUnboughtForUserAsync(
+        Guid userId,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        /*
+          The previews this parent has not bought, newest first.
+
+          `PackId IS NULL` is the whole definition of unbought: a run that became a book is that
+          book now, and the shelf already shows it. The expiry filter is not decoration either —
+          the purge runs on a timer, so a run whose hour has passed can still be sitting in the
+          table, and listing it would offer a card that leads to a story already being deleted.
+
+          The title comes out through JSON_VALUE rather than by reading ContentJson: that column
+          holds the whole book, and this is a list. Guarded by ISJSON because JSON_VALUE does not
+          merely return null on text it cannot parse - it raises, and one malformed row would
+          take the whole of a parent's shelf with it.
+        */
+        const string sql = """
+                           SELECT TOP (@Limit)
+                               Id, CharacterId, Status, ProgressMessage, ErrorMessage, ChildName, Theme,
+                               CoverImageUrl,
+                               CASE WHEN ISJSON(ContentJson) = 1
+                                    THEN JSON_VALUE(ContentJson, '$.title') END AS Title,
+                               CreatedAt, ExpiresAt
+                           FROM dbo.MasterStoryRuns
+                           WHERE UserId = @UserId
+                             AND PackId IS NULL
+                             AND (ExpiresAt IS NULL OR ExpiresAt > SYSUTCDATETIME())
+                           ORDER BY CreatedAt DESC;
+                           """;
+
+        using var connection = connectionFactory.CreateConnection();
+        var rows = await connection.QueryAsync<MasterStoryRunSummary>(new CommandDefinition(
+            sql, new { UserId = userId, Limit = limit }, cancellationToken: cancellationToken));
+        return rows.AsList();
     }
 
     public async Task<IReadOnlyList<ExpiredMasterStoryRun>> ListExpiredAsync(

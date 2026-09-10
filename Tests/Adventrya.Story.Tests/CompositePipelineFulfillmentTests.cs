@@ -1498,6 +1498,11 @@ public class CompositePipelineFulfillmentTests
         public Task MarkReadyAsync(Guid id, string contentJson, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task MarkFailedAsync(Guid id, string error, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task ClaimAsync(Guid id, Guid userId, Guid? packId, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<int> AttachToUserAsync(Guid id, Guid userId, CancellationToken cancellationToken) =>
+            Task.FromResult(1);
+        public Task<IReadOnlyList<MasterStoryRunSummary>> ListUnboughtForUserAsync(
+            Guid userId, int limit, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<MasterStoryRunSummary>>([]);
         public Task<IReadOnlyList<ExpiredMasterStoryRun>> ListExpiredAsync(int limit, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<ExpiredMasterStoryRun>>([]);
         public Task<int> DeleteAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken) => Task.FromResult(0);
     }

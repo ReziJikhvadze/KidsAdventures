@@ -446,6 +446,13 @@ internal sealed class CoverRecordingRuns(IMasterStoryRunRepository inner) : IMas
     public Task ClaimAsync(Guid id, Guid userId, Guid? packId, CancellationToken cancellationToken) =>
         inner.ClaimAsync(id, userId, packId, cancellationToken);
 
+    public Task<int> AttachToUserAsync(Guid id, Guid userId, CancellationToken cancellationToken) =>
+        inner.AttachToUserAsync(id, userId, cancellationToken);
+
+    public Task<IReadOnlyList<MasterStoryRunSummary>> ListUnboughtForUserAsync(
+        Guid userId, int limit, CancellationToken cancellationToken) =>
+        inner.ListUnboughtForUserAsync(userId, limit, cancellationToken);
+
     public Task<IReadOnlyList<ExpiredMasterStoryRun>> ListExpiredAsync(
         int limit, CancellationToken cancellationToken) =>
         inner.ListExpiredAsync(limit, cancellationToken);

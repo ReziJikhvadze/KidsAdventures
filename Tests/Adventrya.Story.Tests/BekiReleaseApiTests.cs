@@ -478,6 +478,7 @@ public class BekiReleaseApiTests
             downloadStatus ?? new FakeDownloadStatus { Held = held },
             Options.Create(new ClientIpOptions()),
             new FakeCharacters(),
+            new FakeRuns(),
             NullLogger<AdventurePacksController>.Instance)
         {
             // The download and illustration routes write response headers, which need a context.
@@ -764,6 +765,29 @@ public class BekiReleaseApiTests
             {
                 Id = Run.Id, Status = Run.Status,
             } : null);
+    }
+
+    /// <summary>
+    /// None of these routes touches a run either: the preview list and the preview claim are the
+    /// two that would, and both are somebody else's test. Refusing everything is what says so.
+    /// </summary>
+    private sealed class FakeRuns : IMasterStoryRunRepository
+    {
+        public Task CreateAsync(MasterStoryRun run, CancellationToken ct) => throw new NotSupportedException();
+        public Task<MasterStoryRun?> GetByIdAsync(Guid id, CancellationToken ct) => throw new NotSupportedException();
+        public Task<MasterStoryRunProgress?> GetProgressAsync(Guid id, CancellationToken ct) => throw new NotSupportedException();
+        public Task SetProgressAsync(Guid id, string status, string? progressMessage, CancellationToken ct) => throw new NotSupportedException();
+        public Task SavePromptsAsync(Guid id, string model, string promptVersion, string systemPrompt, string userPrompt, CancellationToken ct) => throw new NotSupportedException();
+        public Task SaveStoryAsync(Guid id, string storyJson, string contentJson, int promptTokens, int completionTokens, CancellationToken ct) => throw new NotSupportedException();
+        public Task SaveAppearanceDescriptionAsync(Guid id, string appearanceDescription, CancellationToken ct) => throw new NotSupportedException();
+        public Task SaveCoverAsync(Guid id, string coverImageUrl, CancellationToken ct) => throw new NotSupportedException();
+        public Task MarkReadyAsync(Guid id, string contentJson, CancellationToken ct) => throw new NotSupportedException();
+        public Task MarkFailedAsync(Guid id, string error, CancellationToken ct) => throw new NotSupportedException();
+        public Task ClaimAsync(Guid id, Guid userId, Guid? packId, CancellationToken ct) => throw new NotSupportedException();
+        public Task<int> AttachToUserAsync(Guid id, Guid userId, CancellationToken ct) => throw new NotSupportedException();
+        public Task<IReadOnlyList<MasterStoryRunSummary>> ListUnboughtForUserAsync(Guid userId, int limit, CancellationToken ct) => throw new NotSupportedException();
+        public Task<IReadOnlyList<ExpiredMasterStoryRun>> ListExpiredAsync(int limit, CancellationToken ct) => throw new NotSupportedException();
+        public Task<int> DeleteAsync(IReadOnlyList<Guid> ids, CancellationToken ct) => throw new NotSupportedException();
     }
 
     /// <summary>None of these routes touches a character; the saved-hero lookup is on the preview start.</summary>

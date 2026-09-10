@@ -1320,6 +1320,8 @@ public class AdminConsoleApiTests
         public Task MarkReadyAsync(Guid id, string contentJson, CancellationToken ct) => throw new NotSupportedException();
         public Task MarkFailedAsync(Guid id, string error, CancellationToken ct) => throw new NotSupportedException();
         public Task ClaimAsync(Guid id, Guid userId, Guid? packId, CancellationToken ct) => throw new NotSupportedException();
+        public Task<int> AttachToUserAsync(Guid id, Guid userId, CancellationToken ct) => throw new NotSupportedException();
+        public Task<IReadOnlyList<MasterStoryRunSummary>> ListUnboughtForUserAsync(Guid userId, int limit, CancellationToken ct) => throw new NotSupportedException();
         public Task<IReadOnlyList<ExpiredMasterStoryRun>> ListExpiredAsync(int limit, CancellationToken ct) => throw new NotSupportedException();
         public Task<int> DeleteAsync(IReadOnlyList<Guid> ids, CancellationToken ct) => throw new NotSupportedException();
     }

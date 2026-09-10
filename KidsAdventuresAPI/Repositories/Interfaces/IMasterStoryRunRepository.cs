@@ -61,6 +61,25 @@ public interface IMasterStoryRunRepository
     Task ClaimAsync(Guid id, Guid userId, Guid? packId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Puts an unowned run in an account's name without treating it as bought.
+    ///
+    /// What a guest who signs up after reading their preview needs, and what the sign-in screen
+    /// has been promising them all along. The expiry stays: the parent can now see the preview
+    /// from any device they sign in on, which is a different thing from us keeping their child's
+    /// photograph indefinitely. Returns the number of rows changed — zero means the run belongs
+    /// to somebody else and the caller should say nothing about it.
+    /// </summary>
+    Task<int> AttachToUserAsync(Guid id, Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The parent's previews that never became books, newest first, as a card can show them.
+    /// </summary>
+    Task<IReadOnlyList<MasterStoryRunSummary>> ListUnboughtForUserAsync(
+        Guid userId,
+        int limit,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Guest runs whose expiry has passed, with the blobs they own.
     ///
     /// Listed before deleting rather than deleted outright, because a row is not the only thing

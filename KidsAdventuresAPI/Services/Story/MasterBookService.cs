@@ -108,6 +108,10 @@ public sealed class MasterBookService(
         var run = new MasterStoryRun
         {
             Id = runId,
+            // Whose it is, when the caller said. A guest's run still belongs to nobody, and both
+            // kinds keep the expiry below: an owner is who may see it, not how long it is kept.
+            UserId = input.UserId,
+            CharacterId = input.CharacterId,
             Status = MasterStoryRunStatus.Pending,
             ProgressMessage = null,
             ChildName = input.ChildName.Trim(),
