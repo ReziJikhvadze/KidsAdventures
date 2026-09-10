@@ -27,6 +27,9 @@ export const landing = {
     priceFrom: "from 14 ₾",
     createSimilar: "Create something like this ",
     exampleAlt: (title: string) => `See the book for ${title}`,
+    /* See the note beside the Georgian strings. */
+    shelfBack: "Previous books",
+    shelfOn: "Next books",
     /*
       The six photographed sample books. See the note beside the Georgian strings for why the
       titles are no longer free to be anything.

@@ -27,6 +27,10 @@ export const landing = {
     priceFrom: "14 ₾-დან",
     createSimilar: "შექმენი მსგავსი ",
     exampleAlt: (title: string) => `ნახე ${title}ს წიგნი`,
+    /* The arrows beside the shelf. "Books" rather than a bare direction, because the shelf is
+       not the only thing on the page that scrolls sideways. */
+    shelfBack: "წინა წიგნები",
+    shelfOn: "შემდეგი წიგნები",
     /*
       The six sample books, in the order they are photographed and with the titles those
       photographs actually carry.

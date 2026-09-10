@@ -555,25 +555,109 @@
   The phone already worked this way (see the 900px block below); this is that rail lifted to every
   width. `auto-columns` rather than `columns` so the count is the family's, not the CSS's.
 */
-.landing-v3-book-gallery {
+/*
+  The shelf's own frame, holding the rail and the two arrows beside it.
+
+  It exists so the arrows have something to be positioned against that is exactly as wide as the
+  covers are: the rail itself is the scroll container, and an absolutely positioned child of a
+  scroll container travels with the content instead of staying at its edge.
+
+  The three numbers the shelf is laid out from live here rather than being written twice. The
+  arrows need the middle one to work out where the artwork's waist is, which is the line they sit
+  on; see `.landing-v3-book-arrow`.
+*/
+.landing-v3-book-rail {
+  --book-gap: clamp(20px, 3vw, 42px);
+  --book-card: calc((100% - 2 * var(--book-gap)) / 3);
+  /* The rail's top padding, which is where the artwork starts. */
+  --book-lead: 26px;
+  position: relative;
   width: min(90%, 1188px);
+  margin: 0 auto;
+}
+.landing-v3-book-gallery {
+  width: 100%;
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: calc((100% - 2 * clamp(20px, 3vw, 42px)) / 3);
+  grid-auto-columns: var(--book-card);
   /* From the top, now that the caption is under the book: aligning the feet of six columns whose
      titles run to one line or two would stand the books themselves at different heights. */
   align-items: start;
-  gap: clamp(20px, 3vw, 42px);
-  margin: 0 auto;
+  gap: var(--book-gap);
   overflow-x: auto;
   /* The rail turns itself; a scrollbar under three covers is a second, worse affordance. */
   scrollbar-width: none;
   scroll-snap-type: x mandatory;
   /* Room for the raised middle cover and its shadow, which a scroll container would cut. */
-  padding: 26px 0 34px;
+  padding: var(--book-lead) 0 34px;
 }
 .landing-v3-book-gallery::-webkit-scrollbar {
   display: none;
+}
+/*
+  The two arrows, standing on the artwork's waist rather than the rail's middle.
+
+  The rail is a cover plus a caption plus the room the raised middle one needs, so its own centre
+  falls on the words under the books - which is where `top: 50%` would have put these, reading as
+  two buttons that had slipped. The line they want is half the artwork down from where the
+  artwork starts, and both of those are known: the lead is a number, and the artwork is a card
+  wide by 1200:930, so half its height is 0.3875 of a card.
+
+  That share is spent as a `margin-top` and not as part of `top`, and the difference is the whole
+  reason this works: a percentage inside `top` resolves against the containing block's HEIGHT, so
+  the card width hidden in `--book-card` would have quietly become a share of the rail's height
+  and put the arrows somewhere unrelated. In a margin it resolves against the width, which is
+  what a card is a fraction of.
+
+  Centred on the rail's edge, half in the gutter and half over the cover: the covers are cut-out
+  photographs on transparency and none of them is painted to its own edge, so the half that
+  overlaps lands on nothing.
+*/
+.landing-v3-book-arrow {
+  position: absolute;
+  z-index: 2;
+  top: var(--book-lead);
+  margin-top: calc(var(--book-card) * 0.3875);
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  cursor: pointer;
+  color: #87563f;
+  border: 1px solid rgba(135, 86, 63, 0.26);
+  border-radius: 50%;
+  background: rgba(255, 253, 247, 0.94);
+  box-shadow: 0 12px 26px rgba(103, 69, 80, 0.16);
+  /* Not transform: it is carrying the placement, and a hover that animated it would slide the
+     button off the edge it is centred on. */
+  transition:
+    color 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease;
+}
+.landing-v3-book-arrow:first-child {
+  left: 0;
+  transform: translate(-50%, -50%);
+}
+.landing-v3-book-arrow:last-child {
+  right: 0;
+  transform: translate(50%, -50%);
+}
+/* Said out loud: an author `display` outranks the browser's own rule for the hidden attribute,
+   so without this the arrows for a shelf that fits would still be drawn. */
+.landing-v3-book-arrow[hidden] {
+  display: none;
+}
+.landing-v3-book-arrow:hover:not([aria-disabled="true"]) {
+  color: #fffdf7;
+  border-color: #87563f;
+  background: #87563f;
+}
+/* Still there, still focusable, plainly at the end of the shelf. */
+.landing-v3-book-arrow[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.32;
 }
 /*
   Snapped to the left edge, not the middle.
@@ -1840,6 +1924,9 @@
     transform: none;
   }
   /* The rail is the base layout now; below here it widens its cards and bleeds to the edges. */
+  .landing-v3-book-rail {
+    width: auto;
+  }
   .landing-v3-book-gallery {
     width: auto;
     gap: 24px;
@@ -1847,6 +1934,18 @@
     align-items: start;
     margin-inline: -28px;
     padding: 10px 28px 42px;
+  }
+  /*
+    No arrows on a touchscreen.
+
+    Two things go at once here. The shelf bleeds past the section's padding to both screen edges,
+    so there is no gutter left to stand a button in and it would have to sit on a cover; and the
+    swipe these replace is the gesture a phone already teaches, on a card that is snapped to the
+    middle of the screen so the next one is visibly waiting. The arrows are for the pointer that
+    has no way to drag.
+  */
+  .landing-v3-book-arrow {
+    display: none;
   }
   .landing-v3-example-book:nth-child(n) {
     /* No lean where only one cover is on screen: it reads as a crooked photograph, not a shelf. */
