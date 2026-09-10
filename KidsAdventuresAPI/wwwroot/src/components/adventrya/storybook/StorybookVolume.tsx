@@ -104,6 +104,18 @@ export type StorybookVolumeProps = {
    */
   coverCaption?: string;
   /**
+   * The cover art already carries the title, the mark and the child's name - so draw none of it.
+   *
+   * A generated cover is a finished piece of artwork: the model paints the title into the
+   * picture, in the picture's own light, and the Beki mark with it. Laying this component's
+   * typography over that gives a book with two titles, which is why the preview screen was
+   * showing a flat <img> instead of the volume and losing the object entirely.
+   *
+   * Only the painting is drawn when this is set. Everything else about the book - the boards,
+   * the spine, the turn - is unchanged, because those are the parts the flat image was giving up.
+   */
+  coverCarriesItsOwnType?: boolean;
+  /**
    * The back board of the printed cover, when the book has one.
    *
    * The last page stays the designed screen it is — Beki, a line of copy, a way into the next
@@ -180,13 +192,22 @@ function probeArtShape(url: string): Promise<ArtShape> {
 }
 
 /**
- * Whether a resolved illustration is wider than it is tall.
+ * The shape of a resolved illustration, or null while it is still being measured.
  *
- * False while the measurement is still running, so a pair that has not been measured yet renders
- * the way it always did rather than flashing a stretched painting and then correcting itself. The
- * two halves of a pair ask about the same URL and so share one probe and one answer.
+ * Null is the whole point of this returning a shape rather than a boolean. It used to answer
+ * "not a spread" while the probe was running, on the reasoning that an unmeasured pair should
+ * render the way it always did rather than flash a stretched painting - but the way it always
+ * did is a page with its prose laid over it, so what a reader saw on every first turn was a
+ * paragraph in the old one-page format that then vanished as the measurement landed. One flash
+ * traded for another, and the one that was chosen is the one with words in it.
+ *
+ * Neither, now: the caller waits. See the null branch in SpreadSlot.
+ *
+ * The two halves of a pair ask about the same URL and so share one probe and one answer, and
+ * every answer is kept for the life of the page - so this is at most one short wait per
+ * illustration, and turning back through a book that has been read once never waits at all.
  */
-function useIsSpreadShapedArt(url: string | null): boolean {
+function useArtShape(url: string | null): ArtShape | null {
   const [shape, setShape] = useState<ArtShape | null>(() =>
     url ? (artShapes.get(url) ?? null) : null,
   );
@@ -211,7 +232,7 @@ function useIsSpreadShapedArt(url: string | null): boolean {
     };
   }, [url]);
 
-  return shape === "landscape";
+  return shape;
 }
 
 function fallbackCover(worldId?: string | null): string {
@@ -283,34 +304,41 @@ function CoverFace({
   title,
   caption,
   coverSrc,
+  artCarriesItsOwnType = false,
 }: {
   heroName: string;
   title: string;
   caption?: string;
   coverSrc: string;
+  artCarriesItsOwnType?: boolean;
 }) {
   const t = useT();
   return (
     <article className="storybook-cover">
       <div className="storybook-cover-art" style={{ backgroundImage: `url("${coverSrc}")` }} />
-      {/* No wash over the painting. It darkened the lower half of every cover to seat the title,
+      {/* A finished cover is the whole face. See `coverCarriesItsOwnType`. */}
+      {artCarriesItsOwnType ? null : (
+        <>
+          {/* No wash over the painting. It darkened the lower half of every cover to seat the title,
           and the generated cover is the one picture in this product a parent is waiting to see -
           their own child, under a gradient. The title keeps its own shadow, which is what was
           actually holding it up. */}
-      {/* The lockup, not the word set in the page's own type. "BEKI" in a bold sans with wide
+          {/* The lockup, not the word set in the page's own type. "BEKI" in a bold sans with wide
           letter-spacing was a stand-in for a mark we did not have; we have it, and it is the
           same image the site's header carries. Decorative: the cover already says whose book
           this is, and the mark is the publisher's colophon rather than a second title. */}
-      <BekiMark className="storybook-brand" decorative />
-      <div className="storybook-cover-copy">
-        {/* The cover said the book was the child's twice, above and below the title. Once is
+          <BekiMark className="storybook-brand" decorative />
+          <div className="storybook-cover-copy">
+            {/* The cover said the book was the child's twice, above and below the title. Once is
             the point; twice reads as a template that forgot it had already said it. */}
-        <small>{caption ?? t.story.storybook.belongsTo(heroName)}</small>
-        {/* A book with no title is the sample on the home page: its cover is a painting, and the
+            <small>{caption ?? t.story.storybook.belongsTo(heroName)}</small>
+            {/* A book with no title is the sample on the home page: its cover is a painting, and the
             invented title lying across the bottom of it was the one thing on that shelf a
             visitor could not have. Every real book still names itself here. */}
-        {title ? <h2>{title}</h2> : null}
-      </div>
+            {title ? <h2>{title}</h2> : null}
+          </div>
+        </>
+      )}
     </article>
   );
 }
@@ -497,6 +525,7 @@ function LeafView({
   heroName,
   title,
   coverCaption,
+  coverCarriesItsOwnType,
   coverSrc,
   backSrc,
   pageSide,
@@ -507,6 +536,7 @@ function LeafView({
   heroName: string;
   title: string;
   coverCaption?: string;
+  coverCarriesItsOwnType?: boolean;
   coverSrc: string;
   backSrc?: string | null;
   pageSide?: "left" | "right";
@@ -522,7 +552,13 @@ function LeafView({
   if (leaf.kind === "plate") return <PlateHalf leaf={leaf} side={leaf.half} />;
   if (leaf.kind === "cover")
     return (
-      <CoverFace heroName={heroName} title={title} caption={coverCaption} coverSrc={coverSrc} />
+      <CoverFace
+        heroName={heroName}
+        title={title}
+        caption={coverCaption}
+        coverSrc={coverSrc}
+        artCarriesItsOwnType={coverCarriesItsOwnType}
+      />
     );
   return (
     <StoryFace
@@ -685,6 +721,7 @@ function SpreadSlot({
   heroName,
   title,
   coverCaption,
+  coverCarriesItsOwnType,
   coverSrc,
   backSrc,
   totalStoryPages,
@@ -696,6 +733,7 @@ function SpreadSlot({
   heroName: string;
   title: string;
   coverCaption?: string;
+  coverCarriesItsOwnType?: boolean;
   coverSrc: string;
   backSrc?: string | null;
   totalStoryPages: number;
@@ -704,14 +742,26 @@ function SpreadSlot({
   // Called on every render and with null whenever this half is not a candidate: the branch below
   // is a branch, not a reason for a hook to disappear.
   const artUrl = useIllustrationUrl(plan.pair ? plan.pair.art.page.illustrationUrl : null);
-  const isSpreadShaped = useIsSpreadShapedArt(artUrl);
+  const artShape = useArtShape(artUrl);
   // A plate is already a painting cut in two; it needs neither the URL resolution nor the
   // shape probe that a story illustration does, so it is drawn straight from its leaf.
   if (plan.leaf?.kind === "plate") return <PlateHalf leaf={plan.leaf} side={side} />;
-  if (plan.pair && artUrl && isSpreadShaped) {
+  if (plan.pair && artUrl && artShape === "landscape") {
     return (
       <SpreadHalf pair={plan.pair} side={side} artUrl={artUrl} totalStoryPages={totalStoryPages} />
     );
+  }
+  /*
+    Measured, or nothing.
+
+    A pair whose picture has not been measured yet could be either book - one painting across the
+    fold, or a page with its words on it - and drawing the second one while waiting is what put a
+    paragraph of the old format on screen for a moment on every first turn. Blank paper says the
+    same thing honestly: the page is coming. It lasts as long as one image takes to report its
+    own width, once per illustration for the life of the page.
+  */
+  if (plan.pair && artUrl && artShape === null) {
+    return <article className="storybook-page storybook-page-blank" aria-hidden="true" />;
   }
   // The side comes from the slot rather than from a guess about which one runs out: it is almost
   // always the right half, and on a backward turn it is the sheet's own half that has nothing.
@@ -722,6 +772,7 @@ function SpreadSlot({
       heroName={heroName}
       title={title}
       coverCaption={coverCaption}
+      coverCarriesItsOwnType={coverCarriesItsOwnType}
       coverSrc={coverSrc}
       backSrc={backSrc}
       pageSide={pageSide}
@@ -735,6 +786,7 @@ export function StorybookVolume({
   heroName,
   title,
   coverCaption,
+  coverCarriesItsOwnType,
   coverImageUrl,
   worldId,
   pages,
@@ -1175,6 +1227,7 @@ export function StorybookVolume({
       heroName={heroName}
       title={title}
       coverCaption={coverCaption}
+      coverCarriesItsOwnType={coverCarriesItsOwnType}
       coverSrc={resolvedCover}
       backSrc={backImageUrl}
       totalStoryPages={totalStoryPages}

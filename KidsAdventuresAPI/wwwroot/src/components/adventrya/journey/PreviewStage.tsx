@@ -1,7 +1,10 @@
 import { Check, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
+import {
+  StorybookVolume,
+  type PlateSpread,
+} from "@/components/adventrya/storybook/StorybookVolume";
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
 import { storeGuestPreviewIds } from "@/lib/api/auth";
 import { ApiError, resolveApiUrl } from "@/lib/api/client";
@@ -24,7 +27,7 @@ import {
   writePendingRun,
   type PendingRun,
 } from "@/lib/journey/pendingRun";
-import { patchJourneyResume, writeJourneyResume } from "@/lib/journey/resume";
+import { patchJourneyResume, resumableJourneyRun, writeJourneyResume } from "@/lib/journey/resume";
 import { hasRenderedPreview, readyPreviewPatch } from "@/lib/journey/previewRecovery";
 import { useWorldById, WORLD_SCENE_ART, type WorldId } from "@/lib/worlds";
 
@@ -36,6 +39,16 @@ import { useWorldById, WORLD_SCENE_ART, type WorldId } from "@/lib/worlds";
   every package click in the panel beside it.
 */
 const NO_PAGES: never[] = [];
+
+/*
+  The two leaves a printed book opens on, before anything is printed on them.
+
+  The bought book opens onto its endpaper and its dedication; this one has neither yet, because
+  neither exists until the story is written. What it does have is the same shape - a cover that
+  lifts, and paper behind it - so the preview is an object a parent can open rather than a
+  picture of one. One spread, which is two blank pages, exactly as the press binds them.
+*/
+const BLANK_OPENING: PlateSpread[] = [{ art: null }];
 
 /**
  * A preview named in the address, for a browser that has never seen it.
@@ -138,7 +151,19 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
     const pending = readPendingRun();
     /* The rule lives in `pendingRun.ts` now: the questions ask the same thing, to know whether a
        book is already being written before offering to start another. */
-    const resumable = resumablePendingRun(hero, draft.worldId) ?? runFromUrl(draft.worldId);
+    /*
+      Three places a run can already exist, asked in the order of how sure they are.
+
+      The pending id is the book being written right now. `?run=` is a parent following a link
+      straight to one. The journey pointer is the last resort and the one that was missing: it
+      outlives the pending id, which is cleared the moment a preview finishes, so from then on it
+      is the only record on this device that a cover has been drawn and paid for. Without it, a
+      parent who came back to this screen with their answers still filled in started a second one.
+    */
+    const resumable =
+      resumablePendingRun(hero, draft.worldId) ??
+      runFromUrl(draft.worldId) ??
+      resumableJourneyRun(hero, draft.worldId);
     if (pending && !resumable) clearPendingRunId();
 
     // A saved hero named in the URL is still on its way from the account. Starting now would
@@ -231,6 +256,9 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
         worldId: restored.worldId,
         bookPackage: draft.bookPackage,
         characterId: restored.characters.find((child) => child.isPrimary)?.serverId,
+        /* Which child, in the form the resume rule compares - a saved id, or the name and
+           birthday of one who exists only in this draft. */
+        heroKey: heroKeyOf(hero),
         storyNotes: draft.storyNotes || undefined,
       });
 
@@ -555,33 +583,31 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
 
       <div className="ux-preview-layout">
         <div className="ux-preview-product">
-          {/* The preview shows only the cover. Its saved typography must not be overlaid again. */}
-          {hasRenderedPreview(draft.preview) ? (
-            <img
-              src={coverSrc || undefined}
-              alt={bookTitle}
-              style={{
-                width: "min(100%, 380px)",
-                height: "auto",
-                aspectRatio: "1.1",
-                objectFit: "contain",
-                display: "block",
-                margin: "0 auto",
-              }}
-            />
-          ) : (
-            <StorybookVolume
-              variant="preview"
-              className={`storybook storybook-preview theme-${worldId}`}
-              heroName={hero.name.trim() || t.common.fallbackHeroName}
-              title={bookTitle}
-              coverImageUrl={coverSrc}
-              worldId={worldId}
-              pages={NO_PAGES}
-              isUnlocked={false}
-              interactive={false}
-            />
-          )}
+          {/*
+            The book, whether or not the cover has been painted yet.
+
+            It used to become a flat <img> the moment the real cover arrived, because the
+            generated artwork carries its own title and the volume would have laid a second one
+            over it. So the one screen where a parent finally meets their book showed them a
+            picture of a cover instead - no boards, no spine, no object. `coverCarriesItsOwnType`
+            is the narrower fix: the volume draws the painting and none of its own type, and
+            everything that makes it a book stays.
+          */}
+          <StorybookVolume
+            variant="preview"
+            className={`storybook storybook-preview theme-${worldId}`}
+            heroName={hero.name.trim() || t.common.fallbackHeroName}
+            title={bookTitle}
+            coverImageUrl={coverSrc}
+            coverCarriesItsOwnType={hasRenderedPreview(draft.preview)}
+            worldId={worldId}
+            /* The book opens, the way the one on the home page does. Its story is still behind
+               the till, so what is behind the cover is the blank paper the press would bind. */
+            frontMatter={BLANK_OPENING}
+            pages={NO_PAGES}
+            isUnlocked={false}
+            interactive
+          />
 
           {/*
             The world painting used to sit here, on the reasoning that a cover alone is not a
