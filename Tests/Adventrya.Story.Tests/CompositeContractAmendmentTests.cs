@@ -279,7 +279,7 @@ public class CompositeContractAmendmentTests : CompositePipelineTestBase
 
     [Fact]
     public void The_scenario_prompt_version_is_bumped_for_the_amendment() =>
-        Assert.Equal("visual-scenario-v2.6", CompositeVisualScenarioPrompt.Version);
+        Assert.Equal("visual-scenario-v2.7", CompositeVisualScenarioPrompt.Version);
 
     /// <summary>
     /// The request schema carries the same rule the supplied file states as a pattern — in words,
@@ -398,7 +398,7 @@ public class CompositeContractAmendmentTests : CompositePipelineTestBase
 
     [Fact]
     public void The_story_prompt_version_is_bumped_for_the_amendment() =>
-        Assert.Equal("composite-v1.3", MasterStoryPromptComposite.Version);
+        Assert.Equal("composite-v1.4", MasterStoryPromptComposite.Version);
 
     // ===========================================================================================
     // v1.2 / the observed defect of 2026-09-01 — the child's name

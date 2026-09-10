@@ -34,6 +34,7 @@ public sealed record CompositeStoryInput
 
     /// <summary>The title already printed on the purchased preview, when one exists.</summary>
     public string? LockedBookTitle { get; init; }
+    public Guid? VariationId { get; init; }
 
     /// <summary>The boundary's output, narrowed to what a story call may see.</summary>
     public static CompositeStoryInput From(NormalizedBookInput input)
@@ -147,9 +148,10 @@ public static class MasterStoryPromptComposite
     /// name put in front of the title the model wrote — is what makes it true whatever the model
     /// does, exactly as the restore does for a misspelling.
     ///
-    /// Nothing else moved.
+    /// v1.4 frees the plot from fixed beats and preview decorations, and makes the writer own
+    /// supporting character designs. A per-book variation token keeps independent requests distinct.
     /// </summary>
-    public const string Version = "composite-v1.3";
+    public const string Version = "composite-v1.4";
 
     public static string System(CompositeStoryInput input)
     {
@@ -160,15 +162,13 @@ public static class MasterStoryPromptComposite
 
             The book must contain exactly {input.SpreadCount} story spreads.
 
-            Use this narrative rhythm:
-            1. Enter / setup
-            2. Discovery
-            3. Action
-            4. Complication
-            5. Journey or clue
-            6. Major reveal
-            7. Emotional resolution
-            8. Satisfying ending with a small hint that another adventure could follow
+            Invent an original adventure for this independent book. Choose its own premise, central goal,
+            surprise, emotional arc, supporting characters and ending. Shape the eight spreads around
+            that adventure instead of filling a fixed sequence of story beats. Different books in the
+            same theme should feel like different adventures, not renamed versions of one story.
+            The preview cover is only an introduction to the theme; its decoration does not prescribe
+            this story's plot, objects, characters or scene compositions. Only the child's appearance
+            and the approved Beki design stay consistent across the cover and this book's pages.
 
             Make the child the main hero.
 
@@ -220,6 +220,12 @@ public static class MasterStoryPromptComposite
             description. Any supporting character who appears in two or more spreads must be one of
             them, with an id: a character named in two spreads and described in neither is drawn as
             two different characters.
+            Invent these supporting characters for THIS book only, including their names and visual designs.
+            In each visualDescription specify species or object kind, silhouette, body proportions,
+            face and mouth shape, eye colour, base colours, limb or point count where applicable,
+            distinctive markings and clothing. These descriptions are the authoritative designs for
+            the illustrator. Keep each design identical across this book's spreads; do not reuse a
+            default star, dinosaur, animal or other mascot design across unrelated books.
 
             Create only as many recurring story objects as the story needs - only IMPORTANT objects
             appearing meaningfully in two or more spreads. Ids must be obj_01, obj_02, etc. Provide
@@ -316,9 +322,9 @@ public static class MasterStoryPromptComposite
             will be sent to the image model twice over.
 
             You are never told what the child looks like, and you never write it down. No face, no
-            hair, no eyes, no skin, no build, no clothing belongs anywhere in this plan. The child's
+            hair, no eyes, no skin, no build, no clothing for the child belongs anywhere in this plan. The child's
             likeness comes from a photograph that this call does not receive, and a written guess at
-            it would contradict the pictures.
+            it would contradict the pictures. Supporting cast still need the concrete visual designs specified above.
 
             Return valid JSON only.
             """;
@@ -348,8 +354,10 @@ public static class MasterStoryPromptComposite
         {
             text.AppendLine();
             text.AppendLine($"Approved book title (copy exactly): {input.LockedBookTitle}");
-            text.AppendLine("Build the story around the adventure suggested by this title. The title is already on the purchased cover; do not replace it with a different title.");
+            text.AppendLine("This is the book's broad thematic label, not a plot outline. Keep the title but freely invent a new adventure within the selected theme; do not force literal title objects or the preview cover's decorations into every spread.");
         }
+        if (input.VariationId is { } variationId)
+            text.AppendLine($"Independent book variation token: {variationId:N}. Use a fresh creative approach; never print or mention this token in the story.");
 
         /*
           Nothing follows. v6's User continues with the Extra Wish, the appearance description read

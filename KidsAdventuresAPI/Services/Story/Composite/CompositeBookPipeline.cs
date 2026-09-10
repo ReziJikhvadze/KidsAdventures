@@ -1318,7 +1318,7 @@ public sealed class CompositeBookPipeline(
 
         var planned = adoptedScenario is { } already
             ? (already.Scenario, already.Json, PoseAudit: (CompositePoseAudit?)null, RetrySpent: false)
-            : await PlanVisualScenarioAsync(context, input, theme, boundary, cancellationToken, previewCover);
+            : await PlanVisualScenarioAsync(context, input, theme, boundary, cancellationToken, previewCover, plan);
 
         var (scenario, scenarioJson) = (planned.Scenario, planned.Json);
 
@@ -1405,7 +1405,7 @@ public sealed class CompositeBookPipeline(
         var pages = _options.TestingFlow
             ? scenario.Spreads!.Take(BekiOptions.TestingSpreadCount).ToList()
             : scenario.Spreads!;
-        var continuity = new CompositeContinuity(pages, visualLock.RecurringElements);
+        var continuity = new CompositeContinuity(pages, visualLock.RecurringElements, plan);
 
         // Validated as exactly eight, numbered 1 to 8 in order, so the first entry is spread one —
         // the page that produces the anchor and therefore the page that cannot be drawn beside any
@@ -1575,8 +1575,7 @@ public sealed class CompositeBookPipeline(
               tells the model to copy the named elements from the attached picture: hand it a
               composite and the thing it is being shown is Beki.
             */
-            var elements = CompositeIllustrationPrompt.ElementsFor(
-                visualLock.RecurringElements, page.ChildWorldScene, page.Props).Required;
+            var elements = continuity.ElementsFor(page.Page);
 
             if (resume.BaseImages.TryGetValue(page.Page, out var storedBase)
                 && storedBase.Length > 0)
@@ -1808,12 +1807,12 @@ public sealed class CompositeBookPipeline(
             throw new InvalidOperationException(string.Join(" ", normalized.Problems));
         var input = normalized.Story!;
         var theme = CompositeThemeReferences.For(input.ThemeId);
-        var prompt = FastPreviewPlan.Prompt(input.ChildAge, input.ChildGender, theme.Id);
+        var prompt = FastPreviewPlan.Prompt(input.ChildAge, input.ChildGender, theme.Id, context.JobId);
         // Validate the approved pose before buying the one image. No creative retry or AI reviewer.
         var selection = BekiPoseSelector.Select(_engine.Value.Registry, "Beki welcomes the child with an inviting wave.");
         var watch = Stopwatch.StartNew();
         var generated = await openAi.GeneratePreviewCoverImageAsync(prompt,
-            References(photo, "image/png", theme, null, null)!, cancellationToken,
+            new StoryImageReference { CharacterAnchorBytes = photo }, cancellationToken,
             _options.CoverWrapImageSize, _options.CoverImageQuality);
         var dimensions = GeneratedStoryImage.MeasurePixels(generated.Png);
         var ratio = dimensions.Height > 0 ? (double)dimensions.Width / dimensions.Height : 0;
@@ -1901,7 +1900,7 @@ public sealed class CompositeBookPipeline(
         }
 
         var planned = await PlanVisualScenarioAsync(
-            context, input, theme, boundaryResult.Boundary!, cancellationToken);
+            context, input, theme, boundaryResult.Boundary!, cancellationToken, story: story);
 
         return new CompositeScenarioPlan(planned.Scenario, planned.Json);
     }
@@ -2282,7 +2281,7 @@ public sealed class CompositeBookPipeline(
     private async Task<MasterStory> WriteStoryAsync(
         CompositeBookContext context, NormalizedBookInput input, CancellationToken cancellationToken)
     {
-        var storyInput = CompositeStoryInput.From(input) with { LockedBookTitle = context.LockedBookTitle };
+        var storyInput = CompositeStoryInput.From(input) with { LockedBookTitle = context.LockedBookTitle, VariationId = context.JobId };
 
         var plan = RestoreChildName(
             context,
@@ -2549,12 +2548,15 @@ public sealed class CompositeBookPipeline(
         CompositeThemeReference theme,
         StoryBoundaryOutput boundary,
         CancellationToken cancellationToken,
-        VisualScenarioV2? previewCover = null)
+        VisualScenarioV2? previewCover = null,
+        MasterStory? story = null)
     {
-        var inputJson = CompositeVisualScenarioPrompt.InputJson(input, theme, boundary);
+        var inputJson = CompositeVisualScenarioPrompt.InputJson(input, theme, boundary)
+            + CompositeStoryCharacters.PlannerInput(story);
         if (previewCover is not null)
             inputJson += "\nThe parent already saw this cover. Preserve its cover fields and child outfit "
-                + "exactly while analyzing the supporting cast and planning all story spreads:\n"
+                + "exactly for cover reuse. Its scenery and decorations are thematic only: they do not "
+                + "dictate the story spreads, props, locations or supporting cast. Plan those from the story:\n"
                 + CompositePreviewCoverPlan.Create(previewCover).Json;
         var model = VisualScenarioModel;
 
@@ -3143,7 +3145,7 @@ public sealed class CompositeBookPipeline(
         // scenario planned before v2.2 falls back to the fuzzy scene matching inside.
         var elementPlan = CompositeIllustrationPrompt.ElementsFor(
             visualLock.RecurringElements, page.ChildWorldScene, page.Props);
-        var elements = elementPlan.Required;
+        var elements = continuity.ElementsFor(page.Page);
 
         // The scheduler has finished every needed first appearance. Reuse the same source bytes
         // on every page, including every recurring character present in this scene.
@@ -3159,6 +3161,7 @@ public sealed class CompositeBookPipeline(
             ChildWorldScene = page.ChildWorldScene!,
             ChildOutfit = visualLock.ChildOutfit!,
             RecurringElements = elementPlan.Annotated,
+            StoryCharacterDesigns = continuity.StoryCharactersFor(page.Page),
             ForbiddenElements = elementPlan.Forbidden,
             ContinuityReferenceElements = references.Select(reference => reference.ElementNames).ToList(),
             IdentitySpec = identity,
@@ -4828,20 +4831,28 @@ public sealed class CompositeBookPipeline(
     {
         private readonly Dictionary<string, int> _sourceByElement = new(StringComparer.Ordinal);
         private readonly Dictionary<int, IReadOnlyList<string>> _elementsByPage = new();
+        private readonly Dictionary<int, IReadOnlyList<string>> _storyCharactersByPage = new();
         private readonly Dictionary<int, byte[]> _images = new();
         private readonly object _gate = new();
 
-        public CompositeContinuity(IReadOnlyList<VisualScenarioSpread> pages, IReadOnlyList<string>? recurring)
+        public CompositeContinuity(IReadOnlyList<VisualScenarioSpread> pages, IReadOnlyList<string>? recurring, MasterStory story)
         {
             foreach (var page in pages.OrderBy(page => page.Page))
             {
+                var characters = CompositeStoryCharacters.ForPage(story, page.Page);
+                _storyCharactersByPage[page.Page] = characters;
                 var elements = CompositeIllustrationPrompt.ElementsFor(
-                    recurring, page.ChildWorldScene, page.Props).Required;
+                    recurring, page.ChildWorldScene, page.Props).Required
+                    .Concat(characters).Distinct(StringComparer.Ordinal).ToList();
                 _elementsByPage[page.Page] = elements;
                 foreach (var element in elements)
                     _sourceByElement.TryAdd(element, page.Page);
             }
         }
+
+        public IReadOnlyList<string> ElementsFor(int page) => _elementsByPage[page];
+
+        public IReadOnlyList<string> StoryCharactersFor(int page) => _storyCharactersByPage[page];
 
         public bool IsSource(int page) => _sourceByElement.ContainsValue(page);
 

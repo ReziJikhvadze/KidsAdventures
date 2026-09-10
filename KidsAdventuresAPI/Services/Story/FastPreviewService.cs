@@ -96,7 +96,7 @@ public sealed class FastPreviewService(
         await Put(FastPreviewPlan.IntroName(run.Id), intro.Bytes, intro.ContentType, ct);
         var revision = new FastPreviewRevision(run.Id, Guid.NewGuid(), theme, title, FastPreviewPlan.Sha(photo),
             FastPreviewPlan.Sha(wrap.CompositePng), FastPreviewPlan.Sha(wrap.BasePng), FastPreviewPlan.Version,
-            reusedRevision?.PromptSha256 ?? FastPreviewPlan.Sha(Encoding.UTF8.GetBytes(FastPreviewPlan.Prompt(run.Age, normalized.Story.ChildGender, theme))),
+            reusedRevision?.PromptSha256 ?? FastPreviewPlan.Sha(Encoding.UTF8.GetBytes(FastPreviewPlan.Prompt(run.Age, normalized.Story.ChildGender, theme, run.Id))),
             FastPreviewPlan.Model, scenario.Json, layout, FastPreviewPlan.Sha(coverPdf),
             FastPreviewPlan.Sha(front.Bytes), FastPreviewPlan.Sha(intro.Bytes), frontUrl);
         await Put(FastPreviewPlan.ReceiptName(run.Id), JsonSerializer.SerializeToUtf8Bytes(revision), "application/json", ct);

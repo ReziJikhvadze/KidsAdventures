@@ -241,6 +241,9 @@ public sealed record CompositeSpreadPromptInput
     /// <summary>Only the recurring elements this page needs — see <see cref="CompositeIllustrationPrompt.ElementsFor"/>.</summary>
     public IReadOnlyList<string> RecurringElements { get; init; } = [];
 
+    /// <summary>Exact designs from this book's story writer for characters visible on this spread.</summary>
+    public IReadOnlyList<string> StoryCharacterDesigns { get; init; } = [];
+
     /// <summary>
     /// Full prohibition sentences for elements whose prop state bans them from this page — the
     /// object before its discovery, the object after it was left behind. Appended to the hard
@@ -460,7 +463,7 @@ public static class CompositeIllustrationPrompt
     /// shape to draw. The prompt is the whole of the change: no detector, no review, no redraw —
     /// the owner asked for the simplest instruction that moves the hero out of Beki's spot.
     /// </summary>
-    public const string Version = "child-world-image-v1.9";
+    public const string Version = "child-world-image-v2.0";
 
     /// <summary>
     /// The cover base template's version. A different document, a different version.
@@ -542,6 +545,8 @@ public static class CompositeIllustrationPrompt
             RECURRING ELEMENTS REQUIRED ON THIS IMAGE
             {RecurringBlock(input.RecurringElements)}
 
+            {StoryCharacterBlock(input.StoryCharacterDesigns)}
+
             COMPOSITION
             {shot}
             Obey that camera distance and framing exactly; do not default to a medium shot, and keep the page's main story subject fully inside the frame.
@@ -563,6 +568,16 @@ public static class CompositeIllustrationPrompt
             {(input.InsertBekiInGeneration ? BekiIdentity.GenerationFinalCheck : string.Empty)}
             """;
     }
+
+    private static string StoryCharacterBlock(IReadOnlyList<string> designs) => designs.Count == 0
+        ? string.Empty
+        : "AUTHORITATIVE STORY CHARACTER DESIGNS FOR THIS SPREAD\n"
+            + "These are the story writer's designs for this book only. Preserve species, silhouette, "
+            + "proportions, face, mouth, eye colour, limb count, markings and clothing. They take precedence "
+            + "over incidental visual paraphrases in the scene or recurring elements. Match their established "
+            + "appearance in the attached character references. Do not invent replacements or add characters "
+            + "from the cover. Character IDs and names are reference labels, never lettering.\n"
+            + string.Join("\n", designs);
 
     private static string ForbiddenElementLines(IReadOnlyList<string> lines) =>
         lines.Count == 0
@@ -999,6 +1014,7 @@ public static class CompositeIllustrationPrompt
         $"approved {theme.OfficialName} world/style reference. Use its world vocabulary, "
         + "palette, atmosphere, material treatment, and premium stylized 3D rendering language: "
         + $"{theme.VisualDirection.Trim()} "
+        + "Use this reference for rendering style only, never for character designs or mandatory props. "
         + (forCover
             ? "Create a new cover composition."
             : "Create a new composition; do not copy the reference composition.");
@@ -1020,14 +1036,14 @@ public static class CompositeIllustrationPrompt
     /// to match it will otherwise redraw it whole.
     /// </summary>
     public const string AnchorInstruction =
-        "child appearance anchor - the accepted first spread of this same book. Reproduce this "
+        "child appearance anchor - the accepted cover or first spread of this same book. Reproduce this "
         + "exact rendered child: same face and face shape, same hair colour and style, same "
         + "eyebrows, same glasses or absence of glasses, same eye colour, same skin tone, same "
         + "outfit down to its colours, collar, sleeves, shoes and accessories, and identical body "
         + "proportions and apparent age. Ignore other depictions of the child in world or recurring "
         + "character references; this single anchor controls the rendered design. Give the child a new pose, camera angle and background as "
         + "this page's scene requires. Do not copy the pose, camera, layout, lighting or "
-        + "background from this image.";
+        + "background from this image. Cover decorations, props and other characters do not dictate this story scene.";
 
     /// <summary>
     /// The outfit clause the anchored spreads add.
@@ -1238,7 +1254,7 @@ public static class CompositeVisualScenarioPrompt
     /// existing PROP_STATE reviewer reads — no new enum, no new field, nothing downstream to
     /// migrate.
     /// </summary>
-    public const string Version = "visual-scenario-v2.6";
+    public const string Version = "visual-scenario-v2.7";
 
     /// <summary>The schema name recorded against the call. The file itself is the response schema.</summary>
     public const string SchemaName = "visual_scenario_v2";
@@ -1311,7 +1327,12 @@ public static class CompositeVisualScenarioPrompt
     /// position — and this only narrows the verb, so it has to be read after the rules it narrows.
     /// </summary>
     public static string SystemInstruction { get; } =
-        System + "\n\n" + CompositePoseVocabulary.PromptBlock();
+        System + "\n\n" + CompositePoseVocabulary.PromptBlock()
+        + "\n\nWhen authoritative supporting character designs from the story writer are supplied, "
+        + "preserve them instead of designing those characters again. They apply only to this book. "
+        + "A previously approved preview cover is thematic artwork, not a plot outline: preserve it "
+        + "for cover reuse and preserve the child outfit, but derive every spread, location, supporting "
+        + "character and prop from the story. Do not force cover decorations into the story.";
 
     /// <summary>
     /// The contract's exact system instruction. Every line of it is load-bearing; the two that

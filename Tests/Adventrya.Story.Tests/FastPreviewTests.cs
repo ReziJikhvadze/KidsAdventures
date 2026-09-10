@@ -42,6 +42,7 @@ public sealed class FastPreviewTests(ITestOutputHelper output) : CompositePipeli
     public void Existing_previews_and_legacy_titles_remain_usable()
     {
         Assert.True(FastPreviewPlan.IsFast(new MasterStoryRun { PromptVersion = "preview-v1" }));
+        Assert.True(FastPreviewPlan.IsFast(new MasterStoryRun { PromptVersion = "preview-v2" }));
         Assert.True(FastPreviewPlan.IsFast(new MasterStoryRun { PromptVersion = FastPreviewPlan.Version }));
         Assert.False(FastPreviewPlan.IsFast(new MasterStoryRun { PromptVersion = "v6" }));
         Assert.Equal("ანი და დინოზავრების ხეობა",
@@ -63,7 +64,7 @@ public sealed class FastPreviewTests(ITestOutputHelper output) : CompositePipeli
         var input = CompositeStoryInputFixture() with { LockedBookTitle = "ნინა და იდუმალი ნაკვალევი" };
         Assert.Contains("Approved book title (copy exactly): ნინა და იდუმალი ნაკვალევი",
             MasterStoryPromptComposite.User(input));
-        Assert.Contains("Build the story around the adventure suggested by this title", MasterStoryPromptComposite.User(input));
+        Assert.Contains("broad thematic label, not a plot outline", MasterStoryPromptComposite.User(input));
     }
 
     [Fact]
@@ -112,10 +113,25 @@ public sealed class FastPreviewTests(ITestOutputHelper output) : CompositePipeli
         var images = new StubImageService { NextImage = Png(1200, 576) };
         var wrap = await Pipeline(text, images).DrawFastPreviewCoverAsync(Context(), Photo(), CancellationToken.None);
         Assert.Equal(1, images.ImageCalls);
+        Assert.Equal(1, Assert.Single(images.ReferenceCounts));
         Assert.Equal(0, images.IdentityCalls);
         Assert.Equal(0, text.Calls);
         Assert.NotEmpty(wrap.CompositePng);
         Assert.Contains(FastPreviewPlan.Version, wrap.GenerationReceiptJson);
+    }
+
+    [Fact]
+    public void Independent_books_have_different_creative_inputs_without_extra_preview_calls()
+    {
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        Assert.NotEqual(FastPreviewPlan.Prompt(5, "girl", "dinosaurs", first),
+            FastPreviewPlan.Prompt(5, "girl", "dinosaurs", second));
+        var input = CompositeStoryInputFixture();
+        Assert.NotEqual(MasterStoryPromptComposite.User(input with { VariationId = first }),
+            MasterStoryPromptComposite.User(input with { VariationId = second }));
+        Assert.Contains("does not prescribe", MasterStoryPromptComposite.System(input));
+        Assert.DoesNotContain("yellow sweater", FastPreviewPlan.Prompt(5, "girl", "dinosaurs", first));
     }
 
     [Fact]

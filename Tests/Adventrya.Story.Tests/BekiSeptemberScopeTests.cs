@@ -44,9 +44,9 @@ public class BekiSeptemberScopeTests
     public void Website_QR_and_cover_prompt_versions_are_explicit()
     {
         Assert.Equal("https://beki.ge", BekiOptions.WebsiteQrDestination);
-        Assert.Equal("visual-scenario-v2.6", CompositeVisualScenarioPrompt.Version);
+        Assert.Equal("visual-scenario-v2.7", CompositeVisualScenarioPrompt.Version);
         Assert.Equal("cover-child-world-v1.6", CompositeIllustrationPrompt.CoverVersion);
-        Assert.Equal("composite-v1.3", MasterStoryPromptComposite.Version);
+        Assert.Equal("composite-v1.4", MasterStoryPromptComposite.Version);
     }
 
     [Fact]

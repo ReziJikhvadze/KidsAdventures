@@ -120,7 +120,7 @@ public sealed record StoryCastMember
 
     public string Name { get; init; } = string.Empty;
 
-    /// <summary>One short, concrete sentence. Used verbatim on the character's first appearance.</summary>
+    /// <summary>The story writer's visual design. Carried verbatim into every relevant composite spread.</summary>
     public string VisualDescription { get; init; } = string.Empty;
 }
 

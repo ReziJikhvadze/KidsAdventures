@@ -247,9 +247,10 @@ public static class CompositeStorySchema
                             ["id"] = Text("char_01, char_02, … Stable for the whole book."),
                             ["name"] = Text("The character's name as the story says it."),
                             ["visualDescription"] = Text(
-                                "ENGLISH ONLY. One short, concrete sentence an illustrator can draw "
-                                + "from: species or kind, colour, size, one distinguishing feature. "
-                                + "No personality, no backstory.")
+                                "ENGLISH ONLY. The authoritative visual design invented for THIS book: "
+                                + "species or object kind, silhouette, body proportions, face and mouth shape, "
+                                + "eye colour, base colours, limb or point count where applicable, markings and clothing. "
+                                + "Be concise and concrete. No personality or backstory. Preserve this exact design on all appearances.")
                         }
                     }
                 },

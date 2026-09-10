@@ -507,8 +507,9 @@ public class CompositeContractsTests
         var system = MasterStoryPromptComposite.System(input);
         var user = MasterStoryPromptComposite.User(input);
 
-        Assert.DoesNotContain("eye colour", system, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("eye color", system, StringComparison.OrdinalIgnoreCase);
+        // Supporting cast designs include eye colour; the child's appearance is still excluded.
+        Assert.Contains("You are never told what the child looks like, and you never write it down", system);
+        Assert.Contains("The child's\nlikeness comes from a photograph", system);
         Assert.DoesNotContain("characterLock", system);
         Assert.DoesNotContain("eye colour", user, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("appearance", user, StringComparison.OrdinalIgnoreCase);

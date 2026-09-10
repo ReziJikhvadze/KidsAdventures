@@ -520,7 +520,7 @@ public class CompositePoseVocabularyTests
         // And it must not undo the contract's own variety rule by inviting one family everywhere.
         Assert.Contains("do not reuse one family for the whole book", instruction);
 
-        Assert.Equal("visual-scenario-v2.6", CompositeVisualScenarioPrompt.Version);
+        Assert.Equal("visual-scenario-v2.7", CompositeVisualScenarioPrompt.Version);
     }
 
     // ---------------------------------------------------------------------------------------
@@ -894,7 +894,7 @@ public class CompositeGeorgianAndShotNoteTests
             + "for a final 15:7 crop.", prompt);
         Assert.DoesNotContain("two-page", prompt);
 
-        Assert.Equal("child-world-image-v1.9", CompositeIllustrationPrompt.Version);
+        Assert.Equal("child-world-image-v2.0", CompositeIllustrationPrompt.Version);
     }
 
     /// <summary>

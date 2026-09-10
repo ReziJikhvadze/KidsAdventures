@@ -91,3 +91,21 @@ Validate with `story_boundary_v1.schema.json`. Provider-specific fields may exis
 - (v1.1) The copy tracks an important object's state, luminosity included, from the page that introduces it to the last page it appears on.
 - (v1.2) The child's name is reproduced exactly, letter for letter, everywhere it appears — title and every spread. Case endings may follow it; its own letters never change. Checked deterministically by `GeorgianNameFidelity`; `name_fidelity` is a blocker by default.
 - (v1.3) The title of a printed BEKI book always contains that name, in the nominative and ideally first, followed by the story's own title, in three to seven words. Checked by `GeorgianNameFidelity.Inspect(…, requireNameInTitle: true)` on the composite and print paths only; after one corrective retry the name is written into the title deterministically rather than the book being refused.
+
+
+## 2026-09-10 — independent books and writer-owned cast
+
+`composite-v1.4` lets the story writer invent the premise, structure and supporting cast per book.
+The pinned preview title is a broad thematic label, not a fixed plot. Cover scenery and decorations
+must not prescribe spread locations, props or supporting characters. The child and Beki remain consistent.
+
+The Georgian `StoryBoundary` JSON remains unchanged. The paid pipeline separately supplies the story
+writer's `cast.visualDescription` and `spreads.characters` to the visual planner, and carries each
+visible character's exact design into its spread image prompt. First-appearance image references
+remain immutable and scoped to this book, including after recovery. No cross-book character cache exists.
+
+`preview-v3` uses one image call with only the original child photo: the model invents the themed
+composition, outfit and prominent bright foreground details. The approved Beki PNG is composited
+locally. This adds no story, cast or review call to preview. Existing v1/v2 previews retain their
+saved titles and artwork; new behavior applies to newly generated content. Five local title choices
+per theme remain to avoid adding a title-generation call to preview. The text reviewer stays off by default.

@@ -329,7 +329,7 @@ public sealed class MasterBookService(
             if (compositeStoryInput is not null && FastPreviewPlan.IsFast(run))
             {
                 var revision = await fastPreview!.ReadAsync(run.Id, jobToken);
-                compositeStoryInput = compositeStoryInput with { LockedBookTitle = revision.Title };
+                compositeStoryInput = compositeStoryInput with { LockedBookTitle = revision.Title, VariationId = run.Id };
             }
 
             if (bekiOptions.Value.CompositePipelineEnabled && !portraitParked)
@@ -766,7 +766,7 @@ public sealed class MasterBookService(
             return null;
         }
 
-        return CompositeStoryInput.From(normalized.Story!) with { SpreadCount = input.SpreadCount };
+        return CompositeStoryInput.From(normalized.Story!) with { SpreadCount = input.SpreadCount, VariationId = runId };
     }
 
     /// <summary>

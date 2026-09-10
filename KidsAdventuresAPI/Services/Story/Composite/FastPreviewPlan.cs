@@ -5,13 +5,13 @@ using AdventurePacks.Api.Domain.Story;
 
 namespace AdventurePacks.Api.Services.Story.Composite;
 
-/// <summary>A deterministic cover brief, never a story or a supporting-cast plan.</summary>
+/// <summary>A fast thematic cover prompt, never a story or a supporting-cast plan.</summary>
 public static class FastPreviewPlan
 {
     // Persisted in MasterStoryRuns.PromptVersion (NVARCHAR(10)).
-    public const string Version = "preview-v2";
+    public const string Version = "preview-v3";
     public const string Model = "gpt-image-2.5-flare";
-    public static bool IsFast(MasterStoryRun? run) => run?.PromptVersion is "preview-v1" or Version;
+    public static bool IsFast(MasterStoryRun? run) => run?.PromptVersion is "preview-v1" or "preview-v2" or Version;
     public static string ReceiptName(Guid id) => $"master-runs/{id:N}/preview-revision.json";
     public static string IntroName(Guid id) => $"master-runs/{id:N}/preview-intro.webp";
     public static string CoverPdfName(Guid id) => $"master-runs/{id:N}/preview-cover.pdf";
@@ -44,37 +44,31 @@ public static class FastPreviewPlan
         "dinosaurs" => ["დინოზავრების ხეობა", "პატარა დინოზავრის დიდი დღე", "იდუმალი ნაკვალევი", "ფერადი კვერცხის საიდუმლო", "დინოზავრების მეგობრობის ზეიმი"],
         _ => throw new ArgumentException("Unknown preview theme.")
     };
-    public const string Outfit = "A simple golden-yellow sweater, teal trousers and cream shoes; no logos or head covering.";
+    public const string Outfit = "Match the clothing worn by the child in this book's approved cover image.";
     public static CompositeScenarioPlan Plan(string theme) => CompositePreviewCoverPlan.Create(new VisualScenarioV2
     {
         VisualLock = new VisualLock { ChildOutfit = Outfit, RecurringElements = [] },
         Cover = new VisualScenarioCover
         {
-            FrontChildWorldScene = $"The child explores {CompositeThemeReferences.For(theme).VisualDirection} Include {Details(theme)}.",
+            FrontChildWorldScene = $"The child explores a fresh inviting scene in the {theme} theme with prominent, brightly lit foreground details.",
             BackEnvironment = "The same landscape continues quietly without any characters.",
             BekiAction = "Beki welcomes the child with an inviting wave."
         },
         Spreads = []
     });
-    public static string Details(string theme) => theme switch
-    {
-        "clouds" => "a rounded floating tower, a glowing cloud bridge and a golden rooftop",
-        "space" => "two luminous stars and a softly glowing ringed planet",
-        "forest" => "a glowing flower, a broad luminous leaf and a rounded mossy tree",
-        "ocean" => "a pearly shell, a coral arch and a polished treasure gem",
-        "magic" => "a luminous gateway, a golden lantern and a rounded tower",
-        "dinosaurs" => "a dinosaur footprint, a speckled egg and a giant fern",
-        _ => throw new ArgumentException("Unknown preview theme.")
-    };
-    public static string Prompt(int age, string gender, string theme) => $"""
-        Create a premium continuous full-cover illustration for the selected BEKI theme.
+    public static string Prompt(int age, string gender, string theme, Guid? bookId = null) => $"""
+        Create a visually outstanding continuous full-cover illustration for a new independent BEKI book.
+        Creative variation token: {bookId?.ToString("N") ?? "new-book"}. It is not artwork or readable text.
+        Invent a fresh scene, child action, environment, palette and arrangement of foreground details for this book.
+        This is a thematic cover created before the story exists, not a depiction of a predetermined plot.
         Use the supplied original child photo as the identity reference. Depict the child at numeric age {age}, gender {gender}.
         Preserve the child's likeness, face shape, eyes and hair. The child is the main hero, full body visible with breathing room from hair to shoes.
         {CompositeChildArtStyle.Instruction}
-        Theme: {CompositeThemeReferences.For(theme).VisualDirection}
-        Outfit: {Outfit}
-        Include two or three prominent foreground or midground details: {Details(theme)}.
-        These have clear shapes, attractive materials and strong lighting, suitable for later selective print varnish.
+        Selected theme: {theme}. Let this broad theme inspire an original composition rather than a standard scene template.
+        Invent simple age-appropriate clothing suited to this scene, with no logos or face covering. Do not copy the photo's clothing or pose.
+        Choose a few striking foreground elements yourself, appropriate to your chosen scene. No fixed object checklist.
+        Alongside the child and the reserved Beki area, make these elements prominent, sharply defined, bright and clearly separated.
+        Give them clean silhouettes, attractive materials and strong lighting so individual details can receive high-quality selective print varnish.
         Do not imitate varnish or generate a varnish mask.
         {BekiCoverDieline.PanelInstructions}
         {BekiCoverDieline.ReservedArtworkInstructions}
@@ -82,7 +76,7 @@ public static class FastPreviewPlan
         Leave a natural clear area for a separate Beki PNG on the right, centred at 87% of the full canvas width and 45% of its height,
         occupying 30% of the full canvas height. Keep the child and important details outside that area.
         The back is environment only. Keep faces, hands and important objects away from spine, hinges and folds.
-        The theme reference is for environment and style only: do not copy any character from it.
+        The supplied photo is an identity reference only. Invent the setting; do not reproduce its background or composition.
         Do not draw Beki, a substitute guide, any other character, text, title, logo, QR, frame, print marks or a varnish mask.
         """;
 }
