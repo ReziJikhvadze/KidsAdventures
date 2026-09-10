@@ -109,8 +109,6 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     so the summary never shows a wrapping line the order will not carry.
   */
   const giftWrapMinor = quote?.giftWrapMinor ?? (wantsGiftWrap ? PRICES.giftWrap : 0);
-  /** The copies the price on screen is actually for — the server's count once it has answered. */
-  const quotedCopies = quote?.quantity ?? copies;
   const totalMinor = quote?.totalMinor ?? baseMinor;
   const isFree = quote?.isFree === true || totalMinor === 0;
   const packageLabel = isPrint
@@ -487,90 +485,6 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             </label>
           </div>
         ) : null}
-
-        {/*
-          Five lari, and only where there is a parcel to put it on.
-
-          Under the address rather than beside the price: it is a thing being done to the thing
-          being posted, so it belongs with where it is going. The total it changes is on the
-          right, and it changes as soon as this is ticked — the quote is re-fetched, so the
-          figure the button carries is the server's, not five lari the browser added itself.
-        */}
-        {/*
-          Minus, the number, plus — the control every delivery app in the country has taught a
-          Georgian parent to read, so it needs no label explaining what it does. One by default,
-          because one is what almost everybody wants and a stepper that starts anywhere else is
-          a trap. The ends stop rather than wrap: at one there is nothing to take away, and five
-          is as many copies as this checkout will take.
-        */}
-        {/*
-          Side by side, because they are the same question asked twice.
-
-          Stacked, each in its own box, they read as two more things to get through. On one row
-          the pair is plainly "how should the parcel be made up", and the step costs the column
-          one row instead of two.
-        */}
-        {isPrint ? (
-          <>
-            <p className="ux-checkout-step">{t.journey.checkout.stepParcel}</p>
-            <div className="ux-parcel">
-              <div className="ux-parcel-card">
-                <div>
-                  <strong>{t.journey.checkout.copies}</strong>
-                  <small>{t.journey.checkout.copiesNote}</small>
-                </div>
-                <div className="ux-parcel-foot">
-                  <span>{formatGel(PRICES.print * copies)}</span>
-                  <div className="ux-copies-stepper">
-                    <button
-                      type="button"
-                      aria-label={t.journey.checkout.copiesFewer}
-                      disabled={copies <= 1}
-                      onClick={() => onChange({ quantity: Math.max(1, copies - 1) })}
-                    >
-                      <Minus aria-hidden="true" size={16} />
-                    </button>
-                    <b aria-live="polite">{copies}</b>
-                    <button
-                      type="button"
-                      aria-label={t.journey.checkout.copiesMore}
-                      disabled={copies >= MAX_PRINT_QUANTITY}
-                      onClick={() =>
-                        onChange({ quantity: Math.min(MAX_PRINT_QUANTITY, copies + 1) })
-                      }
-                    >
-                      <Plus aria-hidden="true" size={16} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/*
-                A switch, not a tick — but a real checkbox underneath it.
-
-                The control is drawn as the toggle the design asks for and stays an
-                `input[type=checkbox]`, so the keyboard, the screen reader and the label
-                association all keep working; only its painting changes.
-              */}
-              <label className={`ux-parcel-card ux-gift-wrap${draft.giftWrap ? " is-on" : ""}`}>
-                <div>
-                  <strong>{t.journey.checkout.giftWrap}</strong>
-                  <small>{t.journey.checkout.giftWrapNote}</small>
-                </div>
-                <div className="ux-parcel-foot">
-                  <b>+{formatGel(PRICES.giftWrap)}</b>
-                  <input
-                    type="checkbox"
-                    name="giftWrap"
-                    checked={draft.giftWrap}
-                    onChange={(e) => onChange({ giftWrap: e.target.checked })}
-                  />
-                  <span className="ux-switch" aria-hidden="true" />
-                </div>
-              </label>
-            </div>
-          </>
-        ) : null}
       </div>
 
       <aside className="order-summary ux-order-summary">
@@ -600,14 +514,66 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
 
         <div className="summary-lines">
           <h2>{t.journey.checkout.summaryHeading}</h2>
-          {/* The book on its own. Wrapping is inside `subtotalMinor` — the server prices it as
-              part of the subtotal so a promo can reach it — so printing the subtotal here and
-              the wrapping again below made the lines add up to more than the total under them. */}
-          <span>
-            {packageLabel}
-            {quotedCopies > 1 ? ` × ${quotedCopies}` : ""}
-            <strong>{formatGel(subtotalMinor - giftWrapMinor)}</strong>
-          </span>
+          {/*
+            The two things about the parcel a parent may still change, on the two lines whose
+            prices they move.
+
+            They were a pair of cards at the foot of the form — a column away from the total they
+            change, and each repeating a line the breakdown already carried. Moving them across as
+            cards does not work: measured, the pair asks the rail for about 229px it has not got,
+            and the rail is the one column here that may not gain a scrollbar. So they are not
+            moved but dissolved — each becomes the row it was duplicating, carrying its control
+            where every other row carries its price, at a cost of 58px rather than 229.
+
+            The count on the row is the local one, never the quote's: the stepper is what the
+            parent just pressed, and the quote effect drops the old price the moment it moves, so
+            the figure beside it is always for the number shown.
+
+            The book on its own. Wrapping is inside `subtotalMinor` — the server prices it as part
+            of the subtotal so a promo can reach it — so printing the subtotal here and the
+            wrapping again below made the lines add up to more than the total under them.
+          */}
+          {isPrint ? (
+            <span className="ux-summary-option">
+              <span>
+                <strong>{packageLabel}</strong>
+                <small>{t.journey.checkout.copiesNote}</small>
+              </span>
+              <span className="ux-summary-option-end">
+                {/*
+                  Minus, the number, plus — the control every delivery app in the country has
+                  taught a Georgian parent to read, so it needs no label explaining what it does.
+                  The ends stop rather than wrap: at one there is nothing to take away, and five
+                  is as many copies as this checkout will take.
+                */}
+                <span className="ux-copies-stepper">
+                  <button
+                    type="button"
+                    aria-label={t.journey.checkout.copiesFewer}
+                    disabled={copies <= 1}
+                    onClick={() => onChange({ quantity: Math.max(1, copies - 1) })}
+                  >
+                    <Minus aria-hidden="true" size={16} />
+                  </button>
+                  <b aria-live="polite">{copies}</b>
+                  <button
+                    type="button"
+                    aria-label={t.journey.checkout.copiesMore}
+                    disabled={copies >= MAX_PRINT_QUANTITY}
+                    onClick={() => onChange({ quantity: Math.min(MAX_PRINT_QUANTITY, copies + 1) })}
+                  >
+                    <Plus aria-hidden="true" size={16} />
+                  </button>
+                </span>
+                <strong>{formatGel(subtotalMinor - giftWrapMinor)}</strong>
+              </span>
+            </span>
+          ) : (
+            <span>
+              {packageLabel}
+              <strong>{formatGel(subtotalMinor - giftWrapMinor)}</strong>
+            </span>
+          )}
           <span>
             {t.journey.checkout.bookLanguage} <strong>{langLabel}</strong>
           </span>
@@ -617,10 +583,36 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
               <strong>0 ₾</strong>
             </span>
           ) : null}
-          {giftWrapMinor > 0 ? (
-            <span>
-              {t.journey.checkout.giftWrap} <strong>{formatGel(giftWrapMinor)}</strong>
-            </span>
+          {/*
+            A switch, not a tick — but a real checkbox underneath it.
+
+            The control is drawn as the toggle the design asks for and stays an
+            `input[type=checkbox]` inside its label, so the keyboard, the screen reader and the
+            label association all keep working; only its painting changes.
+
+            The row is here whether or not wrapping is on, because it is now the offer as well
+            as the charge: unticked it reads `+5 ₾` and stays out of the total, ticked it is
+            the price the server itself returned, on the same line as every other price.
+          */}
+          {isPrint ? (
+            <label className={`ux-summary-option ux-gift-wrap${draft.giftWrap ? " is-on" : ""}`}>
+              <span>
+                <strong>{t.journey.checkout.giftWrap}</strong>
+                <small>{t.journey.checkout.giftWrapNote}</small>
+              </span>
+              <span className="ux-summary-option-end">
+                <input
+                  type="checkbox"
+                  name="giftWrap"
+                  checked={draft.giftWrap}
+                  onChange={(e) => onChange({ giftWrap: e.target.checked })}
+                />
+                <span className="ux-switch" aria-hidden="true" />
+                <strong>
+                  {giftWrapMinor > 0 ? formatGel(giftWrapMinor) : `+${formatGel(PRICES.giftWrap)}`}
+                </strong>
+              </span>
+            </label>
           ) : null}
           {discountMinor > 0 ? (
             <span className="ux-discount-line">
