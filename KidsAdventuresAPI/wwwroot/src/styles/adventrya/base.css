@@ -79,8 +79,9 @@ body {
   `overflow-y` at `visible`, so the document scrolls vertically exactly as it did.
 
   It does not fight the world selector. That screen's map is deliberately wider than the window —
-  `.desktop-frame` is up to `100svh * 1.45 * 1.776833` — and it is already clipped by the
-  `.art-stage` it sits in, well below this, so nothing here changes what it draws. What this
+  `.desktop-frame` covers, and on a tall window it runs up to `100vw * 1.0638` — and it is
+  already clipped by the `.art-stage` it sits in, well below this, so nothing here changes what
+  it draws. What this
   catches is the other kind: a decorative circle or a grid track that turns out wider than the
   page on some window nobody measured. Trimming it is a backstop and not a fix — an element that
   reaches this rule is still content the reader cannot see — so the layouts underneath are sized

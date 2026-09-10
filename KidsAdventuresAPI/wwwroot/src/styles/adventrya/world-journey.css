@@ -541,6 +541,12 @@
 .journey-selector .mobile-frame {
   width: 100%;
   --crop-band: 0px;
+  /*
+    And the other half of it. The bottom row of cards reads `--crop-band-bottom` with
+    `--crop-band` only as its fallback, so zeroing one of the two left the other still computing
+    a band off `100svh` — a card lifted here by a crop this embed does not perform.
+  */
+  --crop-band-bottom: 0px;
 }
 
 /* ---- the book still being written ---------------------------------------- */
