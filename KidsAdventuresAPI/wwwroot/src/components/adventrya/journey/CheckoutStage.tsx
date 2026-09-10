@@ -586,9 +586,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
       <LocationPickerDialog
         open={pickingLocation}
         onOpenChange={setPickingLocation}
-        onChoose={({ address, city }) =>
-          updateShipping(city ? { addressLine1: address, city } : { addressLine1: address })
-        }
+        onChoose={({ address, city }) => updateShipping({ addressLine1: address, city })}
       />
       <div className="checkout-form">
         <p className="eyebrow">
@@ -725,10 +723,8 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
               label={t.journey.checkout.shippingAddress}
               placeholder={t.journey.checkout.addressPlaceholder}
               value={draft.shipping.addressLine1}
-              onChange={(addressLine1) => updateShipping({ addressLine1 })}
-              onChoose={({ address, city }) =>
-                updateShipping(city ? { addressLine1: address, city } : { addressLine1: address })
-              }
+              onChange={(addressLine1) => updateShipping({ addressLine1, city: "" })}
+              onChoose={({ address, city }) => updateShipping({ addressLine1: address, city })}
               onPickOnMap={() => setPickingLocation(true)}
               invalid={Boolean(fieldErrors.addressLine1)}
               describedBy={fieldErrors.addressLine1 ? "checkout-ship-address-error" : undefined}

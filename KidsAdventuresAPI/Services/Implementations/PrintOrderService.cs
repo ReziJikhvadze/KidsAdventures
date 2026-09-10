@@ -171,15 +171,28 @@ public sealed class PrintOrderService(
         SaveAddressRequest request,
         CancellationToken cancellationToken)
     {
+        var saved0 = await addressRepository.GetByUserIdAsync(userId, cancellationToken);
+
         var existing = request.Id is { } id
-            ? (await addressRepository.GetByUserIdAsync(userId, cancellationToken))
-                .FirstOrDefault(address => address.Id == id)
+            ? saved0.FirstOrDefault(address => address.Id == id)
             : null;
 
         if (request.Id is not null && existing is null)
         {
             throw new KeyNotFoundException("მისამართი ვერ მოიძებნა.");
         }
+
+        /*
+          The same address, kept once.
+
+          Every paid parcel saves the address it was posted to, and nothing was looking for one
+          already on file: a parent ordering a third book to their own house had three identical
+          rows to choose between at the next checkout. Matched on the three fields that make an
+          address the same address to a courier - who it is for, the number to ring, and the line
+          the parcel is labelled with - so a second child at the same house, or the same house
+          under a new number, is still a new address and not a silent overwrite.
+        */
+        existing ??= saved0.FirstOrDefault(address => IsSameAddress(address, request));
 
         var saved = await addressRepository.UpsertAsync(
             new UserAddress
@@ -598,6 +611,24 @@ public sealed class PrintOrderService(
 
     private static string BookTitleOrFallback(string? title) =>
         string.IsNullOrWhiteSpace(title) ? "პერსონალური წიგნი" : title;
+
+    /// <summary>Whether these are the same address to a courier: same person, number and line.</summary>
+    private static bool IsSameAddress(UserAddress address, SaveAddressRequest request) =>
+        Same(address.AddressLine1, request.AddressLine1)
+        && Same(address.RecipientName, request.RecipientName)
+        && Same(address.RecipientPhone, request.RecipientPhone);
+
+    /*
+      Trimmed, case-folded, and with runs of whitespace flattened.
+
+      "Chavchavadze  37" and "chavchavadze 37" are one address that two people typed, and the
+      point of the comparison is to stop the list filling up with those.
+    */
+    private static bool Same(string? left, string? right) =>
+        string.Equals(Squash(left), Squash(right), StringComparison.OrdinalIgnoreCase);
+
+    private static string Squash(string? value) =>
+        string.Join(' ', (value ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
     private static string? Clean(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

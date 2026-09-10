@@ -987,14 +987,13 @@
   position: relative;
   z-index: 2;
 }
+/* The lockup is 720x256, so a height and auto width keep it in proportion wherever it lands. */
 .ux-cover-brand {
   position: absolute !important;
   top: 19px;
   left: 21px;
-  color: var(--story-gold);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
+  width: auto;
+  height: 17px;
 }
 .ux-book-cover > small {
   color: var(--story-gold);

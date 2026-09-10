@@ -9,6 +9,7 @@ import type { OrderStatusResponse } from "@/lib/api/types";
 import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
 import { useT } from "@/lib/i18n";
 import { primaryCharacter, type JourneyDraft } from "@/lib/journey/draft";
+import { BEKI_MARK_WHITE_URL, BRAND_NAME } from "@/lib/brand";
 import { useWorldById, WORLD_COVER_ART, isWorldId, type WorldId } from "@/lib/worlds";
 
 type Props = {
@@ -266,15 +267,6 @@ export function GeneratingStage({ draft, onChange }: Props) {
     >
       <div className="generation-portal">
         <div className="generation-atelier">
-          <div className="generation-atelier-topline">
-            <span>
-              <Sparkles aria-hidden="true" /> BEKI BOOK ATELIER
-            </span>
-            <strong>
-              {t.journey.generating.stageLabel}
-              {Math.min(step + 1, 4)} / 4
-            </strong>
-          </div>
           <div className="generation-paper-trail" aria-hidden="true">
             <i />
             <i />
@@ -287,8 +279,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
               aria-hidden="true"
             />
             <div className="ux-cover-shade" aria-hidden="true" />
-            <span className="ux-cover-brand">BEKI</span>
-            <small>{world.theme}</small>
+            <img className="ux-cover-brand" src={BEKI_MARK_WHITE_URL} alt={BRAND_NAME} />
             <h2>{bookTitle}</h2>
           </article>
           <div className="generation-ring ring-one" aria-hidden="true" />
@@ -317,18 +308,7 @@ export function GeneratingStage({ draft, onChange }: Props) {
           {heroName}
           {t.journey.generating.titleSuffix}
         </h1>
-        <p>
-          {t.journey.generating.companionPrefix}
-          {heroName}
-          {t.journey.generating.companionSuffix}
-        </p>
         <p>{t.journey.generating.leaveNote}</p>
-        <div className="soft-time">
-          <span>
-            <i />
-          </span>
-          {t.journey.generating.softTime}
-        </div>
 
         {/*
           The real number, when the job reports one. A bar that fills on a timer is a promise
@@ -356,14 +336,6 @@ export function GeneratingStage({ draft, onChange }: Props) {
             </li>
           ))}
         </ul>
-        {/*
-          The real stage, then whatever the job itself is saying. Both, because they answer
-          different questions: the first is where the book is, the second is what it is doing.
-        */}
-        {bookStatus && t.journey.generating.statusLine[bookStatus] ? (
-          <p>{t.journey.generating.statusLine[bookStatus]}</p>
-        ) : null}
-        {progress ? <p>{progress}</p> : null}
 
         {/*
           Always offered, not only once the poll has run out.
