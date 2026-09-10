@@ -199,6 +199,34 @@ public class PdfLayoutTests(ITestOutputHelper output)
         Assert.InRange(height, 611.8, 612.8);
     }
 
+    /// <summary>
+    /// The book's headings are set in the licensed display face, at a weight it does not ship.
+    ///
+    /// Both halves matter, and neither was true before. The A5 book took its headings from a third
+    /// face - Noto Serif Georgian SemiBold - that was never chosen so much as inherited, and asked
+    /// it for <c>Bold</c>, which a SemiBold cut absorbs without a word: the call read as an
+    /// instruction and rendered as nothing. A reader met the product in one typography on screen
+    /// and another in the file they downloaded.
+    ///
+    /// <c>/Type3</c> is what proves the weight arrived. Ottia ships Regular alone, so a heavier
+    /// cut can only come from Skia synthesizing one, and a synthesized face is written as Type 3
+    /// glyph procedures rather than an embedded font program. Drop the <c>ExtraBold</c> from
+    /// <see cref="PdfDisplayText.DisplayHeading"/> and this is the assertion that notices - the
+    /// face would still be right and every heading would quietly go back to 400.
+    /// </summary>
+    [Fact]
+    public void Headings_are_set_in_the_licensed_display_face()
+    {
+        var raw = Encoding.Latin1.GetString(Render(GeorgianBook(), cover: PixelPng(), language: "ka"));
+
+        Assert.Contains("Ottia", raw, StringComparison.Ordinal);
+        Assert.Contains("/Type3", raw, StringComparison.Ordinal);
+
+        // The face that used to carry these headings is not registered any more, so it cannot
+        // reach a page even by being asked for by name.
+        Assert.DoesNotContain("NotoSerifGeorgian", raw, StringComparison.Ordinal);
+    }
+
     /// <summary>Writes a sample to disk for eyeballing. Set ADVENTRYA_PDF_DIR to use it.</summary>
     [SkippableFact]
     public void Write_a_sample_for_inspection()

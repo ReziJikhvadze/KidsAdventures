@@ -252,7 +252,7 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
                                 .FontFamily(PdfFontBootstrap.BodyFamily).SemiBold().FontSize(10)
                                 .FontColor(CoverEyebrowColor);
                             column.Item().Text(content.Title)
-                                .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(24).Bold()
+                                .DisplayHeading(24)
                                 .FontColor(CoverTitleColor).LineHeight(1.3f);
                         });
                 });
@@ -270,12 +270,12 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
                         .FontFamily(PdfFontBootstrap.BodyFamily).SemiBold().FontSize(11)
                         .LetterSpacing(0.8f).FontColor(palette.Secondary);
                     column.Item().AlignCenter().Text(content.Title)
-                        .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(28).Bold()
+                        .DisplayHeading(28)
                         .FontColor(palette.Primary).LineHeight(1.15f);
                     column.Item().AlignCenter().PaddingTop(2)
                         .Width(40).Height(2).Background(palette.Accent);
                     column.Item().AlignCenter().Text(strings.Starring(content.ChildName))
-                        .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(16)
+                        .FontFamily(PdfFontBootstrap.BodyFamily).FontSize(16)
                         .FontColor(palette.Accent);
                 });
         });
@@ -496,7 +496,7 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
                         }
 
                         inner.Item().Text(pageContent.Content)
-                            .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(13)
+                            .FontFamily(PdfFontBootstrap.BodyFamily).FontSize(13)
                             .LineHeight(1.8f).FontColor(PaperTextColor).AlignCenter();
                     });
 
@@ -530,7 +530,7 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
                 column.Spacing(8);
 
                 column.Item().Text(pageContent.Title)
-                    .FontFamily(PdfFontBootstrap.DisplayFamily).FontSize(20).Bold()
+                    .DisplayHeading(20)
                     .FontColor(palette.Primary).LineHeight(1.2f);
 
                 if (pageContent.ImageBytes is { Length: > 0 })
@@ -607,7 +607,7 @@ public sealed class AdventurePdfService(IOptions<PrintLayoutOptions> layoutOptio
                     }
 
                     column.Item().AlignCenter().Text(strings.BackTitle)
-                        .FontFamily(PdfFontBootstrap.DisplayFamily).Bold().FontSize(16)
+                        .DisplayHeading(16)
                         .FontColor(BackCoverText);
 
                     column.Item().AlignCenter().Text(strings.BackScan(childName))

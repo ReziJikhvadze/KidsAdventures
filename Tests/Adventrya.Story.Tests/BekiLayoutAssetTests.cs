@@ -91,12 +91,15 @@ public class BekiLayoutAssetTests
     {
         var fontsDirectory = Path.Combine(AppContext.BaseDirectory, "Assets", "Fonts");
 
+        // Four, where the finding counted five: NotoSerifGeorgian-SemiBold was the A5 book's
+        // heading face and is registered nowhere now that both books set their headings in Ottia.
+        // Its registry entry stays — a file that is described and unembedded is the state that is
+        // easy to check, and shortening an approval document to match the code is backwards.
         string[] embedded =
         [
             "NotoSansGeorgian-Regular.ttf",
             "NotoSansGeorgian-SemiBold.ttf",
             "NotoSansGeorgian-Bold.ttf",
-            "NotoSerifGeorgian-SemiBold.ttf",
             "Ottia-v01-Regular.ttf",
         ];
 

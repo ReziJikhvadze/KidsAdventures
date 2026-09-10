@@ -8,8 +8,8 @@ namespace AdventurePacks.Api.Services.Pdf;
 /// Registers the faces QuestPDF uses for storybook text.
 ///
 /// The family names match the web brand aliases (<c>Adventrya Sans</c> /
-/// <c>Adventrya Serif</c>), backed by Noto Georgian rather than Nunito/Fredoka —
-/// those two have no Georgian glyphs, so every PDF would have rendered tofu.
+/// <c>Adventrya Display</c>), backed by Noto Georgian and the licensed Ottia rather than
+/// Nunito/Fredoka — those two have no Georgian glyphs, so every PDF would have rendered tofu.
 ///
 /// A face that fails to register is reported through <see cref="MissingFontFiles"/> or
 /// <see cref="FailedFontFiles"/> rather than throwing: a book must still print if a display face is
@@ -28,11 +28,18 @@ namespace AdventurePacks.Api.Services.Pdf;
 /// because a font nobody approved reaching a printed page is the defect, not the absence of one.
 /// <see cref="Story.BekiAssetLock"/> reads both lists and refuses the book.
 ///
-/// **Two books share this registry, and only one of them has a font whitelist.** The A5 book sets
-/// headings in <see cref="DisplayFamily"/> — Noto Serif Georgian — and keeps doing so. The Beki
-/// interior may use nothing but Noto Sans Georgian Regular and Bold (handoff §6 Step 8, R10), so it
-/// simply never names the serif; the fallback chains inside that composer name the body face and
-/// stop there, which is what keeps a face nobody chose from reaching a printed interior.
+/// **Two books share this registry, and it now embeds two faces.** Noto Sans Georgian is what
+/// either book is read in; Ottia is what either book's headings are set in. The A5 book used to
+/// take its headings from a third, <c>Adventrya Serif</c> — Noto Serif Georgian SemiBold — which
+/// was never a chosen face so much as "not the body one", and which left a reader meeting the
+/// product in two typographies depending on which file they opened. It is gone from here, so a
+/// third face cannot reach a page by being available. The file stays on disk and in the layout
+/// registry with its hash: an approval document is not something to quietly shorten, and a face
+/// that is described and unembedded is the state that is easy to check.
+///
+/// The Beki interior may use nothing but Noto Sans Georgian Regular and Bold (handoff §6 Step 8,
+/// R10); the fallback chains inside that composer name the body face and stop there, which is what
+/// keeps a face nobody chose from reaching a printed interior.
 /// </summary>
 internal static class PdfFontBootstrap
 {
@@ -42,16 +49,8 @@ internal static class PdfFontBootstrap
     public const string BodyFamily = "Adventrya Sans";
 
     /// <summary>
-    /// The A5 book's heading face. Not part of the Beki interior's whitelist and deliberately not
-    /// reachable from it: the Beki composer names <see cref="BodyFamily"/> or
-    /// <see cref="TitleFamily"/> and never this.
-    /// </summary>
-    public const string DisplayFamily = "Adventrya Serif";
-
-    /// <summary>
-    /// The book's own display face, used where type is the picture rather than the reading: the
-    /// cover title. Separate from <see cref="DisplayFamily"/> so a decorative face can be tried,
-    /// changed or dropped without touching the headings that must stay readable.
+    /// The book's own display face: every heading either book sets, and the cover title, where
+    /// type is the picture rather than the reading.
     ///
     /// Registered from the licensed Ottia v0.1 — <c>Ottia-v01-Regular.ttf</c>, the purchased build.
     /// The evaluation-only trial used to be here and reached a sold book; the layout asset registry
@@ -131,7 +130,6 @@ internal static class PdfFontBootstrap
             RegisterWithName(Path.Combine(fontsDir, "NotoSansGeorgian-Regular.ttf"), BodyFamily, registry);
             RegisterWithName(Path.Combine(fontsDir, "NotoSansGeorgian-SemiBold.ttf"), BodyFamily, registry);
             RegisterWithName(Path.Combine(fontsDir, "NotoSansGeorgian-Bold.ttf"), BodyFamily, registry);
-            RegisterWithName(Path.Combine(fontsDir, "NotoSerifGeorgian-SemiBold.ttf"), DisplayFamily, registry);
 
             // Not optional any more. It used to be, on the argument that an absent display face
             // falls through the family chain onto the body face and the book prints "exactly as it
