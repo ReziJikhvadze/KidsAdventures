@@ -2282,7 +2282,7 @@ public sealed class CompositeBookPipeline(
     private async Task<MasterStory> WriteStoryAsync(
         CompositeBookContext context, NormalizedBookInput input, CancellationToken cancellationToken)
     {
-        var storyInput = CompositeStoryInput.From(input);
+        var storyInput = CompositeStoryInput.From(input) with { LockedBookTitle = context.LockedBookTitle };
 
         var plan = RestoreChildName(
             context,

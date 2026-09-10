@@ -460,7 +460,7 @@ public static class CompositeIllustrationPrompt
     /// shape to draw. The prompt is the whole of the change: no detector, no review, no redraw —
     /// the owner asked for the simplest instruction that moves the hero out of Beki's spot.
     /// </summary>
-    public const string Version = "child-world-image-v1.8";
+    public const string Version = "child-world-image-v1.9";
 
     /// <summary>
     /// The cover base template's version. A different document, a different version.
@@ -486,7 +486,7 @@ public static class CompositeIllustrationPrompt
     /// same <see cref="CompositeChildIdentity.LockBlock"/>, numbered against the references the
     /// request actually carries, so the two pictures cannot describe two children.
     /// </summary>
-    public const string CoverVersion = "cover-child-world-v1.5";
+    public const string CoverVersion = "cover-child-world-v1.6";
 
     /// <summary>
     /// <remarks>
@@ -506,7 +506,7 @@ public static class CompositeIllustrationPrompt
     /// campaign and a cover drawn after it are different pictures made different ways, and the
     /// manifest is where that is recorded.
     /// </summary>
-    public const string CoverRedrawVersion = "cover-identity-redraw-v1.4";
+    public const string CoverRedrawVersion = "cover-identity-redraw-v1.5";
 
     /// <summary>Every version of the cover redraw shares this prefix. See the remark above.</summary>
     public const string CoverRedrawVersionPrefix = "cover-identity-redraw-";
@@ -555,6 +555,7 @@ public static class CompositeIllustrationPrompt
             Keep all important content in the central horizontal band so modest top-and-bottom crop normalization is safe.
 
             STYLE AND MOOD
+            {CompositeChildArtStyle.Instruction}
             Premium warm stylized 3D children's-book illustration; expressive but natural; soft tactile materials; cinematic depth; welcoming, age-appropriate emotional tone. Match the supplied approved theme reference while creating a new scene.
 
             HARD CONSTRAINTS
@@ -625,6 +626,7 @@ public static class CompositeIllustrationPrompt
             Let the environment run all the way off every outer edge of the picture, and keep everything important well away from those edges.
 
             STYLE AND MOOD
+            {CompositeChildArtStyle.Instruction}
             Premium warm stylized 3D children's-book cover; expressive but natural; soft tactile materials; cinematic depth; clear front-cover focal hierarchy; welcoming, age-appropriate adventure. Match the approved theme reference while creating a new scene.
 
             HARD CONSTRAINTS

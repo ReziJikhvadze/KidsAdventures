@@ -390,7 +390,7 @@ public class CompositePipelineScenarioResumeTests : CompositePipelineTestBase
     {
         var current = BekiCompositeContractTerms.Current("dinosaurs");
 
-        Assert.Equal("child-world-image-v1.8", CompositeIllustrationPrompt.Version);
+        Assert.Equal("child-world-image-v1.9", CompositeIllustrationPrompt.Version);
         Assert.Equal("minimal-visual-qa-v1.6", CompositeMinimalQa.Version);
         Assert.Equal("child-identity-spec-v1.2", CompositeChildIdentity.Version);
 

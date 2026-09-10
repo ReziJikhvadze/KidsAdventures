@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Buffers.Binary;
 using AdventurePacks.Api.Domain.Story;
 
 namespace AdventurePacks.Api.Services.Story.Composite;
@@ -8,22 +9,39 @@ namespace AdventurePacks.Api.Services.Story.Composite;
 public static class FastPreviewPlan
 {
     // Persisted in MasterStoryRuns.PromptVersion (NVARCHAR(10)).
-    public const string Version = "preview-v1";
+    public const string Version = "preview-v2";
     public const string Model = "gpt-image-2.5-flare";
-    public static bool IsFast(MasterStoryRun? run) => run?.PromptVersion == Version;
+    public static bool IsFast(MasterStoryRun? run) => run?.PromptVersion is "preview-v1" or Version;
     public static string ReceiptName(Guid id) => $"master-runs/{id:N}/preview-revision.json";
     public static string IntroName(Guid id) => $"master-runs/{id:N}/preview-intro.webp";
     public static string CoverPdfName(Guid id) => $"master-runs/{id:N}/preview-cover.pdf";
     public static string Sha(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
-    public static string Title(string name, string theme) => $"{name.Trim()} და {ThemeTitle(theme)}";
-    public static string ThemeTitle(string theme) => theme switch
+    // Each run starts with a random UUID. Deriving the choice from it keeps retries stable,
+    // while the final revision freezes the literal title for purchase and later recovery.
+    public static string Title(string name, string theme, Guid runId)
     {
-        "clouds" => "ღრუბლების ქალაქი",
-        "space" => "ვარსკვლავების გზა",
-        "forest" => "მოჯადოებული ტყის მეგობრები",
-        "ocean" => "მბრწყინავი კუნძულის საიდუმლო",
-        "magic" => "სინათლის ქალაქის კარიბჭე",
-        "dinosaurs" => "დინოზავრების ხეობა",
+        var titles = ThemeTitles(theme);
+        var seed = SHA256.HashData(runId.ToByteArray());
+        var index = (int)(BinaryPrimitives.ReadUInt32LittleEndian(seed) % (uint)titles.Count);
+        return $"{name.Trim()} და {titles[index]}";
+    }
+
+    public static string RenameTitle(string title, string oldName, string newName)
+    {
+        var prefix = oldName.Trim() + " და ";
+        if (!title.StartsWith(prefix, StringComparison.Ordinal))
+            throw new InvalidOperationException("The saved preview title does not match its child name.");
+        return newName.Trim() + " და " + title[prefix.Length..];
+    }
+
+    public static IReadOnlyList<string> ThemeTitles(string theme) => theme switch
+    {
+        "clouds" => ["ღრუბლების ქალაქი", "ცისარტყელის ბილიკი", "ფუმფულა ღრუბლის საიდუმლო", "ცაში დამალული ბაღი", "მზის სხივის თავგადასავალი"],
+        "space" => ["ვარსკვლავების გზა", "მთვარის პატარა საიდუმლო", "დაკარგული ვარსკვლავი", "ფერადი პლანეტების მოგზაურობა", "ცის ყველაზე ნათელი ვარსკვლავი"],
+        "forest" => ["მოჯადოებული ტყის მეგობრები", "ტყის ჩუმი საიდუმლო", "ოქროსფერი ფოთლის ამბავი", "დაკარგული ბილიკი", "პატარა ტყის დიდი დღესასწაული"],
+        "ocean" => ["მბრწყინავი კუნძულის საიდუმლო", "მოლაპარაკე ნიჟარა", "მარჯნის ბაღი", "ზღვის დაკარგული სიმღერა", "ტალღების საჩუქარი"],
+        "magic" => ["სინათლის ქალაქის კარიბჭე", "ჯადოსნური ფარნის საიდუმლო", "ფერების დღესასწაული", "სურვილების პატარა ხიდი", "დაკარგული ცისარტყელა"],
+        "dinosaurs" => ["დინოზავრების ხეობა", "პატარა დინოზავრის დიდი დღე", "იდუმალი ნაკვალევი", "ფერადი კვერცხის საიდუმლო", "დინოზავრების მეგობრობის ზეიმი"],
         _ => throw new ArgumentException("Unknown preview theme.")
     };
     public const string Outfit = "A simple golden-yellow sweater, teal trousers and cream shoes; no logos or head covering.";
@@ -52,6 +70,7 @@ public static class FastPreviewPlan
         Create a premium continuous full-cover illustration for the selected BEKI theme.
         Use the supplied original child photo as the identity reference. Depict the child at numeric age {age}, gender {gender}.
         Preserve the child's likeness, face shape, eyes and hair. The child is the main hero, full body visible with breathing room from hair to shoes.
+        {CompositeChildArtStyle.Instruction}
         Theme: {CompositeThemeReferences.For(theme).VisualDirection}
         Outfit: {Outfit}
         Include two or three prominent foreground or midground details: {Details(theme)}.

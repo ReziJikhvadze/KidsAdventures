@@ -32,6 +32,9 @@ public sealed record CompositeStoryInput
 
     public int SpreadCount { get; init; } = BookFormat.SpreadCount;
 
+    /// <summary>The title already printed on the purchased preview, when one exists.</summary>
+    public string? LockedBookTitle { get; init; }
+
     /// <summary>The boundary's output, narrowed to what a story call may see.</summary>
     public static CompositeStoryInput From(NormalizedBookInput input)
     {
@@ -340,6 +343,13 @@ public static class MasterStoryPromptComposite
         // the gap StoryWorlds was written to close: given only a place name, a model wrote three
         // good books about a valley for a parent who had chosen dinosaurs.
         text.AppendLine($"Theme: {input.ThemeId} - {world.Subject}, {world.Place}");
+
+        if (!string.IsNullOrWhiteSpace(input.LockedBookTitle))
+        {
+            text.AppendLine();
+            text.AppendLine($"Approved book title (copy exactly): {input.LockedBookTitle}");
+            text.AppendLine("Build the story around the adventure suggested by this title. The title is already on the purchased cover; do not replace it with a different title.");
+        }
 
         /*
           Nothing follows. v6's User continues with the Extra Wish, the appearance description read
