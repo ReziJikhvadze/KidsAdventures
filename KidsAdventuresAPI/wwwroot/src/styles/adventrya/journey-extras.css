@@ -977,11 +977,17 @@
   .ux-preview-stage > .ux-preview-layout {
     align-items: center;
   }
+  /*
+    The desktop preview's own width, which is the one that actually decides the cover's size:
+    it out-specifies `.storybook-preview` and used to hold the book BELOW that rule's 390.
+    Raised with the height cap in storybook.css now that the paging controls are off this
+    screen — see the note beside `min(470px, 52vh)` there.
+  */
   .ux-preview-product .storybook {
-    --book-width: clamp(285px, 25.5vw, 365px);
+    --book-width: clamp(330px, 31vw, 460px);
   }
   .ux-preview-product .storybook-volume {
-    max-height: 395px;
+    max-height: 470px;
   }
   .ux-package-panel {
     max-height: calc(100svh - 185px);

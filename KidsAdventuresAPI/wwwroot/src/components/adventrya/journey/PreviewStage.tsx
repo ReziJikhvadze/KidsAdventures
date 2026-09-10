@@ -1,14 +1,11 @@
 import { Check, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  StorybookVolume,
-  type PlatePanelLine,
-} from "@/components/adventrya/storybook/StorybookVolume";
+import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
 import * as adventurePacksApi from "@/lib/api/adventure-packs";
 import { storeGuestPreviewIds } from "@/lib/api/auth";
 import { ApiError, resolveApiUrl } from "@/lib/api/client";
-import { THEME_ID_TO_API, type MasterStoryRunStatus, type StoryPageContent } from "@/lib/api/types";
+import { THEME_ID_TO_API, type MasterStoryRunStatus } from "@/lib/api/types";
 import { dataUrlToFile } from "@/lib/api/utils";
 import { formatGel, useLocale, useT } from "@/lib/i18n";
 import {
@@ -31,12 +28,13 @@ import { readyPreviewPatch } from "@/lib/journey/previewRecovery";
 import { useWorldById, WORLD_SCENE_ART, type WorldId } from "@/lib/worlds";
 
 /*
-  What the parent is buying, minus the one page they are shown.
+  The preview volume's page list, which is empty and must keep the same identity between renders.
 
-  Sixteen is the book: eight painted spreads, and the number the home page promises in so many
-  words. One is written for the preview, so fifteen are still shut.
+  `pages` is required, and `buildLeaves` is memoised on it — a fresh `[]` on every render would
+  rebuild the leaves and reset the volume each time this stage re-rendered, which it does on
+  every package click in the panel beside it.
 */
-const PREVIEW_LOCKED_PAGES = 15;
+const NO_PAGES: never[] = [];
 
 type Props = {
   draft: JourneyDraft;
@@ -382,60 +380,15 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
   */
   const coverSrc = draft.preview?.coverImageDataUrl || null;
   const bookTitle = draft.preview?.title || world.bookTitle(hero.name || t.common.fallbackHeroName);
-  const heroAge = ageFromBirthDate(hero.birthDate);
 
   /*
-    The book opens the way the printed one opens.
-
-    The preview used to begin at page one: cover, then words. The printed book — and the sample
-    on the home page, which is a photograph of a real copy — opens on the endpaper and then the
-    dedication, and only then on the story. A sample that skips both is a sample of a different
-    object.
-
-    The endpaper is the approved pattern and belongs to no world. The dedication plate takes this
-    world's own painting rather than the demo's, which is a picture of the city of light and
-    would be the wrong place for five of the six.
+    The endpaper, the dedication plate and the written first page that used to be assembled here
+    are gone with the paging that reached them — see the note on the volume below. The strings
+    they were built from (`preview.dedicationOwner` and the rest) are still in the catalogue, and
+    `heroDemoPages` still builds the same front matter for the sample on the home page, so
+    putting a readable page back on this screen is a matter of handing the component pages again
+    rather than of writing any of it a second time.
   */
-  const previewFrontMatter = useMemo(() => {
-    const name = hero.name.trim() || t.common.fallbackHeroName;
-    const lines: PlatePanelLine[] = [
-      // The dative, as `heroDemoPages` sets it on the printed sample.
-      { text: t.journey.preview.dedicationOwner(name), size: "lg" as const },
-    ];
-    if (heroAge)
-      lines.push({ text: t.journey.preview.dedicationAge(heroAge), size: "sm" as const });
-    lines.push({ text: `„${bookTitle}“` });
-    lines.push({ text: t.journey.preview.dedicationInvite(name) });
-
-    return [
-      { art: "/adventrya/hero-demo/endpaper.webp", plainRight: true },
-      {
-        art: WORLD_SCENE_ART[worldId],
-        panelSide: "left" as const,
-        centred: true,
-        panel: lines,
-      },
-    ];
-  }, [hero.name, heroAge, bookTitle, worldId, t]);
-
-  const previewPages: StoryPageContent[] = useMemo(() => {
-    return [
-      {
-        title: draft.preview?.firstPageTitle || world.teaserTitle,
-        caption: draft.preview?.firstPageTitle || t.journey.preview.freeFirstPage,
-        content: draft.preview?.firstPageText || world.teaserBody,
-        // The cover is already shown as the cover. Repeating it here printed the first page's
-        // words across the picture, which is the one thing giving the text its own page was
-        // supposed to prevent.
-        isTextOnlyPage: true,
-      },
-    ];
-  }, [
-    draft.preview?.firstPageText,
-    draft.preview?.firstPageTitle,
-    world.teaserBody,
-    world.teaserTitle,
-  ]);
 
   if (loading) {
     const heroName = hero.name || t.common.fallbackHeroName;
@@ -578,6 +531,26 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
 
       <div className="ux-preview-layout">
         <div className="ux-preview-product">
+          {/*
+            The cover, and nothing behind it.
+
+            This screen used to hand the component a whole sample volume — the endpaper, a
+            dedication plate, the first page written out and fifteen locked leaves after it — and
+            a pair of prev/next buttons to walk through them. What the parent is deciding here is
+            whether to buy the book whose cover they have just been shown their own child on, and
+            the paging turned that one picture into a thing to be got through: the cover was the
+            first of eighteen states, and the two most prominent controls on the screen pointed
+            away from it.
+
+            So the volume is given nothing but its cover. `buildLeaves` starts from one and adds
+            per page, so with no pages, no front matter and no locked count there is a single
+            leaf; `interactive={false}` then takes the controls, the corner targets, the swipe
+            and the keyboard bindings with it, because there is nowhere for any of them to go.
+
+            None of it is lost to the parent: the dedication and the printed first page are the
+            reader's, on the book they have bought, and the home page's sample volume still opens
+            the way the printed one does.
+          */}
           <StorybookVolume
             variant="preview"
             className={`storybook storybook-preview theme-${worldId}`}
@@ -585,32 +558,9 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
             title={bookTitle}
             coverImageUrl={coverSrc}
             worldId={worldId}
-            frontMatter={previewFrontMatter}
-            pages={previewPages}
-            isSpreadBook
-            /*
-              One picture across both leaves, with the words set over it — the printed book.
-
-              Safe to ask for unconditionally: the component measures the illustration and only
-              treats a landscape one as a painting spanning two pages, so a cover that is still
-              being fetched, or a book drawn the old way, falls through to the page-at-a-time
-              path instead of being stretched across the fold.
-            */
-            fullBleedSpreads
-            /*
-              Fifteen locked leaves — the rest of the book.
-
-              This was zero, and the argument for zero was that a stack of empty pages makes the
-              sample feel hollow. The opposite turned out to be true: with nothing behind page
-              one, the sample reads as the whole of what is being sold. The site promises sixteen
-              personalised pages on the home page; one written and fifteen shut is that promise,
-              shown rather than claimed, and each leaf says which page it is and that the full
-              book opens it.
-            */
-            lockedPageCount={PREVIEW_LOCKED_PAGES}
+            pages={NO_PAGES}
             isUnlocked={false}
-            interactive
-            initialIndex={0}
+            interactive={false}
           />
 
           {/*
