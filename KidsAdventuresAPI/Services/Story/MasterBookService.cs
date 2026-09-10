@@ -326,6 +326,12 @@ public sealed class MasterBookService(
                     ? CompositeStoryInputFor(runId, storyInput)
                     : null;
 
+            if (compositeStoryInput is not null && FastPreviewPlan.IsFast(run))
+            {
+                var revision = await fastPreview!.ReadAsync(run.Id, jobToken);
+                compositeStoryInput = compositeStoryInput with { LockedBookTitle = revision.Title };
+            }
+
             if (bekiOptions.Value.CompositePipelineEnabled && !portraitParked)
             {
                 logger.LogWarning(

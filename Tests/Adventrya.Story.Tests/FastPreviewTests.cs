@@ -16,6 +16,56 @@ namespace Adventrya.Story.Tests;
 
 public sealed class FastPreviewTests(ITestOutputHelper output) : CompositePipelineTestBase
 {
+    [Theory]
+    [InlineData("clouds")]
+    [InlineData("space")]
+    [InlineData("forest")]
+    [InlineData("ocean")]
+    [InlineData("magic")]
+    [InlineData("dinosaurs")]
+    public void Titles_vary_by_run_but_not_on_retry_or_rename(string theme)
+    {
+        var seen = new HashSet<string>();
+        for (var n = 0; n < 256; n++)
+        {
+            var id = new Guid(n, 0, 0, new byte[8]);
+            var title = FastPreviewPlan.Title("ნინა", theme, id);
+            Assert.Equal(title, FastPreviewPlan.Title("ნინა", theme, id));
+            Assert.Equal(FastPreviewPlan.Title("ანი", theme, id),
+                FastPreviewPlan.RenameTitle(title, "ნინა", "ანი"));
+            seen.Add(title);
+        }
+        Assert.Equal(5, seen.Count);
+    }
+
+    [Fact]
+    public void Existing_previews_and_legacy_titles_remain_usable()
+    {
+        Assert.True(FastPreviewPlan.IsFast(new MasterStoryRun { PromptVersion = "preview-v1" }));
+        Assert.True(FastPreviewPlan.IsFast(new MasterStoryRun { PromptVersion = FastPreviewPlan.Version }));
+        Assert.False(FastPreviewPlan.IsFast(new MasterStoryRun { PromptVersion = "v6" }));
+        Assert.Equal("ანი და დინოზავრების ხეობა",
+            FastPreviewPlan.RenameTitle("ნინა და დინოზავრების ხეობა", "ნინა", "ანი"));
+    }
+
+    [Fact]
+    public void Cover_and_anchored_spreads_share_the_child_animation_style()
+    {
+        var scenario = VisualScenarioValidator.Validate(ScenarioFixture()).Scenario!;
+        Assert.Contains(CompositeChildArtStyle.Instruction, FastPreviewPlan.Prompt(5, "girl", "dinosaurs"));
+        Assert.Contains(CompositeChildArtStyle.Instruction, SpreadPrompt(scenario, 1));
+        Assert.Contains(CompositeChildArtStyle.Instruction, SpreadPrompt(scenario, 2, anchorAttached: true));
+    }
+
+    [Fact]
+    public void Story_prompt_receives_the_selected_title()
+    {
+        var input = CompositeStoryInputFixture() with { LockedBookTitle = "ნინა და იდუმალი ნაკვალევი" };
+        Assert.Contains("Approved book title (copy exactly): ნინა და იდუმალი ნაკვალევი",
+            MasterStoryPromptComposite.User(input));
+        Assert.Contains("Build the story around the adventure suggested by this title", MasterStoryPromptComposite.User(input));
+    }
+
     [Fact]
     public void Preview_version_fits_the_persisted_sql_column()
     {
@@ -40,12 +90,18 @@ public sealed class FastPreviewTests(ITestOutputHelper output) : CompositePipeli
     [InlineData("dinosaurs", "დინოზავრების ხეობა")]
     public void All_six_themes_have_fixed_titles_and_cover_only_plans(string theme, string title)
     {
-        Assert.Equal($"ნინა და {title}", FastPreviewPlan.Title("ნინა", theme));
+        var titles = FastPreviewPlan.ThemeTitles(theme);
+        Assert.Equal(5, titles.Count);
+        Assert.Equal(5, titles.Distinct().Count());
+        Assert.Contains(title, titles);
+        var runId = Guid.NewGuid();
+        Assert.Contains(FastPreviewPlan.Title("ნინა", theme, runId), titles.Select(t => $"ნინა და {t}"));
         var plan = FastPreviewPlan.Plan(theme);
         Assert.NotNull(CompositePreviewCoverPlan.TryRead(plan.Json));
         Assert.Empty(plan.Scenario.Spreads!);
         Assert.Empty(plan.Scenario.VisualLock!.RecurringElements!);
         Assert.Contains("Do not draw Beki", FastPreviewPlan.Prompt(5, "girl", theme));
+        Assert.Contains(CompositeChildArtStyle.Instruction, FastPreviewPlan.Prompt(5, "girl", theme));
         Assert.NotEmpty(CompositeThemeReferences.For(theme).Bytes);
     }
 
@@ -85,6 +141,7 @@ public sealed class FastPreviewTests(ITestOutputHelper output) : CompositePipeli
         await Assert.ThrowsAsync<InvalidOperationException>(() => master.EnsurePaidStoryAsync(run.Id, CancellationToken.None));
         run.UserId = Guid.NewGuid(); run.PackId = Guid.NewGuid();
         await master.EnsurePaidStoryAsync(run.Id, CancellationToken.None);
+        Assert.Equal(fake.Revision.Title, story.LastCompositeInput!.LockedBookTitle);
         Assert.NotNull(run.StoryJson);
         Assert.Equal(FastPreviewPlan.Version, run.PromptVersion);
         Assert.Equal(fake.Revision.Title, JsonSerializer.Deserialize<MasterStory>(run.StoryJson!, new JsonSerializerOptions(JsonSerializerDefaults.Web))!.Concept.Title);
@@ -129,6 +186,7 @@ public sealed class FastPreviewTests(ITestOutputHelper output) : CompositePipeli
         var second = await preview.ReadAsync(renamed.Id, CancellationToken.None);
         Assert.Equal(original.MasterSha256, second.MasterSha256);
         Assert.Equal(original.BaseSha256, second.BaseSha256);
+        Assert.Equal(FastPreviewPlan.RenameTitle(original.Title, run.ChildName, renamed.ChildName), second.Title);
         Assert.NotEqual(original.CoverRevisionId, second.CoverRevisionId);
         Assert.NotEqual(original.FrontSha256, second.FrontSha256);
         Assert.Equal(1, images.ImageCalls);
@@ -248,7 +306,7 @@ public sealed class FastPreviewTests(ITestOutputHelper output) : CompositePipeli
     private sealed class FastStub(MasterStoryRun run) : IFastPreviewService
     {
         public int Calls;
-        public FastPreviewRevision Revision { get; init; } = new(run.Id, Guid.NewGuid(), "dinosaurs", FastPreviewPlan.Title(run.ChildName, "dinosaurs"),
+        public FastPreviewRevision Revision { get; init; } = new(run.Id, Guid.NewGuid(), "dinosaurs", FastPreviewPlan.Title(run.ChildName, "dinosaurs", run.Id),
             "", "", "", FastPreviewPlan.Version, "", FastPreviewPlan.Model, FastPreviewPlan.Plan("dinosaurs").Json, "", "", "", "");
         public Task GenerateAsync(MasterStoryRun run, CancellationToken ct) { Calls++; return Task.CompletedTask; }
         public Task<FastPreviewRevision> ReadAsync(Guid id, CancellationToken ct) => Task.FromResult(Revision);

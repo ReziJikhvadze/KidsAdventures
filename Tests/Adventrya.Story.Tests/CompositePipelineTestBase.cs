@@ -832,9 +832,9 @@ public abstract class CompositePipelineTestBase
     }
 
     /// <summary>The real story service, with the composite flag on and a scripted model behind it.</summary>
-    protected static MasterStoryService CompositeStoryService(IStoryModelClient client) =>
+    protected static MasterStoryService CompositeStoryService(IStoryModelClient client, bool polishEnabled = true) =>
         new(client,
-            new StoryPolishClient(client, "stub-polish-model"),
+            new StoryPolishClient(client, "stub-polish-model") { Enabled = polishEnabled },
             Options.Create(new OpenAiOptions { Model = "stub-story-model" }),
             Options.Create(new BekiOptions { CompositePipelineEnabled = true }),
             NullLogger<MasterStoryService>.Instance);

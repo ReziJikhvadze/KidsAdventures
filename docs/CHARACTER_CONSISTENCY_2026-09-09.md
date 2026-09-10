@@ -46,12 +46,28 @@ prompts/receipts for visual comparison and makes paid OpenAI requests. Normal te
 
 ## Fast preview update — 2026-09-10
 
-New composite previews are marked `preview-v1` in MasterStoryRuns.PromptVersion (within its existing 10-character limit).
+AI text proofreading is now off by default (`Providers:StoryPolishEnabled=false`).
+Set `Providers__StoryPolishEnabled=true` to opt back into the configured reviewer.
+Both composite and legacy v6 stories skip the reviewer call when disabled; structural,
+child-name and cast consistency checks remain. The writer stays `gemini-3.1-pro-preview`.
+
+New composite previews are marked `preview-v2` in MasterStoryRuns.PromptVersion (within its existing 10-character limit); existing `preview-v1` revisions remain supported.
 They validate locally, make one `gpt-image-2.5-flare` edit request at the configured
 fast cover size/quality (default 1200x576, medium), composite the approved Beki PNG,
 and render the same vector title/logo composition used by the PDF composer.
 The preview screen shows only the front-cover derivative, with its typography already rendered.
 The fixed personalized intro is also stored with the revision; the screen has no page-turn controls.
+
+Each of the six themes has five prewritten Georgian title suffixes in `FastPreviewPlan.ThemeTitles`.
+The random run UUID selects one deterministically, so retries keep their title and require no AI call.
+The literal title is frozen in the revision; name-only edits replace only the child's name, including
+for old previews. Paid story generation receives this approved title before writing, and the PDF
+keeps it. Random choices can repeat between different books; they are not a round-robin queue.
+
+`CompositeChildArtStyle` is shared by fast covers, full covers and spreads. It explicitly requests
+Pixar-style sculpted 3D child features and illustrated skin, while keeping likeness, age and identity
+traits. It does not change Beki's approved geometry. Image prompt versions are bumped for provenance.
+Reference roles follow [OpenAI's image prompting guidance](https://developers.openai.com/api/docs/guides/image-prompting).
 No story, polish, identity extraction, supporting-cast planner, or spread image is
 created before payment. The profile screen also no longer calls the AI portrait gate.
 The old synchronous guest-preview endpoint returns 410; existing saved previews still work.

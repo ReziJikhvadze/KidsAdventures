@@ -25,6 +25,29 @@ namespace Adventrya.Story.Tests;
 /// </summary>
 public class ServiceRegistrationTests
 {
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public void Story_proofreading_is_opt_in(bool? configured, bool expected)
+    {
+        using var provider = BuildProvider(polishEnabled: configured);
+        using var scope = provider.CreateScope();
+        var polish = scope.ServiceProvider.GetRequiredService<StoryPolishClient>();
+        Assert.Equal(expected, polish.Enabled);
+        if (!expected)
+            Assert.Same(scope.ServiceProvider.GetRequiredService<IStoryModelClient>(), polish.Client);
+    }
+
+    [Fact]
+    public void Disabled_reviewer_does_not_require_its_vendor_key()
+    {
+        var providers = new AiProviderOptions { StoryPolish = AiProvider.Gemini };
+        Assert.False(providers.UsesGeminiAnywhere);
+        providers.StoryPolishEnabled = true;
+        Assert.True(providers.UsesGeminiAnywhere);
+    }
+
     [Fact]
     public void Every_registered_story_service_can_be_constructed()
     {
@@ -127,13 +150,14 @@ public class ServiceRegistrationTests
         public Task PrintOrderPlacedAsync(PrintOrder printOrder, string? bookTitle, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
-    private static ServiceProvider BuildProvider(bool validateOnBuild = false)
+    private static ServiceProvider BuildProvider(bool validateOnBuild = false, bool? polishEnabled = null)
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["OpenAI:ApiKey"] = "test-key",
-                ["OpenAI:BaseUrl"] = "https://api.openai.com/v1"
+                ["OpenAI:BaseUrl"] = "https://api.openai.com/v1",
+                ["Providers:StoryPolishEnabled"] = polishEnabled?.ToString()
             })
             .Build();
 
@@ -142,6 +166,7 @@ public class ServiceRegistrationTests
         services.AddHttpClient();
         services.AddSingleton<IConfiguration>(configuration);
         services.Configure<OpenAiOptions>(configuration.GetSection(OpenAiOptions.SectionName));
+        services.Configure<AiProviderOptions>(configuration.GetSection(AiProviderOptions.SectionName));
         services.AddStoryEngine();
 
         return services.BuildServiceProvider(new ServiceProviderOptions

@@ -57,6 +57,9 @@ public sealed class AiProviderOptions
     /// </summary>
     public string StoryPolish { get; set; } = string.Empty;
 
+    /// <summary>Run AI proofreading after writing. Off by default; structural validation still runs.</summary>
+    public bool StoryPolishEnabled { get; set; }
+
     /// <summary>
     /// What <see cref="StoryPolish"/> actually resolves to once the fallback is applied. Read
     /// this rather than the raw property: the empty string is a valid configured value meaning
@@ -77,7 +80,7 @@ public sealed class AiProviderOptions
     /// deployment boot with the vendor selected and no key to reach it.
     /// </summary>
     public bool UsesGeminiAnywhere =>
-        UsesGeminiForStory || UsesGeminiForImages || UsesGeminiForStoryPolish;
+        UsesGeminiForStory || UsesGeminiForImages || (StoryPolishEnabled && UsesGeminiForStoryPolish);
 }
 
 /// <summary>The provider names, so a typo is a compile error in code and a startup error in config.</summary>

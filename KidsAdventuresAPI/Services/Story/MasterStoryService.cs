@@ -476,7 +476,8 @@ public sealed class MasterStoryService(
         logger.LogInformation(
             "Planning a {Spreads}-spread Beki book for {Child}, age {Age}, theme {Theme}, "
             + "written by {Model}, edited by {Editor} (v6).",
-            input.SpreadCount, input.ChildName, input.Age, input.Theme, model, polishClient.ModelName);
+            input.SpreadCount, input.ChildName, input.Age, input.Theme, model,
+            polishClient.Enabled ? polishClient.ModelName : "disabled");
 
         var written = await modelClient.CompleteAsync<MasterStory>(
             model,
@@ -525,6 +526,12 @@ public sealed class MasterStoryService(
             MasterStory generated,
             CancellationToken cancellationToken)
     {
+        if (!polishClient.Enabled)
+        {
+            logger.LogInformation("Story proofreading skipped: Providers:StoryPolishEnabled=false.");
+            return (generated, string.Empty, string.Empty, 0, 0);
+        }
+
         var polishSystem = StoryPolishPrompt.System(input);
         var polishUser = string.Empty;
         ModelResult<MasterStory> polished;
@@ -862,6 +869,12 @@ public sealed class MasterStoryService(
             MasterStory written,
             CancellationToken cancellationToken)
     {
+        if (!polishClient.Enabled)
+        {
+            logger.LogInformation("Composite story proofreading skipped: Providers:StoryPolishEnabled=false.");
+            return (written, string.Empty, string.Empty, 0, 0);
+        }
+
         var polishSystem = StoryPolishPrompt.CompositeSystem;
         var polishUser = string.Empty;
         ModelResult<JsonElement> answer;

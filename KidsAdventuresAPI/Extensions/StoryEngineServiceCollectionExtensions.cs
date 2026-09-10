@@ -40,6 +40,10 @@ public static class StoryEngineServiceCollectionExtensions
         {
             var providers = sp.GetRequiredService<IOptions<AiProviderOptions>>().Value;
 
+            if (!providers.StoryPolishEnabled)
+                return new StoryPolishClient(sp.GetRequiredService<IStoryModelClient>(), string.Empty)
+                    { Enabled = false };
+
             if (providers.UsesGeminiForStoryPolish)
             {
                 var gemini = sp.GetRequiredService<IOptions<GeminiOptions>>().Value;

@@ -40,7 +40,7 @@ public sealed class FastPreviewService(
         var normalized = InputNormalization.Normalize(BekiCompositeInputs.For(run, run.Theme), photo);
         if (!normalized.IsValid) throw new InvalidOperationException(string.Join(" ", normalized.Problems));
         var theme = normalized.Story!.ThemeId;
-        var title = FastPreviewPlan.Title(run.ChildName, theme);
+        var title = FastPreviewPlan.Title(run.ChildName, theme, run.Id);
         var scenario = FastPreviewPlan.Plan(theme);
         var watch = Stopwatch.StartNew();
         CompositeCoverWrap wrap;
@@ -53,6 +53,7 @@ public sealed class FastPreviewService(
             var previous = await runs.GetByIdAsync(previousId, ct) ?? throw new InvalidOperationException("Previous preview expired.");
             var receipt = await ReadAsync(previousId, ct);
             reusedRevision = receipt;
+            title = FastPreviewPlan.RenameTitle(receipt.Title, previous.ChildName, run.ChildName);
             if (previous.Age != run.Age || previous.Gender != run.Gender || receipt.ThemeId != theme
                 || receipt.PhotoSha256 != FastPreviewPlan.Sha(photo))
                 throw new InvalidOperationException("The source preview does not match these inputs.");

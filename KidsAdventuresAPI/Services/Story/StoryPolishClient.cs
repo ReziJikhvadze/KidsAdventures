@@ -19,4 +19,7 @@ namespace AdventurePacks.Api.Services.Story;
 /// client deliberately ignores the argument and uses its own configured story model, because an
 /// OpenAI product name means nothing to it.
 /// </param>
-public sealed record StoryPolishClient(IStoryModelClient Client, string ModelName);
+public sealed record StoryPolishClient(IStoryModelClient Client, string ModelName)
+{
+    public bool Enabled { get; init; } = true;
+}

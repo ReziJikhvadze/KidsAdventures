@@ -31,6 +31,40 @@ namespace Adventrya.Story.Tests;
 /// </summary>
 public class CompositePipelineReviewTests : CompositePipelineTestBase
 {
+    [Fact]
+    public async Task Disabled_proofreading_also_skips_the_legacy_v6_reviewer()
+    {
+        var client = new ScriptedStoryModelClient(JsonSerializer.Serialize(Plan(), StoryJson.Options));
+        var service = new MasterStoryService(client,
+            new StoryPolishClient(client, "unused-reviewer") { Enabled = false },
+            Options.Create(new OpenAiOptions()),
+            Options.Create(new BekiOptions { BookFormatEnabled = true }),
+            NullLogger<MasterStoryService>.Instance);
+        var result = await service.WriteAsync(new MasterStoryInput
+        {
+            ChildName = "ნინა", Age = 5, Gender = "girl", EyeColor = "brown",
+            Theme = AdventurePacks.Api.Domain.Enums.ThemeType.Dinosaurs,
+            SpreadCount = 8, Language = "ka"
+        }, CancellationToken.None);
+        Assert.Equal(1, client.Calls);
+        Assert.DoesNotContain("===== STEP 2 =====", result.SystemPrompt);
+        Assert.Equal(1, result.PromptTokens);
+    }
+
+    [Fact]
+    public async Task Disabled_story_proofreading_makes_only_the_writer_call()
+    {
+        var client = new ScriptedStoryModelClient(CompositePlanJson(spreads: 8));
+        var result = await CompositeStoryService(client, polishEnabled: false).WriteCompositePlanAsync(
+            CompositeStoryInputFixture(), [], CancellationToken.None);
+
+        Assert.Equal(1, client.Calls);
+        Assert.Equal(8, result.Story.Spreads.Count);
+        Assert.DoesNotContain("===== STEP 2 =====", result.SystemPrompt);
+        Assert.Equal(1, result.PromptTokens);
+        Assert.Equal(1, result.CompletionTokens);
+    }
+
     // ---------------------------------------------------------------------------------------
     // R12b — the composite story path is polished
     // ---------------------------------------------------------------------------------------
