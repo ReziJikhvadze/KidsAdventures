@@ -29,6 +29,7 @@ public sealed class PromoCodeService(
         string? promoCode,
         bool giftWrap,
         int quantity,
+        DeliveryChoice delivery,
         CancellationToken cancellationToken)
     {
         var effectivePackage = GelPricing.PackageFor(type, package);
@@ -44,25 +45,30 @@ public sealed class PromoCodeService(
           from the lines they were shown.
         */
         var wrapping = GelPricing.GiftWrapFor(effectivePackage, giftWrap);
-        var subtotal = GelPricing.SubtotalFor(type, effectivePackage, giftWrap, copies);
+        /* Same rule, same reason: only a parcel is delivered, and the figure is the server's. */
+        var courier = GelPricing.DeliveryFor(effectivePackage, delivery);
+        var shipped = courier > 0 || delivery.Option != DeliveryOption.None
+            ? delivery.Option
+            : DeliveryOption.None;
+        var subtotal = GelPricing.SubtotalFor(type, effectivePackage, giftWrap, copies, delivery);
 
         if (string.IsNullOrWhiteSpace(promoCode))
         {
-            return new PricedOrder(subtotal, 0, subtotal, null, null, wrapping, copies);
+            return new PricedOrder(subtotal, 0, subtotal, null, null, wrapping, copies, courier, shipped);
         }
 
         var trimmed = promoCode.Trim();
         var code = await promoCodeRepository.GetByCodeAsync(trimmed, cancellationToken);
         if (code is null)
         {
-            return new PricedOrder(subtotal, 0, subtotal, null, Invalid(trimmed, Messages.Unknown), wrapping, copies);
+            return new PricedOrder(subtotal, 0, subtotal, null, Invalid(trimmed, Messages.Unknown), wrapping, copies, courier, shipped);
         }
 
         var rejection = await RejectionReasonAsync(code, userId, cancellationToken);
         if (rejection is not null)
         {
             return new PricedOrder(
-                subtotal, 0, subtotal, null, Invalid(code.Code, rejection, code), wrapping, copies);
+                subtotal, 0, subtotal, null, Invalid(code.Code, rejection, code), wrapping, copies, courier, shipped);
         }
 
         var discount = code.DiscountFor(subtotal);
@@ -77,7 +83,7 @@ public sealed class PromoCodeService(
             Message = code.Description
         };
 
-        return new PricedOrder(subtotal, discount, subtotal - discount, code, quote, wrapping, copies);
+        return new PricedOrder(subtotal, discount, subtotal - discount, code, quote, wrapping, copies, courier, shipped);
     }
 
     public async Task<QuoteResponse> QuoteAsync(
@@ -87,14 +93,19 @@ public sealed class PromoCodeService(
         string? promoCode,
         bool giftWrap,
         int quantity,
+        DeliveryChoice delivery,
         CancellationToken cancellationToken)
     {
         var priced = await PriceAsync(
-            userId, type, package, promoCode, giftWrap, quantity, cancellationToken);
+            userId, type, package, promoCode, giftWrap, quantity, delivery, cancellationToken);
         return new QuoteResponse
         {
             Currency = GelPricing.Currency,
             SubtotalMinor = priced.SubtotalMinor,
+            DeliveryMinor = priced.DeliveryMinor,
+            DeliveryOption = priced.DeliveryName,
+            DeliveryMinDays = GeorgianDelivery.For(priced.Delivery).MinDays,
+            DeliveryMaxDays = GeorgianDelivery.For(priced.Delivery).MaxDays,
             DiscountMinor = priced.DiscountMinor,
             TotalMinor = priced.TotalMinor,
             GiftWrapMinor = priced.GiftWrapMinor,

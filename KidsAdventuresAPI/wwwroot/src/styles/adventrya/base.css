@@ -424,27 +424,52 @@ svg {
   .app-header-mark {
     height: 22px;
   }
-  /*
-    The create journey's bar is the crowded one: the arrow, the mark, "ნაბიჯი 2 / 3" and its
-    rail, the language code and the avatar, all on one row. The counter gives way first there,
-    and it is the one thing on that bar a parent halfway through a book is actually reading —
-    so the mark gives up the width instead.
-  */
-  .app-header:has(.step-progress) .app-header-mark {
-    height: 18px;
-  }
-}
-/*
-  And below that it goes, on that screen only.
 
-  360px is the narrowest phone the two of them both fit on — measured, with the counter reading
-  its longest label — and 320px is the next size down. Below the boundary "ნაბიჯი 2 / 3" starts
-  arriving as "ნაბიჯი 2 …", which is not a step counter. Every other page keeps the mark at
-  every width.
-*/
-@media (max-width: 359px) {
-  .app-header:has(.step-progress) .app-header-mark {
-    display: none;
+  /*
+    Two rows: the controls, then the counter across the full width of the bar.
+
+    The narrow-screen block in journey-ux.css used to do the opposite - make the counter a
+    shrinking flex item and ellipsise it - to keep the bar one row tall. It kept the row and
+    lost the label: "შეკვეთა" arrived as "შეკ..." on a 375px screen. A second row costs 34px
+    and is the only way both the controls and the step a parent is on can be read.
+  */
+  .app-header:has(.step-progress) {
+    height: auto;
+    min-height: 96px;
+    flex-wrap: wrap;
+    padding-top: 14px;
+    padding-bottom: 14px;
+    row-gap: 12px;
+  }
+
+  .app-header:has(.step-progress) .step-progress {
+    position: static;
+    order: 3;
+    left: auto;
+    top: auto;
+    width: 100%;
+    transform: none;
+  }
+
+  .app-header:has(.step-progress) .step-progress > div {
+    margin-top: 7px;
+  }
+
+  /*
+    The language menu hangs off the header, not off the button.
+
+    It is absolutely positioned against its own wrapper, which is fine while the bar is one row:
+    it drops just under the pill and over the page. With the counter on a second row it dropped
+    over the counter instead, covering the one thing that row exists for. Making the wrapper
+    static hands the positioning to `.app-header`, which is already relative, so the list clears
+    the whole bar however many rows it has.
+  */
+  .app-header:has(.step-progress) .language-menu {
+    position: static;
+  }
+
+  .app-header:has(.step-progress) .language-menu-list {
+    right: 18px;
   }
 }
 /* The one part with arbitrary-length content: a child's name. It gives way first. */
@@ -545,8 +570,35 @@ svg {
   .app-header-end .child-pill > svg {
     display: none;
   }
+
+  /*
+    And with the label gone, the disc is dressed like the control beside it.
+
+    A gold-filled square between an outlined language pill and an outlined sign-out button was
+    the loudest thing on the bar - louder than the step the parent is on, and much louder than a
+    link to somewhere they are not going in the middle of a checkout. Filled reads as "press
+    this"; this is a way out, not the way on. It keeps its own icon and its 44px, and takes the
+    outline the other two wear.
+
+    On a wide screen the disc sits inside a pill that says "ჩემი სივრცე" and the fill is doing a
+    job: it is what makes an avatar an avatar. That is why this lives here rather than beside
+    the base rule.
+  */
+  .app-header-end .child-pill {
+    padding: 0;
+  }
   .app-header-end .child-avatar {
+    width: 44px;
+    height: 44px;
     margin: 0;
+    border-radius: 14px;
+    color: #f8f2e5cc;
+    background: transparent;
+    box-shadow: none;
+  }
+  .app-header-end .child-avatar svg {
+    width: 19px;
+    height: 19px;
   }
 }
 /*

@@ -32,6 +32,11 @@ type Props = {
   label: string;
   autoComplete?: string;
   name?: string;
+  /** Marks the box the way the plain fields mark theirs, once the form has been submitted and
+      this is what is missing. The message itself stays the caller's to render and to word. */
+  invalid?: boolean;
+  /** The id of that message, so a screen reader reads it with the field. */
+  describedBy?: string;
 };
 
 /* Long enough that a fast typist does not spend a lookup per letter, short enough to feel live. */
@@ -65,6 +70,8 @@ export function AddressAutocompleteField({
   label,
   autoComplete = "street-address",
   name,
+  invalid,
+  describedBy,
 }: Props) {
   const t = useT();
   const [ready, setReady] = useState(false);
@@ -148,6 +155,8 @@ export function AddressAutocompleteField({
             placeholder={placeholder}
             value={value}
             role="combobox"
+            aria-invalid={invalid ? true : undefined}
+            aria-describedby={describedBy}
             aria-expanded={showList}
             aria-controls={listId}
             aria-autocomplete="list"

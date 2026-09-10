@@ -30,6 +30,17 @@ public sealed class ShippingAddressRequest
     [MaxLength(512)]
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// How this parcel is being sent: TbilisiStandard, TbilisiExpress or Regional.
+    ///
+    /// It belongs to the address rather than to the order, which is why it lives here and is
+    /// stored inside ShippingJson with the rest of it. The server resolves it against
+    /// <see cref="City"/> and <see cref="AddressLine1"/> before charging for it, so a name this
+    /// address cannot have becomes the one it can.
+    /// </summary>
+    [MaxLength(32)]
+    public string? DeliveryOption { get; set; }
+
     /// <summary>Keep this address for next time, so the parent types it once.</summary>
     public bool SaveForLater { get; set; } = true;
 }

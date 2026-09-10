@@ -1,4 +1,4 @@
-import { ArrowRight, Check, Lock, MapPin, Minus, Plus, Sparkles } from "lucide-react";
+import { ArrowRight, Check, MapPin, Minus, Plus, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { BekiLoader } from "@/components/adventrya/BekiLoader";
@@ -7,7 +7,13 @@ import { LocationPickerDialog } from "@/components/adventrya/journey/LocationPic
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
 import { ApiError, resolveApiUrl } from "@/lib/api/client";
 import * as ordersApi from "@/lib/api/orders";
-import type { OrderPackage, QuoteResponse, ShippingAddressRequest } from "@/lib/api/types";
+import { listAddresses } from "@/lib/api/print-orders";
+import type {
+  AddressResponse,
+  OrderPackage,
+  QuoteResponse,
+  ShippingAddressRequest,
+} from "@/lib/api/types";
 import {
   bookLanguageLabel,
   formatGel,
@@ -21,7 +27,15 @@ import { clearJourneyResume } from "@/lib/journey/resume";
 import { readyPreviewPatch } from "@/lib/journey/previewRecovery";
 import { getGuestPreviewStatus } from "@/lib/api/adventure-packs";
 import { ensureServerCharacters } from "@/lib/journey/syncCharacters";
-import { MAX_PRINT_QUANTITY, PRICES } from "@/lib/pricing";
+import {
+  DELIVERY,
+  MAX_PRINT_QUANTITY,
+  PRICES,
+  deliveryOptionsFor,
+  isTbilisiAddress,
+  resolveDeliveryOption,
+  type DeliveryOptionId,
+} from "@/lib/pricing";
 import { heroDemoPages } from "@/lib/story/heroDemoPages";
 import { useWorldById, type WorldId } from "@/lib/worlds";
 
@@ -68,6 +82,30 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     through the package rather than straight off the draft.
   */
   const copies = isPrint ? Math.min(Math.max(draft.quantity || 1, 1), MAX_PRINT_QUANTITY) : 1;
+  /*
+    Where the parcel is going, as far as this form knows.
+
+    The city field is filled by the address autocomplete when there is a Maps key; without one
+    the parent types the whole address into the one line, so both are read. Neither is trusted:
+    the server resolves the same way before charging, and this is what lets the screen show the
+    right options while it waits for the quote.
+  */
+  const addressHint = `${draft.shipping.city ?? ""} ${draft.shipping.addressLine1 ?? ""}`;
+  const inTbilisi = isPrint && isTbilisiAddress(addressHint);
+  /*
+    Nothing typed yet is quoted as a region, and so is anywhere that is not Tbilisi.
+
+    That is the higher price, deliberately: recognising Tbilisi later makes the total go down,
+    where the reverse would raise it under a parent who had already read it.
+  */
+  const addressStarted = draft.shipping.addressLine1.trim().length > 2;
+  const deliveryChoices: DeliveryOptionId[] = isPrint ? deliveryOptionsFor(addressHint) : [];
+  const deliveryOption = isPrint
+    ? resolveDeliveryOption(
+        draft.shipping.deliveryOption as DeliveryOptionId | undefined,
+        addressHint,
+      )
+    : undefined;
   const [pickingLocation, setPickingLocation] = useState(false);
   // The book is written in whatever language the parent is reading the site in — there is no
   // separate choice to make, so there is nothing to remember and nothing to get out of step.
@@ -89,6 +127,24 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const [promoInput, setPromoInput] = useState(draft.promoCode);
   const [promoState, setPromoState] = useState<"idle" | "applying" | "applied" | "invalid">("idle");
   const [busy, setBusy] = useState(false);
+  /** Whether the form has been submitted once, which is when it starts marking its own fields. */
+  const [showErrors, setShowErrors] = useState(false);
+  /*
+    The addresses this parent already has, offered as a list to pick from.
+
+    Every print order is saved with SaveForLater, so a second book has one waiting and a fourth
+    has three - and until now the parent retyped one anyway, because nothing on this screen
+    asked. This is the pattern every Georgian checkout uses: the saved ones as a radio list with
+    the default already chosen, and one button for the address that is not on it.
+
+    Picking one only writes into `draft.shipping`, which is the same place the form writes. So
+    validation, the delivery zone and the order payload each keep a single path through them,
+    whether the address was chosen or typed.
+  */
+  const [savedAddresses, setSavedAddresses] = useState<AddressResponse[]>([]);
+  const [chosenAddressId, setChosenAddressId] = useState<string | null>(null);
+  /** True while the fields are showing: a new address, or an account with none saved. */
+  const [addressOpen, setAddressOpen] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   /** Whether this screen is still the one in front of the parent. See placeOrder. */
@@ -100,8 +156,114 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     };
   }, []);
 
+  /*
+    Moving city corrects the choice rather than leaving it to fail at the till.
+
+    A parent who picked the free Tbilisi delivery and then changed the address to Batumi has a
+    selection that address cannot have. The server would price it as regional anyway, so the
+    draft is brought into line here and the screen never shows a selected option that the total
+    underneath it disagrees with.
+  */
+  useEffect(() => {
+    if (!isPrint || !deliveryOption) return;
+    if (draft.shipping.deliveryOption === deliveryOption) return;
+    onChange((prev) => ({
+      ...prev,
+      shipping: { ...prev.shipping, deliveryOption },
+    }));
+  }, [isPrint, deliveryOption, draft.shipping.deliveryOption, onChange]);
+
+  const deliveryPriceMinor = isPrint && deliveryOption ? DELIVERY[deliveryOption].priceMinor : 0;
+  /*
+    Fetched once, and only allowed to fill a form the parent has not started.
+
+    A draft that already carries an address is one they typed on this visit; overwriting it with
+    the one on file would be the site correcting them.
+  */
+  const addressLoaded = useRef(false);
+  /** What was selected before "a new address" cleared the choice, so cancelling puts it back. */
+  const lastChosenAddressId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isPrint || addressLoaded.current) return;
+    addressLoaded.current = true;
+    void (async () => {
+      try {
+        const addresses = await listAddresses();
+        if (!mounted.current || addresses.length === 0) return;
+        setSavedAddresses(addresses);
+        /*
+          The list opens on the default one, and only over a form the parent has not started.
+
+          A draft that already carries an address is one they typed on this visit; replacing it
+          with the one on file would be the site correcting them.
+        */
+        if (draft.shipping.addressLine1.trim() || draft.shipping.recipientName.trim()) return;
+        const first = addresses.find((address) => address.isDefault) ?? addresses[0];
+        setChosenAddressId(first.id);
+        setAddressOpen(false);
+        applyAddress(first);
+      } catch {
+        /* No saved addresses, or no session to ask with. The form opens empty, as before. */
+      }
+    })();
+    /* eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per package, by the ref */
+  }, [isPrint]);
+
+  function applyAddress(address: AddressResponse) {
+    onChange((prev) => ({
+      ...prev,
+      shipping: {
+        ...prev.shipping,
+        recipientName: address.recipientName,
+        recipientPhone: address.recipientPhone,
+        city: address.city,
+        addressLine1: address.addressLine1,
+        addressLine2: address.addressLine2 ?? undefined,
+        postalCode: address.postalCode ?? undefined,
+      },
+    }));
+  }
+
+  const chooseAddress = (address: AddressResponse) => {
+    setChosenAddressId(address.id);
+    setShowErrors(false);
+    applyAddress(address);
+  };
+
+  /* An empty form, because "a new address" that opens holding the last one is the same trap as
+     not asking at all. */
+  const startNewAddress = () => {
+    lastChosenAddressId.current = chosenAddressId;
+    setChosenAddressId(null);
+    setAddressOpen(true);
+    setShowErrors(false);
+    updateShipping({
+      recipientName: "",
+      recipientPhone: "",
+      city: "",
+      addressLine1: "",
+      addressLine2: undefined,
+      postalCode: undefined,
+      notes: "",
+    });
+  };
+
+  const backToSavedAddresses = () => {
+    const first =
+      savedAddresses.find((address) => address.id === chosenAddressId) ??
+      savedAddresses.find((address) => address.id === lastChosenAddressId.current) ??
+      savedAddresses.find((address) => address.isDefault) ??
+      savedAddresses[0];
+    if (!first) return;
+    setAddressOpen(false);
+    setShowErrors(false);
+    chooseAddress(first);
+  };
+
   const baseMinor =
-    (isPrint ? PRICES.print * copies : PRICES.digital) + (wantsGiftWrap ? PRICES.giftWrap : 0);
+    (isPrint ? PRICES.print * copies : PRICES.digital) +
+    (wantsGiftWrap ? PRICES.giftWrap : 0) +
+    deliveryPriceMinor;
   const subtotalMinor = quote?.subtotalMinor ?? baseMinor;
   const discountMinor = quote?.discountMinor ?? 0;
   /*
@@ -109,6 +271,8 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     so the summary never shows a wrapping line the order will not carry.
   */
   const giftWrapMinor = quote?.giftWrapMinor ?? (wantsGiftWrap ? PRICES.giftWrap : 0);
+  /* The same rule as wrapping: the server's number while there is one, the local one until then. */
+  const deliveryMinor = quote?.deliveryMinor ?? deliveryPriceMinor;
   const totalMinor = quote?.totalMinor ?? baseMinor;
   const isFree = quote?.isFree === true || totalMinor === 0;
   const packageLabel = isPrint
@@ -136,6 +300,8 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
           promoCode: draft.promoCode || undefined,
           giftWrap: wantsGiftWrap,
           quantity: copies,
+          deliveryOption,
+          city: addressHint.trim() || undefined,
         });
         if (cancelled) return;
         setQuote(result);
@@ -153,7 +319,10 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [orderPackage, draft.promoCode, wantsGiftWrap, copies]);
+    /* The address is in here because it decides the delivery price, and the delivery price is
+       part of the total the button carries. Only the resolved option and the zone matter, so
+       typing the rest of a street does not re-quote on every keystroke. */
+  }, [orderPackage, draft.promoCode, wantsGiftWrap, copies, deliveryOption, inTbilisi]);
 
   /*
     Asks whether the code is any good. It does not price the order.
@@ -198,17 +367,35 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     onChange((prev) => ({ ...prev, shipping: { ...prev.shipping, ...patch } }));
   };
 
-  const validateShipping = (): string | null => {
-    if (!isPrint) return null;
+  /*
+    What is wrong, field by field.
+
+    It used to be one message for three fields, and the phone rule only caught an empty box: a
+    number typed with a digit missing passed the checkout and failed at the courier, which is
+    the most expensive place to find out. Each field now answers for itself, the message sits
+    under the field rather than at the foot of the panel, and nothing is marked until the parent
+    has pressed the button once - being told a form is wrong before touching it is not help.
+  */
+  const shippingErrors = (): Partial<Record<keyof ShippingAddressRequest, string>> => {
+    if (!isPrint) return {};
     const s = draft.shipping;
-    if (!s.recipientName.trim() || !s.addressLine1.trim()) {
-      return "მიუთითე მიწოდების მისამართი.";
+    const errors: Partial<Record<keyof ShippingAddressRequest, string>> = {};
+    if (!s.recipientName.trim()) {
+      errors.recipientName = t.journey.checkout.requiredRecipient;
     }
-    if (!normalizeGeorgianPhone(s.recipientPhone) && !s.recipientPhone.trim()) {
-      return "მიუთითე ტელეფონის ნომერი.";
+    if (!s.recipientPhone.trim()) {
+      errors.recipientPhone = t.journey.checkout.requiredPhone;
+    } else if (!normalizeGeorgianPhone(s.recipientPhone)) {
+      errors.recipientPhone = t.journey.checkout.invalidPhone;
     }
-    return null;
+    if (s.addressLine1.trim().length < 6) {
+      errors.addressLine1 = t.journey.checkout.requiredAddress;
+    }
+    return errors;
   };
+
+  /* Live once the button has been pressed, so a corrected field clears as it is corrected. */
+  const fieldErrors = showErrors ? shippingErrors() : {};
 
   const placeOrder = async () => {
     // A second click on a slow connection is a second order and a second payment page, so the
@@ -216,11 +403,19 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     // detail rather than a promise.
     if (busy) return;
 
-    const shippingError = validateShipping();
-    if (shippingError) {
-      setError(shippingError);
+    const problems = shippingErrors();
+    const firstProblem = Object.keys(problems)[0];
+    if (firstProblem) {
+      setShowErrors(true);
+      setError(t.journey.checkout.fixFields);
+      /* Taken to the first one rather than left to find it: on a phone the panel and the field
+         it is complaining about can be a screen apart. */
+      const field = document.querySelector<HTMLElement>(`[name="${firstProblem}"]`);
+      field?.scrollIntoView({ behavior: "smooth", block: "center" });
+      field?.focus({ preventScroll: true });
       return;
     }
+    setShowErrors(false);
     if (!draft.worldId && !draft.preview?.storyId) {
       setError("აირჩიე სამყარო.");
       return;
@@ -276,13 +471,22 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
               /*
                 The form asks for the address once, but the server still keeps a City of its
                 own: it is required, it is what the shipping email names as the destination,
-                and GeorgianDelivery reads it to decide whether to quote 2-3 days or 5-7.
+                and GeorgianDelivery reads it to decide which deliveries this address may have.
                 Sending the whole line keeps all three working — the Tbilisi check is a
-                substring match, so "თბილისი, გროზნოს 11ა" still resolves to the city window,
-                and anything unrecognised falls to the regional one, which is the safe
-                direction to be wrong in.
+                substring match, so "თბილისი, გროზნოს 11ა" still resolves to the city, and
+                anything unrecognised falls to the regional option, which is the safe direction
+                to be wrong in.
               */
               city: draft.shipping.addressLine1.trim(),
+              /*
+                The option as this screen resolved it, not as the draft happens to hold it.
+
+                They agree — an effect keeps the draft in line with the address — but the money
+                is decided here, and sending the same value the total on the button was built
+                from means a stale draft cannot quietly buy a different delivery. The server
+                resolves it once more against the address regardless.
+              */
+              deliveryOption,
             }
           : undefined,
         returnPath: "/create#generating",
@@ -417,7 +621,51 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
           parcel goes and how it is made up are different questions and now say so.
         */}
         {isPrint ? <p className="ux-checkout-step">{t.journey.checkout.stepAddress}</p> : null}
-        {isPrint ? (
+        {/*
+          Folded, once there is something to fold.
+
+          A parent buying a second book meets their own address rather than an empty form, and a
+          parent who has just typed one does not keep looking at what they typed. Two ways out,
+          and they are different things: change this address, or post it somewhere else. The
+          second clears the fields, because "a different address" that opens pre-filled with the
+          last one is the same trap as not asking at all.
+        */}
+        {/*
+          The ones on file, as a list, with the default already chosen.
+
+          Radios rather than a dropdown: two or three addresses are worth seeing side by side -
+          which name, which street, which number - and a select box hides exactly that. The row
+          is the target, so the whole card is one tap.
+        */}
+        {isPrint && !addressOpen ? (
+          <div className="ux-address-list">
+            {savedAddresses.map((address) => {
+              const chosen = address.id === chosenAddressId;
+              return (
+                <label key={address.id} className={`ux-address-choice${chosen ? " is-on" : ""}`}>
+                  <input
+                    type="radio"
+                    name="savedAddress"
+                    checked={chosen}
+                    onChange={() => chooseAddress(address)}
+                  />
+                  <span className="ux-radio" aria-hidden="true" />
+                  <span>
+                    <strong>{address.addressLine1}</strong>
+                    <small>
+                      {address.recipientName} · {address.recipientPhone}
+                    </small>
+                  </span>
+                </label>
+              );
+            })}
+            <button className="ux-address-add" type="button" onClick={startNewAddress}>
+              <Plus aria-hidden="true" size={15} />
+              {t.journey.checkout.addNewAddress}
+            </button>
+          </div>
+        ) : null}
+        {isPrint && addressOpen ? (
           <div className="ux-ship-fields">
             <label className="field" htmlFor="checkout-ship-recipient">
               <span>{t.journey.checkout.recipient}</span>
@@ -425,9 +673,18 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                 id="checkout-ship-recipient"
                 name="recipientName"
                 autoComplete="name"
+                aria-invalid={fieldErrors.recipientName ? true : undefined}
+                aria-describedby={
+                  fieldErrors.recipientName ? "checkout-ship-recipient-error" : undefined
+                }
                 value={draft.shipping.recipientName}
                 onChange={(e) => updateShipping({ recipientName: e.target.value })}
               />
+              {fieldErrors.recipientName ? (
+                <small id="checkout-ship-recipient-error" className="ux-field-error" role="alert">
+                  {fieldErrors.recipientName}
+                </small>
+              ) : null}
             </label>
             <label className="field" htmlFor="checkout-ship-phone">
               <span>{t.common.labels.phone}</span>
@@ -435,10 +692,20 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                 id="checkout-ship-phone"
                 name="recipientPhone"
                 type="tel"
+                inputMode="tel"
                 autoComplete="tel"
+                aria-invalid={fieldErrors.recipientPhone ? true : undefined}
+                aria-describedby={
+                  fieldErrors.recipientPhone ? "checkout-ship-phone-error" : undefined
+                }
                 value={draft.shipping.recipientPhone}
                 onChange={(e) => updateShipping({ recipientPhone: e.target.value })}
               />
+              {fieldErrors.recipientPhone ? (
+                <small id="checkout-ship-phone-error" className="ux-field-error" role="alert">
+                  {fieldErrors.recipientPhone}
+                </small>
+              ) : null}
             </label>
             {/*
               The field searches, and the map is under it.
@@ -463,7 +730,18 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                 updateShipping(city ? { addressLine1: address, city } : { addressLine1: address })
               }
               onPickOnMap={() => setPickingLocation(true)}
+              invalid={Boolean(fieldErrors.addressLine1)}
+              describedBy={fieldErrors.addressLine1 ? "checkout-ship-address-error" : undefined}
             />
+            {fieldErrors.addressLine1 ? (
+              <small
+                id="checkout-ship-address-error"
+                className="ux-field-error field-wide"
+                role="alert"
+              >
+                {fieldErrors.addressLine1}
+              </small>
+            ) : null}
 
             {/*
               What no map knows and the parent always does.
@@ -484,6 +762,15 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                 onChange={(e) => updateShipping({ notes: e.target.value })}
               />
             </label>
+            {savedAddresses.length > 0 ? (
+              <button
+                className="ux-inline-link field-wide"
+                type="button"
+                onClick={backToSavedAddresses}
+              >
+                {t.journey.checkout.backToSavedAddresses}
+              </button>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -514,7 +801,6 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
         </div>
 
         <div className="summary-lines">
-          <h2>{t.journey.checkout.summaryHeading}</h2>
           {/*
             The two things about the parcel a parent may still change, on the two lines whose
             prices they move.
@@ -530,15 +816,14 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             parent just pressed, and the quote effect drops the old price the moment it moves, so
             the figure beside it is always for the number shown.
 
-            The book on its own. Wrapping is inside `subtotalMinor` — the server prices it as part
+            The book on its own. Wrapping and delivery are both inside `subtotalMinor` — the server prices it as part
             of the subtotal so a promo can reach it — so printing the subtotal here and the
-            wrapping again below made the lines add up to more than the total under them.
+            wrapping and the courier again below made the lines add up to more than the total under them.
           */}
           {isPrint ? (
             <span className="ux-summary-option">
               <span>
                 <strong>{packageLabel}</strong>
-                <small>{t.journey.checkout.copiesNote}</small>
               </span>
               <span className="ux-summary-option-end">
                 {/*
@@ -566,22 +851,71 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                     <Plus aria-hidden="true" size={16} />
                   </button>
                 </span>
-                <strong>{formatGel(subtotalMinor - giftWrapMinor)}</strong>
+                <strong>{formatGel(subtotalMinor - giftWrapMinor - deliveryMinor)}</strong>
               </span>
             </span>
           ) : (
             <span>
               {packageLabel}
-              <strong>{formatGel(subtotalMinor - giftWrapMinor)}</strong>
+              <strong>{formatGel(subtotalMinor - giftWrapMinor - deliveryMinor)}</strong>
             </span>
           )}
           <span>
             {t.journey.checkout.bookLanguage} <strong>{langLabel}</strong>
           </span>
-          {isPrint ? (
+          {/*
+            Delivery, where the parent can see what it costs them to wait.
+
+            One line when there is nothing to decide - everywhere outside Tbilisi is one price
+            in one window - and two selectable ones when there is. The radio is on the left
+            because these are alternatives rather than extras: the eye reads down the column of
+            circles to compare them, which is not how the switch above works and should not look
+            like it.
+
+            Before an address says otherwise this is the regional price. That is the honest
+            direction to guess in: recognising Tbilisi drops the total, where guessing free and
+            correcting upwards would raise a figure the parent had already accepted.
+          */}
+          {isPrint && deliveryChoices.length > 1 ? (
+            <>
+              <p className="ux-delivery-label">{t.journey.checkout.deliveryHeading}</p>
+              {deliveryChoices.map((option) => {
+                const window = DELIVERY[option];
+                const chosen = option === deliveryOption;
+                return (
+                  <label key={option} className={`ux-delivery-option${chosen ? " is-on" : ""}`}>
+                    <input
+                      type="radio"
+                      name="deliveryOption"
+                      value={option}
+                      checked={chosen}
+                      onChange={() =>
+                        onChange((prev) => ({
+                          ...prev,
+                          shipping: { ...prev.shipping, deliveryOption: option },
+                        }))
+                      }
+                    />
+                    <span className="ux-radio" aria-hidden="true" />
+                    <span>{t.journey.checkout.deliveryDays(window.minDays)}</span>
+                    <strong>
+                      {window.priceMinor === 0
+                        ? t.journey.checkout.deliveryFree
+                        : formatGel(window.priceMinor)}
+                    </strong>
+                  </label>
+                );
+              })}
+            </>
+          ) : null}
+          {isPrint && deliveryChoices.length === 1 ? (
             <span>
-              {t.journey.checkout.deliveryLine}
-              <strong>0 ₾</strong>
+              {t.journey.checkout.deliveryHeading} ·{" "}
+              {t.journey.checkout.deliveryDaysRange(
+                DELIVERY.Regional.minDays,
+                DELIVERY.Regional.maxDays,
+              )}
+              <strong>{formatGel(deliveryMinor)}</strong>
             </span>
           ) : null}
           {/*
@@ -599,7 +933,6 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             <label className={`ux-summary-option ux-gift-wrap${draft.giftWrap ? " is-on" : ""}`}>
               <span>
                 <strong>{t.journey.checkout.giftWrap}</strong>
-                <small>{t.journey.checkout.giftWrapNote}</small>
               </span>
               <span className="ux-summary-option-end">
                 <input
@@ -641,7 +974,6 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                 name="promoCode"
                 value={promoInput}
                 disabled={promoState === "applied"}
-                placeholder={t.journey.checkout.promoPlaceholder}
                 onChange={(e) => {
                   setPromoInput(e.target.value);
                   if (promoState === "invalid") {
@@ -733,11 +1065,6 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
           somewhere else to go. The browser's own back button still does it for anyone who wants
           it, and losing the link is what lets the column fit a screen without a scrollbar.
         */}
-
-        <p>
-          <Lock aria-hidden="true" size={13} />
-          {isPrint ? t.journey.checkout.printReuseNote : t.journey.checkout.payFirstNote}
-        </p>
       </aside>
     </section>
   );

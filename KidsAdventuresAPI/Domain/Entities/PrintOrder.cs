@@ -23,6 +23,13 @@ public sealed class PrintOrder
     public string? PostalCode { get; set; }
     public string? Notes { get; set; }
 
+    /// <summary>
+    /// The delivery the parent chose and was charged for: TbilisiStandard, TbilisiExpress or
+    /// Regional. Null on a parcel created before the choice existed, which is read as whatever
+    /// that address gets by default.
+    /// </summary>
+    public string? DeliveryOption { get; set; }
+
     public PrintOrderStatus Status { get; set; } = PrintOrderStatus.AwaitingPrint;
     public string? TrackingCode { get; set; }
 

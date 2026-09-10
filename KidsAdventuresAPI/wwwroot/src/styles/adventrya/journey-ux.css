@@ -1334,9 +1334,6 @@
 .ux-checkout-stage > .ux-order-summary .summary-lines {
   color: #f8f2e5;
 }
-.ux-checkout-stage > .ux-order-summary .summary-lines h2 {
-  color: #f8f2e5;
-}
 .ux-checkout-stage > .ux-order-summary .summary-lines > span {
   border-bottom-color: rgba(239, 227, 207, 0.1);
   color: #e6e0ec99;
@@ -1359,10 +1356,16 @@
   align-items: baseline;
   margin-top: 14px;
   padding-top: 16px;
-  border-top: 1px solid rgba(239, 227, 207, 0.16);
   color: #e6e0ec9e;
   font-size: 12px;
 }
+/*
+  No rule above the total, and none needed.
+
+  The line was doing what the space and the type size already do: 30px of gold against 11px of
+  quiet grey is not a fifth row whatever sits above it, and the last breakdown row keeps its own
+  bottom hairline, so the group still closes. One less line across a panel that had four.
+*/
 .ux-checkout-stage > .ux-order-summary .summary-lines > div strong {
   color: var(--story-gold);
   font-family: var(--font-display);
@@ -1377,9 +1380,6 @@
   margin-top: 10px;
   margin-bottom: auto;
 }
-.ux-checkout-stage > .ux-order-summary .summary-lines h2 {
-  margin: 14px 0 8px;
-}
 .ux-checkout-stage > .ux-order-summary .ux-compact-product small {
   color: #cbb9ff9e;
 }
@@ -1388,15 +1388,6 @@
 }
 .ux-checkout-stage > .ux-order-summary .ux-compact-product span {
   color: var(--story-gold);
-}
-.ux-checkout-stage > .ux-order-summary > p {
-  margin-top: 10px;
-  padding: 9px 11px;
-  color: #e6e0ec7a;
-  background: #3c786421;
-}
-.ux-checkout-stage > .ux-order-summary > p svg {
-  color: #8ebca8;
 }
 .ux-checkout-stage > .ux-order-summary .checkout-pay {
   min-height: 54px;
@@ -1460,13 +1451,6 @@
   font-size: 12px;
   font-weight: 700;
 }
-.ux-checkout-stage > .ux-order-summary .summary-lines > .ux-summary-option small {
-  display: block;
-  margin-top: 2px;
-  color: #f8f2e58f;
-  font-size: 11px;
-  line-height: 1.35;
-}
 .ux-summary-option-end {
   display: flex;
   flex: none;
@@ -1496,6 +1480,226 @@
 }
 
 /*
+  Delivery, when there is something to decide.
+
+  Two rows that look like the breakdown they sit in rather than like a form: same hairline, same
+  price column, same 11px. What marks them out is the radio on the left, and the selected one
+  going a shade warmer — enough to read at a glance without turning the panel into a card.
+
+  The whole row is the target, not the 18px circle: a label wrapping the input makes the price
+  and the days clickable too, which on a phone is the difference between one tap and three.
+*/
+/*
+  The word itself, once, over the pair.
+
+  Two windows and two prices in a column of rows that are otherwise "label, value" read as two
+  more facts rather than as one question. It is set like the quiet half of a breakdown row and
+  not like the step headings on the form, because it names a choice inside a panel rather than a
+  section of the page.
+*/
+.ux-delivery-label {
+  margin: 10px 0 2px;
+  color: #e6e0ec99;
+  font-size: 11px;
+}
+
+.ux-delivery-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(239, 227, 207, 0.1);
+  cursor: pointer;
+  color: #e6e0ec99;
+  font-size: 11px;
+  transition: color 0.16s ease;
+}
+.ux-delivery-option > span:not(.ux-radio) {
+  flex: 1;
+}
+.ux-delivery-option > strong {
+  min-width: 34px;
+  color: #f8f2e5d6;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: right;
+}
+.ux-delivery-option.is-on {
+  color: #f8f2e5;
+}
+.ux-delivery-option.is-on > strong {
+  color: var(--story-gold);
+}
+/* Off-screen, still an input: the label, the keyboard and the screen reader all keep working,
+   and arrow keys still move between the two, because they are a real radio group. */
+.ux-delivery-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.ux-radio {
+  position: relative;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(239, 227, 207, 0.3);
+  border-radius: 50%;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease;
+}
+.ux-delivery-option.is-on .ux-radio {
+  border-color: var(--story-gold);
+  background: var(--story-gold);
+}
+.ux-delivery-option.is-on .ux-radio::after {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: #2c1c49;
+  content: "";
+}
+.ux-delivery-option input:focus-visible ~ .ux-radio {
+  outline: 2px solid var(--story-gold);
+  outline-offset: 2px;
+}
+/* Said once, while the address is still empty and the regional price is the one being quoted. */
+.ux-delivery-hint {
+  margin: 8px 0 0;
+  color: #f8f2e57a;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/*
+  The addresses on file, to choose between.
+
+  The same row the delivery options wear, one step up in size because an address is two lines
+  and a delivery is a phrase: the radio on the left, the street in the parent's own words, the
+  name and the number under it. A card rather than a hairline row, because these are alternatives
+  to each other rather than lines of one total - and the chosen one warms rather than glows, so
+  a list of three does not turn into a list of one bright thing and two grey ones.
+
+  "Add a new address" is a button under them and not a fourth radio: it does not select an
+  address, it asks for one.
+*/
+.ux-address-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+.ux-address-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(239, 227, 207, 0.15);
+  border-radius: 16px;
+  cursor: pointer;
+  background: #2d1f5459;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease;
+}
+.ux-address-choice.is-on {
+  border-color: rgba(232, 201, 138, 0.46);
+  background: #3a2a5e8a;
+}
+.ux-address-choice > span:not(.ux-radio) {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ux-address-choice strong {
+  overflow: hidden;
+  color: #fff8eb;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ux-address-choice small {
+  margin-top: 3px;
+  overflow: hidden;
+  color: #f8f2e58f;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ux-address-choice input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.ux-address-choice input:focus-visible ~ .ux-radio {
+  outline: 2px solid var(--story-gold);
+  outline-offset: 2px;
+}
+.ux-address-choice.is-on .ux-radio {
+  border-color: var(--story-gold);
+  background: var(--story-gold);
+}
+.ux-address-choice.is-on .ux-radio::after {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: #2c1c49;
+  content: "";
+}
+.ux-address-add {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 15px;
+  border: 1px dashed rgba(232, 201, 138, 0.4);
+  border-radius: 999px;
+  cursor: pointer;
+  color: #f2d99c;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ux-address-add:hover,
+.ux-address-add:focus-visible {
+  border-style: solid;
+  background: #e8c98a14;
+}
+
+/*
+  What is wrong with this field, under this field.
+
+  Warm rather than red: the palette has no alarm colour, and a checkout that turns scarlet over
+  a missing phone number reads as a failure rather than as a thing left to do. The box it
+  belongs to is outlined in the same tone, so the pair are found together at a glance.
+*/
+.ux-field-error {
+  margin-top: -1px;
+  color: #ffc9a6;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.ux-ship-fields input[aria-invalid="true"],
+.ux-ship-fields .ux-address-field input[aria-invalid="true"],
+.ux-ship-fields textarea[aria-invalid="true"] {
+  border-color: #ffc9a67a;
+  background: #4a26467a;
+}
+
+/*
   Recipient and phone share a row; the address takes the width, because an address is one long
   thing and splitting it across two boxes was the reason there used to be five of them.
 */
@@ -1508,66 +1712,7 @@
 .ux-ship-fields .field-wide {
   grid-column: 1 / -1;
 }
-.ux-saved-row {
-  display: grid;
-  grid-template-columns: 40px 1fr auto;
-  align-items: center;
-  gap: 12px;
-  margin-top: 16px;
-  padding: 14px;
-  border: 1px solid rgba(239, 227, 207, 0.18);
-  border-radius: 16px;
-  background: #2d1f547a;
-}
-.ux-saved-icon {
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  border-radius: 13px;
-  color: var(--story-gold);
-  background: #e8c98a1c;
-}
-.ux-saved-icon svg {
-  width: 18px;
-}
-.ux-saved-row > div {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-.ux-saved-row small {
-  color: #eee6f07a;
-  font-size: 11px;
-}
-.ux-saved-row strong {
-  margin-top: 4px;
-  overflow: hidden;
-  color: #fff8eb;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ux-saved-actions {
-  display: flex;
-  align-items: center;
-  flex-direction: row;
-  gap: 6px;
-}
-.ux-saved-row .ux-saved-actions button {
-  min-height: 36px;
-  padding: 0 11px;
-  border: 1px solid rgba(239, 226, 202, 0.18);
-  border-radius: 11px;
-  cursor: pointer;
-  color: var(--story-gold);
-  background: #ffffff0a;
-  font-family: inherit;
-  font-size: 11px;
-}
-.ux-saved-row .ux-saved-actions button:last-child {
-  color: #fff8eba8;
-}
+/* The name and the number under the street: quieter than it, and cut the same way. */
 .ux-inline-link {
   height: auto;
   min-height: 0;
@@ -2014,22 +2159,6 @@
   .ux-compact-product span {
     font-size: 15px;
   }
-  .ux-saved-row {
-    grid-template-columns: 38px 1fr;
-    gap: 9px;
-    padding: 12px;
-  }
-  .ux-saved-row strong {
-    max-width: 190px;
-  }
-  .ux-saved-actions {
-    grid-column: 2;
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .ux-saved-row .ux-saved-actions button {
-    width: 100%;
-  }
   .ux-generating {
     display: flex;
     flex-direction: column;
@@ -2181,38 +2310,6 @@
   .app-header .wordmark-small {
     display: none;
   }
-  /*
-    Out of the absolute centre and into the flow.
-    Centring on 50% of the header ignores what is actually beside it, so on a phone the step
-    counter sat underneath the language control and the avatar. As a flex item it takes the room
-    that is left between the back button and those two, and never lands on top of them.
-  */
-  /*
-    Basis zero, not auto.
-
-    `1 1 auto` sizes the item from its own text first, and the header wraps rather than shrinks
-    — so on a 320px screen "ნაბიჯი 3 / 3 · Preview" measured 222px, took the whole line, and
-    pushed the language control and the avatar onto a second row: a header half again as tall,
-    with the controls sitting under the counter instead of beside it.
-
-    With a zero basis the counter asks for no width of its own and takes only what is left
-    between the back button and those controls, which is what the ellipsis below is for.
-  */
-  .step-progress {
-    position: static;
-    width: auto;
-    min-width: 0;
-    flex: 1 1 0;
-    margin: 0 10px;
-    transform: none;
-  }
-  .step-progress span {
-    display: block;
-    overflow: hidden;
-    font-size: 11px;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
   .ux1-shell .journey-stage,
   .ux-profile-stage,
   .ux-preview-stage,
@@ -2238,9 +2335,6 @@
   }
   .ux-package-title b {
     font-size: 14px;
-  }
-  .ux-saved-row strong {
-    max-width: 145px;
   }
   .living-map {
     height: 750px;
@@ -2752,6 +2846,25 @@
   .ux-terms-consent a {
     padding-block: 10px;
   }
+
+  /*
+    The rows a finger has to hit, at the size a finger needs.
+
+    Both are whole-row targets already - the label wraps the input, so the days, the price and
+    the circle are all the same button - but at 11px of text and 9px of padding the row is 33px
+    tall, and a thumb wants 44. Padding rather than a height, so the type and the hairlines keep
+    their own rhythm and only the reachable area grows.
+
+    Delivery earns it twice over: the two options sit one above the other, so a row that is
+    short is also a row whose neighbour is 33px away.
+  */
+  .ux-checkout-stage > .ux-order-summary .summary-lines > .ux-delivery-option {
+    padding: 14px 0;
+  }
+
+  .ux-checkout-stage > .ux-order-summary .summary-lines > .ux-summary-option.ux-gift-wrap {
+    padding: 12px 0;
+  }
 }
 
 /*
@@ -3009,35 +3122,99 @@
   .ux-checkout-stage .summary-lines > span {
     padding: 4px 0;
   }
-  .ux-checkout-stage .summary-lines h2 {
-    margin-bottom: 4px;
-  }
   /*
     The reassurance under the summary goes. It promises the printed copy is the book already
     made rather than a fresh one — true, and worth saying on a desktop where there is room,
     but the panel above already tells a parent what the button does, and here it is the two
     lines standing between them and it.
   */
-  .ux-checkout-stage .ux-order-summary > p {
-    display: none;
-  }
   .ux-checkout-stage > .checkout-form > h1 {
     font-size: clamp(20px, 5.4vw, 25px);
   }
-  /* The cover, the title and the price again, above a summary that lists all three. */
+  /*
+    The book stays, small.
+
+    It was hidden here because the cover, the title and the price are all listed again in the
+    breakdown below, and on a 375px screen that redundancy was costing the pay button its place.
+    The button is fixed to the foot of the window now and does not have to be scrolled to, so
+    the space is affordable again - and what a parent is buying is the one thing on a checkout
+    worth repeating. The compact sizing a few rules up is what it wears.
+  */
   .ux-checkout-stage .ux-compact-product {
-    display: none;
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    gap: 12px;
+    align-items: center;
+  }
+  .ux-checkout-stage .ux-compact-product strong {
+    margin-top: 3px;
+    font-size: 13px;
+  }
+  .ux-checkout-stage .ux-compact-product span {
+    margin-top: 4px;
+    font-size: 15px;
   }
   .ux-checkout-stage .ux-order-summary {
     padding: 12px 14px;
-  }
-  .ux-checkout-stage .summary-lines h2 {
-    font-size: 13px;
   }
   /* The bank's page lists the schemes it takes; this only has to say where you are going. */
   .ux-ship-fields {
     margin-top: 10px;
     gap: 7px 10px;
+  }
+
+  /*
+    The courier's note, at the size of the thing it is.
+
+    128px of empty box for "which entrance, which floor" is the tallest element on a phone
+    checkout and the least often filled: it pushed the pay button a screen further down for
+    every parent, including the ones with nothing to add. Two lines to start with, and it grows
+    with what is typed into it, so the parent who does have a code for the door is not typing
+    into a slot.
+  */
+  .ux-checkout-stage .ux-ship-fields textarea {
+    min-height: 0;
+    height: 62px;
+    padding: 11px 13px;
+    field-sizing: content;
+    max-height: 132px;
+  }
+
+  /*
+    The pay button goes with the parent down the page.
+
+    Stacked, the panel is below the form, so the one control this screen exists for was off the
+    bottom of every phone until the address was finished. Fixed to the foot of the window it is
+    always the same thumb-reach away, and it carries the total, so what is being agreed to is
+    never off screen either.
+
+    The stage takes the height back as padding, or the button covers the last thing above it.
+  */
+  .ux-checkout-stage {
+    padding-bottom: 84px;
+  }
+
+  .ux-checkout-stage > .ux-order-summary {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .ux-checkout-stage > .ux-order-summary .checkout-pay {
+    position: fixed;
+    z-index: 40;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    margin-top: 0;
+    box-shadow:
+      0 10px 30px #12082ba8,
+      0 16px 38px #e2a65333,
+      inset 0 1px #ffffffa6;
+  }
+
+  /* The gap it left behind, so the panel still closes under the promo box. */
+  .ux-checkout-stage > .ux-order-summary .ux-promo-panel {
+    margin-bottom: 0;
   }
 }
 
@@ -3072,12 +3249,12 @@
   .ux-checkout-stage .ux-compact-product span {
     margin-top: 6px;
   }
-  .ux-checkout-stage > .ux-order-summary .summary-lines h2 {
-    margin: 10px 0 6px;
-  }
   .ux-checkout-stage > .ux-order-summary .summary-lines > span,
   .ux-checkout-stage > .ux-order-summary .summary-lines > .ux-summary-option {
     padding: 6px 0;
+  }
+  .ux-checkout-stage > .ux-order-summary .ux-delivery-option {
+    padding: 7px 0;
   }
   .ux-checkout-stage > .ux-order-summary .summary-lines > div {
     margin-top: 8px;
@@ -3089,10 +3266,6 @@
   .ux-checkout-stage > .ux-order-summary .checkout-pay {
     margin-top: 10px;
   }
-  .ux-checkout-stage > .ux-order-summary > p {
-    margin-top: 6px;
-    padding: 7px 11px;
-  }
 }
 
 /*
@@ -3101,15 +3274,11 @@
 */
 @media (max-height: 700px) {
   .ux-checkout-stage .ux-compact-product,
-  .ux-checkout-stage .ux-order-summary > p,
   /*
     The breakdown stays — a price and what it is for is the one thing a payment screen may not
     hide — but it stops being a titled panel and becomes four tight lines. The heading said
     "order summary" above a list that is self-evidently an order summary.
   */
-  .ux-checkout-stage .summary-lines h2 {
-    display: none;
-  }
   .ux-checkout-stage .summary-lines > span {
     padding: 2px 0;
     font-size: 12px;

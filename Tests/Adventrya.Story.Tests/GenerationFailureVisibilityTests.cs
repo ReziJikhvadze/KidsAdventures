@@ -1132,8 +1132,8 @@ public class OrderFailureVisibilityTests
 
     private sealed class ThrowingPromoCodes : IPromoCodeService
     {
-        public Task<PricedOrder> PriceAsync(Guid userId, OrderType type, OrderPackage package, string? promoCode, bool giftWrap, int quantity, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<QuoteResponse> QuoteAsync(Guid userId, OrderType type, OrderPackage package, string? promoCode, bool giftWrap, int quantity, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<PricedOrder> PriceAsync(Guid userId, OrderType type, OrderPackage package, string? promoCode, bool giftWrap, int quantity, DeliveryChoice delivery, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<QuoteResponse> QuoteAsync(Guid userId, OrderType type, OrderPackage package, string? promoCode, bool giftWrap, int quantity, DeliveryChoice delivery, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<bool> TryRedeemAsync(Order order, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 

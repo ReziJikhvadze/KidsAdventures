@@ -53,6 +53,17 @@ public static class GelPricing
     /// </summary>
     public const int GiftWrapMinor = 500;
 
+    /// <summary>
+    /// What the courier costs, and only for something a courier carries.
+    ///
+    /// The prices and the windows live in <see cref="GeorgianDelivery"/>, because they are a
+    /// promise about time as much as a charge; this is only the rule that a file is not posted.
+    /// A Digital order sent a delivery option is asking for something that does not exist, and
+    /// the safe answer to that is nothing to pay.
+    /// </summary>
+    public static int DeliveryFor(OrderPackage package, DeliveryChoice delivery) =>
+        SupportsGiftWrap(package) ? delivery.PriceMinor : 0;
+
     /// <summary>Whether wrapping can be added to this order at all — a posted parcel, not a file.</summary>
     public static bool SupportsGiftWrap(OrderPackage package) => package == OrderPackage.Print;
 
@@ -84,7 +95,8 @@ public static class GelPricing
         OrderType type,
         OrderPackage package,
         bool giftWrap = false,
-        int quantity = 1)
+        int quantity = 1,
+        DeliveryChoice delivery = default)
     {
         /*
           Copies multiply the book; wrapping does not multiply with them.
@@ -94,13 +106,25 @@ public static class GelPricing
         */
         var copies = QuantityFor(type, package, quantity);
 
+        /*
+          Delivery is inside the subtotal for the same reason wrapping is: a percentage code
+          takes its cut of it and a full-discount code clears it, and either way the parent can
+          add up the lines they were shown and arrive at the total they are charged. One parcel
+          is delivered once, so it does not multiply with the copies.
+        */
         return type switch
         {
-            OrderType.PrintUpgrade => PrintUpgradeMinor + GiftWrapFor(OrderPackage.Print, giftWrap),
+            OrderType.PrintUpgrade =>
+                PrintUpgradeMinor
+                + GiftWrapFor(OrderPackage.Print, giftWrap)
+                + DeliveryFor(OrderPackage.Print, delivery),
             OrderType.NewBook => package switch
             {
                 OrderPackage.Digital => DigitalMinor,
-                OrderPackage.Print => (PrintMinor * copies) + GiftWrapFor(package, giftWrap),
+                OrderPackage.Print =>
+                    (PrintMinor * copies)
+                    + GiftWrapFor(package, giftWrap)
+                    + DeliveryFor(package, delivery),
                 _ => throw new InvalidOperationException("პაკეტი არასწორია.")
             },
             _ => throw new InvalidOperationException("შეკვეთის ტიპი არასწორია.")

@@ -33,6 +33,55 @@ export const PRICES = {
  */
 export const MAX_PRINT_QUANTITY = 5;
 
+/**
+ * Delivery inside Georgia, mirroring `Domain/GeorgianDelivery.cs`.
+ *
+ * The address picks the menu and the parent picks off it: Tbilisi chooses between five working
+ * days for nothing and three for 7 GEL, everywhere else is one flat 8 GEL in five to seven. The
+ * server is authoritative — every total on the checkout comes back from a quote — and these are
+ * here for what the screen has to draw before the first quote lands, exactly as the book prices
+ * are.
+ */
+export const DELIVERY = {
+  TbilisiStandard: { priceMinor: 0, minDays: 5, maxDays: 5 },
+  TbilisiExpress: { priceMinor: 700, minDays: 3, maxDays: 3 },
+  Regional: { priceMinor: 800, minDays: 5, maxDays: 7 },
+} as const;
+
+export type DeliveryOptionId = keyof typeof DELIVERY;
+
+/*
+  Tbilisi spelled every way a parent might type it, matched the way the server matches it.
+
+  Anything unrecognised is a region, which is the safe direction to be wrong in: it quotes the
+  higher price, and a Tbilisi address that is not recognised until the parent finishes typing
+  makes the total go down rather than up.
+*/
+const TBILISI_NAMES = ["თბილისი", "tbilisi", "tiflis"];
+
+export function isTbilisiAddress(...parts: (string | null | undefined)[]): boolean {
+  const haystack = parts.filter(Boolean).join(" ").toLowerCase();
+  return TBILISI_NAMES.some((name) => haystack.includes(name.toLowerCase()));
+}
+
+/** The options this address may choose between, in the order they should be shown. */
+export function deliveryOptionsFor(...parts: (string | null | undefined)[]): DeliveryOptionId[] {
+  return isTbilisiAddress(...parts) ? ["TbilisiStandard", "TbilisiExpress"] : ["Regional"];
+}
+
+/**
+ * The option to use for this address: what was asked for when the address allows it, and
+ * otherwise the first one it does allow. Same rule as the server, so the two never disagree
+ * about what is selected while a quote is in flight.
+ */
+export function resolveDeliveryOption(
+  requested: DeliveryOptionId | undefined,
+  ...parts: (string | null | undefined)[]
+): DeliveryOptionId {
+  const allowed = deliveryOptionsFor(...parts);
+  return requested && allowed.includes(requested) ? requested : allowed[0];
+}
+
 export type BookPackage = "digital" | "print";
 
 export type PurchaseType = "new_book" | "print_upgrade";

@@ -17,6 +17,8 @@ export async function quoteOrder(request: QuoteRequest): Promise<QuoteResponse> 
       promoCode: request.promoCode || undefined,
       giftWrap: request.giftWrap ?? false,
       quantity: request.quantity ?? 1,
+      deliveryOption: request.deliveryOption,
+      city: request.city || undefined,
     }),
   });
 }

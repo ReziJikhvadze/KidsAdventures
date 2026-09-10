@@ -111,6 +111,24 @@ public sealed class QuoteRequest
 
     /// <summary>How many printed copies, 1..5. Ignored for Digital.</summary>
     public int Quantity { get; set; } = 1;
+
+    /// <summary>
+    /// Which delivery the parent picked: TbilisiStandard, TbilisiExpress or Regional.
+    ///
+    /// Quoted rather than trusted. The address decides which of these is on offer, so the
+    /// server resolves the name against <see cref="City"/> and prices what that address can
+    /// actually have — see <see cref="GeorgianDelivery.Resolve(string?, string?, string?)"/>.
+    /// </summary>
+    [MaxLength(32)]
+    public string? DeliveryOption { get; set; }
+
+    /// <summary>
+    /// Where it is going, as far as the form knows: the city when an autocomplete filled one
+    /// in, and otherwise whatever the parent typed on the address line. Only the delivery zone
+    /// is read off it, and nothing here is stored.
+    /// </summary>
+    [MaxLength(256)]
+    public string? City { get; set; }
 }
 
 public sealed class QuoteResponse
@@ -129,6 +147,25 @@ public sealed class QuoteResponse
 
     /// <summary>The number of copies this quote was actually priced for, after clamping.</summary>
     public int Quantity { get; set; } = 1;
+
+    /// <summary>
+    /// What the courier costs on this quote, so the checkout shows the server's figure rather
+    /// than adding seven lari of its own and hoping. Zero for a digital order, and zero for the
+    /// free Tbilisi delivery, which is a real answer rather than an absent one.
+    /// </summary>
+    public int DeliveryMinor { get; set; }
+
+    /// <summary>
+    /// The delivery actually priced. It differs from the one asked for when the address cannot
+    /// have it, so the checkout can correct the selection it is showing instead of quietly
+    /// disagreeing with the total underneath it.
+    /// </summary>
+    public string? DeliveryOption { get; set; }
+
+    /// <summary>Working days the parcel is promised in, for the line under the option.</summary>
+    public int DeliveryMinDays { get; set; }
+
+    public int DeliveryMaxDays { get; set; }
 
     /// <summary>True when a full-discount code brought the total to zero.</summary>
     public bool IsFree { get; set; }

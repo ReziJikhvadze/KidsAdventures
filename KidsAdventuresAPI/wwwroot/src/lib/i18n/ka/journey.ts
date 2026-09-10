@@ -250,7 +250,7 @@ export const journey = {
       features: [
         "ყველაფერი ციფრული პაკეტიდან",
         "მიწოდება მთელ საქართველოში",
-        "თბილისი 2–3 · რეგიონები 5–7 დღე",
+        "თბილისი 5 დღე უფასოდ · რეგიონები 5–7 დღე",
       ],
     },
   },
@@ -318,13 +318,10 @@ export const journey = {
     /* The package a parent is buying, named in the language the rest of the page is in.
        These two lines were the last English left on the order summary. */
     stepAddress: "სად მივიტანოთ",
-    copiesNote: "ერთ მისამართზე, ერთ ამანათში",
     copiesFewer: "ერთით ნაკლები",
     copiesMore: "ერთით მეტი",
     giftWrap: "სასაჩუქრე შეფუთვა",
-    giftWrapNote: "ლენტით და სასაჩუქრე ქაღალდით",
     promoLabel: "პრომოკოდი გაქვს?",
-    promoPlaceholder: "შეიყვანე პრომოკოდი",
     promoRemove: "პრომოკოდის გაუქმება",
     promoApplied: "პრომოკოდი გამოყენებულია",
     promoInvalid: "ეს პრომოკოდი არასწორია ან ვადა გაუვიდა.",
@@ -342,25 +339,38 @@ export const journey = {
     pickLocationHint: "მოძებნე ქუჩა და აირჩიე ჩამონათვალიდან.",
     pickLocationConfirm: "ამ მისამართის დადასტურება",
     pickLocationUnavailable: "რუკა ამჟამად მიუწვდომელია - ჩაწერე მისამართი ხელით.",
-    addressNotes: "დამატებითი მითითება კურიერისთვის",
+    addressNotes: "დამატებით",
+    /* One message per field, said beside the field, because "fill in the address" above a form
+       with three empty boxes does not say which of them is the problem. */
+    requiredRecipient: "ჩაწერე მიმღების სახელი.",
+    requiredPhone: "ჩაწერე ტელეფონის ნომერი.",
+    invalidPhone: "ნომერი 9 ციფრისგან უნდა შედგებოდეს, მაგალითად 599 12 34 56.",
+    requiredAddress: "ჩაწერე მისამართი - ქალაქი, ქუჩა და შენობა.",
+    fixFields: "შეავსე მონიშნული ველები.",
     addressNotesPlaceholder: "სადარბაზო, სართული, ბინა, კოდი, ორიენტირი",
     addressPlaceholder: "ქალაქი, ქუჩა, შენობა და ბინა",
     shippingAddress: "მიმღების მისამართი",
-    addAnotherAddress: "სხვა მისამართის დამატება",
-    useSavedAddress: "გამოიყენე შენახული მისამართი",
+    addNewAddress: "ახალი მისამართის დამატება",
+    backToSavedAddresses: "შენახულ მისამართებზე დაბრუნება",
     activateOrder: "შეკვეთის გააქტიურება",
     /* The photo is uploaded and the order created behind this button; it is seconds, not milliseconds. */
     placingOrder: "შეკვეთა მუშავდება…",
     pay: (amount: string) => `გადახდა · ${amount} ₾`,
-    summaryHeading: "შეკვეთის შეჯამება",
     summaryAlt: (hero: string) => "შენი შეკვეთა",
     alreadyOwnedDigital: "უკვე შეძენილი ციფრული ",
     deliveryLine: "მიწოდება საქართველოში ",
+    deliveryHeading: "მიწოდება",
+    /* Named by how long it takes, because that is what the parent is choosing between; the
+       price is on the same line and needs no second mention. */
+    deliveryDays: (days: number) => `${days} სამუშაო დღეში`,
+    deliveryDaysRange: (min: number, max: number) => `${min}-${max} სამუშაო დღეში`,
+    deliveryFree: "უფასო",
+    /* Shown while the address is still empty, where the region price is the one being quoted. */
+    deliveryRegional: "საქართველოს რეგიონები",
+    deliveryTbilisi: "თბილისი",
     discountLine: "შენი ფასდაკლება ",
     total: "ჯამი ",
-    printReuseNote: "უკვე შექმნილი წიგნი დაიბეჭდება - ისტორია ხელახლა არ გენერირდება.",
     bookLanguage: "წიგნის ენა",
-    payFirstNote: "სრული წიგნი მხოლოდ წარმატებული გადახდის შემდეგ შეიქმნება.",
   },
 
   generating: {
@@ -420,7 +430,7 @@ export const journey = {
     digitalNote: "ეს არის შენი ციფრული ვერსია",
     languageNote: "წიგნის ენა: ",
     deliveryNote:
-      "ბეჭდურ წიგნს მიიღებ მითითებულ მისამართზე - თბილისში 2–3 დღეში, საქართველოს სხვა რეგიონებში 5–7 დღეში.",
+      "ბეჭდურ წიგნს მიიღებ მითითებულ მისამართზე - თბილისში 5 დღეში უფასოდ ან 3 დღეში 7 ლარად, საქართველოს სხვა რეგიონებში 5–7 დღეში 8 ლარად.",
     pageBadge: " 16 გვერდი",
     fullBookAria: (hero: string) => `${hero}ს სრული წიგნი`,
     downloadPdf: "PDF-ის ჩამოტვირთვა",

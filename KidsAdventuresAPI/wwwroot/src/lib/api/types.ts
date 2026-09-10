@@ -367,8 +367,13 @@ export type ShippingAddressRequest = {
   addressLine2?: string;
   postalCode?: string;
   notes?: string;
+  /** "TbilisiStandard" | "TbilisiExpress" | "Regional". The server resolves it against the city. */
+  deliveryOption?: DeliveryOption;
   saveForLater?: boolean;
 };
+
+/** How the parcel is sent. The address decides which of these may be chosen. */
+export type DeliveryOption = "TbilisiStandard" | "TbilisiExpress" | "Regional";
 
 export type BookDraftRequest = {
   primaryCharacterId: string;
@@ -410,6 +415,10 @@ export type QuoteRequest = {
   promoCode?: string;
   giftWrap?: boolean;
   quantity?: number;
+  /** What the parent picked. The server prices what the address can actually have. */
+  deliveryOption?: DeliveryOption;
+  /** Where it is going, as far as the form knows: the city, else the whole address line. */
+  city?: string;
 };
 
 export type PromoQuote = {
@@ -431,6 +440,12 @@ export type QuoteResponse = {
   giftWrapMinor: number;
   /** Copies this quote was priced for, after the server clamped it. */
   quantity: number;
+  /** What the courier costs on this quote. Zero for a digital order and for free delivery. */
+  deliveryMinor: number;
+  /** The delivery actually priced, which differs from the one asked for when the address forbids it. */
+  deliveryOption?: DeliveryOption | null;
+  deliveryMinDays: number;
+  deliveryMaxDays: number;
   isFree: boolean;
   promo?: PromoQuote | null;
 };

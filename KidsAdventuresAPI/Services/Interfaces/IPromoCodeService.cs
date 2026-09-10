@@ -1,3 +1,4 @@
+using AdventurePacks.Api.Domain;
 using AdventurePacks.Api.DTOs.Orders;
 
 namespace AdventurePacks.Api.Services.Interfaces;
@@ -10,12 +11,17 @@ public sealed record PricedOrder(
     PromoCode? Promo,
     PromoQuote? Quote,
     int GiftWrapMinor = 0,
-    int Quantity = 1)
+    int Quantity = 1,
+    int DeliveryMinor = 0,
+    DeliveryOption Delivery = DeliveryOption.None)
 {
     public bool IsFree => TotalMinor == 0;
 
     /// <summary>Whether wrapping was actually charged — the request asked and the package allowed it.</summary>
     public bool GiftWrap => GiftWrapMinor > 0;
+
+    /// <summary>The delivery this order was priced for, by the name a request and a row carry.</summary>
+    public string? DeliveryName => Delivery == DeliveryOption.None ? null : Delivery.ToString();
 }
 
 public interface IPromoCodeService
@@ -32,6 +38,7 @@ public interface IPromoCodeService
         string? promoCode,
         bool giftWrap,
         int quantity,
+        DeliveryChoice delivery,
         CancellationToken cancellationToken);
 
     Task<QuoteResponse> QuoteAsync(
@@ -41,6 +48,7 @@ public interface IPromoCodeService
         string? promoCode,
         bool giftWrap,
         int quantity,
+        DeliveryChoice delivery,
         CancellationToken cancellationToken);
 
     /// <summary>

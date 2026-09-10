@@ -64,6 +64,13 @@ public sealed class PrintOrderService(
                 AddressLine2 = Clean(address.AddressLine2),
                 PostalCode = Clean(address.PostalCode),
                 Notes = Clean(address.Notes),
+                /* What the parent paid for, carried onto the row the courier is booked from
+                   and the emails are written from. Resolved rather than copied, so a parcel
+                   whose stored option does not match its address still promises a window that
+                   address can be held to. */
+                DeliveryOption = GeorgianDelivery
+                    .Resolve(address.City, address.AddressLine1, address.DeliveryOption)
+                    .Name,
                 Status = PrintOrderStatus.AwaitingPrint
             },
             cancellationToken);
@@ -385,7 +392,7 @@ public sealed class PrintOrderService(
                 email,
                 BookTitleOrFallback(book?.Title),
                 printOrder.City,
-                GeorgianDelivery.DescribeFor(printOrder.City),
+                GeorgianDelivery.DescribeFor(printOrder.City, printOrder.DeliveryOption),
                 cancellationToken),
             printOrder.Id);
     }
@@ -406,7 +413,7 @@ public sealed class PrintOrderService(
                 BookTitleOrFallback(book?.Title),
                 printOrder.Status,
                 printOrder.TrackingCode,
-                GeorgianDelivery.DescribeFor(printOrder.City),
+                GeorgianDelivery.DescribeFor(printOrder.City, printOrder.DeliveryOption),
                 cancellationToken),
             printOrder.Id);
     }
@@ -512,7 +519,7 @@ public sealed class PrintOrderService(
         PostalCode = printOrder.PostalCode,
         Notes = printOrder.Notes,
         TrackingCode = printOrder.TrackingCode,
-        DeliveryEstimate = GeorgianDelivery.DescribeFor(printOrder.City),
+        DeliveryEstimate = GeorgianDelivery.DescribeFor(printOrder.City, printOrder.DeliveryOption),
         CanEditAddress = printOrder.Status is PrintOrderStatus.AwaitingPrint or PrintOrderStatus.Printing,
         CreatedAt = printOrder.CreatedAt,
         ShippedAt = printOrder.ShippedAt,

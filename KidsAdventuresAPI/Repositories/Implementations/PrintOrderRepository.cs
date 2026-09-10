@@ -7,7 +7,7 @@ public sealed class PrintOrderRepository(ISqlConnectionFactory connectionFactory
 {
     private const string Columns = """
         Id, OrderId, BookId, UserId, RecipientName, RecipientPhone, City, Region,
-        AddressLine1, AddressLine2, PostalCode, Notes, Status, TrackingCode,
+        AddressLine1, AddressLine2, PostalCode, Notes, DeliveryOption, Status, TrackingCode,
         CreatedAt, UpdatedAt, ShippedAt, DeliveredAt
         """;
 
@@ -21,11 +21,11 @@ public sealed class PrintOrderRepository(ISqlConnectionFactory connectionFactory
         const string sql = """
                            INSERT INTO dbo.PrintOrders (
                                Id, OrderId, BookId, UserId, RecipientName, RecipientPhone, City, Region,
-                               AddressLine1, AddressLine2, PostalCode, Notes, Status, TrackingCode,
+                               AddressLine1, AddressLine2, PostalCode, Notes, DeliveryOption, Status, TrackingCode,
                                CreatedAt, UpdatedAt, ShippedAt, DeliveredAt)
                            SELECT
                                @Id, @OrderId, @BookId, @UserId, @RecipientName, @RecipientPhone, @City, @Region,
-                               @AddressLine1, @AddressLine2, @PostalCode, @Notes, @Status, @TrackingCode,
+                               @AddressLine1, @AddressLine2, @PostalCode, @Notes, @DeliveryOption, @Status, @TrackingCode,
                                @CreatedAt, @UpdatedAt, @ShippedAt, @DeliveredAt
                            WHERE NOT EXISTS (SELECT 1 FROM dbo.PrintOrders WHERE OrderId = @OrderId);
                            """;
@@ -141,7 +141,7 @@ public sealed class PrintOrderRepository(ISqlConnectionFactory connectionFactory
             SELECT TOP (@Limit)
                    p.Id, p.OrderId, p.BookId, p.UserId, p.Status,
                    p.RecipientName, p.RecipientPhone, p.City, p.Region,
-                   p.AddressLine1, p.AddressLine2, p.PostalCode, p.Notes, p.TrackingCode,
+                   p.AddressLine1, p.AddressLine2, p.PostalCode, p.Notes, p.DeliveryOption, p.TrackingCode,
                    p.CreatedAt, p.ShippedAt, p.DeliveredAt,
                    b.Title AS BookTitle, b.Status AS BookStatus,
                    b.GenerationPipeline AS BookPipeline,
@@ -246,6 +246,7 @@ public sealed class PrintOrderRepository(ISqlConnectionFactory connectionFactory
         printOrder.AddressLine2,
         printOrder.PostalCode,
         printOrder.Notes,
+        printOrder.DeliveryOption,
         Status = printOrder.Status.ToString(),
         printOrder.TrackingCode,
         printOrder.CreatedAt,
@@ -268,6 +269,7 @@ public sealed class PrintOrderRepository(ISqlConnectionFactory connectionFactory
         AddressLine2 = row.AddressLine2,
         PostalCode = row.PostalCode,
         Notes = row.Notes,
+        DeliveryOption = row.DeliveryOption,
         Status = Enum.Parse<PrintOrderStatus>(row.Status),
         TrackingCode = row.TrackingCode,
         CreatedAt = row.CreatedAt,
@@ -290,6 +292,7 @@ public sealed class PrintOrderRepository(ISqlConnectionFactory connectionFactory
         public string? AddressLine2 { get; set; }
         public string? PostalCode { get; set; }
         public string? Notes { get; set; }
+        public string? DeliveryOption { get; set; }
         public string Status { get; set; } = string.Empty;
         public string? TrackingCode { get; set; }
         public DateTime CreatedAt { get; set; }

@@ -1160,12 +1160,6 @@
 .summary-lines {
   color: var(--ink);
 }
-.summary-lines h2 {
-  margin: 18px 0 12px;
-  font-family: var(--font-display);
-  font-feature-settings: var(--display-caps);
-  font-size: 14px;
-}
 .summary-lines > span,
 .summary-lines > div {
   display: flex;
@@ -1181,21 +1175,6 @@
   border-bottom: 0;
   font-size: 12px;
   font-weight: 700;
-}
-.order-summary > p {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 14px 0 0;
-  padding: 11px;
-  border-radius: 12px;
-  color: #29233a8c;
-  background: #3c786417;
-  font-size: 11px;
-}
-.order-summary > p svg {
-  width: 14px;
-  color: var(--forest);
 }
 .order-summary .ux-compact-product small {
   color: #7564b5;

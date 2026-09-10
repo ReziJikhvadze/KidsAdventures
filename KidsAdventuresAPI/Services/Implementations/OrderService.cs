@@ -89,8 +89,20 @@ public sealed class OrderService(
         */
         var giftWrap = type == OrderType.NewBook && request.GiftWrap;
 
+        /*
+          The address picks the menu; the parent picks off it.
+
+          Resolved here rather than taken as sent, so a client asking for the free Tbilisi
+          delivery to an address in Kutaisi is priced for the region it is actually in. The
+          quote answers with the option it used, and the checkout follows that.
+        */
+        var delivery = package == OrderPackage.Print
+            ? GeorgianDelivery.Resolve(request.City, request.City, request.DeliveryOption)
+            : GeorgianDelivery.None;
+
         return await promoCodeService.QuoteAsync(
-            userId, type, package, request.PromoCode, giftWrap, request.Quantity, cancellationToken);
+            userId, type, package, request.PromoCode, giftWrap, request.Quantity, delivery,
+            cancellationToken);
     }
 
     public async Task<CheckoutResponse> CreateBookOrderAsync(
@@ -111,6 +123,20 @@ public sealed class OrderService(
             ? RequireShippingAddress(request.ShippingAddress)
             : null;
 
+        /*
+          Resolved against the address the parcel is going to, not against what the client sent.
+
+          The name is written back onto the address before it is serialised, so ShippingJson
+          records the delivery that was actually charged for — which is what the courier is
+          booked on and what the shipping email promises.
+        */
+        var delivery = GeorgianDelivery.Resolve(
+            shipping?.City, shipping?.AddressLine1, shipping?.DeliveryOption);
+        if (shipping is not null)
+        {
+            shipping.DeliveryOption = delivery.Name;
+        }
+
         var priced = await promoCodeService.PriceAsync(
             userId,
             OrderType.NewBook,
@@ -118,6 +144,7 @@ public sealed class OrderService(
             request.PromoCode,
             request.GiftWrap,
             request.Quantity,
+            package == OrderPackage.Print ? delivery : GeorgianDelivery.None,
             cancellationToken);
 
         var order = new Order
@@ -166,6 +193,20 @@ public sealed class OrderService(
 
         var shipping = RequireShippingAddress(request.ShippingAddress);
 
+        /*
+          Resolved against the address the parcel is going to, not against what the client sent.
+
+          The name is written back onto the address before it is serialised, so ShippingJson
+          records the delivery that was actually charged for — which is what the courier is
+          booked on and what the shipping email promises.
+        */
+        var delivery = GeorgianDelivery.Resolve(
+            shipping?.City, shipping?.AddressLine1, shipping?.DeliveryOption);
+        if (shipping is not null)
+        {
+            shipping.DeliveryOption = delivery.Name;
+        }
+
         var priced = await promoCodeService.PriceAsync(
             userId,
             OrderType.PrintUpgrade,
@@ -173,6 +214,7 @@ public sealed class OrderService(
             request.PromoCode,
             giftWrap: false,
             quantity: 1,
+            delivery,
             cancellationToken);
 
         var order = new Order

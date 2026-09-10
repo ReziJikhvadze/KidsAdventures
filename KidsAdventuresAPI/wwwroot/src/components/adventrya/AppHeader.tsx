@@ -103,18 +103,13 @@ export function AppHeader({
   };
 
   /*
-    This pill opens the parent's account, so it wears the parent's
-    initial. It wore the child's — and on the world picker, where no child has been entered
-    yet, that was the first letter of the placeholder name "პატარა გმირი": a "პ" that belonged
-    to nobody.
+    One disc for everybody, and it is not a letter.
 
-    Signed out there is no one to name, and the fallback used to be a literal "A" — the initial
-    of "Adventrya", a brand this product has not carried for months. On a Georgian page it read
-    as a Latin letter stuck to the front of the label beside it. An icon says "your account"
-    without claiming to be anybody's initial, and belongs to no alphabet.
+    It used to show the first letter of the account, which on a Georgian page is a Latin
+    capital stuck to the front of the label beside it, and for a parent called "demo" is a
+    stray "D" that names nothing a reader recognises. The icon already stood in while nobody
+    was signed in; it says "your account" in either state, and belongs to no alphabet.
   */
-  const parentInitial =
-    (user?.displayName?.trim() || user?.email?.trim() || "").charAt(0).toUpperCase() || null;
 
   return (
     <header
@@ -206,7 +201,7 @@ export function AppHeader({
           */
           <Link className="child-pill" to="/dashboard" aria-label={t.common.nav.openDashboard}>
             <span className="child-avatar" aria-hidden="true">
-              {parentInitial ?? <User />}
+              <User />
             </span>
             {/* One label, and the same one the marketing header uses.
 
