@@ -3,6 +3,7 @@ using AdventurePacks.Api.Domain;
 using AdventurePacks.Api.Domain.Entities;
 using AdventurePacks.Api.Domain.Enums;
 using AdventurePacks.Api.Domain.Models;
+using AdventurePacks.Api.Domain.Story;
 using AdventurePacks.Api.DTOs.AdventurePacks;
 using AdventurePacks.Api.DTOs.Orders;
 using AdventurePacks.Api.Repositories.Interfaces;
@@ -1032,6 +1033,7 @@ public class OrderFailureVisibilityTests
                 new ThrowingWorldProgress(),
                 new ThrowingPromoCodeRepository(),
                 new ThrowingUsers(),
+                new NoRuns(),
                 new ThrowingAdminNotifier(),
                 Jobs,
                 new ThrowingBog(),
@@ -1233,4 +1235,28 @@ public class OrderFailureVisibilityTests
         public Task MarkStartedAsync(Guid userId, Guid characterId, string worldId, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task MarkCompletedAsync(Guid userId, Guid characterId, string worldId, Guid bookId, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
+}
+
+/// <summary>
+/// No preview run behind these orders. BuildStatusAsync asks for one to stand a cover in
+/// while the paid book has none; these tests are about payment and fulfilment, so the
+/// honest answer is that there is nothing to show.
+/// </summary>
+internal sealed class NoRuns : IMasterStoryRunRepository
+{
+    public Task<MasterStoryRun?> GetByIdAsync(Guid id, CancellationToken ct) => Task.FromResult<MasterStoryRun?>(null);
+    public Task CreateAsync(MasterStoryRun run, CancellationToken ct) => throw new NotSupportedException();
+    public Task<MasterStoryRunProgress?> GetProgressAsync(Guid id, CancellationToken ct) => throw new NotSupportedException();
+    public Task SetProgressAsync(Guid id, string status, string? message, CancellationToken ct) => throw new NotSupportedException();
+    public Task SavePromptsAsync(Guid id, string model, string version, string system, string user, CancellationToken ct) => throw new NotSupportedException();
+    public Task SaveStoryAsync(Guid id, string story, string content, int input, int output, CancellationToken ct) => throw new NotSupportedException();
+    public Task SaveAppearanceDescriptionAsync(Guid id, string appearance, CancellationToken ct) => throw new NotSupportedException();
+    public Task SaveCoverAsync(Guid id, string url, CancellationToken ct) => throw new NotSupportedException();
+    public Task MarkReadyAsync(Guid id, string content, CancellationToken ct) => throw new NotSupportedException();
+    public Task MarkFailedAsync(Guid id, string error, CancellationToken ct) => throw new NotSupportedException();
+    public Task ClaimAsync(Guid id, Guid user, Guid? pack, CancellationToken ct) => throw new NotSupportedException();
+    public Task<int> AttachToUserAsync(Guid id, Guid userId, CancellationToken ct) => throw new NotSupportedException();
+    public Task<IReadOnlyList<MasterStoryRunSummary>> ListUnboughtForUserAsync(Guid userId, int limit, CancellationToken ct) => throw new NotSupportedException();
+    public Task<IReadOnlyList<ExpiredMasterStoryRun>> ListExpiredAsync(int limit, CancellationToken ct) => throw new NotSupportedException();
+    public Task<int> DeleteAsync(IReadOnlyList<Guid> ids, CancellationToken ct) => throw new NotSupportedException();
 }

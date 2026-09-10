@@ -274,6 +274,7 @@ public class PaidOrderFulfilmentTests
                 new RefusingWorldProgress(),
                 new RefusingPromoCodeRepository(),
                 new SingleUserRepository(),
+                new NoRuns(),
                 Notifier,
                 new FakeJobs(),
                 new PaidBog(BogOrderId, Order.Id),
@@ -281,6 +282,30 @@ public class PaidOrderFulfilmentTests
                 // The signature check is the bank's public key; it is its own test.
                 Options.Create(new BogOptions { Enabled = true, VerifyCallbackSignature = false }),
                 NullLogger<OrderService>.Instance);
+    }
+
+/// <summary>
+    /// No preview run behind these orders. BuildStatusAsync asks for one to stand a cover in
+    /// while the paid book has none; these tests are about payment and fulfilment, so the
+    /// honest answer is that there is nothing to show.
+    /// </summary>
+    private sealed class NoRuns : IMasterStoryRunRepository
+    {
+        public Task<MasterStoryRun?> GetByIdAsync(Guid id, CancellationToken ct) => Task.FromResult<MasterStoryRun?>(null);
+        public Task CreateAsync(MasterStoryRun run, CancellationToken ct) => throw new NotSupportedException();
+        public Task<MasterStoryRunProgress?> GetProgressAsync(Guid id, CancellationToken ct) => throw new NotSupportedException();
+        public Task SetProgressAsync(Guid id, string status, string? message, CancellationToken ct) => throw new NotSupportedException();
+        public Task SavePromptsAsync(Guid id, string model, string version, string system, string user, CancellationToken ct) => throw new NotSupportedException();
+        public Task SaveStoryAsync(Guid id, string story, string content, int input, int output, CancellationToken ct) => throw new NotSupportedException();
+        public Task SaveAppearanceDescriptionAsync(Guid id, string appearance, CancellationToken ct) => throw new NotSupportedException();
+        public Task SaveCoverAsync(Guid id, string url, CancellationToken ct) => throw new NotSupportedException();
+        public Task MarkReadyAsync(Guid id, string content, CancellationToken ct) => throw new NotSupportedException();
+        public Task MarkFailedAsync(Guid id, string error, CancellationToken ct) => throw new NotSupportedException();
+        public Task ClaimAsync(Guid id, Guid user, Guid? pack, CancellationToken ct) => throw new NotSupportedException();
+        public Task<int> AttachToUserAsync(Guid id, Guid userId, CancellationToken ct) => throw new NotSupportedException();
+        public Task<IReadOnlyList<MasterStoryRunSummary>> ListUnboughtForUserAsync(Guid userId, int limit, CancellationToken ct) => throw new NotSupportedException();
+        public Task<IReadOnlyList<ExpiredMasterStoryRun>> ListExpiredAsync(int limit, CancellationToken ct) => throw new NotSupportedException();
+        public Task<int> DeleteAsync(IReadOnlyList<Guid> ids, CancellationToken ct) => throw new NotSupportedException();
     }
 
     private sealed class RecordingFulfilment : IBookFulfillmentService

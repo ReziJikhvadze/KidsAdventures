@@ -42,6 +42,7 @@ public sealed class OrderService(
     IWorldProgressService worldProgressService,
     IPromoCodeRepository promoCodeRepository,
     IUserRepository userRepository,
+    IMasterStoryRunRepository masterStoryRunRepository,
     IAdminNotifier adminNotifier,
     IBackgroundJobClient backgroundJobClient,
     IBogPaymentClient bogClient,
@@ -1103,7 +1104,23 @@ public sealed class OrderService(
                 response.HeartbeatUtc = book.GenerationHeartbeatUtc;
                 response.Title = NullIfBlank(book.Title);
                 response.WorldId = NullIfBlank(book.WorldId);
-                response.CoverImageUrl = NullIfBlank(book.CoverImageUrl);
+                /*
+                  The cover the parent chose, until the book has one of its own.
+
+                  A fast preview's cover is not copied onto the pack when the order is
+                  enqueued - the composite pipeline adopts it later - so for the first minutes
+                  of a paid book this column is empty. The generating screen reads it, finds
+                  nothing, and falls back to the world's painting: the parent watches their
+                  child's book being made behind a stock picture of an island, having just
+                  paid for the cover they were shown.
+
+                  The preview run is on the order's own frozen draft, and it is holding that
+                  cover at a storage path this account may read. It is a stand-in and is
+                  dropped the moment the book has its own, which is why it is read second.
+                */
+                response.CoverImageUrl =
+                    NullIfBlank(book.CoverImageUrl)
+                    ?? await PreviewCoverAsync(order, cancellationToken);
                 response.ChildName = await HeroNameAsync(book.PrimaryCharacterId, order.UserId, cancellationToken);
 
                 /*
@@ -1179,6 +1196,30 @@ public sealed class OrderService(
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
             logger.LogDebug(ex, "Could not resolve hero {CharacterId} for an order status; leaving the name blank.", heroId);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The cover of the preview this order was placed from, or null when there is no run to ask,
+    /// the run has expired, or it never held one.
+    /// </summary>
+    private async Task<string?> PreviewCoverAsync(Order order, CancellationToken cancellationToken)
+    {
+        if (TryReadDraft(order)?.PreviewBookId is not { } runId)
+        {
+            return null;
+        }
+
+        try
+        {
+            var run = await masterStoryRunRepository.GetByIdAsync(runId, cancellationToken);
+            return NullIfBlank(run?.CoverImageUrl);
+        }
+        catch (Exception ex)
+        {
+            /* A missing stand-in is a worse picture, never a failed status poll. */
+            logger.LogDebug(ex, "Preview cover for order {OrderId} could not be read.", order.Id);
             return null;
         }
     }
