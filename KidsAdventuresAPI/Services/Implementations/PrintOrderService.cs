@@ -158,13 +158,45 @@ public sealed class PrintOrderService(
 
     // -- saved addresses ----------------------------------------------------
 
+    /*
+      The addresses a parent has, each of them once.
+
+      Saving learned to reuse a row rather than add one, but only for rows written after it did -
+      and only when the two spellings of the number happened to match, which for a while they did
+      not. Every parcel before that left another copy of the same house behind, so the list a
+      parent is offered at checkout is three of their own address and nothing to tell them apart.
+
+      Collapsed on the way out rather than deleted. What is on the list is what a parent chooses
+      between, so this is where the fix is visible immediately and for everybody, including the
+      rows already written; and an address is the one piece of a past order nobody should lose to
+      a matching rule that turns out to be a shade too eager. The row that survives is the first
+      the repository hands back, which is the default one, or failing that the newest - which is
+      the one whose spelling of the street the parent most recently agreed with.
+    */
     public async Task<IReadOnlyList<AddressResponse>> ListAddressesAsync(
         Guid userId,
         CancellationToken cancellationToken)
     {
         var addresses = await addressRepository.GetByUserIdAsync(userId, cancellationToken);
-        return addresses.Select(ToResponse).ToList();
+
+        return addresses
+            .GroupBy(AddressKey)
+            .Select(group => ToResponse(group.First()))
+            .ToList();
     }
+
+    /// <summary>
+    /// What makes two saved rows the same address: who it is for, the handset a courier rings,
+    /// and the line the parcel is labelled with.
+    ///
+    /// The same three fields <see cref="IsSameAddress"/> matches on, and deliberately not more.
+    /// A second child at the same house is a different recipient and keeps its own row; the same
+    /// house under a new number does too, because that is a number somebody chose to change.
+    /// </summary>
+    private static (string Name, string Phone, string Line) AddressKey(UserAddress address) =>
+        (Squash(address.RecipientName).ToLowerInvariant(),
+         PhoneKey(address.RecipientPhone),
+         Squash(address.AddressLine1).ToLowerInvariant());
 
     public async Task<AddressResponse> SaveAddressAsync(
         Guid userId,
@@ -616,7 +648,26 @@ public sealed class PrintOrderService(
     private static bool IsSameAddress(UserAddress address, SaveAddressRequest request) =>
         Same(address.AddressLine1, request.AddressLine1)
         && Same(address.RecipientName, request.RecipientName)
-        && Same(address.RecipientPhone, request.RecipientPhone);
+        && string.Equals(PhoneKey(address.RecipientPhone), PhoneKey(request.RecipientPhone),
+            StringComparison.Ordinal);
+
+    /*
+      A phone number by its digits, and by the last nine of them.
+
+      This comparison used to be the plain string one below, and it is why the list filled up
+      again after it was supposed to stop: checkout sends +995599123456, the same number was
+      saved as "599 12 34 56" the year before, and no amount of trimming makes those equal. Nine
+      digits is the Georgian mobile, so taking the last nine folds every spelling of it - with the
+      country code, without it, with spaces, with a leading zero - onto one key.
+
+      An empty or short number keys as itself rather than as empty, so two addresses that are
+      each missing a number are not silently merged into one.
+    */
+    private static string PhoneKey(string? phone)
+    {
+        var digits = new string((phone ?? string.Empty).Where(char.IsAsciiDigit).ToArray());
+        return digits.Length >= 9 ? digits[^9..] : digits;
+    }
 
     /*
       Trimmed, case-folded, and with runs of whitespace flattened.
