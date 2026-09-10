@@ -430,15 +430,35 @@
   color: #35264a;
   font-size: 12px;
 }
+/*
+  However many boxes the code turned out to have.
+
+  This was a six-column grid, from when the sign-in code was six digits. It is four now - and the
+  length is not a constant either way: every challenge response carries the server's own
+  `OtpLength` and the panels build their array from it. So four boxes were being placed in the
+  first four of six tracks, and the sign-in panel drew a 273px row of boxes with 140px of empty
+  grid beside it, which reads as boxes that failed to load rather than as a code that is four
+  digits long.
+
+  A row that divides itself between the boxes that are in it, whatever that number turns out to
+  be. Four fields at 98px in the sign-in dialog, four at 63px in the checkout rail, six at 63px if
+  the code ever goes back to six - and no arithmetic anywhere that has to be kept in step with the
+  server's `OtpLength`.
+
+  Wide fields rather than squares is what filling the width costs, and it is worth paying: the
+  label above and the resend row below both run the full width, so a short row of squares was the
+  only thing on the panel that did not. The height is stated instead of taken from the width for
+  the same reason - a box that fills a wide panel should not become a tall one.
+*/
 .ux-otp-inputs {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  display: flex;
   gap: 7px;
   margin-top: 14px;
 }
 .ux-otp-inputs input {
+  flex: 1 1 0;
   min-width: 0;
-  aspect-ratio: 1;
+  height: 60px;
   padding: 0;
   text-align: center;
   border: 1px solid rgba(70, 49, 90, 0.18);

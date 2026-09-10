@@ -3733,18 +3733,8 @@
   color: #efe3cf8a;
   font-size: 11px;
 }
-/*
-  Four boxes, and four is not what the shared rule assumes.
-
-  `.ux-otp-inputs` is laid out for the six digits the sign-in code used to have, so four of them
-  would sit in the left two thirds with a hole beside them. Auto columns rather than a count:
-  the server says how long the code is, and the row is however many boxes that turned out to be.
-*/
+/* Only the spacing. The row lays itself out from the boxes in it (journey-extras.css). */
 .ux-phone-check .ux-otp-inputs {
-  grid-template-columns: none;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  max-width: 232px;
   margin-top: 10px;
 }
 .ux-phone-check .ux-otp-inputs input {
