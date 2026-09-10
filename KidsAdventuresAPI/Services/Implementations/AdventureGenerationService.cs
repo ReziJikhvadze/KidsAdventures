@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using AdventurePacks.Api.Infrastructure;
 using AdventurePacks.Api.Configuration.Options;
 using AdventurePacks.Api.Domain.Enums;
 using AdventurePacks.Api.Domain.Models;
@@ -21,6 +22,7 @@ public sealed class AdventureGenerationService(
     IAdventurePdfService adventurePdfService,
     IBlobStorageService blobStorageService,
     IEmailService emailService,
+    ISmsSender smsSender,
     IAdminNotifier adminNotifier,
     ISeriesMemoryService seriesMemoryService,
     IStoryRuleRepository storyRuleRepository,
@@ -1070,6 +1072,14 @@ public sealed class AdventureGenerationService(
         }
     }
 
+    /// <summary>
+    /// Tells the parent their book is ready, by whichever way we can reach them.
+    ///
+    /// A parent who signed in with a phone number has no email at all - the row carries an empty
+    /// string - so the one notification this product sends went nowhere for them: the book was
+    /// finished and they were told by nothing, on the assumption that they would come back and
+    /// look. They get a text instead, with the same link the email carries.
+    /// </summary>
     private async Task SendPdfReadyEmailAsync(AdventurePack pack, string childName, CancellationToken cancellationToken)
     {
         try
@@ -1083,17 +1093,57 @@ public sealed class AdventureGenerationService(
             // Straight to the book. /my-packs is a shelf, and the parent then has to find the
             // one book the email was about.
             var packUrl = $"{_emailOptions.BaseUrl.TrimEnd('/')}/reader/{pack.Id}";
-            await emailService.SendPdfReadyAsync(
-                user.Email,
-                childName,
-                pack.Theme.ToString(),
-                packUrl,
-                cancellationToken);
+
+            if (!string.IsNullOrWhiteSpace(user.Email))
+            {
+                await emailService.SendPdfReadyAsync(
+                    user.Email,
+                    childName,
+                    pack.Theme.ToString(),
+                    packUrl,
+                    cancellationToken);
+                return;
+            }
+
+            await SendPdfReadySmsAsync(user, childName, packUrl, cancellationToken);
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Could not send PDF-ready email for pack {PackId}", pack.Id);
+            logger.LogWarning(ex, "Could not tell the parent that pack {PackId} is ready", pack.Id);
         }
+    }
+
+    /// <summary>
+    /// The same news, in a text, for the parent we have no other way of reaching.
+    ///
+    /// Only to a confirmed number: an unconfirmed one is a string somebody typed, and sending a
+    /// child's name to it is worse than sending nothing. One segment of Georgian is 70
+    /// characters, so the message is the child's name, the fact, and the link - the sender name
+    /// already says who it is from.
+    /// </summary>
+    private async Task SendPdfReadySmsAsync(
+        User user,
+        string childName,
+        string packUrl,
+        CancellationToken cancellationToken)
+    {
+        if (!user.PhoneConfirmed || string.IsNullOrWhiteSpace(user.PhoneNumber))
+        {
+            logger.LogInformation(
+                "Book for user {UserId} is ready but there is no email and no confirmed phone to say so.",
+                user.Id);
+            return;
+        }
+
+        var name = string.IsNullOrWhiteSpace(childName) ? "შენი" : $"{childName}-ის";
+        await smsSender.SendAsync(
+            user.PhoneNumber,
+            $"{name} წიგნი მზადაა: {packUrl}",
+            cancellationToken);
+
+        logger.LogInformation(
+            "Book-ready SMS sent to {Phone} via {Provider}.",
+            GeorgianPhoneNumber.Mask(user.PhoneNumber), smsSender.ProviderName);
     }
 
     /// <summary>

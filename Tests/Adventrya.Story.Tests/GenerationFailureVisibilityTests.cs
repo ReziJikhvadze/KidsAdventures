@@ -305,6 +305,7 @@ public class LegacyGenerationFailureTests
                 new ThrowingPdf(),
                 new ThrowingBlobs(),
                 Email,
+                new RecordingSms(),
                 Notifier,
                 new ThrowingSeriesMemory(),
                 new ThrowingStoryRules(),
@@ -1242,6 +1243,23 @@ public class OrderFailureVisibilityTests
 /// while the paid book has none; these tests are about payment and fulfilment, so the
 /// honest answer is that there is nothing to show.
 /// </summary>
+/// <summary>
+/// The text nobody reads. These tests are about a book that failed, and a failed book sends no
+/// message at all - so this records what it was asked for and never leaves the process.
+/// </summary>
+internal sealed class RecordingSms : ISmsSender
+{
+    public List<(string Phone, string Message)> Sent { get; } = [];
+    public string ProviderName => "test";
+    public bool IsLive => false;
+
+    public Task SendAsync(string e164PhoneNumber, string message, CancellationToken cancellationToken = default)
+    {
+        Sent.Add((e164PhoneNumber, message));
+        return Task.CompletedTask;
+    }
+}
+
 internal sealed class NoRuns : IMasterStoryRunRepository
 {
     public Task<MasterStoryRun?> GetByIdAsync(Guid id, CancellationToken ct) => Task.FromResult<MasterStoryRun?>(null);
