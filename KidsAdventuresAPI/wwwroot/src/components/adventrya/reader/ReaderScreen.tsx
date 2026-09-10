@@ -1,5 +1,5 @@
-import { BookOpen, Download, Mail, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Download, Minus, Plus, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "@tanstack/react-router";
 
 import { AppHeader } from "@/components/adventrya/AppHeader";
@@ -7,7 +7,6 @@ import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolum
 import { ApiError } from "@/lib/api/client";
 import {
   downloadAdventurePack,
-  fetchAdventurePackPdfObjectUrl,
   generatePackPdf,
   getAdventurePack,
   markPackRead,
@@ -42,7 +41,19 @@ export function ReaderScreen() {
   // Kept apart from `error`, which replaces the whole book with a message. A PDF that failed
   // is no reason to stop showing the story.
   const [pdfError, setPdfError] = useState<string | null>(null);
-  const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
+
+  /*
+    How close the reader is standing, and to which part of the picture.
+
+    Zoom lives here rather than in StorybookVolume: the volume is the same component the home
+    page, the preview and the order summary all mount, and none of them wants a magnifier. Here
+    it is a transform on a wrapper, so the book itself is untouched - it keeps turning its own
+    pages, and at 1x the wrapper takes no pointer events at all, so dragging still turns a leaf
+    rather than sliding the page under the child's finger.
+  */
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragFrom = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -79,32 +90,36 @@ export function ReaderScreen() {
     };
   }, [bookId, isAuthenticated, authLoading]);
 
-  useEffect(() => {
-    if (!pack?.pdfUrl || pack.status !== "Completed") return;
+  /*
+    Zoom, kept inside what the window can show.
 
-    let cancelled = false;
-    let objectUrl: string | null = null;
-    setPdfError(null);
-
-    void fetchAdventurePackPdfObjectUrl(pack.id)
-      .then((url) => {
-        objectUrl = url;
-        if (cancelled) {
-          URL.revokeObjectURL(url);
-          return;
-        }
-        setPdfObjectUrl(url);
-      })
-      .catch(() => {
-        if (!cancelled) setPdfError(t.story.reader.pdf.failed);
-      });
-
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-      setPdfObjectUrl(null);
+    The book is already as wide as the window at 1x, so panning is clamped to the overhang the
+    scale created rather than to some invented canvas: at 1x there is no overhang and no pan,
+    and every step out re-clamps rather than leaving the picture parked off screen.
+  */
+  const clampPan = useCallback((next: { x: number; y: number }, level: number) => {
+    const room = (level - 1) / 2;
+    const limitX = room * 100;
+    const limitY = room * 100;
+    return {
+      x: Math.max(-limitX, Math.min(limitX, next.x)),
+      y: Math.max(-limitY, Math.min(limitY, next.y)),
     };
-  }, [pack?.id, pack?.pdfUrl, pack?.status]);
+  }, []);
+
+  const stepZoom = useCallback((delta: number) => {
+    setZoom((prev) => Math.max(1, Math.min(3, Math.round((prev + delta) * 10) / 10)));
+  }, []);
+
+  /* The view follows the level, rather than each press guessing where it will end up. */
+  useEffect(() => {
+    setPan((prev) => (zoom === 1 ? { x: 0, y: 0 } : clampPan(prev, zoom)));
+  }, [zoom, clampPan]);
+
+  /* A book that changes under the reader starts at arm's length again. */
+  useEffect(() => {
+    setZoom(1);
+  }, [bookId]);
 
   // How far the illustrations have got. Only pages meant to carry a picture count: half of a
   // spread book is prose, and counting those would make a finished book look half done.
@@ -235,245 +250,203 @@ export function ReaderScreen() {
     }
   };
 
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (zoom === 1) return;
+    dragFrom.current = { x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const from = dragFrom.current;
+    if (!from) return;
+    /* In percent of the book's own width, so the same drag moves the same amount of picture
+       whatever size the window has made it. */
+    const box = event.currentTarget.getBoundingClientRect();
+    setPan(
+      clampPan(
+        {
+          x: from.panX + ((event.clientX - from.x) / box.width) * 100,
+          y: from.panY + ((event.clientY - from.y) / box.height) * 100,
+        },
+        zoom,
+      ),
+    );
+  };
+
+  const endDrag = () => {
+    dragFrom.current = null;
+  };
+
+  /*
+    The book, whatever state it is in.
+
+    One branch decides what fills the stage, and the order is the order a parent meets them:
+    still opening, a book that failed, a book not written yet, and then the book. The reading
+    view is last because it is the only one that is not an exception.
+  */
+  const stage =
+    authLoading || loading ? (
+      /*
+      Waiting, drawn as the book rather than as a spinner in a hole.
+
+      A finished book is eight painted spreads and they are large files; coming in from the
+      parent's space there is a real pause before the first one lands. The spread is drawn at
+      the size it is about to be, in its own paper, so when the picture arrives it arrives in
+      place and nothing on the screen moves.
+    */
+      <div className="reader-waiting" role="status" aria-live="polite">
+        <div className="reader-waiting-book">
+          <i />
+          <i />
+          <span className="reader-waiting-mark" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+        </div>
+        <small>{t.common.states.loading}</small>
+      </div>
+    ) : error ? (
+      <p className="reader-note" role="alert">
+        {error}
+      </p>
+    ) : pack && (pack.status === "Failed" || pack.isFailed) ? (
+      <div className="reader-note-panel" role="alert">
+        <h2>{t.dashboard.library.failedTitle}</h2>
+        <p>{pack.errorMessage || t.dashboard.library.failedBody}</p>
+      </div>
+    ) : isPending ? (
+      /*
+      "Being drawn", said as a book that is coming rather than a book that is missing. The page
+      polls behind this, so it becomes the real volume without anybody refreshing.
+    */
+      <div className="reader-note-panel" aria-live="polite">
+        <h2>{t.story.reader.pending.title}</h2>
+        <p>{pack?.progressMessage || t.story.reader.pending.body}</p>
+      </div>
+    ) : pack ? (
+      <NewBookCharacterContext.Provider value={pack.primaryCharacterId ?? null}>
+        <div
+          className="reader-zoomer"
+          style={{
+            transform: `scale(${zoom}) translate(${pan.x}%, ${pan.y}%)`,
+            cursor: zoom > 1 ? (dragFrom.current ? "grabbing" : "grab") : undefined,
+            pointerEvents: zoom > 1 ? "auto" : undefined,
+            touchAction: zoom > 1 ? "none" : undefined,
+          }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+        >
+          <StorybookVolume
+            className="storybook storybook-full"
+            heroName={heroName}
+            title={title}
+            coverImageUrl={pack.coverImageUrl}
+            worldId={pack.worldId}
+            pages={pages}
+            lockedPageCount={lockedPageCount}
+            isUnlocked={isUnlocked}
+            isSpreadBook={pack.isSpreadBook}
+            fullBleedSpreads={pack.isSpreadBook}
+            interactive
+          />
+        </div>
+      </NewBookCharacterContext.Provider>
+    ) : null;
+
   return (
-    <div className="screen reader-shell reader-shell-shared-book">
+    <div className="screen reader-shell reader-shell-book">
       <div className="reader-glow" aria-hidden="true" />
       <div className="grain" aria-hidden="true" />
 
-      <AppHeader backHref="/dashboard" />
+      {/*
+        Every piece of chrome this screen has, on one line.
 
-      <main className="reader-shared-stage">
-        <div className="reader-shared-heading">
-          <p className="eyebrow">
-            <Sparkles aria-hidden="true" /> ONLINE READER
-          </p>
-          <h1>
-            {t.story.reader.flipPrefix}
-            {heroName}
-            {t.story.reader.flipSuffix}
-          </h1>
-          <p>{t.story.reader.lead}</p>
-          <div className="ux-generated-actions" style={{ marginTop: 18 }}>
-            <button
-              className="button button-quiet"
-              type="button"
-              disabled={!pack || downloading || isIllustrating || isPending}
-              onClick={() => void onDownload()}
+        What stood here was the app header, a heading, a lead paragraph and three buttons - about
+        240px of the window, above a book that was then capped at 390px a leaf. The book is what
+        the screen is for, so the rest is a bar: where to go back to, what is being read, and the
+        two things a parent might want that are not reading it.
+      */}
+      <div className="reader-bar">
+        <Link
+          className="reader-bar-icon"
+          to="/dashboard"
+          aria-label={t.story.reader.library.trim()}
+        >
+          <ArrowLeft aria-hidden="true" />
+        </Link>
+        <span className="reader-bar-title">
+          <small>{heroName}</small>
+          <strong>{title}</strong>
+        </span>
+        <span className="reader-bar-end">
+          {canVisitWorldPassport && pack ? (
+            <Link
+              className="reader-bar-pill"
+              to="/world"
+              search={{ bookId: pack.id }}
+              aria-label={t.story.reader.worldPassport}
             >
-              <Download aria-hidden="true" />
-              {downloading ? t.story.reader.pdf.building : t.journey.generated.downloadPdf}
-            </button>
-            {canVisitWorldPassport && pack ? (
-              <Link className="button button-primary" to="/world" search={{ bookId: pack.id }}>
-                <Sparkles aria-hidden="true" />
-                {t.story.reader.worldPassport}
-              </Link>
-            ) : null}
-            <Link className="button button-quiet" to="/dashboard">
-              <BookOpen aria-hidden="true" />
-              {t.story.reader.library.trim()}
+              <Sparkles aria-hidden="true" />
+              <span>{t.story.reader.worldPassport}</span>
             </Link>
-          </div>
-          {/* Said before anybody presses the button, not only after it fails. */}
-          {(pdfError ?? (pack?.downloadHeld ? t.story.reader.pdf.held : null)) ? (
-            <p
-              className="eyebrow"
-              role={pdfError ? "alert" : undefined}
-              style={{ color: "#f1c970", marginTop: 12 }}
-            >
-              {pdfError ?? t.story.reader.pdf.held}
-            </p>
           ) : null}
-        </div>
-
-        {downloading ? (
-          <div className="reader-illustrating" aria-live="polite">
-            <div className="preview-atelier-book" aria-hidden="true">
-              <div
-                className="preview-atelier-art"
-                style={atelierCover ? { backgroundImage: `url("${atelierCover}")` } : undefined}
-              />
-              <div className="preview-atelier-cover-lines" />
-              <span className="preview-atelier-spine" />
-              <div className="preview-atelier-page">
-                <i />
-                <i />
-                <i />
-              </div>
-              <div className="preview-atelier-sparkles">
-                {Array.from({ length: 6 }, (_, i) => (
-                  <i key={i} />
-                ))}
-              </div>
-            </div>
-
-            <div className="preview-loader-copy">
-              <small>{t.story.reader.pdf.atelier}</small>
-              <strong>{t.story.reader.pdf.title}</strong>
-              <div className="preview-loader-progress" aria-hidden="true">
-                <i style={{ width: `${pdfPercent}%` }} />
-              </div>
-              <p className="reader-illustrating-count">{pdfPercent}%</p>
-              <p>{pack?.progressMessage || t.story.reader.pdf.lead}</p>
-              <p className="reader-illustrating-email">
-                <Mail aria-hidden="true" />
-                {t.story.reader.pdf.email}
-              </p>
-            </div>
-          </div>
-        ) : null}
-
-        {isIllustrating ? (
-          <div className="reader-illustrating" aria-live="polite">
-            <div className="preview-atelier-book" aria-hidden="true">
-              <div
-                className="preview-atelier-art"
-                style={atelierCover ? { backgroundImage: `url("${atelierCover}")` } : undefined}
-              />
-              <div className="preview-atelier-cover-lines" />
-              <span className="preview-atelier-spine" />
-              <div className="preview-atelier-page">
-                <i />
-                <i />
-                <i />
-              </div>
-              <div className="preview-atelier-sparkles">
-                {Array.from({ length: 6 }, (_, i) => (
-                  <i key={i} />
-                ))}
-              </div>
-            </div>
-
-            <div className="preview-loader-copy">
-              <small>{t.story.reader.illustrating.atelier}</small>
-              <strong>{t.story.reader.illustrating.title}</strong>
-              <div className="preview-loader-progress" aria-hidden="true">
-                <i
-                  style={{
-                    width: `${Math.round((illustrationProgress.done / illustrationProgress.total) * 100)}%`,
-                  }}
-                />
-              </div>
-              <p className="reader-illustrating-count">
-                {t.story.reader.illustrating.progress(
-                  illustrationProgress.done,
-                  illustrationProgress.total,
-                )}
-              </p>
-              <p>{t.story.reader.illustrating.leadWaiting}</p>
-              {/*
-                The single most useful thing to say here. A book takes minutes, and without this
-                a parent either sits watching a progress bar or closes the tab wondering whether
-                they have just lost what they paid for.
-              */}
-              <p className="reader-illustrating-email">
-                <Mail aria-hidden="true" />
-                {t.story.reader.illustrating.email}
-              </p>
-            </div>
-          </div>
-        ) : null}
-
-        {loading || authLoading ? (
-          <p className="eyebrow" style={{ color: "#f8f2e5a8" }}>
-            {t.common.states.loading}
-          </p>
-        ) : error ? (
-          <p className="eyebrow" style={{ color: "#f1c970" }}>
-            {error}
-          </p>
-        ) : pack && (pack.status === "Failed" || pack.isFailed) ? (
-          <div
-            style={{
-              padding: "2rem",
-              textAlign: "center",
-              background: "rgba(0,0,0,0.2)",
-              borderRadius: 16,
-            }}
+          <button
+            className="reader-bar-pill"
+            type="button"
+            disabled={!pack || downloading || isIllustrating || isPending}
+            aria-label={t.journey.generated.downloadPdf}
+            onClick={() => void onDownload()}
           >
-            <h2 style={{ color: "#f1c970", marginBottom: "1rem" }}>
-              {t.dashboard.library.failedTitle}
-            </h2>
-            <p>{pack.errorMessage || t.dashboard.library.failedBody}</p>
-          </div>
-        ) : isPending ? (
-          /*
-            "Being drawn", said as a book that is coming rather than a book that is missing. The
-            page polls behind this, so it becomes the real volume without anybody refreshing.
-          */
-          <div
-            style={{
-              padding: "2rem",
-              textAlign: "center",
-              background: "rgba(0,0,0,0.2)",
-              borderRadius: 16,
-            }}
-            aria-live="polite"
-          >
-            <h2 style={{ color: "#f1c970", marginBottom: "1rem" }}>
-              {t.story.reader.pending.title}
-            </h2>
-            <p>{pack?.progressMessage || t.story.reader.pending.body}</p>
-          </div>
-        ) : pack && !isIllustrating && pdfObjectUrl ? (
-          <div className="reader-canonical-pdf">
-            <iframe
-              title={title}
-              src={`${pdfObjectUrl}#view=FitH&toolbar=1&navpanes=0`}
-              allow="fullscreen"
-            />
-          </div>
-        ) : pack && !isIllustrating && pack.pdfUrl && pack.status === "Completed" && !pdfError ? (
-          /*
-            The book is arriving.
+            <Download aria-hidden="true" />
+            <span>
+              {downloading ? t.story.reader.pdf.building : t.journey.generated.downloadPdf}
+            </span>
+          </button>
+        </span>
+      </div>
 
-            Everything above has resolved — the book is finished and has a PDF — but the file
-            itself is a blob this screen downloads with the session token, and until it lands
-            `pdfObjectUrl` is null. Every branch here used to miss that case and the chain fell
-            through to nothing, so the whole book slot was empty for the length of the download:
-            a reader who had just pressed "read" was shown a page with a heading and a hole in
-            it, which reads as a book that failed rather than one on its way.
+      {/* Said where it happened, rather than over the book. */}
+      {(pdfError ?? (pack?.downloadHeld ? t.story.reader.pdf.held : null)) ? (
+        <p className="reader-bar-note" role={pdfError ? "alert" : undefined}>
+          {pdfError ?? t.story.reader.pdf.held}
+        </p>
+      ) : null}
 
-            Beki's own spark, at the size it is used when it is alone in the middle of a page.
-            Not one of the loader's two exclusions: those are the preview and a book being
-            written, which both have real spreads to show instead. This has nothing to show.
+      <main className="reader-stage">
+        {stage}
 
-            The conditions are the effect's own — a completed book with a PDF — so the mark turns
-            exactly while a download is in flight and never over a state that has no download
-            coming to end it.
-          */
-          <div className="reader-canonical-pdf reader-canonical-pdf-waiting">
-            <div className="beki-loader-block">
-              <BekiLoader size={56} label={t.common.states.loading} />
-            </div>
+        {/*
+          Closer, and to one part of the picture.
+
+          The whole spread is already as wide as the window, so this is not about making the book
+          bigger - it is about a child going looking for something inside a painting. It sits in
+          the corner the page counter does not use, and only once there is a book to look at.
+        */}
+        {pack && !isPending && !error ? (
+          <div className="reader-zoom">
+            <button
+              type="button"
+              disabled={zoom <= 1}
+              onClick={() => stepZoom(-0.4)}
+              aria-label={t.story.reader.zoomOut}
+            >
+              <Minus aria-hidden="true" />
+            </button>
+            <b aria-live="polite">{Math.round(zoom * 100)}%</b>
+            <button
+              type="button"
+              disabled={zoom >= 3}
+              onClick={() => stepZoom(0.4)}
+              aria-label={t.story.reader.zoomIn}
+            >
+              <Plus aria-hidden="true" />
+            </button>
           </div>
-        ) : pack && !isIllustrating && !pack.pdfUrl && pack.generationPipeline === "beki" ? (
-          <p role="status">{t.story.reader.pdf.held}</p>
-        ) : pack && !isIllustrating && !pack.pdfUrl ? (
-          <NewBookCharacterContext.Provider value={pack.primaryCharacterId ?? null}>
-            <StorybookVolume
-              className="storybook storybook-full"
-              heroName={heroName}
-              title={title}
-              coverImageUrl={pack.coverImageUrl}
-              worldId={pack.worldId}
-              pages={pages}
-              lockedPageCount={lockedPageCount}
-              isUnlocked={isUnlocked}
-              isSpreadBook={pack.isSpreadBook}
-              fullBleedSpreads={pack.isSpreadBook}
-              interactive
-            />
-          </NewBookCharacterContext.Provider>
         ) : null}
       </main>
-
-      <div className="reader-memory">
-        <Sparkles aria-hidden="true" />
-        {t.story.reader.memoryPrefix}
-        {heroName}
-        {t.story.reader.memorySuffix}
-      </div>
     </div>
   );
 }

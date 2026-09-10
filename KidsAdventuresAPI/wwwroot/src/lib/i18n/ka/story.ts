@@ -46,6 +46,8 @@ export const story = {
     memoryPrefix: "ეს მომენტი ",
     memorySuffix: "ს შემდეგ ამბავშიც დაბრუნდება.",
     worldPassport: "ნახე გახსნილი სამყარო",
+    zoomIn: "გადიდება",
+    zoomOut: "დაპატარავება",
     illustrating: {
       atelier: "BEKI BOOK ATELIER",
       title: "ვხატავთ წიგნის სურათებს",

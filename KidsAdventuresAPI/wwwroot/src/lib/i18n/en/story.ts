@@ -37,6 +37,8 @@ export const story = {
     memoryPrefix: "This moment comes back with ",
     memorySuffix: " in the next story.",
     worldPassport: "See the world you opened",
+    zoomIn: "Zoom in",
+    zoomOut: "Zoom out",
     illustrating: {
       atelier: "BEKI BOOK ATELIER",
       title: "Painting the pictures",

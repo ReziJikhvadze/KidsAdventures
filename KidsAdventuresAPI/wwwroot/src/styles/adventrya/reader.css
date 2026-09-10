@@ -83,6 +83,7 @@
   margin-top: 3px;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-weight: 800;
   font-feature-settings: var(--display-caps);
   font-size: 13px;
 }
@@ -794,5 +795,409 @@
   }
   .reader-shell .storybook {
     --book-width: min(390px, max(260px, calc((100svh - 240px) * 0.725)));
+  }
+}
+
+/* ==========================================================================
+   The reading screen, once the book became the screen.
+
+   What was here gave the window to a heading, a lead and three buttons and left the book with
+   whatever was underneath - 780x359 of a 1440x900 display, less than half its width. The page
+   is now a 56px bar and the book; everything below sizes from that.
+   ========================================================================== */
+
+.reader-shell-book {
+  display: flex;
+  flex-direction: column;
+  height: 100svh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.reader-bar {
+  position: relative;
+  z-index: 6;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 56px;
+  padding: 0 20px;
+  border-bottom: 1px solid rgba(239, 227, 207, 0.08);
+}
+.reader-bar-icon {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(229, 216, 244, 0.22);
+  border-radius: 13px;
+  color: #f8f2e5cc;
+  background: #1d144257;
+}
+.reader-bar-icon svg {
+  width: 17px;
+  height: 17px;
+}
+/* The one part with arbitrary-length content: a book's title. It gives way first. */
+.reader-bar-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.reader-bar-title small {
+  color: var(--story-gold);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+.reader-bar-title strong {
+  overflow: hidden;
+  color: #fff8eb;
+  font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
+  font-size: 15px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reader-bar-end {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 8px;
+  margin-left: auto;
+}
+.reader-bar-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(240, 227, 199, 0.2);
+  border-radius: 13px;
+  cursor: pointer;
+  color: #fff8eb;
+  background: #231747ba;
+  font-family: inherit;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.reader-bar-pill svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.reader-bar-pill:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+.reader-bar-note {
+  position: relative;
+  z-index: 6;
+  margin: 8px 20px 0;
+  color: #f1c970;
+  font-size: 11px;
+}
+
+.reader-stage {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 22px 32px 26px;
+}
+
+/*
+  The book takes the room the window has, not a fixed cap.
+
+  Open, the volume is two boards at 2.2:1; shut, one at 1.085:1. --book-width is one board, so
+  the width available is halved for it and the height is multiplied by 1.085 - the tighter of
+  the two ratios, so the closed cover fits the same box the open spread does and opening the
+  book never makes it jump.
+*/
+.reader-shell-book .storybook-full {
+  --book-width: max(240px, min(calc((100vw - 96px) / 2), calc((100svh - 160px) * 1.085)));
+}
+.reader-zoomer {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center center;
+  transition: transform 0.18s ease-out;
+  will-change: transform;
+  /* At arm's length the wrapper is not there: a drag turns a leaf, as it always did. */
+  pointer-events: none;
+}
+.reader-zoomer .storybook {
+  pointer-events: auto;
+}
+
+/*
+  The page turners, on the book's own edge rather than under it.
+
+  They were a row beneath the volume, which cost the book the height of a button and a margin
+  every time. As circles over the fore-edges they cost nothing, and they are where a hand
+  reaches for a page anyway. The labels go: a chevron at the edge of a book needs no word, and
+  the buttons keep their aria-label.
+*/
+.reader-shell-book .storybook {
+  position: relative;
+}
+.reader-shell-book .storybook-controls {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  margin: 0;
+  pointer-events: none;
+}
+.reader-shell-book .storybook-controls button {
+  position: absolute;
+  top: 50%;
+  width: 54px;
+  height: 54px;
+  max-width: none;
+  min-height: 0;
+  padding: 0;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: #231747d6;
+  box-shadow: 0 10px 26px #0a05196b;
+  pointer-events: auto;
+}
+.reader-shell-book .storybook-controls button > span {
+  display: none;
+}
+.reader-shell-book .storybook-controls svg {
+  width: 18px;
+  height: 18px;
+}
+.reader-shell-book .storybook-controls button:first-child {
+  left: -27px;
+}
+.reader-shell-book .storybook-controls button:last-child {
+  right: -27px;
+}
+/* Where in the book, under it, out of the picture. */
+.reader-shell-book .storybook-progress {
+  position: absolute;
+  left: 50%;
+  bottom: -30px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+/* Sixteen numbered buttons under a book that now fills the window is a second set of controls
+   for something the counter above already answers. */
+.reader-shell-book .storybook-page-rail {
+  display: none;
+}
+
+/*
+  Zoom: the corner the counter does not use.
+*/
+.reader-zoom {
+  position: absolute;
+  z-index: 6;
+  right: 26px;
+  bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid rgba(240, 227, 199, 0.2);
+  border-radius: 999px;
+  background: #231747ba;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.reader-zoom button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #fff8eb;
+  background: transparent;
+}
+.reader-zoom button:hover:not(:disabled) {
+  background: #ffffff14;
+}
+.reader-zoom button:disabled {
+  cursor: default;
+  opacity: 0.32;
+}
+.reader-zoom svg {
+  width: 15px;
+  height: 15px;
+}
+.reader-zoom b {
+  min-width: 44px;
+  color: #fff8ebb8;
+  font-size: 11px;
+  font-weight: 400;
+  text-align: center;
+}
+
+/*
+  Waiting, drawn as the book.
+
+  Not a spinner in an empty rectangle: the rectangle is already the page at the size the page
+  will be, so the picture lands in place and the layout never jumps. The sheen crosses in eight
+  seconds - a fast shimmer reads as a stuck progress bar rather than as something on its way.
+*/
+.reader-waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.reader-waiting-book {
+  position: relative;
+  width: min(calc(100vw - 96px), calc((100svh - 200px) * 2.2));
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  aspect-ratio: 2.2;
+  border-radius: 17px;
+  background: #f7eedf;
+  box-shadow: 0 46px 90px #08041aa8;
+}
+.reader-waiting-book > i {
+  background: linear-gradient(100deg, #ece0cb 30%, #f7eedf 46%, #ece0cb 62%);
+  background-size: 260% 100%;
+  animation: reader-sheen 8s ease-in-out infinite;
+}
+.reader-waiting-book > i:first-child {
+  border-radius: 17px 0 0 17px;
+}
+.reader-waiting-book > i:last-child {
+  border-radius: 0 17px 17px 0;
+  animation-delay: 0.6s;
+}
+@keyframes reader-sheen {
+  from {
+    background-position: 130% 0;
+  }
+  to {
+    background-position: -30% 0;
+  }
+}
+.reader-waiting-mark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  gap: 7px;
+  transform: translate(-50%, -50%);
+}
+.reader-waiting-mark i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #c9a86a;
+  animation: reader-bob 1.25s ease-in-out infinite;
+}
+.reader-waiting-mark i:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.reader-waiting-mark i:nth-child(3) {
+  animation-delay: 0.32s;
+}
+@keyframes reader-bob {
+  0%,
+  70%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  35% {
+    opacity: 1;
+    transform: translateY(-5px);
+  }
+}
+.reader-waiting small {
+  color: #fff8eb7a;
+  font-size: 12px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reader-waiting-book > i,
+  .reader-waiting-mark i {
+    animation: none;
+  }
+  .reader-waiting-mark i {
+    opacity: 0.6;
+  }
+  .reader-zoomer {
+    transition: none;
+  }
+}
+
+.reader-note {
+  color: #f1c970;
+  font-size: 13px;
+  text-align: center;
+}
+.reader-note-panel {
+  max-width: 460px;
+  padding: 30px;
+  border: 1px solid rgba(239, 227, 207, 0.14);
+  border-radius: 20px;
+  background: #1b1138a8;
+  text-align: center;
+}
+.reader-note-panel h2 {
+  margin: 0 0 12px;
+  color: #f1c970;
+  font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
+  font-size: 21px;
+  font-weight: 800;
+}
+.reader-note-panel p {
+  margin: 0;
+  color: #e5dfecad;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+/*
+  A phone shows one board, and a board is wider than it is tall - 222.5 x 205mm - so a portrait
+  screen can never fill its height with a page. The room left over goes to the controls rather
+  than to a page stretched out of the shape the printed one has.
+*/
+@media (max-width: 780px) {
+  .reader-bar {
+    gap: 10px;
+    padding: 0 12px;
+  }
+  .reader-bar-pill span {
+    display: none;
+  }
+  .reader-stage {
+    padding: 14px 14px 22px;
+  }
+  .reader-shell-book .storybook-full {
+    --book-width: min(calc(100vw - 28px), calc((100svh - 210px) * 1.085));
+  }
+  /* Under a thumb rather than beside it: the fore-edges are where the screen ends. */
+  .reader-shell-book .storybook-controls button {
+    width: 48px;
+    height: 48px;
+  }
+  .reader-shell-book .storybook-controls button:first-child {
+    left: -10px;
+  }
+  .reader-shell-book .storybook-controls button:last-child {
+    right: -10px;
+  }
+  .reader-zoom {
+    right: 14px;
+    bottom: 14px;
   }
 }
