@@ -430,14 +430,20 @@
     height: 44px;
   }
   /*
-    44px, not 37. This is a round target hard against the right edge of the screen, and below
-    44 a thumb misses it — which reads as a button that does nothing rather than one you missed.
+    44px, not 37. This is a target hard against the right edge of the screen, and below 44 a
+    thumb misses it — which reads as a button that does nothing rather than one you missed.
+
+    Not a circle, though. It was one, and beside an outlined language pill and an outlined
+    sign-out button it was the only round thing on the bar — with the journey header's gold disc
+    inside it, a circle within a circle. The size is the part that was load-bearing; the shape
+    was never argued for, and the shape is what made this control look like something that had
+    wandered in from another screen.
   */
   .app-header-end .child-pill {
     width: 44px;
     height: 44px;
     padding: 0;
-    border-radius: 50%;
+    border-radius: 12px;
   }
   .app-header-end .child-pill > span:not(.child-avatar),
   .app-header-end .child-pill > svg {

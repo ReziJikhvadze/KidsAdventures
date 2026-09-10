@@ -107,6 +107,35 @@
   font-size: 15px;
   line-height: 1;
 }
+/*
+  And on a phone, no disc at all.
+
+  base.css already decided this: under 1080px the label is hidden, and its rule takes the fill off
+  the avatar so a link to somewhere the parent is not going stops being the loudest thing on the
+  bar. That rule is `.app-header-end .child-avatar`, and the light-header rule above it - written
+  for the desktop pill, where the gold disc beside the words "ჩემი სივრცე" is what makes an avatar
+  an avatar - carries one class more and beat it everywhere. So the phone kept the disc, inside a
+  pill, inside a round target: a circle within a circle, next to two outlined controls.
+
+  Restated here rather than fought with elsewhere, because this file owns what the journey
+  header looks like. Same size and shape as base.css asks for, in this header's ink rather than
+  the cream it uses on the dark bar.
+*/
+@media (max-width: 1080px) {
+  .journey-screen .app-header-end .child-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: inherit;
+    color: var(--jw-ink);
+    background: none;
+    box-shadow: none;
+  }
+  .journey-screen .app-header-end .child-avatar svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
 /* The nav joins the light header rather than the dark bar it was written for. */
 .journey-screen .app-header-nav a {
   color: var(--jw-ink-soft);
