@@ -271,13 +271,11 @@ export const journey = {
 
   checkout: {
     stepAddress: "Where it goes",
-    stepParcel: "How it is made up",
-    copies: "Number of copies",
     copiesNote: "One address, one parcel",
     copiesFewer: "One fewer",
     copiesMore: "One more",
     giftWrap: "Gift wrapping",
-    giftWrapNote: "The book arrives wrapped in gift paper and ribbon",
+    giftWrapNote: "Gift paper and a ribbon",
     promoLabel: "Have a promo code?",
     promoPlaceholder: "Enter your promo code",
     promoRemove: "Remove promo code",

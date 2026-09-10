@@ -75,6 +75,44 @@ public class SavedHeroPreviewTests : CompositePipelineTestBase
         Assert.Null(Assert.Single(runs.Created).AppearanceDescription);
     }
 
+    /// <summary>
+    /// A signed-in parent's preview is theirs, and their child's, from the insert.
+    ///
+    /// It used to belong to nobody until a payment claimed it, which is why the parent's own
+    /// space could not show a preview at all: there was no column that said whose it was. Both
+    /// are written here now, and the expiry is not touched by either — being able to see an
+    /// unbought preview is a different thing from keeping the child's photograph.
+    /// </summary>
+    [Fact]
+    public async Task A_signed_in_start_stamps_the_parent_and_the_hero_on_the_run()
+    {
+        var owner = Guid.NewGuid();
+        var hero = Guid.NewGuid();
+        var runs = new CapturingRuns();
+
+        await Service(new CountingImages(), runs).StartAsync(
+            Input(owner: owner, characterId: hero), CancellationToken.None);
+
+        var run = Assert.Single(runs.Created);
+        Assert.Equal(owner, run.UserId);
+        Assert.Equal(hero, run.CharacterId);
+        Assert.NotNull(run.ExpiresAt);
+    }
+
+    /// <summary>And a guest's preview still belongs to nobody, which is the whole point of it.</summary>
+    [Fact]
+    public async Task A_guest_start_leaves_the_run_unowned()
+    {
+        var runs = new CapturingRuns();
+
+        await Service(new CountingImages(), runs).StartAsync(Input(), CancellationToken.None);
+
+        var run = Assert.Single(runs.Created);
+        Assert.Null(run.UserId);
+        Assert.Null(run.CharacterId);
+        Assert.NotNull(run.ExpiresAt);
+    }
+
     // -- the job ---------------------------------------------------------
 
     [Fact]
@@ -182,7 +220,10 @@ public class SavedHeroPreviewTests : CompositePipelineTestBase
 
     // -- harness ---------------------------------------------------------
 
-    private static GuestPreviewInput Input(string? appearance = null) => new()
+    private static GuestPreviewInput Input(
+        string? appearance = null,
+        Guid? owner = null,
+        Guid? characterId = null) => new()
     {
         ChildName = "ნინა",
         Age = 5,
@@ -191,6 +232,10 @@ public class SavedHeroPreviewTests : CompositePipelineTestBase
         PhotoBytes = Portrait,
         PhotoContentType = "image/png",
         AppearanceDescription = appearance,
+        // Null unless a test says otherwise: the route is anonymous, and a guest is the case
+        // every other test here is about.
+        UserId = owner,
+        CharacterId = characterId,
     };
 
     private static MasterBookService Service(
@@ -402,6 +447,13 @@ public class SavedHeroPreviewTests : CompositePipelineTestBase
 
         public Task ClaimAsync(Guid id, Guid userId, Guid? packId, CancellationToken cancellationToken) =>
             Task.CompletedTask;
+
+        public Task<int> AttachToUserAsync(Guid id, Guid userId, CancellationToken cancellationToken) =>
+            Task.FromResult(1);
+
+        public Task<IReadOnlyList<MasterStoryRunSummary>> ListUnboughtForUserAsync(
+            Guid userId, int limit, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<MasterStoryRunSummary>>([]);
 
         public Task<IReadOnlyList<ExpiredMasterStoryRun>> ListExpiredAsync(int limit, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<ExpiredMasterStoryRun>>([]);

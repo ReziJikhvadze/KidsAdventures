@@ -1,13 +1,11 @@
 import { Check, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { PasswordlessAuthPanel } from "@/components/auth/PasswordlessAuthPanel";
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
-import type { StoryPageContent } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useT } from "@/lib/i18n";
 import { primaryCharacter, type JourneyDraft } from "@/lib/journey/draft";
-import { heroDemoPages } from "@/lib/story/heroDemoPages";
 import { useWorldById, type WorldId } from "@/lib/worlds";
 
 type Props = {
@@ -16,6 +14,13 @@ type Props = {
 };
 
 const RETURN_PATH = "/create#checkout";
+
+/*
+  The volume's page list, empty and stable between renders, exactly as on the preview step:
+  `pages` is required and `buildLeaves` is memoised on it, so a fresh `[]` each render would
+  rebuild the leaves and reset the book on every keystroke in the form beside it.
+*/
+const NO_PAGES: never[] = [];
 
 export function AuthStage({ draft, onAuthenticated }: Props) {
   const WORLD_BY_ID = useWorldById();
@@ -38,23 +43,6 @@ export function AuthStage({ draft, onAuthenticated }: Props) {
   const heroName = hero.name || t.common.fallbackHeroName;
   const bookTitle = draft.preview?.title || world.bookTitle(heroName);
 
-  const displayPages = useMemo((): StoryPageContent[] => {
-    // The teaser's own first page, which the preview already holds. This used to dig it out of
-    // the serialised book by looking for a "pages" key — the book serialises "storyPages", so the
-    // lookup always missed and every parent signing up read the same demo paragraph instead of
-    // the story written for their child.
-    if (draft.preview?.firstPageText) {
-      return [
-        {
-          title: draft.preview.firstPageTitle || "",
-          content: draft.preview.firstPageText,
-          isTextOnlyPage: true,
-        },
-      ];
-    }
-    return heroDemoPages(heroName, worldId).slice(0, 1);
-  }, [draft.preview?.firstPageText, draft.preview?.firstPageTitle, heroName, worldId]);
-
   useEffect(() => {
     if (!isLoading && isAuthenticated) onAuthenticated();
   }, [isAuthenticated, isLoading, onAuthenticated]);
@@ -70,6 +58,20 @@ export function AuthStage({ draft, onAuthenticated }: Props) {
   return (
     <section className="journey-stage auth-stage ux-auth-stage">
       <div className="ux-auth-book">
+        {/*
+          The cover, at the size of the thing being promised, and nothing to press under it.
+
+          This screen used to hand the volume the story's first page and a prev/next row to reach
+          it, with a line under that explaining the swipe. The parent has just read that page on
+          the step before; what they are doing here is typing an email address, and the book
+          beside the form is there to say what the address is for. Two buttons, a page counter
+          and a gesture hint are a second thing to do on a screen that has one - and the reader
+          they belong to is the book itself, after the order.
+
+          Same lever as the preview step: no pages and `interactive` off, so `buildLeaves` makes
+          the single closed leaf and the controls, the hint, the corner targets, the swipe and
+          the keyboard bindings go with them. The room they were using goes to the cover.
+        */}
         <StorybookVolume
           variant="display"
           className={`storybook storybook-display theme-${worldId}`}
@@ -77,12 +79,10 @@ export function AuthStage({ draft, onAuthenticated }: Props) {
           title={bookTitle}
           coverImageUrl={coverSrc}
           worldId={worldId}
-          pages={displayPages}
+          pages={NO_PAGES}
           lockedPageCount={0}
           isUnlocked={false}
-          // The parent is looking at their own book here; freezing it made these two
-          // screens the only places it could not be turned.
-          interactive
+          interactive={false}
           initialIndex={0}
         />
         <p>

@@ -35,4 +35,16 @@ public sealed class GuestPreviewInput
     /// answer would be the same paragraph about the same face, a second time, for money.
     /// </summary>
     public string? AppearanceDescription { get; init; }
+
+    /// <summary>
+    /// The account asking for this preview, when the caller signed in first.
+    ///
+    /// Null for a guest, which is the first book and the reason this route is anonymous at all.
+    /// Given, the run is that parent's from the moment it is written rather than from the moment
+    /// it is paid for, so their own space can show a preview that is still being made.
+    /// </summary>
+    public Guid? UserId { get; init; }
+
+    /// <summary>The saved hero it was started for, so the preview files under the same child.</summary>
+    public Guid? CharacterId { get; init; }
 }

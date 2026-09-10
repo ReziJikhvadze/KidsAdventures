@@ -836,6 +836,13 @@ public class CompositeCoverProjectionTests
         public Task ClaimAsync(Guid id, Guid userId, Guid? packId, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
+        public Task<int> AttachToUserAsync(Guid id, Guid userId, CancellationToken cancellationToken) =>
+            Task.FromResult(1);
+
+        public Task<IReadOnlyList<MasterStoryRunSummary>> ListUnboughtForUserAsync(
+            Guid userId, int limit, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<MasterStoryRunSummary>>([]);
+
         public Task<IReadOnlyList<ExpiredMasterStoryRun>> ListExpiredAsync(
             int limit, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<ExpiredMasterStoryRun>>([]);

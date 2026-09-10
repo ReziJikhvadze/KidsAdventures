@@ -30,8 +30,19 @@
 .storybook-preview {
   --book-width: 470px;
 }
+/*
+  The sign-in screen's book, which is a cover and only a cover.
+
+  318 was a book with a prev/next row, a page counter and a gesture hint stacked under it, and
+  the three of them were 85px of the column. With them gone (see the note in `AuthStage`) the
+  cover takes the room: 400 wide is 369 tall, so the column is still shorter than it was, and
+  the one thing on this half of the screen is the one thing the parent is signing up for.
+
+  A number rather than a share of the column: `.storybook-volume` is `min(--book-width, 100%)`,
+  so a narrow column shrinks it and nothing here can overflow.
+*/
 .storybook-display {
-  --book-width: 318px;
+  --book-width: 400px;
 }
 .storybook-thumbnail {
   --book-width: 82px;

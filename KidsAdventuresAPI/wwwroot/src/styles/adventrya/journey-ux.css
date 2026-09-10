@@ -1433,62 +1433,66 @@
 }
 
 /*
-  Copies and wrapping: one row, two answers to one question — until the row is too narrow to
-  hold them.
+  The two things about the parcel a parent may still change, in the rail rather than under the
+  address.
 
-  auto-fit rather than a breakpoint, because what decides this is the column's width and not the
-  window's: between 781px and about 1000px the checkout is still two columns, so the form is
-  around 340px wide and each card would get 160 of it — less than the price and the three-button
-  stepper need side by side. 200px is that pair plus the card's own padding; under twice it, the
-  two cards stack and nothing overflows.
+  They were a pair of cards at the foot of the form (`.ux-parcel`), a column away from the price
+  they move and repeating a line the breakdown already carried. As cards they do not fit here:
+  measured, the two of them push the pay button 86px off a 1440x820 window, and the rail is the
+  one column on this screen that may not gain a scrollbar. So they are not moved but dissolved —
+  each is now a row of the breakdown, carrying its control where every other row carries a price.
+
+  The row rules are set here rather than left to `.summary-lines > span`, because the wrapping
+  row is a `<label>`: it has to keep the checkbox inside it, so it cannot be a span.
 */
-.ux-parcel {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  margin-top: 12px;
-}
-.ux-parcel-card {
+.ux-checkout-stage > .ux-order-summary .summary-lines > .ux-summary-option {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 92px;
-  padding: 13px 14px;
-  border: 1px solid rgba(239, 227, 207, 0.15);
-  border-radius: 18px;
-  background: #2d1f5459;
-  transition:
-    border-color 0.18s ease,
-    background 0.18s ease;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(239, 227, 207, 0.1);
+  font-size: 11px;
 }
-.ux-parcel-card strong {
+.ux-checkout-stage > .ux-order-summary .summary-lines > .ux-summary-option > span > strong {
   display: block;
   color: #f8f2e5;
   font-size: 12px;
   font-weight: 700;
 }
-.ux-parcel-card small {
+.ux-checkout-stage > .ux-order-summary .summary-lines > .ux-summary-option small {
   display: block;
   margin-top: 2px;
   color: #f8f2e58f;
   font-size: 11px;
   line-height: 1.35;
 }
-.ux-parcel-foot {
+.ux-summary-option-end {
   display: flex;
+  flex: none;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
 }
-.ux-parcel-foot > span:first-child {
-  color: #f8f2e5a3;
+/*
+  The price stays in the column every other price is in, whatever sits to the left of it — a
+  stepper on one row, a switch on the next. Without the floor the two figures sit at different
+  distances from the edge and the column reads as crooked.
+*/
+.ux-checkout-stage > .ux-order-summary .summary-lines .ux-summary-option-end > strong {
+  min-width: 34px;
+  color: #f8f2e5d6;
   font-size: 11px;
-}
-.ux-parcel-foot b {
-  color: var(--story-gold);
-  font-size: 12px;
   font-weight: 700;
+  text-align: right;
+}
+/* Unticked, five lari is an offer rather than a charge, and is not in the total above it. */
+.ux-checkout-stage
+  > .ux-order-summary
+  .summary-lines
+  > .ux-gift-wrap:not(.is-on)
+  .ux-summary-option-end
+  > strong {
+  color: #f8f2e552;
 }
 
 /*
@@ -3034,6 +3038,60 @@
   .ux-ship-fields {
     margin-top: 10px;
     gap: 7px 10px;
+  }
+}
+
+/*
+  The middle of the range, where the rail is now the tallest thing on the screen.
+
+  The two parcel controls moved into it, and a stepper is taller than the line of text it sits
+  on: the rail asks for about 58px more than it did. The block below already drops what the
+  panel says twice once the window is under 700px; between there and a tall desktop nothing did,
+  so a 1440x900 laptop — a viewport around 805 — wore the difference at the bottom edge, which
+  is where the pay button is.
+
+  Nothing is removed here, because nothing between those two points is redundant: the panel only
+  tightens, and gives back about 80px doing it. 940 rather than 900 so the rule and the room it
+  buys overlap — by 941 the untightened rail already fits.
+*/
+@media (max-height: 940px) {
+  .ux-checkout-stage > .ux-order-summary {
+    padding: clamp(12px, 2.6vh, 30px) clamp(22px, 2.2vw, 34px);
+  }
+  /*
+    The cover keeps its proportions and loses a fifth of its width. It is a thumbnail of a book
+    whose title is spelled out beside it; at 88px it is still plainly this child's cover.
+  */
+  .ux-checkout-stage .ux-compact-product {
+    grid-template-columns: 88px 1fr;
+    gap: 14px;
+  }
+  .ux-checkout-stage .ux-compact-product strong {
+    margin-top: 4px;
+  }
+  .ux-checkout-stage .ux-compact-product span {
+    margin-top: 6px;
+  }
+  .ux-checkout-stage > .ux-order-summary .summary-lines h2 {
+    margin: 10px 0 6px;
+  }
+  .ux-checkout-stage > .ux-order-summary .summary-lines > span,
+  .ux-checkout-stage > .ux-order-summary .summary-lines > .ux-summary-option {
+    padding: 6px 0;
+  }
+  .ux-checkout-stage > .ux-order-summary .summary-lines > div {
+    margin-top: 8px;
+    padding-top: 10px;
+  }
+  .ux-checkout-stage > .ux-order-summary .ux-promo-panel {
+    padding: 8px;
+  }
+  .ux-checkout-stage > .ux-order-summary .checkout-pay {
+    margin-top: 10px;
+  }
+  .ux-checkout-stage > .ux-order-summary > p {
+    margin-top: 6px;
+    padding: 7px 11px;
   }
 }
 

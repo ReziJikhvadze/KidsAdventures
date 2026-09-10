@@ -86,7 +86,9 @@
     order: 1;
   }
   .ux-auth-book .storybook-display {
-    --book-width: min(205px, 56vw);
+    /* Stacked over the form, and the same trade as on the desktop: the controls and the hint
+       were 85px under it, and the cover spends about half of that on being readable. */
+    --book-width: min(260px, 62vw);
     /* Square to the page: this face carries the title and the child's name. */
   }
   .ux-auth-book > p {
@@ -128,7 +130,7 @@
     font-size: 11px;
   }
   .ux-auth-book .storybook-display {
-    --book-width: min(186px, 53vw);
+    --book-width: min(230px, 62vw);
   }
 }
 @media (prefers-reduced-motion: reduce) {

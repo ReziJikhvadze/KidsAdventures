@@ -547,6 +547,13 @@ public class PaidOrderFulfilmentTests
             return Task.CompletedTask;
         }
 
+        public Task<int> AttachToUserAsync(Guid id, Guid userId, CancellationToken cancellationToken) =>
+            Task.FromResult(1);
+
+        public Task<IReadOnlyList<MasterStoryRunSummary>> ListUnboughtForUserAsync(
+            Guid userId, int limit, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<MasterStoryRunSummary>>([]);
+
         public Task CreateAsync(MasterStoryRun run, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<MasterStoryRunProgress?> GetProgressAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task SetProgressAsync(Guid id, string status, string? progressMessage, CancellationToken cancellationToken) => throw new NotSupportedException();

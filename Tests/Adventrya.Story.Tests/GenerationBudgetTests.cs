@@ -857,6 +857,8 @@ public class GenerationBudgetTests
         public Task MarkReadyAsync(Guid id, string contentJson, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task MarkFailedAsync(Guid id, string error, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task ClaimAsync(Guid id, Guid userId, Guid? packId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<int> AttachToUserAsync(Guid id, Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<MasterStoryRunSummary>> ListUnboughtForUserAsync(Guid userId, int limit, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<ExpiredMasterStoryRun>> ListExpiredAsync(int limit, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<int> DeleteAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
@@ -915,6 +917,8 @@ public class GenerationBudgetTests
         public Task<MasterStoryRunProgress?> GetProgressAsync(Guid id, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task SaveAppearanceDescriptionAsync(Guid id, string appearanceDescription, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task ClaimAsync(Guid id, Guid userId, Guid? packId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<int> AttachToUserAsync(Guid id, Guid userId, CancellationToken cancellationToken) => throw new NotSupportedException();
+        public Task<IReadOnlyList<MasterStoryRunSummary>> ListUnboughtForUserAsync(Guid userId, int limit, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<IReadOnlyList<ExpiredMasterStoryRun>> ListExpiredAsync(int limit, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<int> DeleteAsync(IReadOnlyList<Guid> ids, CancellationToken cancellationToken) => throw new NotSupportedException();
     }

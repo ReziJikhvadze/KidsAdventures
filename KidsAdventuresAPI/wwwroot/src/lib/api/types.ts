@@ -142,6 +142,27 @@ export type MasterStoryRunStatus = {
   hasPortrait?: boolean;
 };
 
+/**
+ * One preview the parent started and has not bought, as their own space lists it.
+ *
+ * Not a book and deliberately shaped like one: enough to draw a card, and none of the story. The
+ * expiry is part of it — an unbought preview is deleted a day after it is made, along with the
+ * portrait it was given, so a card that did not say so would be promising something we delete.
+ */
+export type GuestPreviewSummary = {
+  runId: string;
+  characterId?: string | null;
+  status: "Pending" | "Writing" | "Illustrating" | "Ready" | "Failed";
+  progressMessage?: string | null;
+  errorMessage?: string | null;
+  title?: string | null;
+  childName?: string | null;
+  worldId?: string | null;
+  coverImageUrl?: string | null;
+  createdAt: string;
+  expiresAt?: string | null;
+};
+
 export type StoryPageContent = {
   title: string;
   /** Short evocative phrase (3-8 words) shown overlaid on the illustration. */

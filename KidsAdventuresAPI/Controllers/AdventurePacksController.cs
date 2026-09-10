@@ -35,12 +35,19 @@ public sealed class AdventurePacksController(
     IBekiDownloadStatusService downloadStatus,
     IOptions<ClientIpOptions> clientIpOptions,
     ICharacterRepository characterRepository,
+    IMasterStoryRunRepository masterStoryRunRepository,
     ILogger<AdventurePacksController> logger) : ControllerBase
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     /// <summary>Pages a parent may read before paying: the cover and page one.</summary>
     private const int PreviewReadablePages = 1;
+
+    /// <summary>
+    /// How many unbought previews the parent's own space lists. Generous: they expire in a day,
+    /// so a parent with more than a couple has been busy this afternoon, not for months.
+    /// </summary>
+    private const int PreviewListLimit = 12;
 
     /// <summary>
     /// Starts a whole book and hands back an id to watch.
@@ -179,6 +186,21 @@ public sealed class AdventurePacksController(
                     PhotoBytes = photoBytes.Bytes,
                     PhotoContentType = photoBytes.ContentType,
                     AppearanceDescription = cachedAppearance,
+                    /*
+                      Whose preview this is, said at the start rather than at the till.
+
+                      The run row has always had an owner column and only fulfilment ever wrote
+                      it, so until a book was paid for the preview belonged to nobody — and the
+                      parent's own space, which can only ask "what is mine", had nothing to show
+                      for a story being written that minute. A guest is still a guest: no token,
+                      no owner, and the expiry below is untouched either way.
+
+                      The hero is the one this account owns — `knownHero` is read back through
+                      the character repository with the caller's own id — so this cannot file a
+                      preview under somebody else's child.
+                    */
+                    UserId = signedIn ? ownerId : null,
+                    CharacterId = knownHero?.Id,
                     ReusePreviewId = reusePreviewId
                 },
                 cancellationToken);
@@ -351,6 +373,79 @@ public sealed class AdventurePacksController(
             logger.LogWarning(ex, "Cover blob missing for run {RunId}", runId);
             return NotFound();
         }
+    }
+
+    /// <summary>
+    /// The parent's previews that never became books.
+    ///
+    /// The shelf answers "what have I bought"; this answers "what did I start". They were the
+    /// same question for as long as a preview belonged to nobody until it was paid for, and the
+    /// only record of an unbought one lived in the browser that made it — so a parent who read a
+    /// preview on their phone and opened their space on a laptop saw nothing at all.
+    ///
+    /// Bounded and short-lived by nature: only previews that have not become books and have not
+    /// expired are listed, so this is a handful of rows at most.
+    /// </summary>
+    [HttpGet("previews")]
+    public async Task<ActionResult<IReadOnlyList<GuestPreviewSummaryDto>>> ListPreviews(
+        CancellationToken cancellationToken)
+    {
+        var runs = await masterStoryRunRepository.ListUnboughtForUserAsync(
+            userContext.GetUserId(), PreviewListLimit, cancellationToken);
+
+        var previews = runs.Select(run => new GuestPreviewSummaryDto
+        {
+            RunId = run.Id,
+            CharacterId = run.CharacterId,
+            Status = run.Status,
+            ProgressMessage = run.ProgressMessage,
+            // The parent-facing line, as everywhere else a run's failure reaches a browser.
+            ErrorMessage = run.ErrorMessage is null
+                ? null
+                : ParentFacingFailure.ToParentMessage(run.ErrorMessage),
+            Title = string.IsNullOrWhiteSpace(run.Title) ? null : run.Title,
+            ChildName = run.ChildName,
+            WorldId = AdventurePacks.Api.Domain.WorldThemes.TryGetTheme(run.Theme, out var theme)
+                ? AdventurePacks.Api.Domain.WorldThemes.WorldIdFor(theme)
+                : null,
+            // The served route, never the blob: the same rule the status endpoint follows, and
+            // the reason a parent's cover is not a URL anyone can pass around.
+            CoverImageUrl = run.CoverImageUrl is null
+                ? null
+                : $"/api/adventure-packs/guest-preview/{run.Id}/cover",
+            CreatedAt = run.CreatedAt,
+            ExpiresAt = run.ExpiresAt
+        }).ToList();
+
+        return Ok(previews);
+    }
+
+    /// <summary>
+    /// Puts a guest's preview in the name of the account that has just signed up for it.
+    ///
+    /// The sign-in screen tells the parent their preview is saved. It was true only of the tab
+    /// they were standing in: the run was written before there was an account to own it, and
+    /// nothing attached it to one until a payment went through. This is the missing half, called
+    /// by the journey the moment the parent is signed in.
+    ///
+    /// It does not make the preview a book and it does not extend its life — the expiry is what
+    /// keeps the promise that an unbought child's photograph is not kept — so a run that belongs
+    /// to somebody else is answered with the same 204 as one that was attached. There is nothing
+    /// to tell the caller: the id came from their own browser, and saying "that is not yours"
+    /// would be the only way to learn anything from it.
+    /// </summary>
+    [HttpPost("guest-preview/{runId:guid}/claim")]
+    public async Task<IActionResult> ClaimGuestPreview(Guid runId, CancellationToken cancellationToken)
+    {
+        var attached = await masterStoryRunRepository.AttachToUserAsync(
+            runId, userContext.GetUserId(), cancellationToken);
+
+        if (attached == 0)
+        {
+            logger.LogDebug("Preview {RunId} was not attached: it is missing or owned elsewhere.", runId);
+        }
+
+        return NoContent();
     }
 
     /// <summary>

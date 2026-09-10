@@ -503,7 +503,8 @@
   Minus, number, plus — the stepper every food app has already taught this parent to read.
 
   The panel it used to sit in is gone: copies and wrapping are the two halves of one question
-  now and share a row of cards (`.ux-parcel` in journey-ux.css). This is only the control. The
+  now and share the first two rows of the order summary (`.ux-summary-option` in journey-ux.css).
+  This is only the control. The
   number is fixed-width by its own min-width rather than by a monospace font, so the buttons do
   not shuffle sideways between 1 and 5.
 */
@@ -569,10 +570,6 @@
 */
 .ux-gift-wrap {
   cursor: pointer;
-}
-.ux-gift-wrap.is-on {
-  border-color: rgba(232, 201, 138, 0.46);
-  background: #3a2a5e8a;
 }
 .ux-gift-wrap input {
   position: absolute;
