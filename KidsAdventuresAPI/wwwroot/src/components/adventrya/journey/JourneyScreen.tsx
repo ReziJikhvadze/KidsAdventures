@@ -6,6 +6,7 @@ import { CheckoutStage } from "@/components/adventrya/journey/CheckoutStage";
 import { GeneratingStage } from "@/components/adventrya/journey/GeneratingStage";
 import { PreviewStage } from "@/components/adventrya/journey/PreviewStage";
 import { ProfileStage } from "@/components/adventrya/journey/ProfileStage";
+import { ResumePreviewNote } from "@/components/adventrya/journey/ResumePreviewNote";
 import { claimGuestPreview, getGuestPreviewStatus } from "@/lib/api/adventure-packs";
 import { getCharacter, fetchCharacterPhotoObjectUrl } from "@/lib/api/characters";
 import { getToken, resolveApiUrl } from "@/lib/api/client";
@@ -414,7 +415,16 @@ function renderStage(
   switch (stage) {
     case "profile":
       return (
-        <ProfileStage draft={ctx.draft} onChange={ctx.setDraft} onContinue={ctx.goAfterProfile} />
+        <>
+          {/* The cover they already have, offered before they answer the questions again and
+              buy a second one. See ResumePreviewNote. */}
+          <ResumePreviewNote
+            draft={ctx.draft}
+            onChange={ctx.setDraft}
+            onResume={ctx.goAfterProfile}
+          />
+          <ProfileStage draft={ctx.draft} onChange={ctx.setDraft} onContinue={ctx.goAfterProfile} />
+        </>
       );
     case "preview":
       // Leaving the waiting screen is the header's back arrow, which already goes to the

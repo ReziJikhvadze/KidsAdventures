@@ -1,3 +1,4 @@
+import { heroKeyOf, type PendingRun } from "@/lib/journey/pendingRun";
 import type { BookPackage } from "@/lib/pricing";
 import { SESSION_KEYS } from "@/lib/storage/session";
 
@@ -20,6 +21,18 @@ export type JourneyResume = {
   worldId: string | null;
   bookPackage: BookPackage;
   characterId?: string;
+  /**
+   * Which child this preview was drawn for, in the form `pendingRun` states it.
+   *
+   * `characterId` answers the same question for a saved character and nothing at all for a guest,
+   * who is most of the people this pointer exists for. Without it the pointer could say "you have
+   * a preview" but not "of this child", and the preview screen could not use it to decide whether
+   * to rejoin a book or start one - which is the decision that costs money.
+   *
+   * Optional because pointers written before this existed are still on parents' devices. A
+   * missing key is read as "unknown", never as "a different child".
+   */
+  heroKey?: string;
   storyNotes?: string;
   savedAt: number;
 };
@@ -42,6 +55,7 @@ export function readJourneyResume(): JourneyResume | null {
       worldId: typeof parsed.worldId === "string" ? parsed.worldId : null,
       bookPackage: parsed.bookPackage === "digital" ? "digital" : "print",
       characterId: typeof parsed.characterId === "string" ? parsed.characterId : undefined,
+      heroKey: typeof parsed.heroKey === "string" ? parsed.heroKey : undefined,
       storyNotes: typeof parsed.storyNotes === "string" ? parsed.storyNotes : undefined,
       savedAt: parsed.savedAt,
     };
@@ -74,4 +88,37 @@ export function clearJourneyResume(): void {
   } catch {
     /* ignore */
   }
+}
+
+/**
+ * The pointer, when it belongs to the book being made right now - and in the shape the preview
+ * screen already knows how to rejoin.
+ *
+ * The same rule `resumablePendingRun` applies, deliberately: a world or a child that *disagrees*
+ * rejects the pointer, while a world or child the draft has not filled in yet does not, because
+ * that is what an empty draft on a fresh page load looks like. Stating it twice with two different
+ * answers is how a screen ends up billing for a book nobody asked for.
+ *
+ * Why this exists at all: the pending-run id is cleared the moment a preview finishes, so from
+ * then on the only record that a paid cover exists on this device is this pointer. The preview
+ * screen consulted the cleared one and not this one - so a parent who came back to the preview
+ * with their answers still filled in could start, and pay for, a second cover of the same book.
+ */
+export function resumableJourneyRun(
+  hero: { serverId?: string; name: string; birthDate: string },
+  worldId: string | null,
+): PendingRun | null {
+  const resume = readJourneyResume();
+  if (!resume) return null;
+
+  if (worldId && resume.worldId && resume.worldId !== worldId) return null;
+
+  const heroKnown = !!hero.serverId || !!hero.name.trim();
+  if (heroKnown && resume.heroKey && resume.heroKey !== heroKeyOf(hero)) return null;
+
+  return {
+    runId: resume.runId,
+    worldId: resume.worldId,
+    heroKey: resume.heroKey ?? heroKeyOf(hero),
+  };
 }
