@@ -28,7 +28,7 @@
   --book-width: 560px;
 }
 .storybook-preview {
-  --book-width: 390px;
+  --book-width: 470px;
 }
 .storybook-display {
   --book-width: 318px;
@@ -1275,19 +1275,24 @@
 /* Preview column: keep a single closed/open book — never a crushed desktop spread. */
 .ux-preview-product .storybook.uses-desktop-spread.is-open .storybook-volume,
 .ux-preview-product .storybook-preview .storybook-volume {
-  max-height: 395px;
+  max-height: 470px;
   width: min(var(--book-width), 100%);
   aspect-ratio: 1.085;
 }
 /*
- * A fixed 395px book is what pushed the preview step past a short laptop viewport.
+ * A fixed cap is what pushed the preview step past a short laptop viewport.
  * Tie it to available height instead so it keeps its full size on tall screens and
  * scales down rather than forcing the whole page to scroll on short ones.
+ *
+ * 40vh became 52vh when the prev/next row, the progress track and the gesture hint came off
+ * this screen: they stood under the book and were most of the column's furniture, and the book
+ * had been sized around them. The cover is the one thing on this half of the screen now, and it
+ * is what the parent is deciding on, so it takes the room they were using.
  */
 @media (min-width: 900px) {
   .ux-preview-product .storybook.uses-desktop-spread.is-open .storybook-volume,
   .ux-preview-product .storybook-preview .storybook-volume {
-    max-height: min(395px, 40vh);
+    max-height: min(470px, 52vh);
   }
 }
 .ux-preview-book-note {

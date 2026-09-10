@@ -50,7 +50,8 @@ New composite previews are marked `preview-v1` in MasterStoryRuns.PromptVersion 
 They validate locally, make one `gpt-image-2.5-flare` edit request at the configured
 fast cover size/quality (default 1200x576, medium), composite the approved Beki PNG,
 and render the same vector title/logo composition used by the PDF composer.
-They show only the front-cover derivative and the fixed personalized intro.
+The preview screen shows only the front-cover derivative, with its typography already rendered.
+The fixed personalized intro is also stored with the revision; the screen has no page-turn controls.
 No story, polish, identity extraction, supporting-cast planner, or spread image is
 created before payment. The profile screen also no longer calls the AI portrait gate.
 The old synchronous guest-preview endpoint returns 410; existing saved previews still work.

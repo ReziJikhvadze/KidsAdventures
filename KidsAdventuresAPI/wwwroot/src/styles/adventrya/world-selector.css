@@ -97,16 +97,39 @@
     place-items already promised: half at each end.
   */
   grid-template-columns: minmax(0, 1fr);
-  height: 100svh;
-  max-height: 100svh;
+  /*
+    One screen, said once and named, because the embedded copy on the home page is allowed to
+    grow past it (see `.experience-shell-embedded .art-stage`) and the frame has to be able to
+    read back whatever the stage settled on to work out what it hid.
+  */
+  --stage-height: 100svh;
+  height: var(--stage-height);
+  max-height: var(--stage-height);
   place-items: center;
   overflow: hidden;
   isolation: isolate;
   background: #08071f;
 }
 
+/*
+  The frame's own height, in the units the crop arithmetic is done in.
+
+  Each artboard works it out from its own master's ratio and its own horizontal cap — the same
+  expression as the `width` below, read as a height — and declares it on the STAGE rather than on
+  the frame, because the stage needs it too: what the stage decides to be is now a function of
+  how tall the painting would like to be. It inherits down to the frame, which subtracts.
+
+  `100vw` rather than `100%` here and `100%` in the embedded width override: the difference is a
+  scrollbar, eight pixels of crop band on the widest screen this ships to, and reading a
+  percentage as a height is not something CSS will do.
+*/
+.desktop-stage {
+  --frame-height: min(max(calc(100vw / 1.776833), 100svh), calc(100vw * 1.0638 / 1.776833));
+}
+
 .mobile-stage {
   display: none;
+  --frame-height: min(max(calc(100vw / 0.462581), 100svh), calc(100vw * 1.087 / 0.462581));
 }
 
 .ambient-art {
@@ -166,57 +189,35 @@
   the crop takes clouds, not worlds, on every aspect ratio between 4:3 and 21:9.
 */
 /*
-  Edge to edge, and the sides are never bare.
+  The bars are gone, because the cap that made them is off the width.
 
-  Cover is the rule: the painting fills the window on every ordinary screen, and the earlier cap
-  of a percent and a half was protecting a button that has since moved into the island's card.
-  But cover is unbounded, and a window shaped nothing like the painting crops without limit — a
-  near-square portrait window covered by the tall master ends up nearly twice the window's
-  height, which puts the top row of islands, and the wordmark above them, off the screen
-  entirely.
+  There used to be a third term here — the frame may be at most `100svh × 1.22 × 1.776833` — and
+  it was doing two jobs at once with one number. Read down the page it says "throw away no more
+  than 22% of the painting's height"; read across it says "and if that means the painting stops
+  reaching the sides of the screen, so be it". Past 2.168:1 the second half is what happened, and
+  it is exactly what the report called the black bars. Measured on the live site: 0px at
+  1920x950, 20px a side at 1920x860, 107px at 1920x780, 189px at 2560x1000.
 
-  So the frame may be up to one and a half times the window's height and no more. The number is
-  where the topmost island's card stops clearing the hidden band: the portrait art carries that
-  card at about nineteen percent of its height, a centred crop hides (F − V) / 2 at each end, and
-  those two meet at 1.59 — this sits under it. Every ordinary screen is well inside the limit,
-  including the 2.46:1 window that prompted the cap's removal; only genuinely extreme shapes see
-  a margin, filled by the blurred copy of the painting behind the frame.
+  So the cap comes off the WIDTH, which now cannot resolve below the stage's own width — every
+  term of the min() is at least `100vw`, so the painting reaches both sides on every screen — and
+  the crop it was protecting is limited where it belongs instead: on the stage, which is allowed
+  to stand taller than one screen rather than let the painting be cut without limit. See
+  `.experience-shell-embedded .art-stage`.
+
+  The `1.0638` term stays. It is the other axis and a different question: a tall, narrow window
+  covered by this master overflows sideways, and this is how much of that is allowed before the
+  ambient layer takes over.
 
   What the crop does take is handled where it lands: the wordmark, the headline and the back
   arrow add the hidden band to their own offset, and so does the bottom row of cards.
 */
-/*
-  The cap is "how much of the painting may be thrown away", and it was set so tight that the
-  painting stopped reaching the sides of the screen.
-
-  A frame at most 1.075 times the window's height keeps the vertical crop to four percent a
-  side, which is the painting's own margin — but a widescreen laptop is nothing like the
-  painting's shape, and holding the height down holds the width down with it. Measured: 56px of
-  flat, darkened blur down each side of a 1366x657 window, 71px at 1536x730, 53px at 1920x950.
-  That is what the report calls the black bars, and it is the section not filling the screen.
-
-  1.22 covers every ordinary laptop — 2.08:1 at 1366x657 needs 1.17, 2.10:1 at 1536x730 needs
-  1.18 — and the crop it costs is spent where the painting can afford it (see the split below)
-  rather than equally at both ends. Past about 2.17:1 the cap binds again and the ambient layer
-  fills what is left, which is what it is for; a window that shape is an ultrawide, where the
-  section is a thousand pixels tall and a hand's breadth of blur at each end is the lesser loss.
-*/
 .desktop-frame {
-  width: min(
-    max(100vw, calc(100svh * 1.776833)),
-    calc(100svh * 1.22 * 1.776833),
-    calc(100vw * 1.0638)
-  );
+  width: min(max(100vw, calc(100svh * 1.776833)), calc(100vw * 1.0638));
   aspect-ratio: 1672 / 941;
-  /* The same expression as the width, read as a height and measured against the window: the
-     landscape master's own ratio, its own caps, and how much of it is off the screen. */
-  --crop-total: max(
-    0px,
-    calc(
-      min(max(100vw / 1.776833, 100svh), calc(100svh * 1.22), calc(100vw * 1.0638 / 1.776833)) -
-        100svh
-    )
-  );
+  /* What the stage could not show of it. `--frame-height` is this same expression read as a
+     height (declared on the stage, which needs it too); `--stage-height` is what the stage
+     settled on. On every screen where the painting fits, this is zero. */
+  --crop-total: max(0px, calc(var(--frame-height) - var(--stage-height)));
   /*
     Not half each. A centred crop takes the same band off the top of the painting as off the
     bottom, and the painting is not symmetrical: the space island's planets start four percent
@@ -228,10 +229,13 @@
   --crop-band-bottom: calc(var(--crop-total) * 0.62);
   /*
     How the split is applied. The stage centres its frame, and a centred box with a top margin
-    of M hides (T − M) / 2 above; M = 0.2 T is what makes that 0.38 T. Zero when nothing is
-    hidden, so a frame that fits stays centred.
+    of M hides (T − M) / 2 above, so M = T(1 − 2k) is what makes the top band k·T: at k = 0.38
+    that is 0.24 T. It read 0.2 here, which is the figure for a 0.40 split — two percent of the
+    crop, invisible while the crop was capped at 22% and worth being exact about now that the
+    stage may hand over more of it. Zero when nothing is hidden, so a frame that fits stays
+    centred.
   */
-  margin-top: calc(var(--crop-total) * 0.2);
+  margin-top: calc(var(--crop-total) * 0.24);
 }
 
 /*
@@ -239,30 +243,24 @@
   square window its hidden band is the larger of the two by far — and it is nothing like the
   landscape master's, which is why each frame works out its own.
 
-  Same rule, worse symptom. A tablet held upright — 768x1024, 820x1180 — covered with the tall
-  master hid fifteen and a half percent at each end, which did not merely crop the art: the top
-  two islands, clouds and space, were *entirely above the screen*, so two of the six worlds could
-  not be tapped at all. Six percent a side keeps every island's target on screen with room over,
-  and a phone, whose shape is the master's shape to within a fraction of a percent, never reaches
-  the cap and is untouched.
+  Same rule, worse symptom, and the same answer as the landscape master's. A tablet held upright
+  — 768x1024, 820x1180 — covered with the tall master hides fifteen and a half percent at each
+  end, which does not merely crop the art: the top two islands, clouds and space, go entirely
+  above the screen and two of the six worlds cannot be tapped at all. That used to be held off by
+  a cap on the width, which bought it at the price this file has just stopped paying: below the
+  cap the frame is narrower than the screen and the tablet gets bars down both sides instead.
+
+  So the cap is off here too, and the crop is limited by the stage standing taller. A phone,
+  whose shape is the master's shape to within a fraction of a percent, crops nothing either way
+  and is untouched by both.
 */
 .mobile-frame {
-  width: min(
-    max(100vw, calc(100svh * 0.462581)),
-    calc(100svh * 1.136 * 0.462581),
-    calc(100vw * 1.087)
-  );
+  width: min(max(100vw, calc(100svh * 0.462581)), calc(100vw * 1.087));
   aspect-ratio: 853 / 1844;
-  --crop-band: max(
-    0px,
-    calc(
-      (
-          min(max(100vw / 0.462581, 100svh), calc(100svh * 1.136), calc(100vw * 1.087 / 0.462581)) -
-            100svh
-        ) /
-        2
-    )
-  );
+  --crop-total: max(0px, calc(var(--frame-height) - var(--stage-height)));
+  /* Half each. This master is symmetrical about its middle in a way the landscape one is not:
+     the top pair and the bottom pair sit the same distance in from their own edges. */
+  --crop-band: calc(var(--crop-total) / 2);
 }
 
 /*
@@ -274,19 +272,32 @@
   exactly where the section does, which is what filling a page to its edge actually requires.
 */
 .experience-shell-embedded .desktop-frame {
-  width: min(
-    max(100%, calc(100svh * 1.776833)),
-    calc(100svh * 1.22 * 1.776833),
-    calc(100% * 1.0638)
-  );
+  width: min(max(100%, calc(100svh * 1.776833)), calc(100% * 1.0638));
 }
 
 .experience-shell-embedded .mobile-frame {
-  width: min(
-    max(100%, calc(100svh * 0.462581)),
-    calc(100svh * 1.136 * 0.462581),
-    calc(100% * 1.087)
-  );
+  width: min(max(100%, calc(100svh * 0.462581)), calc(100% * 1.087));
+}
+
+/*
+  Where the crop is limited now: the section, not the width.
+
+  On `/themes` the map IS the window and the stage is one screen, full stop — the page there must
+  not scroll, so a shape the painting cannot fill costs the painting. On the home page it is a
+  section in a page that scrolls already, and a section is free to be taller than the screen. So
+  past the point where staying one screen tall would cost more than a third of the painting, this
+  stops holding the height down and lets the section grow instead. The frame still spans the full
+  width either way; what changes is that it is no longer cut without limit to fit a strip.
+
+  1.35 is the ceiling, and the shape it corresponds to is 2.40:1 — every ordinary laptop and
+  desktop is inside it and sees exactly what it saw before, minus the bars. Above it (2560x1000,
+  a 3440x1300 ultrawide) the section stands a little taller than the viewport and the crop stops
+  where it is. The number itself is where the crop starts reaching the islands: the painting
+  carries 9.5% of clear sky above the cloud island and 9.5% of clear ground below the dinosaur
+  one, and at 1.35 a 0.38/0.62 split spends 9.8% and 16.1% of them.
+*/
+.experience-shell-embedded .art-stage {
+  --stage-height: max(100svh, calc(var(--frame-height) / 1.35));
 }
 
 .master-art {

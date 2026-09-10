@@ -109,3 +109,29 @@ export const WORLD_SCENE_ART: Record<WorldId, string> = {
   airplanes: "/adventrya/world-art/airplanes.webp",
   magic: "/adventrya/world-art/magic.webp",
 };
+
+/*
+  The finished object, photographed, one per world.
+
+  The shelf on the home page is the page's answer to "what do I actually get for 79 GEL", and it
+  was answering with the same flat scene painting the picker uses, dressed up in CSS: a cream
+  offset behind it for a stack of paper, a strip down the left for a spine, a gradient so a title
+  could be typed over the art. A drawing of a cover with a drawn cover on it.
+
+  These are the real thing rendered — the printed hardback at an angle, its own spine, its own
+  page block, the BEKI mark and the book's Georgian title printed where the press puts them —
+  cut out against transparency, so the shelf can stand them on the page's own paper rather than
+  on a plate the section has to be recoloured around.
+
+  Keyed by world because that is what the card links to, and the six are one per island: the
+  titles printed on them are this product's own sample books, and `landing.books.examples` says
+  the same six in the same order.
+*/
+export const EXAMPLE_BOOK_ART: Record<WorldId, string> = {
+  airplanes: "/adventrya/example-books/airplanes.webp",
+  space: "/adventrya/example-books/space.webp",
+  animals: "/adventrya/example-books/animals.webp",
+  pirates: "/adventrya/example-books/pirates.webp",
+  magic: "/adventrya/example-books/magic.webp",
+  dinosaurs: "/adventrya/example-books/dinosaurs.webp",
+};

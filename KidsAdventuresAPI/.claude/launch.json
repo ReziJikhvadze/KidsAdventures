@@ -7,6 +7,14 @@
       "runtimeArgs": ["run", "dev"],
       "cwd": "wwwroot",
       "port": 8080
+    },
+    {
+      "name": "adventrya-api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--launch-profile", "Production", "--no-launch-browser"],
+      "cwd": ".",
+      "port": 5000,
+      "url": "http://localhost:5000"
     }
   ]
 }
