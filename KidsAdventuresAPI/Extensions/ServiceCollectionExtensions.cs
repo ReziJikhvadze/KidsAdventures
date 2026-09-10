@@ -482,6 +482,7 @@ public static class ServiceCollectionExtensions
         // repository interface.
         services.AddScoped<IMasterStoryRunSweepStore, MasterStoryRunRepository>();
         services.AddScoped<IMasterBookService, MasterBookService>();
+        services.AddScoped<IFastPreviewService, FastPreviewService>();
         services.AddScoped<IMasterStoryRunCleanupService, MasterStoryRunCleanupService>();
 
         // What a long job's deadline is measured against. Registered so it is injected rather than

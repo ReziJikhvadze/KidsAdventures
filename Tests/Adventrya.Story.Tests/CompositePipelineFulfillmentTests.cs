@@ -719,9 +719,10 @@ public class CompositePipelineFulfillmentTests
         /// withholds the customer PDF.
         /// </param>
         /// <param name="compositePipeline">Off is a book from the previous pipeline.</param>
-        public BekiPackFulfillment Job(bool strictPolicy = false, bool compositePipeline = true, bool? testingFlow = null) =>
+        public BekiPackFulfillment Job(bool strictPolicy = false, bool compositePipeline = true, bool? testingFlow = null,
+            IMasterStoryRunRepository? runs = null, IFastPreviewService? fastPreview = null) =>
             new(Packs,
-                new FakeRuns(RunId, UserId),
+                runs ?? new FakeRuns(RunId, UserId),
                 Blobs,
                 Generator,
                 Composer,
@@ -735,7 +736,7 @@ public class CompositePipelineFulfillmentTests
                 releasePolicy: strictPolicy ? new StrictPolicy() : null,
                 alarms: Alarms,
                 reconciliation: WaiverAlarmFails ? new BrokenWaiverAlarms() : null,
-                orders: Orders);
+                orders: Orders, fastPreview: fastPreview);
 
         /// <summary>
         /// An operator's redraw of THIS book, over the same storage and the same pack row.
@@ -1159,6 +1160,9 @@ public class CompositePipelineFulfillmentTests
 
     internal sealed class RecordingComposer : IBekiPdfComposer
     {
+        public string? RestoredLayout { get; private set; }
+        public void RestorePreviewLayout(string title, byte[] wrap, string json) => RestoredLayout = json;
+
         public bool LastPrepareForPrint { get; private set; }
         public bool LastTestingFlow { get; private set; }
         public int LastSpreadCount { get; private set; }
@@ -1511,6 +1515,7 @@ public class CompositePipelineFulfillmentTests
     /// </summary>
     internal sealed class FakeOrders(Guid packId, Guid runId) : IOrderRepository
     {
+        public Guid? CoverRevisionId { get; set; }
         public Guid OrderId { get; } = Guid.NewGuid();
 
         public Task<IReadOnlyList<Order>> GetPaidForBookAsync(Guid bookId, CancellationToken cancellationToken) =>
@@ -1521,7 +1526,7 @@ public class CompositePipelineFulfillmentTests
                         BookId = packId,
                         Status = OrderStatus.Paid,
                         DraftJson = JsonSerializer.Serialize(
-                            new { previewBookId = runId }, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+                            new { previewBookId = runId, coverRevisionId = CoverRevisionId }, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
                     }]
                 : []);
 

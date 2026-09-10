@@ -27,7 +27,7 @@ import {
   writePendingRun,
 } from "@/lib/journey/pendingRun";
 import { patchJourneyResume, writeJourneyResume } from "@/lib/journey/resume";
-import { readyPreviewPatch } from "@/lib/journey/previewRecovery";
+import { hasRenderedPreview, readyPreviewPatch } from "@/lib/journey/previewRecovery";
 import { useWorldById, WORLD_SCENE_ART, type WorldId } from "@/lib/worlds";
 
 /*
@@ -191,6 +191,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
         {
           ...status,
           coverImageUrl: status.coverImageUrl ? resolveApiUrl(status.coverImageUrl) : "",
+          introImageUrl: status.introImageUrl ? resolveApiUrl(status.introImageUrl) : undefined,
         },
         {
           worldId: resumable?.worldId,
@@ -289,7 +290,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
           }
           poll(runId);
         }
-      }, 4000);
+      }, 1500);
     };
 
     void (async () => {
@@ -320,6 +321,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
         inflightStart ??= adventurePacksApi
           .startGuestPreview({
             name: hero.name.trim() || t.common.fallbackHeroName,
+            reusePreviewId: draft.reusePreviewId,
             age: ageFromBirthDate(hero.birthDate),
             gender: hero.gender ?? undefined,
             eyeColor: hero.eyeColor ?? undefined,
@@ -578,7 +580,14 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
 
       <div className="ux-preview-layout">
         <div className="ux-preview-product">
-          <StorybookVolume
+          {hasRenderedPreview(draft.preview) ? (
+            <div className="fast-preview-visuals">
+              <img src={coverSrc || undefined} alt={bookTitle}
+                style={{ width: "min(100%, 380px)", height: "auto", aspectRatio: "1.1", objectFit: "contain", display: "block", margin: "0 auto 24px" }} />
+              <img src={draft.preview?.introImageUrl} alt={`${bookTitle} — შესავალი`}
+                style={{ width: "100%", height: "auto", aspectRatio: "2.2", objectFit: "contain", display: "block" }} />
+            </div>
+          ) : <StorybookVolume
             variant="preview"
             className={`storybook storybook-preview theme-${worldId}`}
             heroName={hero.name.trim() || t.common.fallbackHeroName}
@@ -611,7 +620,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
             isUnlocked={false}
             interactive
             initialIndex={0}
-          />
+          />}
 
           {/*
             The world painting used to sit here, on the reasoning that a cover alone is not a

@@ -263,12 +263,13 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
           bookLanguage: locale,
           storyNotes: draft.storyNotes || undefined,
           continuesFromBookId: draft.continuesFromBookId || undefined,
-          previewBookId: draft.preview?.storyId || undefined,
+          previewBookId: orderDraft.preview?.storyId || undefined,
+          coverRevisionId: orderDraft.preview?.coverRevisionId,
           // previewBookId is what carries the story now: fulfilment reads it from the run we
           // wrote rather than from a copy that has been through a browser. Without it the paid
           // book is written from scratch and the parent receives a different story from the one
           // they read and chose to buy.
-          previewCoverImage: draft.preview?.coverImageDataUrl || undefined,
+          previewCoverImage: orderDraft.preview?.coverImageDataUrl || undefined,
         },
         shippingAddress: isPrint
           ? {

@@ -23,6 +23,7 @@ public interface IMasterBookService
 
     /// <summary>The job. Public because Hangfire resolves and calls it by expression.</summary>
     Task WriteBookAsync(Guid runId, CancellationToken cancellationToken);
+    Task EnsurePaidStoryAsync(Guid runId, CancellationToken cancellationToken) => throw new NotSupportedException();
 
     Task<MasterStoryRun?> GetAsync(Guid runId, CancellationToken cancellationToken);
 
@@ -53,7 +54,8 @@ public sealed class MasterBookService(
     ILogger<MasterBookService> logger,
     TimeProvider? timeProvider = null,
     ICompositeBookPipeline? compositePipeline = null,
-    IBekiPdfComposer? bekiComposer = null) : IMasterBookService
+    IBekiPdfComposer? bekiComposer = null,
+    IFastPreviewService? fastPreview = null) : IMasterBookService
 {
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
 
@@ -72,6 +74,16 @@ public sealed class MasterBookService(
     {
         var language = string.IsNullOrWhiteSpace(input.StoryLanguage) ? "ka" : input.StoryLanguage.Trim();
         var runId = Guid.NewGuid();
+        var fast = fastPreview is not null && bekiOptions.Value.CompositePipelineEnabled && bekiOptions.Value.BookFormatEnabled;
+        if (fast)
+        {
+            var checkedInput = InputNormalization.Normalize(new BookGenerationInput
+            {
+                ChildName = input.ChildName, ChildAge = input.Age, ChildGender = input.Gender ?? "",
+                ThemeId = input.Theme.ToString(), ChildPhotoRef = "upload"
+            }, input.PhotoBytes ?? []);
+            if (!checkedInput.IsValid) throw new ArgumentException(string.Join(" ", checkedInput.Problems));
+        }
 
         // The portrait is parked here, where the parent is still watching, because it is one
         // upload and the illustrator needs it later. It is no longer described here. That was a
@@ -102,6 +114,7 @@ public sealed class MasterBookService(
                 // Not fatal. Without the portrait the hero is drawn from the written description,
                 // which is how the very first version of this worked.
                 logger.LogWarning(ex, "Could not park the portrait for run {RunId}.", runId);
+                if (fast) throw;
             }
         }
 
@@ -124,6 +137,8 @@ public sealed class MasterBookService(
             ExpiresAt = DateTime.UtcNow.Add(GuestRunLifetime)
         };
 
+        run.PromptVersion = fast ? FastPreviewPlan.Version : null;
+        run.UserPrompt = fast ? input.ReusePreviewId?.ToString() : null;
         await runRepository.CreateAsync(run, cancellationToken);
 
         // CancellationToken.None: the job must outlive the request that asked for it. Passing the
@@ -134,7 +149,12 @@ public sealed class MasterBookService(
         return runId;
     }
 
-    public async Task WriteBookAsync(Guid runId, CancellationToken cancellationToken)
+    [DisableConcurrentExecution("fast-preview:{0}", 60)]
+    public Task WriteBookAsync(Guid runId, CancellationToken cancellationToken) => ProcessAsync(runId, false, cancellationToken);
+
+    public Task EnsurePaidStoryAsync(Guid runId, CancellationToken cancellationToken) => ProcessAsync(runId, true, cancellationToken);
+
+    private async Task ProcessAsync(Guid runId, bool paid, CancellationToken cancellationToken)
     {
         /*
           The same wall clock the fulfilment job runs under, for the same reason.
@@ -190,6 +210,19 @@ public sealed class MasterBookService(
             {
                 logger.LogWarning("Master story run {RunId} vanished before the job started.", runId);
                 return;
+            }
+
+            if (FastPreviewPlan.IsFast(run))
+            {
+                if (!paid)
+                {
+                    if (run.PackId is not null) return;
+                    await (fastPreview ?? throw new InvalidOperationException("Fast preview is unavailable.")).GenerateAsync(run, jobToken);
+                    return;
+                }
+                if (run.PackId is null || run.UserId is null)
+                    throw new InvalidOperationException("Story generation requires a claimed paid book.");
+                if (!string.IsNullOrWhiteSpace(run.StoryJson)) return;
             }
 
             // A book already written is never written twice.
@@ -341,7 +374,7 @@ public sealed class MasterBookService(
             await runRepository.SavePromptsAsync(
                 runId,
                 masterStoryService.ModelName,
-                masterStoryService.PromptVersion,
+                FastPreviewPlan.IsFast(run) ? FastPreviewPlan.Version : masterStoryService.PromptVersion,
                 systemPrompt,
                 userPrompt,
                 jobToken);
@@ -363,7 +396,7 @@ public sealed class MasterBookService(
               pipeline can never be reached from. So the version stays what it says it is, and the
               log line below records which planner actually wrote the story.
             */
-            run.PromptVersion = masterStoryService.PromptVersion;
+            if (!FastPreviewPlan.IsFast(run)) run.PromptVersion = masterStoryService.PromptVersion;
 
             var result = compositeStoryInput is null
                 ? await masterStoryService.WriteAsync(storyInput, jobToken)
@@ -481,11 +514,16 @@ public sealed class MasterBookService(
             await runRepository.SavePromptsAsync(
                 runId,
                 result.Model,
-                masterStoryService.PromptVersion,
+                FastPreviewPlan.IsFast(run) ? FastPreviewPlan.Version : masterStoryService.PromptVersion,
                 result.SystemPrompt,
                 result.UserPrompt,
                 jobToken);
 
+            if (FastPreviewPlan.IsFast(run))
+            {
+                var revision = await fastPreview!.ReadAsync(run.Id, jobToken);
+                result = result with { Story = result.Story with { Concept = result.Story.Concept with { Title = revision.Title } } };
+            }
             var content = MasterStoryProjection.ToContent(result.Story, run.ChildName, run.Theme);
 
             await runRepository.SaveStoryAsync(
@@ -513,6 +551,7 @@ public sealed class MasterBookService(
 
             // From here the expensive half is on the row and the run is a book somebody can read.
             storyIsSaved = true;
+            if (paid && FastPreviewPlan.IsFast(run)) return;
 
             // The cover is the book's cover, not page one. Writing it onto the first page would
             // overwrite that page's own illustration — which has its own prompt and its own
@@ -583,6 +622,7 @@ public sealed class MasterBookService(
 
             logger.LogError(ex, "Master story run {RunId} failed while {Stage}: {Reason}", runId, stage, reason);
             await runRepository.MarkFailedAsync(runId, reason, CancellationToken.None);
+            if (paid) throw;
         }
     }
 

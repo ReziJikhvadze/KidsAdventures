@@ -69,6 +69,7 @@ export async function generateGuestPreview(input: GuestPreviewInput): Promise<Gu
 }
 
 export type StartGuestPreviewInput = {
+  reusePreviewId?: string;
   name: string;
   age: number;
   gender?: string;
@@ -96,6 +97,7 @@ export type StartGuestPreviewInput = {
 export async function startGuestPreview(input: StartGuestPreviewInput): Promise<{ runId: string }> {
   const body = new FormData();
   body.append("name", input.name);
+  if (input.reusePreviewId) body.append("reusePreviewId", input.reusePreviewId);
   body.append("age", String(input.age));
   body.append("theme", input.theme);
   // Both of these are chosen on the profile screen and neither used to reach the story. Gender

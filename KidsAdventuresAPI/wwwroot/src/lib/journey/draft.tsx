@@ -11,6 +11,7 @@ import {
 import { useLocation } from "@tanstack/react-router";
 
 import type { BookPackage } from "@/lib/pricing";
+import { invalidateChangedPreview } from "./previewInvalidation";
 import { clearJourneyResume } from "@/lib/journey/resume";
 import { SESSION_CLEARED_EVENT, SESSION_KEYS } from "@/lib/storage/session";
 import { isWorldId, type WorldId } from "@/lib/worlds";
@@ -55,6 +56,9 @@ export type DraftCharacter = {
 export type JourneyOrigin = "dashboard" | "world" | null;
 
 export type PreviewTeaser = {
+  previewVersion?: string;
+  coverRevisionId?: string;
+  introImageUrl?: string;
   guestPreviewId: string;
   storyId: string;
   worldId?: WorldId;
@@ -89,6 +93,7 @@ export type JourneyDraft = {
   storyNotes: string;
   bookPackage: BookPackage;
   preview: PreviewTeaser | null;
+  reusePreviewId?: string;
   orderId: string | null;
   bookId: string | null;
   /** Prior book when continuing an adventure from map / QR. */
@@ -379,7 +384,7 @@ export function JourneyDraftProvider({ children }: { children: ReactNode }) {
   // reading them once at mount silently dropped them.
   const location = useLocation();
   useEffect(() => {
-    setDraftState((prev) => applyDeepLink(prev, location.searchStr ?? ""));
+    setDraftState((prev) => invalidateChangedPreview(prev, applyDeepLink(prev, location.searchStr ?? "")));
   }, [location.searchStr]);
 
   // Signing out on a shared device must not leave the previous parent's child on screen.
@@ -391,7 +396,10 @@ export function JourneyDraftProvider({ children }: { children: ReactNode }) {
 
   const setDraft = useCallback(
     (patch: Partial<JourneyDraft> | ((prev: JourneyDraft) => JourneyDraft)) =>
-      setDraftState((prev) => (typeof patch === "function" ? patch(prev) : { ...prev, ...patch })),
+      setDraftState((prev) => {
+        const next = typeof patch === "function" ? patch(prev) : { ...prev, ...patch };
+        return invalidateChangedPreview(prev, next);
+      }),
     [],
   );
 

@@ -29,11 +29,11 @@ public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFac
                            INSERT INTO dbo.MasterStoryRuns (
                                Id, UserId, Status, ProgressMessage, ChildName, BirthDate, Age, Gender, Theme, EyeColor,
                                ExtraWishes, AppearanceDescription, PhotoBlobUrl, StoryLanguage, SpreadCount, Model,
-                               SystemPrompt, UserPrompt, CreatedAt, UpdatedAt, ExpiresAt)
+                               SystemPrompt, UserPrompt, PromptVersion, CreatedAt, UpdatedAt, ExpiresAt)
                            VALUES (
                                @Id, @UserId, @Status, @ProgressMessage, @ChildName, @BirthDate, @Age, @Gender, @Theme, @EyeColor,
                                @ExtraWishes, @AppearanceDescription, @PhotoBlobUrl, @StoryLanguage, @SpreadCount, @Model,
-                               @SystemPrompt, @UserPrompt, @CreatedAt, @UpdatedAt, @ExpiresAt);
+                               @SystemPrompt, @UserPrompt, @PromptVersion, @CreatedAt, @UpdatedAt, @ExpiresAt);
                            """;
 
         run.Id = run.Id == Guid.Empty ? Guid.NewGuid() : run.Id;
@@ -201,13 +201,14 @@ public sealed class MasterStoryRunRepository(ISqlConnectionFactory connectionFac
         // the cleanup job delete a book somebody had already paid for.
         const string sql = """
                            UPDATE dbo.MasterStoryRuns
-                           SET UserId = @UserId, PackId = @PackId, ExpiresAt = NULL, UpdatedAt = SYSUTCDATETIME()
-                           WHERE Id = @Id;
+                           SET UserId = @UserId, PackId = COALESCE(@PackId, PackId), ExpiresAt = NULL, UpdatedAt = SYSUTCDATETIME()
+                           WHERE Id = @Id AND (UserId IS NULL OR UserId = @UserId);
                            """;
 
         using var connection = connectionFactory.CreateConnection();
-        await connection.ExecuteAsync(new CommandDefinition(
+        var changed = await connection.ExecuteAsync(new CommandDefinition(
             sql, new { Id = id, UserId = userId, PackId = packId }, cancellationToken: cancellationToken));
+        if (changed != 1) throw new InvalidOperationException("Preview is missing or belongs to another account.");
     }
 
     public async Task<IReadOnlyList<ExpiredMasterStoryRun>> ListExpiredAsync(

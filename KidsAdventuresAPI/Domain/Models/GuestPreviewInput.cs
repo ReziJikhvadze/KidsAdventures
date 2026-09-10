@@ -5,6 +5,8 @@ namespace AdventurePacks.Api.Domain.Models;
 /// <summary>Inputs for the free, no-login single-page teaser generation.</summary>
 public sealed class GuestPreviewInput
 {
+    public Guid? ReusePreviewId { get; init; }
+
     public required string ChildName { get; init; }
     public required int Age { get; init; }
 

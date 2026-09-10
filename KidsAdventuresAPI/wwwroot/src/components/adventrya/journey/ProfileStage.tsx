@@ -8,7 +8,7 @@ import { WorldArtPanel } from "@/components/adventrya/journey/WorldArtPanel";
 import { SparkleIcon } from "@/components/adventrya/landing/icons";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { fetchCharacterPhotoObjectUrl, listCharacters } from "@/lib/api/characters";
-import { checkPortrait, type PortraitRejection } from "@/lib/api/portraits";
+import { type PortraitRejection } from "@/lib/api/portraits";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { rememberMarketingConsent } from "@/lib/auth/marketingConsent";
 import { useIllustrationUrl } from "@/lib/hooks/useIllustrationUrl";
@@ -979,33 +979,7 @@ function CharacterEditor({
         const { dataUrl } = await preparePortrait(file);
         if (ticket !== checkRef.current) return;
 
-        /*
-          Ask whether there is a person in the picture, before it becomes the face of a book.
-
-          This call was removed once, for a good reason: the gate it asked used to judge the
-          photograph — lighting, framing, how many people were in it — and refused pictures that
-          were perfectly usable, so turning it off was better than keeping it. The gate no longer
-          does that. It asks one question, and a car, a plate or a drawing is the only thing it
-          says no to, which is the case nothing else in the pipeline catches: the identity
-          analyzer is told to extract a face, so shown a car it describes a car, and the book is
-          written, illustrated and paid for around it.
-
-          `Beki:PortraitGateEnabled` still decides on the server. With it off every photo passes
-          here too, so this stays a single path rather than two that have to agree.
-
-          `preparePortrait` is not the check. It downscales, because a phone photo plus base64
-          overhead exceeds the upload limit and an oversized request is refused by the host before
-          any of our code runs — which reaches the browser as an unexplained CORS error.
-        */
-        const verdict = await checkPortrait(dataUrl);
-        if (ticket !== checkRef.current) return;
-
-        if (!verdict.accepted) {
-          // photoReady was already cleared above, so the form simply does not advance.
-          setRejection(verdict.reason);
-          return;
-        }
-
+        // Decode and resize locally. The cover model receives the photo directly; no prepayment vision call.
         onChange({ photoDataUrl: dataUrl, photoReady: true, photoStored: false });
       } catch {
         // preparePortrait only throws when the file cannot be read at all — not a judgement

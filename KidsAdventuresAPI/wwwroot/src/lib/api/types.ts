@@ -116,6 +116,9 @@ export type PreviewIllustrationStatus = "None" | "Generating" | "Ready" | "Faile
 
 /** Where a book is in being written. Polled while the loader is on screen. */
 export type MasterStoryRunStatus = {
+  previewVersion?: string;
+  coverRevisionId?: string;
+  introImageUrl?: string;
   runId: string;
   worldId?: string | null;
   status: "Pending" | "Writing" | "Illustrating" | "Ready" | "Failed";
@@ -354,6 +357,7 @@ export type BookDraftRequest = {
   storyNotes?: string;
   continuesFromBookId?: string;
   previewBookId?: string;
+  coverRevisionId?: string;
   /** The story the parent actually read in the preview, kept verbatim for the paid book. */
   previewStoryJson?: string;
   /** That preview's cover, reused as page one instead of being redrawn. */

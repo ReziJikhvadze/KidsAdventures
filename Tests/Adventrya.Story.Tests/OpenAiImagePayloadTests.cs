@@ -31,6 +31,20 @@ namespace Adventrya.Story.Tests;
 public class OpenAiImagePayloadTests
 {
     [Fact]
+    public async Task Fast_preview_pins_flare_and_uses_two_references_at_the_fast_frame()
+    {
+        var handler = new CapturingHandler();
+        var service = Service(handler, options => options.ImageEditModel = "gpt-image-1.5");
+        var reference = new StoryImageReference { CharacterAnchorBytes = [1, 2, 3], CastPhotos = HeroPhoto().CastPhotos };
+        await service.GeneratePreviewCoverImageAsync("cover", reference, CancellationToken.None, "1200x576", "medium");
+        Assert.Equal("gpt-image-2.5-flare", FormField(handler.LastBody!, "model"));
+        Assert.Equal("1200x576", FormField(handler.LastBody!, "size"));
+        Assert.Equal("medium", FormField(handler.LastBody!, "quality"));
+        Assert.Null(FormField(handler.LastBody!, "input_fidelity"));
+        Assert.EndsWith("images/edits", handler.LastUri!.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task An_anchored_illustration_asks_for_high_fidelity_where_the_model_allows_it()
     {
         // gpt-image-1.5, not the configured gpt-image-2: this is the case the field exists for.

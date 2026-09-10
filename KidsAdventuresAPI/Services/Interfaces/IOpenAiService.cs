@@ -88,6 +88,10 @@ public sealed record GeneratedStoryImage(
 
 public interface IOpenAiService
 {
+    Task<GeneratedStoryImage> GeneratePreviewCoverImageAsync(string prompt, StoryImageReference reference,
+        CancellationToken cancellationToken, string size, string quality) =>
+        GenerateStoryImageWithProvenanceAsync(prompt, reference, cancellationToken, size, true, quality);
+
     Task<AdventureContentDto> GenerateAdventureContentAsync(
         AdventureGenerationInput input,
         Guid adventureId,
