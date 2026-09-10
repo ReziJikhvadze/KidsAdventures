@@ -88,9 +88,27 @@ public sealed record GeneratedStoryImage(
 
 public interface IOpenAiService
 {
+    /// <summary>
+    /// The preview cover: one image, bought once, drawn from the child and the approved world.
+    ///
+    /// The two-reference rule is stated here rather than only in the implementation, and that is
+    /// the whole point of it being here. It used to live inside <c>OpenAiService</c> alone, so a
+    /// caller that stopped attaching the world reference compiled, passed its tests against a
+    /// double that inherits this default and has no such rule, and threw on every real preview in
+    /// production. A rule the test doubles cannot see is a rule the tests cannot check.
+    /// </summary>
     Task<GeneratedStoryImage> GeneratePreviewCoverImageAsync(string prompt, StoryImageReference reference,
-        CancellationToken cancellationToken, string size, string quality) =>
-        GenerateStoryImageWithProvenanceAsync(prompt, reference, cancellationToken, size, true, quality);
+        CancellationToken cancellationToken, string size, string quality)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+
+        if (reference.ImageCount < 2)
+        {
+            throw new InvalidOperationException("Preview requires the child and theme references.");
+        }
+
+        return GenerateStoryImageWithProvenanceAsync(prompt, reference, cancellationToken, size, true, quality);
+    }
 
     Task<AdventureContentDto> GenerateAdventureContentAsync(
         AdventureGenerationInput input,

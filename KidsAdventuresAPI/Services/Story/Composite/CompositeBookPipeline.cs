@@ -1811,8 +1811,10 @@ public sealed class CompositeBookPipeline(
         // Validate the approved pose before buying the one image. No creative retry or AI reviewer.
         var selection = BekiPoseSelector.Select(_engine.Value.Registry, "Beki welcomes the child with an inviting wave.");
         var watch = Stopwatch.StartNew();
+        // The child and the approved world, in that order - the pair the preview cover has always
+        // been drawn from, and the pair GeneratePreviewCoverImageAsync refuses to draw without.
         var generated = await openAi.GeneratePreviewCoverImageAsync(prompt,
-            new StoryImageReference { CharacterAnchorBytes = photo }, cancellationToken,
+            References(photo, "image/png", theme, null, null)!, cancellationToken,
             _options.CoverWrapImageSize, _options.CoverImageQuality);
         var dimensions = GeneratedStoryImage.MeasurePixels(generated.Png);
         var ratio = dimensions.Height > 0 ? (double)dimensions.Width / dimensions.Height : 0;

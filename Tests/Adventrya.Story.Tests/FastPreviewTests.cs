@@ -113,11 +113,49 @@ public sealed class FastPreviewTests(ITestOutputHelper output) : CompositePipeli
         var images = new StubImageService { NextImage = Png(1200, 576) };
         var wrap = await Pipeline(text, images).DrawFastPreviewCoverAsync(Context(), Photo(), CancellationToken.None);
         Assert.Equal(1, images.ImageCalls);
-        Assert.Equal(1, Assert.Single(images.ReferenceCounts));
+        /*
+          Two references, not one: the child, and the approved world reference behind them.
+
+          This assertion said one for a few hours, and the preview failed for every parent in that
+          window - the call site had stopped attaching the world and the production service refuses
+          to draw a preview cover without it. The stub inherited the interface's default and had no
+          such rule, so the test agreed with the change and disagreed with production.
+
+          The rule is on the interface now, so this stub is held to it too. Which means the number
+          below is checked twice: here, and by the door itself refusing to open.
+        */
+        Assert.Equal(2, Assert.Single(images.ReferenceCounts));
         Assert.Equal(0, images.IdentityCalls);
         Assert.Equal(0, text.Calls);
         Assert.NotEmpty(wrap.CompositePng);
         Assert.Contains(FastPreviewPlan.Version, wrap.GenerationReceiptJson);
+    }
+
+    /// <summary>
+    /// A preview cover with one reference is refused by the door, whoever is standing in it.
+    ///
+    /// This is the test that was missing on 2026-09-10, when the call site stopped attaching the
+    /// approved world reference: the rule lived inside OpenAiService alone, the stub inherited the
+    /// interface default that had no rule, and the suite agreed with a change that failed on every
+    /// real preview. Asserting it against the stub is the point - it is the implementation that
+    /// production does not use, so it is the one that proves the rule is not in a corner of the
+    /// concrete class.
+    /// </summary>
+    [Fact]
+    public async Task A_preview_cover_needs_the_child_and_the_world_whichever_service_answers()
+    {
+        IOpenAiService stub = new StubImageService { NextImage = Png(1200, 576) };
+
+        var childOnly = new StoryImageReference { CharacterAnchorBytes = Photo() };
+        Assert.Equal(1, childOnly.ImageCount);
+
+        var refusal = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => stub.GeneratePreviewCoverImageAsync(
+                "cover", childOnly, CancellationToken.None, "1200x576", "medium"));
+        Assert.Contains("child and theme", refusal.Message, StringComparison.Ordinal);
+
+        // Nothing was bought on the way to being refused.
+        Assert.Equal(0, ((StubImageService)stub).ImageCalls);
     }
 
     [Fact]
