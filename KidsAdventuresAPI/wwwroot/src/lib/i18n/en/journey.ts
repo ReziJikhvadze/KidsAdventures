@@ -164,11 +164,7 @@ export const journey = {
     subheading: "'s first page is already being made ✨",
     ariaLabel: (hero: string) => `See ${hero}'s story for free`,
     /* Three; see the note beside the Georgian list. */
-    stages: [
-      "Preparing your cover",
-      "Painting your world",
-      "Making the sample",
-    ],
+    stages: ["Preparing your cover", "Painting your world", "Making the sample"],
   },
 
   preview: {

@@ -535,19 +535,31 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
         <div className="ux-preview-product">
           {/* The preview shows only the cover. Its saved typography must not be overlaid again. */}
           {hasRenderedPreview(draft.preview) ? (
-            <img src={coverSrc || undefined} alt={bookTitle}
-              style={{ width: "min(100%, 380px)", height: "auto", aspectRatio: "1.1", objectFit: "contain", display: "block", margin: "0 auto" }} />
-          ) : <StorybookVolume
-            variant="preview"
-            className={`storybook storybook-preview theme-${worldId}`}
-            heroName={hero.name.trim() || t.common.fallbackHeroName}
-            title={bookTitle}
-            coverImageUrl={coverSrc}
-            worldId={worldId}
-            pages={NO_PAGES}
-            isUnlocked={false}
-            interactive={false}
-          />}
+            <img
+              src={coverSrc || undefined}
+              alt={bookTitle}
+              style={{
+                width: "min(100%, 380px)",
+                height: "auto",
+                aspectRatio: "1.1",
+                objectFit: "contain",
+                display: "block",
+                margin: "0 auto",
+              }}
+            />
+          ) : (
+            <StorybookVolume
+              variant="preview"
+              className={`storybook storybook-preview theme-${worldId}`}
+              heroName={hero.name.trim() || t.common.fallbackHeroName}
+              title={bookTitle}
+              coverImageUrl={coverSrc}
+              worldId={worldId}
+              pages={NO_PAGES}
+              isUnlocked={false}
+              interactive={false}
+            />
+          )}
 
           {/*
             The world painting used to sit here, on the reasoning that a cover alone is not a

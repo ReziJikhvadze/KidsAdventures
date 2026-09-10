@@ -201,11 +201,7 @@ export const journey = {
       the preview into a book — which is our vocabulary, not a parent's, and it made a two-minute
       wait read as five separate things going wrong one at a time.
     */
-    stages: [
-      "შენი ყდის მომზადება",
-      "შენი სამყაროს დახატვა",
-      "ნიმუშის დასრულება",
-    ],
+    stages: ["შენი ყდის მომზადება", "შენი სამყაროს დახატვა", "ნიმუშის დასრულება"],
   },
 
   preview: {

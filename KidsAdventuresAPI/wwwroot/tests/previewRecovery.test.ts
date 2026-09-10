@@ -104,8 +104,13 @@ test("an unfinished preview cannot be accepted for checkout", () => {
 });
 
 test("fast preview recovery preserves the exact checkout revision and rendered intro", () => {
-  const result = readyPreviewPatch(blank(), { ...ready(), previewVersion: "preview-v1",
-    coverRevisionId: "revision-7", introImageUrl: "/preview/intro", coverImageUrl: "/preview/cover" });
+  const result = readyPreviewPatch(blank(), {
+    ...ready(),
+    previewVersion: "preview-v1",
+    coverRevisionId: "revision-7",
+    introImageUrl: "/preview/intro",
+    coverImageUrl: "/preview/cover",
+  });
   assert.equal(result.preview?.coverRevisionId, "revision-7");
   assert.equal(result.preview?.introImageUrl, "/preview/intro");
   assert.equal(result.preview?.previewVersion, "preview-v1");
@@ -114,8 +119,13 @@ test("fast preview recovery preserves the exact checkout revision and rendered i
 
 test("rendered covers never receive browser typography when their prompt version changes", () => {
   for (const previewVersion of ["preview-v1", "fast-preview-v1", "preview-v2", undefined]) {
-    const result = readyPreviewPatch(blank(), { ...ready(), previewVersion,
-      coverRevisionId: "revision-7", introImageUrl: "/preview/intro", coverImageUrl: "/preview/cover" });
+    const result = readyPreviewPatch(blank(), {
+      ...ready(),
+      previewVersion,
+      coverRevisionId: "revision-7",
+      introImageUrl: "/preview/intro",
+      coverImageUrl: "/preview/cover",
+    });
     assert.equal(hasRenderedPreview(result.preview!), true);
   }
 });

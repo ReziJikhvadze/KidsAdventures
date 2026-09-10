@@ -384,7 +384,9 @@ export function JourneyDraftProvider({ children }: { children: ReactNode }) {
   // reading them once at mount silently dropped them.
   const location = useLocation();
   useEffect(() => {
-    setDraftState((prev) => invalidateChangedPreview(prev, applyDeepLink(prev, location.searchStr ?? "")));
+    setDraftState((prev) =>
+      invalidateChangedPreview(prev, applyDeepLink(prev, location.searchStr ?? "")),
+    );
   }, [location.searchStr]);
 
   // Signing out on a shared device must not leave the previous parent's child on screen.
