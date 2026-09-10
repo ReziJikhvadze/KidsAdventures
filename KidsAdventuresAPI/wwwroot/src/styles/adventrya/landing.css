@@ -560,7 +560,9 @@
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: calc((100% - 2 * clamp(20px, 3vw, 42px)) / 3);
-  align-items: end;
+  /* From the top, now that the caption is under the book: aligning the feet of six columns whose
+     titles run to one line or two would stand the books themselves at different heights. */
+  align-items: start;
   gap: clamp(20px, 3vw, 42px);
   margin: 0 auto;
   overflow-x: auto;
@@ -585,83 +587,76 @@
   scroll-snap-align: start;
 }
 /*
-  The stagger, repeating.
+  The stagger, repeating — and no longer a lean.
 
   It was written as `example-book-1..3` against the item's index, which is three rules for a shelf
-  that now holds six — books four to six stood flat while the first three leaned. Every third
-  cover takes the same lean, so the rhythm carries however many there are.
+  that now holds six; every third book takes the same offset, so the rhythm carries however many
+  there are. What went with the flat covers is the rotation. These are photographs of one object
+  taken from one angle, and turning a photograph a degree and a half does not tilt the book in
+  it — it tilts the picture, and six pictures of the same book at six angles read as a crooked
+  scan rather than a shelf. The vertical offset survives, because that is the shelf.
 */
 .landing-v3-example-book:nth-child(3n + 1) {
-  transform: translateY(20px) rotate(-1.3deg);
+  transform: translateY(14px);
 }
 .landing-v3-example-book:nth-child(3n + 2) {
   transform: translateY(-8px);
 }
 .landing-v3-example-book:nth-child(3n) {
-  transform: translateY(18px) rotate(1.3deg);
+  transform: translateY(12px);
 }
+/*
+  Photograph over caption, and the whole column is the one link.
+*/
+.landing-v3-example-link {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(14px, 1.4vw, 20px);
+}
+/*
+  No card around the book any more.
+
+  The frame that stood here — a purple plate, a clipped rounded rectangle, a cream double offset
+  standing in for a stack of paper — existed because the thing inside it was a flat rectangle of
+  scene art that had to be persuaded to look like an object. The photograph IS the object, cut
+  out against transparency and carrying its own shadow, so a plate behind it would only be a
+  second, squarer book behind the first, and `overflow: hidden` would slice the shadow off.
+*/
 .landing-v3-example-art {
   position: relative;
   display: block;
-  aspect-ratio: 0.82;
-  overflow: hidden;
-  border-radius: 6px 15px 15px 6px;
-  background: #2d2052;
-  box-shadow:
-    0 32px 54px #34254030,
-    8px 7px #d8c6aa,
-    12px 10px #f6ecdc;
-  transition:
-    transform 0.35s cubic-bezier(0.2, 0.75, 0.2, 1),
-    box-shadow 0.35s ease;
+  /* The photograph's own frame, so the cut-out never has to be cropped or letterboxed. */
+  aspect-ratio: 1200 / 930;
+  transition: transform 0.35s cubic-bezier(0.2, 0.75, 0.2, 1);
 }
 .landing-v3-example-book:hover .landing-v3-example-art {
   transform: translateY(-9px);
-  box-shadow:
-    0 42px 64px #3425403d,
-    8px 7px #d8c6aa,
-    12px 10px #f6ecdc;
 }
-/*
-  Fill the card.
-
-  object-fit: cover was already here, but the image had no size to fit into — so a landscape
-  cover laid itself out at its own aspect and stopped a little over halfway down, leaving the
-  rest as flat purple. It reads as a full-bleed cover with the title over it now, which is what
-  the book itself looks like everywhere else on the site.
-*/
 .landing-v3-example-art img {
-  position: absolute;
-  inset: 0;
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  transition: transform 0.8s cubic-bezier(0.2, 0.75, 0.2, 1);
+  object-fit: contain;
 }
-.landing-v3-example-book:hover img {
-  transform: scale(1.035);
-}
-.landing-v3-example-overlay {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(180deg, #120b2605 30%, #140c2ae6),
-    linear-gradient(90deg, rgba(14, 8, 29, 0.26), transparent 17%);
-  box-shadow: inset 0 0 0 5px #f2d39414;
-}
+/*
+  The title, in type, under the book.
+
+  It used to be set over the artwork on a dark gradient, which is what a flat cover needs and
+  what a photographed one must not have: the object in the picture already carries its title,
+  printed where the press puts it, and a second title in a different place over the top of it
+  reads as a sticker. Printed at this size it is about eight pixels a letter, though — legible
+  in the hand, not on a 368-pixel card — so the card sets it again underneath, in the section's
+  own ink on the section's own paper.
+*/
 .landing-v3-example-title {
-  position: absolute;
-  z-index: 2;
-  left: 30px;
-  right: 24px;
-  bottom: 31px;
   display: flex;
   flex-direction: column;
-  color: #fff8eb;
+  text-align: center;
+  color: var(--lv3-ink);
 }
 .landing-v3-example-title small {
-  margin-bottom: 9px;
-  color: var(--story-gold);
+  margin-bottom: 8px;
+  color: #b57552;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -669,18 +664,10 @@
 }
 .landing-v3-example-title strong {
   font-family: var(--font-body);
-  font-size: clamp(20px, 2vw, 31px);
-  font-weight: 400;
-  line-height: 1.15;
-}
-.landing-v3-book-spine {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 6px;
-  width: 8px;
-  border-right: 1px solid rgba(250, 221, 161, 0.26);
-  box-shadow: 4px 0 11px #0a05185c;
+  font-size: clamp(17px, 1.5vw, 22px);
+  font-weight: 500;
+  line-height: 1.25;
+  text-wrap: balance;
 }
 .landing-v3-preview {
   display: grid;

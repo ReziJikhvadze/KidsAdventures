@@ -27,42 +27,49 @@ export const landing = {
     priceFrom: "from 14 ₾",
     createSimilar: "Create something like this ",
     exampleAlt: (title: string) => `See the book for ${title}`,
+    /*
+      The six photographed sample books. See the note beside the Georgian strings for why the
+      titles are no longer free to be anything.
+
+      The covers themselves are printed in Georgian, so an English visitor sees Georgian type on
+      the object and these translations in the caption beneath it. That is the honest way round:
+      the book in the picture is a book this shop has printed, and it was printed in Georgian.
+    */
     examples: [
       {
-        theme: "dinosaurs",
-        title: "Zuka and the Lost Valley",
-        meta: "Friendship · discovery",
+        theme: "airplanes",
+        title: "Lile and the Secret City in the Clouds",
+        meta: "Flight · curiosity",
         age: "Ages 5–7",
       },
       {
         theme: "space",
-        title: "Elene and the Path of Stars",
+        title: "Omiko and the Lost Path of Stars",
         meta: "Space · courage",
         age: "Ages 8–10",
       },
       {
-        theme: "magic",
-        title: "Nita and the City of Light",
-        meta: "Magic · kindness",
-        age: "Ages 2–4",
-      },
-      /* The other three worlds. See the note beside the Georgian strings. */
-      {
-        theme: "pirates",
-        title: "Luka and the Secret Island",
-        meta: "The sea · courage",
-        age: "Ages 6–8",
-      },
-      {
         theme: "animals",
-        title: "Mari and the Enchanted Forest",
+        title: "Tini and the Friends of the Enchanted Forest",
         meta: "Nature · care",
         age: "Ages 3–5",
       },
       {
-        theme: "airplanes",
-        title: "Sandro and the City in the Clouds",
-        meta: "Flight · curiosity",
+        theme: "pirates",
+        title: "Rezi and the Secret of the Shining Island",
+        meta: "The sea · courage",
+        age: "Ages 6–8",
+      },
+      {
+        theme: "magic",
+        title: "Nita and the Gate of the City of Light",
+        meta: "Magic · kindness",
+        age: "Ages 2–4",
+      },
+      {
+        theme: "dinosaurs",
+        title: "Shako and the Valley of the Dinosaurs",
+        meta: "Friendship · discovery",
         age: "Ages 5–7",
       },
     ],

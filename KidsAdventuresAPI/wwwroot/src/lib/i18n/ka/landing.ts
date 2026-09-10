@@ -27,49 +27,51 @@ export const landing = {
     priceFrom: "14 ₾-დან",
     createSimilar: "შექმენი მსგავსი ",
     exampleAlt: (title: string) => `ნახე ${title}ს წიგნი`,
+    /*
+      The six sample books, in the order they are photographed and with the titles those
+      photographs actually carry.
+
+      These used to be six invented titles over six scene paintings, and the child's name in each
+      was a placeholder — the shelf could say anything because nothing on the page contradicted
+      it. It can't now: `EXAMPLE_BOOK_ART` puts the printed object on the card, and the title is
+      printed on its cover. A caption naming a different child than the book beside it is the one
+      thing this section cannot afford, so these six are read off the covers.
+    */
     examples: [
       {
-        theme: "dinosaurs",
-        title: "ზუკა და დაკარგული ხეობა",
-        meta: "მეგობრობა · აღმოჩენა",
+        theme: "airplanes",
+        title: "ლილე და ღრუბლების საიდუმლო ქალაქი",
+        meta: "ფრენა · ცნობისმოყვარეობა",
         age: "5–7 წელი",
       },
       {
         theme: "space",
-        title: "ელენე და ვარსკვლავების გზა",
+        title: "ომიკო და დაკარგული ვარსკვლავის გზა",
         meta: "კოსმოსი · გამბედაობა",
         age: "8–10 წელი",
       },
       {
-        theme: "magic",
-        title: "ნიტა და სინათლის ქალაქი",
-        meta: "მაგია · სიკეთე",
-        age: "2–4 წელი",
-      },
-      /*
-        The other three worlds, so the shelf shows the whole map.
-
-        Three of the six were on display and three were not, which made the band read as the
-        catalogue rather than a sample of it — a family whose child wants pirates saw dinosaurs,
-        space and magic and had no reason to think there was an island for them. The titles are
-        built the way the first three are: a child's name and the world's own `mapTitle`.
-      */
-      {
-        theme: "pirates",
-        title: "ლუკა და საიდუმლო კუნძული",
-        meta: "ზღვა · სიმამაცე",
-        age: "6–8 წელი",
-      },
-      {
         theme: "animals",
-        title: "მარი და მოჯადოებული ტყე",
+        title: "თინი და მოჯადოებული ტყის მეგობრები",
         meta: "ბუნება · მზრუნველობა",
         age: "3–5 წელი",
       },
       {
-        theme: "airplanes",
-        title: "სანდრო და ღრუბლების ქალაქი",
-        meta: "ფრენა · ცნობისმოყვარეობა",
+        theme: "pirates",
+        title: "რეზი და მბრწყინავი კუნძულის საიდუმლო",
+        meta: "ზღვა · სიმამაცე",
+        age: "6–8 წელი",
+      },
+      {
+        theme: "magic",
+        title: "ნიტა და სინათლის ქალაქის ქარიბჭე",
+        meta: "მაგია · სიკეთე",
+        age: "2–4 წელი",
+      },
+      {
+        theme: "dinosaurs",
+        title: "შაკო და დინოზავრების ხეობა",
+        meta: "მეგობრობა · აღმოჩენა",
         age: "5–7 წელი",
       },
     ],

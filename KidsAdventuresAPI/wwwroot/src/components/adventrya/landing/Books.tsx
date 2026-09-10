@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
 import { useT } from "@/lib/i18n";
-import { WORLD_SCENE_ART, type WorldId } from "@/lib/worlds";
+import { EXAMPLE_BOOK_ART, type WorldId } from "@/lib/worlds";
 
 /*
   Slow enough to read a title, quick enough that a reader who glances away and back has moved.
@@ -81,36 +81,44 @@ export function Books() {
         {t.landing.books.examples.map((example) => {
           const theme = example.theme as WorldId;
           /*
-            The world's own painting, not the island cut out of the map.
+            The printed book, photographed, rather than a picture dressed as one.
 
-            These are the six scenes painted one to a picture — sky, light and all — which is what
-            a cover looks like. The cut-outs this replaces were transparent islands sitting on a
-            flat purple ground, which is what a map marker looks like.
+            What stood here was the world's scene painting with a cream offset behind it for a
+            stack of paper, a strip down its left for a spine and a gradient over it so a title
+            could be typed on. Every one of those was CSS imitating an object this product now
+            has photographs of, and the imitation is the thing a parent is being asked to believe
+            in. These carry their own spine, their own page block and their own printed title.
           */
-          const image = WORLD_SCENE_ART[theme] ?? WORLD_SCENE_ART.dinosaurs;
+          const image = EXAMPLE_BOOK_ART[theme] ?? EXAMPLE_BOOK_ART.dinosaurs;
           return (
             <article key={example.theme} className="landing-v3-example-book">
               {/*
-                The cover is the link, and it is the only one.
+                The book is the link, and it is the only one.
 
                 It used to be a picture with a "create a similar one" line under it — a second
                 thing to read before the obvious thing could be done. A book cover is already a
                 door; making it one costs nothing to explain. It opens the map with this world
                 already lit, because choosing the world is the step that actually comes next,
                 and /themes reads ?world= on arrival.
+
+                The caption is inside it rather than beside it for the same reason: one target,
+                and the words under a cover belong to the cover. It sits under the photograph
+                now instead of over the artwork — the title is printed on the object at a size
+                that reads in the hand and not on a 368-pixel card, so the card says it again in
+                type it can set at its own size.
               */}
               <a
-                className="landing-v3-example-art"
+                className="landing-v3-example-link"
                 href={`/themes?world=${theme}`}
                 aria-label={t.landing.books.exampleAlt(example.title)}
               >
-                <img src={image} alt="" loading="lazy" />
-                <div className="landing-v3-example-overlay" />
-                <div className="landing-v3-example-title">
+                <span className="landing-v3-example-art">
+                  <img src={image} alt="" loading="lazy" />
+                </span>
+                <span className="landing-v3-example-title">
                   <small>{example.meta}</small>
                   <strong>{example.title}</strong>
-                </div>
-                <span className="landing-v3-book-spine" />
+                </span>
               </a>
             </article>
           );
