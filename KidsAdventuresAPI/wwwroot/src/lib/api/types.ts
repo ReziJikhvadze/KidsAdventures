@@ -89,6 +89,21 @@ export type AuthConfigResponse = {
 };
 
 /** Server acknowledgement that a sign-in link or code went out. */
+/**
+ * Whether checkout still has to prove the handset a parcel is going to.
+ *
+ * The panel is drawn from this rather than from an assumption: `otpLength` decides how many
+ * boxes there are, and `verified` decides whether there is a panel at all - a number this
+ * parent has proved before, or their own, goes straight to payment.
+ */
+export type RecipientPhoneStatus = {
+  /** Masked, so the answer to "is this proved" cannot be used to read a number back. */
+  phoneNumber: string;
+  verified: boolean;
+  otpLength: number;
+  resendCooldownSeconds: number;
+};
+
 export type AuthChallengeResponse = {
   /** Masked email or phone number, safe to echo back to the parent. */
   destination: string;

@@ -419,3 +419,51 @@
   border-color: var(--jw-line, #e9e1d7);
   background: #fff;
 }
+
+/*
+  The recipient-phone panel on the shelf's print form, which is paper rather than night.
+
+  Same component, same question, and the second place a printed book is bought - so the checkout
+  gate would have been half a gate without it. Its colours are written for the dark rail beside
+  the total (journey-ux.css); here they are restated, the way the address suggestions above are,
+  rather than left to read as a control lifted out of another screen.
+*/
+.journey-print-panel .ux-phone-check {
+  border-color: var(--jw-line, #e9e1d7);
+  background: #fbf6ee;
+}
+.journey-print-panel .ux-phone-check-head {
+  color: var(--jw-ink-soft, #655f72);
+}
+.journey-print-panel .ux-phone-check-head svg {
+  color: #b07d3e;
+}
+.journey-print-panel .ux-phone-check-head strong {
+  color: var(--jw-ink, #29233a);
+}
+.journey-print-panel .ux-phone-check > small {
+  color: var(--jw-ink-soft, #655f72);
+}
+.journey-print-panel .ux-phone-check .ux-otp-inputs input {
+  border-color: rgba(70, 49, 90, 0.18);
+  color: #322246;
+  background: #ffffffc7;
+}
+.journey-print-panel .ux-phone-check .ux-otp-inputs input:focus {
+  border-color: #af7d43;
+  box-shadow: 0 0 0 3px #d8a95c21;
+}
+.journey-print-panel .ux-phone-check .ux-form-error {
+  border-color: rgba(160, 62, 55, 0.24);
+  color: #8c3a34;
+  background: #f7e3e1;
+}
+.journey-print-panel .ux-phone-check-send {
+  color: #a4702f;
+}
+.journey-print-panel .ux-phone-check-send:disabled {
+  color: #655f7275;
+}
+.journey-print-panel .ux-phone-check-done {
+  color: #3f7d55;
+}

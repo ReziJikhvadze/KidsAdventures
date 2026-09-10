@@ -1035,6 +1035,7 @@ public class OrderFailureVisibilityTests
                 new ThrowingPromoCodeRepository(),
                 new ThrowingUsers(),
                 new NoRuns(),
+                new NoRecipientPhones(),
                 new ThrowingAdminNotifier(),
                 Jobs,
                 new ThrowingBog(),
@@ -1258,6 +1259,19 @@ internal sealed class RecordingSms : ISmsSender
         Sent.Add((e164PhoneNumber, message));
         return Task.CompletedTask;
     }
+}
+
+/// <summary>
+/// Nothing here posts a parcel, so nothing here should be asking whether a recipient's
+/// handset answers. Refusing rather than agreeing: an order path that starts consulting
+/// this is a change worth noticing in a test about something else.
+/// </summary>
+internal sealed class NoRecipientPhones : IRecipientPhoneVerificationService
+{
+    public Task<RecipientPhoneStatusResponse> GetStatusAsync(Guid userId, string phone, CancellationToken ct) => throw new NotSupportedException();
+    public Task<AdventurePacks.Api.DTOs.Auth.AuthChallengeResponse> RequestCodeAsync(Guid userId, string phone, string? ip, CancellationToken ct) => throw new NotSupportedException();
+    public Task<RecipientPhoneStatusResponse> VerifyAsync(Guid userId, string phone, string code, CancellationToken ct) => throw new NotSupportedException();
+    public Task EnsureVerifiedAsync(Guid userId, string? phone, CancellationToken ct) => throw new NotSupportedException();
 }
 
 internal sealed class NoRuns : IMasterStoryRunRepository

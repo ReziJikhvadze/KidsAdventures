@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { BekiLoader } from "@/components/adventrya/BekiLoader";
 import { AddressAutocompleteField } from "@/components/adventrya/journey/AddressAutocompleteField";
 import { LocationPickerDialog } from "@/components/adventrya/journey/LocationPickerDialog";
+import { RecipientPhoneCheck } from "@/components/adventrya/journey/RecipientPhoneCheck";
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
 import { ApiError, resolveApiUrl } from "@/lib/api/client";
 import * as ordersApi from "@/lib/api/orders";
@@ -146,6 +147,15 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   /** True while the fields are showing: a new address, or an account with none saved. */
   const [addressOpen, setAddressOpen] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  /*
+    Whether the handset the courier will ring has been proved.
+
+    The panel beside the total does the asking; this screen only needs the answer, because the
+    answer is what the pay button is allowed to act on. False until the server has said
+    otherwise - a print order whose recipient cannot be reached is a parcel that comes back.
+  */
+  const [phoneVerified, setPhoneVerified] = useState(false);
 
   /** Whether this screen is still the one in front of the parent. See placeOrder. */
   const mounted = useRef(true);
@@ -416,6 +426,23 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
       return;
     }
     setShowErrors(false);
+
+    /*
+      The number the courier rings, proved before the bank is opened.
+
+      Ahead of the world check and everything after it because it is the one thing on this screen
+      the parent cannot fix from the payment page: they are sent to the bank, they pay, and the
+      parcel is booked against a handset nobody answers. The panel is already on screen beside
+      the total - this only walks them to it.
+    */
+    if (isPrint && !phoneVerified) {
+      setError(t.journey.checkout.phoneCheckPayHint);
+      const panel = document.querySelector<HTMLElement>('[data-phone-check="pending"]');
+      panel?.scrollIntoView({ behavior: "smooth", block: "center" });
+      panel?.querySelector<HTMLElement>("button, input")?.focus({ preventScroll: true });
+      return;
+    }
+
     if (!draft.worldId && !draft.preview?.storyId) {
       setError("აირჩიე სამყარო.");
       return;
@@ -1022,6 +1049,22 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             </p>
           ) : null}
         </div>
+
+        {/*
+          The courier's half of the address, asked about where the money is.
+
+          Beside the total rather than under the phone field: a parent who picked a saved address
+          never opens that form, and the question belongs to the payment either way - it is the
+          last thing between them and the bank. Asked once per number and then remembered, so on
+          most orders this renders a single confirmed line, and on a repeat to the same recipient
+          nothing at all.
+        */}
+        {isPrint ? (
+          <RecipientPhoneCheck
+            phoneNumber={draft.shipping.recipientPhone}
+            onVerifiedChange={setPhoneVerified}
+          />
+        ) : null}
 
         {error ? <p className="ux-form-error">{error}</p> : null}
 

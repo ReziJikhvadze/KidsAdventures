@@ -275,6 +275,7 @@ public class PaidOrderFulfilmentTests
                 new RefusingPromoCodeRepository(),
                 new SingleUserRepository(),
                 new NoRuns(),
+                new NoRecipientPhones(),
                 Notifier,
                 new FakeJobs(),
                 new PaidBog(BogOrderId, Order.Id),
@@ -289,6 +290,19 @@ public class PaidOrderFulfilmentTests
     /// while the paid book has none; these tests are about payment and fulfilment, so the
     /// honest answer is that there is nothing to show.
     /// </summary>
+    /// <summary>
+    /// Nothing here posts a parcel, so nothing here should be asking whether a recipient's
+    /// handset answers. Refusing rather than agreeing: an order path that starts consulting
+    /// this is a change worth noticing in a test about something else.
+    /// </summary>
+    private sealed class NoRecipientPhones : IRecipientPhoneVerificationService
+    {
+        public Task<RecipientPhoneStatusResponse> GetStatusAsync(Guid userId, string phone, CancellationToken ct) => throw new NotSupportedException();
+        public Task<AdventurePacks.Api.DTOs.Auth.AuthChallengeResponse> RequestCodeAsync(Guid userId, string phone, string? ip, CancellationToken ct) => throw new NotSupportedException();
+        public Task<RecipientPhoneStatusResponse> VerifyAsync(Guid userId, string phone, string code, CancellationToken ct) => throw new NotSupportedException();
+        public Task EnsureVerifiedAsync(Guid userId, string? phone, CancellationToken ct) => throw new NotSupportedException();
+    }
+
     private sealed class NoRuns : IMasterStoryRunRepository
     {
         public Task<MasterStoryRun?> GetByIdAsync(Guid id, CancellationToken ct) => Task.FromResult<MasterStoryRun?>(null);

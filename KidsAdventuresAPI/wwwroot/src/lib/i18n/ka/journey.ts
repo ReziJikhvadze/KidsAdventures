@@ -368,6 +368,19 @@ export const journey = {
     /* Shown while the address is still empty, where the region price is the one being quoted. */
     deliveryRegional: "საქართველოს რეგიონები",
     deliveryTbilisi: "თბილისი",
+    /* Proving the handset the courier will ring. Said as the delivery step it is, not as a
+       security step: the parent is not signing in again, and the number may not even be theirs. */
+    phoneCheckHeading: "მიმღების ნომრის დადასტურება",
+    phoneCheckWhy: "კურიერი ამ ნომერზე დაგირეკავთ, ამიტომ ერთხელ დავრწმუნდეთ, რომ ის მუშაობს.",
+    phoneCheckSent: (destination: string) => `კოდი გავგზავნეთ ნომერზე ${destination}`,
+    phoneCheckSend: "კოდის გაგზავნა",
+    phoneCheckResend: "ხელახლა გაგზავნა",
+    phoneCheckResendIn: (seconds: number) => ` · ${seconds} წმ`,
+    phoneCheckDigitAria: (index: number) => `კოდის ${index}-ე ციფრი`,
+    phoneCheckDone: "ნომერი დადასტურებულია",
+    phoneCheckDevCode: (code: string) => `სატესტო კოდი: ${code}`,
+    phoneCheckFailed: "კოდი ვერ გაიგზავნა. სცადე ხელახლა.",
+    phoneCheckPayHint: "ნომრის დადასტურების შემდეგ გადახდა გაგრძელდება.",
     discountLine: "შენი ფასდაკლება ",
     total: "ჯამი ",
     bookLanguage: "წიგნის ენა",

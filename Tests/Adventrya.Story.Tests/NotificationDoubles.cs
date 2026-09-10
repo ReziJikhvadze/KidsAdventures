@@ -64,8 +64,25 @@ internal sealed class SingleUserRepository : IUserRepository
 
     public bool HasEmail { get; set; } = true;
 
+    /// <summary>
+    /// The account's own mobile, and whether a code was ever read back off it.
+    ///
+    /// Both empty by default, which is the email-registered parent. The pair matters to checkout:
+    /// a recipient number that is also the parent's own confirmed number needs no second proving,
+    /// and one that is merely typed into a profile is a claim rather than a fact.
+    /// </summary>
+    public string? PhoneNumber { get; set; }
+
+    public bool PhoneConfirmed { get; set; }
+
     public Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
-        Task.FromResult<User?>(new User { Id = id, Email = HasEmail ? Address : string.Empty });
+        Task.FromResult<User?>(new User
+        {
+            Id = id,
+            Email = HasEmail ? Address : string.Empty,
+            PhoneNumber = PhoneNumber,
+            PhoneConfirmed = PhoneConfirmed
+        });
 
     public Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken) => throw new NotSupportedException();
     public Task<User?> GetByPhoneNumberAsync(string phoneNumber, CancellationToken cancellationToken) => throw new NotSupportedException();

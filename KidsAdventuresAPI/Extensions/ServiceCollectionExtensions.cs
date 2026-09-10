@@ -446,7 +446,9 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<IPasswordHasher, BcryptPasswordHasher>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IOneTimeCodeService, OneTimeCodeService>();
         services.AddScoped<IPasswordlessAuthService, PasswordlessAuthService>();
+        services.AddScoped<IRecipientPhoneVerificationService, RecipientPhoneVerificationService>();
         services.AddScoped<IAuthSessionFactory, AuthSessionFactory>();
         services.AddScoped<IWelcomeGiftService, WelcomeGiftService>();
         services.AddScoped<IGoogleAuthService, GoogleAuthService>();
@@ -474,6 +476,7 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IAuthChallengeRepository, AuthChallengeRepository>();
+        services.AddScoped<IVerifiedRecipientPhoneRepository, VerifiedRecipientPhoneRepository>();
         services.AddScoped<IGuestPreviewRepository, GuestPreviewRepository>();
         services.AddScoped<IMasterStoryRunRepository, MasterStoryRunRepository>();
 
