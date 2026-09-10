@@ -175,6 +175,10 @@ export const journey = {
     expired: "Your story has expired. Create a new one.",
     tookTooLong:
       "This is taking longer than it should. Try again - nothing you entered has been lost.",
+    /* The cover already drawn and already paid for, offered on the way back rather than lost. */
+    resumeHeading: "Your cover is ready",
+    resumeFallbackTitle: "Go back to your book",
+    resumeAction: "See it",
     tryAgain: "Try again",
     tooBusy:
       "A lot of stories are being written right now. Try again in a few minutes - nothing you entered has been lost.",

@@ -31,7 +31,7 @@ import {
   DELIVERY,
   MAX_PRINT_QUANTITY,
   PRICES,
-  deliveryOptionsFor,
+  deliveryOptionsForDisplay,
   isTbilisiAddress,
   resolveDeliveryOption,
   type DeliveryOptionId,
@@ -99,7 +99,12 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     where the reverse would raise it under a parent who had already read it.
   */
   const addressStarted = draft.shipping.addressLine1.trim().length > 2;
-  const deliveryChoices: DeliveryOptionId[] = isPrint ? deliveryOptionsFor(addressHint) : [];
+  /*
+    Read soonest first - three days, then five - which is not the order the pricing rule returns
+    them in. That array leads with the default, and the default is the free one; sorting it would
+    have moved every Tbilisi order onto the paid window. See `deliveryOptionsForDisplay`.
+  */
+  const deliveryChoices: DeliveryOptionId[] = isPrint ? deliveryOptionsForDisplay(addressHint) : [];
   const deliveryOption = isPrint
     ? resolveDeliveryOption(
         draft.shipping.deliveryOption as DeliveryOptionId | undefined,
@@ -172,7 +177,15 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     }));
   }, [isPrint, deliveryOption, draft.shipping.deliveryOption, onChange]);
 
-  const deliveryPriceMinor = isPrint && deliveryOption ? DELIVERY[deliveryOption].priceMinor : 0;
+  /*
+    Zero until there is somewhere to send it.
+
+    The screen used to carry the regional price from the moment the package was chosen, which put
+    8 GEL and a five-to-seven-day window against a parcel whose destination nobody had typed. The
+    quote agrees (see OrderService): no address, no delivery, and the total is the book.
+  */
+  const deliveryPriceMinor =
+    isPrint && addressStarted && deliveryOption ? DELIVERY[deliveryOption].priceMinor : 0;
   /*
     Fetched once, and only allowed to fill a form the parent has not started.
 
@@ -881,7 +894,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             direction to guess in: recognising Tbilisi drops the total, where guessing free and
             correcting upwards would raise a figure the parent had already accepted.
           */}
-          {isPrint && deliveryChoices.length > 1 ? (
+          {isPrint && addressStarted && deliveryChoices.length > 1 ? (
             <>
               <p className="ux-delivery-label">{t.journey.checkout.deliveryHeading}</p>
               {deliveryChoices.map((option) => {
@@ -913,7 +926,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
               })}
             </>
           ) : null}
-          {isPrint && deliveryChoices.length === 1 ? (
+          {isPrint && addressStarted && deliveryChoices.length === 1 ? (
             <span>
               {t.journey.checkout.deliveryHeading} ·{" "}
               {t.journey.checkout.deliveryDaysRange(

@@ -1166,12 +1166,21 @@
   font-family: var(--font-body);
   font-size: 16px;
 }
+/*
+  One promise to a line.
+
+  Two columns fitted three features into a card by cutting the width each of them had, and
+  Georgian does not take that cut: "მიწოდება მთელ საქართველოში" wrapped onto a second line inside
+  its half while "ონლაინ კითხვა" sat beside it on one, so the list read as a paragraph broken in
+  the wrong places rather than as things you get. A ticked line is a promise, and a reader counts
+  promises down a column, not across a row.
+*/
 .ux-package-list {
   grid-column: 2;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 7px 12px;
-  margin-top: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
 }
 .ux-package-list > span {
   display: flex;
@@ -3933,4 +3942,111 @@
   min-height: 44px;
   border: 1px solid #ece6dc;
   border-radius: 12px;
+}
+
+/*
+  Both package cards, a little further down.
+
+  The recommended one wears a tab that sits 13px above its own top edge, and the panel's 18px gap
+  was all the room there was - so the tab came within five pixels of the heading above it and read
+  as crowding the question rather than answering it. The margin goes on both cards rather than on
+  the first, because they are a pair and a list whose rows are differently spaced is a list with
+  something wrong in it.
+*/
+.ux-package-option {
+  margin-top: 9px;
+}
+
+/*
+  The cover you already have, on the screen you came back to.
+
+  Above the questions rather than inside them: it is not a field, it is the answer to a question
+  the parent has already finished answering once. Quiet enough that somebody genuinely starting a
+  second book can read past it, loud enough that nobody answers everything again by accident and
+  pays for a second cover.
+*/
+.ux-resume-preview {
+  width: min(100%, 620px);
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin: 0 auto 18px;
+  padding: 11px 13px;
+  border: 1px solid rgba(232, 201, 138, 0.34);
+  border-radius: 16px;
+  background: #e8c98a17;
+}
+/* The cover at the shape it is printed at, so it is recognisably the same object. */
+.ux-resume-preview img {
+  width: 52px;
+  flex: none;
+  aspect-ratio: 1.085;
+  object-fit: cover;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px #0a05194d;
+}
+.ux-resume-preview > span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ux-resume-preview small {
+  color: var(--story-gold);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.ux-resume-preview strong {
+  overflow: hidden;
+  color: #fff8eb;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ux-resume-preview button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  min-height: 38px;
+  margin-left: auto;
+  padding: 0 14px;
+  border: 1px solid rgba(232, 201, 138, 0.4);
+  border-radius: 12px;
+  cursor: pointer;
+  color: #2d1d4a;
+  background: linear-gradient(145deg, #f2dc9e, #dda95c);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ux-resume-preview button:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+@media (max-width: 560px) {
+  .ux-resume-preview {
+    gap: 10px;
+    padding: 9px 10px;
+  }
+  .ux-resume-preview img {
+    width: 42px;
+  }
+  .ux-resume-preview button span {
+    display: none;
+  }
+}
+
+/*
+  The badge's own room, inside the card rather than on top of its first line.
+
+  It is pinned 13px above the card's top edge, so a third of it hangs over the padding - and the
+  padding was 15px, which left the tab sitting on the title it is about. The card starts its
+  content lower now; the tab keeps its place on the edge.
+*/
+.ux-package-option {
+  padding-top: 22px;
 }

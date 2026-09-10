@@ -82,6 +82,26 @@ export function resolveDeliveryOption(
   return requested && allowed.includes(requested) ? requested : allowed[0];
 }
 
+/**
+ * The same options, in the order a parent reads them: soonest first.
+ *
+ * Deliberately not the order `deliveryOptionsFor` returns, and this is the whole reason it is a
+ * second function rather than a re-sort of the first. That array's first entry is the *default* -
+ * it is what an address that has not chosen yet is charged, on the server as well as here - and
+ * the default is the free one. Sorting that array to read better would quietly move every Tbilisi
+ * order onto the seven-lari window.
+ *
+ * So: the list is ordered here, the money is decided there, and neither can be tidied into the
+ * other by accident.
+ */
+export function deliveryOptionsForDisplay(
+  ...parts: (string | null | undefined)[]
+): DeliveryOptionId[] {
+  return [...deliveryOptionsFor(...parts)].sort(
+    (left, right) => DELIVERY[left].minDays - DELIVERY[right].minDays,
+  );
+}
+
 export type BookPackage = "digital" | "print";
 
 export type PurchaseType = "new_book" | "print_upgrade";

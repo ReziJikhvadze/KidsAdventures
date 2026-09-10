@@ -97,7 +97,17 @@ public sealed class OrderService(
           delivery to an address in Kutaisi is priced for the region it is actually in. The
           quote answers with the option it used, and the checkout follows that.
         */
-        var delivery = package == OrderPackage.Print
+        /*
+          And nothing at all until there is an address to send it to.
+
+          A quote with no address used to come back as the regional 8 GEL, on the reasoning that
+          it is the safe direction to guess in - recognising Tbilisi later takes the total down
+          rather than up. True, but it put a price and a five-to-seven-day window on the screen
+          for a parcel going nowhere, which is a charge a parent is being shown before anybody
+          could have worked it out. The line is not shown now, so it is not priced either; the
+          total says what the book costs, and the delivery joins it when they say where it goes.
+        */
+        var delivery = package == OrderPackage.Print && !string.IsNullOrWhiteSpace(request.City)
             ? GeorgianDelivery.Resolve(request.City, request.City, request.DeliveryOption)
             : GeorgianDelivery.None;
 

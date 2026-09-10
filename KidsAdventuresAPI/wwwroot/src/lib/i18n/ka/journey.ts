@@ -211,6 +211,10 @@ export const journey = {
     expired: "შენი ზღაპრის ვადა ამოიწურა. შექმენი ახალი.",
     tookTooLong:
       "ზღაპარი მოსალოდნელზე დიდხანს გრძელდება. სცადე თავიდან - შენი მონაცემები შენახულია.",
+    /* The cover already drawn and already paid for, offered on the way back rather than lost. */
+    resumeHeading: "შენი ყდა მზადაა",
+    resumeFallbackTitle: "დაუბრუნდი შენს წიგნს",
+    resumeAction: "ნახვა",
     tryAgain: "თავიდან ცდა",
     /* The server's own rate limit, said as what it is — a busy moment, not a fault of the parent. */
     tooBusy:
