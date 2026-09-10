@@ -1376,11 +1376,16 @@
   font-weight: 800;
   letter-spacing: -0.03em;
 }
-/* The product, the breakdown and the code sit at the top; the total and the button at the
-   bottom, however tall the window is. */
+/*
+  The button follows the code, rather than being pushed to the floor.
+
+  `margin-bottom: auto` used to hold it there, on the reading that a pay button belongs at the
+  bottom of its column however tall the window is. On a rail that is taller than its contents -
+  which it is, now that the card is a card - that puts a hand's width of empty paper between the
+  total and the thing a parent came here to press, and the card stops looking like one object.
+*/
 .ux-checkout-stage > .ux-order-summary .ux-promo-panel {
   margin-top: 10px;
-  margin-bottom: auto;
 }
 .ux-checkout-stage > .ux-order-summary .ux-compact-product small {
   color: #cbb9ff9e;
