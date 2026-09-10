@@ -221,3 +221,28 @@ export function progressLabelForStage(
       return steps.creating;
   }
 }
+
+/**
+ * Which of the three counted steps the parent is on, and what each one is called.
+ *
+ * Reads the same stages the rest of this file does and decides nothing new: the counting is
+ * exactly `progressLabelForStage`'s - world, then the questions, then the book - and everything
+ * after the book (signing in, the order, the writing) is the third step finished rather than a
+ * fourth one begun. That is the journey's own arithmetic; this only says it as three marks
+ * instead of a bar and a sentence.
+ */
+export function journeyTrailForStage(
+  stage: JourneyStage,
+  names: { one: string; two: string; three: string },
+): { name: string; state: "done" | "current" | "todo" }[] {
+  const reached = stage === "world" ? 1 : stage === "profile" ? 2 : 3;
+  /* Past the preview the third step is behind them, not under them. */
+  const finished =
+    stage === "auth" || stage === "checkout" || stage === "generating" || stage === "generated";
+
+  return [names.one, names.two, names.three].map((name, index) => {
+    const step = index + 1;
+    if (step < reached || (step === reached && finished)) return { name, state: "done" as const };
+    return { name, state: step === reached ? ("current" as const) : ("todo" as const) };
+  });
+}

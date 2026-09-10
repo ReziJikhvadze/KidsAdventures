@@ -1,4 +1,5 @@
 import { Link, useCanGoBack, useRouter } from "@tanstack/react-router";
+import { Fragment } from "react";
 import { ArrowLeft, ChevronDown, ChevronRight, Globe, LogOut, User } from "lucide-react";
 
 import { LanguageSwitcher } from "@/components/adventrya/LanguageSwitcher";
@@ -16,6 +17,14 @@ export interface AppHeaderProps {
   /** When set, the centre slot shows a step progress bar instead of the nav links. */
   progressLabel?: string;
   progressValue?: number;
+  /**
+   * The steps to draw, when this screen has any - the journey's own three, resolved by the
+   * journey (`journeyTrailForStage`).
+   *
+   * A prop rather than a stage: this header is on the reader, the shelf and the legal pages too,
+   * and none of them is in a flow. `progressLabel` stays the accessible name for the group.
+   */
+  progressTrail?: { name: string; state: "done" | "current" | "todo" }[];
   /**
    * The back target is a step inside this screen, not a page the parent came from — so it wins
    * over the browser's history. The creation journey needs this: it replaces its history entry
@@ -63,6 +72,7 @@ export function AppHeader({
   backHref = "/",
   progressLabel,
   progressValue = 0,
+  progressTrail,
   explicitBack = false,
   worldMode = false,
   minimal = false,
@@ -151,11 +161,46 @@ export function AppHeader({
         duplicated navigation the back button and the dashboard pill already provide.
       */}
       {progressLabel ? (
-        <div className="step-progress" aria-label={progressLabel}>
-          <span>{progressLabel}</span>
-          <div>
-            <i style={{ width: `${progressValue}%` }} />
-          </div>
+        /*
+          Three named marks rather than a bar and a sentence.
+
+          "ნაბიჯი 2 / 3" says how far along a parent is and nothing about what they are doing;
+          the trail says both, and the one they are on is the only one carrying weight. The
+          counting is not this component's - `journeyTrailForStage` reads the same stages the
+          rest of the journey does, so nothing about where the flow goes changes here.
+
+          The label stays as the accessible name: a screen reader still hears the step it always
+          heard, and each mark carries its own state.
+        */
+        <div className="step-trail" aria-label={progressLabel}>
+          {(progressTrail ?? []).map((step, index) => (
+            <Fragment key={step.name}>
+              {index > 0 ? <i className="step-trail-link" aria-hidden="true" /> : null}
+              <span
+                className={`step-trail-step is-${step.state}`}
+                aria-current={step.state === "current" ? "step" : undefined}
+              >
+                <b aria-hidden="true">
+                  {step.state === "done" ? (
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                  ) : (
+                    index + 1
+                  )}
+                </b>
+                <span>{step.name}</span>
+              </span>
+            </Fragment>
+          ))}
         </div>
       ) : !minimal ? (
         /*

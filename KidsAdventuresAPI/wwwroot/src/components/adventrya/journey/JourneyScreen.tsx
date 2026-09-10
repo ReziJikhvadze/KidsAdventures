@@ -20,6 +20,7 @@ import { readyPreviewPatch } from "@/lib/journey/previewRecovery";
 import {
   STAGE_PROGRESS,
   backHrefForStage,
+  journeyTrailForStage,
   progressLabelForStage,
   useJourneyStage,
   type JourneyStage,
@@ -337,6 +338,14 @@ export function JourneyScreen() {
       explicitBack
       progressLabel={progressLabelForStage(stage, t.journey.steps)}
       progressValue={STAGE_PROGRESS[stage]}
+      progressTrail={journeyTrailForStage(stage, {
+        one: t.journey.steps.trailOne,
+        two: t.journey.steps.trailTwo,
+        three: t.journey.steps.trailThree,
+      })}
+      // The checkout is the one step whose bar is paper, so it is the one step that takes the
+      // coloured lockup. The white one is drawn for the dark bar every other stage keeps.
+      mark={stage === "checkout" ? "color" : "white"}
     />
   );
 

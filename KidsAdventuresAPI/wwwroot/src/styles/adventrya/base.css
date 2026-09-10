@@ -1287,3 +1287,111 @@ svg {
   color: #2d1d4a;
   background: linear-gradient(145deg, #f2dc9e, #dda95c);
 }
+
+/* ==========================================================================
+   The three marks, under the header and in the middle.
+
+   What stood here was a 230px bar with "ნაბიჯი 2 / 3" over it, absolutely centred inside the
+   header row - which put it between the wordmark and the account pill, where on anything narrow
+   the three of them read as one run of letters, and which said how far along a parent was
+   without saying what they were doing.
+
+   It is a row of its own now: the header keeps its own line, the trail sits under it, centred on
+   the page rather than on whatever is left between two controls. Named steps, and only the one
+   they are on carries any weight - the ones behind are a tick, the ones ahead an outline.
+   ========================================================================== */
+
+.app-header:has(.step-trail) {
+  height: auto;
+  flex-wrap: wrap;
+  padding-top: 14px;
+  padding-bottom: 12px;
+  row-gap: 10px;
+}
+.step-trail {
+  order: 3;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.step-trail-link {
+  width: 26px;
+  height: 1px;
+  flex: none;
+  background: #ffffff2e;
+}
+.step-trail-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #f8f2e57a;
+  font-size: 12px;
+}
+.step-trail-step > b {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 1px solid #ffffff33;
+  border-radius: 50%;
+  color: #f8f2e57a;
+  font-size: 11px;
+  font-weight: 700;
+}
+.step-trail-step > b svg {
+  width: 11px;
+  height: 11px;
+}
+/* Behind them: the mark is filled and the word steps back, because it is not the question now. */
+.step-trail-step.is-done > b {
+  border-color: transparent;
+  color: #2d1d4a;
+  background: var(--story-gold);
+}
+/* Under them: the one place on this bar allowed to be at full strength. */
+.step-trail-step.is-current {
+  color: #fff8eb;
+  font-weight: 700;
+}
+.step-trail-step.is-current > b {
+  border-color: #fff8eb;
+  color: #fff8eb;
+}
+
+/*
+  On a phone the words go and the marks stay.
+
+  Three names, two rules and a wordmark do not fit across 390px without one of them wrapping, and
+  the marks alone still answer the only question this bar is for - how much is left.
+*/
+@media (max-width: 560px) {
+  .step-trail {
+    gap: 8px;
+  }
+  .step-trail-step > span {
+    display: none;
+  }
+  .step-trail-step.is-current > span {
+    display: inline;
+  }
+  .step-trail-link {
+    width: 18px;
+  }
+}
+
+/*
+  When every step is behind them.
+
+  The rule above keeps the word of the step a parent is on and drops the other two, which is the
+  right trade at 390px - until the checkout, where all three are finished and none is current, so
+  it kept nothing and left three marks and no words. The last step keeps its name in that case:
+  finished is still where they are.
+*/
+@media (max-width: 560px) {
+  .step-trail:not(:has(.step-trail-step.is-current)) .step-trail-step:last-child > span {
+    display: inline;
+  }
+}

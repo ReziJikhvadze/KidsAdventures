@@ -4050,3 +4050,239 @@
 .ux-package-option {
   padding-top: 22px;
 }
+
+/* ==========================================================================
+   The checkout, as one column on paper.
+
+   The owner's reading of the old screen, and it is right: too many colours in the text, and the
+   right-hand rail never sat well. Both came from the same arrangement - a form on a dark scene
+   beside a cream card, two grounds fighting for the same page, and a rail that had to invent
+   contrast in its own type to be legible against what was behind it. Five text colours on one
+   card is what that costs.
+
+   So the split goes. One centred column on the page's own paper, the order read top to bottom -
+   the book, where it goes, how it gets there - and the till at the foot. Two text colours, and
+   gold spent once, on the button.
+
+   Scoped to the checkout stage: the other steps keep the scene they were designed for.
+   ========================================================================== */
+
+/* The photograph and its wash belong to the scene, and the scene is gone from this one screen. */
+.journey-checkout > .journey-art,
+.journey-checkout > .journey-shade,
+.journey-checkout > .grain {
+  display: none;
+}
+/* The bar is paper too, so the trail under it reads in ink rather than cream. */
+.journey-checkout .app-header {
+  border-bottom: 1px solid var(--jw-line);
+  background: var(--jw-paper);
+}
+.journey-checkout .app-header .back-button,
+.journey-checkout .app-header .header-pill,
+.journey-checkout .app-header .child-pill,
+.journey-checkout .app-header .icon-button {
+  border-color: var(--jw-line);
+  color: var(--jw-ink);
+  background: #fff;
+}
+.journey-checkout .app-header .wordmark-small,
+/* The avatar is cream, drawn for a dark bar; on paper it was a white glyph on white. */
+.journey-checkout .app-header .child-avatar,
+.journey-checkout .app-header .child-pill > span:nth-child(2) {
+  color: var(--jw-ink);
+}
+.journey-checkout .step-trail-link {
+  background: #ddd5c8;
+}
+.journey-checkout .step-trail-step,
+.journey-checkout .step-trail-step > b {
+  color: var(--jw-ink-soft);
+  border-color: #ddd5c8;
+}
+.journey-checkout .step-trail-step.is-current,
+.journey-checkout .step-trail-step.is-current > b {
+  color: var(--jw-ink);
+  border-color: var(--jw-ink);
+}
+.journey-checkout .step-trail-step.is-done > b {
+  border-color: transparent;
+  color: #2d1d4a;
+  background: #dda95c;
+}
+
+/*
+  One column, and the rail is no longer a rail.
+
+  The grid becomes a single centred track and the aside stops being a card: no border, no
+  shadow, no ground of its own - it is the page, continuing. The product goes above the form
+  because it is what the parent is buying; the form is what they still have to do.
+*/
+.journey-checkout .ux-checkout-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 30px 24px 0;
+}
+.journey-checkout .ux-checkout-stage > .checkout-form,
+.journey-checkout .ux-checkout-stage > .ux-order-summary,
+.journey-checkout .ux-checkout-stage > .ux-form-error,
+.journey-checkout .ux-checkout-stage > .ux-checkout-bar {
+  width: min(620px, 100%);
+  max-width: none;
+}
+.journey-checkout .ux-checkout-stage > .ux-order-summary {
+  order: -1;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.journey-checkout .ux-checkout-stage > .checkout-form {
+  padding-top: 4px;
+}
+
+/* Ink on paper, in two tones and no third. */
+.journey-checkout .checkout-form > h1,
+.journey-checkout .ux-checkout-step,
+.journey-checkout .field > span,
+.journey-checkout .field input,
+.journey-checkout .field textarea {
+  color: var(--jw-ink);
+}
+.journey-checkout .checkout-form > .eyebrow {
+  color: var(--jw-ink-soft);
+}
+.journey-checkout .field input,
+.journey-checkout .field textarea {
+  border-color: #e2dbcf;
+  background: #fff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.journey-checkout .field input::placeholder,
+.journey-checkout .field textarea::placeholder {
+  color: #a49db4;
+}
+
+/*
+  The till.
+
+  Sticky rather than pinned: it sits at the end of the column and stays on the glass once the
+  column is taller than the window, which is every phone and a short laptop. The total is a
+  figure and a word, not a row of a table - it is the answer, and the button beside it is what
+  the answer is for.
+*/
+.ux-checkout-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 18px;
+  padding: 14px 0 18px;
+  border-top: 1px solid var(--jw-line);
+  background: var(--jw-canvas);
+}
+.ux-checkout-bar-total {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+}
+.ux-checkout-bar-total small {
+  color: var(--jw-ink-soft);
+  font-size: 11px;
+}
+.ux-checkout-bar-total strong {
+  color: var(--jw-ink);
+  font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+.journey-checkout .ux-checkout-bar .checkout-pay {
+  width: auto;
+  flex: 1;
+  min-height: 54px;
+  margin: 0;
+}
+
+/* On a phone the till is the only thing pinned, and the column scrolls under it. */
+@media (max-width: 560px) {
+  .journey-checkout .ux-checkout-stage {
+    padding: 20px 16px 0;
+  }
+  .ux-checkout-bar {
+    gap: 12px;
+    padding: 12px 0 16px;
+  }
+  .ux-checkout-bar-total strong {
+    font-size: 23px;
+  }
+}
+
+/*
+  The palette, and only the palette.
+
+  The journey screen declares these tokens on a rule that also paints a gradient, so borrowing
+  that selector for the checkout brought the gradient with it and the paper went back under a
+  violet wash. The values are restated here rather than shared from there, which is the honest
+  trade: the alternative is splitting a rule the world journey depends on, for one screen.
+*/
+.screen.journey-checkout {
+  --jw-ink: #29233a;
+  --jw-ink-soft: #655f72;
+  --jw-line: #e9e1d7;
+  --jw-paper: #fffdf8;
+  --jw-canvas: #fbf7ee;
+  background: var(--jw-canvas);
+}
+
+/*
+  Two tones, counted.
+
+  What was left after the ground changed: the product's label in violet, its price and the
+  promo's button in gold, and the unticked wrapping price in a third grey. Four colours doing
+  work that size and weight already do, on a card that is now the page. Gold is spent once on
+  this screen, on the button, and everything else is ink or ink-soft.
+
+  The two inside the book's own thumbnail are not on this list: cream over a painting is the
+  cover, not a colour choice this screen gets to make.
+*/
+.journey-checkout .ux-checkout-stage > .ux-order-summary .ux-compact-product small,
+.journey-checkout .ux-checkout-stage > .ux-order-summary .ux-promo-panel button,
+.journey-checkout
+  .ux-checkout-stage
+  > .ux-order-summary
+  .summary-lines
+  > .ux-gift-wrap:not(.is-on)
+  .ux-summary-option-end
+  > strong {
+  color: var(--jw-ink-soft);
+}
+.journey-checkout .ux-checkout-stage > .ux-order-summary .ux-compact-product span {
+  color: var(--jw-ink);
+}
+
+/*
+  And one grey, not two.
+
+  The cream rail introduced #5b5470 for its row labels while the rest of the light palette was
+  already using --jw-ink-soft (#655f72). Ten units apart is not a distinction anybody reads as
+  meaning anything - it is just a second answer to the same question, and on a screen whose
+  whole complaint was too many colours in the text it is the last one to remove.
+*/
+.journey-checkout .ux-checkout-stage > .ux-order-summary .summary-lines > span,
+.journey-checkout .ux-checkout-stage > .ux-order-summary .summary-lines > .ux-summary-option,
+.journey-checkout .ux-checkout-stage > .ux-order-summary .summary-lines > div,
+.journey-checkout .ux-checkout-stage > .ux-order-summary .ux-delivery-option,
+.journey-checkout .ux-checkout-stage > .ux-order-summary .ux-delivery-label,
+.journey-checkout .ux-checkout-stage > .ux-order-summary .ux-promo-panel,
+.journey-checkout .ux-checkout-stage > .ux-order-summary .ux-promo-panel label > span {
+  color: var(--jw-ink-soft);
+}

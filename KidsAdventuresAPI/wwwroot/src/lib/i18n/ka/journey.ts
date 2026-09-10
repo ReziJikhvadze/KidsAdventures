@@ -1,5 +1,10 @@
 export const journey = {
   steps: {
+    /* The three marks under the header. Named rather than numbered: "2 / 3" tells a parent how
+       far they are, and the name tells them what they are doing. */
+    trailOne: "სამყარო",
+    trailTwo: "გმირი",
+    trailThree: "წიგნი",
     one: "ნაბიჯი 1 / 3",
     two: "ნაბიჯი 2 / 3",
     three: "ნაბიჯი 3 / 3 · Preview",

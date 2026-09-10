@@ -977,10 +977,6 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
               {draft.promoCode} <strong>−{formatGel(discountMinor)}</strong>
             </span>
           ) : null}
-          <div>
-            {t.journey.checkout.total}
-            <strong>{formatGel(totalMinor)}</strong>
-          </div>
         </div>
 
         {/*
@@ -1049,15 +1045,29 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             </p>
           ) : null}
         </div>
+      </aside>
 
-        {error ? <p className="ux-form-error">{error}</p> : null}
+      {error ? <p className="ux-form-error">{error}</p> : null}
 
-        {/*
-          The button says what it is doing. Behind it a portrait is uploaded and an order is
-          created, which is seconds on a phone connection — and it used to keep its ordinary
-          label throughout, so the only sign anything had happened was that the press did
-          nothing. aria-busy so it is not only the sighted parent who is told.
-        */}
+      {/*
+        The button says what it is doing. Behind it a portrait is uploaded and an order is
+        created, which is seconds on a phone connection — and it used to keep its ordinary
+        label throughout, so the only sign anything had happened was that the press did
+        nothing. aria-busy so it is not only the sighted parent who is told.
+      */}
+      {/*
+        The answer and the action, on one line at the foot of the column.
+
+        They were the last two rows of a rail down the right-hand side: the total set in gold
+        at 30px, the button under it. With the rail gone the column has to end somewhere, and
+        it ends the way a till does - what it comes to, and the way to pay it, side by side and
+        in reach. Sticky, so a long address never scrolls the price out of sight.
+      */}
+      <div className="ux-checkout-bar">
+        <span className="ux-checkout-bar-total">
+          <small>{t.journey.checkout.total}</small>
+          <strong>{formatGel(totalMinor)}</strong>
+        </span>
         <button
           className="button button-primary checkout-pay"
           type="button"
@@ -1080,15 +1090,15 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             </>
           )}
         </button>
-        {/*
-          No way back from here.
+      </div>
+      {/*
+        No way back from here.
 
-          The button under the pay button was a link to the preview, and it is the one thing on
-          this screen that is not the order: a parent one press from the bank was being offered
-          somewhere else to go. The browser's own back button still does it for anyone who wants
-          it, and losing the link is what lets the column fit a screen without a scrollbar.
-        */}
-      </aside>
+        The button under the pay button was a link to the preview, and it is the one thing on
+        this screen that is not the order: a parent one press from the bank was being offered
+        somewhere else to go. The browser's own back button still does it for anyone who wants
+        it, and losing the link is what lets the column fit a screen without a scrollbar.
+      */}
     </section>
   );
 }
