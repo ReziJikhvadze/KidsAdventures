@@ -700,7 +700,7 @@
   font-family: var(--font-display);
   font-feature-settings: var(--display-caps);
   font-size: clamp(15px, 1.63vw, 28px);
-  font-weight: 600;
+  font-weight: 800;
   line-height: 1.05;
 }
 

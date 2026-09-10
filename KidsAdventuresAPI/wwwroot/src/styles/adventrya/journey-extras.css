@@ -833,7 +833,7 @@
   font-family: var(--font-display);
   font-feature-settings: var(--display-caps);
   font-size: clamp(32px, 3vw, 45px);
-  font-weight: 400;
+  font-weight: 800;
   line-height: 1.12;
 }
 .reader-shared-heading > p:not(.eyebrow) {

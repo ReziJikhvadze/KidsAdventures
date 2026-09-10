@@ -19,11 +19,20 @@
    * those few marks come from Noto while the letters stay Ottia.
    */
   --font-display: "Adventrya Display", "Adventrya Serif", ui-serif, Georgia, serif;
-  /* Everything Tailwind and the shadcn components set in "sans" reads this, so the same face
-     reaches the parts of the product that were never written in the Adventrya stylesheets. */
-  --font-sans:
-    "Adventrya Display", "Adventrya Sans", "Noto Sans Georgian", ui-sans-serif, system-ui,
-    sans-serif;
+  /*
+    Everything Tailwind and the shadcn components set in "sans" reads this - and it led with
+    Ottia, which is a title face.
+
+    It is on `body`, so every part of the product not written in the Adventrya stylesheets took
+    its ordinary text from a face drawn for headings: one weight, so a bold label was the
+    browser thickening something nobody drew bold, and no dash, colon, apostrophe or lari sign,
+    so a line of small print resolved glyph by glyph across two faces. The Adventrya sheets have
+    used Noto Sans Georgian for reading text since it was introduced; this is the same stack,
+    so the rest of the product now matches them instead of contradicting them.
+
+    Ottia stays where it belongs, on --font-display.
+  */
+  --font-sans: "Noto Sans Georgian", "Adventrya Sans", ui-sans-serif, system-ui, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -115,19 +124,34 @@
     -webkit-font-smoothing: antialiased;
     font-feature-settings: "ss01", "cv11";
   }
+  /*
+    Mtavruli, and the one weight Ottia has.
+
+    Georgian has two cases of the same alphabet and Ottia draws both; the second is reached
+    through the OpenType `case` feature, which --display-caps carries. Every heading in the
+    Adventrya sheets asks for it, and these did not - so a heading rendered here was mkhedruli
+    beside mtavruli everywhere else.
+
+    400 rather than 600 for the same reason fonts.css declares one weight: the file has one, and
+    600 was the browser smearing it. A heavier heading needs a Bold cut of Ottia, not a heavier
+    number.
+  */
   h1,
   h2,
   h3,
   h4 {
     font-family: var(--font-display);
+    font-feature-settings: var(--display-caps);
     letter-spacing: -0.02em;
-    font-weight: 600;
+    font-weight: 800;
   }
 }
 
 @layer utilities {
   .font-display {
     font-family: var(--font-display);
+    font-weight: 800;
+    font-feature-settings: var(--display-caps);
   }
   .text-balance {
     text-wrap: balance;
@@ -234,8 +258,9 @@
 
 .adventrya-toast-title {
   font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 800;
   line-height: 1.35;
   letter-spacing: -0.02em;
   color: var(--foreground);

@@ -201,6 +201,7 @@
 .world-window-copy h2 {
   margin: 7px 0 15px;
   font-family: var(--font-display);
+  font-weight: 800;
   font-feature-settings: var(--display-caps);
   font-size: 20px;
   line-height: 1.25;
@@ -253,7 +254,7 @@
   font-family: var(--font-display);
   font-feature-settings: var(--display-caps);
   font-size: clamp(20px, 1.7vw, 24px);
-  font-weight: 600;
+  font-weight: 800;
 }
 .dashboard-section-heading > span {
   color: #29233a6b;
@@ -838,6 +839,7 @@
 .dashboard-preview-gate h1 {
   margin: 12px 0 0;
   font-family: var(--font-display);
+  font-weight: 800;
   font-feature-settings: var(--display-caps);
   font-size: clamp(20px, 2.1vw, 25px);
   line-height: 1.25;

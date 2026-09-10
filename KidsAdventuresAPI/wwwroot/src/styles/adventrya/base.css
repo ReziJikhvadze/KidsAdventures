@@ -242,7 +242,7 @@ svg {
   margin: 0;
   font-family: var(--font-display);
   font-feature-settings: var(--display-caps);
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: -0.035em;
 }
 .hero-copy h1 {
@@ -767,6 +767,7 @@ svg {
   margin: 5px 0 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-weight: 800;
   font-feature-settings: var(--display-caps);
   font-size: 30px;
 }

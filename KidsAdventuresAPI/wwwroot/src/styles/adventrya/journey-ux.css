@@ -42,7 +42,7 @@
   font-family: var(--font-display);
   font-feature-settings: var(--display-caps);
   font-size: clamp(38px, 3.2vw, 50px);
-  font-weight: 400;
+  font-weight: 800;
   line-height: 1.12;
   letter-spacing: -0.035em;
 }
@@ -591,6 +591,7 @@
   margin: 3px 0 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-weight: 800;
   font-feature-settings: var(--display-caps);
   font-size: 16px;
 }
@@ -1003,6 +1004,7 @@
   margin: 7px 0 0;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-weight: 800;
   font-feature-settings: var(--display-caps);
   font-size: clamp(18px, 1.5vw, 24px);
   line-height: 1.2;
@@ -1109,6 +1111,7 @@
   margin: 4px 0 5px;
   color: #fff8eb;
   font-family: var(--font-display);
+  font-weight: 800;
   font-feature-settings: var(--display-caps);
   font-size: 19px;
 }
@@ -1370,7 +1373,7 @@
   font-family: var(--font-display);
   font-feature-settings: var(--display-caps);
   font-size: 30px;
-  font-weight: 400;
+  font-weight: 800;
   letter-spacing: -0.03em;
 }
 /* The product, the breakdown and the code sit at the top; the total and the button at the
@@ -3065,7 +3068,7 @@
   font-family: var(--font-display);
   font-feature-settings: var(--display-caps);
   font-size: 21px;
-  font-weight: 400;
+  font-weight: 800;
 }
 
 .ux-form-error-dialog p {
