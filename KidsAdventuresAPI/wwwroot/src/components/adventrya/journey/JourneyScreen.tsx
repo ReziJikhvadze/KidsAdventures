@@ -6,13 +6,14 @@ import { CheckoutStage } from "@/components/adventrya/journey/CheckoutStage";
 import { GeneratingStage } from "@/components/adventrya/journey/GeneratingStage";
 import { PreviewStage } from "@/components/adventrya/journey/PreviewStage";
 import { ProfileStage } from "@/components/adventrya/journey/ProfileStage";
-import { getGuestPreviewStatus } from "@/lib/api/adventure-packs";
+import { claimGuestPreview, getGuestPreviewStatus } from "@/lib/api/adventure-packs";
 import { getCharacter, fetchCharacterPhotoObjectUrl } from "@/lib/api/characters";
 import { getToken, resolveApiUrl } from "@/lib/api/client";
 import type { CharacterGender, CharacterType, EyeColor } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useT } from "@/lib/i18n";
 import { useJourneyDraft, type DraftCharacter } from "@/lib/journey/draft";
+import { readPendingRun } from "@/lib/journey/pendingRun";
 import { readJourneyResume } from "@/lib/journey/resume";
 import { readyPreviewPatch } from "@/lib/journey/previewRecovery";
 import {
@@ -270,6 +271,32 @@ export function JourneyScreen() {
       goToStage("checkout");
     }
   }, [stage, isAuthenticated, isLoading, goToStage]);
+
+  /*
+    The preview follows the parent into the account they have just signed into.
+
+    "Preview შენახულია" is what the sign-in screen promises, and it was true of this tab and
+    nothing else: the run was written before there was an account to own it, and only a payment
+    ever attached one. So a parent who read their preview, signed in and closed the laptop had no
+    way back to it, and their own space had nothing to show.
+
+    One call, at the moment the session appears, for whichever run this journey is standing on —
+    the draft's when the preview is loaded, the device's pointer when the tab was opened by an
+    emailed link. It changes nothing else about the run: not bought, and not kept any longer than
+    the day an unbought preview lives. Failure is silence on purpose; the journey already holds
+    the id it needs, and the next visit tries again.
+  */
+  const claimedPreview = useRef<string | null>(null);
+  const previewRunId = draft.preview?.guestPreviewId;
+  useEffect(() => {
+    if (isLoading || !isAuthenticated) return;
+    const runId = previewRunId || readPendingRun()?.runId;
+    if (!runId || claimedPreview.current === runId) return;
+    claimedPreview.current = runId;
+    void claimGuestPreview(runId).catch(() => {
+      /* the pointer is still on the device; nothing here is worth interrupting a sign-in for */
+    });
+  }, [isAuthenticated, isLoading, previewRunId]);
 
   // Returning from Stripe. The order id comes back in the query string, and the draft is no
   // longer persisted, so this is what reconnects a parent to the book they just paid for —

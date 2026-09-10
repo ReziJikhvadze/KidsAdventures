@@ -9,6 +9,7 @@ import {
   Package,
   Plus,
   Printer,
+  Sparkles,
   UserPlus,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -21,6 +22,7 @@ import {
   downloadAdventurePack,
   generatePackPdf,
   listAdventurePacks,
+  listGuestPreviews,
   PackStillWorkingError,
   pollAdventurePack,
 } from "@/lib/api/adventure-packs";
@@ -31,6 +33,7 @@ import type {
   AdventureMapResponse,
   AdventurePackResponse,
   CharacterResponse,
+  GuestPreviewSummary,
   PrintOrderResponse,
   ShippingAddressRequest,
   WorldNodeResponse,
@@ -107,6 +110,14 @@ export function DashboardScreen({
   const [characters, setCharacters] = useState<CharacterResponse[]>([]);
   const [characterId, setCharacterId] = useState<string | null>(null);
   const [packs, setPacks] = useState<AdventurePackResponse[]>([]);
+  /*
+    The other half of the shelf: previews this parent started and has not bought.
+
+    Kept apart from `packs` rather than folded into them, because they are a different object -
+    no reader, no PDF, no printed copy, and a life measured in hours. What they share is the
+    child they belong to, which is what lets them stand on the same shelf under the same name.
+  */
+  const [previews, setPreviews] = useState<GuestPreviewSummary[]>([]);
   const [printOrders, setPrintOrders] = useState<PrintOrderResponse[]>([]);
   const [map, setMap] = useState<AdventureMapResponse | null>(null);
   const [mapsByCharacter, setMapsByCharacter] = useState<Record<string, AdventureMapResponse>>({});
@@ -167,17 +178,21 @@ export function DashboardScreen({
     let cancelled = false;
     void (async () => {
       try {
-        const [chars, allPacks, prints, maps] = await Promise.all([
+        const [chars, allPacks, prints, maps, unbought] = await Promise.all([
           listCharacters(),
           listAdventurePacks(),
           listPrintOrders().catch(() => [] as PrintOrderResponse[]),
           listAdventureMaps().catch(() => null),
+          // Swallowed like the others: a shelf of finished books is still worth showing when
+          // the previews cannot be read, and there is usually nothing to read anyway.
+          listGuestPreviews().catch(() => [] as GuestPreviewSummary[]),
         ]);
         if (cancelled) return;
         const kids = chars.filter((c) => c.characterType === "child" || c.isPrimary);
         const list = kids.length ? kids : chars;
         setCharacters(list);
         setPacks(allPacks);
+        setPreviews(unbought);
         setPrintOrders(prints);
 
         if (maps) {
@@ -289,6 +304,26 @@ export function DashboardScreen({
     return () => window.clearInterval(timer);
   }, [packs, isAuthenticated]);
 
+  /*
+    A preview being written finishes without the parent refreshing either.
+
+    The same rule as the shelf's own poll above and a slower clock: a preview takes minutes, and
+    unlike a paid book nobody is standing over this page waiting for it — they are here because
+    they walked away from it.
+  */
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (!previews.some((p) => p.status !== "Ready" && p.status !== "Failed")) return;
+    const timer = window.setInterval(() => {
+      void listGuestPreviews()
+        .then((fresh) => setPreviews(fresh))
+        .catch(() => {
+          /* the cards stand as they are; the next tick tries again */
+        });
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [previews, isAuthenticated]);
+
   const character = characters.find((c) => c.id === characterId) ?? null;
   const heroName = map?.characterName || character?.name || t.common.fallbackHeroName;
 
@@ -298,6 +333,22 @@ export function DashboardScreen({
         .filter((p) => !characterId || p.primaryCharacterId === characterId)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     [packs, characterId],
+  );
+
+  /*
+    This child's unbought previews, and the ones that belong to no child yet.
+
+    The second half is not a loophole. A preview started before the parent signed in was written
+    for a child the cabinet had never heard of — the character is created at checkout, which is
+    the step they have not reached — so filing it under the selected child would be a guess and
+    hiding it would lose it. It stands on whichever shelf is open until it is bought.
+  */
+  const childPreviews = useMemo(
+    () =>
+      previews
+        .filter((p) => !characterId || !p.characterId || p.characterId === characterId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [previews, characterId],
   );
 
   /*
@@ -675,8 +726,31 @@ export function DashboardScreen({
             </div>
           </div>
 
-          {/* A book still being written, and the way back into it. */}
-          {pendingRun ? (
+          {/*
+            The previews, standing on the same shelf as the books and saying which they are.
+
+            Ahead of the books on purpose: a preview is the one thing here with a clock on it -
+            unbought, it and the child's photograph are deleted the day after it is made - and it
+            is the only card that asks the parent for a decision rather than offering them
+            something they already own.
+          */}
+          {childPreviews.length > 0 ? (
+            <div className="journey-books">
+              {childPreviews.map((preview) => (
+                <PreviewCard key={preview.runId} preview={preview} heroName={heroName} />
+              ))}
+            </div>
+          ) : null}
+
+          {/*
+            The device's own pointer, and only when the account knows of no preview at all.
+
+            It reads localStorage, so it is the last resort rather than the first: a run started
+            before this parent had an account, in a browser that never came back signed in, is
+            invisible to the list above and this strip is all there is of it. When the list has
+            anything, this would be a second, vaguer card for the same book.
+          */}
+          {pendingRun && childPreviews.length === 0 ? (
             <div className="journey-resume">
               <span className="journey-resume-spark" aria-hidden="true">
                 <Loader2 />
@@ -862,6 +936,129 @@ function DrawingCard({ pack, heroName }: { pack: AdventurePackResponse; heroName
       </div>
       {percent !== null ? <strong className="journey-resume-percent">{percent}%</strong> : null}
     </div>
+  );
+}
+
+/**
+ * One preview on the shelf: the cover as far as it has got, where it is, and the way back to it.
+ *
+ * Shaped like a book card and never mistakable for one. A book is opened; a preview is decided
+ * about, so this one carries a badge that says what it is, the line the story is on right now,
+ * and the hours it has left before it and the child's photograph are deleted.
+ *
+ * The link carries the run id. Everything else about resuming a preview has always been read
+ * from the browser that started it, which is exactly the thing this card exists to get past: the
+ * parent read the preview on a phone and is looking at a laptop. Named in the address, the
+ * preview stage polls that run instead of starting - and paying for - another.
+ */
+function PreviewCard({ preview, heroName }: { preview: GuestPreviewSummary; heroName: string }) {
+  const WORLD_BY_ID = useWorldById();
+  const t = useT();
+  const worldId = preview.worldId && isWorldId(preview.worldId) ? preview.worldId : "dinosaurs";
+  const world = WORLD_BY_ID[worldId];
+  // The painted cover once there is one; the world's own art until then, exactly as the preview
+  // screen does while the illustrator is still working.
+  const cover = useIllustrationUrl(preview.coverImageUrl) ?? WORLD_COVER_ART[worldId];
+  const childName = preview.childName?.trim() || heroName;
+  const title = preview.title?.trim() || world.bookTitle(childName);
+  const ready = preview.status === "Ready";
+  const failed = preview.status === "Failed";
+
+  /*
+    How long it has left, in whole hours, and never a number that flatters.
+
+    Rounded down: "3 hours" when there are three and a half is a promise we keep, and "4" would
+    not be. Under an hour it stops counting and says so - a parent with forty minutes left does
+    not need to watch the minutes.
+  */
+  const expiresIn = useMemo(() => {
+    if (!preview.expiresAt) return null;
+    const left = new Date(preview.expiresAt).getTime() - Date.now();
+    if (Number.isNaN(left) || left <= 0) return null;
+    const hours = Math.floor(left / 3_600_000);
+    return hours >= 1
+      ? t.dashboard.library.previewExpiresIn(hours)
+      : t.dashboard.library.previewExpiresSoon;
+  }, [preview.expiresAt, t]);
+
+  const statusLine = failed
+    ? preview.errorMessage || t.dashboard.library.previewFailed
+    : ready
+      ? t.dashboard.library.previewReady
+      : preview.progressMessage || t.dashboard.library.previewWriting;
+
+  // A run named in the address is polled rather than started; the world and the child spare the
+  // resumed journey the two questions it would otherwise ask again. See `runFromUrl`.
+  const resumeSearch: Record<string, string> = {
+    resume: "1",
+    run: preview.runId,
+    world: worldId,
+  };
+  if (preview.characterId) resumeSearch.characterId = preview.characterId;
+
+  // The way out of a preview that will never finish is another book, not this one again - and it
+  // begins at the picker, which asks rather than generates.
+  const retryParts = (() => {
+    const [path, query = ""] = newBookHref(preview.characterId ?? null).split("?");
+    return { to: path, search: Object.fromEntries(new URLSearchParams(query).entries()) };
+  })();
+
+  return (
+    <article className="journey-book journey-preview">
+      {/* Not a link: there is nothing to open yet. The button below is the only way on. */}
+      <span className="journey-cover" style={{ backgroundImage: `url("${cover}")` }}>
+        <span className="journey-cover-brand">BEKI</span>
+        <span className="journey-cover-title">{title}</span>
+      </span>
+
+      <div className="journey-book-body">
+        <div className="journey-book-top">
+          <span className="journey-badge journey-badge-preview">
+            <Sparkles aria-hidden="true" />
+            {t.dashboard.library.statusPreview}
+          </span>
+          {expiresIn ? <span className="journey-book-date">{expiresIn}</span> : null}
+        </div>
+
+        <div>
+          <h3>{title}</h3>
+          <p>{world.theme}</p>
+        </div>
+
+        <p className={`journey-preview-line${failed ? " is-failed" : ""}`} role="status">
+          {ready ? <Check aria-hidden="true" /> : failed ? null : <Loader2 aria-hidden="true" />}
+          {statusLine}
+        </p>
+
+        {/*
+          Solid only when there is something to decide.
+
+          A preview that is ready is the one card on this shelf asking for money, so it gets the
+          page's primary button; one still being written, or one that failed, gets the outline —
+          the same pair the two buttons at the top of the page already use.
+        */}
+        {failed ? (
+          <Link
+            className="journey-button journey-quiet-button"
+            to={retryParts.to}
+            search={retryParts.search}
+          >
+            {t.dashboard.library.previewRetry}
+            <ArrowRight aria-hidden="true" />
+          </Link>
+        ) : (
+          <Link
+            className={`journey-button ${ready ? "journey-primary-button" : "journey-quiet-button"}`}
+            to="/create"
+            hash="preview"
+            search={resumeSearch}
+          >
+            {ready ? t.dashboard.library.previewOrder : t.dashboard.library.previewOpen}
+            <ArrowRight aria-hidden="true" />
+          </Link>
+        )}
+      </div>
+    </article>
   );
 }
 

@@ -418,6 +418,89 @@
   color: #8d692b;
   background: var(--jw-gold-light);
 }
+/*
+  The unbought preview, in the gold the rest of the product already spends on "not finished yet".
+
+  Deliberately the same family as `.journey-badge-new` rather than a colour of its own: on a
+  shelf, a badge nobody has seen before is a puzzle, and these two mean adjacent things.
+*/
+.journey-badge-preview {
+  color: #8d692b;
+  background: var(--jw-gold-light);
+}
+/*
+  A preview card is a book card that cannot be opened.
+
+  Only two differences, and both say so rather than decorate: the gold left edge, which the eye
+  reads as "these are not your books yet" down a mixed shelf, and a cover that does not lift on
+  hover, because there is nothing under the pointer to press.
+*/
+.journey-preview {
+  border-left: 3px solid var(--jw-gold);
+}
+.journey-preview:hover {
+  border-color: var(--jw-line);
+  border-left-color: var(--jw-gold);
+  box-shadow: none;
+  transform: none;
+}
+/*
+  Where the story is, right now.
+
+  Its own line under the title rather than a second badge: a badge is a label and this is a
+  sentence that changes while the parent is looking at it - and on a failed preview it is the
+  server's own explanation, which no badge could hold.
+*/
+.journey-preview-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  color: #6c6478;
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+.journey-preview-line svg {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  color: var(--jw-gold);
+}
+/* The one that is still working turns, so a shelf left open shows a book being written. */
+.journey-preview-line svg.lucide-loader-circle,
+.journey-preview-line svg.lucide-loader-2 {
+  animation: journey-preview-spin 1.1s linear infinite;
+}
+.journey-preview-line.is-failed {
+  color: #a3563f;
+}
+/*
+  The clock stays on a phone, where a book's own date does not.
+
+  A date under a finished book is a nicety and the narrow card can afford to drop it. The hours
+  left on an unbought preview are the reason to act at all, and a card that hid them would be
+  letting the parent lose a book it had told them was saved.
+*/
+@media (max-width: 780px) {
+  .journey-preview .journey-book-date {
+    display: block;
+    /* And it wraps rather than running off the card: the narrow body is about 170px, and the
+       Georgian for "under an hour left" does not fit on one line of it. */
+    white-space: normal;
+    text-align: right;
+  }
+}
+@keyframes journey-preview-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .journey-preview-line svg {
+    animation: none;
+  }
+}
 .journey-book-date {
   color: #918b98;
   font-size: 0.62rem;

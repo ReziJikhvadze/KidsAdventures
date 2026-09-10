@@ -42,6 +42,17 @@ export const dashboard = {
     statusPrinted: "Printed",
     statusLabel: "Status",
 
+    /* The unbought preview on the shelf. See the note beside the Georgian strings. */
+    statusPreview: "Preview",
+    previewWriting: "Writing the book…",
+    previewReady: "Preview is ready",
+    previewFailed: "The preview could not be made",
+    previewOrder: "Order the full book",
+    previewOpen: "See the preview",
+    previewRetry: "Try again",
+    previewExpiresIn: (hours: number) => (hours === 1 ? "1 hour left" : `${hours} hours left`),
+    previewExpiresSoon: "Under an hour left",
+
     pagingLabel: "Library pages",
     pageOf: (page: number, total: number) => `Page ${page} of ${total}`,
   },

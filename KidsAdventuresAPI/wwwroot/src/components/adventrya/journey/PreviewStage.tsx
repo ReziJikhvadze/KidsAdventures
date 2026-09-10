@@ -22,6 +22,7 @@ import {
   resumablePendingRun,
   savedCharacterIdOf,
   writePendingRun,
+  type PendingRun,
 } from "@/lib/journey/pendingRun";
 import { patchJourneyResume, writeJourneyResume } from "@/lib/journey/resume";
 import { readyPreviewPatch } from "@/lib/journey/previewRecovery";
@@ -35,6 +36,27 @@ import { useWorldById, WORLD_SCENE_ART, type WorldId } from "@/lib/worlds";
   every package click in the panel beside it.
 */
 const NO_PAGES: never[] = [];
+
+/**
+ * A preview named in the address, for a browser that has never seen it.
+ *
+ * The device's own pointer is what normally stops this screen writing a second book, and it is
+ * in localStorage — so a parent who read their preview on a phone and opened their space on a
+ * laptop would have arrived here with an empty draft and had another book written and billed.
+ * The card in their space carries the run id instead, and a run named this way is treated
+ * exactly like a run this browser started: polled, never started.
+ *
+ * The hero key is the saved child's id when the link names one, and the one string a real key
+ * can never be otherwise — `savedCharacterIdOf` reads the separator as "this run's child exists
+ * only in a draft", which is the truth for a preview started before there was an account.
+ */
+function runFromUrl(worldId: WorldId | null): PendingRun | null {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const runId = params.get("run");
+  if (!runId) return null;
+  return { runId, worldId, heroKey: params.get("characterId") || "|" };
+}
 
 type Props = {
   draft: JourneyDraft;
@@ -116,7 +138,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
     const pending = readPendingRun();
     /* The rule lives in `pendingRun.ts` now: the questions ask the same thing, to know whether a
        book is already being written before offering to start another. */
-    const resumable = resumablePendingRun(hero, draft.worldId);
+    const resumable = resumablePendingRun(hero, draft.worldId) ?? runFromUrl(draft.worldId);
     if (pending && !resumable) clearPendingRunId();
 
     // A saved hero named in the URL is still on its way from the account. Starting now would

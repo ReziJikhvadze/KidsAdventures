@@ -4,6 +4,7 @@ import type {
   AdventurePackDetailResponse,
   AdventurePackResponse,
   AdventurePackStatus,
+  GuestPreviewSummary,
   MasterStoryRunStatus,
   ThemeType,
 } from "./types";
@@ -230,6 +231,29 @@ export async function markPackRead(packId: string): Promise<void> {
 
 export async function listAdventurePacks(): Promise<AdventurePackResponse[]> {
   return apiRequest<AdventurePackResponse[]>("/api/adventure-packs");
+}
+
+/**
+ * The previews this parent started and has not bought.
+ *
+ * The shelf's other half. `listAdventurePacks` answers "what have I bought"; until now the only
+ * record of an unbought preview was the run id in the browser that made it, so a preview read on
+ * a phone was invisible on a laptop. Server-side and per account, so it is neither.
+ */
+export async function listGuestPreviews(): Promise<GuestPreviewSummary[]> {
+  return apiRequest<GuestPreviewSummary[]>("/api/adventure-packs/previews");
+}
+
+/**
+ * Puts a preview started before signing in into the account that just signed in.
+ *
+ * What makes the sign-in screen's "your preview is saved" true of the account rather than of the
+ * tab. Deliberately quiet: the server answers the same way whether the run was attached, was
+ * already this parent's, or belongs to somebody else, and a failure here costs nothing the
+ * journey needs — the browser still holds the id it is standing on.
+ */
+export async function claimGuestPreview(runId: string): Promise<void> {
+  await apiRequest<void>(`/api/adventure-packs/guest-preview/${runId}/claim`, { method: "POST" });
 }
 
 export async function getAdventurePack(id: string): Promise<AdventurePackDetailResponse> {

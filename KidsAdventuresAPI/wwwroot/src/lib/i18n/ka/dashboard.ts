@@ -60,6 +60,31 @@ export const dashboard = {
     statusPrinted: "ბეჭდური",
     statusLabel: "სტატუსი",
 
+    /*
+      The unbought preview, on the same shelf as the books.
+
+      "პრივიუ" is the word the whole journey already uses for it - the preview screen, the
+      sign-in screen and the home page all say it - so the shelf says it too rather than
+      inventing a second name for the same object. The badge is what separates this card from a
+      book; everything below it says where the story stands and how long it will be there.
+    */
+    statusPreview: "პრივიუ",
+    previewWriting: "წიგნი იწერება…",
+    previewReady: "პრივიუ მზადაა",
+    previewFailed: "პრივიუ ვერ შეიქმნა",
+    /* The one button. "შეუკვეთე სრული წიგნი" and not "გააგრძელე": what the parent is going
+       back to is the decision, and the card should say which decision. */
+    previewOrder: "შეუკვეთე სრული წიგნი",
+    previewOpen: "ნახე პრივიუ",
+    previewRetry: "სცადე ხელახლა",
+    /*
+      The clock. An unbought preview and the portrait it was given are deleted a day after it is
+      made, so a card that stayed silent about it would be promising something we delete. Whole
+      hours only, rounded down: the number has to be one we can keep.
+    */
+    previewExpiresIn: (hours: number) => `დარჩა ${hours} საათი`,
+    previewExpiresSoon: "ბოლო საათი",
+
     pagingLabel: "წიგნების გვერდები",
     pageOf: (page: number, total: number) => `გვერდი ${page} / ${total}`,
   },
