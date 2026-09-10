@@ -1,4 +1,4 @@
-import { ArrowRight, Check, MapPin, Minus, Plus, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Gift, MapPin, Minus, Plus, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { BekiLoader } from "@/components/adventrya/BekiLoader";
@@ -937,6 +937,11 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
           {isPrint ? (
             <label className={`ux-summary-option ux-gift-wrap${draft.giftWrap ? " is-on" : ""}`}>
               <span>
+                {/* The one row on the card that is an offer rather than a fact, so it is the one
+                    drawn as a thing to press: a bordered card with the parcel's own icon. */}
+                <span className="ux-wrap-icon" aria-hidden="true">
+                  <Gift />
+                </span>
                 <strong>{t.journey.checkout.giftWrap}</strong>
               </span>
               <span className="ux-summary-option-end">

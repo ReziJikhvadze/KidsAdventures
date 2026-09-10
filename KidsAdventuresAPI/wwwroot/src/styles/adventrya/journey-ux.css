@@ -3828,3 +3828,104 @@
   > strong {
   color: #7a7390;
 }
+
+/* ==========================================================================
+   The shapes, not only the colours.
+
+   The card was put back on paper and the text made readable, and it still did not look like the
+   screen it was drawn from - because what was different was never the palette. Four things, each
+   a shape:
+   ========================================================================== */
+
+/* Paper rather than parchment: flat and near-white, not a cream gradient going tan at the foot. */
+.ux-checkout-stage > .ux-order-summary {
+  border: 1px solid #ece6dc;
+  border-radius: 24px;
+  background: #fffdf8;
+  box-shadow: 0 30px 70px #07041340;
+}
+
+/*
+  Wrapping is a card, and the only one on the panel.
+
+  Every other row is a fact about the order - what it is, where it goes, what it costs - and they
+  are lines because a line is what a fact looks like. This one is an offer, the single thing on
+  the card a parent can still say yes to, and it is drawn the way the rest of the shop draws
+  something you press: a bordered box, the parcel's own icon in a soft square beside it, and the
+  price at the end.
+*/
+.ux-checkout-stage > .ux-order-summary .summary-lines > .ux-gift-wrap {
+  gap: 10px;
+  margin: 10px 0;
+  padding: 9px 12px;
+  border: 1px solid #ece6dc;
+  border-radius: 14px;
+  background: #fffdf8;
+}
+.ux-checkout-stage > .ux-order-summary .summary-lines > .ux-gift-wrap > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ux-wrap-icon {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  color: #7a5cc4;
+  background: #efeaff;
+}
+.ux-wrap-icon svg {
+  width: 17px;
+  height: 17px;
+}
+.ux-checkout-stage > .ux-order-summary .ux-gift-wrap.is-on {
+  border-color: #d9c8a2;
+  background: #fdf7e9;
+}
+
+/* The switch, in the violet the icon beside it is in rather than the rail's old cream. */
+.ux-checkout-stage > .ux-order-summary .ux-switch {
+  background: #ded4f4;
+}
+.ux-checkout-stage > .ux-order-summary .ux-switch::before {
+  background: #fff;
+  box-shadow: 0 1px 3px #2a1d5233;
+}
+.ux-checkout-stage > .ux-order-summary .ux-gift-wrap.is-on .ux-switch {
+  background: #7a5cc4;
+}
+.ux-checkout-stage > .ux-order-summary .ux-gift-wrap.is-on .ux-switch::before {
+  background: #fff;
+}
+
+/*
+  The chosen delivery is a ring around a dot, not a filled disc.
+
+  A solid circle with a hole punched in it is what a radio looks like when it is painted for a
+  dark panel, where the hole is the panel showing through. On paper the same drawing reads as a
+  full stop, and the two rows stop looking like a pair of alternatives.
+*/
+.ux-checkout-stage > .ux-order-summary .ux-delivery-option.is-on .ux-radio {
+  border: 2px solid #c99a3f;
+  background: #fffdf8;
+}
+.ux-checkout-stage > .ux-order-summary .ux-delivery-option.is-on .ux-radio::after {
+  inset: 3px;
+  background: #c99a3f;
+}
+
+/* And the code goes in a field that looks like one. */
+.ux-checkout-stage > .ux-order-summary .ux-promo-panel input {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #ece6dc;
+  border-radius: 12px;
+}
+.ux-checkout-stage > .ux-order-summary .ux-promo-panel button {
+  min-height: 44px;
+  border: 1px solid #ece6dc;
+  border-radius: 12px;
+}
