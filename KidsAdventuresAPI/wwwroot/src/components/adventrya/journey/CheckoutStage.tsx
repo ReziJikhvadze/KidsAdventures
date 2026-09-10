@@ -15,7 +15,6 @@ import type {
   ShippingAddressRequest,
 } from "@/lib/api/types";
 import {
-  bookLanguageLabel,
   formatGel,
   formatGelAmount,
   formatGeorgianPhone,
@@ -111,7 +110,6 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   // The book is written in whatever language the parent is reading the site in — there is no
   // separate choice to make, so there is nothing to remember and nothing to get out of step.
   const { locale } = useLocale();
-  const langLabel = bookLanguageLabel(locale);
 
   const [quote, setQuote] = useState<QuoteResponse | null>(null);
   /*
@@ -870,9 +868,6 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
               <strong>{formatGel(subtotalMinor - giftWrapMinor - deliveryMinor)}</strong>
             </span>
           )}
-          <span>
-            {t.journey.checkout.bookLanguage} <strong>{langLabel}</strong>
-          </span>
           {/*
             Delivery, where the parent can see what it costs them to wait.
 

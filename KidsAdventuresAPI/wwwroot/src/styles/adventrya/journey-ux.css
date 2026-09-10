@@ -3681,3 +3681,150 @@
     will-change: auto;
   }
 }
+
+/* ==========================================================================
+   The rail, back on paper.
+
+   It had been rebuilt as a violet panel with a blur behind it, and every line on it was written
+   in an alpha: the row labels at 62%, their values at 84%, the total's caption at 62%. Over a
+   background that is itself half-transparent, and over whatever the page's photograph put
+   underneath, that is not "quiet" - it is a price a parent has to lean in to read, which is the
+   one thing on a checkout that may never be hard to read.
+
+   Owner's call, from the screen they sent: the cream card. It is the surface `.order-summary`
+   has always described in journey.css, so this block is mostly the dark layer standing down -
+   the shape, the rows, the stepper and the big total all stay. What changes is that no colour in
+   here carries an alpha any more. Every one of them is a colour.
+   ========================================================================== */
+
+.ux-checkout-stage > .ux-order-summary {
+  max-width: 480px;
+  padding: 24px;
+  border: 1px solid rgba(239, 227, 207, 0.22);
+  border-radius: 26px 26px 48px;
+  color: var(--ink);
+  background: linear-gradient(145deg, #f8f2e5f2, #e7dac4e6);
+  box-shadow: 0 32px 72px #07041352;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* The book, its format, and what it costs. */
+.ux-checkout-stage > .ux-order-summary .ux-compact-product small {
+  color: #6b5aa8;
+}
+.ux-checkout-stage > .ux-order-summary .ux-compact-product strong {
+  color: var(--ink);
+}
+.ux-checkout-stage > .ux-order-summary .ux-compact-product span {
+  color: #8a6416;
+}
+
+/* The breakdown: a grey that is a grey, and a hairline dark enough to be a line. */
+.ux-checkout-stage > .ux-order-summary .summary-lines,
+.ux-checkout-stage > .ux-order-summary .summary-lines > span strong,
+.ux-checkout-stage > .ux-order-summary .summary-lines > .ux-summary-option > span > strong,
+.ux-checkout-stage > .ux-order-summary .summary-lines .ux-summary-option-end > strong {
+  color: var(--ink);
+}
+.ux-checkout-stage > .ux-order-summary .summary-lines > span,
+.ux-checkout-stage > .ux-order-summary .summary-lines > .ux-summary-option,
+.ux-checkout-stage > .ux-order-summary .summary-lines > div {
+  border-bottom-color: rgba(41, 35, 58, 0.12);
+  color: #5b5470;
+}
+.ux-checkout-stage > .ux-order-summary .ux-discount-line,
+.ux-checkout-stage > .ux-order-summary .ux-discount-line strong {
+  color: #2f6d53 !important;
+}
+/* The total keeps its size and its gold - that is the one figure on the card that may shout. */
+.ux-checkout-stage > .ux-order-summary .summary-lines > div strong {
+  color: #b07d24;
+}
+
+/* Delivery: the unchosen line is readable, and the chosen one is darker rather than brighter. */
+.ux-checkout-stage > .ux-order-summary .ux-delivery-option {
+  border-bottom-color: rgba(41, 35, 58, 0.12);
+  color: #5b5470;
+}
+.ux-checkout-stage > .ux-order-summary .ux-delivery-option.is-on {
+  color: var(--ink);
+}
+.ux-checkout-stage > .ux-order-summary .ux-delivery-option > strong {
+  color: var(--ink);
+}
+.ux-checkout-stage > .ux-order-summary .ux-delivery-option.is-on > strong {
+  color: #b07d24;
+}
+.ux-checkout-stage > .ux-order-summary .ux-radio {
+  border-color: rgba(41, 35, 58, 0.28);
+  background: #fffdf8;
+}
+.ux-checkout-stage > .ux-order-summary .ux-delivery-option.is-on .ux-radio {
+  border-color: #c99a3f;
+  background: #c99a3f;
+}
+/* The dot inside the chosen circle was the panel's violet; on paper it is the paper. */
+.ux-checkout-stage > .ux-order-summary .ux-delivery-option.is-on .ux-radio::after {
+  background: #fbf5e8;
+}
+.ux-checkout-stage > .ux-order-summary .ux-delivery-label,
+.ux-checkout-stage > .ux-order-summary .ux-delivery-hint {
+  color: #5b5470;
+}
+
+/* The stepper and the code, on paper rather than over it. */
+.ux-checkout-stage > .ux-order-summary .ux-copies-stepper {
+  border-color: rgba(41, 35, 58, 0.16);
+  background: #fffdf8;
+}
+.ux-checkout-stage > .ux-order-summary .ux-copies-stepper button,
+.ux-checkout-stage > .ux-order-summary .ux-copies-stepper b {
+  color: var(--ink);
+}
+.ux-checkout-stage > .ux-order-summary .ux-promo-panel,
+.ux-checkout-stage > .ux-order-summary .ux-promo-panel label > span {
+  color: #5b5470;
+}
+.ux-checkout-stage > .ux-order-summary .ux-promo-panel input {
+  border-color: rgba(41, 35, 58, 0.16);
+  color: var(--ink);
+  background: #fffdf8;
+}
+.ux-checkout-stage > .ux-order-summary .ux-promo-panel input::placeholder {
+  color: #7a7390;
+}
+.ux-checkout-stage > .ux-order-summary .ux-promo-panel button {
+  color: #8a6416;
+}
+.ux-checkout-stage > .ux-order-summary .ux-form-error {
+  border-color: rgba(160, 62, 55, 0.24);
+  color: #8c3a34;
+  background: #f7e3e1;
+}
+
+/*
+  The two things the paper still had against it.
+
+  The code's panel was a violet wash - invisible on the old dark rail, a grey brick on this one -
+  and it has nothing to be: the label and the field say where they are. And the wrapping price
+  was set at 32% while unticked, on the argument that five lari nobody has agreed to is an offer
+  rather than a charge. True, and the way to say it is a lighter grey, not a colour a parent
+  cannot read at all - the offer is the part they have to be able to see to accept it.
+*/
+.ux-checkout-stage > .ux-order-summary .ux-promo-panel {
+  padding: 0;
+  background: transparent;
+}
+.ux-checkout-stage > .ux-order-summary .ux-promo-panel button {
+  border-color: rgba(41, 35, 58, 0.18);
+  background: #fffdf8;
+}
+.ux-checkout-stage
+  > .ux-order-summary
+  .summary-lines
+  > .ux-gift-wrap:not(.is-on)
+  .ux-summary-option-end
+  > strong {
+  color: #7a7390;
+}
