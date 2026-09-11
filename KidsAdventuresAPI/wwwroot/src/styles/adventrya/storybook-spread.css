@@ -238,7 +238,7 @@
 }
 .storybook.uses-desktop-spread.is-closed .storybook-volume {
   width: min(var(--book-width), 100%);
-  aspect-ratio: 1.085;
+  aspect-ratio: 1.1;
 }
 .storybook.uses-desktop-spread.is-open .storybook-surface {
   overflow: visible;
@@ -940,7 +940,7 @@
 }
 .storybook.is-fullscreen.uses-desktop-spread.is-closed .storybook-volume {
   width: min(50%, 108.5cqh);
-  aspect-ratio: 1.085;
+  aspect-ratio: 1.1;
 }
 .storybook.is-fullscreen .storybook-surface {
   border-radius: 10px;

@@ -3980,7 +3980,7 @@
 .ux-resume-preview img {
   width: 52px;
   flex: none;
-  aspect-ratio: 1.085;
+  aspect-ratio: 1.1;
   object-fit: cover;
   border-radius: 8px;
   box-shadow: 0 6px 16px #0a05194d;

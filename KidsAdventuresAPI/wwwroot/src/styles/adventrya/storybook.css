@@ -69,8 +69,13 @@
 .storybook-volume {
   position: relative;
   width: min(var(--book-width), 100%);
-  /* 222.5 / 205 — one cover board */
-  aspect-ratio: 1.085;
+  /*
+    220 / 200 - the front board as the server actually serves it. The cover is cut from the
+    wrap to the digital page's own proportion (BekiCoverDieline.FrontBoardDigitalCrop), not to
+    the physical board's 222.5 x 205, and at the board's ratio a fraction of every painted
+    cover was being cropped away at the sides.
+  */
+  aspect-ratio: 1.1;
   flex: 0 0 auto;
   perspective: 1700px;
   isolation: isolate;
@@ -181,9 +186,15 @@
 .storybook-cover-art {
   position: absolute;
   inset: 0;
-  background-size: cover;
-  background-position: 50% 48%;
-  /* The server already crops the front board; extra zoom clips its head and foot margins. */
+  /*
+    The whole painting, always. The server already cut the front board to the page's proportion,
+    so nothing here may cut it again: contain rather than cover, and where the borders leave the
+    face a hair off the painting's ratio, that hair is board colour rather than a slice of a
+    child's head. The board behind is the cover's own dark violet.
+  */
+  background-size: contain;
+  background-position: 50% 50%;
+  background-repeat: no-repeat;
 }
 /* `.storybook-cover-wash` is gone: it darkened the band the title sits in, which on a generated
    cover is the half the child is painted into. `.storybook-cover-copy` carries its own shadow. */
@@ -1296,7 +1307,7 @@
   .ux-preview-product .storybook-preview .storybook-volume {
     max-height: 470px;
     width: min(var(--book-width), 100%);
-    aspect-ratio: 1.085;
+    aspect-ratio: 1.1;
   }
 }
 /*

@@ -7,7 +7,7 @@ export const journey = {
     trailThree: "წიგნი",
     one: "ნაბიჯი 1 / 3",
     two: "ნაბიჯი 2 / 3",
-    three: "ნაბიჯი 3 / 3 · Preview",
+    three: "ნაბიჯი 3 / 3 · ნიმუში",
     order: "შეკვეთა",
     payment: "შეკვეთა · გადახდა",
     creating: "წიგნის შექმნა",
@@ -195,7 +195,7 @@ export const journey = {
 
   previewLoader: {
     paintingCover: "ვხატავთ შენი წიგნის ყდას…",
-    heading: " პერსონალიზებული Preview იქმნება",
+    heading: " პერსონალიზებული ნიმუში იქმნება",
     subheading: "ს პირველი გვერდი უკვე მზადდება ✨",
     ariaLabel: (hero: string) => `ნახე ${hero}ს ამბავი უფასოდ`,
     /*
@@ -223,7 +223,7 @@ export const journey = {
     /* The server's own rate limit, said as what it is — a busy moment, not a fault of the parent. */
     tooBusy:
       "ამ წუთას ძალიან ბევრი ზღაპარი იწერება. სცადე რამდენიმე წუთში - შენი მონაცემები შენახულია.",
-    eyebrow: " პერსონალიზებული Preview მზადაა",
+    eyebrow: " პერსონალიზებული ნიმუში მზადაა",
     titlePrefix: "აი, როგორ იწყება ",
     titleSuffix: "ს ამბავი",
     freeFirstPage: "ნახე პირველი გვერდი უფასოდ",
@@ -267,7 +267,7 @@ export const journey = {
     eyebrow: " ერთი პატარა ნაბიჯი",
     titlePrefix: "შეინახე ",
     lead: "წიგნზე, Reader-ზე და მომავალ თავგადასავლებზე უსაფრთხო წვდომისთვის. პაროლი არ დაგჭირდება.",
-    previewSaved: " Preview შენახულია და გაგრძელების შემდეგ ზუსტად ეს წიგნი შეიქმნება.",
+    previewSaved: " ნიმუში შენახულია და გაგრძელების შემდეგ ზუსტად ეს წიგნი შეიქმნება.",
     google: " გააგრძელე Google-ით",
     apple: " გააგრძელე Apple-ით",
     googleUnavailable: "Google შესვლა ამ გარემოში მიუწვდომელია.",
@@ -524,6 +524,6 @@ export const journey = {
     wishLabel: "რისი დამატება გინდა ახალ თავგადასავალში? · არასავალდებულო",
     wishPlaceholder: "მაგ. რექსმა თან წაიღოს ძველი რუკა...",
     wishHint: "არასავალდებულო. ძველი მეგობრები და მოგონებები ავტომატურად გაგრძელდება.",
-    createNext: "შექმენი შემდეგი თავის Preview",
+    createNext: "შექმენი შემდეგი თავის ნიმუში",
   },
 };
