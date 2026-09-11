@@ -4443,10 +4443,11 @@
   The owner's question, and the right one: the column fits 1440x900 with nothing to spare, and
   a typed address brings two delivery rows that tip it over - so on the very screens that have
   the width, the page was asking parents to scroll. From 1024x768, the threshold the journey
-  already uses for its one-screen regime, the order takes the left and the form the right, on
-  the same paper with a hairline between them, and the till runs under both. The reading order
-  holds: what is being bought, then where it goes, then the button, bottom right, where the eye
-  finishes. Under that size the column stays a column.
+  already uses for its one-screen regime, the form takes the left and the order the right, on
+  the same paper with a hairline between them, and the till runs under both. The owner asked for
+  this way round, and it is the way every shop a parent has used puts it: the work on the left,
+  the receipt on the right, the total and the button at the receipt's foot. Under that size the
+  column stays a column.
 
   The tracks are the page's two answers to width: 420 for the order, which is a list, and 620
   for the form, which is the drawing's column. The outer 1fr pair centres them and gives way
@@ -4470,10 +4471,10 @@
   .journey-checkout .ux-checkout-stage {
     flex: 1 0 auto;
     display: grid;
-    grid-template-columns: 1fr minmax(320px, 420px) minmax(0, 620px) 1fr;
+    grid-template-columns: 1fr minmax(0, 620px) minmax(320px, 420px) 1fr;
     grid-template-rows: minmax(0, 1fr) auto auto;
     grid-template-areas:
-      ". order form ."
+      ". form order ."
       ". error error ."
       "bar bar bar bar";
     align-items: start;
@@ -4482,7 +4483,7 @@
   .journey-checkout .ux-checkout-stage > .ux-order-summary {
     grid-area: order;
     width: auto;
-    padding-right: 48px;
+    padding-left: 48px;
   }
   .journey-checkout .ux-checkout-stage > .checkout-form {
     grid-area: form;
@@ -4491,16 +4492,22 @@
     width: auto;
     margin-top: 0;
     padding-top: 0;
-    padding-left: 48px;
+    padding-right: 48px;
     border-top: 0;
-    border-left: 1px solid var(--jw-line);
+    border-right: 1px solid var(--jw-line);
   }
   .journey-checkout .ux-checkout-stage > .ux-form-error {
     grid-area: error;
     width: auto;
   }
+  /* The total stands with the button, under the receipt, rather than alone under the form. */
   .journey-checkout .ux-checkout-stage > .ux-checkout-bar {
     grid-area: bar;
+    justify-content: flex-end;
+    gap: 28px;
     margin-top: 28px;
+  }
+  .journey-checkout .ux-checkout-bar .checkout-pay {
+    margin-left: 0;
   }
 }
