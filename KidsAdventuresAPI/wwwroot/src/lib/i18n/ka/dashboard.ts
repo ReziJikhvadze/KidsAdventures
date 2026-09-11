@@ -72,9 +72,10 @@ export const dashboard = {
     previewWriting: "წიგნი იწერება…",
     previewReady: "პრივიუ მზადაა",
     previewFailed: "პრივიუ ვერ შეიქმნა",
-    /* The one button. "შეუკვეთე სრული წიგნი" and not "გააგრძელე": what the parent is going
-       back to is the decision, and the card should say which decision. */
-    previewOrder: "შეუკვეთე სრული წიგნი",
+    /* The one button, and it says both halves: the card opens the preview screen, where the book
+       can be looked at once more, and the order is the button at the foot of that screen. It
+       used to say only "შეუკვეთე სრული წიგნი", which read as a jump to the checkout. */
+    previewOrder: "ნახე პრივიუ და შეუკვეთე",
     previewOpen: "ნახე პრივიუ",
     previewRetry: "სცადე ხელახლა",
     /*

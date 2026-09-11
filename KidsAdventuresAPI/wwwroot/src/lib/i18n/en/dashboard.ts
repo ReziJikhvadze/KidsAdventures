@@ -47,7 +47,7 @@ export const dashboard = {
     previewWriting: "Writing the book…",
     previewReady: "Preview is ready",
     previewFailed: "The preview could not be made",
-    previewOrder: "Order the full book",
+    previewOrder: "See the preview, then order",
     previewOpen: "See the preview",
     previewRetry: "Try again",
     previewExpiresIn: (hours: number) => (hours === 1 ? "1 hour left" : `${hours} hours left`),
