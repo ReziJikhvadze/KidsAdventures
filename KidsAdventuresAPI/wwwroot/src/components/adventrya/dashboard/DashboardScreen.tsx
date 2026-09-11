@@ -724,96 +724,132 @@ export function DashboardScreen({
           </div>
         </section>
 
-        <section aria-labelledby="dashboard-books-title">
-          <div className="journey-section-head">
-            <div>
-              <h2 id="dashboard-books-title">{t.common.nav.books}</h2>
-              <p>{t.dashboard.library.bookCount(shelfPacks.length)}</p>
-            </div>
-          </div>
-
+        <section className="journey-library" aria-label={t.common.nav.books}>
           {/*
-            The previews, standing on the same shelf as the books and saying which they are.
+            The finished books first, standing on their own shelf.
 
-            Ahead of the books on purpose: a preview is the one thing here with a clock on it -
-            unbought, it and the child's photograph are deleted the day after it is made - and it
-            is the only card that asks the parent for a decision rather than offering them
-            something they already own.
+            A finished book is the thing this page is for - the one object here the parent has
+            paid for and can hand to the child - so it leads, and it is the only group with a
+            count. The tile at the end of the row is the same link as the button at the top of
+            the page: on a shelf with one book it is what keeps that book from standing alone
+            at the left of an empty row.
           */}
-          {childPreviews.length > 0 ? (
-            <div className="journey-books">
-              {childPreviews.map((preview) => (
-                <PreviewCard key={preview.runId} preview={preview} heroName={heroName} />
-              ))}
-            </div>
-          ) : null}
-
-          {/*
-            The device's own pointer, and only when the account knows of no preview at all.
-
-            It reads localStorage, so it is the last resort rather than the first: a run started
-            before this parent had an account, in a browser that never came back signed in, is
-            invisible to the list above and this strip is all there is of it. When the list has
-            anything, this would be a second, vaguer card for the same book.
-          */}
-          {pendingRun && childPreviews.length === 0 ? (
-            <div className="journey-resume">
-              <span className="journey-resume-spark" aria-hidden="true">
-                <Loader2 />
-              </span>
-              <div className="journey-resume-copy">
-                <strong>{t.story.world.resumeTitle}</strong>
-                <small>{t.story.world.resumeBody}</small>
+          {visiblePacks.length > 0 || failedPacks.length > 0 ? (
+            <div className="journey-group journey-group-ready">
+              <div className="journey-group-head">
+                <h2 id="dashboard-books-title">
+                  <Sparkles aria-hidden="true" />
+                  {t.dashboard.library.readyHeading}
+                </h2>
+                <span className="journey-group-count">
+                  {t.dashboard.library.bookCount(shelfPacks.length)}
+                </span>
               </div>
-              <Link
-                className="journey-button journey-resume-button"
-                to="/create"
-                hash="preview"
-                search={resumeSearch}
-              >
-                {t.story.world.resumeAction}
-                <ArrowRight aria-hidden="true" />
-              </Link>
+              <div className="journey-books journey-shelf">
+                {/*
+                  A book that will never finish still has to be on the page. Dropped silently, it
+                  read as a book the parent had paid for and lost; here it says what happened and
+                  offers the one thing that helps, which is reaching a person.
+                */}
+                {failedPacks.map((pack) => (
+                  <FailedBookCard key={pack.id} pack={pack} heroName={heroName} />
+                ))}
+                {visiblePacks.map((pack) => (
+                  <BookCard
+                    key={pack.id}
+                    pack={pack}
+                    heroName={heroName}
+                    printOrder={printByBook[pack.id]}
+                    onOrderPrint={() => {
+                      setEditPrintOrderId(null);
+                      setPrintBookId(pack.id);
+                      setShipping(emptyShipping());
+                      setPrintError(null);
+                    }}
+                    onEditPrintAddress={beginEditPrintAddress}
+                  />
+                ))}
+                {visiblePacks.length > 0 ? (
+                  <Link
+                    className="journey-new-tile"
+                    to={newParts.to}
+                    search={newParts.search}
+                    hash={newParts.hash}
+                  >
+                    <span className="journey-new-tile-mark" aria-hidden="true">
+                      <Plus />
+                    </span>
+                    <strong>{t.dashboard.sidebar.newBook}</strong>
+                    <small>{t.dashboard.library.newTileHint}</small>
+                  </Link>
+                ) : null}
+              </div>
             </div>
-          ) : null}
-
-          {drawing.map((pack) => (
-            <DrawingCard key={pack.id} pack={pack} heroName={heroName} />
-          ))}
-
-          {/*
-            A book that will never finish still has to be on the page. Dropped silently, it read
-            as a book the parent had paid for and lost; here it says what happened and offers the
-            one thing that helps, which is reaching a person.
-          */}
-          {failedPacks.map((pack) => (
-            <FailedBookCard key={pack.id} pack={pack} heroName={heroName} />
-          ))}
-
-          {visiblePacks.length > 0 ? (
-            <div className="journey-books">
-              {visiblePacks.map((pack) => (
-                <BookCard
-                  key={pack.id}
-                  pack={pack}
-                  heroName={heroName}
-                  printOrder={printByBook[pack.id]}
-                  onOrderPrint={() => {
-                    setEditPrintOrderId(null);
-                    setPrintBookId(pack.id);
-                    setShipping(emptyShipping());
-                    setPrintError(null);
-                  }}
-                  onEditPrintAddress={beginEditPrintAddress}
-                />
-              ))}
-            </div>
-          ) : drawing.length === 0 && failedPacks.length === 0 ? (
+          ) : drawing.length === 0 ? (
             <p className="journey-empty">
               {characters.length > 0
                 ? t.dashboard.library.otherChild(heroName)
                 : t.dashboard.empty.lead}
             </p>
+          ) : null}
+
+          {/*
+            What was made lately and is not a book yet: the one being drawn right now, the run
+            this device remembers, and the previews. A preview is the one thing here with a clock
+            on it - unbought, it and the child's photograph are deleted the day after it is made -
+            and the only card that asks the parent for a decision rather than offering them
+            something they already own.
+          */}
+          {childPreviews.length > 0 || pendingRun || drawing.length > 0 ? (
+            <div className="journey-group journey-group-recent">
+              <div className="journey-group-head">
+                <h2>
+                  <Sparkles aria-hidden="true" />
+                  {t.dashboard.library.recentHeading}
+                </h2>
+              </div>
+
+              {drawing.map((pack) => (
+                <DrawingCard key={pack.id} pack={pack} heroName={heroName} />
+              ))}
+
+              {/*
+                The device's own pointer, and only when the account knows of no preview at all.
+
+                It reads localStorage, so it is the last resort rather than the first: a run
+                started before this parent had an account, in a browser that never came back
+                signed in, is invisible to the list below and this strip is all there is of it.
+                When the list has anything, this would be a second, vaguer card for the same book.
+              */}
+              {pendingRun && childPreviews.length === 0 ? (
+                <div className="journey-resume">
+                  <span className="journey-resume-spark" aria-hidden="true">
+                    <Loader2 />
+                  </span>
+                  <div className="journey-resume-copy">
+                    <strong>{t.story.world.resumeTitle}</strong>
+                    <small>{t.story.world.resumeBody}</small>
+                  </div>
+                  <Link
+                    className="journey-button journey-resume-button"
+                    to="/create"
+                    hash="preview"
+                    search={resumeSearch}
+                  >
+                    {t.story.world.resumeAction}
+                    <ArrowRight aria-hidden="true" />
+                  </Link>
+                </div>
+              ) : null}
+
+              {childPreviews.length > 0 ? (
+                <div className="journey-books">
+                  {childPreviews.map((preview) => (
+                    <PreviewCard key={preview.runId} preview={preview} heroName={heroName} />
+                  ))}
+                </div>
+              ) : null}
+            </div>
           ) : null}
 
           {pageCount > 1 ? (
@@ -1211,7 +1247,7 @@ function BookCard({
 
         <div className="journey-book-actions">
           <Link
-            className="journey-button journey-small-button journey-outline-button"
+            className="journey-button journey-small-button journey-read-button"
             to="/reader/$bookId"
             params={{ bookId: pack.id }}
           >

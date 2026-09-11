@@ -1225,3 +1225,327 @@
     opacity: 0.5;
   }
 }
+
+/* ==========================================================================
+   The library, as a bookshelf.
+
+   Same cards, same links, same buttons; the page around them is what changes. It read as a
+   grid of management cards: outlined boxes sixteen pixels apart, so two on a row fused into one
+   wide component, with the badge and the buttons drawing the eye before the cover did. These
+   rules take the outlines off, put air between the cards, make the cover the first thing on
+   each, and stand the finished books on their own shelf above the things that are not books
+   yet. Written after everything above so that, at the same specificity, they are the rules
+   that apply; the phone sizes are restated at the foot for the same reason.
+   ========================================================================== */
+
+.journey-welcome {
+  margin-bottom: 40px;
+}
+
+/* The controls beside the title: one strong action, and the rest as soft as they can be. */
+.journey-child-switch {
+  border-color: transparent;
+  background: #f4efe6;
+}
+.journey-child-switch:hover,
+.journey-child-switch[data-state="open"] {
+  border-color: transparent;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(41, 35, 58, 0.1);
+}
+.journey-quiet-button {
+  border-color: transparent;
+  color: var(--jw-ink-soft);
+  background: transparent;
+}
+.journey-quiet-button:hover {
+  border-color: transparent;
+  color: var(--jw-ink);
+  background: #f4efe6;
+}
+.journey-primary-button svg,
+.journey-button svg {
+  transition: transform 0.2s ease;
+}
+.journey-primary-button:hover svg.lucide-arrow-right,
+.journey-resume-button:hover svg.lucide-arrow-right {
+  transform: translateX(3px);
+}
+
+/* The two shelves and their headings: a small gold spark, the words, the count. */
+.journey-group + .journey-group {
+  margin-top: 56px;
+}
+.journey-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin: 0 0 18px;
+}
+.journey-group-head h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-feature-settings: var(--display-caps);
+  font-size: 1.22rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.journey-group-head h2 svg {
+  width: 17px;
+  height: 17px;
+  color: var(--jw-gold);
+}
+.journey-group-count {
+  flex: none;
+  white-space: nowrap;
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: var(--jw-ink-soft);
+  background: #f4efe6;
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1;
+}
+
+/* The cards: air between them, no outline, a shadow soft enough to read as paper on a table. */
+.journey-books {
+  gap: 28px;
+}
+.journey-book {
+  gap: 22px;
+  padding: 16px;
+  border-color: transparent;
+  border-radius: 26px;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgba(41, 35, 58, 0.03),
+    0 12px 32px rgba(41, 35, 58, 0.06);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.journey-book:hover {
+  border-color: transparent;
+  transform: translateY(-3px);
+  box-shadow:
+    0 2px 4px rgba(41, 35, 58, 0.03),
+    0 24px 48px rgba(41, 35, 58, 0.1);
+}
+.journey-cover {
+  box-shadow:
+    0 12px 26px rgba(19, 13, 41, 0.16),
+    inset 0 0 0 1px rgba(19, 13, 41, 0.05);
+  transition: transform 0.2s ease;
+}
+.journey-book:hover .journey-cover {
+  transform: scale(1.02);
+}
+.journey-book-body {
+  gap: 10px;
+  padding: 4px 6px 4px 0;
+}
+.journey-book-body h3 {
+  font-size: 1.06rem;
+  letter-spacing: -0.01em;
+}
+.journey-badge {
+  padding: 5px 8px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+.journey-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+/*
+  A finished book wears one small gold star at the corner of its cover: the shelf's one
+  ornament, on the one thing here that is finished.
+*/
+.journey-group-ready .journey-book {
+  position: relative;
+}
+.journey-group-ready .journey-book:not(.is-failed)::before {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 1;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  background: var(--jw-gold);
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 0c.6 7.2 4.8 11.4 12 12-7.2.6-11.4 4.8-12 12-.6-7.2-4.8-11.4-12-12 7.2-.6 11.4-4.8 12-12z'/></svg>")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M12 0c.6 7.2 4.8 11.4 12 12-7.2.6-11.4 4.8-12 12-.6-7.2-4.8-11.4-12-12 7.2-.6 11.4-4.8 12-12z'/></svg>")
+    center / contain no-repeat;
+  content: "";
+}
+
+/* A preview is a warmer sheet than a book, and the gold edge that shouted it is gone. */
+.journey-preview {
+  border-left: 0;
+  background: #fffcf4;
+}
+.journey-preview:hover {
+  border-color: transparent;
+  transform: translateY(-3px);
+  box-shadow:
+    0 2px 4px rgba(41, 35, 58, 0.03),
+    0 24px 48px rgba(41, 35, 58, 0.1);
+}
+
+/* The book's actions: the book itself is solid, the file and the print are quiet. */
+.journey-small-button {
+  height: 40px;
+  padding: 0 14px;
+}
+.journey-outline-button {
+  border-color: transparent;
+  background: #f4efe6;
+}
+.journey-outline-button:hover {
+  background: #ece5d8;
+}
+.journey-read-button {
+  color: #fff;
+  background: var(--jw-ink);
+}
+.journey-read-button:hover {
+  background: var(--jw-violet);
+}
+.journey-gold-button {
+  background: #fff1cd;
+}
+.journey-gold-button:hover {
+  background: var(--jw-gold-light);
+}
+
+/* The tile at the end of the shelf: the same door as the button at the top, drawn as a space. */
+.journey-new-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 224px;
+  padding: 24px;
+  border: 1.5px dashed rgba(111, 81, 184, 0.3);
+  border-radius: 26px;
+  color: var(--jw-ink-soft);
+  background: rgba(255, 253, 248, 0.55);
+  text-align: center;
+  text-decoration: none;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
+}
+.journey-new-tile:hover {
+  transform: translateY(-3px);
+  border-color: var(--jw-violet);
+  color: var(--jw-violet);
+  background: #fff;
+}
+.journey-new-tile-mark {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  color: var(--jw-violet);
+  background: var(--jw-violet-soft);
+  transition: transform 0.2s ease;
+}
+.journey-new-tile:hover .journey-new-tile-mark {
+  transform: scale(1.06);
+}
+.journey-new-tile-mark svg {
+  width: 22px;
+  height: 22px;
+}
+.journey-new-tile strong {
+  color: var(--jw-ink);
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+.journey-new-tile:hover strong {
+  color: var(--jw-violet);
+}
+.journey-new-tile small {
+  font-size: 0.74rem;
+}
+
+/* Nothing yet, said on a soft sheet rather than inside a dashed box. */
+.journey-empty {
+  padding: 36px 24px;
+  border: 0;
+  border-radius: 26px;
+  background: #f7f2e9;
+  text-align: center;
+}
+.journey-resume {
+  margin-bottom: 20px;
+  border-color: transparent;
+  box-shadow: 0 12px 32px rgba(111, 81, 184, 0.08);
+}
+
+/* The phone and the narrow tablet, restated here so the rules above do not undo them. */
+@media (max-width: 1000px) {
+  .journey-books {
+    gap: 20px;
+  }
+}
+@media (max-width: 720px) {
+  .journey-group + .journey-group {
+    margin-top: 44px;
+  }
+  .journey-group-head {
+    margin-bottom: 14px;
+  }
+  .journey-books {
+    gap: 16px;
+  }
+  .journey-book {
+    gap: 14px;
+    padding: 12px;
+    border-radius: 22px;
+  }
+  .journey-book-body {
+    gap: 9px;
+    padding: 4px 3px 4px 0;
+  }
+  .journey-book-body h3 {
+    font-size: 0.92rem;
+  }
+  .journey-small-button {
+    height: 38px;
+    padding: 0 12px;
+  }
+  .journey-new-tile {
+    min-height: 140px;
+    padding: 20px;
+  }
+  .journey-group-ready .journey-book:not(.is-failed)::before {
+    top: 6px;
+    left: 6px;
+    width: 13px;
+    height: 13px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .journey-book,
+  .journey-cover,
+  .journey-new-tile,
+  .journey-new-tile-mark,
+  .journey-button svg {
+    transition: none;
+  }
+}

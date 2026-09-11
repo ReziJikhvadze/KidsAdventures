@@ -55,6 +55,10 @@ export const dashboard = {
 
     pagingLabel: "Library pages",
     pageOf: (page: number, total: number) => `Page ${page} of ${total}`,
+
+    readyHeading: "Ready to read",
+    recentHeading: "Just made",
+    newTileHint: "One more adventure",
   },
 
   empty: {

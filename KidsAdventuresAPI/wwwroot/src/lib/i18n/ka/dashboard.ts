@@ -88,6 +88,12 @@ export const dashboard = {
 
     pagingLabel: "წიგნების გვერდები",
     pageOf: (page: number, total: number) => `გვერდი ${page} / ${total}`,
+
+    /* The two shelves: the books that are books, and what was made lately and is not one yet. */
+    readyHeading: "მზად არის წასაკითხად",
+    recentHeading: "ახლახან შექმნილი",
+    /* Under the "new book" tile at the end of the shelf; the tile's own words are the button's. */
+    newTileHint: "კიდევ ერთი თავგადასავალი",
   },
 
   empty: {
