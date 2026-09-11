@@ -423,10 +423,17 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
    * not worth holding up the book behind it, and a failure leaves the switch in the parent's
    * space as the way to say it again.
    */
+  /*
+    Said beside the box when it would not save. The account reverts the tick on a failed write,
+    which is right - a consent that was not recorded must not look recorded - but a box that
+    unticks itself with no word looks broken. One line under it says what happened.
+  */
+  const [marketingSaveFailed, setMarketingSaveFailed] = useState(false);
   const recordMarketingConsent = (consented: boolean) => {
     setWantsMarketing(consented);
+    setMarketingSaveFailed(false);
     if (isAuthenticated) {
-      void setMarketingConsent(consented).catch(() => {});
+      void setMarketingConsent(consented).catch(() => setMarketingSaveFailed(true));
       return;
     }
     rememberMarketingConsent(consented);
@@ -482,6 +489,11 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
         {/* One line, and no tag calling it optional: an unticked box already is. */}
         <span>{copy.profile.marketingConsent}</span>
       </label>
+      {marketingSaveFailed ? (
+        <small className="ux-field-error" role="alert">
+          {t.common.states.saveFailed}
+        </small>
+      ) : null}
     </div>
   );
 
