@@ -1012,10 +1012,7 @@ function PreviewCard({ preview, heroName }: { preview: GuestPreviewSummary; hero
   return (
     <article className="journey-book journey-preview">
       {/* Not a link: there is nothing to open yet. The button below is the only way on. */}
-      <span className="journey-cover" style={{ backgroundImage: `url("${cover}")` }}>
-        <span className="journey-cover-brand">BEKI</span>
-        <span className="journey-cover-title">{title}</span>
-      </span>
+      <span className="journey-cover" style={{ backgroundImage: `url("${cover}")` }} />
 
       <div className="journey-book-body">
         <div className="journey-book-top">
@@ -1178,10 +1175,7 @@ function BookCard({
         params={{ bookId: pack.id }}
         style={{ backgroundImage: `url("${cover}")` }}
         aria-label={t.dashboard.library.openBook(title)}
-      >
-        <span className="journey-cover-brand">BEKI</span>
-        <span className="journey-cover-title">{title}</span>
-      </Link>
+      />
 
       <div className="journey-book-body">
         <div className="journey-book-top">
@@ -1508,10 +1502,7 @@ function FailedBookCard({ pack, heroName }: { pack: AdventurePackResponse; heroN
           filter: "grayscale(1)",
         }}
         aria-hidden="true"
-      >
-        <span className="journey-cover-brand">BEKI</span>
-        <span className="journey-cover-title">{title}</span>
-      </span>
+      />
       <div className="journey-book-body">
         <div className="journey-book-top">
           <span className="journey-badge journey-badge-digital">{world.theme}</span>

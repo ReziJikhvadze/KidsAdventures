@@ -330,7 +330,7 @@
 }
 .journey-book {
   display: grid;
-  grid-template-columns: 145px minmax(0, 1fr);
+  grid-template-columns: 196px minmax(0, 1fr);
   gap: 20px;
   min-height: 224px;
   padding: 12px;
@@ -348,65 +348,30 @@
   box-shadow: var(--jw-shadow);
   transform: translateY(-2px);
 }
+/*
+  The painted cover, whole.
+
+  The picture the server sends is the front board at the customer's page shape, 220 by 200, with
+  the BEKI mark and the title already painted on it. The card used to crop it to a tall slot and
+  write both again over the top, so a parent saw the mark twice and the title three times, and
+  never the whole picture. Now the slot has the picture's own shape and the picture fills it edge
+  to edge; a world's stock art, the stand-in until a cover is painted, is contained the same way
+  on the card's own ground.
+*/
 .journey-cover {
   position: relative;
-  min-height: 200px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 14px 13px;
+  display: block;
+  align-self: start;
+  aspect-ratio: 220 / 200;
   overflow: hidden;
-  border-radius: 16px 9px 9px 16px;
-  color: #fff;
-  background-color: var(--jw-night);
+  border-radius: 14px;
+  background-color: #efe9dc;
   background-position: center;
-  background-size: cover;
+  background-size: contain;
+  background-repeat: no-repeat;
   box-shadow:
-    9px 9px 20px rgba(19, 13, 41, 0.16),
-    inset -7px 0 8px rgba(0, 0, 0, 0.18);
-}
-/* The spine highlight and the gutter shadow, so a cover reads as a book rather than a tile. */
-.journey-cover::after {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.12),
-    transparent 12%,
-    transparent 87%,
-    rgba(0, 0, 0, 0.18)
-  );
-  content: "";
-}
-/* Its own scrim: the world art is bright at the foot, where the title sits. */
-.journey-cover::before {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    180deg,
-    transparent 18%,
-    rgba(19, 13, 41, 0.18) 55%,
-    rgba(19, 13, 41, 0.93) 100%
-  );
-  content: "";
-}
-.journey-cover-brand {
-  position: relative;
-  z-index: 2;
-  font-size: 0.6rem;
-  font-weight: 900;
-  letter-spacing: 0.16em;
-}
-.journey-cover-title {
-  position: relative;
-  z-index: 2;
-  font-family: var(--font-display);
-  font-feature-settings: var(--display-caps);
-  font-size: 1.08rem;
-  font-weight: 800;
-  line-height: 1.18;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+    0 8px 20px rgba(19, 13, 41, 0.14),
+    inset 0 0 0 1px rgba(19, 13, 41, 0.06);
 }
 .journey-book-body {
   min-width: 0;
@@ -811,17 +776,10 @@
     align-self: flex-start;
   }
   .journey-book {
-    grid-template-columns: 112px minmax(0, 1fr);
+    grid-template-columns: 150px minmax(0, 1fr);
     gap: 14px;
     min-height: 191px;
     padding: 10px;
-  }
-  .journey-cover {
-    min-height: 171px;
-    padding: 11px 10px;
-  }
-  .journey-cover-title {
-    font-size: 0.86rem;
   }
   .journey-book-body {
     gap: 9px;
@@ -865,10 +823,7 @@
 
 @media (max-width: 420px) {
   .journey-book {
-    grid-template-columns: 96px minmax(0, 1fr);
-  }
-  .journey-cover {
-    min-height: 165px;
+    grid-template-columns: 124px minmax(0, 1fr);
   }
   .journey-badge {
     padding: 6px 7px;

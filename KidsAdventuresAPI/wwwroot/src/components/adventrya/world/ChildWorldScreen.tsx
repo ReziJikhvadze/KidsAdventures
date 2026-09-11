@@ -563,10 +563,7 @@ function JourneyBookCard({
         params={{ bookId: pack.id }}
         style={{ backgroundImage: `url("${cover}")` }}
         aria-label={t.dashboard.library.openBook(title)}
-      >
-        <span className="journey-cover-brand">BEKI</span>
-        <span className="journey-cover-title">{title}</span>
-      </Link>
+      />
 
       <div className="journey-book-body">
         <div className="journey-book-top">
