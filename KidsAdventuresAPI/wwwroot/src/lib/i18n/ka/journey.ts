@@ -352,7 +352,12 @@ export const journey = {
     recipient: "მიმღების სახელი",
     pickLocation: "აირჩიე რუკაზე",
     pickLocationTitle: "სად მოვიდეს წიგნი?",
-    pickLocationHint: "მოძებნე ქუჩა, ან დააჭირე რუკაზე - პინი ზუსტ ადგილზე გადაათრიე.",
+    pickLocationHint: "მოძებნე ქუჩა, ან დააჭირე რუკაზე.",
+    /* The three moves, under the title, in the order they happen. */
+    pickLocationSteps: "მოძებნე · დადე პინი · დაადასტურე",
+    pickLocationSearch: "მოძებნე მისამართი",
+    pickLocationSelected: "არჩეული მისამართი",
+    pickLocationDrag: "გადაადგილე პინი ზუსტ ადგილას.",
     pickLocationConfirm: "ამ მისამართის დადასტურება",
     pickLocationUnavailable: "რუკა ახლა არ იტვირთება - ჩაწერე მისამართი ხელით.",
     /* The half no map knows, asked as the question it is. */

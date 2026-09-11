@@ -212,29 +212,124 @@
   A dialog rather than a map embedded in the form: the map is only wanted for the few seconds it
   takes to find a street, and a live map sitting open under the questions is both a distraction
   and a billable session for every parent who was never going to use it.
+
+  On the checkout's own paper. It was the dark sheet every dialog in the journey wears, and over
+  the ivory checkout that read as a different product opening on top of this one. The map is the
+  page here: ivory frame, white boxes, one purple accent on the address it is about to confirm,
+  gold once on the button. Widths and radii are the checkout's. The dialog is portalled out of
+  the checkout's scope, so the field styles are restated rather than inherited.
 */
-.ux-location-dialog {
-  width: min(560px, calc(100vw - 32px));
+.ux-location-overlay {
+  background: #12082b66;
+}
+.ux-location-dialog[role="dialog"] {
+  width: min(640px, calc(100vw - 24px));
+  max-width: none;
+  max-height: calc(100vh - 32px);
   display: grid;
-  gap: 12px;
+  gap: 14px;
+  padding: 20px 22px 18px;
+  overflow: auto;
+  border: 1px solid #e9e1d7;
+  border-radius: 20px;
+  color: #29233a;
+  background: #fffdf8;
+  box-shadow: 0 24px 60px #12082b3d;
 }
-.ux-location-search {
-  /* Google renders its own input here; the panel it drops has to clear the dialog's edge. */
-  position: relative;
-  z-index: 1;
+/* The close, at the corner, drawn as a round quiet target rather than a bare glyph. */
+.ux-location-dialog[role="dialog"] > button:last-child {
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #655f72;
+  opacity: 1;
 }
-.ux-location-search gmp-place-autocomplete {
-  width: 100%;
-}
-.ux-location-map {
-  position: relative;
-  height: min(340px, 45vh);
-  border-radius: 14px;
-  overflow: hidden;
-  /* The map's own paper, so the tiles arrive onto their own ground rather than out of the dark. */
+.ux-location-dialog[role="dialog"] > button:last-child:hover {
+  color: #29233a;
   background: #f3eee4;
 }
-/* The element Google fills. It is empty as far as React is concerned — see the dialog. */
+.ux-location-head {
+  display: grid;
+  gap: 4px;
+  padding-right: 40px;
+}
+.ux-location-head h2 {
+  margin: 0;
+  color: #29233a;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+.ux-location-steps {
+  margin: 0;
+  color: #655f72;
+  font-size: 12.5px;
+}
+
+/* The search box: the form's own field, on paper. */
+.ux-location-search .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ux-location-search .field > span {
+  color: #655f72;
+  font-size: 11px;
+  font-weight: 600;
+}
+.ux-location-search .field input {
+  height: 44px;
+  padding: 0 13px;
+  border: 1px solid #e2dbcf;
+  border-radius: 12px;
+  color: #29233a;
+  background: #fff;
+  box-shadow: none;
+  font-size: 13px;
+}
+.ux-location-search .field input::placeholder {
+  color: #a49db4;
+}
+.ux-location-search .field input:focus {
+  outline: none;
+  border-color: #7a5cc4;
+  box-shadow: 0 0 0 3px #7a5cc422;
+  background: #fff;
+}
+.ux-location-search .ux-address-suggestions {
+  border-color: #e2dbcf;
+  background: #fffdf8;
+  box-shadow: 0 18px 44px #2a1d5226;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.ux-location-search .ux-address-suggestions button {
+  color: #29233a;
+}
+.ux-location-search .ux-address-suggestions button small {
+  color: #655f72;
+}
+.ux-location-search .ux-address-suggestions button:hover,
+.ux-location-search .ux-address-suggestions button.is-active,
+.ux-location-search .ux-address-suggestions button:focus-visible {
+  background: #f4f0fc;
+}
+
+/* The map, most of the dialog's width, on its own paper while the tiles arrive. */
+.ux-location-map {
+  position: relative;
+  height: min(360px, 42vh);
+  overflow: hidden;
+  border: 1px solid #e9e1d7;
+  border-radius: 14px;
+  background: #f3eee4;
+}
+/* The element Google fills. It is empty as far as React is concerned - see the dialog. */
 .ux-location-canvas {
   position: absolute;
   inset: 0;
@@ -245,17 +340,86 @@
   display: grid;
   place-items: center;
 }
+
+/* What will be confirmed, named, and marked in the page's one accent once there is one. */
 .ux-location-chosen {
-  min-height: 1.4em;
+  display: grid;
+  gap: 3px;
+  min-height: 60px;
   margin: 0;
-  font-size: 0.86rem;
-  color: var(--jw-ink-soft, #655f72);
+  padding: 10px 14px;
+  border: 1px solid #e9e1d7;
+  border-radius: 12px;
+  background: #fff;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease;
 }
+.ux-location-chosen.is-set {
+  border-color: #7a5cc4;
+  background: #f4f0fc;
+}
+.ux-location-chosen > small {
+  color: #655f72;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.ux-location-chosen > strong {
+  color: #29233a;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.ux-location-chosen > span {
+  color: #655f72;
+  font-size: 12px;
+}
+
+/* Two actions, the quiet one first, the gold one last and largest. */
 .ux-location-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
 }
+.ux-location-actions .button {
+  min-height: 46px;
+  margin: 0;
+}
+.ux-location-actions .ux-location-cancel {
+  padding: 0 18px;
+  border: 1px solid #e2dbcf;
+  color: #29233a;
+  background: #fff;
+  box-shadow: none;
+}
+.ux-location-actions .ux-location-cancel:hover {
+  background: #f3eee4;
+}
+.ux-location-actions .button-primary {
+  padding: 0 22px;
+}
+
+@media (max-width: 560px) {
+  .ux-location-dialog[role="dialog"] {
+    width: calc(100vw - 16px);
+    gap: 12px;
+    padding: 16px 14px 14px;
+    border-radius: 18px;
+  }
+  .ux-location-map {
+    height: 46vh;
+  }
+  .ux-location-actions {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+  }
+  .ux-location-actions .button {
+    width: 100%;
+    padding: 0 12px;
+  }
+}
+
 /* The way onto the map, under the address field it fills in. */
 .ux-pick-location {
   display: inline-flex;

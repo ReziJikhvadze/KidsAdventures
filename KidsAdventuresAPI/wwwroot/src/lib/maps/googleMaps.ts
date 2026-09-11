@@ -65,7 +65,7 @@ type PlacesLibrary = {
 /** A point on the map, as Google hands it back from a click or a drag. */
 export type LatLngLike = { lat(): number; lng(): number };
 
-type MapLike = {
+export type MapLike = {
   setCenter(position: unknown): void;
   setZoom(zoom: number): void;
   addListener(event: "click", handler: (event: { latLng?: LatLngLike | null }) => void): unknown;
@@ -81,7 +81,7 @@ type MapsLibrary = {
  * cloud map id, and a map with a cloud id ignores the style array below in favour of whatever
  * was drawn in the console.
  */
-type ClassicMarker = {
+export type ClassicMarker = {
   setPosition(position: unknown): void;
   getPosition(): LatLngLike | null | undefined;
   setVisible(visible: boolean): void;
@@ -98,10 +98,15 @@ type GeocoderResult = {
   formatted_address: string;
   address_components: GeocoderComponent[];
   types: string[];
+  geometry: { location: LatLngLike };
 };
 type GeocodingLibrary = {
   Geocoder: new () => {
-    geocode(request: { location: unknown }): Promise<{ results: GeocoderResult[] }>;
+    geocode(request: {
+      location?: unknown;
+      address?: string;
+      region?: string;
+    }): Promise<{ results: GeocoderResult[] }>;
   };
 };
 
@@ -280,6 +285,32 @@ export async function addressAt(
       city: cityOfComponents(
         found.address_components.map((part) => ({ types: part.types, longText: part.long_name })),
       ),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Where an address is, as Google reads it - the point to put the pin on and the address Google
+ * would print for that point. The other direction of `addressAt`, for a street that arrived as
+ * words: typed on the form before the map was opened, or chosen from the list above the map.
+ */
+export async function locateAddress(
+  text: string,
+): Promise<{ address: string; city: string; location: LatLngLike } | null> {
+  try {
+    const { Geocoder } = await geocodingLibrary();
+    const { results } = await new Geocoder().geocode({ address: text, region: "ge" });
+    const found = results[0];
+    const address = found?.formatted_address?.trim();
+    if (!found || !address || !found.geometry?.location) return null;
+    return {
+      address,
+      city: cityOfComponents(
+        found.address_components.map((part) => ({ types: part.types, longText: part.long_name })),
+      ),
+      location: found.geometry.location,
     };
   } catch {
     return null;

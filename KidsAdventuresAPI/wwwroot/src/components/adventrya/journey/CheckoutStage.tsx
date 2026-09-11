@@ -745,6 +745,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
         open={pickingLocation}
         onOpenChange={setPickingLocation}
         onChoose={({ address, city }) => updateShipping({ addressLine1: address, city })}
+        initialAddress={draft.shipping.addressLine1}
       />
       <div className="checkout-form">
         <p className="eyebrow">
