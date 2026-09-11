@@ -4660,3 +4660,61 @@
 .journey-checkout .ux-ship-fields > .ux-inline-link {
   justify-self: start;
 }
+
+/*
+  The saved children stand level with the top of the painting beside them.
+
+  The chips had the fieldset's 18px of headroom, so the right column began a line lower than the
+  left and the two never read as one row. No headroom on this stage; the form follows them up,
+  and the painting, which is as tall as the column, follows both.
+*/
+.ux-profile-stage .choice-fieldset {
+  margin-top: 0;
+}
+
+/*
+  The journey's stages take the room the header leaves, whatever the header is as tall as it is.
+
+  Every one-screen stage was sized as the window less 96px, and the header stopped being 96px the day
+  the trail moved under it: 105 now, so every stage ran nine pixels past the window - a scroll on
+  the profile, and nine pixels cut off the bottom of the preview and the sign-in, whose shells
+  clip. The shell is a column and the stage fills it, so the number is never written down again;
+  a stage taller than the window still grows, and nothing is clipped to make it fit.
+*/
+@media (min-width: 1024px) and (min-height: 768px) {
+  .journey-profile.ux1-shell,
+  .journey-preview.ux1-shell,
+  .journey-auth.ux1-shell,
+  .journey-generating.ux1-shell {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 100svh;
+    overflow-y: visible;
+  }
+  .ux-profile-stage,
+  .ux-preview-stage,
+  .ux-generated-stage,
+  .ux-auth-stage,
+  .ux-generating {
+    flex: 1 0 auto;
+    height: auto;
+    min-height: 0;
+  }
+}
+
+/*
+  The preview at a short window: the room it has is the room it takes.
+
+  At 1366x768 the step ran 25px past the window once it stopped being clipped, all of it padding
+  above and below the book. The padding gives way before the book does.
+*/
+@media (min-width: 1024px) and (min-height: 768px) and (max-height: 820px) {
+  .ux-preview-stage {
+    padding-top: 10px;
+    padding-bottom: 6px;
+  }
+  .ux-preview-heading {
+    margin-bottom: 8px;
+  }
+}

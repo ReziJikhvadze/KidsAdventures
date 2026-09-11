@@ -33,7 +33,6 @@ export const journey = {
     termsLink: "terms and conditions",
     /* See the note beside the Georgian strings. */
     marketingConsent: "Send me news and offers",
-    marketingConsentOptional: "optional",
     /* The one action on this form: it makes the book. */
     continue: "Create the book",
     /* See the note beside the Georgian strings: what this form says while a book is in flight. */

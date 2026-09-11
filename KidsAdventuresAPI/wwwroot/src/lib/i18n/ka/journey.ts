@@ -28,7 +28,6 @@ export const journey = {
     /* The optional one. "თუ გნებავთ" says outright that this is a favour rather than a
        condition, so nobody reads two ticks and assumes both are required. */
     marketingConsent: "მსურს სიახლეებისა და შეთავაზებების მიღება",
-    marketingConsentOptional: "არასავალდებულო",
     /* The one action on this form: it makes the book. */
     continue: "შექმენი წიგნი",
     /*

@@ -479,10 +479,8 @@ export function ProfileStage({ draft, onChange, onContinue }: Props) {
           checked={wantsMarketing}
           onChange={(event) => recordMarketingConsent(event.target.checked)}
         />
-        <span>
-          {copy.profile.marketingConsent}
-          <small>{copy.profile.marketingConsentOptional}</small>
-        </span>
+        {/* One line, and no tag calling it optional: an unticked box already is. */}
+        <span>{copy.profile.marketingConsent}</span>
       </label>
     </div>
   );
