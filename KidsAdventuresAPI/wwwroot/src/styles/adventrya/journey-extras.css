@@ -1182,17 +1182,26 @@
   font-size: 0.86em;
   line-height: 1.08;
 }
+/*
+  The line under the button is centred under the button.
+
+  It hung off the left edge, which read as a caption to nothing in particular. The column is as
+  wide as the button and no wider - the line contributes nothing to that width and then takes
+  all of it - so the button stays where it stood and the words find its middle.
+*/
 .landing-v3-primary-wrap {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: 9px;
 }
 .landing-v3-primary-wrap > small {
-  max-width: 330px;
+  width: 0;
+  min-width: 100%;
   color: #f5efe58a;
   font-size: 11px;
   line-height: 1.45;
+  text-align: center;
 }
 .landing-v3-example-meta a {
   grid-row: 1 / span 2;

@@ -746,9 +746,18 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
+/*
+  One size for every title on the shelf, at every width, and one height for every title block.
+
+  The size used to follow the viewport, so the same six titles were 17px on one screen and 22px
+  on another; and a one-line title sat 21px shorter than a two-line one, which on a shelf whose
+  covers already stand at staggered heights made the row read as six different sizes. Two lines
+  are reserved whether or not a title needs them.
+*/
 .landing-v3-example-title strong {
+  min-height: 2.5em;
   font-family: var(--font-body);
-  font-size: clamp(17px, 1.5vw, 22px);
+  font-size: 17px;
   font-weight: 500;
   line-height: 1.25;
   text-wrap: balance;
