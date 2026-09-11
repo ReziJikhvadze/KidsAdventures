@@ -301,7 +301,7 @@ export const journey = {
     recipient: "Recipient's name",
     pickLocation: "Choose on the map",
     pickLocationTitle: "Where should the book go?",
-    pickLocationHint: "Search for the street and pick it from the list.",
+    pickLocationHint: "Search for the street, or tap the map - drag the pin to the exact spot.",
     pickLocationConfirm: "Use this address",
     pickLocationUnavailable: "The map is not loading right now - type the address instead.",
     addressNotes: "How should the courier find you?",

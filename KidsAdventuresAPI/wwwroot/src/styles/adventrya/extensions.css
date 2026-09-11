@@ -231,7 +231,8 @@
   height: min(340px, 45vh);
   border-radius: 14px;
   overflow: hidden;
-  background: #1a113a;
+  /* The map's own paper, so the tiles arrive onto their own ground rather than out of the dark. */
+  background: #f3eee4;
 }
 /* The element Google fills. It is empty as far as React is concerned — see the dialog. */
 .ux-location-canvas {

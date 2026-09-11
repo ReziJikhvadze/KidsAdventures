@@ -4,11 +4,15 @@ import { BekiLoader } from "@/components/adventrya/BekiLoader";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useT } from "@/lib/i18n";
 import {
+  PAPER_MAP_STYLE,
+  PIN_ICON_URL,
+  addressAt,
   cityOf,
   loadGoogleMaps,
   mapsLibrary,
   markerLibrary,
   placesLibrary,
+  type LatLngLike,
   type PlacePrediction,
 } from "@/lib/maps/googleMaps";
 
@@ -28,8 +32,10 @@ type Props = {
  * either rings or gives up. Searching resolves it against Google's own record, so what reaches
  * the order is an address that exists.
  *
- * The map is here to confirm, not to pick: a pin dropped on a roof does not tell a courier which
- * building it is, while a chosen place does. So the map follows the search and never leads it.
+ * Two ways in, and the map is one of them. Searching resolves a typed street; tapping the map,
+ * or dragging the pin, resolves a point - Google reads the address back from under it, and that
+ * address, not the coordinates, is what the parent sees and confirms. A pin on a roof is worth
+ * nothing to a courier; a pin that says "ჭავჭავაძის 12" is an address like any other.
  *
  * Everything below the street — entrance, floor, flat, door code — is deliberately NOT here. No
  * map knows it and the parent always does, so it is a note on the form behind this dialog.
@@ -80,13 +86,59 @@ export function LocationPickerDialog({ open, onOpenChange, onChoose }: Props) {
         const map = new maps.Map(mapHost.current, {
           center: start,
           zoom: 12,
-          mapId: "DEMO_MAP_ID",
           disableDefaultUI: true,
           zoomControl: true,
-        }) as unknown as { setCenter(p: unknown): void; setZoom(z: number): void };
+          // A tap on a shop must drop our pin, not open Google's card about the shop.
+          clickableIcons: false,
+          // The page's own paper, see PAPER_MAP_STYLE. No map id: a cloud id would ignore it.
+          styles: PAPER_MAP_STYLE,
+        });
 
-        // One marker, moved by each search rather than a new one littering the map.
-        const pin = new markers.AdvancedMarkerElement({ map, position: start });
+        /*
+          One pin, moved rather than multiplied, and hidden until the parent has put it
+          somewhere: a pin standing on the city centre before anything was chosen looked like an
+          answer, and the line under the map was saying there was none yet.
+        */
+        const pin = new markers.Marker({
+          map,
+          position: start,
+          visible: false,
+          draggable: true,
+          icon: PIN_ICON_URL,
+        });
+
+        /*
+          Which selection is the live one - see `selection`. Every way of choosing goes through
+          here: what is on screen is dropped synchronously, and only the newest answer may write.
+        */
+        const hold = (resolve: () => Promise<Chosen | null>) => {
+          const ticket = ++selection.current;
+          setChosen(null);
+          void (async () => {
+            try {
+              const found = await resolve();
+              if (cancelled || ticket !== selection.current) return;
+              setChosen(found);
+            } catch {
+              // Nothing is held, so nothing can be confirmed by mistake; the hint asks again.
+              if (!cancelled && ticket === selection.current) setChosen(null);
+            }
+          })();
+        };
+
+        // The point becomes an address by being read back, and the pin stays where it was put.
+        const holdPoint = (at: LatLngLike) => {
+          pin.setPosition(at);
+          pin.setVisible(true);
+          hold(() => addressAt(at));
+        };
+        map.addListener("click", (event) => {
+          if (event.latLng) holdPoint(event.latLng);
+        });
+        pin.addListener("dragend", () => {
+          const at = pin.getPosition();
+          if (at) holdPoint(at);
+        });
 
         const search = new places.PlaceAutocompleteElement({ includedRegionCodes: ["ge"] });
         search.id = "location-picker-search";
@@ -96,38 +148,21 @@ export function LocationPickerDialog({ open, onOpenChange, onChoose }: Props) {
           const prediction = (event as unknown as { placePrediction?: PlacePrediction })
             .placePrediction;
           if (!prediction) return;
-
-          const ticket = ++selection.current;
-          // Synchronously, before the round trip: what is on screen is no longer what is held.
-          setChosen(null);
-
-          void (async () => {
-            try {
-              const place = prediction.toPlace();
-              await place.fetchFields({
-                fields: ["formattedAddress", "location", "addressComponents"],
-              });
-              if (cancelled || ticket !== selection.current) return;
-
-              const address = place.formattedAddress?.trim() ?? "";
-              if (!address) return;
-
-              setChosen({ address, city: cityOf(place) });
-              if (place.location) {
-                map.setCenter(place.location);
-                map.setZoom(17);
-                pin.position = place.location;
-              }
-            } catch {
-              /*
-                A lookup can fail on its own — network, quota, a server error — and leaving the
-                previous address confirmable would let the parent send an address they had
-                already moved on from. Nothing is held, so nothing can be confirmed by mistake;
-                the hint below the map asks them to pick again.
-              */
-              if (!cancelled && ticket === selection.current) setChosen(null);
+          hold(async () => {
+            const place = prediction.toPlace();
+            await place.fetchFields({
+              fields: ["formattedAddress", "location", "addressComponents"],
+            });
+            const address = place.formattedAddress?.trim() ?? "";
+            if (!address) return null;
+            if (place.location) {
+              map.setCenter(place.location);
+              map.setZoom(17);
+              pin.setPosition(place.location);
+              pin.setVisible(true);
             }
-          })();
+            return { address, city: cityOf(place) };
+          });
         });
 
         setState("ready");

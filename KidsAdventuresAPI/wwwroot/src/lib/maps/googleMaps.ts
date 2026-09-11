@@ -62,12 +62,47 @@ type PlacesLibrary = {
   AutocompleteSessionToken: new () => unknown;
 };
 
+/** A point on the map, as Google hands it back from a click or a drag. */
+export type LatLngLike = { lat(): number; lng(): number };
+
+type MapLike = {
+  setCenter(position: unknown): void;
+  setZoom(zoom: number): void;
+  addListener(event: "click", handler: (event: { latLng?: LatLngLike | null }) => void): unknown;
+};
+
 type MapsLibrary = {
-  Map: new (container: HTMLElement, options: Record<string, unknown>) => unknown;
+  Map: new (container: HTMLElement, options: Record<string, unknown>) => MapLike;
+};
+
+/**
+ * The classic marker, which Google keeps beside the advanced one. It is the one this picker
+ * uses because it is the one that works on a map styled from code: the advanced marker needs a
+ * cloud map id, and a map with a cloud id ignores the style array below in favour of whatever
+ * was drawn in the console.
+ */
+type ClassicMarker = {
+  setPosition(position: unknown): void;
+  getPosition(): LatLngLike | null | undefined;
+  setVisible(visible: boolean): void;
+  addListener(event: "dragend", handler: () => void): unknown;
 };
 
 type MarkerLibrary = {
   AdvancedMarkerElement: new (options: Record<string, unknown>) => { position: unknown };
+  Marker: new (options: Record<string, unknown>) => ClassicMarker;
+};
+
+type GeocoderComponent = { long_name: string; short_name: string; types: string[] };
+type GeocoderResult = {
+  formatted_address: string;
+  address_components: GeocoderComponent[];
+  types: string[];
+};
+type GeocodingLibrary = {
+  Geocoder: new () => {
+    geocode(request: { location: unknown }): Promise<{ results: GeocoderResult[] }>;
+  };
 };
 
 declare global {
@@ -213,6 +248,44 @@ export async function markerLibrary(): Promise<MarkerLibrary> {
   return (await window.google!.maps!.importLibrary("marker")) as MarkerLibrary;
 }
 
+export async function geocodingLibrary(): Promise<GeocodingLibrary> {
+  return (await window.google!.maps!.importLibrary("geocoding")) as GeocodingLibrary;
+}
+
+/**
+ * The address under a point, or null if Google has none to give.
+ *
+ * A pin is coordinates, and a courier cannot ring coordinates. Reading the address back is
+ * what makes a dropped pin a delivery address: the parent sees the street and number Google
+ * puts under their finger, and can move the pin until it says the right building. The first
+ * result that names a building or a street is preferred over a district or a city, which is
+ * what Google returns first for a pin on open ground.
+ */
+export async function addressAt(
+  location: LatLngLike,
+): Promise<{ address: string; city: string } | null> {
+  try {
+    const { Geocoder } = await geocodingLibrary();
+    const { results } = await new Geocoder().geocode({ location });
+    const precise = results.find((result) =>
+      result.types.some(
+        (type) => type === "street_address" || type === "premise" || type === "route",
+      ),
+    );
+    const found = precise ?? results[0];
+    const address = found?.formatted_address?.trim();
+    if (!found || !address) return null;
+    return {
+      address,
+      city: cityOfComponents(
+        found.address_components.map((part) => ({ types: part.types, longText: part.long_name })),
+      ),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Georgian addresses matching what has been typed, for a field to draw its own list from.
  *
@@ -270,7 +343,10 @@ export async function resolvePrediction(
 
 /** The one component of a Google address this form keeps on its own: the city. */
 export function cityOf(place: PlaceLike): string {
-  const parts = place.addressComponents ?? [];
+  return cityOfComponents(place.addressComponents ?? []);
+}
+
+function cityOfComponents(parts: { types: string[]; longText?: string }[]): string {
   const match = parts.find(
     (part) =>
       part.types.includes("locality") ||
@@ -279,3 +355,60 @@ export function cityOf(place: PlaceLike): string {
   );
   return match?.longText ?? "";
 }
+
+/*
+  The map in the book's own colours.
+
+  Google's default map is a blue-and-grey street atlas, and it sat in the middle of a paper
+  dialog like a window onto another product. This is the same paper: land the page's ivory,
+  roads white with the page's hairline, the main roads the button's gold, water the brand's
+  violet lightened to a wash, labels in the page's ink and soft ink. Shops and transit are off -
+  a parent is finding their own door, not a cafe - and parks stay, faintly, because they are
+  how people orient themselves in a Georgian city.
+
+  A style array rather than a cloud map id, so it lives here with the rest of the palette and
+  changes with it; the cost is the classic marker, see `ClassicMarker`.
+*/
+export const PAPER_MAP_STYLE: Record<string, unknown>[] = [
+  { elementType: "geometry", stylers: [{ color: "#f3eee4" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#655f72" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#fffdf8" }] },
+  { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+  {
+    featureType: "administrative",
+    elementType: "geometry.stroke",
+    stylers: [{ color: "#d9d1c4" }],
+  },
+  {
+    featureType: "administrative.locality",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#29233a" }],
+  },
+  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#efe9dc" }] },
+  { featureType: "landscape.man_made", elementType: "geometry", stylers: [{ color: "#f6f1e7" }] },
+  { featureType: "poi", stylers: [{ visibility: "off" }] },
+  {
+    featureType: "poi.park",
+    elementType: "geometry",
+    stylers: [{ color: "#e4ebd7" }, { visibility: "on" }],
+  },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#e2dbcf" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#29233a" }] },
+  { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#fdf6e6" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#f2dc9e" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#dda95c" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#dcd5ef" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#7a5cc4" }] },
+];
+
+/* The pin: the brand's violet with the pendant's gold at its heart, anchored at its point. */
+export const PIN_ICON_URL =
+  "data:image/svg+xml;charset=UTF-8," +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="34" height="46" viewBox="0 0 34 46">' +
+      '<path d="M17 45C17 45 3 28.5 3 16.5A14 14 0 0 1 31 16.5C31 28.5 17 45 17 45Z" fill="#7a5cc4" stroke="#fffdf8" stroke-width="2"/>' +
+      '<circle cx="17" cy="16.5" r="5.5" fill="#f2dc9e" stroke="#dda95c" stroke-width="1.5"/>' +
+      "</svg>",
+  );
