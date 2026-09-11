@@ -130,14 +130,32 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootShell({ children }: { children: ReactNode }) {
+  // suppressHydrationWarning on <html>: the head script writes one attribute onto it before
+  // React arrives, and React would otherwise report the difference on every journey refresh.
+  // It changes nothing about what is rendered.
   return (
-    <html lang="ka">
+    <html lang="ka" suppressHydrationWarning>
       {/*
         Nothing but head management here. The marketing tags that used to sit in this <head>
         are injected after hydration instead — see lib/analytics/marketingTags.ts for why.
       */}
       <head>
         <HeadContent />
+        {/*
+          Which step of the journey this is, read from the hash before the first paint.
+
+          The server cannot see a hash, so it renders the journey as a ground and a mark and lets
+          the client fill in the step - but the ground differs by step (the checkout is paper, the
+          rest a dark scene), and a paint of the wrong one is the flash a refresh used to show.
+          One attribute on the root element, set before the body exists, lets the stylesheet pick
+          the right ground for that first paint. Nothing else reads it.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var h=location.hash.replace('#','');if(h)document.documentElement.setAttribute('data-journey-stage',h);}catch(e){}})();",
+          }}
+        />
       </head>
       <body>
         {/* Google Tag Manager (noscript) — immediately after the opening <body> tag. */}

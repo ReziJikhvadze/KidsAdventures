@@ -371,7 +371,6 @@ export const journey = {
       }
       return `Expected ${day(from)} - ${day(to)}`;
     },
-    deliveryAfterAddress: "Enter the address first - the options depend on it.",
     deliveryPending: "after the address",
     deliveryRegional: "Elsewhere in Georgia",
     deliveryTbilisi: "Tbilisi",

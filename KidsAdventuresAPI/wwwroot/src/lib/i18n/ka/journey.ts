@@ -436,7 +436,6 @@ export const journey = {
       }
       return `მოსალოდნელია ${day(from)} - ${day(to)}`;
     },
-    deliveryAfterAddress: "ჯერ მისამართი ჩაწერე - ვარიანტები მისამართზეა დამოკიდებული.",
     deliveryPending: "მისამართის შემდეგ",
     deliveryRegional: "საქართველოს რეგიონები",
     deliveryTbilisi: "თბილისი",

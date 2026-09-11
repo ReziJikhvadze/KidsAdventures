@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AppHeader } from "@/components/adventrya/AppHeader";
+import { BekiLoader } from "@/components/adventrya/BekiLoader";
 import { AuthStage } from "@/components/adventrya/journey/AuthStage";
 import { CheckoutStage } from "@/components/adventrya/journey/CheckoutStage";
 import { GeneratingStage } from "@/components/adventrya/journey/GeneratingStage";
@@ -358,6 +359,28 @@ export function JourneyScreen() {
 
   if (stage === "world") {
     return null;
+  }
+
+  /*
+    Nothing of the stage until the client is standing.
+
+    The stage lives in the hash, and the hash never reaches the server: every refresh was served
+    the questions, whatever step the parent was on, and on the checkout that was a second of the
+    wrong page on the wrong ground before the client threw it away. Until the draft provider says
+    it is mounted - false on the server and on the first client pass alike, so the two agree and
+    nothing is thrown away - the journey is a ground and the mark turning on it. The ground
+    already knows which step it is for: a line in the document head reads the hash before the
+    first paint and says so on the root element (see `__root`), so the checkout wakes on paper.
+  */
+  if (!hydrated) {
+    return (
+      <div className="screen journey-shell journey-hydrating ux1-shell">
+        <div className="journey-art" aria-hidden="true" />
+        <div className="journey-shade" aria-hidden="true" />
+        <div className="grain" aria-hidden="true" />
+        <BekiLoader size={56} label={t.common.states.loading} />
+      </div>
+    );
   }
 
   return (

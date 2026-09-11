@@ -973,11 +973,11 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
               card is the name of the method and, under it, the two things being weighed - the
               wait and the price - so the eye compares down one column of circles.
             */}
-            <section className="ux-block" aria-labelledby="checkout-how">
-              <h2 className="ux-block-title" id="checkout-how">
-                {t.journey.checkout.deliveryMethod}
-              </h2>
-              {addressStarted ? (
+            {addressStarted ? (
+              <section className="ux-block" aria-labelledby="checkout-how">
+                <h2 className="ux-block-title" id="checkout-how">
+                  {t.journey.checkout.deliveryMethod}
+                </h2>
                 <div className="ux-delivery-list">
                   {deliveryChoices.map((option) => {
                     const window = DELIVERY[option];
@@ -1025,10 +1025,8 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                     );
                   })}
                 </div>
-              ) : (
-                <p className="ux-block-hint">{t.journey.checkout.deliveryAfterAddress}</p>
-              )}
-            </section>
+              </section>
+            ) : null}
 
             {/*
               The one optional thing, said to be optional. A switch drawn over a real checkbox,
@@ -1056,7 +1054,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                     checked={draft.giftWrap}
                     onChange={(e) => onChange({ giftWrap: e.target.checked })}
                   />
-                  <span className="ux-switch" aria-hidden="true" />
+                  <span className="ux-check" aria-hidden="true" />
                 </span>
               </label>
             </section>
