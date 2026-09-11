@@ -4123,7 +4123,7 @@
   flex-direction: column;
   align-items: center;
   gap: 0;
-  padding: 30px 24px 0;
+  padding: 24px 24px 0;
 }
 .journey-checkout .ux-checkout-stage > .checkout-form,
 .journey-checkout .ux-checkout-stage > .ux-order-summary,
@@ -4285,4 +4285,154 @@
 .journey-checkout .ux-checkout-stage > .ux-order-summary .ux-promo-panel,
 .journey-checkout .ux-checkout-stage > .ux-order-summary .ux-promo-panel label > span {
   color: var(--jw-ink-soft);
+}
+
+/*
+  The desktop regime, stood down for this one screen.
+
+  Above 1024x768 the journey's stages are made to fit one window: the shell is clipped to it, the
+  checkout stage is given its height, and each of the two columns carries `max-height: 100%` with
+  a scrollbar as the escape hatch. That was written for two columns side by side, each shorter
+  than the window. Stacked into one column they share the height instead, and the hatch fires on
+  both - two tracks down the right edge, the rail cut off mid-promo, the form's heading drawn over
+  what the rail could not show, and the price column eaten by the track. Which is the screenshot
+  the owner sent from a 1913x907 window, and which no window under 1024x768 ever showed.
+
+  One column on paper scrolls like a page. The shell follows its content, the stage takes the
+  height it needs, nothing inside caps or scrolls, and the till keeps its place by being sticky.
+  `clip` rather than `hidden` on the x axis: hidden would make the shell a scroll container, and
+  the sticky till would then stick to the shell's bottom - as tall as the page - and never to
+  the glass.
+*/
+.screen.journey-checkout.ux1-shell {
+  height: auto;
+  min-height: 100svh;
+  max-height: none;
+  overflow-x: clip;
+  overflow-y: visible;
+}
+.journey-checkout .ux-checkout-stage {
+  height: auto;
+  min-height: 0;
+}
+.journey-checkout .ux-checkout-stage > .checkout-form,
+.journey-checkout .ux-checkout-stage > .ux-order-summary {
+  max-height: none;
+  overflow: visible;
+}
+
+/*
+  The heading goes, and the badge above it.
+
+  "ბეჭდური ვერსიის შეკვეთა" at 41px was the loudest thing on a page meant to be quiet, and it
+  said what the trail's "წიგნი" and the product row above it had already said. It stays in the
+  tree for the reader that navigates by headings; it just stops being drawn. The rule between the
+  order and the form is what the heading was doing structurally, and a rule does it at one pixel.
+*/
+.journey-checkout .checkout-form > h1 {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.journey-checkout .checkout-form > .eyebrow {
+  display: none;
+}
+.journey-checkout .ux-checkout-stage > .checkout-form {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--jw-line);
+}
+
+/*
+  The column's width is one number, said once.
+
+  620px is the drawing at 1440. On the owner's 1913px window that left 646px of paper either
+  side of it - the "?" drawn on both margins of the screenshot - so from 1600 up the column takes
+  a hundred more. Not proportional: a form does not get better by being wider, it only stops
+  looking lost.
+*/
+.journey-checkout {
+  --jw-col: 620px;
+}
+@media (min-width: 1600px) {
+  .journey-checkout {
+    --jw-col: 720px;
+  }
+}
+.journey-checkout .ux-checkout-stage > .checkout-form,
+.journey-checkout .ux-checkout-stage > .ux-order-summary,
+.journey-checkout .ux-checkout-stage > .ux-form-error {
+  width: min(var(--jw-col), 100%);
+}
+
+/*
+  The till is a bar across the page, not the last row of the column.
+
+  As drawn: full width, paper, a rule along its top, and inside it the same column as everything
+  above - the total on the left, the button on the right at its own width. It had been stretched
+  to fill the column, which on a 620px line is a 560px button, and a button that wide reads as a
+  banner rather than a thing to press.
+*/
+.journey-checkout .ux-checkout-stage > .ux-checkout-bar {
+  width: auto;
+  max-width: none;
+  align-self: stretch;
+  margin: 16px -24px 0;
+  padding: 14px max(24px, calc(50% - var(--jw-col) / 2)) 16px;
+  background: var(--jw-paper);
+}
+.journey-checkout .ux-checkout-bar .checkout-pay {
+  flex: none;
+  min-width: 220px;
+  margin-left: auto;
+  padding-inline: 30px;
+}
+
+/*
+  The trail gets its own line under the controls, as drawn.
+
+  The header wraps to hold it, and a wrapped row with a shared border reads as one tall bar.
+  The rule between the rows is a pseudo-element the width of the window, so the trail sits in a
+  band of its own without the markup changing for the other stages that share this header.
+*/
+.journey-checkout .app-header:has(.step-trail) {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  row-gap: 0;
+}
+.journey-checkout .step-trail {
+  position: relative;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.journey-checkout .step-trail::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 100vw;
+  height: 1px;
+  background: var(--jw-line);
+  transform: translateX(-50%);
+}
+
+@media (max-width: 560px) {
+  .journey-checkout .ux-checkout-stage > .ux-checkout-bar {
+    margin: 18px -16px 0;
+    padding: 12px 16px 16px;
+  }
+  .journey-checkout .ux-checkout-bar .checkout-pay {
+    min-width: 0;
+    padding-inline: 22px;
+  }
+  .journey-checkout .ux-checkout-stage > .checkout-form {
+    margin-top: 16px;
+    padding-top: 16px;
+  }
 }
