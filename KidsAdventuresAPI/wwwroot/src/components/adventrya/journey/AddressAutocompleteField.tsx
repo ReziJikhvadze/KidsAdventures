@@ -133,28 +133,44 @@ export function AddressAutocompleteField({
   }, [value, ready]);
 
   const take = async (prediction: PlacePrediction) => {
-    const resolved = await resolvePrediction(prediction);
-    // The session is spent whether or not Google could resolve the place; the next search is a
-    // new one either way.
+    /*
+      The row's own words go in the moment it is pressed, and the list closes with them.
+
+      Google is then asked what the row stands for, and its answer - the address as it would
+      print it, the city on its own, the point on the map - replaces the words when it comes.
+      The order matters: the answer takes a few hundred milliseconds on a phone, and a box that
+      still showed three typed letters for that long read as a press that had done nothing. And
+      if Google will not say - a dropped connection, a quota - the words are already there, and
+      the form treats them as typed, which they now are.
+    */
+    const text = prediction.text?.toString().trim() ?? "";
+    // The session is spent either way; the next search is a new one.
     session.current = undefined;
     setOptions([]);
     setOpen(false);
-    if (!resolved) {
-      /*
-        Google would not say what the row stands for - a dropped connection, a quota - but the
-        parent pressed a row with words on it, and the box must not sit there holding the three
-        letters they typed as if nothing had happened. The row's own text goes in; the form
-        treats it as typed, which it now is.
-      */
-      const text = prediction.text?.toString().trim();
-      if (text) onChange(text);
-      return;
+    if (text) {
+      // Marked as chosen before it is set, or the lookup effect would search for it.
+      chosen.current = text;
+      onChange(text);
     }
+    const resolved = await resolvePrediction(prediction);
+    if (!resolved) return;
     chosen.current = resolved.address;
     onChoose(resolved);
   };
 
   const showList = open && options.length > 0;
+
+  /*
+    A press on the list does not move the focus out of the box.
+
+    Focus moving is what a press does by default, and it is what closed the list before the
+    release could land: the box blurred, the list unmounted, the button under the finger was
+    gone. Refusing the default on the list - the pointer event and, for browsers that only send
+    the mouse one, that too - leaves the focus where it is and the list where it is; the click
+    that follows the release still fires, and a keyboard never comes through here at all.
+  */
+  const keepFocus = (event: { preventDefault(): void }) => event.preventDefault();
 
   return (
     <div className={className ? `ux-address-field ${className}` : "ux-address-field"}>
@@ -183,11 +199,14 @@ export function AddressAutocompleteField({
             }}
             onFocus={() => setOpen(true)}
             /*
-            Late enough that a press on a suggestion is not cancelled by the blur that precedes
-            it. `onMouseDown` with `preventDefault` on the row would be the other way; this keeps
-            the row an ordinary button, which is what a screen reader and a keyboard both want.
-          */
-            onBlur={() => window.setTimeout(() => setOpen(false), 140)}
+              Closes the list when the focus has genuinely gone somewhere else - the next field,
+              the map button, another window. A press on a suggestion never gets here: the list
+              keeps the pointer from taking focus (see `keepFocus`), so the box is still focused
+              while the row is pressed, however long the finger is down. The timer that used to
+              stand in for this closed the list 140ms after the press began, which is less than
+              a person's press lasts, and the release landed on an empty page.
+            */
+            onBlur={() => setOpen(false)}
             onKeyDown={(event) => {
               if (!showList) return;
               if (event.key === "ArrowDown") {
@@ -207,7 +226,13 @@ export function AddressAutocompleteField({
         </label>
 
         {showList ? (
-          <ul className="ux-address-suggestions" id={listId} role="listbox">
+          <ul
+            className="ux-address-suggestions"
+            id={listId}
+            role="listbox"
+            onPointerDown={keepFocus}
+            onMouseDown={keepFocus}
+          >
             {options.map((option, index) => {
               const main = option.mainText?.toString() ?? option.text?.toString() ?? "";
               const rest = option.secondaryText?.toString() ?? "";
