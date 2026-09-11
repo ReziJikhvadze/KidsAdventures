@@ -159,7 +159,9 @@
   background: #37275e94;
 }
 .landing-v3-dashboard-link svg {
-  width: 14px;
+  width: 17px;
+  height: 17px;
+  stroke-width: 1.8;
 }
 /*
   The first screen is exactly one screen.

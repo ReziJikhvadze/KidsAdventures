@@ -1015,6 +1015,30 @@ html[data-journey-stage="checkout"] .journey-hydrating > .grain {
   }
 }
 
+/*
+  The way to the parent's space, on paper: a quiet pill, the open book in the brand's purple,
+  the word in ink. It must read as a way somewhere and never as a second gold button.
+*/
+.journey-checkout .app-header .child-pill {
+  height: 42px;
+  padding: 0 12px 0 11px;
+  border-radius: 12px;
+}
+.journey-checkout .app-header .child-pill .child-avatar {
+  color: var(--ck-purple);
+}
+.journey-checkout .app-header .child-pill > svg {
+  color: var(--jw-ink-soft);
+}
+.journey-checkout .app-header .child-pill:hover {
+  border-color: #c9bfe0;
+  background: var(--ck-purple-tint);
+}
+.journey-checkout .app-header .child-pill:focus-visible {
+  outline: 2px solid var(--ck-purple);
+  outline-offset: 2px;
+}
+
 /* Save and cancel: one height, one radius, one weight of border; the gold one first. */
 .ux-address-actions {
   gap: 8px;

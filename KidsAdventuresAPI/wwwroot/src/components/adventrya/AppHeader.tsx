@@ -1,6 +1,6 @@
 import { Link, useCanGoBack, useRouter } from "@tanstack/react-router";
 import { Fragment } from "react";
-import { ArrowLeft, ChevronDown, ChevronRight, Globe, LogOut, User } from "lucide-react";
+import { ArrowLeft, BookOpen, ChevronDown, ChevronRight, Globe, LogOut } from "lucide-react";
 
 import { LanguageSwitcher } from "@/components/adventrya/LanguageSwitcher";
 import { BekiMark, type BekiMarkTone } from "@/components/brand/BekiMark";
@@ -245,8 +245,14 @@ export function AppHeader({
             around.
           */
           <Link className="child-pill" to="/dashboard" aria-label={t.common.nav.openDashboard}>
+            {/*
+              An open book, drawn in outline and standing on nothing. The gold disc with a
+              person in it read as an account button, and on the checkout it stood beside the
+              one gold thing that page is for. The space is the parent's shelf first - their
+              books, then their children and their address - and the icon says the shelf.
+            */}
             <span className="child-avatar" aria-hidden="true">
-              <User />
+              <BookOpen />
             </span>
             {/* One label, and the same one the marketing header uses.
 

@@ -5,7 +5,9 @@ import { LanguageSwitcher } from "@/components/adventrya/LanguageSwitcher";
 import { BekiMark } from "@/components/brand/BekiMark";
 import { useT } from "@/lib/i18n";
 
-import { ChevronDownIcon, DashboardIcon, GlobeIcon } from "./icons";
+import { BookOpen } from "lucide-react";
+
+import { ChevronDownIcon, GlobeIcon } from "./icons";
 
 /**
  * Back to the top when the logo is already home.
@@ -98,7 +100,8 @@ export function Header() {
           to="/dashboard"
           aria-label={t.common.nav.openDashboard}
         >
-          <DashboardIcon />
+          {/* The same open book the journey's header carries: one icon for one place. */}
+          <BookOpen aria-hidden="true" />
           <span>{t.common.nav.mySpace}</span>
         </Link>
 

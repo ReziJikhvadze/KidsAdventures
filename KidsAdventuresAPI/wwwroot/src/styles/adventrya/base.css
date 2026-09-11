@@ -693,6 +693,36 @@ svg {
     linear-gradient(145deg, #e5c47c, #b97b50);
   box-shadow: inset 0 0 0 2px #ffffff40;
 }
+/*
+  In the header pill the mark is an open book in outline, on nothing: no disc, no fill, no
+  shadow. The gold disc read as an account button and, on the checkout, stood beside the one
+  gold thing that page is for. The disc rules below stay for the child avatars that carry an
+  initial elsewhere.
+*/
+.child-pill .child-avatar {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  color: inherit;
+  background: none;
+  box-shadow: none;
+}
+.child-pill .child-avatar svg {
+  width: 19px;
+  height: 19px;
+  stroke-width: 1.8;
+}
+.child-pill {
+  padding-left: 12px;
+  gap: 8px;
+}
+.child-pill:hover {
+  border-color: #ffffff4d;
+}
+.child-pill:focus-visible {
+  outline: 2px solid var(--story-gold);
+  outline-offset: 2px;
+}
 .child-avatar {
   width: 34px;
   height: 34px;
