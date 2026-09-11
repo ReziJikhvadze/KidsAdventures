@@ -337,8 +337,6 @@ export const journey = {
     summaryTitle: "Your order",
     showDetails: "Details",
     hideDetails: "Hide",
-    productLine: (hero: string, pages?: number) =>
-      [hero ? `Starring ${hero}` : "", pages ? `${pages} pages` : ""].filter(Boolean).join(" · "),
     quantity: "Copies",
     lineBook: "Book",
     lineBooks: (count: number) => (count > 1 ? `Book × ${count}` : "Book"),

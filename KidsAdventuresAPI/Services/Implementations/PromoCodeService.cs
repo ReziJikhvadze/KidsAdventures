@@ -44,7 +44,7 @@ public sealed class PromoCodeService(
           those is defensible; what is not is a total the parent cannot arrive at themselves
           from the lines they were shown.
         */
-        var wrapping = GelPricing.GiftWrapFor(effectivePackage, giftWrap);
+        var wrapping = GelPricing.GiftWrapFor(effectivePackage, giftWrap, copies);
         /* Same rule, same reason: only a parcel is delivered, and the figure is the server's. */
         var courier = GelPricing.DeliveryFor(effectivePackage, delivery);
         var shipped = courier > 0 || delivery.Option != DeliveryOption.None

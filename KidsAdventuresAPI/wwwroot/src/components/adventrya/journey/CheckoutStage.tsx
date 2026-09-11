@@ -375,7 +375,8 @@ export function CheckoutStage({ draft, onChange, onPaid, onPreviewStale }: Props
 
   const baseMinor =
     (isPrint ? PRICES.print * copies : PRICES.digital) +
-    (wantsGiftWrap ? PRICES.giftWrap : 0) +
+    /* Per copy: each book given as a gift is wrapped as one. The server prices it the same. */
+    (wantsGiftWrap ? PRICES.giftWrap * copies : 0) +
     deliveryPriceMinor;
   const subtotalMinor = quote?.subtotalMinor ?? baseMinor;
   const discountMinor = quote?.discountMinor ?? 0;
@@ -383,7 +384,7 @@ export function CheckoutStage({ draft, onChange, onPaid, onPreviewStale }: Props
     The server's figure while it has one, and the local price only until the first quote lands,
     so the summary never shows a wrapping line the order will not carry.
   */
-  const giftWrapMinor = quote?.giftWrapMinor ?? (wantsGiftWrap ? PRICES.giftWrap : 0);
+  const giftWrapMinor = quote?.giftWrapMinor ?? (wantsGiftWrap ? PRICES.giftWrap * copies : 0);
   /* The same rule as wrapping: the server's number while there is one, the local one until then. */
   const deliveryMinor = quote?.deliveryMinor ?? deliveryPriceMinor;
   const totalMinor = quote?.totalMinor ?? baseMinor;
@@ -733,9 +734,6 @@ export function CheckoutStage({ draft, onChange, onPaid, onPreviewStale }: Props
         ? t.journey.checkout.beki.addressSet
         : t.journey.checkout.beki.ready;
 
-  /* What the book is, in one line under its title: whose story, and how long. */
-  const productLine = t.journey.checkout.productLine(heroName, draft.preview?.pageCount);
-
   /*
     One button, drawn twice: at the foot of the order card, which is where a desktop reads the
     total, and on the bar a phone keeps at the bottom of the window. The stylesheet shows one or
@@ -1076,7 +1074,8 @@ export function CheckoutStage({ draft, onChange, onPaid, onPreviewStale }: Props
                   <small>{t.journey.checkout.giftWrapNote}</small>
                 </span>
                 <span className="ux-gift-end">
-                  <b>+{formatGel(PRICES.giftWrap)}</b>
+                  {/* The offer, for the copies chosen: 5 a copy, so two copies say 10. */}
+                  <b>+{formatGel(PRICES.giftWrap * copies)}</b>
                   <input
                     type="checkbox"
                     name="giftWrap"
@@ -1135,7 +1134,6 @@ export function CheckoutStage({ draft, onChange, onPaid, onPreviewStale }: Props
           />
           <div className="ux-product-copy">
             <strong>{bookTitle}</strong>
-            {productLine ? <span>{productLine}</span> : null}
             <small>{packageLabel}</small>
             {isPrint ? (
               <span className="ux-qty">

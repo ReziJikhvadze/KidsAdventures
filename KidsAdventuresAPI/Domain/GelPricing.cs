@@ -67,8 +67,13 @@ public static class GelPricing
     /// <summary>Whether wrapping can be added to this order at all — a posted parcel, not a file.</summary>
     public static bool SupportsGiftWrap(OrderPackage package) => package == OrderPackage.Print;
 
-    public static int GiftWrapFor(OrderPackage package, bool giftWrap) =>
-        giftWrap && SupportsGiftWrap(package) ? GiftWrapMinor : 0;
+    /// <summary>
+    /// Per copy: two books bought as presents are two presents, and each is wrapped. It was
+    /// charged once per order, on the reasoning that one parcel is wrapped once; the owner's
+    /// reading of what a parent is buying wins.
+    /// </summary>
+    public static int GiftWrapFor(OrderPackage package, bool giftWrap, int copies = 1) =>
+        giftWrap && SupportsGiftWrap(package) ? GiftWrapMinor * Math.Max(1, copies) : 0;
 
     /// <summary>
     /// The most printed copies of one book we will take in a single order.
@@ -99,10 +104,8 @@ public static class GelPricing
         DeliveryChoice delivery = default)
     {
         /*
-          Copies multiply the book; wrapping does not multiply with them.
-
-          Three copies is three books in one parcel to one address, and the parcel is wrapped
-          once. Charging the five lari per copy would be charging for wrapping that nobody does.
+          Copies multiply the book, and the wrapping with it: each copy given as a present is
+          wrapped as one. Delivery does not multiply - one parcel is carried once.
         */
         var copies = QuantityFor(type, package, quantity);
 
@@ -123,7 +126,7 @@ public static class GelPricing
                 OrderPackage.Digital => DigitalMinor,
                 OrderPackage.Print =>
                     (PrintMinor * copies)
-                    + GiftWrapFor(package, giftWrap)
+                    + GiftWrapFor(package, giftWrap, copies)
                     + DeliveryFor(package, delivery),
                 _ => throw new InvalidOperationException("პაკეტი არასწორია.")
             },

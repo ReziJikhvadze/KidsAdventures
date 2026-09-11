@@ -400,12 +400,6 @@ export const journey = {
     summaryTitle: "შენი შეკვეთა",
     showDetails: "დეტალები",
     hideDetails: "დამალვა",
-    /* Under the title: whose story it is and how long. The name is not declined, so it never
-       comes out wrong. */
-    productLine: (hero: string, pages?: number) =>
-      [hero ? `მთავარი გმირი - ${hero}` : "", pages ? `${pages} გვერდი` : ""]
-        .filter(Boolean)
-        .join(" · "),
     quantity: "რაოდენობა",
     lineBook: "წიგნი",
     lineBooks: (count: number) => (count > 1 ? `წიგნი × ${count}` : "წიგნი"),
