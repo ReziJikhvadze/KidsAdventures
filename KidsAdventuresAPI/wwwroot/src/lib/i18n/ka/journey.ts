@@ -194,7 +194,9 @@ export const journey = {
   },
 
   previewLoader: {
-    paintingCover: "ვხატავთ შენი წიგნის ყდას…",
+    /* No "cover" in the waiting words: the parent is waiting for a book, and the cover is our
+       vocabulary for the part of it that arrives last. */
+    paintingCover: "ვქმნით შენს წიგნს…",
     heading: " პერსონალიზებული ნიმუში იქმნება",
     subheading: "ს პირველი გვერდი უკვე მზადდება ✨",
     ariaLabel: (hero: string) => `ნახე ${hero}ს ამბავი უფასოდ`,
@@ -205,7 +207,7 @@ export const journey = {
       the preview into a book — which is our vocabulary, not a parent's, and it made a two-minute
       wait read as five separate things going wrong one at a time.
     */
-    stages: ["შენი ყდის მომზადება", "შენი სამყაროს დახატვა", "ნიმუშის დასრულება"],
+    stages: ["შენი წიგნის მომზადება", "შენი სამყაროს დახატვა", "ნიმუშის დასრულება"],
   },
 
   preview: {
