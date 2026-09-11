@@ -4436,3 +4436,71 @@
     padding-top: 16px;
   }
 }
+
+/*
+  Side by side, once there is room.
+
+  The owner's question, and the right one: the column fits 1440x900 with nothing to spare, and
+  a typed address brings two delivery rows that tip it over - so on the very screens that have
+  the width, the page was asking parents to scroll. From 1024x768, the threshold the journey
+  already uses for its one-screen regime, the order takes the left and the form the right, on
+  the same paper with a hairline between them, and the till runs under both. The reading order
+  holds: what is being bought, then where it goes, then the button, bottom right, where the eye
+  finishes. Under that size the column stays a column.
+
+  The tracks are the page's two answers to width: 420 for the order, which is a list, and 620
+  for the form, which is the drawing's column. The outer 1fr pair centres them and gives way
+  first, so at 1024 the pair still fits with the form giving up sixty pixels rather than a
+  scrollbar appearing.
+*/
+@media (min-width: 1024px) and (min-height: 768px) {
+  .journey-checkout {
+    --jw-col: 1096px;
+  }
+  /*
+    The till sits on the floor of the window, as drawn, not under the last field with paper
+    below it. The shell hands the stage whatever the header leaves, and the first row takes the
+    slack; when the columns are taller than that, the rows grow, the page scrolls, and the till
+    is sticky again. Nothing here caps anything.
+  */
+  .screen.journey-checkout.ux1-shell {
+    display: flex;
+    flex-direction: column;
+  }
+  .journey-checkout .ux-checkout-stage {
+    flex: 1 0 auto;
+    display: grid;
+    grid-template-columns: 1fr minmax(320px, 420px) minmax(0, 620px) 1fr;
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      ". order form ."
+      ". error error ."
+      "bar bar bar bar";
+    align-items: start;
+    padding-top: 28px;
+  }
+  .journey-checkout .ux-checkout-stage > .ux-order-summary {
+    grid-area: order;
+    width: auto;
+    padding-right: 48px;
+  }
+  .journey-checkout .ux-checkout-stage > .checkout-form {
+    grid-area: form;
+    /* The hairline runs the height of the taller column, whichever that is. */
+    align-self: stretch;
+    width: auto;
+    margin-top: 0;
+    padding-top: 0;
+    padding-left: 48px;
+    border-top: 0;
+    border-left: 1px solid var(--jw-line);
+  }
+  .journey-checkout .ux-checkout-stage > .ux-form-error {
+    grid-area: error;
+    width: auto;
+  }
+  .journey-checkout .ux-checkout-stage > .ux-checkout-bar {
+    grid-area: bar;
+    margin-top: 28px;
+  }
+}
