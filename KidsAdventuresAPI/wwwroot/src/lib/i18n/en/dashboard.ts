@@ -14,7 +14,7 @@ export const dashboard = {
     bookCount: (count: number) => (count === 1 ? "1 book" : `${count} books`),
     openBook: (title: string) => `Open "${title}"`,
     otherChild: (name: string) =>
-      `${name} has no books yet. Another child's books appear when you pick their profile on the left.`,
+      `${name} has no books yet. Another child's books appear when you pick their name above.`,
 
     read: "Read",
     readAgain: "Read again",

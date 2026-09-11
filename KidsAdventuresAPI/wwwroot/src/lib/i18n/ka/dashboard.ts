@@ -18,8 +18,9 @@ export const dashboard = {
     heading: (name: string) => `${name}ს წიგნები`,
     bookCount: (count: number) => (count === 1 ? "1 წიგნი" : `${count} წიგნი`),
     openBook: (title: string) => `გახსენი "${title}"`,
+    /* The switcher is the pill beside the title now, not a list down the left. */
     otherChild: (name: string) =>
-      `${name}ს ჯერ წიგნი არ აქვს. სხვა ბავშვის წიგნები მარცხენა სიაში მისი პროფილის არჩევით გამოჩნდება.`,
+      `${name}ს ჯერ წიგნი არ აქვს. სხვა ბავშვის წიგნები ზემოთ, სახელის არჩევით გამოჩნდება.`,
 
     /* The three things a parent can do with a finished book, in the order the card offers
        them. "ხელახლა" is short on purpose: at any longer wording the row wraps onto a second
