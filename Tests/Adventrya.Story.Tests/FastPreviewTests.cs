@@ -84,12 +84,12 @@ public sealed class FastPreviewTests(ITestOutputHelper output) : CompositePipeli
     }
 
     [Theory]
-    [InlineData("clouds", "ღრუბლების ქალაქი")]
-    [InlineData("space", "ვარსკვლავების გზა")]
-    [InlineData("forest", "მოჯადოებული ტყის მეგობრები")]
-    [InlineData("ocean", "მბრწყინავი კუნძულის საიდუმლო")]
-    [InlineData("magic", "სინათლის ქალაქის კარიბჭე")]
-    [InlineData("dinosaurs", "დინოზავრების ხეობა")]
+    [InlineData("clouds", "ღრუბლების ქალაქის დაკარგული რუკა")]
+    [InlineData("space", "ასტრონავტის დაკარგული ჩაფხუტი")]
+    [InlineData("forest", "ბუს დაკარგული საათი")]
+    [InlineData("ocean", "ნიჟარაში დამალული რუკა")]
+    [InlineData("magic", "სინათლის ქალაქის ჩამქრალი ფარანი")]
+    [InlineData("dinosaurs", "დინოზავრის ფერადი კვერცხი")]
     public void All_six_themes_have_fixed_titles_and_cover_only_plans(string theme, string title)
     {
         var titles = FastPreviewPlan.ThemeTitles(theme);
