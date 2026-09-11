@@ -631,3 +631,222 @@
     height: 64px;
   }
 }
+
+/* ==========================================================================
+   Wider, shorter, cleaner.
+
+   The owner's reading of the redesign, and it is right: the columns were narrow for the screens
+   they sit on and the page ran taller than a 900px window once an address was typed. Width goes
+   up - 700 for the form, 420 for the card, 48 between, 1168 in all - and everything vertical
+   comes down: the header's two rows, Beki, the titles, the fields, the cards, the rhythm between
+   them. Nothing is scaled with the width; the page gets room sideways and gives it back upward.
+
+   Nothing here clips. The stage still grows with its content and the card is still sticky; the
+   numbers below are what let 1440x900 and 1536x864 hold the whole checkout, with an address
+   typed and both delivery cards showing, without a scroll.
+   ========================================================================== */
+
+/* The header: the controls' row at 56px and the trail in a 36px band under it, on this stage. */
+.journey-checkout .app-header:has(.step-trail) {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.journey-checkout .step-trail {
+  margin-top: 6px;
+  padding-top: 8px;
+}
+
+/* Beki, at guide size: the row is 70px, and he is the height of two lines of his own bubble. */
+.ux-beki-guide {
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.ux-beki-guide > img {
+  height: 66px;
+}
+.ux-beki-bubble {
+  margin-bottom: 8px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+}
+
+/* The questions, closer together, with smaller titles: they label, they do not announce. */
+.ux-block {
+  margin-top: 14px;
+}
+.ux-block-title {
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+.ux-block-hint {
+  padding: 10px 12px;
+  font-size: 12.5px;
+}
+
+/* Fields: label to box 6px, boxes 44px, the note two lines and no more, the map link tucked in. */
+.journey-checkout .ux-checkout-stage .field {
+  gap: 6px;
+}
+.journey-checkout .ux-checkout-stage .field input {
+  height: 44px;
+  min-height: 44px;
+  padding: 0 13px;
+}
+.journey-checkout .ux-checkout-stage .ux-tel {
+  min-height: 44px;
+}
+.journey-checkout .ux-checkout-stage .ux-ship-fields {
+  gap: 8px 12px;
+}
+.journey-checkout .ux-checkout-stage .ux-ship-fields textarea {
+  min-height: 52px;
+  padding: 10px 13px;
+  line-height: 1.45;
+}
+.journey-checkout .ux-checkout-stage .ux-pick-location {
+  margin-top: 4px;
+}
+
+/* The address book and the two choice cards, at the same compact height. */
+.journey-checkout .ux-checkout-stage .ux-address-list {
+  gap: 6px;
+}
+.journey-checkout .ux-address-choice {
+  padding: 9px 12px;
+}
+.journey-checkout .ux-address-add {
+  min-height: 40px;
+}
+.ux-delivery-list {
+  gap: 6px;
+}
+.ux-delivery-card {
+  min-height: 50px;
+  padding: 8px 12px;
+}
+.ux-delivery-copy {
+  gap: 1px;
+}
+.ux-delivery-copy strong {
+  font-size: 13.5px;
+  line-height: 1.25;
+}
+.ux-delivery-copy small {
+  font-size: 12px;
+  line-height: 1.3;
+}
+/* The price on its own, at the right edge, where every other price on the page is. */
+.ux-delivery-price {
+  flex: none;
+  margin-left: auto;
+  color: var(--jw-ink);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.ux-gift-card {
+  min-height: 50px;
+  padding: 8px 12px;
+}
+.ux-gift-card .ux-wrap-icon {
+  width: 32px;
+  height: 32px;
+}
+.ux-gift-copy {
+  gap: 1px;
+}
+.ux-gift-copy strong {
+  font-size: 13.5px;
+  line-height: 1.25;
+}
+.ux-gift-copy small {
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+/*
+  Chosen, said once. The purple edge and the tint were doubled by an inset ring, which on three
+  kinds of card in one column was more purple than the page needed; the edge and the tint say it.
+*/
+.journey-checkout .ux-address-choice.is-on,
+.ux-delivery-card.is-on,
+.ux-gift-card.is-on {
+  box-shadow: none;
+}
+
+/* The order card: the same card, sixteen pixels in from its edge instead of twenty. */
+.ux-summary-head {
+  margin-bottom: 10px;
+}
+.ux-product {
+  gap: 14px;
+}
+.ux-product .storybook-thumbnail,
+.ux-product .storybook-thumbnail .storybook-volume {
+  --book-width: 86px;
+  width: 86px;
+}
+.ux-product-copy {
+  gap: 3px;
+  padding-top: 2px;
+}
+.ux-product-copy > strong {
+  font-size: 16px;
+}
+.ux-qty {
+  margin-top: 6px;
+}
+.ux-lines {
+  margin-top: 12px;
+  padding-top: 10px;
+}
+.ux-line {
+  padding: 4px 0;
+}
+.journey-checkout .ux-promo-panel {
+  margin-top: 6px;
+}
+.ux-summary-foot {
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.ux-total {
+  margin-bottom: 10px;
+}
+.ux-total > strong {
+  font-size: 28px;
+}
+.ux-summary-foot .checkout-pay {
+  min-height: 52px;
+}
+.ux-secure {
+  margin-top: 8px;
+}
+
+@media (min-width: 1024px) and (min-height: 768px) {
+  .journey-checkout {
+    --jw-col: 1168px;
+  }
+  .journey-checkout .ux-checkout-stage {
+    grid-template-columns: 1fr minmax(0, 700px) minmax(380px, 420px) 1fr;
+    column-gap: 48px;
+    padding-top: 16px;
+  }
+  .journey-checkout .ux-checkout-stage > .ux-order-summary {
+    top: 16px;
+    padding: 16px;
+  }
+  .ux-beki-guide > img {
+    height: 66px;
+  }
+  .ux-block-title {
+    font-size: 15px;
+  }
+}
+
+/* The tablet band: the gutters are gone and the form gives way before the card does. */
+@media (min-width: 1024px) and (max-width: 1200px) and (min-height: 768px) {
+  .journey-checkout .ux-checkout-stage {
+    grid-template-columns: 1fr minmax(0, 700px) minmax(340px, 400px) 1fr;
+    column-gap: 32px;
+  }
+}

@@ -363,7 +363,7 @@ export const journey = {
     invalidPhone: "ნომერი 9 ციფრია, მაგალითად 599 12 34 56.",
     requiredAddress: "ჩაწერე მისამართი - ქალაქი, ქუჩა და შენობა.",
     fixFields: "შეავსე მონიშნული ველები.",
-    addressNotesPlaceholder: "სადარბაზო, სართული, ბინა, კარის კოდი",
+    addressNotesPlaceholder: "მაგალითად: სადარბაზო, სართული, კარის კოდი",
     addressPlaceholder: "ქალაქი, ქუჩა, შენობა, ბინა",
     shippingAddress: "მისამართი",
     addNewAddress: "სხვა მისამართზე",
@@ -413,6 +413,29 @@ export const journey = {
     deliveryDays: (days: number) => `${days} სამუშაო დღე`,
     deliveryDaysRange: (min: number, max: number) => `${min}-${max} სამუშაო დღე`,
     deliveryFree: "უფასო",
+    /* The day it should arrive, which is the thing a parent is choosing between. */
+    deliveryExpected: (from: Date, to: Date) => {
+      const months = [
+        "იანვარს",
+        "თებერვალს",
+        "მარტს",
+        "აპრილს",
+        "მაისს",
+        "ივნისს",
+        "ივლისს",
+        "აგვისტოს",
+        "სექტემბერს",
+        "ოქტომბერს",
+        "ნოემბერს",
+        "დეკემბერს",
+      ];
+      const day = (d: Date) => `${d.getDate()} ${months[d.getMonth()]}`;
+      if (from.getTime() === to.getTime()) return `მოსალოდნელია ${day(from)}`;
+      if (from.getMonth() === to.getMonth()) {
+        return `მოსალოდნელია ${from.getDate()}-${to.getDate()} ${months[to.getMonth()]}`;
+      }
+      return `მოსალოდნელია ${day(from)} - ${day(to)}`;
+    },
     deliveryAfterAddress: "ჯერ მისამართი ჩაწერე - ვარიანტები მისამართზეა დამოკიდებული.",
     deliveryPending: "მისამართის შემდეგ",
     deliveryRegional: "საქართველოს რეგიონები",

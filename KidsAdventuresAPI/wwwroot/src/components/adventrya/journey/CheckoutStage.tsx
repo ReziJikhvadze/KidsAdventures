@@ -44,6 +44,7 @@ import {
   MAX_PRINT_QUANTITY,
   PRICES,
   deliveryOptionsForDisplay,
+  deliveryWindow,
   isTbilisiAddress,
   resolveDeliveryOption,
   type DeliveryOptionId,
@@ -980,6 +981,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                 <div className="ux-delivery-list">
                   {deliveryChoices.map((option) => {
                     const window = DELIVERY[option];
+                    const eta = deliveryWindow(option);
                     const chosen = option === deliveryOption;
                     return (
                       <label key={option} className={`ux-delivery-card${chosen ? " is-on" : ""}`}>
@@ -996,21 +998,29 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                           }
                         />
                         <span className="ux-radio" aria-hidden="true" />
+                        {/*
+                          The date first: "3 working days" asks the parent to count, and to know
+                          it is working days; "expected 16 September" is what they were asking.
+                          The count stays, after it, for the parent who wants to check the sum.
+                        */}
                         <span className="ux-delivery-copy">
                           <strong>{t.journey.checkout.deliveryName[option]}</strong>
                           <small>
+                            {t.journey.checkout.deliveryExpected(eta.from, eta.to)}
+                            {" · "}
                             {window.minDays === window.maxDays
                               ? t.journey.checkout.deliveryDays(window.minDays)
                               : t.journey.checkout.deliveryDaysRange(
                                   window.minDays,
                                   window.maxDays,
                                 )}
-                            {" · "}
-                            {window.priceMinor === 0
-                              ? t.journey.checkout.deliveryFree
-                              : formatGel(window.priceMinor)}
                           </small>
                         </span>
+                        <b className="ux-delivery-price">
+                          {window.priceMinor === 0
+                            ? t.journey.checkout.deliveryFree
+                            : formatGel(window.priceMinor)}
+                        </b>
                       </label>
                     );
                   })}

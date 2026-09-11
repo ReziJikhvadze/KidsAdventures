@@ -50,6 +50,33 @@ export const DELIVERY = {
 
 export type DeliveryOptionId = keyof typeof DELIVERY;
 
+/**
+ * When a parcel sent today would arrive, as dates rather than a count of days.
+ *
+ * "3 working days" asks the parent to do the arithmetic, and to know it is working days; a date
+ * is the answer they wanted. Counted from tomorrow, Monday to Friday, which is how the couriers
+ * count. A guess in good faith rather than a promise - the same window the option has always
+ * quoted, said as a day.
+ */
+export function deliveryWindow(
+  option: DeliveryOptionId,
+  from: Date = new Date(),
+): { from: Date; to: Date } {
+  const { minDays, maxDays } = DELIVERY[option];
+  return { from: addWorkingDays(from, minDays), to: addWorkingDays(from, maxDays) };
+}
+
+function addWorkingDays(from: Date, days: number): Date {
+  const date = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  let left = days;
+  while (left > 0) {
+    date.setDate(date.getDate() + 1);
+    const day = date.getDay();
+    if (day !== 0 && day !== 6) left -= 1;
+  }
+  return date;
+}
+
 /*
   Tbilisi spelled every way a parent might type it, matched the way the server matches it.
 

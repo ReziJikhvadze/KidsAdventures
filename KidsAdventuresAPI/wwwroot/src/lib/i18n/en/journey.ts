@@ -310,7 +310,7 @@ export const journey = {
     invalidPhone: "A Georgian number is nine digits, for example 599 12 34 56.",
     requiredAddress: "Enter the address - city, street and building.",
     fixFields: "Fill in the highlighted fields.",
-    addressNotesPlaceholder: "Entrance, floor, flat, door code",
+    addressNotesPlaceholder: "For example: entrance, floor, door code",
     addressPlaceholder: "City, street, building, flat",
     shippingAddress: "Address",
     addNewAddress: "Somewhere else",
@@ -349,6 +349,28 @@ export const journey = {
     deliveryDays: (days: number) => `${days} working days`,
     deliveryDaysRange: (min: number, max: number) => `${min}-${max} working days`,
     deliveryFree: "Free",
+    deliveryExpected: (from: Date, to: Date) => {
+      const months = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ];
+      const day = (d: Date) => `${d.getDate()} ${months[d.getMonth()]}`;
+      if (from.getTime() === to.getTime()) return `Expected ${day(from)}`;
+      if (from.getMonth() === to.getMonth()) {
+        return `Expected ${from.getDate()}-${to.getDate()} ${months[to.getMonth()]}`;
+      }
+      return `Expected ${day(from)} - ${day(to)}`;
+    },
     deliveryAfterAddress: "Enter the address first - the options depend on it.",
     deliveryPending: "after the address",
     deliveryRegional: "Elsewhere in Georgia",
