@@ -36,6 +36,13 @@ const inFlight = new Map<string, Promise<string>>();
   leave the shelf showing a world's stock art in place of the child's painted cover for the rest
   of the visit, because nothing asked again until the page was reloaded. A picture that is
   genuinely gone (a 404) is not asked for again: it will not appear by waiting.
+
+  A failure with no status at all gets one more kind of second try, straight away and past the
+  browser's cache. The address of a cover is also what the preview screen shows as a plain
+  picture, and the browser kept that answer - fetched without an Origin, so without the CORS
+  header - and handed it back to the fetch here, which cannot use it. The server now varies on
+  Origin so this stops happening; the copies already sitting in parents' caches are why the
+  reload is asked for anyway, and it costs nothing when the cache was fine.
 */
 const RETRY_DELAYS_MS = [3000, 8000, 20000];
 
@@ -49,11 +56,17 @@ function isPassing(error: unknown): boolean {
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 async function fetchWithRetries(path: string): Promise<string> {
+  let cache: RequestCache | undefined;
   for (let attempt = 0; ; attempt++) {
     try {
-      return await fetchIllustrationObjectUrl(path);
+      return await fetchIllustrationObjectUrl(path, cache);
     } catch (error) {
       if (attempt >= RETRY_DELAYS_MS.length || !isPassing(error)) throw error;
+      const status = (error as { status?: number } | null)?.status;
+      if (status === undefined && cache === undefined) {
+        cache = "reload";
+        continue;
+      }
       await wait(RETRY_DELAYS_MS[attempt]);
     }
   }

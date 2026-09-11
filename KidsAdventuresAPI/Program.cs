@@ -4,6 +4,7 @@ using AdventurePacks.Api.Infrastructure;
 using AdventurePacks.Api.Services.Interfaces;
 using AdventurePacks.Api.Services.Story;
 using Hangfire;
+using Microsoft.Extensions.Primitives;
 
 DapperTypeHandlers.Register();
 
@@ -96,6 +97,33 @@ if (app.Configuration.GetValue<bool>("Swagger:Enabled", app.Environment.IsDevelo
 }
 
 app.UseHttpsRedirection();
+
+/*
+  Every answer varies on Origin, whether or not this request carried one.
+
+  The CORS middleware says "Vary: Origin" only on requests that arrive with an Origin header,
+  because those are the only ones it looks at. A cover fetched as a plain <img> carries none, so
+  its answer went out with the day-long private cache lifetime and no Vary at all - and the
+  browser, correctly, handed that copy back to the dashboard's fetch() of the same address, which
+  does carry an Origin and needs an Access-Control-Allow-Origin the copy never had. Ten
+  milliseconds, "(disk cache)", and a CORS error the server never sent. Varying on Origin always
+  makes the two a different entry each, and the cache keeps working for both.
+*/
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(static state =>
+    {
+        var headers = ((HttpContext)state).Response.Headers;
+        var vary = headers.Vary;
+        if (!vary.Any(value => value is not null && value.Contains("Origin", StringComparison.OrdinalIgnoreCase)))
+        {
+            headers.Vary = StringValues.Concat(vary, "Origin");
+        }
+        return Task.CompletedTask;
+    }, context);
+    await next(context);
+});
+
 app.UseCors("Frontend");
 app.UseRateLimiter();
 app.UseAuthentication();

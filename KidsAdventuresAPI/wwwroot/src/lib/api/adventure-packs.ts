@@ -292,10 +292,19 @@ export function makingOfImagePath(packId: string, spread: number): string {
   return `/api/adventure-packs/${packId}/making-of/${spread}`;
 }
 
-export async function fetchIllustrationObjectUrl(illustrationPath: string): Promise<string> {
+/**
+ * `cache` is the browser's own option, passed through. The one caller that sets it asks for
+ * "reload" after a copy from the HTTP cache proved unusable - a cover the preview screen had
+ * loaded as a plain image, cached without the CORS header this cross-origin fetch needs.
+ */
+export async function fetchIllustrationObjectUrl(
+  illustrationPath: string,
+  cache?: RequestCache,
+): Promise<string> {
   const token = getToken();
   const response = await fetch(`${getApiBaseUrl()}${illustrationPath}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
+    cache,
   });
 
   if (!response.ok) {
