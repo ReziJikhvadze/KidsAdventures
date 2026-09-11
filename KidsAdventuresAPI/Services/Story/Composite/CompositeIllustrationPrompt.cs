@@ -463,7 +463,7 @@ public static class CompositeIllustrationPrompt
     /// shape to draw. The prompt is the whole of the change: no detector, no review, no redraw —
     /// the owner asked for the simplest instruction that moves the hero out of Beki's spot.
     /// </summary>
-    public const string Version = "child-world-image-v2.0";
+    public const string Version = "child-world-image-v2.1";
 
     /// <summary>
     /// The cover base template's version. A different document, a different version.
@@ -489,7 +489,7 @@ public static class CompositeIllustrationPrompt
     /// same <see cref="CompositeChildIdentity.LockBlock"/>, numbered against the references the
     /// request actually carries, so the two pictures cannot describe two children.
     /// </summary>
-    public const string CoverVersion = "cover-child-world-v1.6";
+    public const string CoverVersion = "cover-child-world-v1.7";
 
     /// <summary>
     /// <remarks>
@@ -1053,7 +1053,13 @@ public static class CompositeIllustrationPrompt
     /// collar, a different sash — which is what "not the cloth" meant.
     /// </summary>
     private static string OutfitAnchorClause(bool anchorAttached) =>
-        anchorAttached ? " Draw the outfit exactly as rendered in Image 1." : string.Empty;
+        anchorAttached
+            ? " Draw the outfit exactly as rendered in Image 1. Image 1 is the wardrobe authority, "
+              + "even if the scene suggests another costume. Match each garment's exact colour, fabric, "
+              + "pattern, collar, sleeves, fastenings, bottoms, socks, shoes and worn accessories. "
+              + "Do not replace, recolour, simplify or redesign the clothes. Never use the photograph's "
+              + "clothing. Story props may be held without changing the base outfit."
+            : string.Empty;
 
     /// <summary>
     /// The attached images, numbered by the order they are actually attached in.

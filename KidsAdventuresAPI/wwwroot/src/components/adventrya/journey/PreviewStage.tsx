@@ -40,16 +40,6 @@ import { useWorldById, WORLD_SCENE_ART, type WorldId } from "@/lib/worlds";
 */
 const NO_PAGES: never[] = [];
 
-/*
-  The two leaves a printed book opens on, before anything is printed on them.
-
-  The bought book opens onto its endpaper and its dedication; this one has neither yet, because
-  neither exists until the story is written. What it does have is the same shape - a cover that
-  lifts, and paper behind it - so the preview is an object a parent can open rather than a
-  picture of one. One spread, which is two blank pages, exactly as the press binds them.
-*/
-const BLANK_OPENING: PlateSpread[] = [{ art: null }];
-
 /**
  * A preview named in the address, for a browser that has never seen it.
  *
@@ -433,14 +423,31 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
   const coverSrc = draft.preview?.coverImageDataUrl || null;
   const bookTitle = draft.preview?.title || world.bookTitle(hero.name || t.common.fallbackHeroName);
 
-  /*
-    The endpaper, the dedication plate and the written first page that used to be assembled here
-    are gone with the paging that reached them — see the note on the volume below. The strings
-    they were built from (`preview.dedicationOwner` and the rest) are still in the catalogue, and
-    `heroDemoPages` still builds the same front matter for the sample on the home page, so
-    putting a readable page back on this screen is a matter of handing the component pages again
-    rather than of writing any of it a second time.
-  */
+  // The server-rendered intro already contains its personalized typography. Older previews
+  // without that asset get a dedication until they are replaced by a rendered preview.
+  const frontMatter = useMemo<PlateSpread[]>(
+    () => [
+      draft.preview?.introImageUrl
+        ? { art: draft.preview.introImageUrl }
+        : {
+            art: null,
+            centred: true,
+            panel: [
+              {
+                text: t.journey.preview.dedicationOwner(hero.name || t.common.fallbackHeroName),
+                size: "lg",
+              },
+              { text: bookTitle },
+              { text: t.journey.preview.dedicationInvite(hero.name || t.common.fallbackHeroName) },
+            ],
+          },
+      {
+        art: WORLD_SCENE_ART[worldId],
+        lockedMessage: t.story.storybook.createdAfterPayment,
+      },
+    ],
+    [draft.preview?.introImageUrl, hero.name, bookTitle, worldId, t],
+  );
 
   if (loading) {
     const heroName = hero.name || t.common.fallbackHeroName;
@@ -601,9 +608,7 @@ export function PreviewStage({ draft, onChange, onContinue }: Props) {
             coverImageUrl={coverSrc}
             coverCarriesItsOwnType={hasRenderedPreview(draft.preview)}
             worldId={worldId}
-            /* The book opens, the way the one on the home page does. Its story is still behind
-               the till, so what is behind the cover is the blank paper the press would bind. */
-            frontMatter={BLANK_OPENING}
+            frontMatter={frontMatter}
             pages={NO_PAGES}
             isUnlocked={false}
             interactive

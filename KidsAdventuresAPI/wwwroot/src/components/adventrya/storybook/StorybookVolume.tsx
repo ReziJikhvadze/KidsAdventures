@@ -25,6 +25,7 @@ export type StorybookLeaf =
       plain: boolean;
       panel: PlatePanelLine[] | null;
       centred: boolean;
+      lockedMessage?: string;
     };
 
 /** A line inside a plate's panel. `lg` is the dedication, `sm` the age under it. */
@@ -41,6 +42,8 @@ export type PlatePanelLine = { text: string; size?: "lg" | "md" | "sm" };
  */
 export type PlateSpread = {
   art: string | null;
+  /** Blur the entire plate and show the payment message on its right half. */
+  lockedMessage?: string;
   plainRight?: boolean;
   panel?: PlatePanelLine[] | null;
   panelSide?: SpreadSide;
@@ -270,6 +273,7 @@ function buildLeaves(options: {
       plain: false,
       panel: side === "left" ? panel : null,
       centred,
+      lockedMessage: spread.lockedMessage,
     });
     leaves.push({
       kind: "plate",
@@ -278,6 +282,7 @@ function buildLeaves(options: {
       plain: spread.plainRight ?? false,
       panel: side === "right" ? panel : null,
       centred,
+      lockedMessage: spread.lockedMessage,
     });
   }
   options.pages.forEach((page, storyIndex) => {
@@ -678,7 +683,7 @@ function PlatePanel({ lines, centred }: { lines: PlatePanelLine[]; centred: bool
 function PlateHalf({ leaf, side }: { leaf: PlateLeaf; side: SpreadSide }) {
   return (
     <article
-      className={`storybook-spread-full storybook-plate page-${side}${leaf.plain ? " is-plain" : ""}`}
+      className={`storybook-spread-full storybook-plate page-${side}${leaf.plain ? " is-plain" : ""}${leaf.lockedMessage ? " is-locked" : ""}`}
     >
       {leaf.art && !leaf.plain ? (
         <div
@@ -686,7 +691,15 @@ function PlateHalf({ leaf, side }: { leaf: PlateLeaf; side: SpreadSide }) {
           style={{ backgroundImage: `url("${leaf.art}")` }}
         />
       ) : null}
-      {leaf.panel ? <PlatePanel lines={leaf.panel} centred={leaf.centred} /> : null}
+      {leaf.panel && !leaf.lockedMessage ? (
+        <PlatePanel lines={leaf.panel} centred={leaf.centred} />
+      ) : null}
+      {leaf.lockedMessage && side === "right" ? (
+        <div className="storybook-lock storybook-preview-lock">
+          <Lock aria-hidden="true" />
+          <strong>{leaf.lockedMessage}</strong>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -852,11 +865,12 @@ export function StorybookVolume({
     with the child on it — never the picture. The whole painting at the width of the screen is
     small, and it is the picture; the full-screen mode above is how it gets big.
 
-    The hero only, by decision (2026-09-08): the preview and the reader keep one leaf at a time
-    on a phone until they are looked at on their own.
+    The preview also stays in spreads so its first turn reveals the complete intro and its
+    second turn reveals the payment message, on a phone as well as desktop.
   */
   const heroSpread = variant === "hero" && fullBleedSpreads;
-  const desktopSpread = variant !== "display" && (wideViewport || heroSpread || fullscreen);
+  const desktopSpread =
+    variant !== "display" && (wideViewport || heroSpread || variant === "preview" || fullscreen);
   /*
     The phone's open book: both leaves at the width of the screen, and the words under the
     picture rather than on it — a panel on a painting 170px tall is not something anyone reads.

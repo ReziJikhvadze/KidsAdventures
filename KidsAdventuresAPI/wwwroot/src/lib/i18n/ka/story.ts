@@ -32,6 +32,7 @@ export const story = {
     backCta: "ახალი თავგადასავალი",
 
     lockedNote: "გააგრძელე სრული წიგნით",
+    createdAfterPayment: "სრული წიგნი შეიქმნება გადახდის შემდეგ",
     lockedPagePrefix: "გვერდი ",
     lockedPageSuffix: " · მაგია უკვე იწყება...",
   },

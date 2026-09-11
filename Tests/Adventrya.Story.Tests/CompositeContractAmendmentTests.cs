@@ -160,7 +160,7 @@ public class CompositeContractAmendmentTests : CompositePipelineTestBase
     /// </remarks>
     [Fact]
     public void The_cover_prompt_version_is_bumped_for_the_amendment() =>
-        Assert.Equal("cover-child-world-v1.6", CompositeIllustrationPrompt.CoverVersion);
+        Assert.Equal("cover-child-world-v1.7", CompositeIllustrationPrompt.CoverVersion);
 
     // ===========================================================================================
     // D10 / P1-08 — the scenario's text quality bar

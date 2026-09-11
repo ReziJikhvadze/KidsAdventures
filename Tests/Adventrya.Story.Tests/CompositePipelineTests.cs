@@ -445,9 +445,26 @@ public class CompositePipelineTests : CompositePipelineTestBase
         Assert.Contains("Glasses: round thin gold frames", bespectacled);
     }
 
+    [Fact]
+    public async Task Approved_preview_cover_is_the_direct_appearance_anchor_for_every_spread()
+    {
+        var images = new StubImageService();
+        var cover = Png(900, 420);
+        var context = Context() with { CoverAnchorBasePng = cover };
+
+        var result = await Pipeline(new ScriptedStoryModelClient(ScenarioFixture()), images)
+            .RunAsync(Request(context: context), CancellationToken.None);
+
+        Assert.Equal(BookFormat.SpreadCount, images.ImageCalls);
+        Assert.All(images.AnchorImages, actual => Assert.Equal(cover, actual));
+        // Supporting-cast references may follow the cover, photograph and theme.
+        Assert.All(images.ReferenceCounts, count => Assert.True(count >= 3));
+        Assert.NotEqual(cover, result.Spreads[0].BasePng);
+        Assert.Equal(result.Spreads[0].BasePng, result.Anchor);
+    }
+
     /// <summary>
-    /// End to end: spread 1 is drawn with two references and no anchor, and every later spread
-    /// carries the anchor — the same bytes, on all seven.
+    /// Without a preview cover, spread one establishes the anchor for the other seven spreads.
     /// </summary>
     [Fact]
     public async Task Every_spread_after_the_first_is_drawn_against_the_accepted_first_spread()

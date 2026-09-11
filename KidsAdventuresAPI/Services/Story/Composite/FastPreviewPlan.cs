@@ -9,9 +9,9 @@ namespace AdventurePacks.Api.Services.Story.Composite;
 public static class FastPreviewPlan
 {
     // Persisted in MasterStoryRuns.PromptVersion (NVARCHAR(10)).
-    public const string Version = "preview-v3";
+    public const string Version = "preview-v4";
     public const string Model = "gpt-image-2.5-flare";
-    public static bool IsFast(MasterStoryRun? run) => run?.PromptVersion is "preview-v1" or "preview-v2" or Version;
+    public static bool IsFast(MasterStoryRun? run) => run?.PromptVersion is "preview-v1" or "preview-v2" or "preview-v3" or Version;
     public static string ReceiptName(Guid id) => $"master-runs/{id:N}/preview-revision.json";
     public static string IntroName(Guid id) => $"master-runs/{id:N}/preview-intro.webp";
     public static string CoverPdfName(Guid id) => $"master-runs/{id:N}/preview-cover.pdf";
@@ -44,7 +44,10 @@ public static class FastPreviewPlan
         "dinosaurs" => ["დინოზავრების ხეობა", "პატარა დინოზავრის დიდი დღე", "იდუმალი ნაკვალევი", "ფერადი კვერცხის საიდუმლო", "დინოზავრების მეგობრობის ზეიმი"],
         _ => throw new ArgumentException("Unknown preview theme.")
     };
-    public const string Outfit = "Match the clothing worn by the child in this book's approved cover image.";
+    public const string Outfit = "Match the clothing worn by the child in this book's approved cover image. "
+        + "That cover is the wardrobe authority: reproduce every garment, exact colours, fabric, pattern, "
+        + "collar, sleeve length, fastenings, trousers or skirt, socks, shoes and worn accessories. "
+        + "Never invent a replacement outfit or borrow clothing from the original photograph or story setting.";
     public static CompositeScenarioPlan Plan(string theme) => CompositePreviewCoverPlan.Create(new VisualScenarioV2
     {
         VisualLock = new VisualLock { ChildOutfit = Outfit, RecurringElements = [] },
@@ -66,6 +69,8 @@ public static class FastPreviewPlan
         {CompositeChildArtStyle.Instruction}
         Selected theme: {theme}. Let this broad theme inspire an original composition rather than a standard scene template.
         Invent simple age-appropriate clothing suited to this scene, with no logos or face covering. Do not copy the photo's clothing or pose.
+        Establish one clearly readable outfit for the entire book: show its garment shapes, colours, fabric, sleeves,
+        bottoms and shoes unobscured. This exact wardrobe will be reproduced on every interior spread without redesign.
         Choose a few striking foreground elements yourself, appropriate to your chosen scene. No fixed object checklist.
         Alongside the child and the reserved Beki area, make these elements prominent, sharply defined, bright and clearly separated.
         Give them clean silhouettes, attractive materials and strong lighting so individual details can receive high-quality selective print varnish.

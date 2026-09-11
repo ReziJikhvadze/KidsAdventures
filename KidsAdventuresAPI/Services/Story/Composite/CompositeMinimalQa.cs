@@ -431,7 +431,7 @@ public static class CompositeMinimalQa
     /// job is "things that are not scene" now says so. No schema change: the category name is
     /// unchanged, only its definition grew.
     /// </summary>
-    public const string Version = "minimal-visual-qa-v1.6";
+    public const string Version = "minimal-visual-qa-v1.7";
 
     /// <summary>
     /// The supplied file stays the authority. v1.1 and v1.2 changed only what the reviewer is
@@ -865,6 +865,10 @@ public static class CompositeMinimalQa
         Review only critical, parent-visible failures. Do not score beauty, creativity, minor stylistic variation, tiny background artifacts, or subjective preferences. Do not request a retry merely to improve an already usable image.
 
         Use the original child photo only to judge whether the illustrated child remains recognizably the same child. Do not require photorealism.
+        The child MUST be a Pixar-style cinematic 3D animated-film character on covers and spreads alike.
+        A live-action or photorealistic child, photographic face, or merely skin-smoothed photo likeness is a
+        CHILD_IDENTITY failure, even in an otherwise animated world. This is a required rendering style,
+        not a subjective beauty preference. Older reference realism must not override this requirement.
 
         The photograph says WHO the child is. It does not say how old the child is in this book: the age, the name and the eye colour are the parent's entered values, and the book is drawn to those. A photograph may have been taken a year or two ago, and a parent may deliberately be buying the book for a younger age. Never fail an illustration because the child looks older or younger than the photograph, or than the stated age.
 
@@ -873,7 +877,7 @@ public static class CompositeMinimalQa
         Check exactly these categories:
 
         1. CHILD_IDENTITY - The illustrated child is not recognizably the supplied child; or the child's eyes do not read as the stated eye colour; or the child has materially different hair colour/style, eyebrows, face shape, skin tone, or outfit details from the child appearance anchor; or glasses are present when the spec says none, absent when the spec describes them, or a materially different style of frames.
-        2. OUTFIT_CONTINUITY - The required base outfit is missing or materially changed.
+        2. OUTFIT_CONTINUITY - The required base outfit is missing or materially changed. Compare with the supplied child appearance anchor garment by garment: colours, fabric, pattern, collar, sleeves, fastenings, bottoms, socks, shoes and worn accessories. A replacement costume inspired by the scene or original photograph fails even if it suits the theme. Lighting changes and natural folds are allowed; garment redesign is not.
         3. MAIN_SCENE_BEAT - The one required visible story event is missing, contradicted, or replaced by a different event.
         4. CAST_ERROR - The child or a required supporting character is missing, duplicated, or replaced; or an unrequested prominent character appears.
         5. GENERATED_TEXT - Readable text, pseudo-text, logo, label, sign, watermark, or QR appears in the illustration; or an artificial blank, white, translucent, or semi-transparent panel or rectangle is painted into the scene, with or without anything on it.

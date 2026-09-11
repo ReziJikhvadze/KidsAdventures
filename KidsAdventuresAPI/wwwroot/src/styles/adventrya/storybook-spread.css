@@ -730,6 +730,35 @@
 .storybook-plate.is-plain {
   background: #fbf7ee;
 }
+
+.storybook-plate.is-locked .storybook-spread-full-art {
+  filter: blur(12px) saturate(0.8);
+  transform: scale(1.06);
+}
+
+.storybook-preview-lock {
+  container-type: inline-size;
+  padding: 10%;
+  gap: 8px;
+  background: #2113319c;
+}
+
+.storybook-preview-lock strong {
+  font-size: clamp(11px, 8cqw, 20px);
+  line-height: 1.6;
+}
+
+.storybook-preview-lock > svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 780px) {
+  .ux-preview-product {
+    width: 100%;
+  }
+}
 .storybook-plate-prose {
   font-size: clamp(10px, 0.85vw, 13px);
 }

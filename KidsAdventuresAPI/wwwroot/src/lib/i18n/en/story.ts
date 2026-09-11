@@ -23,6 +23,7 @@ export const story = {
     backCta: "A new adventure",
 
     lockedNote: "Continue with the full book",
+    createdAfterPayment: "The full book will be created after payment",
     lockedPagePrefix: "Page ",
     lockedPageSuffix: " · the magic is already starting…",
   },

@@ -193,7 +193,7 @@ public sealed record CompositeBookContext
 
     /// <summary>
     /// The base of a cover wrap this book ALREADY has — the preview run's, adopted rather than
-    /// redrawn — attached as the child appearance anchor when spread one is drawn.
+    /// redrawn — attached as the child appearance anchor on every spread.
     ///
     /// It exists because the order of the two pictures is now reversed for a bought book. The cover
     /// is drawn first, at preview time, and the parent chose the book by looking at it; the spreads
@@ -205,9 +205,9 @@ public sealed record CompositeBookContext
     /// The BASE, never the composite: the composite has the approved Beki pasted onto it, and the
     /// one thing this pipeline never shows an image model is Beki.
     ///
-    /// It seeds the anchor page's own draw and nothing else. Spreads two to eight keep being matched
-    /// to spread one's accepted base exactly as they always were, because that is the picture drawn
-    /// at the interior's own shape and reviewed as an interior page.
+    /// Every spread references this original cover directly so a wardrobe error in spread one
+    /// cannot redefine the child's outfit for the rest of the book. Books without a preview cover
+    /// continue to use the accepted first spread as their appearance anchor.
     /// </summary>
     public byte[]? CoverAnchorBasePng { get; init; }
     public string? LockedBookTitle { get; init; }
@@ -3011,7 +3011,10 @@ public sealed class CompositeBookPipeline(
         }
 
         var concurrency = Math.Max(1, _options.SpreadConcurrency);
-        var anchorImage = anchor!;
+        // Keep the parent's approved cover as the wardrobe authority on every draw and QA pass,
+        // including resumed runs. Do not propagate a first-spread clothing error to seven more pages.
+        var anchorImage = context.CoverAnchorBasePng is { Length: > 0 } approvedCover
+            ? approvedCover : anchor!;
 
         logger.LogInformation(
             "Composite pipeline {JobId}: drawing {Count} spread(s) with at most {Concurrency} at "

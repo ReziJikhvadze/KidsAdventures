@@ -43,6 +43,7 @@ public sealed class FastPreviewTests(ITestOutputHelper output) : CompositePipeli
     {
         Assert.True(FastPreviewPlan.IsFast(new MasterStoryRun { PromptVersion = "preview-v1" }));
         Assert.True(FastPreviewPlan.IsFast(new MasterStoryRun { PromptVersion = "preview-v2" }));
+        Assert.True(FastPreviewPlan.IsFast(new MasterStoryRun { PromptVersion = "preview-v3" }));
         Assert.True(FastPreviewPlan.IsFast(new MasterStoryRun { PromptVersion = FastPreviewPlan.Version }));
         Assert.False(FastPreviewPlan.IsFast(new MasterStoryRun { PromptVersion = "v6" }));
         Assert.Equal("ანი და დინოზავრების ხეობა",
