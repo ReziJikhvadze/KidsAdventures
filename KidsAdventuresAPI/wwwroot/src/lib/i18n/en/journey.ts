@@ -312,6 +312,15 @@ export const journey = {
     shippingAddress: "Recipient's address",
     addNewAddress: "Add a new address",
     backToSavedAddresses: "Back to saved addresses",
+    /* Correcting a saved address in place - the list could be chosen from and added to, not changed. */
+    editAddress: "Edit",
+    editingAddress: "Edit address",
+    saveAddress: "Save address",
+    cancelEdit: "Cancel",
+    saveAddressFailed: "The address could not be saved. Try again.",
+    /* Beki's one line on the checkout: a tip about the field that decides whether the courier
+       finds the door, not a greeting. */
+    guideTip: "Put the entrance, floor and flat in the extra field - the courier finds you faster.",
     activateOrder: "Activate the order",
     placingOrder: "Placing your order…",
     pay: (amount: string) => `Payment · ${amount} ₾`,

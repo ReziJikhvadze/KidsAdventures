@@ -1,4 +1,4 @@
-import { ArrowRight, Check, Gift, MapPin, Minus, Plus, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Gift, MapPin, Minus, Pencil, Plus, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { BekiLoader } from "@/components/adventrya/BekiLoader";
@@ -7,11 +7,12 @@ import { LocationPickerDialog } from "@/components/adventrya/journey/LocationPic
 import { StorybookVolume } from "@/components/adventrya/storybook/StorybookVolume";
 import { ApiError, resolveApiUrl } from "@/lib/api/client";
 import * as ordersApi from "@/lib/api/orders";
-import { listAddresses } from "@/lib/api/print-orders";
+import { listAddresses, saveAddress } from "@/lib/api/print-orders";
 import type {
   AddressResponse,
   OrderPackage,
   QuoteResponse,
+  SaveAddressRequest,
   ShippingAddressRequest,
 } from "@/lib/api/types";
 import {
@@ -149,6 +150,9 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const [chosenAddressId, setChosenAddressId] = useState<string | null>(null);
   /** True while the fields are showing: a new address, or an account with none saved. */
   const [addressOpen, setAddressOpen] = useState(true);
+  /** The saved row the open fields came from, when they came from one. Null for a new address. */
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [savingAddress, setSavingAddress] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /** Whether this screen is still the one in front of the parent. See placeOrder. */
@@ -247,6 +251,7 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
   const startNewAddress = () => {
     lastChosenAddressId.current = chosenAddressId;
     setChosenAddressId(null);
+    setEditingAddressId(null);
     setAddressOpen(true);
     setShowErrors(false);
     updateShipping({
@@ -268,8 +273,70 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
       savedAddresses[0];
     if (!first) return;
     setAddressOpen(false);
+    setEditingAddressId(null);
     setShowErrors(false);
     chooseAddress(first);
+  };
+
+  /*
+    Correcting an address rather than adding one beside it.
+
+    The list could be chosen from and added to, and not changed: a parent who had moved one
+    house down, or mistyped a flat number the year before, could only type the whole address
+    again - and the book then held the wrong one and the right one side by side, forever. Edit
+    opens the same fields, filled from the card, and remembers which row they came from: save
+    writes back under that id, so the corrected street replaces the wrong one instead of joining
+    it. The fields as the book keeps them use the order's own mapping, so the two never disagree
+    about what the city is.
+  */
+  const savedAddressRequest = (id: string): SaveAddressRequest => {
+    const s = draft.shipping;
+    const current = savedAddresses.find((address) => address.id === id);
+    return {
+      id,
+      recipientName: s.recipientName.trim(),
+      recipientPhone: s.recipientPhone.trim(),
+      city: s.city.trim() || s.addressLine1.trim(),
+      addressLine1: s.addressLine1.trim(),
+      addressLine2: s.addressLine2 || undefined,
+      postalCode: s.postalCode || undefined,
+      isDefault: current?.isDefault ?? false,
+    };
+  };
+
+  const startEditAddress = (address: AddressResponse) => {
+    lastChosenAddressId.current = chosenAddressId;
+    setChosenAddressId(address.id);
+    setEditingAddressId(address.id);
+    setAddressOpen(true);
+    setShowErrors(false);
+    setError(null);
+    applyAddress(address);
+  };
+
+  const saveEditedAddress = async () => {
+    if (!editingAddressId || savingAddress) return;
+    if (Object.keys(shippingErrors()).length > 0) {
+      setShowErrors(true);
+      return;
+    }
+    setSavingAddress(true);
+    try {
+      const saved = await saveAddress(savedAddressRequest(editingAddressId));
+      if (!mounted.current) return;
+      setSavedAddresses((list) =>
+        list.map((address) => (address.id === saved.id ? saved : address)),
+      );
+      setEditingAddressId(null);
+      setAddressOpen(false);
+      chooseAddress(saved);
+    } catch (e) {
+      if (mounted.current) {
+        setError(e instanceof ApiError ? e.message : t.journey.checkout.saveAddressFailed);
+      }
+    } finally {
+      if (mounted.current) setSavingAddress(false);
+    }
   };
 
   const baseMinor =
@@ -414,6 +481,16 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
     // guard is here rather than only on the button's disabled attribute, which is a rendering
     // detail rather than a promise.
     if (busy) return;
+
+    /*
+      An address that was being corrected is written back under its own id as the order goes,
+      so the book ends up holding the corrected row and not the wrong one plus a copy. Not
+      awaited: the order must not wait on the address book, and a failure here is not a failure
+      of the order - the parcel still goes where the fields say.
+    */
+    if (editingAddressId && Object.keys(shippingErrors()).length === 0) {
+      void saveAddress(savedAddressRequest(editingAddressId)).catch(() => undefined);
+    }
 
     const problems = shippingErrors();
     const firstProblem = Object.keys(problems)[0];
@@ -606,6 +683,23 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
         </p>
         <h1>{isPrint ? t.journey.checkout.printTitle : t.journey.checkout.title}</h1>
 
+        {/*
+          Beki at the head of the form, saying one useful thing.
+
+          He stood in the empty room under the fields; the owner wanted him above them. Above
+          them a full figure would push the address under the fold on a laptop, which is the one
+          thing a checkout must not do to its form - so he is small, and he earns the row: the
+          line beside him points at the field most parents skip and most couriers need. One line,
+          no greeting, and (by the stylesheet) none of it on a phone, where the first screen is
+          the order. The picture is decoration; the sentence is not, and reads to everyone.
+        */}
+        {isPrint ? (
+          <div className="ux-checkout-guide">
+            <img src="/adventrya/beki-canonical.webp" alt="" width={480} height={685} />
+            <p>{t.journey.checkout.guideTip}</p>
+          </div>
+        ) : null}
+
         {isFree ? (
           <div className="ux-zero-total">
             <Check aria-hidden="true" />
@@ -630,7 +724,11 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
           alike, so nothing on it said where one question ended and the next began. Where the
           parcel goes and how it is made up are different questions and now say so.
         */}
-        {isPrint ? <p className="ux-checkout-step">{t.journey.checkout.stepAddress}</p> : null}
+        {isPrint ? (
+          <p className="ux-checkout-step">
+            {editingAddressId ? t.journey.checkout.editingAddress : t.journey.checkout.stepAddress}
+          </p>
+        ) : null}
         {/*
           Folded, once there is something to fold.
 
@@ -652,21 +750,33 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
             {savedAddresses.map((address) => {
               const chosen = address.id === chosenAddressId;
               return (
-                <label key={address.id} className={`ux-address-choice${chosen ? " is-on" : ""}`}>
-                  <input
-                    type="radio"
-                    name="savedAddress"
-                    checked={chosen}
-                    onChange={() => chooseAddress(address)}
-                  />
-                  <span className="ux-radio" aria-hidden="true" />
-                  <span>
-                    <strong>{address.addressLine1}</strong>
-                    <small>
-                      {address.recipientName} · {address.recipientPhone}
-                    </small>
-                  </span>
-                </label>
+                <div key={address.id} className={`ux-address-choice${chosen ? " is-on" : ""}`}>
+                  <label className="ux-address-pick">
+                    <input
+                      type="radio"
+                      name="savedAddress"
+                      checked={chosen}
+                      onChange={() => chooseAddress(address)}
+                    />
+                    <span className="ux-radio" aria-hidden="true" />
+                    <span>
+                      <strong>{address.addressLine1}</strong>
+                      <small>
+                        {address.recipientName} · {address.recipientPhone}
+                      </small>
+                    </span>
+                  </label>
+                  {/* Outside the label, so pressing it edits the row rather than picking it. */}
+                  <button
+                    className="ux-address-edit"
+                    type="button"
+                    aria-label={`${t.journey.checkout.editAddress}: ${address.addressLine1}`}
+                    onClick={() => startEditAddress(address)}
+                  >
+                    <Pencil aria-hidden="true" size={13} />
+                    {t.journey.checkout.editAddress}
+                  </button>
+                </div>
               );
             })}
             <button className="ux-address-add" type="button" onClick={startNewAddress}>
@@ -783,7 +893,29 @@ export function CheckoutStage({ draft, onChange, onPaid }: Props) {
                 onChange={(e) => updateShipping({ notes: e.target.value })}
               />
             </label>
-            {savedAddresses.length > 0 ? (
+            {/*
+              Two ways to close the fields, and they are different things: an address being
+              corrected is saved back to its row, or the correction is dropped; a new one is
+              simply left, back to the list. The pay button still works over open fields either
+              way - the order goes where the fields say.
+            */}
+            {editingAddressId ? (
+              <div className="ux-address-actions field-wide">
+                <button
+                  className="button button-primary ux-address-save"
+                  type="button"
+                  disabled={savingAddress}
+                  aria-busy={savingAddress}
+                  onClick={() => void saveEditedAddress()}
+                >
+                  {savingAddress ? <BekiLoader size={14} /> : null}
+                  {t.journey.checkout.saveAddress}
+                </button>
+                <button className="ux-inline-link" type="button" onClick={backToSavedAddresses}>
+                  {t.journey.checkout.cancelEdit}
+                </button>
+              </div>
+            ) : savedAddresses.length > 0 ? (
               <button
                 className="ux-inline-link field-wide"
                 type="button"

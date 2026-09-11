@@ -361,6 +361,15 @@ export const journey = {
     shippingAddress: "მიმღების მისამართი",
     addNewAddress: "ახალი მისამართის დამატება",
     backToSavedAddresses: "შენახულ მისამართებზე დაბრუნება",
+    /* Correcting a saved address in place - the list could be chosen from and added to, not changed. */
+    editAddress: "რედაქტირება",
+    editingAddress: "მისამართის რედაქტირება",
+    saveAddress: "მისამართის შენახვა",
+    cancelEdit: "გაუქმება",
+    saveAddressFailed: "მისამართი ვერ შეინახა. სცადე ხელახლა.",
+    /* Beki's one line on the checkout: a tip about the field that decides whether the courier
+       finds the door, not a greeting. */
+    guideTip: "სადარბაზო, სართული და ბინა დამატებით ველში ჩაწერე - კურიერი უფრო სწრაფად მოგნახავს.",
     activateOrder: "შეკვეთის გააქტიურება",
     /* The photo is uploaded and the order created behind this button; it is seconds, not milliseconds. */
     placingOrder: "შეკვეთა მუშავდება…",
