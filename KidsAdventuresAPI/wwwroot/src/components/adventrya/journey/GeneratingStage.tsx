@@ -301,6 +301,16 @@ export function GeneratingStage({ draft, onChange }: Props) {
       </div>
 
       <div className="generation-copy">
+        {/*
+          Beki, one last time: the line the checkout was leading to. He said what was missing,
+          then that it was good, then that the order could go; this is the fourth and final
+          state, on the screen the payment lands on. The same idiom as the checkout - the small
+          figure and the paper bubble - so it reads as the same voice arriving, not a new one.
+        */}
+        <div className="ux-beki-guide">
+          <img src="/adventrya/beki-canonical.webp" alt="" width={480} height={685} />
+          <p className="ux-beki-bubble">{t.journey.generating.bekiLine}</p>
+        </div>
         <p className="eyebrow">
           <Sparkles aria-hidden="true" /> {t.journey.generating.heading}
         </p>

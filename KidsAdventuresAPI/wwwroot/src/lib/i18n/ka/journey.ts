@@ -424,6 +424,8 @@ export const journey = {
 
   generating: {
     heading: "ახლა იქმნება",
+    /* Beki's last line, the one the checkout was leading to. */
+    bekiLine: "წიგნი გზაშია!",
     failedTitle: "წიგნი ვერ შეიქმნა",
     failedBody:
       "წიგნის შექმნა შეწყდა. ჩვენ უკვე ვმუშაობთ პრობლემის მოსაგვარებლად. არაფერი დაკარგულა.",

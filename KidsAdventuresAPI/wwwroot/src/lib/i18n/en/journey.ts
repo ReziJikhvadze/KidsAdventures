@@ -360,6 +360,8 @@ export const journey = {
 
   generating: {
     heading: "Being created now",
+    /* Beki's last line, the one the checkout was leading to. */
+    bekiLine: "Your book is on its way!",
     failedTitle: "The book could not finish",
     failedBody:
       "The book generation was interrupted. We are already working on it. Nothing is lost.",

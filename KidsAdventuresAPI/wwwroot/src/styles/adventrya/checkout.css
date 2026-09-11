@@ -613,3 +613,21 @@
     margin-top: 20px;
   }
 }
+
+/* ---------------------------------------------------------------- the screen after payment */
+/*
+  The same guide on the generating screen, where the checkout was leading. That screen keeps the
+  dark scene, and the paper bubble reads on it as the same voice arriving rather than a new one;
+  he stands at the head of the copy, above the heading, as he did above the questions.
+*/
+.ux-generating .generation-copy > .ux-beki-guide {
+  margin: 0 0 18px;
+}
+.ux-generating .generation-copy > .ux-beki-guide > img {
+  height: 84px;
+}
+@media (max-width: 780px) {
+  .ux-generating .generation-copy > .ux-beki-guide > img {
+    height: 64px;
+  }
+}
