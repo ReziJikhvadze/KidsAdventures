@@ -4511,3 +4511,39 @@
     margin-left: 0;
   }
 }
+
+/*
+  Beki stands in the room the form does not need.
+
+  The owner's suggestion. With the form a column beside the order, it ends at the courier note
+  with the rest of its height empty, and the mascot the header already carries is the one thing
+  that belongs in that room. He is decoration and says nothing - the checkout is the parent's
+  page - so the stylesheet draws him, readers never meet him, and the slack sizes him: a flex
+  item that takes up to 240px when the window has it and folds to nothing when the fields need
+  the height, so he never stands on a field or an error. The canonical Beki, because that is the
+  face in the logo two rows up, and the alpha the storybook's back cover already relies on.
+*/
+@media (min-width: 1024px) and (min-height: 768px) {
+  .journey-checkout .ux-checkout-stage > .checkout-form {
+    display: flex;
+    flex-direction: column;
+  }
+  .journey-checkout .ux-checkout-stage > .checkout-form::after {
+    content: "";
+    /*
+      A basis of nothing, so he adds nothing to the column's own height and the page never grows
+      to make room for him; he grows into the room the window leaves, up to his full size.
+    */
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: 264px;
+    width: 200px;
+    /* auto: whatever height the fields leave is his, and none of it when they leave none. */
+    margin-top: auto;
+    align-self: flex-end;
+    background: url("/adventrya/beki-canonical.webp") no-repeat right bottom;
+    /* The top 24px of the item stay empty, so he never touches the note above him. */
+    background-size: auto max(0px, calc(100% - 24px));
+    filter: drop-shadow(0 16px 18px #2a1d5226);
+  }
+}
